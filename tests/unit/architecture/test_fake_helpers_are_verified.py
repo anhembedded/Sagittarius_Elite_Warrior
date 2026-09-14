@@ -34,8 +34,12 @@ live before the second one arrives — Phase 1 adds `IHistoricalKlines` and
 
 from __future__ import annotations
 
+import ast
 from pathlib import Path
 
+from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.imports import (
+    imported_names,
+)
 from Sagittarius_Elite_Warrior.tests.unit.architecture.fake_helpers import (
     attributes_used,
     declared_by_port,
@@ -61,10 +65,32 @@ def _module_of(fake_path: Path) -> str:
     return fake_path.relative_to(_SRC / "modules").parts[0]
 
 
-def _port_source(port_module: str) -> str | None:
-    """The port's own source, from the dotted module the fake imported it from."""
-    path = _SRC / Path(*port_module.split(".")).with_suffix(".py")
-    return path.read_text(encoding="utf-8") if path.is_file() else None
+def _port_source(port_module: str, port_name: str) -> str | None:
+    """The port's own source, from the dotted module the fake imported it from.
+
+    A fake may name the port through `contracts/` itself, which re-exports
+    every published one — so a dotted path that is a **package** is followed
+    into its `__init__.py` and then to the module that actually defines the
+    class. Resolving that was not optional: while this guard was being
+    written, pointing `fake_market_data_sync.py` at the package (and adding a
+    brand-new untested helper) left all seven tests here green, because an
+    unresolvable port source used to mean "skip this fake". A guard that can
+    be walked past by an import style is the very defect `BUG-120` was about,
+    so the miss is now reported by the caller rather than swallowed here.
+    """
+    module_path = _SRC / Path(*port_module.split("."))
+    as_module = module_path.with_suffix(".py")
+    if as_module.is_file():
+        return as_module.read_text(encoding="utf-8")
+
+    package_init = module_path / "__init__.py"
+    if package_init.is_file():
+        re_exported = imported_names(
+            ast.parse(package_init.read_text(encoding="utf-8"))
+        ).get(port_name)
+        if re_exported is not None and re_exported != port_module:
+            return _port_source(re_exported, port_name)
+    return None
 
 
 def _names_exercised_by(module_id: str) -> set[str]:
@@ -104,6 +130,29 @@ def test_every_fake_names_the_port_it_stands_in_for() -> None:
     )
 
 
+def test_every_fakes_port_can_be_read() -> None:
+    """Without the port's source there is nothing to subtract, and this guard
+    would report every fake as clean. That must fail loudly: a check that goes
+    quiet when its input is missing is `BUG-120` again, one level up."""
+    unreadable: list[str] = []
+
+    for path in _fake_files():
+        for fake in fakes_in(path.read_text(encoding="utf-8")):
+            if fake.port_module is None or fake.port_name is None:
+                continue
+            if _port_source(fake.port_module, fake.port_name) is None:
+                unreadable.append(
+                    f"  {path.relative_to(_REPO_ROOT).as_posix()}:{fake.line}  "
+                    f"{fake.port_name} imported from `{fake.port_module}`, "
+                    f"which resolves to no module under src/"
+                )
+
+    assert unreadable == [], (
+        "a fake's port could not be read, so its extra helpers were not "
+        "checked against anything:\n" + "\n".join(unreadable)
+    )
+
+
 def test_a_fakes_extra_helpers_are_exercised_by_its_own_modules_tests() -> None:
     unverified: list[str] = []
 
@@ -114,8 +163,11 @@ def test_a_fakes_extra_helpers_are_exercised_by_its_own_modules_tests() -> None:
         for fake in fakes_in(path.read_text(encoding="utf-8")):
             if fake.port_module is None or fake.port_name is None:
                 continue
-            port_source = _port_source(fake.port_module)
+            port_source = _port_source(fake.port_module, fake.port_name)
             if port_source is None:
+                # Reported by `test_every_fakes_port_can_be_read` above, which
+                # fails on the same tree — so the miss is visible, and this
+                # loop does not need to guess what the port declares.
                 continue
             from_port = declared_by_port(port_source, fake.port_name)
 
@@ -208,6 +260,17 @@ def test_the_reader_does_not_take_a_test_local_subclass_for_a_port() -> None:
     )
 
     assert fakes_in(source)[0].port_name is None
+
+
+def test_a_port_named_through_the_contracts_package_is_still_resolved() -> None:
+    """The hole this guard shipped with for one iteration. `contracts/__init__.py`
+    re-exports every published port, so a fake may legitimately name one from
+    there — and when that resolved to nothing, the fake was skipped in silence.
+    Resolved against the real package, so it cannot pass by accident."""
+    source = _port_source("modules.market_data.contracts", "IMarketDataRepository")
+
+    assert source is not None
+    assert "class IMarketDataRepository" in source
 
 
 def test_the_reader_counts_a_call_but_not_a_mention() -> None:
