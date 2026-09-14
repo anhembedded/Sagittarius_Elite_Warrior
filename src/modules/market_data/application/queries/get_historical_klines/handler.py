@@ -1,11 +1,17 @@
 import logging
+from collections.abc import Mapping, Sequence
 from concurrent.futures import ThreadPoolExecutor
+from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    DEFAULT_KLINE_LIMIT,
+    IHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
@@ -18,11 +24,24 @@ _TRACE_PREFIX = "BACKTEST_TRACE"
 class GetHistoricalKlinesQueryHandler(
     IQueryHandler[
         GetHistoricalKlinesQuery, list[MarketData] | dict[str, list[MarketData]]
-    ]
+    ],
+    IHistoricalKlines,
 ):
-    """
-    @brief Handler for GetHistoricalKlinesQuery.
-    @details Fetches static market data from the repository (Database).
+    """Reads stored candles: this module's own query handler, and the
+    implementation of the `IHistoricalKlines` port other contexts resolve.
+
+    **Two bases, no third class.** HLD §3.4 says a port implementation may be
+    the existing handler itself — "no pass-through object, no extra file per
+    port", because a dozen one-method delegating classes is the accidental
+    complexity ADR D2 exists to avoid. `execute()` stays exactly as it was for
+    the module's own dispatches; `load()` and `load_many()` are the published
+    surface, and both call the same two private methods `execute()` calls.
+
+    Contrast `IMarketDataSync`, which *is* a separate service
+    (`MarketDataSyncService`): a sync has to go through the dispatcher so the
+    in-flight guard and the progress events stay on one path. A query has no
+    such machinery — nothing happens on the way in — so the extra hop would
+    buy nothing.
     """
 
     def __init__(self, repository: IMarketDataRepository) -> None:
@@ -96,3 +115,61 @@ class GetHistoricalKlinesQueryHandler(
             rows=len(result),
         )
         return result
+
+    # -- IHistoricalKlines: the published surface -----------------------------
+
+    def load(
+        self,
+        symbol: str,
+        interval: TimeFrame,
+        *,
+        limit: int = DEFAULT_KLINE_LIMIT,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        newest_first: bool = False,
+    ) -> tuple[MarketData, ...]:
+        return tuple(
+            self._execute_single(
+                GetHistoricalKlinesQuery(
+                    symbol=symbol,
+                    interval=interval,
+                    limit=limit,
+                    start_time=start_time,
+                    end_time=end_time,
+                    order_by_desc=newest_first,
+                ),
+                interval,
+            )
+        )
+
+    def load_many(
+        self,
+        symbols: Sequence[str],
+        interval: TimeFrame,
+        *,
+        limit: int = DEFAULT_KLINE_LIMIT,
+        start_time: datetime | None = None,
+        end_time: datetime | None = None,
+        newest_first: bool = False,
+    ) -> Mapping[str, tuple[MarketData, ...]]:
+        requested = list(symbols)
+        if not requested:
+            # `_execute_multi` would build a `ThreadPoolExecutor` for nothing,
+            # and `max_workers=0` is not even legal — the empty ask has one
+            # honest answer and it needs no thread.
+            return {}
+        rows = self._execute_multi(
+            GetHistoricalKlinesQuery(
+                symbol=requested,
+                interval=interval,
+                limit=limit,
+                start_time=start_time,
+                end_time=end_time,
+                order_by_desc=newest_first,
+            ),
+            interval,
+        )
+        # Every symbol asked for appears, per the port's promise: the caller
+        # iterates its own request, and a symbol missing from the answer can
+        # never be read as a symbol with no rows.
+        return {symbol: tuple(rows.get(symbol, ())) for symbol in requested}

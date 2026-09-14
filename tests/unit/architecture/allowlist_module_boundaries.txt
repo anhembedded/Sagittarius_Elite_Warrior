@@ -100,8 +100,17 @@ presentation.cli.interactive_shell -> modules.market_data.cli.sync_cli_handler
 # port, or there is a new port.
 #
 # Where they go, by phase:
-#   Phase 4  - the data_management.* lines (8, plus the three database ones
-#              beside them). RE-KEYED from Phase 1 on 2026-09-14, when Phase 1
+#   Phase 4  - NINE of the eleven data_management.* lines: the two
+#              `database.*` ones, `queries.get_database_gaps`,
+#              `queries.get_database_status`, `queries.scan_all_databases`,
+#              `queries.audit_database_integrity`, `database.clear_market_data`,
+#              `database.prune_empty_shards` and the two bulk-sync ones.
+#              NOT the other two: `kline_inspector -> get_historical_klines`
+#              retires in PR 1.1 and `scan_coordinator -> list_available_symbols`
+#              in PR 1.2, because HLD §3.4 lists `IHistoricalKlines` and
+#              `ISymbolCatalog` as **published** ports — a screen using a
+#              published port is not a violation, wherever the screen lives.
+#              RE-KEYED from Phase 1 on 2026-09-14, when Phase 1
 #              was cut into pull requests (epic README §3.3): "a port call
 #              retires the entry wherever the file lives" is true mechanically,
 #              and wrong here. HLD §3.4 marks database maintenance, gaps, scan,
