@@ -10,7 +10,7 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_stat
     ConnectionFailureKind,
     ExchangeConnectionStatus,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 

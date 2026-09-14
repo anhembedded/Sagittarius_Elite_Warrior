@@ -25,17 +25,11 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    IExchangeCredentialsProvider,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_trading_client import (
     ITradingClient,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_trading_session_factory import (
-    ITradingSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_user_data_stream import (
     IUserDataStream,
@@ -65,6 +59,12 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_trading_client import (
     FuturesTradingClient,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    IExchangeCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
+    ITradingSessionFactory,
 )
 
 logger = logging.getLogger("App.CommandHandler")

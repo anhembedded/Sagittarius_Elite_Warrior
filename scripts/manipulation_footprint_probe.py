@@ -82,12 +82,12 @@ from datetime import UTC, datetime, timedelta
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
-    MarketDataVenue,
-)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
 )
 
 # --------------------------------------------------------------------------- #

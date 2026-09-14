@@ -38,6 +38,7 @@ _QT_FREE_GLOBS = (
     "modules/*/application/**/*.py",
     "modules/*/contracts/**/*.py",
     "support/indicators/**/*.py",
+    "support/binance_gateway/**/*.py",
 )
 
 

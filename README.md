@@ -7,7 +7,7 @@ theo **Clean Architecture** (Domain → Application → Infrastructure/Presentat
 > [!IMPORTANT]
 > **Rào an toàn vốn:** bot **chỉ** đặt lệnh trên **Binance USD-M Futures Testnet**. Đường đi lệnh
 > tiền thật **không tồn tại trong code** — value object
-> [`TradingVenue`](src/domain/value_objects/trading_venue.py) cố ý **không có member `MAINNET`**:
+> [`TradingVenue`](src/support/binance_gateway/contracts/trading_venue.py) cố ý **không có member `MAINNET`**:
 > mở giao dịch thật là một epic phải thêm member đó và chịu review, không phải một cờ cấu hình
 > ai cũng bật được.
 

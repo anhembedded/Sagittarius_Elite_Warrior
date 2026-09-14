@@ -14,11 +14,15 @@ application.use_cases.trading.cancel_order.handler -> infrastructure.binance.fut
 application.use_cases.trading.emergency_stop.handler -> infrastructure.binance.futures_trading_client
 application.use_cases.trading.enable_trading.handler -> infrastructure.binance.futures_trading_client
 application.use_cases.trading.execute_order.handler -> infrastructure.binance.futures_trading_client
-# presentation -> infrastructure. The CLI payload mapper and the endpoint table
-# move behind support/binance_gateway contracts (EPIC-025A / 025B); the metadata
-# cache moves behind a market_data contract (EPIC-025D).
+# presentation -> infrastructure. The CLI payload mapper moves into
+# modules/trading's adapters (EPIC-025B); the metadata cache moves behind a
+# market_data contract (EPIC-025D).
+#
+# PR 0.3 removed two entries from this block: app_bootstrapper and
+# settings_presenter both reached into `infrastructure.binance.binance_endpoints`
+# for the venue resolvers, and that module is now
+# `support/binance_gateway/contracts/binance_endpoints.py` — which any zone may
+# import, so the imports are no longer violations at all.
 presentation.cli.order_dry_run_cmd -> infrastructure.binance.futures_order_payload_mapper
 presentation.cli.trade_once_cmd -> infrastructure.binance.futures_order_payload_mapper
-presentation.ui.app_bootstrapper -> infrastructure.binance.binance_endpoints
 presentation.ui.screens.backtest.backtest_presenter -> infrastructure.persistence.symbol_market_metadata_cache
-presentation.ui.screens.settings.settings_presenter -> infrastructure.binance.binance_endpoints

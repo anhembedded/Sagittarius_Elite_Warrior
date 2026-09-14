@@ -31,9 +31,6 @@ from Sagittarius_Elite_Warrior.src.domain.policies.order_quantity_rounding_polic
     NotionalCheck,
     OrderQuantityRoundingPolicy,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
-    MarketDataVenue,
-)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
@@ -43,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_metadata_provi
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
 )
 
 _policy = OrderQuantityRoundingPolicy()

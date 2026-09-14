@@ -16,10 +16,10 @@ from __future__ import annotations
 
 from enum import Enum
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 

@@ -10,17 +10,11 @@ import logging
 from datetime import UTC, datetime
 
 from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    IExchangeCredentialsProvider,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
     ITradingAccountReader,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_trading_session_factory import (
-    ITradingSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
     TradingSessionState,
@@ -46,11 +40,17 @@ from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy 
     TradingLimitContext,
     TradingLimitPolicy,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
-    TradingVenue,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_trading_client import (
     FuturesTradingClient,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    IExchangeCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
+    ITradingSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
 logger = logging.getLogger("App.CommandHandler")

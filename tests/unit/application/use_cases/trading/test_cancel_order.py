@@ -3,10 +3,6 @@ from __future__ import annotations
 from decimal import Decimal
 from unittest.mock import Mock
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    CredentialsSource,
-    ResolvedCredentials,
-)
 from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
     TradingSessionState,
 )
@@ -26,11 +22,15 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_stat
     ConnectionFailureKind,
     ExchangeConnectionStatus,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_credentials import (
+from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    CredentialsSource,
+    ResolvedCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 

@@ -2,13 +2,13 @@ from unittest.mock import Mock
 
 from binance.enums import HistoricalKlinesType
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
-    MarketDataVenue,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_endpoints import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     klines_type_for,
     resolve_market_data_venue,
     resolve_testnet_flag,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
 )
 
 

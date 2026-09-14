@@ -6,7 +6,7 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_credentials import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
 

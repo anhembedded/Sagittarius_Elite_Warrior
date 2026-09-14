@@ -24,10 +24,6 @@ from __future__ import annotations
 import time
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    CredentialsSource,
-    ResolvedCredentials,
-)
 from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import (
     generate_client_order_id,
 )
@@ -37,12 +33,6 @@ from Sagittarius_Elite_Warrior.src.domain.trading.order_submission_mode import (
     OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_credentials import (
-    ExchangeCredentials,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
-    MarketDataVenue,
-)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
@@ -55,6 +45,16 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_trading_client
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
+    ExchangeCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    CredentialsSource,
+    ResolvedCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
 )
 
 _SYMBOL = "BTCUSDT"

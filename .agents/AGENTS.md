@@ -36,6 +36,7 @@ move, a fuller version already existed in the corresponding `rules/` files.
 | CI/CD, the 4 test tiers | [`rules/ci-rule.md`](rules/ci-rule.md) |
 | The bug-fixing process | [`rules/bug-fix-rule.md`](rules/bug-fix-rule.md) |
 | Logging | [`rules/logging-rule.md`](rules/logging-rule.md) |
+| **Reporting work back to the user**: context, a diagram, then the numbers with their targets | [`rules/report-rule.md`](rules/report-rule.md) |
 | QML in detail | [`rules/qml-rule.md`](rules/qml-rule.md) |
 
 **Rule split 2026-08-25:** `rules/code-rule.md` (213 lines, 9 groups of rules at different

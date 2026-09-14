@@ -3,11 +3,6 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    CredentialsSource,
-    IExchangeCredentialsProvider,
-    ResolvedCredentials,
-)
 from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
     TradingSessionState,
 )
@@ -17,10 +12,6 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_exchange_co
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
     ExchangeConnectionStatus,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_endpoints import (
-    resolve_market_data_venue,
-    resolve_trading_venue,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter import (
     format_exchange_connection_status,
@@ -41,6 +32,15 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.container_lookup import
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
     UiStateCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
+    resolve_market_data_venue,
+    resolve_trading_venue,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    CredentialsSource,
+    IExchangeCredentialsProvider,
+    ResolvedCredentials,
 )
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
