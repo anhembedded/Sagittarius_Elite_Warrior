@@ -52,7 +52,11 @@ cd Sagittarius_Elite_Warrior
 
 `-Full` runs:
 
-- `ruff check src tests` and `ruff format --check src tests` (both read-only). `ruff check` is not
+- `ruff check src tests tools scripts` and `ruff format --check src tests tools scripts` (both
+  read-only). `scripts` was added 2026-09-14 — mypy had checked it since `EPIC-002` (the next
+  bullet says "src **and** scripts") while ruff never did, so a script could carry a lint
+  error the gate called green. The gap measured at 4 import-order errors across 31 files and
+  was closed in the same commit, so there is no baseline here to shrink. `ruff check` is not
   style-only: `EPIC-004` extended `[tool.ruff.lint] extend-select` in `pyproject.toml` with `S`
   (Bandit-equivalent security rules — hardcoded secrets, unsafe `subprocess`), `PLR2004` (magic
   number), `B` (bug pattern), `SIM` (code smell), `ERA` (dead code), and `N` (naming) — the closest

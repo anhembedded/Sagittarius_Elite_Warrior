@@ -100,8 +100,20 @@ presentation.cli.interactive_shell -> modules.market_data.cli.sync_cli_handler
 # port, or there is a new port.
 #
 # Where they go, by phase:
-#   Phase 1  - the data_management.* lines (8), with the same port replacement as
-#              every other dispatch. They were written down as "PR 0.4b, when
+#   Phase 4  - the data_management.* lines (8, plus the three database ones
+#              beside them). RE-KEYED from Phase 1 on 2026-09-14, when Phase 1
+#              was cut into pull requests (epic README §3.3): "a port call
+#              retires the entry wherever the file lives" is true mechanically,
+#              and wrong here. HLD §3.4 marks database maintenance, gaps, scan,
+#              audit and bulk sync **Internal**, and its selection rule is that
+#              a port is public when it has a consumer in ANOTHER module. Theirs
+#              is the Data Management screen, which the note below sends into
+#              `modules/market_data/ui/` in Phase 4 — so publishing seven ports
+#              to serve a consumer that is about to move inside the module would
+#              publish internals to satisfy a counter. The screen move retires
+#              them instead, which is the same phase either way.
+#              The original reasoning for deferring that move, unchanged:
+#              they were written down as "PR 0.4b, when
 #              that screen is rebuilt", on the assumption that 0.4b moves the
 #              screen into `modules/market_data/ui/` and turns these into
 #              intra-module imports. It cannot: measured, the move needs 35 NEW

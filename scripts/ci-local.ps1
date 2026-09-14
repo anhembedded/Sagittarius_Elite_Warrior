@@ -260,10 +260,17 @@ if (-not $SkipLint) {
     # whole top-level directory outside the lint gate is how the gate quietly
     # stops covering the repo. GitHub Actions (.github/workflows/ci.yml) has
     # lint tools since it was restored; this was the one place still missing it.
-    Write-Step "Ruff — Lint Check (ruff check src tests tools)"
+    Write-Step "Ruff — Lint Check (ruff check src tests tools scripts)"
     Push-Location $botRoot
     try {
-        & $ruffExe check src tests tools
+        # `scripts` added 2026-09-14: mypy has always checked it (§1's own
+        # list says "src **and** scripts"), ruff never did, so a script
+        # could carry a lint error the gate reported as green. Found by a
+        # new probe script that failed `ruff check` while the gate passed.
+        # The gap measured at 4 import-order errors across 31 files, all
+        # auto-fixable and all fixed in the same commit — no baseline, no
+        # ratchet, nothing deferred.
+        & $ruffExe check src tests tools scripts
         if ($LASTEXITCODE -ne 0) { $failed += "Ruff Lint"; Write-Failure "Ruff Lint" }
         else { Write-Success "Ruff Lint" }
     } catch {
@@ -271,10 +278,10 @@ if (-not $SkipLint) {
         Write-Host $_.Exception.Message -ForegroundColor Yellow
     } finally { Pop-Location }
 
-    Write-Step "Ruff — Format Check (ruff format --check src tests tools)"
+    Write-Step "Ruff — Format Check (ruff format --check src tests tools scripts)"
     Push-Location $botRoot
     try {
-        & $ruffExe format --check src tests tools
+        & $ruffExe format --check src tests tools scripts
         if ($LASTEXITCODE -ne 0) { $failed += "Ruff Format"; Write-Failure "Ruff Format" }
         else { Write-Success "Ruff Format" }
     } catch {
