@@ -7,14 +7,14 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from Sagittarius_Elite_Warrior.src.application.services.backtest_range_coverage import (
-    BacktestRangeCoverage,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_backtest_range_coverage import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
     GetBacktestRangeCoverageQuery,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
     SyncMarketDataCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
+    BacktestRangeCoverage,
 )
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 

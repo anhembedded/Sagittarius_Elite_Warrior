@@ -208,6 +208,89 @@ splitting needs no permission.
 The user's Phase 0 checkpoint ("Data Management: sync a symbol") lands on **0.4b**, with the CLI
 check on 0.4a.
 
+## 1.5 What PR 0.4a shipped (2026-09-14)
+
+`market_data` is a module. `shell/modules.py` lists one entry where it listed none, and the app
+boots through it: the database, both repositories, the live stream, the exchange client, and all
+fourteen commands and queries are now claimed by `MarketDataModule.register()` instead of by
+`binance_bot_module.py`.
+
+### What moved, and where the shape changed
+
+Sixty-odd files moved by `git mv` with their bodies untouched. Four things were *not* a plain move,
+and each one was forced by a rule rather than chosen:
+
+| What | From | To | Why not a plain move |
+| :--- | :--- | :--- | :--- |
+| `backtest_range_coverage.py` | `application/services/` | three files | One file held a published DTO, two builders, and three time helpers — three audiences, measured: the DTO has three UI consumers, the builders none outside the module, the helpers one. §5 rule 1 forbids the mix, and the boundary rule forbids a consumer importing anything but `contracts/`. |
+| the four engine-adapter ports (`i_cqrs`, `i_command_dispatcher`, `i_config_reader`, `i_event_publisher`) | `application/ports/` | `core/contracts/` | Every module's handlers need them (`i_cqrs` alone has 29 importers). Left in the legacy tree they made the module import *backwards*, which the boundary rule refuses outright and which no allowlist entry should ever excuse. |
+| `MarketTickEvent`, the sync events | `domain/events/`, `application/events/` | `modules/market_data/contracts/events/` | An event belongs to the context that raises it (§6). Only market_data can say a tick arrived. |
+| `SymbolMarketMetadata` | `domain/entities/` | `modules/market_data/contracts/` | Published by its owner, **not** promoted to `core/vo`: the admission rule wants two consumers in two *modules*, and today market_data is the only module among its four importers. Promoting on "it looks shared" is the guess the rule exists to prevent. |
+
+`rate_limiter.py` had exactly one importer, inside the module, so it moved in as module-internal
+rather than staying a shared service nobody shared.
+
+### The lifecycle moved with the context
+
+`MarketDataModule` implements `boot()` and `shutdown()`, which `binance_bot_module.py` used to do
+on its behalf: registering the live-stream hosted service, disposing the SQLite engines, closing the
+exchange client. What stayed behind is the user-data stream, because trading owns it.
+
+### Two things deliberately left standing
+
+- **`exchange_session_factory.py` stays in the legacy tree.** One instance answers both
+  market_data's `IExchangeSessionFactory` and trading's `ITradingSessionFactory`; splitting a shared
+  instance changes behaviour, and 0.4a is a move. `EPIC-025B` splits it, one factory per context.
+  The port itself did move — to `modules/market_data/contracts/`, because it returns
+  `IExchangeClient`, which is a market-data shape (this is the file PR 0.3 §1.3 deferred).
+- **`MarketDataModule.shutdown()` resolves `IExchangeClient` unconditionally.** Carried over
+  verbatim so the move stayed a move — but it is a defect: the binding is lazy, so a session that
+  never asked for market data *constructs* a client here, a network call, purely in order to close
+  it. Fixing it needs the container to answer "was this singleton ever instantiated?", which
+  `IContainer` does not offer. That is an Engine-side ask, not an app change; the module's docstring
+  points here so the wart is not rediscovered as a surprise.
+
+### The allowlist went up, and that is the ratchet working
+
+8 entries → 41. Not a regression: those imports all existed before, invisible, because caller and
+callee sat in one tree. Moving `market_data` out turned each legacy screen that dispatches one of
+its commands into a **counted** violation with a named exit phase. Meanwhile the number the epic
+actually cares about — imports pointing from the new tree back into the legacy tree — is **zero**,
+and the boundary guard now fails if it ever stops being zero.
+
+| Block | Count | Deleted by |
+| :--- | :-: | :--- |
+| `application`/`presentation` → `infrastructure.binance.futures_*` (pre-existing) | 7 | `EPIC-025B` |
+| legacy → `modules.market_data.adapters` (reaching past the contracts) | 2 | PR 0.4b, `EPIC-025B` |
+| legacy → `modules.market_data.application` (the transitional dispatch surface) | 32 | PR 0.4b, PR 0.5, Phase 1 |
+| **new tree → legacy tree** | **0** | — |
+
+### What 0.4a did *not* ship: the CLI, deferred to 0.4a-2
+
+§1.4 scoped CLI `sync` / `stream` into 0.4a. It is not here, and the reason is worth recording
+because it is the same reason twice over.
+
+The four CLI files are small (198 lines). But `sync_cli_handler` and `stream_cli_handler` import
+`presentation/cli/cli_parser.py` (`build_handler_parser`) and
+`presentation/cli/handlers/i_cli_command_handler.py` (`ICliCommandHandler`) — the CLI's framework
+seam, which still lives in the legacy tree. Moving the two commands into
+`modules/market_data/cli/` without moving that seam first would create exactly the backwards
+import this pull request spent its effort driving to zero, and allowlisting it would be excusing a
+violation the same commit created.
+
+So 0.4a-2 is: extract the seam into `support/cli_kit` (the `ICliCommandHandler` port plus the
+config-driven parser builder — the CLI analogue of `support/ui_kit`, and app-wide infrastructure
+that every context's commands need), then move `sync` / `stream` into the module's own `cli/`.
+That retires 5 allowlist entries. Splitting it out rather than bolting it onto a pull request that
+already moves ~250 files is `architecture-rule.md` §5's bias applied to pull requests, the same
+call §1.4 made when it split 0.4 in two.
+
+### Verification
+
+`pytest tests/unit` — **4047 passed, 0 failed**, bodies unchanged, which is the whole claim a pure
+move can make. The full gate (`scripts/ci-local.ps1 -Full`) is the commit gate and its log is
+grepped for `FAILED|ERROR|Traceback|ResourceWarning` before anything is called green.
+
 ## 2. Done when
 
 - The app runs exactly as before; Data Management goes through the registry; CLI `sync` and

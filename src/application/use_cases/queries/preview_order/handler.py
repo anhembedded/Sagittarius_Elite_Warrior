@@ -1,6 +1,5 @@
 import logging
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -10,6 +9,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order.o
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order.query import (
     PreviewOrderQuery,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.domain.policies.order_quantity_rounding_policy import (
     OrderQuantityRoundingPolicy,
 )

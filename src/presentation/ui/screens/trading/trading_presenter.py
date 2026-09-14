@@ -36,9 +36,6 @@ from Sagittarius_Elite_Warrior.src.domain.events.equity_sampled_event import (
 from Sagittarius_Elite_Warrior.src.domain.events.live_order_blocked_event import (
     LiveOrderBlockedEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
-    MarketTickEvent,
-)
 from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
     OrderFilledEvent,
 )
@@ -50,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.domain.events.position_closed_event import (
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
     SUPPORTED_LIVE_INTERVALS,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
+    MarketTickEvent,
 )
 from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (

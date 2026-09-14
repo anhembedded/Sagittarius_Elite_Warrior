@@ -28,10 +28,15 @@ _TOOLKIT_ROOTS = ("PySide6", "PyQt5", "PyQt6", "pyqtgraph")
 #: The Engine's Qt extension — importing it is importing Qt transitively.
 _ENGINE_QT_MODULE = "sagittarius_engine.extensions.pyside_mvc"
 
-#: Globs, relative to `src/`, of the packages that must stay Qt-free. The
-#: module ones match nothing until PR 0.4 creates `modules/`; the guard's
-#: non-emptiness is covered by `core/`, which exists now, and by
-#: `test_scanned_roots_are_not_empty.py`.
+#: Globs, relative to `src/`, of the packages that must stay Qt-free. PR 0.4a
+#: gave the `modules/*` ones their first real subject (`market_data`), so the
+#: non-emptiness test below now insists on that too — before then they matched
+#: nothing and only `core/` kept the guard honest.
+#:
+#: `modules/*/adapters` is deliberately absent: an adapter is where the outside
+#: world is allowed in, and `adapters/live_stream_adapter.py` implements an
+#: Engine hosted-service interface. The inside — domain, application,
+#: contracts — is what must stay callable from any thread with no display.
 _QT_FREE_GLOBS = (
     "core/**/*.py",
     "modules/*/domain/**/*.py",
@@ -91,11 +96,17 @@ def _qt_free_files() -> list[Path]:
 
 
 def test_there_are_qt_free_packages_to_check() -> None:
-    """`core/` exists from Phase 0 on, so an empty scan means the globs or the
-    tree moved — the vacuous-guard failure HLD §9.3 rule 4 forbids."""
+    """A guard that scans nothing passes everything — the vacuous-guard failure
+    HLD §9.3 rule 4 forbids. `core/` has existed since Phase 0 and a bounded
+    context since PR 0.4a, so both must show up in the scan; if either stops
+    doing so, the globs or the tree moved and this test says which."""
     files = _qt_free_files()
     assert files, f"no Qt-free package found under {_SRC_ROOT}"
-    assert any("core" in path.parts for path in files)
+    assert any("core" in path.parts for path in files), "core/ left the scan"
+    assert any("modules" in path.parts for path in files), (
+        "no bounded context is being scanned — `modules/*/{domain,application,"
+        "contracts}` matched nothing, so the module half of this guard is dead"
+    )
 
 
 def test_no_qt_free_package_imports_a_toolkit_at_runtime() -> None:

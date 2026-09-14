@@ -11,13 +11,13 @@ from collections.abc import Iterator
 from datetime import datetime
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
     RangeCoverageSnapshot,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.domain.models.data_gap import DataGap
+from Sagittarius_Elite_Warrior.src.modules.market_data.domain.data_gap import DataGap
 
 _NOT_USED = "not used by the static backtest"
 

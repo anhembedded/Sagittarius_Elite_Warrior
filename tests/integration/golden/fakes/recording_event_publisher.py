@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
 from sagittarius_engine.domain.i_domain_event import IDomainEvent

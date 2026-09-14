@@ -1,9 +1,9 @@
 import logging
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest.handler import (
     BacktestState,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 
 from .command import StopBacktestCommand
 

@@ -25,7 +25,7 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import Signal
-from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.base_feed import BaseFeed

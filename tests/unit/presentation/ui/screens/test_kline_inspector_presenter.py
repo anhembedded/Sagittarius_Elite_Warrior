@@ -5,11 +5,11 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.audit_database_integrity import (
-    DatabaseAuditResultDTO,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.audit_database_integrity import (
+    DatabaseAuditResultDTO,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
     DataManagementPresenter,
 )

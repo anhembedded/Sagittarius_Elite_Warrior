@@ -1,6 +1,6 @@
 from unittest.mock import Mock
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data import (
     SyncMarketDataCommand,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.sync_cli_handler import (

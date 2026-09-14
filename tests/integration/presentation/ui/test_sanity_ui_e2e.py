@@ -7,7 +7,7 @@ import pytest
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
 

@@ -7,14 +7,14 @@ from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
-from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
-    BulkSyncProgressEvent,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
-    IMarketDataRepository,
-)
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.bulk_sync_events import (
+    BulkSyncProgressEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
+    IMarketDataRepository,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOwnershipTracker,
 )

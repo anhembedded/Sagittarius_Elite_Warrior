@@ -26,9 +26,6 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Sagittarius_Elite_Warrior.src.application.services.backtest_range_coverage import (
-    BacktestRangeCoverage,
-)
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -44,15 +41,6 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.command import (
     RunStaticBacktestCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols.query import (
-    ListAvailableSymbolsQuery,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
-)
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -65,13 +53,6 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
 from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation import (
     OutOfSampleValidation,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.symbol_market_metadata import (
-    LotSizeFilter,
-    MetadataVerificationStatus,
-    NotionalFilter,
-    PriceFilter,
-    SymbolMarketMetadata,
-)
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_script import (
     BaseIndicatorScript,
 )
@@ -82,8 +63,27 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import (
     BaseStrategy,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_market_metadata_cache import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
     InMemorySymbolMarketMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
+    GetHistoricalKlinesQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols.query import (
+    ListAvailableSymbolsQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
+    SyncMarketDataCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
+    BacktestRangeCoverage,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
+    LotSizeFilter,
+    MetadataVerificationStatus,
+    NotionalFilter,
+    PriceFilter,
+    SymbolMarketMetadata,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_type_renderer import (
     CANDLESTICK,

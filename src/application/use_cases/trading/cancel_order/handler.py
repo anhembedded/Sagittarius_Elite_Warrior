@@ -9,7 +9,6 @@ from __future__ import annotations
 
 import logging
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -28,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.cancel_order.re
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.result import (
     ExecuteOrderSafetyGate,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.domain.trading.order_submission_mode import (
     OrderSubmissionMode,
 )

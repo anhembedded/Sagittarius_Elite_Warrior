@@ -10,7 +10,7 @@ from argparse import Namespace
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data import (
     SyncMarketDataCommand,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.sync_cmd import execute_sync

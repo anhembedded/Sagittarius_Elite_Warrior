@@ -2,10 +2,10 @@ import argparse
 import shlex
 
 from pydantic import ValidationError
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data import (
     SyncMarketDataCommand,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import (
     build_handler_parser,
 )

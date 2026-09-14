@@ -23,13 +23,13 @@ from datetime import UTC
 from unittest.mock import MagicMock, Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
@@ -2229,7 +2229,7 @@ def _tick_event(symbol: str = "BTCUSDT", interval: str = "1m"):
     from datetime import UTC, datetime
 
     from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-    from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+    from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
         MarketTickEvent,
     )
 

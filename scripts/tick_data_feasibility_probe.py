@@ -46,11 +46,11 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_facto
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.database_manager import (
     DatabaseConfig,
     DatabaseManager,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.sqlalchemy_repository import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (

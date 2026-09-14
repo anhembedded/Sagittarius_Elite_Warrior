@@ -1,16 +1,16 @@
 import logging
 import time
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
-from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
-    IMarketDataRepository,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
+    IMarketDataRepository,
 )
 
 from .command import RunBacktestCommand

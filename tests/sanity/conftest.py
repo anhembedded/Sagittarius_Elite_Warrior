@@ -131,11 +131,11 @@ def booted_app(qapp):
     with (
         run_binance_fake_server() as fake_urls,
         patch(
-            "Sagittarius_Elite_Warrior.src.infrastructure.binance."
+            "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance."
             "binance_websocket_service.AsyncClient"
         ),
         patch(
-            "Sagittarius_Elite_Warrior.src.infrastructure.binance."
+            "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance."
             "binance_websocket_service.BinanceSocketManager"
         ),
     ):

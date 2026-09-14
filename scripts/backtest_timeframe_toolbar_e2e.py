@@ -24,7 +24,7 @@ from PySide6.QtTest import QSignalSpy, QTest
 from PySide6.QtWidgets import QApplication
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     DatabaseStatusSnapshot,
     DataGap,
     IMarketDataRepository,

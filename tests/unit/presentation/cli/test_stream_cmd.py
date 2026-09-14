@@ -10,7 +10,7 @@ from argparse import Namespace
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream import (
     StartLiveStreamCommand,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.stream_cmd import execute_stream

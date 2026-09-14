@@ -16,7 +16,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols import (
     ListAvailableSymbolsQuery,
 )
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher

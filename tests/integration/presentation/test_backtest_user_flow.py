@@ -10,15 +10,15 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtTest import QTest
-from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.main import create_app
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     DatabaseStatusSnapshot,
     DataGap,
     IMarketDataRepository,
     RangeCoverageSnapshot,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     default_symbol,
 )
@@ -227,10 +227,10 @@ def booted_backtest_app():
 
     with (
         patch(
-            "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.AsyncClient"
+            "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.binance_websocket_service.AsyncClient"
         ),
         patch(
-            "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.BinanceSocketManager"
+            "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.binance_websocket_service.BinanceSocketManager"
         ),
     ):
         app.boot()

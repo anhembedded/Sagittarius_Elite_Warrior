@@ -4,14 +4,14 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
-    BulkSyncProgressEvent,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.bulk_sync_market_data.command import (
     BulkSyncMarketDataCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
     SyncMarketDataCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.bulk_sync_events import (
+    BulkSyncProgressEvent,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOutcome,

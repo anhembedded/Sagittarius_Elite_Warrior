@@ -16,7 +16,7 @@ from collections.abc import Iterator
 from PySide6.QtWidgets import QApplication
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     ExchangeRequestCancelledError,
     IExchangeClient,
 )

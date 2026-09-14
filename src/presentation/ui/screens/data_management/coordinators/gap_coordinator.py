@@ -1,15 +1,15 @@
 from collections.abc import Callable
 from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.database.repair_data_gap import (
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.repair_data_gap import (
     RepairDataGapCommand,
     RepairDataGapResult,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_gaps import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_database_gaps import (
     GetDatabaseGapsQuery,
     GetDatabaseGapsResult,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,

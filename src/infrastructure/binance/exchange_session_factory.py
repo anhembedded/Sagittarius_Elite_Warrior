@@ -9,14 +9,14 @@ import time
 from typing import cast
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.client import (
+    PythonBinanceClient,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
 )
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_session_factory import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_session_factory import (
     IExchangeSessionFactory,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
-    PythonBinanceClient,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     resolve_testnet_flag,

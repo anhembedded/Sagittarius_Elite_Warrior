@@ -23,9 +23,6 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader im
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines import (
-    GetHistoricalKlinesQuery,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.command import (
     ExecuteOrderCommand,
 )
@@ -44,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_stat
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines import (
+    GetHistoricalKlinesQuery,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_cmd import (
     execute_trade_once,

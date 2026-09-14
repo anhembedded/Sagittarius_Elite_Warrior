@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import logging
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
     LiveStrategySession,
 )
@@ -18,6 +17,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disarm_strategy
     DisarmStrategyBlockReason,
     DisarmStrategyResult,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 
 logger = logging.getLogger("App.CommandHandler")
 

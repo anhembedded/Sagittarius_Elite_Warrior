@@ -58,13 +58,13 @@ import time
 from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 
 
@@ -298,7 +298,7 @@ def test_duplicate_closed_tick_for_same_timestamp_overwrites_not_duplicates(
     from datetime import datetime
 
     from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-    from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+    from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
         MarketTickEvent,
     )
 

@@ -1,9 +1,9 @@
 from unittest.mock import Mock
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream import (
     StartLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.stop_live_stream import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream import (
     StopLiveStreamCommand,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.handlers.stream_cli_handler import (

@@ -713,11 +713,11 @@ def report_to_dict(report: ProbeReport) -> dict[str, object]:
 
 def load_from_db(symbol: str, days: int) -> list[MarketData]:
     from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-    from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager import (
+    from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.database_manager import (
         DatabaseConfig,
         DatabaseManager,
     )
-    from Sagittarius_Elite_Warrior.src.infrastructure.persistence.sqlalchemy_repository import (
+    from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqlalchemy_repository import (
         SQLAlchemyMarketDataRepository,
     )
 

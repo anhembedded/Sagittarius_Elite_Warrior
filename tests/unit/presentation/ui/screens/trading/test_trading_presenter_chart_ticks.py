@@ -30,7 +30,7 @@ from Sagittarius_Elite_Warrior.src.application.services.trading_session_state im
     TradingSessionState,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_presenter import (

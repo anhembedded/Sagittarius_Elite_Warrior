@@ -1,6 +1,5 @@
 import logging
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.application.ports.i_trading_client import (
     ITradingClient,
 )
@@ -10,6 +9,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.commands.submit_order.c
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order.handler import (
     PreviewOrderQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
 
 logger = logging.getLogger("App.CommandHandler")

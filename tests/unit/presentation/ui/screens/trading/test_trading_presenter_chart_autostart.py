@@ -133,7 +133,7 @@ def test_going_live_does_not_stop_a_stream_this_screen_never_started(
 
     presenter._run_enable(action_id)
 
-    from Sagittarius_Elite_Warrior.src.application.use_cases.stream.stop_live_stream.command import (
+    from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
         StopLiveStreamCommand,
     )
 
@@ -153,7 +153,7 @@ def test_a_symbol_change_before_going_live_does_not_stop_the_stream(
 
     presenter._on_symbol_change_requested("ETHUSDT")
 
-    from Sagittarius_Elite_Warrior.src.application.use_cases.stream.stop_live_stream.command import (
+    from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
         StopLiveStreamCommand,
     )
 
@@ -183,7 +183,7 @@ def test_a_symbol_change_after_going_live_does_stop_and_restart_live(
 
     presenter._on_symbol_change_requested("ETHUSDT")
 
-    from Sagittarius_Elite_Warrior.src.application.use_cases.stream.stop_live_stream.command import (
+    from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
         StopLiveStreamCommand,
     )
 

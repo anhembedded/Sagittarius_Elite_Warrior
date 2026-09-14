@@ -9,7 +9,6 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -30,6 +29,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.r
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.domain.policies.order_quantity_rounding_policy import (
     NotionalCheck,
 )

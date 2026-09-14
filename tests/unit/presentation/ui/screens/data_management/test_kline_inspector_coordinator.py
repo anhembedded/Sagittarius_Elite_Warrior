@@ -3,11 +3,11 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.audit_database_integrity import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.audit_database_integrity import (
     AuditDatabaseIntegrityQuery,
     DatabaseAuditResultDTO,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines import (
     GetHistoricalKlinesQuery,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
