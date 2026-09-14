@@ -20,9 +20,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtWidgets import QLabel, QPushButton
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    IExchangeCredentialsProvider,
-)
 from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
     TradingSessionState,
 )
@@ -33,20 +30,23 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_stat
     ConnectionFailureKind,
     ExchangeConnectionStatus,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
-    TradingVenue,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.credentials.env_first_credentials_provider import (
-    EnvFirstCredentialsProvider,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.credentials.secrets_file_source import (
-    SecretsFileSource,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
     SettingsPresenter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view import (
     SettingsView,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
+    EnvFirstCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
+    SecretsFileSource,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    IExchangeCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager

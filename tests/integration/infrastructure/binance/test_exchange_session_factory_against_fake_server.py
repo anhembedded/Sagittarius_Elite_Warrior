@@ -25,14 +25,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_credentials import (
-    ExchangeCredentials,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
-    MarketDataVenue,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
+    ExchangeCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "sanity"))

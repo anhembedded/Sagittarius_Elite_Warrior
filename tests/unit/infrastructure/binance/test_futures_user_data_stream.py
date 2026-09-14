@@ -17,10 +17,6 @@ from typing import Self
 from unittest.mock import AsyncMock, Mock, patch
 
 from binance.exceptions import ReadLoopClosed
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    CredentialsSource,
-    ResolvedCredentials,
-)
 from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
     EquityCurveRecorder,
 )
@@ -46,11 +42,15 @@ from Sagittarius_Elite_Warrior.src.domain.trading.live_position import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
     MarginType,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_credentials import (
-    ExchangeCredentials,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_user_data_stream import (
     FuturesUserDataStream,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
+    ExchangeCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    CredentialsSource,
+    ResolvedCredentials,
 )
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken

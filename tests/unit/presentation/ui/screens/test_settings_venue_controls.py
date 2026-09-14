@@ -14,21 +14,10 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    CredentialsSource,
-    IExchangeCredentialsProvider,
-    ResolvedCredentials,
-)
 from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
     TradingSessionState,
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
-    MarketDataVenue,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
-    TradingVenue,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
     SettingsPresenter,
 )
@@ -38,6 +27,17 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_vie
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.venue_labels import (
     MARKET_DATA_VENUE_LABELS,
     TRADING_VENUE_LABELS,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    CredentialsSource,
+    IExchangeCredentialsProvider,
+    ResolvedCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from sagittarius_engine.interfaces import IConfig
 

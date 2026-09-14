@@ -17,12 +17,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
-    MarketDataVenue,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
-    TradingVenue,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     Palette,
     get_icon_loader,
@@ -41,6 +35,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog import (
     PinnedTimeframes,
     TimeframePickerDialog,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 

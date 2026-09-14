@@ -8,11 +8,11 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_stat
     MarginType,
     PositionMode,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
-    TradingVenue,
-)
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter import (
     format_exchange_connection_status,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
 

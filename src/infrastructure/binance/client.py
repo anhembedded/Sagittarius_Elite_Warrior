@@ -11,16 +11,16 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     IExchangeClient,
 )
 from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
-    MarketDataVenue,
-)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_endpoints import (
-    klines_type_for,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.market_metadata_parser import (
     DEFAULT_STATUS,
     BinanceMetadataKey,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
+    klines_type_for,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
 )
 
 logger = logging.getLogger("App.ExchangeClient")

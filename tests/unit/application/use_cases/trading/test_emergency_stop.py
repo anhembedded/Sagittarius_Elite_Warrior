@@ -22,10 +22,6 @@ from decimal import Decimal
 from unittest.mock import Mock
 
 from binance.exceptions import BinanceAPIException
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    CredentialsSource,
-    ResolvedCredentials,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -41,8 +37,12 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.emergency_stop.
 from Sagittarius_Elite_Warrior.src.domain.entities.futures_symbol_metadata import (
     FuturesSymbolMetadata,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_credentials import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    CredentialsSource,
+    ResolvedCredentials,
 )
 
 _CREDENTIALS = ExchangeCredentials(api_key="key", api_secret="secret")

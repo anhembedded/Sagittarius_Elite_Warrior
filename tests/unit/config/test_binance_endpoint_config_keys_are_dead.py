@@ -24,8 +24,10 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 _SRC_DIR = Path(__file__).resolve().parents[3] / "src"
 _CONFIG_DIR = _SRC_DIR / "config"
 _MODULE_SOURCE = (_SRC_DIR / "binance_bot_module.py").read_text(encoding="utf-8")
+#: `EPIC-025` PR 0.3 moved this module out of `infrastructure/binance/` into
+#: the gateway's contracts, where every zone may import it.
 _ENDPOINTS_SOURCE = (
-    _SRC_DIR / "infrastructure" / "binance" / "binance_endpoints.py"
+    _SRC_DIR / "support" / "binance_gateway" / "contracts" / "binance_endpoints.py"
 ).read_text(encoding="utf-8")
 
 

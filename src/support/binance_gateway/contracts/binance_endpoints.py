@@ -8,10 +8,10 @@ import logging
 
 from binance.enums import HistoricalKlinesType
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 from sagittarius_engine.interfaces.i_config import IConfig

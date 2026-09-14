@@ -32,10 +32,6 @@ from typing import Any
 from unittest.mock import patch
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    CredentialsSource,
-    ResolvedCredentials,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
     ITradingAccountReader,
 )
@@ -71,15 +67,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_stat
     ExchangeConnectionStatus,
     PositionMode,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_credentials import (
-    ExchangeCredentials,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
-    MarketDataVenue,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
-    TradingVenue,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
 )
@@ -88,6 +75,19 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_metadata_provi
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
+    ExchangeCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    CredentialsSource,
+    ResolvedCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests" / "sanity"))

@@ -47,9 +47,6 @@ from typing import Any
 
 from binance import AsyncClient, BinanceSocketManager
 from binance.exceptions import ReadLoopClosed
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    IExchangeCredentialsProvider,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -100,6 +97,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.user_data_event_parser
     fill_details,
     is_fill_execution,
     parse_order_trade_update,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    IExchangeCredentialsProvider,
 )
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManager

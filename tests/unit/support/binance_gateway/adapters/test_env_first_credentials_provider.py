@@ -5,16 +5,16 @@ from __future__ import annotations
 
 import os
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    CredentialsSource,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.credentials.env_first_credentials_provider import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
     ENV_API_KEY,
     ENV_API_SECRET,
     EnvFirstCredentialsProvider,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.credentials.secrets_file_source import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
     SecretsFileSource,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    CredentialsSource,
 )
 
 

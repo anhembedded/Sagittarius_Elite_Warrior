@@ -49,10 +49,6 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.domain.value_objects.venue_alignment import (
     compute_venue_alignment,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_endpoints import (
-    resolve_market_data_venue,
-    resolve_trading_venue,
-)
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.qt_platform import (
     is_headless_qt_platform,
@@ -96,6 +92,10 @@ from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
 from Sagittarius_Elite_Warrior.src.shell.screen_wiring import (
     build_screen_registry,
     contribute_legacy_screens,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
+    resolve_market_data_venue,
+    resolve_trading_venue,
 )
 from sagittarius_engine import App
 from sagittarius_engine.extensions.pyside_mvc import (

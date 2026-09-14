@@ -20,9 +20,6 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
     IExchangeClient,
 )
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    IExchangeCredentialsProvider,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_session_factory import (
     IExchangeSessionFactory,
 )
@@ -46,9 +43,6 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader im
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_trading_client import (
     ITradingClient,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_trading_session_factory import (
-    ITradingSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_user_data_stream import (
     IUserDataStream,
@@ -255,16 +249,6 @@ from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy 
     TradingLimitPolicy,
     TradingLimits,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
-    MarketDataVenue,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
-    TradingVenue,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_endpoints import (
-    resolve_market_data_venue,
-    resolve_trading_venue,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
@@ -282,12 +266,6 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_trading_client
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_user_data_stream import (
     FuturesUserDataStream,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.credentials.env_first_credentials_provider import (
-    EnvFirstCredentialsProvider,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.credentials.secrets_file_source import (
-    SecretsFileSource,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispatcher_adapter import (
     EngineCommandDispatcher,
@@ -316,6 +294,28 @@ from Sagittarius_Elite_Warrior.src.infrastructure.persistence.sqlalchemy_reposit
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
     BacktestChartHostFactory,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
+    EnvFirstCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
+    SecretsFileSource,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
+    resolve_market_data_venue,
+    resolve_trading_venue,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    IExchangeCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
+    ITradingSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from sagittarius_engine import App
 from sagittarius_engine.base import BaseModule

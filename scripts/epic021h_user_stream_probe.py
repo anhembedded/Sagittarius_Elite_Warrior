@@ -49,9 +49,6 @@ from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
 from Sagittarius_Elite_Warrior.src.domain.events.position_changed_event import (
     PositionChangedEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
-    MarketDataVenue,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
 )
@@ -61,14 +58,17 @@ from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_metadata_provi
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_user_data_stream import (
     FuturesUserDataStream,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.credentials.env_first_credentials_provider import (
-    EnvFirstCredentialsProvider,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.credentials.secrets_file_source import (
-    SecretsFileSource,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
+    EnvFirstCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
+    SecretsFileSource,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
 )
 
 

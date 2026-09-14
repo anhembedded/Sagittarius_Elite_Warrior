@@ -4,7 +4,7 @@ import stat
 import sys
 
 import pytest
-from Sagittarius_Elite_Warrior.src.infrastructure.credentials.secrets_file_source import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
     SecretsFileSource,
 )
 

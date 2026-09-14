@@ -17,14 +17,14 @@ from __future__ import annotations
 import os
 
 import pytest
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_credentials import (
-    ExchangeCredentials,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.credentials.env_first_credentials_provider import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
     EnvFirstCredentialsProvider,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.credentials.secrets_file_source import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
     SecretsFileSource,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
+    ExchangeCredentials,
 )
 from sagittarius_engine.utils.path_utils import PathUtils
 

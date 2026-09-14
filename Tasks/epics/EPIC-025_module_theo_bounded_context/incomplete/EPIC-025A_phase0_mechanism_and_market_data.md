@@ -149,6 +149,49 @@ exactly as before (`--self-check` green, 4 153 tests passing).
   Its permission to do so is one named entry point in the boundary rules, and it moves in Phase 1
   with the surface host.
 
+## 1.3 What PR 0.3 shipped, and the two files it deliberately left behind (2026-09-14)
+
+`support/binance_gateway` exists: nine modules moved, no behaviour changed, and the boundary
+allowlist shrank from **10 pairs to 8** because two of them stopped being violations rather than
+being excused.
+
+| Moved to | What |
+| :--- | :--- |
+| `support/binance_gateway/contracts/` | `MarketDataVenue`, `TradingVenue` (two closed Binance-specific enums — HLD §2.4 round 3), `ExchangeCredentials`, `ITradingSessionFactory` + `ITradingSessionClient`, `IExchangeCredentialsProvider` + `CredentialsSource` + `ResolvedCredentials`, `binance_endpoints` (venue → `testnet` flag / `klines_type`, and reading the configured venue) |
+| `support/binance_gateway/adapters/` | `EnvFirstCredentialsProvider`, `SecretsFileSource` |
+| `tests/unit/support/binance_gateway/{contracts,adapters}/` | the six tests that mirror them, bodies unchanged |
+
+**The allowlist shrank by two.** `app_bootstrapper` and `settings_presenter` both reached into
+`infrastructure.binance.binance_endpoints` for the venue resolvers. That module is now a support
+package's contract, which every zone may import, so both lines were deleted from
+`allowlist_module_boundaries.txt` — the first two entries this epic has actually retired. HLD §6.2's
+"screens importing `infrastructure/`" metric goes **2 → 1** (only `backtest_presenter`'s metadata
+cache is left, and it goes in Phase 3).
+
+**Two files HLD §3.5 listed for Phase 0 did not move, each for a measured reason.** The rule they
+would have broken is the one direction the strangler period keeps firm: a package in the new tree
+may not reach into the legacy tree (`test_module_boundaries.py`; the shell is the single exception,
+as *Main*, and even that is recorded in a shrink-only baseline).
+
+1. **`exchange_session_factory.py` stays put, and so does `IExchangeSessionFactory`.**
+   `create_market_data_client()` builds a raw `Client` **and** wraps it in `PythonBinanceClient`
+   (`infrastructure/binance/client.py`), which is market_data's own adapter — it is built out of
+   `MarketData` candles, so it belongs to `modules/market_data/adapters/binance/`, not to a generic
+   SDK gateway. Moving the factory now would make a support package import the legacy tree; moving
+   `client.py` with it would make the gateway own a market-data shape. The real fix is the one HLD
+   §2.3 already describes — the gateway mints a **raw session**, and market_data's own adapter wraps
+   it — and that is PR 0.4's work, when `modules/market_data/adapters/binance/` exists and
+   `IExchangeClient` splits into `IHistoricalKlines` / `ISymbolCatalog`. Doing it here would be a
+   redesign inside a pure move.
+2. **`binance_error_translator.py` stays put until Phase 1.** It maps a `BinanceAPIException` onto
+   `OrderRejectionReason`, which is `trading`'s vocabulary and has no home outside the legacy tree
+   until `modules/trading` exists. The alternatives were a support-to-legacy import (forbidden) or
+   promoting `OrderRejectionReason` into `core/vo`, which HLD §2.4's own admission rule refuses: it
+   is business vocabulary of one context, not a neutral value object.
+
+Both deferrals are recorded in the HLD §3.5 mapping table as their own rows, with the phase that
+finishes them, so the next reader sees the plan and not a gap.
+
 ## 2. Done when
 
 - The app runs exactly as before; Data Management goes through the registry; CLI `sync` and

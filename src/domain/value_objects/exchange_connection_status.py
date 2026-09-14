@@ -15,7 +15,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 

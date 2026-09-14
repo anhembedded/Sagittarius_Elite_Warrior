@@ -1,4 +1,4 @@
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_data_venue import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,
 )
 

@@ -7,10 +7,6 @@ from decimal import Decimal
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    CredentialsSource,
-    ResolvedCredentials,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -47,11 +43,15 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_stat
     ExchangeConnectionStatus,
     PositionMode,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_credentials import (
+from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    CredentialsSource,
+    ResolvedCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 

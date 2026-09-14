@@ -13,23 +13,23 @@ from unittest.mock import Mock
 import pytest
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import ConnectionError as RequestsConnectionError
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_credentials_provider import (
-    CredentialsSource,
-    ResolvedCredentials,
-)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
     ConnectionFailureKind,
     MarginType,
     PositionMode,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_credentials import (
-    ExchangeCredentials,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.trading_venue import (
-    TradingVenue,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_account_reader import (
     FuturesAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
+    ExchangeCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
+    CredentialsSource,
+    ResolvedCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
 _CREDENTIALS = ExchangeCredentials(api_key="key", api_secret="secret")
