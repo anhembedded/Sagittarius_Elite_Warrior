@@ -305,6 +305,28 @@ patch immediately. Do not assume either side subsumes the other.
   changes. For lifecycle/concurrency work add deterministic tests for stale-success,
   stale-failure, success-after-cancel, and cancellation during every relevant computation phase
   — never timing sleeps to test races.
+- **The run's verdict and the transcript's end are in two different streams — wait on the right
+  one.** The full gate takes about four minutes, and an agent's tool call usually caps well below
+  that, so the run goes to the background and *something* has to decide when it finished. `stdout`
+  ends with a machine-readable block, and `===END_CI_LOCAL_RESULT===` is the string to wait for:
+
+  ```
+  ===CI_LOCAL_RESULT===
+  RESULT: PASS
+  FAILED_STEPS: none
+  LOG_FILE: /…/logs/ci-local-<stamp>.log
+  ===END_CI_LOCAL_RESULT===
+  ```
+
+  Never wait for `PowerShell transcript end`: the transcript writes that into `LOG_FILE` and never
+  into stdout. The two markers do not co-occur — measured 2026-09-14 on one run, `RESULT:` appears
+  once in stdout and **zero** times in `LOG_FILE`, and `PowerShell transcript end` the other way
+  round. An `until grep -q "PowerShell transcript end"` loop pointed at stdout therefore cannot
+  terminate: one ran for **55 minutes** after a gate that had already passed in 4:12, and because a
+  stalled wait looks exactly like a stalled gate, the time was spent suspecting the test suite. A
+  wait condition that can never be met is the same defect class as a test that can never fail —
+  hence a rule rather than a habit.
+
 - **CI/CD MUST capture a log file, then scan it for problem levels.** A green exit code is not
   evidence that a run was clean. `scripts/ci-local.ps1` automates this on every invocation
   (`-SanityOnly` and the Unit/Full path alike): it captures each test run to a log file, then
