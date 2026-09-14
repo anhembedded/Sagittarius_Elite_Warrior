@@ -98,6 +98,7 @@ def build_coordinators(presenter) -> Coordinators:
     )
     _data_sync = DataSyncCoordinator(
         dispatcher=presenter.dispatcher,
+        market_data_sync=presenter._market_data_sync,
         state=state,
         effective_data_interval=presenter._effective_data_interval,
         resolve_action_id=lambda: presenter._current_action_id(BacktestActionKind.SYNC),

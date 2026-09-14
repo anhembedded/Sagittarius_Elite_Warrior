@@ -29,8 +29,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_h
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
+    IMarketDataSync,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
+    FakeMarketDataSync,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
     map_klines,
@@ -150,6 +153,15 @@ def session_state():
 
 
 @pytest.fixture
+def fake_market_data_sync():
+    """`EPIC-025` PR 0.5 — Dev Board asks for a sync through
+    `IMarketDataSync`. The container hands out the port's verified fake, not a
+    `MagicMock`: the tests below assert *what was asked for*, which a mock
+    cannot answer."""
+    return FakeMarketDataSync()
+
+
+@pytest.fixture
 def mock_container(
     mock_thread_mgr,
     mock_dispatcher,
@@ -158,6 +170,7 @@ def mock_container(
     strategy_registry,
     strategy_session,
     session_state,
+    fake_market_data_sync,
 ):
     container = MagicMock()
 
@@ -207,6 +220,8 @@ def mock_container(
             return equity_recorder
         if interface == TradingSessionState:
             return session_state
+        if interface == IMarketDataSync:
+            return fake_market_data_sync
         return MagicMock()
 
     container.resolve.side_effect = resolve_side_effect
@@ -274,6 +289,7 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     mock_config,
     strategy_registry,
     strategy_session,
+    fake_market_data_sync,
 ):
     """When the container *does* have a registered store — the real
     `app_bootstrapper.py` shape — construction must hand the View that
@@ -321,6 +337,8 @@ def test_boot_wires_the_container_registered_store_into_the_view(
             return EquityCurveRecorder()
         if interface == TradingSessionState:
             return TradingSessionState()
+        if interface == IMarketDataSync:
+            return fake_market_data_sync
         return Mock()
 
     container.resolve.side_effect = resolve_side_effect
@@ -640,7 +658,9 @@ def test_on_start_stream_submits_the_computed_fetch_limit(presenter, mock_thread
     assert submit_args[4] == 200  # limit positional arg
 
 
-def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):
+def test_run_sync_and_start_full_workflow(
+    presenter, mock_dispatcher, fake_market_data_sync
+):
     """_run_sync_and_start dispatches Sync → HistoricalKlines → StartLiveStream in order."""
     mock_dispatcher.dispatch.return_value = []
 
@@ -657,16 +677,16 @@ def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):
         ["BTCUSDT"], TimeFrame("1m"), "1m", 5000, presenter._cancellation_token
     )
 
+    # `EPIC-025` PR 0.5: the sync is a port call, so it is no longer in the
+    # dispatch list — the order that matters is still readable, because the
+    # sync must have happened *before* the history read the chart then draws.
+    assert fake_market_data_sync.was_asked_for("BTCUSDT")
     call_types = [args[0][0] for args in mock_dispatcher.dispatch.call_args_list]
-    assert SyncMarketDataCommand in call_types
     assert GetHistoricalKlinesQuery in call_types
     assert StartLiveStreamCommand in call_types
-
-    # Order matters: Sync first, then Query, then Stream
-    sync_idx = call_types.index(SyncMarketDataCommand)
-    query_idx = call_types.index(GetHistoricalKlinesQuery)
-    stream_idx = call_types.index(StartLiveStreamCommand)
-    assert sync_idx < query_idx < stream_idx
+    assert call_types.index(GetHistoricalKlinesQuery) < call_types.index(
+        StartLiveStreamCommand
+    )
 
 
 def test_on_start_stream_uses_the_view_models_symbol(presenter, mock_thread_mgr):
@@ -716,8 +736,8 @@ def test_on_start_stream_submits_the_parsed_date_range(presenter, mock_thread_mg
     assert submit_args[7] == datetime(2024, 1, 2, tzinfo=UTC)  # end_time
 
 
-def test_run_sync_and_start_never_forwards_the_date_range_to_the_sync_command(
-    presenter, mock_dispatcher
+def test_run_sync_and_start_never_forwards_the_date_range_to_the_sync(
+    presenter, mock_dispatcher, fake_market_data_sync
 ):
     """`BUG-106`: the Data Range picker's start/end must bound only what
     `_run_load_history` shows on the chart (a cheap local DB read) — never
@@ -748,14 +768,9 @@ def test_run_sync_and_start_never_forwards_the_date_range_to_the_sync_command(
         end,
     )
 
-    sync_call = next(
-        call
-        for call in mock_dispatcher.dispatch.call_args_list
-        if call[0][0] is SyncMarketDataCommand
-    )
-    sync_cmd = sync_call[0][1]
-    assert sync_cmd.start_time is None
-    assert sync_cmd.end_time is None
+    request = fake_market_data_sync.requests[0]
+    assert request.start_time is None
+    assert request.end_time is None
 
 
 def test_run_sync_and_start_still_loads_history_for_the_picked_date_range(
@@ -813,7 +828,7 @@ def test_run_load_history_does_nothing_with_an_already_cancelled_token(
 
 
 def test_run_sync_and_start_stops_after_step_1_when_cancelled(
-    presenter, mock_dispatcher
+    presenter, mock_dispatcher, fake_market_data_sync
 ):
     """Sync (Step 1) always runs — cancellation is checked *between* steps,
     not before the first one — but History (Step 2) and Start Stream
@@ -827,8 +842,9 @@ def test_run_sync_and_start_stops_after_step_1_when_cancelled(
 
     presenter._run_sync_and_start(["BTCUSDT"], TimeFrame("1m"), "1m", 5000, token)
 
-    call_types = [args[0][0] for args in mock_dispatcher.dispatch.call_args_list]
-    assert call_types == [SyncMarketDataCommand]
+    # The sync ran (step 1) and nothing after it: no history read, no stream.
+    assert len(fake_market_data_sync.requests) == 1
+    assert mock_dispatcher.dispatch.call_args_list == []
 
 
 def test_stop_stream_cancels_the_current_token_and_issues_a_fresh_one(presenter):

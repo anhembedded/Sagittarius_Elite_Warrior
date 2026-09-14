@@ -13,11 +13,14 @@ knowing which symbols exist. Anything that decides what to *do* with a price —
 a strategy, an order, a backtest run — belongs to another context and reaches
 this one through `contracts/`.
 
-**Why this file is almost empty.** The three binding tables live in
+**Why this file is almost empty.** The four binding tables live in
 `composition/`, one file each, because they change for different reasons
-(`architecture-rule.md` §5 rule 5). What is left here is the module's
-*identity* — the id, the declared dependencies, and which hooks it uses — which
-is exactly what a reader opens this file to find.
+(`architecture-rule.md` §5 rule 5): the adapters when storage or the exchange
+changes, the commands and queries when this module gains a use case, and
+`port_bindings.py` when the module's **published** API changes — the only one
+of the four whose audience is another bounded context. What is left here is the
+module's *identity* — the id, the declared dependencies, and which hooks it
+uses — which is exactly what a reader opens this file to find.
 
 **Hooks not implemented, and why:**
 
@@ -55,6 +58,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.composition.adapter_bindi
 from Sagittarius_Elite_Warrior.src.modules.market_data.composition.command_bindings import (
     bind_commands,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.composition.port_bindings import (
+    bind_published_ports,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.composition.query_bindings import (
     bind_queries,
 )
@@ -83,6 +89,7 @@ class MarketDataModule(BoundedContextModule):
         bind_adapters(container)
         bind_commands(container)
         bind_queries(container)
+        bind_published_ports(container)
 
     def boot(self, context: Any) -> None:
         """Hand the live-stream adapter to the Engine's lifecycle.

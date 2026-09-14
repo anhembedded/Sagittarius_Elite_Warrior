@@ -10,7 +10,10 @@
 # entry, it is a permission - and this file grants none.
 #
 # History of the count: 10 as found (2026-09-13) -> 8 after PR 0.3 -> 41 after
-# PR 0.4a -> 38 after PR 0.4a-2. The jump at 0.4a is not a regression: it moved
+# PR 0.4a -> 38 after PR 0.4a-2 -> 34 after PR 0.5, which is the first time an
+# entry retired because a **consumer moved onto a published port** rather than
+# because code moved into the module: four screens asked market_data for a sync
+# by building its command, and now ask `IMarketDataSync` instead. The jump at 0.4a is not a regression: it moved
 # ~60 files into modules/market_data/, and every legacy screen that dispatches
 # one of its commands directly became a visible, counted violation instead of an
 # indistinguishable same-tree import. Phase 1 replaces each dispatch with a port
@@ -104,7 +107,15 @@ presentation.cli.interactive_shell -> modules.market_data.cli.sync_cli_handler
 #              `support/charting`, and neither exists before Phase 4. Trading 8
 #              forward entries for 35 backward ones inverts the number this
 #              epic actually watches. EPIC-025A §1.8 records the measurement.
-#   PR 0.5   - the trading/backtest/dashboard chart lines, via IMarketDataSync
+#   PR 0.5   - DONE: the four `sync_market_data.command` lines, via
+#              `IMarketDataSync` — the module publishes the capability, the
+#              screens depend on the contract
+#   Phase 1  - the remaining `get_historical_klines` and `start/stop_live_stream`
+#              lines. They need `IHistoricalKlines` and `IMarketStream`, the two
+#              ports `EPIC-025A` §1 assigns to Phase 1 with `modules/trading`;
+#              0.5 deliberately published one port rather than three, so the
+#              mechanism is proved by a consumer that runs, not by three
+#              contracts written at once
 #   PR 0.4a-2 - DONE: the sync/stream CLI lines left when those commands moved
 #              into `modules/market_data/cli/`
 presentation.cli.trade_once_cmd -> modules.market_data.application.queries.get_historical_klines
@@ -113,11 +124,9 @@ presentation.ui.screens.backtest.coordinators.chart_feed_coordinator -> modules.
 presentation.ui.screens.backtest.coordinators.chart_preview_coordinator -> modules.market_data.application.queries.get_backtest_range_coverage
 presentation.ui.screens.backtest.coordinators.chart_preview_coordinator -> modules.market_data.application.queries.get_historical_klines.query
 presentation.ui.screens.backtest.coordinators.data_sync_coordinator -> modules.market_data.application.queries.get_backtest_range_coverage
-presentation.ui.screens.backtest.coordinators.data_sync_coordinator -> modules.market_data.application.sync.sync_market_data.command
 presentation.ui.screens.dashboard.stream_lifecycle_controller -> modules.market_data.application.queries.get_historical_klines.query
 presentation.ui.screens.dashboard.stream_lifecycle_controller -> modules.market_data.application.stream.start_live_stream.command
 presentation.ui.screens.dashboard.stream_lifecycle_controller -> modules.market_data.application.stream.stop_live_stream.command
-presentation.ui.screens.dashboard.stream_lifecycle_controller -> modules.market_data.application.sync.sync_market_data.command
 presentation.ui.screens.data_management.coordinators.gap_coordinator -> modules.market_data.application.database.repair_data_gap
 presentation.ui.screens.data_management.coordinators.gap_coordinator -> modules.market_data.application.queries.get_database_gaps
 presentation.ui.screens.data_management.coordinators.kline_inspector_coordinator -> modules.market_data.application.queries.audit_database_integrity
@@ -129,8 +138,6 @@ presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules
 presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.queries.scan_all_databases
 presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules.market_data.application.sync.bulk_sync_market_data.command
 presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules.market_data.application.sync.bulk_sync_market_data.sync_target
-presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules.market_data.application.sync.sync_market_data.command
 presentation.ui.screens.trading.coordinators.chart_coordinator -> modules.market_data.application.queries.get_historical_klines.query
 presentation.ui.screens.trading.coordinators.chart_coordinator -> modules.market_data.application.stream.start_live_stream.command
 presentation.ui.screens.trading.coordinators.chart_coordinator -> modules.market_data.application.stream.stop_live_stream.command
-presentation.ui.screens.trading.coordinators.chart_coordinator -> modules.market_data.application.sync.sync_market_data.command

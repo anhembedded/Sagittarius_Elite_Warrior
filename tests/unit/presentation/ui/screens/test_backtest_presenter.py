@@ -72,11 +72,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_h
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols.query import (
     ListAvailableSymbolsQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
+    IMarketDataSync,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
     LotSizeFilter,
@@ -84,6 +84,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_m
     NotionalFilter,
     PriceFilter,
     SymbolMarketMetadata,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
+    FakeMarketDataSync,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_type_renderer import (
     CANDLESTICK,
@@ -226,6 +229,7 @@ def _build_presenter_with_registry(
     registry,
     request,
     script_registry: IndicatorScriptRegistry | None = None,
+    market_data_sync: FakeMarketDataSync | None = None,
 ) -> BackTestPresenter:
     """Same wiring as the `mock_container`/`presenter` fixtures, but with a
     caller-supplied `StrategyRegistry` — used by the bot-params tests that
@@ -235,6 +239,7 @@ def _build_presenter_with_registry(
 
     container = Mock()
     resolved_script_registry = script_registry or IndicatorScriptRegistry()
+    resolved_sync = market_data_sync or FakeMarketDataSync()
 
     def resolve_mock(interface):
         if interface == IThreadManager:
@@ -249,6 +254,8 @@ def _build_presenter_with_registry(
             return resolved_script_registry
         if interface == BacktestChartHostFactory:
             return BacktestChartHostFactory()
+        if interface == IMarketDataSync:
+            return resolved_sync
         return Mock()
 
     container.resolve.side_effect = resolve_mock
@@ -424,12 +431,22 @@ def mock_config():
 
 
 @pytest.fixture
+def fake_market_data_sync():
+    """`EPIC-025` PR 0.5 — Backtest asks market_data for a sync through
+    `IMarketDataSync`, so the container hands out the port's verified fake.
+    The tests below then read *what was asked for* (which start time, which
+    end boundary) instead of unpacking a dispatched command."""
+    return FakeMarketDataSync()
+
+
+@pytest.fixture
 def mock_container(
     mock_thread_mgr,
     mock_dispatcher,
     mock_config,
     strategy_registry,
     indicator_script_registry,
+    fake_market_data_sync,
 ):
     container = Mock()
 
@@ -447,6 +464,8 @@ def mock_container(
             return indicator_script_registry
         if interface == BacktestChartHostFactory:
             return BacktestChartHostFactory()
+        if interface == IMarketDataSync:
+            return fake_market_data_sync
         return Mock()
 
     container.resolve.side_effect = resolve_mock
@@ -1563,40 +1582,44 @@ def test_request_sync_ignored_while_a_backtest_is_already_running(
     mock_thread_mgr.submit.assert_not_called()
 
 
-def test_run_sync_dispatches_sync_market_data_command_for_the_no_data_config(
-    presenter, view_model, mock_dispatcher
+def test_run_sync_asks_the_market_data_port_for_the_no_data_config(
+    presenter, view_model, mock_dispatcher, fake_market_data_sync
 ):
+    """`EPIC-025` PR 0.5: the sync is a call on `IMarketDataSync`, so the
+    dispatcher now sees only the coverage re-probe that follows it."""
     config = _run_to_no_data(presenter, view_model, mock_dispatcher)
     view_model.requestSync()
-    mock_dispatcher.dispatch.side_effect = [None, _complete_coverage()]
+    mock_dispatcher.dispatch.side_effect = [_complete_coverage()]
 
     presenter._run_sync(config)
 
-    handler_class, command = mock_dispatcher.dispatch.call_args_list[0][0]
-    assert handler_class is SyncMarketDataCommand
-    assert command.symbols == [presenter._symbol]
-    assert command.interval == config.timeframe
+    request = fake_market_data_sync.requests[0]
+    assert request.symbols == (presenter._symbol,)
+    assert request.interval == config.timeframe
 
 
 def test_run_sync_fetches_one_interval_past_the_frozen_probe_boundary(
-    presenter, mock_dispatcher
+    presenter, mock_dispatcher, fake_market_data_sync
 ):
     end_time = datetime(2026, 8, 17, 4, 47, 15, tzinfo=UTC)
     config = replace(presenter._get_current_config(), end_time=end_time)
     action = presenter._begin_action(
         BacktestActionKind.SYNC, config, BacktestUiState.EMPTY_DATA
     )
-    mock_dispatcher.dispatch.side_effect = [None, _complete_coverage()]
+    mock_dispatcher.dispatch.side_effect = [_complete_coverage()]
 
     presenter._run_sync(action.config, action.action_id)
 
-    handler_class, command = mock_dispatcher.dispatch.call_args_list[0][0]
-    assert handler_class is SyncMarketDataCommand
-    assert command.end_time == end_time + timedelta(minutes=1)
+    assert fake_market_data_sync.requests[0].end_time == end_time + timedelta(minutes=1)
 
 
 def test_run_sync_resumes_from_the_coverage_gap_not_the_full_requested_range(
-    presenter, view_model, mock_dispatcher, mock_thread_mgr, caplog
+    presenter,
+    view_model,
+    mock_dispatcher,
+    mock_thread_mgr,
+    caplog,
+    fake_market_data_sync,
 ):
     """BUG-017 regression: coverage detection correctly finds the real gap
     (`coverage.missing_open_times[0]`), but the sync it triggers must resume
@@ -1610,7 +1633,7 @@ def test_run_sync_resumes_from_the_coverage_gap_not_the_full_requested_range(
     coverage = _missing_coverage()  # gap at _T0 = 2026-01-01
     assert coverage.missing_open_times[0] != requested_start
     mock_thread_mgr.reset_mock()
-    mock_dispatcher.dispatch.side_effect = [None, _complete_coverage()]
+    mock_dispatcher.dispatch.side_effect = [_complete_coverage()]
 
     with caplog.at_level(logging.INFO, logger="App.BackTestPresenter"):
         presenter._on_backtest_coverage_missing_for_action(
@@ -1622,9 +1645,9 @@ def test_run_sync_resumes_from_the_coverage_gap_not_the_full_requested_range(
         submitted_args = mock_thread_mgr.submit.call_args[0][1:]
         presenter._run_sync(*submitted_args)
 
-    _, command = mock_dispatcher.dispatch.call_args_list[0][0]
-    assert command.start_time == coverage.missing_open_times[0]
-    assert command.start_time != requested_start
+    request = fake_market_data_sync.requests[0]
+    assert request.start_time == coverage.missing_open_times[0]
+    assert request.start_time != requested_start
     # Log-proved: the decision (which start it resumed from and why) must be
     # findable in a real session's log, not just inferable from the outcome.
     resolved_lines = [
@@ -1635,20 +1658,19 @@ def test_run_sync_resumes_from_the_coverage_gap_not_the_full_requested_range(
 
 
 def test_run_sync_falls_back_to_the_requested_start_with_no_prior_coverage(
-    presenter, view_model, mock_dispatcher, caplog
+    presenter, view_model, mock_dispatcher, caplog, fake_market_data_sync
 ):
     """The cold-DB case (BUG-017's suggested-fix note): with no coverage
     probe result at all, the full requested range genuinely is missing, so
     falling back to `config.start_time` is correct, not a regression."""
     config = _run_to_no_data(presenter, view_model, mock_dispatcher)
     view_model.requestSync()
-    mock_dispatcher.dispatch.side_effect = [None, _complete_coverage()]
+    mock_dispatcher.dispatch.side_effect = [_complete_coverage()]
 
     with caplog.at_level(logging.INFO, logger="App.BackTestPresenter"):
         presenter._run_sync(config)
 
-    _, command = mock_dispatcher.dispatch.call_args_list[0][0]
-    assert command.start_time == config.start_time
+    assert fake_market_data_sync.requests[0].start_time == config.start_time
     resolved_lines = [
         r.message for r in caplog.records if "sync_start_resolved" in r.message
     ]
@@ -1685,10 +1707,11 @@ def test_sync_success_clears_the_flag_and_auto_resubmits_the_backtest(
     config = _run_to_no_data(presenter, view_model, mock_dispatcher)
     view_model.requestSync()
     mock_thread_mgr.reset_mock()
-    # The worker verifies coverage after SyncMarketDataCommand.  The
+    # The worker verifies coverage after the sync — which is a port call now,
+    # so the coverage re-probe is the dispatcher's only work here. The
     # resubmitted RunStaticBacktestCommand is never dispatched in this test
     # because mock_thread_mgr is a Mock, not a real thread pool.
-    mock_dispatcher.dispatch.side_effect = [None, _complete_coverage()]
+    mock_dispatcher.dispatch.side_effect = [_complete_coverage()]
 
     presenter._run_sync(config)
 
@@ -1713,10 +1736,8 @@ def test_sync_success_resubmits_with_its_original_config_snapshot(
     view_model.requestSync()
     view_model.initialCapitalText = "500"
     mock_thread_mgr.reset_mock()
-    # The worker verifies coverage after SyncMarketDataCommand.  The
-    # resubmitted RunStaticBacktestCommand is never dispatched in this test
-    # because mock_thread_mgr is a Mock, not a real thread pool.
-    mock_dispatcher.dispatch.side_effect = [None, _complete_coverage()]
+    # As above: the sync is a port call, the probe is the one dispatch.
+    mock_dispatcher.dispatch.side_effect = [_complete_coverage()]
 
     presenter._run_sync(config)
 
@@ -1725,12 +1746,18 @@ def test_sync_success_resubmits_with_its_original_config_snapshot(
 
 
 def test_sync_failure_keeps_the_flag_and_returns_to_idle(
-    presenter, view_model, mock_dispatcher, mock_thread_mgr
+    presenter, view_model, mock_dispatcher, mock_thread_mgr, fake_market_data_sync
 ):
     config = _run_to_no_data(presenter, view_model, mock_dispatcher)
     view_model.requestSync()
     mock_thread_mgr.reset_mock()
-    mock_dispatcher.dispatch.side_effect = RuntimeError("sync boom")
+
+    # The failure is the sync's now, not the dispatcher's: a network error
+    # reaches this screen through the port it called.
+    def _boom(_request):
+        raise RuntimeError("sync boom")
+
+    fake_market_data_sync.sync = _boom
 
     presenter._run_sync(config)
 

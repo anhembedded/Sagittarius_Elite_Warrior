@@ -29,8 +29,8 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.scan_
     DatabaseStatusDTO,
     ScanAllDatabasesQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
+    FakeMarketDataSync,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
@@ -67,12 +67,26 @@ def mock_market_data_repo():
 
 
 @pytest.fixture
-def mock_container(mock_thread_mgr, mock_dispatcher, mock_market_data_repo):
+def fake_market_data_sync():
+    """`EPIC-025` PR 0.5 — the screen asks for a sync through
+    `IMarketDataSync` now, so the container must hand out the port's verified
+    fake rather than a bare `Mock`: a `Mock` would record the call and prove
+    nothing about what was asked for."""
+    return FakeMarketDataSync()
+
+
+@pytest.fixture
+def mock_container(
+    mock_thread_mgr, mock_dispatcher, mock_market_data_repo, fake_market_data_sync
+):
     container = Mock()
 
     def resolve_mock(interface):
         from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
             IMarketDataRepository,
+        )
+        from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
+            IMarketDataSync,
         )
         from sagittarius_engine.extensions.pyside_mvc.base_view import (
             DEV_MODE_CONFIG_KEY,
@@ -87,6 +101,8 @@ def mock_container(mock_thread_mgr, mock_dispatcher, mock_market_data_repo):
             return mock_dispatcher
         if interface == IMarketDataRepository:
             return mock_market_data_repo
+        if interface == IMarketDataSync:
+            return fake_market_data_sync
         if interface == IConfig:
             mock_config = Mock()
             mock_config.get_all.return_value = {}
@@ -138,19 +154,17 @@ def test_on_sync_data_submits_background_task(presenter, view_model, mock_thread
     )
 
 
-def test_run_single_sync_dispatches_command(presenter, mock_dispatcher):
+def test_run_single_sync_asks_the_market_data_port(presenter, fake_market_data_sync):
+    """`EPIC-025` PR 0.5: the screen no longer builds the module's command.
+    What it promises is "sync this symbol at this timeframe", and that is now
+    readable straight off the port."""
     presenter.fsm.transition_to(UIMode.SYNCING)
 
     presenter._run_single_sync("ETHUSDT", "1h", None, None)
 
-    command_type, command = next(
-        call.args
-        for call in mock_dispatcher.dispatch.call_args_list
-        if call.args[0] is SyncMarketDataCommand
-    )
-    assert command_type is SyncMarketDataCommand
-    assert command.symbols == ["ETHUSDT"]
-    assert command.interval == TimeFrame.ONE_HOUR
+    request = fake_market_data_sync.requests[0]
+    assert request.symbols == ("ETHUSDT",)
+    assert request.interval == TimeFrame.ONE_HOUR
 
 
 def test_custom_time_range_is_parsed_and_passed_through(

@@ -43,8 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
     StopLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
+    IMarketDataSync,
+    MarketDataSyncRequest,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
     map_klines,
@@ -77,6 +78,7 @@ class ChartCoordinator:
         *,
         thread_manager: IThreadManager,
         dispatcher: IDispatcher,
+        market_data_sync: IMarketDataSync,
         emit_history_ready: Callable[[str, list, list, list], None],
         emit_load_finished: Callable[[], None],
         emit_stream_started: Callable[[str], None],
@@ -85,6 +87,7 @@ class ChartCoordinator:
     ) -> None:
         self._thread_manager = thread_manager
         self._dispatcher = dispatcher
+        self._market_data_sync = market_data_sync
         self._emit_history_ready = emit_history_ready
         self._emit_load_finished = emit_load_finished
         self._emit_stream_started = emit_stream_started
@@ -141,13 +144,12 @@ class ChartCoordinator:
 
             if go_live:
                 self._emit_log(f"Syncing {symbol} data from Binance...")
-                self._dispatcher.dispatch(
-                    SyncMarketDataCommand,
-                    SyncMarketDataCommand(
-                        symbols=[symbol],
+                self._market_data_sync.sync(
+                    MarketDataSyncRequest(
+                        symbols=(symbol,),
                         interval=interval,
                         cancellation_requested=token.is_cancelled,
-                    ),
+                    )
                 )
                 if token.is_cancelled():
                     return

@@ -12,8 +12,8 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.client import (
     PythonBinanceClient,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
+    FakeMarketDataSync,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.stream_lifecycle_controller import (
@@ -22,13 +22,15 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.stream_life
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 
-def test_stream_lifecycle_controller_passes_cancellation_to_sync_command() -> None:
+def test_stream_lifecycle_controller_passes_cancellation_to_the_sync() -> None:
     dispatcher = MagicMock()
+    market_data_sync = FakeMarketDataSync()
     token = CancellationToken()
 
     controller = StreamLifecycleController(
         thread_manager=MagicMock(),
         dispatcher=dispatcher,
+        market_data_sync=market_data_sync,
         config=MagicMock(),
         fsm=MagicMock(),
         view_model=MagicMock(),
@@ -61,21 +63,20 @@ def test_stream_lifecycle_controller_passes_cancellation_to_sync_command() -> No
         token=token,
     )
 
-    assert dispatcher.dispatch.called
-    sync_call_args = dispatcher.dispatch.call_args_list[0][0]
-    assert sync_call_args[0] is SyncMarketDataCommand
-    sync_cmd: SyncMarketDataCommand = sync_call_args[1]
-    assert sync_cmd.cancellation_requested is not None
-    assert sync_cmd.cancellation_requested == token.is_cancelled
-    assert not sync_cmd.cancellation_requested()
-    # BOT-123 — every dispatch is tagged so `on_sync_progress` can tell this
+    # `EPIC-025` PR 0.5: read off the port this screen now calls, instead of
+    # off the command it used to build.
+    request = market_data_sync.requests[0]
+    assert request.cancellation_requested is not None
+    assert request.cancellation_requested == token.is_cancelled
+    assert not request.cancellation_requested()
+    # BOT-123 — every sync is tagged so `on_sync_progress` can tell this
     # screen's own sync apart from one Backtest/Data Management started
     # (`SyncProgressFeed` fans every report out to every screen that has
     # one, per `BOT-121`/`BOT-122`).
-    assert sync_cmd.correlation_id
+    assert request.correlation_id
 
     token.cancel()
-    assert sync_cmd.cancellation_requested()
+    assert request.cancellation_requested()
 
 
 def test_stream_lifecycle_controller_shutdown_finishes_action_slots() -> None:
@@ -85,6 +86,7 @@ def test_stream_lifecycle_controller_shutdown_finishes_action_slots() -> None:
     controller = StreamLifecycleController(
         thread_manager=mock_thread_manager,
         dispatcher=MagicMock(),
+        market_data_sync=FakeMarketDataSync(),
         config=MagicMock(),
         fsm=MagicMock(current_state=UIMode.IDLE),
         view_model=MagicMock(),
@@ -126,6 +128,7 @@ def _controller(**overrides) -> StreamLifecycleController:
     defaults = {
         "thread_manager": MagicMock(),
         "dispatcher": MagicMock(),
+        "market_data_sync": FakeMarketDataSync(),
         "config": MagicMock(),
         "fsm": MagicMock(),
         "view_model": MagicMock(),

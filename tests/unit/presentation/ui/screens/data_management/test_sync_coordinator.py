@@ -4,14 +4,18 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.bulk_sync_market_data.command import (
     BulkSyncMarketDataCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.bulk_sync_events import (
     BulkSyncProgressEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
+    MarketDataSyncRequest,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
+    FakeMarketDataSync,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOutcome,
@@ -28,6 +32,39 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coord
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 
+class _ReportingSync(FakeMarketDataSync):
+    """A sync that publishes a progress report from inside `sync()`.
+
+    Production timing, and the only way to reach it: `_active_correlation_id`
+    lives only for the duration of the call, so a report published after
+    `run_single_sync()` returns tests nothing. A local subclass rather than a
+    hook on `FakeMarketDataSync` — one consumer needs this, and a fake grows a
+    callback surface it cannot verify the moment it starts guessing.
+    """
+
+    def __init__(self, coordinator, *, use_the_requests_id: bool) -> None:
+        super().__init__()
+        self._coordinator = coordinator
+        self._use_the_requests_id = use_the_requests_id
+
+    def sync(self, request: MarketDataSyncRequest) -> None:
+        super().sync(request)
+        correlation_id = (
+            self.requests[-1].correlation_id
+            if self._use_the_requests_id
+            else "some-other-screens-request"
+        )
+        self._coordinator.publish_single_sync_progress(
+            SyncProgressReport(
+                symbol="BTCUSDT",
+                interval="1h",
+                current=50,
+                total=100,
+                correlation_id=correlation_id,
+            )
+        )
+
+
 @pytest.fixture
 def sync_fixture():
     view_model = Mock()
@@ -38,6 +75,7 @@ def sync_fixture():
     view_model.toDateTime = ""
 
     dispatcher = Mock()
+    market_data_sync = FakeMarketDataSync()
     thread_manager = Mock()
     tracker = ActionOwnershipTracker[DataManagementActionKind, object, UIMode]()
 
@@ -55,6 +93,7 @@ def sync_fixture():
     coordinator = SyncCoordinator(
         view_model=view_model,
         dispatcher=dispatcher,
+        market_data_sync=market_data_sync,
         thread_manager=thread_manager,
         tracker=tracker,
         ui_log_signal=signals["ui_log"],
@@ -67,23 +106,23 @@ def sync_fixture():
         is_shutdown_requested=signals["is_shutdown"],
     )
 
-    return coordinator, view_model, dispatcher, tracker, signals
+    return coordinator, view_model, dispatcher, tracker, signals, market_data_sync
 
 
 def test_sync_coordinator_single_sync_success(sync_fixture):
-    coordinator, _, dispatcher, tracker, signals = sync_fixture
+    coordinator, _, dispatcher, tracker, signals, sync = sync_fixture
 
     coordinator.run_single_sync("BTCUSDT", "1h", None, None)
 
-    dispatcher.dispatch.assert_called_once()
-    assert isinstance(dispatcher.dispatch.call_args[0][1], SyncMarketDataCommand)
+    assert sync.was_asked_for("BTCUSDT", TimeFrame.ONE_HOUR)
+    dispatcher.dispatch.assert_not_called(), "a single sync goes through the port"
     signals["ui_sync_complete"].assert_called_once()
     signals["ui_unlock"].assert_called_once()
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
 
 
 def test_sync_coordinator_single_sync_cancelled(sync_fixture):
-    coordinator, _, _dispatcher, tracker, signals = sync_fixture
+    coordinator, _, _dispatcher, tracker, signals, _sync = sync_fixture
 
     token = CancellationToken()
     token.cancel()
@@ -96,7 +135,7 @@ def test_sync_coordinator_single_sync_cancelled(sync_fixture):
 
 
 def test_sync_coordinator_bulk_sync_success(sync_fixture):
-    coordinator, _, dispatcher, tracker, signals = sync_fixture
+    coordinator, _, dispatcher, tracker, signals, _sync = sync_fixture
 
     coordinator.run_bulk_sync([("BTCUSDT", "1h"), ("ETHUSDT", "15m")])
 
@@ -113,20 +152,11 @@ def test_sync_coordinator_single_sync_progress_matches_while_dispatch_is_in_flig
     real dispatch — simulate a `SingleSyncProgressEvent` arriving while it's
     genuinely in flight, matching production timing, instead of calling
     `publish_single_sync_progress()` after `run_single_sync()` already
-    cleared it. `payload` is the real dispatched `SyncMarketDataCommand`, so
-    its `correlation_id` is the one the coordinator is actually waiting on."""
-    coordinator, _, dispatcher, _, signals = sync_fixture
-    dispatcher.dispatch.side_effect = lambda kind, payload: (
-        coordinator.publish_single_sync_progress(
-            SyncProgressReport(
-                symbol="BTCUSDT",
-                interval="1h",
-                current=50,
-                total=100,
-                correlation_id=payload.correlation_id,
-            )
-        )
-    )
+    cleared it. The request the coordinator handed the port carries the
+    `correlation_id` it is actually waiting on."""
+    coordinator, _, _dispatcher, _, signals, _sync = sync_fixture
+    reporting_sync = _ReportingSync(coordinator, use_the_requests_id=True)
+    coordinator._market_data_sync = reporting_sync
 
     coordinator.run_single_sync("BTCUSDT", "1h", None, None)
 
@@ -142,26 +172,17 @@ def test_sync_coordinator_progress_with_a_different_correlation_id_is_dropped(
     happen to match (two different actions can legitimately target the
     same symbol+interval — `correlation_id` is what actually distinguishes
     them, not business data)."""
-    coordinator, _, dispatcher, _, signals = sync_fixture
-    dispatcher.dispatch.side_effect = lambda kind, payload: (
-        coordinator.publish_single_sync_progress(
-            SyncProgressReport(
-                symbol="BTCUSDT",
-                interval="1h",
-                current=50,
-                total=100,
-                correlation_id="some-other-screens-request",
-            )
-        )
+    coordinator, _, _dispatcher, _, signals, _sync = sync_fixture
+    coordinator._market_data_sync = _ReportingSync(
+        coordinator, use_the_requests_id=False
     )
-
     coordinator.run_single_sync("BTCUSDT", "1h", None, None)
 
     signals["ui_single_sync_progress"].assert_not_called()
 
 
 def test_sync_coordinator_progress_event_handlers(sync_fixture):
-    coordinator, _, _, _, signals = sync_fixture
+    coordinator, _, _, _, signals, _sync = sync_fixture
 
     # Single sync progress — `EPIC-008G`: the coordinator no longer subscribes
     # to the bus and formats the string itself. `SyncProgressFeed` normalises
@@ -204,7 +225,7 @@ def test_sync_coordinator_progress_event_handlers(sync_fixture):
 
 
 def test_sync_coordinator_custom_time_range_parsing(sync_fixture):
-    coordinator, view_model, _, _, _ = sync_fixture
+    coordinator, view_model, _, _, _, _sync = sync_fixture
 
     view_model.useCustomTime = True
     view_model.fromDateTime = "2024-01-01 00:00"
