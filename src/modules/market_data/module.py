@@ -22,8 +22,12 @@ is exactly what a reader opens this file to find.
 **Hooks not implemented, and why:**
 
 - `contribute()` — Data Management is still a legacy screen carried by
-  `shell/legacy_screen_adapter.py`. PR 0.4b rebuilds it as QtWidgets panels and
-  *then* this module contributes them.
+  `shell/legacy_screen_adapter.py`. PR 0.4b rebuilt it on QtWidgets (its last
+  `.qml` is gone) but left it in the legacy tree: a module's `ui/` may import
+  `support/ui_kit` and `support/charting` whole, and neither exists before
+  Phase 4, so moving the screen now would need 35 imports pointing from this
+  module back at `presentation.ui.*`. `EPIC-025A` §1.8 measures it;
+  `EPIC-025E` step 6 carries the move.
 - `subscribe()` — the market-tick handler still lives in the legacy tree
   (`application/event_handlers/market_data/`) and moves in Phase 1.
 

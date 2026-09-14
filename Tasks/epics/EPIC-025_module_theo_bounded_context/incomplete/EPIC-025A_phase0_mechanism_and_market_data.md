@@ -206,7 +206,7 @@ splitting needs no permission.
 | :-- | :--- | :--- |
 | **0.4a** | the module: `domain/`, `application/`, `contracts/`, `adapters/`, registration in `shell/modules.py`, CLI `sync` / `stream`, contract suites and verified fakes. Data Management keeps its current widgets and consumes the module through its contracts | a pure move — every existing test must still pass, unchanged |
 | **0.4b-1** | the two QML islands inside Data Management rebuilt as a `QTableView` panel and a `QDialog`; four `.qml` files deleted | the first visible UI change of the epic; the QML baseline drops by four |
-| **0.4b-2** | the screen moves to `modules/market_data/ui/` and is contributed through `ScreenContribution`; its eight allowlist entries retire | the shell stops naming a screen it no longer owns |
+| **0.4b-2** | ~~the screen moves to `modules/market_data/ui/` and is contributed through `ScreenContribution`~~ — **deferred to Phase 4** (§1.8): the move needs `support/ui_kit`, or it costs 35 backward imports | — |
 
 The user's Phase 0 checkpoint ("Data Management: sync a symbol") lands on **0.4b**, with the CLI
 check on 0.4a.
@@ -392,8 +392,8 @@ dumps harmless `TypeError`s after pytest's summary line.
 Data Management holds no `.qml` file any more. Its two QML islands — the shard status table and
 the candle-lookup modal — are a `QTableView` with four `QAction`s and a `QDialog`, and the four
 `.qml` files behind them are deleted (ADR D20). The screen around them was already QtWidgets
-(`EPIC-005E`), so this pull request is the two islands and nothing else; moving the screen into
-`modules/market_data/ui/` is 0.4b-2.
+(`EPIC-005E`), so this pull request is the two islands and nothing else. Moving the screen into
+`modules/market_data/ui/` was planned as 0.4b-2 and is **deferred to Phase 4** — §1.8 measures why.
 
 ### The spec named the wrong four files, and the inventory said so before any code moved
 
@@ -512,6 +512,59 @@ The full gate (`scripts/ci-local.ps1 -Full`), with its log grepped for
 widget guards above, the colour guard, and one test asserting the deleted modal's `objectName` —
 and all four were real: two rule conflicts to resolve explicitly, one invented colour, one stale
 name.
+
+## 1.8 Why PR 0.4b does not move the screen into `modules/market_data/ui/` (2026-09-14)
+
+§1 of this document puts Data Management's rebuilt UI in `modules/market_data/ui/`, and the
+boundary allowlist said its eight `data_management.*` entries retire "PR 0.4b, when that screen is
+rebuilt". The rebuild is done (§1.7) and the move is **not**, because it cannot be done in Phase 0
+without inverting the one number this epic watches.
+
+### The measurement
+
+The screen is 22 Python files. Of their imports, 12 point at `modules/market_data/application/`
+(the eight allowlisted dispatch pairs) — but **35 distinct pairs point at the legacy presentation
+tree**:
+
+| Where a moved `modules/market_data/ui/` would still have to import | Pairs |
+| :--- | :-: |
+| `presentation.ui.common.*` (action ownership, app defaults, the sync-progress feed and report, `qml_property`) | 11 |
+| `presentation.ui.constants` | 6 |
+| `presentation.ui.assets` (`Palette`, the icon loader) | 4 |
+| `presentation.ui.components.*` (log panel, symbol picker, timeframe picker, the chart's candle colours) | 6 |
+| `presentation.ui.kit` (`PageShell`, `ConfirmOverlay`, `apply_role`) | 2 |
+| `presentation.ui.qml.*` (the two shared pickers' dialog hosts, the progress banner) | 3 |
+| `presentation.ui.state.*` (state scope, container lookup, the UI state coordinator) | 3 |
+| `presentation.ui.registry` (`AbstractScreenModule`) | 1 |
+
+Allowlist arithmetic: **38 − 8 + 35 = 65**, and the metric the epic reports in every pull request —
+*imports pointing from the new tree back into the legacy tree* — goes from **0 to 35**. That
+number is enforceable because it has no exceptions; spending it on a directory move buys nothing a
+user can see.
+
+### It is not a gap in the plan, it is the plan's own order
+
+HLD §6.1 already anticipates what a module's UI needs: `_UI_SUPPORT_ZONES` in
+`tests/unit/architecture/boundaries/rules.py` lets `modules/<name>/ui/` import
+**`support/ui_kit` and `support/charting` whole**, not merely through their `contracts/`. Those two
+packages are Phase 4 (`EPIC-025E` — "`support/*`; dissolve `ui/common`"), and they are precisely
+the destination of eight of the nine rows above. The move is therefore a Phase 4 step that was
+written down as a Phase 0 one.
+
+### What this changes, and what it does not
+
+- **Deferred:** the `git mv` into `modules/market_data/ui/`, `MarketDataModule.contribute()`
+  offering the screen, and removing `DatabaseScreenModule` from `LEGACY_SCREEN_MODULES`. They land
+  with `support/ui_kit`, in Phase 4.
+- **Re-keyed:** the eight `data_management.*` allowlist entries now name **Phase 1**, the same exit
+  as the other 30 dispatch entries — a port call replaces the dispatch, which retires the entry
+  wherever the file happens to live. The allowlist comment carries this measurement.
+- **Unchanged:** the user's Phase 0 checkpoint. "Data Management: sync a symbol, inspect klines"
+  runs on the rebuilt screen either way; where the file sits is invisible to it.
+- **Rejected, and recorded so it is not re-proposed:** contributing the screen from
+  `MarketDataModule.contribute()` while the code stays in the legacy tree. It costs 2 backward
+  entries instead of 35, but it buys a declaration rather than a behaviour, and "zero" stops being
+  a rule the moment it is worth two.
 
 ## 2. Done when
 
