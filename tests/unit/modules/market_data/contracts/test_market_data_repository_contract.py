@@ -11,9 +11,11 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
+    candle,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.contract_market_data_repository import (
     MarketDataRepositoryContract,
-    candle,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (
     FakeMarketDataRepository,
