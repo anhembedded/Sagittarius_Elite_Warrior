@@ -1,14 +1,14 @@
 from collections.abc import Mapping
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
-    IEventPublisher,
-)
 from Sagittarius_Elite_Warrior.src.application.services.strategy_engine import (
     StrategyEngine,
 )
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
 )
 
 

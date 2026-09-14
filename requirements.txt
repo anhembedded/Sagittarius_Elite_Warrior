@@ -9,6 +9,7 @@ ruff
 PySide6==6.11.1
 pyqtgraph
 pytest-qt
+pytest-timeout
 pytest-xdist
 flake8
 mypy==2.1.0

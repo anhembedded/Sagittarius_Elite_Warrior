@@ -21,20 +21,20 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.stop_live_stream.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
     StopLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
     CancellationCheck,
     SyncMarketDataCommand,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
     map_klines,
     map_volume,

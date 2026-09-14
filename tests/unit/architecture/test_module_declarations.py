@@ -15,10 +15,15 @@ Four claims, each checkable, each a real failure mode:
    snapshot in `test_module_contribution_laziness`; this file covers the static
    half — the declarations.
 
-Phase 0 PR 0.2 ships the mechanism with an empty `MODULES`, so most of these
-run against an empty set on purpose: they are live *before* the first module
-lands, which is the only way the first module gets checked at all. The
-`dependencies` check reads imports with `ast`, never a regex (`BOT-133`).
+PR 0.2 shipped these checks against an empty `MODULES` on purpose — live
+*before* the first module landed, which is the only way the first module gets
+checked at all. PR 0.4a gave them their first subject, `market_data`, so they
+now assert against something. The two tests that end in a fixed string
+(`test_the_contracts_reader_finds_a_cross_module_import`) stay, because a guard
+whose real subject is one module still has to prove its reader works for a
+*second* one that does not exist yet.
+
+The `dependencies` check reads imports with `ast`, never a regex (`BOT-133`).
 """
 
 from __future__ import annotations
@@ -86,8 +91,9 @@ def _contracts_imported_by(module_id: str) -> set[str]:
 
 
 def test_the_module_root_matches_the_module_list() -> None:
-    """Phase 0 PR 0.2: both sides are empty, and they are still compared —
-    the first module to land is checked by a test that was already running."""
+    """Both directions, one assertion: a package on disk that nobody lists never
+    registers (dead code that reads as live), and a listed package that is not on
+    disk crashes the next boot."""
     assert _packages_on_disk() == set(_declared_ids())
 
 

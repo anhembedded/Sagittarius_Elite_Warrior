@@ -87,12 +87,18 @@ whole gate back. A mixed commit is a code commit.
 3. Every `WARNING`/`ERROR`/`CRITICAL` hit named and explained — real defect (then `bug` in full) or justified expected condition? "Already there before" means search `Tasks/bug_report/incomplete/`, not move on.
 4. A failure called flaky without evidence? (`ci` §3, §5)
 5. Whatever you *can* run, did you? `ruff check src tests`, `ruff format --check src tests`, the `python3` guards in `tests/unit/architecture/`, `python3 scripts/check_skill_prompt_references.py`.
+6. Was the gate run on **the tree under review**, or on an earlier one? A green run proves nothing about commits made after it, and "I ran the gate, then fixed one more thing" is the ordinary way a branch ends up unverified. Compare the run's own timestamp with the head commit's, and check that nothing is left uncommitted:
 
 ```bash
 # B2/B3 — the scan the evidence must contain. Offscreen Qt noise lands after
 # pytest's summary, so never judge by `| tail`; redirect and grep the LOG_FILE.
 grep -nE '\b(FAILED|ERROR|Traceback|ResourceWarning)\b' <LOG_FILE>
 grep -E '\- (WARNING|ERROR|CRITICAL) \-' <LOG_FILE>
+
+# B6 — the gate's log against the commit it is offered as evidence for.
+ls -l --time-style=+%Y-%m-%dT%H:%M logs/ci-local-latest.log
+git log -1 --date=iso --format='%H %ad %s'
+git status --short          # anything here was never in the verified tree
 ```
 
 ### C. Architecture (`arch`) — almost all `eye`
@@ -155,6 +161,18 @@ for path in sys.argv[1:]:
 8. A new field on a frozen dataclass without a default? (trap 5)
 9. Bug fix: regression test written **first**, confirmed failing for the right reason, at a tier that actually reaches the failure? (`bug` §4 — a `Mock` standing in for the crashing method cannot reproduce it)
 10. Bug fix: does it fix the mechanism or patch the one reported call site? (`bug` §2, `onb` §12.5 principle 1 — the general solution is required; cost is not a reason to prefer local)
+11. A widget or module **rewritten together with its tests**? Then E4's file-level check is not enough: the new tests can be more numerous and still cover less. List what the deleted tests asserted, say where each guarantee now lives, and name the ones deliberately dropped with the reason (a framework now does it; the feature is gone).
+12. Where a new test pins a **wiring or a rule** — a signal connection, an enable/disable gate, a guard's threshold, a confirmation before a destructive act — **would it fail if that line were removed?** Do not reason about it; break the line and run. (Not every test needs this: one that feeds a pure function its own inputs already shows it can fail. It is the tests whose subject is *that two things are connected* which pass just as happily when they are not.) `EPIC-025` PR 0.4b shipped a search box whose two `textEdited` connections could be deleted with all 22 tests in the file still green — every test drove the setter method, and typing is a different code path. Three commands, and the answer is evidence rather than opinion:
+
+```bash
+# E12 — the test that cannot fail is not a test (`onb` §8 traps 1-4 are the
+# same disease). Break the one line the test names, run only that file,
+# restore. Copy first: an interrupted review must not leave the break behind.
+cp src/<path>.py /tmp/keep.py
+sed -i 's/^\(\s*\)<the line the test relies on>/\1pass  # broken on purpose/' src/<path>.py
+python3 -m pytest tests/<its test file> -q   # expect exactly the one failure
+cp /tmp/keep.py src/<path>.py && git diff --stat -- src/<path>.py   # empty
+```
 
 ### F. Domain truth (`truth`)
 1. Anything presenting a convenience as a fact — coverage proven by row count, a universal hard-coded exchange filter, an ETA stated as certainty?
@@ -192,6 +210,7 @@ for path in sys.argv[1:]:
 3. A new top-level `src/` package registered in `tests/unit/architecture/scanned_roots_registry.py` and covered by the relevant guards? Without a row an empty scan passes quietly forever.
 4. A guard's own file moved — did its path constant follow?
 5. A new abstract method, config key or engine API arriving without its declaration/registry row? (`Docs/HLD/`, `src/infrastructure/engine_adapters/`; `.agents/Skills/epic-025.prompt.md` §2 lists the module-split invariants with their check commands)
+6. Does a guard the diff runs into encode a rule a **newer ADR reversed** — a ratchet written under a doctrine a later decision overturned? Read `ci` §5.5, which says what the author must have done: the guard's own documented exemption naming the ADR, the ceiling *not* raised, the reversal recorded in that guard's docstring. A raised ceiling, or a guard quietly loosened to get the diff through, is a finding even when the new code is correct.
 
 ### K. Bookkeeping and documents
 1. Board reflects the work? (`Tasks/ROADMAP.md`, `Tasks/epics/README.md`; `onb` §6 calls this the most commonly botched part)
@@ -209,6 +228,14 @@ for path in sys.argv[1:]:
 3. The AI trailer present, naming the assistant that actually wrote it? (§3 — read the trailer there, never copy one)
 4. Any scratch file, `.db`, virtualenv, `logs/`, `state/`, secret or leftover `print()`? (§4; read a suspicious file's contents before calling it harmless)
 5. A dependency or tool-config change nobody asked for? `git diff "$BASE...$HEAD" -- requirements.txt pyproject.toml` (`skills` §6 puts this in ask-first)
+6. Does **each commit** contain only what its subject names? A2 asks that of the diff; §4's atomicity is per commit, and the usual way it breaks is an index that was already staged — a `git mv` from an earlier step rides along in the next `git commit`, which commits the whole index and not the paths you just added. One command reads it, and it is the author's own commits it catches:
+
+```bash
+# L6 — every commit on the branch, with renames shown as renames.
+for c in $(git log --format=%h "$BASE..$HEAD"); do
+  echo "--- $c"; git show --stat -M --format='%s' "$c" | tail -12
+done
+```
 
 ## 4. Grade each finding
 

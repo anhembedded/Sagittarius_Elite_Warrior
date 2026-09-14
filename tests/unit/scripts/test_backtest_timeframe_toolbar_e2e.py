@@ -19,8 +19,8 @@ from Sagittarius_Elite_Warrior.scripts.backtest_timeframe_toolbar_e2e import (
     _SYMBOL,
     _SeededMarketDataRepository,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
 def _make_kline(open_time: datetime) -> MarketData:

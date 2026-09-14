@@ -1,5 +1,4 @@
 import logging
-import os
 from datetime import timedelta
 from decimal import Decimal
 
@@ -8,35 +7,11 @@ logger = logging.getLogger("App.BinanceBotModule")
 from Sagittarius_Elite_Warrior.src.application.event_handlers.market_data.market_tick_event_handler import (
     MarketTickEventHandler,
 )
-from Sagittarius_Elite_Warrior.src.application.ports.i_command_dispatcher import (
-    ICommandDispatcher,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_config_reader import (
-    IConfigReader,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
-    IEventPublisher,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
-    IExchangeClient,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_session_factory import (
-    IExchangeSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_futures_symbol_metadata_cache import (
     IFuturesSymbolMetadataCache,
 )
-from Sagittarius_Elite_Warrior.src.application.ports.i_live_stream_service import (
-    ILiveStreamService,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
-    IMarketDataRepository,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
     IMarketMetadataProvider,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_symbol_catalog_repository import (
-    ISymbolCatalogRepository,
 )
 from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
     ITradingAccountReader,
@@ -49,9 +24,6 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_user_data_stream import (
 )
 from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
     EquityCurveRecorder,
-)
-from Sagittarius_Elite_Warrior.src.application.services.in_flight_sync_guard import (
-    InFlightSyncGuard,
 )
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
@@ -97,73 +69,17 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.commands.submit_order i
     SubmitOrderCommand,
     SubmitOrderCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.database.clear_market_data import (
-    ClearMarketDataCommand,
-    ClearMarketDataCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.database.prune_empty_shards import (
-    PruneEmptyShardsCommand,
-    PruneEmptyShardsCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.database.repair_data_gap import (
-    RepairDataGapCommand,
-    RepairDataGapCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.audit_database_integrity import (
-    AuditDatabaseIntegrityQuery,
-    AuditDatabaseIntegrityQueryHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_backtest_range_coverage import (
-    GetBacktestRangeCoverageQuery,
-    GetBacktestRangeCoverageQueryHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_gaps import (
-    GetDatabaseGapsQuery,
-    GetDatabaseGapsQueryHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status import (
-    GetDatabaseStatusQuery,
-    GetDatabaseStatusQueryHandler,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_exchange_connection_status import (
     GetExchangeConnectionStatusQuery,
     GetExchangeConnectionStatusQueryHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines import (
-    GetHistoricalKlinesQuery,
-    GetHistoricalKlinesQueryHandler,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_open_positions import (
     GetOpenPositionsQuery,
     GetOpenPositionsQueryHandler,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols import (
-    ListAvailableSymbolsQuery,
-    ListAvailableSymbolsQueryHandler,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order import (
     PreviewOrderQuery,
     PreviewOrderQueryHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases import (
-    ScanAllDatabasesQuery,
-    ScanAllDatabasesQueryHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream import (
-    StartLiveStreamCommand,
-    StartLiveStreamCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.stop_live_stream import (
-    StopLiveStreamCommand,
-    StopLiveStreamCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.bulk_sync_market_data import (
-    BulkSyncMarketDataCommand,
-    BulkSyncMarketDataCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data import (
-    SyncMarketDataCommand,
-    SyncMarketDataCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.arm_strategy import (
     ArmStrategyCommand,
@@ -194,8 +110,14 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order i
     ExecuteOrderCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
-    MarketTickEvent,
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import (
+    IConfigReader,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.dev_indicator_script import (
     DevIndicatorScript,
@@ -249,9 +171,6 @@ from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy 
     TradingLimitPolicy,
     TradingLimits,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service import (
-    BinanceWebsocketService,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
 )
@@ -276,21 +195,14 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.config_reader_
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.live_stream_adapter import (
-    LiveStreamEngineAdapter,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.database_manager import (
-    DatabaseConfig,
-    DatabaseManager,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.json_symbol_catalog_repository import (
-    JsonSymbolCatalogRepository,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
+    MarketTickEvent,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.sqlalchemy_repository import (
-    SQLAlchemyMarketDataRepository,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_session_factory import (
+    IExchangeSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
     BacktestChartHostFactory,
@@ -373,13 +285,9 @@ class BinanceBotModule(BaseModule):
         app.container.singleton(ITaskManager, app.context.tasks)
 
         config: IConfig = app.container.resolve(IConfig)
-        db_dir = config.get(ConfigKeys.DATABASE_DIR.value) or os.path.join(
-            os.getcwd(), _DEFAULT_DB_DIR_NAME
-        )
-        app.container.singleton(DatabaseConfig, DatabaseConfig(db_dir=db_dir))
-        app.container.singleton(DatabaseManager, DatabaseManager)
-        app.container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
-        app.container.singleton(ISymbolCatalogRepository, JsonSymbolCatalogRepository)
+        # `EPIC-025` PR 0.4a: the database, the repositories, the live stream
+        # and `IExchangeClient` moved to `MarketDataModule` — that context owns
+        # them, and `shell/modules.py` registers it right after this module.
         # EPIC-021A: market_data_venue is registered as its own singleton so
         # BinanceWebsocketService's constructor (which needs it for the
         # testnet flag) picks up the real configured value via auto-wiring —
@@ -395,13 +303,6 @@ class BinanceBotModule(BaseModule):
         # instance rather than the container silently constructing each of
         # them a throwaway one.
         app.container.singleton(ITradingSessionFactory, session_factory)
-        # Lazy — Client()'s own constructor pings the network (BUG-045), so
-        # this must only run when something actually resolves IExchangeClient,
-        # not unconditionally on every app boot.
-        app.container.singleton(
-            IExchangeClient, lambda _c: session_factory.create_market_data_client()
-        )
-        app.container.singleton(ILiveStreamService, BinanceWebsocketService)
 
         # EPIC-021C: registered against the concrete ExchangeSessionFactory,
         # not IExchangeSessionFactory — create_futures_metadata_client() is
@@ -512,7 +413,6 @@ class BinanceBotModule(BaseModule):
         app.container.singleton(
             ICommandDispatcher, EngineCommandDispatcher(app.context.dispatcher)
         )
-        app.container.bind(LiveStreamEngineAdapter, LiveStreamEngineAdapter)
         # BOT-098F6D: transient — BackTestView has no container access itself,
         # so BackTestPresenter resolves this and pushes it in; never a
         # singleton, since every BackTestView construction needs its own
@@ -522,11 +422,6 @@ class BinanceBotModule(BaseModule):
     def _register_state_singletons(self, app: App) -> None:
         """Registers long-lived application state singletons."""
         app.container.singleton(BacktestState, BacktestState)
-        # BOT-121: must be a singleton, not bind() (transient) — every
-        # SyncMarketDataCommandHandler resolve needs the SAME registry so a
-        # sync started from Backtest and one started from Data Management see
-        # each other's in-flight (symbol, interval) keys.
-        app.container.singleton(InFlightSyncGuard, InFlightSyncGuard)
         # EPIC-021G: one per app process — never persisted, never seeded
         # from config on boot (see the class's own docstring for why).
         app.container.singleton(TradingSessionState, TradingSessionState)
@@ -568,19 +463,12 @@ class BinanceBotModule(BaseModule):
 
     def _register_use_cases(self, app: App) -> None:
         """Binds CQRS commands to their respective use case command handlers."""
-        app.container.bind(SyncMarketDataCommand, SyncMarketDataCommandHandler)
-        app.container.bind(BulkSyncMarketDataCommand, BulkSyncMarketDataCommandHandler)
-        app.container.bind(StartLiveStreamCommand, StartLiveStreamCommandHandler)
-        app.container.bind(StopLiveStreamCommand, StopLiveStreamCommandHandler)
         app.container.bind(RunBacktestCommand, RunBacktestCommandHandler)
         app.container.bind(StopBacktestCommand, StopBacktestCommandHandler)
         app.container.bind(RunStaticBacktestCommand, RunStaticBacktestCommandHandler)
         app.container.bind(
             RunHistoricalTickBacktestCommand, RunHistoricalTickBacktestCommandHandler
         )
-        app.container.bind(ClearMarketDataCommand, ClearMarketDataCommandHandler)
-        app.container.bind(RepairDataGapCommand, RepairDataGapCommandHandler)
-        app.container.bind(PruneEmptyShardsCommand, PruneEmptyShardsCommandHandler)
         app.container.bind(SubmitOrderCommand, SubmitOrderCommandHandler)
         app.container.bind(ArmStrategyCommand, ArmStrategyCommandHandler)
         app.container.bind(DisarmStrategyCommand, DisarmStrategyCommandHandler)
@@ -592,18 +480,7 @@ class BinanceBotModule(BaseModule):
 
     def _register_queries(self, app: App) -> None:
         """Binds CQRS queries to their respective query handlers."""
-        app.container.bind(GetHistoricalKlinesQuery, GetHistoricalKlinesQueryHandler)
         app.container.bind(GetOpenPositionsQuery, GetOpenPositionsQueryHandler)
-        app.container.bind(GetDatabaseStatusQuery, GetDatabaseStatusQueryHandler)
-        app.container.bind(GetDatabaseGapsQuery, GetDatabaseGapsQueryHandler)
-        app.container.bind(
-            AuditDatabaseIntegrityQuery, AuditDatabaseIntegrityQueryHandler
-        )
-        app.container.bind(
-            GetBacktestRangeCoverageQuery, GetBacktestRangeCoverageQueryHandler
-        )
-        app.container.bind(ScanAllDatabasesQuery, ScanAllDatabasesQueryHandler)
-        app.container.bind(ListAvailableSymbolsQuery, ListAvailableSymbolsQueryHandler)
         app.container.bind(
             GetExchangeConnectionStatusQuery, GetExchangeConnectionStatusQueryHandler
         )
@@ -639,10 +516,6 @@ class BinanceBotModule(BaseModule):
         app.container.singleton(StrategyRegistry, strategy_registry)
 
     def boot(self, app: App) -> None:
-        # Register the adapter as a HostedService so it receives the EngineContext and is managed
-        # by the App lifecycle, delegating to the pure ILiveStreamService.
-        adapter = app.container.resolve(LiveStreamEngineAdapter)
-        app.context.hosted_services.register(adapter)
 
         # `EPIC-022A`: which strategy runs live is no longer decided here
         # once and frozen — `LiveStrategySession` holds it, and the Trading
@@ -731,15 +604,13 @@ class BinanceBotModule(BaseModule):
             )
 
     def shutdown(self, app: App) -> None:
-        """Release application-owned database engines and external client connections during engine shutdown."""
-        database_manager = app.container.resolve(DatabaseManager)
-        database_manager.dispose_all()
-        try:
-            exchange_client = app.container.resolve(IExchangeClient)
-            if hasattr(exchange_client, "close"):
-                exchange_client.close()
-        except Exception as exc:  # noqa: BLE001
-            logger.debug("Exchange client shutdown error: %s", exc)
+        """Release the external connections this module still owns.
+
+        `EPIC-025` PR 0.4a: the SQLite engines and the market-data client left
+        with `MarketDataModule`, which now closes them in its own `shutdown()`.
+        What stays here is the user-data stream, because trading owns it — and
+        it becomes `TradingModule.shutdown()` in Phase 2.
+        """
         try:
             # EPIC-021H: harmless no-op if trading was never enabled this
             # session (`IUserDataStream.stop()` returns `False`, does not

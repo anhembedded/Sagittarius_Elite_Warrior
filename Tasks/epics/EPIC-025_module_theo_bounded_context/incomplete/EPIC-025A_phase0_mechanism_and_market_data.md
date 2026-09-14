@@ -42,8 +42,10 @@ shards, gaps, coverage, `MarketDataVenue`), `application/` (the `sync/` and `dat
 the klines query, the market stream), `contracts/` (`IHistoricalKlines`, `ISymbolCatalog`,
 `IMarketStream`, `IMarketDataSync`, `IRangeCoverage`, DTOs, the events `MarketTickEvent` and
 `SingleSyncProgressEvent`), `adapters/` (`persistence/`, `binance/market/`), `ui/` (the Data
-Management mode rebuilt as QtWidgets — HLD §11: its four QML widgets become a `QTableView` panel,
-a kline-inspector dialog, a time-range dialog and a timeframe picker; no `.qml`), the CLI
+Management mode rebuilt as QtWidgets — HLD §11: its four sole-owned QML files become a `QTableView`
+panel and a kline-inspector `QDialog`; no `.qml`. **This sentence used to name a time-range dialog
+and a timeframe picker instead — see §1.7: those two widgets are shared with four other screens and
+cannot be rebuilt from inside a Data Management pull request**), the CLI
 commands `sync` and `stream`. Also in this phase (ADR D21 as executed by **D21a**): remove
 `qdarktheme` from `requirements.txt` and delete `_apply_theme()` with its two `ui.theme.*` keys, so
 every standard control renders in the OS theme from Phase 0 on. `Palette`, `seed_app_theme()` and
@@ -191,6 +193,378 @@ as *Main*, and even that is recorded in a shrink-only baseline).
 
 Both deferrals are recorded in the HLD §3.5 mapping table as their own rows, with the phase that
 finishes them, so the next reader sees the plan and not a gap.
+
+## 1.4 PR 0.4 is split in two (decided 2026-09-14)
+
+The plan had one pull request carrying both the module extraction and the QtWidgets rebuild of Data
+Management. Those are two different kinds of risk — a move that must change no behaviour, and a UI
+rewrite that changes what the user sees — and bundling them means a red gate cannot tell you which
+half broke. `architecture-rule.md` §5's bias applies to pull requests as much as to files:
+splitting needs no permission.
+
+| | Content | Risk it carries |
+| :-- | :--- | :--- |
+| **0.4a** | the module: `domain/`, `application/`, `contracts/`, `adapters/`, registration in `shell/modules.py`, CLI `sync` / `stream`, contract suites and verified fakes. Data Management keeps its current widgets and consumes the module through its contracts | a pure move — every existing test must still pass, unchanged |
+| **0.4b-1** | the two QML islands inside Data Management rebuilt as a `QTableView` panel and a `QDialog`; four `.qml` files deleted | the first visible UI change of the epic; the QML baseline drops by four |
+| **0.4b-2** | ~~the screen moves to `modules/market_data/ui/` and is contributed through `ScreenContribution`~~ — **deferred to Phase 4** (§1.8): the move needs `support/ui_kit`, or it costs 35 backward imports | — |
+
+The user's Phase 0 checkpoint ("Data Management: sync a symbol") lands on **0.4b**, with the CLI
+check on 0.4a.
+
+## 1.5 What PR 0.4a shipped (2026-09-14)
+
+`market_data` is a module. `shell/modules.py` lists one entry where it listed none, and the app
+boots through it: the database, both repositories, the live stream, the exchange client, and all
+fourteen commands and queries are now claimed by `MarketDataModule.register()` instead of by
+`binance_bot_module.py`.
+
+### What moved, and where the shape changed
+
+Sixty-odd files moved by `git mv` with their bodies untouched. Four things were *not* a plain move,
+and each one was forced by a rule rather than chosen:
+
+| What | From | To | Why not a plain move |
+| :--- | :--- | :--- | :--- |
+| `backtest_range_coverage.py` | `application/services/` | three files | One file held a published DTO, two builders, and three time helpers — three audiences, measured: the DTO has three UI consumers, the builders none outside the module, the helpers one. §5 rule 1 forbids the mix, and the boundary rule forbids a consumer importing anything but `contracts/`. |
+| the four engine-adapter ports (`i_cqrs`, `i_command_dispatcher`, `i_config_reader`, `i_event_publisher`) | `application/ports/` | `core/contracts/` | Every module's handlers need them (`i_cqrs` alone has 29 importers). Left in the legacy tree they made the module import *backwards*, which the boundary rule refuses outright and which no allowlist entry should ever excuse. |
+| `MarketTickEvent`, the sync events | `domain/events/`, `application/events/` | `modules/market_data/contracts/events/` | An event belongs to the context that raises it (§6). Only market_data can say a tick arrived. |
+| `SymbolMarketMetadata` | `domain/entities/` | `modules/market_data/contracts/` | Published by its owner, **not** promoted to `core/vo`: the admission rule wants two consumers in two *modules*, and today market_data is the only module among its four importers. Promoting on "it looks shared" is the guess the rule exists to prevent. |
+
+`rate_limiter.py` had exactly one importer, inside the module, so it moved in as module-internal
+rather than staying a shared service nobody shared.
+
+### The lifecycle moved with the context
+
+`MarketDataModule` implements `boot()` and `shutdown()`, which `binance_bot_module.py` used to do
+on its behalf: registering the live-stream hosted service, disposing the SQLite engines, closing the
+exchange client. What stayed behind is the user-data stream, because trading owns it.
+
+### Two things deliberately left standing
+
+- **`exchange_session_factory.py` stays in the legacy tree.** One instance answers both
+  market_data's `IExchangeSessionFactory` and trading's `ITradingSessionFactory`; splitting a shared
+  instance changes behaviour, and 0.4a is a move. `EPIC-025B` splits it, one factory per context.
+  The port itself did move — to `modules/market_data/contracts/`, because it returns
+  `IExchangeClient`, which is a market-data shape (this is the file PR 0.3 §1.3 deferred).
+- **`MarketDataModule.shutdown()` resolves `IExchangeClient` unconditionally.** Carried over
+  verbatim so the move stayed a move — but it is a defect: the binding is lazy, so a session that
+  never asked for market data *constructs* a client here, a network call, purely in order to close
+  it. Fixing it needs the container to answer "was this singleton ever instantiated?", which
+  `IContainer` does not offer. That is an Engine-side ask, not an app change; the module's docstring
+  points here so the wart is not rediscovered as a surprise.
+
+### The allowlist went up, and that is the ratchet working
+
+8 entries → 41. Not a regression: those imports all existed before, invisible, because caller and
+callee sat in one tree. Moving `market_data` out turned each legacy screen that dispatches one of
+its commands into a **counted** violation with a named exit phase. Meanwhile the number the epic
+actually cares about — imports pointing from the new tree back into the legacy tree — is **zero**,
+and the boundary guard now fails if it ever stops being zero.
+
+| Block | Count | Deleted by |
+| :--- | :-: | :--- |
+| `application`/`presentation` → `infrastructure.binance.futures_*` (pre-existing) | 7 | `EPIC-025B` |
+| legacy → `modules.market_data.adapters` (reaching past the contracts) | 2 | PR 0.4b, `EPIC-025B` |
+| legacy → `modules.market_data.application` (the transitional dispatch surface) | 32 | PR 0.4b, PR 0.5, Phase 1 |
+| **new tree → legacy tree** | **0** | — |
+
+### What 0.4a did *not* ship: the CLI, deferred to 0.4a-2
+
+§1.4 scoped CLI `sync` / `stream` into 0.4a. It is not here, and the reason is worth recording
+because it is the same reason twice over.
+
+The four CLI files are small (198 lines). But `sync_cli_handler` and `stream_cli_handler` import
+`presentation/cli/cli_parser.py` (`build_handler_parser`) and
+`presentation/cli/handlers/i_cli_command_handler.py` (`ICliCommandHandler`) — the CLI's framework
+seam, which still lives in the legacy tree. Moving the two commands into
+`modules/market_data/cli/` without moving that seam first would create exactly the backwards
+import this pull request spent its effort driving to zero, and allowlisting it would be excusing a
+violation the same commit created.
+
+So 0.4a-2 is: extract the seam into `support/cli_kit` (the `ICliCommandHandler` port plus the
+config-driven parser builder — the CLI analogue of `support/ui_kit`, and app-wide infrastructure
+that every context's commands need), then move `sync` / `stream` into the module's own `cli/`.
+That retires 5 allowlist entries. Splitting it out rather than bolting it onto a pull request that
+already moves ~250 files is `architecture-rule.md` §5's bias applied to pull requests, the same
+call §1.4 made when it split 0.4 in two.
+
+### Verification
+
+`ci-local.ps1 -Full` **PASS**, log file grepped: 4163 passed, 4 skipped, coverage 94.85%, no
+`FAILED|ERROR|Traceback|ResourceWarning`. Merged as pull request #213.
+
+The gate earned its place twice on this pull request, and both failures were the right kind:
+
+- `tests/integration/test_app_integration.py` hand-rolled the boot sequence with `BinanceBotModule`
+  alone — a faithful copy of the composition root right up until the sequence changed. It now calls
+  `register_modules(app, MODULES)`, the same function the composition root calls, so the next
+  context to move needs no edit there.
+- `tests/sanity/conftest.py` patched a module path written as **two adjacent string literals across
+  two lines**, which a line-by-line rewrite cannot see. The lesson generalises: a sweep for stale
+  paths must join adjacent literals first, or it reports a clean tree that is not clean.
+
+Five mypy baseline entries in `pyproject.toml` were **re-keyed** to the new paths — not dropped,
+which would have hidden 21 pre-existing SQLAlchemy `Column[T]`-vs-`T` errors, and not fixed, which
+would have made a pure move unreviewable.
+
+## 1.6 What PR 0.4a-2 shipped: the CLI, by inverting who parses (2026-09-14)
+
+§1.5 deferred CLI `sync` / `stream` because moving them would have recreated the backwards import
+0.4a had just eliminated. This is that debt repaid, and the fix was not where the deferral note
+guessed it would be.
+
+### The survey changed the design
+
+§1.5 proposed extracting `support/cli_kit`. That was wrong, and the vocabulary caught it: HLD §1.2
+and §2.2 enumerate **exactly four** support packages, and `Docs/VOCABULARY` says `shell/` holds
+"the CLI assembly". A fifth support package would have needed a spec change to justify a file move.
+
+So the doctrine's first step applied instead — survey before inventing. How does an established
+tool let a plugin contribute a command?
+
+| Tool | Who declares arguments | Who parses | What the command receives |
+| :--- | :--- | :--- | :--- |
+| Django `BaseCommand` | the command (`add_arguments(parser)`) | the framework | `handle(**options)` — parsed |
+| Click / Typer | the command (decorators) | the framework | parsed values as parameters |
+| `argparse` subparsers | the parent parser | the parent parser | `set_defaults(func=...)`, called with the namespace |
+
+Unanimous, and the opposite of what this repository did. `ICliCommandHandler.handle(arg_str: str,
+app)` made every handler re-split the line the shell had just split, build its own parser from
+config, and repeat the same three `except` blocks — and *that* is why a command owned by
+`market_data` could not live in `market_data`: to parse, it had to import the legacy CLI package.
+
+The user chose this direction on 2026-09-14 over the `support/cli_kit` option. It changes a public
+contract, which `ONBOARDING.md` §7 group 1 reserves for the user rather than the agent.
+
+### The change
+
+```
+BEFORE                                      AFTER
+InteractiveShell.default()                  InteractiveShell.default()
+  shlex.split(line)                           shlex.split(line)
+  " ".join(words[1:])   <- re-joins!          _parse(cmd_name, words[1:])   <- parses, once
+       |                                           |
+  handler.handle("--symbols BTC", app)        handler.handle(Namespace(symbols="BTC", ...), app)
+       |                                           |
+  shlex.split again                           (nothing left to do)
+  build_handler_parser(config, name)          |
+  parse_args / 3 except blocks           <- x3 handlers, copied
+       |                                           |
+  one real line of work                       one real line of work
+```
+
+`ICliCommandHandler` moved to `core/contracts/`, because the implementations belong to modules and
+nothing may import the shell — the same inversion `IContributionRegistry` already uses.
+
+### What it bought
+
+| Measure | Before 0.4a-2 | After | Target |
+| :--- | :-: | :-: | :-: |
+| Allowlist entries | 41 | **38** | -> 0 |
+| Parsing sites | 3 (one per handler) | **1** | 1 |
+| `except` blocks for argparse | 6 | **2** | in one place |
+| New tree -> legacy tree imports | 0 | **0** | 0 |
+
+Five dispatch entries left; two handler-class entries arrived, because
+`InteractiveShell.handlers` still hard-codes `{"sync": SyncCliHandler, ...}`. Those two are cheaper
+and they have a named exit: Phase 1 moves `interactive_shell.py` into `shell/` and replaces the
+hard-coded table with a declaration on each module, collected from `MODULES` the way `contribute()`
+already works. It could not happen here — the shell also drives trading's `exchange-status`
+handler, still in the legacy tree, and `shell/`'s own legacy-import baseline only shrinks.
+
+### Tests followed the behaviour, not the file
+
+Three cases left the handler tests for `test_interactive_shell.py`: a missing required argument,
+`-h`, and an unknown flag. They were always assertions about argparse, made through whichever
+handler happened to own a parser; they are now asserted once, where the parsing is. What stayed
+with each handler is what it actually decides — and one case proves the split is not cosmetic:
+`--interval` is declared as a free-form string, so argparse cannot reject `INVALID`; `TimeFrame()`
+does, inside the handler. Parsing moving out did not make the handlers validation-free.
+
+### Verification
+
+The full gate (`scripts/ci-local.ps1 -Full`), with its log grepped for
+`FAILED|ERROR|Traceback|ResourceWarning` — the console is not evidence, because Qt's offscreen mode
+dumps harmless `TypeError`s after pytest's summary line.
+
+## 1.7 What PR 0.4b-1 shipped: the last QML left Data Management (2026-09-14)
+
+Data Management holds no `.qml` file any more. Its two QML islands — the shard status table and
+the candle-lookup modal — are a `QTableView` with four `QAction`s and a `QDialog`, and the four
+`.qml` files behind them are deleted (ADR D20). The screen around them was already QtWidgets
+(`EPIC-005E`), so this pull request is the two islands and nothing else. Moving the screen into
+`modules/market_data/ui/` was planned as 0.4b-2 and is **deferred to Phase 4** — §1.8 measures why.
+
+### The spec named the wrong four files, and the inventory said so before any code moved
+
+§1 of this document says Data Management's *"four QML widgets become a `QTableView` panel, a
+kline-inspector dialog, a time-range dialog and a timeframe picker"*. The count is right and the
+list is wrong. `TimeframePicker/*` and `TimeRangePicker/*` are **shared** — Backtest, Dashboard,
+Settings, the chart card and the market picker all load them — so rebuilding them here would have
+rebuilt four other screens' widgets from inside a Data Management pull request. The four files
+that are sole-owned by this screen, and therefore the four that went, are:
+
+| Deleted | Lines | Replaced by |
+| :--- | :-: | :--- |
+| `qml/DatabaseStatusTable/DatabaseStatusTable.qml` | 94 | `data_management_widgets/database_status_panel.py` |
+| `qml/DatabaseStatusTable/DatabaseStatusRow.qml` | 148 | the model's six columns, rendered by `QTableView` |
+| `qml/KlineInspectorTable/KlineInspectorTable.qml` | 74 | `data_management_widgets/kline_inspector_dialog.py` |
+| `qml/KlineInspectorTable/KlineInspectorRow.qml` | 112 | the model's eight columns, rendered by `QTableView` |
+
+The two shared pickers stay until their last consumer is rebuilt — the same ratchet logic ADR D21a
+applies to `Palette` and `kit/style.py`, and the reason the QML baseline is a shrink-only list
+rather than a deadline.
+
+### The row buttons became actions, which is the rule and not a preference
+
+```
+BEFORE (QML)                                  AFTER (QtWidgets)
+DatabaseStatusTable.qml                       DatabaseStatusPanel
+  PanelHeader + TextField (search)              QLabel + QLineEdit (search)
+  DataTable                                     QToolBar: 4 QActions
+    ListView                                    QTableView (6 columns, sortable)
+      DatabaseStatusRow  x N                      + the same 4 QActions as its
+        4 Buttons each  <- 4N controls              context menu  <- 4 controls
+```
+
+`QAction` had **zero** occurrences in `src/` before this pull request; these four are the app's
+first. That is the Consistency principle made literal ("one `QAction` per user action, carrying its
+shortcut, its menu entry and its toolbar button"), and it is why the buttons could not simply be
+moved into cells: a control per row is the shape QML forces, not the shape the desktop has.
+
+Three consequences worth naming, because each is a behaviour change a reviewer should look for:
+
+- **an action now acts on the selected row**, so the panel has a selection model where the QML
+  table had none. A regression test pins that the action follows the selection rather than the row
+  order.
+- **`Inspect gaps` greys out instead of disappearing** on a healthy shard (`visible: !isHealthy`
+  before). An action that vanishes teaches the reader nothing.
+- **`Clear` asks first.** The QML row fired `clear` straight at the Presenter on one click; a
+  destructive action must confirm and name its consequence (`Docs/HLD/11_desktop_workbench.md`
+  §11.5). The confirmation is injectable, so the tests drive it without a modal.
+
+### Two models that were `QAbstractTableModel` in name only
+
+Both tables already had a real Qt model — and both declared `columnCount() == 1` and served custom
+QML roles, because a `ListView` delegate drew the columns itself. A `QTableView` asks for
+`DisplayRole` per `(row, column)` plus `headerData()`, neither of which existed. So the columns
+moved out of the deleted delegates and into the models, which is where the sorting came from too:
+`SORT_ROLE` carries the comparable value behind each cell, because `"1,234"` sorts before `"9"` as
+text and `"15m"` before `"1h"` before `"1m"`. The first version of that returned a
+`(healthy, text)` tuple and the sort silently did nothing — a `QVariant` Qt cannot order — which is
+recorded in the model rather than quietly fixed.
+
+### What was deleted because nothing read it
+
+`KLineInspectorTableModel` paginated in memory: `set_page`, `set_page_size`, `jump_to_date`,
+`total_pages`, four view-model properties, three view-model slots, a `ConfigKeys` entry and the
+Presenter block that read it. None of it had reached a widget since `EPIC-015` removed pagination
+from the QML port, so the page size in a user's config file has had no effect for weeks. Deleting
+it changes nothing the user can see; keeping it would have meant a `QTableView` bound to a model
+that hides 99% of its rows.
+
+### Numbers
+
+| Measure | Before 0.4b-1 | After | Target |
+| :--- | :-: | :-: | :-: |
+| `.qml` files in the app | 35 | **31** | -> 0 (Phase 4) |
+| `Theme.*` bindings inside `.qml` | 229 | **204** | -> 0 |
+| `.qml` files under `screens/data_management/`'s ownership | 4 | **0** | 0 |
+| `QAction` declarations in `src/` | 0 | **4** | grows with every rebuilt screen |
+| Bare-Qt-base findings | 2 | **2** (+2 `base-exempt`) | see the note below |
+| Lines, this pull request | — | **+2021 / -3149** | net -1128 |
+| New tree -> legacy tree imports | 0 | **0** | 0 |
+| Allowlist entries | 38 | **38** | -> 0 (0.4b-2 retires 8) |
+
+### One guard pointed the other way, and was answered rather than raised
+
+`tests/unit/presentation/ui/test_widget_guards_hold.py` locks the number of classes deriving a bare
+`QWidget`/`QDialog` at 2, because `EPIC-007E`/`007F`'s rule was "inherit the kit's
+`Card`/`Panel`/`Overlay`". ADR D20–D22 reversed that for new desktop widgets: a dialog **is** a
+`QDialog`, and the kit's bases paint the card chrome ADR D21 removed. Both new classes therefore
+carry `# base-exempt: <reason>` — the guard's own escape hatch — and the ceiling stays at 2, so an
+old-style widget still cannot slip back in. The reversal is written into that file's docstring;
+raising the number instead would have hidden it.
+
+The colour guard was answered the same way, by **not** adding a colour: the candle table's
+bullish/bearish cells read `chart_card/theme.py`'s existing `BULL_COLOR`/`BEAR_COLOR`, already
+documented there as "not chrome — a candle body is green because it closed up". One constant, two
+widgets; the alternative was a second hex literal for the same idea, which this repository has been
+bitten by often enough.
+
+### Two questions for the user, both about what the app offers rather than how it is built
+
+Neither is a consequence of this rebuild; both were found by the inventory that preceded it, and
+both are the user's call under `ONBOARDING.md` §7 because they change what the app promises:
+
+1. **The integrity audit is live and unreachable.** `AuditDatabaseIntegrityQuery` is bound, handled
+   and tested, `DataManagementViewModel` exposes `requestRunAudit` and five audit properties, and
+   the Presenter runs it — but no widget has a button for it. Expose it as a fifth `QAction`, or
+   record it as deliberately deferred?
+2. **Jump-to-date in the candle table is gone with the pagination.** The old `jump_to_date()`
+   answered "which page holds 2024-05-01"; with a virtualized table the useful version is "scroll
+   to and select that candle", which is a new feature, not a migrated one.
+
+### Verification
+
+The full gate (`scripts/ci-local.ps1 -Full`), with its log grepped for
+`FAILED|ERROR|Traceback|ResourceWarning`. The first run of it was **red on four tests** — the two
+widget guards above, the colour guard, and one test asserting the deleted modal's `objectName` —
+and all four were real: two rule conflicts to resolve explicitly, one invented colour, one stale
+name.
+
+## 1.8 Why PR 0.4b does not move the screen into `modules/market_data/ui/` (2026-09-14)
+
+§1 of this document puts Data Management's rebuilt UI in `modules/market_data/ui/`, and the
+boundary allowlist said its eight `data_management.*` entries retire "PR 0.4b, when that screen is
+rebuilt". The rebuild is done (§1.7) and the move is **not**, because it cannot be done in Phase 0
+without inverting the one number this epic watches.
+
+### The measurement
+
+The screen is 22 Python files. Of their imports, 12 point at `modules/market_data/application/`
+(the eight allowlisted dispatch pairs) — but **35 distinct pairs point at the legacy presentation
+tree**:
+
+| Where a moved `modules/market_data/ui/` would still have to import | Pairs |
+| :--- | :-: |
+| `presentation.ui.common.*` (action ownership, app defaults, the sync-progress feed and report, `qml_property`) | 11 |
+| `presentation.ui.constants` | 6 |
+| `presentation.ui.assets` (`Palette`, the icon loader) | 4 |
+| `presentation.ui.components.*` (log panel, symbol picker, timeframe picker, the chart's candle colours) | 6 |
+| `presentation.ui.kit` (`PageShell`, `ConfirmOverlay`, `apply_role`) | 2 |
+| `presentation.ui.qml.*` (the two shared pickers' dialog hosts, the progress banner) | 3 |
+| `presentation.ui.state.*` (state scope, container lookup, the UI state coordinator) | 3 |
+| `presentation.ui.registry` (`AbstractScreenModule`) | 1 |
+
+Allowlist arithmetic: **38 − 8 + 35 = 65**, and the metric the epic reports in every pull request —
+*imports pointing from the new tree back into the legacy tree* — goes from **0 to 35**. That
+number is enforceable because it has no exceptions; spending it on a directory move buys nothing a
+user can see.
+
+### It is not a gap in the plan, it is the plan's own order
+
+HLD §6.1 already anticipates what a module's UI needs: `_UI_SUPPORT_ZONES` in
+`tests/unit/architecture/boundaries/rules.py` lets `modules/<name>/ui/` import
+**`support/ui_kit` and `support/charting` whole**, not merely through their `contracts/`. Those two
+packages are Phase 4 (`EPIC-025E` — "`support/*`; dissolve `ui/common`"), and they are precisely
+the destination of eight of the nine rows above. The move is therefore a Phase 4 step that was
+written down as a Phase 0 one.
+
+### What this changes, and what it does not
+
+- **Deferred:** the `git mv` into `modules/market_data/ui/`, `MarketDataModule.contribute()`
+  offering the screen, and removing `DatabaseScreenModule` from `LEGACY_SCREEN_MODULES`. They land
+  with `support/ui_kit`, in Phase 4.
+- **Re-keyed:** the eight `data_management.*` allowlist entries now name **Phase 1**, the same exit
+  as the other 30 dispatch entries — a port call replaces the dispatch, which retires the entry
+  wherever the file happens to live. The allowlist comment carries this measurement.
+- **Unchanged:** the user's Phase 0 checkpoint. "Data Management: sync a symbol, inspect klines"
+  runs on the rebuilt screen either way; where the file sits is invisible to it.
+- **Rejected, and recorded so it is not re-proposed:** contributing the screen from
+  `MarketDataModule.contribute()` while the code stays in the legacy tree. It costs 2 backward
+  entries instead of 35, but it buys a declaration rather than a behaviour, and "zero" stops being
+  a rule the moment it is worth two.
 
 ## 2. Done when
 

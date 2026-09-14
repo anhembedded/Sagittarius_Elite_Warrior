@@ -7,12 +7,6 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
-from Sagittarius_Elite_Warrior.src.application.ports.i_symbol_market_metadata_cache import (
-    ISymbolMarketMetadataCache,
-)
-from Sagittarius_Elite_Warrior.src.application.services.backtest_range_coverage import (
-    BacktestRangeCoverage,
-)
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -22,11 +16,12 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import (
     BacktestCompletedEvent,
 )
@@ -39,9 +34,14 @@ from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_market_metadata_cache import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
     InMemorySymbolMarketMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
+    BacktestRangeCoverage,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
+    ISymbolMarketMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOwnershipTracker,

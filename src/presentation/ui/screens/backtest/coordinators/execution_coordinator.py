@@ -16,10 +16,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
     BacktestCancelled,
     RunStaticBacktestCommand,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from ..backtest_signal_payloads import BacktestProgress

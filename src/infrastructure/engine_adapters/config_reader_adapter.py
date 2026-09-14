@@ -10,7 +10,7 @@ numbered requirements did not list (see
 
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_config_reader import (
+from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import (
     IConfigReader,
 )
 from sagittarius_engine.interfaces.i_config import IConfig

@@ -20,6 +20,14 @@
 4. **Delete** `ui/common/`; **delete** `binance_bot_module.py` (now empty); the `settings` screen
    becomes a surface that hangs each module's `settings_section` contribution.
 5. (ADR D6 is superseded by D20 — there is no QML to place.)
+6. **Inherited from Phase 0** (`EPIC-025A` §1.8, deferred 2026-09-14): `git mv` the rebuilt Data
+   Management screen into `modules/market_data/ui/`, have `MarketDataModule.contribute()` offer it
+   as a `ScreenContribution`, and remove `DatabaseScreenModule` from `LEGACY_SCREEN_MODULES`. PR
+   0.4b rebuilt the screen on QtWidgets but left it where it was: the move needed 35 imports from
+   `modules/market_data/ui/` back into `presentation.ui.{kit,assets,common,components,state,qml}`,
+   and steps 1–4 above are what those imports are waiting for. It is the first check that
+   `_UI_SUPPORT_ZONES` (a module's `ui/` may import `support/ui_kit` and `support/charting` whole)
+   is enough — if a 36th import has no home in `support/`, that is the finding.
 
 ## 2. Done when
 

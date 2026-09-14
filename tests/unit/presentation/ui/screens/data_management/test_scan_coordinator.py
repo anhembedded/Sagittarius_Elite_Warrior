@@ -3,21 +3,21 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.use_cases.database.clear_market_data import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.clear_market_data import (
     ClearMarketDataCommand,
     ClearMarketDataResult,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.database.prune_empty_shards import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.prune_empty_shards import (
     PruneEmptyShardsCommand,
     PruneEmptyShardsResult,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_status.query import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.list_available_symbols import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols import (
     ListAvailableSymbolsQuery,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.scan_all_databases import (
     DatabaseStatusDTO,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (

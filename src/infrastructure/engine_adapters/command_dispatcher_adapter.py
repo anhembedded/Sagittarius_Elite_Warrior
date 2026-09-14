@@ -7,7 +7,7 @@ listing it (see `application/ports/i_command_dispatcher.py`). Infrastructure is
 where naming `IDispatcher` is allowed (`code-rule.md` §5).
 """
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_command_dispatcher import (
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher

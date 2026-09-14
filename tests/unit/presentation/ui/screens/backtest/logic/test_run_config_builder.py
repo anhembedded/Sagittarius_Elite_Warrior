@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
 )
@@ -20,7 +21,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
     PositionSizingType,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_fsm_matrix import (
     BacktestExecutionMode,
 )

@@ -28,8 +28,9 @@ gantt
     User review 0.1 (allowlist, golden master) :crit, done, r01, 2026-09-13, 1d
     PR 0.2 core/ shell/ mechanism              :done,    p02, 2026-09-13, 1d
     User check 0.2 (app opens as before)       :crit, done, r02, 2026-09-14, 1d
-    PR 0.3 support/binance_gateway             :active,  p03, 2026-09-14, 1d
-    PR 0.4 modules/market_data + contract suites + Data Management in QtWidgets : p04, after p03, 6d
+    PR 0.3 support/binance_gateway             :done,    p03, 2026-09-14, 1d
+    PR 0.4a modules/market_data behind its UI    :active,  p04a, 2026-09-14, 4d
+    PR 0.4b Data Management in QtWidgets        :         p04b, after p04a, 3d
     User check 0.4 (Data Management, CLI sync) :crit,    r04, after p04, 1d
     PR 0.5 skeleton walks with N=2             :         p05, after r04, 1d
     Phase 0 measured, Phases 1–5 re-estimated  :milestone, m0, after p05, 0d
@@ -80,3 +81,7 @@ gantt
 | 2026-09-13 | p02 | PR 0.2 built locally: theme layer's global sheet removed (ADR D21a), `core/` + `shell/` with the contribution mechanism, one ConfigManager, the five legacy screens as contributions, two new architecture guards; gate green, 4 153 tests |
 | 2026-09-14 | r02 | PR 0.2 merged (PR #210) into master-warrior; work branch fast-forwarded. Phase 0 mechanism is in main; next is PR 0.3 (support/binance_gateway) |
 | 2026-09-14 | p03 | PR 0.3 (PR #211): `support/binance_gateway` extracted — 9 modules and 6 tests moved; boundary allowlist 10 → 8 pairs, the epic's first retired entries; `exchange_session_factory` and `binance_error_translator` deferred with reasons (EPIC-025A §1.3) |
+| 2026-09-14 | p03, p04 | PR 0.3 merged (PR #211); `src/src`, a dangling symlink committed by accident in `8dc9b3ef`, deleted (PR #212). PR 0.4 split into 0.4a (the module, behind the existing UI) and 0.4b (Data Management in QtWidgets) — two different kinds of risk, EPIC-025A §1.4; 0.4a started |
+| 2026-09-14 | p04a | PR 0.4a + 0.4a-2 + 0.4a-3 pushed into PR #213 (8 commits, gate green): `modules/market_data` registered in `shell/modules.py`; CLI parsing inverted so the shell parses once and the module owns `sync`/`stream`; contract suites and verified fakes for `ISymbolCatalogRepository` and `IMarketDataRepository`, which deleted 253 lines of hand-rolled in-memory duplicates. Two bugs found and fixed on the way (BUG-118 leaked Qt objects, BUG-119 an endless `while True` the gate could not report), and `pytest-timeout` installed so a hang fails loudly. Allowlist 41 → 38 |
+| 2026-09-14 | p04b | PR 0.4b-1 built locally, gate green (4 286 tests, coverage 95.09%): Data Management's last two QML islands rebuilt as a `QTableView` panel with the app's first four `QAction`s and a kline-inspector `QDialog`; 4 `.qml` files deleted, QML baseline 35 → 31, `Theme.*` bindings 229 → 204, net -1 128 lines. The spec's list of which four widgets was wrong and is corrected in EPIC-025A §1.7 (the time-range and timeframe pickers are shared with four other screens). Two guards written under the pre-ADR doctrine were answered with their own `base-exempt` hatch rather than a raised ceiling. Two questions left for the user: the unreachable integrity audit, and jump-to-date. Waiting for the push OK |
+| 2026-09-14 | p04b | 0.4b-2 (move the screen into `modules/market_data/ui/`) **deferred to Phase 4**, measured rather than judged: 8 forward allowlist entries would be traded for 35 backward ones, and the epic's zero-backward-imports property would become 35. A module's `ui/` may import `support/ui_kit`/`support/charting` whole (HLD §6.1) and neither exists before Phase 4, which is where eight of the nine import groups are heading anyway. Recorded in EPIC-025A §1.8, carried into EPIC-025E step 6, and the 8 allowlist entries re-keyed to Phase 1 |

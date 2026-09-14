@@ -4,7 +4,7 @@ import pytest
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import BaseIndicatorScript
 
 

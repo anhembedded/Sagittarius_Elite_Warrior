@@ -7,7 +7,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.r
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import ClientOrderId
 from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
 from Sagittarius_Elite_Warrior.src.domain.trading.order_status import OrderStatus

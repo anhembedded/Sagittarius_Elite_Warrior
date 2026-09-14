@@ -23,13 +23,13 @@ from datetime import UTC
 from unittest.mock import MagicMock, Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
@@ -644,7 +644,7 @@ def test_run_sync_and_start_full_workflow(presenter, mock_dispatcher):
     """_run_sync_and_start dispatches Sync → HistoricalKlines → StartLiveStream in order."""
     mock_dispatcher.dispatch.return_value = []
 
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+    from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
     # Real callers only ever reach this method after _on_start_stream() has
     # already moved the FSM to LOCKED (BOT-066: dev-mode re-raise surfaced
@@ -728,7 +728,7 @@ def test_run_sync_and_start_never_forwards_the_date_range_to_the_sync_command(
     since the latest locally known one."""
     from datetime import datetime
 
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+    from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
     mock_dispatcher.dispatch.return_value = []
     start = datetime(2024, 1, 1, tzinfo=UTC)
@@ -766,7 +766,7 @@ def test_run_sync_and_start_still_loads_history_for_the_picked_date_range(
     only the network sync step changed."""
     from datetime import datetime
 
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+    from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
     mock_dispatcher.dispatch.return_value = []
     start = datetime(2024, 1, 1, tzinfo=UTC)
@@ -818,7 +818,7 @@ def test_run_sync_and_start_stops_after_step_1_when_cancelled(
     """Sync (Step 1) always runs — cancellation is checked *between* steps,
     not before the first one — but History (Step 2) and Start Stream
     (Step 3) must not run once cancelled."""
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+    from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
     from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
     token = CancellationToken()
@@ -1435,7 +1435,7 @@ def _make_market_data(close: float, index: int):
     not exercise the real path."""
     from datetime import UTC, datetime, timedelta
 
-    from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+    from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 
     open_time = datetime(2024, 1, 1, tzinfo=UTC) + timedelta(minutes=index)
     return MarketData(
@@ -2228,8 +2228,8 @@ def test_order_filled_refreshes_the_session_stats_card(presenter, session_state)
 def _tick_event(symbol: str = "BTCUSDT", interval: str = "1m"):
     from datetime import UTC, datetime
 
-    from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-    from Sagittarius_Elite_Warrior.src.domain.events.market_tick_event import (
+    from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+    from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
         MarketTickEvent,
     )
 

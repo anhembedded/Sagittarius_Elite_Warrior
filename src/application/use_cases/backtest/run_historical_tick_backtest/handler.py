@@ -3,13 +3,6 @@ from collections.abc import Iterable
 from datetime import datetime
 from time import perf_counter
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
-    IEventPublisher,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
-    IMarketDataRepository,
-)
 from Sagittarius_Elite_Warrior.src.application.services.strategy_engine import (
     StrategyEngine,
 )
@@ -25,18 +18,25 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.progress_throt
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.backtest_cancelled import (
     BacktestCancelled,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.paper_exchange import (
     PaperExchange,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import (
     BacktestCompletedEvent,
 )
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
     BacktestFailedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
+    IMarketDataRepository,
 )
 
 from .command import RunHistoricalTickBacktestCommand

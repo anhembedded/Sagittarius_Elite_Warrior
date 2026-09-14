@@ -9,9 +9,6 @@ from decimal import Decimal
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
-from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
-    IEventPublisher,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -24,9 +21,6 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_factory import 
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines import (
-    GetHistoricalKlinesQuery,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order.query import (
     PreviewOrderQuery,
 )
@@ -36,7 +30,11 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.c
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.result import (
     ExecuteOrderResult,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.trading.order_rejection_reason import (
     OrderRejectedByExchangeError,
 )
@@ -54,9 +52,11 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
     PositionSizing,
     PositionSizingType,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_order_payload_mapper import (
     InvalidOrderForSubmissionError,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines import (
+    GetHistoricalKlinesQuery,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_formatter import (
     format_candle_and_signal,

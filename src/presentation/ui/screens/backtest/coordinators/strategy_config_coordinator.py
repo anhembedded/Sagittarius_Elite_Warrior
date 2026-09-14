@@ -6,7 +6,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.domain.entities.symbol_market_metadata import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
     MetadataVerificationStatus,
     OrderIntent,
     validate_order_intent,

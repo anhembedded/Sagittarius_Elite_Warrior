@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.application.events.sync_events import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.sync_events import (
     SingleSyncProgressEvent,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (

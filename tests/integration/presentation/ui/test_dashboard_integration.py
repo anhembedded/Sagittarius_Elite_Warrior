@@ -13,11 +13,11 @@ from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session im
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
-)
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
+    GetHistoricalKlinesQuery,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (

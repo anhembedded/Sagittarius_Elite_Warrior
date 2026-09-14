@@ -20,7 +20,7 @@ from dataclasses import dataclass, field
 from types import MappingProxyType
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 #: `EPIC-021G`'s own defaults, repeated here as the value object's own
 #: floor so a config missing these keys still produces a usable arming

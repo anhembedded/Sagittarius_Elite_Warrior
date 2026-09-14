@@ -15,20 +15,11 @@ from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider 
 from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
     ITradingAccountReader,
 )
-from Sagittarius_Elite_Warrior.src.application.services.backtest_range_coverage import (
-    BacktestRangeCoverage,
-)
 from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
     LiveStrategySession,
 )
 from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
     TradingSessionState,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_backtest_range_coverage import (
-    GetBacktestRangeCoverageQuery,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_open_positions import (
     GetOpenPositionsQuery,
@@ -46,11 +37,20 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order i
     ExecuteOrderCommand,
     ExecuteOrderCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy import (
     TradingLimitPolicy,
 )
 from Sagittarius_Elite_Warrior.src.main import create_app
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
+    GetBacktestRangeCoverageQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
+    GetHistoricalKlinesQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
+    BacktestRangeCoverage,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (

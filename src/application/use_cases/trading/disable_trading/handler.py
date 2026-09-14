@@ -1,6 +1,5 @@
 import logging
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.application.ports.i_user_data_stream import (
     IUserDataStream,
 )
@@ -10,6 +9,7 @@ from Sagittarius_Elite_Warrior.src.application.services.trading_session_state im
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disable_trading.command import (
     DisableTradingCommand,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 
 logger = logging.getLogger("App.CommandHandler")
 

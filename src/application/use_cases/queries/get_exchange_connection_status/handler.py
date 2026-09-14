@@ -1,12 +1,12 @@
 import logging
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
     ITradingAccountReader,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_exchange_connection_status.query import (
     GetExchangeConnectionStatusQuery,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
     ExchangeConnectionStatus,
 )

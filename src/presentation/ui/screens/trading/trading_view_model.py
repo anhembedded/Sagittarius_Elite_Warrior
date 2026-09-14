@@ -19,8 +19,8 @@ class TradingViewModel(BaseQmlViewModel):
     each owns its own small QML `*VM` (`PositionsVM`/`OpenOrdersVM`,
     `qml/PositionsTable`/`qml/OpenOrdersTable`), pushed to directly by
     `TradingPresenter` through `ITradingView.set_positions`/
-    `set_open_orders`, the same boundary `DatabaseStatusPanel` uses for
-    its own table.
+    `set_open_orders` — a panel owning its own rows, pushed to from the
+    Presenter, rather than a screen view model holding them.
     """
 
     symbolOptionsChanged = Signal()

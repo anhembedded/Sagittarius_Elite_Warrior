@@ -1,5 +1,12 @@
 # qml/DataTable — the shared table skeleton, extracted from three copies
 
+> **Two of the three callers are gone (`EPIC-025` PR 0.4b, 2026-09-14).** The
+> K-line inspector and the database status table were rebuilt as `QTableView`s
+> under `screens/data_management/`, and their `.qml` files deleted (ADR D20), so
+> `TradeLogTable` is the only caller left until Phase 4 deletes `qml/` entirely.
+> Everything below describes the extraction as it happened and is left as it was
+> written.
+
 `BOT-124`. Before this existed, `src/presentation/ui/qml/` had three tables —
 `TradeLogTable`, `KlineInspectorTable`, `DatabaseStatusTable` — each a
 hand-rolled copy of the same shape: root `ColumnLayout` → header `RowLayout`

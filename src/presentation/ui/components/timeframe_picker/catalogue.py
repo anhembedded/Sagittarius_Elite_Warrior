@@ -21,9 +21,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
-
-from .....domain.value_objects.timeframe import TimeFrame
 
 
 class TimeframeGroup(Enum):

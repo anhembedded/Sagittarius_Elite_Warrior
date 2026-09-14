@@ -1,8 +1,8 @@
 """Embeds `PositionsTable.qml` inline in a screen's workspace.
 
-@details Same shape `DatabaseStatusPanel` uses for `DatabaseStatusTable.qml`
-(`EPIC-015` Phase 2): a `QQuickWidget` hosted directly on a `kit.Panel`,
-not through `QmlOverlay` (this is not a dialog).
+@details A `QQuickWidget` hosted directly on a `kit.Panel`, not through
+`QmlOverlay` (this is not a dialog) — the shape `EPIC-015` Phase 2
+established for an embedded QML table.
 
 `EPIC-023A` moved this out of `screens/trading/trading_widgets/` into this
 already-shared `qml/PositionsTable/` directory (alongside the QML file it
@@ -57,6 +57,5 @@ class PositionsPanel(Panel):
     @property
     def root_object(self) -> QObject:
         """The loaded QML root, for tests to `findChild`/`qml_item` into by
-        `objectName` — same contract `DatabaseStatusPanel.root_object`
-        documents."""
+        `objectName` — the same contract every `qml/` panel exposes."""
         return self._surface.root_object

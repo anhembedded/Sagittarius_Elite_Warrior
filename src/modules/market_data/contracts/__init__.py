@@ -1,0 +1,117 @@
+"""Everything the rest of the app may know about market data (HLD §3.2, ADR D4).
+
+`market_data` owns one question — *what has the market done, and what of it do
+we have stored?* — and this package is the only door into it. The boundary guard
+enforces that literally: `tests/unit/architecture/test_module_boundaries.py`
+lets another module or the legacy tree import
+`modules.market_data.contracts.*` and nothing else under `modules/market_data/`,
+so the ~60 files behind this barrel are free to move, split or be rewritten
+without a single edit outside the module.
+
+**Three kinds of thing live here, and the distinction matters:**
+
+| Kind | Members | Who implements it |
+| :--- | :--- | :--- |
+| **Ports** — what a consumer needs *someone* to do | `IMarketDataRepository`, `ISymbolCatalogRepository`, `IExchangeClient`, `IExchangeSessionFactory`, `ILiveStreamService`, `ISymbolMarketMetadataCache` | the adapters in `modules/market_data/adapters/`, bound in `module.py` |
+| **Answers** — the shapes a query hands back | `BacktestRangeCoverage`, `DatabaseStatusSnapshot`, `RangeCoverageSnapshot`, `SymbolMarketMetadata` | nobody: they are values |
+| **Events** — what this context announces (`events/`) | `MarketTickEvent`, the sync and bulk-sync events | published by the adapters and handlers |
+| **Failures** — what a consumer must be able to catch by name | `ExchangeRequestCancelledError` | raised by the adapters |
+
+**Why the events are here and not in `core/`.** An event belongs to the context
+that *raises* it (`architecture-rule.md` §6): market_data is the only thing that
+can say a tick arrived or a sync finished, and everyone else only listens. They
+sat in `application/events/` and `domain/events/` while every context shared one
+tree; they moved here in PR 0.4a, which is what made the module's imports point
+one way.
+
+**Why `SymbolMarketMetadata` is here and not in `core/vo`.** The Published
+Language admits a type only once it has at least two consumers in at least two
+*modules*, measured (HLD §2.4). Today it has four importers, but market_data is
+the only module among them — the rest is the legacy tree. Promoting it now would
+be guessing; it is published by its owner instead, which reads the same from
+outside and costs one import path to change later if `trading` turns out to need
+it too.
+
+**Why the answers are published and the producers are not.** Three screens read
+every field of `BacktestRangeCoverage` to tell the user *why* a date range is
+unusable, so the shape crosses the edge; the two functions that compute it stay
+in `application/queries/get_backtest_range_coverage/`. A consumer imports the
+answer, never the arithmetic.
+
+**Why the commands and queries are not here.** They are `application/`, and the
+legacy screens still dispatch them directly through the Engine's
+`ICommandDispatcher` — a transitional import recorded in the boundary
+allowlist, shrink-only, not a permission. Phase 1 replaces each dispatch with a
+port call and the allowlist entries leave with it. Nothing new may add one.
+
+Nothing here imports another module, the legacy tree, or a UI toolkit; a guard
+(`test_module_domain_is_qt_free.py`) pins the last of those.
+"""
+
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
+    MAX_REPORTED_MISSING_OPENS,
+    BacktestRangeCoverage,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.bulk_sync_events import (
+    BulkSyncProgressEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
+    MarketTickEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.sync_events import (
+    SingleSyncProgressEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
+    ExchangeRequestCancelledError,
+    IExchangeClient,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_session_factory import (
+    IExchangeSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_live_stream_service import (
+    ILiveStreamService,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
+    DatabaseStatusSnapshot,
+    IMarketDataRepository,
+    RangeCoverageSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog_repository import (
+    ISymbolCatalogRepository,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
+    ISymbolMarketMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
+    LotSizeFilter,
+    MetadataVerificationStatus,
+    NotionalFilter,
+    OrderIntent,
+    OrderIntentValidationResult,
+    PriceFilter,
+    SymbolMarketMetadata,
+)
+
+__all__ = [
+    "MAX_REPORTED_MISSING_OPENS",
+    "BacktestRangeCoverage",
+    "BulkSyncProgressEvent",
+    "DatabaseStatusSnapshot",
+    "ExchangeRequestCancelledError",
+    "IExchangeClient",
+    "IExchangeSessionFactory",
+    "ILiveStreamService",
+    "IMarketDataRepository",
+    "ISymbolCatalogRepository",
+    "ISymbolMarketMetadataCache",
+    "LotSizeFilter",
+    "MarketTickEvent",
+    "MetadataVerificationStatus",
+    "NotionalFilter",
+    "OrderIntent",
+    "OrderIntentValidationResult",
+    "PriceFilter",
+    "RangeCoverageSnapshot",
+    "SingleSyncProgressEvent",
+    "SymbolMarketMetadata",
+]

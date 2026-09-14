@@ -27,17 +27,17 @@ from __future__ import annotations
 import logging
 from typing import cast
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_command_dispatcher import (
-    ICommandDispatcher,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
-    IEventPublisher,
-)
 from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
     TradingSessionState,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_open_positions import (
     GetOpenPositionsQuery,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.domain.events.position_changed_event import (
     PositionChangedEvent,

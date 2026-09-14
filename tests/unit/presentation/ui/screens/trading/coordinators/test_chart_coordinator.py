@@ -14,13 +14,13 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.stop_live_stream.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
     StopLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.coordinators.chart_coordinator import (

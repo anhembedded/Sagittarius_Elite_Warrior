@@ -8,12 +8,12 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.client import (
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.client import (
     PythonBinanceClient,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
+    SyncMarketDataCommand,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.stream_lifecycle_controller import (

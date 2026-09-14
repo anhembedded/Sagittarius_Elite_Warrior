@@ -2,14 +2,16 @@ import logging
 from unittest.mock import patch
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.start_live_stream import (
+from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream import (
     StartLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.stream.stop_live_stream import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream import (
     StopLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
+from Sagittarius_Elite_Warrior.src.shell.modules import MODULES
 from sagittarius_engine import App
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
@@ -20,6 +22,21 @@ from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 @pytest.fixture
 def app_instance():
+    """A booted app wired the way `shell/composition_root.py` wires the real one.
+
+    `EPIC-025` PR 0.4a: this fixture used to register `BinanceBotModule` alone,
+    which was a faithful copy of the boot sequence right up until the sequence
+    changed — the stream commands moved into `MarketDataModule`, and a test
+    whose whole point is "no DI errors occur on a real boot" started resolving
+    an unbound command and failing with `Any cannot be instantiated`. It failed
+    for the right reason: the app it built was not the app that ships.
+
+    So it now calls `register_modules(app, MODULES)`, the same function the
+    composition root calls, rather than naming modules itself. The next context
+    to move out of `binance_bot_module.py` needs no edit here, and if one is
+    ever missing from `MODULES` this test fails instead of passing against a
+    smaller app than the user runs.
+    """
     container = StdLibContainer()
     event_bus = MemoryEventBus()
     config_manager = ConfigManager()
@@ -29,6 +46,7 @@ def app_instance():
 
     app = App(container, event_bus)
     app.use(BinanceBotModule())
+    register_modules(app, MODULES)
 
     yield app
     try:
@@ -46,10 +64,10 @@ def test_app_boot_and_stream_use_case(app_instance):
 
     with (
         patch(
-            "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.AsyncClient"
+            "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.binance_websocket_service.AsyncClient"
         ),
         patch(
-            "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.BinanceSocketManager"
+            "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.binance_websocket_service.BinanceSocketManager"
         ),
     ):
         # Boot the engine (this triggers HostedService start() which sets the context)

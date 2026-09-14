@@ -15,10 +15,10 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
 )
-from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
     map_klines,
     map_volume,

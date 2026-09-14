@@ -20,13 +20,13 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (
+    FakeMarketDataRepository,
+)
 from Sagittarius_Elite_Warrior.tests.integration.golden.dataset import (
     INTERVAL,
     SYMBOL,
     make_golden_klines,
-)
-from Sagittarius_Elite_Warrior.tests.integration.golden.fakes.in_memory_market_data_repository import (
-    InMemoryMarketDataRepository,
 )
 from Sagittarius_Elite_Warrior.tests.integration.golden.fakes.recording_event_publisher import (
     RecordingEventPublisher,
@@ -42,7 +42,7 @@ def run_golden_backtest() -> BacktestResult:
     registry = StrategyRegistry()
     registry.register(STRATEGY_KEY, EmaCrossoverStrategy)
     handler = RunStaticBacktestCommandHandler(
-        repository=InMemoryMarketDataRepository(make_golden_klines()),
+        repository=FakeMarketDataRepository(make_golden_klines()),
         strategy_registry=registry,
         event_publisher=RecordingEventPublisher(),
     )

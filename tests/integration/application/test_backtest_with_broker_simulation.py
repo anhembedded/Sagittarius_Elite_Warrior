@@ -17,10 +17,11 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
     RunStaticBacktestCommand,
     RunStaticBacktestCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     StrategyContext,
@@ -35,7 +36,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 
 _T0 = datetime(2024, 1, 1, tzinfo=UTC)
 

@@ -1,4 +1,4 @@
-# Boundary violations AS FOUND at the start of EPIC-025 Phase 0 (2026-09-13).
+# Boundary violations AS FOUND, recorded as a ratchet (HLD §6.1).
 # Read by tests/unit/architecture/test_module_boundaries.py.
 #
 # One line per (importing_module, imported_module) pair, no line numbers, so an
@@ -6,6 +6,19 @@
 # here (a new violation) and on any pair listed here that no longer exists (the
 # fix landed - delete the line in the same commit). This list only shrinks.
 #
+# Every entry names the phase that deletes it. An entry with no exit is not an
+# entry, it is a permission - and this file grants none.
+#
+# History of the count: 10 as found (2026-09-13) -> 8 after PR 0.3 -> 41 after
+# PR 0.4a -> 38 after PR 0.4a-2. The jump at 0.4a is not a regression: it moved
+# ~60 files into modules/market_data/, and every legacy screen that dispatches
+# one of its commands directly became a visible, counted violation instead of an
+# indistinguishable same-tree import. Phase 1 replaces each dispatch with a port
+# call, and this file returns to single digits. 0.4a-2 is the first such
+# repayment: inverting who parses a CLI line let the two market_data commands
+# move into the module, trading 5 dispatch entries for 2 handler-class ones.
+
+# ---------------------------------------------------------------------------
 # application -> infrastructure: the five handlers EPIC-021 allowed to build
 # FuturesTradingClient with OrderSubmissionMode.LIVE. Removed by EPIC-025B
 # (modules/trading owns the client behind ITradingSession).
@@ -14,9 +27,10 @@ application.use_cases.trading.cancel_order.handler -> infrastructure.binance.fut
 application.use_cases.trading.emergency_stop.handler -> infrastructure.binance.futures_trading_client
 application.use_cases.trading.enable_trading.handler -> infrastructure.binance.futures_trading_client
 application.use_cases.trading.execute_order.handler -> infrastructure.binance.futures_trading_client
-# presentation -> infrastructure. The CLI payload mapper moves into
-# modules/trading's adapters (EPIC-025B); the metadata cache moves behind a
-# market_data contract (EPIC-025D).
+
+# ---------------------------------------------------------------------------
+# presentation -> infrastructure: the CLI payload mapper moves into
+# modules/trading's adapters (EPIC-025B).
 #
 # PR 0.3 removed two entries from this block: app_bootstrapper and
 # settings_presenter both reached into `infrastructure.binance.binance_endpoints`
@@ -25,4 +39,98 @@ application.use_cases.trading.execute_order.handler -> infrastructure.binance.fu
 # import, so the imports are no longer violations at all.
 presentation.cli.order_dry_run_cmd -> infrastructure.binance.futures_order_payload_mapper
 presentation.cli.trade_once_cmd -> infrastructure.binance.futures_order_payload_mapper
-presentation.ui.screens.backtest.backtest_presenter -> infrastructure.persistence.symbol_market_metadata_cache
+
+# ---------------------------------------------------------------------------
+# -> modules.market_data.adapters: reaching past the contracts into a module's
+# private adapters. The two worst entries in this file, and both are two lines
+# of code, not a design:
+#
+# * exchange_session_factory constructs PythonBinanceClient directly. The class
+#   itself stays in the legacy tree on purpose (PR 0.4a): one instance answers
+#   both market_data's IExchangeSessionFactory and trading's
+#   ITradingSessionFactory, and splitting a shared instance is a behaviour
+#   change, not a move. EPIC-025B splits it, one factory per context.
+# * backtest_presenter falls back to InMemorySymbolMarketMetadataCache when the
+#   container has no cache registered. PR 0.4b rebuilds this screen and the
+#   fallback goes with it — a presenter that needs a stub is a presenter whose
+#   dependency should have been injected.
+infrastructure.binance.exchange_session_factory -> modules.market_data.adapters.binance.client
+presentation.ui.screens.backtest.backtest_presenter -> modules.market_data.adapters.persistence.symbol_market_metadata_cache
+
+# ---------------------------------------------------------------------------
+# presentation -> modules.market_data.cli: the interactive shell's handler table
+# (2 entries, added by PR 0.4a-2, and cheaper than the 5 they replaced).
+#
+# `interactive_shell.py` hard-codes `{"sync": SyncCliHandler, ...}`, so it names
+# two classes that now live inside the module. It could not follow them into
+# `shell/` in the same pull request: it also drives trading's `exchange-status`
+# handler, still in the legacy tree, and `shell/`'s own legacy-import baseline
+# only shrinks — moving the shell would have had to grow it.
+#
+# Phase 1 deletes both lines at once: `interactive_shell.py` moves into `shell/`,
+# and the table stops being hard-coded — each module declares its own commands
+# and the shell collects them from `MODULES`, the way `contribute()` already
+# works. Until then these are the only two imports of a module's `cli/` package,
+# and nothing else may add one.
+presentation.cli.interactive_shell -> modules.market_data.cli.stream_cli_handler
+presentation.cli.interactive_shell -> modules.market_data.cli.sync_cli_handler
+
+# ---------------------------------------------------------------------------
+# presentation -> modules.market_data.application: the transitional dispatch
+# surface (27 entries).
+#
+# What these are: a legacy screen or CLI command builds a market_data Command or
+# Query object and hands it to the Engine's ICommandDispatcher. The import is
+# only for the *type*, never for a handler - so the coupling is a data shape,
+# which is why it was tolerable to leave standing for one phase rather than
+# rewrite 20 screens in the same pull request that moved 60 files.
+#
+# Why they are not simply published in contracts/: publishing them would make
+# this coupling permanent and correct-looking. It is neither. Phase 1 replaces
+# each dispatch with a call on a narrow port (IHistoricalKlines, IMarketDataSync,
+# IMarketStream, ISymbolCatalog, IRangeCoverage), and each replacement deletes
+# its line here. Nothing new may be added to this block: a new caller uses a
+# port, or there is a new port.
+#
+# Where they go, by phase:
+#   Phase 1  - the data_management.* lines (8), with the same port replacement as
+#              every other dispatch. They were written down as "PR 0.4b, when
+#              that screen is rebuilt", on the assumption that 0.4b moves the
+#              screen into `modules/market_data/ui/` and turns these into
+#              intra-module imports. It cannot: measured, the move needs 35 NEW
+#              entries pointing the wrong way — `modules/market_data/ui/` ->
+#              `presentation.ui.{kit,assets,common,components,state,qml}` —
+#              because a module's `ui/` may import `support/ui_kit` and
+#              `support/charting`, and neither exists before Phase 4. Trading 8
+#              forward entries for 35 backward ones inverts the number this
+#              epic actually watches. EPIC-025A §1.8 records the measurement.
+#   PR 0.5   - the trading/backtest/dashboard chart lines, via IMarketDataSync
+#   PR 0.4a-2 - DONE: the sync/stream CLI lines left when those commands moved
+#              into `modules/market_data/cli/`
+presentation.cli.trade_once_cmd -> modules.market_data.application.queries.get_historical_klines
+presentation.ui.common.symbol_options_coordinator -> modules.market_data.application.queries.list_available_symbols
+presentation.ui.screens.backtest.coordinators.chart_feed_coordinator -> modules.market_data.application.queries.get_historical_klines.query
+presentation.ui.screens.backtest.coordinators.chart_preview_coordinator -> modules.market_data.application.queries.get_backtest_range_coverage
+presentation.ui.screens.backtest.coordinators.chart_preview_coordinator -> modules.market_data.application.queries.get_historical_klines.query
+presentation.ui.screens.backtest.coordinators.data_sync_coordinator -> modules.market_data.application.queries.get_backtest_range_coverage
+presentation.ui.screens.backtest.coordinators.data_sync_coordinator -> modules.market_data.application.sync.sync_market_data.command
+presentation.ui.screens.dashboard.stream_lifecycle_controller -> modules.market_data.application.queries.get_historical_klines.query
+presentation.ui.screens.dashboard.stream_lifecycle_controller -> modules.market_data.application.stream.start_live_stream.command
+presentation.ui.screens.dashboard.stream_lifecycle_controller -> modules.market_data.application.stream.stop_live_stream.command
+presentation.ui.screens.dashboard.stream_lifecycle_controller -> modules.market_data.application.sync.sync_market_data.command
+presentation.ui.screens.data_management.coordinators.gap_coordinator -> modules.market_data.application.database.repair_data_gap
+presentation.ui.screens.data_management.coordinators.gap_coordinator -> modules.market_data.application.queries.get_database_gaps
+presentation.ui.screens.data_management.coordinators.kline_inspector_coordinator -> modules.market_data.application.queries.audit_database_integrity
+presentation.ui.screens.data_management.coordinators.kline_inspector_coordinator -> modules.market_data.application.queries.get_historical_klines
+presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.database.clear_market_data
+presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.database.prune_empty_shards
+presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.queries.get_database_status.query
+presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.queries.list_available_symbols
+presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.queries.scan_all_databases
+presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules.market_data.application.sync.bulk_sync_market_data.command
+presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules.market_data.application.sync.bulk_sync_market_data.sync_target
+presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules.market_data.application.sync.sync_market_data.command
+presentation.ui.screens.trading.coordinators.chart_coordinator -> modules.market_data.application.queries.get_historical_klines.query
+presentation.ui.screens.trading.coordinators.chart_coordinator -> modules.market_data.application.stream.start_live_stream.command
+presentation.ui.screens.trading.coordinators.chart_coordinator -> modules.market_data.application.stream.stop_live_stream.command
+presentation.ui.screens.trading.coordinators.chart_coordinator -> modules.market_data.application.sync.sync_market_data.command

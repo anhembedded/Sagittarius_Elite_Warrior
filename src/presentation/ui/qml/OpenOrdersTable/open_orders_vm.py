@@ -15,9 +15,9 @@ class OpenOrdersVM(QObject):
     """@brief The full set of currently pending orders, as QML-facing rows."""
 
     stateChanged = Signal()
-    #: `EPIC-024B` §0 — the "Huỷ" button on each row. `(symbol,
-    #: clientOrderId)`, same shape `DatabaseStatusVM.rowActionRequested`
-    #: uses for its own per-row buttons.
+    #: `EPIC-024B` §0 — the "Huỷ" button on each row, as
+    #: `(symbol, clientOrderId)`: the row an action was pressed on, not an
+    #: index into a list the host cannot see.
     cancelRequested = Signal(str, str)
 
     def __init__(self, parent: QObject | None = None) -> None:

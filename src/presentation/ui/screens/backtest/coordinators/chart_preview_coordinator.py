@@ -18,14 +18,14 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.application.services.backtest_range_coverage import (
-    BacktestRangeCoverage,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_backtest_range_coverage import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
     GetBacktestRangeCoverageQuery,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.query import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
     GetHistoricalKlinesQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
+    BacktestRangeCoverage,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
     map_klines,

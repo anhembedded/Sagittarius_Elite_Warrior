@@ -51,6 +51,37 @@ filterwarnings = [
 
 asyncio_mode = "auto"
 
+# ---------------------------------------------------------------------------
+# Per-test timeout (`BUG-119`, 2026-09-14)
+#
+# A failing test is visible; a **hanging** test is not, and that asymmetry cost
+# an afternoon. `execute_stream()` ends in `while True: time.sleep(1)` by design
+# (a blocking foreground CLI). `EPIC-025` PR 0.4a-2 moved dispatch behind a port,
+# the test's mock stopped intercepting the call the code makes, a permissive
+# `Mock` passed the `success` guard, and one test entered that loop forever. Its
+# xdist worker then never reported, the controller waited for it, and the gate
+# stopped at 96% — three runs in a row, no test reported `FAILED`, no traceback,
+# no exit code. It took `py-spy` on the live processes and a comparison of log
+# byte counts to find a 15-line mistake.
+#
+# With this, the same hang is an ordinary failure naming the test.
+#
+# 60s is chosen against measurement, not taste. The slowest legitimate test in
+# the suite is 22.93s (`test_a_task_outliving_shutdown_is_named_rather_than_
+# hanging_silently`, which deliberately waits on a lingering thread); the next
+# slowest is 5.18s. 60s is ~2.6x the outlier, so it has real headroom on a loaded
+# machine, while still turning a hang into a failure within a minute instead of
+# never. Raise it only with a fresh `--durations` measurement pasted into the
+# commit; a test that legitimately needs longer should carry its own
+# `@pytest.mark.timeout(...)` rather than push this global up for everyone.
+#
+# `method` is left at pytest-timeout's platform default (`signal` on Unix), which
+# interrupts only the offending test and gives a traceback at the line that hung
+# — verified against this exact hang, not assumed. Its known limit is code that
+# blocks without releasing the GIL, where `thread` would be needed; that trade
+# (killing the whole run) is not worth making until such a hang actually appears.
+timeout = 60
+
 [tool.ruff.lint]
 # EPIC-004 — security and maintainability rules enabled incrementally from
 # the baseline audit (Tasks/reports/EPIC-004A_ruff_security_quality_baseline_audit.md).
@@ -59,6 +90,16 @@ extend-select = ["S", "PLR2004", "B", "SIM", "ERA", "N"]
 [tool.ruff.lint.per-file-ignores]
 # These patterns are intentional in tests and Qt override methods respectively.
 "tests/**" = ["S101", "S603", "S106", "S108", "PLR2004"]
+# A contract suite is test code that ships in `src/` on purpose (HLD §10.3): the
+# suite and the verified fake are the provider module's **public API**, imported
+# by consumers in other modules, and `tests/` is not importable API. So `assert`
+# — which is what a contract suite is made of — is correct here for the same
+# reason it is correct under `tests/`, and `PLR2004` likewise: a literal
+# expectation is the assertion, not a magic number.
+#
+# Deliberately narrow: only `contracts/testing/`. The rest of `src/` keeps S101,
+# because an `assert` in production code is a check that vanishes under `-O`.
+"src/modules/*/contracts/testing/**" = ["S101", "PLR2004"]
 "src/presentation/ui/**" = ["N802", "N803", "N815"]
 # The repository/package name is intentionally PascalCase; Ruff otherwise
 # derives it as the parent module name for these package markers.
@@ -93,21 +134,33 @@ exclude = [
     "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]backtest_cached_interaction_hybrid_probe\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]backtest_chart_interaction\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]scripts[\\/]benchmarking[\\/]backtest_hybrid_opengl_probe\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]application[\\/]use_cases[\\/]queries[\\/]get_historical_klines[\\/]handler\\.py$",
+    # `EPIC-025` PR 0.4a re-keyed five entries in this block to the paths the
+    # files now live at. `market_data` became a module, so
+    # `application/use_cases/queries/get_historical_klines/`,
+    # `infrastructure/binance/client.py` and the three `infrastructure/
+    # persistence/` files moved under `src/modules/market_data/`. Re-keying was
+    # not optional and dropping them was not an option either: the entries are
+    # frozen 2026-08-21 debt (SQLAlchemy `Column[T]`-vs-`T` typing, 21 errors),
+    # and a path-only move neither fixes that debt nor creates it. Deleting the
+    # lines would have hidden it; fixing 21 ORM typing errors inside a pure
+    # move would have made the move unreviewable. This is the same trap the
+    # `kline_row_mapper.py` note below records — a split that silently drops a
+    # file out of gate coverage — caught this time by the gate itself.
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]application[\\/]queries[\\/]get_historical_klines[\\/]handler\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]ema_crossover_strategy\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]ema_trend_pullback_strategy\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]long_term_trend_zone_strategy\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]multi_ema_trend_follower_strategy\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]binance[\\/]client\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]persistence[\\/]models\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]persistence[\\/]sqlalchemy_repository\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]adapters[\\/]binance[\\/]client\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]adapters[\\/]persistence[\\/]models\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]adapters[\\/]persistence[\\/]sqlalchemy_repository\\.py$",
     # `kline_row_mapper.py` (`EPIC-018B`) inherited this same `Column[T]`-vs-`T`
     # debt verbatim when `to_market_data_entity()` was split out of
     # `sqlalchemy_repository.py` above — same root cause (SQLAlchemy ORM
     # attribute typing), just relocated. Merge-time discovery (`master-warrior`
     # merge, 2026-08-31): the split had silently dropped this file out of gate
     # coverage since nothing re-added it here.
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]infrastructure[\\/]persistence[\\/]kline_row_mapper\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]adapters[\\/]persistence[\\/]kline_row_mapper\\.py$",
 
     # Surfaced only AFTER the exclusions above were applied — not part of the
     # original 45-file/251-error combined baseline scan (EPIC-002A), but

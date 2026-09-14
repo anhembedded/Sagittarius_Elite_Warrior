@@ -7,10 +7,10 @@ import time
 from unittest.mock import patch
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.ports.i_exchange_client import (
+from Sagittarius_Elite_Warrior.src.main import create_app
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
 )
-from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
     DataManagementPresenter,
@@ -99,10 +99,10 @@ def database_app_context(qapp, qtbot, monkeypatch, request):
 
     with (
         patch(
-            "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.AsyncClient"
+            "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.binance_websocket_service.AsyncClient"
         ),
         patch(
-            "Sagittarius_Elite_Warrior.src.infrastructure.binance.binance_websocket_service.BinanceSocketManager"
+            "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.binance_websocket_service.BinanceSocketManager"
         ),
     ):
         app.boot()

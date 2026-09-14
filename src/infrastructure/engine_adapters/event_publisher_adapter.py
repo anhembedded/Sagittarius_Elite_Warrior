@@ -15,7 +15,7 @@ wrapper turning an engine service into an Application-layer port
 rules out.
 """
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_event_publisher import (
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
 from sagittarius_engine.domain.i_domain_event import IDomainEvent

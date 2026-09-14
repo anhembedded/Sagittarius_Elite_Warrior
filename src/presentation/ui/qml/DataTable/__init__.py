@@ -11,5 +11,8 @@ convention as `qml/kit/__init__.py`.
 Extracted (`BOT-124`) from three near-identical copies of this same
 skeleton — `TradeLogTable`, `KlineInspectorTable`, `DatabaseStatusTable` —
 see `NOTES.md` for the measurements that motivated it and what stayed
-behind in each of the three.
+behind in each of the three. Two of those three are gone: `EPIC-025`
+PR 0.4b rebuilt the K-line inspector and the database status table as
+`QTableView`s (ADR D20), leaving `TradeLogTable` as the only caller until
+Phase 4 deletes this directory too.
 """

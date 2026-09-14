@@ -2,9 +2,9 @@
 
 Demonstrates the component in isolation with a trivial two-column row
 delegate — not a real table's row shape, since `DataTable` has no opinion
-on what a row looks like (BOT-124 §5). The three real callers
-(`TradeLogTable`/`KlineInspectorTable`/`DatabaseStatusTable`) each keep
-their own `preview.py` showing their real row delegate.
+on what a row looks like (BOT-124 §5). Its one remaining caller
+(`TradeLogTable`) keeps its own `preview.py` showing its real row delegate;
+the other two were rebuilt as `QTableView`s in `EPIC-025` PR 0.4b.
 """
 
 from __future__ import annotations

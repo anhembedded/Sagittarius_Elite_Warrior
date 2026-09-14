@@ -42,9 +42,6 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.application.ports.i_command_dispatcher import (
-    ICommandDispatcher,
-)
 from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
     ITradingAccountReader,
 )
@@ -65,6 +62,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.h
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.result import (
     ExecuteOrderResult,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy import (
     TradingLimitPolicy,

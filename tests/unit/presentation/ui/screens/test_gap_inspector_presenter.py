@@ -4,11 +4,11 @@ import os
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.use_cases.database.repair_data_gap import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.repair_data_gap import (
     RepairDataGapCommand,
     RepairDataGapResult,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_database_gaps import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_database_gaps import (
     CoverageSegmentDTO,
     DataGapDTO,
     GetDatabaseGapsResult,
@@ -192,4 +192,4 @@ def test_database_screen_constructs_both_inspector_modals_with_the_right_object_
     assert view._gap_inspector is not None
     assert view._gap_inspector.objectName() == "gapInspectorModal"
     assert view._kline_inspector is not None
-    assert view._kline_inspector.objectName() == "klineInspectorModal"
+    assert view._kline_inspector.objectName() == "klineInspectorDialog"

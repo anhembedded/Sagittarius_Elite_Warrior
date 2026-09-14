@@ -16,13 +16,13 @@ from __future__ import annotations
 
 import logging
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_open_positions.query import (
     GetOpenPositionsQuery,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.domain.trading.live_position import LivePosition
 from Sagittarius_Elite_Warrior.src.domain.trading.order_submission_mode import (
     OrderSubmissionMode,

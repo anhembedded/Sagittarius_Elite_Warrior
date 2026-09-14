@@ -24,7 +24,6 @@ from __future__ import annotations
 
 import logging
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -44,6 +43,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.emergency_stop.
     EmergencyStopResult,
     EmergencyStopStepResult,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import (
     generate_client_order_id,
 )

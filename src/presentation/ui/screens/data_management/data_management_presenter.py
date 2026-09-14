@@ -1,20 +1,18 @@
 from __future__ import annotations
 
 import logging
-from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
-from Sagittarius_Elite_Warrior.src.application.events.bulk_sync_events import (
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.bulk_sync_events import (
     BulkSyncProgressEvent,
 )
-from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
 )
-from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOwnershipTracker,
 )
@@ -165,12 +163,6 @@ class DataManagementPresenter(BasePresenter):
         view.set_view_model(self._view_model)
         self._shutdown_requested = False
         self._cancellation_token: CancellationToken | None = None
-
-        config: IConfig = container.resolve(IConfig)
-        cfg_page_size = config.get(ConfigKeys.KLINE_INSPECTOR_PAGE_SIZE.value)
-        if cfg_page_size is not None:
-            with suppress(ValueError, TypeError):
-                self._view_model.kline_inspector_model.set_page_size(int(cfg_page_size))
 
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
         market_data_repo: IMarketDataRepository = container.resolve(

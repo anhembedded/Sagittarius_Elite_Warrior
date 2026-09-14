@@ -17,21 +17,21 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.use_cases.database.clear_market_data import (
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.clear_market_data import (
     ClearMarketDataResult,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.database.prune_empty_shards import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.prune_empty_shards import (
     PruneEmptyShardsCommand,
     PruneEmptyShardsResult,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.scan_all_databases.query import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.scan_all_databases.query import (
     DatabaseStatusDTO,
     ScanAllDatabasesQuery,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.sync.sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
     SyncMarketDataCommand,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
     DataManagementPresenter,
@@ -71,7 +71,7 @@ def mock_container(mock_thread_mgr, mock_dispatcher, mock_market_data_repo):
     container = Mock()
 
     def resolve_mock(interface):
-        from Sagittarius_Elite_Warrior.src.application.ports.i_market_data_repository import (
+        from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
             IMarketDataRepository,
         )
         from sagittarius_engine.extensions.pyside_mvc.base_view import (

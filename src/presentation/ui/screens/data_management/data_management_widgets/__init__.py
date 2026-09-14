@@ -13,13 +13,13 @@ from __future__ import annotations
 from .database_status_panel import DatabaseStatusPanel
 from .field_style import field_style
 from .gap_inspector_dialog import GapInspectorDialog
-from .kline_inspector_dialog import KlineInspectorDialogWidget
+from .kline_inspector_dialog import KlineInspectorDialog
 from .time_range_card import TimeRangeCardWidget
 
 __all__ = [
     "DatabaseStatusPanel",
     "GapInspectorDialog",
-    "KlineInspectorDialogWidget",
+    "KlineInspectorDialog",
     "TimeRangeCardWidget",
     "field_style",
 ]

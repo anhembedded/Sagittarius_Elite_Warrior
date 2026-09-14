@@ -5,11 +5,11 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.audit_database_integrity import (
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.audit_database_integrity import (
     DatabaseAuditResultDTO,
 )
-from Sagittarius_Elite_Warrior.src.domain.entities.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.value_objects.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
     DataManagementPresenter,
 )
@@ -115,44 +115,3 @@ def test_run_audit_submits_thread_and_emits_result(presenter_setup, qapp):
     assert vm.auditPassed is True
     assert vm.auditAnomalyCount == 0
     assert "100%" in vm.auditSummaryText
-
-
-def test_kline_inspector_page_size_from_config_and_dynamic_switch(qapp):
-    from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-    from sagittarius_engine.interfaces.i_config import IConfig
-    from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
-    from sagittarius_engine.interfaces.i_event_bus import IEventBus
-    from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
-
-    mock_thread_mgr = Mock()
-    mock_dispatcher = Mock()
-    mock_config = Mock()
-    mock_config.get.side_effect = lambda key, default=None: (
-        250 if key == ConfigKeys.KLINE_INSPECTOR_PAGE_SIZE.value else default
-    )
-    container = Mock()
-
-    def resolve_mock(interface):
-        if interface == IThreadManager:
-            return mock_thread_mgr
-        if interface == IDispatcher:
-            return mock_dispatcher
-        if interface == IEventBus:
-            bus = Mock()
-            bus.on = Mock()
-            return bus
-        if interface == IConfig:
-            return mock_config
-        return Mock()
-
-    container.resolve.side_effect = resolve_mock
-    view = DataManagementView()
-    _ = DataManagementPresenter(view, container)
-    vm = view._view_model
-
-    # Initial page size from ConfigKeys
-    assert vm.klineInspectorPageSize == 250
-
-    # Switch page size dynamically from UI
-    vm.requestKlinePageSize(50)
-    assert vm.klineInspectorPageSize == 50
