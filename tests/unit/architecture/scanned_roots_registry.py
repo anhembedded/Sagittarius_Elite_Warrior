@@ -31,6 +31,13 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_scanned_roots_are_not_empty.py",
         (("tests", "test_*.py"),),
     ),
+    # `EPIC-025` PR 0.4a-3 — HLD §10.3 rule 4's guard. It scans `tests/`, not
+    # `src/`: the thing it forbids is a *test* substituting another module's
+    # port with a `Mock` instead of that module's verified fake.
+    (
+        "tests/unit/architecture/test_no_foreign_port_is_mocked.py",
+        (("tests", "*.py"),),
+    ),
     # --- legacy presentation guards -----------------------------------------
     (
         "tests/unit/architecture/test_screen_layer_structure.py",

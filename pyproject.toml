@@ -90,6 +90,16 @@ extend-select = ["S", "PLR2004", "B", "SIM", "ERA", "N"]
 [tool.ruff.lint.per-file-ignores]
 # These patterns are intentional in tests and Qt override methods respectively.
 "tests/**" = ["S101", "S603", "S106", "S108", "PLR2004"]
+# A contract suite is test code that ships in `src/` on purpose (HLD §10.3): the
+# suite and the verified fake are the provider module's **public API**, imported
+# by consumers in other modules, and `tests/` is not importable API. So `assert`
+# — which is what a contract suite is made of — is correct here for the same
+# reason it is correct under `tests/`, and `PLR2004` likewise: a literal
+# expectation is the assertion, not a magic number.
+#
+# Deliberately narrow: only `contracts/testing/`. The rest of `src/` keeps S101,
+# because an `assert` in production code is a check that vanishes under `-O`.
+"src/modules/*/contracts/testing/**" = ["S101", "PLR2004"]
 "src/presentation/ui/**" = ["N802", "N803", "N815"]
 # The repository/package name is intentionally PascalCase; Ruff otherwise
 # derives it as the parent module name for these package markers.
