@@ -16,14 +16,14 @@ from PySide6.QtWidgets import QApplication
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
-    ExchangeRequestCancelledError,
-    IExchangeClient,
-)
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
+    ExchangeRequestCancelledError,
+    IExchangeClient,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
