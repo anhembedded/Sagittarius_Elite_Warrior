@@ -40,6 +40,7 @@ it.
 | Before every commit | [`.agents/rules/commit-rule.md`](.agents/rules/commit-rule.md) |
 | The user reports a bug (**mandatory**) | [`.agents/rules/bug-fix-rule.md`](.agents/rules/bug-fix-rule.md) |
 | Adding or changing logs | [`.agents/rules/logging-rule.md`](.agents/rules/logging-rule.md) |
+| **Reporting work back to the user** (any report, any pull request, any "sao rồi"): context, a diagram, then the numbers with their targets | [`.agents/rules/report-rule.md`](.agents/rules/report-rule.md) |
 | Writing tests | [`.agents/rules/testing-rule.md`](.agents/rules/testing-rule.md) |
 | Building or changing any UI: MVP layout, `preview.py`, icons, table columns | [`.agents/rules/ui-presentation-rule.md`](.agents/rules/ui-presentation-rule.md) |
 | Any UI: the seven desktop UX principles, QtWidgets only, the OS theme, panels and dialogs (ADR D20–D22) | [`.agents/rules/ui-presentation-rule.md`](.agents/rules/ui-presentation-rule.md) "Desktop UX principles" · [`Docs/HLD/11_desktop_workbench.md`](Docs/HLD/11_desktop_workbench.md) |
