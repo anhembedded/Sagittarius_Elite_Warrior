@@ -1,6 +1,11 @@
 # EPIC-025A — Phase 0: the module mechanism plus `modules/market_data` (Walking Skeleton)
 
-- **Status:** 🟡 In progress since 2026-09-13 — PR 0.1 (baselines and guards) first; the PR plan is in the epic README §3.2
+- **Status:** ✅ Code complete 2026-09-14 — all seven pull requests merged (0.1, 0.2, 0.3, 0.4a,
+  0.4a-2, 0.4a-3, 0.4b-1, 0.5; the last as #214). **One item outstanding and it is the user's:**
+  running the app once — Trading loads history, Dev Board "Start Live" syncs and streams, Data
+  Management syncs a symbol, CLI `sync`/`stream` work. §1.9 audits §2's "done when" clause by
+  clause. Kept here until that run happens, because the epic README §3 ends every phase with
+  *the app running*, not with a green gate.
 - **Repository:** Elite
 - **Blocks:** B, C, D, E
 - **Read first:** HLD §1–§3 (cut criteria, context map, the contracts of `market_data`), §4
@@ -573,3 +578,85 @@ written down as a Phase 0 one.
 - The guard allowlist has shrunk by exactly the `market_data` entries; `ci-local.ps1 -Full` is green
   (the log file grepped, not the console).
 - The sanity tier has **zero** new tests.
+
+---
+
+## 1.9 What PR 0.5 shipped: the skeleton walks (2026-09-14, merged as #214)
+
+Phase 0's last pull request, and the one that answers §1's own opening question — *does the
+mechanism work, or does it only look like it does?* A module whose directory layout is correct but
+that nobody calls through a port has proved nothing.
+
+**The port.** `modules/market_data/contracts/i_market_data_sync.py` publishes one sentence —
+*make sure this symbol's history is on disk* — behind `IMarketDataSync` with a frozen
+`MarketDataSyncRequest`. Four screens used to build `SyncMarketDataCommand` and dispatch it, which
+means importing `modules/market_data/application/`, the boundary rule's one prohibition. They now
+name only the contract:
+
+| Consumer | Screen |
+| :--- | :--- |
+| `chart_coordinator` | Trading |
+| `stream_lifecycle_controller` | Dev Board |
+| `data_sync_coordinator` | Backtest |
+| `sync_coordinator` | Data Management |
+
+Four, where §3.2 of the epic README planned two: all four were building the same command, so
+moving one and leaving three would have published a port while keeping the violation.
+
+The request carries the six fields the callers actually set — measured, not guessed:
+`days_back_if_empty` is on the command and no caller has ever passed it, so it stayed internal.
+`pydantic` does not cross the boundary; `MarketDataSyncService` translates the request into the
+module's own command and dispatches it, which keeps one execution path for every sync (the same
+`InFlightSyncGuard`, the same progress events). `composition/port_bindings.py` is a fourth binding
+table and the only one whose audience is another bounded context.
+
+**`BUG-120`, and why it is recorded here rather than only on the bug board.** Reviewing this PR
+with `.claude/skills/pr-review/` found that the four consumers' new tests asserted less than the
+old ones, not more: `FakeMarketDataSync.was_asked_for()` was their only positive claim, and
+hard-coding it to `return True` left **152 tests green**. HLD §10.3 makes a fake *verified* by
+running the port's contract suite against it — which verifies the surface the **port** declares,
+and says nothing about what a fake adds on top. That gap belongs to the epic, not to one fake:
+Phase 1 publishes two more ports, and `IExchangeClient`, `ILiveStreamService` and
+`ISymbolMarketMetadataCache` still have no suite at all. It is now closed by
+`tests/unit/architecture/test_fake_helpers_are_verified.py`, which requires every member a fake
+declares beyond its port to be exercised beside the contract suite.
+
+Then the guard turned out to have the same hole — a port named through `contracts/__init__.py`
+resolved to no file, and the fake was skipped in silence — which is worth writing down as the
+shape of the mistake rather than the mistake itself. Three times in one day: `BUG-118` (a test
+that could not fail), `BUG-120` (a helper that could not fail), the guard against `BUG-120`. None
+was visible by reading the code; each needed breaking the line and running.
+
+### Phase 0's measurements, against §1.1's baselines
+
+| Metric | As found (PR 0.1) | After PR 0.5 | Target |
+| :--- | :--- | :--- | :--- |
+| Tests collected (excl. `tests/testnet`) | 3948 | **4390** | grows with real coverage |
+| New sanity-tier tests | 26 | **26** | **0 added** ✅ (`testing-rule.md` §1) |
+| `.qml` files under `src/` | 35 | **31** | shrink-only ✅ |
+| Boundary allowlist entries | 10 | **34** | see below |
+| Screens importing `infrastructure/**` | 2 | 2 | 0 by end of Phase 1 |
+| `presentation/ui/common/` | 25 files | 25 files | dissolved in Phase 4 |
+| `binance_bot_module.py` | 750 lines | gone; `modules/market_data/module.py` is **135** | — |
+
+### §2's "done when", audited honestly
+
+- **"The guard allowlist has shrunk by exactly the `market_data` entries"** — this criterion cannot
+  be met as written, and the reason is not a regression. It was written before PR 0.4a, which moved
+  ~60 files into `modules/market_data/` and thereby turned every legacy screen's *same-tree* import
+  of a market_data command into a *visible, counted* violation: 10 → 41. The honest reading is the
+  one the allowlist file's own header now carries: 41 → 38 (PR 0.4a-2) → **34** (PR 0.5), shrink-only
+  from the peak, with each remaining line keyed to the phase that retires it. Phase 1's target of an
+  **empty** allowlist is unchanged and is the number that matters.
+- **"`ci-local.ps1 -Full` is green (the log file grepped, not the console)"** — ✅ `RESULT: PASS`,
+  4360 passed, 4 skipped, coverage 95.12%, both greps clean; GitHub `Lint & Test` green on
+  `e0c91be9`.
+- **"The sanity tier has zero new tests"** — ✅ 26, unchanged through all seven pull requests. The
+  tier earned it: deleting `bind_published_ports(container)` from `module.py` fails
+  `test_every_navigable_route_constructs`, because the four Presenters resolve the port through the
+  real container. A feature added zero tests here and is still covered.
+- **"The app runs exactly as before; Data Management goes through the registry; CLI `sync` and
+  `stream` work"** — proved by tests at every tier, **not yet by a human running the app.** That is
+  the user's own checkpoint (epic README §3: each phase ends with *the app running*), and it is the
+  one item of Phase 0 still outstanding: Trading loads history, Dev Board "Start Live" syncs and
+  streams, Data Management syncs a symbol, CLI `sync`/`stream` still work.
