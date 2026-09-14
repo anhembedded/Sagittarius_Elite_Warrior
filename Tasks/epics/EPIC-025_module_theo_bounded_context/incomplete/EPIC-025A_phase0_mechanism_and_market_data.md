@@ -287,9 +287,102 @@ call §1.4 made when it split 0.4 in two.
 
 ### Verification
 
-`pytest tests/unit` — **4047 passed, 0 failed**, bodies unchanged, which is the whole claim a pure
-move can make. The full gate (`scripts/ci-local.ps1 -Full`) is the commit gate and its log is
-grepped for `FAILED|ERROR|Traceback|ResourceWarning` before anything is called green.
+`ci-local.ps1 -Full` **PASS**, log file grepped: 4163 passed, 4 skipped, coverage 94.85%, no
+`FAILED|ERROR|Traceback|ResourceWarning`. Merged as pull request #213.
+
+The gate earned its place twice on this pull request, and both failures were the right kind:
+
+- `tests/integration/test_app_integration.py` hand-rolled the boot sequence with `BinanceBotModule`
+  alone — a faithful copy of the composition root right up until the sequence changed. It now calls
+  `register_modules(app, MODULES)`, the same function the composition root calls, so the next
+  context to move needs no edit there.
+- `tests/sanity/conftest.py` patched a module path written as **two adjacent string literals across
+  two lines**, which a line-by-line rewrite cannot see. The lesson generalises: a sweep for stale
+  paths must join adjacent literals first, or it reports a clean tree that is not clean.
+
+Five mypy baseline entries in `pyproject.toml` were **re-keyed** to the new paths — not dropped,
+which would have hidden 21 pre-existing SQLAlchemy `Column[T]`-vs-`T` errors, and not fixed, which
+would have made a pure move unreviewable.
+
+## 1.6 What PR 0.4a-2 shipped: the CLI, by inverting who parses (2026-09-14)
+
+§1.5 deferred CLI `sync` / `stream` because moving them would have recreated the backwards import
+0.4a had just eliminated. This is that debt repaid, and the fix was not where the deferral note
+guessed it would be.
+
+### The survey changed the design
+
+§1.5 proposed extracting `support/cli_kit`. That was wrong, and the vocabulary caught it: HLD §1.2
+and §2.2 enumerate **exactly four** support packages, and `Docs/VOCABULARY` says `shell/` holds
+"the CLI assembly". A fifth support package would have needed a spec change to justify a file move.
+
+So the doctrine's first step applied instead — survey before inventing. How does an established
+tool let a plugin contribute a command?
+
+| Tool | Who declares arguments | Who parses | What the command receives |
+| :--- | :--- | :--- | :--- |
+| Django `BaseCommand` | the command (`add_arguments(parser)`) | the framework | `handle(**options)` — parsed |
+| Click / Typer | the command (decorators) | the framework | parsed values as parameters |
+| `argparse` subparsers | the parent parser | the parent parser | `set_defaults(func=...)`, called with the namespace |
+
+Unanimous, and the opposite of what this repository did. `ICliCommandHandler.handle(arg_str: str,
+app)` made every handler re-split the line the shell had just split, build its own parser from
+config, and repeat the same three `except` blocks — and *that* is why a command owned by
+`market_data` could not live in `market_data`: to parse, it had to import the legacy CLI package.
+
+The user chose this direction on 2026-09-14 over the `support/cli_kit` option. It changes a public
+contract, which `ONBOARDING.md` §7 group 1 reserves for the user rather than the agent.
+
+### The change
+
+```
+BEFORE                                      AFTER
+InteractiveShell.default()                  InteractiveShell.default()
+  shlex.split(line)                           shlex.split(line)
+  " ".join(words[1:])   <- re-joins!          _parse(cmd_name, words[1:])   <- parses, once
+       |                                           |
+  handler.handle("--symbols BTC", app)        handler.handle(Namespace(symbols="BTC", ...), app)
+       |                                           |
+  shlex.split again                           (nothing left to do)
+  build_handler_parser(config, name)          |
+  parse_args / 3 except blocks           <- x3 handlers, copied
+       |                                           |
+  one real line of work                       one real line of work
+```
+
+`ICliCommandHandler` moved to `core/contracts/`, because the implementations belong to modules and
+nothing may import the shell — the same inversion `IContributionRegistry` already uses.
+
+### What it bought
+
+| Measure | Before 0.4a-2 | After | Target |
+| :--- | :-: | :-: | :-: |
+| Allowlist entries | 41 | **38** | -> 0 |
+| Parsing sites | 3 (one per handler) | **1** | 1 |
+| `except` blocks for argparse | 6 | **2** | in one place |
+| New tree -> legacy tree imports | 0 | **0** | 0 |
+
+Five dispatch entries left; two handler-class entries arrived, because
+`InteractiveShell.handlers` still hard-codes `{"sync": SyncCliHandler, ...}`. Those two are cheaper
+and they have a named exit: Phase 1 moves `interactive_shell.py` into `shell/` and replaces the
+hard-coded table with a declaration on each module, collected from `MODULES` the way `contribute()`
+already works. It could not happen here — the shell also drives trading's `exchange-status`
+handler, still in the legacy tree, and `shell/`'s own legacy-import baseline only shrinks.
+
+### Tests followed the behaviour, not the file
+
+Three cases left the handler tests for `test_interactive_shell.py`: a missing required argument,
+`-h`, and an unknown flag. They were always assertions about argparse, made through whichever
+handler happened to own a parser; they are now asserted once, where the parsing is. What stayed
+with each handler is what it actually decides — and one case proves the split is not cosmetic:
+`--interval` is declared as a free-form string, so argparse cannot reject `INVALID`; `TimeFrame()`
+does, inside the handler. Parsing moving out did not make the handlers validation-free.
+
+### Verification
+
+The full gate (`scripts/ci-local.ps1 -Full`), with its log grepped for
+`FAILED|ERROR|Traceback|ResourceWarning` — the console is not evidence, because Qt's offscreen mode
+dumps harmless `TypeError`s after pytest's summary line.
 
 ## 2. Done when
 

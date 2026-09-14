@@ -1,6 +1,10 @@
 import argparse
 import sys
 
+from Sagittarius_Elite_Warrior.src.modules.market_data.cli.stream_cmd import (
+    execute_stream,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.cli.sync_cmd import execute_sync
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import build_parser
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_cmd import (
     execute_exchange_status,
@@ -14,10 +18,6 @@ from Sagittarius_Elite_Warrior.src.presentation.cli.order_dry_run_cmd import (
 from Sagittarius_Elite_Warrior.src.presentation.cli.order_preview_cmd import (
     execute_order_preview,
 )
-from Sagittarius_Elite_Warrior.src.presentation.cli.stream_cmd import (
-    execute_stream,
-)
-from Sagittarius_Elite_Warrior.src.presentation.cli.sync_cmd import execute_sync
 from Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_cmd import (
     execute_trade_once,
 )

@@ -7,14 +7,15 @@ already had fixed, that this headless sibling still had.
 """
 
 from argparse import Namespace
-from unittest.mock import Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data import (
     SyncMarketDataCommand,
 )
-from Sagittarius_Elite_Warrior.src.presentation.cli.sync_cmd import execute_sync
-from sagittarius_engine import App
+from Sagittarius_Elite_Warrior.src.modules.market_data.cli.sync_cmd import execute_sync
+from Sagittarius_Elite_Warrior.tests.unit.modules.market_data.cli.dispatching_app import (
+    dispatching_app,
+)
 
 
 def _args(**overrides) -> Namespace:
@@ -24,18 +25,16 @@ def _args(**overrides) -> Namespace:
 
 
 def test_execute_sync_dispatches_command(capsys):
-    app = Mock(spec=App)
-    app.dispatch.return_value = None
+    app, dispatcher = dispatching_app()
 
     execute_sync(app, _args())
 
-    args, _ = app.dispatch.call_args
+    args, _ = dispatcher.dispatch.call_args
     assert args[0] == SyncMarketDataCommand
 
 
 def test_execute_sync_dispatch_raises_reports_and_exits(capsys):
-    app = Mock(spec=App)
-    app.dispatch.side_effect = ConnectionError("Network error")
+    app, _dispatcher = dispatching_app(raises=ConnectionError("Network error"))
 
     with pytest.raises(SystemExit) as exc_info:
         execute_sync(app, _args())

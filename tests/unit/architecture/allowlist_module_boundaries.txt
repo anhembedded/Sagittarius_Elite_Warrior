@@ -10,11 +10,13 @@
 # entry, it is a permission - and this file grants none.
 #
 # History of the count: 10 as found (2026-09-13) -> 8 after PR 0.3 -> 41 after
-# PR 0.4a. The jump is not a regression: PR 0.4a moved ~60 files into
-# modules/market_data/, and every legacy screen that dispatches one of its
-# commands directly became a visible, counted violation instead of an
-# indistinguishable same-tree import. Phase 1 replaces each dispatch with a
-# port call, and this file returns to single digits.
+# PR 0.4a -> 38 after PR 0.4a-2. The jump at 0.4a is not a regression: it moved
+# ~60 files into modules/market_data/, and every legacy screen that dispatches
+# one of its commands directly became a visible, counted violation instead of an
+# indistinguishable same-tree import. Phase 1 replaces each dispatch with a port
+# call, and this file returns to single digits. 0.4a-2 is the first such
+# repayment: inverting who parses a CLI line let the two market_data commands
+# move into the module, trading 5 dispatch entries for 2 handler-class ones.
 
 # ---------------------------------------------------------------------------
 # application -> infrastructure: the five handlers EPIC-021 allowed to build
@@ -56,8 +58,26 @@ infrastructure.binance.exchange_session_factory -> modules.market_data.adapters.
 presentation.ui.screens.backtest.backtest_presenter -> modules.market_data.adapters.persistence.symbol_market_metadata_cache
 
 # ---------------------------------------------------------------------------
+# presentation -> modules.market_data.cli: the interactive shell's handler table
+# (2 entries, added by PR 0.4a-2, and cheaper than the 5 they replaced).
+#
+# `interactive_shell.py` hard-codes `{"sync": SyncCliHandler, ...}`, so it names
+# two classes that now live inside the module. It could not follow them into
+# `shell/` in the same pull request: it also drives trading's `exchange-status`
+# handler, still in the legacy tree, and `shell/`'s own legacy-import baseline
+# only shrinks — moving the shell would have had to grow it.
+#
+# Phase 1 deletes both lines at once: `interactive_shell.py` moves into `shell/`,
+# and the table stops being hard-coded — each module declares its own commands
+# and the shell collects them from `MODULES`, the way `contribute()` already
+# works. Until then these are the only two imports of a module's `cli/` package,
+# and nothing else may add one.
+presentation.cli.interactive_shell -> modules.market_data.cli.stream_cli_handler
+presentation.cli.interactive_shell -> modules.market_data.cli.sync_cli_handler
+
+# ---------------------------------------------------------------------------
 # presentation -> modules.market_data.application: the transitional dispatch
-# surface (32 entries).
+# surface (27 entries).
 #
 # What these are: a legacy screen or CLI command builds a market_data Command or
 # Query object and hands it to the Engine's ICommandDispatcher. The import is
@@ -75,12 +95,8 @@ presentation.ui.screens.backtest.backtest_presenter -> modules.market_data.adapt
 # Where they go, by phase:
 #   PR 0.4b  - the data_management.* lines (8), when that screen is rebuilt
 #   PR 0.5   - the trading/backtest/dashboard chart lines, via IMarketDataSync
-#   Phase 1  - the CLI lines, when sync/stream move into the module's own CLI
-presentation.cli.handlers.stream_cli_handler -> modules.market_data.application.stream.start_live_stream
-presentation.cli.handlers.stream_cli_handler -> modules.market_data.application.stream.stop_live_stream
-presentation.cli.handlers.sync_cli_handler -> modules.market_data.application.sync.sync_market_data
-presentation.cli.stream_cmd -> modules.market_data.application.stream.start_live_stream
-presentation.cli.sync_cmd -> modules.market_data.application.sync.sync_market_data
+#   PR 0.4a-2 - DONE: the sync/stream CLI lines left when those commands moved
+#              into `modules/market_data/cli/`
 presentation.cli.trade_once_cmd -> modules.market_data.application.queries.get_historical_klines
 presentation.ui.common.symbol_options_coordinator -> modules.market_data.application.queries.list_available_symbols
 presentation.ui.screens.backtest.coordinators.chart_feed_coordinator -> modules.market_data.application.queries.get_historical_klines.query
