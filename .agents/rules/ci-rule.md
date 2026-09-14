@@ -200,6 +200,22 @@ after, retain it permanently, then the relevant unit/integration tier, then `-Fu
    and keep the deterministic coverage rather than declaring an unverified success. Re-verify
    any standing "known flaky/crashy" exclusion periodically instead of trusting it indefinitely
    — `BOT-038`'s stood for over a year and had silently stopped being true (§3).
+5. **A guard that fails on correct code because a newer decision reversed the old one** is the one
+   case item 2 above does not cover, and it is ordinary in a repository mid-redesign rather than
+   exotic. `EPIC-007F` required every new widget to inherit the kit's `Card`/`Panel`/`Overlay`;
+   ADR D20–D22 then made a dialog a plain `QDialog`, so `test_widget_guards_hold.py` reported
+   correct code as a violation. The resolution, in this order:
+
+   1. Use the guard's **own documented exemption** — `# base-exempt: <reason>`,
+      `# token-exempt: <reason>` — and name the ADR in the reason. The line goes through review,
+      which is the point: each exception stays deliberate and countable.
+   2. **Never raise the ceiling instead.** A ratchet raised to admit new code admits the old
+      shape too, and the number stops meaning anything. A ratchet may only fall.
+   3. Record the reversal in **that guard's docstring**, so the next reader finds the decision
+      instead of re-deriving it — and the guard keeps earning its keep by making every exception
+      a reviewed line.
+   4. A guard the newer decision has overtaken **completely** is its own change, argued in the
+      guard and in the ADR that replaced it — never loosened in passing to get a diff through.
 
 ## 6. Four-level test contract
 
