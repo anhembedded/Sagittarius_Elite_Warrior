@@ -25,6 +25,7 @@ from __future__ import annotations
 import uuid
 from dataclasses import replace
 
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
     MarketDataSyncRequest,
@@ -59,17 +60,20 @@ class FakeMarketDataSync(IMarketDataSync):
 
     # -- what a consumer's test usually wants to know ------------------------
 
-    @property
-    def synced_symbols(self) -> list[str]:
-        """Every symbol asked for, across all requests, in order."""
-        return [symbol for request in self.requests for symbol in request.symbols]
-
-    def was_asked_for(self, symbol: str, interval: object | None = None) -> bool:
+    def was_asked_for(self, symbol: str, interval: TimeFrame | None = None) -> bool:
         """Whether any request named this symbol (optionally at one interval).
 
         Spelled as a question rather than leaving every consumer to write the
         same comprehension over `requests`, and case-insensitive because the
         port's own promise is that case does not matter.
+
+        `interval` is typed, and `BUG-120` is why it was not: as `object` it
+        accepted anything and answered `False` for a wrong type instead of
+        failing — and `TimeFrame` is a `str` `Enum`, so a caller passing the
+        raw `"1m"` matched by accident while a caller passing anything else
+        got a silent no. `test_market_data_sync_contract.py` pins the answer
+        in both directions; this annotation is what makes the wrong call a
+        `mypy` error rather than a green test.
         """
         wanted = symbol.upper()
         return any(

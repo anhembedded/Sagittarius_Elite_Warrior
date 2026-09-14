@@ -77,3 +77,28 @@ def _is_type_checking_guard(node: ast.AST) -> bool:
     if isinstance(test, ast.Name):
         return test.id == "TYPE_CHECKING"
     return isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
+
+
+def imported_names(tree: ast.AST) -> dict[str, str]:
+    """`{local name: dotted module it came from}` for every `from X import Y`.
+
+    Plain `import X` is not collected: a name written through a dotted path
+    (`module.IPort`) is not a bare `Name` node and is handled as "not imported
+    here", which fails open rather than closed. Every import in this
+    repository is `from X import Y` (Ruff enforces the style), so the gap is
+    theoretical; it is recorded rather than hidden.
+
+    Unlike `imported_modules()` above, this keeps the **name** a guard sees
+    written in the source, which is what a rule about one class rather than
+    one module needs. Two guards read it — `mocked_ports.py` to tell which
+    module owns a mocked port, `fake_helpers.py` to find the port a fake
+    stands in for — and it lives here rather than in either of them because a
+    second copy of an import reader is how the two spellings start to drift.
+    """
+    names: dict[str, str] = {}
+    for node in ast.walk(tree):
+        if isinstance(node, ast.ImportFrom) and node.module and not node.level:
+            module = strip_prefix(node.module)
+            for alias in node.names:
+                names[alias.asname or alias.name] = module
+    return names
