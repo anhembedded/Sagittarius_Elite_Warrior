@@ -1,11 +1,19 @@
 import uuid
-from collections.abc import Callable
 from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
+    CancellationCheck,
+)
 
-CancellationCheck = Callable[[], bool]
+# `CancellationCheck` is imported, not redeclared: `EPIC-025` PR 0.5 published
+# it with `IMarketDataSync`, the port that hands this command its caller's
+# check, and a one-line alias declared twice is how the two spellings of a type
+# start to drift. Four other copies of the same alias predate this
+# (`bulk_sync_market_data/command.py`, `i_exchange_client.py` and the two
+# backtest commands); consolidating those means touching the legacy tree, so
+# they are a Phase 1 cleanup rather than a change smuggled into this one.
 
 
 class SyncMarketDataCommand(BaseModel):

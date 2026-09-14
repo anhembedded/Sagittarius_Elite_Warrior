@@ -150,7 +150,7 @@ the second consumer, not after (`architecture-rule.md` §7.2.1).
 | :--- | :--- | :--- | :--- |
 | `IHistoricalKlines` | port | backtesting (2 coordinators), trading (chart), dev_board, CLI `trade-once` | `GetHistoricalKlinesQuery` |
 | `ISymbolCatalog` | port | backtesting, the dev_board picker, the trading combo box | `ListAvailableSymbolsQuery`, `ISymbolCatalogRepository` |
-| `IMarketDataSync` | port | trading (`chart_coordinator.py:145`), backtesting (`data_sync_coordinator.py:217`), dev_board | `SyncMarketDataCommand` |
+| `IMarketDataSync` | port | **built, PR 0.5** — four consumers: trading (`chart_coordinator`), backtesting (`data_sync_coordinator`), dev_board (`stream_lifecycle_controller`), data_management (`sync_coordinator`) | `SyncMarketDataCommand`, wrapped by `MarketDataSyncService`; the published request is `MarketDataSyncRequest` (6 fields — `days_back_if_empty` stayed internal, no caller ever set it) |
 | `IMarketStream` | port | trading (`chart_coordinator.py:191`), dev_board, CLI `stream` | `StartLiveStreamCommand` / `Stop…`, `ILiveStreamService`, the owner id |
 | `IRangeCoverage` | port | backtesting | `GetBacktestRangeCoverageQuery` (renamed: coverage is a market_data concept; backtest merely happened to be its first caller) |
 | `MarketTickEvent`, `SingleSyncProgressEvent` | event | strategy, trading, backtesting | existing |

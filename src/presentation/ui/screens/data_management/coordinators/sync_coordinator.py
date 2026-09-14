@@ -9,11 +9,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.bulk_syn
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.bulk_sync_market_data.sync_target import (
     SyncTarget,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.bulk_sync_events import (
     BulkSyncProgressEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
+    IMarketDataSync,
+    MarketDataSyncRequest,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOutcome,
@@ -44,6 +45,7 @@ class SyncCoordinator:
         self,
         view_model: DataManagementViewModel,
         dispatcher: IDispatcher,
+        market_data_sync: IMarketDataSync,
         thread_manager: IThreadManager,
         tracker: ActionOwnershipTracker[DataManagementActionKind, object, UIMode],
         ui_log_signal: Callable[[str], None],
@@ -57,6 +59,7 @@ class SyncCoordinator:
     ) -> None:
         self._view_model = view_model
         self._dispatcher = dispatcher
+        self._market_data_sync = market_data_sync
         self._thread_manager = thread_manager
         self._tracker = tracker
         self._ui_log_signal = ui_log_signal
@@ -98,7 +101,13 @@ class SyncCoordinator:
         end_time: datetime | None,
         cancellation_token: CancellationToken | None = None,
     ) -> None:
-        """Background worker: dispatches SyncMarketDataCommand for a single target."""
+        """Background worker: asks `IMarketDataSync` to sync one target.
+
+        `EPIC-025` PR 0.5 — it no longer builds `SyncMarketDataCommand`: that
+        is market_data's internal, and this screen now names only the port.
+        The bulk path below still dispatches, because `BulkSyncMarketDataCommand`
+        has no published port yet (Phase 1).
+        """
         token_to_use = cancellation_token or self._cancellation_token
         action = self._tracker.begin_action(
             DataManagementActionKind.SYNC_SINGLE,
@@ -112,17 +121,18 @@ class SyncCoordinator:
         )
         self._active_correlation_id = uuid.uuid4().hex
         try:
-            cmd = SyncMarketDataCommand(
-                symbols=[symbol],
-                interval=TimeFrame(interval),
-                start_time=start_time,
-                end_time=end_time,
-                cancellation_requested=(
-                    token_to_use.is_cancelled if token_to_use else None
-                ),
-                correlation_id=self._active_correlation_id,
+            self._market_data_sync.sync(
+                MarketDataSyncRequest(
+                    symbols=(symbol,),
+                    interval=TimeFrame(interval),
+                    start_time=start_time,
+                    end_time=end_time,
+                    cancellation_requested=(
+                        token_to_use.is_cancelled if token_to_use else None
+                    ),
+                    correlation_id=self._active_correlation_id,
+                )
             )
-            self._dispatcher.dispatch(SyncMarketDataCommand, cmd)
             if not self._tracker.is_current_pending(
                 action.action_id, DataManagementActionKind.SYNC_SINGLE
             ):

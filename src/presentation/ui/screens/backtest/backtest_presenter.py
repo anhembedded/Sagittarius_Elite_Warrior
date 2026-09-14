@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symb
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
+    IMarketDataSync,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
     ISymbolMarketMetadataCache,
 )
@@ -341,6 +344,10 @@ class BackTestPresenter(BasePresenter):
 
         self._strategy_registry: StrategyRegistry = container.resolve(StrategyRegistry)
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
+        # `EPIC-025` PR 0.5: Backtest asks market_data for a sync through its
+        # published port. Resolved here, once, because `build_coordinators`
+        # reads presenter attributes rather than touching the container.
+        self._market_data_sync: IMarketDataSync = container.resolve(IMarketDataSync)
 
         # BOT-102 / EPIC-019A: shared with DashboardPresenter. `None` means
         # "never fetched", distinct from an empty list which would mean

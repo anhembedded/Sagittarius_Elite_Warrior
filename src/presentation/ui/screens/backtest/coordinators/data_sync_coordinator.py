@@ -10,11 +10,12 @@ from datetime import UTC, datetime, timedelta
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
     GetBacktestRangeCoverageQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
+    IMarketDataSync,
+    MarketDataSyncRequest,
 )
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
@@ -38,6 +39,7 @@ class DataSyncCoordinator:
     def __init__(
         self,
         dispatcher,
+        market_data_sync: IMarketDataSync,
         state: IBacktestScreenState,
         effective_data_interval: Callable[[object], object],
         resolve_action_id: Callable[[], int | None],
@@ -48,6 +50,7 @@ class DataSyncCoordinator:
         emit_cancelled: Callable[[int], None],
     ) -> None:
         self._dispatcher = dispatcher
+        self._market_data_sync = market_data_sync
         self._state = state
         self._effective_data_interval = effective_data_interval
         self._resolve_action_id = resolve_action_id
@@ -149,7 +152,7 @@ class DataSyncCoordinator:
         cancellation_token: CancellationToken | None = None,
         coverage: BacktestRangeCoverage | None = None,
     ) -> None:
-        """Background worker: dispatches `SyncMarketDataCommand` for the
+        """Background worker: asks `IMarketDataSync` for the
         symbol/timeframe/range that just came back "no data" — mirrors
         `DataManagementPresenter._run_single_sync`, minus the progress-bar
         events that screen needs and this one doesn't (one sync, one outcome,
@@ -168,7 +171,7 @@ class DataSyncCoordinator:
         )
         self._active_correlation_id = uuid.uuid4().hex
         try:
-            self._dispatch_sync(
+            self._ask_for_the_sync(
                 config,
                 sync_interval,
                 sync_start,
@@ -210,12 +213,12 @@ class DataSyncCoordinator:
             return
         self._emit_succeeded(resolved_action_id)
 
-    def _dispatch_sync(
+    def _ask_for_the_sync(
         self, config, sync_interval, sync_start, cancellation_token, correlation_id
     ) -> None:
         symbol = self._state.symbol
-        command = SyncMarketDataCommand(
-            symbols=[symbol],
+        request = MarketDataSyncRequest(
+            symbols=(symbol,),
             interval=sync_interval,
             start_time=sync_start,
             # Binance treats the history end boundary as exclusive. Fetch one
@@ -234,4 +237,4 @@ class DataSyncCoordinator:
         self._log_dev_trace(
             "sync_dispatch", symbol=symbol, timeframe=sync_interval.value
         )
-        self._dispatcher.dispatch(SyncMarketDataCommand, command)
+        self._market_data_sync.sync(request)

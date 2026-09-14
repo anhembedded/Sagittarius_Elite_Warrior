@@ -38,6 +38,20 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_no_foreign_port_is_mocked.py",
         (("tests", "*.py"),),
     ),
+    # `BUG-120` — the other half of HLD §10.3's "verified fake". The guard
+    # above stops a consumer reaching past the fake; this one stops the fake
+    # itself from growing a query helper that no contract covers. It scans
+    # `src/` for the fakes and `tests/unit/modules/` for the tests that must
+    # exercise their extra helpers, so both roots are registered: a fake tree
+    # that moved in a later phase and a module test tree that did are equally
+    # able to make the scan silently empty.
+    (
+        "tests/unit/architecture/test_fake_helpers_are_verified.py",
+        (
+            ("src/modules", "fake_*.py"),
+            ("tests/unit/modules", "*.py"),
+        ),
+    ),
     # --- legacy presentation guards -----------------------------------------
     (
         "tests/unit/architecture/test_screen_layer_structure.py",

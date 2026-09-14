@@ -8,20 +8,29 @@ click, no opt-in. This module pins the two halves `start()` now offers,
 run synchronously (no `IThreadManager`, no `CancellationToken` real
 threading involved — same style as the module's own docstring calls out
 for background workers with no bookkeeping of their own).
+
+**`EPIC-025` PR 0.5 changed what these tests can assert.** The sync now goes
+through `IMarketDataSync`, a port market_data publishes, driven here by its
+verified fake. That is not only the boundary rule (`Mock(spec=IMarketDataSync)`
+on a *foreign* port fails `test_no_foreign_port_is_mocked.py`) — it is a
+stronger assertion: "no sync was started" and "a sync was asked for BTCUSDT at
+1m" are facts about the screen's behaviour, where "`SyncMarketDataCommand` was
+in `dispatch.call_args_list`" was a fact about its plumbing.
 """
 
 from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
     StopLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
-    SyncMarketDataCommand,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
+    FakeMarketDataSync,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.coordinators.chart_coordinator import (
     _STREAM_OWNER,
@@ -34,10 +43,11 @@ class _FakeToken:
         return False
 
 
-def _coordinator(dispatcher):
+def _coordinator(dispatcher, sync: FakeMarketDataSync | None = None):
     return ChartCoordinator(
         thread_manager=MagicMock(),
         dispatcher=dispatcher,
+        market_data_sync=sync or FakeMarketDataSync(),
         emit_history_ready=MagicMock(),
         emit_load_finished=MagicMock(),
         emit_stream_started=MagicMock(),
@@ -47,29 +57,45 @@ def _coordinator(dispatcher):
 
 
 def test_go_live_false_never_touches_the_network() -> None:
-    """The default path: local history only, no `SyncMarketDataCommand`,
-    no `StartLiveStreamCommand`."""
+    """The default path: local history only — no sync, no live stream."""
     dispatcher = MagicMock()
     dispatcher.dispatch.return_value = MagicMock(data={})
-    coordinator = _coordinator(dispatcher)
+    sync = FakeMarketDataSync()
+    coordinator = _coordinator(dispatcher, sync)
 
     coordinator._run("BTCUSDT", "1m", _FakeToken(), False)
 
-    dispatched_commands = {call.args[0] for call in dispatcher.dispatch.call_args_list}
-    assert SyncMarketDataCommand not in dispatched_commands
-    assert StartLiveStreamCommand not in dispatched_commands
+    assert sync.requests == [], "no sync may be started for a local-only load"
+    dispatched = {call.args[0] for call in dispatcher.dispatch.call_args_list}
+    assert StartLiveStreamCommand not in dispatched
 
 
 def test_go_live_true_syncs_and_starts_the_stream() -> None:
     dispatcher = MagicMock()
     dispatcher.dispatch.return_value = MagicMock(data={})
-    coordinator = _coordinator(dispatcher)
+    sync = FakeMarketDataSync()
+    coordinator = _coordinator(dispatcher, sync)
 
     coordinator._run("BTCUSDT", "1m", _FakeToken(), True)
 
-    dispatched_commands = [call.args[0] for call in dispatcher.dispatch.call_args_list]
-    assert SyncMarketDataCommand in dispatched_commands
-    assert StartLiveStreamCommand in dispatched_commands
+    assert sync.was_asked_for("BTCUSDT", TimeFrame.ONE_MINUTE)
+    dispatched = [call.args[0] for call in dispatcher.dispatch.call_args_list]
+    assert StartLiveStreamCommand in dispatched
+
+
+def test_the_sync_carries_the_screens_cancellation_check() -> None:
+    """`async-ui-action-rule.md`: the caller owns the action. A sync started
+    without the token's check cannot be stopped by the Cancel button, and
+    nothing else in this screen would notice."""
+    dispatcher = MagicMock()
+    dispatcher.dispatch.return_value = MagicMock(data={})
+    sync = FakeMarketDataSync()
+    token = _FakeToken()
+    coordinator = _coordinator(dispatcher, sync)
+
+    coordinator._run("BTCUSDT", "1m", token, True)
+
+    assert sync.requests[0].cancellation_requested == token.is_cancelled
 
 
 def test_stop_dispatches_regardless_of_go_live() -> None:
@@ -92,6 +118,7 @@ def test_start_defaults_to_local_history_only() -> None:
     coordinator = ChartCoordinator(
         thread_manager=thread_manager,
         dispatcher=MagicMock(),
+        market_data_sync=FakeMarketDataSync(),
         emit_history_ready=MagicMock(),
         emit_load_finished=MagicMock(),
         emit_stream_started=MagicMock(),

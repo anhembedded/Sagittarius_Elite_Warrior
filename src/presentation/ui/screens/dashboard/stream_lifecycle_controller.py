@@ -31,9 +31,10 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
     StopLiveStreamCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data.command import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     CancellationCheck,
-    SyncMarketDataCommand,
+    IMarketDataSync,
+    MarketDataSyncRequest,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
     map_klines,
@@ -93,6 +94,7 @@ class StreamLifecycleController:
         *,
         thread_manager: IThreadManager,
         dispatcher: IDispatcher,
+        market_data_sync: IMarketDataSync,
         config: IConfig,
         fsm: Any,
         view_model: Any,
@@ -124,6 +126,7 @@ class StreamLifecycleController:
         # Start Live must exclude each other, not just themselves).
         self._stream_actions = ExclusiveAction(thread_manager=thread_manager)
         self.dispatcher = dispatcher
+        self._market_data_sync = market_data_sync
         self.config = config
         self.fsm = fsm
         self._view_model = view_model
@@ -497,15 +500,16 @@ class StreamLifecycleController:
         correlation_id = uuid.uuid4().hex
         self._active_sync_correlation_id = correlation_id
         self._emit_sync_progress(0, 0, True, "Syncing data from Binance...")
-        sync_cmd = SyncMarketDataCommand(
-            symbols=symbols,
-            interval=interval,
-            start_time=start_time,
-            end_time=end_time,
-            cancellation_requested=cancellation_requested,
-            correlation_id=correlation_id,
+        self._market_data_sync.sync(
+            MarketDataSyncRequest(
+                symbols=tuple(symbols),
+                interval=interval,
+                start_time=start_time,
+                end_time=end_time,
+                cancellation_requested=cancellation_requested,
+                correlation_id=correlation_id,
+            )
         )
-        self.dispatcher.dispatch(SyncMarketDataCommand, sync_cmd)
 
     def _start_websocket_stream(self, symbols: list[str], interval: TimeFrame) -> None:
         self._emit_log("Opening Websocket stream...")

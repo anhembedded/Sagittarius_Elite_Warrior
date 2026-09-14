@@ -13,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.bulk_syn
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
+    IMarketDataSync,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOwnershipTracker,
 )
@@ -209,6 +212,7 @@ class DataManagementPresenter(BasePresenter):
         self._sync_coordinator = SyncCoordinator(
             view_model=self._view_model,
             dispatcher=self.dispatcher,
+            market_data_sync=container.resolve(IMarketDataSync),
             thread_manager=self._thread_manager,
             tracker=self._tracker,
             ui_log_signal=self.ui_log_signal.emit,

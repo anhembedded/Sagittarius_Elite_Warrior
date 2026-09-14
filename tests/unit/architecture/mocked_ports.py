@@ -15,7 +15,7 @@ import ast
 from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.imports import (
-    strip_prefix,
+    imported_names,
 )
 from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.zones import (
     is_contracts_package,
@@ -57,28 +57,10 @@ class MockedPort:
         return zone.split("/", 1)[1]
 
 
-def _imported_names(tree: ast.AST) -> dict[str, str]:
-    """`{local name: dotted module it came from}` for every `from X import Y`.
-
-    Plain `import X` is not collected: a `Mock(spec=...)` written through a
-    dotted path (`module.IPort`) is not a bare `Name` node and is handled as
-    "not imported here", which fails open rather than closed. Every import in
-    this repository is `from X import Y` (Ruff enforces the style), so the gap
-    is theoretical; it is recorded rather than hidden.
-    """
-    names: dict[str, str] = {}
-    for node in ast.walk(tree):
-        if isinstance(node, ast.ImportFrom) and node.module and not node.level:
-            module = strip_prefix(node.module)
-            for alias in node.names:
-                names[alias.asname or alias.name] = module
-    return names
-
-
 def mocked_ports(source: str) -> list[MockedPort]:
     """Every `Mock(spec=SomeName)` in `source`, in line order."""
     tree = ast.parse(source)
-    imports = _imported_names(tree)
+    imports = imported_names(tree)
     found: list[MockedPort] = []
 
     for node in ast.walk(tree):
