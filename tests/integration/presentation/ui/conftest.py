@@ -1,5 +1,6 @@
 import os
 from contextlib import suppress
+from datetime import UTC, datetime
 
 import pytest
 from PySide6.QtCore import QEvent
@@ -36,27 +37,35 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order i
     ExecuteOrderCommand,
     ExecuteOrderCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy import (
     TradingLimitPolicy,
 )
 from Sagittarius_Elite_Warrior.src.main import create_app
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
-    GetBacktestRangeCoverageQuery,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
-    BacktestRangeCoverage,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_range_coverage import (
+    IRangeCoverage,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
+    ISymbolCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_range_coverage import (
+    FakeRangeCoverage,
+    fully_covered,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
+    FakeSymbolCatalog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
@@ -139,8 +148,46 @@ def market_stream():
     return FakeMarketStream()
 
 
+#: The window the scripted coverage answer reports as complete. Any two
+#: instants in the right order would do — a screen renders them, it does not
+#: compute with them, and `mock_klines.build_mock_klines` decides what is
+#: actually stored.
+_COVERED_FROM = datetime(2024, 1, 1, tzinfo=UTC)
+_COVERED_TO = datetime(2024, 1, 2, tzinfo=UTC)
+
+
 @pytest.fixture
-def app_engine(request, monkeypatch, tmp_path, seeded_history, market_stream):
+def range_coverage():
+    """The coverage probe every Backtest integration test reads.
+
+    `EPIC-025` PR 1.2 — scripted to "fully covered" for the shard the seeded
+    history fills, because that is the state these tests were written
+    against: the mocked dispatcher used to answer exactly this.
+    """
+    fake = FakeRangeCoverage()
+    covered = fully_covered(_COVERED_FROM, _COVERED_TO, candles=MOCK_KLINE_COUNT)
+    for symbol in SEEDED_SYMBOLS:
+        for interval in (TimeFrame.ONE_MINUTE, TimeFrame.ONE_SECOND):
+            fake.answer_with(covered, symbol=symbol, interval=interval)
+    return fake
+
+
+@pytest.fixture
+def symbol_catalog():
+    """The tradeable-symbol list every picker in these tests opens."""
+    return FakeSymbolCatalog(SEEDED_SYMBOLS)
+
+
+@pytest.fixture
+def app_engine(
+    request,
+    monkeypatch,
+    tmp_path,
+    seeded_history,
+    market_stream,
+    range_coverage,
+    symbol_catalog,
+):
     """
     Boot the Sagittarius Engine with all configurations but mock the
     dispatcher backend. Defaults to dev.mode=False; parametrize indirectly
@@ -295,25 +342,14 @@ def app_engine(request, monkeypatch, tmp_path, seeded_history, market_stream):
         # shape would short-circuit `isinstance(results, dict)` and skip
         # `feed_all()` — cannot happen against a typed port: `load()` and
         # `load_many()` have one return type each.
-        if command_type is GetBacktestRangeCoverageQuery:
-            # A bare `_FakeResponse` (or a `.data = []` list) reaching
-            # `ChartPreviewCoordinator.run_preview()` as `coverage` is exactly
-            # the shape mismatch `BUG-072` root-caused: production expects a
-            # `BacktestRangeCoverage`, and anything else sent cross-thread
-            # through `_previewDataReadySignal`'s loosely-typed `object`
-            # argument risked a native crash when Qt tried to marshal it.
-            response.data = BacktestRangeCoverage(
-                is_fully_covered=True,
-                first_open_time=None,
-                last_open_time=None,
-                expected_candles=MOCK_KLINE_COUNT,
-                actual_candles=MOCK_KLINE_COUNT,
-                duplicate_candles=0,
-                missing_open_times=(),
-                has_unclosed_candle=False,
-            )
-        else:
-            response.data = []
+        # `EPIC-025` PR 1.2 removed the last branch that mattered: the
+        # coverage probe is `IRangeCoverage` now, answered by the fake
+        # registered below. `BUG-072`'s shape mismatch — a `_FakeResponse`
+        # reaching `run_preview()` where production expects a
+        # `BacktestRangeCoverage`, then crossing `_previewDataReadySignal`'s
+        # loosely-typed `object` argument and risking a native crash — cannot
+        # be built out of a typed port.
+        response.data = []
         return response
 
     monkeypatch.setattr(engine, "dispatch", mock_dispatch)
@@ -324,6 +360,8 @@ def app_engine(request, monkeypatch, tmp_path, seeded_history, market_stream):
     # boundary a test should draw.
     engine.context.container.singleton(IHistoricalKlines, lambda _c: seeded_history)
     engine.context.container.singleton(IMarketStream, lambda _c: market_stream)
+    engine.context.container.singleton(IRangeCoverage, lambda _c: range_coverage)
+    engine.context.container.singleton(ISymbolCatalog, lambda _c: symbol_catalog)
 
     from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 

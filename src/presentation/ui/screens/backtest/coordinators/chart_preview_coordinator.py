@@ -18,14 +18,14 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
-    GetBacktestRangeCoverageQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_range_coverage import (
+    IRangeCoverage,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
     map_klines,
@@ -58,8 +58,8 @@ class ChartPreviewCoordinator:
         view: IBacktestView,
         state: IBacktestScreenState,
         view_model,
-        dispatcher,
         historical_klines: IHistoricalKlines,
+        range_coverage: IRangeCoverage,
         thread_manager,
         log_dev_trace: Callable[..., None],
         format_coverage_message: Callable[[BacktestRangeCoverage], str],
@@ -72,8 +72,8 @@ class ChartPreviewCoordinator:
         self._view = view
         self._state = state
         self._view_model = view_model
-        self._dispatcher = dispatcher
         self._historical_klines = historical_klines
+        self._range_coverage = range_coverage
         self._thread_manager = thread_manager
         self._log_dev_trace = log_dev_trace
         self._format_coverage_message = format_coverage_message
@@ -98,7 +98,7 @@ class ChartPreviewCoordinator:
             # Same hazard `TickModeRequiresBoundedRangeRule`
             # (logic/pre_backtest_assertions.py) already refuses on the Run
             # button: an unbounded start_time makes
-            # GetBacktestRangeCoverageQuery's SQL scan every row ever synced
+            # `IRangeCoverage`'s SQL scan every row ever synced
             # for this symbol/interval with no lower bound, and tick mode's
             # interval is fine-grained (BOT-075's 1s default) — a real
             # session got a ThreadPoolExecutor worker stuck in that scan for
@@ -137,24 +137,19 @@ class ChartPreviewCoordinator:
                 newest_first=True,
             )
             raw_klines = list(reversed(newest_first_rows))
-            coverage_response = self._dispatcher.dispatch(
-                GetBacktestRangeCoverageQuery,
-                GetBacktestRangeCoverageQuery(
-                    symbol=symbol,
-                    interval=config.timeframe,
-                    start_time=config.start_time,
-                    end_time=config.end_time or now,
-                    now=now,
-                ),
+            # `EPIC-025` PR 1.2 — `BUG-072`'s unwrap is gone with the
+            # dispatch. It existed because a test double's response envelope
+            # reached `_previewDataReadySignal`'s loosely-typed `object`
+            # argument and crashed the interpreter marshalling it across the
+            # worker/main thread queue; `IRangeCoverage` returns
+            # `BacktestRangeCoverage`, so there is no envelope to tolerate.
+            coverage = self._range_coverage.coverage(
+                symbol,
+                config.timeframe,
+                start_time=config.start_time,
+                end_time=config.end_time or now,
+                now=now,
             )
-            # BUG-072 — same "tolerate a test double's `.data` envelope"
-            # unwrap as `raw_klines` above. Without it, a test's mocked
-            # dispatcher returning a plain response object (not a real
-            # `BacktestRangeCoverage`) sailed straight into
-            # `_previewDataReadySignal`'s loosely-typed `object` argument and
-            # crashed the interpreter marshaling it across the worker/main
-            # thread queue.
-            coverage = getattr(coverage_response, "data", coverage_response)
             self._emit_preview_ready(
                 preview_id,
                 coverage,

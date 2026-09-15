@@ -97,8 +97,8 @@ def build_coordinators(presenter) -> Coordinators:
         emit_strategy_region=presenter._chartStrategyRegionSignal.emit,
     )
     _data_sync = DataSyncCoordinator(
-        dispatcher=presenter.dispatcher,
         market_data_sync=presenter._market_data_sync,
+        range_coverage=presenter._range_coverage,
         state=state,
         effective_data_interval=presenter._effective_data_interval,
         resolve_action_id=lambda: presenter._current_action_id(BacktestActionKind.SYNC),
@@ -131,10 +131,10 @@ def build_coordinators(presenter) -> Coordinators:
     )
     _chart_preview = ChartPreviewCoordinator(
         historical_klines=presenter._historical_klines,
+        range_coverage=presenter._range_coverage,
         view=presenter.view,
         state=state,
         view_model=presenter._view_model,
-        dispatcher=presenter.dispatcher,
         thread_manager=presenter._thread_manager,
         log_dev_trace=presenter._log_dev_trace,
         format_coverage_message=DataSyncCoordinator.format_coverage_message,

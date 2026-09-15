@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_r
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
+    ISymbolCatalog,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOwnershipTracker,
 )
@@ -199,6 +202,7 @@ class DataManagementPresenter(BasePresenter):
             thread_manager=self._thread_manager,
             tracker=self._tracker,
             market_data_repo=market_data_repo,
+            symbol_catalog=container.resolve(ISymbolCatalog),
             ui_log_signal=self.ui_log_signal.emit,
             ui_error_log_signal=self.ui_error_log_signal.emit,
             ui_status_table_signal=self.ui_status_table_signal.emit,

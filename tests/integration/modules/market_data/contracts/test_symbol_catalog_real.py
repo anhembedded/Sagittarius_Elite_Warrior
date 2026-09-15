@@ -18,12 +18,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.json
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog_repository import (
     ISymbolCatalogRepository,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.contract_symbol_catalog import (
-    SymbolCatalogContract,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.contract_symbol_catalog_repository import (
+    SymbolCatalogRepositoryContract,
 )
 
 
-class TestJsonSymbolCatalog(SymbolCatalogContract):
+class TestJsonSymbolCatalog(SymbolCatalogRepositoryContract):
     @pytest.fixture
     def impl(self, tmp_path: Path) -> ISymbolCatalogRepository:
         return JsonSymbolCatalogRepository(tmp_path / "tradeable_symbols.json")

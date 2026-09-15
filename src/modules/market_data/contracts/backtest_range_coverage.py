@@ -1,4 +1,4 @@
-"""What `GetBacktestRangeCoverageQuery` answers with — a published type.
+"""What `IRangeCoverage.coverage()` answers with — a published type.
 
 "Is this symbol/timeframe/date range complete enough to backtest on?" is a
 market_data question, but the caller is the Backtest screen, which must render

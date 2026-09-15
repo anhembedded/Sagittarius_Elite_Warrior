@@ -14,11 +14,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.prun
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols import (
-    ListAvailableSymbolsQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.scan_all_databases import (
     DatabaseStatusDTO,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
+    FakeSymbolCatalog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOutcome,
@@ -62,12 +62,15 @@ def scan_fixture():
         "get_fsm_state": Mock(return_value=UIMode.IDLE),
     }
 
+    symbol_catalog = FakeSymbolCatalog()
+
     coordinator = ScanCoordinator(
         view_model=view_model,
         dispatcher=dispatcher,
         thread_manager=thread_manager,
         tracker=tracker,
         market_data_repo=market_data_repo,
+        symbol_catalog=symbol_catalog,
         ui_log_signal=signals["ui_log"],
         ui_error_log_signal=signals["ui_error_log"],
         ui_status_table_signal=signals["ui_status_table"],
@@ -81,27 +84,29 @@ def scan_fixture():
         get_current_fsm_state=signals["get_fsm_state"],
     )
 
-    return coordinator, dispatcher, market_data_repo, tracker, signals
+    return coordinator, dispatcher, market_data_repo, tracker, signals, symbol_catalog
 
 
 def test_scan_coordinator_auto_discover_never_opens_a_shard_session(scan_fixture):
-    """BOT-120 — screen-open auto-discover must stay a directory listing: only
-    ListAvailableSymbolsQuery (cached, cheap) plus a call to
-    `list_available_shards()`. It must never dispatch ScanAllDatabasesQuery or
-    PruneEmptyShardsCommand — those open one SQLite session per shard and are
-    now explicit-action-only (see run_scan_all)."""
-    coordinator, dispatcher, market_data_repo, tracker, signals = scan_fixture
+    """BOT-120 — screen-open auto-discover must stay a directory listing: one
+    cached `ISymbolCatalog` read plus a call to `list_available_shards()`. It
+    must never dispatch ScanAllDatabasesQuery or PruneEmptyShardsCommand —
+    those open one SQLite session per shard and are now explicit-action-only
+    (see run_scan_all).
 
-    dispatcher.dispatch.return_value = [
-        "BTCUSDT",
-        "ETHUSDT",
-    ]  # ListAvailableSymbolsQuery
+    `EPIC-025` PR 1.2 — the symbol read is a port, so "cheap" is now
+    assertable rather than implied: `catalog.reads == [False]` says the read
+    did not force an exchange round trip, which no dispatch assertion could
+    tell you."""
+    coordinator, dispatcher, market_data_repo, tracker, signals, catalog = scan_fixture
+
+    catalog.seed(["BTCUSDT", "ETHUSDT"])
     market_data_repo.list_available_shards.return_value = ["BTCUSDT"]
 
     coordinator.run_auto_discover()
 
-    dispatcher.dispatch.assert_called_once()
-    assert dispatcher.dispatch.call_args.args[0] is ListAvailableSymbolsQuery
+    assert catalog.reads == [False], "auto-discover reads the cache, not the exchange"
+    dispatcher.dispatch.assert_not_called()
     market_data_repo.list_available_shards.assert_called_once()
     signals["ui_symbol_options"].assert_called_once_with(["BTCUSDT", "ETHUSDT"])
     signals["ui_status_table"].assert_not_called()
@@ -120,9 +125,11 @@ def test_scan_coordinator_auto_discover_never_opens_a_shard_session(scan_fixture
 def test_scan_coordinator_auto_discover_reports_an_empty_vault_truthfully(
     scan_fixture,
 ):
-    coordinator, dispatcher, market_data_repo, tracker, signals = scan_fixture
+    coordinator, _dispatcher, market_data_repo, tracker, signals, _catalog = (
+        scan_fixture
+    )
 
-    dispatcher.dispatch.return_value = []  # ListAvailableSymbolsQuery
+    # An empty catalog: the exchange list is unavailable or has nothing.
     market_data_repo.list_available_shards.return_value = []
 
     coordinator.run_auto_discover()
@@ -136,7 +143,7 @@ def test_scan_coordinator_auto_discover_reports_an_empty_vault_truthfully(
 
 
 def test_scan_coordinator_scan_all_populates_table(scan_fixture):
-    coordinator, dispatcher, _, tracker, signals = scan_fixture
+    coordinator, dispatcher, _, tracker, signals, _catalog = scan_fixture
 
     status_dto = DatabaseStatusDTO(
         symbol="BTCUSDT",
@@ -176,7 +183,7 @@ def test_scan_coordinator_scan_all_dispatches_prune_and_reports_removals(
     PruneEmptyShardsCommand as its last step and surface a log line when it
     actually removed something. This used to be auto-discover's job; it moved
     here so opening every shard's session is always an explicit user action."""
-    coordinator, dispatcher, _, tracker, signals = scan_fixture
+    coordinator, dispatcher, _, tracker, signals, _catalog = scan_fixture
 
     dispatcher.dispatch.side_effect = [
         [],  # ScanAllDatabasesQuery
@@ -203,7 +210,9 @@ def test_scan_coordinator_scan_all_refreshes_known_shard_count_after_prune(
     """Regression: a scan that finds nothing and prunes every stray shard it
     turned up must not leave the empty-state placeholder still quoting a
     stale pre-prune count — refresh it from a fresh listing afterwards."""
-    coordinator, dispatcher, market_data_repo, _tracker, signals = scan_fixture
+    coordinator, dispatcher, market_data_repo, _tracker, signals, _catalog = (
+        scan_fixture
+    )
     market_data_repo.list_available_shards.return_value = []  # post-prune
 
     dispatcher.dispatch.side_effect = [
@@ -219,7 +228,7 @@ def test_scan_coordinator_scan_all_refreshes_known_shard_count_after_prune(
 def test_scan_coordinator_scan_all_survives_prune_failure(scan_fixture):
     """A broken prune pass must not fail the whole scan-all action — it's a
     hygiene pass, not the reason the user clicked Scan All."""
-    coordinator, dispatcher, _, tracker, _signals = scan_fixture
+    coordinator, dispatcher, _, tracker, _signals, _catalog = scan_fixture
 
     dispatcher.dispatch.side_effect = [
         [],  # ScanAllDatabasesQuery
@@ -232,7 +241,7 @@ def test_scan_coordinator_scan_all_survives_prune_failure(scan_fixture):
 
 
 def test_scan_coordinator_check_status_success(scan_fixture):
-    coordinator, dispatcher, _, tracker, signals = scan_fixture
+    coordinator, dispatcher, _, tracker, signals, _catalog = scan_fixture
 
     status_dto = DatabaseStatusDTO(
         symbol="BTCUSDT",
@@ -266,7 +275,7 @@ def test_scan_coordinator_check_status_success(scan_fixture):
 
 
 def test_scan_coordinator_clear_data_success(scan_fixture):
-    coordinator, dispatcher, _, tracker, signals = scan_fixture
+    coordinator, dispatcher, _, tracker, signals, _catalog = scan_fixture
 
     dispatcher.dispatch.return_value = ClearMarketDataResult(
         deleted_records=100, success=True, message="Data cleared"
@@ -282,7 +291,7 @@ def test_scan_coordinator_clear_data_success(scan_fixture):
 
 
 def test_scan_coordinator_purge_all_success(scan_fixture):
-    coordinator, dispatcher, _, tracker, signals = scan_fixture
+    coordinator, dispatcher, _, tracker, signals, _catalog = scan_fixture
 
     dispatcher.dispatch.return_value = ClearMarketDataResult(
         deleted_records=500, success=True, message="Purged all"
@@ -296,7 +305,7 @@ def test_scan_coordinator_purge_all_success(scan_fixture):
 
 
 def test_scan_coordinator_vacuum_uses_injected_repository(scan_fixture):
-    coordinator, _, market_data_repo, tracker, signals = scan_fixture
+    coordinator, _, market_data_repo, tracker, signals, _catalog = scan_fixture
 
     coordinator.run_vacuum()
 
@@ -307,7 +316,7 @@ def test_scan_coordinator_vacuum_uses_injected_repository(scan_fixture):
 
 def test_scan_coordinator_cancel_is_wired_into_scan_query(scan_fixture):
     """BUG-041: coordinator cancellation must reach the application handler."""
-    coordinator, dispatcher, _, _, _ = scan_fixture
+    coordinator, dispatcher, _, _, _, _ = scan_fixture
     dispatcher.dispatch.return_value = []
 
     cancellation_token = coordinator.create_cancellation_token()

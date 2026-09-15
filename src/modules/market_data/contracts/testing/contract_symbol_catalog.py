@@ -1,135 +1,128 @@
-"""The contract suite for `ISymbolCatalogRepository` (HLD §10.3).
+"""The contract suite for `ISymbolCatalog` (HLD §10.3).
 
-Every implementation of the port runs these tests: the verified fake in unit
-(`tests/unit/modules/market_data/contracts/`), the real JSON one in integration
-against a temp file (`tests/integration/modules/market_data/contracts/`). A
-subclass supplies the `impl` fixture and inherits the assertions.
+Both implementations run it: `FakeSymbolCatalog`, and the real
+`SymbolCatalogService` over `FakeSymbolCatalogRepository` (itself a verified
+fake with its own suite) and a stub exchange client. Nothing here needs a
+network or a file, because what this port promises is the *shape and
+normalisation* of the answer plus the cache rule; fetching is
+`IExchangeClient`'s contract, pinned by its own tests.
 
-**What belongs here, and what does not.** HLD §10.3 rule 2: a guarantee is in
-the suite because a consumer relies on it. Three consumers —
-`symbol_options_coordinator`, the backtest presenter and the dashboard presenter
-— read this list straight into a symbol picker, so the shape of the list *is*
-the contract: clean, upper-cased, unique, ordered. A guarantee nobody needs
-(say, the on-disk file format) stays out; that is the real implementation's own
-test.
+**The suite needs one hook.** Some guarantees are about what the
+implementation answers *after* the catalog holds something, and the two get
+there differently — the fake is seeded, the real service reads a repository.
+So a subclass supplies `given_symbols`, a callable that puts symbols where
+its implementation will find them. The subclass wiring the real service is
+where that means "save them to the repository", which keeps the asymmetry in
+the adapter-shaped place rather than in the contract.
 
-**The suite is extended by consumers, not only by the provider.** A module that
-needs a promise this file does not make adds the test here rather than asserting
-it locally against a stub — that is the consumer-driven half of the mechanism,
-and it is what keeps a second implementation honest.
-
-Written as a mixin class rather than parametrised fixtures so a subclass reads
-as what it is (`class TestFakeSymbolCatalog(SymbolCatalogContract)`) and can add
-implementation-specific tests beside the inherited ones.
+What this suite does **not** pin is what `force_refresh=True` fetches: the
+fake has no exchange. That half is `TestTheRealService`'s own business, next
+to the suite, where a stub client can answer.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable, Sequence
+
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog_repository import (
-    ISymbolCatalogRepository,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
+    ISymbolCatalog,
 )
+
+#: How a subclass puts symbols where its implementation reads them.
+type GivenSymbols = Callable[[Sequence[str]], None]
 
 
 class SymbolCatalogContract:
-    """Inherit this and provide `impl`. Every test here must pass for both."""
+    """Inherit this, provide `impl` and `given_symbols`. Both must pass it."""
 
     @pytest.fixture
-    def impl(self) -> ISymbolCatalogRepository:
+    def impl(self) -> ISymbolCatalog:
         raise NotImplementedError(
             "a SymbolCatalogContract subclass must provide an `impl` fixture "
-            "returning the ISymbolCatalogRepository under test"
+            "returning the ISymbolCatalog under test"
         )
 
-    # -- reading before anything was written --------------------------------
+    @pytest.fixture
+    def given_symbols(self) -> GivenSymbols:
+        raise NotImplementedError(
+            "a SymbolCatalogContract subclass must provide a `given_symbols` "
+            "fixture that puts symbols where its implementation reads them"
+        )
 
-    def test_an_empty_catalog_reads_as_an_empty_list(
-        self, impl: ISymbolCatalogRepository
+    # -- the ordinary answer -------------------------------------------------
+
+    def test_an_empty_catalog_reads_empty(self, impl: ISymbolCatalog) -> None:
+        """Not an error: a first run has fetched nothing yet, and both callers
+        handle it by showing an empty picker."""
+        assert impl.list_symbols() == ()
+
+    def test_every_symbol_given_comes_back(
+        self, impl: ISymbolCatalog, given_symbols: GivenSymbols
     ) -> None:
-        """Not `None`, and not an error. The first run of a fresh install hits
-        this path — the real one has no file yet — and the symbol picker must
-        render empty rather than crash on boot."""
-        assert impl.get_symbols() == []
+        given_symbols(["BTCUSDT", "ETHUSDT"])
 
-    # -- the round trip ------------------------------------------------------
+        assert impl.list_symbols() == ("BTCUSDT", "ETHUSDT")
 
-    def test_saved_symbols_come_back(self, impl: ISymbolCatalogRepository) -> None:
-        impl.save_symbols(["BTCUSDT", "ETHUSDT"])
+    # -- normalisation, which three pickers render directly ------------------
 
-        assert impl.get_symbols() == ["BTCUSDT", "ETHUSDT"]
-
-    def test_a_second_save_replaces_the_first(
-        self, impl: ISymbolCatalogRepository
+    def test_symbols_are_upper_cased(
+        self, impl: ISymbolCatalog, given_symbols: GivenSymbols
     ) -> None:
-        """Replaces, never merges. A sync that found fewer symbols than last
-        time must be able to say so — a delisted symbol has to disappear."""
-        impl.save_symbols(["BTCUSDT", "ETHUSDT"])
+        given_symbols(["btcusdt"])
 
-        impl.save_symbols(["SOLUSDT"])
-
-        assert impl.get_symbols() == ["SOLUSDT"]
-
-    def test_saving_nothing_clears_the_catalog(
-        self, impl: ISymbolCatalogRepository
-    ) -> None:
-        impl.save_symbols(["BTCUSDT"])
-
-        impl.save_symbols([])
-
-        assert impl.get_symbols() == []
-
-    # -- the shape of what comes back ---------------------------------------
-
-    def test_symbols_come_back_upper_cased(
-        self, impl: ISymbolCatalogRepository
-    ) -> None:
-        """The exchange is asked in upper case and every other module compares
-        in upper case, so the catalog is the place that normalises — not each
-        of the three pickers that read it."""
-        impl.save_symbols(["btcusdt", "EthUsdt"])
-
-        assert impl.get_symbols() == ["BTCUSDT", "ETHUSDT"]
+        assert impl.list_symbols() == ("BTCUSDT",)
 
     def test_surrounding_whitespace_is_trimmed(
-        self, impl: ISymbolCatalogRepository
+        self, impl: ISymbolCatalog, given_symbols: GivenSymbols
     ) -> None:
-        impl.save_symbols([" BTCUSDT ", "\tETHUSDT\n"])
+        given_symbols(["  BTCUSDT  "])
 
-        assert impl.get_symbols() == ["BTCUSDT", "ETHUSDT"]
+        assert impl.list_symbols() == ("BTCUSDT",)
 
-    def test_blank_entries_are_dropped(self, impl: ISymbolCatalogRepository) -> None:
-        """A trailing comma in a hand-edited file, or an empty cell from an
-        exchange response, must not become a blank row in the picker."""
-        impl.save_symbols(["BTCUSDT", "", "   ", "ETHUSDT"])
-
-        assert impl.get_symbols() == ["BTCUSDT", "ETHUSDT"]
-
-    def test_duplicates_are_collapsed(self, impl: ISymbolCatalogRepository) -> None:
-        """Including duplicates that differ only by case or padding — they are
-        the same symbol, and a picker showing it twice is a bug the user sees."""
-        impl.save_symbols(["BTCUSDT", "btcusdt", " BTCUSDT "])
-
-        assert impl.get_symbols() == ["BTCUSDT"]
-
-    def test_symbols_come_back_sorted(self, impl: ISymbolCatalogRepository) -> None:
-        """Ordering is part of the contract, not an accident of storage: the
-        picker shows the list as given, and a list whose order changed between
-        two syncs of the same symbols is a UI that moves under the cursor."""
-        impl.save_symbols(["SOLUSDT", "BTCUSDT", "ETHUSDT"])
-
-        assert impl.get_symbols() == ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
-
-    # -- isolation -----------------------------------------------------------
-
-    def test_mutating_the_returned_list_does_not_change_the_catalog(
-        self, impl: ISymbolCatalogRepository
+    def test_duplicates_collapse(
+        self, impl: ISymbolCatalog, given_symbols: GivenSymbols
     ) -> None:
-        """The real one reads a file, so its result is always a fresh list. A
-        fake handing out its own storage would let a consumer's test pass on
-        behaviour the real implementation does not have — which is precisely
-        the drift this mechanism exists to catch."""
-        impl.save_symbols(["BTCUSDT"])
+        """A picker showing `BTCUSDT` twice is a visible defect, and the two
+        sources of this list (a stored copy and a fresh fetch) had different
+        answers before the port promised one."""
+        given_symbols(["BTCUSDT", "btcusdt", " BTCUSDT "])
 
-        impl.get_symbols().append("ETHUSDT")
+        assert impl.list_symbols() == ("BTCUSDT",)
 
-        assert impl.get_symbols() == ["BTCUSDT"]
+    def test_blank_entries_are_dropped(
+        self, impl: ISymbolCatalog, given_symbols: GivenSymbols
+    ) -> None:
+        given_symbols(["BTCUSDT", "", "   "])
+
+        assert impl.list_symbols() == ("BTCUSDT",)
+
+    def test_the_order_is_alphabetical_not_the_source_order(
+        self, impl: ISymbolCatalog, given_symbols: GivenSymbols
+    ) -> None:
+        """The picker shows them in this order, so it is a promise, not an
+        accident of whichever source answered."""
+        given_symbols(["ETHUSDT", "BTCUSDT", "SOLUSDT"])
+
+        assert impl.list_symbols() == ("BTCUSDT", "ETHUSDT", "SOLUSDT")
+
+    # -- the snapshot is a snapshot ------------------------------------------
+
+    def test_the_answer_is_an_immutable_snapshot(
+        self, impl: ISymbolCatalog, given_symbols: GivenSymbols
+    ) -> None:
+        """`domain-truth-rule.md` — three consumers read this list, and one
+        that sorted or trimmed it in place used to change what the next
+        reader saw."""
+        given_symbols(["BTCUSDT"])
+
+        assert isinstance(impl.list_symbols(), tuple)
+
+    def test_two_reads_answer_the_same(
+        self, impl: ISymbolCatalog, given_symbols: GivenSymbols
+    ) -> None:
+        """A cached read and a stored read are the same answer — the shape a
+        caller sees must not depend on which one it happened to get."""
+        given_symbols(["BTCUSDT", "ethusdt"])
+
+        assert impl.list_symbols() == impl.list_symbols()

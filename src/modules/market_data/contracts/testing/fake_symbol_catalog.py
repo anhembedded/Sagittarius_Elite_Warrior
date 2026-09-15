@@ -1,58 +1,56 @@
-"""The verified fake for `ISymbolCatalogRepository` (HLD §10.3).
+"""The verified fake for `ISymbolCatalog` (HLD §10.3).
 
-**This is public API.** It ships with the port, inside the provider module, so a
-consumer testing against market_data's symbol catalog imports *this* instead of
-writing its own substitute. `Mock(spec=ISymbolCatalogRepository)` is exactly
-what `BUG-026` and `BUG-027` were: hand-written stand-ins that drifted from the
-real port and kept passing while production was broken. A `Mock` cannot drift
-*into* a failure — it agrees with whatever the test asserts.
+**Who needs it.** The shared symbol picker (three screens) and Data
+Management's auto-discover read this list, and `ISymbolCatalog` is a
+*foreign* port to both, so `Mock(spec=ISymbolCatalog)` is not an option —
+`test_no_foreign_port_is_mocked.py` fails on it, because a mock agrees with
+whatever the test asserts and cannot notice the day the port's real
+behaviour changes.
 
-What makes it a *verified* fake rather than just an in-memory one:
-`contract_symbol_catalog.py` states the port's guarantees once, and both this
-and `JsonSymbolCatalogRepository` run that same suite — the fake in unit, the
-real in integration. If this fake ever answers differently from the real one on
-a guarantee any consumer relies on, the same test fails for one of them.
+**What it does and does not do.** It holds the symbols a test hands it and
+applies the port's normalisation, sharing `normalised_symbols()` from the
+port's own module rather than copying it. It has no exchange, so `force_refresh` changes
+nothing about *what* comes back — it is recorded instead, because that is
+what a consumer's test asserts: the refresh button asked for a refresh, and
+the picker's first open did not.
 
-It lives in `src/` rather than `tests/` deliberately: `tests/` is not importable
-API for another module's test, and a fake nobody outside the provider can import
-is a fake every consumer will re-invent.
+**Not `FakeSymbolCatalogRepository`.** That one is the *storage* port's fake
+(`get_symbols`/`save_symbols`). This one answers the published question. A
+consumer's test wants this; a test for the module's own storage wants that.
 """
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog_repository import (
-    ISymbolCatalogRepository,
+from collections.abc import Sequence
+
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
+    ISymbolCatalog,
+    normalised_symbols,
 )
 
 
-def _normalised(symbols: list[str]) -> list[str]:
-    """Upper-cased, trimmed, de-duplicated, sorted — the port's stored form.
+class FakeSymbolCatalog(ISymbolCatalog):
+    """The tradeable-symbol list a test controls, and no exchange."""
 
-    Not an implementation detail of either side: three UI consumers read this
-    list straight into a picker, so "BTCUSDT" arriving as `" btcusdt "`, twice,
-    is a visible defect. `JsonSymbolCatalogRepository.save_symbols()` has always
-    normalised this way; until the contract suite said so, nothing stopped a
-    second implementation from skipping it.
-    """
-    return sorted(
-        {s.strip().upper() for s in symbols if isinstance(s, str) and s.strip()}
-    )
-
-
-class FakeSymbolCatalog(ISymbolCatalogRepository):
-    """The symbol catalog, in a list, with the real one's normalisation."""
-
-    def __init__(self, symbols: list[str] | None = None) -> None:
-        """`symbols` seeds the catalog as if a previous run had saved them, so a
+    def __init__(self, symbols: Sequence[str] | None = None) -> None:
+        """`symbols` seeds the catalog as a completed fetch would have, so a
         consumer's test starts from the state it needs in one line."""
-        self._symbols: list[str] = _normalised(symbols or [])
+        self._symbols = normalised_symbols(list(symbols or []))
+        #: Every call, as `force_refresh` was passed. A consumer asserts on
+        #: this to show the manual refresh reached the module — a fact about
+        #: the screen, not about the exchange.
+        self.reads: list[bool] = []
 
-    def get_symbols(self) -> list[str]:
-        # A copy, not the list itself: the real one reads a file, so a caller
-        # that mutates the result cannot corrupt the store. A fake that handed
-        # out its own list would let a consumer's test pass on behaviour the
-        # real implementation does not have.
-        return list(self._symbols)
+    def list_symbols(self, *, force_refresh: bool = False) -> tuple[str, ...]:
+        self.reads.append(force_refresh)
+        return self._symbols
 
-    def save_symbols(self, symbols: list[str]) -> None:
-        self._symbols = _normalised(symbols)
+    # -- what a consumer's test usually wants to know ------------------------
+
+    def seed(self, symbols: Sequence[str]) -> None:
+        """Replace the catalog, as a refresh from the exchange would."""
+        self._symbols = normalised_symbols(list(symbols))
+
+    def was_refreshed(self) -> bool:
+        """Whether any call asked to bypass the cache."""
+        return any(self.reads)

@@ -118,15 +118,26 @@ class MarketDataModule(BoundedContextModule):
         act on, and by then there is nothing left to salvage anyway — so the
         failure is logged at debug and swallowed.
 
-        Known wart, carried over unchanged from `binance_bot_module.py` so this
-        move stays a move: the `resolve()` is unconditional, and
-        `IExchangeClient` is bound lazily, so a session that never asked for
-        market data **constructs** a client here — a network call (`BUG-045`) —
-        purely in order to close it. Fixing it needs a way to ask the container
-        whether a singleton was ever instantiated, which it does not currently
-        offer; `EPIC-025A` §1.5 records it.
+        **The client is closed only if one was ever built** (`BUG-122`). It
+        used to be resolved unconditionally, carried over from
+        `binance_bot_module.py`, and `IExchangeClient` is bound lazily — so a
+        session that never asked for market data *constructed* a client here,
+        purely in order to close it: a network call on the way out
+        (`BUG-045`'s shape), and `python-binance`'s `Client.__init__` creates
+        an asyncio event loop in its websocket helper that nothing then
+        closes, which the interpreter reports on exit as
+        `Exception ignored in BaseEventLoop.__del__`.
+
+        This method's own docstring used to say the fix "needs a way to ask
+        the container whether a singleton was ever instantiated, which it does
+        not currently offer". The Engine offers it: `Registration.instantiated`
+        on `registrations()`, whose docstring names this exact question — and a
+        registry read builds nothing, which is the point.
         """
         context.container.resolve(DatabaseManager).dispose_all()
+        registration = context.container.registrations().get(IExchangeClient)
+        if registration is None or not registration.instantiated:
+            return
         try:
             exchange_client = context.container.resolve(IExchangeClient)
             if hasattr(exchange_client, "close"):
