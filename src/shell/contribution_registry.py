@@ -108,6 +108,20 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
 
     # -- the reading side (IContributionTable) -----------------------------
 
+    def surface(self, surface_id: str) -> Surface:
+        """The surface declaration behind an id (PR 1.4c-1).
+
+        The registry validates every contribution against this same table, so
+        it is the one object that already knows both halves a renderer needs.
+        """
+        surface = self._surfaces.get(surface_id)
+        if surface is None:
+            raise ContributionError(
+                f"no surface is declared with the id {surface_id!r}. Known "
+                f"surfaces: {sorted(self._surfaces)}."
+            )
+        return surface
+
     def panels(
         self, surface_id: str, place: Place
     ) -> tuple[ContributionDescriptor, ...]:

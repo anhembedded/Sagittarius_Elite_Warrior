@@ -30,12 +30,17 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_table import (
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
+from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
     ContributionRegistry,
 )
 from Sagittarius_Elite_Warrior.src.shell.surfaces import surfaces_by_id
 from Sagittarius_Elite_Warrior.src.support.ui_kit.surface_building import (
     build_surface,
+    fill_surface,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
+    WorkbenchSurface,
 )
 
 
@@ -72,7 +77,7 @@ def container() -> Mock:
 def test_an_empty_registry_builds_an_empty_surface(
     qapp, registry: ContributionRegistry, container: Mock
 ) -> None:
-    host = build_surface(surfaces_by_id()["trading"], registry, container)
+    host = build_surface("trading", registry, container)
 
     assert host.surface_id == "trading"
     assert host.centralWidget() is None
@@ -84,7 +89,7 @@ def test_a_contributed_workspace_reaches_the_centre(
     chart = QLabel("chart")
     registry.contribute(_descriptor(Place.WORKSPACE, lambda _c: chart))
 
-    host = build_surface(surfaces_by_id()["trading"], registry, container)
+    host = build_surface("trading", registry, container)
 
     assert host.centralWidget() is chart
 
@@ -96,7 +101,7 @@ def test_a_contributed_panel_becomes_a_titled_dock(
         _descriptor(Place.RAIL, lambda _c: QLabel("positions"), title="Positions")
     )
 
-    host = build_surface(surfaces_by_id()["trading"], registry, container)
+    host = build_surface("trading", registry, container)
 
     dock = host.findChild(QWidget, f"{host.objectName()}::rail::Positions")
     assert dock is not None
@@ -117,7 +122,7 @@ def test_the_factory_gets_the_container_and_is_called_once(
 
     registry.contribute(_descriptor(Place.RAIL, factory, title="Positions"))
 
-    build_surface(surfaces_by_id()["trading"], registry, container)
+    build_surface("trading", registry, container)
 
     assert calls == [container]
 
@@ -145,7 +150,7 @@ def test_nothing_is_built_for_a_place_the_surface_does_not_accept(
         )
     )
 
-    build_surface(surfaces_by_id()["trading"], registry, container)
+    build_surface("trading", registry, container)
 
     assert built is False
 
@@ -174,7 +179,7 @@ def test_order_decides_which_dock_comes_first(
         _descriptor(Place.RAIL, positions_panel, order=10, title="Positions")
     )
 
-    host = build_surface(surfaces_by_id()["trading"], registry, container)
+    host = build_surface("trading", registry, container)
 
     docks = [
         dock.windowTitle()
@@ -204,7 +209,7 @@ def test_the_workspace_exists_before_the_docks(
         )
     )
 
-    build_surface(surfaces_by_id()["trading"], registry, container)
+    build_surface("trading", registry, container)
 
     assert seen == ["workspace", "rail"]
 
@@ -216,7 +221,7 @@ def test_a_console_contribution_reaches_the_bottom_dock(
         _descriptor(Place.CONSOLE, lambda _c: QLabel("log"), title="Log")
     )
 
-    host = build_surface(surfaces_by_id()["trading"], registry, container)
+    host = build_surface("trading", registry, container)
 
     dock = host.findChild(QWidget, f"{host.objectName()}::console::Log")
     assert host.dockWidgetArea(dock) == Qt.DockWidgetArea.BottomDockWidgetArea
@@ -229,7 +234,7 @@ def test_a_modal_contribution_is_available_not_placed(
         _descriptor(Place.MODAL, lambda _c: QLabel("form"), title="Place order")
     )
 
-    host = build_surface(surfaces_by_id()["trading"], registry, container)
+    host = build_surface("trading", registry, container)
 
     assert host.centralWidget() is None
     assert host.modal_titles() == ("Place order",)
@@ -248,7 +253,7 @@ def test_a_dev_probe_reaches_dev_board(
         )
     )
 
-    host = build_surface(surfaces_by_id()["dev_board"], registry, container)
+    host = build_surface("dev_board", registry, container)
 
     assert (
         host.findChild(QWidget, f"{host.objectName()}::dev_probe::Exchange API")
@@ -260,17 +265,17 @@ def test_it_says_how_many_widgets_it_placed(
     qapp, registry: ContributionRegistry, container: Mock, caplog
 ) -> None:
     """`logging-rule.md` §2–§3: a boot step logs the decision, not just that it
-    happened. "Built with 0 widgets" is the line that explains an empty
+    happened. "Filled with 0 widgets" is the line that explains an empty
     workbench, and it is the normal case while the screens are still legacy."""
     registry.contribute(
         _descriptor(Place.RAIL, lambda _c: QLabel("a"), title="Positions")
     )
 
     with caplog.at_level(logging.INFO):
-        build_surface(surfaces_by_id()["trading"], registry, container)
+        build_surface("trading", registry, container)
 
     assert any(
-        "built with 1 contributed widget" in record.getMessage()
+        "filled with 1 contributed widget" in record.getMessage()
         for record in caplog.records
     )
 
@@ -288,6 +293,11 @@ class _OnePanelTable(IContributionTable):
 
     def __init__(self, descriptor: ContributionDescriptor) -> None:
         self._descriptor = descriptor
+
+    def surface(self, surface_id: str) -> Surface:
+        return Surface(
+            surface_id, owner="test", accepts=frozenset({self._descriptor.place})
+        )
 
     def panels(
         self, surface_id: str, place: Place
@@ -307,7 +317,27 @@ def test_the_builder_needs_only_the_contribution_table_port(
         _descriptor(Place.RAIL, lambda _c: QLabel("positions"), title="Positions")
     )
 
-    host = build_surface(surfaces_by_id()["trading"], table, container)
+    host = build_surface("trading", table, container)
 
     dock = host.findChild(QWidget, f"{host.objectName()}::rail::Positions")
     assert dock is not None
+
+
+def test_a_host_a_view_already_built_is_filled_in_place(
+    qapp, registry: ContributionRegistry, container: Mock
+) -> None:
+    """The case PR 1.4c-1 split `fill_surface` out for: a converted legacy
+    screen builds its own host, places its own chart and toolbars, and then
+    asks for whatever a module contributed. Building a second host instead
+    would hand the user two workbenches, one of them empty."""
+    host = WorkbenchSurface(surfaces_by_id()["trading"])
+    host.place_widget(Place.WORKSPACE, QLabel("chart"))
+    registry.contribute(
+        _descriptor(Place.RAIL, lambda _c: QLabel("positions"), title="Positions")
+    )
+
+    placed = fill_surface(host, registry, container)
+
+    assert placed == 1
+    assert host.centralWidget() is not None
+    assert host.findChild(QWidget, f"{host.objectName()}::rail::Positions") is not None

@@ -43,7 +43,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_table import (
     IContributionTable,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
-from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
 )
@@ -67,19 +66,46 @@ _FILL_ORDER: tuple[Place, ...] = (
 
 
 def build_surface(
-    surface: Surface,
+    surface_id: str,
     contributions: IContributionTable,
     container: IContainer,
     *,
     parent: object | None = None,
 ) -> WorkbenchSurface:
-    """Builds `surface` and fills every place it accepts, in `_FILL_ORDER`."""
-    host = WorkbenchSurface(surface, parent)  # type: ignore[arg-type]
+    """Builds the surface named `surface_id` and fills every place it accepts,
+    in `_FILL_ORDER`.
+
+    An id rather than a `Surface`: the table that knows what was contributed
+    knows the declaration too (PR 1.4c-1), and asking it for both is what lets
+    a caller render a surface without naming this application's surface list —
+    which `shell/` owns and neither `support/*` nor a legacy screen may
+    import.
+    """
+    host = WorkbenchSurface(contributions.surface(surface_id), parent)  # type: ignore[arg-type]
+    fill_surface(host, contributions, container)
+    return host
+
+
+def fill_surface(
+    host: WorkbenchSurface,
+    contributions: IContributionTable,
+    container: IContainer,
+) -> int:
+    """Fills a host that already exists, and answers how many widgets it
+    placed.
+
+    Split out of `build_surface` in PR 1.4c-1 for the screens being converted:
+    a legacy `View` builds its own host and places its own widgets — the
+    chart, the toolbars, the log — and then wants whatever a module
+    contributed *added to that same host*. Building a second one would give
+    the user two workbenches, one of them empty.
+    """
+    surface = host.surface_id
     placed = 0
     for place in _FILL_ORDER:
-        if place not in surface.accepts:
+        if place not in host.accepts():
             continue
-        for descriptor in contributions.panels(surface.surface_id, place):
+        for descriptor in contributions.panels(surface, place):
             host.place_widget(
                 place,
                 descriptor.factory(container),
@@ -87,8 +113,8 @@ def build_surface(
             )
             placed += 1
     logger.info(
-        "Surface %r built with %d contributed widget(s).",
-        surface.surface_id,
+        "Surface %r filled with %d contributed widget(s).",
+        surface,
         placed,
     )
-    return host
+    return placed

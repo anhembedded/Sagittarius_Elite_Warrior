@@ -239,3 +239,12 @@ able to declare. `IContributionTable.panels(surface_id, place)` is that read
 side, `ContributionRegistry` implements both ports, and the sort order is part of
 the contract because two modules that both pick `order = 10` must render in a
 fixed order rather than refusing to boot.
+
+PR 1.4c-1 added `surface(surface_id) -> Surface` beside it, so the port answers
+both halves a renderer needs: what this surface accepts, and what was
+contributed to it. The object that validated the contributions already held
+both, and a caller with only an id — a legacy screen being converted, which may
+not import `shell/` — can now render without naming the application's surface
+list. `build_surface()` takes that id instead of a `Surface`, and `fill_surface()`
+splits out of it for a screen that built its own host and wants the contributed
+panels added to *that* host rather than to a second, empty workbench.

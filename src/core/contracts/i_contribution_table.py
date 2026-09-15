@@ -22,10 +22,27 @@ from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import
     ContributionDescriptor,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
+from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 
 
 class IContributionTable(ABC):
-    """What was contributed, in render order."""
+    """What was contributed, and to which surface, for whoever renders it."""
+
+    @abstractmethod
+    def surface(self, surface_id: str) -> Surface:
+        """The surface declaration to render, by id.
+
+        Here rather than on a registry of its own: whoever renders a surface
+        needs *what this surface accepts* and *what was contributed to it*
+        together, and the object that validated the contributions already
+        holds both. A caller that only has an id — a legacy screen being
+        converted, which may not import `shell/` — can then render without
+        naming the application's surface list.
+
+        Raises `ContributionError` for an id no surface declares, rather than
+        answering `None`: a screen asking for a surface that does not exist is
+        a wiring mistake, and a missing workbench is a worse way to find out.
+        """
 
     @abstractmethod
     def panels(

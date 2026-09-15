@@ -42,6 +42,7 @@ perspective leaves the default layout standing and says so in the log.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -82,9 +83,32 @@ class WorkbenchSurface(QMainWindow):
     inside its gate (only `src/presentation/` is excluded).
     """
 
+    #: The global "which venue am I in" banner, set once by the composition
+    #: root and never here: this package knows no domain concept, so it holds
+    #: a bare widget factory and never `VenueAlignment` itself. `PageShell`
+    #: carries the identical mechanism for the screens not yet converted, and
+    #: `test_environment_banner_all_screens.py` scans every navigable route
+    #: for the widget — a screen that moves from one shell to the other must
+    #: keep showing it, which is why the host has the slot at all rather than
+    #: each converted View remembering to add a banner itself.
+    #:
+    #: A `QWidget` cannot be shared across parents, so each surface calls the
+    #: factory for its own instance; `None` (the default) means no banner,
+    #: which is every construction in this package's own tests.
+    _environment_banner_factory: Callable[[], QWidget] | None = None
+
+    @classmethod
+    def set_environment_banner_factory(
+        cls, factory: Callable[[], QWidget] | None
+    ) -> None:
+        """Registers (or clears, with `None`) the factory every surface built
+        from now on uses for its banner row."""
+        cls._environment_banner_factory = factory
+
     def __init__(self, surface: Surface, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._surface = surface
+        self._banner: QToolBar | None = None
         self._header: QToolBar | None = None
         self._context_bar: QToolBar | None = None
         self._docks: dict[str, QDockWidget] = {}
@@ -97,6 +121,7 @@ class WorkbenchSurface(QMainWindow):
         # even with a parent.
         self.setWindowFlags(Qt.WindowType.Widget)
         self.setObjectName(f"surface::{surface.surface_id}")
+        self._add_environment_banner()
 
     # -- IPlaceHost (structural, no base class) ----------------------------
 
@@ -182,6 +207,26 @@ class WorkbenchSurface(QMainWindow):
         return dialog
 
     # -- the parts ---------------------------------------------------------
+
+    def _add_environment_banner(self) -> None:
+        """The banner row, built first so it sits above the header.
+
+        A `QToolBar` rather than a widget above the window: a nested
+        `QMainWindow` has no layout of its own to put one in, and the top
+        toolbar area is the part of a `QMainWindow` that spans the full width
+        above everything else. Not movable and not floatable — a warning the
+        user can drag into a corner is a warning that stops working.
+        """
+        factory = type(self)._environment_banner_factory
+        if factory is None:
+            return
+        self._banner = QToolBar("Environment", self)
+        self._banner.setObjectName(f"{self.objectName()}::environment")
+        self._banner.setMovable(False)
+        self._banner.setFloatable(False)
+        self._banner.addWidget(factory())
+        self.addToolBar(Qt.ToolBarArea.TopToolBarArea, self._banner)
+        self.addToolBarBreak(Qt.ToolBarArea.TopToolBarArea)
 
     def _toolbar_header(self) -> QToolBar:
         if self._header is None:

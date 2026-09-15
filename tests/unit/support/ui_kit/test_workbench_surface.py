@@ -18,7 +18,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QLabel, QWidget
+from PySide6.QtWidgets import QLabel, QToolBar, QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.errors import ContributionError
 from Sagittarius_Elite_Warrior.src.core.contracts.i_place_host import IPlaceHost
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
@@ -250,3 +250,55 @@ class TestThePerspective:
 
         assert not dock.isHidden()
         assert any("default layout" in record.message for record in caplog.records)
+
+
+class TestTheEnvironmentBanner:
+    """`EPIC-021K`'s "which venue am I in" banner is the one thing every
+    screen gets from its shell that is not a place. `PageShell` carries it for
+    the screens not yet converted, and
+    `test_environment_banner_all_screens.py` scans every navigable route for
+    the widget — so a screen moving onto this host must keep showing it, and
+    the host is where that belongs rather than in each converted View.
+    """
+
+    def test_no_factory_means_no_banner_row(self, trading: WorkbenchSurface) -> None:
+        assert (
+            trading.findChild(QToolBar, f"{trading.objectName()}::environment") is None
+        )
+
+    def test_a_registered_factory_puts_its_widget_in_the_top_row(self, qapp) -> None:
+        WorkbenchSurface.set_environment_banner_factory(
+            lambda: _named(QLabel("TESTNET"), "environmentBanner")
+        )
+        try:
+            host = WorkbenchSurface(surfaces_by_id()["trading"])
+        finally:
+            WorkbenchSurface.set_environment_banner_factory(None)
+
+        banner = host.findChild(QWidget, "environmentBanner")
+        assert banner is not None
+        row = host.findChild(QToolBar, f"{host.objectName()}::environment")
+        assert row is not None
+        # A warning the user can drag into a corner is a warning that stops
+        # working.
+        assert row.isMovable() is False
+        assert row.isFloatable() is False
+
+    def test_the_banner_sits_above_the_header(self, qapp) -> None:
+        WorkbenchSurface.set_environment_banner_factory(
+            lambda: _named(QLabel("TESTNET"), "environmentBanner")
+        )
+        try:
+            host = WorkbenchSurface(surfaces_by_id()["trading"])
+        finally:
+            WorkbenchSurface.set_environment_banner_factory(None)
+        host.place_widget(Place.HEADER, QLabel("actions"))
+
+        header = host.findChild(QToolBar, f"{host.objectName()}::header")
+        assert header is not None
+        assert host.toolBarBreak(header) is True
+
+
+def _named(widget: QWidget, object_name: str) -> QWidget:
+    widget.setObjectName(object_name)
+    return widget

@@ -48,6 +48,15 @@ or a dedicated window; Qt Creator has **modes** (Welcome / Edit / Debug) with a 
 | `SETTINGS_SECTION` | a page in one Settings **dialog** (list of sections on the left, stacked pages on the right — Qt Creator's Options dialog), with Apply / Cancel | Familiarity, User control |
 | `DEV_PROBE` | a `QDockWidget` in Dev Board's dock area, only under `dev.mode` | — |
 
+One band is **not** a place, and it took converting a screen to notice: the environment banner
+(`EPIC-021K`'s "which venue am I in" warning) is something every screen gets from its shell
+rather than something a module contributes. Nobody may contribute a `HEADER` widget that happens
+to be a banner — the guard `test_environment_banner_all_screens.py` scans every navigable route
+for it, so a screen that moved onto the workbench and lost its banner would be a regression the
+user meets on Testnet. The host therefore owns the slot, filled from the same
+composition-root-registered widget factory `PageShell` uses, as a non-movable toolbar row above
+the header (PR 1.4c-1).
+
 Consequences for the mechanism (§4.3, SDD): nothing in the descriptor changes; `factory` still
 returns a `QWidget`. The surface host implements `IPlaceHost` with a `QMainWindow` instead of
 `PageShell`; `PageShell` is retired. The `order` field becomes the initial dock order; after that
