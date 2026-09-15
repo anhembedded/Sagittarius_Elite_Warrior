@@ -174,7 +174,8 @@ def test_every_spec_proves_something(path: Path) -> None:
         for line in proven_by.splitlines()
         if line.startswith("|") and not re.match(r"^\|[\s:|-]+\|$", line)
     ]
-    # Two of those rows are the table's own header and nothing else.
+    # The separator line is filtered out above, so exactly one surviving row
+    # is the table's own header: more than one means at least one real row.
     assert len(rows) > 1, (
         f"{path.name}'s 'Proven by' table has no rows: name the test that holds "
         "each promise, or the words 'the user runs it' with what a person must see"

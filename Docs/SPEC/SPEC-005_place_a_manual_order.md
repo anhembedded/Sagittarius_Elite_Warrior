@@ -71,7 +71,7 @@ goes."*
 | A session limit is reached | Blocked by that limit, with every check and the numbers behind it — e.g. order 21 of a 20-order session | The app's own configured safety policy, distinct from the venue's hard filters |
 | The exchange refuses the submitted order | The named `OrderRejectionReason`, with the exchange's original message kept for a human to look up | A raw English exchange string is not a stable contract; the name is what a caller branches on |
 | The actor submits twice quickly | The minimum-interval limit blocks the second one | One of the four limits, and the reason it exists |
-| The network fails mid-submission | The failure is reported; the app does **not** claim the order was sent | Reporting an unsent order as sent is the worst outcome available here |
+| The network fails mid-submission | The failure reaches the actor, and the session's order counter does not move | The order is recorded against the session *after* the exchange call returns, so a submission that never landed cannot consume the session's budget |
 
 ## 6. What this use case does NOT promise
 
@@ -102,6 +102,7 @@ open order is SPEC-006 (planned) and is the same port's `cancel()`.
 | :--- | :--- | :--- |
 | Normalisation, the notional check, and the preview's shape | `tests/unit/modules/trading/application/orders/test_preview_order.py` | unit |
 | Three gates, four limits, their order, and each result shape | `tests/unit/modules/trading/application/orders/test_execute_order.py` | unit |
+| A refused or undelivered submission never advances the session counters | `tests/unit/modules/trading/application/orders/test_execute_order.py` (`TestAFailedSubmissionIsNeverRecordedAsSent`) | unit |
 | The four limits themselves, at the domain level | `tests/unit/modules/trading/domain/policies/test_trading_limit_policy.py` | unit |
 | What a manual order is allowed to be, as a domain rule | `tests/unit/modules/trading/domain/policies/test_manual_order_intent.py` | unit |
 | Both implementations of the port answer the same way | `tests/unit/modules/trading/contracts/test_order_submission_contract.py` | contract |

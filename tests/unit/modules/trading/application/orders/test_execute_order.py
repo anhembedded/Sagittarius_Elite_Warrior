@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import threading
 import time
 from datetime import UTC, datetime, timedelta
@@ -7,6 +8,7 @@ from decimal import Decimal
 from unittest.mock import Mock
 
 import pytest
+from binance.exceptions import BinanceAPIException
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
 )
@@ -36,6 +38,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_meta
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
+    OrderRejectedByExchangeError,
+    OrderRejectionReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
@@ -367,3 +373,53 @@ class TestConcurrentDispatch:
         assert len(submitted) == 1
         assert len(blocked) == 1
         assert blocked[0].blocked_by is TradingLimitViolation.MAX_ORDERS_PER_SESSION  # type: ignore[attr-defined]
+
+
+class TestAFailedSubmissionIsNeverRecordedAsSent:
+    """`SPEC-005` §5's two network rows, which were written down as promises
+    before anything pinned them.
+
+    The promise is about **ordering**, not about the error text: the handler
+    records the order against the session's counters *after* the exchange call
+    returns, so a submission that never landed cannot advance
+    `orders_sent_this_session` or mark the symbol as believed-open. Move
+    `record_order_sent()` above `place_order()` and both tests below fail —
+    which is the point, because that mistake would silently consume the
+    session's order budget on orders the venue never received.
+
+    Both cases are exercised with the real exception types rather than a bare
+    `Exception`: an exchange refusal reaches the caller translated
+    (`OrderRejectedByExchangeError`), while a transport failure propagates
+    untouched, and a test that accepts either cannot tell the two apart.
+    """
+
+    def test_an_exchange_refusal_leaves_the_session_counters_untouched(self) -> None:
+        raw_client = Mock()
+        raw_client.futures_create_order.side_effect = BinanceAPIException(
+            None,
+            400,
+            json.dumps({"code": -2019, "msg": "Margin is insufficient"}),
+        )
+        handler, state = _handler(raw_client=raw_client)
+
+        with pytest.raises(OrderRejectedByExchangeError) as refusal:
+            handler.execute(
+                ExecuteOrderCommand(order_request=_order_request(), live=True)
+            )
+
+        assert refusal.value.reason is OrderRejectionReason.INSUFFICIENT_MARGIN
+        assert state.orders_sent_this_session == 0
+        assert "BTCUSDT" not in state.known_open_symbols
+
+    def test_a_transport_failure_leaves_the_session_counters_untouched(self) -> None:
+        raw_client = Mock()
+        raw_client.futures_create_order.side_effect = OSError("Network Dropped")
+        handler, state = _handler(raw_client=raw_client)
+
+        with pytest.raises(OSError, match="Network Dropped"):
+            handler.execute(
+                ExecuteOrderCommand(order_request=_order_request(), live=True)
+            )
+
+        assert state.orders_sent_this_session == 0
+        assert "BTCUSDT" not in state.known_open_symbols

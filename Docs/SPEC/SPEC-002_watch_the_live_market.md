@@ -55,7 +55,7 @@
 | What goes wrong | What the actor sees | Why it is this and not a crash |
 | :--- | :--- | :--- |
 | The websocket cannot be opened | `❌ Failed to start stream: …`, and the screen stays in its pre-live state | Step 5's answer carries `success=False` with the reason; the UI never shows "streaming" for a stream that is not |
-| The socket drops mid-session | The chart stops advancing; the app reports the loss rather than freezing on the last candle as if it were current | A stale chart that looks live is the failure `domain-truth-rule.md` exists to prevent |
+| The socket drops mid-session | **Nothing** — the stream reconnects and the next candle arrives as usual | Measured, not assumed: the websocket service catches the transport error and re-opens the socket, so a transient drop is not an event the actor is told about |
 | The actor clicks *Start Live* twice, or stops while a start is in flight | The later click wins; the earlier attempt's result is discarded rather than applied | Each click owns an action identity, and a result from a superseded action is fenced (`async-ui-action-rule.md`) |
 | A bare `stream` is typed with no subcommand | A usage line | `argparse` yields `None` for an optional subcommand; answering with help beats a traceback |
 | The symbol has no live market | The exchange's own refusal, reported as the start failure | The app keeps no local list of streamable pairs to pre-judge with |
@@ -69,8 +69,11 @@
   symbol.
 - A stream owner is a **namespace, not a lease**. Two owners streaming the same symbol is
   normal and is not a conflict; nothing here reserves a symbol against anybody.
-- No gap repair. A stream that drops and is restarted does not backfill the candles missed in
-  between; running SPEC-001 again does that.
+- **It does not tell the actor that a drop happened.** A reconnect is silent, and the candles
+  missed during the gap are not backfilled — running SPEC-001 again is what fills them. So a
+  chart that reconnected can have a hole in it and still look continuous. That is the one
+  place this use case is thinner than `domain-truth-rule.md` would like, and it is written
+  here rather than discovered later.
 - No order flow, no depth. This is klines only; the order book and the user-data stream are
   separate mechanisms.
 
@@ -88,6 +91,8 @@ consumer-facing port.
 | Both implementations start, stop and answer alike | `tests/unit/modules/market_data/contracts/test_market_stream_contract.py` | contract |
 | `stream start` / `stream stop`, including the bare-`stream` usage line | `tests/unit/modules/market_data/cli/test_stream_cmd.py` | unit |
 | A stop or a second start cancels the in-flight one, and its result is fenced | `tests/unit/presentation/ui/screens/dashboard/test_stream_lifecycle_cancellation.py` | unit |
+| A transport error mid-stream reconnects, and the next candle still arrives | `tests/unit/modules/market_data/adapters/binance/test_binance_websocket_service.py` | unit |
+| The stream's state reaches the actor as a status pill, every UI mode | `tests/unit/presentation/ui/screens/test_dev_board_panel.py` | unit |
 | The Dev Board actually streams end to end | `tests/integration/presentation/ui/test_dashboard_live_stream.py` | integration |
 | The Trading chart goes live on its own when the screen opens | `tests/unit/presentation/ui/screens/trading/test_trading_presenter_chart_autostart.py` | unit |
 | Live candles reach the chart and rewrite the forming one | `tests/unit/presentation/ui/screens/trading/test_trading_presenter_chart_ticks.py` | unit |
