@@ -20,8 +20,17 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
+    IAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    ITradingSession,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
+    FakeAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
+    FakeTradingSession,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
     SettingsPresenter,
@@ -119,9 +128,10 @@ def container(config, coordinator, credentials_provider):
         if interface is UiStateCoordinator
         else credentials_provider
         if interface is IExchangeCredentialsProvider
-        else TradingSessionState()
-        if interface is TradingSessionState
-        # `BOT-125` — a real one: the presenter reads `.enabled` as a bool.
+        else FakeTradingSession()
+        if interface is ITradingSession
+        else FakeAccountSnapshot()
+        if interface is IAccountSnapshot
         else Mock()
     )
     c.registrations.return_value = {UiStateCoordinator: object()}
@@ -184,9 +194,10 @@ def test_saving_without_a_coordinator_still_works(
         if interface is IConfig
         else credentials_provider
         if interface is IExchangeCredentialsProvider
-        else TradingSessionState()
-        if interface is TradingSessionState
-        # `BOT-125` — a real one: the presenter reads `.enabled` as a bool.
+        else FakeTradingSession()
+        if interface is ITradingSession
+        else FakeAccountSnapshot()
+        if interface is IAccountSnapshot
         else Mock()
     )
     container.registrations.return_value = {}

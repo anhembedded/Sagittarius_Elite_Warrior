@@ -11,7 +11,7 @@
 #
 # History of the count: 10 as found (2026-09-13) -> 8 after PR 0.3 -> 41 after
 # PR 0.4a -> 38 after PR 0.4a-2 -> 34 after PR 0.5 -> 28 after PR 1.1a -> 24
-# after PR 1.1b -> 20 after PR 1.2 -> 80 after PR 1.3a -> 60 after PR 1.3b.
+# after PR 1.1b -> 20 after PR 1.2 -> 80 after PR 1.3a -> 56 after PR 1.3b.
 #
 # The jump at 1.3a is 0.4a's again, and for the same reason: it moved the
 # `trading` context into `modules/trading/`, so every legacy screen, CLI
@@ -300,8 +300,6 @@ application.use_cases.commands.submit_order.command -> modules.trading.applicati
 application.use_cases.commands.submit_order.handler -> modules.trading.application.orders.preview_order.handler
 application.use_cases.trading.arm_strategy.handler -> modules.trading.application.trading_session_state
 application.use_cases.trading.disarm_strategy.handler -> modules.trading.application.trading_session_state
-presentation.cli.exchange_status_cmd -> modules.trading.application.queries.get_exchange_connection_status
-presentation.cli.handlers.exchange_status_cli_handler -> modules.trading.application.queries.get_exchange_connection_status
 presentation.cli.order_dry_run_cmd -> modules.trading.adapters.binance.futures_order_payload_mapper
 presentation.cli.order_dry_run_cmd -> modules.trading.application.orders.preview_order
 presentation.cli.order_preview_cmd -> modules.trading.application.orders.preview_order
@@ -325,8 +323,6 @@ presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.applica
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.trading_session_state
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.domain.policies.manual_order_intent
 presentation.ui.screens.dashboard.dev_board_panel -> modules.trading.domain.policies.manual_order_intent
-presentation.ui.screens.settings.settings_presenter -> modules.trading.application.queries.get_exchange_connection_status
-presentation.ui.screens.settings.settings_presenter -> modules.trading.application.trading_session_state
 presentation.ui.screens.trading.trading_presenter -> modules.trading.application.equity_curve_recorder
 presentation.ui.screens.trading.trading_presenter -> modules.trading.application.orders.cancel_order
 presentation.ui.screens.trading.trading_presenter -> modules.trading.application.session.disable_trading

@@ -4,14 +4,14 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_exchange_connection_status import (
-    GetExchangeConnectionStatusQuery,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ExchangeConnectionStatus,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
+    IAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    ITradingSession,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter import (
     format_exchange_connection_status,
@@ -140,9 +140,13 @@ class SettingsPresenter(BasePresenter):
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
         # `BOT-125` — read, never written: the venue combos are locked
         # while a live session is on (see `_venues_locked()`).
-        self._session_state: TradingSessionState = container.resolve(
-            TradingSessionState
-        )
+        #
+        # `EPIC-025` PR 1.3b: the published port, not the mutable service
+        # itself. That object is lock-guarded, and this Presenter runs on the
+        # UI thread while the websocket thread mutates it - reading it
+        # directly was a race this screen had no way to see.
+        self._trading_session: ITradingSession = container.resolve(ITradingSession)
+        self._account: IAccountSnapshot = container.resolve(IAccountSnapshot)
         self._connection_check_tracker: ActionOwnershipTracker[str, None, None] = (
             ActionOwnershipTracker()
         )
@@ -217,7 +221,7 @@ class SettingsPresenter(BasePresenter):
         effect on the next boot anyway, but saving it mid-session would
         leave a config on disk that contradicts the session still running.
         """
-        return self._session_state.enabled
+        return self._trading_session.snapshot().enabled
 
     @Slot()
     @safe_ui_action
@@ -321,9 +325,7 @@ class SettingsPresenter(BasePresenter):
         this Presenter's own thread regardless of which thread emits it.
         """
         try:
-            status: ExchangeConnectionStatus = self.dispatcher.dispatch(
-                GetExchangeConnectionStatusQuery, GetExchangeConnectionStatusQuery()
-            )
+            status: ExchangeConnectionStatus = self._account.check_connection()
             self.connectionCheckCompleted.emit((action_id, status, None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
             self.connectionCheckCompleted.emit((action_id, None, str(exc)))

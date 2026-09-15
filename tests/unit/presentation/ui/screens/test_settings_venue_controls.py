@@ -15,8 +15,17 @@ from unittest.mock import Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
+    IAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    ITradingSession,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
+    FakeAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
+    FakeTradingSession,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
     SettingsPresenter,
@@ -83,8 +92,10 @@ def _presenter(qapp, request, config, session_state, credentials_provider):
             return config
         if interface is IExchangeCredentialsProvider:
             return credentials_provider
-        if interface is TradingSessionState:
+        if interface is ITradingSession:
             return session_state
+        if interface is IAccountSnapshot:
+            return FakeAccountSnapshot()
         return Mock()
 
     container.resolve.side_effect = resolve
@@ -111,7 +122,7 @@ def test_the_saved_venues_are_shown_on_load(qapp, request, credentials_provider)
         }
     )
     presenter, _view = _presenter(
-        qapp, request, config, TradingSessionState(), credentials_provider
+        qapp, request, config, FakeTradingSession(), credentials_provider
     )
 
     view_model = presenter._settings_view_model
@@ -134,7 +145,7 @@ def test_an_unreadable_saved_value_shows_what_is_actually_running(
         }
     )
     presenter, _view = _presenter(
-        qapp, request, config, TradingSessionState(), credentials_provider
+        qapp, request, config, FakeTradingSession(), credentials_provider
     )
 
     assert presenter._settings_view_model.tradingVenue == TradingVenue.DISABLED.value
@@ -146,7 +157,7 @@ def test_an_unreadable_saved_value_shows_what_is_actually_running(
 def test_saving_writes_both_venue_keys(qapp, request, credentials_provider):
     config = _FakeConfig()
     presenter, _view = _presenter(
-        qapp, request, config, TradingSessionState(), credentials_provider
+        qapp, request, config, FakeTradingSession(), credentials_provider
     )
     view_model = presenter._settings_view_model
     view_model.requestTradingVenue("futures_testnet")
@@ -171,11 +182,11 @@ def test_saving_is_refused_outright_while_trading_is_on(
     and silently dropped these two is the "button appears to work" failure
     `EPIC-022` was opened to remove."""
     config = _FakeConfig({ConfigKeys.EXCHANGE_TRADING_VENUE.value: "disabled"})
-    session_state = TradingSessionState()
+    session_state = FakeTradingSession()
     presenter, _view = _presenter(
         qapp, request, config, session_state, credentials_provider
     )
-    session_state.enable(set(), expected_generation=session_state.generation)
+    session_state.set_enabled(enabled=True)
     view_model = presenter._settings_view_model
     view_model.requestTradingVenue("futures_testnet")
 
@@ -189,8 +200,8 @@ def test_saving_is_refused_outright_while_trading_is_on(
 def test_the_combos_are_disabled_while_trading_is_on(
     qapp, request, credentials_provider
 ):
-    session_state = TradingSessionState()
-    session_state.enable(set(), expected_generation=session_state.generation)
+    session_state = FakeTradingSession()
+    session_state.set_enabled(enabled=True)
 
     _presenter_obj, view = _presenter(
         qapp, request, _FakeConfig(), session_state, credentials_provider
@@ -210,7 +221,7 @@ def test_the_combos_carry_the_config_value_not_the_label(
     config must be the enum's own string. Deriving one from the other by
     parsing the label would break the moment the wording changes."""
     _presenter_obj, view = _presenter(
-        qapp, request, _FakeConfig(), TradingSessionState(), credentials_provider
+        qapp, request, _FakeConfig(), FakeTradingSession(), credentials_provider
     )
 
     values = {

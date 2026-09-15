@@ -3,8 +3,8 @@ import argparse
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_command_handler import (
     ICliCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_exchange_connection_status import (
-    GetExchangeConnectionStatusQuery,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
+    IAccountSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter import (
     format_exchange_connection_status,
@@ -23,7 +23,5 @@ class ExchangeStatusCliHandler(ICliCommandHandler):
         # `args` is an empty namespace. It stays in the signature because the
         # port is one shape for every command, not one per command.
         del args
-        status = app.dispatch(
-            GetExchangeConnectionStatusQuery, GetExchangeConnectionStatusQuery()
-        )
+        status = app.container.resolve(IAccountSnapshot).check_connection()
         print(format_exchange_connection_status(status))

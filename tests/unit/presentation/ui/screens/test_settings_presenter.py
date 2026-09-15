@@ -35,8 +35,17 @@ from PySide6.QtWidgets import QLabel, QLineEdit, QPushButton, QSpinBox
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
+    IAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    ITradingSession,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
+    FakeAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
+    FakeTradingSession,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
@@ -103,11 +112,15 @@ def credentials_provider(tmp_path):
 
 
 @pytest.fixture
-def session_state() -> TradingSessionState:
-    """`BOT-125` — a real session state so `_venues_locked()` reads a real
-    bool. Starts disabled, which is what `TradingSessionState` guarantees
-    for a fresh instance (`EPIC-021G` §2.3)."""
-    return TradingSessionState()
+def session_state() -> FakeTradingSession:
+    """`BOT-125` — a real answer so `_venues_locked()` reads a real bool.
+
+    `EPIC-025` PR 1.3b: the port's verified fake, not the mutable service
+    the Presenter used to resolve. Starts disabled, which is what a fresh
+    session guarantees (`EPIC-021G` §2.3) and what the fake's own default
+    reports — a `Mock` would hand back a truthy attribute and lock the
+    venue combos in every test, which is the defect `BOT-125` recorded."""
+    return FakeTradingSession()
 
 
 @pytest.fixture
@@ -121,11 +134,14 @@ def mock_container(mock_config, credentials_provider, session_state):
             return mock_config
         if interface == IExchangeCredentialsProvider:
             return credentials_provider
-        if interface is TradingSessionState:
-            # `BOT-125` — real, not a Mock: the presenter reads `.enabled`
-            # to decide whether the venue combos are editable, and a Mock's
-            # truthy attribute would lock them in every test.
+        if interface is ITradingSession:
+            # `BOT-125` — the verified fake, not a Mock: the presenter reads
+            # `snapshot().enabled` to decide whether the venue combos are
+            # editable, and a Mock's truthy attribute would lock them in
+            # every test.
             return session_state
+        if interface is IAccountSnapshot:
+            return FakeAccountSnapshot()
         return Mock()
 
     container.resolve.side_effect = resolve_mock
@@ -182,9 +198,10 @@ def test_an_env_var_locks_the_field_and_wins_over_the_file(
         if interface.__name__ == "IConfig"
         else credentials_provider
         if interface is IExchangeCredentialsProvider
-        else TradingSessionState()
-        if interface is TradingSessionState
-        # `BOT-125` — a real one: the presenter reads `.enabled` as a bool.
+        else FakeTradingSession()
+        if interface is ITradingSession
+        else FakeAccountSnapshot()
+        if interface is IAccountSnapshot
         else Mock()
     )
     view = SettingsView()
@@ -222,9 +239,10 @@ def test_missing_config_keys_load_safely(
         if interface.__name__ == "IConfig"
         else empty_provider
         if interface is IExchangeCredentialsProvider
-        else TradingSessionState()
-        if interface is TradingSessionState
-        # `BOT-125` — a real one: the presenter reads `.enabled` as a bool.
+        else FakeTradingSession()
+        if interface is ITradingSession
+        else FakeAccountSnapshot()
+        if interface is IAccountSnapshot
         else Mock()
     )
     view = SettingsView()
@@ -321,9 +339,10 @@ def test_save_writes_a_new_key_to_the_real_secrets_file(qapp, tmp_path, request)
         if interface.__name__ == "IConfig"
         else credentials_provider
         if interface is IExchangeCredentialsProvider
-        else TradingSessionState()
-        if interface is TradingSessionState
-        # `BOT-125` — a real one: the presenter reads `.enabled` as a bool.
+        else FakeTradingSession()
+        if interface is ITradingSession
+        else FakeAccountSnapshot()
+        if interface is IAccountSnapshot
         else Mock()
     )
 
@@ -370,9 +389,10 @@ def test_save_does_not_touch_the_secrets_file_when_an_env_var_is_locking_it(
         if interface.__name__ == "IConfig"
         else credentials_provider
         if interface is IExchangeCredentialsProvider
-        else TradingSessionState()
-        if interface is TradingSessionState
-        # `BOT-125` — a real one: the presenter reads `.enabled` as a bool.
+        else FakeTradingSession()
+        if interface is ITradingSession
+        else FakeAccountSnapshot()
+        if interface is IAccountSnapshot
         else Mock()
     )
     view = SettingsView()
@@ -444,9 +464,10 @@ def test_env_locked_credentials_disable_the_input_fields(
         if interface.__name__ == "IConfig"
         else credentials_provider
         if interface is IExchangeCredentialsProvider
-        else TradingSessionState()
-        if interface is TradingSessionState
-        # `BOT-125` — a real one: the presenter reads `.enabled` as a bool.
+        else FakeTradingSession()
+        if interface is ITradingSession
+        else FakeAccountSnapshot()
+        if interface is IAccountSnapshot
         else Mock()
     )
     view = SettingsView()

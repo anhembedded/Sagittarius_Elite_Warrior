@@ -20,15 +20,21 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtWidgets import QLabel, QPushButton
-from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_exchange_connection_status import (
-    GetExchangeConnectionStatusQuery,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
+    IAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    ITradingSession,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
+    FakeAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
+    FakeTradingSession,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
     SettingsPresenter,
@@ -83,6 +89,21 @@ def mock_dispatcher():
 
 
 @pytest.fixture
+def account() -> FakeAccountSnapshot:
+    """`EPIC-025` PR 1.3b — `IAccountSnapshot`'s verified fake, in place
+    of a mocked dispatcher.
+
+    The tests below used to assert
+    `dispatch.assert_called_once_with(GetExchangeConnectionStatusQuery, ...)`,
+    which proved that a private call happened and nothing about what the
+    user sees (`domain-truth-rule.md`, and `pr-review` E2). The fake lets
+    each one assert the effect instead — what the label renders — and
+    `connection_checks` covers the one case where "was it asked at all" is
+    genuinely the question."""
+    return FakeAccountSnapshot()
+
+
+@pytest.fixture
 def mock_thread_manager():
     return Mock()
 
@@ -93,17 +114,20 @@ def credentials_provider(tmp_path):
 
 
 @pytest.fixture
-def session_state() -> TradingSessionState:
-    """`BOT-125` — a real session state so `_venues_locked()` reads a real
-    bool. Starts disabled, which is what `TradingSessionState` guarantees
-    for a fresh instance (`EPIC-021G` §2.3)."""
-    return TradingSessionState()
+def session_state() -> FakeTradingSession:
+    """`BOT-125` — a real answer so `_venues_locked()` reads a real bool.
+
+    `EPIC-025` PR 1.3b: the port's verified fake. Starts disabled, which is
+    what a fresh session guarantees (`EPIC-021G` §2.3); a `Mock` would hand
+    back a truthy attribute and lock the venue combos in every test."""
+    return FakeTradingSession()
 
 
 @pytest.fixture
 def container(
     mock_config,
     mock_dispatcher,
+    account,
     mock_thread_manager,
     credentials_provider,
     session_state,
@@ -121,8 +145,10 @@ def container(
             return mock_thread_manager
         if interface is IExchangeCredentialsProvider:
             return credentials_provider
-        if interface is TradingSessionState:
+        if interface is ITradingSession:
             return session_state
+        if interface is IAccountSnapshot:
+            return account
         return Mock()
 
     c.resolve.side_effect = resolve
@@ -151,24 +177,24 @@ def test_clicking_check_connection_submits_a_background_task_and_locks_the_butto
 
 
 def test_a_successful_check_populates_the_result_and_unlocks_the_button(
-    presenter, mock_dispatcher
+    presenter, account
 ):
-    mock_dispatcher.dispatch.return_value = _SUCCESS_STATUS
+    account.answer_with(_SUCCESS_STATUS)
     view_model = presenter._settings_view_model
     view_model.checkConnectionRequested.emit()
     action_id = presenter._connection_check_tracker.active_action.action_id
 
     presenter._run_check_connection(action_id)
 
-    mock_dispatcher.dispatch.assert_called_once_with(
-        GetExchangeConnectionStatusQuery, GetExchangeConnectionStatusQuery()
-    )
+    # The port was asked exactly once — a screen that re-checked on every
+    # repaint would be a real network round trip per frame.
+    assert account.connection_checks == 1
     assert view_model.connectionChecking is False
     assert "FUTURES_TESTNET" in view_model.connectionResultText
     assert view_model.connectionResultIsError is False
 
 
-def test_a_failed_status_renders_as_an_error(presenter, mock_dispatcher):
+def test_a_failed_status_renders_as_an_error(presenter, account):
     failed_status = ExchangeConnectionStatus(
         venue=TradingVenue.FUTURES_TESTNET,
         reachable=False,
@@ -179,7 +205,7 @@ def test_a_failed_status_renders_as_an_error(presenter, mock_dispatcher):
         margin_type=None,
         open_position_count=None,
     )
-    mock_dispatcher.dispatch.return_value = failed_status
+    account.answer_with(failed_status)
     view_model = presenter._settings_view_model
     view_model.checkConnectionRequested.emit()
     action_id = presenter._connection_check_tracker.active_action.action_id
@@ -190,10 +216,13 @@ def test_a_failed_status_renders_as_an_error(presenter, mock_dispatcher):
     assert "NOT_CONFIGURED" in view_model.connectionResultText
 
 
-def test_an_exception_from_the_dispatcher_is_reported_not_raised(
-    presenter, mock_dispatcher
-):
-    mock_dispatcher.dispatch.side_effect = RuntimeError("boom")
+def test_an_exception_from_the_port_is_reported_not_raised(presenter, account):
+    # `IAccountSnapshot.check_connection()` promises never to raise, and the
+    # fake keeps that promise — so the failure is injected the only way a
+    # real one could reach here: the adapter behind the port breaking its
+    # own contract. The Presenter's worker boundary must still report it
+    # rather than lose it to a background-thread traceback (`BUG-031`).
+    account.check_connection = Mock(side_effect=RuntimeError("boom"))  # type: ignore[method-assign]
     view_model = presenter._settings_view_model
     view_model.checkConnectionRequested.emit()
     action_id = presenter._connection_check_tracker.active_action.action_id
@@ -204,9 +233,7 @@ def test_an_exception_from_the_dispatcher_is_reported_not_raised(
     assert "boom" in view_model.connectionResultText
 
 
-def test_a_stale_result_from_a_superseded_click_is_discarded(
-    presenter, mock_dispatcher
-):
+def test_a_stale_result_from_a_superseded_click_is_discarded(presenter, account):
     """Two clicks in a row: the first click's action_id is invalidated by
     `begin_action()` on the second — its result arriving late must not
     overwrite the second (newer) click's outcome, per
@@ -219,7 +246,7 @@ def test_a_stale_result_from_a_superseded_click_is_discarded(
     current_action_id = presenter._connection_check_tracker.active_action.action_id
     assert current_action_id != stale_action_id
 
-    mock_dispatcher.dispatch.return_value = _SUCCESS_STATUS
+    account.answer_with(_SUCCESS_STATUS)
     presenter._run_check_connection(stale_action_id)  # the stale one arrives late
 
     # Still "checking" — the stale callback must not have unlocked the
@@ -247,8 +274,8 @@ def test_real_button_click_reaches_the_presenter_and_locks_the_widget(
     assert button.text() == "Checking..."
 
 
-def test_a_result_renders_on_the_real_label(presenter, qapp, mock_dispatcher):
-    mock_dispatcher.dispatch.return_value = _SUCCESS_STATUS
+def test_a_result_renders_on_the_real_label(presenter, qapp, account):
+    account.answer_with(_SUCCESS_STATUS)
     view_model = presenter._settings_view_model
     view_model.checkConnectionRequested.emit()
     action_id = presenter._connection_check_tracker.active_action.action_id
