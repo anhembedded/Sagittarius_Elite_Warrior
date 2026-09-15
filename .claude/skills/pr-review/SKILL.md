@@ -62,7 +62,7 @@ here), §10 (language/register), §11 (reporting), §12.5 (settled principles).
 | tests, or source that should have brought one | + E |
 | logging, or any new failure path | + I |
 | `tests/unit/architecture/**`, a baseline/allowlist, a new top-level `src/` package | + J |
-| `.agents/Skills/*.md` | + `python3 scripts/check_skill_prompt_references.py` |
+| `.agents/Skills/*.md` `.claude/skills/**` `.claude/rules/*.md` | + `python3 scripts/check_skill_prompt_references.py` |
 | only `Docs/` `Tasks/` `.agents/` `*.md` | A, K — see `ci` §1's exception first |
 
 The exception is narrow: one file able to affect build, lint, types, runtime or tests brings the
@@ -219,7 +219,7 @@ cp /tmp/keep.py src/<path>.py && git diff --stat -- src/<path>.py   # empty
 4. A term coined without its `Docs/VOCABULARY/README.md` entry in the same change?
 5. Every `.md` English, book register — why before what, a worked example over adjectives? (`onb` §10)
 6. A rule file added without its row in `CLAUDE.md`'s table? (an unlisted rule is an unread rule)
-7. `.agents/Skills/` edited — `python3 scripts/check_skill_prompt_references.py` still clean?
+7. `.agents/Skills/`, `.claude/skills/` or `.claude/rules/` edited — `python3 scripts/check_skill_prompt_references.py` still clean? (it reads all three, and an empty tree is an error, not a skip)
 8. A count, version or date written into a briefing as current state? (`skills` §1's banned list)
 
 ### L. Commits (`commit`)

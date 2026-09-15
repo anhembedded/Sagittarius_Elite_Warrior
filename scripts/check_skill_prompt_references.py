@@ -1,4 +1,4 @@
-"""Fail when a `.agents/Skills/*.md` prompt points at a repository path that is gone.
+"""Fail when an agent briefing, skill or rule pointer names a repository path that is gone.
 
 The seven agents under `.agents/Skills/` run unattended on a schedule. An agent
 cannot notice that its own briefing has gone stale: it will keep hunting for
@@ -11,9 +11,22 @@ re-read a journal that had never been written.
 This checker is the mechanical half of the `.agents/Skills/README.md` rule
 "verify, don't restate". It cannot tell that a *claim* went stale -- only a
 human or a run can -- but it does catch the class of rot that has actually
-shipped: a prompt pointing at something that is not there.
+shipped: a document pointing at something that is not there.
 
-Run it before committing any edit under `.agents/Skills/`:
+@par Why `.claude/` is checked too (added 2026-09-15, review finding S3)
+It originally read `.agents/Skills/` alone. But `.claude/skills/` and
+`.claude/rules/` hold exactly the same kind of document and are loaded by
+exactly the same mechanism of trust -- a reader follows their links without
+doubting them. `.claude/skills/pr-review/SKILL.md` is the sharpest case: it is
+the checklist a reviewer works from, it names a dozen rule files and about
+sixteen repository paths by link or backtick, and nothing verified any of them.
+Every one resolved when the review checked by hand, which is a state and not a
+guarantee: the first rename under `.agents/rules/` or `tests/unit/architecture/`
+would have sent the next reviewer to a file that no longer exists, with no
+reason to doubt it. Same rot, same fix -- `EPIC-011` is the record of it
+happening once already.
+
+Run it before committing any edit under any of `PROMPT_TREES` below:
 
     python3 scripts/check_skill_prompt_references.py
 
@@ -26,8 +39,18 @@ import re
 import sys
 from pathlib import Path
 
-#: Directory the checked prompts live in, repo-root relative.
-SKILLS_DIR = Path(".agents") / "Skills"
+#: The document trees this checker reads, as (directory, glob) pairs relative to
+#: the repository root. A tree is listed here because a reader follows its links
+#: without verifying them; the glob is recursive where the tree nests one
+#: directory per skill. All three must exist and hold at least one file, or the
+#: checker fails rather than passing on an empty scan -- the same rule
+#: `tests/unit/architecture/scanned_roots_registry.py` applies to the pytest
+#: guards, which cannot cover this script because it is not a test.
+PROMPT_TREES: tuple[tuple[Path, str], ...] = (
+    (Path(".agents") / "Skills", "*.md"),
+    (Path(".claude") / "skills", "**/*.md"),
+    (Path(".claude") / "rules", "*.md"),
+)
 
 #: Repository-root directories this checker claims authority over. A reference
 #: is only verified when it starts with one of these, which is what lets the
@@ -74,9 +97,11 @@ def _backticked_references(text: str) -> list[str]:
 def _link_references(text: str, source: Path, root: Path) -> list[str]:
     """Markdown link targets, normalised to repository-relative form.
 
-    Links in these prompts are written relative to `.agents/Skills/`, so
-    `../../CLAUDE.md` has to be resolved against the source file before it can
-    be compared with `CHECKED_ROOTS`.
+    A link is written relative to the file that carries it -- `../../CLAUDE.md`
+    from `.agents/Skills/`, `../../../.agents/rules/ci-rule.md` from
+    `.claude/skills/pr-review/` -- so it is resolved against `source.parent`,
+    not against any fixed base, before being compared with `CHECKED_ROOTS`.
+    That is what lets one function serve trees at three different depths.
     """
     references: list[str] = []
     for target in _MARKDOWN_LINK.findall(text):
@@ -94,29 +119,63 @@ def _link_references(text: str, source: Path, root: Path) -> list[str]:
     return references
 
 
+def _prompt_files(root: Path) -> list[Path]:
+    """Every document in every tree, deduplicated and in a stable order."""
+    found: dict[Path, None] = {}
+    for directory, glob in PROMPT_TREES:
+        for source in sorted((root / directory).glob(glob)):
+            found.setdefault(source, None)
+    return list(found)
+
+
 def check(root: Path) -> list[tuple[Path, str]]:
-    """Return every (prompt file, missing path) pair found under `.agents/Skills/`."""
+    """Return every (source file, missing path) pair across `PROMPT_TREES`."""
     missing: list[tuple[Path, str]] = []
-    for source in sorted((root / SKILLS_DIR).glob("*.md")):
+    for source in _prompt_files(root):
         text = source.read_text(encoding="utf-8")
         references = _backticked_references(text) + _link_references(text, source, root)
-        # A prompt naturally names the same path more than once; report it once.
+        # A document naturally names the same path more than once; report once.
         for reference in dict.fromkeys(references):
             if not (root / reference).exists():
                 missing.append((source.relative_to(root), reference))
     return missing
 
 
+def _empty_trees(root: Path) -> list[str]:
+    """Trees that are missing, or present but holding nothing to check.
+
+    A checker that passes because it read no files is the failure mode this
+    exists to prevent, so an empty tree is an error and not a quiet skip.
+    """
+    empty: list[str] = []
+    for directory, glob in PROMPT_TREES:
+        path = root / directory
+        if not path.is_dir():
+            empty.append(f"{directory.as_posix()}/ does not exist")
+        elif not any(path.glob(glob)):
+            empty.append(f"{directory.as_posix()}/ holds no {glob}")
+    return empty
+
+
 def main() -> int:
     root = _repo_root()
-    skills_dir = root / SKILLS_DIR
-    if not skills_dir.is_dir():
-        print(f"error: {skills_dir} does not exist", file=sys.stderr)
+    problems = _empty_trees(root)
+    if problems:
+        print("error: a checked document tree is empty:", file=sys.stderr)
+        for problem in problems:
+            print(f"  {problem}", file=sys.stderr)
+        print(
+            "\nEither the tree moved -- retarget PROMPT_TREES in this file -- or "
+            "it was deleted.\nPassing on an empty scan is what this check exists "
+            "to prevent.",
+            file=sys.stderr,
+        )
         return 1
 
     missing = check(root)
     if missing:
-        print(f"Broken references in {SKILLS_DIR}/ prompts:\n", file=sys.stderr)
+        trees = ", ".join(d.as_posix() + "/" for d, _ in PROMPT_TREES)
+        print(f"Broken references in {trees}:\n", file=sys.stderr)
         for source, reference in missing:
             print(f"  {source}: {reference}", file=sys.stderr)
         print(
@@ -129,7 +188,11 @@ def main() -> int:
         )
         return 1
 
-    print(f"OK: every repository path referenced by {SKILLS_DIR}/*.md resolves.")
+    trees = ", ".join(d.as_posix() + "/" for d, _ in PROMPT_TREES)
+    print(
+        f"OK: every repository path referenced by {len(_prompt_files(root))} "
+        f"document(s) under {trees} resolves."
+    )
     return 0
 
 

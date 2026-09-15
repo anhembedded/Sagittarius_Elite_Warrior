@@ -187,7 +187,10 @@ agent, not the repo — say so in your journal and let a human decide.
 python3 scripts/check_skill_prompt_references.py
 ```
 
-It re-reads every backticked repo-relative path in `.agents/Skills/*.md` and fails
-on any that no longer exists — the mechanical half of §1. It cannot tell you a
-claim went stale, but it does catch the rot that has actually shipped here: a
+It re-reads every backticked repo-relative path and every markdown link in the
+trees its own `PROMPT_TREES` lists — these prompts, plus `.claude/skills/` and
+`.claude/rules/`, which are the same kind of followed-without-doubting document
+— and fails on any that no longer exists. It is the mechanical half of §1. It
+cannot tell you a claim went stale, but it does catch the rot that has actually
+shipped here: a
 prompt pointing at a file that is not there.

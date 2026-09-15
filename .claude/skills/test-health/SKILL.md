@@ -82,7 +82,9 @@ stopped using QML at all).
 
 ## Output
 
-Write `Tasks/reports/test_health/YYYY-MM-DD.md`, kept short:
+Write `Tasks/reports/test_health/<today>.md` — `<today>` is the run's date, `YYYY-MM-DD`, so
+the directory reads as a history (`ls Tasks/reports/test_health/` shows the previous runs and
+`baseline.json`). Kept short:
 
 ```markdown
 # Test Health — YYYY-MM-DD

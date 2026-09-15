@@ -74,10 +74,14 @@ cd Sagittarius_Elite_Warrior
   Gated at the `EPIC-002A` baseline, not zero: `[tool.mypy]` in `pyproject.toml` excludes
   `src/presentation/` wholesale (one systemic PySide6 `@Property` false positive, not real defects)
   plus a frozen dirty-file list (`EPIC-002D` shrinks it). A file off that list must pass clean;
-- `scripts/check_skill_prompt_references.py` — every repository path named by the unattended
-  scheduled-agent prompts under `.agents/Skills/` must still resolve (`EPIC-011`/`EPIC-012`); a
-  dangling reference fails silently and still reports success (`sentinel.prompt.md` pointed at a
-  nonexistent rule file for months);
+- `scripts/check_skill_prompt_references.py` — every repository path named by a document a reader
+  follows without doubting it must still resolve: the unattended scheduled-agent prompts under
+  `.agents/Skills/` (`EPIC-011`/`EPIC-012`), and since 2026-09-15 also `.claude/skills/` and
+  `.claude/rules/`, which Claude Code loads by itself. A dangling reference fails silently and
+  still reports success — `sentinel.prompt.md` pointed at a nonexistent rule file for months, and
+  the day `.claude/` was added to the scan the check found a placeholder path in
+  `test-health/SKILL.md` that read as a literal one. The trees are `PROMPT_TREES` in that script,
+  and an empty tree is an error rather than a quiet skip;
 - all primary tests under `tests/`, excluding `tests/sanity/`;
 - `tests/sanity/` sequentially in a separate job;
 - coverage for `src/`, with the required 80% threshold.
