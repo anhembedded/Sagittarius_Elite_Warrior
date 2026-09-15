@@ -83,30 +83,31 @@
 presentation.ui.screens.backtest.backtest_presenter -> modules.market_data.adapters.persistence.symbol_market_metadata_cache
 
 # ---------------------------------------------------------------------------
-# presentation -> modules.market_data.cli: the interactive shell's handler table
-# (2 entries, added by PR 0.4a-2, and cheaper than the 5 they replaced).
+# presentation -> modules.market_data.cli: RETIRED by PR 1.3c-5, and the route
+# it took is worth keeping because two earlier attempts took the wrong one.
 #
-# `interactive_shell.py` hard-codes `{"sync": SyncCliHandler, ...}`, so it names
-# two classes that now live inside the module. It could not follow them into
-# `shell/` in the same pull request: it also drives trading's `exchange-status`
-# handler, still in the legacy tree, and `shell/`'s own legacy-import baseline
-# only shrinks — moving the shell would have had to grow it.
+# `interactive_shell.py` hard-coded `{"sync": SyncCliHandler, ...}`, naming two
+# classes inside the module: 2 entries, added by PR 0.4a-2. PR 1.1b tried to
+# fix it by moving the shell into `shell/` and reverted, measured: the move
+# traded these 2 entries for 2 new lines in
+# `baseline_shell_legacy_imports.txt`, a shrink-only ratchet growing so another
+# could shrink.
 #
-# **PR 1.1b tried the move and reverted it, measured rather than judged.** The
-# blocker above has not moved: `exchange-status` has no owning module until
-# PR 1.3 builds `modules/trading`, so the shell must keep importing it from the
-# legacy tree. The move therefore trades these 2 allowlist entries for 2 new
-# lines in `baseline_shell_legacy_imports.txt` (`-> presentation.cli.cli_parser`
-# and `-> presentation.cli.handlers.exchange_status_cli_handler`) — a shrink-only
-# ratchet growing so another can shrink, which is worse than leaving both alone.
+# What actually retired them is the inversion `IContributionRegistry` already
+# made for panels: the module **declares** (`BoundedContextModule.declare_cli`)
+# and the shell **collects** (`shell/cli_registry.py`). The shell names no
+# module class, the module names no shell class, and adding a command touches
+# only the module that owns it. Nothing about where `interactive_shell.py`
+# lives had to change.
 #
-# **PR 1.3 deletes both lines**, with the CLI table stopping being hard-coded in
-# the same step: each module declares its own commands and the shell collects
-# them from `MODULES`, the way `contribute()` already works — and by then
-# `exchange-status` is `modules/trading`'s to declare. Until then these are the
-# only two imports of a module's `cli/` package, and nothing else may add one.
-presentation.cli.interactive_shell -> modules.market_data.cli.stream_cli_handler
-presentation.cli.interactive_shell -> modules.market_data.cli.sync_cli_handler
+# `exchange-status` is still a hand-written entry in that file, and that is the
+# honest remaining state: its handler formats through
+# `exchange_status_formatter`, which needs `presentation.enum_labels`, so
+# moving the handler into `modules/trading/cli/` would make a module import the
+# legacy tree — refused outright, not allowlistable. It is a
+# `presentation` -> `presentation` import, so it costs no entry here, and it
+# goes when `EnumLabels` finds its home in `support/` (Phase 4 dissolves
+# `ui/common`).
 
 # ---------------------------------------------------------------------------
 # presentation -> modules.market_data.application: the transitional dispatch

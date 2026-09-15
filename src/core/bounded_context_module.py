@@ -1,17 +1,19 @@
 """What a bounded context looks like from the outside (HLD §3.1, ADR D2).
 
-A module is an Engine `IExtension` plus two seams of this application's own:
+A module is an Engine `IExtension` plus three seams of this application's own:
 
 | Hook | When | What it may do |
 | :--- | :--- | :--- |
 | `register(context)` | first, in `MODULES` order | bind and `singleton` only — no `resolve`, no I/O, no threads, no Qt |
 | `boot(context)` | after every module registered | `resolve`; start hosted services and scheduler jobs |
 | `contribute(registry)` | after `boot()` | hand over descriptors; no widget module imported |
+| `declare_cli(registry)` | with `contribute()` | claim the interactive-shell commands this context owns |
 | `subscribe(bridge)` | after `contribute()` | attach event handlers for the life of the process |
 | `shutdown(context)` | reverse order | release what `boot()` started |
 
-`contribute()` and `subscribe()` default to doing nothing, so a module with no
-UI and no event handlers — a CLI-only context — implements neither. `module_id`
+`contribute()`, `declare_cli()` and `subscribe()` all default to doing nothing,
+so a module with no UI, no commands and no event handlers implements none of
+them — and a CLI-only context implements exactly the one it needs. `module_id`
 is the identity that appears in every descriptor and in `shell/modules.py`;
 `dependencies` names the modules whose `contracts/` this one imports, and the
 declaration guard checks that claim against the imports actually present, in
@@ -32,6 +34,9 @@ from typing import TYPE_CHECKING, Any
 from sagittarius_engine.interfaces.i_extension import ExtensionDescriptor, IExtension
 
 if TYPE_CHECKING:
+    from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
+        ICliRegistry,
+    )
     from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
         IContributionRegistry,
     )
@@ -75,6 +80,9 @@ class BoundedContextModule(IExtension[Any]):
 
     def contribute(self, registry: IContributionRegistry) -> None:
         """Offer this context's panels, dialogs and screens. Default: none."""
+
+    def declare_cli(self, registry: ICliRegistry) -> None:
+        """Claim this context's interactive-shell commands. Default: none."""
 
     def subscribe(self, bridge: QtEventBridge) -> None:
         """Attach this context's long-lived event handlers. Default: none."""

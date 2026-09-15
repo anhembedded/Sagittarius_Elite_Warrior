@@ -46,11 +46,21 @@ from typing import Any
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
+    CliCommandDescriptor,
+    ICliRegistry,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.live_stream_adapter import (
     LiveStreamEngineAdapter,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.database_manager import (
     DatabaseManager,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.cli.stream_cli_handler import (
+    StreamCliHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.cli.sync_cli_handler import (
+    SyncCliHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.composition.adapter_bindings import (
     bind_adapters,
@@ -90,6 +100,25 @@ class MarketDataModule(BoundedContextModule):
         bind_commands(container)
         bind_queries(container)
         bind_published_ports(container)
+
+    def declare_cli(self, registry: ICliRegistry) -> None:
+        """`sync` and `stream` are this context's commands, so this context
+        names their handlers (`EPIC-025` PR 1.3c-5).
+
+        Before this, `interactive_shell.py` held a dict literal naming both
+        classes — two boundary-allowlist entries for a shell reaching into a
+        module, which PR 1.1b tried to fix by moving the shell instead and
+        measured that it only traded them for two lines on another
+        shrink-only baseline. Declaring is the inversion that costs nothing:
+        the shell names no module class, and adding a command touches the one
+        module that owns it.
+        """
+        for name, handler in (("sync", SyncCliHandler), ("stream", StreamCliHandler)):
+            registry.declare(
+                CliCommandDescriptor(
+                    name=name, handler=handler, contributor_id=self.module_id
+                )
+            )
 
     def boot(self, context: Any) -> None:
         """Hand the live-stream adapter to the Engine's lifecycle.

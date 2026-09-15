@@ -16,12 +16,16 @@ imports leave with the legacy tree in Phase 4.
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
+    ICliCommandTable,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.engine_capability_validator_extension import (
     EngineCapabilityValidatorExtension,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     AssetValidatorExtension,
 )
+from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
 from Sagittarius_Elite_Warrior.src.shell.modules import MODULES
 from sagittarius_engine import App
@@ -91,7 +95,16 @@ def create_app(config_manager: ConfigManager) -> App:
     # (no resolve, no second claim of one abstract type). Empty until PR 0.4
     # brings `market_data`; `BinanceBotModule` above still carries every
     # context during the strangler period.
-    register_modules(app, MODULES)
+    modules, _ = register_modules(app, MODULES)
+
+    # `EPIC-025` PR 1.3c-5 — every module declares the prompt commands it owns,
+    # and the shell collects them. Registered under the *reading* port only:
+    # `InteractiveShell` resolves `ICliCommandTable` and cannot declare, which
+    # is the half of the inversion that keeps the collection single-sourced.
+    cli_registry = CliRegistry()
+    for module in modules:
+        module.declare_cli(cli_registry)
+    container.singleton(ICliCommandTable, cli_registry)
 
     # Load Health Check Diagnostic Extension after domain modules
     app.use(HealthExtension())

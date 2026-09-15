@@ -1,6 +1,10 @@
 from argparse import Namespace
+from typing import Any
 from unittest.mock import Mock, patch
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
+    ICliCommandTable,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
@@ -13,8 +17,41 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.cli.sync_cli_handler impo
 from Sagittarius_Elite_Warrior.src.presentation.cli.interactive_shell import (
     InteractiveShell,
 )
+from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
+from Sagittarius_Elite_Warrior.src.shell.modules import MODULES
 from sagittarius_engine import App
 from sagittarius_engine.interfaces.i_config import IConfig
+
+
+def _cli_table() -> CliRegistry:
+    """The real registry with the real declarations (`EPIC-025` PR 1.3c-5).
+
+    Not a stub: a test that invented `{"sync": SyncCliHandler}` here would
+    pass even if `market_data.declare_cli()` stopped declaring anything, which
+    is exactly the wiring these tests exist to cover.
+    """
+    registry = CliRegistry()
+    for module_cls in MODULES:
+        module_cls().declare_cli(registry)
+    return registry
+
+
+def _shell_app(config: Any, dispatcher: Any = None) -> Mock:
+    """An `App` double whose `resolve` routes **by type**.
+
+    The one-answer shape (`resolve.return_value = config`) is what
+    `_resolving_app`'s own docstring below warns about: every port gets the
+    config mock, so a handler resolving the wrong thing looks plausible and
+    fails on a symptom instead of the cause. Ten tests in this file used it
+    until PR 1.3c-5 gave them all one builder.
+    """
+    answers: dict[Any, Any] = {IConfig: config, ICliCommandTable: _cli_table()}
+    if dispatcher is not None:
+        answers[ICommandDispatcher] = dispatcher
+
+    app = Mock(spec=App)
+    app.container.resolve.side_effect = lambda port: answers[port]
+    return app
 
 
 def _resolving_app(config: Mock) -> tuple[Mock, Mock]:
@@ -35,12 +72,7 @@ def _resolving_app(config: Mock) -> tuple[Mock, Mock]:
     response.success = True
     dispatcher.dispatch.return_value = response
 
-    app = Mock(spec=App)
-    app.container.resolve.side_effect = lambda port: {
-        IConfig: config,
-        ICommandDispatcher: dispatcher,
-    }[port]
-    return app, dispatcher
+    return _shell_app(config, dispatcher), dispatcher
 
 
 def test_interactive_shell_execute_sync():
@@ -71,38 +103,30 @@ def test_interactive_shell_execute_sync():
 
 
 def test_interactive_shell_do_exit():
-    app = Mock(spec=App)
-    app.container.resolve.return_value = Mock(spec=IConfig)
-    shell = InteractiveShell(app)
+    shell = InteractiveShell(_shell_app(Mock(spec=IConfig)))
 
     result = shell.do_exit("")
     assert result is True
 
 
 def test_interactive_shell_do_quit():
-    app = Mock(spec=App)
-    app.container.resolve.return_value = Mock(spec=IConfig)
-    shell = InteractiveShell(app)
+    shell = InteractiveShell(_shell_app(Mock(spec=IConfig)))
 
     result = shell.do_quit("")
     assert result is True
 
 
 def test_interactive_shell_emptyline():
-    app = Mock(spec=App)
-    app.container.resolve.return_value = Mock(spec=IConfig)
-    shell = InteractiveShell(app)
+    shell = InteractiveShell(_shell_app(Mock(spec=IConfig)))
 
     # Should not raise or repeat
     shell.emptyline()
 
 
 def test_interactive_shell_default_unknown_cmd(capsys):
-    app = Mock(spec=App)
     config = Mock(spec=IConfig)
     config.get.return_value = {}
-    app.container.resolve.return_value = config
-    shell = InteractiveShell(app)
+    shell = InteractiveShell(_shell_app(config))
 
     shell.default("unknown_cmd")
     captured = capsys.readouterr()
@@ -182,11 +206,9 @@ def test_the_handler_receives_parsed_arguments_not_a_string():
 
 
 def test_interactive_shell_default_empty(capsys):
-    app = Mock(spec=App)
     config = Mock(spec=IConfig)
     config.get.return_value = {}
-    app.container.resolve.return_value = config
-    shell = InteractiveShell(app)
+    shell = InteractiveShell(_shell_app(config))
 
     shell.default("")
     captured = capsys.readouterr()
@@ -194,11 +216,9 @@ def test_interactive_shell_default_empty(capsys):
 
 
 def test_interactive_shell_do_help(capsys):
-    app = Mock(spec=App)
     config = Mock(spec=IConfig)
     config.get.return_value = {"sync": {"help": "Sync cmd"}}
-    app.container.resolve.return_value = config
-    shell = InteractiveShell(app)
+    shell = InteractiveShell(_shell_app(config))
 
     shell.do_help("")
     captured = capsys.readouterr()
@@ -207,11 +227,9 @@ def test_interactive_shell_do_help(capsys):
 
 
 def test_interactive_shell_do_help_specific(capsys):
-    app = Mock(spec=App)
     config = Mock(spec=IConfig)
     config.get.return_value = {"sync": {"help": "Sync cmd"}}
-    app.container.resolve.return_value = config
-    shell = InteractiveShell(app)
+    shell = InteractiveShell(_shell_app(config))
 
     shell.do_help("sync")
     captured = capsys.readouterr()
@@ -219,11 +237,9 @@ def test_interactive_shell_do_help_specific(capsys):
 
 
 def test_interactive_shell_do_help_unknown(capsys):
-    app = Mock(spec=App)
     config = Mock(spec=IConfig)
     config.get.return_value = {}
-    app.container.resolve.return_value = config
-    shell = InteractiveShell(app)
+    shell = InteractiveShell(_shell_app(config))
 
     shell.do_help("unknown")
     captured = capsys.readouterr()
@@ -231,9 +247,7 @@ def test_interactive_shell_do_help_unknown(capsys):
 
 
 def test_interactive_shell_lifecycle():
-    app = Mock(spec=App)
-    app.container.resolve.return_value = Mock(spec=IConfig)
-    shell = InteractiveShell(app)
+    shell = InteractiveShell(_shell_app(Mock(spec=IConfig)))
 
     context = Mock()
     context.tasks = Mock()
@@ -255,9 +269,7 @@ def test_interactive_shell_lifecycle():
 
 
 def test_interactive_shell_wait_for_exit_exception():
-    app = Mock(spec=App)
-    app.container.resolve.return_value = Mock(spec=IConfig)
-    shell = InteractiveShell(app)
+    shell = InteractiveShell(_shell_app(Mock(spec=IConfig)))
 
     context = Mock()
     context.tasks = Mock()
@@ -277,9 +289,7 @@ def test_interactive_shell_wait_for_exit_exception():
 
 
 def test_interactive_shell_run_loop_keyboard_interrupt(capsys):
-    app = Mock(spec=App)
-    app.container.resolve.return_value = Mock(spec=IConfig)
-    shell = InteractiveShell(app)
+    shell = InteractiveShell(_shell_app(Mock(spec=IConfig)))
 
     with patch.object(shell, "cmdloop", side_effect=KeyboardInterrupt):
         shell._run_loop()
@@ -289,11 +299,9 @@ def test_interactive_shell_run_loop_keyboard_interrupt(capsys):
 
 
 def test_interactive_shell_do_help_exit(capsys):
-    app = Mock(spec=App)
     config = Mock(spec=IConfig)
     config.get.return_value = {}
-    app.container.resolve.return_value = config
-    shell = InteractiveShell(app)
+    shell = InteractiveShell(_shell_app(config))
 
     shell.do_help("exit")
     captured = capsys.readouterr()

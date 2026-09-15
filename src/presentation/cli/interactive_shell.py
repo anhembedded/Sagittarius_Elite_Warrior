@@ -7,11 +7,8 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_command_handler import (
     ICliCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.cli.stream_cli_handler import (
-    StreamCliHandler,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.cli.sync_cli_handler import (
-    SyncCliHandler,
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
+    ICliCommandTable,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.cli_parser import (
     build_handler_parser,
@@ -44,11 +41,22 @@ class InteractiveShell(cmd.Cmd, IHostedService):
         self.task: ITaskHandle | None = None
         self.config = app.container.resolve(IConfig)
 
-        # Hardcode the routing map to handlers.
-        # (A true registry would inject this, but this is a simple implementation)
+        # `EPIC-025` PR 1.3c-5 — the module-owned commands are collected, not
+        # named here: every one a bounded context owns arrives through
+        # `declare_cli()`, so this file imports no module package and the two
+        # boundary-allowlist entries it used to carry are gone.
+        #
+        # `exchange-status` is still listed by hand, and that is the honest
+        # state rather than an oversight: its handler formats through
+        # `exchange_status_formatter`, which needs `presentation.enum_labels`
+        # — so moving the handler into `modules/trading/cli/` would make a
+        # module import the legacy tree, which the boundary rule refuses
+        # outright. This import is `presentation` -> `presentation`, costs no
+        # entry, and goes when `EnumLabels` finds its home in `support/`
+        # (Phase 4 dissolves `ui/common`). Declared here rather than nowhere
+        # so the table is complete in one place.
         self.handlers: dict[str, type[ICliCommandHandler]] = {
-            "sync": SyncCliHandler,
-            "stream": StreamCliHandler,
+            **app.container.resolve(ICliCommandTable).handlers(),
             "exchange-status": ExchangeStatusCliHandler,
         }
 
