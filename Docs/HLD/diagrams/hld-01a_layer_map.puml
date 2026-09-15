@@ -24,7 +24,7 @@ modules ..> support : <<import>>
 modules ..> "core.contracts" : <<import>>
 modules ..> "core.vo" : <<import>>
 support ..> "core.vo" : <<import>>
-support ..> "core.contracts" : <<import>> (IPlaceHost only)
+support ..> "core.contracts" : <<import>> (allowed, no user today: the surface host is in shell)
 "core.contracts" ..> sagittarius_engine : <<import>>
 
 note right of modules

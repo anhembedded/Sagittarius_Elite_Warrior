@@ -162,3 +162,50 @@ Publishing a command object is the transitional dispatch surface this epic is
 retiring, so the port publishes a request and keeps the CQRS vocabulary behind
 the boundary — `IMarketDataSync`'s `MarketDataSyncRequest` set that shape in
 PR 0.5.
+
+---
+
+### `shell` and `core`: the contribution mechanism as it shipped
+
+The mechanism is not a module, but it is a published surface all the same — the
+three seams every `BoundedContextModule` is written against — so the same rule
+applies: what shipped differently from SDD-01b is recorded here rather than left
+for a reader to find against the code.
+
+**1. `IPlaceHost` is a `Protocol`, and it hands over a widget rather than a
+layout.** SDD-01b specified `slot(place: Place) -> QLayout`, implemented by
+`ui_kit.SurfaceHost`. Shipped (PR 1.4a): `surface_id`, `accepts() ->
+frozenset[Place]` and `place_widget(place, widget, *, title=None)`, implemented
+by `shell/workbench_surface.py`'s `WorkbenchSurface`. Handing back a `QLayout`
+would have made every place a box to add children to, and the parts of a
+`QMainWindow` are not boxes: a dock is a `QDockWidget` the user can tab, float
+and close; a status tile is a permanent widget on the `QStatusBar`; a modal is
+not in the layout at all. Taking the widget instead lets the host decide which
+`QMainWindow` part each `Place` is, which is what HLD §11.2 assigns and what a
+layout slot cannot express.
+
+It is a `Protocol` for `architecture-rule.md` §2.1 reason (a), measured rather
+than assumed: `class WorkbenchSurface(QMainWindow, IPlaceHost)` raises
+`TypeError: metaclass conflict` on import, `ABCMeta` against Shiboken's.
+`IStateContributor` (`EPIC-010C`) records the same reason for `MainWindow`, so
+this follows that precedent instead of inventing a second answer, and
+`test_workbench_surface.py` asserts the `isinstance` holds so a structural
+contract nothing checks cannot rot into documentation.
+
+**2. There is no `SurfaceDescriptor.build()`.** SDD-01b gave `Surface` a
+`build(registry, container) -> IPlaceHost` method. Shipped: `shell/surfaces.py`
+holds `Surface` as frozen data (`surface_id`, `owner`, `accepts`, `gated_by`,
+and `is_open_in(dev_mode=…)`), and building is a free function next door,
+`shell/surface_building.py`'s `build_surface(surface, contributions, container)`.
+A `build()` on the declaration would tie the answer to *what a surface is* to
+*how this application renders one*: the declaration is read by the contribution
+registry's validation, by the navigation metadata and by tests that only ask
+what a surface accepts, none of which want Qt. Keeping them apart is also what
+lets a test — and later a `preview.py` — drive the host with two hand-made
+widgets and no registry at all.
+
+**3. The registry's methods are `contribute()` and `contribute_screen()`.**
+SDD-01b named them `add()` / `add_screen()`. A module *contributes*; the verb is
+the one the hook itself is called (`contribute(registry)`), and `add` reads like
+a list operation on a surface that validates, drops gated contributions and
+refuses duplicates.

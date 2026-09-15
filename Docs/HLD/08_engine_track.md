@@ -28,10 +28,14 @@ Everything that will move to the Engine is written in the app under `core/contra
 `shell/workbench/`, and obeys three constraints from Phase 0, enforced by the guards in §6.1:
 
 1. **No import from `modules/`, `support/` or the rest of `shell/`.** It may import only the Engine,
-   the standard library, and the named ABCs of `core/contracts` (`IPlaceHost`, `IContributionRegistry`)
-   — never a concrete widget. The region host the surface runtime renders into is reached through
-   `IPlaceHost`; today's `PageShell` (app `ui_kit`) implements it, and the Engine's own region host
-   will at E2. (`core/` already has this guard.)
+   the standard library, and the named contracts of `core/contracts` (`IPlaceHost`,
+   `IContributionRegistry`) — never a concrete widget. The region host the surface runtime renders
+   into is reached through `IPlaceHost`; `shell/workbench_surface.py`'s `WorkbenchSurface`
+   (a `QMainWindow`) implements it since PR 1.4a, and the Engine's own region host will at E2.
+   (`core/` already has this guard.) `IPlaceHost` is the one contract here that is a
+   `typing.Protocol` rather than an ABC, for `architecture-rule.md` §2.1 reason (a): its
+   implementer is a `QObject` subclass, and `ABCMeta` against Shiboken's metaclass is a `TypeError`
+   at import.
 2. **Engine package layout.** `core/contracts/contribution.py` is written as the future
    `sagittarius_engine/extensions/workbench/contribution.py`; the lift is `git mv` plus an import
    rewrite, never a redesign.
