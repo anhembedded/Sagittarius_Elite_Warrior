@@ -54,6 +54,7 @@ is why, the spec is what. Neither file is a copy of the other — the SPEC names
 | [SPEC-003](SPEC-003_check_the_exchange_connection.md) | Check that the app can reach the exchange | trader, operator | ✅ |
 | [SPEC-004](SPEC-004_enable_and_disable_live_trading.md) | Turn live trading on, and off | trader | ✅ |
 | [SPEC-005](SPEC-005_place_a_manual_order.md) | Place one order by hand | trader | ✅ |
+| [SPEC-011](SPEC-011_start_the_app_and_choose_developer_mode.md) | Start the app, and choose developer mode | trader, developer | ✅ |
 
 Planned, and numbered here so the ids are reserved rather than invented twice:
 

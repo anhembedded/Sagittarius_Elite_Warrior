@@ -22,7 +22,13 @@ the button without touching anything else.
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import (
+    QCheckBox,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.shell.surfaces import surfaces_by_id
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
@@ -31,10 +37,20 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 _START_TEXT = "Start"
+_DEV_MODE_TEXT = "Developer mode"
+_RESTART_NOTICE = "Developer mode takes effect after a restart."
+_RESTART_TEXT = "Restart now"
 
 
 class WelcomeView(BaseView):
     """@brief The Welcome surface's widgets, and the one signal it raises."""
+
+    #: The developer-mode switch changed. The Presenter writes it; this view
+    #: does not touch configuration.
+    dev_mode_toggled = Signal(bool)
+
+    #: The user asked for the restart the switch needs to take effect.
+    restart_requested = Signal()
 
     #: The user pressed Start. The Presenter turns it into an intent on the
     #: bus; nothing here decides what Start means.
@@ -84,6 +100,58 @@ class WelcomeView(BaseView):
         column.addWidget(self._start_button, 0, Qt.AlignmentFlag.AlignCenter)
         column.addStretch(2)
         self._surface.place_widget(Place.WORKSPACE, workspace)
+        self._place_developer_mode_switch()
+
+    def _place_developer_mode_switch(self) -> None:
+        """The switch, its notice and the restart button, in the header.
+
+        In `HEADER` rather than the workspace because that is where HLD §4.6
+        puts it, and because it is not what the screen is *for*: the workspace
+        answers "what is this and how do I start", and a setting that needs a
+        restart belongs beside the window's own controls.
+        """
+        self._dev_mode_switch = QCheckBox(_DEV_MODE_TEXT)
+        self._dev_mode_switch.setObjectName("chkDeveloperMode")
+        self._dev_mode_switch.setToolTip(
+            "Shows the Dev Board's probes and the chart diagnostics. "
+            "Read once at boot, so changing it needs a restart."
+        )
+        self._dev_mode_switch.toggled.connect(self.dev_mode_toggled)
+
+        self._restart_notice = QLabel(_RESTART_NOTICE)
+        self._restart_notice.setObjectName("lblRestartNotice")
+        self._restart_notice.setVisible(False)
+
+        self._restart_button = QPushButton(_RESTART_TEXT)
+        self._restart_button.setObjectName("btnRestartNow")
+        self._restart_button.setVisible(False)
+        self._restart_button.clicked.connect(self.restart_requested)
+
+        self._surface.place_widget(Place.HEADER, self._dev_mode_switch)
+        self._surface.place_widget(Place.HEADER, self._restart_notice)
+        self._surface.place_widget(Place.HEADER, self._restart_button)
+
+    def show_developer_mode(self, *, enabled: bool) -> None:
+        """Sets the switch to what configuration says, without reporting it
+        back as a change the user made.
+
+        `blockSignals` and not a flag: `setChecked()` emits `toggled`, and a
+        Presenter that wrote the value it had just read would save the file on
+        every boot — and would turn "the app started" into "the user changed a
+        setting".
+        """
+        self._dev_mode_switch.blockSignals(True)
+        self._dev_mode_switch.setChecked(enabled)
+        self._dev_mode_switch.blockSignals(False)
+
+    def show_restart_is_needed(self) -> None:
+        """Says what the switch did and offers the only thing that applies it.
+
+        Shown after the write, never before: the notice is a fact about
+        configuration on disk, not a promise about one.
+        """
+        self._restart_notice.setVisible(True)
+        self._restart_button.setVisible(True)
 
     def show_application(self, name: str, version: str) -> None:
         """Names the app and its version — the Presenter reads both from

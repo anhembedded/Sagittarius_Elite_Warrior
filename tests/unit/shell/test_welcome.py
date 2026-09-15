@@ -19,11 +19,12 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from unittest.mock import Mock
 
 import pytest
-from PySide6.QtWidgets import QLabel, QPushButton
+from PySide6.QtWidgets import QCheckBox, QLabel, QPushButton
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import (
     SHELL_CONTRIBUTOR_ID,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_config_writer import IConfigWriter
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.shell.welcome.start_requested_event import (
     StartRequested,
@@ -46,6 +47,25 @@ _CONFIG = {
     ConfigKeys.EXCHANGE_MARKET_DATA_VENUE.value: "futures_testnet",
     ConfigKeys.EXCHANGE_TRADING_VENUE.value: "futures_testnet",
 }
+
+
+class _Writer(IConfigWriter):
+    """What the switch writes through, recorded rather than mocked: *whether
+    `save()` was called* is half the guarantee, and a `Mock` would answer
+    `set()` and `save()` identically whether or not the code called both."""
+
+    def __init__(self, *, fails: bool = False) -> None:
+        self.written: list[tuple[str, object]] = []
+        self.saves = 0
+        self._fails = fails
+
+    def set(self, key: str, value: object) -> None:
+        self.written.append((key, value))
+
+    def save(self) -> None:
+        if self._fails:
+            raise OSError("read-only config")
+        self.saves += 1
 
 
 class _Config:
@@ -74,24 +94,33 @@ class _Bus:
         del args, kwargs
 
 
-def _container(config: dict[str, object] | None = None) -> Mock:
-    """A container that answers the four things `BasePresenter` resolves, and
-    nothing else — the config and the bus are real doubles because the
-    Presenter's behaviour depends on them."""
+def _container(
+    config: dict[str, object] | None = None, *, writer: _Writer | None = None
+) -> Mock:
+    """A container that answers what `BasePresenter` resolves plus the config
+    writer — the config, the bus and the writer are real doubles, because the
+    Presenter's behaviour depends on all three."""
     bus = _Bus()
-    resolved = {"bus": bus, "config": _Config(config or _CONFIG)}
+    values = dict(_CONFIG)
+    values.update(config or {})
+    config_double = _Config(values)
+    config_writer = writer or _Writer()
 
     def resolve(abstract):
         name = getattr(abstract, "__name__", "")
         if name == "IEventBus":
-            return resolved["bus"]
+            return bus
         if name == "IConfig":
-            return resolved["config"]
+            return config_double
+        if name == "IConfigWriter":
+            return config_writer
         return Mock()
 
     container = Mock()
     container.resolve.side_effect = resolve
     container.bus = bus
+    container.config_double = config_double
+    container.config_writer = config_writer
     return container
 
 
@@ -207,3 +236,72 @@ class TestTheContribution:
         assert callable(contribution.view_factory)
         assert callable(contribution.presenter_factory)
         assert "WelcomeView" not in repr(contribution.view_factory)
+
+
+class TestTheDeveloperModeSwitch:
+    """ADR D14: the switch writes `user_config.json` and offers a restart.
+    `dev.mode` is read once at boot — it gates a surface, so a value that
+    changed mid-run would mean loading or unloading a module."""
+
+    def test_it_starts_where_configuration_left_it(self, qapp) -> None:
+        view = WelcomeView()
+        container = _container({ConfigKeys.DEV_MODE.value: True})
+
+        presenter = WelcomePresenter(view, container)
+
+        assert view.findChild(QCheckBox, "chkDeveloperMode").isChecked() is True
+        assert presenter is not None
+
+    def test_showing_the_stored_value_is_not_a_change_the_user_made(self, qapp) -> None:
+        """`setChecked()` emits `toggled`, so a Presenter that reported the
+        value it had just read would write the file on every boot — and turn
+        "the app started" into "the user changed a setting"."""
+        container = _container({ConfigKeys.DEV_MODE.value: True})
+
+        presenter = WelcomePresenter(WelcomeView(), container)
+
+        assert container.config_writer.written == []
+        assert container.config_writer.saves == 0
+        assert presenter is not None
+
+    def test_toggling_it_writes_and_saves(self, qapp) -> None:
+        view = WelcomeView()
+        container = _container()
+        presenter = WelcomePresenter(view, container)
+
+        view.findChild(QCheckBox, "chkDeveloperMode").setChecked(True)
+
+        assert container.config_writer.written == [(ConfigKeys.DEV_MODE.value, True)]
+        assert container.config_writer.saves == 1
+        assert presenter is not None
+
+    def test_the_restart_offer_appears_only_after_the_write(self, qapp) -> None:
+        view = WelcomeView()
+        container = _container()
+        presenter = WelcomePresenter(view, container)
+        notice = view.findChild(QLabel, "lblRestartNotice")
+        button = view.findChild(QPushButton, "btnRestartNow")
+
+        assert notice.isVisible() is False
+        assert button.isVisible() is False
+
+        view.findChild(QCheckBox, "chkDeveloperMode").setChecked(True)
+
+        assert notice.isVisibleTo(view) is True
+        assert button.isVisibleTo(view) is True
+        assert presenter is not None
+
+    def test_a_failed_save_offers_no_restart_and_puts_the_switch_back(
+        self, qapp
+    ) -> None:
+        """The notice is a fact about the file on disk. A failed write with a
+        cheerful "restart to apply" beside it is a lie the user acts on."""
+        view = WelcomeView()
+        container = _container(writer=_Writer(fails=True))
+        presenter = WelcomePresenter(view, container)
+
+        view.findChild(QCheckBox, "chkDeveloperMode").setChecked(True)
+
+        assert view.findChild(QLabel, "lblRestartNotice").isVisibleTo(view) is False
+        assert view.findChild(QCheckBox, "chkDeveloperMode").isChecked() is False
+        assert presenter is not None

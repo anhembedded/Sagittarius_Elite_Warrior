@@ -19,6 +19,7 @@ from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
     ICliCommandTable,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_config_writer import IConfigWriter
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.engine_capability_validator_extension import (
     EngineCapabilityValidatorExtension,
 )
@@ -26,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
     AssetValidatorExtension,
 )
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
+from Sagittarius_Elite_Warrior.src.shell.config_writer import ConfigManagerWriter
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
 from Sagittarius_Elite_Warrior.src.shell.modules import MODULES, RegisteredModules
 from sagittarius_engine import App
@@ -71,6 +73,12 @@ def create_app(config_manager: ConfigManager) -> App:
     container.singleton(IContainer, container)
     container.singleton(IEventBus, event_bus)
     container.singleton(IConfig, config_manager)
+    # `EPIC-025` PR 1.5b — the ability to *write* configuration, as a port.
+    # `IConfig` has `set()` but not `save()`, which is why
+    # `settings_presenter.py` downcasts to `ConfigManager` today; the Welcome
+    # screen's developer-mode switch is the first caller to go through the
+    # port instead, and the downcast retires with that screen (SDD §4).
+    container.singleton(IConfigWriter, ConfigManagerWriter(config_manager))
 
     app = App(container, event_bus)
 
