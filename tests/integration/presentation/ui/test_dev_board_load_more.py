@@ -25,9 +25,6 @@ by test_sanity_ui_e2e.py.
 from datetime import UTC, datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
-)
 
 MOCK_KLINE_COUNT = 5
 _BASE_TIME = datetime(2024, 1, 1, tzinfo=UTC)
@@ -89,27 +86,18 @@ def _older_mock_klines(symbol: str) -> list[MarketData]:
     return klines
 
 
-def _install_load_more_capable_dispatch(monkeypatch, presenter):
-    """Replaces presenter.dispatcher.dispatch with one that returns an OLDER
-    batch specifically for a load-more query (end_time set), and the normal
-    fixed batch otherwise — real GetKlinesHistoricalQuery handler behavior,
-    just without a real database."""
+def _reveal_older_history(seeded_history, symbol: str) -> None:
+    """Put an older page in the store, after the first load has already run.
 
-    def dispatch(command_type, command_obj):
-        from unittest.mock import MagicMock
-
-        response = MagicMock()
-        response.success = True
-        if command_type is GetHistoricalKlinesQuery:
-            if command_obj.end_time is not None:
-                response.data = _older_mock_klines(command_obj.symbol)
-            else:
-                response.data = _build_mock_klines(command_obj.symbol)
-        else:
-            response.data = []
-        return response
-
-    monkeypatch.setattr(presenter.dispatcher, "dispatch", dispatch)
+    `EPIC-025` PR 1.1 replaced a hand-rolled dispatcher that returned a
+    different batch depending on whether `end_time` was set — its own
+    docstring described that as "real handler behavior, just without a real
+    database". The port reads a real store, so the timing does the work
+    instead: these rows land *after* the screen's initial load, exactly as a
+    background sync would have written them, and the load-more read finds
+    them because it asks for candles below the boundary it already holds.
+    """
+    seeded_history.seed(list(reversed(_older_mock_klines(symbol))))
 
 
 def _open_dashboard(navigate):
@@ -118,11 +106,11 @@ def _open_dashboard(navigate):
 
 
 def test_scrolling_near_the_left_edge_prepends_older_candles(
-    qtbot, main_window, navigate, monkeypatch
+    qtbot, main_window, navigate, seeded_history
 ):
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    _install_load_more_capable_dispatch(monkeypatch, presenter)
+    _reveal_older_history(seeded_history, view.chart_cards[0].symbol)
     card = view.chart_cards[0]
     history_before = len(card._raw_history)
     oldest_before = card._raw_history[0][0]
@@ -135,11 +123,11 @@ def test_scrolling_near_the_left_edge_prepends_older_candles(
 
 
 def test_load_more_does_not_reset_the_current_viewport(
-    qtbot, main_window, navigate, monkeypatch
+    qtbot, main_window, navigate, seeded_history
 ):
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    _install_load_more_capable_dispatch(monkeypatch, presenter)
+    _reveal_older_history(seeded_history, view.chart_cards[0].symbol)
     card = view.chart_cards[0]
     card.plot_layout.main_plot.setXRange(
         card._raw_history[0][0], card._raw_history[-1][0], padding=0
@@ -153,14 +141,14 @@ def test_load_more_does_not_reset_the_current_viewport(
 
 
 def test_load_more_rebuilds_scripts_without_dropping_the_active_set(
-    qtbot, main_window, navigate, monkeypatch
+    qtbot, main_window, navigate, seeded_history
 ):
     """A prepend forces IndicatorScriptRunner.rebuild() (see
     dashboard_presenter._on_history_prepended's docstring) — the set of
     enabled scripts must come out the other side unchanged."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    _install_load_more_capable_dispatch(monkeypatch, presenter)
+    _reveal_older_history(seeded_history, view.chart_cards[0].symbol)
     card = view.chart_cards[0]
     active_before = set(presenter._script_runner.active)
 
@@ -171,11 +159,11 @@ def test_load_more_rebuilds_scripts_without_dropping_the_active_set(
 
 
 def test_a_second_edge_signal_before_the_first_settles_does_not_double_fetch(
-    qtbot, main_window, navigate, monkeypatch
+    qtbot, main_window, navigate, seeded_history, monkeypatch
 ):
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
-    _install_load_more_capable_dispatch(monkeypatch, presenter)
+    _reveal_older_history(seeded_history, view.chart_cards[0].symbol)
     card = view.chart_cards[0]
 
     calls = []

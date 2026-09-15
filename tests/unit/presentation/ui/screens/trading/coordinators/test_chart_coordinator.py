@@ -29,6 +29,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
     StopLiveStreamCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
+    candle,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
 )
@@ -43,11 +49,16 @@ class _FakeToken:
         return False
 
 
-def _coordinator(dispatcher, sync: FakeMarketDataSync | None = None):
+def _coordinator(
+    dispatcher,
+    sync: FakeMarketDataSync | None = None,
+    history: FakeHistoricalKlines | None = None,
+):
     return ChartCoordinator(
         thread_manager=MagicMock(),
         dispatcher=dispatcher,
         market_data_sync=sync or FakeMarketDataSync(),
+        historical_klines=history or FakeHistoricalKlines(),
         emit_history_ready=MagicMock(),
         emit_load_finished=MagicMock(),
         emit_stream_started=MagicMock(),
@@ -98,6 +109,57 @@ def test_the_sync_carries_the_screens_cancellation_check() -> None:
     assert sync.requests[0].cancellation_requested == token.is_cancelled
 
 
+def test_the_chart_draws_the_stored_candles_oldest_first() -> None:
+    """`EPIC-025` PR 1.1 made this assertable at all. The old test could only
+    say "a query was dispatched": the history arrived as
+    `MagicMock(data={})` through `getattr(response, "data", response)`, so
+    there was nothing real to check the order of. Order is the whole point —
+    the port is asked for the *newest* N candles (that is how a limit keeps
+    recent data) and the chart must draw them chronologically, so a missing
+    `reversed()` would paint the series backwards in time."""
+    dispatcher = MagicMock()
+    dispatcher.dispatch.return_value = MagicMock(data={})
+    history = FakeHistoricalKlines()
+    history.seed(
+        [candle("BTCUSDT", minute, close_price=float(minute)) for minute in range(3)]
+    )
+    emit_history_ready = MagicMock()
+    coordinator = ChartCoordinator(
+        thread_manager=MagicMock(),
+        dispatcher=dispatcher,
+        market_data_sync=FakeMarketDataSync(),
+        historical_klines=history,
+        emit_history_ready=emit_history_ready,
+        emit_load_finished=MagicMock(),
+        emit_stream_started=MagicMock(),
+        emit_stream_failed=MagicMock(),
+        emit_log=MagicMock(),
+    )
+
+    coordinator._run("BTCUSDT", "1m", _FakeToken(), False)
+
+    symbol, _mapped, _volume, raw = emit_history_ready.call_args.args
+    assert symbol == "BTCUSDT"
+    assert [row.close_price for row in raw] == [0.0, 1.0, 2.0]
+
+
+def test_the_chart_asks_for_the_newest_candles_not_the_first() -> None:
+    """A limit without `newest_first` would hand a live chart the OLDEST
+    candles in the shard — same type, same row count, silently wrong data.
+    Read off the port's own record of what was asked for."""
+    dispatcher = MagicMock()
+    dispatcher.dispatch.return_value = MagicMock(data={})
+    history = FakeHistoricalKlines()
+    coordinator = _coordinator(dispatcher, history=history)
+
+    coordinator._run("BTCUSDT", "1m", _FakeToken(), False)
+
+    read = history.reads[0]
+    assert read.symbols == ("BTCUSDT",)
+    assert read.interval == TimeFrame.ONE_MINUTE
+    assert read.newest_first is True
+
+
 def test_stop_dispatches_regardless_of_go_live() -> None:
     """`stop()` itself is unconditional — callers decide whether it is safe
     to call at all (`TradingPresenter._restart_chart`'s own guard)."""
@@ -119,6 +181,7 @@ def test_start_defaults_to_local_history_only() -> None:
         thread_manager=thread_manager,
         dispatcher=MagicMock(),
         market_data_sync=FakeMarketDataSync(),
+        historical_klines=FakeHistoricalKlines(),
         emit_history_ready=MagicMock(),
         emit_load_finished=MagicMock(),
         emit_stream_started=MagicMock(),

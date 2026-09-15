@@ -17,17 +17,23 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
+)
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.conftest import (
+    build_mock_klines,
 )
 
 
@@ -89,9 +95,13 @@ def mock_app():
     )
     equity_recorder = EquityCurveRecorder()
 
+    history = FakeHistoricalKlines()
+
     def resolve_side_effect(interface):
         from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 
+        if interface == IHistoricalKlines:
+            return history
         if interface == IConfig:
             return mock_config
         if interface == IThreadManager:
@@ -120,29 +130,20 @@ def test_dashboard_integration_start_stream_chart_rendering(qapp, mock_app):
     presenter = DashboardPresenter(view, mock_app.container)
     view.presenter = presenter
 
-    # Mock the return values for the dispatch calls
+    # `EPIC-025` PR 1.1 — the history is seeded into the port's store instead
+    # of returned by a dispatch branch. `BUG-047`'s trap, which the deleted
+    # comment here described at length, cannot recur: it was a flat list
+    # reaching `_run_load_history`'s `isinstance(results, dict)` guard, which
+    # logged "Unexpected response format" and returned before touching the
+    # candlestick — never raising, so it stayed invisible. `load_many()` has
+    # one return type, and that guard is gone with it.
+    history = presenter._stream_controller._historical_klines
+    # One candle, because this test's assertion is that exactly one history
+    # row reaches the candlestick and is repainted — the old dispatch branch
+    # returned a single mock kline for the same reason.
+    history.seed(build_mock_klines(presenter._active_symbol)[:1])
+
     def mock_dispatch(cmd_type, cmd):
-        if cmd_type == GetHistoricalKlinesQuery:
-            # Return fake klines
-            mock_kline = MagicMock()
-            mock_kline.close_time.timestamp.return_value = 1600000000.0
-            mock_kline.open_price = 1000.0
-            mock_kline.high_price = 1100.0
-            mock_kline.low_price = 900.0
-            mock_kline.close_price = 1050.0
-            mock_kline.volume = 250.0
-            response = MagicMock()
-            # Keyed by symbol, not a flat list: GetHistoricalKlinesQuery now
-            # takes `symbol` as a list (multi-symbol support,
-            # handler.py::_execute_multi), which returns dict[str,
-            # list[MarketData]] — one entry per requested symbol. A flat
-            # list here fails stream_lifecycle_controller.py's own
-            # `isinstance(results, dict)` guard, which logs "Unexpected
-            # response format" and returns before ever touching the
-            # candlestick — never a raised exception, so this stayed
-            # invisible until BUG-047 traced it.
-            response.data = {sym: [mock_kline] for sym in cmd.symbol}
-            return response
         if cmd_type == StartLiveStreamCommand:
             response = MagicMock()
             response.success = True

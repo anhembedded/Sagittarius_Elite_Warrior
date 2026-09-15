@@ -130,6 +130,7 @@ def build_coordinators(presenter) -> Coordinators:
         ),
     )
     _chart_preview = ChartPreviewCoordinator(
+        historical_klines=presenter._historical_klines,
         view=presenter.view,
         state=state,
         view_model=presenter._view_model,
@@ -166,6 +167,7 @@ def build_coordinators(presenter) -> Coordinators:
         on_result_ready=lambda *a: presenter._chart_feed.fetch_and_emit_chart_data(*a),
     )
     _chart_feed = ChartFeedCoordinator(
+        historical_klines=presenter._historical_klines,
         state=state,
         dispatcher=presenter.dispatcher,
         script_runner=presenter._chart_script_runner,

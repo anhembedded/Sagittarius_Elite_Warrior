@@ -16,8 +16,8 @@ import logging
 from collections.abc import Callable
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
     map_klines,
@@ -46,6 +46,7 @@ class ChartFeedCoordinator:
         self,
         state: IBacktestScreenState,
         dispatcher,
+        historical_klines: IHistoricalKlines,
         script_runner,
         log_dev_trace: Callable[..., None],
         emit_chart_data_ready: Callable[..., None],
@@ -54,6 +55,7 @@ class ChartFeedCoordinator:
     ) -> None:
         self._state = state
         self._dispatcher = dispatcher
+        self._historical_klines = historical_klines
         self._script_runner = script_runner
         self._log_dev_trace = log_dev_trace
         self._emit_chart_data_ready = emit_chart_data_ready
@@ -129,25 +131,24 @@ class ChartFeedCoordinator:
         symbol = self._state.symbol
         limit = self._state.chart_klines_fetch_limit
         try:
-            query = GetHistoricalKlinesQuery(
-                symbol=symbol,
-                interval=config.timeframe,
-                limit=limit,
-                start_time=config.start_time,
-                end_time=config.end_time,
-                # Descending + reversed below so a range with more than the
-                # fetch limit keeps the MOST RECENT candles — ascending order
-                # would silently cap at the OLDEST instead.
-                order_by_desc=True,
-            )
             self._log_dev_trace(
                 "chart_query_dispatch",
                 symbol=symbol,
                 timeframe=config.timeframe.value,
                 limit=limit,
             )
-            response = self._dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-            return list(reversed(getattr(response, "data", response) or []))
+            # `newest_first` + reversed below so a range with more than the
+            # fetch limit keeps the MOST RECENT candles — chronological order
+            # would silently cap at the OLDEST instead.
+            newest_first = self._historical_klines.load(
+                symbol,
+                config.timeframe,
+                limit=limit,
+                start_time=config.start_time,
+                end_time=config.end_time,
+                newest_first=True,
+            )
+            return list(reversed(newest_first))
         except Exception as exc:
             logger.exception("Fetching chart klines failed")
             self._log_dev_trace("chart_query_failed", message=str(exc))

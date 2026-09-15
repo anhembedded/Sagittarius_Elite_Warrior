@@ -22,14 +22,14 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
     StopLiveStreamCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     CancellationCheck,
@@ -95,6 +95,7 @@ class StreamLifecycleController:
         thread_manager: IThreadManager,
         dispatcher: IDispatcher,
         market_data_sync: IMarketDataSync,
+        historical_klines: IHistoricalKlines,
         config: IConfig,
         fsm: Any,
         view_model: Any,
@@ -127,6 +128,7 @@ class StreamLifecycleController:
         self._stream_actions = ExclusiveAction(thread_manager=thread_manager)
         self.dispatcher = dispatcher
         self._market_data_sync = market_data_sync
+        self._historical_klines = historical_klines
         self.config = config
         self.fsm = fsm
         self._view_model = view_model
@@ -393,32 +395,43 @@ class StreamLifecycleController:
             if token.is_cancelled() or not symbols:
                 return
 
-            query = GetHistoricalKlinesQuery(
-                symbol=symbols,
-                interval=TimeFrame(interval_str),
+            # `EPIC-025` PR 1.1 — the one genuine multi-symbol reader, so it
+            # is the one caller of `load_many()`. Two guards went with the
+            # dispatch and are worth naming rather than just deleting:
+            #
+            # `isinstance(results, dict)` guarded against the handler's return
+            # type changing with its argument's runtime type, and logged
+            # "Unexpected response format from history query." — a message
+            # about a shape the port can no longer produce, so the branch was
+            # unreachable rather than merely unused.
+            #
+            # `isinstance(klines, list)` was the same defensiveness one level
+            # down, and would have *inverted* on the way over: the port hands
+            # back tuples, so leaving that check in place would have reported
+            # "No historical data found" for every symbol that had data.
+            results = self._historical_klines.load_many(
+                symbols,
+                TimeFrame(interval_str),
                 limit=limit,
                 start_time=start_time,
                 end_time=end_time,
-                order_by_desc=True,
+                newest_first=True,
             )
-            response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-            results = getattr(response, "data", response) if response else {}
-
-            if not isinstance(results, dict):
-                self._emit_log("Unexpected response format from history query.")
-                return
 
             for symbol in symbols:
                 if token.is_cancelled():
                     break
 
                 try:
-                    klines = results.get(symbol, [])
-                    if not klines or not isinstance(klines, list):
+                    # Every symbol asked for is in the mapping — that is the
+                    # port's promise — so an empty one means "nothing stored",
+                    # never "the answer lost this symbol".
+                    newest_first = results[symbol]
+                    if not newest_first:
                         self._emit_log(f"No historical data found for {symbol}.")
                         continue
 
-                    ordered_klines = list(reversed(klines))
+                    ordered_klines = list(reversed(newest_first))
                     mapped_data = map_klines(ordered_klines)
                     volume_data = map_volume(ordered_klines)
                     self._emit_history_reloaded(symbol, mapped_data, volume_data)
@@ -445,23 +458,24 @@ class StreamLifecycleController:
             if token.is_cancelled():
                 return
             end_time = datetime.fromtimestamp(before_timestamp, tz=UTC)
-            query = GetHistoricalKlinesQuery(
-                symbol=symbol,
-                interval=TimeFrame(interval_str),
+            # One symbol, so `load()` — and the same `isinstance(..., list)`
+            # trap as the reload path above: the port returns a tuple, so
+            # keeping that check would have reported "No older data" on every
+            # successful page.
+            newest_first = self._historical_klines.load(
+                symbol,
+                TimeFrame(interval_str),
                 limit=limit,
                 end_time=end_time,
-                order_by_desc=True,
+                newest_first=True,
             )
-            response = self.dispatcher.dispatch(GetHistoricalKlinesQuery, query)
-            klines = getattr(response, "data", response) if response else []
-
-            if not isinstance(klines, list) or not klines:
+            if not newest_first:
                 self._emit_log(f"No older data found for {symbol}.")
                 return
 
             ordered_klines = [
                 k
-                for k in reversed(klines)
+                for k in reversed(newest_first)
                 if k.close_time.timestamp() < before_timestamp
             ]
             if not ordered_klines:

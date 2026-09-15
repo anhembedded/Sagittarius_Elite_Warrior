@@ -5,8 +5,8 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.audit
     AuditDatabaseIntegrityQuery,
     DatabaseAuditResultDTO,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines import (
-    GetHistoricalKlinesQuery,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOutcome,
@@ -19,6 +19,13 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coord
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
+#: How many rows the inspector dialog loads at once. Was `limit=10000` inline
+#: at the call site; the port made the call one line, which left the number
+#: with nowhere to hide (`code-quality-rule.md` §"magic numbers"). The dialog
+#: has no pagination — PR 0.4b removed it deliberately — so this is also the
+#: most rows the user can ever see in one open.
+_INSPECTOR_ROW_LIMIT = 10_000
+
 
 class KLineInspectorCoordinator:
     """Coordinates raw historical KLine inspection and database integrity audit."""
@@ -26,6 +33,7 @@ class KLineInspectorCoordinator:
     def __init__(
         self,
         dispatcher: IDispatcher,
+        historical_klines: IHistoricalKlines,
         thread_manager: IThreadManager,
         tracker: ActionOwnershipTracker[DataManagementActionKind, object, UIMode],
         ui_error_log_signal: Callable[[str], None],
@@ -36,6 +44,7 @@ class KLineInspectorCoordinator:
         get_current_fsm_state: Callable[[], UIMode],
     ) -> None:
         self._dispatcher = dispatcher
+        self._historical_klines = historical_klines
         self._thread_manager = thread_manager
         self._tracker = tracker
         self._ui_error_log_signal = ui_error_log_signal
@@ -53,13 +62,9 @@ class KLineInspectorCoordinator:
             self._get_current_fsm_state(),
         )
         try:
-            query = GetHistoricalKlinesQuery(
-                symbol=symbol,
-                interval=TimeFrame(interval),
-                limit=10000,
-                order_by_desc=False,
+            klines = self._historical_klines.load(
+                symbol, TimeFrame(interval), limit=_INSPECTOR_ROW_LIMIT
             )
-            klines = self._dispatcher.dispatch(GetHistoricalKlinesQuery, query)
             if not self._tracker.is_current_pending(
                 action.action_id, DataManagementActionKind.INSPECT_KLINES
             ):
@@ -70,7 +75,7 @@ class KLineInspectorCoordinator:
                 )
                 return
 
-            self._ui_kline_inspector_signal(symbol, interval, klines or [])
+            self._ui_kline_inspector_signal(symbol, interval, list(klines))
             self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001
             self._ui_error_log_signal(f"Failed to inspect klines: {exc}")

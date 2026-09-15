@@ -25,8 +25,17 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines import (
+    GetHistoricalKlinesQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.market_data_sync_service import (
     MarketDataSyncService,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
+    IMarketDataRepository,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
@@ -37,6 +46,7 @@ from sagittarius_engine.interfaces.i_container import IContainer
 def bind_published_ports(container: IContainer) -> None:
     """Register the ports other bounded contexts are allowed to resolve."""
     container.singleton(IMarketDataSync, _build_market_data_sync)
+    container.singleton(IHistoricalKlines, _build_historical_klines)
 
 
 def _build_market_data_sync(container: IContainer) -> IMarketDataSync:
@@ -46,3 +56,20 @@ def _build_market_data_sync(container: IContainer) -> IMarketDataSync:
     resolves while registering, and `ICommandDispatcher` is itself bound by
     another part of the boot."""
     return MarketDataSyncService(container.resolve(ICommandDispatcher))
+
+
+def _build_historical_klines(container: IContainer) -> IHistoricalKlines:
+    """The query handler itself, per HLD §3.4: "a port implementation may be
+    the existing handler" — no pass-through object and no extra file, which is
+    the accidental complexity ADR D2 exists to avoid.
+
+    It is constructed here rather than resolved, and the difference matters.
+    `query_bindings.py` registers the same class against
+    `GetHistoricalKlinesQuery` for the module's own dispatches, and that
+    binding is transient — one handler per dispatch. A published port is a
+    `singleton`, so resolving the query binding here would tie the port's
+    lifetime to whatever the dispatcher happened to hand back. Two
+    registrations, one class, each with the lifetime its own caller needs;
+    the handler is stateless, so nothing is shared but the repository.
+    """
+    return GetHistoricalKlinesQueryHandler(container.resolve(IMarketDataRepository))

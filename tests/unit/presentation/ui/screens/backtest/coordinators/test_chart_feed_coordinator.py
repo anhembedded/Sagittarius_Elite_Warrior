@@ -9,6 +9,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.coordinators import (
     ChartFeedCoordinator,
 )
@@ -24,9 +27,10 @@ from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.screens.backtest.coord
 )
 
 
-def _build(dispatcher=None):
-    """Returns (coordinator, dispatcher, recorded emissions)."""
+def _build(dispatcher=None, history=None):
+    """Returns (coordinator, dispatcher, recorded emissions, history port)."""
     dispatcher = dispatcher or RecordingDispatcher(backtest_result())
+    history = history if history is not None else FakeHistoricalKlines()
     events: list[tuple] = []
 
     def record(name):
@@ -37,6 +41,7 @@ def _build(dispatcher=None):
             symbol="BTCUSDT", chart_klines_fetch_limit=500, chart_script_keys=[]
         ),
         dispatcher=dispatcher,
+        historical_klines=history,
         script_runner=SimpleNamespace(
             rebuild=lambda _k: None, feed_all=lambda _r: None
         ),
@@ -45,7 +50,7 @@ def _build(dispatcher=None):
         emit_strategy_indicator_lines=record("lines"),
         emit_strategy_trend_zones=record("zones"),
     )
-    return coordinator, dispatcher, events
+    return coordinator, dispatcher, events, history
 
 
 def test_a_realtime_run_charts_its_own_committed_bars() -> None:
@@ -53,8 +58,9 @@ def test_a_realtime_run_charts_its_own_committed_bars() -> None:
     candles are a different series and drawing them under these markers would
     show a chart disagreeing with the decisions made."""
     bars = [committed_bar(), committed_bar()]
-    coordinator, dispatcher, events = _build(
-        RecordingDispatcher(backtest_result(committed=bars))
+    history = FakeHistoricalKlines()
+    coordinator, dispatcher, events, _h = _build(
+        RecordingDispatcher(backtest_result(committed=bars)), history=history
     )
 
     coordinator.fetch_and_emit_chart_data(
@@ -64,4 +70,12 @@ def test_a_realtime_run_charts_its_own_committed_bars() -> None:
     )
 
     assert next(name for name, *_ in events) == "chart"
+    # `EPIC-025` PR 1.1 — this guarantee moved rather than disappeared.
+    # `dispatcher.commands == []` used to prove "no exchange candles were
+    # fetched", because the klines read went through the dispatcher. It now
+    # goes through `IHistoricalKlines`, so that assertion would pass even if
+    # the coordinator fetched every candle on disk. The port's own record is
+    # where the promise lives now; the dispatcher check stays because a
+    # realtime run must dispatch nothing either.
+    assert history.reads == [], "a realtime run charts its own bars, not the exchange's"
     assert dispatcher.commands == []

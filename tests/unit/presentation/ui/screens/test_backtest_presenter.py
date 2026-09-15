@@ -66,14 +66,14 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
     InMemorySymbolMarketMetadataCache,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols.query import (
     ListAvailableSymbolsQuery,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
@@ -84,6 +84,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_m
     NotionalFilter,
     PriceFilter,
     SymbolMarketMetadata,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
@@ -230,6 +233,7 @@ def _build_presenter_with_registry(
     request,
     script_registry: IndicatorScriptRegistry | None = None,
     market_data_sync: FakeMarketDataSync | None = None,
+    historical_klines: FakeHistoricalKlines | None = None,
 ) -> BackTestPresenter:
     """Same wiring as the `mock_container`/`presenter` fixtures, but with a
     caller-supplied `StrategyRegistry` — used by the bot-params tests that
@@ -240,6 +244,7 @@ def _build_presenter_with_registry(
     container = Mock()
     resolved_script_registry = script_registry or IndicatorScriptRegistry()
     resolved_sync = market_data_sync or FakeMarketDataSync()
+    resolved_history = historical_klines or FakeHistoricalKlines()
 
     def resolve_mock(interface):
         if interface == IThreadManager:
@@ -254,6 +259,8 @@ def _build_presenter_with_registry(
             return resolved_script_registry
         if interface == BacktestChartHostFactory:
             return BacktestChartHostFactory()
+        if interface == IHistoricalKlines:
+            return resolved_history
         if interface == IMarketDataSync:
             return resolved_sync
         return Mock()
@@ -362,13 +369,19 @@ def _make_result_with_trades(trade_count: int, win_count: int) -> BacktestResult
 
 def _dispatch_stub(
     result: BacktestResult | None,
-    klines: list | None = None,
     *,
     realtime: bool = False,
 ):
-    """`_run_backtest` dispatches 2 different commands (BacktestResult, then
-    chart klines) — a single `mock.return_value` can't tell them apart, so
-    tests that reach the chart-fetch step need this instead.
+    """Answers the one backtest command `_run_backtest` dispatches.
+
+    It used to answer two things — the `BacktestResult` and the chart's
+    klines — because both went through the dispatcher and a single
+    `mock.return_value` cannot tell them apart. `EPIC-025` PR 1.1 moved the
+    klines read onto `IHistoricalKlines`, so a test that needs candles seeds
+    the `fake_historical_klines` fixture instead of teaching this stub about a
+    query. The `klines=` parameter is gone rather than ignored: a stub that
+    silently accepts data it no longer uses is how a test starts asserting
+    nothing.
 
     `realtime=True` answers `RunHistoricalTickBacktestCommand` instead of
     `RunStaticBacktestCommand` (BOT-076 §3.3) — a test must pick the one that
@@ -380,8 +393,6 @@ def _dispatch_stub(
             return result
         if realtime and handler_class is RunHistoricalTickBacktestCommand:
             return result
-        if handler_class is GetHistoricalKlinesQuery:
-            return klines or []
         raise AssertionError(f"Unexpected dispatch: {handler_class}")
 
     return side_effect
@@ -431,6 +442,15 @@ def mock_config():
 
 
 @pytest.fixture
+def fake_historical_klines():
+    """`EPIC-025` PR 1.1 — the screen reads stored candles through
+    `IHistoricalKlines`. The container hands out the port's verified fake, so a
+    test can seed candles and assert what the screen drew, where a `MagicMock`
+    could only confirm that something was called."""
+    return FakeHistoricalKlines()
+
+
+@pytest.fixture
 def fake_market_data_sync():
     """`EPIC-025` PR 0.5 — Backtest asks market_data for a sync through
     `IMarketDataSync`, so the container hands out the port's verified fake.
@@ -447,6 +467,7 @@ def mock_container(
     strategy_registry,
     indicator_script_registry,
     fake_market_data_sync,
+    fake_historical_klines,
 ):
     container = Mock()
 
@@ -464,6 +485,8 @@ def mock_container(
             return indicator_script_registry
         if interface == BacktestChartHostFactory:
             return BacktestChartHostFactory()
+        if interface == IHistoricalKlines:
+            return fake_historical_klines
         if interface == IMarketDataSync:
             return fake_market_data_sync
         return Mock()
@@ -836,15 +859,21 @@ def test_invalid_default_interval_keeps_the_view_models_own_default(
 
 
 def test_run_backtest_and_chart_fetch_use_the_config_driven_symbol(
-    qapp, mock_container, mock_config, mock_dispatcher, request
+    qapp,
+    mock_container,
+    mock_config,
+    mock_dispatcher,
+    request,
+    fake_historical_klines,
 ):
     mock_config.get_all.return_value = {"DEFAULT_SYMBOLS": ["BTCUSDT"]}
     view = BackTestView()
     request.addfinalizer(view.deleteLater)
     presenter = BackTestPresenter(view, mock_container)
     view_model = presenter._view_model
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
 
     config = _lock_and_get_config(presenter, view_model)
@@ -2174,32 +2203,55 @@ def test_run_backtest_command_carries_the_saved_strategy_params(
 
 
 def _make_klines(count: int = 3) -> list[MarketData]:
+    """`count` candles **one minute apart**.
+
+    `EPIC-025` PR 1.1 fixed a real defect here: every row used to carry
+    `open_time=_T0`, so three "candles" were one candle three times over by
+    the store's primary key. Nothing noticed while a stubbed dispatcher handed
+    the list straight back; `IHistoricalKlines` reads a store keyed on
+    `open_time`, exactly as the real repository is, so the invalid shape
+    became visible the moment these rows had to survive a round trip.
+
+    The offsets are chosen so candle 0 closes **exactly at `_T0`**, because
+    the chart's x axis is `close_time` (`map_klines`) and `_make_result`'s
+    trades enter at `_T0`. Spacing the rows forward from `_T0` instead would
+    put the first candle after the entry, and every trade marker would
+    silently vanish — which is how this detail was found.
+
+    Built here rather than with `contracts/testing/candles.py`'s published
+    builder, and the reason is the epoch: that factory counts from its own
+    `T0` (2024-01-01) while this file's trades, equity samples and assertions
+    are all pinned to `_T0` (2026-01-01). Candles in one year and trades in
+    another cannot align, and markers silently vanish — which is exactly how
+    this was found.
+    """
     return [
         MarketData(
             symbol="ETHUSDT",
             interval="1m",
-            open_time=_T0,
-            open_price=100.0 + i,
-            high_price=105.0 + i,
-            low_price=95.0 + i,
-            close_price=102.0 + i,
+            open_time=_T0 + timedelta(minutes=minute - 1),
+            open_price=100.0 + minute,
+            high_price=100.0 + minute + 5.0,
+            low_price=100.0 + minute - 5.0,
+            close_price=100.0 + minute,
             volume=10.0,
-            close_time=_T0,
+            close_time=_T0 + timedelta(minutes=minute),
             quote_asset_volume=0.0,
             number_of_trades=1,
             taker_buy_base_asset_volume=0.0,
             taker_buy_quote_asset_volume=0.0,
         )
-        for i in range(count)
+        for minute in range(count)
     ]
 
 
 def test_successful_run_fetches_klines_and_renders_the_ohlc_chart(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model, mock_dispatcher, fake_historical_klines
 ):
     config = _lock_and_get_config(presenter, view_model)
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
 
     presenter._run_backtest(config)
@@ -2213,7 +2265,7 @@ def test_successful_run_fetches_klines_and_renders_the_ohlc_chart(
 
 
 def test_runtime_run_backtest_fetch_render_path_keeps_qquickwidgets_clean_and_chart_usable(
-    presenter, view_model, mock_dispatcher, qapp
+    presenter, view_model, mock_dispatcher, qapp, fake_historical_klines
 ):
     """Regression harness for the real Backtest runtime path the user hit:
     run backtest -> fetch historical klines -> push them through the chart
@@ -2226,7 +2278,8 @@ def test_runtime_run_backtest_fetch_render_path_keeps_qquickwidgets_clean_and_ch
     config = _lock_and_get_config(presenter, view_model)
     result = _make_result(with_trades=True)
     klines = _make_klines()
-    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result, klines=klines)
+    fake_historical_klines.seed(klines)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
 
     presenter._run_backtest(config)
     qapp.processEvents()
@@ -2269,11 +2322,12 @@ def test_no_klines_leaves_the_chart_unrendered_without_crashing(
 
 
 def test_switching_to_equity_mode_renders_a_line_from_the_equity_curve(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model, mock_dispatcher, fake_historical_klines
 ):
     config = _lock_and_get_config(presenter, view_model)
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
     presenter._run_backtest(config)
 
@@ -2285,11 +2339,12 @@ def test_switching_to_equity_mode_renders_a_line_from_the_equity_curve(
 
 
 def test_switching_to_both_mode_adds_an_equity_subplot(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model, mock_dispatcher, fake_historical_klines
 ):
     config = _lock_and_get_config(presenter, view_model)
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
     presenter._run_backtest(config)
 
@@ -2303,11 +2358,12 @@ def test_switching_to_both_mode_adds_an_equity_subplot(
 
 
 def test_switching_away_from_both_mode_removes_the_equity_subplot(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model, mock_dispatcher, fake_historical_klines
 ):
     config = _lock_and_get_config(presenter, view_model)
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
     presenter._run_backtest(config)
     presenter.view.set_chart_mode(ChartDisplayMode.BOTH)
@@ -2318,14 +2374,15 @@ def test_switching_away_from_both_mode_removes_the_equity_subplot(
 
 
 def test_ema_toggle_is_a_no_op_when_the_strategy_declares_no_indicators(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model, mock_dispatcher, fake_historical_klines
 ):
     """`_FakeStrategy` (the shared fixture's registered strategy) declares
     no indicators (BOT-060) — proves the toggle path degrades safely
     instead of crashing when there is nothing drawn to show/hide."""
     config = _lock_and_get_config(presenter, view_model)
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
     presenter._run_backtest(config)
 
@@ -2362,7 +2419,7 @@ def test_active_strategy_lines_are_cleared_before_each_new_run_not_after(
 
 
 def test_successful_run_draws_the_strategys_own_indicator_lines_on_the_chart(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model, mock_dispatcher, fake_historical_klines
 ):
     """BOT-060: the chart must draw whatever the BACKTESTED strategy itself
     declares via build_indicators() — not a fixed, unrelated indicator
@@ -2375,8 +2432,9 @@ def test_successful_run_draws_the_strategys_own_indicator_lines_on_the_chart(
     card = presenter.view.chart_cards[0]
     card.add_overlay_indicator = Mock()
     card.update_indicator_data = Mock()
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
 
     presenter._run_backtest(config)
@@ -2395,7 +2453,7 @@ def test_successful_run_draws_the_strategys_own_indicator_lines_on_the_chart(
 
 
 def test_successful_run_honors_a_strategys_own_chart_line_widths(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model, mock_dispatcher, fake_historical_klines
 ):
     """BOT-111: EmaTrendPullbackStrategy-style strategies can request a
     different pen width per line (e.g. a thinner entry EMA) — proven here
@@ -2411,8 +2469,9 @@ def test_successful_run_honors_a_strategys_own_chart_line_widths(
     card = presenter.view.chart_cards[0]
     card.add_overlay_indicator = Mock()
     card.update_indicator_data = Mock()
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
 
     presenter._run_backtest(config)
@@ -2428,29 +2487,34 @@ def _make_trend_zone_klines(closes: list[float]) -> list[MarketData]:
     `compute_strategy_trend_zones()`'s `_MIN_ZONE_BARS` floor (BUG-079)
     needs at least 3 consecutive bars per zone, which `_make_klines()`'s
     single-unit ramp can never produce against `_TrendZoneStrategy`'s fixed
-    103.0 threshold (only bar 0 ever lands below it)."""
+    103.0 threshold (only bar 0 ever lands below it).
+
+    One minute apart, for the reason `_make_klines()` documents: six bars
+    sharing one `open_time` are one bar in any real store, and a zone needing
+    three consecutive bars could then never form.
+    """
     return [
         MarketData(
             symbol="ETHUSDT",
             interval="1m",
-            open_time=_T0,
+            open_time=_T0 + timedelta(minutes=minute - 1),
             open_price=close,
             high_price=close + 5.0,
             low_price=close - 5.0,
             close_price=close,
             volume=10.0,
-            close_time=_T0,
+            close_time=_T0 + timedelta(minutes=minute),
             quote_asset_volume=0.0,
             number_of_trades=1,
             taker_buy_base_asset_volume=0.0,
             taker_buy_quote_asset_volume=0.0,
         )
-        for close in closes
+        for minute, close in enumerate(closes)
     ]
 
 
 def test_successful_run_draws_the_strategys_own_trend_zone_on_the_chart(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model, mock_dispatcher, fake_historical_klines
 ):
     """BOT-113: a strategy that overrides classify_trend_zone() must have
     its background zones drawn on the chart via the same set_script_regions()
@@ -2463,13 +2527,15 @@ def test_successful_run_draws_the_strategys_own_trend_zone_on_the_chart(
     card.set_script_regions = Mock()
     # 3 bars below the 103.0 threshold then 3 at/above it — each zone clears
     # `_MIN_ZONE_BARS` (BUG-079) so both are actually drawn, not dropped.
-    # _fetch_and_emit_chart_data reverses the query response back to
-    # chronological order (Binance's own newest-first convention) before
-    # replaying it — the stub must hand it descending so this order-sensitive
-    # assertion sees the same chronological sequence a real run would.
+    # Seeded in chronological order, which is the only order a store has:
+    # the coordinator asks `IHistoricalKlines` for the NEWEST bars (that is
+    # how a limit keeps recent data) and reverses them back to chronological
+    # before replaying, exactly as production does. The old stub had to be
+    # handed a pre-reversed list to fake that; a real store needs no trick.
     klines = _make_trend_zone_klines([90.0, 90.0, 90.0, 110.0, 110.0, 110.0])
+    fake_historical_klines.seed(klines)
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=list(reversed(klines))
+        _make_result(with_trades=True)
     )
 
     presenter._run_backtest(config)
@@ -2485,7 +2551,7 @@ def test_successful_run_draws_the_strategys_own_trend_zone_on_the_chart(
 
 
 def test_realtime_run_draws_its_own_committed_bars_not_a_fresh_kline_query(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model, mock_dispatcher, fake_historical_klines
 ):
     """BUG-021: a Realtime run only ever syncs/coverage-checks
     `tick_resolution` (1s), never `config.timeframe` — so querying the
@@ -2507,9 +2573,7 @@ def test_realtime_run_draws_its_own_committed_bars_not_a_fresh_kline_query(
     config = replace(config, execution_mode=BacktestExecutionMode.HISTORICAL_TICK)
     card = presenter.view.chart_cards[0]
     card.render_historical_data = Mock()
-    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        result, klines=[], realtime=True
-    )
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result, realtime=True)
 
     presenter._run_backtest(config)
 
@@ -2519,7 +2583,7 @@ def test_realtime_run_draws_its_own_committed_bars_not_a_fresh_kline_query(
 
 
 def test_static_run_still_queries_klines_when_no_committed_bars(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model, mock_dispatcher, fake_historical_klines
 ):
     """The BUG-021 fix must stay scoped to engines that build their own bars.
     Static reads its bars straight from storage and reports
@@ -2530,9 +2594,8 @@ def test_static_run_still_queries_klines_when_no_committed_bars(
     card.render_historical_data = Mock()
     result = _make_result(with_trades=True)
     assert result.committed_bars is None
-    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        result, klines=_make_klines(count=3)
-    )
+    fake_historical_klines.seed(_make_klines(count=3))
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
 
     presenter._run_backtest(config)
 
@@ -2541,7 +2604,7 @@ def test_static_run_still_queries_klines_when_no_committed_bars(
 
 
 def test_strategy_with_no_trend_zone_override_draws_no_zones(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model, mock_dispatcher, fake_historical_klines
 ):
     """A strategy predating BOT-113 (never overrides classify_trend_zone())
     must still call set_script_regions() — with an empty span list, not skip
@@ -2552,8 +2615,9 @@ def test_strategy_with_no_trend_zone_override_draws_no_zones(
     config = _lock_and_get_config(presenter, view_model)
     card = presenter.view.chart_cards[0]
     card.set_script_regions = Mock()
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
 
     presenter._run_backtest(config)
@@ -2575,14 +2639,15 @@ def test_strategy_trend_zone_is_cleared_before_each_new_run(presenter, view_mode
 
 
 def test_ema_toggle_shows_and_hides_the_strategys_own_indicator_lines(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model, mock_dispatcher, fake_historical_klines
 ):
     presenter._strategy_registry.register("ema_strategy", _EmaIndicatorStrategy)
     view_model.strategy_params.selectedStrategyKey = "ema_strategy"
     config = _lock_and_get_config(presenter, view_model)
     card = presenter.view.chart_cards[0]
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
     presenter._run_backtest(config)
     card.set_indicator_visible = Mock()
@@ -2604,7 +2669,12 @@ def test_ema_toggle_shows_and_hides_the_strategys_own_indicator_lines(
 
 
 def _build_presenter_with_script(
-    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    qapp,
+    mock_thread_mgr,
+    mock_dispatcher,
+    mock_config,
+    request,
+    historical_klines=None,
 ):
     script_registry = IndicatorScriptRegistry()
     script_registry.register("test_script", _TestReferenceScript)
@@ -2618,11 +2688,17 @@ def _build_presenter_with_script(
         strategy_registry,
         request,
         script_registry=script_registry,
+        historical_klines=historical_klines,
     )
 
 
 def _build_presenter_with_overlay_and_subplot_scripts(
-    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    qapp,
+    mock_thread_mgr,
+    mock_dispatcher,
+    mock_config,
+    request,
+    historical_klines=None,
 ):
     script_registry = IndicatorScriptRegistry()
     script_registry.register("test_script", _TestReferenceScript)
@@ -2637,32 +2713,44 @@ def _build_presenter_with_overlay_and_subplot_scripts(
         strategy_registry,
         request,
         script_registry=script_registry,
+        historical_klines=historical_klines,
     )
 
 
 def test_script_model_is_populated_from_registry_and_default_enabled_scripts_are_checked(
-    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request, fake_historical_klines
 ):
     presenter = _build_presenter_with_script(
-        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+        qapp,
+        mock_thread_mgr,
+        mock_dispatcher,
+        mock_config,
+        request,
+        historical_klines=fake_historical_klines,
     )
 
     assert presenter._view_model.script_model.enabled_keys == ["test_script"]
 
 
 def test_successful_run_draws_enabled_reference_script_lines_on_the_chart(
-    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request, fake_historical_klines
 ):
     presenter = _build_presenter_with_script(
-        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+        qapp,
+        mock_thread_mgr,
+        mock_dispatcher,
+        mock_config,
+        request,
+        historical_klines=fake_historical_klines,
     )
     view_model = presenter._view_model
     config = _lock_and_get_config(presenter, view_model)
     card = presenter.view.chart_cards[0]
     card.add_overlay_indicator = Mock()
     card.update_indicator_data = Mock()
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
 
     presenter._run_backtest(config)
@@ -2674,22 +2762,28 @@ def test_successful_run_draws_enabled_reference_script_lines_on_the_chart(
 
 
 def test_disabling_a_script_before_the_next_run_stops_it_from_drawing(
-    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request, fake_historical_klines
 ):
     """BOT-064's own "no retroactive effect" rule: enabled_keys is
     snapshotted at 'Chạy Backtest' click time, in `_start_backtest_run` —
     toggling the checkbox off before the NEXT run must take effect, exactly
     like the Dev Board checklist (TC-GAP-07)."""
     presenter = _build_presenter_with_script(
-        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+        qapp,
+        mock_thread_mgr,
+        mock_dispatcher,
+        mock_config,
+        request,
+        historical_klines=fake_historical_klines,
     )
     view_model = presenter._view_model
     view_model.script_model.setEnabled(0, False)
     config = _lock_and_get_config(presenter, view_model)
     card = presenter.view.chart_cards[0]
     card.add_overlay_indicator = Mock()
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
 
     presenter._run_backtest(config)
@@ -2698,7 +2792,7 @@ def test_disabling_a_script_before_the_next_run_stops_it_from_drawing(
 
 
 def test_switching_to_equity_mode_hides_an_overlay_scripts_lines(
-    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request, fake_historical_klines
 ):
     """BOT-065: same bug BOT-060 already fixed for the strategy's own
     lines (test_switching_to_equity_mode_disables_and_hides_the_ema_overlay
@@ -2711,13 +2805,19 @@ def test_switching_to_equity_mode_hides_an_overlay_scripts_lines(
     (RSI/MACD-shaped) doesn't share that plot, so it must stay visible —
     covered here too, not just the overlay case."""
     presenter = _build_presenter_with_overlay_and_subplot_scripts(
-        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+        qapp,
+        mock_thread_mgr,
+        mock_dispatcher,
+        mock_config,
+        request,
+        historical_klines=fake_historical_klines,
     )
     view_model = presenter._view_model
     config = _lock_and_get_config(presenter, view_model)
     card = presenter.view.chart_cards[0]
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
     presenter._run_backtest(config)
     card.set_indicator_visible = Mock()
@@ -2737,12 +2837,17 @@ def test_switching_to_equity_mode_hides_an_overlay_scripts_lines(
 
 
 def test_dynamic_script_toggle_on_after_run_draws_on_chart_without_rerun(
-    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request, fake_historical_klines
 ):
     """BOT-095F: toggling an indicator script ON after a backtest run dynamically
     draws the curves without rerunning the simulation or marking config dirty."""
     presenter = _build_presenter_with_script(
-        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+        qapp,
+        mock_thread_mgr,
+        mock_dispatcher,
+        mock_config,
+        request,
+        historical_klines=fake_historical_klines,
     )
     view_model = presenter._view_model
     view_model.script_model.setEnabled(0, False)
@@ -2750,8 +2855,9 @@ def test_dynamic_script_toggle_on_after_run_draws_on_chart_without_rerun(
     card = presenter.view.chart_cards[0]
     card.add_overlay_indicator = Mock()
     card.update_indicator_data = Mock()
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
 
     presenter._run_backtest(config)
@@ -2774,19 +2880,25 @@ def test_dynamic_script_toggle_on_after_run_draws_on_chart_without_rerun(
 
 
 def test_dynamic_script_toggle_off_after_run_removes_from_chart(
-    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request, fake_historical_klines
 ):
     """BOT-095F: toggling an indicator script OFF after a backtest run dynamically
     removes the curves from the chart."""
     presenter = _build_presenter_with_script(
-        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+        qapp,
+        mock_thread_mgr,
+        mock_dispatcher,
+        mock_config,
+        request,
+        historical_klines=fake_historical_klines,
     )
     view_model = presenter._view_model
     config = _lock_and_get_config(presenter, view_model)
     card = presenter.view.chart_cards[0]
     card.remove_indicator = Mock()
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
 
     presenter._run_backtest(config)
@@ -2800,17 +2912,23 @@ def test_dynamic_script_toggle_off_after_run_removes_from_chart(
 
 
 def test_dynamic_script_toggle_on_during_equity_mode_keeps_overlay_hidden(
-    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+    qapp, mock_thread_mgr, mock_dispatcher, mock_config, request, fake_historical_klines
 ):
     """BOT-095F + BOT-065: enabling an overlay script during Equity mode draws it hidden."""
     presenter = _build_presenter_with_script(
-        qapp, mock_thread_mgr, mock_dispatcher, mock_config, request
+        qapp,
+        mock_thread_mgr,
+        mock_dispatcher,
+        mock_config,
+        request,
+        historical_klines=fake_historical_klines,
     )
     view_model = presenter._view_model
     view_model.script_model.setEnabled(0, False)
     config = _lock_and_get_config(presenter, view_model)
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
 
     presenter._run_backtest(config)
@@ -2826,13 +2944,14 @@ def test_dynamic_script_toggle_on_during_equity_mode_keeps_overlay_hidden(
 
 
 def test_mode_buttons_switch_the_chart_mode_end_to_end(
-    presenter, view_model, mock_dispatcher, qapp
+    presenter, view_model, mock_dispatcher, qapp, fake_historical_klines
 ):
     """Native QPushButton click -> BacktestChartControls signal -> Presenter
     slot -> View render, with no QML/ViewModel involved."""
     config = _lock_and_get_config(presenter, view_model)
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
     presenter._run_backtest(config)
 
@@ -2847,7 +2966,7 @@ def test_mode_buttons_switch_the_chart_mode_end_to_end(
 
 
 def test_switching_to_equity_mode_disables_and_hides_the_ema_overlay(
-    presenter, view_model, mock_dispatcher, qapp
+    presenter, view_model, mock_dispatcher, qapp, fake_historical_klines
 ):
     """Regression test (found by running the app): the 4 EMA overlay is
     price-scale, exactly like the Buy/Sell flags already handled — left
@@ -2855,8 +2974,9 @@ def test_switching_to_equity_mode_disables_and_hides_the_ema_overlay(
     plot as the equity curve and drags pyqtgraph's auto-range onto price
     values (tens of thousands), squashing the equity curve flat/invisible."""
     config = _lock_and_get_config(presenter, view_model)
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
     presenter._run_backtest(config)
     presenter._on_ema_toggled = Mock()
@@ -2878,11 +2998,12 @@ def test_switching_to_equity_mode_disables_and_hides_the_ema_overlay(
 
 
 def test_trade_flags_toggle_draws_and_clears_markers(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model, mock_dispatcher, fake_historical_klines
 ):
     config = _lock_and_get_config(presenter, view_model)
+    fake_historical_klines.seed(_make_klines())
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result(with_trades=True), klines=_make_klines()
+        _make_result(with_trades=True)
     )
     presenter._run_backtest(config)
     card = presenter.view.chart_cards[0]

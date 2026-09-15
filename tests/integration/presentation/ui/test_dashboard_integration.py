@@ -16,8 +16,11 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
@@ -25,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_p
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
+)
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.conftest import (
+    build_mock_klines,
 )
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
@@ -75,10 +81,18 @@ def mock_app():
         )
     )
     equity_recorder = EquityCurveRecorder()
+    # `EPIC-025` PR 1.1 — the history read is a port. Seeded with candles
+    # anchored to now, because a store honours `start_time`/`end_time` and the
+    # Data Range picker's default window is a recent one (see
+    # `conftest.build_mock_klines` for the same note).
+    history = FakeHistoricalKlines()
+    history.seed(list(reversed(build_mock_klines("ETHUSDT"))))
 
     def resolve_side_effect(interface):
         from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 
+        if interface == IHistoricalKlines:
+            return history
         if interface == IConfig:
             return mock_config
         if interface == IThreadManager:
@@ -108,12 +122,12 @@ def test_dashboard_integration_load_history(qapp, mock_app):
     # Bypass signal queue by calling the presenter directly
     presenter._on_load_history()
 
-    # 3. Assert the Presenter caught it and interacted with the Engine
-    # Note: Because the mock_app dispatch is called in the presenter,
-    # and _ensure_chart_cards will render them, we should see a dispatch.
-    mock_app.dispatch.assert_called()
-    call_args = mock_app.dispatch.call_args[0]
-    assert call_args[0] == GetHistoricalKlinesQuery
+    # 3. Assert the Presenter caught it and read the history through the port.
+    # `EPIC-025` PR 1.1 — the same guarantee, one level more specific: the old
+    # assertion proved *a* dispatch happened and that its type was the klines
+    # query; this proves the screen asked for the symbol it is showing.
+    history = presenter._stream_controller._historical_klines
+    assert history.was_read_for("ETHUSDT")
 
 
 def test_dashboard_integration_exception_fallback(qapp, mock_app):
@@ -122,8 +136,14 @@ def test_dashboard_integration_exception_fallback(qapp, mock_app):
     presenter = DashboardPresenter(view, mock_app.container)
     view.presenter = presenter
 
-    # Force an exception inside the slot logic
-    mock_app.dispatch.side_effect = Exception("Engine died")
+    # Force an exception inside the slot logic. `EPIC-025` PR 1.1 — on the
+    # port, because that is what `_run_load_history` calls first; a dispatcher
+    # that raises would no longer be reached before the read.
+    def die(*_args, **_kwargs):
+        raise RuntimeError("Engine died")
+
+    presenter._stream_controller._historical_klines.load_many = die
+    mock_app.dispatch.side_effect = RuntimeError("Engine died")
 
     # Track logs
     logs = []

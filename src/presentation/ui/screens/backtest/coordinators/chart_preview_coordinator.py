@@ -21,11 +21,11 @@ from typing import Any
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
     GetBacktestRangeCoverageQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
     map_klines,
@@ -59,6 +59,7 @@ class ChartPreviewCoordinator:
         state: IBacktestScreenState,
         view_model,
         dispatcher,
+        historical_klines: IHistoricalKlines,
         thread_manager,
         log_dev_trace: Callable[..., None],
         format_coverage_message: Callable[[BacktestRangeCoverage], str],
@@ -72,6 +73,7 @@ class ChartPreviewCoordinator:
         self._state = state
         self._view_model = view_model
         self._dispatcher = dispatcher
+        self._historical_klines = historical_klines
         self._thread_manager = thread_manager
         self._log_dev_trace = log_dev_trace
         self._format_coverage_message = format_coverage_message
@@ -126,18 +128,15 @@ class ChartPreviewCoordinator:
         now = datetime.now(UTC)
         symbol = self._state.symbol
         try:
-            response = self._dispatcher.dispatch(
-                GetHistoricalKlinesQuery,
-                GetHistoricalKlinesQuery(
-                    symbol=symbol,
-                    interval=config.timeframe,
-                    limit=self._state.chart_klines_fetch_limit,
-                    start_time=config.start_time,
-                    end_time=config.end_time or now,
-                    order_by_desc=True,
-                ),
+            newest_first = self._historical_klines.load(
+                symbol,
+                config.timeframe,
+                limit=self._state.chart_klines_fetch_limit,
+                start_time=config.start_time,
+                end_time=config.end_time or now,
+                newest_first=True,
             )
-            raw_klines = list(reversed(list(getattr(response, "data", response) or [])))
+            raw_klines = list(reversed(newest_first))
             coverage_response = self._dispatcher.dispatch(
                 GetBacktestRangeCoverageQuery,
                 GetBacktestRangeCoverageQuery(
