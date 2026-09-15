@@ -33,6 +33,7 @@ will drift too — to add a rule, edit the rule file; here you add one line poin
 | :--- | :--- |
 | **When to decide for yourself, when to ask** (survey and apply before you invent, follow proven patterns, don't fear a redesign) | [`.agents/ONBOARDING.md`](.agents/ONBOARDING.md) §7 · §12.5 |
 | Starting, or picking up work in progress (§12) | [`.agents/ONBOARDING.md`](.agents/ONBOARDING.md) |
+| **What the app must actually do** — one use case per file, with its named failures and the evidence that proves each promise; a change to a flow updates its `SPEC` in the same pull request | [`Docs/SPEC/README.md`](Docs/SPEC/README.md) |
 | Architecture: layers, Port/ABC, explicit contracts, Shared Kernel, event placement, abstraction | [`.agents/rules/architecture-rule.md`](.agents/rules/architecture-rule.md) |
 | Code quality: typing, magic numbers, cohesion, lazy imports | [`.agents/rules/code-quality-rule.md`](.agents/rules/code-quality-rule.md) |
 | Before declaring anything "done" | [`.agents/rules/ci-rule.md`](.agents/rules/ci-rule.md) |

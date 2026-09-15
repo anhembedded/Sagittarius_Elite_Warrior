@@ -10,6 +10,9 @@
   surface host (`QMainWindow`) places as a dock panel, toolbar, status-bar tile, central widget or
   dialog. `PageShell` and `QuickSurface` are retired; wherever this document says *panel*, read *panel*.
 - **Rendering:** any PlantUML renderer; the sources were syntax-checked with PlantUML 1.2026.8.
+- **The behaviour these contracts serve** is specified in [`Docs/SPEC/`](../SPEC/README.md), one use
+  case per file. A contract that ships differently from this document is recorded in
+  [`05_module_contracts.md`](05_module_contracts.md); a *flow* that changes is recorded in its `SPEC`.
 
 
 ## This document is a directory, and why

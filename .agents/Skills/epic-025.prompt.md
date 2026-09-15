@@ -117,8 +117,8 @@ Work in this order and do not skip a line. Each line is either done or written d
 8. **Run the guards** on their own so a boundary regression is a named failure, not a line in a
    log: `pytest tests/unit/architecture -q` (once they exist).
 9. **Measure after.** Same scripts as step 4; the numbers go in the PR and in the task file.
-10. **Diagrams and documents — including the spec you just contradicted.** Two halves, and the
-    second is the one that gets skipped.
+10. **Diagrams and documents — including the spec you just contradicted.** Three halves, and the
+    last two are the ones that get skipped.
 
     *The diagrams.* If the step changed a class, a sequence or a boundary, the matching `.puml`
     under `Docs/HLD/diagrams/` or `Docs/SDD/diagrams/` changes in the same PR. Check every diagram
@@ -149,6 +149,18 @@ Work in this order and do not skip a line. Each line is either done or written d
     clause**. HLD §3.4's row and SDD §5's subsection are the two places it lives. `CLAUDE.md` puts
     it plainly — when the code and the design disagree, the pull request is where it is fixed —
     and the reason it needs a step of its own is that a green gate never mentions it.
+
+    *The behaviour spec.* The table above is about **contract shape**; a port pull request is not
+    supposed to change what the app does (ADR D12), so most steps of this epic touch
+    `Docs/SPEC/` only in section 7 — the ports a use case crosses, which is exactly what a rename
+    invalidates. When a step *does* change a flow, a failure the user sees, or something the app
+    stops promising, that use case's own file is where it is recorded, and the cited evidence moves
+    with the tests. Find the affected files rather than guessing:
+
+    ```bash
+    ls Docs/SPEC/                                  # one use case per file; SPEC-000 is the template
+    grep -rln '<the port you renamed>' Docs/SPEC/  # section 7 names ports, so a rename shows up here
+    ```
 11. **Bookkeeping.** The task file's status and its "done when" list; `Tasks/ROADMAP.md`;
     `Tasks/epics/README.md` — `ONBOARDING.md` §6 says exactly which lines; and the Gantt in
     `Tasks/epics/EPIC-025_module_theo_bounded_context/TRACKING.md` (move the bar to `done`, re-date

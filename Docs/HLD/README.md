@@ -16,6 +16,9 @@
 - **Language.** English, in the register of a self-study technical book (`ONBOARDING.md` §10).
 - **Terms.** Every term this document uses is defined once, in
   [`Docs/VOCABULARY/README.md`](../VOCABULARY/README.md); look there first when a word is unfamiliar.
+- **What the user actually does with it.** This document divides the system; it does not say what
+  the app must do. That is [`Docs/SPEC/`](../SPEC/README.md) — one use case per file, each naming the
+  ports it crosses, so a boundary change here can find the behaviour it affects.
 
 ## How to read this document: five questions, five tools
 

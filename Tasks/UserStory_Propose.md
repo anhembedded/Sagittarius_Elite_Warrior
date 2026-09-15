@@ -1,3 +1,8 @@
+> These are **proposals**: things somebody wants, with acceptance criteria. What the app
+> already does — or is specified to do, flow by flow, with the evidence that proves it — lives in
+> [`Docs/SPEC/`](../Docs/SPEC/README.md), one use case per file. A `US-xx` becomes a `SPEC-xxx`
+> when it is specified; the spec names its origin and nothing here is copied there.
+
 ## User Story dạng developer
 
 ### US-01: Thêm menu chọn Indicator trên Dev Board
