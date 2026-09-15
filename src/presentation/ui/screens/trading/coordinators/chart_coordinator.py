@@ -18,14 +18,20 @@ Owns no async action-id/cancellation bookkeeping of its own
 (`async-ui-action-rule.md` §2): the `CancellationToken` is created and
 reset by `TradingPresenter`, passed in on every call.
 
-**Ownership (`BOT-126`).** `ILiveStreamService` is reference-counted per
+**No dispatcher.** `EPIC-025` PR 1.1a moved the candle read onto
+`IHistoricalKlines` and 1.1b the stream onto `IMarketStream`, which between
+them were everything this coordinator dispatched. The parameter went with
+the last of them: one nobody uses still tells every caller and every test
+that this class talks to the bus.
+
+**Ownership (`BOT-126`).** `IMarketStream` is reference-counted per
 `(symbol, interval)` across owners — this coordinator always identifies
 itself as `_STREAM_OWNER` ("trading"), so `stop()` here only ever releases
 THIS screen's own subscription, never Dev Board's, even if both are live
 on the same or different symbols at once. Stop-then-start on a
 symbol/interval change (`start()`/`stop()` below) is kept for clarity, not
-because it is required — `subscribe()` already replaces this owner's
-prior subscription outright.
+because it is required — the port already replaces this owner's prior
+subscription outright, which its contract suite pins.
 """
 
 from __future__ import annotations
@@ -34,12 +40,6 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING
 
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
-    StartLiveStreamCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
-    StopLiveStreamCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -47,13 +47,15 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
     IMarketDataSync,
     MarketDataSyncRequest,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
+    IMarketStream,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
     map_klines,
     map_volume,
 )
 
 if TYPE_CHECKING:
-    from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
     from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
     from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
@@ -63,7 +65,7 @@ if TYPE_CHECKING:
 #: EPIC-021I's own scope decision).
 _HISTORY_CANDLE_LIMIT = 500
 
-#: `BOT-126` — this screen's own identity on `ILiveStreamService`. Exactly
+#: `BOT-126` — this screen's own identity on `IMarketStream`. Exactly
 #: one `TradingPresenter`/`ChartCoordinator` is ever alive at once, so a
 #: fixed string is enough (no need for a per-instance id).
 _STREAM_OWNER = "trading"
@@ -77,9 +79,9 @@ class ChartCoordinator:
         self,
         *,
         thread_manager: IThreadManager,
-        dispatcher: IDispatcher,
         market_data_sync: IMarketDataSync,
         historical_klines: IHistoricalKlines,
+        market_stream: IMarketStream,
         emit_history_ready: Callable[[str, list, list, list], None],
         emit_load_finished: Callable[[], None],
         emit_stream_started: Callable[[str], None],
@@ -87,9 +89,9 @@ class ChartCoordinator:
         emit_log: Callable[[str], None],
     ) -> None:
         self._thread_manager = thread_manager
-        self._dispatcher = dispatcher
         self._market_data_sync = market_data_sync
         self._historical_klines = historical_klines
+        self._market_stream = market_stream
         self._emit_history_ready = emit_history_ready
         self._emit_load_finished = emit_load_finished
         self._emit_stream_started = emit_stream_started
@@ -124,9 +126,10 @@ class ChartCoordinator:
         `_on_stop_stream`, which never submits this to the thread pool
         either. Owner-scoped (`BOT-126`): releases only this screen's own
         subscription."""
-        self._dispatcher.dispatch(
-            StopLiveStreamCommand, StopLiveStreamCommand(owner=_STREAM_OWNER)
-        )
+        # The outcome is deliberately ignored: `success=False` here means
+        # "this screen held no subscription", which is the ordinary case for
+        # an unconditional `stop()` and not something to tell the user about.
+        self._market_stream.stop(_STREAM_OWNER)
 
     def _run(
         self,
@@ -197,12 +200,12 @@ class ChartCoordinator:
 
     def _start_stream(self, symbol: str, interval: TimeFrame) -> None:
         self._emit_log(f"Opening live stream for {symbol}...")
-        cmd = StartLiveStreamCommand(
-            owner=_STREAM_OWNER, symbols=[symbol], interval=interval
-        )
-        response = self._dispatcher.dispatch(StartLiveStreamCommand, cmd)
-        if response and getattr(response, "success", True):
+        # `EPIC-025` PR 1.1b — one typed call where there were four steps.
+        # The `getattr(response, "success", True)` this replaces reported
+        # success for any object without that field, `None` included: a
+        # stream that never opened told the user it was streaming.
+        outcome = self._market_stream.start(_STREAM_OWNER, [symbol], interval)
+        if outcome.success:
             self._emit_stream_started(f"Streaming live data for {symbol}.")
         else:
-            message = getattr(response, "message", "Unknown error")
-            self._emit_stream_failed(f"Could not open live stream: {message}")
+            self._emit_stream_failed(f"Could not open live stream: {outcome.message}")

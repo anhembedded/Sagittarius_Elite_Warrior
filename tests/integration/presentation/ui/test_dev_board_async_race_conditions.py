@@ -58,9 +58,6 @@ import time
 from datetime import UTC, datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
-    StartLiveStreamCommand,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 
 
@@ -254,22 +251,20 @@ def test_starting_the_live_stream_while_a_history_load_is_in_flight_is_rejected(
     _use_synthetic_klines(monkeypatch, presenter, count=40)
     _slow_down_history_queries(monkeypatch, presenter, delay_seconds=0.2)
 
-    dispatched_commands = []
-    original_dispatch = presenter.dispatcher.dispatch
-
-    def tracking_dispatch(command_type, command_obj):
-        dispatched_commands.append(command_type)
-        return original_dispatch(command_type, command_obj)
-
-    monkeypatch.setattr(presenter.dispatcher, "dispatch", tracking_dispatch)
+    # `EPIC-025` PR 1.1b — read off the stream port, not the dispatcher. The
+    # rejection is what this test is about, and after the move
+    # `StartLiveStreamCommand not in dispatched_commands` would hold however
+    # many streams the click opened.
+    stream = presenter._stream_controller._market_stream
+    started_before = len(stream.calls)
 
     with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=3000):
         _click_load_history(view, qml_item)
         _click_start_stream(view, qml_item)
 
         # Rejected synchronously, on the click itself — must be true well
-        # before the slow Load History dispatch (0.2s) even returns.
-        assert StartLiveStreamCommand not in dispatched_commands
+        # before the slow Load History read (0.2s) even returns.
+        assert len(stream.calls) == started_before
         assert presenter.fsm.current_state == UIMode.IDLE
 
 

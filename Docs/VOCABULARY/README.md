@@ -100,6 +100,7 @@ difference is the reason the contexts exist (HLD §1.2).
 | **Gap** / **Coverage** | A missing range inside stored klines; the fraction of a requested range that is stored. `IRangeCoverage` reports it. | `contracts/` |
 | **Sync** | Fetching klines from the exchange into the shards for one symbol/timeframe/range; progress is a `SingleSyncProgressEvent`. | `contracts/IMarketDataSync` |
 | **Market stream** | The live kline websocket for one symbol/timeframe, started and stopped by `owner_id`. | `contracts/IMarketStream` |
+| **`StreamOutcome`** | What `IMarketStream.start`/`stop` answer: `success` (the owner's subscription set is now what was asked for) plus a `message` fit to show a user. `success=False` from `stop` means there was nothing to release — an ordinary state, not an error. | `contracts/IMarketStream` |
 | **Market data venue** (`MarketDataVenue`) | Which endpoint set market data comes from (mainnet public, testnet). | `core/vo` |
 
 ### `trading`

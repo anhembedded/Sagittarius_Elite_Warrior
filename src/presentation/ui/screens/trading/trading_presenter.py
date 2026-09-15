@@ -57,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_kl
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
+    IMarketStream,
+)
 from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     FALLBACK_INTERVAL,
@@ -290,12 +293,12 @@ class TradingPresenter(BasePresenter):
         self._shutdown_requested = False
         self._chart_coordinator = ChartCoordinator(
             thread_manager=self._thread_manager,
-            dispatcher=self.dispatcher,
             # `EPIC-025` PR 0.5: resolved here and injected, like every other
             # dependency this Presenter owns — a Coordinator must not reach
             # into the container itself (`async-ui-action-rule.md`).
             market_data_sync=container.resolve(IMarketDataSync),
             historical_klines=container.resolve(IHistoricalKlines),
+            market_stream=container.resolve(IMarketStream),
             emit_history_ready=self.uiHistoryReadySignal.emit,
             emit_load_finished=self.uiLoadFinishedSignal.emit,
             emit_stream_started=self.uiStreamStartedSignal.emit,

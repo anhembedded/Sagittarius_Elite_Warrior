@@ -21,6 +21,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.enable_trading import (
     EnableTradingResult,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.coordinators.chart_coordinator import (
+    _STREAM_OWNER,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_presenter import (
     _CHART_AUTOSTART_CONFIG_KEY,
     TradingPresenter,
@@ -114,14 +117,21 @@ def test_a_failed_enable_does_not_go_live(
 
 
 def test_going_live_does_not_stop_a_stream_this_screen_never_started(
-    presenter, mock_dispatcher, mock_thread_manager
+    presenter, mock_dispatcher, market_stream
 ):
     """The second half of the fix, easy to get wrong: promoting to live for
-    the first time must not call `ChartCoordinator.stop()` first. This
-    screen has only ever read local history, so there is nothing of its own
-    to stop — and `stop()` kills the process-wide stream unconditionally
-    (`StopLiveStreamCommand` takes no caller identity), which would cut off
-    Dev Board if it happened to be the one running it."""
+    the first time must not call `ChartCoordinator.stop()` first. This screen
+    has only ever read local history, so there is nothing of its own to stop.
+
+    `EPIC-025` PR 1.1b moved the assertion onto the port, and the reason is
+    not only tidiness: the dispatcher assertion it replaces would now pass
+    however many streams the screen released. The docstring's old claim that
+    `stop()` "kills the process-wide stream unconditionally
+    (`StopLiveStreamCommand` takes no caller identity)" has been wrong since
+    `BOT-126` gave it an owner — what a stray `stop()` would really cost is
+    this screen's own subscription, and the release still must not happen
+    when there is nothing to release.
+    """
     mock_dispatcher.dispatch.return_value = EnableTradingResult(
         enabled=True,
         block_reason=None,
@@ -133,39 +143,25 @@ def test_going_live_does_not_stop_a_stream_this_screen_never_started(
 
     presenter._run_enable(action_id)
 
-    from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
-        StopLiveStreamCommand,
-    )
-
-    dispatched_commands = [
-        call.args[0] for call in mock_dispatcher.dispatch.call_args_list
-    ]
-    assert StopLiveStreamCommand not in dispatched_commands
+    assert [verb for verb, _owner in market_stream.calls] == []
 
 
 def test_a_symbol_change_before_going_live_does_not_stop_the_stream(
-    presenter, mock_dispatcher, mock_thread_manager
+    presenter, mock_thread_manager, market_stream
 ):
     """A user browsing symbols before ever enabling trading must not touch
-    the process-wide stream at all — same reasoning as the test above, for
-    the OTHER path into `_restart_chart()`."""
+    the stream at all — same reasoning as the test above, for the OTHER path
+    into `_restart_chart()`."""
     mock_thread_manager.submit.reset_mock()
 
     presenter._on_symbol_change_requested("ETHUSDT")
 
-    from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
-        StopLiveStreamCommand,
-    )
-
-    dispatched_commands = [
-        call.args[0] for call in mock_dispatcher.dispatch.call_args_list
-    ]
-    assert StopLiveStreamCommand not in dispatched_commands
+    assert market_stream.calls == []
     assert _submitted_go_live_flags(mock_thread_manager) == [False]
 
 
 def test_a_symbol_change_after_going_live_does_stop_and_restart_live(
-    presenter, mock_dispatcher, mock_thread_manager
+    presenter, mock_dispatcher, mock_thread_manager, market_stream
 ):
     """Once this screen owns the stream, changing symbol must still behave
     like it always did: stop, then restart live for the new symbol."""
@@ -183,12 +179,7 @@ def test_a_symbol_change_after_going_live_does_stop_and_restart_live(
 
     presenter._on_symbol_change_requested("ETHUSDT")
 
-    from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
-        StopLiveStreamCommand,
-    )
-
-    dispatched_commands = [
-        call.args[0] for call in mock_dispatcher.dispatch.call_args_list
-    ]
-    assert dispatched_commands == [StopLiveStreamCommand]
+    # One release, for this screen's own owner id — and then the reload is
+    # submitted with `go_live=True`, which is the "restart live" half.
+    assert market_stream.calls == [("stop", _STREAM_OWNER)]
     assert _submitted_go_live_flags(mock_thread_manager) == [True]

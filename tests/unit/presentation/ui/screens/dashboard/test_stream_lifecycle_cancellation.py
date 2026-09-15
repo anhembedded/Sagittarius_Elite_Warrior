@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_hi
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
+    FakeMarketStream,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.stream_lifecycle_controller import (
     StreamLifecycleController,
@@ -26,14 +29,13 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 
 
 def test_stream_lifecycle_controller_passes_cancellation_to_the_sync() -> None:
-    dispatcher = MagicMock()
     market_data_sync = FakeMarketDataSync()
     token = CancellationToken()
 
     controller = StreamLifecycleController(
         thread_manager=MagicMock(),
-        dispatcher=dispatcher,
         market_data_sync=market_data_sync,
+        market_stream=FakeMarketStream(),
         historical_klines=FakeHistoricalKlines(),
         config=MagicMock(),
         fsm=MagicMock(),
@@ -89,8 +91,8 @@ def test_stream_lifecycle_controller_shutdown_finishes_action_slots() -> None:
 
     controller = StreamLifecycleController(
         thread_manager=mock_thread_manager,
-        dispatcher=MagicMock(),
         market_data_sync=FakeMarketDataSync(),
+        market_stream=FakeMarketStream(),
         historical_klines=FakeHistoricalKlines(),
         config=MagicMock(),
         fsm=MagicMock(current_state=UIMode.IDLE),
@@ -132,8 +134,8 @@ def _controller(**overrides) -> StreamLifecycleController:
     token = CancellationToken()
     defaults = {
         "thread_manager": MagicMock(),
-        "dispatcher": MagicMock(),
         "market_data_sync": FakeMarketDataSync(),
+        "market_stream": FakeMarketStream(),
         "historical_klines": FakeHistoricalKlines(),
         "config": MagicMock(),
         "fsm": MagicMock(),

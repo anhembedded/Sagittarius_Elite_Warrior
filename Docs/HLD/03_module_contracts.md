@@ -148,10 +148,10 @@ the second consumer, not after (`architecture-rule.md` §7.2.1).
 
 | Contract | Kind | Measured consumers | From today's code |
 | :--- | :--- | :--- | :--- |
-| `IHistoricalKlines` | port | backtesting (2 coordinators), trading (chart), dev_board, CLI `trade-once` | `GetHistoricalKlinesQuery` |
+| `IHistoricalKlines` | port | **built, PR 1.1a** — six call sites: backtesting (2 coordinators), trading (chart), dev_board (stream controller), data_management (kline inspector), CLI `trade-once` | was `GetHistoricalKlinesQuery`, whose `list | dict`-by-runtime-type return the port replaced; implemented by `StoredKlinesReader`, and the query itself was deleted once nothing dispatched it |
 | `ISymbolCatalog` | port | backtesting, the dev_board picker, the trading combo box | `ListAvailableSymbolsQuery`, `ISymbolCatalogRepository` |
 | `IMarketDataSync` | port | **built, PR 0.5** — four consumers: trading (`chart_coordinator`), backtesting (`data_sync_coordinator`), dev_board (`stream_lifecycle_controller`), data_management (`sync_coordinator`) | `SyncMarketDataCommand`, wrapped by `MarketDataSyncService`; the published request is `MarketDataSyncRequest` (6 fields — `days_back_if_empty` stayed internal, no caller ever set it) |
-| `IMarketStream` | port | trading (`chart_coordinator.py:191`), dev_board, CLI `stream` | `StartLiveStreamCommand` / `Stop…`, `ILiveStreamService`, the owner id |
+| `IMarketStream` | port | **built, PR 1.1b** — two screens: trading (`chart_coordinator`), dev_board (`stream_lifecycle_controller`). The CLI `stream` command keeps dispatching, and the port dispatches the same two commands, so both paths stay one | `StartLiveStreamCommand` / `Stop…` wrapped by `MarketStreamService`; `start(owner_id, symbols, interval)` / `stop(owner_id)` returning `StreamOutcome`. **Not** SDD-06b's `StreamHandle` shape: that needs `ILiveStreamService` to hold per-stream subscriptions instead of replacing an owner's set, which is a behaviour change ADR D12 keeps out of a port PR — deferred to Phase 2, where `strategy` is the consumer that needs it |
 | `IRangeCoverage` | port | backtesting | `GetBacktestRangeCoverageQuery` (renamed: coverage is a market_data concept; backtest merely happened to be its first caller) |
 | `MarketTickEvent`, `SingleSyncProgressEvent` | event | strategy, trading, backtesting | existing |
 | `RangeCoverageSnapshot`, `SyncProgress` | DTO | — | `application/ports/i_market_data_repository.py` (the DTOs move out of the port file) |
