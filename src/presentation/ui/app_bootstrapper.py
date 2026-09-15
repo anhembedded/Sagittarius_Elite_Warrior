@@ -97,6 +97,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_end
     resolve_market_data_venue,
     resolve_trading_venue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
+    WorkbenchSurface,
+)
 from sagittarius_engine import App
 from sagittarius_engine.extensions.pyside_mvc import (
     UIWatchdog,
@@ -194,9 +197,16 @@ def build() -> AppRuntime:
     # (`resolve_market_data_venue`/`resolve_trading_venue`) — neither has a
     # Settings UI control, so this is safe to compute once at boot rather
     # than wiring a reactive ViewModel for a value that cannot change
-    # mid-session. `PageShell.set_environment_banner_factory` is the *one*
-    # place this reaches every screen — see that classmethod's own
-    # docstring for why no screen's own View needs to call anything.
+    # mid-session. `set_environment_banner_factory` is the *one* place this
+    # reaches every screen — see that classmethod's own docstring for why no
+    # screen's own View needs to call anything.
+    #
+    # Registered on **both** shells: a screen not yet converted is a
+    # `PageShell`, a converted one is a `WorkbenchSurface` (`EPIC-025` PR
+    # 1.4c-2 moved the Dev Board). It goes back to one registration when the
+    # last `PageShell` is gone in Phase 4, and
+    # `test_environment_banner_all_screens.py` is what fails if a screen
+    # changes shell and its banner does not come along.
     banner_content = venue_alignment_banner_content(
         compute_venue_alignment(
             resolve_market_data_venue(config_manager),
@@ -204,6 +214,9 @@ def build() -> AppRuntime:
         )
     )
     PageShell.set_environment_banner_factory(lambda: EnvironmentBanner(banner_content))
+    WorkbenchSurface.set_environment_banner_factory(
+        lambda: EnvironmentBanner(banner_content)
+    )
 
     # ------------------------------------------------------------------ #
     # 3. Create and show MainWindow

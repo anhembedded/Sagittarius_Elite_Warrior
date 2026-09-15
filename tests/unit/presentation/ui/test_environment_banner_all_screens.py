@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.environment_banner
     venue_alignment_banner_content,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import PageShell
+from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
+    WorkbenchSurface,
+)
 
 
 def _navigable_routes():
@@ -39,11 +42,20 @@ def _navigable_routes():
 def _environment_banner_factory_registered():
     """Mirrors what `app_bootstrapper.build()` does at boot — registered
     here directly (not via a full app boot) because `create_view()` needs
-    nothing else `booted_app` would provide."""
+    nothing else `booted_app` would provide.
+
+    Both shells, because the app registers on both: a screen not yet
+    converted is a `PageShell`, a converted one is a `WorkbenchSurface`
+    (`EPIC-025` PR 1.4c-2). Registering only one would make this guard pass
+    for the wrong reason — it would stop being able to fail for a screen on
+    the other shell.
+    """
     content = venue_alignment_banner_content(VenueAlignment.ALIGNED)
     PageShell.set_environment_banner_factory(lambda: EnvironmentBanner(content))
+    WorkbenchSurface.set_environment_banner_factory(lambda: EnvironmentBanner(content))
     yield
     PageShell.set_environment_banner_factory(None)
+    WorkbenchSurface.set_environment_banner_factory(None)
 
 
 @pytest.mark.parametrize("route", _navigable_routes())
@@ -59,8 +71,9 @@ def test_every_screen_shows_the_environment_banner(
         banner = view.findChild(QWidget, "environmentBanner")
         assert banner is not None, (
             f"Route '{route}' built a View with no environmentBanner widget "
-            f"in its tree — every screen is a PageShell, so this can only "
-            f"mean that screen's View never constructs one."
+            f"in its tree. Every screen sits on a shell that fills the slot "
+            f"itself — `PageShell` or `WorkbenchSurface` — so this means that "
+            f"screen's View builds neither, or builds a layout of its own."
         )
     finally:
         view.deleteLater()

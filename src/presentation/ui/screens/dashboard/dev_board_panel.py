@@ -215,9 +215,9 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         self._log_panel.setObjectName("monitorLogPanel")
         self._log_panel.setMinimumHeight(160)
         self._log_panel.set_log_model(view_model.log_model)
-        # Not added to `outer` — `DashboardView` places this in `PageShell`'s
-        # console band instead (`console_widget` below), the same full-width
-        # placement every other screen's log uses.
+        # Not added to `outer` — `DashboardView` places this in the
+        # workbench's bottom dock instead (`console_widget` below), where it
+        # spans the window and the user can hide it.
 
         self._wire_view_model()
         self._sync_price_ticker()
@@ -231,12 +231,11 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
     # ------------------------------------------------------------------ #
 
     def _build_header_widgets(self) -> None:
-        """The price ticker, WS status pill, and Reload button — no title,
-        no wrapping row/`Panel` of their own. This panel is the *rail* now,
-        not the page header: the title text is `DashboardView`'s to own
-        (`header_actions`/`console_widget` below are what it collects into
-        `PageShell`'s header/console bands), the same split every other
-        screen's View/content-panel pair already uses."""
+        """The price ticker, WS status pill, and the three buttons — no
+        title, no wrapping row or `Panel` of their own. This panel is a dock,
+        not the page header: `DashboardView` collects these through
+        `header_actions` (the toolbar) and `status_tiles` (the status bar),
+        the same split every other screen's View/content-panel pair uses."""
         self._price_ticker_label = QLabel()
         self._price_ticker_label.setObjectName("lblPriceTicker")
 
@@ -280,21 +279,32 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
 
     @property
     def header_actions(self) -> list[QWidget]:
-        """Public accessor for `DashboardView` to place in the page header —
-        mirrors `BackTestTopPanel.run_button`'s reason for existing: the
-        private attributes stay what every existing test keys off."""
+        """What `DashboardView` places in the workbench's header toolbar: the
+        three things the user *does* from here.
+
+        Mirrors `BackTestTopPanel.run_button`'s reason for existing — the
+        private attributes stay what every existing test keys off. The price
+        ticker and the websocket pill left this list in PR 1.4c-2: they report
+        rather than act, and HLD §11.2 puts both in the status bar
+        (`status_tiles` below).
+        """
         return [
-            self._price_ticker_label,
-            self._ws_status_pill,
             self._btn_reload,
             self._btn_toggle_trading,
             self._btn_emergency_stop,
         ]
 
     @property
+    def status_tiles(self) -> list[QWidget]:
+        """What `DashboardView` places in the workbench's status bar: the two
+        readouts that answer "is it live, and at what price" without the user
+        asking for anything."""
+        return [self._price_ticker_label, self._ws_status_pill]
+
+    @property
     def console_widget(self) -> AppLogPanel:
-        """Public accessor for `DashboardView` to place in `PageShell`'s
-        console band."""
+        """Public accessor for `DashboardView` to place in the workbench's
+        bottom dock."""
         return self._log_panel
 
     def _build_system_controls(self) -> Panel:

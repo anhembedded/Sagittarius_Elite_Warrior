@@ -2,8 +2,21 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QLabel, QScrollArea, QSplitter
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QDockWidget,
+    QLabel,
+    QScrollArea,
+    QSplitter,
+    QToolBar,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
+    CONTROLS_DOCK,
+    DEV_BOARD_SURFACE,
+    EQUITY_DOCK,
+    MONITOR_DOCK,
+    OPEN_ORDERS_DOCK,
+    POSITIONS_DOCK,
     DashboardView,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view_model import (
@@ -14,76 +27,89 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dev_board_p
 )
 
 
-def test_dashboard_view_hybrid_layout_hosts_chart_scroll_area_and_dev_board_panel(
-    qapp,
-):
-    """
-    Regression test for the BOT-030 Phase 4 hybrid layout (QtWidgets since
-    EPIC-006D): the chart column stays a QScrollArea of QtWidgets
-    ChartCards (unchanged), and System Controls/Indicators/Monitor move
-    into a single DevBoardPanel — both living inside a QSplitter so the
-    user can resize either side. The panel builds lazily, at
-    set_view_model() time (it needs a real ViewModel to construct against),
-    not eagerly in __init__ the way the old QQuickWidget did.
+def _dock(view: DashboardView, title: str) -> QDockWidget | None:
+    """The dock a panel was placed in, by the title the user sees — which is
+    also the key `QMainWindow.saveState()` stores it under."""
+    name = f"{view._surface.objectName()}::{_place_of(title)}::{title}"
+    return view._surface.findChild(QDockWidget, name)
 
-    `EPIC-023A` put the Vị thế/Lệnh chờ khớp tables above the chart column
-    inside a new `view._workspace` wrapper widget — since that wrapper is a
-    plain `QWidget`, not a `QScrollArea` itself, `PageShell.set_workspace()`
-    now auto-wraps it (`page_shell.py`'s `_scrollable()`), so `view.
-    scroll_area` is no longer a direct splitter pane; it is nested one level
-    deeper, still doing its own independent scrolling for the dynamic chart
-    list.
+
+def _place_of(title: str) -> str:
+    return "console" if title == MONITOR_DOCK else "rail"
+
+
+def test_the_workbench_hosts_the_chart_column_and_every_panel_as_a_dock(qapp):
+    """`EPIC-025` PR 1.4c-2 replaced the `PageShell` + one `QSplitter` this
+    test used to describe. What it asserted then and asserts now: the chart
+    column is a `QScrollArea` of QtWidgets `ChartCard`s (unchanged), and
+    `DevBoardPanel` is built lazily at `set_view_model()` time, not eagerly in
+    `__init__` the way the old `QQuickWidget` was.
+
+    What is new is what replaced the splitter: the chart column is the
+    workbench's central widget and every other piece is a `QDockWidget` the
+    user can move, tab, float and hide — so the assertion is about docks by
+    title, which is also what a saved perspective keys them by.
     """
     view = DashboardView()
 
     assert isinstance(view.scroll_area, QScrollArea)
     assert view.scroll_area.widgetResizable() is True
+    assert view._surface.centralWidget() is view.scroll_area
     assert view._panel is None
+    # Two fixed panes became docks: nothing is a `QSplitter` any more.
+    assert view.findChildren(QSplitter) == []
 
     view.set_view_model(DashboardQmlViewModel())
 
     assert isinstance(view._panel, DevBoardPanel)
-    splitters = view.findChildren(QSplitter)
-    assert len(splitters) == 1
-    splitter = splitters[0]
-    panes = [splitter.widget(i) for i in range(splitter.count())]
-    # `view._workspace` is a plain `QWidget` (tables_row + view.scroll_area),
-    # so `PageShell` auto-wraps it in its own `PreferredHeightScrollArea`;
-    # `view._panel` is a raw `DevBoardPanel` and gets the same treatment
-    # (`page_shell.py`'s `set_workspace()` — every rail/main pane not
-    # already a `QScrollArea` is wrapped so its natural content height is
-    # never squeezed).
-    wrapped_workspace_panes = [
-        pane
-        for pane in panes
-        if isinstance(pane, QScrollArea) and pane.widget() is view._workspace
-    ]
-    assert len(wrapped_workspace_panes) == 1
-    # `view.scroll_area` keeps doing its own scrolling for the chart list,
-    # unaffected by the new outer wrapper — still findable as a descendant.
-    assert view.scroll_area in view.findChildren(QScrollArea)
-    wrapped_panel_panes = [
-        pane
-        for pane in panes
-        if isinstance(pane, QScrollArea) and pane.widget() is view._panel
-    ]
-    assert len(wrapped_panel_panes) == 1
+    assert _dock(view, CONTROLS_DOCK) is not None
+    assert _dock(view, MONITOR_DOCK) is not None
+    # The log spans the window at the bottom, where the user can hide it.
+    assert view._surface.dockWidgetArea(_dock(view, MONITOR_DOCK)) == (
+        Qt.DockWidgetArea.BottomDockWidgetArea
+    )
 
 
-def test_dashboard_view_header_title(qapp):
-    """The Dev Board header clearly labels itself as a developer testbed,
-    distinct from the app's end-user dashboard (BOT-014) — rendered by
-    `PageShell`'s header band (the page title moved out of `DevBoardPanel`
-    and into `DashboardView`'s shell, the same place every other screen's
-    title lives)."""
+def test_the_view_renders_the_surface_the_shell_declares(qapp):
+    """`DashboardView` declares its own `Surface` because a file under
+    `presentation/` may not import `shell/`. That makes this test the thing
+    standing between one declaration and two: if the shell's `dev_board` entry
+    gains a place, or its gate changes, this fails instead of the screen
+    quietly refusing a panel contributed to it."""
+    from Sagittarius_Elite_Warrior.src.shell.surfaces import surfaces_by_id
+
+    assert surfaces_by_id()["dev_board"] == DEV_BOARD_SURFACE
+
+
+def test_the_screen_still_says_it_is_a_developer_testbed(qapp):
+    """`BOT-014` — the Dev Board labels itself, distinct from an end-user
+    dashboard. It used to be `PageShell`'s title band; a `QMainWindow` has no
+    such band, so the text moved to the context bar, which is the part that
+    says what the surface is pointed at."""
     view = DashboardView()
     view.resize(1200, 800)
     view.set_view_model(DashboardQmlViewModel())
     qapp.processEvents()
 
-    header = view.findChild(QLabel, "pageShellTitle")
-    assert header is not None
-    assert header.text() == "Developer Board (Live Testbed)"
+    identity = view.findChild(QLabel, "lblDevBoardIdentity")
+    assert identity is not None
+    assert "Developer Board (Live Testbed)" in identity.text()
+
+
+def test_the_buttons_go_to_the_toolbar_and_the_readouts_to_the_status_bar(qapp):
+    """HLD §11.2 splits them: a `QToolBar` carries what the user *does*, the
+    `QStatusBar` what the app *reports*. Before the workbench both sat in one
+    header row, so this is the wiring that could silently regress to it."""
+    view = DashboardView()
+    view.set_view_model(DashboardQmlViewModel())
+    panel = view._panel
+
+    toolbar = view._surface.findChild(QToolBar, f"{view._surface.objectName()}::header")
+    assert toolbar is not None
+    for button in panel.header_actions:
+        assert toolbar.isAncestorOf(button)
+    for tile in panel.status_tiles:
+        assert view._surface.statusBar().isAncestorOf(tile)
 
 
 def test_dashboard_view_apply_ui_mode_forwards_to_view_model(qapp):
@@ -134,13 +160,17 @@ def test_dashboard_view_model_symbol_and_dates_are_settable(qapp):
 
 
 # ---------------------------------------------------------------------------
-# `EPIC-023A` — Vị thế/Lệnh chờ khớp tables, account-wide, placed in the
-# workspace (not `DevBoardPanel`'s rail — a rail column is too narrow for a
-# many-column table, `BOT-128`'s own finding).
+# `EPIC-023A` — the account-wide positions and open-orders tables. Docks of
+# their own since PR 1.4c-2; see the test below for what that fixed.
 # ---------------------------------------------------------------------------
 
 
-def test_dashboard_view_builds_positions_and_open_orders_panels(qapp):
+def test_the_account_tables_are_docks_of_their_own(qapp):
+    """They used to sit squeezed above the chart column, because the old rail
+    was a fixed narrow strip and a many-column table did not fit it
+    (`BOT-128`). As docks they are as wide as the user drags them, which is
+    the placement HLD §11.2 assigns and the reason the workbench is worth
+    having."""
     from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_orders_panel import (
         OpenOrdersPanel,
     )
@@ -152,10 +182,14 @@ def test_dashboard_view_builds_positions_and_open_orders_panels(qapp):
 
     assert isinstance(view._positions_panel, PositionsPanel)
     assert isinstance(view._open_orders_panel, OpenOrdersPanel)
-    # Both live inside `view._workspace`, above the chart-card scroll area —
-    # not inside `DevBoardPanel`'s rail.
-    assert view._positions_panel in view._workspace.findChildren(PositionsPanel)
-    assert view._open_orders_panel in view._workspace.findChildren(OpenOrdersPanel)
+    for title, panel in (
+        (POSITIONS_DOCK, view._positions_panel),
+        (OPEN_ORDERS_DOCK, view._open_orders_panel),
+        (EQUITY_DOCK, view.equity_chart),
+    ):
+        dock = _dock(view, title)
+        assert dock is not None, title
+        assert dock.widget() is panel
 
 
 def test_dashboard_view_set_positions_forwards_to_the_panel(qapp, monkeypatch):

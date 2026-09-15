@@ -1,5 +1,7 @@
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QHBoxLayout, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
+from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
 )
@@ -19,8 +21,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positio
     PositionsPanel,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
-    PageShell,
     PreferredHeightScrollArea,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
+    WorkbenchSurface,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
@@ -33,16 +37,47 @@ _SUBTITLE = "Test indicators & scripts on live data"
 #: constant `TradingView` uses for its own equity chart.
 _EQUITY_CHART_TITLE = "Equity"
 
-#: An empty `ChartCard`'s own `sizeHint()` is tiny (no candles/toolbar to
-#: size around) — `workspace_layout`'s stretch factors only split space
-#: *beyond* each widget's own minimum, so a near-zero minimum here left
-#: the equity chart squeezed to a sliver rather than sharing fairly in the
-#: split, cramped axis labels and all (user-reported). This floor gives it
-#: a legible baseline; `PageShell.set_workspace()` already wraps the whole
-#: workspace in a `PreferredHeightScrollArea` (`kit/page_shell.py`), so if
-#: this floor plus everything else no longer fits the viewport, the page
-#: scrolls instead of compressing this chart back down.
+#: An empty `ChartCard`'s own `sizeHint()` is tiny — no candles and no toolbar
+#: to size around — so without a floor it opens as a sliver with cramped axis
+#: labels (user-reported). Inside a dock the user can drag it to any height
+#: from there, and the perspective remembers it; this only decides where it
+#: starts.
 _EQUITY_CHART_MINIMUM_HEIGHT = 220
+
+#: Dock titles. A title is the user's handle on a panel — what the View menu
+#: lists, what a floating panel's title bar reads, and what `saveState()` keys
+#: a dock by, so renaming one drops that panel out of every saved perspective.
+POSITIONS_DOCK = "Positions"
+OPEN_ORDERS_DOCK = "Open orders"
+EQUITY_DOCK = "Equity"
+CONTROLS_DOCK = "Controls"
+MONITOR_DOCK = "System monitor"
+
+#: This screen's surface, declared here because a file under `presentation/`
+#: may not import `shell/` — the shell is *Main*, so depending on it is a
+#: cycle — and `shell/surfaces.py` is where the application's list lives. Not
+#: a second source of truth:
+#: `test_dashboard_view.py::test_the_view_renders_the_surface_the_shell_declares`
+#: asserts this equals that list's `dev_board` entry. The declaration goes
+#: when this screen moves into a module's `ui/`, where a factory is handed the
+#: container and can ask `IContributionTable` for it.
+DEV_BOARD_SURFACE = Surface(
+    "dev_board",
+    owner="shell",
+    accepts=frozenset(
+        {
+            Place.HEADER,
+            Place.CONTEXT_BAR,
+            Place.WORKSPACE,
+            Place.RAIL,
+            Place.CONSOLE,
+            Place.MODAL,
+            Place.STATUS_TILE,
+            Place.DEV_PROBE,
+        }
+    ),
+    gated_by="dev.mode",
+)
 
 
 class DashboardView(BaseView):
@@ -50,24 +85,27 @@ class DashboardView(BaseView):
     @brief The View for the Dev Board Screen — a developer testbed, not the
     app's end-user dashboard.
 
-    @details
-    Hybrid layout (BOT-030 Phase 4, migrated off QML at EPIC-006D): a
-    QSplitter with the dynamic ChartCards (QtWidgets/pyqtgraph — stays that
-    way permanently) on the left, and a `DevBoardPanel` (top bar, System
-    Controls, Indicators, Monitor log) on the right. FSM state reaches the
-    panel through `apply_ui_mode` -> the view model's `uiMode` property,
-    same mechanism as before — only the render layer changed.
+    @details A **workbench** since `EPIC-025` PR 1.4c-2: one nested
+    `QMainWindow` (`WorkbenchSurface`) whose central widget is the scrolling
+    column of `ChartCard`s, with everything else in a `QDockWidget` the user
+    can move, tab, float, hide and have remembered — Positions, Open orders,
+    Equity and the Controls column on the right, the System Monitor log at the
+    bottom, the price ticker and websocket pill in the status bar.
 
-    `EPIC-023A` adds the account-wide Vị thế/Lệnh chờ khớp tables above the
-    chart-card column, in the workspace rather than `DevBoardPanel`'s rail
-    — a rail column is too narrow for a many-column table (`BOT-128`'s own
-    finding, same tables `TradingView` places in its workspace for the
-    same reason). `EPIC-023B` adds the same account-wide equity chart below
-    the chart-card column, reusing `TradingView`'s own construction recipe.
+    Before it was a `PageShell` holding one `QSplitter`: two fixed panes,
+    neither hideable, and a rail column too narrow for a many-column table
+    (`BOT-128`) — which is why the two account tables used to sit squeezed
+    above the charts instead of beside them.
+
+    What did not change: `DevBoardPanel` is still one widget built lazily at
+    `set_view_model()` time (it needs a real ViewModel to construct against),
+    the chart column is still QtWidgets/pyqtgraph, and FSM state still reaches
+    the panel through `apply_ui_mode` → the ViewModel's `uiMode` property.
+    Splitting that thousand-line panel into one dock per card is 1.4c-3.
     """
 
     #: `EPIC-024B` §0 — re-exposes `OpenOrdersPanel.cancelRequested`, same
-    #: layered re-export the panel itself does for `OpenOrdersVM`'s signal.
+    #: layered re-export the panel itself does for its own table.
     cancelOrderRequested = Signal(str, str)
 
     def __init__(self, parent=None):
@@ -86,31 +124,18 @@ class DashboardView(BaseView):
         outer_layout = QVBoxLayout(self)
         outer_layout.setContentsMargins(0, 0, 0, 0)
 
-        self._shell = PageShell()
-        outer_layout.addWidget(self._shell)
-        # No header actions/console yet — both live on `DevBoardPanel`,
-        # which isn't built until `set_view_model()` (it needs the
-        # ViewModel at construction). Re-set below once it exists.
-        self._shell.set_header(_TITLE, _SUBTITLE)
+        self._surface = WorkbenchSurface(DEV_BOARD_SURFACE)
+        outer_layout.addWidget(self._surface)
 
-        # `EPIC-023A` — positions and open orders, account-wide, the same
-        # widgets `TradingView` embeds (they live in
-        # `components/order_book/` for exactly this reuse — see that
-        # package's docstring; QtWidgets since PR 1.4b-2).
-        self._positions_panel = PositionsPanel()
-        self._positions_panel.setObjectName("positionsPanel")
-        self._open_orders_panel = OpenOrdersPanel()
-        self._open_orders_panel.setObjectName("openOrdersPanel")
-        self._open_orders_panel.cancelRequested.connect(self.cancelOrderRequested)
+        # The screen says what it is where a workbench can say it: the context
+        # bar. `BOT-014` asked for the Dev Board to label itself a developer
+        # testbed, distinct from an end-user dashboard, and a `QMainWindow`
+        # has no page-title band to carry that.
+        self._identity_label = QLabel(f"{_TITLE} — {_SUBTITLE}")
+        self._identity_label.setObjectName("lblDevBoardIdentity")
+        self._surface.place_widget(Place.CONTEXT_BAR, self._identity_label)
 
-        tables_row = QWidget()
-        tables_layout = QHBoxLayout(tables_row)
-        tables_layout.setContentsMargins(0, 0, 0, 0)
-        tables_layout.setSpacing(12)
-        tables_layout.addWidget(self._positions_panel, 1)
-        tables_layout.addWidget(self._open_orders_panel, 1)
-
-        # Main workspace content: QScrollArea for dynamic ChartCards.
+        # The workspace: the scrolling column of dynamic ChartCards.
         self.scroll_area = PreferredHeightScrollArea()
         self.scroll_area.setWidgetResizable(True)
 
@@ -123,6 +148,24 @@ class DashboardView(BaseView):
         # instead of being squeezed to their minimum size with empty space below.
 
         self.scroll_area.setWidget(self.charts_container)
+        self._surface.place_widget(Place.WORKSPACE, self.scroll_area)
+
+        # `EPIC-023A` — positions and open orders, account-wide, the same
+        # widgets `TradingView` embeds (`components/order_book/`). Docks now,
+        # each as wide as the user drags it, which is what the old fixed rail
+        # column could not offer and HLD §11.2 assigns them.
+        self._positions_panel = PositionsPanel()
+        self._positions_panel.setObjectName("positionsPanel")
+        self._surface.place_widget(
+            Place.RAIL, self._positions_panel, title=POSITIONS_DOCK
+        )
+
+        self._open_orders_panel = OpenOrdersPanel()
+        self._open_orders_panel.setObjectName("openOrdersPanel")
+        self._open_orders_panel.cancelRequested.connect(self.cancelOrderRequested)
+        self._surface.place_widget(
+            Place.RAIL, self._open_orders_panel, title=OPEN_ORDERS_DOCK
+        )
 
         # `EPIC-023B` — same construction recipe as
         # `TradingView._build_equity_chart`: a dedicated `ChartCard`
@@ -134,37 +177,32 @@ class DashboardView(BaseView):
         self.equity_chart.set_volume_visible(False)
         self.equity_chart.toolbar.setVisible(False)
         self.equity_chart.setMinimumHeight(_EQUITY_CHART_MINIMUM_HEIGHT)
-
-        self._workspace = QWidget()
-        workspace_layout = QVBoxLayout(self._workspace)
-        workspace_layout.setContentsMargins(0, 0, 0, 0)
-        workspace_layout.setSpacing(12)
-        # Stretch, not just sizeHint — `Panel`/`QQuickWidget` reports a
-        # near-zero natural sizeHint (`TradingView._build_workspace` gives
-        # its own copy of these same two panels a stretch factor for the
-        # exact same reason), so a bare `addWidget(tables_row)` with no
-        # factor squeezed both tables down to an unreadable sliver, visible
-        # only once actually screenshotted — offscreen `pytest` alone never
-        # catches this class of layout defect. `equity_chart` gets the same
-        # treatment up front this time, not as a second bug to find later.
-        workspace_layout.addWidget(tables_row, 1)
-        workspace_layout.addWidget(self.scroll_area, 3)
-        workspace_layout.addWidget(self.equity_chart, 1)
-
-        self._shell.set_workspace(self._workspace)
+        self._surface.place_widget(Place.RAIL, self.equity_chart, title=EQUITY_DOCK)
 
     def set_view_model(self, view_model, context_name: str = "viewModel") -> None:
-        """Builds the right-hand DevBoardPanel against `view_model` — the
-        panel takes its ViewModel at construction time (no late-binding
-        needed, unlike the old QML context-property registration this
-        replaces). Now the `PageShell` rail, not a second `QSplitter` pane
-        this view built by hand — its header widgets and console log move
-        into the shell's own header/console bands."""
+        """Builds the right-hand `DevBoardPanel` against `view_model` and
+        places what it owns into the workbench: its three buttons in the
+        header toolbar, the price ticker and websocket pill in the status bar
+        (HLD §11.2 puts both there), the card column in a dock, and its log in
+        the bottom dock.
+
+        Called once per View. `PageShell`'s setters replaced a band's content
+        on every call; a workbench part is *placed*, not re-set — a second
+        `WORKSPACE`, or a second dock with a title already taken, is refused,
+        which is the check that a screen is not quietly building two of
+        something.
+        """
         self._view_model = view_model
         self._panel = DevBoardPanel(view_model)
-        self._shell.set_header(_TITLE, _SUBTITLE, actions=self._panel.header_actions)
-        self._shell.set_workspace(self._workspace, rail=self._panel)
-        self._shell.set_console(self._panel.console_widget)
+
+        for action_widget in self._panel.header_actions:
+            self._surface.place_widget(Place.HEADER, action_widget)
+        for tile in self._panel.status_tiles:
+            self._surface.place_widget(Place.STATUS_TILE, tile)
+        self._surface.place_widget(Place.RAIL, self._panel, title=CONTROLS_DOCK)
+        self._surface.place_widget(
+            Place.CONSOLE, self._panel.console_widget, title=MONITOR_DOCK
+        )
 
     def set_positions(self, rows: list[PositionRow]) -> None:
         self._positions_panel.set_rows(rows)
