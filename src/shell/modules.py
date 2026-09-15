@@ -22,6 +22,8 @@ the strangler period and joins this list one context per phase.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
@@ -29,3 +31,19 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.module import MarketDataM
 from Sagittarius_Elite_Warrior.src.modules.trading.module import TradingModule
 
 MODULES: tuple[type[BoundedContextModule], ...] = (MarketDataModule, TradingModule)
+
+
+@dataclass(frozen=True, slots=True)
+class RegisteredModules:
+    """The module **instances** this run registered, in `MODULES` order.
+
+    Bound in the container by the composition root, because the two things that
+    need them happen at different times: `register()` runs while the object
+    graph is being built, and `contribute()` runs after `boot()` — in the entry
+    point, which has the window (SDD's hook table). Without this, the entry
+    point would have to instantiate the list a second time, and a module is
+    stateful: the second instance would register nothing and contribute
+    against a graph it never built.
+    """
+
+    modules: tuple[BoundedContextModule, ...]

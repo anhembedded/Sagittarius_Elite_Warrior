@@ -86,13 +86,10 @@ from Sagittarius_Elite_Warrior.src.shell.app_config import (
     dev_mode_banner,
     load_app_config,
 )
-from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
-    ContributionRegistry,
+from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
+    assemble_contributions,
 )
-from Sagittarius_Elite_Warrior.src.shell.screen_wiring import (
-    build_screen_registry,
-    contribute_legacy_screens,
-)
+from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     resolve_market_data_venue,
     resolve_trading_venue,
@@ -301,8 +298,14 @@ def build() -> AppRuntime:
     # registry will carry a bounded context's screens unchanged. Order still
     # does not matter here: ScreenRegistry sorts sections and items by their
     # own declared sequence.
-    contributions = ContributionRegistry(dev_mode=dev_mode.is_enabled)
-    contribute_legacy_screens(contributions, app_engine.context.container)
+    #
+    # `EPIC-025` PR 1.4c-4: and the bounded contexts contribute here too, which
+    # is why this call replaced the two lines that only knew about the legacy
+    # screens. It runs *after* `app_engine.boot()` above, because that is when
+    # `contribute()` is allowed to see a built object graph (SDD's hook table).
+    contributions = assemble_contributions(
+        app_engine.context.container, dev_mode=dev_mode.is_enabled
+    )
     screen_registry = build_screen_registry(contributions)
 
     window = MainWindow(

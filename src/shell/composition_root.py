@@ -27,7 +27,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
 )
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
-from Sagittarius_Elite_Warrior.src.shell.modules import MODULES
+from Sagittarius_Elite_Warrior.src.shell.modules import MODULES, RegisteredModules
 from sagittarius_engine import App
 from sagittarius_engine.extensions.dependency_validator import (
     DependencyValidatorExtension,
@@ -96,6 +96,10 @@ def create_app(config_manager: ConfigManager) -> App:
     # brings `market_data`; `BinanceBotModule` above still carries every
     # context during the strangler period.
     modules, _ = register_modules(app, MODULES)
+    # The instances, for the entry point that will call `contribute()` after
+    # `boot()` — see `RegisteredModules`' own docstring for why a second
+    # instantiation there would contribute against nothing.
+    container.singleton(RegisteredModules, RegisteredModules(tuple(modules)))
 
     # `EPIC-025` PR 1.3c-5 — every module declares the prompt commands it owns,
     # and the shell collects them. Registered under the *reading* port only:

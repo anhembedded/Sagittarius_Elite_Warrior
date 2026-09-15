@@ -39,17 +39,19 @@ violation: the boundary scan skips that file by name
 root the strangler is replacing. `composition/port_bindings.py` explains which
 ports could move early and why.
 
-**Hooks not implemented, and why:**
+**`contribute()` since PR 1.4c-4, and what it contributes.** One
+`DEV_PROBE`: the live trading session's own state, on the Dev Board. It is the
+first widget any bounded context owns, and the first thing rendered through the
+mechanism in a real run rather than in a test. Trading and the Dev Board are
+*still* legacy screens carried by `shell/legacy_screen_adapter.py` — the two
+that would move into this module need 24 and 44 imports from
+`presentation/ui/*`, which is what `support/ui_kit` and `support/charting`
+(Phase 4) exist to answer, measured in PR 1.4b-2's own log entry.
 
-- `contribute()` — Trading and the Dev Board are still legacy screens carried
-  by `shell/legacy_screen_adapter.py`. PR 1.4 turns them into the surfaces
-  `surfaces/trading/` and `surfaces/dev_board/`, which is where the contributed
-  panels, dialogs and actions arrive.
-- `subscribe()` — this context's Qt-side subscriptions still live in the two
-  legacy Presenters and move with them in PR 1.4.
-
-Both are defaults inherited from `BoundedContextModule`, so the absence is a
-statement, not an omission.
+**`subscribe()` not implemented, and why:** this context's Qt-side
+subscriptions still live in the two legacy Presenters, and they move with those
+screens. It is a default inherited from `BoundedContextModule`, so the absence
+is a statement, not an omission.
 """
 
 from __future__ import annotations
@@ -60,8 +62,19 @@ from typing import Any
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import (
+    ContributionDescriptor,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
+    IContributionRegistry,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
+from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.port_bindings import (
     bind_published_ports,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.probes import (
+    build_trading_session_probe,
 )
 
 logger = logging.getLogger("App.TradingModule")
@@ -91,6 +104,30 @@ class TradingModule(BoundedContextModule):
         from inside the module while its internals wait.
         """
         bind_published_ports(context.container)
+
+    def contribute(self, registry: IContributionRegistry) -> None:
+        """The Dev Board probe for this context's own session state.
+
+        `DEV_PROBE` is Dev Board's place and it is gated: with `dev.mode` off,
+        the registry drops this contribution with one log line and the app
+        boots — the normal user run, not an error (`shell/surfaces.py`).
+
+        The factory is `ui/probes.py`'s, which imports no widget module until
+        it is called. That is the rule and the reason: `contribute()` runs at
+        boot for every run, a headless `sync` included, and a probe nobody
+        opened must not cost a Qt import.
+        """
+        registry.contribute(
+            ContributionDescriptor(
+                contributor_id=self.module_id,
+                surface_id="dev_board",
+                place=Place.DEV_PROBE,
+                order=10,
+                size_hint=SizeHint.REGULAR,
+                factory=build_trading_session_probe,
+                title="Trading session",
+            )
+        )
 
     def boot(self, context: Any) -> None:
         """Nothing to start. `IUserDataStream` is registered but deliberately

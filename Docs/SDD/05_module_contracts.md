@@ -248,3 +248,22 @@ not import `shell/` — can now render without naming the application's surface
 list. `build_surface()` takes that id instead of a `Surface`, and `fill_surface()`
 splits out of it for a screen that built its own host and wants the contributed
 panels added to *that* host rather than to a second, empty workbench.
+
+**6. `contribute()` is called by the entry point, not by the composition
+root.** SDD's hook table puts `contribute()` after `boot()`, and `boot()` is the
+entry point's call — `create_app()` returns before the app is booted. So the
+composition root records the module *instances* it registered
+(`shell/modules.py`'s `RegisteredModules`, bound in the container) and
+`shell/contribution_assembly.py::assemble_contributions()` does the collection
+once the app is up: the legacy screens the shell still carries, then every
+module's `contribute()`, then binding `IContributionTable`. PR 1.4c-4 wrote it,
+and until then `contribute()` was a hook **no code path called** — a module
+could declare a panel and nothing would ever ask for it.
+
+The instances matter and are not an implementation detail: a module is
+stateful, so a second instantiation of `MODULES` in the entry point would
+contribute against an object graph it never registered.
+
+Only the GUI entry point calls it. A headless `sync` has no surface for anyone
+to render into, and `test_module_contribution_laziness.py` holds the other half
+of that claim — contributing costs a headless run no Qt import at all.

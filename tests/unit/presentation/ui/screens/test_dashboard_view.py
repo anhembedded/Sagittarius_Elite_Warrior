@@ -11,6 +11,15 @@ from PySide6.QtWidgets import (
     QSplitter,
     QToolBar,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import (
+    ContributionDescriptor,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_table import (
+    IContributionTable,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
+from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
+from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DEV_BOARD_SURFACE,
     EQUITY_DOCK,
@@ -284,3 +293,80 @@ def test_the_action_opens_the_dialog_without_freezing_the_chart(qapp):
     dialog = view._surface.show_modal(MANUAL_ORDER_DIALOG)
     assert dialog.isVisible() is True
     assert dialog.isModal() is False
+
+
+# ---------------------------------------------------------------------------
+# PR 1.4c-4 — a panel a *module* contributed, on a screen the shell carries.
+# ---------------------------------------------------------------------------
+
+
+class _OneProbeTable(IContributionTable):
+    """A contribution table with one `DEV_PROBE`, and not the shell's registry.
+
+    A hand-written table rather than a `Mock`: a `Mock` would answer every
+    place with a `Mock` list and the builder would place nothing while this
+    test still passed.
+    """
+
+    def __init__(self, factory) -> None:
+        self._descriptor = ContributionDescriptor(
+            contributor_id="trading",
+            surface_id="dev_board",
+            place=Place.DEV_PROBE,
+            order=10,
+            size_hint=SizeHint.REGULAR,
+            factory=factory,
+            title="Trading session",
+        )
+
+    def surface(self, surface_id: str) -> Surface:
+        return DEV_BOARD_SURFACE
+
+    def panels(self, surface_id: str, place: Place) -> tuple:
+        if surface_id == "dev_board" and place is Place.DEV_PROBE:
+            return (self._descriptor,)
+        return ()
+
+
+def test_a_contributed_probe_reaches_the_dev_board(qapp) -> None:
+    """The whole mechanism, in one assertion: a module hands over a
+    descriptor, the shell collects it, and the screen the shell still carries
+    renders it as a dock the user can move."""
+    built: list[object] = []
+
+    def factory(container):
+        built.append(container)
+        return QLabel("probe")
+
+    container = object()
+    view = DashboardView(contributions=_OneProbeTable(factory), container=container)
+    view.set_view_model(DashboardQmlViewModel())
+
+    dock = view._surface.findChild(
+        QDockWidget, f"{view._surface.objectName()}::dev_probe::Trading session"
+    )
+    assert dock is not None
+    assert built == [container], "the factory is called once, with the container"
+
+
+def test_the_contributed_panel_arrives_after_the_screens_own_workspace(qapp) -> None:
+    """Order matters and is not cosmetic: Qt sizes the dock areas around the
+    central widget, and a contributed panel must not be able to take the
+    centre from the screen that owns it."""
+    view = DashboardView(
+        contributions=_OneProbeTable(lambda _c: QLabel("probe")), container=object()
+    )
+    view.set_view_model(DashboardQmlViewModel())
+
+    assert view._surface.centralWidget() is view.scroll_area
+
+
+def test_a_screen_with_nothing_contributed_renders_its_own_widgets(qapp) -> None:
+    """The normal user run: `dev.mode` off means the registry dropped every
+    Dev Board contribution at boot, so the screen gets `None` and must still
+    be a working workbench."""
+    view = DashboardView()
+    view.set_view_model(DashboardQmlViewModel())
+
+    assert view._surface.centralWidget() is view.scroll_area
+    assert _dock(view, POSITIONS_DOCK) is not None

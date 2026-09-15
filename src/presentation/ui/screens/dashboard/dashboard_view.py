@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positio
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     PreferredHeightScrollArea,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.surface_building import (
+    fill_surface,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
 )
@@ -132,10 +135,15 @@ class DashboardView(BaseView):
     #: layered re-export the panel itself does for its own table.
     cancelOrderRequested = Signal(str, str)
 
-    def __init__(self, parent=None):
+    def __init__(self, parent=None, *, contributions=None, container=None):
         super().__init__(parent)
         self._view_model = None
         self._panel: DevBoardPanel | None = None
+        # What a *module* contributed to this surface, and what its factories
+        # take. `None` for a bare `DashboardView()` — a preview, a unit test —
+        # which then renders this screen's own widgets and nothing else.
+        self._contributions = contributions
+        self._container = container
         # Follow-up to `EPIC-015` Phase 4: self-constructed default so a bare
         # DashboardView() still works unpersisted; DashboardPresenter
         # overrides this with the DI-resolved, shared store via
@@ -232,6 +240,24 @@ class DashboardView(BaseView):
             Place.CONSOLE, self._panel.console_widget, title=MONITOR_DOCK
         )
         self._add_manual_order_action()
+        self._place_contributed_panels()
+
+    def _place_contributed_panels(self) -> None:
+        """Adds whatever a module contributed to this surface, after this
+        screen's own widgets are in place.
+
+        Last, and deliberately: the workspace has to exist before the docks so
+        Qt sizes the dock areas around a real central widget, and a contributed
+        panel must not be able to take the centre from the screen that owns it.
+
+        Nothing contributed, or no container to build with, means nothing to
+        place — which is the normal case for `dev_board` with `dev.mode` off,
+        because the registry drops those contributions at `contribute()` time
+        with a log line each.
+        """
+        if self._contributions is None or self._container is None:
+            return
+        fill_surface(self._surface, self._contributions, self._container)
 
     def _add_manual_order_action(self) -> None:
         """`F9` raises the order dialog, and the same `QAction` sits in the
