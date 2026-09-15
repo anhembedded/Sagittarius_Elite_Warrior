@@ -271,13 +271,16 @@ modules.trading.domain.policies.signal_action_to_order_intent -> domain.value_ob
 # Three of them are worth naming, because they are not dispatches and their
 # fix is not just "call a port":
 #
-# * `-> modules.trading.application.trading_session_state` (5, of which three
-#   are Presenters): a Presenter reading a MUTABLE, lock-guarded application
-#   service directly. Measured, those Presenters read exactly three fields --
-#   `enabled`, `orders_sent_this_session`, `known_open_symbols` -- so 1.3b's
-#   `ITradingSession.snapshot()` answers with a frozen TradingSessionSnapshot
-#   of exactly those three (HLD 2.4), and the shared mutable object stops
-#   crossing the boundary at all.
+# * `-> modules.trading.application.trading_session_state`: RETIRED by PR
+#   1.3c-1. It was 5 entries, three of them Presenters reading a MUTABLE,
+#   lock-guarded application service directly. Measured, those Presenters read
+#   exactly three fields -- `enabled`, `orders_sent_this_session`,
+#   `known_open_symbols` -- so `ITradingSession.snapshot()` answers with a
+#   frozen TradingSessionSnapshot of exactly those three (HLD 2.4), and the
+#   shared mutable object no longer crosses the boundary at all. Both
+#   Presenters now take one snapshot where they used to take two or three
+#   separate reads, so a screen can no longer observe half of a change the
+#   websocket thread is making.
 # * `-> modules.trading.domain.live_position` (6) and `.domain.order` (7):
 #   HLD 3.4 says LivePosition NEVER leaves the module and PositionSnapshot is
 #   its flat DTO. These entries are the measurement of how far that is from
@@ -286,11 +289,17 @@ modules.trading.domain.policies.signal_action_to_order_intent -> domain.value_ob
 #   moved to `contracts/`: publishing them as they are would have made the
 #   wrong shape permanent and correct-looking.
 # * `application.use_cases.trading.{arm,disarm}_strategy.handler -> ...
-#   trading_session_state` (2): `strategy` reading trading's session state.
-#   Legal by design once both are modules (HLD 3.4's worked example: arm reads
-#   the enabled flag, a `strategy -> trading` call that resolves the cycle) --
-#   it is a violation only because `strategy` is not a module yet, and Phase 2
-#   retires it by moving the caller, not by changing the call.
+#   trading_session_state` (2): RETIRED by PR 1.3c-1, earlier than planned and
+#   by a different route. This was `strategy` reading trading's session state --
+#   legal by design once both are modules (HLD 3.4's worked example: arm reads
+#   the enabled flag, a `strategy -> trading` call that resolves the cycle), a
+#   violation only because `strategy` is not a module yet. The note here said
+#   Phase 2 would retire it by moving the caller. In fact both handlers read
+#   the same single field the Presenters did, so they took the port in the same
+#   change: a legacy file may import `modules.*.contracts` freely, so calling
+#   `ITradingSession.snapshot().enabled` needs no entry at all. Phase 2 still
+#   moves the caller into `modules/strategy`; what it no longer has to do is
+#   change the call.
 
 application.services.live_trading_coordinator -> modules.trading.application.orders.execute_order.command
 application.services.live_trading_coordinator -> modules.trading.application.orders.preview_order.query
@@ -298,8 +307,6 @@ application.services.live_trading_coordinator -> modules.trading.domain.policies
 application.services.live_trading_coordinator -> modules.trading.domain.policies.signal_action_to_order_intent
 application.use_cases.commands.submit_order.command -> modules.trading.application.orders.preview_order.query
 application.use_cases.commands.submit_order.handler -> modules.trading.application.orders.preview_order.handler
-application.use_cases.trading.arm_strategy.handler -> modules.trading.application.trading_session_state
-application.use_cases.trading.disarm_strategy.handler -> modules.trading.application.trading_session_state
 presentation.cli.order_dry_run_cmd -> modules.trading.adapters.binance.futures_order_payload_mapper
 presentation.cli.order_dry_run_cmd -> modules.trading.application.orders.preview_order
 presentation.cli.order_preview_cmd -> modules.trading.application.orders.preview_order
@@ -317,15 +324,7 @@ presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.applica
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.orders.execute_order
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.orders.preview_order.query
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.queries.get_open_positions
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.session.disable_trading
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.session.emergency_stop
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.session.enable_trading
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.trading_session_state
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.domain.policies.manual_order_intent
 presentation.ui.screens.dashboard.dev_board_panel -> modules.trading.domain.policies.manual_order_intent
 presentation.ui.screens.trading.trading_presenter -> modules.trading.application.equity_curve_recorder
 presentation.ui.screens.trading.trading_presenter -> modules.trading.application.orders.cancel_order
-presentation.ui.screens.trading.trading_presenter -> modules.trading.application.session.disable_trading
-presentation.ui.screens.trading.trading_presenter -> modules.trading.application.session.emergency_stop
-presentation.ui.screens.trading.trading_presenter -> modules.trading.application.session.enable_trading
-presentation.ui.screens.trading.trading_presenter -> modules.trading.application.trading_session_state

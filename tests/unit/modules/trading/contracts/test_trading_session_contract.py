@@ -116,3 +116,32 @@ class TestTheFakesOwnBookkeeping:
         fake.disable()
 
         assert (fake.snapshot_reads, fake.disables, fake.enables) == (2, 1, 0)
+
+    def test_enable_raises_produces_a_failure_the_caller_must_handle(self) -> None:
+        """`EPIC-025` PR 1.3c-1 — a refusal is a result, but the two network
+        round trips behind `enable()` can still fail, and both Presenters carry
+        a test that the failure is reported rather than raised at the UI. The
+        call is still counted: "it was attempted and blew up" is a different
+        fact from "it was never attempted"."""
+        fake = FakeTradingSession()
+        fake.enable_raises(RuntimeError("boom"))
+
+        with pytest.raises(RuntimeError, match="boom"):
+            fake.enable()
+
+        assert fake.enables == 1
+        assert fake.snapshot().enabled is False
+
+    def test_emergency_stop_raises_leaves_the_session_as_it_was(self) -> None:
+        """A stop that failed on the network disabled nothing. A fake that
+        turned trading off anyway would let a caller's "did it recover?"
+        assertion pass for the wrong reason."""
+        fake = FakeTradingSession()
+        fake.set_enabled(enabled=True)
+        fake.emergency_stop_raises(RuntimeError("boom"))
+
+        with pytest.raises(RuntimeError, match="boom"):
+            fake.emergency_stop()
+
+        assert fake.emergency_stops == 1
+        assert fake.snapshot().enabled is True

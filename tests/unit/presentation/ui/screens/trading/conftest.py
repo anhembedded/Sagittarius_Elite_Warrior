@@ -50,8 +50,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    ITradingSession,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
+    FakeTradingSession,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_presenter import (
     TradingPresenter,
@@ -99,8 +102,15 @@ def strategy_session(strategy_registry: StrategyRegistry) -> LiveStrategySession
 
 
 @pytest.fixture
-def session_state() -> TradingSessionState:
-    return TradingSessionState()
+def trading_session() -> FakeTradingSession:
+    """`EPIC-025` PR 1.3c-1 — the screen reads the session through
+    `ITradingSession`, so the container hands out that port's verified fake
+    instead of the real mutable session service. A test says what the session
+    looks like (`set_enabled`, `answer_with`, `enable_answers`) and reads back
+    how many times each call was made, instead of asserting that a command was
+    dispatched.
+    """
+    return FakeTradingSession()
 
 
 @pytest.fixture
@@ -166,7 +176,7 @@ def container(
     mock_config,
     mock_dispatcher,
     mock_thread_manager,
-    session_state,
+    trading_session,
     equity_recorder,
     strategy_session,
     strategy_registry,
@@ -188,7 +198,7 @@ def container(
             IConfig: mock_config,
             IDispatcher: mock_dispatcher,
             IThreadManager: mock_thread_manager,
-            TradingSessionState: session_state,
+            ITradingSession: trading_session,
             EquityCurveRecorder: equity_recorder,
             LiveStrategySession: strategy_session,
             StrategyRegistry: strategy_registry,

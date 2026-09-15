@@ -24,22 +24,6 @@ from unittest.mock import MagicMock
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-import pytest
-from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
-    LiveStrategySession,
-)
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
-    StrategyRegistry,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop import (
-    EmergencyStopCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
     EmergencyStopStepResult,
@@ -50,13 +34,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_presenter import (
-    TradingPresenter,
-)
-from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
-from sagittarius_engine.interfaces.i_config import IConfig
-from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
-from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 _SUCCESS = EmergencyStopStepResult(succeeded=True, detail="OK")
 
@@ -99,57 +76,6 @@ def _result(
     )
 
 
-@pytest.fixture
-def mock_config():
-    config = MagicMock()
-    config.get_all.return_value = {
-        "DEFAULT_SYMBOLS": ["BTCUSDT"],
-        "DEFAULT_INTERVAL": "1m",
-    }
-    config.get.side_effect = lambda key, default=None, cast=None: (
-        True if key == DEV_MODE_CONFIG_KEY else default
-    )
-    return config
-
-
-@pytest.fixture
-def container(
-    mock_config,
-    mock_dispatcher,
-    mock_thread_manager,
-    session_state,
-    equity_recorder,
-    strategy_session,
-    strategy_registry,
-    make_container,
-):
-    # `BOT-125` review — one shared fake, so adding a Presenter
-    # dependency stops costing one edit per test module.
-    return make_container(
-        {
-            IConfig: mock_config,
-            IDispatcher: mock_dispatcher,
-            IThreadManager: mock_thread_manager,
-            TradingSessionState: session_state,
-            EquityCurveRecorder: equity_recorder,
-            LiveStrategySession: strategy_session,
-            StrategyRegistry: strategy_registry,
-        }
-    )
-
-
-@pytest.fixture
-def view():
-    return MagicMock()
-
-
-@pytest.fixture
-def presenter(qapp, view, container, mock_thread_manager):
-    p = TradingPresenter(view, container)
-    mock_thread_manager.submit.reset_mock()
-    return p
-
-
 def test_the_button_submits_the_worker(presenter, mock_thread_manager):
     presenter._view_model.emergencyStopRequested.emit()
 
@@ -158,18 +84,16 @@ def test_the_button_submits_the_worker(presenter, mock_thread_manager):
     assert submitted_callable == presenter._run_emergency_stop
 
 
-def test_the_worker_dispatches_the_command(presenter, mock_dispatcher):
-    mock_dispatcher.dispatch.return_value = _result()
+def test_the_worker_calls_the_session_port_once(presenter, trading_session):
+    trading_session.emergency_stop_answers(_result())
 
     presenter._run_emergency_stop(action_id=1)
 
-    mock_dispatcher.dispatch.assert_called_once_with(
-        EmergencyStopCommand, EmergencyStopCommand()
-    )
+    assert trading_session.emergency_stops == 1
 
 
-def test_full_success_turns_trading_off_and_reports_success(presenter, mock_dispatcher):
-    mock_dispatcher.dispatch.return_value = _result()
+def test_full_success_turns_trading_off_and_reports_success(presenter, trading_session):
+    trading_session.emergency_stop_answers(_result())
     presenter._view_model.emergencyStopRequested.emit()
     action_id = presenter._emergency_stop_tracker.active_action.action_id
 
@@ -182,7 +106,7 @@ def test_full_success_turns_trading_off_and_reports_success(presenter, mock_disp
 
 
 def test_a_confirmed_final_state_replaces_the_stale_positions_and_open_orders(
-    presenter, mock_dispatcher
+    presenter, trading_session
 ):
     """`BUG-093` — before this fix, `_positions`/`_open_orders` were never
     touched by `_on_emergency_stop_completed`: the user-data stream this
@@ -192,8 +116,8 @@ def test_a_confirmed_final_state_replaces_the_stale_positions_and_open_orders(
     (the fully-successful case: everything closed)."""
     # stale, pre-stop state
     presenter._order_book.on_position_changed(_position("ETHUSDT"))
-    mock_dispatcher.dispatch.return_value = _result(
-        final_positions=(), final_open_orders=(), final_state_confirmed=True
+    trading_session.emergency_stop_answers(
+        _result(final_positions=(), final_open_orders=(), final_state_confirmed=True)
     )
     presenter._view_model.emergencyStopRequested.emit()
     action_id = presenter._emergency_stop_tracker.active_action.action_id
@@ -205,7 +129,7 @@ def test_a_confirmed_final_state_replaces_the_stale_positions_and_open_orders(
 
 
 def test_an_unconfirmed_final_state_leaves_stale_tables_but_warns(
-    presenter, mock_dispatcher
+    presenter, trading_session
 ):
     """`BUG-093` — when even the confirmation read fails, showing an
     empty table would claim "confirmed flat" for an account this app
@@ -215,7 +139,7 @@ def test_an_unconfirmed_final_state_leaves_stale_tables_but_warns(
     stale_position = _position("ETHUSDT")
     presenter._order_book.on_position_changed(stale_position)
     presenter.view.set_positions.reset_mock()
-    mock_dispatcher.dispatch.return_value = _result(final_state_confirmed=False)
+    trading_session.emergency_stop_answers(_result(final_state_confirmed=False))
     presenter._view_model.emergencyStopRequested.emit()
     action_id = presenter._emergency_stop_tracker.active_action.action_id
 
@@ -230,8 +154,8 @@ def test_an_unconfirmed_final_state_leaves_stale_tables_but_warns(
     )
 
 
-def test_partial_failure_is_reported_as_failure_not_success(presenter, mock_dispatcher):
-    mock_dispatcher.dispatch.return_value = _result(positions_ok=False)
+def test_partial_failure_is_reported_as_failure_not_success(presenter, trading_session):
+    trading_session.emergency_stop_answers(_result(positions_ok=False))
     presenter._view_model.emergencyStopRequested.emit()
     action_id = presenter._emergency_stop_tracker.active_action.action_id
 
@@ -245,10 +169,10 @@ def test_partial_failure_is_reported_as_failure_not_success(presenter, mock_disp
     assert "PARTIALLY FAILED" in presenter._view_model.statusMessage
 
 
-def test_an_exception_from_the_dispatcher_is_reported_not_raised(
-    presenter, mock_dispatcher
+def test_an_exception_from_the_session_port_is_reported_not_raised(
+    presenter, trading_session
 ):
-    mock_dispatcher.dispatch.side_effect = RuntimeError("boom")
+    trading_session.emergency_stop_raises(RuntimeError("boom"))
     presenter._view_model.emergencyStopRequested.emit()
     action_id = presenter._emergency_stop_tracker.active_action.action_id
 
@@ -259,7 +183,7 @@ def test_an_exception_from_the_dispatcher_is_reported_not_raised(
 
 
 def test_a_stale_result_from_a_superseded_emergency_stop_action_is_discarded(
-    presenter, mock_dispatcher
+    presenter, trading_session
 ):
     """`BUG-089` narrowed what can supersede an in-flight Emergency Stop
     action to another action on its *own* tracker — a toggle click can no
@@ -274,14 +198,14 @@ def test_a_stale_result_from_a_superseded_emergency_stop_action_is_discarded(
         "emergency_stop", None, None
     )  # a second action superseding the first, bypassing the UI debounce
 
-    mock_dispatcher.dispatch.return_value = _result()
+    trading_session.emergency_stop_answers(_result())
     presenter._run_emergency_stop(stale_action_id)  # arrives late
 
     assert presenter._view_model.statusMessage != "Emergency stop completed."
 
 
 def test_a_toggle_click_while_emergency_stop_is_pending_is_refused_not_superseding_it(
-    presenter, mock_dispatcher, mock_thread_manager
+    presenter, trading_session, mock_thread_manager
 ):
     """`BUG-089` — before this fix, `_toggle_tracker` was shared with
     Emergency Stop, so this exact click sequence fenced Emergency Stop's
@@ -297,7 +221,7 @@ def test_a_toggle_click_while_emergency_stop_is_pending_is_refused_not_supersedi
     mock_thread_manager.submit.assert_not_called()  # no enable/disable worker submitted
     assert presenter._view_model.toggleBusy is True  # button stayed disabled
 
-    mock_dispatcher.dispatch.return_value = _result()
+    trading_session.emergency_stop_answers(_result())
     presenter._run_emergency_stop(action_id)  # the original action, still current
 
     assert presenter._view_model.statusIsError is False
@@ -319,7 +243,7 @@ def test_a_second_emergency_stop_click_while_one_is_pending_is_refused(
     mock_thread_manager.submit.assert_not_called()
 
 
-def test_a_synchronous_failure_is_reported_not_swallowed(presenter, mock_dispatcher):
+def test_a_synchronous_failure_is_reported_not_swallowed(presenter, trading_session):
     """The task's own §2.2: this slot must NOT be `@safe_ui_action` — an
     exception raised before the worker is even submitted (here, forced by
     making `begin_action` itself blow up) has to reach `statusMessage` via

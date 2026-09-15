@@ -19,6 +19,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
+    EnableTradingBlockReason,
     EnableTradingResult,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.coordinators.chart_coordinator import (
@@ -84,15 +85,17 @@ def test_a_configured_opt_in_goes_live_on_open(
 
 
 def test_enabling_trading_is_the_action_that_goes_live(
-    presenter, mock_dispatcher, mock_thread_manager
+    presenter, trading_session, mock_thread_manager
 ):
     """The correct trigger for a network connection: the user explicitly
     turning trading on, not opening the screen."""
-    mock_dispatcher.dispatch.return_value = EnableTradingResult(
-        enabled=True,
-        block_reason=None,
-        reconciled_positions=(),
-        reconciled_open_orders=(),
+    trading_session.enable_answers(
+        EnableTradingResult(
+            enabled=True,
+            block_reason=None,
+            reconciled_positions=(),
+            reconciled_open_orders=(),
+        )
     )
     presenter._view_model.toggleRequested.emit()
     action_id = presenter._toggle_tracker.active_action.action_id
@@ -104,9 +107,19 @@ def test_enabling_trading_is_the_action_that_goes_live(
 
 
 def test_a_failed_enable_does_not_go_live(
-    presenter, mock_dispatcher, mock_thread_manager
+    presenter, trading_session, mock_thread_manager
 ):
-    mock_dispatcher.dispatch.return_value = None
+    """A refusal, which is what a failed enable actually looks like now:
+    `ITradingSession.enable()` answers `enabled=False` with a named reason
+    rather than handing back `None` the way the untyped dispatch could."""
+    trading_session.enable_answers(
+        EnableTradingResult(
+            enabled=False,
+            block_reason=EnableTradingBlockReason.CONNECTION_NOT_READY,
+            reconciled_positions=(),
+            reconciled_open_orders=(),
+        )
+    )
     presenter._view_model.toggleRequested.emit()
     action_id = presenter._toggle_tracker.active_action.action_id
 
@@ -117,7 +130,7 @@ def test_a_failed_enable_does_not_go_live(
 
 
 def test_going_live_does_not_stop_a_stream_this_screen_never_started(
-    presenter, mock_dispatcher, market_stream
+    presenter, trading_session, market_stream
 ):
     """The second half of the fix, easy to get wrong: promoting to live for
     the first time must not call `ChartCoordinator.stop()` first. This screen
@@ -132,11 +145,13 @@ def test_going_live_does_not_stop_a_stream_this_screen_never_started(
     this screen's own subscription, and the release still must not happen
     when there is nothing to release.
     """
-    mock_dispatcher.dispatch.return_value = EnableTradingResult(
-        enabled=True,
-        block_reason=None,
-        reconciled_positions=(),
-        reconciled_open_orders=(),
+    trading_session.enable_answers(
+        EnableTradingResult(
+            enabled=True,
+            block_reason=None,
+            reconciled_positions=(),
+            reconciled_open_orders=(),
+        )
     )
     presenter._view_model.toggleRequested.emit()
     action_id = presenter._toggle_tracker.active_action.action_id
@@ -161,20 +176,21 @@ def test_a_symbol_change_before_going_live_does_not_stop_the_stream(
 
 
 def test_a_symbol_change_after_going_live_does_stop_and_restart_live(
-    presenter, mock_dispatcher, mock_thread_manager, market_stream
+    presenter, trading_session, mock_thread_manager, market_stream
 ):
     """Once this screen owns the stream, changing symbol must still behave
     like it always did: stop, then restart live for the new symbol."""
-    mock_dispatcher.dispatch.return_value = EnableTradingResult(
-        enabled=True,
-        block_reason=None,
-        reconciled_positions=(),
-        reconciled_open_orders=(),
+    trading_session.enable_answers(
+        EnableTradingResult(
+            enabled=True,
+            block_reason=None,
+            reconciled_positions=(),
+            reconciled_open_orders=(),
+        )
     )
     presenter._view_model.toggleRequested.emit()
     action_id = presenter._toggle_tracker.active_action.action_id
     presenter._run_enable(action_id)
-    mock_dispatcher.dispatch.reset_mock()
     mock_thread_manager.submit.reset_mock()
 
     presenter._on_symbol_change_requested("ETHUSDT")

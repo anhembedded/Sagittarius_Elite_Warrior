@@ -29,8 +29,8 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy impo
 from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
     LiveStrategyConfig,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
+    FakeTradingSession,
 )
 
 _KEY = "ema_crossover"
@@ -71,7 +71,7 @@ def _config(**overrides) -> LiveStrategyConfig:
 
 
 def test_arming_a_valid_config_arms_the_session() -> None:
-    session, state = _session(), TradingSessionState()
+    session, state = _session(), FakeTradingSession()
     handler = ArmStrategyCommandHandler(session, state)
 
     result = handler.execute(ArmStrategyCommand(_config()))
@@ -85,7 +85,7 @@ def test_declared_parameters_reach_the_strategy() -> None:
     """`build_engine` has always accepted `params`, and `boot()` never
     passed them — arming has to, or the picker's "Thông số Chiến lược"
     form would be decorative."""
-    session, state = _session(), TradingSessionState()
+    session, state = _session(), FakeTradingSession()
     handler = ArmStrategyCommandHandler(session, state)
 
     result = handler.execute(
@@ -101,11 +101,11 @@ def test_refuses_to_swap_the_strategy_while_trading_is_on() -> None:
     """`EPIC-022` §4.1 — the incoming strategy knows nothing about a
     position already on the exchange, and the outgoing strategy's exit
     signal would never arrive."""
-    session, state = _session(), TradingSessionState()
+    session, state = _session(), FakeTradingSession()
     handler = ArmStrategyCommandHandler(session, state)
     handler.execute(ArmStrategyCommand(_config()))
     first_generation = session.generation
-    state.enable(set(), expected_generation=state.generation)
+    state.set_enabled(enabled=True)
 
     result = handler.execute(
         ArmStrategyCommand(_config(strategy_params={"fast_period": 9}))
@@ -117,7 +117,7 @@ def test_refuses_to_swap_the_strategy_while_trading_is_on() -> None:
 
 
 def test_an_unknown_strategy_key_is_named_not_crashed_on() -> None:
-    session, state = _session(), TradingSessionState()
+    session, state = _session(), FakeTradingSession()
     handler = ArmStrategyCommandHandler(session, state)
 
     result = handler.execute(
@@ -133,7 +133,7 @@ def test_an_undeclared_parameter_is_reported_with_the_strategys_own_words() -> N
     """The strategy is the validator; the handler only relays. Asserting
     the parameter name appears proves the message was not replaced by a
     generic one the user cannot act on."""
-    session, state = _session(), TradingSessionState()
+    session, state = _session(), FakeTradingSession()
     handler = ArmStrategyCommandHandler(session, state)
 
     result = handler.execute(
@@ -150,7 +150,7 @@ def test_an_undeclared_parameter_is_reported_with_the_strategys_own_words() -> N
 def test_a_missing_symbol_or_interval_is_refused_never_guessed(missing: str) -> None:
     """`BUG-085`: a wrong interval is a wrong strategy. Defaulting to
     "any interval" would silently feed one engine two timeframes."""
-    session, state = _session(), TradingSessionState()
+    session, state = _session(), FakeTradingSession()
     handler = ArmStrategyCommandHandler(session, state)
 
     result = handler.execute(ArmStrategyCommand(_config(**{missing: ""})))
@@ -161,7 +161,7 @@ def test_a_missing_symbol_or_interval_is_refused_never_guessed(missing: str) -> 
 
 
 def test_disarming_clears_the_session() -> None:
-    session, state = _session(), TradingSessionState()
+    session, state = _session(), FakeTradingSession()
     ArmStrategyCommandHandler(session, state).execute(ArmStrategyCommand(_config()))
 
     result = DisarmStrategyCommandHandler(session, state).execute(
@@ -178,9 +178,9 @@ def test_refuses_to_disarm_while_trading_is_on() -> None:
     refuses this direction even though `EnableTradingCommand` itself no
     longer requires an armed strategy to reach "trading on" at all
     (`BUG-112`)."""
-    session, state = _session(), TradingSessionState()
+    session, state = _session(), FakeTradingSession()
     ArmStrategyCommandHandler(session, state).execute(ArmStrategyCommand(_config()))
-    state.enable(set(), expected_generation=state.generation)
+    state.set_enabled(enabled=True)
 
     result = DisarmStrategyCommandHandler(session, state).execute(
         DisarmStrategyCommand()

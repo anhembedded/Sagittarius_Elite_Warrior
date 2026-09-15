@@ -12,38 +12,21 @@ for real.
 never does `hasattr`/`getattr` capability probing on it (unlike the FSM/UI
 matrix duck-typing `test_dashboard_presenter.py` warns about), and the
 real View's own construction is already exercised by
-`test_trading_view_contract.py`. `TradingSessionState` is the real class
-(plain state, no I/O) — only the boundaries (`IConfig`/`IDispatcher`/
-`IThreadManager`) are mocked.
+`test_trading_view_contract.py`. The session is `FakeTradingSession`, the
+verified fake for `ITradingSession` (`EPIC-025` PR 1.3c-1) — so a test says
+what the session looks like and reads back what the screen asked it, instead
+of asserting that a command object was dispatched. Only the boundaries
+(`IConfig`/`IThreadManager`) are mocked, and every fixture comes from this
+package's `conftest.py` rather than a local copy of it.
 """
 
 from __future__ import annotations
 
 import os
 from decimal import Decimal
-from unittest.mock import MagicMock
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-import pytest
-from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
-    LiveStrategySession,
-)
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
-    StrategyRegistry,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.disable_trading import (
-    DisableTradingCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
-    EnableTradingCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
@@ -84,10 +67,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.PositionsTable.positions_
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_presenter import (
     TradingPresenter,
 )
-from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
-from sagittarius_engine.interfaces.i_config import IConfig
-from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
-from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 
 def _position(symbol="BTCUSDT") -> LivePosition:
@@ -119,68 +98,14 @@ def _order(symbol="BTCUSDT", status=OrderStatus.NEW, order_time=None) -> Order:
     )
 
 
-@pytest.fixture
-def mock_config():
-    config = MagicMock()
-    config.get_all.return_value = {
-        "DEFAULT_SYMBOLS": ["BTCUSDT"],
-        "DEFAULT_INTERVAL": "1m",
-    }
-    config.get.side_effect = lambda key, default=None, cast=None: (
-        True if key == DEV_MODE_CONFIG_KEY else default
-    )
-    return config
-
-
-@pytest.fixture
-def container(
-    mock_config,
-    mock_dispatcher,
-    mock_thread_manager,
-    session_state,
-    equity_recorder,
-    strategy_session,
-    strategy_registry,
-    make_container,
-):
-    # `BOT-125` review — one shared fake, so adding a Presenter
-    # dependency stops costing one edit per test module.
-    return make_container(
-        {
-            IConfig: mock_config,
-            IDispatcher: mock_dispatcher,
-            IThreadManager: mock_thread_manager,
-            TradingSessionState: session_state,
-            EquityCurveRecorder: equity_recorder,
-            LiveStrategySession: strategy_session,
-            StrategyRegistry: strategy_registry,
-        }
-    )
-
-
-@pytest.fixture
-def view():
-    return MagicMock()
-
-
-@pytest.fixture
-def presenter(qapp, view, container, mock_thread_manager):
-    """Construction itself submits `ChartCoordinator.start()`'s background
-    work (loading history for the default symbol) — reset the mock
-    afterward so each test's own `assert_called_once()` on the toggle
-    reflects only what that test triggered, same reasoning
-    `test_dashboard_presenter.py`'s own `presenter` fixture documents."""
-    p = TradingPresenter(view, container)
-    mock_thread_manager.submit.reset_mock()
-    return p
-
-
 # ---------------------------------------------------------------------------
 # Construction
 # ---------------------------------------------------------------------------
 
 
-def test_construction_reflects_the_session_state(qapp, view, container, session_state):
+def test_construction_reflects_the_session_state(
+    qapp, view, container, trading_session
+):
     presenter = TradingPresenter(view, container)
 
     assert presenter._view_model.enabled is False
@@ -188,9 +113,9 @@ def test_construction_reflects_the_session_state(qapp, view, container, session_
 
 
 def test_construction_when_already_enabled_reflects_that_too(
-    qapp, view, container, session_state
+    qapp, view, container, trading_session
 ):
-    session_state.enable({"BTCUSDT"})
+    trading_session.set_enabled(enabled=True)
 
     presenter = TradingPresenter(view, container)
 
@@ -212,9 +137,9 @@ def test_toggle_when_disabled_submits_enable(presenter, mock_thread_manager):
 
 
 def test_toggle_when_enabled_submits_disable(
-    qapp, view, container, session_state, mock_thread_manager
+    qapp, view, container, trading_session, mock_thread_manager
 ):
-    session_state.enable(set())
+    trading_session.set_enabled(enabled=True)
     presenter = TradingPresenter(view, container)
     mock_thread_manager.submit.reset_mock()
 
@@ -231,23 +156,23 @@ def test_toggle_when_enabled_submits_disable(
 
 
 def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
-    presenter, mock_dispatcher, view
+    presenter, trading_session, view
 ):
     order = _order()
-    mock_dispatcher.dispatch.return_value = EnableTradingResult(
-        enabled=True,
-        block_reason=None,
-        reconciled_positions=(),
-        reconciled_open_orders=(order,),
+    trading_session.enable_answers(
+        EnableTradingResult(
+            enabled=True,
+            block_reason=None,
+            reconciled_positions=(),
+            reconciled_open_orders=(order,),
+        )
     )
     presenter._view_model.toggleRequested.emit()
     action_id = presenter._toggle_tracker.active_action.action_id
 
     presenter._run_enable(action_id)
 
-    mock_dispatcher.dispatch.assert_called_once_with(
-        EnableTradingCommand, EnableTradingCommand()
-    )
+    assert trading_session.enables == 1
     assert presenter._view_model.enabled is True
     assert presenter._view_model.toggleBusy is False
     assert presenter._view_model.statusIsError is False
@@ -256,14 +181,16 @@ def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
 
 
 def test_refused_enable_shows_the_block_reason_and_seeds_positions(
-    presenter, mock_dispatcher, view
+    presenter, trading_session, view
 ):
     position = _position()
-    mock_dispatcher.dispatch.return_value = EnableTradingResult(
-        enabled=False,
-        block_reason=EnableTradingBlockReason.UNEXPECTED_POSITIONS,
-        reconciled_positions=(position,),
-        reconciled_open_orders=(),
+    trading_session.enable_answers(
+        EnableTradingResult(
+            enabled=False,
+            block_reason=EnableTradingBlockReason.UNEXPECTED_POSITIONS,
+            reconciled_positions=(position,),
+            reconciled_open_orders=(),
+        )
     )
     presenter._view_model.toggleRequested.emit()
     action_id = presenter._toggle_tracker.active_action.action_id
@@ -276,10 +203,10 @@ def test_refused_enable_shows_the_block_reason_and_seeds_positions(
     view.set_positions.assert_called_once_with([build_position_row(position)])
 
 
-def test_an_exception_from_the_dispatcher_is_reported_not_raised(
-    presenter, mock_dispatcher
+def test_an_exception_from_the_session_port_is_reported_not_raised(
+    presenter, trading_session
 ):
-    mock_dispatcher.dispatch.side_effect = RuntimeError("boom")
+    trading_session.enable_raises(RuntimeError("boom"))
     presenter._view_model.toggleRequested.emit()
     action_id = presenter._toggle_tracker.active_action.action_id
 
@@ -290,18 +217,20 @@ def test_an_exception_from_the_dispatcher_is_reported_not_raised(
 
 
 def test_a_stale_enable_result_from_a_superseded_click_is_discarded(
-    presenter, mock_dispatcher, view
+    presenter, trading_session, view
 ):
     presenter._view_model.toggleRequested.emit()
     stale_action_id = presenter._toggle_tracker.active_action.action_id
 
     presenter._view_model.toggleRequested.emit()  # supersedes the first
 
-    mock_dispatcher.dispatch.return_value = EnableTradingResult(
-        enabled=True,
-        block_reason=None,
-        reconciled_positions=(),
-        reconciled_open_orders=(),
+    trading_session.enable_answers(
+        EnableTradingResult(
+            enabled=True,
+            block_reason=None,
+            reconciled_positions=(),
+            reconciled_open_orders=(),
+        )
     )
     presenter._run_enable(stale_action_id)  # arrives late
 
@@ -314,18 +243,16 @@ def test_a_stale_enable_result_from_a_superseded_click_is_discarded(
 
 
 def test_successful_disable_turns_the_toggle_off(
-    qapp, view, container, session_state, mock_dispatcher
+    qapp, view, container, trading_session
 ):
-    session_state.enable(set())
+    trading_session.set_enabled(enabled=True)
     presenter = TradingPresenter(view, container)
     presenter._view_model.toggleRequested.emit()
     action_id = presenter._toggle_tracker.active_action.action_id
 
     presenter._run_disable(action_id)
 
-    mock_dispatcher.dispatch.assert_called_once_with(
-        DisableTradingCommand, DisableTradingCommand()
-    )
+    assert trading_session.disables == 1
     assert presenter._view_model.enabled is False
     assert presenter._view_model.toggleBusy is False
 

@@ -64,6 +64,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_p
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    ITradingSession,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitPolicy,
 )
@@ -286,13 +289,13 @@ def app_engine(
         if command_type is ArmStrategyCommandHandler:
             handler = ArmStrategyCommandHandler(
                 engine.context.container.resolve(LiveStrategySession),
-                engine.context.container.resolve(TradingSessionState),
+                engine.context.container.resolve(ITradingSession),
             )
             return handler.execute(command_obj)
         if command_type is DisarmStrategyCommandHandler:
             handler = DisarmStrategyCommandHandler(
                 engine.context.container.resolve(LiveStrategySession),
-                engine.context.container.resolve(TradingSessionState),
+                engine.context.container.resolve(ITradingSession),
             )
             return handler.execute(command_obj)
         if command_type is ExecuteOrderCommand:

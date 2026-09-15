@@ -28,14 +28,14 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
     EquitySample,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    ITradingSession,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
     equity_sample_to_candle,
@@ -82,7 +82,7 @@ def container(
     mock_config,
     mock_dispatcher,
     mock_thread_manager,
-    session_state,
+    trading_session,
     equity_recorder,
     mock_event_bus,
     strategy_session,
@@ -96,7 +96,7 @@ def container(
             IConfig: mock_config,
             IDispatcher: mock_dispatcher,
             IThreadManager: mock_thread_manager,
-            TradingSessionState: session_state,
+            ITradingSession: trading_session,
             EquityCurveRecorder: equity_recorder,
             IEventBus: mock_event_bus,
             LiveStrategySession: strategy_session,

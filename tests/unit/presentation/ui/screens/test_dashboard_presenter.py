@@ -147,17 +147,18 @@ def strategy_session(strategy_registry):
 
 
 @pytest.fixture
-def session_state():
-    """`EPIC-023D` — a real `TradingSessionState`, same reasoning
-    `test_trading_presenter_toggle.py`'s own fixture documents: plain
-    mutable state with no I/O, and `_refresh_session_stats()` calls
-    `len(session_state.known_open_symbols)`, which a bare `MagicMock`
-    cannot satisfy."""
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-        TradingSessionState,
+def trading_session():
+    """`EPIC-025` PR 1.3c-1 — `ITradingSession`'s verified fake, the same one
+    `tests/unit/presentation/ui/screens/trading/conftest.py` hands its own
+    Presenter. Dev Board and Trading share this session deliberately
+    (`EPIC-023D`: a click on either is the same truth), so they share the fake
+    that stands in for it, and a test reads back what the screen asked rather
+    than which command object went through the dispatcher."""
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
+        FakeTradingSession,
     )
 
-    return TradingSessionState()
+    return FakeTradingSession()
 
 
 @pytest.fixture
@@ -194,7 +195,7 @@ def mock_container(
     equity_recorder,
     strategy_registry,
     strategy_session,
-    session_state,
+    trading_session,
     fake_market_data_sync,
     fake_historical_klines,
     fake_market_stream,
@@ -217,8 +218,8 @@ def mock_container(
     from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
         EquityCurveRecorder,
     )
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-        TradingSessionState,
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+        ITradingSession,
     )
     from sagittarius_engine.interfaces.i_config import IConfig
     from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
@@ -245,8 +246,8 @@ def mock_container(
             return script_registry
         if interface == EquityCurveRecorder:
             return equity_recorder
-        if interface == TradingSessionState:
-            return session_state
+        if interface == ITradingSession:
+            return trading_session
         if interface == IHistoricalKlines:
             return fake_historical_klines
         if interface == IMarketStream:
@@ -340,8 +341,8 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
         EquityCurveRecorder,
     )
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-        TradingSessionState,
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+        ITradingSession,
     )
     from sagittarius_engine.interfaces.i_config import IConfig
     from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
@@ -368,8 +369,12 @@ def test_boot_wires_the_container_registered_store_into_the_view(
             return shared_store
         if interface == EquityCurveRecorder:
             return EquityCurveRecorder()
-        if interface == TradingSessionState:
-            return TradingSessionState()
+        if interface == ITradingSession:
+            from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
+                FakeTradingSession,
+            )
+
+            return FakeTradingSession()
         if interface == IHistoricalKlines:
             return fake_historical_klines
         if interface == IMarketStream:
@@ -2171,12 +2176,12 @@ def test_construction_reflects_the_session_state(presenter):
 
 
 def test_construction_when_already_enabled_reflects_that_too(
-    view, mock_container, session_state, mock_thread_mgr
+    view, mock_container, trading_session, mock_thread_mgr
 ):
     """If Trading enabled it first, opening Dev Board must show "đang
     BẬT", never a default "TẮT" that contradicts the account's real
     state — the account-wide sharing `EPIC-023`'s README §2 documents."""
-    session_state.enable({"BTCUSDT"})
+    trading_session.set_enabled(enabled=True)
 
     presenter = DashboardPresenter(view, mock_container)
 
@@ -2193,9 +2198,9 @@ def test_toggle_when_disabled_submits_enable(presenter, mock_thread_mgr):
 
 
 def test_toggle_when_enabled_submits_disable(
-    view, mock_container, session_state, mock_thread_mgr
+    view, mock_container, trading_session, mock_thread_mgr
 ):
-    session_state.enable(set())
+    trading_session.set_enabled(enabled=True)
     presenter = DashboardPresenter(view, mock_container)
     mock_thread_mgr.submit.reset_mock()
 
@@ -2222,11 +2227,8 @@ def test_toggle_is_blocked_while_emergency_stop_is_pending(presenter, mock_threa
 
 
 def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
-    presenter, mock_dispatcher, view, monkeypatch
+    presenter, trading_session, view, monkeypatch
 ):
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
-        EnableTradingCommand,
-    )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
         EnableTradingResult,
     )
@@ -2235,11 +2237,13 @@ def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
     )
 
     order = _fill_event("BTCUSDT").order
-    mock_dispatcher.dispatch.return_value = EnableTradingResult(
-        enabled=True,
-        block_reason=None,
-        reconciled_positions=(),
-        reconciled_open_orders=(order,),
+    trading_session.enable_answers(
+        EnableTradingResult(
+            enabled=True,
+            block_reason=None,
+            reconciled_positions=(),
+            reconciled_open_orders=(order,),
+        )
     )
     open_orders_spy = MagicMock()
     positions_spy = MagicMock()
@@ -2250,9 +2254,7 @@ def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
 
     presenter._run_enable(action_id)
 
-    mock_dispatcher.dispatch.assert_called_once_with(
-        EnableTradingCommand, EnableTradingCommand()
-    )
+    assert trading_session.enables == 1
     assert presenter._view_model.enabled is True
     assert presenter._view_model.toggleBusy is False
     open_orders_spy.assert_called_once_with([build_open_order_row(order)])
@@ -2260,7 +2262,7 @@ def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
 
 
 def test_refused_enable_shows_the_block_reason_and_seeds_positions(
-    presenter, mock_dispatcher, view, monkeypatch
+    presenter, trading_session, view, monkeypatch
 ):
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
         EnableTradingBlockReason,
@@ -2271,11 +2273,13 @@ def test_refused_enable_shows_the_block_reason_and_seeds_positions(
     )
 
     position = _position()
-    mock_dispatcher.dispatch.return_value = EnableTradingResult(
-        enabled=False,
-        block_reason=EnableTradingBlockReason.UNEXPECTED_POSITIONS,
-        reconciled_positions=(position,),
-        reconciled_open_orders=(),
+    trading_session.enable_answers(
+        EnableTradingResult(
+            enabled=False,
+            block_reason=EnableTradingBlockReason.UNEXPECTED_POSITIONS,
+            reconciled_positions=(position,),
+            reconciled_open_orders=(),
+        )
     )
     positions_spy = MagicMock()
     monkeypatch.setattr(view, "set_positions", positions_spy)
@@ -2290,10 +2294,10 @@ def test_refused_enable_shows_the_block_reason_and_seeds_positions(
     positions_spy.assert_called_once_with([build_position_row(position)])
 
 
-def test_an_enable_exception_from_the_dispatcher_is_reported_not_raised(
-    presenter, mock_dispatcher
+def test_an_enable_exception_from_the_session_port_is_reported_not_raised(
+    presenter, trading_session
 ):
-    mock_dispatcher.dispatch.side_effect = RuntimeError("boom")
+    trading_session.enable_raises(RuntimeError("boom"))
     presenter._view_model.toggleRequested.emit()
     action_id = presenter._toggle_tracker.active_action.action_id
 
@@ -2303,23 +2307,15 @@ def test_an_enable_exception_from_the_dispatcher_is_reported_not_raised(
     assert any("boom" in entry.message for entry in log_entries)
 
 
-def test_successful_disable_turns_the_toggle_off(
-    view, mock_container, session_state, mock_dispatcher
-):
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.session.disable_trading import (
-        DisableTradingCommand,
-    )
-
-    session_state.enable(set())
+def test_successful_disable_turns_the_toggle_off(view, mock_container, trading_session):
+    trading_session.set_enabled(enabled=True)
     presenter = DashboardPresenter(view, mock_container)
     presenter._view_model.toggleRequested.emit()
     action_id = presenter._toggle_tracker.active_action.action_id
 
     presenter._run_disable(action_id)
 
-    mock_dispatcher.dispatch.assert_called_once_with(
-        DisableTradingCommand, DisableTradingCommand()
-    )
+    assert trading_session.disables == 1
     assert presenter._view_model.enabled is False
     assert presenter._view_model.toggleBusy is False
 
@@ -2346,13 +2342,9 @@ def _emergency_stop_result(
 
 
 def test_emergency_stop_success_reconciles_the_tables_and_logs(
-    presenter, mock_dispatcher, view, monkeypatch
+    presenter, trading_session, view, monkeypatch
 ):
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop import (
-        EmergencyStopCommand,
-    )
-
-    mock_dispatcher.dispatch.return_value = _emergency_stop_result(fully_succeeded=True)
+    trading_session.emergency_stop_answers(_emergency_stop_result(fully_succeeded=True))
     open_orders_spy = MagicMock()
     positions_spy = MagicMock()
     monkeypatch.setattr(view, "set_open_orders", open_orders_spy)
@@ -2362,9 +2354,7 @@ def test_emergency_stop_success_reconciles_the_tables_and_logs(
     action_id = presenter._emergency_stop_tracker.active_action.action_id
     presenter._run_emergency_stop(action_id)
 
-    mock_dispatcher.dispatch.assert_called_once_with(
-        EmergencyStopCommand, EmergencyStopCommand()
-    )
+    assert trading_session.emergency_stops == 1
     assert presenter._view_model.enabled is False
     assert presenter._view_model.toggleBusy is False
     positions_spy.assert_called_once_with([])
@@ -2373,9 +2363,9 @@ def test_emergency_stop_success_reconciles_the_tables_and_logs(
     assert any("EMERGENCY STOP" in entry.message for entry in log_entries)
 
 
-def test_emergency_stop_partial_failure_is_reported(presenter, mock_dispatcher):
-    mock_dispatcher.dispatch.return_value = _emergency_stop_result(
-        fully_succeeded=False
+def test_emergency_stop_partial_failure_is_reported(presenter, trading_session):
+    trading_session.emergency_stop_answers(
+        _emergency_stop_result(fully_succeeded=False)
     )
 
     presenter._on_emergency_stop_requested()
@@ -2387,12 +2377,12 @@ def test_emergency_stop_partial_failure_is_reported(presenter, mock_dispatcher):
 
 
 def test_emergency_stop_with_unconfirmed_final_state_does_not_touch_the_tables(
-    presenter, mock_dispatcher, view, monkeypatch
+    presenter, trading_session, view, monkeypatch
 ):
     """`BUG-093`'s precedent, Dev Board's own copy — a failed reconciliation
     read must never be treated as "confirmed flat"."""
-    mock_dispatcher.dispatch.return_value = _emergency_stop_result(
-        fully_succeeded=True, final_state_confirmed=False
+    trading_session.emergency_stop_answers(
+        _emergency_stop_result(fully_succeeded=True, final_state_confirmed=False)
     )
     open_orders_spy = MagicMock()
     positions_spy = MagicMock()
@@ -2409,18 +2399,26 @@ def test_emergency_stop_with_unconfirmed_final_state_does_not_touch_the_tables(
     assert any("[WARNING]" in entry.message for entry in log_entries)
 
 
-def test_order_filled_refreshes_the_session_stats_card(presenter, session_state):
-    session_state.enable(set())
-    session_state.orders_sent_this_session = 0
+def test_order_filled_refreshes_the_session_stats_card(presenter, trading_session):
+    """The numbers are stated, not read back out of the same object the
+    Presenter read: comparing the card to its own source passes even if the
+    card is never refreshed."""
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+        TradingSessionSnapshot,
+    )
+
+    trading_session.answer_with(
+        TradingSessionSnapshot(
+            enabled=True,
+            orders_sent_this_session=3,
+            known_open_symbols=("BTCUSDT", "ETHUSDT"),
+        )
+    )
 
     presenter._on_order_filled(_fill_event("BTCUSDT"))
 
-    assert presenter._view_model.ordersSentThisSession == (
-        session_state.orders_sent_this_session
-    )
-    assert presenter._view_model.openSymbolsCount == len(
-        session_state.known_open_symbols
-    )
+    assert presenter._view_model.ordersSentThisSession == 3
+    assert presenter._view_model.openSymbolsCount == 2
 
 
 # ---------------------------------------------------------------------------

@@ -15,8 +15,8 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.arm_strategy.re
     ArmStrategyResult,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    ITradingSession,
 )
 
 logger = logging.getLogger("App.CommandHandler")
@@ -50,16 +50,16 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
     def __init__(
         self,
         session: LiveStrategySession,
-        session_state: TradingSessionState,
+        trading_session: ITradingSession,
     ) -> None:
         self._session = session
-        self._session_state = session_state
+        self._trading_session = trading_session
 
     def execute(self, command: ArmStrategyCommand) -> ArmStrategyResult:
         config = command.config
         logger.debug("Handling ArmStrategyCommand for '%s'", config.strategy_key)
 
-        if self._session_state.enabled:
+        if self._trading_session.snapshot().enabled:
             return ArmStrategyResult(
                 armed=False, block_reason=ArmStrategyBlockReason.TRADING_IS_ENABLED
             )

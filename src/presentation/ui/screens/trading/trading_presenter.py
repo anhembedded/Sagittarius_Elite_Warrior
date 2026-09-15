@@ -30,18 +30,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_reco
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order import (
     CancelOrderCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.disable_trading import (
-    DisableTradingCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop import (
-    EmergencyStopCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
-    EnableTradingCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
     CancelOrderResult,
 )
@@ -65,6 +53,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    ITradingSession,
 )
 from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
@@ -246,9 +237,7 @@ class TradingPresenter(BasePresenter):
         super().__init__(view, container)
 
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
-        self._session_state: TradingSessionState = container.resolve(
-            TradingSessionState
-        )
+        self._trading_session: ITradingSession = container.resolve(ITradingSession)
         self._equity_recorder: EquityCurveRecorder = container.resolve(
             EquityCurveRecorder
         )
@@ -262,10 +251,15 @@ class TradingPresenter(BasePresenter):
             default_symbol_options(config_values, FALLBACK_SYMBOL_OPTIONS)
         )
         self._view_model.symbol = self._active_symbol
-        self._view_model.set_trading_state(self._session_state.enabled, False)
+        # One snapshot, not three reads: `TradingSessionSnapshot` exists so a
+        # screen cannot observe half of a change the websocket thread is
+        # making (`ITradingSession`'s own docstring — five files used to read
+        # the mutable state directly while `reconcile_position()` rewrote it).
+        session = self._trading_session.snapshot()
+        self._view_model.set_trading_state(session.enabled, False)
         self._view_model.set_session_stats(
-            self._session_state.orders_sent_this_session,
-            len(self._session_state.known_open_symbols),
+            session.orders_sent_this_session,
+            len(session.known_open_symbols),
         )
         view.set_view_model(self._view_model)
 
@@ -470,7 +464,7 @@ class TradingPresenter(BasePresenter):
 
     # ================================================================== #
     # Chart symbol/interval — the context bar's own concern, independent
-    # of the Enable/Disable toggle (EnableTradingCommand is account-wide).
+    # of the Enable/Disable toggle (`ITradingSession.enable()` is account-wide).
     # ================================================================== #
 
     @Slot(str)
@@ -638,7 +632,7 @@ class TradingPresenter(BasePresenter):
             )
             return
         action = self._toggle_tracker.begin_action(_TOGGLE_ACTION, None, None)
-        currently_enabled = self._session_state.enabled
+        currently_enabled = self._trading_session.snapshot().enabled
         self._view_model.set_trading_state(currently_enabled, True)
         if currently_enabled:
             self._thread_manager.submit(self._run_disable, action.action_id)
@@ -647,16 +641,14 @@ class TradingPresenter(BasePresenter):
 
     def _run_enable(self, action_id: int) -> None:
         try:
-            result = self.dispatcher.dispatch(
-                EnableTradingCommand, EnableTradingCommand()
-            )
+            result = self._trading_session.enable()
             self.enableTradingCompleted.emit((action_id, result, None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
             self.enableTradingCompleted.emit((action_id, None, str(exc)))
 
     def _run_disable(self, action_id: int) -> None:
         try:
-            self.dispatcher.dispatch(DisableTradingCommand, DisableTradingCommand())
+            self._trading_session.disable()
             self.disableTradingCompleted.emit((action_id, None))
         except Exception as exc:  # noqa: BLE001 - worker boundary
             self.disableTradingCompleted.emit((action_id, str(exc)))
@@ -672,7 +664,9 @@ class TradingPresenter(BasePresenter):
 
         if error is not None or result is None:
             self._toggle_tracker.finish_action(action_id, ActionOutcome.FAILED)
-            self._view_model.set_trading_state(self._session_state.enabled, False)
+            self._view_model.set_trading_state(
+                self._trading_session.snapshot().enabled, False
+            )
             self._view_model.set_status(f"Error enabling trading: {error}", True)
             return
 
@@ -688,7 +682,7 @@ class TradingPresenter(BasePresenter):
             # relying on it — the same constraint `shutdown()` documents).
             self._go_live_if_not_already()
             # A refusal is the only path that ever returns a non-empty
-            # `reconciled_positions` (see `EnableTradingCommandHandler`) —
+            # `reconciled_positions` (see `ITradingSession.enable()`) —
             # a successful enable therefore always starts with none open.
             self._order_book.replace_all(
                 positions=[], open_orders=result.reconciled_open_orders
@@ -714,7 +708,9 @@ class TradingPresenter(BasePresenter):
 
         if error is not None:
             self._toggle_tracker.finish_action(action_id, ActionOutcome.FAILED)
-            self._view_model.set_trading_state(self._session_state.enabled, False)
+            self._view_model.set_trading_state(
+                self._trading_session.snapshot().enabled, False
+            )
             self._view_model.set_status(f"Error disabling trading: {error}", True)
             return
 
@@ -798,8 +794,8 @@ class TradingPresenter(BasePresenter):
             # deliberately never disabled (it must always be clickable),
             # so a second click while one is still in flight is only
             # caught here: without this, it would submit a second,
-            # independent `EmergencyStopCommand` against the live exchange
-            # racing the first one's own cancel/close calls.
+            # independent `ITradingSession.emergency_stop()` against the
+            # live exchange, racing the first one's own cancel/close calls.
             if self._emergency_stop_tracker.active_outcome is ActionOutcome.PENDING:
                 self._view_model.set_status(
                     "Emergency stop in progress — the request has already been sent, please wait.",
@@ -812,18 +808,20 @@ class TradingPresenter(BasePresenter):
             # Disables the toggle button for the duration (`_apply_trading_
             # state`) — Enable/Disable must not race Emergency Stop's own
             # `disable()`/`place_order()` calls.
-            self._view_model.set_trading_state(self._session_state.enabled, True)
+            self._view_model.set_trading_state(
+                self._trading_session.snapshot().enabled, True
+            )
             self._view_model.set_status("Emergency stop in progress...", False)
             self._thread_manager.submit(self._run_emergency_stop, action.action_id)
         except Exception as exc:  # noqa: BLE001 - deliberately not @safe_ui_action, see this section's own docstring
-            self._view_model.set_trading_state(self._session_state.enabled, False)
+            self._view_model.set_trading_state(
+                self._trading_session.snapshot().enabled, False
+            )
             self._view_model.set_status(f"Error during emergency stop: {exc}", True)
 
     def _run_emergency_stop(self, action_id: int) -> None:
         try:
-            result = self.dispatcher.dispatch(
-                EmergencyStopCommand, EmergencyStopCommand()
-            )
+            result = self._trading_session.emergency_stop()
             self.emergencyStopCompleted.emit((action_id, result, None))
         except Exception as exc:  # noqa: BLE001 - worker boundary
             self.emergencyStopCompleted.emit((action_id, None, str(exc)))
@@ -841,7 +839,9 @@ class TradingPresenter(BasePresenter):
 
         if error is not None or result is None:
             self._emergency_stop_tracker.finish_action(action_id, ActionOutcome.FAILED)
-            self._view_model.set_trading_state(self._session_state.enabled, False)
+            self._view_model.set_trading_state(
+                self._trading_session.snapshot().enabled, False
+            )
             self._view_model.set_status(f"Error during emergency stop: {error}", True)
             self._append_log(f"[ERROR] Emergency stop failed: {error}")
             return
@@ -850,7 +850,9 @@ class TradingPresenter(BasePresenter):
             action_id,
             ActionOutcome.SUCCEEDED if result.fully_succeeded else ActionOutcome.FAILED,
         )
-        self._view_model.set_trading_state(self._session_state.enabled, False)
+        self._view_model.set_trading_state(
+            self._trading_session.snapshot().enabled, False
+        )
         self._log_emergency_stop_result(result)
         self._apply_emergency_stop_final_state(result)
         if result.fully_succeeded:
@@ -917,9 +919,10 @@ class TradingPresenter(BasePresenter):
         self._order_book.on_order_blocked(event.symbol, event.reason)
 
     def _refresh_session_stats(self) -> None:
+        session = self._trading_session.snapshot()
         self._view_model.set_session_stats(
-            self._session_state.orders_sent_this_session,
-            len(self._session_state.known_open_symbols),
+            session.orders_sent_this_session,
+            len(session.known_open_symbols),
         )
 
     # ================================================================== #

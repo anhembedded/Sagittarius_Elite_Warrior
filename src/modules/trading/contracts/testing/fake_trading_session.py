@@ -1,8 +1,8 @@
 """`FakeTradingSession` — `ITradingSession`'s verified fake.
 
 In-memory, deterministic, no Qt and no network. A test says what the session
-looks like and what `enable()` / `emergency_stop()` answer, then reads back
-how many times each was asked.
+looks like, what `enable()` / `emergency_stop()` answer — or which of them
+raises — then reads back how many times each was asked.
 
 @par Why the snapshot is stored rather than derived
 The real service reads three fields out of a lock-guarded service in one
@@ -46,6 +46,8 @@ class FakeTradingSession(ITradingSession):
         self._snapshot = snapshot
         self._enable_result: EnableTradingResult | None = None
         self._stop_result: EmergencyStopResult | None = None
+        self._enable_error: Exception | None = None
+        self._stop_error: Exception | None = None
         #: How many times each call was made. Named separately because a
         #: screen calling `snapshot()` per repaint is a defect a test should
         #: be able to see, and it looks nothing like calling `enable()` twice.
@@ -73,12 +75,32 @@ class FakeTradingSession(ITradingSession):
     def emergency_stop_answers(self, result: EmergencyStopResult) -> None:
         self._stop_result = result
 
+    def enable_raises(self, error: Exception) -> None:
+        """Makes the next `enable()` raise instead of answering.
+
+        A refusal is a *result* (`EnableTradingResult.block_reason`), never an
+        exception — but the two network round trips behind it can still fail,
+        and a caller that lets that reach the UI thread as an uncaught
+        exception is a defect. Both Presenters carry a test for exactly that,
+        and this is how they produce it without substituting the port
+        (HLD §10.3 rule 4).
+        """
+        self._enable_error = error
+
+    def emergency_stop_raises(self, error: Exception) -> None:
+        """The same, for `emergency_stop()` — where it matters more: the button
+        must report a failure, and must never leave the screen believing
+        trading is still on."""
+        self._stop_error = error
+
     def snapshot(self) -> TradingSessionSnapshot:
         self.snapshot_reads += 1
         return self._snapshot
 
     def enable(self) -> EnableTradingResult:
         self.enables += 1
+        if self._enable_error is not None:
+            raise self._enable_error
         if self._enable_result is None:
             # The default is a *successful* enable, and it also updates the
             # snapshot: a fake whose `enable()` left `snapshot().enabled`
@@ -101,6 +123,12 @@ class FakeTradingSession(ITradingSession):
 
     def emergency_stop(self) -> EmergencyStopResult:
         self.emergency_stops += 1
+        if self._stop_error is not None:
+            # Raised *before* the state changes: a stop that failed on the
+            # network did not disable anything, and a fake that turned trading
+            # off anyway would let a caller's "did it recover?" assertion pass
+            # for the wrong reason.
+            raise self._stop_error
         self.set_enabled(enabled=False)
         if self._stop_result is None:
             return EmergencyStopResult(
