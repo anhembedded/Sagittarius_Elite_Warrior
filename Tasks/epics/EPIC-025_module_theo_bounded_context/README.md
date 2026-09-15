@@ -1,6 +1,6 @@
 # EPIC-025 — Split the application into bounded-context modules on the Engine's `IExtension` microkernel
 
-- **Status:** 🟡 **Phase 0 in progress** since 2026-09-13 (spec approved by the user after three
+- **Status:** 🟡 **Phase 1 in progress**; Phase 0 ✅ closed 2026-09-15 (spec approved by the user after three
   rounds and an independent review; ADR D1–D22).
 - **Repositories:** Elite (Phases 0–4) · Engine (Phase 5, tracked as `TASK-043` there, referencing
   `EPIC-001D`).
@@ -58,7 +58,7 @@ most effective bug channel — it must not be lost). No change in business behav
 
 | # | Task | Blocked by | Status |
 | :-: | :--- | :--- | :---: |
-| **A** | [Phase 0 — mechanism plus `modules/market_data` (Walking Skeleton)](incomplete/EPIC-025A_phase0_mechanism_and_market_data.md) | — | 🟢 code complete (7 PRs merged, last #214); awaiting the user's app run |
+| **A** | [Phase 0 — mechanism plus `modules/market_data` (Walking Skeleton)](completed/EPIC-025A_phase0_mechanism_and_market_data.md) | — | ✅ **closed 2026-09-15** — 8 PRs merged (last #214) and the user's own app run confirmed all four checks |
 | **B** | [Phase 1 — `modules/trading`; Trading and Dev Board become surfaces](incomplete/EPIC-025B_phase1_trading_and_surfaces.md) | A | 🟡 in progress — 1.1a (#217, #218) and 1.1b (#219) merged; allowlist 34 → 24 |
 | **C** | [Phase 2 — `modules/strategy` (Core domain)](incomplete/EPIC-025C_phase2_strategy.md) | B | 🔴 |
 | **D** | [Phase 3 — `modules/backtesting`](incomplete/EPIC-025D_phase3_backtesting.md) | C | 🔴 |

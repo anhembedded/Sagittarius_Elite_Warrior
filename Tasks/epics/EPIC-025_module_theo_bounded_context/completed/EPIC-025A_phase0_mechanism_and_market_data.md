@@ -1,11 +1,13 @@
 # EPIC-025A — Phase 0: the module mechanism plus `modules/market_data` (Walking Skeleton)
 
-- **Status:** ✅ Code complete 2026-09-14 — all seven pull requests merged (0.1, 0.2, 0.3, 0.4a,
-  0.4a-2, 0.4a-3, 0.4b-1, 0.5; the last as #214). **One item outstanding and it is the user's:**
-  running the app once — Trading loads history, Dev Board "Start Live" syncs and streams, Data
-  Management syncs a symbol, CLI `sync`/`stream` work. §1.9 audits §2's "done when" clause by
-  clause. Kept here until that run happens, because the epic README §3 ends every phase with
-  *the app running*, not with a green gate.
+- **Status:** ✅ **CLOSED 2026-09-15.** All eight pull requests merged (0.1, 0.2, 0.3, 0.4a,
+  0.4a-2, 0.4a-3, 0.4b-1, 0.5; the last as #214), and the last item — the one no gate could
+  answer — is done: **the user ran the app and confirmed all four checks**, Trading loading
+  history, Dev Board's "Start Live" syncing then streaming, Data Management syncing a symbol, and
+  the CLI `sync`/`stream` commands. §1.9 audits §2's "done when" clause by clause.
+  This file sat in `incomplete/` for a day after the code was complete, on purpose, because the
+  epic README §3 ends every phase with *the app running* and not with a green gate. It is the
+  first phase of this epic to close, and it created this `completed/` directory.
 - **Repository:** Elite
 - **Blocks:** B, C, D, E
 - **Read first:** HLD §1–§3 (cut criteria, context map, the contracts of `market_data`), §4
