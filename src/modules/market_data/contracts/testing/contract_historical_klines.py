@@ -1,9 +1,9 @@
 """The contract suite for `IHistoricalKlines` (HLD §10.3).
 
 Both implementations run it: `FakeHistoricalKlines`, and the real
-`GetHistoricalKlinesQueryHandler` over a repository. The subclass supplies
+`StoredKlinesReader` over a repository. The subclass supplies
 `impl` and a `seed` callable, because the two put rows in by different means —
-the fake has its own store, the handler reads `IMarketDataRepository` — and
+the fake has its own store, the reader reads `IMarketDataRepository` — and
 that asymmetry belongs in the adapter-shaped place rather than in the
 contract.
 

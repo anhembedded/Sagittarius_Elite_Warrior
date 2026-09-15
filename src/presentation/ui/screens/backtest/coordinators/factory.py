@@ -169,7 +169,6 @@ def build_coordinators(presenter) -> Coordinators:
     _chart_feed = ChartFeedCoordinator(
         historical_klines=presenter._historical_klines,
         state=state,
-        dispatcher=presenter.dispatcher,
         script_runner=presenter._chart_script_runner,
         log_dev_trace=presenter._log_dev_trace,
         emit_chart_data_ready=presenter._chartDataReadySignal.emit,

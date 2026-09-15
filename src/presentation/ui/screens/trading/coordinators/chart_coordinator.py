@@ -176,16 +176,16 @@ class ChartCoordinator:
         # because the handler's return type changed with the argument's
         # runtime type (`architecture-rule.md` §2.1). The port asks for one
         # symbol and gets that symbol's rows.
-        newest_first = self._historical_klines.load(
+        newest_first_rows = self._historical_klines.load(
             symbol, interval, limit=_HISTORY_CANDLE_LIMIT, newest_first=True
         )
-        if not newest_first:
+        if not newest_first_rows:
             self._emit_log(f"No historical data for {symbol}.")
             return
         # `newest_first=True` is how the limit keeps the most RECENT candles;
         # the chart draws chronologically, so it is reversed here exactly as
         # before.
-        ordered = list(reversed(newest_first))
+        ordered = list(reversed(newest_first_rows))
         # `EPIC-022E` — the raw `MarketData` rows ride along beside the
         # chart-shaped tuples. `StrategyOverlayCoordinator` replays the
         # strategy over real candles (it reads `close_time`/`close_price`),

@@ -24,10 +24,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_d
     GetDatabaseStatusQuery,
     GetDatabaseStatusQueryHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines import (
-    GetHistoricalKlinesQuery,
-    GetHistoricalKlinesQueryHandler,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols import (
     ListAvailableSymbolsQuery,
     ListAvailableSymbolsQueryHandler,
@@ -41,7 +37,6 @@ from sagittarius_engine.interfaces.i_container import IContainer
 
 def bind_queries(container: IContainer) -> None:
     """Route each market_data query type to the handler that answers it."""
-    container.bind(GetHistoricalKlinesQuery, GetHistoricalKlinesQueryHandler)
     container.bind(ListAvailableSymbolsQuery, ListAvailableSymbolsQueryHandler)
     container.bind(GetDatabaseStatusQuery, GetDatabaseStatusQueryHandler)
     container.bind(GetDatabaseGapsQuery, GetDatabaseGapsQueryHandler)

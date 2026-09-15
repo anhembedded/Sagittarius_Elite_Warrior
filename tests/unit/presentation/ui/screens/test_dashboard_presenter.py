@@ -456,9 +456,22 @@ def test_on_load_history_submits_background_task(presenter, mock_thread_mgr):
     assert submit_args[0] == presenter._run_load_history
 
 
-def test_on_load_history_does_not_dispatch_on_main_thread(presenter, mock_dispatcher):
-    """_on_load_history must NOT call dispatcher directly — that belongs in the background."""
+def test_on_load_history_does_not_touch_the_database_on_the_main_thread(
+    presenter, mock_dispatcher, fake_historical_klines
+):
+    """The click handler submits and returns; the reading happens in the
+    background.
+
+    `EPIC-025` PR 1.1a's cleanup renamed this and added the second
+    assertion. `dispatch.assert_not_called()` alone had stopped meaning
+    anything once the candle read moved onto `IHistoricalKlines`: the
+    handler could read every candle on disk on the main thread — freezing
+    the window, which is the whole point of the test — and still dispatch
+    nothing.
+    """
     presenter._on_load_history()
+
+    assert fake_historical_klines.reads == []
     mock_dispatcher.dispatch.assert_not_called()
 
 
@@ -750,8 +763,41 @@ def test_on_start_stream_submits_the_computed_fetch_limit(presenter, mock_thread
 def test_run_sync_and_start_full_workflow(
     presenter, mock_dispatcher, fake_market_data_sync, fake_historical_klines
 ):
-    """_run_sync_and_start dispatches Sync → HistoricalKlines → StartLiveStream in order."""
+    """Sync → read history → start the stream, **in that order**.
+
+    The order is the guarantee, not the three calls: a stream opened before
+    the history read would draw live ticks onto a chart with no candles
+    behind them, and a history read before the sync finished would draw
+    yesterday's data and then never refresh it.
+
+    `EPIC-025` PR 0.5 moved the sync onto a port and PR 1.1a the history
+    read, so the three steps now happen through three different mechanisms
+    and no single call list can order them. PR 1.1a's cleanup restored the
+    assertion with the journal below — for one revision the test asserted
+    only that all three had happened, while its own name still said "in
+    order".
+    """
     mock_dispatcher.dispatch.return_value = []
+    journal: list[str] = []
+    sync_request = fake_market_data_sync.sync
+    history_read = fake_historical_klines.load_many
+
+    def record_sync(request):
+        journal.append("sync")
+        return sync_request(request)
+
+    def record_read(*args, **kwargs):
+        journal.append("history")
+        return history_read(*args, **kwargs)
+
+    def record_dispatch(command_type, command):
+        if command_type is StartLiveStreamCommand:
+            journal.append("stream")
+        return []
+
+    fake_market_data_sync.sync = record_sync
+    fake_historical_klines.load_many = record_read
+    mock_dispatcher.dispatch.side_effect = record_dispatch
 
     from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
@@ -766,14 +812,11 @@ def test_run_sync_and_start_full_workflow(
         ["BTCUSDT"], TimeFrame("1m"), "1m", 5000, presenter._cancellation_token
     )
 
-    # `EPIC-025` PR 0.5 moved the sync onto a port, and PR 1.1 the history
-    # read — so two of the three steps no longer appear in the dispatch list
-    # and the ordering has to be read across all three mechanisms. Only the
-    # stream is still a command:
+    assert journal == ["sync", "history", "stream"]
+    # And each step was about the symbol asked for, which the journal alone
+    # cannot say.
     assert fake_market_data_sync.was_asked_for("BTCUSDT")
     assert fake_historical_klines.was_read_for("BTCUSDT")
-    call_types = [args[0][0] for args in mock_dispatcher.dispatch.call_args_list]
-    assert StartLiveStreamCommand in call_types
 
 
 def test_on_start_stream_uses_the_view_models_symbol(presenter, mock_thread_mgr):

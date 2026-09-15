@@ -128,7 +128,7 @@ class ChartPreviewCoordinator:
         now = datetime.now(UTC)
         symbol = self._state.symbol
         try:
-            newest_first = self._historical_klines.load(
+            newest_first_rows = self._historical_klines.load(
                 symbol,
                 config.timeframe,
                 limit=self._state.chart_klines_fetch_limit,
@@ -136,7 +136,7 @@ class ChartPreviewCoordinator:
                 end_time=config.end_time or now,
                 newest_first=True,
             )
-            raw_klines = list(reversed(newest_first))
+            raw_klines = list(reversed(newest_first_rows))
             coverage_response = self._dispatcher.dispatch(
                 GetBacktestRangeCoverageQuery,
                 GetBacktestRangeCoverageQuery(

@@ -1,6 +1,5 @@
 import os
 from contextlib import suppress
-from datetime import UTC, datetime, timedelta
 
 import pytest
 from PySide6.QtCore import QEvent
@@ -37,7 +36,6 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order i
     ExecuteOrderCommand,
     ExecuteOrderCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy import (
     TradingLimitPolicy,
 )
@@ -66,12 +64,12 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.mock_klines import (
+    MOCK_KLINE_COUNT,
+    SEEDED_SYMBOLS,
+    build_mock_klines,
+)
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
-
-# Shared with any test module in this directory that needs a real, unmocked
-# thread pool (e.g. async/race-condition reproductions) — kept in one place
-# so `_MOCK_KLINE_COUNT` never silently drifts between files.
-MOCK_KLINE_COUNT = 5
 
 
 class _FakeResponse:
@@ -103,55 +101,6 @@ class _FakeResponse:
         self.data = [] if data is None else data
 
 
-#: Every symbol the seeded history answers for. The Dev Board tests drive the
-#: symbol dropdown, so the fake must hold rows for each option they can pick —
-#: a dispatch stub answered for whatever it was asked; a store only answers for
-#: what was put in it.
-_SEEDED_SYMBOLS = ("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT")
-
-
-def build_mock_klines(symbol: str, interval: str = "1m") -> list[MarketData]:
-    """Newest-first MarketData list, matching what the real repository
-    returns (DashboardPresenter reverses it before rendering).
-
-    **Anchored to now, and `EPIC-025` PR 1.1 is why.** These rows used to sit
-    at a fixed `2024-01-01`, which worked because the dispatch stub answering
-    the klines query ignored `start_time`/`end_time` entirely and handed the
-    list back whatever was asked. `IHistoricalKlines` reads a store, and a
-    store honours the range — so rows two years outside the Data Range
-    picker's own default window are correctly filtered to nothing, and every
-    Dev Board history test went quiet. Ending one minute in the past keeps the
-    series inside any recent-window default while never claiming a candle from
-    the future.
-    """
-    base_time = datetime.now(UTC).replace(second=0, microsecond=0) - timedelta(
-        minutes=MOCK_KLINE_COUNT
-    )
-    klines = []
-    for i in range(MOCK_KLINE_COUNT):
-        open_time = base_time + timedelta(minutes=i)
-        close_time = open_time + timedelta(minutes=1)
-        klines.append(
-            MarketData(
-                symbol=symbol,
-                interval=interval,
-                open_time=open_time,
-                open_price=100.0 + i,
-                high_price=101.0 + i,
-                low_price=99.0 + i,
-                close_price=100.5 + i,
-                volume=10.0,
-                close_time=close_time,
-                quote_asset_volume=1000.0,
-                number_of_trades=5,
-                taker_buy_base_asset_volume=5.0,
-                taker_buy_quote_asset_volume=500.0,
-            )
-        )
-    klines.reverse()
-    return klines
-
-
 @pytest.fixture
 def seeded_history():
     """The history store every UI integration test reads through.
@@ -164,7 +113,7 @@ def seeded_history():
     a store there is nothing left to simulate.
     """
     history = FakeHistoricalKlines()
-    for symbol in _SEEDED_SYMBOLS:
+    for symbol in SEEDED_SYMBOLS:
         # Chronological: `build_mock_klines` hands back newest-first because
         # that is what a dispatch returned and the screen reversed. A store
         # has no order of its own — the port applies `newest_first` on read.

@@ -32,7 +32,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_p
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
-from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.conftest import (
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.mock_klines import (
     build_mock_klines,
 )
 

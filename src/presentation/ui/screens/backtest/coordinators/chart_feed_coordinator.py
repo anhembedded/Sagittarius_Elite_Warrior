@@ -8,6 +8,11 @@ map them, replay reference scripts over them).
 The giveaway is that this half runs *when no backtest is running* — it is
 what happens after one finishes — while the other half only exists while one
 is in flight. Two lifecycles, two files (`architecture-rule.md` §5.5).
+
+**No dispatcher.** It had one until `EPIC-025` PR 1.1a moved the candle read
+onto `IHistoricalKlines`, which left the field assigned and never read. A
+constructor parameter nobody uses still tells every caller and every test
+that this class talks to the bus, so it went with the read.
 """
 
 from __future__ import annotations
@@ -45,7 +50,6 @@ class ChartFeedCoordinator:
     def __init__(
         self,
         state: IBacktestScreenState,
-        dispatcher,
         historical_klines: IHistoricalKlines,
         script_runner,
         log_dev_trace: Callable[..., None],
@@ -54,7 +58,6 @@ class ChartFeedCoordinator:
         emit_strategy_trend_zones: Callable[..., None],
     ) -> None:
         self._state = state
-        self._dispatcher = dispatcher
         self._historical_klines = historical_klines
         self._script_runner = script_runner
         self._log_dev_trace = log_dev_trace
@@ -137,10 +140,10 @@ class ChartFeedCoordinator:
                 timeframe=config.timeframe.value,
                 limit=limit,
             )
-            # `newest_first` + reversed below so a range with more than the
+            # `newest_first=True` + reversed below so a range with more than the
             # fetch limit keeps the MOST RECENT candles — chronological order
             # would silently cap at the OLDEST instead.
-            newest_first = self._historical_klines.load(
+            newest_first_rows = self._historical_klines.load(
                 symbol,
                 config.timeframe,
                 limit=limit,
@@ -148,7 +151,7 @@ class ChartFeedCoordinator:
                 end_time=config.end_time,
                 newest_first=True,
             )
-            return list(reversed(newest_first))
+            return list(reversed(newest_first_rows))
         except Exception as exc:
             logger.exception("Fetching chart klines failed")
             self._log_dev_trace("chart_query_failed", message=str(exc))
