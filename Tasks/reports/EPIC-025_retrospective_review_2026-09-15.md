@@ -113,7 +113,7 @@ bootstrapper runs is legitimate, so either exempt `tests/conftest.py` and the ki
 with the reason, or leave `tests/` out and narrow the guard's docstring, which today claims the
 mechanism has one entry point without enforcing it outside one directory.
 
-### S2 — Should fix · still actionable · `SDD-06b` describes four of five `market_data` ports with signatures that never shipped
+### S2 — Should fix · **FIXED 2026-09-15, same day** · `SDD-06b` described four of five `market_data` ports with signatures that never shipped
 
 `17be6674` split `sdd-06_market_data_contracts.puml` into a high view and a detail view. The
 detail view was accurate against the specification at the time. Phase 0 and Phase 1 then shipped
@@ -136,11 +136,35 @@ This is drift caused by pull requests 0.5, 1.1a and 1.2 — Claude's own — not
 `CLAUDE.md`'s table and `pr-review` K3 both put the fix in the pull request that causes the drift.
 The `IMarketStream` note proves the practice was known and applied once.
 
-**What breaks:** `SDD-06b` is what PR 1.3 (`modules/trading`) is meant to copy the port shape from,
-and four of five rows teach a shape that does not compile.
+**One correction to the finding as first written.** The drift was confined to the **diagram**.
+`Docs/SDD/README.md` already carried the `quote_asset` and handle divergences in prose, and HLD
+§3.4's `market_data` table already gave all five shipped signatures with their reasons. So the fix
+needed no new decisions — only for the picture to catch up with the text it contradicted.
 
-**Smallest fix.** The pattern already exists in the same file: a note under each interface saying
-what shipped and why it differs. Four notes, no diagram surgery.
+**What would have broken:** `SDD-06b` is what PR 1.3 (`modules/trading`) is meant to copy the port
+shape from, and four of five rows taught a shape that does not compile.
+
+**Fixed, in this order.**
+
+1. `sdd-06b_market_data_contracts.puml` **redrawn to the shipped surface** — every signature now the
+   real one, `SyncHandle`/`StreamHandle`/`SyncProgress` gone (none exists in `src/`),
+   `RangeCoverageSnapshot` replaced by `BacktestRangeCoverage` with its fields, the implementer
+   renamed `StoredKlinesReader`, and `MarketDataSyncRequest`, `StreamOutcome` and both events given
+   their actual members. Each of the five ports carries a *DISTANCE FROM THE SPEC* note saying what
+   Phase 0 asked for, what shipped and why — the shape `IMarketStream`'s existing note already had.
+2. Two facts the old diagram did not show at all: the five **verified fakes** in
+   `contracts/testing/`, which HLD §10.3 makes part of the published port rather than test
+   scaffolding; and that `contracts/` holds **six more interfaces** that are internal to the module,
+   so "five ports" is not "five interfaces in the package".
+3. `Docs/SDD/README.md`'s "`market_data` handles" section was spec-first: it stated the handle shape
+   as though current, then corrected itself two paragraphs later. Restructured as *what was asked
+   for, and what shipped*, with all five divergences — the two it was missing were
+   `IHistoricalKlines` (one method split into `load`/`load_many`, because the union it replaced was
+   decided by an argument's runtime type) and `IRangeCoverage`'s answer type.
+4. `Docs/HLD/03_module_contracts.md`: §3.3's port example still showed the pre-`load_many`
+   signature, and §3.4's DTO row named a `SyncProgress` that was never written and a path
+   (`application/ports/`) the file left in PR 0.4a. Both corrected; the row now names
+   `DatabaseStatusSnapshot`, which is what is actually there beside `RangeCoverageSnapshot`.
 
 ### S3 — Should fix · still actionable · `.claude/skills/` has no path guard, and it holds the review checklist
 
@@ -241,6 +265,8 @@ Both look like rule violations and are not, and saying so is cheaper than having
 | Bug board arithmetic, today | 118 completed + 2 incomplete = 120 files, matching the stated 118 / 2 / 120 |
 | Design review's blocker 2.1 (`dev.mode = false` cannot boot) | Closed in the specification: `Docs/SDD/README.md:97` now carries the "dropped with one log line, whatever its place" clause the review proposed |
 | Design review is reachable | Linked from `Docs/SDD/README.md:4` and from the module-boundary decision (`:8`, `:286`) |
+| All 20 diagrams render (PlantUML 1.2025.2) | 20 of 20 `-checkonly` clean, `sdd-06b` included after the rewrite. **Do not use the distro package for this**: Ubuntu's `plantuml` 1.2020.2 reports `hld-01a_layer_map.puml` as a syntax error, because that build cannot reference a **bodyless** nested package (`package "core.contracts" <<Contracts>>` with no `{}`) from a relationship line. Adding `{}` or an alias satisfies it; 1.2025.2 accepts it as written, so the diagram is correct and the 2020 build is the problem |
+| `sdd-06b` stayed as wide as before the rewrite | 3315 × 1784 px against the original's 3340 × 1086 — same width, taller only by the six notes that are the point. A first draft that drew the fakes as five classes with five realization edges came out 4096 px wide, so they are one note instead |
 | The current head is gated | `logs/ci-local-20260915-064433.log` — 4495 passed, 4 skipped; the four `FAILED\|ERROR\|Traceback\|ResourceWarning` hits are a `[ERROR]` parametrize id and the gate's own scan header; its run-log scan reports no `WARNING/ERROR/CRITICAL`. Written 06:47 UTC against head `b6e16275` (06:48 UTC), working tree clean |
 
 Not verified, and it matters:
@@ -252,16 +278,16 @@ Not verified, and it matters:
 - `5494b09a`'s 11 migrated `preview.py` files and 9 changed `QTest` call sites were read as a group
   in the diff rather than one at a time. The mechanism and the guard were checked; each call site
   was not.
-- No `plantuml` binary is installed, so `17be6674`'s 24 diagrams were checked for existence and
-  reference integrity, and the two `sdd-06*` sources were read in full. That they all **render** is
-  unverified.
+- ~~No `plantuml` binary is installed~~ — `install-rule.md` §1 says install it, so it was installed
+  and the question is answered below rather than left open.
 
 ---
 
 ## 5. What the reader has to decide
 
-1. **S1, S2, S3** are three small, independent changes. S2 is the one with a deadline: PR 1.3 is
-   supposed to read `SDD-06b` as its template.
+1. **S2 is done** (`Docs/SDD/diagrams/sdd-06b_*.puml`, `Docs/SDD/README.md`,
+   `Docs/HLD/03_module_contracts.md`) — it was the one with a deadline, since PR 1.3 reads
+   `SDD-06b` as its template. **S1 and S3** remain: two small, independent guard changes.
 2. **Q1** — one sentence in `CLAUDE.md` settles whether a bug-board row is Vietnamese or English.
    Until then the board stays bilingual.
 3. **N2** suggests one guard (three derived counts in an existing test file) that would have caught

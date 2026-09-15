@@ -206,33 +206,65 @@ A port's failure modes are part of its contract, so `contracts/errors/` is allow
 exceptions the port raises across the boundary: `core/contracts/errors.py::ContributionError`,
 `trading/contracts/errors/SymbolAlreadyLeased`, and the `OrderRejectionReason` enum.
 
-### `market_data` handles
+### `market_data`: what this specification asked for, and what shipped
 
-`IMarketDataSync.sync(...) -> SyncHandle` (a frozen DTO carrying the Engine's `CancellationToken`),
-`cancel(handle)`. `IMarketStream.start(symbol, timeframe, owner_id) -> StreamHandle`,
-`stop(handle)`: one owner may hold **several** streams (Dev Board shows *n* charts); `owner_id` is
-the namespace used by `stop_all(owner_id)` on shutdown, which is today's
-`StartLiveStreamCommand.owner` semantics ("replaces the owner's previous subscriptions") made
-explicit.
+All five ports are built (PR 0.5 through PR 1.2), and **every one of them differs from the shape
+specified here** — four in mechanism, one in a name. The list below is the authoritative record of that distance; `SDD-06b` now draws
+the shipped signatures with the same reasons in per-port notes, so the diagram and this section say
+one thing. The shipped surface itself is described where it lives — HLD
+[§3.4](../HLD/03_module_contracts.md)'s `market_data` table, and each port's own docstring.
 
-**`ISymbolCatalog` shipped without `quote_asset`.** SDD-06b declares
-`list_symbols(quote_asset: str | None)`. Measured, nothing filters by quote asset: the picker's
-tabs split the whole list in `ui/components/symbol_picker/quote_asset.py`, and no caller has ever
-asked the module for a subset. What shipped is `list_symbols(force_refresh=False)` — the flag the
-picker's manual refresh does pass (`BUG-066`) — on HLD §2.4's rule, the same one that kept
-`days_back_if_empty` out of `MarketDataSyncRequest` in PR 0.5.
+Four of the five share one cause, worth stating once: **ADR D12 keeps business behaviour out of
+a port pull request.** A port PR renames a call path; it does not change what the system does. Every
+item below is a place where the specified shape could not be built without also changing behaviour,
+so the port published what the code actually does and the seam was left for the phase that needs it
+(`architecture-rule.md` §7.2.1 — cut a seam at the second consumer, not in advance).
 
-**What shipped, and the distance from the above.** Both ports are built (PR 0.5 and PR 1.1b) and
-neither carries a handle, for one shared reason: ADR D12 keeps business behaviour out of a port
-pull request, and a handle is not a naming choice — it is a different mechanism underneath.
-`IMarketDataSync.sync(request) -> None` takes a caller-owned `CancellationCheck` callable instead
-of returning a token to cancel, because the caller already owns cancellation
-(`async-ui-action-rule.md`). `IMarketStream.start(owner_id, symbols, interval) -> StreamOutcome`
-and `stop(owner_id)` publish what `BOT-126` actually built: one subscription **set** per owner,
-replaced on every start, released together — so today's `stop(owner_id)` is both the `stop(handle)`
-and the `stop_all(owner_id)` above, and they separate only when a consumer needs per-stream
-handles. Phase 2's `strategy` (one stream per armed symbol) is that consumer, and
-`architecture-rule.md` §7.2.1 says the seam is cut then, not before.
+**1. `IMarketDataSync` shipped without a handle.** Specified:
+`sync(symbol, timeframe, start, end, owner_id) -> SyncHandle` (a frozen DTO carrying the Engine's
+`CancellationToken`) plus `cancel(handle)`. Shipped: `sync(request: MarketDataSyncRequest) -> None`,
+with cancellation as a caller-owned `CancellationCheck` callable the implementation polls between
+fetches. The caller already owns cancellation (`async-ui-action-rule.md`), and the module must not
+learn the Engine's `CancellationToken` to read one bool. Returning `None` is deliberate rather than
+unfinished: callers read the store or watch the progress events afterwards, and the handler this
+port wraps has always returned `None`. Nothing named `SyncHandle` exists in `src/`.
+
+**2. `IMarketStream` shipped without a handle either.** Specified:
+`start(symbol, timeframe, owner_id) -> StreamHandle`, `stop(handle)`, `stop_all(owner_id)` — one
+owner holding **several** streams (Dev Board shows *n* charts), with `owner_id` as the namespace.
+Shipped: `start(owner_id, symbols, interval) -> StreamOutcome` and `stop(owner_id)`, which publish
+what `BOT-126` actually built — one subscription **set** per owner, replaced on every `start`,
+released together. So today's `stop(owner_id)` is both the specified `stop(handle)` and its
+`stop_all(owner_id)`. A handle is not a naming choice: it needs `ILiveStreamService` to hold
+per-stream subscriptions instead of replacing an owner's set. Phase 2's `strategy` (one stream per
+armed symbol) is the consumer that needs the split, and that is when the seam is cut.
+
+**3. `ISymbolCatalog` shipped without `quote_asset`.** Specified:
+`list_symbols(quote_asset: str | None)`. Measured, nothing filters by quote asset: the picker's tabs
+split the whole list in `ui/components/symbol_picker/quote_asset.py`, and no caller has ever asked
+the module for a subset. What shipped is `list_symbols(force_refresh=False)` — the flag the picker's
+manual refresh does pass (`BUG-066`) — on HLD §2.4's rule, the same one that kept
+`days_back_if_empty` out of `MarketDataSyncRequest` in PR 0.5. Publishing `quote_asset` would
+publish a filter no implementation applies.
+
+**4. `IHistoricalKlines` shipped as two methods, not one.** Specified: one
+`load(symbol, timeframe, start, end)`. The handler it replaced returned
+`list[MarketData] | dict[str, list[MarketData]]`, chosen by whether `symbol` was a `str` or a
+`list` — a union decided by an argument's **runtime type**, which `architecture-rule.md` §2.1
+forbids. Shipped: `load()` for one symbol and `load_many()` for several, keyed by symbol, each with
+one return type. Only the Dev Board loads several at once; `load_many()` is a separate method rather
+than a loop because its implementation may fetch concurrently, which is the only reason a caller
+would ask that way. The rows come back as tuples, not lists: they are a snapshot
+(`domain-truth-rule.md`).
+
+**5. `IRangeCoverage`'s answer is `BacktestRangeCoverage`, not `RangeCoverageSnapshot`.** This is
+the one divergence that is purely a name, and it is deliberate. `RangeCoverageSnapshot` exists — it
+is `IMarketDataRepository`'s own answer, five aggregates the database computed — so reusing that
+name on this port would have pointed a reader at the wrong type. Three screens already read every
+field of `BacktestRangeCoverage` to tell the user *why* a range is unusable (`BUG-072`), and
+renaming a DTO that crosses the edge is behaviour-free churn ADR D12 has no room for. The method
+also takes `now` explicitly, because "is the last candle still open?" is a question about the clock
+and a port must not read it for itself.
 
 ### `dev.mode` and restart (SDD-05)
 

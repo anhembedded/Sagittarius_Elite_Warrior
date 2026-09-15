@@ -1,5 +1,5 @@
 @startuml sdd-06b_market_data_contracts
-title SDD-06b — modules/market_data/contracts, DETAIL (UML **class diagram**)\nEvery signature, DTO, signal and implementing service of the Walking Skeleton's public surface.\nThe five ports and their consumers alone are SDD-06a.
+title SDD-06b — modules/market_data/contracts, DETAIL (UML **class diagram**)\nEvery signature, DTO, event and implementing service of the Walking Skeleton's published surface, **as shipped**.\nThe five ports and their consumers alone are SDD-06a. Notes record where this differs from the Phase 0 specification, and why.
 skinparam classAttributeIconSize 0
 hide empty members
 
@@ -13,51 +13,75 @@ package "core/vo (Published Language)" #LightGray {
   enum MarketDataVenue
 }
 
-package "modules/market_data/contracts" #LightGreen {
+package "modules/market_data/contracts — PUBLISHED ports" #LightGreen {
   interface IHistoricalKlines {
-    + load(symbol, timeframe : TimeFrame, start, end) : tuple[MarketData, ...]
+    + load(symbol, interval : TimeFrame, *, limit, start_time, end_time, newest_first) : tuple[MarketData, ...]
+    + load_many(symbols : Sequence[str], interval, *, limit, start_time, end_time, newest_first) : Mapping[str, tuple[MarketData, ...]]
   }
   interface ISymbolCatalog {
-    + list_symbols(quote_asset : str | None) : tuple[str, ...]
+    + list_symbols(*, force_refresh : bool = False) : tuple[str, ...]
   }
   interface IMarketDataSync {
-    + sync(symbol, timeframe, start, end, owner_id : str) : SyncHandle
-    + cancel(handle : SyncHandle)
+    + sync(request : MarketDataSyncRequest) : None
   }
   interface IMarketStream {
-    + start(symbol, timeframe, owner_id : str) : StreamHandle
-    + stop(handle : StreamHandle)
-    + stop_all(owner_id : str)
+    + start(owner_id : str, symbols : Sequence[str], interval : TimeFrame) : StreamOutcome
+    + stop(owner_id : str) : StreamOutcome
   }
-  class SyncHandle <<frozen, wraps CancellationToken>>
-  class StreamHandle <<frozen>>
   interface IRangeCoverage {
-    + coverage(symbol, timeframe, start, end) : RangeCoverageSnapshot
+    + coverage(symbol, interval : TimeFrame, *, start_time, end_time, now) : BacktestRangeCoverage
   }
-  class RangeCoverageSnapshot <<frozen>>
-  class SyncProgress <<frozen>>
-  class MarketTickEvent <<BaseEvent>>
-  class SingleSyncProgressEvent <<BaseEvent>>
+
+  class MarketDataSyncRequest <<frozen, slots>> {
+    + symbols : tuple[str, ...]
+    + interval : TimeFrame
+    + start_time, end_time : datetime | None
+    + cancellation_requested : CancellationCheck | None
+    + correlation_id : str | None
+  }
+  class StreamOutcome <<frozen, slots>> {
+    + success : bool
+    + message : str
+  }
+  class BacktestRangeCoverage <<frozen>> {
+    + is_fully_covered : bool
+    + first_open_time, last_open_time : datetime | None
+    + expected_candles, actual_candles, duplicate_candles : int
+    + missing_open_times : tuple[datetime, ...]
+    + has_unclosed_candle : bool
+  }
+  class MarketTickEvent <<BaseEvent>> {
+    + market_data : MarketData
+  }
+  class SingleSyncProgressEvent <<BaseEvent>> {
+    + symbol : str
+    + interval : str
+    + current, total : int
+    + correlation_id : str
+  }
+
   IHistoricalKlines -[hidden]down- ISymbolCatalog
   ISymbolCatalog -[hidden]down- IMarketDataSync
   IMarketDataSync -[hidden]down- IMarketStream
   IMarketStream -[hidden]down- IRangeCoverage
   IHistoricalKlines ..> MarketData
-  IRangeCoverage ..> RangeCoverageSnapshot
-  SingleSyncProgressEvent ..> SyncProgress
+  IMarketDataSync ..> MarketDataSyncRequest
+  IMarketStream ..> StreamOutcome
+  IRangeCoverage ..> BacktestRangeCoverage
+  MarketTickEvent ..> MarketData
 }
 
 package "modules/market_data/application (implements)" #White {
-  class HistoricalKlinesService
+  class StoredKlinesReader
   class SymbolCatalogService
   class MarketDataSyncService
   class MarketStreamService
   class RangeCoverageService
-  HistoricalKlinesService -[hidden]down- SymbolCatalogService
+  StoredKlinesReader -[hidden]down- SymbolCatalogService
   SymbolCatalogService -[hidden]down- MarketDataSyncService
   MarketDataSyncService -[hidden]down- MarketStreamService
   MarketStreamService -[hidden]down- RangeCoverageService
-  IHistoricalKlines <|.. HistoricalKlinesService
+  IHistoricalKlines <|.. StoredKlinesReader
   ISymbolCatalog <|.. SymbolCatalogService
   IMarketDataSync <|.. MarketDataSyncService
   IMarketStream <|.. MarketStreamService
@@ -77,18 +101,100 @@ package "consumers (other modules)" #LightYellow {
   ST ..> IHistoricalKlines
   ST ..> MarketTickEvent
 }
-note bottom of IMarketStream
-  owner_id is a NAMESPACE (today's StartLiveStreamCommand.owner:
-  "replaces the owner's previous subscriptions, never another owner's"),
-  not an exclusive lease: two owners may stream the same symbol, and one
-  owner may hold several streams (Dev Board shows n charts).
-  BOT-126/BUG-085 (two screens fighting over one stream) cannot recur.
 
-  SHIPPED IN PR 1.1b WITHOUT THE HANDLE:
-  start(owner_id, symbols, interval) -> StreamOutcome, stop(owner_id).
-  One subscription SET per owner, which is what BOT-126 built; a handle
-  per stream needs ILiveStreamService to stop replacing that set, a
-  behaviour change ADR D12 keeps out of a port PR. Cut the seam in
-  Phase 2, where strategy wants one stream per armed symbol.
+note bottom of BacktestRangeCoverage
+  This package holds SIX more interfaces that are **not** on this
+  diagram: IMarketDataRepository, ISymbolCatalogRepository,
+  IExchangeClient, IExchangeSessionFactory, ILiveStreamService,
+  ISymbolMarketMetadataCache. They live in contracts/ but are
+  internal to the module — only the five above are bound in
+  composition/port_bindings.py and reachable from outside.
+  contracts/__init__.py's own table is the maintained list.
+end note
+
+note bottom of MarketDataSyncRequest
+  **Each of the five ports also ships a second implementation**, in
+  contracts/testing/: FakeHistoricalKlines, FakeSymbolCatalog,
+  FakeMarketDataSync, FakeMarketStream, FakeRangeCoverage, plus a
+  contract suite per port run against BOTH the service above and the
+  fake (HLD 10.3). They are part of the PUBLISHED surface, not test
+  scaffolding: a consumer's test imports the fake rather than mocking
+  a foreign port, which HLD 10.3 rule 4 forbids outright.
+end note
+
+note bottom of IMarketStream
+  owner_id is a NAMESPACE, not an exclusive lease: two owners may
+  stream the same symbol, and one owner may hold several symbols in
+  one set (Dev Board shows n charts). start() REPLACES that owner's
+  whole set and never touches another owner's, which is what keeps
+  BOT-126/BUG-085 (two screens fighting over one stream) from
+  recurring. An empty symbols list is a ValueError, not a quiet
+  no-op: an empty set is indistinguishable from a stopped stream.
+
+  DISTANCE FROM THE SPEC (PR 1.1b, ADR D12).
+  Specified: start(symbol, timeframe, owner_id) -> StreamHandle,
+  stop(handle), stop_all(owner_id). Shipped: no handle. A handle is
+  not a naming choice — it needs ILiveStreamService to hold
+  per-stream subscriptions instead of replacing an owner's set,
+  which is a behaviour change ADR D12 keeps out of a port PR. So
+  today's stop(owner_id) is both stop(handle) and stop_all(owner_id).
+  Cut the seam in Phase 2, where strategy wants one stream per armed
+  symbol (architecture-rule 7.2.1: at the second consumer, not before).
+end note
+
+note bottom of IMarketDataSync
+  DISTANCE FROM THE SPEC (PR 0.5, ADR D12).
+  Specified: sync(symbol, timeframe, start, end, owner_id) -> SyncHandle
+  wrapping the Engine's CancellationToken, plus cancel(handle).
+  Shipped: one frozen request DTO in, None out, and cancellation as a
+  caller-owned CancellationCheck callable polled between fetches —
+  because the caller already owns cancellation (async-ui-action-rule)
+  and the module must not learn the Engine's CancellationToken to read
+  one bool. Returning None is deliberate, not unfinished: callers read
+  the store or watch the events afterwards, and the handler this wraps
+  has always returned None. SyncHandle does not exist in src/.
+  days_back_if_empty is absent for the same reason as quote_asset
+  below: it is in the old command and no caller ever passed it (HLD 2.4).
+end note
+
+note bottom of ISymbolCatalog
+  DISTANCE FROM THE SPEC (PR 1.2).
+  Specified: list_symbols(quote_asset : str | None). Measured, nothing
+  filters by quote asset — the picker's tabs split the whole list in
+  ui/components/symbol_picker/quote_asset.py, and no caller ever asked
+  the module for a subset. Publishing the parameter would publish a
+  filter nobody implements (HLD 2.4). What shipped is the flag the
+  picker's manual refresh does pass (BUG-066). The module also exports
+  normalised_symbols(symbols) — upper, trim, dedupe, sort — from this
+  file rather than application/, so the fake normalises exactly as the
+  real one does without importing across the layer.
+end note
+
+note bottom of IHistoricalKlines
+  DISTANCE FROM THE SPEC (PR 1.1a).
+  Specified: one load(symbol, timeframe, start, end). The handler it
+  replaced returned list[MarketData] | dict[str, list[MarketData]],
+  chosen by whether `symbol` was a str or a list — a union decided by
+  an argument's RUNTIME TYPE, which architecture-rule 2.1 forbids. Two
+  methods with one return type each replace it: only the Dev Board
+  loads several symbols, and it wants them keyed by symbol. load_many()
+  is separate because its implementation may fetch concurrently, which
+  is the only reason a caller would ask that way instead of looping.
+  Tuples, not lists: the rows are a snapshot (domain-truth-rule).
+  newest_first selects WHICH rows a limit keeps, not just their order.
+end note
+
+note bottom of IRangeCoverage
+  DISTANCE FROM THE SPEC (PR 1.2).
+  Specified: coverage(...) -> RangeCoverageSnapshot. That class exists,
+  but it is IMarketDataRepository's own answer — five aggregates the
+  database computed — so reusing the name here would have pointed at
+  the wrong type. BacktestRangeCoverage keeps its name: three screens
+  already read every field of it to tell the user WHY a range is
+  unusable (BUG-072), and renaming a DTO that crosses the edge is a
+  behaviour-free churn ADR D12 has no room for. The port answers,
+  never raises, for a symbol with nothing stored: is_fully_covered
+  False with both open times None says "nothing here", which a screen
+  must render differently from "some of it is missing".
 end note
 @enduml
