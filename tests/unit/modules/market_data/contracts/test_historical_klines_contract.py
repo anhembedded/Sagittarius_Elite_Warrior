@@ -36,6 +36,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_kl
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
     MINUTE,
+    at,
     candle,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.contract_historical_klines import (
@@ -141,10 +142,33 @@ class TestTheFakesOwnQuery:
         fake.load("BTCUSDT", MINUTE, limit=500, newest_first=True)
         fake.load_many(["ETHUSDT"], TimeFrame.ONE_DAY, limit=7)
 
-        assert fake.reads == [
+        assert [
+            (read.symbols, read.interval, read.limit, read.newest_first)
+            for read in fake.reads
+        ] == [
             (("BTCUSDT",), MINUTE, 500, True),
             (("ETHUSDT",), TimeFrame.ONE_DAY, 7, False),
         ]
+
+    def test_a_read_records_the_range_it_was_bounded_by(self) -> None:
+        """Dev Board asserts "the Data Range picker reached the read, and the
+        sync was NOT given it" (`BUG-106`) — which needs the bounds on the
+        record, not just the symbol and the limit."""
+        fake = FakeHistoricalKlines()
+        start, end = at(1), at(9)
+
+        fake.load("BTCUSDT", MINUTE, start_time=start, end_time=end)
+
+        assert fake.reads[0].start_time == start
+        assert fake.reads[0].end_time == end
+
+    def test_an_unbounded_read_records_no_range(self) -> None:
+        fake = FakeHistoricalKlines()
+
+        fake.load("BTCUSDT", MINUTE)
+
+        assert fake.reads[0].start_time is None
+        assert fake.reads[0].end_time is None
 
 
 def test_the_fake_and_the_handler_agree_on_a_seeded_series() -> None:

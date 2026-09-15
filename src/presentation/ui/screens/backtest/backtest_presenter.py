@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symb
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
 )
@@ -320,7 +323,7 @@ class BackTestPresenter(BasePresenter):
         # without this flag a remembered symbol/timeframe/time-range fires
         # the exact same signals a user editing them would — restoring the
         # Backtest screen's last session ran a live chart-preview query
-        # (`GetHistoricalKlinesQuery`/`GetBacktestRangeCoverageQuery`, up to
+        # (`IHistoricalKlines.load()`/`GetBacktestRangeCoverageQuery`, up to
         # 200,000 rows) the instant the app booted, with no user action at
         # all. `state_persistence.restore()`'s own docstring already
         # promises "opening the screen still runs nothing" — this flag is
@@ -348,6 +351,9 @@ class BackTestPresenter(BasePresenter):
         # published port. Resolved here, once, because `build_coordinators`
         # reads presenter attributes rather than touching the container.
         self._market_data_sync: IMarketDataSync = container.resolve(IMarketDataSync)
+        self._historical_klines: IHistoricalKlines = container.resolve(
+            IHistoricalKlines
+        )
 
         # BOT-102 / EPIC-019A: shared with DashboardPresenter. `None` means
         # "never fetched", distinct from an empty list which would mean

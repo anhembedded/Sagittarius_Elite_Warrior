@@ -10,7 +10,7 @@
 # entry, it is a permission - and this file grants none.
 #
 # History of the count: 10 as found (2026-09-13) -> 8 after PR 0.3 -> 41 after
-# PR 0.4a -> 38 after PR 0.4a-2 -> 34 after PR 0.5.
+# PR 0.4a -> 38 after PR 0.4a-2 -> 34 after PR 0.5 -> 28 after PR 1.1.
 #
 # 0.5 is the first time an entry retired because a **consumer moved onto a
 # published port** rather than because code moved into the module: four screens
@@ -143,19 +143,14 @@ presentation.cli.interactive_shell -> modules.market_data.cli.sync_cli_handler
 #              contracts written at once
 #   PR 0.4a-2 - DONE: the sync/stream CLI lines left when those commands moved
 #              into `modules/market_data/cli/`
-presentation.cli.trade_once_cmd -> modules.market_data.application.queries.get_historical_klines
 presentation.ui.common.symbol_options_coordinator -> modules.market_data.application.queries.list_available_symbols
-presentation.ui.screens.backtest.coordinators.chart_feed_coordinator -> modules.market_data.application.queries.get_historical_klines.query
 presentation.ui.screens.backtest.coordinators.chart_preview_coordinator -> modules.market_data.application.queries.get_backtest_range_coverage
-presentation.ui.screens.backtest.coordinators.chart_preview_coordinator -> modules.market_data.application.queries.get_historical_klines.query
 presentation.ui.screens.backtest.coordinators.data_sync_coordinator -> modules.market_data.application.queries.get_backtest_range_coverage
-presentation.ui.screens.dashboard.stream_lifecycle_controller -> modules.market_data.application.queries.get_historical_klines.query
 presentation.ui.screens.dashboard.stream_lifecycle_controller -> modules.market_data.application.stream.start_live_stream.command
 presentation.ui.screens.dashboard.stream_lifecycle_controller -> modules.market_data.application.stream.stop_live_stream.command
 presentation.ui.screens.data_management.coordinators.gap_coordinator -> modules.market_data.application.database.repair_data_gap
 presentation.ui.screens.data_management.coordinators.gap_coordinator -> modules.market_data.application.queries.get_database_gaps
 presentation.ui.screens.data_management.coordinators.kline_inspector_coordinator -> modules.market_data.application.queries.audit_database_integrity
-presentation.ui.screens.data_management.coordinators.kline_inspector_coordinator -> modules.market_data.application.queries.get_historical_klines
 presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.database.clear_market_data
 presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.database.prune_empty_shards
 presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.queries.get_database_status.query
@@ -163,6 +158,5 @@ presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules
 presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.queries.scan_all_databases
 presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules.market_data.application.sync.bulk_sync_market_data.command
 presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules.market_data.application.sync.bulk_sync_market_data.sync_target
-presentation.ui.screens.trading.coordinators.chart_coordinator -> modules.market_data.application.queries.get_historical_klines.query
 presentation.ui.screens.trading.coordinators.chart_coordinator -> modules.market_data.application.stream.start_live_stream.command
 presentation.ui.screens.trading.coordinators.chart_coordinator -> modules.market_data.application.stream.stop_live_stream.command

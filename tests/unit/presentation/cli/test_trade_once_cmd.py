@@ -42,8 +42,11 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines import (
-    GetHistoricalKlinesQuery,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_cmd import (
     execute_trade_once,
@@ -133,7 +136,15 @@ def _app_ready_to_dispatch_an_order() -> Mock:
     account_reader = Mock(spec=ITradingAccountReader)
     account_reader.check_connection.return_value = _ready_status()
 
+    history = FakeHistoricalKlines()
+    history.seed([_candle()])
+
     def resolve(interface: object) -> object:
+        if interface is IHistoricalKlines:
+            # `EPIC-025` PR 1.1 — `trade-once` resolves the port instead of
+            # dispatching the query, so its warm-up candles are seeded into
+            # the port's verified fake rather than returned by a dispatch stub.
+            return history
         if interface is StrategyRegistry:
             return strategy_registry
         if interface is IMarketMetadataProvider:
@@ -145,8 +156,6 @@ def _app_ready_to_dispatch_an_order() -> Mock:
     app.container.resolve.side_effect = resolve
 
     def dispatch(command_type: type, command: object) -> object:
-        if command_type is GetHistoricalKlinesQuery:
-            return [_candle()]
         raise AssertionError(f"unexpected dispatch: {command_type}")
 
     app.dispatch.side_effect = dispatch

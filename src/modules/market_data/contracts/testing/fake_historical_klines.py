@@ -26,6 +26,7 @@ fake lie in the one direction the contract suite is built to catch.
 from __future__ import annotations
 
 from collections.abc import Mapping, Sequence
+from dataclasses import dataclass
 from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
@@ -44,16 +45,34 @@ def _interval_value(interval: TimeFrame | str) -> str:
     return interval.value if isinstance(interval, TimeFrame) else str(interval)
 
 
+@dataclass(frozen=True, slots=True)
+class KlineRead:
+    """One `load`/`load_many` call, as the caller made it.
+
+    A record rather than a tuple because consumers assert on five of its six
+    fields — "the chart asked for 500 candles, newest first, bounded by the
+    picked date range" is a fact about the *screen*, and reading it off
+    `read.limit` beats unpacking a six-tuple at every call site.
+    """
+
+    #: One entry for `load()`, every symbol asked for `load_many()`.
+    symbols: tuple[str, ...]
+    interval: TimeFrame
+    limit: int
+    start_time: datetime | None
+    end_time: datetime | None
+    newest_first: bool
+
+
 class FakeHistoricalKlines(IHistoricalKlines):
     """Stored candles a test controls, read through the port's promises."""
 
     def __init__(self) -> None:
         self._series: dict[tuple[str, str], dict[datetime, MarketData]] = {}
-        #: Every `load`/`load_many` call, in order, as
-        #: `(symbols, interval, limit, newest_first)`. A consumer's test
-        #: sometimes needs "the chart asked for 500 candles, not 5000" —
-        #: which is a fact about the screen, not about the store.
-        self.reads: list[tuple[tuple[str, ...], TimeFrame, int, bool]] = []
+        #: Every `load`/`load_many` call, in order. A consumer's test often
+        #: needs "the chart asked for 500 candles, not 5000", or "the date
+        #: range reached the read" — facts about the screen, not the store.
+        self.reads: list[KlineRead] = []
 
     def seed(self, klines: Sequence[MarketData]) -> None:
         """Put rows in the store, as a completed sync would have.
@@ -76,7 +95,16 @@ class FakeHistoricalKlines(IHistoricalKlines):
         end_time: datetime | None = None,
         newest_first: bool = False,
     ) -> tuple[MarketData, ...]:
-        self.reads.append(((symbol,), interval, limit, newest_first))
+        self.reads.append(
+            KlineRead(
+                symbols=(symbol,),
+                interval=interval,
+                limit=limit,
+                start_time=start_time,
+                end_time=end_time,
+                newest_first=newest_first,
+            )
+        )
         return self._rows(
             symbol,
             interval,
@@ -97,7 +125,16 @@ class FakeHistoricalKlines(IHistoricalKlines):
         newest_first: bool = False,
     ) -> Mapping[str, tuple[MarketData, ...]]:
         requested = tuple(symbols)
-        self.reads.append((requested, interval, limit, newest_first))
+        self.reads.append(
+            KlineRead(
+                symbols=requested,
+                interval=interval,
+                limit=limit,
+                start_time=start_time,
+                end_time=end_time,
+                newest_first=newest_first,
+            )
+        )
         return {
             symbol: self._rows(
                 symbol,
@@ -115,8 +152,8 @@ class FakeHistoricalKlines(IHistoricalKlines):
     def was_read_for(self, symbol: str, interval: TimeFrame | None = None) -> bool:
         """Whether any read named this symbol (optionally at one interval)."""
         return any(
-            symbol in symbols and (interval is None or read_interval == interval)
-            for symbols, read_interval, _limit, _newest in self.reads
+            symbol in read.symbols and (interval is None or read.interval == interval)
+            for read in self.reads
         )
 
     # -- internals -----------------------------------------------------------

@@ -19,18 +19,23 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from datetime import UTC
+from datetime import UTC, datetime, timedelta
 from unittest.mock import MagicMock, Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
-)
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
@@ -153,6 +158,15 @@ def session_state():
 
 
 @pytest.fixture
+def fake_historical_klines():
+    """`EPIC-025` PR 1.1 — the screen reads stored candles through
+    `IHistoricalKlines`. The container hands out the port's verified fake, so a
+    test can seed candles and assert what the screen drew, where a `MagicMock`
+    could only confirm that something was called."""
+    return FakeHistoricalKlines()
+
+
+@pytest.fixture
 def fake_market_data_sync():
     """`EPIC-025` PR 0.5 — Dev Board asks for a sync through
     `IMarketDataSync`. The container hands out the port's verified fake, not a
@@ -171,6 +185,7 @@ def mock_container(
     strategy_session,
     session_state,
     fake_market_data_sync,
+    fake_historical_klines,
 ):
     container = MagicMock()
 
@@ -220,6 +235,8 @@ def mock_container(
             return equity_recorder
         if interface == TradingSessionState:
             return session_state
+        if interface == IHistoricalKlines:
+            return fake_historical_klines
         if interface == IMarketDataSync:
             return fake_market_data_sync
         return MagicMock()
@@ -290,6 +307,7 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     strategy_registry,
     strategy_session,
     fake_market_data_sync,
+    fake_historical_klines,
 ):
     """When the container *does* have a registered store — the real
     `app_bootstrapper.py` shape — construction must hand the View that
@@ -337,6 +355,8 @@ def test_boot_wires_the_container_registered_store_into_the_view(
             return EquityCurveRecorder()
         if interface == TradingSessionState:
             return TradingSessionState()
+        if interface == IHistoricalKlines:
+            return fake_historical_klines
         if interface == IMarketDataSync:
             return fake_market_data_sync
         return Mock()
@@ -442,51 +462,120 @@ def test_on_load_history_does_not_dispatch_on_main_thread(presenter, mock_dispat
     mock_dispatcher.dispatch.assert_not_called()
 
 
-def test_run_load_history_dispatches_query_per_symbol(presenter, mock_dispatcher):
-    """_run_load_history (background) dispatches one GetHistoricalKlinesQuery for all symbols."""
-    mock_kline = MagicMock()
-    mock_kline.close_time.timestamp.return_value = 1700000000.0
-    mock_kline.open_price = 40000
-    mock_kline.high_price = 41000
-    mock_kline.low_price = 39000
-    mock_kline.close_price = 40500
-    mock_kline.volume = 12.5
+def test_run_load_history_reads_every_symbol_in_one_call(
+    presenter, fake_historical_klines
+):
+    """One `load_many()` for the whole symbol list, not one `load()` each.
 
-    mock_dispatcher.dispatch.return_value = {
-        "BTCUSDT": [mock_kline],
-        "ETHUSDT": [mock_kline],
-    }
-
+    `EPIC-025` PR 1.1 — this is the only genuine multi-symbol reader in the
+    app, and asking per symbol would serialise what the implementation is
+    allowed to fetch concurrently. The old assertion said
+    `dispatch.call_count == 1`; the port's own record says the same thing
+    without naming the plumbing.
+    """
     symbols = ["BTCUSDT", "ETHUSDT"]
+
     presenter._run_load_history(symbols, "1m", 5000, presenter._cancellation_token)
 
-    assert mock_dispatcher.dispatch.call_count == 1
-    call_args = mock_dispatcher.dispatch.call_args_list[0]
-    dispatched_type, dispatched_query = call_args[0]
-    assert dispatched_type == GetHistoricalKlinesQuery
-    assert dispatched_query.symbol == symbols
-    assert dispatched_query.interval == "1m"
-    assert dispatched_query.limit == 5000
-    assert dispatched_query.order_by_desc is True
+    assert len(fake_historical_klines.reads) == 1
+    read = fake_historical_klines.reads[0]
+    assert read.symbols == ("BTCUSDT", "ETHUSDT")
+    assert read.interval == TimeFrame("1m")
+    assert read.limit == 5000
+    assert read.newest_first is True
 
 
-def test_run_load_history_handles_exception_per_symbol(presenter, mock_dispatcher):
-    """An exception for one symbol must not abort the rest of the load."""
-    # With the new dictionary structure, the exception could occur internally, or we might
-    # return an empty list or missing key for the failed symbol. Let's mock a missing key.
-    mock_dispatcher.dispatch.return_value = {
-        "ETHUSDT": [MagicMock()],
-    }
+class _RunnerThatFailsOnTheFirstSymbol:
+    """A script runner that raises the first time it is fed.
 
-    logs = []
+    The per-symbol `try/except` inside `_run_load_history`'s loop exists for
+    exactly this shape of failure: mapping the rows or feeding the scripts can
+    blow up for one symbol, and a Dev Board showing four charts must still
+    draw the other three. Injected as a fake rather than a `Mock` with a
+    `side_effect` list, because the fake also records what it was fed and the
+    test asserts on that.
+    """
+
+    def __init__(self) -> None:
+        self.fed: list[int] = []
+        self.active: list[str] = []
+
+    def feed_all(self, klines) -> None:
+        self.fed.append(len(klines))
+        if len(self.fed) == 1:
+            raise RuntimeError("script runner blew up on the first symbol")
+
+    def rebuild(self, _klines) -> None:
+        """Part of the runner's surface; unused by this path."""
+
+
+def test_run_load_history_keeps_going_after_one_symbol_raises(
+    presenter, fake_historical_klines
+):
+    """An exception for one symbol must not abort the rest of the load.
+
+    `EPIC-025` PR 1.1 rewrote this test, and the old shape is worth naming:
+    it made the *dispatcher* return a dict missing the failing symbol, which
+    was never an exception at all — and after the move onto
+    `IHistoricalKlines` it could not even be that, because the port promises
+    every symbol asked for appears in the answer. So the failure is now
+    injected where one can really happen: inside the loop, after the read.
+
+    Remove the `try/except` in `_run_load_history` and this test errors out
+    rather than failing softly, which is the point.
+    """
+    fake_historical_klines.seed(
+        [
+            _make_stored_kline(1000.0, symbol="BTCUSDT"),
+            _make_stored_kline(1000.0, symbol="ETHUSDT"),
+        ]
+    )
+    runner = _RunnerThatFailsOnTheFirstSymbol()
+    presenter._stream_controller._script_runner = runner
+    logs: list[str] = []
+    reloaded: list[str] = []
     presenter.ui_log_signal.connect(logs.append)
+    presenter.ui_history_reloaded_signal.connect(
+        lambda symbol, _candles, _volume: reloaded.append(symbol)
+    )
 
-    # Should not raise
     presenter._run_load_history(
         ["BTCUSDT", "ETHUSDT"], "1m", 100, presenter._cancellation_token
     )
 
-    assert any("BTCUSDT" in log for log in logs)
+    assert any("Exception while loading history for BTCUSDT" in log for log in logs)
+    # Both charts drew: the loop reaches `_emit_history_reloaded` *before*
+    # feeding the scripts, so the symbol that raised still shows its candles
+    # and only loses its indicator lines — the degradation the per-symbol
+    # `try/except` is there to keep local.
+    assert reloaded == ["BTCUSDT", "ETHUSDT"]
+    assert runner.fed == [1, 1], (
+        "the second symbol was still fed after the first raised"
+    )
+
+
+def test_run_load_history_logs_a_symbol_with_nothing_stored_and_loads_the_rest(
+    presenter, fake_historical_klines
+):
+    """The ordinary case the old exception test was actually exercising: a
+    symbol the user has never synced. It is not an error — the port answers
+    for every symbol asked about, with an empty tuple — so the screen says so
+    for that one and draws the others.
+    """
+    fake_historical_klines.seed([_make_stored_kline(1000.0, symbol="ETHUSDT")])
+    logs: list[str] = []
+    reloaded: list[str] = []
+    presenter.ui_log_signal.connect(logs.append)
+    presenter.ui_history_reloaded_signal.connect(
+        lambda symbol, _candles, _volume: reloaded.append(symbol)
+    )
+
+    presenter._run_load_history(
+        ["BTCUSDT", "ETHUSDT"], "1m", 100, presenter._cancellation_token
+    )
+
+    assert any("No historical data found for BTCUSDT." in log for log in logs)
+    assert reloaded == ["ETHUSDT"]
 
 
 # ---------------------------------------------------------------------------
@@ -614,12 +703,12 @@ def test_on_load_history_submits_the_parsed_date_range(presenter, mock_thread_mg
     assert submit_args[6] == datetime(2024, 1, 2, tzinfo=UTC)  # end_time
 
 
-def test_run_load_history_dispatches_the_date_range_to_the_query(
-    presenter, mock_dispatcher
+def test_run_load_history_gives_the_port_the_picked_date_range(
+    presenter, fake_historical_klines
 ):
-    from datetime import datetime
-
-    mock_dispatcher.dispatch.return_value = []
+    """`EPIC-025` PR 1.1 — the same guarantee, read off the port instead of a
+    dispatched query object. It is the other half of `BUG-106`: the Data Range
+    picker must bound what the chart *reads* while never bounding the sync."""
     start = datetime(2024, 1, 1, tzinfo=UTC)
     end = datetime(2024, 1, 2, tzinfo=UTC)
 
@@ -627,9 +716,9 @@ def test_run_load_history_dispatches_the_date_range_to_the_query(
         ["BTCUSDT"], "1m", 100, presenter._cancellation_token, start, end
     )
 
-    _, dispatched_query = mock_dispatcher.dispatch.call_args[0]
-    assert dispatched_query.start_time == start
-    assert dispatched_query.end_time == end
+    read = fake_historical_klines.reads[0]
+    assert read.start_time == start
+    assert read.end_time == end
 
 
 # ---------------------------------------------------------------------------
@@ -659,7 +748,7 @@ def test_on_start_stream_submits_the_computed_fetch_limit(presenter, mock_thread
 
 
 def test_run_sync_and_start_full_workflow(
-    presenter, mock_dispatcher, fake_market_data_sync
+    presenter, mock_dispatcher, fake_market_data_sync, fake_historical_klines
 ):
     """_run_sync_and_start dispatches Sync → HistoricalKlines → StartLiveStream in order."""
     mock_dispatcher.dispatch.return_value = []
@@ -677,16 +766,14 @@ def test_run_sync_and_start_full_workflow(
         ["BTCUSDT"], TimeFrame("1m"), "1m", 5000, presenter._cancellation_token
     )
 
-    # `EPIC-025` PR 0.5: the sync is a port call, so it is no longer in the
-    # dispatch list — the order that matters is still readable, because the
-    # sync must have happened *before* the history read the chart then draws.
+    # `EPIC-025` PR 0.5 moved the sync onto a port, and PR 1.1 the history
+    # read — so two of the three steps no longer appear in the dispatch list
+    # and the ordering has to be read across all three mechanisms. Only the
+    # stream is still a command:
     assert fake_market_data_sync.was_asked_for("BTCUSDT")
+    assert fake_historical_klines.was_read_for("BTCUSDT")
     call_types = [args[0][0] for args in mock_dispatcher.dispatch.call_args_list]
-    assert GetHistoricalKlinesQuery in call_types
     assert StartLiveStreamCommand in call_types
-    assert call_types.index(GetHistoricalKlinesQuery) < call_types.index(
-        StartLiveStreamCommand
-    )
 
 
 def test_on_start_stream_uses_the_view_models_symbol(presenter, mock_thread_mgr):
@@ -774,7 +861,7 @@ def test_run_sync_and_start_never_forwards_the_date_range_to_the_sync(
 
 
 def test_run_sync_and_start_still_loads_history_for_the_picked_date_range(
-    presenter, mock_dispatcher
+    presenter, fake_historical_klines, mock_dispatcher
 ):
     """The other half of `BUG-106`'s fix: `_run_load_history` (the chart's
     local-DB read) must keep honouring the picked range exactly as before —
@@ -798,14 +885,13 @@ def test_run_sync_and_start_still_loads_history_for_the_picked_date_range(
         end,
     )
 
-    history_call = next(
-        call
-        for call in mock_dispatcher.dispatch.call_args_list
-        if call[0][0] is GetHistoricalKlinesQuery
-    )
-    history_query = history_call[0][1]
-    assert history_query.start_time == start
-    assert history_query.end_time == end
+    # `BUG-106`'s other half, now read off the port: the picked range must
+    # bound the local history read even though the sync above was deliberately
+    # given `None`. One range, two different answers, which is the whole point
+    # of the bug.
+    read = fake_historical_klines.reads[0]
+    assert read.start_time == start
+    assert read.end_time == end
 
 
 # ---------------------------------------------------------------------------
@@ -1078,6 +1164,36 @@ def test_rebuild_scripts_clears_the_chart_of_the_active_symbol(presenter):
 # ---------------------------------------------------------------------------
 
 
+def _make_stored_kline(
+    close_timestamp: float, close_price: float = 100.0, *, symbol: str = "ETHUSDT"
+):
+    """A real `MarketData` row, for tests whose candles must survive a store.
+
+    `_make_full_kline` below returns a `MagicMock`, which was enough while the
+    history arrived through a stubbed dispatcher. `EPIC-025` PR 1.1 reads it
+    through `IHistoricalKlines`, whose fake keys rows on `open_time` exactly as
+    the real repository does — and a `MagicMock` has no real `open_time` to key
+    on. The open time is one minute before the close, matching the 1m cadence
+    these tests use.
+    """
+    close_time = datetime.fromtimestamp(close_timestamp, tz=UTC)
+    return MarketData(
+        symbol=symbol,
+        interval="1m",
+        open_time=close_time - timedelta(minutes=1),
+        open_price=99.0,
+        high_price=101.0,
+        low_price=98.0,
+        close_price=close_price,
+        volume=10.0,
+        close_time=close_time,
+        quote_asset_volume=0.0,
+        number_of_trades=1,
+        taker_buy_base_asset_volume=0.0,
+        taker_buy_quote_asset_volume=0.0,
+    )
+
+
 def _make_full_kline(
     close_timestamp: float,
     close_price: float = 100.0,
@@ -1153,33 +1269,37 @@ def test_fetch_older_history_honors_a_configured_batch_size(presenter, mock_thre
     assert submit_args[1:5] == ("ETHUSDT", presenter._active_interval, 1000.0, 250)
 
 
-def test_run_load_more_history_dispatches_with_end_time_and_desc_order(
-    presenter, mock_dispatcher
+def test_run_load_more_history_asks_for_the_newest_page_below_the_boundary(
+    presenter, fake_historical_klines
 ):
-    mock_dispatcher.dispatch.return_value = [_make_full_kline(900.0)]
+    """Paging backwards: bounded above by what the chart already holds, and
+    `newest_first` so the page is the candles just before that boundary rather
+    than the oldest in the shard."""
+    fake_historical_klines.seed([_make_stored_kline(900.0)])
 
     presenter._run_load_more_history(
         "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token
     )
 
-    dispatched_type, query = mock_dispatcher.dispatch.call_args[0]
-    assert dispatched_type == GetHistoricalKlinesQuery
-    assert query.symbol == "ETHUSDT"
-    assert query.limit == 75
-    assert query.order_by_desc is True
-    assert query.end_time.timestamp() == 1000.0
+    read = fake_historical_klines.reads[0]
+    assert read.symbols == ("ETHUSDT",)
+    assert read.limit == 75
+    assert read.newest_first is True
+    assert read.end_time.timestamp() == 1000.0
 
 
 def test_run_load_more_history_filters_out_the_boundary_candle(
-    presenter, mock_dispatcher
+    presenter, fake_historical_klines
 ):
     """The repository's end_time filter is inclusive (open_time <= end_time)
     — a returned candle at/after the timestamp we already have on the chart
     must be dropped client-side, or it would render as a duplicate."""
-    mock_dispatcher.dispatch.return_value = [
-        _make_full_kline(1000.0),  # == the oldest already loaded — must drop
-        _make_full_kline(940.0),  # genuinely older — must keep
-    ]
+    fake_historical_klines.seed(
+        [
+            _make_stored_kline(1000.0),  # == the oldest already loaded — must drop
+            _make_stored_kline(940.0),  # genuinely older — must keep
+        ]
+    )
     emitted = []
     presenter.ui_history_prepended_signal.connect(
         lambda symbol, candles, volume: emitted.append((symbol, candles, volume))
@@ -1262,9 +1382,9 @@ def test_on_history_prepend_finished_unlocks_the_pagination_controller(presenter
 
 
 def test_run_load_more_history_reports_found_more_when_data_arrives(
-    presenter, mock_dispatcher
+    presenter, fake_historical_klines
 ):
-    mock_dispatcher.dispatch.return_value = [_make_full_kline(900.0)]
+    fake_historical_klines.seed([_make_stored_kline(900.0)])
     finished = []
     presenter.ui_history_prepend_finished_signal.connect(lambda *a: finished.append(a))
 

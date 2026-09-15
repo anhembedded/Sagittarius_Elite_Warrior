@@ -11,6 +11,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.coordinators import (
     ChartPreviewCoordinator,
 )
@@ -34,6 +37,7 @@ def _build(
     end_time=None,
     execution_mode=BacktestExecutionMode.BAR_CLOSE,
     dispatcher=None,
+    history=None,
 ):
     """Returns the coordinator plus everything a test asserts against."""
     view = FakeBacktestView(card)
@@ -45,6 +49,7 @@ def _build(
         state=state,
         view_model=view_model,
         dispatcher=dispatcher or SimpleNamespace(dispatch=lambda *a: None),
+        historical_klines=history or FakeHistoricalKlines(),
         thread_manager=SimpleNamespace(submit=lambda *a: calls.previews.append(a)),
         log_dev_trace=lambda *a, **k: None,
         format_coverage_message=lambda _c: "missing data",
@@ -221,11 +226,15 @@ def test_run_preview_unwraps_a_test_doubles_response_envelope() -> None:
     """
     inner_coverage = SimpleNamespace(is_fully_covered=True)
 
-    def dispatch(kind, _payload):
-        if "Klines" in kind.__name__:
-            return SimpleNamespace(data=[])
-        # The response envelope a test double wraps its result in — the
-        # exact shape that must never reach the signal unwrapped.
+    def dispatch(_kind, _payload):
+        # Only the coverage query still goes through a dispatcher. `EPIC-025`
+        # PR 1.1 moved the klines read onto `IHistoricalKlines`, whose return
+        # type is a typed tuple — so the klines half of `BUG-072` is now
+        # structurally impossible rather than merely tested: no envelope can
+        # reach that variable, and the `if "Klines" in kind.__name__` branch
+        # this test used to carry had nothing left to answer. The coverage
+        # half below is still live, and stays until PR 1.2 publishes
+        # `IRangeCoverage`.
         return SimpleNamespace(data=inner_coverage)
 
     ctx = _build(dispatcher=SimpleNamespace(dispatch=dispatch))

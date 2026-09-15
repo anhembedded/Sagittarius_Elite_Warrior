@@ -10,6 +10,12 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.audit_database_integrity import (
     DatabaseAuditResultDTO,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
     DataManagementPresenter,
 )
@@ -25,8 +31,14 @@ def presenter_setup(qapp):
     mock_thread_mgr = Mock()
     mock_dispatcher = Mock()
     container = Mock()
+    # `EPIC-025` PR 1.1 — the inspector reads candles through
+    # `IHistoricalKlines`, so the container hands out the port's verified fake
+    # and the test seeds the rows it expects to see in the table.
+    fake_history = FakeHistoricalKlines()
 
     def resolve_mock(interface):
+        if interface == IHistoricalKlines:
+            return fake_history
         from sagittarius_engine.interfaces.i_config import IConfig
         from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
         from sagittarius_engine.interfaces.i_event_bus import IEventBus
@@ -51,11 +63,11 @@ def presenter_setup(qapp):
     container.resolve.side_effect = resolve_mock
     view = DataManagementView()
     presenter = DataManagementPresenter(view, container)
-    return presenter, view, mock_thread_mgr, mock_dispatcher
+    return presenter, view, mock_thread_mgr, mock_dispatcher, fake_history
 
 
 def test_inspect_klines_submits_thread_and_populates_model(presenter_setup, qapp):
-    presenter, view, thread_mgr, dispatcher = presenter_setup
+    presenter, view, thread_mgr, _dispatcher, fake_history = presenter_setup
     vm = view._view_model
 
     t0 = datetime(2024, 1, 1, 0, 0, tzinfo=UTC)
@@ -74,7 +86,7 @@ def test_inspect_klines_submits_thread_and_populates_model(presenter_setup, qapp
         taker_buy_base_asset_volume=5.0,
         taker_buy_quote_asset_volume=510.0,
     )
-    dispatcher.dispatch.return_value = [kline]
+    fake_history.seed([kline])
 
     # Trigger request from view_model
     vm.requestInspectKlines("BTCUSDT", "1m")
@@ -92,7 +104,7 @@ def test_inspect_klines_submits_thread_and_populates_model(presenter_setup, qapp
 
 
 def test_run_audit_submits_thread_and_emits_result(presenter_setup, qapp):
-    presenter, view, thread_mgr, dispatcher = presenter_setup
+    presenter, view, thread_mgr, dispatcher, _fake_history = presenter_setup
     vm = view._view_model
 
     dispatcher.dispatch.return_value = DatabaseAuditResultDTO(

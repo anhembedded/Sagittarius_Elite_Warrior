@@ -56,12 +56,8 @@ script enablement lives on DashboardQmlViewModel.script_model
 
 import time
 from datetime import UTC, datetime, timedelta
-from unittest.mock import MagicMock
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
 )
@@ -92,80 +88,75 @@ def _slow_down_history_queries(monkeypatch, presenter, delay_seconds: float) -> 
     local machine — mirrors a real DB query taking noticeably longer than
     the near-instant `sig_load_clicked` handler that reassigns
     `active_indicators` on the main thread.
+
+    `EPIC-025` PR 1.1 — wraps `IHistoricalKlines.load_many()` rather than the
+    dispatcher, because that is where the read happens now. The delay has to
+    sit on the read itself: putting it on the dispatcher would slow the live
+    stream command and leave the race this test exists to widen as narrow as
+    ever.
     """
-    original_dispatch = presenter.dispatcher.dispatch
+    port = presenter._stream_controller._historical_klines
+    original_load_many = port.load_many
 
-    def slow_dispatch(command_type, command_obj):
-        if command_type is GetHistoricalKlinesQuery:
-            time.sleep(delay_seconds)
-        return original_dispatch(command_type, command_obj)
+    def slow_load_many(*args, **kwargs):
+        time.sleep(delay_seconds)
+        return original_load_many(*args, **kwargs)
 
-    monkeypatch.setattr(presenter.dispatcher, "dispatch", slow_dispatch)
+    monkeypatch.setattr(port, "load_many", slow_load_many)
 
 
 def _use_synthetic_klines(monkeypatch, presenter, count: int) -> None:
     """
-    @brief Makes the mocked dispatcher return `count` synthetic candles for
-    GetHistoricalKlinesQuery instead of conftest's fixed 5.
+    @brief Puts `count` synthetic candles in the store instead of conftest's
+    fixed 5.
     @details Needed because fixed-period default scripts (BOT-032 Phase 6)
     can't be parametrized down to a fast-warming period the way the old
     hardcoded `RSI(period=2)` override could — ema_cross needs 26 bars to
-    warm up its slow EMA, more than MOCK_KLINE_COUNT provides. Composes with
-    `_slow_down_history_queries` regardless of call order — both capture
-    whatever `presenter.dispatcher.dispatch` currently is and wrap it.
+    warm up its slow EMA, more than MOCK_KLINE_COUNT provides.
+
+    `EPIC-025` PR 1.1 — seeds the port's store rather than wrapping the
+    dispatcher. Three things that comment-block used to warn about are simply
+    gone: the `str | list[str]` shape to mirror, the `{symbol: klines}`
+    fan-out to hand-roll, and the `isinstance(results, dict)` guard a flat
+    list would short-circuit. A typed port has one return type per method.
+
+    The rows are anchored to now for the reason `conftest.build_mock_klines`
+    documents: a store honours `start_time`/`end_time`, and the Data Range
+    picker's default window is a recent one, so a fixed 2024 epoch would be
+    filtered to nothing.
+
+    `monkeypatch` is still taken so both helpers compose in either order, as
+    before; this one no longer needs it.
     """
-    base_time = datetime(2024, 1, 1, tzinfo=UTC)
+    _ = monkeypatch
     # Whatever symbol this presenter actually loaded — EPIC-010H made that come
     # from Settings' DEFAULT_SYMBOLS rather than a module constant, so a
     # hardcoded pair here would be routed to no chart card and every test using
     # this helper would see an empty history for a reason unrelated to what it
     # is testing.
     symbol = presenter._active_symbol
-    klines = []
-    for i in range(count):
-        open_time = base_time + timedelta(minutes=i)
-        close_time = open_time + timedelta(minutes=1)
-        klines.append(
-            MarketData(
-                symbol=symbol,
-                interval="1m",
-                open_time=open_time,
-                open_price=100.0 + i,
-                high_price=101.0 + i,
-                low_price=99.0 + i,
-                close_price=100.5 + i,
-                volume=10.0,
-                close_time=close_time,
-                quote_asset_volume=1000.0,
-                number_of_trades=5,
-                taker_buy_base_asset_volume=5.0,
-                taker_buy_quote_asset_volume=500.0,
-            )
-        )
-    klines.reverse()  # newest-first, matching the real repository's contract
-
-    original_dispatch = presenter.dispatcher.dispatch
-
-    def dispatch_with_synthetic_klines(command_type, command_obj):
-        if command_type is GetHistoricalKlinesQuery:
-            response = MagicMock()
-            response.success = True
-            # GetHistoricalKlinesQueryHandler's contract: `symbol` as a list
-            # (StreamLifecycleController always sends one) returns
-            # {symbol: klines}, not a flat list — see conftest.mock_dispatch's
-            # comment for why a flat list here makes _run_load_history's
-            # `isinstance(results, dict)` guard return before ever reaching
-            # `_script_runner.feed_all()`.
-            if isinstance(command_obj.symbol, list):
-                response.data = {sym: klines for sym in command_obj.symbol}
-            else:
-                response.data = klines
-            return response
-        return original_dispatch(command_type, command_obj)
-
-    monkeypatch.setattr(
-        presenter.dispatcher, "dispatch", dispatch_with_synthetic_klines
+    base_time = datetime.now(UTC).replace(second=0, microsecond=0) - timedelta(
+        minutes=count
     )
+    klines = [
+        MarketData(
+            symbol=symbol,
+            interval="1m",
+            open_time=base_time + timedelta(minutes=i),
+            open_price=100.0 + i,
+            high_price=101.0 + i,
+            low_price=99.0 + i,
+            close_price=100.5 + i,
+            volume=10.0,
+            close_time=base_time + timedelta(minutes=i + 1),
+            quote_asset_volume=1000.0,
+            number_of_trades=5,
+            taker_buy_base_asset_volume=5.0,
+            taker_buy_quote_asset_volume=500.0,
+        )
+        for i in range(count)
+    ]
+    presenter._stream_controller._historical_klines.seed(klines)
 
 
 def _enable_script(view, key: str) -> None:

@@ -55,8 +55,8 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_order_payload_mapper import (
     InvalidOrderForSubmissionError,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines import (
-    GetHistoricalKlinesQuery,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_formatter import (
     format_candle_and_signal,
@@ -92,11 +92,11 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
         )
         return
 
-    candles: list[MarketData] = app.dispatch(
-        GetHistoricalKlinesQuery,
-        GetHistoricalKlinesQuery(
-            symbol=args.symbol, interval=interval, limit=_WARMUP_CANDLE_LIMIT
-        ),
+    # `EPIC-025` PR 1.1 — resolved from the container rather than dispatched,
+    # so this command names only market_data's contract. `app.dispatch` stays
+    # in use below for everything that is still a command.
+    candles: tuple[MarketData, ...] = app.container.resolve(IHistoricalKlines).load(
+        args.symbol, interval, limit=_WARMUP_CANDLE_LIMIT
     )
     if not candles:
         print(

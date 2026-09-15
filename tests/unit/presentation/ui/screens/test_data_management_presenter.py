@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.scan_
     DatabaseStatusDTO,
     ScanAllDatabasesQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
 )
@@ -67,6 +70,15 @@ def mock_market_data_repo():
 
 
 @pytest.fixture
+def fake_historical_klines():
+    """`EPIC-025` PR 1.1 — the screen reads stored candles through
+    `IHistoricalKlines`. The container hands out the port's verified fake, so a
+    test can seed candles and assert what the screen drew, where a `MagicMock`
+    could only confirm that something was called."""
+    return FakeHistoricalKlines()
+
+
+@pytest.fixture
 def fake_market_data_sync():
     """`EPIC-025` PR 0.5 — the screen asks for a sync through
     `IMarketDataSync` now, so the container must hand out the port's verified
@@ -77,11 +89,18 @@ def fake_market_data_sync():
 
 @pytest.fixture
 def mock_container(
-    mock_thread_mgr, mock_dispatcher, mock_market_data_repo, fake_market_data_sync
+    fake_historical_klines,
+    mock_thread_mgr,
+    mock_dispatcher,
+    mock_market_data_repo,
+    fake_market_data_sync,
 ):
     container = Mock()
 
     def resolve_mock(interface):
+        from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+            IHistoricalKlines,
+        )
         from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
             IMarketDataRepository,
         )
@@ -101,6 +120,8 @@ def mock_container(
             return mock_dispatcher
         if interface == IMarketDataRepository:
             return mock_market_data_repo
+        if interface == IHistoricalKlines:
+            return fake_historical_klines
         if interface == IMarketDataSync:
             return fake_market_data_sync
         if interface == IConfig:

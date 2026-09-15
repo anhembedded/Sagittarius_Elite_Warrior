@@ -51,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config imp
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
 )
@@ -292,6 +295,7 @@ class TradingPresenter(BasePresenter):
             # dependency this Presenter owns — a Coordinator must not reach
             # into the container itself (`async-ui-action-rule.md`).
             market_data_sync=container.resolve(IMarketDataSync),
+            historical_klines=container.resolve(IHistoricalKlines),
             emit_history_ready=self.uiHistoryReadySignal.emit,
             emit_load_finished=self.uiLoadFinishedSignal.emit,
             emit_stream_started=self.uiStreamStartedSignal.emit,

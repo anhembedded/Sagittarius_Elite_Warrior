@@ -45,11 +45,14 @@ from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
     GetBacktestRangeCoverageQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.query import (
-    GetHistoricalKlinesQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
@@ -100,10 +103,30 @@ class _FakeResponse:
         self.data = [] if data is None else data
 
 
+#: Every symbol the seeded history answers for. The Dev Board tests drive the
+#: symbol dropdown, so the fake must hold rows for each option they can pick —
+#: a dispatch stub answered for whatever it was asked; a store only answers for
+#: what was put in it.
+_SEEDED_SYMBOLS = ("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT")
+
+
 def build_mock_klines(symbol: str, interval: str = "1m") -> list[MarketData]:
     """Newest-first MarketData list, matching what the real repository
-    returns (DashboardPresenter reverses it before rendering)."""
-    base_time = datetime(2024, 1, 1, tzinfo=UTC)
+    returns (DashboardPresenter reverses it before rendering).
+
+    **Anchored to now, and `EPIC-025` PR 1.1 is why.** These rows used to sit
+    at a fixed `2024-01-01`, which worked because the dispatch stub answering
+    the klines query ignored `start_time`/`end_time` entirely and handed the
+    list back whatever was asked. `IHistoricalKlines` reads a store, and a
+    store honours the range — so rows two years outside the Data Range
+    picker's own default window are correctly filtered to nothing, and every
+    Dev Board history test went quiet. Ending one minute in the past keeps the
+    series inside any recent-window default while never claiming a candle from
+    the future.
+    """
+    base_time = datetime.now(UTC).replace(second=0, microsecond=0) - timedelta(
+        minutes=MOCK_KLINE_COUNT
+    )
     klines = []
     for i in range(MOCK_KLINE_COUNT):
         open_time = base_time + timedelta(minutes=i)
@@ -130,7 +153,27 @@ def build_mock_klines(symbol: str, interval: str = "1m") -> list[MarketData]:
 
 
 @pytest.fixture
-def app_engine(request, monkeypatch, tmp_path):
+def seeded_history():
+    """The history store every UI integration test reads through.
+
+    `EPIC-025` PR 1.1 — exposed as its own fixture because a test that needs
+    *more* history than the default page (the load-more ones) now seeds it
+    instead of hand-rolling a dispatcher that answers differently depending on
+    whether `end_time` was set. That hand-rolled version's own docstring
+    called itself "real handler behavior, just without a real database"; with
+    a store there is nothing left to simulate.
+    """
+    history = FakeHistoricalKlines()
+    for symbol in _SEEDED_SYMBOLS:
+        # Chronological: `build_mock_klines` hands back newest-first because
+        # that is what a dispatch returned and the screen reversed. A store
+        # has no order of its own — the port applies `newest_first` on read.
+        history.seed(list(reversed(build_mock_klines(symbol))))
+    return history
+
+
+@pytest.fixture
+def app_engine(request, monkeypatch, tmp_path, seeded_history):
     """
     Boot the Sagittarius Engine with all configurations but mock the
     dispatcher backend. Defaults to dev.mode=False; parametrize indirectly
@@ -277,22 +320,15 @@ def app_engine(request, monkeypatch, tmp_path):
             return ()
 
         response = _FakeResponse()
-        if command_type is GetHistoricalKlinesQuery:
-            # Mirrors GetHistoricalKlinesQueryHandler's own contract (added by
-            # the "Batch concurrent fetches" change): `symbol` is `str | list[str]`,
-            # and a list fans out to `{symbol: klines}` instead of a flat list.
-            # StreamLifecycleController._on_load_history/_on_start_stream always
-            # call with a list (even for Dev Board's single symbol) — a mock that
-            # only handled the single-`str` shape would silently short-circuit
-            # `_run_load_history`'s `isinstance(results, dict)` guard and return
-            # before ever calling `_script_runner.feed_all()`.
-            if isinstance(command_obj.symbol, list):
-                response.data = {
-                    sym: build_mock_klines(sym) for sym in command_obj.symbol
-                }
-            else:
-                response.data = build_mock_klines(command_obj.symbol)
-        elif command_type is GetBacktestRangeCoverageQuery:
+        # `EPIC-025` PR 1.1 removed this stub's largest branch. The klines read
+        # is `IHistoricalKlines` now, answered by the seeded fake registered
+        # below, so there is no `str | list[str]` shape to mirror and no
+        # `{symbol: klines}` fan-out to hand-roll here. What the old branch's
+        # long comment warned about — a stub that handled only the single-`str`
+        # shape would short-circuit `isinstance(results, dict)` and skip
+        # `feed_all()` — cannot happen against a typed port: `load()` and
+        # `load_many()` have one return type each.
+        if command_type is GetBacktestRangeCoverageQuery:
             # A bare `_FakeResponse` (or a `.data = []` list) reaching
             # `ChartPreviewCoordinator.run_preview()` as `coverage` is exactly
             # the shape mismatch `BUG-072` root-caused: production expects a
@@ -314,6 +350,10 @@ def app_engine(request, monkeypatch, tmp_path):
         return response
 
     monkeypatch.setattr(engine, "dispatch", mock_dispatch)
+
+    # `EPIC-025` PR 1.1 — the history read is a port, so it is substituted at
+    # configuration (the container) rather than by intercepting a dispatch.
+    engine.context.container.singleton(IHistoricalKlines, lambda _c: seeded_history)
 
     from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 

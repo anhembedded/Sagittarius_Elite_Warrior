@@ -77,6 +77,9 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config imp
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
 )
@@ -782,6 +785,7 @@ class DashboardPresenter(BasePresenter):
             thread_manager=self._thread_manager,
             dispatcher=self.dispatcher,
             market_data_sync=container.resolve(IMarketDataSync),
+            historical_klines=container.resolve(IHistoricalKlines),
             config=self.config,
             fsm=self.fsm,
             view_model=self._view_model,

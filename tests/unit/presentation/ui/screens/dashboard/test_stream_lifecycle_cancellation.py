@@ -12,6 +12,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.client import (
     PythonBinanceClient,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
 )
@@ -31,6 +34,7 @@ def test_stream_lifecycle_controller_passes_cancellation_to_the_sync() -> None:
         thread_manager=MagicMock(),
         dispatcher=dispatcher,
         market_data_sync=market_data_sync,
+        historical_klines=FakeHistoricalKlines(),
         config=MagicMock(),
         fsm=MagicMock(),
         view_model=MagicMock(),
@@ -87,6 +91,7 @@ def test_stream_lifecycle_controller_shutdown_finishes_action_slots() -> None:
         thread_manager=mock_thread_manager,
         dispatcher=MagicMock(),
         market_data_sync=FakeMarketDataSync(),
+        historical_klines=FakeHistoricalKlines(),
         config=MagicMock(),
         fsm=MagicMock(current_state=UIMode.IDLE),
         view_model=MagicMock(),
@@ -129,6 +134,7 @@ def _controller(**overrides) -> StreamLifecycleController:
         "thread_manager": MagicMock(),
         "dispatcher": MagicMock(),
         "market_data_sync": FakeMarketDataSync(),
+        "historical_klines": FakeHistoricalKlines(),
         "config": MagicMock(),
         "fsm": MagicMock(),
         "view_model": MagicMock(),

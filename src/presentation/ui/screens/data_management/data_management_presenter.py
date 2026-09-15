@@ -10,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.bulk_sync_events import (
     BulkSyncProgressEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
 )
@@ -241,6 +244,7 @@ class DataManagementPresenter(BasePresenter):
 
         self._kline_inspector_coordinator = KLineInspectorCoordinator(
             dispatcher=self.dispatcher,
+            historical_klines=container.resolve(IHistoricalKlines),
             thread_manager=self._thread_manager,
             tracker=self._tracker,
             ui_error_log_signal=self.ui_error_log_signal.emit,
