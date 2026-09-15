@@ -141,10 +141,10 @@ def test_dashboard_view_model_symbol_and_dates_are_settable(qapp):
 
 
 def test_dashboard_view_builds_positions_and_open_orders_panels(qapp):
-    from Sagittarius_Elite_Warrior.src.presentation.ui.qml.OpenOrdersTable.open_orders_panel import (
+    from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_orders_panel import (
         OpenOrdersPanel,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.qml.PositionsTable.positions_panel import (
+    from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positions_panel import (
         PositionsPanel,
     )
 

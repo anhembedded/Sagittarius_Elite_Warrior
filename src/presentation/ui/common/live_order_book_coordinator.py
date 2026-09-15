@@ -32,11 +32,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     is_terminal,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.OpenOrdersTable.open_order_row import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_order_row import (
     OpenOrderRow,
     build_open_order_row,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.PositionsTable.positions_row import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.position_row import (
     PositionRow,
     build_position_row,
 )

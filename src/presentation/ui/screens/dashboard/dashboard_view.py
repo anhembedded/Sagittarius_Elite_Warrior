@@ -6,21 +6,21 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import 
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_order_row import (
+    OpenOrderRow,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_orders_panel import (
+    OpenOrdersPanel,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.position_row import (
+    PositionRow,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positions_panel import (
+    PositionsPanel,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     PageShell,
     PreferredHeightScrollArea,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.OpenOrdersTable.open_order_row import (
-    OpenOrderRow,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.OpenOrdersTable.open_orders_panel import (
-    OpenOrdersPanel,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.PositionsTable.positions_panel import (
-    PositionsPanel,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.PositionsTable.positions_row import (
-    PositionRow,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
@@ -93,10 +93,10 @@ class DashboardView(BaseView):
         # ViewModel at construction). Re-set below once it exists.
         self._shell.set_header(_TITLE, _SUBTITLE)
 
-        # `EPIC-023A` — Vị thế/Lệnh chờ khớp, account-wide, same widgets
-        # `TradingView` embeds (moved to `qml/PositionsTable`/`qml/
-        # OpenOrdersTable` for exactly this reuse — see those modules'
-        # docstrings).
+        # `EPIC-023A` — positions and open orders, account-wide, the same
+        # widgets `TradingView` embeds (they live in
+        # `components/order_book/` for exactly this reuse — see that
+        # package's docstring; QtWidgets since PR 1.4b-2).
         self._positions_panel = PositionsPanel()
         self._positions_panel.setObjectName("positionsPanel")
         self._open_orders_panel = OpenOrdersPanel()

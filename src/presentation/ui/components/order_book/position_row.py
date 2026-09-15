@@ -1,14 +1,20 @@
-"""Row projection for `PositionsTable.qml` (`EPIC-021I`).
+"""One row of the Positions table — a display projection of one `LivePosition`.
 
-@details Mirrors `TradeLogTable/trade_log_row.py`'s split: formatting
-happens here, in Python, so the `.qml` stays a dumb renderer of
-pre-formatted dicts.
+@details Formatting happens here, in Python, and the table model below reads
+only these strings: a cell is text the moment it leaves this function, so
+nothing downstream computes with a `Decimal` again and two tables of the same
+numbers cannot disagree about how many decimals a size has.
+
+`EPIC-025` PR 1.4b-2 moved this out of `qml/PositionsTable/positions_row.py`
+together with the table it feeds. What went with the QML is the
+`position_row_to_qml()` projection: a `QAbstractTableModel` is asked for one
+cell at a time, so a dict per row served no one. What stayed is every format
+string, unchanged — the rebuild is the renderer, not the numbers.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
@@ -16,19 +22,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
-    BEAR_COLOR,
-    BULL_COLOR,
-)
 
 
 @dataclass(frozen=True)
 class PositionRow:
-    """One row of the Positions table — a display projection of one
-    `LivePosition`. `quantity`/`entry_price`/`mark_price`/`unrealized_pnl`
-    are already formatted strings, not `Decimal`s: nothing downstream of
-    this dataclass (`position_row_to_qml`, the `.qml` renderer) needs to
-    compute with them again."""
+    """One open position, ready to render."""
 
     symbol: str
     side: PositionSide
@@ -36,6 +34,11 @@ class PositionRow:
     entry_price_text: str
     mark_price_text: str
     unrealized_pnl_text: str
+    #: The fact behind the emphasis the model applies to a losing row, and
+    #: behind its sort order. It is *not* a colour: ADR D21 leaves colour to
+    #: the OS palette, and Qt has no role meaning "this position is losing
+    #: money" — the same argument `database_status_table_model.py` makes for
+    #: a shard with holes in it.
     pnl_is_profit: bool
     leverage: int
     #: `LivePosition.liquidation_price` is `None` only in the theoretical
@@ -61,22 +64,3 @@ def build_position_row(position: LivePosition) -> PositionRow:
             else "—"
         ),
     )
-
-
-def position_row_to_qml(row: PositionRow) -> dict[str, Any]:
-    return {
-        "symbol": row.symbol,
-        "sideLabel": row.side.value.upper(),
-        "sideIsLong": row.side is PositionSide.LONG,
-        "sizeText": row.quantity_text,
-        "entryText": row.entry_price_text,
-        "markText": row.mark_price_text,
-        "pnlText": row.unrealized_pnl_text,
-        "pnlColor": BULL_COLOR if row.pnl_is_profit else BEAR_COLOR,
-        "leverageText": f"{row.leverage}x",
-        "liquidationText": row.liquidation_price_text,
-    }
-
-
-def position_rows_to_qml(rows: list[PositionRow]) -> list[dict[str, Any]]:
-    return [position_row_to_qml(row) for row in rows]

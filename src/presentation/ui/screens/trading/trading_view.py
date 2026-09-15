@@ -30,24 +30,24 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel impo
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
     ChartCard,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_order_row import (
+    OpenOrderRow,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_orders_panel import (
+    OpenOrdersPanel,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.position_row import (
+    PositionRow,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positions_panel import (
+    PositionsPanel,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     Card,
     PageShell,
     StyledButton,
     StyleRole,
     apply_role,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.OpenOrdersTable.open_order_row import (
-    OpenOrderRow,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.OpenOrdersTable.open_orders_panel import (
-    OpenOrdersPanel,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.PositionsTable.positions_panel import (
-    PositionsPanel,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.PositionsTable.positions_row import (
-    PositionRow,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 

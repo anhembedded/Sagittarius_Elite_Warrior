@@ -7,10 +7,6 @@ src/presentation/ui/qml/DataTable/DataTable.qml
 src/presentation/ui/qml/DataTable/_DataTablePreview.qml
 src/presentation/ui/qml/MetricsDetailPanel/MetricsDetailCard.qml
 src/presentation/ui/qml/MetricsDetailPanel/MetricsDetailPanel.qml
-src/presentation/ui/qml/OpenOrdersTable/OpenOrderRow.qml
-src/presentation/ui/qml/OpenOrdersTable/OpenOrdersTable.qml
-src/presentation/ui/qml/PositionsTable/PositionRow.qml
-src/presentation/ui/qml/PositionsTable/PositionsTable.qml
 src/presentation/ui/qml/SelectList/SelectList.qml
 src/presentation/ui/qml/StatCardRow/StatCardRow.qml
 src/presentation/ui/qml/StatGrid/StatGrid.qml

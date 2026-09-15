@@ -16,11 +16,13 @@ class TradingViewModel(BaseQmlViewModel):
     toggle may turn on, what a session stat means) lives here.
 
     @details The Positions/Open Orders tables are NOT modelled here —
-    each owns its own small QML `*VM` (`PositionsVM`/`OpenOrdersVM`,
-    `qml/PositionsTable`/`qml/OpenOrdersTable`), pushed to directly by
+    each owns its own `QAbstractTableModel`
+    (`components/order_book/table_models.py`), pushed to directly by
     `TradingPresenter` through `ITradingView.set_positions`/
     `set_open_orders` — a panel owning its own rows, pushed to from the
-    Presenter, rather than a screen view model holding them.
+    Presenter, rather than a screen view model holding them. PR 1.4b-2
+    replaced the two QML `*VM`s with those models; what this class does
+    (and does not) hold did not change.
     """
 
     symbolOptionsChanged = Signal()

@@ -30,8 +30,8 @@ from typing import Protocol, runtime_checkable
 from PySide6.QtCore import SignalInstance
 
 from ...components.chart_card import ChartCard
-from ...qml.OpenOrdersTable.open_order_row import OpenOrderRow
-from ...qml.PositionsTable.positions_row import PositionRow
+from ...components.order_book.open_order_row import OpenOrderRow
+from ...components.order_book.position_row import PositionRow
 from .trading_view_model import TradingViewModel
 
 #: `set_view_model`'s second argument — kept for the same reason
