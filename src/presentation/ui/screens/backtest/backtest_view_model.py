@@ -261,7 +261,7 @@ class BackTestViewModel(BaseQmlViewModel):
         return self._symbol_options
 
     #: Read-only from QML. Set by the Presenter after
-    #: ListAvailableSymbolsQuery resolves — see symbolOptionsChanged.
+    #: `ISymbolCatalog.list_symbols()` resolves — see symbolOptionsChanged.
     symbolOptions = Property(
         "QStringList", _get_symbol_options, notify=symbolOptionsChanged
     )

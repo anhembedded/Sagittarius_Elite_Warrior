@@ -26,7 +26,7 @@ suite through its `observed` fixture. Only members the fake adds and the port
 never declared, which is the exact set nothing else checks.
 
 **A fake with no extra helpers passes silently, and should.**
-`FakeMarketDataRepository` and `FakeSymbolCatalog` declare nothing beyond
+`FakeMarketDataRepository` and `FakeSymbolCatalogRepository` declare nothing beyond
 their ports, so this guard has one thing to check today. It is written to be
 live before the second one arrives — Phase 1 adds `IHistoricalKlines` and
 `IMarketStream`, and three market_data ports still have no suite at all.

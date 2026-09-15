@@ -25,14 +25,23 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
+    RangeCoverageService,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines import (
     StoredKlinesReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols import (
+    SymbolCatalogService,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.market_stream_service import (
     MarketStreamService,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.market_data_sync_service import (
     MarketDataSyncService,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
+    IExchangeClient,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
@@ -46,6 +55,15 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_range_coverage import (
+    IRangeCoverage,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
+    ISymbolCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog_repository import (
+    ISymbolCatalogRepository,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
@@ -54,6 +72,8 @@ def bind_published_ports(container: IContainer) -> None:
     container.singleton(IMarketDataSync, _build_market_data_sync)
     container.singleton(IHistoricalKlines, _build_historical_klines)
     container.singleton(IMarketStream, _build_market_stream)
+    container.singleton(ISymbolCatalog, _build_symbol_catalog)
+    container.singleton(IRangeCoverage, _build_range_coverage)
 
 
 def _build_market_data_sync(container: IContainer) -> IMarketDataSync:
@@ -94,3 +114,28 @@ def _build_market_stream(container: IContainer) -> IMarketStream:
     `shell/registering_container.py` refuses.
     """
     return MarketStreamService(container.resolve(ICommandDispatcher))
+
+
+def _build_symbol_catalog(container: IContainer) -> ISymbolCatalog:
+    """The service itself, per HLD §3.4 — the same "no pass-through object"
+    rule `_build_historical_klines` above records.
+
+    It holds two of the module's own ports rather than dispatching, because
+    unlike the sync and the stream there is no command in the middle: the
+    class *is* the read. `IExchangeClient` is resolved lazily here for the
+    reason `module.py` documents — constructing one is a network call
+    (`BUG-045`), so a session that never opens a symbol picker never builds
+    it.
+    """
+    return SymbolCatalogService(
+        lambda: container.resolve(IExchangeClient),
+        container.resolve(ISymbolCatalogRepository),
+    )
+
+
+def _build_range_coverage(container: IContainer) -> IRangeCoverage:
+    """The service itself, reading the same repository `IHistoricalKlines`
+    reads — no command in the middle, so nothing to dispatch (the same shape
+    as `_build_symbol_catalog` above, and unlike the sync and the stream).
+    """
+    return RangeCoverageService(container.resolve(IMarketDataRepository))

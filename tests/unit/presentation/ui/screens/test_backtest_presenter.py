@@ -66,9 +66,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
     InMemorySymbolMarketMetadataCache,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols.query import (
-    ListAvailableSymbolsQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
 )
@@ -77,6 +74,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_kl
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_range_coverage import (
+    IRangeCoverage,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
+    ISymbolCatalog,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
     LotSizeFilter,
@@ -90,6 +93,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_hi
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_range_coverage import (
+    FakeRangeCoverage,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
+    FakeSymbolCatalog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_type_renderer import (
     CANDLESTICK,
@@ -245,6 +254,8 @@ def _build_presenter_with_registry(
     resolved_script_registry = script_registry or IndicatorScriptRegistry()
     resolved_sync = market_data_sync or FakeMarketDataSync()
     resolved_history = historical_klines or FakeHistoricalKlines()
+    resolved_catalog = FakeSymbolCatalog()
+    resolved_coverage = FakeRangeCoverage()
 
     def resolve_mock(interface):
         if interface == IThreadManager:
@@ -261,6 +272,10 @@ def _build_presenter_with_registry(
             return BacktestChartHostFactory()
         if interface == IHistoricalKlines:
             return resolved_history
+        if interface == IRangeCoverage:
+            return resolved_coverage
+        if interface == ISymbolCatalog:
+            return resolved_catalog
         if interface == IMarketDataSync:
             return resolved_sync
         return Mock()
@@ -442,6 +457,22 @@ def mock_config():
 
 
 @pytest.fixture
+def fake_range_coverage():
+    """`EPIC-025` PR 1.2 — the screen probes coverage through
+    `IRangeCoverage`, so the container hands out the port's verified fake and
+    a test reads the range the screen asked about."""
+    return FakeRangeCoverage()
+
+
+@pytest.fixture
+def fake_symbol_catalog():
+    """`EPIC-025` PR 1.2 — the symbol picker reads `ISymbolCatalog`, so the
+    container hands out the port's verified fake and a test can assert the
+    symbols that reached the screen."""
+    return FakeSymbolCatalog()
+
+
+@pytest.fixture
 def fake_historical_klines():
     """`EPIC-025` PR 1.1 — the screen reads stored candles through
     `IHistoricalKlines`. The container hands out the port's verified fake, so a
@@ -468,6 +499,8 @@ def mock_container(
     indicator_script_registry,
     fake_market_data_sync,
     fake_historical_klines,
+    fake_symbol_catalog,
+    fake_range_coverage,
 ):
     container = Mock()
 
@@ -487,6 +520,10 @@ def mock_container(
             return BacktestChartHostFactory()
         if interface == IHistoricalKlines:
             return fake_historical_klines
+        if interface == IRangeCoverage:
+            return fake_range_coverage
+        if interface == ISymbolCatalog:
+            return fake_symbol_catalog
         if interface == IMarketDataSync:
             return fake_market_data_sync
         return Mock()
@@ -624,23 +661,28 @@ def test_opening_symbol_picker_again_does_not_refetch_when_already_cached(
     mock_thread_mgr.submit.assert_not_called()
 
 
-def test_fetch_symbol_options_dispatches_query_and_populates_the_view_model(
-    presenter, view_model, mock_dispatcher
+def test_fetch_symbol_options_reads_the_catalog_and_populates_the_view_model(
+    presenter, view_model, fake_symbol_catalog
 ):
-    mock_dispatcher.dispatch.return_value = ["BTCUSDT", "ETHUSDT"]
+    """`EPIC-025` PR 1.2 — read off the port. The old version asserted the
+    dispatched query's *type* and then that the view model held the list the
+    test itself had put in the mock; this asserts the symbols the picker
+    shows came from the module."""
+    fake_symbol_catalog.seed(["ETHUSDT", "BTCUSDT"])
 
     presenter._symbol_options_coordinator._fetch()
 
-    handler_class, query = mock_dispatcher.dispatch.call_args[0]
-    assert handler_class is ListAvailableSymbolsQuery
-    assert isinstance(query, ListAvailableSymbolsQuery)
+    assert fake_symbol_catalog.reads == [False]
     assert view_model.symbolOptions == ["BTCUSDT", "ETHUSDT"]
 
 
 def test_fetch_symbol_options_failure_does_not_cache_and_logs_without_crashing(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model
 ):
-    mock_dispatcher.dispatch.side_effect = RuntimeError("exchange unreachable")
+    def unreachable(*_args, **_kwargs):
+        raise RuntimeError("exchange unreachable")
+
+    presenter._symbol_options_coordinator._symbol_catalog.list_symbols = unreachable
 
     presenter._symbol_options_coordinator._fetch()
 
@@ -990,22 +1032,27 @@ def test_result_message_labels_realtime_vs_static_truthfully(
 
 
 def test_probe_data_coverage_checks_tick_resolution_for_realtime_mode(
-    presenter, view_model, mock_dispatcher
+    presenter, view_model, fake_range_coverage
 ):
-    """BOT-076's handler queries IMarketDataRepository at tick_resolution
-    (e.g. 1s), never at the strategy interval (e.g. 5m) — checking coverage
-    for the wrong one would report "fully covered" while the interval the
-    handler actually reads was never synced at all."""
+    """BOT-076's read asks `IMarketDataRepository` at tick_resolution (e.g.
+    1s), never at the strategy interval (e.g. 5m) — checking coverage for the
+    wrong one would report "fully covered" while the interval actually read
+    was never synced at all.
+
+    `EPIC-025` PR 1.2 — read off `IRangeCoverage`'s own record. The old
+    version compared `query.interval` against `config.tick_resolution.value`,
+    two strings; the port carries a `TimeFrame`, so the comparison is now
+    between the values the screen actually holds.
+    """
     view_model.executionMode = "HISTORICAL_TICK"
     view_model.time_range.preset = "7d"
     config = _lock_and_get_config(presenter, view_model)
-    mock_dispatcher.dispatch.return_value = Mock(is_fully_covered=True)
 
     presenter._probe_data_coverage(config)
 
-    _handler_class, query = mock_dispatcher.dispatch.call_args[0]
-    assert query.interval == config.tick_resolution.value
-    assert query.interval != config.timeframe.value
+    request = fake_range_coverage.requests[0]
+    assert request.interval == config.tick_resolution
+    assert request.interval != config.timeframe
 
 
 # ---------------------------------------------------------------------------
@@ -1708,18 +1755,24 @@ def test_run_sync_falls_back_to_the_requested_start_with_no_prior_coverage(
 
 
 def test_sync_without_the_required_candle_reports_incomplete_and_keeps_retry_available(
-    presenter, view_model, mock_dispatcher, mock_thread_mgr
+    presenter, view_model, mock_dispatcher, mock_thread_mgr, fake_range_coverage
 ):
     """Regression: transport success is not data coverage success.
 
     The old flow logged "Đồng bộ dữ liệu thành công", restarted the backtest,
     then immediately emitted the same missing-candle error.  The user must get
     one truthful incomplete-sync result and retain the retry affordance.
+
+    `EPIC-025` PR 1.2 — the re-probe after the sync reads `IRangeCoverage`,
+    so the still-incomplete answer is scripted on the port rather than set as
+    a dispatcher's return value.
     """
     config = _run_to_no_data(presenter, view_model, mock_dispatcher)
     view_model.requestSync()
     mock_thread_mgr.reset_mock()
-    mock_dispatcher.dispatch.return_value = _missing_coverage()
+    fake_range_coverage.answer_with(
+        _missing_coverage(), symbol=config.symbol, interval=config.timeframe
+    )
 
     presenter._run_sync(config)
 
@@ -1731,16 +1784,18 @@ def test_sync_without_the_required_candle_reports_incomplete_and_keeps_retry_ava
 
 
 def test_sync_success_clears_the_flag_and_auto_resubmits_the_backtest(
-    presenter, view_model, mock_dispatcher, mock_thread_mgr
+    presenter, view_model, mock_dispatcher, mock_thread_mgr, fake_range_coverage
 ):
     config = _run_to_no_data(presenter, view_model, mock_dispatcher)
     view_model.requestSync()
     mock_thread_mgr.reset_mock()
-    # The worker verifies coverage after the sync — which is a port call now,
-    # so the coverage re-probe is the dispatcher's only work here. The
-    # resubmitted RunStaticBacktestCommand is never dispatched in this test
-    # because mock_thread_mgr is a Mock, not a real thread pool.
-    mock_dispatcher.dispatch.side_effect = [_complete_coverage()]
+    # The worker verifies coverage after the sync, and `EPIC-025` PR 1.2 made
+    # that a port call too — so the dispatcher has nothing left to answer
+    # here. The resubmitted RunStaticBacktestCommand is never dispatched in
+    # this test because mock_thread_mgr is a Mock, not a real thread pool.
+    fake_range_coverage.answer_with(
+        _complete_coverage(), symbol=config.symbol, interval=config.timeframe
+    )
 
     presenter._run_sync(config)
 
@@ -1754,7 +1809,7 @@ def test_sync_success_clears_the_flag_and_auto_resubmits_the_backtest(
 
 
 def test_sync_success_resubmits_with_its_original_config_snapshot(
-    presenter, view_model, mock_dispatcher, mock_thread_mgr
+    presenter, view_model, mock_dispatcher, mock_thread_mgr, fake_range_coverage
 ):
     """A sync success authorizes only the intent that created that sync.
 
@@ -1765,8 +1820,10 @@ def test_sync_success_resubmits_with_its_original_config_snapshot(
     view_model.requestSync()
     view_model.initialCapitalText = "500"
     mock_thread_mgr.reset_mock()
-    # As above: the sync is a port call, the probe is the one dispatch.
-    mock_dispatcher.dispatch.side_effect = [_complete_coverage()]
+    # As above: both the sync and the coverage probe are port calls now.
+    fake_range_coverage.answer_with(
+        _complete_coverage(), symbol=config.symbol, interval=config.timeframe
+    )
 
     presenter._run_sync(config)
 
@@ -1900,7 +1957,7 @@ def test_cancel_ignored_when_nothing_is_active(presenter, view_model):
 # ---------------------------------------------------------------------------
 # BOT-076 — tick mode rejects an unbounded (ALL_HISTORY) time range.
 #
-# GetBacktestRangeCoverageQuery's SQL has no lower bound when start_time is
+# `IRangeCoverage`'s SQL has no lower bound when start_time is
 # None, so it scans every 1s-interval row ever synced for the symbol. A real
 # session got stuck retrying "Đồng bộ dữ liệu ngay" forever: the coverage
 # round-trip got slower every retry as more tick data accumulated, while the

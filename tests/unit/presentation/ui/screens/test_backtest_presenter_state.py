@@ -271,7 +271,7 @@ def test_restoring_symbol_and_timeframe_does_not_run_a_live_chart_preview(
 ):
     """`BUG-101`: `selectedSymbolChanged`/`selectedTimeframeChanged` are
     wired to handlers that call `_request_chart_preview()`, which submits a
-    live `GetHistoricalKlinesQuery`/`GetBacktestRangeCoverageQuery` job to
+    live `IHistoricalKlines`/`IRangeCoverage` read to
     `IThreadManager` — up to 200,000 rows in the reported case. Restoring a
     remembered symbol/timeframe applies through those same ViewModel
     setters a user edit would use, so without a restore guard this ran a

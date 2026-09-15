@@ -1,7 +1,8 @@
 """`EPIC-019A` — tradeable-symbol-list fetch/cache, pulled out of
 `DashboardPresenter` and `BackTestPresenter`: both screens implemented the
 same "check cache, submit a worker fetch, dispatch
-`ListAvailableSymbolsQuery`, report ready/failed" sequence independently.
+`ISymbolCatalog.list_symbols()`, report ready/failed" sequence
+independently.
 
 Mirrors the shape of `screens/dashboard/coordinators/indicator_coordinator.py`:
 a plain class (not `QObject`), reached through injected callables rather than
@@ -16,10 +17,9 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols import (
-    ListAvailableSymbolsQuery,
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
+    ISymbolCatalog,
 )
-from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 logger = logging.getLogger("App.SymbolOptions")
@@ -31,12 +31,12 @@ class SymbolOptionsCoordinator:
 
     def __init__(
         self,
-        dispatcher: IDispatcher,
+        symbol_catalog: ISymbolCatalog,
         thread_manager: IThreadManager,
         emit_ready: Callable[[list[str]], None],
         emit_failed: Callable[[str], None],
     ) -> None:
-        self._dispatcher = dispatcher
+        self._symbol_catalog = symbol_catalog
         self._thread_manager = thread_manager
         self._emit_ready = emit_ready
         self._emit_failed = emit_failed
@@ -61,15 +61,15 @@ class SymbolOptionsCoordinator:
         """Runs on a worker thread — hence reporting through callables that
         forward to Qt signals, rather than writing a ViewModel directly."""
         try:
-            symbols = self._dispatcher.dispatch(
-                ListAvailableSymbolsQuery,
-                ListAvailableSymbolsQuery(force_refresh=force_refresh),
-            )
+            symbols = self._symbol_catalog.list_symbols(force_refresh=force_refresh)
         except Exception as exc:
             logger.exception("Failed to fetch available symbols")
             self._emit_failed(str(exc))
             return
-        self._emit_ready(symbols)
+        # `list()` because `emit_ready` forwards into a Qt signal declared
+        # `list` — the port answers with a tuple so no consumer can edit the
+        # snapshot (`EPIC-025` PR 1.2), and Qt needs its own copy anyway.
+        self._emit_ready(list(symbols))
 
     def on_options_ready(self, symbols: list[str]) -> None:
         """Called from the main-thread slot connected to the caller's ready

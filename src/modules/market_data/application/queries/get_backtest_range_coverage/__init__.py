@@ -1,4 +1,3 @@
-from .handler import GetBacktestRangeCoverageQueryHandler
-from .query import GetBacktestRangeCoverageQuery
+from .handler import RangeCoverageService
 
-__all__ = ["GetBacktestRangeCoverageQuery", "GetBacktestRangeCoverageQueryHandler"]
+__all__ = ["RangeCoverageService"]

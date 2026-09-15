@@ -4,7 +4,7 @@ A symbol arrives as one undivided string (`ETHUSDT`), but the picker needs the
 two halves apart: to show `ETH` bold against a dimmed `USDT`, to say "Quote
 USDT" under it, and to filter by quote. Binance's own `exchangeInfo` carries
 `baseAsset`/`quoteAsset` per symbol, but the picker is handed a plain
-`list[str]` (that is what `ListAvailableSymbolsQuery` returns), so the split is
+`list[str]` (that is what `ISymbolCatalog.list_symbols()` is read into), so the split is
 derived from the text.
 
 Derivation is a longest-suffix match against a declared list — not a guess.

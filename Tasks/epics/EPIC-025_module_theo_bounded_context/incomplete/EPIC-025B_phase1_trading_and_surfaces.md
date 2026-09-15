@@ -1,6 +1,11 @@
 # EPIC-025B — Phase 1: `modules/trading`; Trading and Dev Board become composition surfaces
 
-- **Status:** 🔴 Backlog
+- **Status:** 🟡 In progress — the two `market_data` ports this phase was given are **done**:
+  PR 1.1a `IHistoricalKlines` (#217, plus its review cleanup #218) and PR 1.1b `IMarketStream`
+  (#219). Allowlist 34 → 24. Next is PR 1.2 (`ISymbolCatalog`, `IRangeCoverage`), then 1.3
+  (`modules/trading`, where the epic's risk actually sits). The pull-request cut and what each
+  one retires live in the epic [`README`](../README.md) §"the cut"; `TRACKING.md` carries the
+  per-PR log.
 - **Repository:** Elite
 - **Blocked by:** A · **Blocks:** C
 - **Read first:** HLD §3.4 (the contracts of `trading`), §4.2–§4.5 (the Trading and Dev Board

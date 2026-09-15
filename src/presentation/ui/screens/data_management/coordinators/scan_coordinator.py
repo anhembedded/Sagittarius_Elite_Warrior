@@ -14,15 +14,15 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.prun
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols import (
-    ListAvailableSymbolsQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.scan_all_databases import (
     DatabaseStatusDTO,
     ScanAllDatabasesQuery,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
+    ISymbolCatalog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOutcome,
@@ -55,6 +55,7 @@ class ScanCoordinator:
         thread_manager: IThreadManager,
         tracker: ActionOwnershipTracker[DataManagementActionKind, object, UIMode],
         market_data_repo: IMarketDataRepository,
+        symbol_catalog: ISymbolCatalog,
         ui_log_signal: Callable[[str], None],
         ui_error_log_signal: Callable[[str], None],
         ui_status_table_signal: Callable[[StatusRowUpdate], None],
@@ -72,6 +73,7 @@ class ScanCoordinator:
         self._thread_manager = thread_manager
         self._tracker = tracker
         self._market_data_repo = market_data_repo
+        self._symbol_catalog = symbol_catalog
 
         self._ui_log_signal = ui_log_signal
         self._ui_error_log_signal = ui_error_log_signal
@@ -131,13 +133,17 @@ class ScanCoordinator:
         )
         try:
             try:
-                available_symbols: list[str] = self._dispatcher.dispatch(
-                    ListAvailableSymbolsQuery, ListAvailableSymbolsQuery()
-                )
+                # `EPIC-025` PR 1.2 — the published port, and the cached read:
+                # auto-discover is about what is already on disk, so forcing
+                # an exchange round trip here would make a local scan wait on
+                # the network.
+                available_symbols = self._symbol_catalog.list_symbols()
                 if available_symbols and self._tracker.is_current_pending(
                     action.action_id, DataManagementActionKind.AUTO_DISCOVER
                 ):
-                    self._ui_symbol_options_signal(available_symbols)
+                    # `list()` because the signal is declared `list`; the port
+                    # answers with a tuple so no consumer can edit it.
+                    self._ui_symbol_options_signal(list(available_symbols))
             except Exception as err:  # noqa: BLE001
                 logging.getLogger("App.Presenter").debug(
                     f"Exchange symbols not available at auto-discover: {err}"

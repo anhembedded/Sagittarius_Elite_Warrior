@@ -11,8 +11,16 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from types import SimpleNamespace
 
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
+    MINUTE,
+    at,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_range_coverage import (
+    FakeRangeCoverage,
+    fully_covered,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.coordinators import (
     ChartPreviewCoordinator,
@@ -36,8 +44,8 @@ def _build(
     start_time=None,
     end_time=None,
     execution_mode=BacktestExecutionMode.BAR_CLOSE,
-    dispatcher=None,
     history=None,
+    coverage=None,
 ):
     """Returns the coordinator plus everything a test asserts against."""
     view = FakeBacktestView(card)
@@ -48,8 +56,8 @@ def _build(
         view=view,
         state=state,
         view_model=view_model,
-        dispatcher=dispatcher or SimpleNamespace(dispatch=lambda *a: None),
         historical_klines=history or FakeHistoricalKlines(),
+        range_coverage=coverage or FakeRangeCoverage(),
         thread_manager=SimpleNamespace(submit=lambda *a: calls.previews.append(a)),
         log_dev_trace=lambda *a, **k: None,
         format_coverage_message=lambda _c: "missing data",
@@ -119,7 +127,7 @@ def test_no_preview_is_requested_for_an_unbounded_range_in_tick_mode() -> None:
 
     `TickModeRequiresBoundedRangeRule` (`logic/pre_backtest_assertions.py`)
     already refuses to let the user click "Run Backtest" with tick mode +
-    an unbounded range, because `GetBacktestRangeCoverageQuery`'s SQL is a
+    an unbounded range, because `IRangeCoverage`'s SQL is a
     window-function scan with no lower bound at 1-second granularity — the
     exact hazard that rule's own docstring names. That rule only guards the
     Run button; `ChartPreviewCoordinator.request_preview()` fires
@@ -209,43 +217,34 @@ def test_a_too_wide_range_outside_tick_mode_still_previews() -> None:
     assert len(ctx.calls.previews) == 1
 
 
-def test_run_preview_unwraps_a_test_doubles_response_envelope() -> None:
-    """`BUG-072` — a real crash, not a style nit.
+def test_run_preview_emits_the_coverage_the_module_answered() -> None:
+    """`BUG-072` — a real crash, and `EPIC-025` PR 1.2 is where its cause
+    stopped existing.
 
-    `Sagittarius_Elite_Warrior/tests/integration/.../conftest.py`'s mocked
-    dispatcher (and any other stand-in shaped like it) wraps a query's result
-    in a response envelope with a `.data` attribute; the real production
-    dispatcher returns `GetBacktestRangeCoverageQueryHandler`'s
-    `BacktestRangeCoverage` unwrapped. `run_preview()` must apply the same
-    `getattr(response, "data", response)` unwrap to the coverage response
-    that it already applies to `raw_klines` two lines above — skipping it
-    let an arbitrary test-double object reach `_previewDataReadySignal`
-    (`Signal(int, object, list, list, list)`), which crashed the interpreter
-    marshaling it across the worker/main thread queue instead of ever
-    reaching a Python assertion.
+    The bug was an untyped dispatch result: a test double wrapped the
+    coverage in a response envelope, `run_preview()` passed that envelope to
+    `_previewDataReadySignal` (`Signal(int, object, list, list, list)`), and
+    the interpreter crashed marshalling it across the worker/main thread
+    queue rather than ever reaching a Python assertion. The fix then was a
+    `getattr(response, "data", response)` unwrap on the way out.
+
+    `IRangeCoverage.coverage()` returns `BacktestRangeCoverage`, so there is
+    no envelope to unwrap and no `getattr` left: what this test now pins is
+    the promise that replaced it — the value the module answered is the value
+    the screen emits, unchanged. The klines half went the same way in PR 1.1a.
     """
-    inner_coverage = SimpleNamespace(is_fully_covered=True)
+    answered = fully_covered(at(0), at(4), candles=5)
+    coverage = FakeRangeCoverage()
+    coverage.answer_with(answered, symbol="BTCUSDT", interval=MINUTE)
 
-    def dispatch(_kind, _payload):
-        # Only the coverage query still goes through a dispatcher. `EPIC-025`
-        # PR 1.1 moved the klines read onto `IHistoricalKlines`, whose return
-        # type is a typed tuple — so the klines half of `BUG-072` is now
-        # structurally impossible rather than merely tested: no envelope can
-        # reach that variable, and the `if "Klines" in kind.__name__` branch
-        # this test used to carry had nothing left to answer. The coverage
-        # half below is still live, and stays until PR 1.2 publishes
-        # `IRangeCoverage`.
-        return SimpleNamespace(data=inner_coverage)
-
-    ctx = _build(dispatcher=SimpleNamespace(dispatch=dispatch))
+    ctx = _build(coverage=coverage)
 
     ctx.c.run_preview(
-        SimpleNamespace(
-            timeframe=SimpleNamespace(value="1m"), start_time=None, end_time=None
-        ),
+        SimpleNamespace(timeframe=MINUTE, start_time=None, end_time=None),
         preview_id=7,
     )
 
     assert len(ctx.calls.emitted) == 1
     emitted_coverage = ctx.calls.emitted[0][1]
-    assert emitted_coverage is inner_coverage
+    assert emitted_coverage is answered
+    assert coverage.was_asked_about("BTCUSDT", MINUTE)

@@ -215,6 +215,13 @@ the namespace used by `stop_all(owner_id)` on shutdown, which is today's
 `StartLiveStreamCommand.owner` semantics ("replaces the owner's previous subscriptions") made
 explicit.
 
+**`ISymbolCatalog` shipped without `quote_asset`.** SDD-06b declares
+`list_symbols(quote_asset: str | None)`. Measured, nothing filters by quote asset: the picker's
+tabs split the whole list in `ui/components/symbol_picker/quote_asset.py`, and no caller has ever
+asked the module for a subset. What shipped is `list_symbols(force_refresh=False)` — the flag the
+picker's manual refresh does pass (`BUG-066`) — on HLD §2.4's rule, the same one that kept
+`days_back_if_empty` out of `MarketDataSyncRequest` in PR 0.5.
+
 **What shipped, and the distance from the above.** Both ports are built (PR 0.5 and PR 1.1b) and
 neither carries a handle, for one shared reason: ADR D12 keeps business behaviour out of a port
 pull request, and a handle is not a naming choice — it is a different mechanism underneath.

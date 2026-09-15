@@ -11,7 +11,7 @@
 #
 # History of the count: 10 as found (2026-09-13) -> 8 after PR 0.3 -> 41 after
 # PR 0.4a -> 38 after PR 0.4a-2 -> 34 after PR 0.5 -> 28 after PR 1.1a -> 24
-# after PR 1.1b.
+# after PR 1.1b -> 20 after PR 1.2.
 #
 # 0.5 is the first time an entry retired because a **consumer moved onto a
 # published port** rather than because code moved into the module: four screens
@@ -146,6 +146,12 @@ presentation.cli.interactive_shell -> modules.market_data.cli.sync_cli_handler
 #              screens depend on the contract
 #   PR 1.1a  - DONE: the six `get_historical_klines` lines, via
 #              `IHistoricalKlines`
+#   PR 1.2   - DONE: the two `list_available_symbols` lines via
+#              `ISymbolCatalog`, and the two `get_backtest_range_coverage`
+#              lines via `IRangeCoverage`. Both queries were then deleted:
+#              once their consumers had moved, nothing in `src/` dispatched
+#              either one, and a registration kept for a hypothetical
+#              consumer is what PR 1.1a's cleanup established as dead weight
 #   PR 1.1b  - DONE: the four `start/stop_live_stream` lines, via
 #              `IMarketStream`. These two ports are what `EPIC-025A` §1 assigns
 #              to Phase 1; 0.5 deliberately published one port rather than
@@ -153,16 +159,12 @@ presentation.cli.interactive_shell -> modules.market_data.cli.sync_cli_handler
 #              rather than by three contracts written at once
 #   PR 0.4a-2 - DONE: the sync/stream CLI lines left when those commands moved
 #              into `modules/market_data/cli/`
-presentation.ui.common.symbol_options_coordinator -> modules.market_data.application.queries.list_available_symbols
-presentation.ui.screens.backtest.coordinators.chart_preview_coordinator -> modules.market_data.application.queries.get_backtest_range_coverage
-presentation.ui.screens.backtest.coordinators.data_sync_coordinator -> modules.market_data.application.queries.get_backtest_range_coverage
 presentation.ui.screens.data_management.coordinators.gap_coordinator -> modules.market_data.application.database.repair_data_gap
 presentation.ui.screens.data_management.coordinators.gap_coordinator -> modules.market_data.application.queries.get_database_gaps
 presentation.ui.screens.data_management.coordinators.kline_inspector_coordinator -> modules.market_data.application.queries.audit_database_integrity
 presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.database.clear_market_data
 presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.database.prune_empty_shards
 presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.queries.get_database_status.query
-presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.queries.list_available_symbols
 presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.queries.scan_all_databases
 presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules.market_data.application.sync.bulk_sync_market_data.command
 presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules.market_data.application.sync.bulk_sync_market_data.sync_target

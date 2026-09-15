@@ -6,8 +6,14 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
+    BacktestRangeCoverage,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_range_coverage import (
+    FakeRangeCoverage,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.coordinators import (
     DataSyncCoordinator,
@@ -26,10 +32,21 @@ class _Token:
 
 
 def _coverage(*, covered=True, missing=(), duplicates=0, unclosed=False):
-    return SimpleNamespace(
+    """A real `BacktestRangeCoverage`, not a `SimpleNamespace`.
+
+    `EPIC-025` PR 1.2 — the coordinator reads this off `IRangeCoverage` now,
+    whose contract says what comes back, so a stand-in with four of the eight
+    fields would be a shape production cannot produce. `missing_open_times`
+    is a tuple for the same reason.
+    """
+    return BacktestRangeCoverage(
         is_fully_covered=covered,
-        missing_open_times=list(missing),
+        first_open_time=None,
+        last_open_time=None,
+        expected_candles=0,
+        actual_candles=0,
         duplicate_candles=duplicates,
+        missing_open_times=tuple(missing),
         has_unclosed_candle=unclosed,
     )
 
@@ -41,21 +58,16 @@ def _config(start=None, end=None):
     )
 
 
-class _Dispatcher:
-    """Answers the coverage query, and only that.
+def _range_coverage(coverage=None) -> FakeRangeCoverage:
+    """The coverage port's verified fake, scripted with one answer.
 
-    `EPIC-025` PR 0.5 took the sync out of here: it is a call on
-    `IMarketDataSync` now, so what used to be one stub doing two jobs is a
-    dispatcher for the query and `_Sync` below for the sync.
+    `EPIC-025` PR 0.5 took the sync out of the old two-job dispatcher stub,
+    and PR 1.2 took the coverage query: both halves are ports now, so this
+    file holds a fake per port and no dispatcher at all.
     """
-
-    def __init__(self, coverage=None) -> None:
-        self.coverage = coverage or _coverage()
-        self.dispatched: list = []
-
-    def dispatch(self, kind, payload):
-        self.dispatched.append((kind.__name__, payload))
-        return self.coverage
+    fake = FakeRangeCoverage()
+    fake.answer_with(coverage or _coverage(), interval=TimeFrame.ONE_MINUTE)
+    return fake
 
 
 class _Sync(FakeMarketDataSync):
@@ -80,13 +92,13 @@ class _Sync(FakeMarketDataSync):
             raise self.raises
 
 
-def _build(dispatcher=None, action_id=7, sync=None):
-    dispatcher = dispatcher or _Dispatcher()
+def _build(coverage=None, action_id=7, sync=None):
+    coverage = coverage if coverage is not None else _range_coverage()
     sync = sync or _Sync()
     events: list[tuple] = []
     coordinator = DataSyncCoordinator(
-        dispatcher=dispatcher,
         market_data_sync=sync,
+        range_coverage=coverage,
         state=InMemoryScreenState(symbol="BTCUSDT"),
         # The real enum, not a stand-in: the coordinator reads `.value` and
         # `.to_seconds()` off it, and the real sync path's pydantic command
@@ -101,7 +113,7 @@ def _build(dispatcher=None, action_id=7, sync=None):
         emit_failed=lambda *a: events.append(("failed", *a)),
         emit_cancelled=lambda *a: events.append(("cancelled", *a)),
     )
-    return coordinator, dispatcher, events, sync
+    return coordinator, coverage, events, sync
 
 
 def test_a_gap_found_by_coverage_becomes_the_sync_start() -> None:
@@ -135,7 +147,7 @@ def test_coverage_message_names_the_specific_shortfall() -> None:
 
 
 def test_a_successful_sync_that_closes_the_gap_reports_success() -> None:
-    coordinator, _dispatcher, events, _sync = _build()
+    coordinator, _coverage_port, events, _sync = _build()
 
     coordinator.run_sync(_config())
 
@@ -145,8 +157,8 @@ def test_a_successful_sync_that_closes_the_gap_reports_success() -> None:
 def test_a_sync_that_leaves_the_gap_open_reports_failure_not_success() -> None:
     """The whole point of re-probing after the fetch: a sync that ran without
     raising has still not necessarily produced enough candles."""
-    coordinator, _dispatcher, events, _sync = _build(
-        _Dispatcher(coverage=_coverage(covered=False, duplicates=2))
+    coordinator, _coverage_port, events, _sync = _build(
+        _range_coverage(_coverage(covered=False, duplicates=2))
     )
 
     coordinator.run_sync(_config())
@@ -156,7 +168,7 @@ def test_a_sync_that_leaves_the_gap_open_reports_failure_not_success() -> None:
 
 
 def test_a_raising_sync_reports_failure_with_the_message() -> None:
-    coordinator, _dispatcher, events, _sync = _build(
+    coordinator, _coverage_port, events, _sync = _build(
         sync=_Sync(raises=RuntimeError("network down"))
     )
 
@@ -168,7 +180,7 @@ def test_a_raising_sync_reports_failure_with_the_message() -> None:
 def test_a_cancelled_sync_emits_cancelled_rather_than_falling_silent() -> None:
     """The handler checks the token cooperatively and returns normally, so
     without this branch the FSM sits in SYNCING forever."""
-    coordinator, _dispatcher, events, _sync = _build()
+    coordinator, _coverage_port, events, _sync = _build()
 
     coordinator.run_sync(_config(), None, _Token(cancelled=True))
 
@@ -176,7 +188,7 @@ def test_a_cancelled_sync_emits_cancelled_rather_than_falling_silent() -> None:
 
 
 def test_a_cancelled_sync_does_not_also_report_success() -> None:
-    coordinator, _dispatcher, events, _sync = _build()
+    coordinator, _coverage_port, events, _sync = _build()
 
     coordinator.run_sync(_config(), None, _Token(cancelled=True))
 
@@ -184,17 +196,17 @@ def test_a_cancelled_sync_does_not_also_report_success() -> None:
 
 
 def test_nothing_runs_without_an_action_to_attribute_it_to() -> None:
-    coordinator, dispatcher, events, sync = _build(action_id=None)
+    coordinator, coverage_port, events, sync = _build(action_id=None)
 
     coordinator.run_sync(_config())
 
     assert events == []
-    assert dispatcher.dispatched == []
+    assert coverage_port.requests == [], "no action, so nothing is even probed"
     assert sync.requests == [], "no action to attribute it to, so no sync"
 
 
 def test_progress_is_reported_against_the_current_action() -> None:
-    coordinator, _dispatcher, events, sync = _build()
+    coordinator, _coverage_port, events, sync = _build()
     sync.on_sync = lambda request: coordinator.on_progress(
         SimpleNamespace(
             symbol="BTCUSDT",
@@ -217,7 +229,7 @@ def test_progress_with_a_different_correlation_id_is_dropped() -> None:
     symbol/interval happen to be identical (two different actions can
     legitimately target the same symbol+interval — `correlation_id`, not
     business data, is what makes them distinguishable)."""
-    coordinator, _dispatcher, events, sync = _build()
+    coordinator, _coverage_port, events, sync = _build()
     sync.on_sync = lambda _request: coordinator.on_progress(
         SimpleNamespace(
             symbol="BTCUSDT",
@@ -234,7 +246,7 @@ def test_progress_with_a_different_correlation_id_is_dropped() -> None:
 
 
 def test_progress_without_an_action_is_dropped() -> None:
-    coordinator, _dispatcher, events, _sync = _build(action_id=None)
+    coordinator, _coverage_port, events, _sync = _build(action_id=None)
 
     coordinator.on_progress(SimpleNamespace(current=3, total=10))
 

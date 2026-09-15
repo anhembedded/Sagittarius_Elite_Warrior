@@ -1,4 +1,3 @@
-from .handler import ListAvailableSymbolsQueryHandler
-from .query import ListAvailableSymbolsQuery
+from .handler import SymbolCatalogService
 
-__all__ = ["ListAvailableSymbolsQuery", "ListAvailableSymbolsQueryHandler"]
+__all__ = ["SymbolCatalogService"]

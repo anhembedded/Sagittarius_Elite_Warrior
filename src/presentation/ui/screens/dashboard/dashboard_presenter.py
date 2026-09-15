@@ -86,6 +86,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
+    ISymbolCatalog,
+)
 from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
@@ -557,7 +560,7 @@ class DashboardPresenter(BasePresenter):
         # (the query returned nothing) and is deliberately NOT retried — a
         # distinction a falsy check would lose.
         self._symbol_options_coordinator = SymbolOptionsCoordinator(
-            dispatcher=self.dispatcher,
+            symbol_catalog=container.resolve(ISymbolCatalog),
             thread_manager=self._thread_manager,
             emit_ready=self._symbolOptionsReadySignal.emit,
             emit_failed=self._symbolOptionsFailedSignal.emit,

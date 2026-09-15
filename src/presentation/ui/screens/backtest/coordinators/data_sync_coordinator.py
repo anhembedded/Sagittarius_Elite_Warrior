@@ -7,15 +7,15 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
-    GetBacktestRangeCoverageQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
     MarketDataSyncRequest,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_range_coverage import (
+    IRangeCoverage,
 )
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
@@ -38,8 +38,8 @@ class DataSyncCoordinator:
 
     def __init__(
         self,
-        dispatcher,
         market_data_sync: IMarketDataSync,
+        range_coverage: IRangeCoverage,
         state: IBacktestScreenState,
         effective_data_interval: Callable[[object], object],
         resolve_action_id: Callable[[], int | None],
@@ -49,8 +49,8 @@ class DataSyncCoordinator:
         emit_failed: Callable[[int, str], None],
         emit_cancelled: Callable[[int], None],
     ) -> None:
-        self._dispatcher = dispatcher
         self._market_data_sync = market_data_sync
+        self._range_coverage = range_coverage
         self._state = state
         self._effective_data_interval = effective_data_interval
         self._resolve_action_id = resolve_action_id
@@ -116,14 +116,13 @@ class DataSyncCoordinator:
 
     def probe_coverage(self, config) -> BacktestRangeCoverage:
         now = datetime.now(UTC)
-        query = GetBacktestRangeCoverageQuery(
-            symbol=self._state.symbol,
-            interval=self._effective_data_interval(config),
+        return self._range_coverage.coverage(
+            self._state.symbol,
+            self._effective_data_interval(config),
             start_time=config.start_time,
             end_time=config.end_time or now,
             now=now,
         )
-        return self._dispatcher.dispatch(GetBacktestRangeCoverageQuery, query)
 
     def on_progress(self, report) -> None:
         """Already on the main thread — `BaseFeed` wraps `QtEventBridge`.

@@ -29,7 +29,7 @@ _TICK_MODE_REQUIRES_BOUNDED_RANGE_MESSAGE = (
 #: reporting of its own — a real session picked the standard "365 ngày qua"
 #: preset in tick mode (a *bounded* range, so the old unbounded-only check
 #: never caught it) and the app appeared to hang with nothing on screen for
-#: minutes. `GetBacktestRangeCoverageQueryHandler` has no cancellation
+#: minutes. `RangeCoverageService` has no cancellation
 #: token either (`BUG-073`'s own finding) — the only reliable mitigation is
 #: refusing to dispatch the hazardous shape at all, same approach `BUG-073`
 #: already established for the unbounded case.
@@ -172,7 +172,7 @@ class TickModeRequiresBoundedRangeRule:
     """Reject Realtime/tick mode combined with an unbounded start_time, OR
     (`BUG-109`) a *bounded* range wider than `_MAX_TICK_MODE_RANGE_DAYS`.
 
-    A None start_time makes GetBacktestRangeCoverageQuery's SQL scan every
+    A None start_time makes `IRangeCoverage`'s SQL scan every
     row ever synced for that symbol/interval with no lower bound (see
     sqlalchemy_repository.py's window-function coverage query). At 1-second
     granularity that scan gets slower every time more tick data is synced,

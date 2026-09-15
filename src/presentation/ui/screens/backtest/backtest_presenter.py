@@ -46,6 +46,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_kl
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_range_coverage import (
+    IRangeCoverage,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
+    ISymbolCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
     ISymbolMarketMetadataCache,
 )
@@ -323,7 +329,7 @@ class BackTestPresenter(BasePresenter):
         # without this flag a remembered symbol/timeframe/time-range fires
         # the exact same signals a user editing them would — restoring the
         # Backtest screen's last session ran a live chart-preview query
-        # (`IHistoricalKlines.load()`/`GetBacktestRangeCoverageQuery`, up to
+        # (`IHistoricalKlines.load()`/`IRangeCoverage.coverage()`, up to
         # 200,000 rows) the instant the app booted, with no user action at
         # all. `state_persistence.restore()`'s own docstring already
         # promises "opening the screen still runs nothing" — this flag is
@@ -354,6 +360,7 @@ class BackTestPresenter(BasePresenter):
         self._historical_klines: IHistoricalKlines = container.resolve(
             IHistoricalKlines
         )
+        self._range_coverage: IRangeCoverage = container.resolve(IRangeCoverage)
 
         # BOT-102 / EPIC-019A: shared with DashboardPresenter. `None` means
         # "never fetched", distinct from an empty list which would mean
@@ -361,7 +368,7 @@ class BackTestPresenter(BasePresenter):
         # does not change meaningfully within one run of the app, so a hit
         # is never retried.
         self._symbol_options_coordinator = SymbolOptionsCoordinator(
-            dispatcher=self.dispatcher,
+            symbol_catalog=container.resolve(ISymbolCatalog),
             thread_manager=self._thread_manager,
             emit_ready=self._symbolOptionsReadySignal.emit,
             emit_failed=self._symbolOptionsFailedSignal.emit,

@@ -237,7 +237,7 @@ def test_the_broker_numbers_reach_the_config_unchanged() -> None:
 def test_the_365_day_preset_in_tick_mode_is_refused_not_dispatched() -> None:
     """`BUG-109` — the actual reported hang: picking the standard "365 ngày
     qua" preset while in Realtime/tick mode used to sail straight through
-    to a `GetBacktestRangeCoverageQuery` at the tick interval with no
+    to an `IRangeCoverage` probe at the tick interval with no
     progress bar and no cancellation. `is_unbounded_range` alone never
     caught it (`start_time` is a real datetime, not `None`) — this proves
     the fix reaches all the way from the toolbar preset to a refusal, not

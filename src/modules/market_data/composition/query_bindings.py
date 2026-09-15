@@ -12,10 +12,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.audit
     AuditDatabaseIntegrityQuery,
     AuditDatabaseIntegrityQueryHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
-    GetBacktestRangeCoverageQuery,
-    GetBacktestRangeCoverageQueryHandler,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_database_gaps import (
     GetDatabaseGapsQuery,
     GetDatabaseGapsQueryHandler,
@@ -23,10 +19,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_d
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_database_status import (
     GetDatabaseStatusQuery,
     GetDatabaseStatusQueryHandler,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols import (
-    ListAvailableSymbolsQuery,
-    ListAvailableSymbolsQueryHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.scan_all_databases import (
     ScanAllDatabasesQuery,
@@ -37,9 +29,7 @@ from sagittarius_engine.interfaces.i_container import IContainer
 
 def bind_queries(container: IContainer) -> None:
     """Route each market_data query type to the handler that answers it."""
-    container.bind(ListAvailableSymbolsQuery, ListAvailableSymbolsQueryHandler)
     container.bind(GetDatabaseStatusQuery, GetDatabaseStatusQueryHandler)
     container.bind(GetDatabaseGapsQuery, GetDatabaseGapsQueryHandler)
     container.bind(AuditDatabaseIntegrityQuery, AuditDatabaseIntegrityQueryHandler)
     container.bind(ScanAllDatabasesQuery, ScanAllDatabasesQueryHandler)
-    container.bind(GetBacktestRangeCoverageQuery, GetBacktestRangeCoverageQueryHandler)
