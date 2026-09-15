@@ -29,7 +29,7 @@ against another file to discover is shared.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import (
     QComboBox,
     QDoubleSpinBox,
@@ -38,8 +38,6 @@ from PySide6.QtWidgets import (
     QLabel,
     QLineEdit,
     QPushButton,
-    QScrollArea,
-    QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -152,17 +150,39 @@ def _section_row(title_text: str) -> QHBoxLayout:
     return row
 
 
-class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a card
-    """The right-hand panel of the Dev Board screen — everything that used
-    to be `DevBoardPanel.qml`. `DashboardView` hosts this directly as a
-    `QSplitter` child instead of a `QQuickWidget`.
+#: Dock titles, one per card. A title is the user's handle on a panel — the
+#: View menu lists it, a floating panel's title bar reads it, and
+#: `QMainWindow.saveState()` keys the dock by it, so renaming one drops that
+#: panel out of every perspective saved before the rename.
+DATA_AND_STREAM_DOCK = "Data & stream"
+STRATEGY_DOCK = "Strategy"
+LAST_SIGNAL_DOCK = "Last signal"
+SESSION_DOCK = "Session"
+INDICATORS_DOCK = "Indicators"
 
-    **Deliberately not a `Surface`/`Panel`**, unlike the cards it contains
-    (System Controls, Chiến lược, Tín hiệu gần nhất, Indicators —
-    `EPIC-023C` added the middle two). It paints the app background
-    (`Palette.BG`) and draws no border of its own — it is the region the
-    cards sit *on*, not one of them. Inheriting `Panel` would give it
-    `BG_CARD` plus a border, i.e. one more card wrapped around the rest.
+#: The manual-order dialog's title, which is also how `WorkbenchSurface`
+#: identifies it: `show_modal(MANUAL_ORDER_DIALOG)`.
+MANUAL_ORDER_DIALOG = "Place order"
+
+
+class DevBoardPanel(QObject):
+    """The Dev Board's controls — everything that used to be
+    `DevBoardPanel.qml`, then a scrolling column of cards in a `QSplitter`
+    pane, and since `EPIC-025` PR 1.4c-3 **one card per dock**.
+
+    It is no longer a widget, and that is the change: it builds the cards,
+    owns every field and button, and wires them to the ViewModel, while
+    *where they go* is `DashboardView`'s to decide — five docks the user can
+    hide or tab independently, plus the manual-order card as a dialog. As a
+    `QWidget` it had to be the region the cards sat on, which meant painting
+    the app background with a stylesheet of its own (`Palette.BG`); a
+    `QObject` paints nothing, and the workbench supplies the surface.
+
+    Every private attribute stays where it was, because that is what the
+    tests and the Presenter key off — `panel._btn_start`, `panel.
+    _txt_start_date`, `panel._script_checkboxes`. What is new is the public
+    read side: `dock_panels`, `manual_order_card`, `header_actions`,
+    `status_tiles` and `console_widget`.
     """
 
     def __init__(
@@ -178,38 +198,19 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         # so a bare `DevBoardPanel(vm)` still opens a working picker; it just
         # remembers nothing past the session.
         self._symbol_preferences = SymbolPreferences()
-        # Scoped, not a bare property list: unscoped this would repaint
-        # every descendant that has no rule of its own (`BUG-008`), which
-        # here is most of the screen.
-        self.setStyleSheet(
-            f"{type(self).__name__} {{ background-color: {Palette.BG}; }}"
-        )
-
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(14, 14, 14, 14)
-        outer.setSpacing(12)
 
         self._build_header_widgets()
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        # Scoped: unscoped, `border: none` would strip the border from every
-        # descendant that does not set one of its own (`BUG-008`), and this
-        # scroll area contains the whole card column.
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
-        scroll_body = QWidget()
-        scroll_layout = QVBoxLayout(scroll_body)
-        scroll_layout.setContentsMargins(0, 0, 0, 0)
-        scroll_layout.setSpacing(12)
-        scroll_layout.addWidget(self._build_system_controls())
-        scroll_layout.addWidget(self._build_strategy_card())
-        scroll_layout.addWidget(self._build_last_signal_card())
-        scroll_layout.addWidget(self._build_session_card())
-        scroll_layout.addWidget(self._build_manual_order_card())
-        scroll_layout.addWidget(self._build_indicators())
-        scroll_layout.addStretch(1)
-        scroll.setWidget(scroll_body)
-        outer.addWidget(scroll, 1)
+        # Built here, kept on `self`, placed by `DashboardView`. Held by
+        # reference and not by a layout: a `Panel()` with no parent and no
+        # Python reference is garbage-collected the moment this method
+        # returns, so the attribute *is* the ownership until a dock takes it.
+        self._system_controls_card = self._build_system_controls()
+        self._strategy_card = self._build_strategy_card()
+        self._last_signal_card = self._build_last_signal_card()
+        self._session_card = self._build_session_card()
+        self._manual_order_card = self._build_manual_order_card()
+        self._indicators_card = self._build_indicators()
 
         self._log_panel = AppLogPanel("SYSTEM MONITOR")
         self._log_panel.setObjectName("monitorLogPanel")
@@ -306,6 +307,37 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         """Public accessor for `DashboardView` to place in the workbench's
         bottom dock."""
         return self._log_panel
+
+    @property
+    def dock_panels(self) -> list[tuple[str, QWidget]]:
+        """`(dock title, card)` in the order they are offered to the
+        workbench, which decides the initial tab order and nothing else —
+        after that the user's perspective wins (HLD §11.2).
+
+        Ordered by how often a user acts on them, the same ordering
+        `TradingView._build_rail` documents for its own column: what you set
+        up a run with, then what the run is doing, then what it did.
+        """
+        return [
+            (DATA_AND_STREAM_DOCK, self._system_controls_card),
+            (STRATEGY_DOCK, self._strategy_card),
+            (LAST_SIGNAL_DOCK, self._last_signal_card),
+            (SESSION_DOCK, self._session_card),
+            (INDICATORS_DOCK, self._indicators_card),
+        ]
+
+    @property
+    def manual_order_card(self) -> QWidget:
+        """The manual-order form, for `DashboardView` to contribute as a
+        dialog rather than a panel.
+
+        A dialog because that is what order entry is: something the user
+        does occasionally, with input and a confirmation, not something that
+        must occupy the screen while they watch a chart (HLD §11.3, and
+        MetaTrader's own F9). As a card in a scrolling column it was
+        permanently in the way of everything below it.
+        """
+        return self._manual_order_card
 
     def _build_system_controls(self) -> Panel:
         card = Panel()
@@ -836,10 +868,27 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
         if self._symbol_picker is not None:
             self._symbol_picker.set_preferences(preferences)
 
+    def _dialog_parent(self) -> QWidget:
+        """The window a dialog this class opens should belong to.
+
+        These two dialogs used to be parented to `self`, which worked while
+        this class was a widget. It is a `QObject` since PR 1.4c-3, and a
+        `QDialog` parented to one raises `TypeError` — found by the existing
+        tests, not by reading. The window behind the button that opens it is
+        the honest answer anyway: a dialog centres on its parent window, and
+        the button is inside whichever dock the workbench put the card in.
+        `window()` answers the button itself while nothing has placed the card
+        yet, which is a valid parent and the case a bare
+        `DevBoardPanel(view_model)` in a test is in.
+        """
+        return self._btn_symbol.window()
+
     def _open_symbol_picker(self) -> None:
         if self._symbol_picker is None:
             self._symbol_picker = DashboardSymbolPickerDialog(
-                self._view_model, self._symbol_preferences, parent=self
+                self._view_model,
+                self._symbol_preferences,
+                parent=self._dialog_parent(),
             )
             self._view_model.symbolOptionsChanged.connect(self._refresh_symbol_picker)
         # Emitted before showing, not after: the Presenter fetches on this
@@ -930,7 +979,7 @@ class DevBoardPanel(QWidget):  # base-exempt: screen region on app bg, not a car
                 get_to_text=lambda: self._txt_end_date.text(),
                 get_timeframe_seconds=lambda: _FALLBACK_TIMEFRAME_SECONDS,
                 get_timeframe_label=lambda: _FALLBACK_TIMEFRAME_LABEL,
-                parent=self,
+                parent=self._dialog_parent(),
             )
             self._time_range_dialog.applied.connect(self._on_range_applied)
         self._time_range_dialog.open_dialog()

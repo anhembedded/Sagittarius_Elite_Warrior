@@ -16,6 +16,7 @@ from PySide6.QtTest import QTest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from PySide6.QtWidgets import QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     _WS_STATUS_BY_MODE,
 )
@@ -35,12 +36,32 @@ def view_model(qapp):
 
 @pytest.fixture
 def panel(qapp, view_model, request):
-    widget = DevBoardPanel(view_model)
-    widget.resize(380, 700)
-    widget.show()
+    """The controls, with every widget they own shown in a host of this
+    fixture's own.
+
+    `DevBoardPanel` stopped being a widget in `EPIC-025` PR 1.4c-3: it builds
+    the cards and `DashboardView` places them — five docks, a dialog, a
+    toolbar and the status bar. Several of these tests need their widget
+    actually *shown* (a `QQuickWidget` loads its QML only then, which is how
+    the status-pill tests read `root_object`), so the fixture stands in for
+    that placement with one plain host. Every test body below is unchanged:
+    they reach the widgets through the panel's own attributes, exactly as
+    before.
+    """
+    controls = DevBoardPanel(view_model)
+    host = QWidget()
+    layout = QVBoxLayout(host)
+    for widget in (*controls.header_actions, *controls.status_tiles):
+        layout.addWidget(widget)
+    for _title, card in controls.dock_panels:
+        layout.addWidget(card)
+    layout.addWidget(controls.manual_order_card)
+    layout.addWidget(controls.console_widget)
+    host.resize(380, 700)
+    host.show()
     qapp.processEvents()
-    request.addfinalizer(widget.deleteLater)
-    return widget
+    request.addfinalizer(host.deleteLater)
+    return controls
 
 
 def test_price_ticker_reflects_the_view_model(qapp, panel, view_model):

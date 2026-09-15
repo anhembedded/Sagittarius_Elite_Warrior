@@ -3,6 +3,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
+from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
     QDockWidget,
     QLabel,
@@ -11,7 +12,6 @@ from PySide6.QtWidgets import (
     QToolBar,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
-    CONTROLS_DOCK,
     DEV_BOARD_SURFACE,
     EQUITY_DOCK,
     MONITOR_DOCK,
@@ -23,6 +23,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_v
     DashboardQmlViewModel,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dev_board_panel import (
+    DATA_AND_STREAM_DOCK,
+    INDICATORS_DOCK,
+    LAST_SIGNAL_DOCK,
+    MANUAL_ORDER_DIALOG,
+    SESSION_DOCK,
+    STRATEGY_DOCK,
     DevBoardPanel,
 )
 
@@ -62,7 +68,6 @@ def test_the_workbench_hosts_the_chart_column_and_every_panel_as_a_dock(qapp):
     view.set_view_model(DashboardQmlViewModel())
 
     assert isinstance(view._panel, DevBoardPanel)
-    assert _dock(view, CONTROLS_DOCK) is not None
     assert _dock(view, MONITOR_DOCK) is not None
     # The log spans the window at the bottom, where the user can hide it.
     assert view._surface.dockWidgetArea(_dock(view, MONITOR_DOCK)) == (
@@ -214,3 +219,68 @@ def test_dashboard_view_set_open_orders_forwards_to_the_panel(qapp, monkeypatch)
     view.set_open_orders(["row"])
 
     spy.assert_called_once_with(["row"])
+
+
+# ---------------------------------------------------------------------------
+# PR 1.4c-3 — the controls stopped being one scrolling column.
+# ---------------------------------------------------------------------------
+
+
+def test_every_control_card_is_a_dock_of_its_own(qapp):
+    """One card per dock, so the user can hide the four they are not using
+    and keep the one they are. As a single scrolling column, reaching the
+    Session counters meant scrolling past Strategy and losing sight of it."""
+    view = DashboardView()
+    view.set_view_model(DashboardQmlViewModel())
+
+    for title in (
+        DATA_AND_STREAM_DOCK,
+        STRATEGY_DOCK,
+        LAST_SIGNAL_DOCK,
+        SESSION_DOCK,
+        INDICATORS_DOCK,
+    ):
+        dock = _dock(view, title)
+        assert dock is not None, title
+        assert dock.widget() is not None, title
+
+
+def test_the_cards_are_tabbed_rather_than_stacked(qapp):
+    """Eight panels stacked in one dock area leave none of them readable.
+    The host tabifies them, and this is what would catch that changing."""
+    view = DashboardView()
+    view.set_view_model(DashboardQmlViewModel())
+
+    first = _dock(view, POSITIONS_DOCK)
+    assert view._surface.tabifiedDockWidgets(first)
+
+
+def test_the_order_form_is_a_dialog_the_user_opens_not_a_panel_in_the_way(qapp):
+    """`EPIC-024B`'s manual-order card used to sit in the scrolling column,
+    permanently occupying the space of something done occasionally (HLD
+    §11.3). It is a dialog now, and the same `QAction` that raises it carries
+    `F9` — the key MetaTrader has used for "new order" for twenty years."""
+    view = DashboardView()
+    view.set_view_model(DashboardQmlViewModel())
+
+    assert view._surface.modal_titles() == (MANUAL_ORDER_DIALOG,)
+    assert _dock(view, MANUAL_ORDER_DIALOG) is None
+    assert view._manual_order_action.shortcut() == QKeySequence("F9")
+
+    dialog = view._surface.show_modal(MANUAL_ORDER_DIALOG)
+
+    assert dialog.isAncestorOf(view._panel.manual_order_card)
+    assert dialog.windowTitle() == MANUAL_ORDER_DIALOG
+
+
+def test_the_action_opens_the_dialog_without_freezing_the_chart(qapp):
+    """`show()`, not `exec()`: a user placing an order by hand is watching
+    the ticks behind the dialog, and a modal event loop stops them."""
+    view = DashboardView()
+    view.set_view_model(DashboardQmlViewModel())
+
+    view._manual_order_action.trigger()
+
+    dialog = view._surface.show_modal(MANUAL_ORDER_DIALOG)
+    assert dialog.isVisible() is True
+    assert dialog.isModal() is False
