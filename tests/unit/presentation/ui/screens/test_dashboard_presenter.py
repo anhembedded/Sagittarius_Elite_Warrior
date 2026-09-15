@@ -99,16 +99,16 @@ def mock_config():
 
 
 @pytest.fixture
-def equity_recorder():
-    """`EPIC-023B` — a real, empty recorder by default (same shape
-    `test_trading_presenter_equity.py`'s own fixture has): `.samples` must
-    be a real iterable, not a `MagicMock` attribute, for
-    `equity_samples_to_candles()` to accept it."""
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
-        EquityCurveRecorder,
+def equity_curve():
+    """`EPIC-023B`, moved onto `IEquityCurve` by `EPIC-025` PR 1.3c-3 — an
+    empty curve by default (the same shape `test_trading_presenter_equity.py`
+    uses): `samples()` must answer a real iterable, not a `MagicMock`
+    attribute, for `equity_samples_to_candles()` to accept it."""
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_equity_curve import (
+        FakeEquityCurve,
     )
 
-    return EquityCurveRecorder()
+    return FakeEquityCurve()
 
 
 @pytest.fixture
@@ -144,6 +144,18 @@ def strategy_session(strategy_registry):
         strategy_registry, MagicMock(), MagicMock(), MagicMock(), MagicMock()
     )
     return LiveStrategySession(factory)
+
+
+@pytest.fixture
+def account_snapshot():
+    """`EPIC-025` PR 1.3c-3 — the manual order card reads the REAL current
+    position through `IAccountSnapshot.open_positions()` before shaping the
+    order, so the container hands out that port's verified fake."""
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
+        FakeAccountSnapshot,
+    )
+
+    return FakeAccountSnapshot()
 
 
 @pytest.fixture
@@ -206,11 +218,12 @@ def mock_container(
     mock_thread_mgr,
     mock_dispatcher,
     mock_config,
-    equity_recorder,
+    equity_curve,
     strategy_registry,
     strategy_session,
     trading_session,
     order_submission,
+    account_snapshot,
     fake_market_data_sync,
     fake_historical_klines,
     fake_market_stream,
@@ -230,8 +243,11 @@ def mock_container(
         EmaCrossScript,
         EmaRibbonScript,
     )
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
-        EquityCurveRecorder,
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
+        IAccountSnapshot,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
+        IEquityCurve,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
         IOrderSubmission,
@@ -262,12 +278,14 @@ def mock_container(
             return strategy_session
         if interface == IndicatorScriptRegistry:
             return script_registry
-        if interface == EquityCurveRecorder:
-            return equity_recorder
+        if interface == IEquityCurve:
+            return equity_curve
         if interface == ITradingSession:
             return trading_session
         if interface == IOrderSubmission:
             return order_submission
+        if interface == IAccountSnapshot:
+            return account_snapshot
         if interface == IHistoricalKlines:
             return fake_historical_klines
         if interface == IMarketStream:
@@ -358,8 +376,11 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
         StrategyRegistry,
     )
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
-        EquityCurveRecorder,
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
+        IAccountSnapshot,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
+        IEquityCurve,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
         IOrderSubmission,
@@ -390,8 +411,12 @@ def test_boot_wires_the_container_registered_store_into_the_view(
             return IndicatorScriptRegistry()
         if interface == TimeframePinPreferences:
             return shared_store
-        if interface == EquityCurveRecorder:
-            return EquityCurveRecorder()
+        if interface == IEquityCurve:
+            from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_equity_curve import (
+                FakeEquityCurve,
+            )
+
+            return FakeEquityCurve()
         if interface == ITradingSession:
             from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
                 FakeTradingSession,
@@ -404,6 +429,12 @@ def test_boot_wires_the_container_registered_store_into_the_view(
             )
 
             return FakeOrderSubmission()
+        if interface == IAccountSnapshot:
+            from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
+                FakeAccountSnapshot,
+            )
+
+            return FakeAccountSnapshot()
         if interface == IHistoricalKlines:
             return fake_historical_klines
         if interface == IMarketStream:
@@ -1999,7 +2030,7 @@ def test_order_blocked_appears_in_the_screens_own_log_panel(presenter):
 
 
 # ---------------------------------------------------------------------------
-# `EPIC-023B` — live equity chart: seeded from `EquityCurveRecorder`'s
+# `EPIC-023B` — live equity chart: seeded from `IEquityCurve`'s
 # backlog on construction, appended to live via `EquityFeed`. Mirrors
 # `test_trading_presenter_equity.py` (`view` there is a `MagicMock`; here
 # `view` is a real `DashboardView`, so assertions spy on `view.equity_chart`'s
@@ -2034,14 +2065,13 @@ def test_construction_with_an_empty_recorder_seeds_an_empty_chart(
 
 
 def test_construction_seeds_the_full_backlog_from_the_recorder(
-    view, mock_container, equity_recorder, monkeypatch
+    view, mock_container, equity_curve, monkeypatch
 ):
     from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
         equity_samples_to_candles,
     )
 
-    equity_recorder.record(_equity_sample(0))
-    equity_recorder.record(_equity_sample(1))
+    equity_curve.seed([_equity_sample(0), _equity_sample(1)])
     spy = MagicMock()
     monkeypatch.setattr(view.equity_chart, "render_historical_data", spy)
 
@@ -2597,13 +2627,10 @@ def test_manual_order_requested_blocked_while_already_pending(
 
 
 def test_run_manual_order_submits_one_live_order_with_the_mapped_intent(
-    presenter, mock_dispatcher, order_submission
+    presenter, account_snapshot, order_submission
 ):
     from decimal import Decimal
 
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
-        GetOpenPositionsQuery,
-    )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
         ExecuteOrderResult,
     )
@@ -2617,12 +2644,10 @@ def test_run_manual_order_submits_one_live_order_with_the_mapped_intent(
         ManualOrderDirection,
     )
 
-    def dispatch_side_effect(command_type, command):
-        if command_type is GetOpenPositionsQuery:
-            return (_live_position("BTCUSDT", "-0.01"),)  # currently SHORT
-        return None
-
-    mock_dispatcher.dispatch.side_effect = dispatch_side_effect
+    # `EPIC-025` PR 1.3c-3 — the card reads the REAL current position through
+    # `IAccountSnapshot.open_positions()`, so the situation is stated on that
+    # port's fake rather than on a dispatch stub.
+    account_snapshot.holding([_live_position("BTCUSDT", "-0.01")])  # currently SHORT
     order_submission.submit_answers(
         ExecuteOrderResult(
             blocked_by=None, preview=None, limit_checks=(), submitted_order=None
@@ -2648,6 +2673,9 @@ def test_run_manual_order_submits_one_live_order_with_the_mapped_intent(
     # short) — `manual_order_intent_for()`'s own table, row 2.
     assert request.side is OrderSide.BUY
     assert request.reduce_only is True
+    # Read once, fresh, per attempt — never remembered from a prior click
+    # (`manual_order_intent_for()`'s own docstring).
+    assert account_snapshot.position_reads == 1
 
 
 def test_run_manual_order_hard_blocks_when_strategy_owns_the_symbol_with_a_position(

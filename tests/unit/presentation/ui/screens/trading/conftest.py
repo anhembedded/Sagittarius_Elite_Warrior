@@ -47,14 +47,17 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
-    EquityCurveRecorder,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
+    IEquityCurve,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_equity_curve import (
+    FakeEquityCurve,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_submission import (
     FakeOrderSubmission,
@@ -130,8 +133,12 @@ def order_submission() -> FakeOrderSubmission:
 
 
 @pytest.fixture
-def equity_recorder() -> EquityCurveRecorder:
-    return EquityCurveRecorder()
+def equity_curve() -> FakeEquityCurve:
+    """`EPIC-025` PR 1.3c-3 — the screen reads the backlog through
+    `IEquityCurve`, one method, so the container hands out that port's
+    verified fake. It counts the reads, which is how a test can tell "asked
+    once at construction" (the design) from "asked on every repaint"."""
+    return FakeEquityCurve()
 
 
 @pytest.fixture
@@ -194,7 +201,7 @@ def container(
     mock_thread_manager,
     trading_session,
     order_submission,
-    equity_recorder,
+    equity_curve,
     strategy_session,
     strategy_registry,
     market_stream,
@@ -217,7 +224,7 @@ def container(
             IThreadManager: mock_thread_manager,
             ITradingSession: trading_session,
             IOrderSubmission: order_submission,
-            EquityCurveRecorder: equity_recorder,
+            IEquityCurve: equity_curve,
             LiveStrategySession: strategy_session,
             StrategyRegistry: strategy_registry,
             IMarketStream: market_stream,

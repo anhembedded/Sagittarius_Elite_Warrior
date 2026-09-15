@@ -1,5 +1,5 @@
 """`EPIC-021M` §4 — the Trading screen's live equity chart: seeded from
-`EquityCurveRecorder`'s backlog on construction, appended to live via
+`IEquityCurve`'s backlog on construction, appended to live via
 `EquityFeed`.
 
 Same construction pattern as `test_trading_presenter_toggle.py`: `view` is
@@ -25,14 +25,14 @@ from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session im
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
     EquitySample,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
+    IEquityCurve,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
@@ -83,7 +83,7 @@ def container(
     mock_dispatcher,
     mock_thread_manager,
     trading_session,
-    equity_recorder,
+    equity_curve,
     mock_event_bus,
     strategy_session,
     strategy_registry,
@@ -97,7 +97,7 @@ def container(
             IDispatcher: mock_dispatcher,
             IThreadManager: mock_thread_manager,
             ITradingSession: trading_session,
-            EquityCurveRecorder: equity_recorder,
+            IEquityCurve: equity_curve,
             IEventBus: mock_event_bus,
             LiveStrategySession: strategy_session,
             StrategyRegistry: strategy_registry,
@@ -118,11 +118,10 @@ def test_construction_with_an_empty_recorder_seeds_an_empty_chart(
     view.equity_chart.render_historical_data.assert_called_once_with([])
 
 
-def test_construction_seeds_the_full_backlog_from_the_recorder(
-    qapp, view, container, equity_recorder
+def test_construction_seeds_the_full_backlog_from_the_curve(
+    qapp, view, container, equity_curve
 ):
-    equity_recorder.record(_sample(0))
-    equity_recorder.record(_sample(1))
+    equity_curve.seed([_sample(0), _sample(1)])
 
     TradingPresenter(view, container)
 
@@ -132,7 +131,7 @@ def test_construction_seeds_the_full_backlog_from_the_recorder(
 
 
 def test_a_sample_recorded_right_at_subscribe_time_is_not_missed(
-    qapp, view, container, equity_recorder, mock_event_bus
+    qapp, view, container, equity_curve, mock_event_bus
 ):
     """`BUG-100` — before this fix, the chart's seed read happened
     *before* `_connect_engine_events()` subscribed `EquityFeed`. A sample
@@ -143,12 +142,14 @@ def test_a_sample_recorded_right_at_subscribe_time_is_not_missed(
     own `.on()` registration — the exact moment `EquityFeed` subscribes —
     record a new sample as a side effect, standing in for a real
     `ACCOUNT_UPDATE` landing on the websocket thread at that instant."""
-    equity_recorder.record(_sample(0))
+    equity_curve.seed([_sample(0)])
     late_sample = _sample(1)
 
     def on_subscribe(event_type, _callback):
         if event_type is EquitySampledEvent:
-            equity_recorder.record(late_sample)
+            # The backlog grows strictly between the subscription and the
+            # seed read — which is the whole point of `BUG-100`.
+            equity_curve.seed([_sample(0), late_sample])
 
     mock_event_bus.on.side_effect = on_subscribe
 

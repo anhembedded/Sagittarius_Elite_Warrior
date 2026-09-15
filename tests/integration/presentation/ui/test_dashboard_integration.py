@@ -19,8 +19,17 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_kl
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
-    EquityCurveRecorder,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
+    IAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
+    IEquityCurve,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
+    FakeAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_equity_curve import (
+    FakeEquityCurve,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
@@ -80,7 +89,7 @@ def mock_app():
             strategy_registry, MagicMock(), MagicMock(), MagicMock(), MagicMock()
         )
     )
-    equity_recorder = EquityCurveRecorder()
+    equity_curve = FakeEquityCurve()
     # `EPIC-025` PR 1.1 — the history read is a port. Seeded with candles
     # anchored to now, because a store honours `start_time`/`end_time` and the
     # Data Range picker's default window is a recent one (see
@@ -103,8 +112,10 @@ def mock_app():
             return strategy_registry
         if interface == LiveStrategySession:
             return strategy_session
-        if interface == EquityCurveRecorder:
-            return equity_recorder
+        if interface == IAccountSnapshot:
+            return FakeAccountSnapshot()
+        if interface == IEquityCurve:
+            return equity_curve
         return MagicMock()
 
     app.container.resolve.side_effect = resolve_side_effect

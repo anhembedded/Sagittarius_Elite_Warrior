@@ -36,6 +36,6 @@ def equity_sample_to_candle(sample: EquitySample) -> OhlcCandle:
 
 
 def equity_samples_to_candles(samples: list[EquitySample]) -> list[OhlcCandle]:
-    """@brief The full backlog, oldest-first (`EquityCurveRecorder.samples`'
+    """@brief The full backlog, oldest-first (`IEquityCurve.samples()`'
     own order) — for the chart's initial seed on screen construction."""
     return [equity_sample_to_candle(sample) for sample in samples]

@@ -24,9 +24,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
 )
@@ -47,6 +44,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
+    IEquityCurve,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
@@ -189,7 +189,7 @@ class TradingPresenter(BasePresenter):
        live via `OrderFeed` (`OrderFilledEvent`/`PositionChangedEvent`),
        the sanctioned single subscriber per `architecture-rule.md` §6.
     4. The equity chart (`EPIC-021M`) — seeded on construction from
-       `EquityCurveRecorder`'s backlog (a DI singleton that outlives this
+       `IEquityCurve`'s backlog (a DI singleton that outlives this
        screen), then appended to live via `EquityFeed`
        (`EquitySampledEvent`), the same single-subscriber shape as #3.
 
@@ -236,9 +236,7 @@ class TradingPresenter(BasePresenter):
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
         self._trading_session: ITradingSession = container.resolve(ITradingSession)
         self._order_submission: IOrderSubmission = container.resolve(IOrderSubmission)
-        self._equity_recorder: EquityCurveRecorder = container.resolve(
-            EquityCurveRecorder
-        )
+        self._equity_curve: IEquityCurve = container.resolve(IEquityCurve)
 
         config_values = self.config.get_all()
         self._active_symbol = default_symbol(config_values, FALLBACK_SYMBOL)
@@ -359,7 +357,7 @@ class TradingPresenter(BasePresenter):
         # replaces the last point in place when its timestamp matches
         # rather than appending a second one.
         self.view.equity_chart.render_historical_data(
-            equity_samples_to_candles(self._equity_recorder.samples)
+            equity_samples_to_candles(self._equity_curve.samples())
         )
 
         # `BUG-107` — history from the local database always; the network

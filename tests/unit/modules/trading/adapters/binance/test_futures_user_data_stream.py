@@ -314,7 +314,7 @@ def test_account_update_with_a_balance_records_and_publishes_one_equity_sample()
     )
 
     assert len(seen) == 1
-    assert recorder.samples == [seen[0].sample]
+    assert recorder.samples() == (seen[0].sample,)
     assert seen[0].sample.wallet_balance == Decimal("1000.00")
 
 
@@ -421,7 +421,7 @@ def test_account_update_with_no_balance_records_nothing() -> None:
     stream._handle_message(_account_update([{"s": "BTCUSDT", "pa": "0.002"}]))
 
     assert seen == []
-    assert recorder.samples == []
+    assert recorder.samples() == ()
 
 
 async def test_run_stream_with_no_credentials_returns_without_crashing() -> None:

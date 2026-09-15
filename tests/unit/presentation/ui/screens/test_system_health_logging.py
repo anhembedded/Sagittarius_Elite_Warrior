@@ -35,8 +35,17 @@ from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
-    EquityCurveRecorder,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
+    IAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
+    IEquityCurve,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
+    FakeAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_equity_curve import (
+    FakeEquityCurve,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
     BacktestChartHostFactory,
@@ -110,8 +119,10 @@ def health_mock_container(qapp):
             return strategy_registry
         if interface == LiveStrategySession:
             return strategy_session
-        if interface == EquityCurveRecorder:
-            return EquityCurveRecorder()
+        if interface == IAccountSnapshot:
+            return FakeAccountSnapshot()
+        if interface == IEquityCurve:
+            return FakeEquityCurve()
         if interface == HealthCheckQuery:
             return mock_health_query
         if interface == BacktestChartHostFactory:

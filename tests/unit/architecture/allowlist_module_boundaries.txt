@@ -309,8 +309,5 @@ presentation.cli.trade_once_cmd -> modules.trading.domain.policies.signal_action
 presentation.cli.trade_once_cmd -> modules.trading.domain.policies.trading_limit_policy
 presentation.cli.trade_once_formatter -> modules.trading.domain.policies.trading_limit_policy
 presentation.ui.common.execute_order_block_reason -> modules.trading.domain.policies.trading_limit_policy
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.equity_curve_recorder
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.queries.get_open_positions
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.domain.policies.manual_order_intent
 presentation.ui.screens.dashboard.dev_board_panel -> modules.trading.domain.policies.manual_order_intent
-presentation.ui.screens.trading.trading_presenter -> modules.trading.application.equity_curve_recorder

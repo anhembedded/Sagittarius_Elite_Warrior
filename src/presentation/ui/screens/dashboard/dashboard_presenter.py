@@ -3,7 +3,7 @@ from __future__ import annotations
 import logging
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
@@ -35,12 +35,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
-    GetOpenPositionsQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
 )
@@ -62,14 +56,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
+    IAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
+    IEquityCurve,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
-    LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     OrderRequest,
@@ -535,13 +532,12 @@ class DashboardPresenter(BasePresenter):
         # hoặc Trading đều ra cùng một sự thật — xem EPIC-023's README §2).
         self._trading_session: ITradingSession = container.resolve(ITradingSession)
         self._order_submission: IOrderSubmission = container.resolve(IOrderSubmission)
+        self._account: IAccountSnapshot = container.resolve(IAccountSnapshot)
         # `EPIC-023B` — the recorder outlives this screen (a DI singleton
         # written by `FuturesUserDataStream` regardless of whether Dev Board
         # is even open), same reasoning `TradingPresenter` documents for its
-        # own `_equity_recorder`.
-        self._equity_recorder: EquityCurveRecorder = container.resolve(
-            EquityCurveRecorder
-        )
+        # own `_equity_curve`.
+        self._equity_curve: IEquityCurve = container.resolve(IEquityCurve)
 
         # EPIC-019A: shared with BackTestPresenter — `None` means "never
         # fetched", which is what makes the fetch happen once per session
@@ -821,7 +817,7 @@ class DashboardPresenter(BasePresenter):
         # (subscribed-after-read order), same reasoning `TradingPresenter`
         # documents for its own identical seed call.
         self.view.equity_chart.render_historical_data(
-            equity_samples_to_candles(self._equity_recorder.samples)
+            equity_samples_to_candles(self._equity_curve.samples())
         )
 
         # EPIC-010D — restore the remembered form values, then start tracking
@@ -1509,7 +1505,7 @@ class DashboardPresenter(BasePresenter):
             # flat, armed symbol through — exactly the race that lets the
             # strategy's next signal (which assumes it started flat) double
             # up on a position it never opened. No network call needed for
-            # this check, so it runs before `GetOpenPositionsQuery` — a
+            # this check, so it runs before reading the open positions — a
             # blocked attempt costs nothing.
             armed_config = self._strategy_session.config
             strategy_owns_symbol = (
@@ -1524,12 +1520,7 @@ class DashboardPresenter(BasePresenter):
             # `EPIC-024B` §2 — read the REAL current position fresh, every
             # attempt; never guessed, never remembered from a prior click
             # (see `manual_order_intent_for()`'s own docstring).
-            positions = cast(
-                tuple[LivePosition, ...],
-                self.dispatcher.dispatch(
-                    GetOpenPositionsQuery, GetOpenPositionsQuery()
-                ),
-            )
+            positions = self._account.open_positions()
             current_position = next((p for p in positions if p.symbol == symbol), None)
             intent = manual_order_intent_for(direction, current_position)
             result = self._order_submission.submit(

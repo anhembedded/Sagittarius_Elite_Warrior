@@ -7,11 +7,13 @@ mocking a port it does not own. A consumer's test imports the fake from here.
 """
 
 from .contract_account_snapshot import AccountSnapshotContract
+from .contract_equity_curve import EquityCurveContract
 from .contract_market_metadata_provider import MarketMetadataProviderContract
 from .contract_order_submission import OrderSubmissionContract
 from .contract_trading_account_reader import TradingAccountReaderContract
 from .contract_trading_session import TradingSessionContract
 from .fake_account_snapshot import FakeAccountSnapshot
+from .fake_equity_curve import FakeEquityCurve
 from .fake_market_metadata_provider import FakeMarketMetadataProvider
 from .fake_order_submission import FakeOrderSubmission
 from .fake_trading_account_reader import FakeTradingAccountReader
@@ -19,7 +21,9 @@ from .fake_trading_session import FakeTradingSession
 
 __all__ = [
     "AccountSnapshotContract",
+    "EquityCurveContract",
     "FakeAccountSnapshot",
+    "FakeEquityCurve",
     "FakeMarketMetadataProvider",
     "FakeOrderSubmission",
     "FakeTradingAccountReader",
