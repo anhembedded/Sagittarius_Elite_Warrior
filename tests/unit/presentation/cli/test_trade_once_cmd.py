@@ -1,5 +1,5 @@
-"""`BUG-090` — `execute_trade_once()`'s handling of a live-order dispatch
-that raises. Before this fix, `app.dispatch(ExecuteOrderCommand, command)`
+"""`BUG-090` — `execute_trade_once()`'s handling of a live-order submission
+that raises. Before this fix, the live-order call
 had no `try/except` at all (unlike its sibling `order_dry_run_cmd.py`),
 so any exchange rejection reaching `main.py trade-once --live` crashed
 with a raw traceback instead of the friendly message every other named
@@ -28,9 +28,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_kl
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
-    ExecuteOrderCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ExchangeConnectionStatus,
     PositionMode,
@@ -41,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_meta
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
+    IOrderSubmission,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
 )
@@ -50,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_rea
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_market_metadata_provider import (
     FakeMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_submission import (
+    FakeOrderSubmission,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_account_reader import (
     FakeTradingAccountReader,
@@ -130,10 +133,14 @@ def _signal() -> Signal:
     )
 
 
-def _app_ready_to_dispatch_an_order() -> Mock:
+def _app_ready_to_submit_an_order() -> tuple[Mock, FakeOrderSubmission]:
     """An `App` double set up to reach `execute_trade_once()`'s live
-    `ExecuteOrderCommand` dispatch: one candle, a strategy registered, an
-    actionable engine signal, known metadata, and a known USDT balance."""
+    `IOrderSubmission.submit()` call: one candle, a strategy registered, an
+    actionable engine signal, known metadata, and a known USDT balance.
+
+    Returns the submission fake alongside the app, because what each test
+    below sets up is how that one call fails (`EPIC-025` PR 1.3c-2).
+    """
     app = Mock(spec=App)
     strategy_registry = Mock(spec=StrategyRegistry)
     strategy_registry.available.return_value = {"ema_cross"}
@@ -149,6 +156,7 @@ def _app_ready_to_dispatch_an_order() -> Mock:
 
     history = FakeHistoricalKlines()
     history.seed([_candle()])
+    submission = FakeOrderSubmission()
 
     def resolve(interface: object) -> object:
         if interface is IHistoricalKlines:
@@ -162,6 +170,8 @@ def _app_ready_to_dispatch_an_order() -> Mock:
             return metadata_provider
         if interface is ITradingAccountReader:
             return account_reader
+        if interface is IOrderSubmission:
+            return submission
         return Mock()
 
     app.container.resolve.side_effect = resolve
@@ -170,23 +180,18 @@ def _app_ready_to_dispatch_an_order() -> Mock:
         raise AssertionError(f"unexpected dispatch: {command_type}")
 
     app.dispatch.side_effect = dispatch
-    return app
+    return app, submission
 
 
 def test_a_live_order_rejected_by_the_exchange_prints_a_friendly_message_not_a_crash(
     capsys,
 ):
-    app = _app_ready_to_dispatch_an_order()
-    original_dispatch = app.dispatch.side_effect
-
-    def dispatch(command_type: type, command: object) -> object:
-        if command_type is ExecuteOrderCommand:
-            raise OrderRejectedByExchangeError(
-                OrderRejectionReason.INSUFFICIENT_MARGIN, "Margin is insufficient"
-            )
-        return original_dispatch(command_type, command)
-
-    app.dispatch.side_effect = dispatch
+    app, submission = _app_ready_to_submit_an_order()
+    submission.submit_raises(
+        OrderRejectedByExchangeError(
+            OrderRejectionReason.INSUFFICIENT_MARGIN, "Margin is insufficient"
+        )
+    )
 
     with patch(
         "Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_cmd.build_engine"
@@ -197,18 +202,11 @@ def test_a_live_order_rejected_by_the_exchange_prints_a_friendly_message_not_a_c
     assert "Exchange rejected the order" in capsys.readouterr().out
 
 
-def test_a_network_failure_during_live_dispatch_prints_a_friendly_message_not_a_crash(
+def test_a_network_failure_during_live_submission_prints_a_friendly_message_not_a_crash(
     capsys,
 ):
-    app = _app_ready_to_dispatch_an_order()
-    original_dispatch = app.dispatch.side_effect
-
-    def dispatch(command_type: type, command: object) -> object:
-        if command_type is ExecuteOrderCommand:
-            raise BinanceRequestException("boom")
-        return original_dispatch(command_type, command)
-
-    app.dispatch.side_effect = dispatch
+    app, submission = _app_ready_to_submit_an_order()
+    submission.submit_raises(BinanceRequestException("boom"))
 
     with patch(
         "Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_cmd.build_engine"

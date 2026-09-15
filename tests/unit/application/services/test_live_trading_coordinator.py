@@ -12,9 +12,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
-    ExecuteOrderCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.live_order_blocked_event import (
     LiveOrderBlockedEvent,
 )
@@ -33,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_rea
     OrderRejectionReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_submission import (
+    FakeOrderSubmission,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -65,7 +65,7 @@ def _status(usdt_balance: Decimal | None = Decimal(1000)) -> ExchangeConnectionS
 
 
 def _coordinator(
-    dispatcher: Mock,
+    submission: FakeOrderSubmission,
     live_symbol: str = "BTCUSDT",
     event_publisher: Mock | None = None,
     sizing_percent: float = 20.0,
@@ -77,7 +77,7 @@ def _coordinator(
     metadata_provider.get_or_fetch.return_value = _metadata()
     return LiveTradingCoordinator(
         live_symbol,
-        dispatcher,
+        submission,
         account_reader,
         metadata_provider,
         event_publisher if event_publisher is not None else Mock(),
@@ -97,68 +97,72 @@ def _signal(symbol: str = "BTCUSDT", action: SignalAction = SignalAction.BUY) ->
 
 
 def test_ignores_a_signal_for_a_different_symbol() -> None:
-    dispatcher = Mock()
-    coordinator = _coordinator(dispatcher, live_symbol="BTCUSDT")
+    submission = FakeOrderSubmission()
+    coordinator = _coordinator(submission, live_symbol="BTCUSDT")
 
     coordinator.handle(_signal(symbol="ETHUSDT"))
 
-    dispatcher.dispatch.assert_not_called()
+    assert submission.submitted_live == []
+    assert submission.submitted_dry == []
 
 
-def test_dispatches_execute_order_command_live_for_a_matching_buy_signal() -> None:
-    dispatcher = Mock()
-    dispatcher.dispatch.return_value = ExecuteOrderResult(None, None, (), None)
-    coordinator = _coordinator(dispatcher)
+def test_submits_one_live_order_for_a_matching_buy_signal() -> None:
+    submission = FakeOrderSubmission()
+    submission.submit_answers(ExecuteOrderResult(None, None, (), None))
+    coordinator = _coordinator(submission)
 
     coordinator.handle(_signal(action=SignalAction.BUY))
 
-    dispatcher.dispatch.assert_called_once()
-    called_type, command = dispatcher.dispatch.call_args.args
-    assert called_type is ExecuteOrderCommand
-    assert command.live is True
-    assert command.order_request.symbol == "BTCUSDT"
-    assert command.order_request.side is OrderSide.BUY
-    assert command.order_request.reduce_only is False
-    assert command.order_request.quantity > 0
+    # Landing in `submitted_live` IS the `live=True` assertion, and a
+    # stronger one: the fake keeps live and dry in separate lists, so a
+    # caller that dropped the flag shows up as an empty list here rather than
+    # as a recorded call with the wrong argument.
+    (request,) = submission.submitted_live
+    assert submission.submitted_dry == []
+    assert request.symbol == "BTCUSDT"
+    assert request.side is OrderSide.BUY
+    assert request.reduce_only is False
+    assert request.quantity > 0
 
 
 def test_short_signal_sets_reduce_only_false_and_sell_side() -> None:
-    dispatcher = Mock()
-    dispatcher.dispatch.return_value = ExecuteOrderResult(None, None, (), None)
-    coordinator = _coordinator(dispatcher)
+    submission = FakeOrderSubmission()
+    submission.submit_answers(ExecuteOrderResult(None, None, (), None))
+    coordinator = _coordinator(submission)
 
     coordinator.handle(_signal(action=SignalAction.SHORT))
 
-    _, command = dispatcher.dispatch.call_args.args
-    assert command.order_request.side is OrderSide.SELL
-    assert command.order_request.reduce_only is False
+    (request,) = submission.submitted_live
+    assert request.side is OrderSide.SELL
+    assert request.reduce_only is False
 
 
 def test_cover_signal_sets_reduce_only_true() -> None:
-    dispatcher = Mock()
-    dispatcher.dispatch.return_value = ExecuteOrderResult(None, None, (), None)
-    coordinator = _coordinator(dispatcher)
+    submission = FakeOrderSubmission()
+    submission.submit_answers(ExecuteOrderResult(None, None, (), None))
+    coordinator = _coordinator(submission)
 
     coordinator.handle(_signal(action=SignalAction.COVER))
 
-    _, command = dispatcher.dispatch.call_args.args
-    assert command.order_request.side is OrderSide.BUY
-    assert command.order_request.reduce_only is True
+    (request,) = submission.submitted_live
+    assert request.side is OrderSide.BUY
+    assert request.reduce_only is True
 
 
-def test_no_known_balance_skips_dispatch() -> None:
-    dispatcher = Mock()
+def test_no_known_balance_sends_nothing() -> None:
+    submission = FakeOrderSubmission()
     account_reader = Mock()
     account_reader.check_connection.return_value = _status(usdt_balance=None)
     metadata_provider = Mock()
     metadata_provider.get_or_fetch.return_value = _metadata()
     coordinator = LiveTradingCoordinator(
-        "BTCUSDT", dispatcher, account_reader, metadata_provider, Mock(), 20.0, 1.0
+        "BTCUSDT", submission, account_reader, metadata_provider, Mock(), 20.0, 1.0
     )
 
     coordinator.handle(_signal())
 
-    dispatcher.dispatch.assert_not_called()
+    assert submission.submitted_live == []
+    assert submission.submitted_dry == []
 
 
 def test_sizing_percent_and_leverage_are_config_driven_not_hardcoded() -> None:
@@ -167,31 +171,29 @@ def test_sizing_percent_and_leverage_are_config_driven_not_hardcoded() -> None:
     USDT cap that left almost no account balance able to place an order.
     Two coordinators built with different `sizing_percent` must produce
     different order quantities for the same balance/price."""
-    small_dispatcher = Mock()
-    small_dispatcher.dispatch.return_value = ExecuteOrderResult(None, None, (), None)
-    small_coordinator = _coordinator(small_dispatcher, sizing_percent=10.0)
-    small_coordinator.handle(_signal())
-    _, small_command = small_dispatcher.dispatch.call_args.args
+    small = FakeOrderSubmission()
+    small.submit_answers(ExecuteOrderResult(None, None, (), None))
+    _coordinator(small, sizing_percent=10.0).handle(_signal())
+    (small_request,) = small.submitted_live
 
-    large_dispatcher = Mock()
-    large_dispatcher.dispatch.return_value = ExecuteOrderResult(None, None, (), None)
-    large_coordinator = _coordinator(large_dispatcher, sizing_percent=50.0)
-    large_coordinator.handle(_signal())
-    _, large_command = large_dispatcher.dispatch.call_args.args
+    large = FakeOrderSubmission()
+    large.submit_answers(ExecuteOrderResult(None, None, (), None))
+    _coordinator(large, sizing_percent=50.0).handle(_signal())
+    (large_request,) = large.submitted_live
 
-    assert large_command.order_request.quantity > small_command.order_request.quantity
+    assert large_request.quantity > small_request.quantity
 
 
 def test_a_blocked_order_publishes_a_live_order_blocked_event() -> None:
     """`BUG-084` — before this fix, a blocked order was a log line only;
     nothing reached the Trading screen to distinguish "no signal fired"
     from "a signal fired but got blocked"."""
-    dispatcher = Mock()
-    dispatcher.dispatch.return_value = ExecuteOrderResult(
-        "max_notional_per_order", None, (), None
+    submission = FakeOrderSubmission()
+    submission.submit_answers(
+        ExecuteOrderResult("max_notional_per_order", None, (), None)
     )
     event_publisher = Mock()
-    coordinator = _coordinator(dispatcher, event_publisher=event_publisher)
+    coordinator = _coordinator(submission, event_publisher=event_publisher)
 
     coordinator.handle(_signal())
 
@@ -203,10 +205,10 @@ def test_a_blocked_order_publishes_a_live_order_blocked_event() -> None:
 
 
 def test_an_accepted_order_does_not_publish_a_blocked_event() -> None:
-    dispatcher = Mock()
-    dispatcher.dispatch.return_value = ExecuteOrderResult(None, None, (), None)
+    submission = FakeOrderSubmission()
+    submission.submit_answers(ExecuteOrderResult(None, None, (), None))
     event_publisher = Mock()
-    coordinator = _coordinator(dispatcher, event_publisher=event_publisher)
+    coordinator = _coordinator(submission, event_publisher=event_publisher)
 
     coordinator.handle(_signal())
 
@@ -217,7 +219,7 @@ def test_a_zero_computed_quantity_publishes_a_live_order_blocked_event() -> None
     """`BUG-084` — a balance too small to clear even one `step_size` unit
     used to be a silent `logger.debug()` line, indistinguishable on the
     Trading screen from no signal having fired at all."""
-    dispatcher = Mock()
+    submission = FakeOrderSubmission()
     account_reader = Mock()
     account_reader.check_connection.return_value = _status(usdt_balance=Decimal(1))
     metadata_provider = Mock()
@@ -225,7 +227,7 @@ def test_a_zero_computed_quantity_publishes_a_live_order_blocked_event() -> None
     event_publisher = Mock()
     coordinator = LiveTradingCoordinator(
         "BTCUSDT",
-        dispatcher,
+        submission,
         account_reader,
         metadata_provider,
         event_publisher,
@@ -235,7 +237,8 @@ def test_a_zero_computed_quantity_publishes_a_live_order_blocked_event() -> None
 
     coordinator.handle(_signal())
 
-    dispatcher.dispatch.assert_not_called()
+    assert submission.submitted_live == []
+    assert submission.submitted_dry == []
     event_publisher.publish.assert_called_once()
     (published,) = event_publisher.publish.call_args.args
     assert isinstance(published, LiveOrderBlockedEvent)
@@ -249,11 +252,13 @@ def test_exchange_rejection_is_logged_not_raised(caplog) -> None:
     this coordinator or its caller (`MarketTickEventHandler.handle()`, no
     `except` of its own) caught it, so one rejected order would crash tick
     processing for the rest of the session."""
-    dispatcher = Mock()
-    dispatcher.dispatch.side_effect = OrderRejectedByExchangeError(
-        OrderRejectionReason.INSUFFICIENT_MARGIN, "Margin is insufficient"
+    submission = FakeOrderSubmission()
+    submission.submit_raises(
+        OrderRejectedByExchangeError(
+            OrderRejectionReason.INSUFFICIENT_MARGIN, "Margin is insufficient"
+        )
     )
-    coordinator = _coordinator(dispatcher)
+    coordinator = _coordinator(submission)
 
     with caplog.at_level(logging.WARNING):
         coordinator.handle(_signal())  # must not raise
@@ -261,13 +266,13 @@ def test_exchange_rejection_is_logged_not_raised(caplog) -> None:
     assert any("rejected" in record.message.lower() for record in caplog.records)
 
 
-def test_a_network_failure_during_dispatch_is_logged_not_raised(caplog) -> None:
+def test_a_network_failure_during_submission_is_logged_not_raised(caplog) -> None:
     """Same worker-boundary reasoning as the rejection case above, for an
     unexpected/network-level failure — this coordinator has no engine
     exception-swallowing wrapper the way UI worker methods do."""
-    dispatcher = Mock()
-    dispatcher.dispatch.side_effect = ConnectionError("boom")
-    coordinator = _coordinator(dispatcher)
+    submission = FakeOrderSubmission()
+    submission.submit_raises(ConnectionError("boom"))
+    coordinator = _coordinator(submission)
 
     with caplog.at_level(logging.ERROR):
         coordinator.handle(_signal())  # must not raise
@@ -275,16 +280,17 @@ def test_a_network_failure_during_dispatch_is_logged_not_raised(caplog) -> None:
     assert any("boom" in record.message for record in caplog.records)
 
 
-def test_unknown_symbol_metadata_skips_dispatch() -> None:
-    dispatcher = Mock()
+def test_unknown_symbol_metadata_sends_nothing() -> None:
+    submission = FakeOrderSubmission()
     account_reader = Mock()
     account_reader.check_connection.return_value = _status()
     metadata_provider = Mock()
     metadata_provider.get_or_fetch.return_value = None
     coordinator = LiveTradingCoordinator(
-        "BTCUSDT", dispatcher, account_reader, metadata_provider, Mock(), 20.0, 1.0
+        "BTCUSDT", submission, account_reader, metadata_provider, Mock(), 20.0, 1.0
     )
 
     coordinator.handle(_signal())
 
-    dispatcher.dispatch.assert_not_called()
+    assert submission.submitted_live == []
+    assert submission.submitted_dry == []

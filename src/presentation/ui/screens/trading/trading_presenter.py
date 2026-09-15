@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, cast
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
 from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
@@ -27,12 +27,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order import (
-    CancelOrderCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
-    CancelOrderResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
 )
@@ -53,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
+    IOrderSubmission,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
@@ -238,6 +235,7 @@ class TradingPresenter(BasePresenter):
 
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
         self._trading_session: ITradingSession = container.resolve(ITradingSession)
+        self._order_submission: IOrderSubmission = container.resolve(IOrderSubmission)
         self._equity_recorder: EquityCurveRecorder = container.resolve(
             EquityCurveRecorder
         )
@@ -940,12 +938,7 @@ class TradingPresenter(BasePresenter):
 
     def _run_cancel_order(self, symbol: str, client_order_id: str) -> None:
         try:
-            result = cast(
-                CancelOrderResult,
-                self.dispatcher.dispatch(
-                    CancelOrderCommand, CancelOrderCommand(symbol, client_order_id)
-                ),
-            )
+            result = self._order_submission.cancel(symbol, client_order_id)
             self.cancelOrderCompleted.emit((symbol, client_order_id, result, None))
         except Exception as exc:  # noqa: BLE001 - worker boundary
             self.cancelOrderCompleted.emit((symbol, client_order_id, None, str(exc)))

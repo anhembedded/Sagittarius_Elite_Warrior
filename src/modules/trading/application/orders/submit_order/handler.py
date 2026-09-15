@@ -1,11 +1,11 @@
 import logging
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.commands.submit_order.command import (
-    SubmitOrderCommand,
-)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.handler import (
     PreviewOrderQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.submit_order.command import (
+    SubmitOrderCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,

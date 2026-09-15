@@ -147,6 +147,20 @@ def strategy_session(strategy_registry):
 
 
 @pytest.fixture
+def order_submission():
+    """`EPIC-025` PR 1.3c-2 — the manual order card and the Open Orders
+    table's cancel button both go through `IOrderSubmission`, so the container
+    hands out that port's verified fake. It keeps live submissions apart from
+    dry runs and venue validations, which is the assertion a mocked dispatcher
+    could not make: a click that lost `live=True` would look identical."""
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_submission import (
+        FakeOrderSubmission,
+    )
+
+    return FakeOrderSubmission()
+
+
+@pytest.fixture
 def trading_session():
     """`EPIC-025` PR 1.3c-1 — `ITradingSession`'s verified fake, the same one
     `tests/unit/presentation/ui/screens/trading/conftest.py` hands its own
@@ -196,6 +210,7 @@ def mock_container(
     strategy_registry,
     strategy_session,
     trading_session,
+    order_submission,
     fake_market_data_sync,
     fake_historical_klines,
     fake_market_stream,
@@ -217,6 +232,9 @@ def mock_container(
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
         EquityCurveRecorder,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
+        IOrderSubmission,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
         ITradingSession,
@@ -248,6 +266,8 @@ def mock_container(
             return equity_recorder
         if interface == ITradingSession:
             return trading_session
+        if interface == IOrderSubmission:
+            return order_submission
         if interface == IHistoricalKlines:
             return fake_historical_klines
         if interface == IMarketStream:
@@ -341,6 +361,9 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
         EquityCurveRecorder,
     )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
+        IOrderSubmission,
+    )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
         ITradingSession,
     )
@@ -375,6 +398,12 @@ def test_boot_wires_the_container_registered_store_into_the_view(
             )
 
             return FakeTradingSession()
+        if interface == IOrderSubmission:
+            from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_submission import (
+                FakeOrderSubmission,
+            )
+
+            return FakeOrderSubmission()
         if interface == IHistoricalKlines:
             return fake_historical_klines
         if interface == IMarketStream:
@@ -2567,16 +2596,16 @@ def test_manual_order_requested_blocked_while_already_pending(
     mock_thread_mgr.submit.assert_not_called()
 
 
-def test_run_manual_order_dispatches_execute_order_with_the_mapped_intent(
-    presenter, mock_dispatcher
+def test_run_manual_order_submits_one_live_order_with_the_mapped_intent(
+    presenter, mock_dispatcher, order_submission
 ):
     from decimal import Decimal
 
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order import (
-        ExecuteOrderCommand,
-    )
     from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
         GetOpenPositionsQuery,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+        ExecuteOrderResult,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import (
         OrderSide,
@@ -2594,6 +2623,11 @@ def test_run_manual_order_dispatches_execute_order_with_the_mapped_intent(
         return None
 
     mock_dispatcher.dispatch.side_effect = dispatch_side_effect
+    order_submission.submit_answers(
+        ExecuteOrderResult(
+            blocked_by=None, preview=None, limit_checks=(), submitted_order=None
+        )
+    )
 
     presenter._run_manual_order(
         1,
@@ -2604,19 +2638,16 @@ def test_run_manual_order_dispatches_execute_order_with_the_mapped_intent(
         Decimal(64000),
     )
 
-    execute_calls = [
-        call
-        for call in mock_dispatcher.dispatch.call_args_list
-        if call.args[0] is ExecuteOrderCommand
-    ]
-    assert len(execute_calls) == 1
-    command = execute_calls[0].args[1]
-    assert command.live is True
-    assert command.order_request.symbol == "BTCUSDT"
+    # In `submitted_live`, not `submitted_dry`: a manual order card that lost
+    # `live=True` would have looked the same to the mocked dispatcher this
+    # replaces.
+    (request,) = order_submission.submitted_live
+    assert order_submission.submitted_dry == []
+    assert request.symbol == "BTCUSDT"
     # Currently SHORT + Long click -> BUY, reduce_only=True (closes the
     # short) — `manual_order_intent_for()`'s own table, row 2.
-    assert command.order_request.side is OrderSide.BUY
-    assert command.order_request.reduce_only is True
+    assert request.side is OrderSide.BUY
+    assert request.reduce_only is True
 
 
 def test_run_manual_order_hard_blocks_when_strategy_owns_the_symbol_with_a_position(
@@ -2728,22 +2759,23 @@ def test_cancel_order_requested_submits_background_worker(presenter, mock_thread
     )
 
 
-def test_run_cancel_order_dispatches_cancel_order_command_for_exactly_that_order(
-    presenter, mock_dispatcher
+def test_run_cancel_order_cancels_exactly_that_order_and_nothing_else(
+    presenter, order_submission
 ):
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order import (
-        CancelOrderCommand,
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
+        CancelOrderResult,
     )
 
     completed = MagicMock()
     presenter.cancelOrderCompleted.connect(completed)
-    mock_dispatcher.dispatch.return_value = None
+    order_submission.cancel_answers(CancelOrderResult(None, None))
 
     presenter._run_cancel_order("BTCUSDT", "abc123")
 
-    mock_dispatcher.dispatch.assert_called_once_with(
-        CancelOrderCommand, CancelOrderCommand("BTCUSDT", "abc123")
-    )
+    assert order_submission.cancelled == [("BTCUSDT", "abc123")]
+    # Cancelling one order must never submit one, which the port's fake can
+    # say and the mocked dispatcher this replaces could not.
+    assert order_submission.submitted_live == []
 
 
 def test_cancel_order_completed_removes_the_order_from_the_book(

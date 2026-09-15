@@ -33,9 +33,6 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_factory import 
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
-    ICommandDispatcher,
-)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
@@ -44,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config imp
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
+    IOrderSubmission,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
@@ -60,13 +60,13 @@ class LiveStrategyFactory:
         self,
         registry: StrategyRegistry,
         event_publisher: IEventPublisher,
-        dispatcher: ICommandDispatcher,
+        order_submission: IOrderSubmission,
         account_reader: ITradingAccountReader,
         metadata_provider: IMarketMetadataProvider,
     ) -> None:
         self._registry = registry
         self._event_publisher = event_publisher
-        self._dispatcher = dispatcher
+        self._order_submission = order_submission
         self._account_reader = account_reader
         self._metadata_provider = metadata_provider
 
@@ -98,7 +98,7 @@ class LiveStrategyFactory:
         )
         coordinator = LiveTradingCoordinator(
             config.symbol,
-            self._dispatcher,
+            self._order_submission,
             self._account_reader,
             self._metadata_provider,
             self._event_publisher,

@@ -43,6 +43,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview import (
     OrderPreview,
 )
@@ -52,8 +53,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request impor
 
 
 class IOrderSubmission(ABC):
-    """The only way to send an order, and the only way to ask what one would
-    look like before sending it."""
+    """The only way to send an order, to ask what one would look like before
+    sending it, and to have the venue check one without creating it."""
 
     @abstractmethod
     def preview(self, request: OrderRequest) -> OrderPreview:
@@ -78,6 +79,31 @@ class IOrderSubmission(ABC):
         (`ExecuteOrderSafetyGate`, a `TradingLimitViolation`, or
         `ExecuteOrderNotionalRejection`), never an exception a caller must
         anticipate.
+        """
+
+    @abstractmethod
+    def validate(self, request: OrderRequest) -> Order:
+        """Send this order to the venue's **test** endpoint and return the
+        normalized order it accepted.
+
+        The third thing a caller can do with an order, and genuinely distinct
+        from the other two: `preview()` makes no network call at all, and
+        `submit(live=False)` evaluates every gate and limit against live data
+        and then stops. This one reaches the exchange — `POST
+        /fapi/v1/order/test` — and so is the only way to learn that the
+        signature, the key's permissions and the payload are all actually
+        right, while creating nothing. It is what `order-dry-run` has always
+        done, and `EPIC-021F` called it that epic's most important milestone
+        for exactly that reason.
+
+        Raises rather than answering with a result, and deliberately: this is
+        a diagnostic, so a caller wants the specific failure, not a summary.
+        `OrderRejectedByExchangeError` when the venue refuses,
+        `InvalidOrderForSubmissionError` when this app built an order that
+        does not satisfy the symbol's filters, and a transport exception when
+        the request never arrived. The safety pipeline is **not** run: a dry
+        run is not gated on the trading switch, which is the whole point of
+        being able to run it before turning trading on.
         """
 
     @abstractmethod

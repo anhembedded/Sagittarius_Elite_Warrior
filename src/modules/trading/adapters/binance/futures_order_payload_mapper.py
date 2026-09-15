@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
     FuturesSymbolMetadata,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.invalid_order_for_submission import (
+    InvalidOrderForSubmissionError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LiquidationPrice,
     LivePosition,
@@ -48,17 +51,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 _ONE_WAY_POSITION_SIDE = "BOTH"
 
 _STOP_ORDER_TYPES = frozenset({OrderType.STOP_MARKET, OrderType.TAKE_PROFIT_MARKET})
-
-
-class InvalidOrderForSubmissionError(ValueError):
-    """@brief Raised instead of silently rounding when `Order` does not
-    already align to the symbol's `stepSize`/`tickSize`, or is missing a
-    field its `order_type` requires.
-    @details Never fixed up here — see this module's own docstring for
-    why. The caller (`FuturesTradingClient`) is expected to have built the
-    order through `OrderQuantityRoundingPolicy` in the first place; this
-    is the safety net for the day something upstream forgets to.
-    """
 
 
 def _require_step_aligned(quantity: Decimal, step_size: Decimal, label: str) -> None:

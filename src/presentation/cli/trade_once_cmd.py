@@ -27,26 +27,26 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_order_payload_mapper import (
-    InvalidOrderForSubmissionError,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
-    ExecuteOrderCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.query import (
-    PreviewOrderQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
+    IOrderSubmission,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.invalid_order_for_submission import (
+    InvalidOrderForSubmissionError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
+    OrderRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.position_sizing_bridge import (
@@ -140,16 +140,13 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
         print("Calculated quantity is 0 — nothing to send.")
         return
 
-    command = ExecuteOrderCommand(
-        order_request=PreviewOrderQuery(
-            symbol=args.symbol,
-            side=intent.side,
-            order_type=OrderType.MARKET,
-            quantity=quantity,
-            reference_price=reference_price,
-            reduce_only=intent.reduce_only,
-        ),
-        live=args.live,
+    order_request = OrderRequest(
+        symbol=args.symbol,
+        side=intent.side,
+        order_type=OrderType.MARKET,
+        quantity=quantity,
+        reference_price=reference_price,
+        reduce_only=intent.reduce_only,
     )
     # `BUG-090` — a live order the app's own `notional_check` gate didn't
     # catch (e.g. a margin/precision/rate-limit rejection, which is real
@@ -157,7 +154,9 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
     # message like `order-dry-run` already does, not crash with a raw
     # traceback — a rejection is an expected, named outcome, not a bug.
     try:
-        result: ExecuteOrderResult = app.dispatch(ExecuteOrderCommand, command)
+        result: ExecuteOrderResult = app.container.resolve(IOrderSubmission).submit(
+            order_request, live=args.live
+        )
     except OrderRejectedByExchangeError as exc:
         print(f"Exchange rejected the order: {exc}")
         return

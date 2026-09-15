@@ -67,6 +67,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.handler import (
     ExecuteOrderCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.order_submission_service import (
+    OrderSubmissionService,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.handler import (
     PreviewOrderQueryHandler,
 )
@@ -189,9 +192,14 @@ def _build_pipeline() -> _Pipeline:
         metadata_provider,
     )
     dispatcher = _RecordingDispatcher(handler)
+    # `EPIC-025` PR 1.3c-2 — the coordinator now holds `IOrderSubmission`, so
+    # this pipeline wires the REAL `OrderSubmissionService` over the recording
+    # dispatcher rather than handing the coordinator a dispatcher directly.
+    # That is what production does, and it means this test is now the first
+    # one that drives the published port's real implementation end to end.
     coordinator = LiveTradingCoordinator(
         _SYMBOL,
-        dispatcher,
+        OrderSubmissionService(dispatcher),
         account_reader,
         metadata_provider,
         Mock(),

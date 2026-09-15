@@ -41,10 +41,6 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.stop_backtest 
     StopBacktestCommand,
     StopBacktestCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.commands.submit_order import (
-    SubmitOrderCommand,
-    SubmitOrderCommandHandler,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.arm_strategy import (
     ArmStrategyCommand,
     ArmStrategyCommandHandler,
@@ -156,6 +152,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
     PreviewOrderQuery,
     PreviewOrderQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.submit_order import (
+    SubmitOrderCommand,
+    SubmitOrderCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.position_refresh_service import (
     PositionRefreshService,
 )
@@ -187,6 +187,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_symbol_me
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
+    IOrderSubmission,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
@@ -436,7 +439,7 @@ class BinanceBotModule(BaseModule):
             lambda c: LiveStrategyFactory(
                 c.resolve(StrategyRegistry),
                 c.resolve(IEventPublisher),
-                c.resolve(ICommandDispatcher),
+                c.resolve(IOrderSubmission),
                 c.resolve(ITradingAccountReader),
                 c.resolve(IMarketMetadataProvider),
             ),

@@ -1,6 +1,6 @@
 """The contract suite for `IOrderSubmission` (HLD §10.3).
 
-Three guarantees, and all three are about the difference between asking and
+Four guarantees, and all four are about the difference between asking and
 sending — which is the only thing every consumer of this port shares:
 
 1. `submit(request, live=False)` is a **real** dry run: the request is
@@ -8,7 +8,11 @@ sending — which is the only thing every consumer of this port shares:
    because a mock records `live=True` and answers exactly the same;
 2. `submit(request, live=True)` does send, so the two cases are
    distinguishable at all;
-3. `preview()` never sends, whatever the request says.
+3. `preview()` never sends, whatever the request says;
+4. `validate()` never sends a **live** order, although it does reach the
+   venue. This is the one a reader is most likely to doubt, and the one whose
+   failure would be worst: `order-dry-run` exists to be safe to run before
+   trading is ever turned on.
 
 What the suite does **not** pin is the rounding, the gates or the limits. Those
 are `ExecuteOrderCommandHandler`'s and `TradingLimitPolicy`'s own tests: the
@@ -69,5 +73,15 @@ class OrderSubmissionContract:
         self, impl: IOrderSubmission, sent_live: SentLive, request_btc: OrderRequest
     ) -> None:
         impl.preview(request_btc)
+
+        assert sent_live() == ()
+
+    def test_a_validation_never_sends_a_live_order(
+        self, impl: IOrderSubmission, sent_live: SentLive, request_btc: OrderRequest
+    ) -> None:
+        """`validate()` reaches the exchange — `POST /fapi/v1/order/test` —
+        and must still create nothing. An implementation that routed it to
+        the real endpoint would pass every other test in this suite."""
+        impl.validate(request_btc)
 
         assert sent_live() == ()

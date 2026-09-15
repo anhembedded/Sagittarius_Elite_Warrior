@@ -8,17 +8,17 @@ from decimal import Decimal, InvalidOperation
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
-from Sagittarius_Elite_Warrior.src.application.use_cases.commands.submit_order import (
-    SubmitOrderCommand,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
+    IOrderSubmission,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_order_payload_mapper import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.invalid_order_for_submission import (
     InvalidOrderForSubmissionError,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order import (
-    PreviewOrderQuery,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
+    OrderRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
@@ -39,7 +39,7 @@ def execute_order_dry_run(app: App, args: argparse.Namespace) -> None:
         print(f"Invalid number: qty={args.qty!r} price={args.price!r}")
         return
 
-    order_request = PreviewOrderQuery(
+    order_request = OrderRequest(
         symbol=args.symbol,
         side=OrderSide[args.side],
         order_type=OrderType[args.type],
@@ -47,8 +47,12 @@ def execute_order_dry_run(app: App, args: argparse.Namespace) -> None:
         reference_price=reference_price,
     )
 
+    # One port for both halves of this command: what the order becomes, then
+    # whether the venue itself accepts it (`EPIC-025` PR 1.3c-2).
+    submission = app.container.resolve(IOrderSubmission)
+
     try:
-        preview = app.dispatch(PreviewOrderQuery, order_request)
+        preview = submission.preview(order_request)
     except ValueError as exc:
         print(f"Could not preview the order: {exc}")
         return
@@ -63,9 +67,7 @@ def execute_order_dry_run(app: App, args: argparse.Namespace) -> None:
     print()
 
     try:
-        app.dispatch(
-            SubmitOrderCommand, SubmitOrderCommand(order_request=order_request)
-        )
+        submission.validate(order_request)
     except DependencyResolutionError:
         print(
             "Trading venue is DISABLED. Enable it by setting "

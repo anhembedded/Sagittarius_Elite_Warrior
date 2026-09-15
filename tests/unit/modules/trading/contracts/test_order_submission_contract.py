@@ -26,6 +26,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview import (
     OrderPreview,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
+    OrderRejectedByExchangeError,
+    OrderRejectionReason,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     OrderRequest,
 )
@@ -89,6 +93,7 @@ class TestTheFake(OrderSubmissionContract):
                 submitted_order=_order(),
             )
         )
+        fake.validate_answers(_order())
         return fake
 
     @pytest.fixture
@@ -100,7 +105,8 @@ class TestTheFake(OrderSubmissionContract):
 
 
 class TestTheFakesOwnBookkeeping:
-    """`BUG-120` — the three `*_answers()` helpers and the four records."""
+    """`BUG-120` — the six `*_answers()`/`*_raises()` helpers and the five
+    records."""
 
     def test_a_missing_answer_is_a_loud_failure_not_a_default(self) -> None:
         """An `OrderPreview` has no meaningful default. Inventing one would
@@ -165,4 +171,61 @@ class TestTheFakesOwnBookkeeping:
         fake.submit(request_btc, live=True)
 
         assert fake.submitted_dry == [request_btc]
+        assert fake.submitted_live == [request_btc]
+
+    def test_validate_answers_is_what_comes_back_and_is_recorded_apart(
+        self, request_btc: OrderRequest
+    ) -> None:
+        """`validated` is its own list on purpose: a request sent to the
+        venue's test endpoint created nothing, and a test that found it in
+        `submitted_live` would be asserting the opposite of the truth."""
+        fake = FakeOrderSubmission()
+        order = _order()
+        fake.validate_answers(order)
+
+        assert fake.validate(request_btc) is order
+        assert fake.validated == [request_btc]
+        assert fake.submitted_live == []
+        assert fake.submitted_dry == []
+
+    def test_validate_raises_reports_the_specific_failure(
+        self, request_btc: OrderRequest
+    ) -> None:
+        """A dry run is a diagnostic, so the caller prints a different message
+        for each failure — the fake has to be able to produce each one."""
+        fake = FakeOrderSubmission()
+        fake.validate_raises(
+            OrderRejectedByExchangeError(OrderRejectionReason.LOT_SIZE, "step size")
+        )
+
+        with pytest.raises(OrderRejectedByExchangeError) as refusal:
+            fake.validate(request_btc)
+
+        assert refusal.value.reason is OrderRejectionReason.LOT_SIZE
+        assert fake.validated == [request_btc]
+
+    def test_a_missing_validate_answer_is_a_loud_failure(
+        self, request_btc: OrderRequest
+    ) -> None:
+        fake = FakeOrderSubmission()
+
+        with pytest.raises(AssertionError, match="validate_answers"):
+            fake.validate(request_btc)
+
+    def test_submit_raises_still_records_the_attempt(
+        self, request_btc: OrderRequest
+    ) -> None:
+        """ "Sent and refused" is a different fact from "never sent", and a
+        caller's own test needs to tell them apart — `BUG-090` is the report
+        where one rejected order took down the rest of the session."""
+        fake = FakeOrderSubmission()
+        fake.submit_raises(
+            OrderRejectedByExchangeError(
+                OrderRejectionReason.INSUFFICIENT_MARGIN, "Margin is insufficient"
+            )
+        )
+
+        with pytest.raises(OrderRejectedByExchangeError):
+            fake.submit(request_btc, live=True)
+
         assert fake.submitted_live == [request_btc]

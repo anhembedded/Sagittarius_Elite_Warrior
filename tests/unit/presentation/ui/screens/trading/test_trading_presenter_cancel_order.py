@@ -12,9 +12,6 @@ from unittest.mock import MagicMock
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order import (
-    CancelOrderCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
     CancelOrderResult,
 )
@@ -30,18 +27,19 @@ def test_cancel_order_requested_submits_background_worker(
     )
 
 
-def test_run_cancel_order_dispatches_cancel_order_command_for_exactly_that_order(
-    presenter, mock_dispatcher
+def test_run_cancel_order_cancels_exactly_that_order_and_nothing_else(
+    presenter, order_submission
 ):
     completed = MagicMock()
     presenter.cancelOrderCompleted.connect(completed)
-    mock_dispatcher.dispatch.return_value = None
+    order_submission.cancel_answers(CancelOrderResult(None, None))
 
     presenter._run_cancel_order("BTCUSDT", "abc123")
 
-    mock_dispatcher.dispatch.assert_called_once_with(
-        CancelOrderCommand, CancelOrderCommand("BTCUSDT", "abc123")
-    )
+    assert order_submission.cancelled == [("BTCUSDT", "abc123")]
+    # Cancelling must never have submitted anything, which the fake can say
+    # and a mocked dispatcher could not.
+    assert order_submission.submitted_live == []
 
 
 def test_cancel_order_completed_removes_the_order_from_the_book(presenter):
@@ -55,7 +53,7 @@ def test_cancel_order_completed_removes_the_order_from_the_book(presenter):
     remove_spy.assert_called_once_with("abc123")
 
 
-def test_cancel_order_completed_reports_a_dispatcher_exception(presenter):
+def test_cancel_order_completed_reports_a_failure_from_the_port(presenter):
     remove_spy = MagicMock()
     presenter._order_book.on_order_cancelled = remove_spy
 

@@ -50,8 +50,14 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
+    IOrderSubmission,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_submission import (
+    FakeOrderSubmission,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
@@ -111,6 +117,16 @@ def trading_session() -> FakeTradingSession:
     dispatched.
     """
     return FakeTradingSession()
+
+
+@pytest.fixture
+def order_submission() -> FakeOrderSubmission:
+    """`EPIC-025` PR 1.3c-2 — every order this screen can place or cancel goes
+    through `IOrderSubmission`, so the container hands out that port's
+    verified fake. It keeps live submissions, dry runs and venue validations
+    in three separate lists, which is the one thing a `Mock` cannot do: a
+    caller that dropped `live=False` would still look right to a mock."""
+    return FakeOrderSubmission()
 
 
 @pytest.fixture
@@ -177,6 +193,7 @@ def container(
     mock_dispatcher,
     mock_thread_manager,
     trading_session,
+    order_submission,
     equity_recorder,
     strategy_session,
     strategy_registry,
@@ -199,6 +216,7 @@ def container(
             IDispatcher: mock_dispatcher,
             IThreadManager: mock_thread_manager,
             ITradingSession: trading_session,
+            IOrderSubmission: order_submission,
             EquityCurveRecorder: equity_recorder,
             LiveStrategySession: strategy_session,
             StrategyRegistry: strategy_registry,

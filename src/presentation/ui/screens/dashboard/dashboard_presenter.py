@@ -38,20 +38,8 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalo
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order import (
-    CancelOrderCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order import (
-    ExecuteOrderCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.query import (
-    PreviewOrderQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
     GetOpenPositionsQuery,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
-    CancelOrderResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
@@ -74,14 +62,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
-    ExecuteOrderResult,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
+    IOrderSubmission,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
+    OrderRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
@@ -543,6 +534,7 @@ class DashboardPresenter(BasePresenter):
         # `EPIC-023D` — account-wide, shared with Trading (bấm ở Dev Board
         # hoặc Trading đều ra cùng một sự thật — xem EPIC-023's README §2).
         self._trading_session: ITradingSession = container.resolve(ITradingSession)
+        self._order_submission: IOrderSubmission = container.resolve(IOrderSubmission)
         # `EPIC-023B` — the recorder outlives this screen (a DI singleton
         # written by `FuturesUserDataStream` regardless of whether Dev Board
         # is even open), same reasoning `TradingPresenter` documents for its
@@ -692,7 +684,7 @@ class DashboardPresenter(BasePresenter):
         # card's `reference_price` for a MARKET order (a LIMIT order's own
         # price field is the reference instead — see `_on_manual_order_requested`).
         # Updated on every `_on_ui_chart_update` tick; `Decimal`, not the
-        # `float` the tick itself carries — `PreviewOrderQuery` requires it.
+        # `float` the tick itself carries — `OrderRequest` requires it.
         self._last_price_by_symbol: dict[str, Decimal] = {}
         # Seeds from whatever the session already says — if Trading enabled it
         # first, opening Dev Board must show "đang BẬT", never a default "TẮT"
@@ -1444,7 +1436,7 @@ class DashboardPresenter(BasePresenter):
 
     # ================================================================== #
     # Manual trading card (`EPIC-024B`) — the first UI path that dispatches
-    # `ExecuteOrderCommand` from a human click rather than a strategy tick
+    # `IOrderSubmission.submit()` from a human click rather than a strategy tick
     # (`LiveTradingCoordinator`). Deliberately reuses that exact command/
     # handler — see `PRO-003`/`EPIC-024B` §4: this task exists to prove the
     # mechanism generalizes to a second caller, not to build a second path.
@@ -1540,8 +1532,8 @@ class DashboardPresenter(BasePresenter):
             )
             current_position = next((p for p in positions if p.symbol == symbol), None)
             intent = manual_order_intent_for(direction, current_position)
-            command = ExecuteOrderCommand(
-                order_request=PreviewOrderQuery(
+            result = self._order_submission.submit(
+                OrderRequest(
                     symbol=symbol,
                     side=intent.side,
                     order_type=order_type,
@@ -1550,10 +1542,6 @@ class DashboardPresenter(BasePresenter):
                     reduce_only=intent.reduce_only,
                 ),
                 live=True,
-            )
-            result = cast(
-                ExecuteOrderResult,
-                self.dispatcher.dispatch(ExecuteOrderCommand, command),
             )
             self.manualOrderCompleted.emit((action_id, result, False, None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
@@ -1619,12 +1607,7 @@ class DashboardPresenter(BasePresenter):
 
     def _run_cancel_order(self, symbol: str, client_order_id: str) -> None:
         try:
-            result = cast(
-                CancelOrderResult,
-                self.dispatcher.dispatch(
-                    CancelOrderCommand, CancelOrderCommand(symbol, client_order_id)
-                ),
-            )
+            result = self._order_submission.cancel(symbol, client_order_id)
             self.cancelOrderCompleted.emit((symbol, client_order_id, result, None))
         except Exception as exc:  # noqa: BLE001 - worker boundary
             self.cancelOrderCompleted.emit((symbol, client_order_id, None, str(exc)))

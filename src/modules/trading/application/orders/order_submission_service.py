@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.query import (
     PreviewOrderQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.submit_order.command import (
+    SubmitOrderCommand,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
     CancelOrderResult,
 )
@@ -38,6 +41,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview import (
     OrderPreview,
 )
@@ -88,6 +92,11 @@ class OrderSubmissionService(IOrderSubmission):
         command = ExecuteOrderCommand(order_request=_as_query(request), live=live)
         response = self._dispatcher.dispatch(ExecuteOrderCommand, command)
         return _answered(response, ExecuteOrderResult)  # type: ignore[return-value]
+
+    def validate(self, request: OrderRequest) -> Order:
+        command = SubmitOrderCommand(order_request=_as_query(request))
+        response = self._dispatcher.dispatch(SubmitOrderCommand, command)
+        return _answered(response, Order)  # type: ignore[return-value]
 
     def cancel(self, symbol: str, client_order_id: str) -> CancelOrderResult:
         command = CancelOrderCommand(symbol=symbol, client_order_id=client_order_id)

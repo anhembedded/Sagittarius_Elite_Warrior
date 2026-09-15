@@ -301,30 +301,16 @@ modules.trading.domain.policies.signal_action_to_order_intent -> domain.value_ob
 #   moves the caller into `modules/strategy`; what it no longer has to do is
 #   change the call.
 
-application.services.live_trading_coordinator -> modules.trading.application.orders.execute_order.command
-application.services.live_trading_coordinator -> modules.trading.application.orders.preview_order.query
 application.services.live_trading_coordinator -> modules.trading.domain.policies.position_sizing_bridge
 application.services.live_trading_coordinator -> modules.trading.domain.policies.signal_action_to_order_intent
-application.use_cases.commands.submit_order.command -> modules.trading.application.orders.preview_order.query
-application.use_cases.commands.submit_order.handler -> modules.trading.application.orders.preview_order.handler
-presentation.cli.order_dry_run_cmd -> modules.trading.adapters.binance.futures_order_payload_mapper
-presentation.cli.order_dry_run_cmd -> modules.trading.application.orders.preview_order
-presentation.cli.order_preview_cmd -> modules.trading.application.orders.preview_order
 presentation.cli.order_preview_formatter -> modules.trading.domain.policies.order_quantity_rounding_policy
-presentation.cli.trade_once_cmd -> modules.trading.adapters.binance.futures_order_payload_mapper
-presentation.cli.trade_once_cmd -> modules.trading.application.orders.execute_order.command
-presentation.cli.trade_once_cmd -> modules.trading.application.orders.preview_order.query
 presentation.cli.trade_once_cmd -> modules.trading.domain.policies.position_sizing_bridge
 presentation.cli.trade_once_cmd -> modules.trading.domain.policies.signal_action_to_order_intent
 presentation.cli.trade_once_cmd -> modules.trading.domain.policies.trading_limit_policy
 presentation.cli.trade_once_formatter -> modules.trading.domain.policies.trading_limit_policy
 presentation.ui.common.execute_order_block_reason -> modules.trading.domain.policies.trading_limit_policy
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.equity_curve_recorder
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.orders.cancel_order
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.orders.execute_order
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.orders.preview_order.query
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.queries.get_open_positions
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.domain.policies.manual_order_intent
 presentation.ui.screens.dashboard.dev_board_panel -> modules.trading.domain.policies.manual_order_intent
 presentation.ui.screens.trading.trading_presenter -> modules.trading.application.equity_curve_recorder
-presentation.ui.screens.trading.trading_presenter -> modules.trading.application.orders.cancel_order

@@ -25,11 +25,7 @@ from __future__ import annotations
 
 import logging
 from decimal import Decimal
-from typing import cast
 
-from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
-    ICommandDispatcher,
-)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
@@ -38,26 +34,23 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
     PositionSizingType,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
-    ExecuteOrderCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.query import (
-    PreviewOrderQuery,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.live_order_blocked_event import (
     LiveOrderBlockedEvent,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
-    ExecuteOrderResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
+    IOrderSubmission,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
+    OrderRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.position_sizing_bridge import (
@@ -86,7 +79,7 @@ class LiveTradingCoordinator:
     def __init__(
         self,
         live_symbol: str,
-        dispatcher: ICommandDispatcher,
+        order_submission: IOrderSubmission,
         account_reader: ITradingAccountReader,
         metadata_provider: IMarketMetadataProvider,
         event_publisher: IEventPublisher,
@@ -94,7 +87,7 @@ class LiveTradingCoordinator:
         leverage: float,
     ) -> None:
         self._live_symbol = live_symbol
-        self._dispatcher = dispatcher
+        self._order_submission = order_submission
         self._account_reader = account_reader
         self._metadata_provider = metadata_provider
         self._event_publisher = event_publisher
@@ -156,25 +149,19 @@ class LiveTradingCoordinator:
             )
             return
 
-        command = ExecuteOrderCommand(
-            order_request=PreviewOrderQuery(
-                symbol=signal.symbol,
-                side=intent.side,
-                order_type=OrderType.MARKET,
-                quantity=quantity,
-                reference_price=reference_price,
-                reduce_only=intent.reduce_only,
-            ),
-            live=True,
+        order_request = OrderRequest(
+            symbol=signal.symbol,
+            side=intent.side,
+            order_type=OrderType.MARKET,
+            quantity=quantity,
+            reference_price=reference_price,
+            reduce_only=intent.reduce_only,
         )
-        # `ICommandDispatcher.dispatch()`'s own signature returns `object` —
-        # this module is under mypy's checked scope (unlike most of the
-        # coordinator/controller call sites using this same dispatch
-        # pattern, which live under `presentation/` and are excluded
-        # wholesale — see `pyproject.toml`'s `[tool.mypy]` `exclude`), so a
-        # bare `result: ExecuteOrderResult = ...` fails mypy here where it
-        # silently wouldn't there. `cast` documents the trust explicitly
-        # rather than annotating past it.
+        # `EPIC-025` PR 1.3c-2 — the `cast` that used to stand here is gone
+        # with the untyped dispatch it documented: `IOrderSubmission.submit()`
+        # declares `ExecuteOrderResult`, so mypy (which checks this file,
+        # unlike the `presentation/` call sites it is excluded from) reads the
+        # type instead of being told to trust one.
         # `BUG-090` — an exchange rejection (margin, rate limit, a
         # notional/precision edge `preview.notional_check` didn't catch)
         # is expected, named domain state, not a bug: it must not escape
@@ -182,10 +169,7 @@ class LiveTradingCoordinator:
         # its own and would otherwise let one rejected order take down
         # tick processing for the rest of the session.
         try:
-            result = cast(
-                ExecuteOrderResult,
-                self._dispatcher.dispatch(ExecuteOrderCommand, command),
-            )
+            result = self._order_submission.submit(order_request, live=True)
         except OrderRejectedByExchangeError as exc:
             logger.warning("Live order rejected by exchange: %s", exc)
             return

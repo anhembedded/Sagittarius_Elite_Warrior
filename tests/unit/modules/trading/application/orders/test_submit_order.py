@@ -3,12 +3,12 @@ from __future__ import annotations
 from decimal import Decimal
 from unittest.mock import Mock
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.commands.submit_order import (
-    SubmitOrderCommand,
-    SubmitOrderCommandHandler,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order import (
     PreviewOrderQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.submit_order import (
+    SubmitOrderCommand,
+    SubmitOrderCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
