@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_config_writer import IConfig
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_table import (
+    IContributionTable,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_place_host import IPlaceHost
 from Sagittarius_Elite_Warrior.src.core.contracts.nav_metadata import (
     NavLocation,
@@ -31,6 +34,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
+from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 
 __all__ = [
     "SHELL_CONTRIBUTOR_ID",
@@ -38,10 +42,12 @@ __all__ = [
     "ContributionError",
     "IConfigWriter",
     "IContributionRegistry",
+    "IContributionTable",
     "IPlaceHost",
     "NavLocation",
     "NavMetadata",
     "Place",
     "ScreenContribution",
     "SizeHint",
+    "Surface",
 ]

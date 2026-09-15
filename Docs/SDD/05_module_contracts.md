@@ -176,7 +176,7 @@ for a reader to find against the code.
 layout.** SDD-01b specified `slot(place: Place) -> QLayout`, implemented by
 `ui_kit.SurfaceHost`. Shipped (PR 1.4a): `surface_id`, `accepts() ->
 frozenset[Place]` and `place_widget(place, widget, *, title=None)`, implemented
-by `shell/workbench_surface.py`'s `WorkbenchSurface`. Handing back a `QLayout`
+by `support/ui_kit/workbench_surface.py`'s `WorkbenchSurface`. Handing back a `QLayout`
 would have made every place a box to add children to, and the parts of a
 `QMainWindow` are not boxes: a dock is a `QDockWidget` the user can tab, float
 and close; a status tile is a permanent widget on the `QStatusBar`; a modal is
@@ -193,10 +193,11 @@ this follows that precedent instead of inventing a second answer, and
 contract nothing checks cannot rot into documentation.
 
 **2. There is no `SurfaceDescriptor.build()`.** SDD-01b gave `Surface` a
-`build(registry, container) -> IPlaceHost` method. Shipped: `shell/surfaces.py`
-holds `Surface` as frozen data (`surface_id`, `owner`, `accepts`, `gated_by`,
-and `is_open_in(dev_mode=…)`), and building is a free function next door,
-`shell/surface_building.py`'s `build_surface(surface, contributions, container)`.
+`build(registry, container) -> IPlaceHost` method. Shipped: `Surface` is frozen
+data in `core/contracts/surface.py` (`surface_id`, `owner`, `accepts`,
+`gated_by`), and building is a free function beside the host,
+`support/ui_kit/surface_building.py`'s `build_surface(surface, contributions,
+container)`.
 A `build()` on the declaration would tie the answer to *what a surface is* to
 *how this application renders one*: the declaration is read by the contribution
 registry's validation, by the navigation metadata and by tests that only ask
@@ -209,3 +210,32 @@ SDD-01b named them `add()` / `add_screen()`. A module *contributes*; the verb is
 the one the hook itself is called (`contribute(registry)`), and `add` reads like
 a list operation on a surface that validates, drops gated contributions and
 refuses duplicates.
+
+**4. The host and its builder are in `support/ui_kit`, not in the shell, and
+`Surface` is in `core`.** PR 1.4a wrote both in `shell/`; PR 1.4b moved them,
+and the reason is the strangler period rather than taste. Rendering a surface is
+something **two** kinds of caller have to do while the migration runs: a legacy
+screen still carried by `shell/legacy_screen_adapter.py`, and a module's own
+`ui/` package. Neither may import `shell/` — it is *Main*, so a dependency on it
+is a cycle by definition, and the boundary guard refuses both — while both may
+import `support/ui_kit` whole, which is the zone HLD §6.1 named for exactly
+this. So the host moved to where both callers can reach it, `Surface` moved to
+`core/contracts` because `support/*` may not import the shell either, and what
+stayed in `shell/` is the policy: which surfaces this application has
+(`SURFACES`), which key gates each one (`DEV_MODE_GATE`), and `surface_is_open()`,
+the evaluation that needs this run's `dev.mode`.
+
+`Surface.is_open_in(dev_mode=…)` became that free function in the same move. The
+type is vocabulary every zone speaks; *which key means what* is this
+application's policy, and a `core` type that evaluates `"dev.mode"` would have
+carried the policy into the kernel.
+
+**5. `IContributionTable` is the reading half of the registry.** The builder used
+to take the concrete `ContributionRegistry`, which is a `shell/` class, so the
+move needed a port — and the shape was already in the codebase: PR 1.3c-5 split
+`ICliRegistry` (declare) from `ICliCommandTable` (read) for the same reason, that
+the collector and the consumer are different jobs and the consumer must not be
+able to declare. `IContributionTable.panels(surface_id, place)` is that read
+side, `ContributionRegistry` implements both ports, and the sort order is part of
+the contract because two modules that both pick `order = 10` must render in a
+fixed order rather than refusing to boot.

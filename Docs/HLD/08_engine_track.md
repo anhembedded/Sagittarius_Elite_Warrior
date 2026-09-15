@@ -29,11 +29,14 @@ Everything that will move to the Engine is written in the app under `core/contra
 
 1. **No import from `modules/`, `support/` or the rest of `shell/`.** It may import only the Engine,
    the standard library, and the named contracts of `core/contracts` (`IPlaceHost`,
-   `IContributionRegistry`) — never a concrete widget. The region host the surface runtime renders
-   into is reached through `IPlaceHost`; `shell/workbench_surface.py`'s `WorkbenchSurface`
-   (a `QMainWindow`) implements it since PR 1.4a, and the Engine's own region host will at E2.
-   (`core/` already has this guard.) `IPlaceHost` is the one contract here that is a
-   `typing.Protocol` rather than an ABC, for `architecture-rule.md` §2.1 reason (a): its
+   `IContributionRegistry`, `IContributionTable`, `Surface`) — never a concrete widget. The region
+   host the surface runtime renders into is reached through `IPlaceHost`, and the host itself is
+   deliberately **outside** this region: `support/ui_kit/workbench_surface.py`'s `WorkbenchSurface`
+   (a `QMainWindow`) implements it — written in `shell/` by PR 1.4a and moved by PR 1.4b, because a
+   legacy screen and a module's `ui/` both have to render a surface during the strangler period and
+   neither may import the shell. It is app UI that the Engine's own region host replaces at E2, not
+   something to lift. (`core/` already has this guard.) `IPlaceHost` is the one contract here that
+   is a `typing.Protocol` rather than an ABC, for `architecture-rule.md` §2.1 reason (a): its
    implementer is a `QObject` subclass, and `ABCMeta` against Shiboken's metaclass is a `TypeError`
    at import.
 2. **Engine package layout.** `core/contracts/contribution.py` is written as the future

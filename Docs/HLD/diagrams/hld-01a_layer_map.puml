@@ -24,7 +24,7 @@ modules ..> support : <<import>>
 modules ..> "core.contracts" : <<import>>
 modules ..> "core.vo" : <<import>>
 support ..> "core.vo" : <<import>>
-support ..> "core.contracts" : <<import>> (allowed, no user today: the surface host is in shell)
+support ..> "core.contracts" : <<import>> (ui_kit: the surface host reads Surface / Place / IContributionTable)
 "core.contracts" ..> sagittarius_engine : <<import>>
 
 note right of modules

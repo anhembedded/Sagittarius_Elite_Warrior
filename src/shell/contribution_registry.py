@@ -1,9 +1,12 @@
 """The shell's side of the contribution mechanism (HLD §4, SDD-01b, SDD-03).
 
 `IContributionRegistry` is what a module sees: two calls that take a descriptor
-and give nothing back. This class adds the half only the shell needs — reading
-what was contributed, in a deterministic order — and the validation that makes a
-mistake fail while the stack still names the module that made it.
+and give nothing back. `IContributionTable` is the reading half, which whoever
+renders a surface sees. This class is the one object behind both, plus the
+validation that makes a mistake fail while the stack still names the module that
+made it — the same write-port / read-port split `CliRegistry` has (PR 1.3c-5),
+and what let the surface host move to `support/ui_kit` without it importing the
+shell (PR 1.4b).
 
 **Order is a sort key, not an identity.** Rendering order is the stable sort by
 `(order, contributor_id, factory qualname)`, so two independently written modules
@@ -26,16 +29,20 @@ from Sagittarius_Elite_Warrior.src.core.contracts.errors import ContributionErro
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_table import (
+    IContributionTable,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
 )
-from Sagittarius_Elite_Warrior.src.shell.surfaces import Surface, surfaces_by_id
+from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
+from Sagittarius_Elite_Warrior.src.shell.surfaces import surface_is_open, surfaces_by_id
 
 logger = logging.getLogger("App.Shell.ContributionRegistry")
 
 
-class ContributionRegistry(IContributionRegistry):
+class ContributionRegistry(IContributionRegistry, IContributionTable):
     def __init__(
         self, *, dev_mode: bool, surfaces: dict[str, Surface] | None = None
     ) -> None:
@@ -63,7 +70,7 @@ class ContributionRegistry(IContributionRegistry):
                 f"{descriptor.place.value} (asked for by {descriptor.contributor_id!r}); "
                 f"it accepts {sorted(place.value for place in surface.accepts)}."
             )
-        if not surface.is_open_in(dev_mode=self._dev_mode):
+        if not surface_is_open(surface, dev_mode=self._dev_mode):
             self._dropped += 1
             logger.info(
                 "Dropped %s from %r: surface %r is gated off for this run (%s).",
@@ -99,7 +106,7 @@ class ContributionRegistry(IContributionRegistry):
             self._default_route = contribution.route
         self._screens[contribution.route] = contribution
 
-    # -- the shell-facing side ---------------------------------------------
+    # -- the reading side (IContributionTable) -----------------------------
 
     def panels(
         self, surface_id: str, place: Place
@@ -111,6 +118,8 @@ class ContributionRegistry(IContributionRegistry):
             if descriptor.surface_id == surface_id and descriptor.place is place
         ]
         return tuple(sorted(matching, key=_render_key))
+
+    # -- what only the shell reads -----------------------------------------
 
     def screens(self) -> tuple[ScreenContribution, ...]:
         return tuple(self._screens.values())

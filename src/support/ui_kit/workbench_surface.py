@@ -54,9 +54,9 @@ from PySide6.QtWidgets import (
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.errors import ContributionError
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
-from Sagittarius_Elite_Warrior.src.shell.surfaces import Surface
+from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 
-logger = logging.getLogger("App.Shell.WorkbenchSurface")
+logger = logging.getLogger("App.UiKit.WorkbenchSurface")
 
 #: Bumped when a change to this class's own layout would make an older saved
 #: blob apply wrongly rather than fail (a renamed dock, a removed toolbar).
@@ -78,8 +78,8 @@ class WorkbenchSurface(QMainWindow):
     `Protocol` for exactly this reason (`architecture-rule.md` §2.1 reason (a) —
     `ABCMeta` conflicts with Shiboken's metaclass, so inheriting it raises
     `TypeError` on import). `test_workbench_surface.py` asserts the
-    `isinstance` holds, and `mypy` checks the shape because `shell/` is inside
-    its gate.
+    `isinstance` holds, and `mypy` checks the shape because `support/` is
+    inside its gate (only `src/presentation/` is excluded).
     """
 
     def __init__(self, surface: Surface, parent: QWidget | None = None) -> None:
@@ -90,7 +90,7 @@ class WorkbenchSurface(QMainWindow):
         self._docks: dict[str, QDockWidget] = {}
         self._modals: dict[str, QDialog] = {}
         # A parent is not enough: `QMainWindow` sets the `Window` flag on
-        # itself, so nested in the shell's stacked widget it would still draw
+        # itself, so nested in a page or the shell's stacked widget it would draw
         # its own title bar and frame. `Qt.WindowType.Widget` is `0`, so this
         # call *clears* the flag set — which is the documented way to un-window
         # a `QMainWindow`, and measured: without it `isWindow()` stays true

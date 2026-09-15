@@ -1,9 +1,11 @@
 """What a surface offers the widgets contributed to it (HLD §4.6).
 
-Implemented by the shell's surface host (`shell/workbench_surface.py`);
-`support/ui_kit` also implements it during the strangler period so a legacy
-page can host contributions before its surface exists. A module never holds a
-reference to the host: the host calls the module's factory, not the other way
+Implemented by the surface host, `support/ui_kit/workbench_surface.py`'s
+`WorkbenchSurface`. It sits in `support/` rather than in the shell because
+during the strangler period a legacy screen and a module's own `ui/` both have
+to render a surface, and neither may import `shell/` (PR 1.4b measured it: the
+boundary guard refuses the import outright). A module never holds a reference
+to the host either way — the host calls the module's factory, not the other way
 round.
 
 @par Why `typing.Protocol` and not an ABC — reason (a) of `architecture-rule.md` §2.1
@@ -22,8 +24,8 @@ and the name stays greppable — a Protocol drops the inheritance requirement,
 not the contract.
 
 Unlike a Protocol under `presentation/`, this one is not left to a test alone:
-`shell/` is inside the `mypy` gate (only `src/presentation/` is excluded), so
-an implementer that drifts from this declaration fails the gate statically.
+`support/` is inside the `mypy` gate (only `src/presentation/` is excluded),
+so an implementer that drifts from this declaration fails the gate statically.
 """
 
 from __future__ import annotations

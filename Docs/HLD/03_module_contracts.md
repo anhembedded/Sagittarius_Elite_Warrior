@@ -211,7 +211,7 @@ second automated caller (another bot, copy-trading) uses the same mechanism with
 | `binance_gateway` | `IExchangeSessionFactory` (market), `ITradingSessionFactory` (trading), `IExchangeCredentialsProvider`, `binance_endpoints` (venue → base URL / testnet flag), `BinanceErrorTranslator` | `market_data/adapters`, `trading/adapters`, the settings section |
 | `charting` | `IChartHost` (a generalisation of the existing `IBacktestChartHost` in `screens/backtest/logic/backtest_chart_host.py`), `MarkerPoint`, `RegionSpan`, `InfoField`; `ChartCard` (QtWidgets, permanently) | trading, the strategy overlay, backtesting, the indicators runner |
 | `indicators` | `IIndicatorCatalog` (script list plus runner), `IIndicator` | strategy (mathematics), backtesting, the dev_board checklist |
-| `ui_kit` | no ports; widgets, tokens, `ActionOwnershipTracker`, `BaseFeed`, `app_defaults`, `sync_progress_*` | every module |
+| `ui_kit` | no ports; the surface host (`WorkbenchSurface` + `build_surface`, **arrived early in PR 1.4b** — it is the one thing a legacy screen and a module's `ui/` must both be able to render, and neither may import `shell/`); widgets, tokens, `ActionOwnershipTracker`, `BaseFeed`, `app_defaults`, `sync_progress_*` | every module |
 
 ### `core/` (the application's kernel policy)
 

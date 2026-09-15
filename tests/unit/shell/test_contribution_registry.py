@@ -19,10 +19,17 @@ from Sagittarius_Elite_Warrior.src.core.contracts import (
     ScreenContribution,
     SizeHint,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
+    IContributionRegistry,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_table import (
+    IContributionTable,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
     ContributionRegistry,
 )
-from Sagittarius_Elite_Warrior.src.shell.surfaces import DEV_MODE_GATE, Surface
+from Sagittarius_Elite_Warrior.src.shell.surfaces import DEV_MODE_GATE, surface_is_open
 
 
 def _never_called(_container: object) -> object:
@@ -220,6 +227,17 @@ def test_screens_keep_the_order_they_were_contributed_in(
     ]
 
 
+def test_the_registry_is_both_the_write_port_and_the_read_port() -> None:
+    """One object, two ports, and the split is the point (PR 1.4b): a module
+    holds `IContributionRegistry` and can only declare; whoever renders a
+    surface holds `IContributionTable` and can only read. `CliRegistry`
+    (PR 1.3c-5) is the same shape for prompt commands."""
+    registry = ContributionRegistry(dev_mode=False)
+
+    assert isinstance(registry, IContributionRegistry)
+    assert isinstance(registry, IContributionTable)
+
+
 # --- the surface table itself --------------------------------------------
 
 
@@ -228,9 +246,9 @@ def test_a_surface_with_an_unknown_gate_fails_loudly() -> None:
         "odd", owner="shell", accepts=frozenset({Place.RAIL}), gated_by="nope"
     )
     with pytest.raises(ValueError, match="unknown gate"):
-        surface.is_open_in(dev_mode=True)
+        surface_is_open(surface, dev_mode=True)
 
 
 def test_an_ungated_surface_is_always_open() -> None:
     surface = Surface("welcome", owner="shell", accepts=frozenset({Place.WORKSPACE}))
-    assert surface.is_open_in(dev_mode=False)
+    assert surface_is_open(surface, dev_mode=False)

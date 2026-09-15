@@ -23,7 +23,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.errors import ContributionErro
 from Sagittarius_Elite_Warrior.src.core.contracts.i_place_host import IPlaceHost
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.shell.surfaces import surfaces_by_id
-from Sagittarius_Elite_Warrior.src.shell.workbench_surface import WorkbenchSurface
+from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
+    WorkbenchSurface,
+)
 
 
 @pytest.fixture

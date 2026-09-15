@@ -25,13 +25,18 @@ from PySide6.QtWidgets import QLabel, QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import (
     ContributionDescriptor,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_table import (
+    IContributionTable,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
 from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
     ContributionRegistry,
 )
-from Sagittarius_Elite_Warrior.src.shell.surface_building import build_surface
 from Sagittarius_Elite_Warrior.src.shell.surfaces import surfaces_by_id
+from Sagittarius_Elite_Warrior.src.support.ui_kit.surface_building import (
+    build_surface,
+)
 
 
 def _descriptor(
@@ -268,3 +273,41 @@ def test_it_says_how_many_widgets_it_placed(
         "built with 1 contributed widget" in record.getMessage()
         for record in caplog.records
     )
+
+
+class _OnePanelTable(IContributionTable):
+    """A contribution table that is not the shell's registry.
+
+    The builder moved to `support/ui_kit` in PR 1.4b, and `support/*` cannot
+    import `shell/` at all — so what it may depend on is the port, not
+    `ContributionRegistry`. A test that only ever passes the real registry
+    would keep passing if the builder reached for a registry-only method, and
+    the failure would be an `ImportError` in whichever module tried to render a
+    surface, not here.
+    """
+
+    def __init__(self, descriptor: ContributionDescriptor) -> None:
+        self._descriptor = descriptor
+
+    def panels(
+        self, surface_id: str, place: Place
+    ) -> tuple[ContributionDescriptor, ...]:
+        if (
+            surface_id == self._descriptor.surface_id
+            and place is self._descriptor.place
+        ):
+            return (self._descriptor,)
+        return ()
+
+
+def test_the_builder_needs_only_the_contribution_table_port(
+    qapp, container: Mock
+) -> None:
+    table = _OnePanelTable(
+        _descriptor(Place.RAIL, lambda _c: QLabel("positions"), title="Positions")
+    )
+
+    host = build_surface(surfaces_by_id()["trading"], table, container)
+
+    dock = host.findChild(QWidget, f"{host.objectName()}::rail::Positions")
+    assert dock is not None

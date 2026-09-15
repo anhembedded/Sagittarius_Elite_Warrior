@@ -4,16 +4,25 @@ One function, so there is exactly one path from "a module contributed a panel"
 to "the user can see it" — the same reasoning `screen_wiring.py` gives for
 being one function.
 
+@par Why it lives beside the host rather than in the shell
+It was written in `shell/` (PR 1.4a) and moved here (PR 1.4b) for a measured
+reason: during the strangler period a *legacy screen* and a *module's `ui/`*
+both need to render a surface, and neither may import `shell/` — the shell is
+*Main*, so a dependency on it is a cycle by definition. Both may import
+`support/ui_kit` whole, which is the zone HLD §6.1 named for exactly this. What
+stayed in the shell is the policy: which surfaces exist, and the registry that
+collects what was contributed to them.
+
 @par Why this is not a method on the host
 `WorkbenchSurface` renders a widget into a place and knows nothing about who
 contributed it, which is what lets a test drive it directly and a `preview.py`
-build one with two hand-made widgets. Reading the registry and calling the
-factories is the shell's job, and keeping it here is what stops the host from
-growing a dependency on the contribution mechanism it is supposed to be
-indifferent to.
+build one with two hand-made widgets. Reading the table and calling the
+factories is a separate job, and keeping it in a separate function is what
+stops the host from growing a dependency on the contribution mechanism it is
+supposed to be indifferent to.
 
 @par Order, and what happens after it
-`ContributionRegistry.panels()` already sorts by `(order, contributor_id,
+`IContributionTable.panels()` already sorts by `(order, contributor_id,
 factory)`, so this walks places in a fixed sequence and lets that sort decide
 within each. From then on the user's saved perspective wins — `order` is the
 initial arrangement, not a layout (HLD §11.2).
@@ -30,15 +39,17 @@ from __future__ import annotations
 
 import logging
 
-from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
-from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
-    ContributionRegistry,
+from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_table import (
+    IContributionTable,
 )
-from Sagittarius_Elite_Warrior.src.shell.surfaces import Surface
-from Sagittarius_Elite_Warrior.src.shell.workbench_surface import WorkbenchSurface
+from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
+from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
+from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
+    WorkbenchSurface,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
-logger = logging.getLogger("App.Shell.SurfaceBuilding")
+logger = logging.getLogger("App.UiKit.SurfaceBuilding")
 
 #: The order places are filled in. Not cosmetic: the workspace must exist
 #: before the docks so Qt sizes the dock areas around a real central widget,
@@ -57,7 +68,7 @@ _FILL_ORDER: tuple[Place, ...] = (
 
 def build_surface(
     surface: Surface,
-    contributions: ContributionRegistry,
+    contributions: IContributionTable,
     container: IContainer,
     *,
     parent: object | None = None,
