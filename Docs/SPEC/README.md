@@ -34,13 +34,12 @@ is why, the spec is what. Neither file is a copy of the other — the SPEC names
 - One use case, one file: `SPEC-<three digits>_<slug>.md`. Ids are permanent and never reused,
   the way `BUG-`, `PRO-` and `EPIC-` ids are in this repository.
 - Every file follows [`SPEC-000_template.md`](SPEC-000_template.md). The template is not a
-  suggestion, and it is not enforced by good intentions either: a guard under
-  `tests/unit/architecture/` fails on a SPEC missing a required section, on a duplicate id, on an
-  id that is not in the index below, and on a **test path a SPEC cites that does not exist** —
+  suggestion, and it is not enforced by good intentions either:
+  `tests/unit/architecture/test_spec_index_is_consistent.py` fails on a SPEC missing a required
+  section, on a duplicate id, on an id that is not in the index below, on an id still listed as
+  *reserved* although the file exists, and on a **test path a SPEC cites that does not exist** —
   which is the whole point of the "Proven by" section and the way this directory avoids becoming
-  prose nobody re-reads. Find it by name with
-  `ls tests/unit/architecture/ | grep spec`, the way every other ratchet in that directory is
-  found.
+  prose nobody re-reads.
 - **Status is per file and honest.** ✅ built and proven · 🟡 partly built (the file says which
   step is missing) · 🔵 specified, not built. A SPEC may be written before the code — that is
   the useful case — but it may not claim to be built when it is not.

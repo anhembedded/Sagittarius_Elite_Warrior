@@ -216,11 +216,12 @@ cp /tmp/keep.py src/<path>.py && git diff --stat -- src/<path>.py   # empty
 1. Board reflects the work? (`Tasks/ROADMAP.md`, `Tasks/epics/README.md`; `onb` §6 calls this the most commonly botched part)
 2. Bug fix: report filed, moved to `completed/`, row moved on `Tasks/bug_report/README.md`? (`bug` §7)
 3. Code and design drifted? (`Docs/HLD/`, `Docs/SDD/` — when they disagree, the PR is where it is fixed)
-4. A term coined without its `Docs/VOCABULARY/README.md` entry in the same change?
-5. Every `.md` English, book register — why before what, a worked example over adjectives? (`onb` §10)
-6. A rule file added without its row in `CLAUDE.md`'s table? (an unlisted rule is an unread rule)
-7. `.agents/Skills/`, `.claude/skills/` or `.claude/rules/` edited — `python3 scripts/check_skill_prompt_references.py` still clean? (it reads all three, and an empty tree is an error, not a skip)
-8. A count, version or date written into a briefing as current state? (`skills` §1's banned list)
+4. **Behaviour drifted?** A diff that changes a flow, adds a named failure, or stops promising something updates that use case's own file under `Docs/SPEC/` — and its *Proven by* row moves with the test. `grep -rln '<the port or screen the diff touches>' Docs/SPEC/` finds the affected ones; `tests/unit/architecture/test_spec_index_is_consistent.py` catches only the mechanical half (a missing section, an unlisted id, a cited test path that no longer exists), never a flow that silently changed under an unchanged description.
+5. A term coined without its `Docs/VOCABULARY/README.md` entry in the same change?
+6. Every `.md` English, book register — why before what, a worked example over adjectives? (`onb` §10)
+7. A rule file added without its row in `CLAUDE.md`'s table? (an unlisted rule is an unread rule)
+8. `.agents/Skills/`, `.claude/skills/` or `.claude/rules/` edited — `python3 scripts/check_skill_prompt_references.py` still clean? (it reads all three, and an empty tree is an error, not a skip)
+9. A count, version or date written into a briefing as current state? (`skills` §1's banned list)
 
 ### L. Commits (`commit`)
 1. Conventional Commits — allowed type, real scope, imperative subject? (§2)

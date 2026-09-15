@@ -162,6 +162,10 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         ((".agents/rules", "*-rule.md"), (".claude/rules", "*.md")),
     ),
     ("tests/unit/test_task_board_is_consistent.py", (("Tasks", "*.md"),)),
+    (
+        "tests/unit/architecture/test_spec_index_is_consistent.py",
+        (("Docs/SPEC", "SPEC-*.md"),),
+    ),
     # --- sanity ---------------------------------------------------------------
     (
         "tests/sanity/test_composition_root.py",
