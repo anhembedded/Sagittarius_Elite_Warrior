@@ -17,21 +17,21 @@ from unittest.mock import MagicMock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
 from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
     LiveStrategySession,
 )
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
-    TradingSessionState,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
+    EquityCurveRecorder,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
+    TradingSessionState,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_presenter import (
     TradingPresenter,

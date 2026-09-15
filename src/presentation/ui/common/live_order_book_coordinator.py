@@ -25,9 +25,13 @@ from __future__ import annotations
 from collections.abc import Callable, Iterable, Sequence
 from typing import Protocol
 
-from Sagittarius_Elite_Warrior.src.domain.trading.live_position import LivePosition
-from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
-from Sagittarius_Elite_Warrior.src.domain.trading.order_status import is_terminal
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
+    is_terminal,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+    LivePosition,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.OpenOrdersTable.open_order_row import (
     OpenOrderRow,
     build_open_order_row,

@@ -6,31 +6,31 @@ events already rely on."""
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
-    OrderFilledEvent,
-)
-from Sagittarius_Elite_Warrior.src.domain.events.order_rejected_event import (
-    OrderRejectedEvent,
-)
-from Sagittarius_Elite_Warrior.src.domain.events.order_submitted_event import (
-    OrderSubmittedEvent,
-)
-from Sagittarius_Elite_Warrior.src.domain.events.position_changed_event import (
-    PositionChangedEvent,
-)
-from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     generate_client_order_id,
 )
-from Sagittarius_Elite_Warrior.src.domain.trading.live_position import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
+    OrderFilledEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_rejected_event import (
+    OrderRejectedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_submitted_event import (
+    OrderSubmittedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_changed_event import (
+    PositionChangedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    MarginType,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
     LiquidationPrice,
     LivePosition,
 )
-from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
-from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
-    MarginType,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from sagittarius_engine.domain.base_event import BaseEvent
 from sagittarius_engine.domain.event_registry import EventRegistry
 

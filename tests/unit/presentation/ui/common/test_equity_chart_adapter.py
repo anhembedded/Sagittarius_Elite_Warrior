@@ -5,7 +5,9 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.domain.trading.equity_sample import EquitySample
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.equity_sample import (
+    EquitySample,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
     equity_sample_to_candle,
     equity_samples_to_candles,

@@ -1,11 +1,21 @@
 # EPIC-025B — Phase 1: `modules/trading`; Trading and Dev Board become composition surfaces
 
-- **Status:** 🟡 In progress — the two `market_data` ports this phase was given are **done**:
-  PR 1.1a `IHistoricalKlines` (#217, plus its review cleanup #218) and PR 1.1b `IMarketStream`
-  (#219). Allowlist 34 → 24. Next is PR 1.2 (`ISymbolCatalog`, `IRangeCoverage`), then 1.3
-  (`modules/trading`, where the epic's risk actually sits). The pull-request cut and what each
-  one retires live in the epic [`README`](../README.md) §"the cut"; `TRACKING.md` carries the
-  per-PR log.
+- **Status:** 🟡 In progress. The two `market_data` ports this phase was given are **done** — PR
+  1.1a `IHistoricalKlines` (#217, plus its review cleanup #218) and PR 1.1b `IMarketStream` (#219)
+  — as is PR 1.2 (`ISymbolCatalog`, `IRangeCoverage`, #220), which completed `market_data`'s
+  published set. **PR 1.3a is done: `modules/trading` exists.** Next is PR 1.3b (the three ports),
+  then 1.4 (the surfaces) and 1.5 (Welcome). The pull-request cut and what each one retires live in
+  the epic [`README`](../README.md) §"the cut"; `TRACKING.md` carries the per-PR log.
+- **1.3 was cut in two, and the halves are in the order the guard allows, not the order first
+  proposed.** The epic's table had 1.3 publishing three ports *and* moving the code in one pull
+  request, ~3000–4900 lines over the live-order path. Splitting it was the user's call
+  (2026-09-15); putting the **move first** was forced by measurement:
+  `tests/unit/architecture/boundaries/rules.py` refuses the new tree any legacy import outside the
+  allowlist, and all three ports need types that were in the legacy tree — `IOrderSubmission` needs
+  `OrderPreview`, `ITradingSession` needs `EnableTradingResult`, `IAccountSnapshot` needs
+  `ExchangeConnectionStatus`. `market_data` could publish `IMarketDataSync` at PR 0.5 only because
+  PR 0.4a had already moved its code in. So **1.3a is trading's 0.4a** (the move, allowlist 20 →
+  80) and **1.3b is its 0.5** (the ports, allowlist → 13).
 - **Repository:** Elite
 - **Blocked by:** A · **Blocks:** C
 - **Read first:** HLD §3.4 (the contracts of `trading`), §4.2–§4.5 (the Trading and Dev Board
@@ -14,10 +24,24 @@
 
 ## 1. What to do
 
-1. `modules/trading/`: today's `domain/trading`, `use_cases/trading` (except arm/disarm, which go
-   to `strategy` in Phase 2 and are kept on the allowlist until then), the trading side of
-   `infrastructure/binance` (futures REST and the user-data stream), credentials handling,
-   `PositionRefreshService` (`BUG-117`) — `trading` **owns** the positions read model.
+1. ✅ **PR 1.3a** — `modules/trading/`: today's `domain/trading`, `use_cases/trading` (except
+   arm/disarm, which go to `strategy` in Phase 2 and are kept on the allowlist until then),
+   `use_cases/queries` and `application/ports` (both were **entirely** trading's, measured — the
+   cut was cleaner than this line assumed), the trading side of `infrastructure/binance` (futures
+   REST and the user-data stream), `PositionRefreshService` (`BUG-117`), `PositionStateReconciler`,
+   `EquityCurveRecorder` and `TradingSessionState` — `trading` **owns** the positions read model.
+   Trading's own value objects, the six order enums, `FuturesSymbolMetadata` and the seven events
+   it raises went into `contracts/` rather than `core/vo`, on HLD §2.4's rule measured the same way
+   `SymbolMarketMetadata` was: a type reaches the Published Language on two consumers in two
+   *modules*, and until `strategy` exists trading is the only module among its importers. That
+   choice is why 26 would-be allowlist entries do not exist — the legacy tree may import
+   `modules.*.contracts` freely. Credentials handling stayed: `IExchangeCredentialsProvider` is
+   `support/binance_gateway`'s, not trading's.
+   **Not done in 1.3a, and written down rather than dropped:** the DI registrations stay in
+   `binance_bot_module.py`, because `ExchangeSessionFactory` is built once and that one instance
+   answers both this context and `market_data` — moving them means two factories where there is
+   one, a behaviour change ADR D12 keeps out of a move. `module.py`'s docstring carries the whole
+   argument; 1.3b splits the factory one-per-context and the registrations follow it.
 2. `contracts/`: `IOrderSubmission`, `ITradingSession` (including `claim_symbol` /
    `release_symbol`), `IAccountSnapshot`; the DTOs `PositionSnapshot`, `OpenOrderSnapshot`,
    `TradingSessionSnapshot`, `AccountSnapshot`; the existing events `OrderFilledEvent`,

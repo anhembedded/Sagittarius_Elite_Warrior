@@ -7,7 +7,7 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (

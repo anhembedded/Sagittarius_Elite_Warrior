@@ -5,11 +5,11 @@ from __future__ import annotations
 
 import threading
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_futures_symbol_metadata_cache import (
-    IFuturesSymbolMetadataCache,
-)
-from Sagittarius_Elite_Warrior.src.domain.entities.futures_symbol_metadata import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
     FuturesSymbolMetadata,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_symbol_metadata_cache import (
+    IFuturesSymbolMetadataCache,
 )
 
 

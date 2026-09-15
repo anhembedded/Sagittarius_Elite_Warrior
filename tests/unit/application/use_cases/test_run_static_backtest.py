@@ -32,11 +32,11 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
     BrokerSimulationConfig,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
-    PositionSide,
-)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
+    PositionSide,
 )
 
 

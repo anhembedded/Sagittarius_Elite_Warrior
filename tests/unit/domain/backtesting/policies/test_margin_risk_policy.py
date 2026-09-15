@@ -4,12 +4,12 @@ import pytest
 from Sagittarius_Elite_Warrior.src.domain.backtesting.policies.margin_risk_policy import (
     MarginRiskPolicy,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
-    PositionSide,
-)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
     PositionSizing,
     PositionSizingType,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
+    PositionSide,
 )
 
 

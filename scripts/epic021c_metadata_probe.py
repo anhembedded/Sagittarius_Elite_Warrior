@@ -27,19 +27,19 @@ from unittest.mock import patch
 
 from binance.client import Client
 
-from Sagittarius_Elite_Warrior.src.domain.policies.order_quantity_rounding_policy import (
-    NotionalCheck,
-    OrderQuantityRoundingPolicy,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_metadata_provider import (
-    FuturesMetadataProvider,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
+    FuturesMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.order_quantity_rounding_policy import (
+    NotionalCheck,
+    OrderQuantityRoundingPolicy,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,

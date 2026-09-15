@@ -16,9 +16,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from unittest.mock import MagicMock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -37,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
 )
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
+    EquityCurveRecorder,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
     BacktestChartHostFactory,

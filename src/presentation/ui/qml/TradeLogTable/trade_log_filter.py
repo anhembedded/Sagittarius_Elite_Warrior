@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from enum import Enum
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
 

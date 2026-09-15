@@ -1,7 +1,7 @@
 """`EPIC-021D` — headless `main.py exchange-status`. The first CLI command
 that touches the real exchange, read-only."""
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_exchange_connection_status import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_exchange_connection_status import (
     GetExchangeConnectionStatusQuery,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter import (

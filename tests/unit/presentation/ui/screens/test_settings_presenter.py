@@ -35,7 +35,7 @@ from PySide6.QtWidgets import QLabel, QLineEdit, QPushButton, QSpinBox
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette

@@ -14,10 +14,10 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
-from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
     SettingsPresenter,
 )

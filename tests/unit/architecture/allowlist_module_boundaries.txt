@@ -11,7 +11,21 @@
 #
 # History of the count: 10 as found (2026-09-13) -> 8 after PR 0.3 -> 41 after
 # PR 0.4a -> 38 after PR 0.4a-2 -> 34 after PR 0.5 -> 28 after PR 1.1a -> 24
-# after PR 1.1b -> 20 after PR 1.2.
+# after PR 1.1b -> 20 after PR 1.2 -> 80 after PR 1.3a.
+#
+# The jump at 1.3a is 0.4a's again, and for the same reason: it moved the
+# `trading` context into `modules/trading/`, so every legacy screen, CLI
+# command and service that names one of its types became a visible, counted
+# violation instead of an indistinguishable same-tree import. PR 1.3b
+# publishes IOrderSubmission / ITradingSession / IAccountSnapshot and moves
+# those consumers onto them, which takes this file to 13.
+#
+# Read the two directions separately, because they are not the same debt:
+# SIX entries point OUT of the new tree (modules.trading -> legacy) and each
+# names the one shared object or foreign concept behind it; SIXTY-ONE point
+# IN (legacy -> modules.trading) and every one of them is a consumer waiting
+# for a port. The direction that would be architecturally alarming is the
+# first, and it is the small one.
 #
 # 0.5 is the first time an entry retired because a **consumer moved onto a
 # published port** rather than because code moved into the module: four screens
@@ -27,26 +41,21 @@
 # move into the module, trading 5 dispatch entries for 2 handler-class ones.
 
 # ---------------------------------------------------------------------------
-# application -> infrastructure: the five handlers EPIC-021 allowed to build
-# FuturesTradingClient with OrderSubmissionMode.LIVE. Removed by EPIC-025B
-# (modules/trading owns the client behind ITradingSession).
-application.use_cases.queries.get_open_positions.handler -> infrastructure.binance.futures_trading_client
-application.use_cases.trading.cancel_order.handler -> infrastructure.binance.futures_trading_client
-application.use_cases.trading.emergency_stop.handler -> infrastructure.binance.futures_trading_client
-application.use_cases.trading.enable_trading.handler -> infrastructure.binance.futures_trading_client
-application.use_cases.trading.execute_order.handler -> infrastructure.binance.futures_trading_client
+# CLOSED by PR 1.3a. `application -> infrastructure` held five entries: the
+# handlers EPIC-021 allowed to build FuturesTradingClient themselves, which
+# HLD 7.3 measured with two independent tools and which is the violation this
+# whole guard was written for. They are gone because the handlers and the
+# client now live in the same module, so the import no longer crosses anything
+# -- not because the direction was excused. `presentation -> infrastructure`
+# closed the same way: the CLI payload mapper is
+# `modules/trading/adapters/binance/` now, so those two entries moved into the
+# 1.3b block below, re-keyed rather than retired.
 
-# ---------------------------------------------------------------------------
-# presentation -> infrastructure: the CLI payload mapper moves into
-# modules/trading's adapters (EPIC-025B).
-#
-# PR 0.3 removed two entries from this block: app_bootstrapper and
-# settings_presenter both reached into `infrastructure.binance.binance_endpoints`
-# for the venue resolvers, and that module is now
-# `support/binance_gateway/contracts/binance_endpoints.py` — which any zone may
-# import, so the imports are no longer violations at all.
-presentation.cli.order_dry_run_cmd -> infrastructure.binance.futures_order_payload_mapper
-presentation.cli.trade_once_cmd -> infrastructure.binance.futures_order_payload_mapper
+# (PR 0.3 had already removed two entries from that second block:
+# app_bootstrapper and settings_presenter both reached into
+# `infrastructure.binance.binance_endpoints` for the venue resolvers, and that
+# module is now `support/binance_gateway/contracts/binance_endpoints.py` —
+# which any zone may import, so those imports are not violations at all.)
 
 # ---------------------------------------------------------------------------
 # -> modules.market_data.adapters: reaching past the contracts into a module's
@@ -168,3 +177,154 @@ presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules
 presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.queries.scan_all_databases
 presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules.market_data.application.sync.bulk_sync_market_data.command
 presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules.market_data.application.sync.bulk_sync_market_data.sync_target
+
+
+# ===========================================================================
+# PR 1.3a — the `trading` context moved into `modules/trading/`
+# ===========================================================================
+#
+# What 1.3a did: `domain/trading`, `use_cases/trading` (less arm/disarm, which
+# are `strategy`'s in Phase 2), `use_cases/queries` (all three were trading's),
+# `application/ports` (all five were trading's), the four trading services and
+# the trading half of `infrastructure/binance` are now one module. Trading's
+# own value objects, order enums and events went into `contracts/` rather than
+# `core/vo`, on HLD 2.4's rule measured the same way `SymbolMarketMetadata`
+# was: a type reaches the Published Language on two consumers in two MODULES,
+# and until `strategy` exists trading is the only module among its importers.
+# That choice is why 26 would-be entries are not in this file at all: the
+# legacy tree may import `modules.*.contracts` freely.
+#
+# What 1.3a did NOT do, deliberately: publish a port. The three ports HLD 3.4
+# names could not be published first, which is worth writing down because the
+# epic's own PR table had them in that order. `IOrderSubmission` needs
+# `OrderPreview`, `ITradingSession` needs `EnableTradingResult`,
+# `IAccountSnapshot` needs `ExchangeConnectionStatus` -- every one of those
+# types was in the legacy tree, and `boundaries/rules.py` refuses the new tree
+# any legacy import outside this file. `market_data` could publish
+# `IMarketDataSync` at PR 0.5 only because PR 0.4a had already moved its code
+# in. This pull request is trading's 0.4a.
+
+# ---------------------------------------------------------------------------
+# modules.trading -> legacy: SIX entries, and the whole of the new tree's debt
+# to the old one. Each names the object or concept that keeps it standing.
+#
+# * exchange_session_factory (3): ONE instance answers both this context's
+#   ITradingSessionFactory and market_data's IExchangeSessionFactory
+#   (EPIC-024A registered it against the port precisely so the handlers share
+#   it instead of each building a throwaway). Moving it into either module
+#   means two factories where there is one, which is a behaviour change, not a
+#   move -- so it stays in the legacy tree for one more pull request and 1.3b
+#   splits it, one factory per context, as this file has said since PR 0.4a.
+# * margin_risk_policy (1): sanctioned in writing. EPIC-025B 1.3 says
+#   "`trading` keeps only the exchange's part of sizing -- lot/tick rounding
+#   and TradingLimitPolicy -- and its import of MarginRiskPolicy stays on the
+#   allowlist until Phase 2 (ADR D17)".
+# * position_sizing (1) and signal_action (1): a sizing instruction and a
+#   strategy's verdict. Both are `strategy`'s vocabulary, not trading's, so
+#   promoting them now would publish another context's language from this one.
+#   Phase 2 gives them an owner and these two entries leave with it.
+
+modules.trading.adapters.binance.futures_account_reader -> infrastructure.binance.exchange_session_factory
+modules.trading.adapters.binance.futures_metadata_provider -> infrastructure.binance.exchange_session_factory
+modules.trading.adapters.binance.futures_user_data_stream -> infrastructure.binance.exchange_session_factory
+modules.trading.domain.policies.position_sizing_bridge -> domain.backtesting.policies.margin_risk_policy
+modules.trading.domain.policies.position_sizing_bridge -> domain.value_objects.position_sizing
+modules.trading.domain.policies.signal_action_to_order_intent -> domain.value_objects.signal_action
+
+
+# ---------------------------------------------------------------------------
+# legacy -> modules.trading: SIXTY-ONE entries, every one a consumer waiting
+# for a port, and every one retired by PR 1.3b.
+#
+# What these are: a legacy screen, CLI command or service names one of
+# trading's types -- an ExecuteOrderCommand it dispatches, a `LivePosition` it
+# renders, a TradingSessionState it reads three fields off. Same shape as the
+# 27-entry market_data dispatch block above, and retired the same way: PR 1.3b
+# publishes IOrderSubmission, ITradingSession and IAccountSnapshot, each
+# consumer calls the port instead, and its line goes.
+#
+# Three of them are worth naming, because they are not dispatches and their
+# fix is not just "call a port":
+#
+# * `-> modules.trading.application.trading_session_state` (5, of which three
+#   are Presenters): a Presenter reading a MUTABLE, lock-guarded application
+#   service directly. Measured, those Presenters read exactly three fields --
+#   `enabled`, `orders_sent_this_session`, `known_open_symbols` -- so 1.3b's
+#   `ITradingSession.snapshot()` answers with a frozen TradingSessionSnapshot
+#   of exactly those three (HLD 2.4), and the shared mutable object stops
+#   crossing the boundary at all.
+# * `-> modules.trading.domain.live_position` (6) and `.domain.order` (7):
+#   HLD 3.4 says LivePosition NEVER leaves the module and PositionSnapshot is
+#   its flat DTO. These entries are the measurement of how far that is from
+#   true today, and 1.3b's flattening is what closes them. They are the reason
+#   `live_position.py` and `order.py` stayed in `domain/` while the order enums
+#   moved to `contracts/`: publishing them as they are would have made the
+#   wrong shape permanent and correct-looking.
+# * `application.use_cases.trading.{arm,disarm}_strategy.handler -> ...
+#   trading_session_state` (2): `strategy` reading trading's session state.
+#   Legal by design once both are modules (HLD 3.4's worked example: arm reads
+#   the enabled flag, a `strategy -> trading` call that resolves the cycle) --
+#   it is a violation only because `strategy` is not a module yet, and Phase 2
+#   retires it by moving the caller, not by changing the call.
+
+application.services.live_trading_coordinator -> modules.trading.application.orders.execute_order.command
+application.services.live_trading_coordinator -> modules.trading.application.orders.execute_order.result
+application.services.live_trading_coordinator -> modules.trading.application.orders.preview_order.query
+application.services.live_trading_coordinator -> modules.trading.domain.policies.position_sizing_bridge
+application.services.live_trading_coordinator -> modules.trading.domain.policies.signal_action_to_order_intent
+application.use_cases.commands.submit_order.command -> modules.trading.application.orders.preview_order.query
+application.use_cases.commands.submit_order.handler -> modules.trading.application.orders.preview_order.handler
+application.use_cases.commands.submit_order.handler -> modules.trading.domain.order
+application.use_cases.trading.arm_strategy.handler -> modules.trading.application.trading_session_state
+application.use_cases.trading.disarm_strategy.handler -> modules.trading.application.trading_session_state
+presentation.cli.exchange_status_cmd -> modules.trading.application.queries.get_exchange_connection_status
+presentation.cli.handlers.exchange_status_cli_handler -> modules.trading.application.queries.get_exchange_connection_status
+presentation.cli.order_dry_run_cmd -> modules.trading.adapters.binance.futures_order_payload_mapper
+presentation.cli.order_dry_run_cmd -> modules.trading.application.orders.preview_order
+presentation.cli.order_dry_run_formatter -> modules.trading.domain.order
+presentation.cli.order_preview_cmd -> modules.trading.application.orders.preview_order
+presentation.cli.order_preview_formatter -> modules.trading.application.orders.preview_order.order_preview
+presentation.cli.order_preview_formatter -> modules.trading.domain.policies.order_quantity_rounding_policy
+presentation.cli.trade_once_cmd -> modules.trading.adapters.binance.futures_order_payload_mapper
+presentation.cli.trade_once_cmd -> modules.trading.application.orders.execute_order.command
+presentation.cli.trade_once_cmd -> modules.trading.application.orders.execute_order.result
+presentation.cli.trade_once_cmd -> modules.trading.application.orders.preview_order.query
+presentation.cli.trade_once_cmd -> modules.trading.domain.policies.position_sizing_bridge
+presentation.cli.trade_once_cmd -> modules.trading.domain.policies.signal_action_to_order_intent
+presentation.cli.trade_once_cmd -> modules.trading.domain.policies.trading_limit_policy
+presentation.cli.trade_once_formatter -> modules.trading.application.orders.execute_order.result
+presentation.cli.trade_once_formatter -> modules.trading.domain.policies.trading_limit_policy
+presentation.ui.common.equity_chart_adapter -> modules.trading.domain.equity_sample
+presentation.ui.common.execute_order_block_reason -> modules.trading.application.orders.execute_order.result
+presentation.ui.common.execute_order_block_reason -> modules.trading.domain.policies.trading_limit_policy
+presentation.ui.common.live_order_book_coordinator -> modules.trading.domain.live_position
+presentation.ui.common.live_order_book_coordinator -> modules.trading.domain.order
+presentation.ui.qml.OpenOrdersTable.open_order_row -> modules.trading.domain.order
+presentation.ui.qml.OpenOrdersTable.preview -> modules.trading.domain.order
+presentation.ui.qml.OpenOrdersTable.tests.test_open_orders_vm -> modules.trading.domain.order
+presentation.ui.qml.PositionsTable.positions_row -> modules.trading.domain.live_position
+presentation.ui.qml.PositionsTable.preview -> modules.trading.domain.live_position
+presentation.ui.qml.PositionsTable.tests.test_positions_vm -> modules.trading.domain.live_position
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.equity_curve_recorder
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.orders.cancel_order
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.orders.execute_order
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.orders.execute_order.result
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.orders.preview_order.query
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.queries.get_open_positions
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.session.disable_trading
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.session.emergency_stop
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.session.enable_trading
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.trading_session_state
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.domain.live_position
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.domain.policies.manual_order_intent
+presentation.ui.screens.dashboard.dev_board_panel -> modules.trading.domain.policies.manual_order_intent
+presentation.ui.screens.settings.settings_presenter -> modules.trading.application.queries.get_exchange_connection_status
+presentation.ui.screens.settings.settings_presenter -> modules.trading.application.trading_session_state
+presentation.ui.screens.trading.preview -> modules.trading.domain.live_position
+presentation.ui.screens.trading.preview -> modules.trading.domain.order
+presentation.ui.screens.trading.trading_presenter -> modules.trading.application.equity_curve_recorder
+presentation.ui.screens.trading.trading_presenter -> modules.trading.application.orders.cancel_order
+presentation.ui.screens.trading.trading_presenter -> modules.trading.application.session.disable_trading
+presentation.ui.screens.trading.trading_presenter -> modules.trading.application.session.emergency_stop
+presentation.ui.screens.trading.trading_presenter -> modules.trading.application.session.enable_trading
+presentation.ui.screens.trading.trading_presenter -> modules.trading.application.trading_session_state

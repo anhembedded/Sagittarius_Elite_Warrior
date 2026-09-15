@@ -2,12 +2,12 @@ from __future__ import annotations
 
 import logging
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
-    PositionSide,
-)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
     PositionSizing,
     PositionSizingType,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
+    PositionSide,
 )
 
 logger = logging.getLogger("App.PaperExchange")

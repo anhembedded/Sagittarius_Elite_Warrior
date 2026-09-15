@@ -27,25 +27,27 @@ from pathlib import Path
 from unittest.mock import patch
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import ClientOrderId
-from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
-from Sagittarius_Elite_Warrior.src.domain.trading.order_submission_mode import (
-    OrderSubmissionMode,
-)
-from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_metadata_provider import (
-    FuturesMetadataProvider,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_trading_client import (
-    FuturesTradingClient,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
+    FuturesMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
+    FuturesTradingClient,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    ClientOrderId,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
+    OrderSubmissionMode,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )

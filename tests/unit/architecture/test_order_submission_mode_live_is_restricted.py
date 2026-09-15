@@ -14,6 +14,9 @@ restricts, and flagging that would make the rule impossible to document.
 Mirrors `test_only_the_session_factory_constructs_binance_client.py`'s
 shape (`EPIC-021A`).
 
+`EPIC-025` PR 1.3a moved both files into `modules/trading/` and retargeted
+the tuple below in the same commit; nothing about the rule changed.
+
 Originally a total ban (`EPIC-021F`, when nothing had a legitimate reason
 to submit a real order yet) — `EPIC-021G` is the task that lifted it for
 the first file, per its own task file §3; `EPIC-021K` is the second.
@@ -26,19 +29,27 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SCANNED_DIRS = (_REPO_ROOT / "src", _REPO_ROOT / "scripts")
+#: The same two handlers this guard has always named, at the paths PR 1.3a
+#: moved them to: `use_cases/trading/{execute_order,emergency_stop}` is now
+#: `modules/trading/application/{orders/execute_order,session/emergency_stop}`.
+#: Retargeted, not loosened -- two files before, two files after, and the
+#: equality assertion below is what makes a third one impossible to add
+#: quietly.
 _ALLOWED_FILES = (
     _REPO_ROOT
     / "src"
-    / "application"
-    / "use_cases"
+    / "modules"
     / "trading"
+    / "application"
+    / "orders"
     / "execute_order"
     / "handler.py",
     _REPO_ROOT
     / "src"
-    / "application"
-    / "use_cases"
+    / "modules"
     / "trading"
+    / "application"
+    / "session"
     / "emergency_stop"
     / "handler.py",
 )

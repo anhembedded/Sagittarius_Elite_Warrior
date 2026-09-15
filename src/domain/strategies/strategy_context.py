@@ -6,7 +6,7 @@ from Sagittarius_Elite_Warrior.src.domain.indicators.macd import MACDValue
 from Sagittarius_Elite_Warrior.src.domain.indicators.support_resistance import (
     SupportResistanceValue,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
 

@@ -13,11 +13,11 @@ from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_trend_pullback_strategy import (
     EmaTrendPullbackStrategy,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
-    PositionSide,
-)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
+    PositionSide,
 )
 
 _TEST_PARAMS = {

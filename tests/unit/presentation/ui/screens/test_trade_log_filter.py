@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_filter import (

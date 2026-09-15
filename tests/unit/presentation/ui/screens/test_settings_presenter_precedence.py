@@ -20,7 +20,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (

@@ -8,7 +8,7 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_account_reader import (
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (

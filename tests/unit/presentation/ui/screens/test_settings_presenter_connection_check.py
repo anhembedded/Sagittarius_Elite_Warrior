@@ -20,13 +20,13 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtWidgets import QLabel, QPushButton
-from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
-    TradingSessionState,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_exchange_connection_status import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_exchange_connection_status import (
     GetExchangeConnectionStatusQuery,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
+    TradingSessionState,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
 )

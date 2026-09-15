@@ -5,19 +5,19 @@ DRY-RUN/LIVE outcome."""
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.result import (
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.result import (
     ExecuteOrderNotionalRejection,
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy import (
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitCheck,
     TradingLimitContext,
     TradingLimits,
     TradingLimitViolation,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 
 _SAFETY_GATE_TEXT: dict[ExecuteOrderSafetyGate, str] = {
     ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED: (

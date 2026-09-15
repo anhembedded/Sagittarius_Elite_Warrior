@@ -5,7 +5,7 @@ the headless (`exchange_status_cmd.py`) and interactive
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
 )

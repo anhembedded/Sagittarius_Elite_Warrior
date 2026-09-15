@@ -8,10 +8,12 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.domain.events.equity_sampled_event import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.trading.equity_sample import EquitySample
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.equity_sample import (
+    EquitySample,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_feed import EquityFeed
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 

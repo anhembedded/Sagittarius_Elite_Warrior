@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
     MarginType,

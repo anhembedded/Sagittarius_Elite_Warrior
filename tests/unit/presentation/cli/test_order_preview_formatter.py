@@ -3,18 +3,18 @@ from __future__ import annotations
 import json
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order.order_preview import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.order_preview import (
     OrderPreview,
 )
-from Sagittarius_Elite_Warrior.src.domain.policies.order_quantity_rounding_policy import (
-    NotionalCheck,
-)
-from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
-from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
-from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.order_quantity_rounding_policy import (
+    NotionalCheck,
+)
 from Sagittarius_Elite_Warrior.src.presentation.cli.order_preview_formatter import (
     format_order_preview,
     order_preview_to_dict,

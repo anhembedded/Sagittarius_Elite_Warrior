@@ -25,26 +25,28 @@ from unittest.mock import MagicMock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
 from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
     LiveStrategySession,
 )
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
+    EquityCurveRecorder,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.emergency_stop import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop import (
     EmergencyStopCommand,
     EmergencyStopResult,
     EmergencyStopStepResult,
 )
-from Sagittarius_Elite_Warrior.src.domain.trading.live_position import LivePosition
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
+    TradingSessionState,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+    LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_presenter import (
     TradingPresenter,

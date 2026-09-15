@@ -3,11 +3,11 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.domain.entities.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
+    FuturesSymbolMetadata,
 )
 
 

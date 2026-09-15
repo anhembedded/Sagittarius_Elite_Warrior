@@ -25,14 +25,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
-    PositionMode,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_account_reader import (
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    PositionMode,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,

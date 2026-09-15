@@ -6,15 +6,21 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import ClientOrderId
-from Sagittarius_Elite_Warrior.src.domain.trading.live_position import LivePosition
-from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
-from Sagittarius_Elite_Warrior.src.domain.trading.order_status import OrderStatus
-from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    ClientOrderId,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
+    OrderStatus,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+    LivePosition,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.OpenOrdersTable.open_order_row import (
     build_open_order_row,
 )

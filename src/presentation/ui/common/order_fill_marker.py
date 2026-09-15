@@ -19,10 +19,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.marker_layer import (
     MarkerPoint,
 )

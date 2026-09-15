@@ -1,9 +1,6 @@
 from unittest.mock import MagicMock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
 from Sagittarius_Elite_Warrior.src.application.services.live_strategy_factory import (
     LiveStrategyFactory,
 )
@@ -21,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_kl
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
+    EquityCurveRecorder,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (

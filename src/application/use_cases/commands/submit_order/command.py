@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order.query import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.query import (
     PreviewOrderQuery,
 )
 

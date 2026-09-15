@@ -24,13 +24,13 @@ that pipeline, not to re-derive its business rules):
 """
 
 from PySide6.QtCore import Qt
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_open_positions import (
-    GetOpenPositionsQuery,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order import (
     ExecuteOrderCommand,
 )
-from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
+    GetOpenPositionsQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 
 _STRATEGY_SYMBOL_CONFLICT_MESSAGE = (
     "Blocked: this symbol is managed by an armed strategy — manually trading "

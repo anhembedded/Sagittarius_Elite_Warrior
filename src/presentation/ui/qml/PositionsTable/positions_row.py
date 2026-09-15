@@ -10,9 +10,11 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.domain.trading.live_position import LivePosition
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+    LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
     BEAR_COLOR,

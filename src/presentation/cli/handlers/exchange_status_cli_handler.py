@@ -1,10 +1,10 @@
 import argparse
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_exchange_connection_status import (
-    GetExchangeConnectionStatusQuery,
-)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_command_handler import (
     ICliCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_exchange_connection_status import (
+    GetExchangeConnectionStatusQuery,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter import (
     format_exchange_connection_status,

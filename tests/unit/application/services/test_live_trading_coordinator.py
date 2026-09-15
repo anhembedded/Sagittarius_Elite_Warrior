@@ -8,31 +8,31 @@ from unittest.mock import Mock
 from Sagittarius_Elite_Warrior.src.application.services.live_trading_coordinator import (
     LiveTradingCoordinator,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.command import (
-    ExecuteOrderCommand,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.result import (
-    ExecuteOrderResult,
-)
-from Sagittarius_Elite_Warrior.src.domain.entities.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
-)
-from Sagittarius_Elite_Warrior.src.domain.events.live_order_blocked_event import (
-    LiveOrderBlockedEvent,
-)
-from Sagittarius_Elite_Warrior.src.domain.trading.order_rejection_reason import (
-    OrderRejectedByExchangeError,
-    OrderRejectionReason,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
-    ExchangeConnectionStatus,
-    PositionMode,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
+    ExecuteOrderCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.result import (
+    ExecuteOrderResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.live_order_blocked_event import (
+    LiveOrderBlockedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ExchangeConnectionStatus,
+    PositionMode,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
+    FuturesSymbolMetadata,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
+    OrderRejectedByExchangeError,
+    OrderRejectionReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )

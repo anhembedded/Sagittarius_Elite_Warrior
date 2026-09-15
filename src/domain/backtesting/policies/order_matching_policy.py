@@ -5,7 +5,7 @@ from collections.abc import Sequence
 from typing import TypeVar
 
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
 

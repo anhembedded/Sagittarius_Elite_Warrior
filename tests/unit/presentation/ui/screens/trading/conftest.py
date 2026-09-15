@@ -17,9 +17,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
 from Sagittarius_Elite_Warrior.src.application.services.live_strategy_factory import (
     LiveStrategyFactory,
 )
@@ -28,9 +25,6 @@ from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session im
 )
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
-)
-from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
-    TradingSessionState,
 )
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
@@ -52,6 +46,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
+    EquityCurveRecorder,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
+    TradingSessionState,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_presenter import (
     TradingPresenter,

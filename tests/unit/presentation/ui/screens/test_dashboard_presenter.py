@@ -104,7 +104,7 @@ def equity_recorder():
     `test_trading_presenter_equity.py`'s own fixture has): `.samples` must
     be a real iterable, not a `MagicMock` attribute, for
     `equity_samples_to_candles()` to accept it."""
-    from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
         EquityCurveRecorder,
     )
 
@@ -153,7 +153,7 @@ def session_state():
     mutable state with no I/O, and `_refresh_session_stats()` calls
     `len(session_state.known_open_symbols)`, which a bare `MagicMock`
     cannot satisfy."""
-    from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
         TradingSessionState,
     )
 
@@ -201,9 +201,6 @@ def mock_container(
 ):
     container = MagicMock()
 
-    from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
-        EquityCurveRecorder,
-    )
     from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
         IndicatorScriptRegistry,
     )
@@ -213,12 +210,15 @@ def mock_container(
     from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
         StrategyRegistry,
     )
-    from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
-        TradingSessionState,
-    )
     from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
         EmaCrossScript,
         EmaRibbonScript,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
+        EquityCurveRecorder,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
+        TradingSessionState,
     )
     from sagittarius_engine.interfaces.i_config import IConfig
     from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
@@ -328,9 +328,6 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     `app_bootstrapper.py` shape — construction must hand the View that
     exact instance, so a Dev Board symbol-list rebuild reads/writes the
     same persisted, per-symbol pins as any other screen."""
-    from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
-        EquityCurveRecorder,
-    )
     from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
         IndicatorScriptRegistry,
     )
@@ -340,7 +337,10 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
         StrategyRegistry,
     )
-    from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
+        EquityCurveRecorder,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
         TradingSessionState,
     )
     from sagittarius_engine.interfaces.i_config import IConfig
@@ -1775,16 +1775,22 @@ def test_presenter_shutdown_cancels_cancellation_token_and_shuts_down_autostart(
 def _fill_event(symbol="ETHUSDT", order_time=None, status=None):
     from decimal import Decimal
 
-    from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
-        OrderFilledEvent,
-    )
-    from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
         ClientOrderId,
     )
-    from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
-    from Sagittarius_Elite_Warrior.src.domain.trading.order_status import OrderStatus
-    from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
+        OrderFilledEvent,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import (
+        OrderSide,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
+        OrderStatus,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
+        OrderType,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 
     order = Order(
         client_order_id=ClientOrderId("SEW-a91f4c72e0b8"),
@@ -1837,11 +1843,11 @@ def _position(symbol="BTCUSDT"):
     from datetime import UTC, datetime
     from decimal import Decimal
 
-    from Sagittarius_Elite_Warrior.src.domain.trading.live_position import (
-        LivePosition,
-    )
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
         MarginType,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+        LivePosition,
     )
 
     return LivePosition(
@@ -1874,7 +1880,9 @@ def test_order_filled_with_a_live_status_adds_to_open_orders(
 
 
 def test_order_filled_with_a_terminal_status_removes_it(presenter, view, monkeypatch):
-    from Sagittarius_Elite_Warrior.src.domain.trading.order_status import OrderStatus
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
+        OrderStatus,
+    )
 
     spy = MagicMock()
     monkeypatch.setattr(view, "set_open_orders", spy)
@@ -1887,7 +1895,7 @@ def test_order_filled_with_a_terminal_status_removes_it(presenter, view, monkeyp
 
 
 def test_position_changed_updates_the_positions_table(presenter, view, monkeypatch):
-    from Sagittarius_Elite_Warrior.src.domain.events.position_changed_event import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_changed_event import (
         PositionChangedEvent,
     )
     from Sagittarius_Elite_Warrior.src.presentation.ui.qml.PositionsTable.positions_row import (
@@ -1907,10 +1915,10 @@ def test_position_closed_removes_it_from_the_positions_table(
     presenter, view, monkeypatch
 ):
     """`BUG-086` regression, Dev Board's own copy."""
-    from Sagittarius_Elite_Warrior.src.domain.events.position_changed_event import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_changed_event import (
         PositionChangedEvent,
     )
-    from Sagittarius_Elite_Warrior.src.domain.events.position_closed_event import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
         PositionClosedEvent,
     )
 
@@ -1926,7 +1934,7 @@ def test_position_closed_removes_it_from_the_positions_table(
 
 
 def test_position_closed_for_an_unknown_symbol_is_a_no_op(presenter, view, monkeypatch):
-    from Sagittarius_Elite_Warrior.src.domain.events.position_closed_event import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
         PositionClosedEvent,
     )
 
@@ -1940,7 +1948,7 @@ def test_position_closed_for_an_unknown_symbol_is_a_no_op(presenter, view, monke
 
 def test_order_blocked_appears_in_the_screens_own_log_panel(presenter):
     """`BUG-084` — Dev Board's own copy of the same visibility fix."""
-    from Sagittarius_Elite_Warrior.src.domain.events.live_order_blocked_event import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.live_order_blocked_event import (
         LiveOrderBlockedEvent,
     )
 
@@ -1969,7 +1977,7 @@ def _equity_sample(minute: int = 0):
     from datetime import datetime
     from decimal import Decimal
 
-    from Sagittarius_Elite_Warrior.src.domain.trading.equity_sample import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.domain.equity_sample import (
         EquitySample,
     )
 
@@ -2013,7 +2021,7 @@ def test_construction_seeds_the_full_backlog_from_the_recorder(
 def test_equity_sampled_event_appends_one_point_to_the_chart(
     presenter, view, monkeypatch
 ):
-    from Sagittarius_Elite_Warrior.src.domain.events.equity_sampled_event import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
         EquitySampledEvent,
     )
     from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
@@ -2216,7 +2224,7 @@ def test_toggle_is_blocked_while_emergency_stop_is_pending(presenter, mock_threa
 def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
     presenter, mock_dispatcher, view, monkeypatch
 ):
-    from Sagittarius_Elite_Warrior.src.application.use_cases.trading.enable_trading import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
         EnableTradingCommand,
         EnableTradingResult,
     )
@@ -2252,7 +2260,7 @@ def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
 def test_refused_enable_shows_the_block_reason_and_seeds_positions(
     presenter, mock_dispatcher, view, monkeypatch
 ):
-    from Sagittarius_Elite_Warrior.src.application.use_cases.trading.enable_trading import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
         EnableTradingBlockReason,
         EnableTradingResult,
     )
@@ -2296,7 +2304,7 @@ def test_an_enable_exception_from_the_dispatcher_is_reported_not_raised(
 def test_successful_disable_turns_the_toggle_off(
     view, mock_container, session_state, mock_dispatcher
 ):
-    from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disable_trading import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.session.disable_trading import (
         DisableTradingCommand,
     )
 
@@ -2317,7 +2325,7 @@ def test_successful_disable_turns_the_toggle_off(
 def _emergency_stop_result(
     *, fully_succeeded: bool, final_state_confirmed: bool = True
 ):
-    from Sagittarius_Elite_Warrior.src.application.use_cases.trading.emergency_stop import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop import (
         EmergencyStopResult,
         EmergencyStopStepResult,
     )
@@ -2338,7 +2346,7 @@ def _emergency_stop_result(
 def test_emergency_stop_success_reconciles_the_tables_and_logs(
     presenter, mock_dispatcher, view, monkeypatch
 ):
-    from Sagittarius_Elite_Warrior.src.application.use_cases.trading.emergency_stop import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop import (
         EmergencyStopCommand,
     )
 
@@ -2486,11 +2494,11 @@ def test_a_tick_for_an_open_symbol_at_the_active_interval_reaches_the_chart(pres
 def _live_position(symbol: str, signed_amount: str):
     from decimal import Decimal
 
-    from Sagittarius_Elite_Warrior.src.domain.trading.live_position import (
-        LivePosition,
-    )
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
         MarginType,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+        LivePosition,
     )
 
     return LivePosition(
@@ -2511,8 +2519,10 @@ def test_manual_order_requested_submits_background_worker_for_a_market_order(
 ):
     from decimal import Decimal
 
-    from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
-    from Sagittarius_Elite_Warrior.src.domain.trading.policies.manual_order_intent import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
+        OrderType,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
         ManualOrderDirection,
     )
 
@@ -2562,18 +2572,20 @@ def test_run_manual_order_dispatches_execute_order_with_the_mapped_intent(
 ):
     from decimal import Decimal
 
-    from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_open_positions import (
-        GetOpenPositionsQuery,
-    )
-    from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order import (
         ExecuteOrderCommand,
     )
-    from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
-    from Sagittarius_Elite_Warrior.src.domain.trading.policies.manual_order_intent import (
-        ManualOrderDirection,
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
+        GetOpenPositionsQuery,
     )
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import (
         OrderSide,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
+        OrderType,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
+        ManualOrderDirection,
     )
 
     def dispatch_side_effect(command_type, command):
@@ -2613,18 +2625,20 @@ def test_run_manual_order_hard_blocks_when_strategy_owns_the_symbol_with_a_posit
     """`PRO-003` §4.1.2 (user decision) — the hard block."""
     from decimal import Decimal
 
-    from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_open_positions import (
-        GetOpenPositionsQuery,
-    )
-    from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order import (
-        ExecuteOrderCommand,
-    )
-    from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
-    from Sagittarius_Elite_Warrior.src.domain.trading.policies.manual_order_intent import (
-        ManualOrderDirection,
-    )
     from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
         LiveStrategyConfig,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order import (
+        ExecuteOrderCommand,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
+        GetOpenPositionsQuery,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
+        OrderType,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
+        ManualOrderDirection,
     )
 
     strategy_session.arm(
@@ -2671,12 +2685,14 @@ def test_run_manual_order_hard_blocks_when_strategy_owns_the_symbol_even_while_f
     GetOpenPositionsQuery round-trip needed to decide that."""
     from decimal import Decimal
 
-    from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
-    from Sagittarius_Elite_Warrior.src.domain.trading.policies.manual_order_intent import (
-        ManualOrderDirection,
-    )
     from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
         LiveStrategyConfig,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
+        OrderType,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
+        ManualOrderDirection,
     )
 
     strategy_session.arm(
@@ -2715,7 +2731,7 @@ def test_cancel_order_requested_submits_background_worker(presenter, mock_thread
 def test_run_cancel_order_dispatches_cancel_order_command_for_exactly_that_order(
     presenter, mock_dispatcher
 ):
-    from Sagittarius_Elite_Warrior.src.application.use_cases.trading.cancel_order import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order import (
         CancelOrderCommand,
     )
 
@@ -2733,7 +2749,7 @@ def test_run_cancel_order_dispatches_cancel_order_command_for_exactly_that_order
 def test_cancel_order_completed_removes_the_order_from_the_book(
     presenter, mock_dispatcher
 ):
-    from Sagittarius_Elite_Warrior.src.application.use_cases.trading.cancel_order import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order import (
         CancelOrderResult,
     )
 

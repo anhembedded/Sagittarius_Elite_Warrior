@@ -13,9 +13,6 @@ import pytest
 from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
     LiveStrategySession,
 )
-from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
-    TradingSessionState,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.arm_strategy import (
     ArmStrategyBlockReason,
     ArmStrategyCommand,
@@ -31,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy impo
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
     LiveStrategyConfig,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
+    TradingSessionState,
 )
 
 _KEY = "ema_crossover"

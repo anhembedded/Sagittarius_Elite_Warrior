@@ -10,11 +10,11 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
 from Sagittarius_Elite_Warrior.src.domain.strategies.volume_spike_flow_strategy import (
     VolumeSpikeFlowStrategy,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
-    PositionSide,
-)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
+    PositionSide,
 )
 
 _BASELINE_BARS = 5

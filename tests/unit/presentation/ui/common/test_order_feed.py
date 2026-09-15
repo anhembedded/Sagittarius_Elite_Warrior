@@ -9,29 +9,31 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.domain.events.live_order_blocked_event import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    ClientOrderId,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.live_order_blocked_event import (
     LiveOrderBlockedEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.events.position_changed_event import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_changed_event import (
     PositionChangedEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.events.position_closed_event import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.trading.client_order_id import ClientOrderId
-from Sagittarius_Elite_Warrior.src.domain.trading.live_position import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    MarginType,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
     LiquidationPrice,
     LivePosition,
 )
-from Sagittarius_Elite_Warrior.src.domain.trading.order import Order
-from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
-    MarginType,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_feed import OrderFeed
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 

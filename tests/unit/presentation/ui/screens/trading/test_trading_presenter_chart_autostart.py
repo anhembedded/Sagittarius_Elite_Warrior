@@ -18,7 +18,7 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.enable_trading import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
     EnableTradingResult,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.coordinators.chart_coordinator import (

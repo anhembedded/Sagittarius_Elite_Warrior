@@ -15,9 +15,6 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -32,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import
 )
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
+    EquityCurveRecorder,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,

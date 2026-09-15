@@ -5,10 +5,10 @@ previews an order, so they never drift."""
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order.order_preview import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.order_preview import (
     OrderPreview,
 )
-from Sagittarius_Elite_Warrior.src.domain.policies.order_quantity_rounding_policy import (
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.order_quantity_rounding_policy import (
     NotionalCheck,
 )
 

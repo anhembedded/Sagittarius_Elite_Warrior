@@ -7,9 +7,6 @@ import logging
 from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
     LiveStrategySession,
 )
-from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
-    TradingSessionState,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disarm_strategy.command import (
     DisarmStrategyCommand,
 )
@@ -18,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disarm_strategy
     DisarmStrategyResult,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
+    TradingSessionState,
+)
 
 logger = logging.getLogger("App.CommandHandler")
 

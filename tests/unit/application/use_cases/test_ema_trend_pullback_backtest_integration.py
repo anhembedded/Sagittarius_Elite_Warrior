@@ -22,7 +22,7 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitRea
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_trend_pullback_strategy import (
     EmaTrendPullbackStrategy,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_overlay.strategy_indicator_lines import (

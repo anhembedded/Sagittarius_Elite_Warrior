@@ -18,7 +18,9 @@ cross-screen-import anti-pattern `architecture-rule.md` §5 documents.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.domain.trading.equity_sample import EquitySample
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.equity_sample import (
+    EquitySample,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_card import (
     OhlcCandle,
 )

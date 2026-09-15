@@ -37,29 +37,29 @@ from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryE
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 from sagittarius_engine.utils.path_utils import PathUtils
 
-from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
-from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
-    TradingSessionState,
-)
-from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
-    OrderFilledEvent,
-)
-from Sagittarius_Elite_Warrior.src.domain.events.position_changed_event import (
-    PositionChangedEvent,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_metadata_provider import (
-    FuturesMetadataProvider,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_user_data_stream import (
-    FuturesUserDataStream,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
+    FuturesMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user_data_stream import (
+    FuturesUserDataStream,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
+    EquityCurveRecorder,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
+    TradingSessionState,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
+    OrderFilledEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_changed_event import (
+    PositionChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
     EnvFirstCredentialsProvider,

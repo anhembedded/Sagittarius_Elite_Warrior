@@ -21,12 +21,6 @@ from __future__ import annotations
 
 import logging
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
-    ITradingAccountReader,
-)
 from Sagittarius_Elite_Warrior.src.application.services.live_trading_coordinator import (
     LiveTradingCoordinator,
 )
@@ -47,6 +41,12 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
     LiveStrategyConfig,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
+    IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
+    ITradingAccountReader,
 )
 
 logger = logging.getLogger("App.LiveStrategyFactory")

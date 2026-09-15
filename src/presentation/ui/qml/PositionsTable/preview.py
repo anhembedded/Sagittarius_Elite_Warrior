@@ -7,9 +7,11 @@ from decimal import Decimal
 from pathlib import Path
 
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.domain.trading.live_position import LivePosition
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+    LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import StyleRole
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.embed import QuickSurface

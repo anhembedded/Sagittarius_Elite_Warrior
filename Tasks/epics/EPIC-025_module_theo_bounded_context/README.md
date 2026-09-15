@@ -101,14 +101,27 @@ tree, which is the property that makes each step independently shippable with th
 | **1.1b** | `IMarketStream` — the second of the two ports, with the trading chart and the Dev Board moved onto it. Split out of 1.1 **after** 1.1a was written, not planned that way: the consumer move alone touched 28 files and repaired 65 tests that a stubbed dispatcher had been keeping green, and a second port in the same diff would have doubled a review without adding a way for it to fail | 4 | low |
 | **1.1c** | `interactive_shell.py` into `shell/`, with the CLI table no longer hard-coded — **moved into 1.3**, measured: 1.1b tried the move and reverted it. `exchange-status` is trading's handler and has no owning module until 1.3, so the shell must keep importing it from the legacy tree, which trades these 2 allowlist entries for 2 new lines in `baseline_shell_legacy_imports.txt` — one shrink-only ratchet growing so another can shrink. The allowlist's own comment carries the measurement | 2 | — |
 | **1.2** | `ISymbolCatalog` + `IRangeCoverage`, completing HLD §3.4's published set for `market_data` (all five ports now published). **Four**, not six: the two `-> adapters` lines cannot go with them, and the allowlist comment says why — `exchange_session_factory` needs one factory per context, which is 1.3's with `modules/trading`, and `backtest_presenter`'s metadata-cache fallback needs the screen rebuilt, which is Phase 3 | 4 | low |
-| **1.3** | `modules/trading` **behind its existing UI**: `IOrderSubmission`, `ITradingSession` (with the symbol lease), `IAccountSnapshot`; `domain/trading`, `use_cases/trading` (less arm/disarm) and the trading side of `infrastructure/binance` move in. Also closes the two screens-importing-`infrastructure/**` layer violations | 5 | **high** — `TradingSessionState` is mutable state shared by three Presenters, three handlers and the websocket thread |
+| **1.3a** | ✅ **The move.** `modules/trading` **behind its existing UI**: `domain/trading`, `use_cases/trading` (less arm/disarm), `use_cases/queries` and `application/ports` (both wholly trading's, measured), the trading half of `infrastructure/binance`, and the four trading services move in. Trading's value objects, order enums and the events it raises go to `contracts/`, which is what keeps 26 further entries out of the allowlist. No port published — see below for why that order is forced. Closes the five `application -> infrastructure` entries this guard was written for, by making the import intra-module | **+60** (20 → 80) | medium — a move, and `git diff -M` reads it as renames |
+| **1.3b** | **The ports.** `IOrderSubmission`, `ITradingSession`, `IAccountSnapshot`, every consumer moved onto them, `LivePosition` → `PositionSnapshot` flattened, the shared `ExchangeSessionFactory` split one-per-context with the DI registrations following it, and 1.1c's two `interactive_shell` lines (`exchange-status` is trading's to declare by then). The symbol lease is **deferred to Phase 2**, where `strategy` is its first consumer (`architecture-rule` §7.2.1) | 67 (80 → 13) | **high** — `TradingSessionState` is mutable state read by 21 files, four of them presentation |
 | **1.4** | Trading and Dev Board become the surfaces `surfaces/trading/` and `surfaces/dev_board/`: nested `QMainWindow`, contributed panels / dialogs / actions, perspective per user. **This is where 59 → 0 happens**, and where the 9 `ui/common` items used only by these two screens move | 0 | **high** — the largest UI change in the epic |
 | **1.5** | The **Welcome** surface (ADR D13, D14) as the default route, the `dev.mode` toggle with Restart, and the first `dev_probe` (trading's Exchange API tester) | 0 | medium |
 
-Why the ports come before the module and the module before the surfaces: each pull request then
-has exactly one reason to fail. 1.1 and 1.2 are `market_data` work that cannot break trading; 1.3
-moves trading code behind ports its consumers already use, so a regression is in the move and
-nowhere else; only then do the screens change shape, with every dependency already a contract.
+Why each pull request has exactly one reason to fail: 1.1 and 1.2 are `market_data` work that
+cannot break trading; 1.3a moves trading code with every consumer still calling it exactly as
+before, so a regression is in the move and nowhere else; 1.3b changes how those consumers call it,
+with the code already where it belongs; only then do the screens change shape, with every
+dependency already a contract.
+
+**A correction to this table, measured 2026-09-15.** Row 1.3 used to read *"publish the ports **and**
+move the code"*, and the paragraph above used to say the ports come before the module — on PR 0.5's
+proven shape (*publish the port, move the consumers, leave the code; move the code later*). For
+`trading` that order is not merely riskier, it does not **build**:
+`tests/unit/architecture/boundaries/rules.py` refuses the new tree any legacy import outside the
+allowlist, and every type the three ports need — `OrderPreview`, `EnableTradingResult`,
+`ExchangeConnectionStatus` — was in the legacy tree. `market_data` could publish a port at 0.5
+only because PR 0.4a had already moved its code in; 0.5 was never the *first* step for a context,
+it was the second. So 1.3a is trading's 0.4a and 1.3b is its 0.5, and the allowlist growing at
+1.3a is the same repayment-in-advance 0.4a's jump from 8 to 41 was.
 
 ### The eleven entries Phase 1 does **not** retire
 

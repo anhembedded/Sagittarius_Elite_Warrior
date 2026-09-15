@@ -21,16 +21,16 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import Signal
-from Sagittarius_Elite_Warrior.src.domain.events.live_order_blocked_event import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.live_order_blocked_event import (
     LiveOrderBlockedEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.events.order_filled_event import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.events.position_changed_event import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_changed_event import (
     PositionChangedEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.events.position_closed_event import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.base_feed import BaseFeed

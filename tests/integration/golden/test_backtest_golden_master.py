@@ -28,7 +28,7 @@ import json
 import os
 from pathlib import Path
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
 from Sagittarius_Elite_Warrior.tests.integration.golden.dataset import (

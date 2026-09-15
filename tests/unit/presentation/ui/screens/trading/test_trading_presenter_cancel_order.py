@@ -12,7 +12,7 @@ from unittest.mock import MagicMock
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.cancel_order import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order import (
     CancelOrderCommand,
     CancelOrderResult,
 )

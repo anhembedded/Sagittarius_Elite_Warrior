@@ -11,17 +11,17 @@ from requests.exceptions import RequestException
 from Sagittarius_Elite_Warrior.src.application.use_cases.commands.submit_order import (
     SubmitOrderCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order import (
-    PreviewOrderQuery,
-)
-from Sagittarius_Elite_Warrior.src.domain.trading.order_rejection_reason import (
-    OrderRejectedByExchangeError,
-)
-from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_order_payload_mapper import (
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_order_payload_mapper import (
     InvalidOrderForSubmissionError,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order import (
+    PreviewOrderQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
+    OrderRejectedByExchangeError,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.presentation.cli.order_dry_run_formatter import (
     format_submission_accepted,
     format_submission_rejected,

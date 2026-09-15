@@ -14,30 +14,10 @@ from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from binance.exceptions import BinanceRequestException
-from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
-    ITradingAccountReader,
-)
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.command import (
-    ExecuteOrderCommand,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.entities.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
-)
-from Sagittarius_Elite_Warrior.src.domain.trading.order_rejection_reason import (
-    OrderRejectedByExchangeError,
-    OrderRejectionReason,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
-    ExchangeConnectionStatus,
-    PositionMode,
-)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
@@ -47,6 +27,32 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_kl
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
+    ExecuteOrderCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ExchangeConnectionStatus,
+    PositionMode,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
+    FuturesSymbolMetadata,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
+    IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
+    ITradingAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
+    OrderRejectedByExchangeError,
+    OrderRejectionReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_market_metadata_provider import (
+    FakeMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_account_reader import (
+    FakeTradingAccountReader,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_cmd import (
     execute_trade_once,
@@ -131,10 +137,15 @@ def _app_ready_to_dispatch_an_order() -> Mock:
     app = Mock(spec=App)
     strategy_registry = Mock(spec=StrategyRegistry)
     strategy_registry.available.return_value = {"ema_cross"}
-    metadata_provider = Mock(spec=IMarketMetadataProvider)
-    metadata_provider.get_or_fetch.return_value = _metadata()
-    account_reader = Mock(spec=ITradingAccountReader)
-    account_reader.check_connection.return_value = _ready_status()
+    # `EPIC-025` PR 1.3a — both ports are `modules/trading`'s now, so this
+    # test uses their verified fakes rather than `Mock(spec=...)`: HLD §10.3
+    # rule 4 lets a module mock its own internals and the CLI is not that
+    # module. Not bookkeeping — a mock answers whatever it was told and would
+    # keep agreeing if `get_or_fetch()` started returning `None` for an
+    # unknown symbol, which is the promise the order-shaping path below rounds
+    # against.
+    metadata_provider = FakeMarketMetadataProvider([_metadata()])
+    account_reader = FakeTradingAccountReader(_ready_status())
 
     history = FakeHistoricalKlines()
     history.seed([_candle()])

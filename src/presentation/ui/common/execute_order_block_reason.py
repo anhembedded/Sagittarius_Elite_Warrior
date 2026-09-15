@@ -7,11 +7,11 @@ not in either screen's own presenter module).
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.result import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.result import (
     ExecuteOrderNotionalRejection,
     ExecuteOrderSafetyGate,
 )
-from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy import (
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitViolation,
 )
 from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels

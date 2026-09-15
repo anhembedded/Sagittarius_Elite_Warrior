@@ -42,38 +42,11 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
-    ITradingAccountReader,
-)
 from Sagittarius_Elite_Warrior.src.application.services.live_trading_coordinator import (
     LiveTradingCoordinator,
 )
-from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
-    TradingSessionState,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order.handler import (
-    PreviewOrderQueryHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.command import (
-    ExecuteOrderCommand,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.handler import (
-    ExecuteOrderCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order.result import (
-    ExecuteOrderResult,
-)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
-)
-from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy import (
-    TradingLimitPolicy,
-    TradingLimits,
-    TradingLimitViolation,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
-    ExchangeConnectionStatus,
-    PositionMode,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
@@ -82,11 +55,38 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_metadata_provider import (
-    FuturesMetadataProvider,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
+    FuturesMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
+    ExecuteOrderCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.handler import (
+    ExecuteOrderCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.result import (
+    ExecuteOrderResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.handler import (
+    PreviewOrderQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
+    TradingSessionState,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ExchangeConnectionStatus,
+    PositionMode,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
+    ITradingAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
+    TradingLimitPolicy,
+    TradingLimits,
+    TradingLimitViolation,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,

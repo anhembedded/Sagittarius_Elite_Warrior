@@ -32,18 +32,27 @@ grep -rln QQuickWidget src --include='*.py'     # hits may be comments recording
 ls src/presentation/ui/kit/                     # the widget kit
 ```
 
-Hunting grounds, in the priority order above:
+Hunting grounds, in the priority order above. **Named by what the code does,
+not by where it sits** — `EPIC-025` moves whole layers between phases, and an
+earlier version of this list pointed at a use-case query directory for months
+after that directory was emptied (the reference checker in the gate is what
+caught it, which is the mechanism doing its job). Find each one in the run:
 
-1. **Algorithm / hot loop** — indicator compute loops
-   (`src/domain/indicator_scripts/`, `src/domain/indicators/`), the backtest
-   engine (`src/domain/backtesting/`, `src/application/use_cases/backtest/`),
-   candle/series transformations (`src/infrastructure/binance/`).
-2. **Query / database** — the sharded per-symbol SQLite layer
-   (`src/infrastructure/persistence/`), gap detection and history queries
-   (`src/application/use_cases/queries/`).
+```bash
+ls src/modules/                                  # which bounded contexts exist yet
+ls src/domain src/application src/infrastructure 2>/dev/null   # what the strangler still holds
+```
+
+1. **Algorithm / hot loop** — indicator compute loops, the backtest engine,
+   candle and series transformations. `grep -rln "for .* in " src --include='*.py'`
+   narrowed to the indicator and backtesting packages the first command found.
+2. **Query / database** — the sharded per-symbol SQLite layer, gap detection,
+   history reads. `grep -rln "SELECT\|session.query\|text(" src --include='*.py'`.
 3. **I/O & concurrency** — multi-symbol sync, batch fetching, background loads.
+   `grep -rln "ThreadPoolExecutor\|asyncio\|ITaskManager" src --include='*.py'`.
 4. **UI rendering hot paths** — `pyqtgraph` drawing, custom paint delegates,
-   `QAbstractItemModel` views, and the widget kit at `src/presentation/ui/kit/`.
+   `QAbstractItemModel` views, and the widget kit (`ls src/presentation/ui/kit/`
+   above).
 
 `scripts/benchmark.py` and `scripts/benchmarking/` already exist; prefer
 extending one over inventing a new harness.

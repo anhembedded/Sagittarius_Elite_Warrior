@@ -7,24 +7,6 @@ logger = logging.getLogger("App.BinanceBotModule")
 from Sagittarius_Elite_Warrior.src.application.event_handlers.market_data.market_tick_event_handler import (
     MarketTickEventHandler,
 )
-from Sagittarius_Elite_Warrior.src.application.ports.i_futures_symbol_metadata_cache import (
-    IFuturesSymbolMetadataCache,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
-    ITradingAccountReader,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_trading_client import (
-    ITradingClient,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_user_data_stream import (
-    IUserDataStream,
-)
-from Sagittarius_Elite_Warrior.src.application.services.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
 from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -37,14 +19,8 @@ from Sagittarius_Elite_Warrior.src.application.services.live_strategy_factory im
 from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
     LiveStrategySession,
 )
-from Sagittarius_Elite_Warrior.src.application.services.position_refresh_service import (
-    PositionRefreshService,
-)
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
-)
-from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
-    TradingSessionState,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest import (
     RunBacktestCommand,
@@ -69,45 +45,13 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.commands.submit_order i
     SubmitOrderCommand,
     SubmitOrderCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_exchange_connection_status import (
-    GetExchangeConnectionStatusQuery,
-    GetExchangeConnectionStatusQueryHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_open_positions import (
-    GetOpenPositionsQuery,
-    GetOpenPositionsQueryHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order import (
-    PreviewOrderQuery,
-    PreviewOrderQueryHandler,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.arm_strategy import (
     ArmStrategyCommand,
     ArmStrategyCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.cancel_order import (
-    CancelOrderCommand,
-    CancelOrderCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disable_trading import (
-    DisableTradingCommand,
-    DisableTradingCommandHandler,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disarm_strategy import (
     DisarmStrategyCommand,
     DisarmStrategyCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.emergency_stop import (
-    EmergencyStopCommand,
-    EmergencyStopCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.enable_trading import (
-    EnableTradingCommand,
-    EnableTradingCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order import (
-    ExecuteOrderCommand,
-    ExecuteOrderCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
@@ -164,27 +108,8 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.support_resistance_strategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.volume_spike_flow_strategy import (
     VolumeSpikeFlowStrategy,
 )
-from Sagittarius_Elite_Warrior.src.domain.trading.order_submission_mode import (
-    OrderSubmissionMode,
-)
-from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy import (
-    TradingLimitPolicy,
-    TradingLimits,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
     ExchangeSessionFactory,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_account_reader import (
-    FuturesAccountReader,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_metadata_provider import (
-    FuturesMetadataProvider,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_trading_client import (
-    FuturesTradingClient,
-)
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.futures_user_data_stream import (
-    FuturesUserDataStream,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispatcher_adapter import (
     EngineCommandDispatcher,
@@ -203,6 +128,81 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_session_factory import (
     IExchangeSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
+    FuturesAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
+    FuturesMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
+    FuturesTradingClient,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user_data_stream import (
+    FuturesUserDataStream,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
+    EquityCurveRecorder,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order import (
+    CancelOrderCommand,
+    CancelOrderCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order import (
+    ExecuteOrderCommand,
+    ExecuteOrderCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order import (
+    PreviewOrderQuery,
+    PreviewOrderQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.position_refresh_service import (
+    PositionRefreshService,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_exchange_connection_status import (
+    GetExchangeConnectionStatusQuery,
+    GetExchangeConnectionStatusQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
+    GetOpenPositionsQuery,
+    GetOpenPositionsQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.disable_trading import (
+    DisableTradingCommand,
+    DisableTradingCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop import (
+    EmergencyStopCommand,
+    EmergencyStopCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
+    EnableTradingCommand,
+    EnableTradingCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
+    TradingSessionState,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_symbol_metadata_cache import (
+    IFuturesSymbolMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
+    IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
+    ITradingAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
+    ITradingClient,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
+    IUserDataStream,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
+    OrderSubmissionMode,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
+    TradingLimitPolicy,
+    TradingLimits,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
     BacktestChartHostFactory,

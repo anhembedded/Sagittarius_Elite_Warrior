@@ -9,23 +9,8 @@ from PySide6.QtWidgets import QApplication
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
-from Sagittarius_Elite_Warrior.src.application.ports.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
-from Sagittarius_Elite_Warrior.src.application.ports.i_trading_account_reader import (
-    ITradingAccountReader,
-)
 from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
     LiveStrategySession,
-)
-from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
-    TradingSessionState,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_open_positions import (
-    GetOpenPositionsQuery,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order.handler import (
-    PreviewOrderQueryHandler,
 )
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.arm_strategy import (
     ArmStrategyCommandHandler,
@@ -33,14 +18,7 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.arm_strategy im
 from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disarm_strategy import (
     DisarmStrategyCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.execute_order import (
-    ExecuteOrderCommand,
-    ExecuteOrderCommandHandler,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.domain.trading.policies.trading_limit_policy import (
-    TradingLimitPolicy,
-)
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
@@ -66,6 +44,28 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ra
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
     FakeSymbolCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order import (
+    ExecuteOrderCommand,
+    ExecuteOrderCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.handler import (
+    PreviewOrderQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
+    GetOpenPositionsQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
+    TradingSessionState,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
+    IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
+    ITradingAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
+    TradingLimitPolicy,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow

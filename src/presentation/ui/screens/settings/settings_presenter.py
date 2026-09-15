@@ -3,14 +3,14 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
-from Sagittarius_Elite_Warrior.src.application.services.trading_session_state import (
-    TradingSessionState,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_exchange_connection_status import (
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_exchange_connection_status import (
     GetExchangeConnectionStatusQuery,
 )
-from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.domain.value_objects.exchange_connection_status import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
+    TradingSessionState,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ExchangeConnectionStatus,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter import (

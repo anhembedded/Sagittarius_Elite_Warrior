@@ -24,9 +24,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_side import (
-    PositionSide,
-)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
     PositionSizing,
     PositionSizingType,
@@ -34,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
+    PositionSide,
 )
 
 logger = logging.getLogger("App.PaperExchange")

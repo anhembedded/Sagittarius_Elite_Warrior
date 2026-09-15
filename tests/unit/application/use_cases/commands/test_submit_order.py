@@ -7,11 +7,11 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.commands.submit_order i
     SubmitOrderCommand,
     SubmitOrderCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.queries.preview_order import (
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order import (
     PreviewOrderQuery,
 )
-from Sagittarius_Elite_Warrior.src.domain.trading.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.domain.value_objects.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 
 
 def test_execute_submits_the_preview_handlers_normalized_order() -> None:
