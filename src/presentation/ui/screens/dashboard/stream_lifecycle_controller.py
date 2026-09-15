@@ -7,6 +7,12 @@ Extracted from DashboardPresenter to isolate the asynchronous data fetching,
 auto-sync orchestration, and websocket stream control into a dedicated controller,
 keeping DashboardPresenter focused on FSM UI coordination and component composition.
 
+**No dispatcher (`EPIC-025` PR 1.1b).** Everything this controller used to
+dispatch is now a published `market_data` port: the sync (PR 0.5), the
+history read (1.1a) and the live stream (1.1b). A constructor parameter
+nobody uses still tells every caller and every test that this class talks to
+the bus, so it went with the last of them.
+
 Threading contract:
 - Worker methods (_run_load_history, _run_sync_and_start, _run_load_more_history) run in background threads.
 - Background workers communicate with the main thread ONLY via Qt Signal callables (emit helpers).
@@ -22,12 +28,6 @@ from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
-    StartLiveStreamCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream.command import (
-    StopLiveStreamCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
     CancellationCheck,
     IMarketDataSync,
     MarketDataSyncRequest,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
+    IMarketStream,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
     map_klines,
@@ -51,7 +54,6 @@ if TYPE_CHECKING:
         SyncProgressReport,
     )
     from sagittarius_engine.interfaces.i_config import IConfig
-    from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
     from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 _LOAD_MORE_BATCH_CANDLES_CONFIG_KEY = "CHART_CARD_LOAD_MORE_BATCH_CANDLES"
@@ -65,7 +67,7 @@ _DEFAULT_LOAD_MORE_BATCH_CANDLES = 75
 #: own validator) — a lowercase "btcusdt" is not itself an error.
 _SYMBOL_PATTERN = re.compile(r"^[A-Z0-9]{5,20}$")
 
-#: `BOT-126` — this screen's own identity on `ILiveStreamService`. Exactly
+#: `BOT-126` — this screen's own identity on `IMarketStream`. Exactly
 #: one Dev Board `DashboardPresenter`/`StreamLifecycleController` is ever
 #: alive at once, matching the `StateScope(key="dashboard")` this screen
 #: already uses for its own persisted state.
@@ -93,9 +95,9 @@ class StreamLifecycleController:
         self,
         *,
         thread_manager: IThreadManager,
-        dispatcher: IDispatcher,
         market_data_sync: IMarketDataSync,
         historical_klines: IHistoricalKlines,
+        market_stream: IMarketStream,
         config: IConfig,
         fsm: Any,
         view_model: Any,
@@ -126,9 +128,9 @@ class StreamLifecycleController:
         # construction — the actual TC-ASY-03 requirement (Load History and
         # Start Live must exclude each other, not just themselves).
         self._stream_actions = ExclusiveAction(thread_manager=thread_manager)
-        self.dispatcher = dispatcher
         self._market_data_sync = market_data_sync
         self._historical_klines = historical_klines
+        self._market_stream = market_stream
         self.config = config
         self.fsm = fsm
         self._view_model = view_model
@@ -319,8 +321,12 @@ class StreamLifecycleController:
         token.cancel()
         self._reset_cancellation_token()
         try:
-            cmd = StopLiveStreamCommand(owner=_STREAM_OWNER)
-            self.dispatcher.dispatch(StopLiveStreamCommand, cmd)
+            # `EPIC-025` PR 1.1b — the outcome is deliberately not branched
+            # on: `success=False` means this screen held no subscription,
+            # which after a cancel is an ordinary state and not something to
+            # report as an error. The `except` below still catches a real
+            # failure, which is what drives the FSM to ERROR.
+            self._market_stream.stop(_STREAM_OWNER)
             self._view_model.log_model.append("Live Stream stopped.")
             self.fsm.transition_to(UIMode.IDLE)
         except Exception as exc:  # noqa: BLE001
@@ -508,9 +514,9 @@ class StreamLifecycleController:
         self._emit_log("Syncing missing data from Binance...")
         # BOT-123 — generated here (not passed in), so it always matches the
         # dispatch it labels. Set before dispatching: `SyncMarketDataCommandHandler`
-        # publishes its first `SingleSyncProgressEvent` from inside
-        # `dispatcher.dispatch()` below, and `on_sync_progress` (main thread)
-        # must already see the id it belongs to.
+        # publishes its first `SingleSyncProgressEvent` from inside the
+        # `IMarketDataSync.sync()` call below, and `on_sync_progress` (main
+        # thread) must already see the id it belongs to.
         correlation_id = uuid.uuid4().hex
         self._active_sync_correlation_id = correlation_id
         self._emit_sync_progress(0, 0, True, "Syncing data from Binance...")
@@ -527,16 +533,15 @@ class StreamLifecycleController:
 
     def _start_websocket_stream(self, symbols: list[str], interval: TimeFrame) -> None:
         self._emit_log("Opening Websocket stream...")
-        cmd = StartLiveStreamCommand(
-            owner=_STREAM_OWNER, symbols=symbols, interval=interval
-        )
-        response = self.dispatcher.dispatch(StartLiveStreamCommand, cmd)
-
-        if response and getattr(response, "success", True):
+        # `EPIC-025` PR 1.1b — one typed call. The
+        # `getattr(response, "success", True)` this replaces reported success
+        # for any object without that field, `None` included: a stream that
+        # never opened left the Dev Board saying it was running.
+        outcome = self._market_stream.start(_STREAM_OWNER, symbols, interval)
+        if outcome.success:
             self._emit_stream_success(f"Live stream for {symbols} is running.")
         else:
-            msg = getattr(response, "message", "Unknown error")
-            self._emit_stream_failed(f"Failed to start: {msg}")
+            self._emit_stream_failed(f"Failed to start: {outcome.message}")
 
     def _run_sync_and_start(
         self,

@@ -215,6 +215,18 @@ the namespace used by `stop_all(owner_id)` on shutdown, which is today's
 `StartLiveStreamCommand.owner` semantics ("replaces the owner's previous subscriptions") made
 explicit.
 
+**What shipped, and the distance from the above.** Both ports are built (PR 0.5 and PR 1.1b) and
+neither carries a handle, for one shared reason: ADR D12 keeps business behaviour out of a port
+pull request, and a handle is not a naming choice — it is a different mechanism underneath.
+`IMarketDataSync.sync(request) -> None` takes a caller-owned `CancellationCheck` callable instead
+of returning a token to cancel, because the caller already owns cancellation
+(`async-ui-action-rule.md`). `IMarketStream.start(owner_id, symbols, interval) -> StreamOutcome`
+and `stop(owner_id)` publish what `BOT-126` actually built: one subscription **set** per owner,
+replaced on every start, released together — so today's `stop(owner_id)` is both the `stop(handle)`
+and the `stop_all(owner_id)` above, and they separate only when a consumer needs per-stream
+handles. Phase 2's `strategy` (one stream per armed symbol) is that consumer, and
+`architecture-rule.md` §7.2.1 says the seam is cut then, not before.
+
 ### `dev.mode` and restart (SDD-05)
 
 - Gate evaluated **once**, in the shell, before `app.use()`; the `dev_board` surface is declared but

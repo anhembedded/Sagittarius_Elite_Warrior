@@ -35,6 +35,24 @@ from Sagittarius_Elite_Warrior.src.application.services.trading_session_state im
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
+    IMarketDataSync,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
+    IMarketStream,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
+    FakeMarketDataSync,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
+    FakeMarketStream,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_presenter import (
     TradingPresenter,
 )
@@ -126,6 +144,24 @@ def mock_config() -> MagicMock:
 
 
 @pytest.fixture
+def market_stream() -> FakeMarketStream:
+    """`EPIC-025` PR 1.1b — the chart opens and releases the live stream
+    through `IMarketStream`, so the container hands out the port's verified
+    fake and a test reads what this screen holds."""
+    return FakeMarketStream()
+
+
+@pytest.fixture
+def historical_klines() -> FakeHistoricalKlines:
+    return FakeHistoricalKlines()
+
+
+@pytest.fixture
+def market_data_sync() -> FakeMarketDataSync:
+    return FakeMarketDataSync()
+
+
+@pytest.fixture
 def container(
     mock_config,
     mock_dispatcher,
@@ -134,10 +170,19 @@ def container(
     equity_recorder,
     strategy_session,
     strategy_registry,
+    market_stream,
+    historical_klines,
+    market_data_sync,
     make_container,
 ):
     # `BOT-125` review — one shared fake, so adding a Presenter dependency
     # stops costing one edit per test module.
+    #
+    # `EPIC-025` PR 1.1b binds market_data's three published ports to their
+    # verified fakes. Unbound interfaces become a `MagicMock`, which for a
+    # *foreign port* is the substitution HLD §10.3 rule 4 forbids — and until
+    # this, every Presenter test here ran with a mock standing in for the
+    # sync and the history read, agreeing with whatever it was asked.
     return make_container(
         {
             IConfig: mock_config,
@@ -147,6 +192,9 @@ def container(
             EquityCurveRecorder: equity_recorder,
             LiveStrategySession: strategy_session,
             StrategyRegistry: strategy_registry,
+            IMarketStream: market_stream,
+            IHistoricalKlines: historical_klines,
+            IMarketDataSync: market_data_sync,
         }
     )
 

@@ -17,14 +17,17 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
-    StartLiveStreamCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
+    IMarketStream,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
+    FakeMarketStream,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
@@ -96,12 +99,15 @@ def mock_app():
     equity_recorder = EquityCurveRecorder()
 
     history = FakeHistoricalKlines()
+    stream = FakeMarketStream()
 
     def resolve_side_effect(interface):
         from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 
         if interface == IHistoricalKlines:
             return history
+        if interface == IMarketStream:
+            return stream
         if interface == IConfig:
             return mock_config
         if interface == IThreadManager:
@@ -143,14 +149,11 @@ def test_dashboard_integration_start_stream_chart_rendering(qapp, mock_app):
     # returned a single mock kline for the same reason.
     history.seed(build_mock_klines(presenter._active_symbol)[:1])
 
-    def mock_dispatch(cmd_type, cmd):
-        if cmd_type == StartLiveStreamCommand:
-            response = MagicMock()
-            response.success = True
-            return response
-        return MagicMock()
-
-    mock_app.dispatch.side_effect = mock_dispatch
+    # `EPIC-025` PR 1.1b — the stream is a port too, so the branch that used
+    # to answer `StartLiveStreamCommand` with a `MagicMock` whose `.success`
+    # was `True` is gone. `FakeMarketStream` answers a real `StreamOutcome`,
+    # which is what the screen now reads.
+    mock_app.dispatch.side_effect = lambda *_args, **_kwargs: MagicMock()
 
     # Track update() calls on the candlestick item
     from unittest.mock import patch

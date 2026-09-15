@@ -83,5 +83,12 @@ note bottom of IMarketStream
   not an exclusive lease: two owners may stream the same symbol, and one
   owner may hold several streams (Dev Board shows n charts).
   BOT-126/BUG-085 (two screens fighting over one stream) cannot recur.
+
+  SHIPPED IN PR 1.1b WITHOUT THE HANDLE:
+  start(owner_id, symbols, interval) -> StreamOutcome, stop(owner_id).
+  One subscription SET per owner, which is what BOT-126 built; a handle
+  per stream needs ILiveStreamService to stop replacing that set, a
+  behaviour change ADR D12 keeps out of a port PR. Cut the seam in
+  Phase 2, where strategy wants one stream per armed symbol.
 end note
 @enduml

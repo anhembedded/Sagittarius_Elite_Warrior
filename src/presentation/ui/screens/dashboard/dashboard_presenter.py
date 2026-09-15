@@ -83,6 +83,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_kl
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
+    IMarketStream,
+)
 from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
@@ -783,9 +786,9 @@ class DashboardPresenter(BasePresenter):
 
         self._stream_controller = StreamLifecycleController(
             thread_manager=self._thread_manager,
-            dispatcher=self.dispatcher,
             market_data_sync=container.resolve(IMarketDataSync),
             historical_klines=container.resolve(IHistoricalKlines),
+            market_stream=container.resolve(IMarketStream),
             config=self.config,
             fsm=self.fsm,
             view_model=self._view_model,

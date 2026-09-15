@@ -49,8 +49,14 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
+    IMarketStream,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
+    FakeMarketStream,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
@@ -122,7 +128,19 @@ def seeded_history():
 
 
 @pytest.fixture
-def app_engine(request, monkeypatch, tmp_path, seeded_history):
+def market_stream():
+    """The live stream every UI integration test opens and releases.
+
+    `EPIC-025` PR 1.1b — its own fixture for the same reason `seeded_history`
+    is: a test that asserts "this screen is streaming ETHUSDT at 1m" reads it
+    directly, where before it had to find the right dispatch call and trust a
+    `MagicMock`'s `.success`.
+    """
+    return FakeMarketStream()
+
+
+@pytest.fixture
+def app_engine(request, monkeypatch, tmp_path, seeded_history, market_stream):
     """
     Boot the Sagittarius Engine with all configurations but mock the
     dispatcher backend. Defaults to dev.mode=False; parametrize indirectly
@@ -300,9 +318,12 @@ def app_engine(request, monkeypatch, tmp_path, seeded_history):
 
     monkeypatch.setattr(engine, "dispatch", mock_dispatch)
 
-    # `EPIC-025` PR 1.1 — the history read is a port, so it is substituted at
-    # configuration (the container) rather than by intercepting a dispatch.
+    # `EPIC-025` PR 1.1a/1.1b — the history read and the live stream are
+    # ports, so they are substituted at configuration (the container) rather
+    # than by intercepting a dispatch. `testing-rule.md` calls that the
+    # boundary a test should draw.
     engine.context.container.singleton(IHistoricalKlines, lambda _c: seeded_history)
+    engine.context.container.singleton(IMarketStream, lambda _c: market_stream)
 
     from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 

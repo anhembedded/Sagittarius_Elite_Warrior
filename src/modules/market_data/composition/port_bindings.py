@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines import (
     StoredKlinesReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.market_stream_service import (
+    MarketStreamService,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.market_data_sync_service import (
     MarketDataSyncService,
 )
@@ -40,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_r
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
+    IMarketStream,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
@@ -47,6 +53,7 @@ def bind_published_ports(container: IContainer) -> None:
     """Register the ports other bounded contexts are allowed to resolve."""
     container.singleton(IMarketDataSync, _build_market_data_sync)
     container.singleton(IHistoricalKlines, _build_historical_klines)
+    container.singleton(IMarketStream, _build_market_stream)
 
 
 def _build_market_data_sync(container: IContainer) -> IMarketDataSync:
@@ -73,3 +80,17 @@ def _build_historical_klines(container: IContainer) -> IHistoricalKlines:
     `singleton`, stateless but for the repository it reads.
     """
     return StoredKlinesReader(container.resolve(IMarketDataRepository))
+
+
+def _build_market_stream(container: IContainer) -> IMarketStream:
+    """Dispatches the module's two stream commands, for the reason
+    `market_stream_service.py` records: the module's own CLI dispatches them
+    too, and a port that reached past them to `ILiveStreamService` would give
+    the CLI and the screens two paths to one websocket.
+
+    A named factory rather than a lambda, and late-resolving, for the same
+    reason as `_build_market_data_sync` above: `ICommandDispatcher` is bound
+    by another part of the boot, and resolving during `register()` is what
+    `shell/registering_container.py` refuses.
+    """
+    return MarketStreamService(container.resolve(ICommandDispatcher))

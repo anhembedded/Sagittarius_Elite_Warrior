@@ -25,20 +25,23 @@ from unittest.mock import MagicMock, Mock
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
-    StartLiveStreamCommand,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
+    IMarketStream,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
+    FakeMarketStream,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
     map_klines,
@@ -167,6 +170,14 @@ def fake_historical_klines():
 
 
 @pytest.fixture
+def fake_market_stream():
+    """`EPIC-025` PR 1.1b — Dev Board opens and releases the live stream
+    through `IMarketStream`, so the container hands out the port's verified
+    fake and a test reads what this screen holds."""
+    return FakeMarketStream()
+
+
+@pytest.fixture
 def fake_market_data_sync():
     """`EPIC-025` PR 0.5 — Dev Board asks for a sync through
     `IMarketDataSync`. The container hands out the port's verified fake, not a
@@ -186,6 +197,7 @@ def mock_container(
     session_state,
     fake_market_data_sync,
     fake_historical_klines,
+    fake_market_stream,
 ):
     container = MagicMock()
 
@@ -237,6 +249,8 @@ def mock_container(
             return session_state
         if interface == IHistoricalKlines:
             return fake_historical_klines
+        if interface == IMarketStream:
+            return fake_market_stream
         if interface == IMarketDataSync:
             return fake_market_data_sync
         return MagicMock()
@@ -308,6 +322,7 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     strategy_session,
     fake_market_data_sync,
     fake_historical_klines,
+    fake_market_stream,
 ):
     """When the container *does* have a registered store — the real
     `app_bootstrapper.py` shape — construction must hand the View that
@@ -357,6 +372,8 @@ def test_boot_wires_the_container_registered_store_into_the_view(
             return TradingSessionState()
         if interface == IHistoricalKlines:
             return fake_historical_klines
+        if interface == IMarketStream:
+            return fake_market_stream
         if interface == IMarketDataSync:
             return fake_market_data_sync
         return Mock()
@@ -761,7 +778,11 @@ def test_on_start_stream_submits_the_computed_fetch_limit(presenter, mock_thread
 
 
 def test_run_sync_and_start_full_workflow(
-    presenter, mock_dispatcher, fake_market_data_sync, fake_historical_klines
+    presenter,
+    mock_dispatcher,
+    fake_market_data_sync,
+    fake_historical_klines,
+    fake_market_stream,
 ):
     """Sync → read history → start the stream, **in that order**.
 
@@ -770,17 +791,19 @@ def test_run_sync_and_start_full_workflow(
     behind them, and a history read before the sync finished would draw
     yesterday's data and then never refresh it.
 
-    `EPIC-025` PR 0.5 moved the sync onto a port and PR 1.1a the history
-    read, so the three steps now happen through three different mechanisms
-    and no single call list can order them. PR 1.1a's cleanup restored the
-    assertion with the journal below — for one revision the test asserted
-    only that all three had happened, while its own name still said "in
-    order".
+    `EPIC-025` PR 0.5 moved the sync onto a port, PR 1.1a the history read
+    and PR 1.1b the stream, so the three steps happen through three
+    different ports and no single call list can order them. PR 1.1a's
+    cleanup restored the assertion with the journal below — for one revision
+    the test asserted only that all three had happened, while its own name
+    still said "in order". It earned its keep immediately: 1.1b moved the
+    third step off the dispatcher, and this is the test that noticed.
     """
     mock_dispatcher.dispatch.return_value = []
     journal: list[str] = []
     sync_request = fake_market_data_sync.sync
     history_read = fake_historical_klines.load_many
+    stream_start = fake_market_stream.start
 
     def record_sync(request):
         journal.append("sync")
@@ -790,22 +813,21 @@ def test_run_sync_and_start_full_workflow(
         journal.append("history")
         return history_read(*args, **kwargs)
 
-    def record_dispatch(command_type, command):
-        if command_type is StartLiveStreamCommand:
-            journal.append("stream")
-        return []
+    def record_start(*args, **kwargs):
+        journal.append("stream")
+        return stream_start(*args, **kwargs)
 
     fake_market_data_sync.sync = record_sync
     fake_historical_klines.load_many = record_read
-    mock_dispatcher.dispatch.side_effect = record_dispatch
+    fake_market_stream.start = record_start
 
     from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
     # Real callers only ever reach this method after _on_start_stream() has
-    # already moved the FSM to LOCKED (BOT-066: dev-mode re-raise surfaced
-    # that the blanket `[]` dispatch stub above makes StartLiveStreamCommand
-    # look like a failure, driving _on_stream_start_failed's IDLE->ERROR —
-    # invalid from the presenter fixture's default IDLE, only from here).
+    # already moved the FSM to LOCKED (BOT-066). The failure path it guards
+    # against is no longer reachable from the stub — `FakeMarketStream.start`
+    # answers a real success — but the state precondition is still what
+    # production has, so the test keeps it.
     presenter.fsm.transition_to(UIMode.LOCKED)
 
     presenter._run_sync_and_start(
@@ -817,6 +839,7 @@ def test_run_sync_and_start_full_workflow(
     # cannot say.
     assert fake_market_data_sync.was_asked_for("BTCUSDT")
     assert fake_historical_klines.was_read_for("BTCUSDT")
+    assert fake_market_stream.is_streaming("BTCUSDT", TimeFrame("1m"))
 
 
 def test_on_start_stream_uses_the_view_models_symbol(presenter, mock_thread_mgr):
