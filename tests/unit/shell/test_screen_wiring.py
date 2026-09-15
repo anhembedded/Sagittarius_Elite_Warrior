@@ -21,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.shell.screen_wiring import (
     build_screen_registry,
     contribute_legacy_screens,
 )
+from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import welcome_screen
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 
 _EXPECTED_ROUTES = ("dashboard", "trading", "data_management", "settings", "backtest")
@@ -28,7 +29,18 @@ _EXPECTED_ROUTES = ("dashboard", "trading", "data_management", "settings", "back
 
 @pytest.fixture
 def wired() -> ContributionRegistry:
+    """The legacy screens alone — what this file is about."""
     registry = ContributionRegistry(dev_mode=False)
+    contribute_legacy_screens(registry, StdLibContainer())
+    return registry
+
+
+@pytest.fixture
+def wired_with_the_shells_own() -> ContributionRegistry:
+    """The legacy screens **plus** the shell's Welcome screen, which is what
+    `assemble_contributions()` builds in a real run (PR 1.5a)."""
+    registry = ContributionRegistry(dev_mode=False)
+    registry.contribute_screen(welcome_screen())
     contribute_legacy_screens(registry, StdLibContainer())
     return registry
 
@@ -51,9 +63,28 @@ def test_they_are_contributed_as_legacy_not_as_the_shell(
     }
 
 
-def test_the_default_route_survives_the_round_trip(wired: ContributionRegistry) -> None:
-    assert wired.default_route() == "dashboard"
-    assert build_screen_registry(wired).get_default_route() == "dashboard"
+def test_the_default_route_survives_the_round_trip(
+    wired_with_the_shells_own: ContributionRegistry,
+) -> None:
+    """`welcome` since PR 1.5a, not `dashboard` (ADR D13): the app opens on a
+    screen about the application rather than on a developer testbed. The
+    round trip is the point — a default declared on a contribution has to
+    still be the default after `ScreenRegistry` has it."""
+    assert wired_with_the_shells_own.default_route() == "welcome"
+    assert (
+        build_screen_registry(wired_with_the_shells_own).get_default_route()
+        == "welcome"
+    )
+
+
+def test_the_legacy_screens_alone_declare_no_default_any_more(
+    wired: ContributionRegistry,
+) -> None:
+    """The Dev Board gave the flag up, and nothing else in the legacy tree
+    took it: the default now comes from the shell, which is the change ADR
+    D13 asked for and the reason `tests/conftest.py`'s `real_screen_registry`
+    had to start including Welcome."""
+    assert wired.default_route() is None
 
 
 def test_no_view_is_built_while_contributing(wired: ContributionRegistry) -> None:

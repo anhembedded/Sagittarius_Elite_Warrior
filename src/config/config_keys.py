@@ -6,6 +6,13 @@ class ConfigKeys(str, Enum):
     @brief Enumeration for application configuration keys to avoid magic strings.
     """
 
+    #: `EPIC-025` PR 1.5a — what the Welcome screen says the application is.
+    #: Here rather than as a constant in a widget because the shell shows it
+    #: and the shell may not import the legacy tree, where `_WINDOW_TITLE`
+    #: lives; `tests/unit/architecture/test_app_version_matches_pyproject.py`
+    #: keeps the version honest against `pyproject.toml`.
+    APP_NAME = "app.name"
+    APP_VERSION = "app.version"
     BINANCE_RATE_LIMIT_DELAY_MS = "binance.rate_limit_delay_ms"
     DATABASE_DIR = "database.dir"
     #: `EPIC-021A` — replaces the dead `BINANCE_REST_URL`/`BINANCE_WS_URL`

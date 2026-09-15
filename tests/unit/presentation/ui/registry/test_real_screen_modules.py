@@ -41,8 +41,17 @@ def _built_registry() -> ScreenRegistry:
     return registry
 
 
-def test_default_route_is_dashboard() -> None:
-    assert _built_registry().get_default_route() == "dashboard"
+def test_no_legacy_screen_module_claims_the_default_any_more() -> None:
+    """`EPIC-025` PR 1.5a, ADR D13: the app opens on the shell's Welcome
+    screen, so none of the five legacy modules declares `is_default`. The
+    registry built from them alone therefore has no default at all — which is
+    the correct answer, and `tests/conftest.py`'s `real_screen_registry`
+    (which does include Welcome) is where the app's real default is asserted.
+    """
+    import pytest
+
+    with pytest.raises(RuntimeError, match="no ScreenModule declared"):
+        _built_registry().get_default_route()
 
 
 def test_sidebar_navigation_matches_the_pre_registry_hardcoded_layout() -> None:

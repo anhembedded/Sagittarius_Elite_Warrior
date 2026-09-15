@@ -90,6 +90,9 @@ from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
     assemble_contributions,
 )
 from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
+from Sagittarius_Elite_Warrior.src.shell.welcome.start_requested_event import (
+    StartRequested,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     resolve_market_data_venue,
     resolve_trading_venue,
@@ -103,6 +106,12 @@ from sagittarius_engine.extensions.pyside_mvc import (
     setup_qt_signal_handling,
 )
 from sagittarius_engine.interfaces.i_config import IConfig
+
+#: Where **Start** goes. Named here, in *Main*, because that is the
+#: decision this entry point owns — the same value as
+#: `TradingScreenModule.route`, not read from it, so the Welcome screen
+#: depends on neither.
+TRADING_ROUTE = "trading"
 
 #: `python -m ...app_bootstrapper --self-check`: boot for real, let the event
 #: loop turn once, exit with a real process exit code. See the module
@@ -315,6 +324,17 @@ def build() -> AppRuntime:
         state_coordinator=state_coordinator,
     )
     window.show()
+
+    # `EPIC-025` PR 1.5a — what **Start** on the Welcome screen means. The
+    # shell owns that screen and cannot navigate: a route change is
+    # `MainWindow`'s, which lives in this tree, and a navigation port with one
+    # caller would pre-empt the Engine's `NavigationService` (Phase 5). So the
+    # screen raises an intent and *Main* — here — decides it means Trading. A
+    # real login can replace the button without touching anything else
+    # (HLD §4.6).
+    app_engine.context.event_bus.on(
+        StartRequested, lambda _event: window.switch_screen(TRADING_ROUTE)
+    )
 
     # Start UI Watchdog to monitor main-thread responsiveness during runtime
     watchdog = UIWatchdog(logger=app_engine.context.logger)

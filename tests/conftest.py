@@ -48,6 +48,12 @@ def real_screen_registry(container):
     registered against `container`, matching exactly what
     `app_bootstrapper.py`'s composition root does.
 
+    Since `EPIC-025` PR 1.5a that includes the shell's own **Welcome**
+    screen, which is the default route (ADR D13). Leaving it out here made
+    every caller of this helper fail with "no ScreenModule declared
+    is_default=True" the moment the Dev Board stopped claiming it — the
+    helper's promise is to match the real registry, so it follows.
+
     Plain function, not a fixture: `test_composition_root.py` needs this at
     collection time (inside `@pytest.mark.parametrize`'s argument list),
     before pytest fixtures are available to call. `container` may be a real
@@ -71,8 +77,15 @@ def real_screen_registry(container):
     from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.module import (
         TradingScreenModule,
     )
+    from Sagittarius_Elite_Warrior.src.shell.legacy_screen_adapter import (
+        as_screen_descriptor,
+    )
+    from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import (
+        welcome_screen,
+    )
 
     registry = ScreenRegistry()
+    registry.register(as_screen_descriptor(welcome_screen()))
     for module_cls in (
         DashboardScreenModule,
         TradingScreenModule,

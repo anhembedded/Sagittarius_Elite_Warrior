@@ -166,7 +166,7 @@ def test_a_bare_main_window_still_works_with_no_coordinator(windows):
     exactly as before."""
     window = windows.open()
 
-    assert window._current_route == "dashboard"
+    assert window._current_route == "welcome"
 
 
 def test_restores_sidebar_and_geometry_but_never_the_route(windows, tmp_path):
@@ -181,7 +181,7 @@ def test_restores_sidebar_and_geometry_but_never_the_route(windows, tmp_path):
 
     window = windows.open(coordinator)
 
-    assert window._current_route == "dashboard"
+    assert window._current_route == "welcome"
     assert window._sidebar.is_collapsed is True
 
 
@@ -203,9 +203,15 @@ def test_boot_never_constructs_a_non_default_screen_even_with_a_stored_route(
 
     window = windows.open(coordinator)
 
+    # PR 1.5a made this a stronger guarantee than it was: the default route
+    # is the shell's Welcome screen, so booting now constructs *neither*
+    # trading screen — and the Dev Board, whose Presenter opens feeds of its
+    # own, is no longer built just because the app started.
+    welcome_entry = window._router._registry["welcome"]
     dashboard_entry = window._router._registry["dashboard"]
     trading_entry = window._router._registry["trading"]
-    assert dashboard_entry["presenter_instance"] is not None
+    assert welcome_entry["presenter_instance"] is not None
+    assert dashboard_entry["presenter_instance"] is None
     assert trading_entry["presenter_instance"] is None
 
 
@@ -231,7 +237,7 @@ def test_sidebar_toggle_survives_a_restart_but_the_route_resets_to_default(
     reopened_coordinator = _coordinator_over(tmp_path)  # a fresh process, fresh store
     reopened = windows.open(reopened_coordinator)
 
-    assert reopened._current_route == "dashboard"
+    assert reopened._current_route == "welcome"
     assert reopened._sidebar.is_collapsed is True
 
 

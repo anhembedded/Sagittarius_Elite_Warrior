@@ -45,6 +45,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module impor
 from Sagittarius_Elite_Warrior.src.presentation.ui.theme_bootstrap import (
     seed_app_theme,
 )
+from Sagittarius_Elite_Warrior.src.shell.legacy_screen_adapter import (
+    as_screen_descriptor,
+)
+from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import welcome_screen
 
 _START_TIMEOUT_SECONDS = 5.0
 _FINISH_TIMEOUT_SECONDS = 5.0
@@ -133,6 +137,11 @@ def main() -> None:
         # embedding rework turned from silently-wrong into a hard failure.
         seed_app_theme()
         screen_registry = ScreenRegistry()
+        # The shell's Welcome screen carries `is_default` since `EPIC-025`
+        # PR 1.5a, and `MainWindow` refuses to open without a default — so a
+        # probe that hand-lists the legacy screens has to include it, the same
+        # way `tests/conftest.py`'s `real_screen_registry` does.
+        screen_registry.register(as_screen_descriptor(welcome_screen()))
         for module_cls in (
             DashboardScreenModule,
             DatabaseScreenModule,

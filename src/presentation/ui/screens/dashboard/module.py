@@ -47,8 +47,12 @@ class DashboardScreenModule(AbstractScreenModule):
     section_key = "NAVIGATION"
     section_sequence = 10
     item_sequence = 10
-    #: The screen `MainWindow` opens on boot — unchanged from `_DEFAULT_ROUTE`.
-    is_default = True
+    #: **Not** the default any more (`EPIC-025` PR 1.5a, ADR D13): the app
+    #: opens on Welcome, a screen about the application, rather than on a
+    #: developer testbed that happened to be first in the sidebar.
+    #: `ContributionRegistry` refuses two defaults, so this may not simply be
+    #: set back to `True` — the pair would fail the boot and name itself.
+    is_default = False
 
     def create_view(self, container: IContainer) -> BaseView:
         from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
