@@ -7,7 +7,7 @@ not in either screen's own presenter module).
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.result import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderNotionalRejection,
     ExecuteOrderSafetyGate,
 )

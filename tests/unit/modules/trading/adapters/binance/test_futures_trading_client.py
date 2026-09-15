@@ -25,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
     FuturesSymbolMetadata,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
     OrderRejectionReason,
@@ -34,7 +35,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
     OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )

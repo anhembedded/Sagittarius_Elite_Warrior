@@ -10,8 +10,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import DATETIME_FORMAT
 from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
     DEFAULT_TIMEZONE,

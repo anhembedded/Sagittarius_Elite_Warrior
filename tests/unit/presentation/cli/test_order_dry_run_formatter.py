@@ -5,13 +5,13 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
     OrderRejectionReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from Sagittarius_Elite_Warrior.src.presentation.cli.order_dry_run_formatter import (
     format_submission_accepted,
     format_submission_rejected,

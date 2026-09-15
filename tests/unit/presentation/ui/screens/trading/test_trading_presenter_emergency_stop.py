@@ -36,16 +36,18 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_reco
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop import (
     EmergencyStopCommand,
-    EmergencyStopResult,
-    EmergencyStopStepResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
+    EmergencyStopResult,
+    EmergencyStopStepResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_presenter import (

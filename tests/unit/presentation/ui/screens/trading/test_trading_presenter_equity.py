@@ -31,11 +31,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_reco
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
+    EquitySample,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.equity_sample import (
-    EquitySample,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
     equity_sample_to_candle,

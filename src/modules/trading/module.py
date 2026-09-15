@@ -12,11 +12,11 @@ account's own connection state. Deciding *whether* to send an order — a signal
 a strategy, a backtest — belongs to another context and reaches this one
 through `contracts/`.
 
-@par Why `register()` is empty here, unlike `market_data`'s
-PR 1.3a is **the move**: this context's code now lives under
-`modules/trading/`, and every consumer still reaches it exactly as before. Its
-DI registrations deliberately stay in `binance_bot_module.py` for one more pull
-request, and the reason is a single shared object rather than laziness.
+@par Why `register()` binds only three things, unlike `market_data`'s
+PR 1.3a moved this context's code under `modules/trading/`; PR 1.3b published
+its three ports and bound them here. What is still **not** here is every
+adapter and handler registration, and the reason is a single shared object
+rather than laziness.
 
 `ExchangeSessionFactory` is built **once** and that one instance answers both
 this context's `ITradingSessionFactory` and `market_data`'s
@@ -33,7 +33,8 @@ factory per context") and it is PR 1.3b's, together with the three ports.
 Until then `binance_bot_module.py` registers them, which costs no boundary
 violation: the boundary scan skips that file by name
 (`tests/unit/architecture/boundaries/scan.py`) because it *is* the composition
-root the strangler is replacing.
+root the strangler is replacing. `composition/port_bindings.py` explains which
+three could move early and why.
 
 **Hooks not implemented, and why:**
 
@@ -56,6 +57,9 @@ from typing import Any
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.port_bindings import (
+    bind_published_ports,
+)
 
 logger = logging.getLogger("App.TradingModule")
 
@@ -74,9 +78,16 @@ class TradingModule(BoundedContextModule):
     dependencies: list[str] = []  # noqa: RUF012 — the Engine reads a plain attribute
 
     def register(self, context: Any) -> None:
-        """Nothing yet — see this module's docstring for the shared
-        `ExchangeSessionFactory` instance that keeps the bindings in
-        `binance_bot_module.py` until PR 1.3b."""
+        """The three published ports, and only those.
+
+        PR 1.3b. The adapter and handler registrations still live in
+        `binance_bot_module.py` for the shared-`ExchangeSessionFactory` reason
+        in this module's docstring; these three need nothing but
+        `ICommandDispatcher` and the `TradingSessionState` singleton, so the
+        published surface can be bound from inside the module while its
+        internals wait for PR 1.3c.
+        """
+        bind_published_ports(context.container)
 
     def boot(self, context: Any) -> None:
         """Nothing to start. `IUserDataStream` is registered but deliberately
@@ -88,7 +99,7 @@ class TradingModule(BoundedContextModule):
         """Nothing to close here yet.
 
         The websocket this context can open is closed by the same handler that
-        opened it, and the REST clients hold no pool of their own. When PR 1.3b
+        opened it, and the REST clients hold no pool of their own. When PR 1.3c
         moves the bindings in, this gains the disposal `market_data`'s own
         `shutdown()` performs — and `BUG-122`'s lesson with it: ask the
         container whether a singleton was ever built (`Registration.

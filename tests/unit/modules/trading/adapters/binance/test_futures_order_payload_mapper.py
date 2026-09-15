@@ -19,6 +19,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
     FuturesSymbolMetadata,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     OrderStatus,
@@ -27,7 +28,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 
 
 def _metadata() -> FuturesSymbolMetadata:

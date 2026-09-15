@@ -73,6 +73,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.position_state_re
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
+    EquitySample,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
 )
@@ -96,9 +99,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream 
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.equity_sample import (
-    EquitySample,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,

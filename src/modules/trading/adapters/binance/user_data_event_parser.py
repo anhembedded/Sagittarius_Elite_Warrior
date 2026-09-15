@@ -25,8 +25,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_enum_p
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 
 #: The `"e"` (event type) field Binance stamps on every message this
 #: stream cares about.

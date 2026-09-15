@@ -132,6 +132,34 @@ class TradingSessionState:
             self.enabled = False
             self._generation += 1
 
+    def read_all(self) -> tuple[bool, int, tuple[str, ...]]:
+        """@brief The three facts a reader outside this module needs, read as
+        **one** critical section.
+
+        @details `EPIC-025` PR 1.3b. `enabled`, `orders_sent_this_session` and
+        `known_open_symbols` are plain attributes, so three separate reads can
+        interleave with `record_order_sent()` on the order thread or
+        `reconcile_position()` on the websocket thread and return a
+        combination that never existed — enabled from before a disable, with a
+        symbol set from after it. Taking `self._lock` once is what makes
+        `ITradingSession.snapshot()` able to promise a coherent answer.
+
+        Returns a tuple rather than the published `TradingSessionSnapshot`
+        because this class is `application/` and the DTO is `contracts/`:
+        mapping the tuple is `TradingSessionService`'s one line, and it keeps
+        this file free of the published vocabulary.
+
+        `known_open_symbols` is copied into a tuple **inside** the lock. The
+        set itself is mutable and shared; handing a reader the live object
+        would be handing them a race dressed as a value.
+        """
+        with self._lock:
+            return (
+                self.enabled,
+                self.orders_sent_this_session,
+                tuple(sorted(self.known_open_symbols)),
+            )
+
     def open_position_count(self, symbol: str) -> int:
         """@brief One-way mode (assumed throughout this epic) means a
         symbol is either flat (0) or has exactly one open position (1) —

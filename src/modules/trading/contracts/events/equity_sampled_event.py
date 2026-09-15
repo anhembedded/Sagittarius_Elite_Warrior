@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.equity_sample import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
     EquitySample,
 )
 from sagittarius_engine.domain.base_event import BaseEvent

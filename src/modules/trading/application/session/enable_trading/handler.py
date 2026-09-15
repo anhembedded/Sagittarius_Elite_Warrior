@@ -7,12 +7,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trad
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading.command import (
     EnableTradingCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading.result import (
-    EnableTradingBlockReason,
-    EnableTradingResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
+    EnableTradingBlockReason,
+    EnableTradingResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,

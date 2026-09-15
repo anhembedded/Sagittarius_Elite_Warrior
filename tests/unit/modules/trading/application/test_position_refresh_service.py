@@ -30,7 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_clo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
 

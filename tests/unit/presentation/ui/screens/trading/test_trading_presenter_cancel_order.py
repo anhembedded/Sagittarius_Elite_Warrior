@@ -14,6 +14,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order import (
     CancelOrderCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
     CancelOrderResult,
 )
 

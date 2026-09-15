@@ -35,13 +35,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
     FuturesSymbolMetadata,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LiquidationPrice,
     LivePosition,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 
 #: `positionSide` Binance's API expects when the account is One-way mode —
 #: never anything else in this epic (ADR §6, `EPIC-021D`).

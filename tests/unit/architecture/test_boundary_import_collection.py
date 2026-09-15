@@ -42,11 +42,11 @@ def test_type_checking_imports_are_ignored_but_the_else_branch_is_not() -> None:
         "if TYPE_CHECKING:\n"
         "    from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.client import Client\n"
         "else:\n"
-        "    from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order\n"
+        "    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order\n"
     )
     assert imported_modules(_HANDLER, source) == {
         "typing",
-        "modules.trading.domain.order",
+        "modules.trading.contracts.order",
     }
 
 

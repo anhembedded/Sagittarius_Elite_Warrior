@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.result import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderSafetyGate,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 
 
 @dataclass(frozen=True)

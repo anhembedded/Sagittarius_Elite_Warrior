@@ -24,13 +24,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LiquidationPrice,
     LivePosition,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from sagittarius_engine.domain.base_event import BaseEvent
 from sagittarius_engine.domain.event_registry import EventRegistry
 

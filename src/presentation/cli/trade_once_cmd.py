@@ -33,11 +33,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_orde
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.result import (
-    ExecuteOrderResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.query import (
     PreviewOrderQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+    ExecuteOrderResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,

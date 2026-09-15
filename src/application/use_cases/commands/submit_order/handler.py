@@ -10,7 +10,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 
 logger = logging.getLogger("App.CommandHandler")
 

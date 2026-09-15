@@ -15,15 +15,15 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.result import (
-    ExecuteOrderResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.live_order_blocked_event import (
     LiveOrderBlockedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ExchangeConnectionStatus,
     PositionMode,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+    ExecuteOrderResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
     FuturesSymbolMetadata,

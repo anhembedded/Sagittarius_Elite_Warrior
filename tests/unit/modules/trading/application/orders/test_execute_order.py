@@ -13,10 +13,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.handler import (
     ExecuteOrderCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.result import (
-    ExecuteOrderNotionalRejection,
-    ExecuteOrderSafetyGate,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.handler import (
     PreviewOrderQueryHandler,
 )
@@ -30,6 +26,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ConnectionFailureKind,
     ExchangeConnectionStatus,
     PositionMode,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+    ExecuteOrderNotionalRejection,
+    ExecuteOrderSafetyGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
     FuturesSymbolMetadata,

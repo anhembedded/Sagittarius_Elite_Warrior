@@ -6,7 +6,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.order_quantity_rounding_policy import (
     NotionalCheck,
 )

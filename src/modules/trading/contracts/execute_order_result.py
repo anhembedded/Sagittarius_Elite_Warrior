@@ -5,10 +5,10 @@ from __future__ import annotations
 from dataclasses import dataclass
 from enum import Enum
 
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.order_preview import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview import (
     OrderPreview,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitCheck,
     TradingLimitContext,

@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from sagittarius_engine.domain.base_event import BaseEvent
 
 

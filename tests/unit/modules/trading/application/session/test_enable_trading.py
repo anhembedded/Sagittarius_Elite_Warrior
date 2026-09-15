@@ -4,12 +4,14 @@ from decimal import Decimal
 from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
-    EnableTradingBlockReason,
     EnableTradingCommand,
     EnableTradingCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
+    EnableTradingBlockReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,

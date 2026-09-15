@@ -8,7 +8,7 @@ from __future__ import annotations
 
 from collections import deque
 
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.equity_sample import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
     EquitySample,
 )
 

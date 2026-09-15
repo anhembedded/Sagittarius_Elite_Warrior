@@ -45,16 +45,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_p
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
+    LivePosition,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
-    LivePosition,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
 )

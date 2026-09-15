@@ -1,6 +1,6 @@
 from dataclasses import dataclass
 
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
 from sagittarius_engine.domain.base_event import BaseEvent

@@ -9,9 +9,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_ord
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order.handler import (
     CancelOrderCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.result import (
-    ExecuteOrderSafetyGate,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -19,12 +16,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ConnectionFailureKind,
     ExchangeConnectionStatus,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+    ExecuteOrderSafetyGate,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     OrderStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )

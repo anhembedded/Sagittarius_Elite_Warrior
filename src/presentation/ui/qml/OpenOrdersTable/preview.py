@@ -9,12 +9,12 @@ from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     OrderStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import StyleRole
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.embed import QuickSurface
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.OpenOrdersTable.open_order_row import (

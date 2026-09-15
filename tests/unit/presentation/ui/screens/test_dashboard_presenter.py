@@ -1781,6 +1781,7 @@ def _fill_event(symbol="ETHUSDT", order_time=None, status=None):
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
         OrderFilledEvent,
     )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import (
         OrderSide,
     )
@@ -1790,7 +1791,6 @@ def _fill_event(symbol="ETHUSDT", order_time=None, status=None):
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
         OrderType,
     )
-    from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 
     order = Order(
         client_order_id=ClientOrderId("SEW-a91f4c72e0b8"),
@@ -1846,7 +1846,7 @@ def _position(symbol="BTCUSDT"):
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
         MarginType,
     )
-    from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
         LivePosition,
     )
 
@@ -1977,7 +1977,7 @@ def _equity_sample(minute: int = 0):
     from datetime import datetime
     from decimal import Decimal
 
-    from Sagittarius_Elite_Warrior.src.modules.trading.domain.equity_sample import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
         EquitySample,
     )
 
@@ -2226,6 +2226,8 @@ def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
 ):
     from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
         EnableTradingCommand,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
         EnableTradingResult,
     )
     from Sagittarius_Elite_Warrior.src.presentation.ui.qml.OpenOrdersTable.open_order_row import (
@@ -2260,7 +2262,7 @@ def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
 def test_refused_enable_shows_the_block_reason_and_seeds_positions(
     presenter, mock_dispatcher, view, monkeypatch
 ):
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
         EnableTradingBlockReason,
         EnableTradingResult,
     )
@@ -2325,7 +2327,7 @@ def test_successful_disable_turns_the_toggle_off(
 def _emergency_stop_result(
     *, fully_succeeded: bool, final_state_confirmed: bool = True
 ):
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
         EmergencyStopResult,
         EmergencyStopStepResult,
     )
@@ -2497,7 +2499,7 @@ def _live_position(symbol: str, signed_amount: str):
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
         MarginType,
     )
-    from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
         LivePosition,
     )
 
@@ -2749,7 +2751,7 @@ def test_run_cancel_order_dispatches_cancel_order_command_for_exactly_that_order
 def test_cancel_order_completed_removes_the_order_from_the_book(
     presenter, mock_dispatcher
 ):
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
         CancelOrderResult,
     )
 

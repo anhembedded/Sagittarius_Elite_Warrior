@@ -20,12 +20,12 @@ from __future__ import annotations
 
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
+    LivePosition,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
-    LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.signal_action_to_order_intent import (
     OrderIntent,

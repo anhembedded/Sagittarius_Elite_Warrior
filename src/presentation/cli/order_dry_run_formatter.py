@@ -12,10 +12,10 @@ point is `EPIC-021G`'s job, alongside lifting the guard itself.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 
 #: `TradingVenue` has no `MAINNET` member (ADR §3), so this is the one host
 #: this app's trading path ever talks to.

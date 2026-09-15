@@ -20,10 +20,10 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 
 
 class ITradingClient(ABC):

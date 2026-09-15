@@ -8,19 +8,19 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.result import (
-    ExecuteOrderResult,
-    ExecuteOrderSafetyGate,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+    ExecuteOrderResult,
+    ExecuteOrderSafetyGate,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     OrderStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitCheck,
     TradingLimitContext,

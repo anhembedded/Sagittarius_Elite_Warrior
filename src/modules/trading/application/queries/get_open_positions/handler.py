@@ -26,11 +26,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
+    LivePosition,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
-    LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,

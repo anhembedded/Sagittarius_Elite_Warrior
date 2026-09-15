@@ -6,10 +6,10 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
     ManualOrderDirection,
     manual_order_intent_for,

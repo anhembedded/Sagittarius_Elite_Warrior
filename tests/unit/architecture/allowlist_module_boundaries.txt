@@ -11,7 +11,7 @@
 #
 # History of the count: 10 as found (2026-09-13) -> 8 after PR 0.3 -> 41 after
 # PR 0.4a -> 38 after PR 0.4a-2 -> 34 after PR 0.5 -> 28 after PR 1.1a -> 24
-# after PR 1.1b -> 20 after PR 1.2 -> 80 after PR 1.3a.
+# after PR 1.1b -> 20 after PR 1.2 -> 80 after PR 1.3a -> 60 after PR 1.3b.
 #
 # The jump at 1.3a is 0.4a's again, and for the same reason: it moved the
 # `trading` context into `modules/trading/`, so every legacy screen, CLI
@@ -22,10 +22,17 @@
 #
 # Read the two directions separately, because they are not the same debt:
 # SIX entries point OUT of the new tree (modules.trading -> legacy) and each
-# names the one shared object or foreign concept behind it; SIXTY-ONE point
-# IN (legacy -> modules.trading) and every one of them is a consumer waiting
-# for a port. The direction that would be architecturally alarming is the
-# first, and it is the small one.
+# names the one shared object or foreign concept behind it; the rest point IN
+# (legacy -> modules.trading) and every one of them is a consumer waiting for
+# a port. The direction that would be architecturally alarming is the first,
+# and it is the small one -- and it has not moved since 1.3a.
+#
+# PR 1.3b's first half took the inbound count 61 -> 41 without touching a
+# single consumer, by moving the types that CROSS the boundary into
+# `contracts/`: `Order`, `LivePosition`, `EquitySample` and the four answer
+# types (`ExecuteOrderResult`, `CancelOrderResult`, `OrderPreview`,
+# `EnableTradingResult`, `EmergencyStopResult`). Their names are unchanged,
+# deliberately -- see the note below.
 #
 # 0.5 is the first time an entry retired because a **consumer moved onto a
 # published port** rather than because code moved into the module: four screens
@@ -233,6 +240,24 @@ modules.trading.domain.policies.signal_action_to_order_intent -> domain.value_ob
 
 
 # ---------------------------------------------------------------------------
+# WHY `Order` AND `LivePosition` KEEP THEIR NAMES (PR 1.3b)
+#
+# HLD 3.4 said "LivePosition NEVER leaves the module; PositionSnapshot is its
+# flat DTO", and PR 1.3b does not do that. Measured before deciding: `Order`
+# is a frozen dataclass with eleven fields and ZERO methods; `LivePosition` is
+# frozen with eight scalar fields, a `LiquidationPrice` (a NewType over
+# Decimal) and one pure derivation (`side`, the sign of `position_amt`).
+# A `PositionSnapshot` would therefore be field-for-field identical, which is
+# behaviour-free churn -- and that is the exact argument PR 1.2 used to KEEP
+# the name `BacktestRangeCoverage` rather than rename a DTO that crosses the
+# edge. Doing the opposite here would make the epic inconsistent with itself.
+#
+# So both moved into `contracts/` under their own names, HLD 3.4 is corrected
+# to say so, and the 20 entries that named them are gone -- the legacy tree
+# may import `modules.*.contracts` freely. What did NOT move is anything with
+# behaviour: the policies, the handlers, the mutable session state.
+
+# ---------------------------------------------------------------------------
 # legacy -> modules.trading: SIXTY-ONE entries, every one a consumer waiting
 # for a port, and every one retired by PR 1.3b.
 #
@@ -268,60 +293,40 @@ modules.trading.domain.policies.signal_action_to_order_intent -> domain.value_ob
 #   retires it by moving the caller, not by changing the call.
 
 application.services.live_trading_coordinator -> modules.trading.application.orders.execute_order.command
-application.services.live_trading_coordinator -> modules.trading.application.orders.execute_order.result
 application.services.live_trading_coordinator -> modules.trading.application.orders.preview_order.query
 application.services.live_trading_coordinator -> modules.trading.domain.policies.position_sizing_bridge
 application.services.live_trading_coordinator -> modules.trading.domain.policies.signal_action_to_order_intent
 application.use_cases.commands.submit_order.command -> modules.trading.application.orders.preview_order.query
 application.use_cases.commands.submit_order.handler -> modules.trading.application.orders.preview_order.handler
-application.use_cases.commands.submit_order.handler -> modules.trading.domain.order
 application.use_cases.trading.arm_strategy.handler -> modules.trading.application.trading_session_state
 application.use_cases.trading.disarm_strategy.handler -> modules.trading.application.trading_session_state
 presentation.cli.exchange_status_cmd -> modules.trading.application.queries.get_exchange_connection_status
 presentation.cli.handlers.exchange_status_cli_handler -> modules.trading.application.queries.get_exchange_connection_status
 presentation.cli.order_dry_run_cmd -> modules.trading.adapters.binance.futures_order_payload_mapper
 presentation.cli.order_dry_run_cmd -> modules.trading.application.orders.preview_order
-presentation.cli.order_dry_run_formatter -> modules.trading.domain.order
 presentation.cli.order_preview_cmd -> modules.trading.application.orders.preview_order
-presentation.cli.order_preview_formatter -> modules.trading.application.orders.preview_order.order_preview
 presentation.cli.order_preview_formatter -> modules.trading.domain.policies.order_quantity_rounding_policy
 presentation.cli.trade_once_cmd -> modules.trading.adapters.binance.futures_order_payload_mapper
 presentation.cli.trade_once_cmd -> modules.trading.application.orders.execute_order.command
-presentation.cli.trade_once_cmd -> modules.trading.application.orders.execute_order.result
 presentation.cli.trade_once_cmd -> modules.trading.application.orders.preview_order.query
 presentation.cli.trade_once_cmd -> modules.trading.domain.policies.position_sizing_bridge
 presentation.cli.trade_once_cmd -> modules.trading.domain.policies.signal_action_to_order_intent
 presentation.cli.trade_once_cmd -> modules.trading.domain.policies.trading_limit_policy
-presentation.cli.trade_once_formatter -> modules.trading.application.orders.execute_order.result
 presentation.cli.trade_once_formatter -> modules.trading.domain.policies.trading_limit_policy
-presentation.ui.common.equity_chart_adapter -> modules.trading.domain.equity_sample
-presentation.ui.common.execute_order_block_reason -> modules.trading.application.orders.execute_order.result
 presentation.ui.common.execute_order_block_reason -> modules.trading.domain.policies.trading_limit_policy
-presentation.ui.common.live_order_book_coordinator -> modules.trading.domain.live_position
-presentation.ui.common.live_order_book_coordinator -> modules.trading.domain.order
-presentation.ui.qml.OpenOrdersTable.open_order_row -> modules.trading.domain.order
-presentation.ui.qml.OpenOrdersTable.preview -> modules.trading.domain.order
-presentation.ui.qml.OpenOrdersTable.tests.test_open_orders_vm -> modules.trading.domain.order
-presentation.ui.qml.PositionsTable.positions_row -> modules.trading.domain.live_position
-presentation.ui.qml.PositionsTable.preview -> modules.trading.domain.live_position
-presentation.ui.qml.PositionsTable.tests.test_positions_vm -> modules.trading.domain.live_position
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.equity_curve_recorder
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.orders.cancel_order
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.orders.execute_order
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.orders.execute_order.result
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.orders.preview_order.query
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.queries.get_open_positions
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.session.disable_trading
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.session.emergency_stop
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.session.enable_trading
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.application.trading_session_state
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.domain.live_position
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.domain.policies.manual_order_intent
 presentation.ui.screens.dashboard.dev_board_panel -> modules.trading.domain.policies.manual_order_intent
 presentation.ui.screens.settings.settings_presenter -> modules.trading.application.queries.get_exchange_connection_status
 presentation.ui.screens.settings.settings_presenter -> modules.trading.application.trading_session_state
-presentation.ui.screens.trading.preview -> modules.trading.domain.live_position
-presentation.ui.screens.trading.preview -> modules.trading.domain.order
 presentation.ui.screens.trading.trading_presenter -> modules.trading.application.equity_curve_recorder
 presentation.ui.screens.trading.trading_presenter -> modules.trading.application.orders.cancel_order
 presentation.ui.screens.trading.trading_presenter -> modules.trading.application.session.disable_trading

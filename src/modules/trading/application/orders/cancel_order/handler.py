@@ -16,14 +16,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trad
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order.command import (
     CancelOrderCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order.result import (
-    CancelOrderResult,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.result import (
-    ExecuteOrderSafetyGate,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
+    CancelOrderResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+    ExecuteOrderSafetyGate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,

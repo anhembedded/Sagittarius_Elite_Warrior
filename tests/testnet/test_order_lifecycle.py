@@ -39,15 +39,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trad
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     generate_client_order_id,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
+    LivePosition,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
-    LivePosition,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )

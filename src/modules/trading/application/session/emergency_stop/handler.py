@@ -31,15 +31,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trad
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.command import (
     EmergencyStopCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.result import (
-    EmergencyStopResult,
-    EmergencyStopStepResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     generate_client_order_id,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
+    EmergencyStopResult,
+    EmergencyStopStepResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
@@ -50,6 +50,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client im
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
+    LivePosition,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
@@ -58,10 +62,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.live_position import (
-    LivePosition,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.order import Order
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
 )

@@ -9,7 +9,7 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.equity_sample import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
     EquitySample,
 )
 
