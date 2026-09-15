@@ -10,31 +10,37 @@ import pytest
 
 
 @pytest.fixture(scope="session", autouse=True)
-def _configure_app_qml():
+def _seed_app_theme():
+    """Stands in for the bootstrapper, once per session.
+
+    Every widget this suite builds directly — `SettingsView`, `DashboardView`,
+    `DataManagementView`, `Sidebar`, any `kit` role — needs the app's theme
+    registered before construction, and tests bypass
+    `app_bootstrapper.build()` where that normally happens. So this fixture
+    makes the same call the bootstrapper makes, with the real
+    `Palette`/`IconLoader`, so tests exercise the real wiring.
+
+    It calls `seed_app_theme()` rather than spelling out the engine's
+    `configure_app_qml()` + `get_theme_bridge(palette)` pair, which is what it
+    used to do: `BOT-133` made that one function precisely so a seventh copy
+    could not drift, and `test_quick_widget_only_in_embed.py` now holds `tests/`
+    to the same rule as `src/` and `scripts/`.
+
+    Note what the second half of that pair buys here, because it is not
+    obvious: it primes the theme-bridge singleton, which is otherwise lazy
+    (first built inside `create_quick_widget()`). Some tests call
+    `get_theme_bridge()` with no palette, which only works once the singleton
+    exists — and test execution order is not guaranteed.
+
+    The import stays inside the function on purpose: at module scope it would
+    pull PySide6 and the engine into collection for every test in the
+    repository, UI or not.
     """
-    Every QmlHostView subclass (SettingsView, DashboardView,
-    DataManagementView, Sidebar, ...) requires configure_app_qml() to have
-    run before construction — see app_bootstrapper.py for why this is a
-    one-time bootstrap call rather than a constructor parameter on each
-    screen. Tests construct these Views directly, bypassing the
-    bootstrapper, so this fixture stands in for it, once per session, using
-    the real Palette/IconLoader so tests exercise the real wiring.
-    """
-    from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
-        Palette,
-        get_icon_loader,
-    )
-    from sagittarius_engine.extensions.pyside_mvc import (
-        configure_app_qml,
-        get_theme_bridge,
+    from Sagittarius_Elite_Warrior.src.presentation.ui.theme_bootstrap import (
+        seed_app_theme,
     )
 
-    configure_app_qml(Palette.as_ui_dict(), get_icon_loader(), Palette.as_icon_dict())
-    # Also primes the theme-bridge singleton itself (normally lazy, first
-    # created inside create_quick_widget()) — some tests call
-    # get_theme_bridge() with no palette arg, which only works once the
-    # singleton already exists, and test execution order isn't guaranteed.
-    get_theme_bridge(Palette.as_ui_dict())
+    seed_app_theme()
 
 
 def real_screen_registry(container):

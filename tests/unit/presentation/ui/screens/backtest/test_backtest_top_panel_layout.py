@@ -6,7 +6,6 @@ import contextlib
 from unittest.mock import MagicMock
 
 from PySide6.QtWidgets import QApplication
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Tone
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_top_panel import (
     BackTestTopPanel,
@@ -14,12 +13,23 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_top
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
 )
-from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
+from Sagittarius_Elite_Warrior.src.presentation.ui.theme_bootstrap import (
+    seed_app_theme,
+)
 
 
 def _ensure_theme_bridge(qapp: QApplication) -> None:
+    """One entry point (`BOT-133`), and the `suppress` is load-bearing.
+
+    `get_theme_bridge()` inside `seed_app_theme()` is a first-caller-wins
+    singleton that raises `ValueError` when a second caller offers a different
+    palette — which happens whenever this file runs in the same process as a
+    suite that seeded a placeholder one (`kit/conftest.py` does, deliberately).
+    Either palette is fine for the layout assertions below; what matters is
+    that *some* theme exists before the panel is built.
+    """
     with contextlib.suppress(ValueError):
-        get_theme_bridge(Palette.as_ui_dict())
+        seed_app_theme()
 
 
 def test_top_panel_initial_state_shows_result_box(qapp: QApplication) -> None:

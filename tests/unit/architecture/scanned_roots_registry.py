@@ -88,9 +88,21 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/presentation/ui/qml/test_qml_style_discipline.py",
         (("src/presentation/ui/qml", "*.qml"),),
     ),
+    # `BUG-115`/`BOT-133`, widened 2026-09-15 (review finding S1). Two rules
+    # with two scopes, so all three roots are registered: building a
+    # `QQuickWidget` is forbidden in `src/presentation/ui` and `scripts/`
+    # (what a user or a screenshot actually runs), while seeding the theme by
+    # hand is forbidden in `tests/` as well. It shipped scanning only the
+    # first, and a violation planted in `scripts/` left it green — which is
+    # exactly the silently-empty scan this registry exists to catch, one root
+    # at a time rather than in total.
     (
         "tests/unit/architecture/test_quick_widget_only_in_embed.py",
-        (("src/presentation/ui", "*.py"),),
+        (
+            ("src/presentation/ui", "*.py"),
+            ("scripts", "*.py"),
+            ("tests", "*.py"),
+        ),
     ),
     (
         "tests/unit/presentation/ui/qml/test_select_list_bodies.py",

@@ -33,7 +33,9 @@ from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui import kit
 from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import StyleRole, apply_role
-from sagittarius_engine.extensions.pyside_mvc.tokens import get_theme_bridge
+from Sagittarius_Elite_Warrior.src.presentation.ui.theme_bootstrap import (
+    seed_app_theme,
+)
 
 #: `style.py` is the only place a role turns a token name into pixels, so
 #: it is also the only place that can read a token nobody supplies.
@@ -113,7 +115,7 @@ _ROLE_RENDERS: dict[StyleRole, dict[str, str]] = {
 
 def _rendered_sizes(role: StyleRole, qtbot) -> dict[str, str]:
     """Kích thước thật một role render, đọc từ QSS nó sinh ra."""
-    get_theme_bridge(Palette.as_ui_dict())
+    seed_app_theme()  # the real palette, through the one entry point (BOT-133)
     widget = QWidget()
     qtbot.addWidget(widget)
     apply_role(widget, role)
@@ -211,7 +213,7 @@ def test_body_label_and_heading_are_separately_sizable() -> None:
     assert Palette.FONT_SIZE_MD != Palette.FONT_SIZE_LG
 
     body, heading = QWidget(), QWidget()
-    get_theme_bridge(Palette.as_ui_dict())
+    seed_app_theme()  # the real palette, through the one entry point (BOT-133)
     apply_role(body, StyleRole.BODY_LABEL)
     apply_role(heading, StyleRole.HEADING)
 
