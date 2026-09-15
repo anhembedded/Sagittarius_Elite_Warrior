@@ -25,13 +25,32 @@ Do not work from memory of a previous run; the documents change between runs.
 3. The north star: [`Docs/HLD/README.md`](../../Docs/HLD/README.md) and its sections. When the code
    and the HLD disagree, one of them is wrong and **your pull request fixes it**; drift does not
    survive a phase.
-4. The design at code level: [`Docs/SDD/README.md`](../../Docs/SDD/README.md) — the descriptor
-   shape, the registry validation rules, ownership of a card, lifetime, the threading contract,
-   the boot procedure, the symbol lease. Implement these as written; if you must deviate, the SDD
-   changes in the same pull request with the reason.
+4. The design at code level: the **SDD directory** —
+   [`Docs/SDD/README.md`](../../Docs/SDD/README.md) is its index, and `ls Docs/SDD/` is the real
+   one. It was a single file until 2026-09-15 and is now numbered like the HLD, on the user's
+   decision, for the reason this briefing cares about: every pull request of Phase 1 edited the
+   one file, so "the threading contract changed" and "a module's ports shipped differently" were
+   indistinguishable in its history. Read the file your step touches — the descriptor shape and
+   registry validation (§2), ownership, lifetime and the threading contract (§3), `register()`
+   versus `boot()` and the boot order (§4), a module's published surface and the symbol lease
+   (§5), the committed baselines (§6). Implement them as written; when you must deviate, **§5 is
+   where the deviation is recorded**, in the same pull request, with the measurement that caused
+   it.
 5. The words: [`Docs/VOCABULARY/README.md`](../../Docs/VOCABULARY/README.md). Use them exactly. A
    term you are about to coin goes there in the commit that coins it.
-6. The phase you are executing: `ls Tasks/epics/EPIC-025_module_theo_bounded_context/incomplete/`
+6. **Where the epic actually stands.** Not written here: a phase count in this file would be
+   wrong within a week, which `.agents/Skills/README.md` §1 bans outright. Three commands answer
+   it, in this order — the first says which phases are closed (the `completed/` directory exists
+   only once one is), the second which pull request is next, the third what the boundary debt is:
+
+   ```bash
+   ls Tasks/epics/EPIC-025_module_theo_bounded_context/{incomplete,completed}/
+   sed -n '1,12p' Tasks/epics/EPIC-025_module_theo_bounded_context/incomplete/EPIC-025?_*.md
+   tail -40 Tasks/epics/EPIC-025_module_theo_bounded_context/TRACKING.md   # the per-PR log
+   grep -c '^[a-z]' tests/unit/architecture/allowlist_module_boundaries.txt
+   ```
+
+   The phase you are executing: `ls Tasks/epics/EPIC-025_module_theo_bounded_context/incomplete/`
    — the lowest letter still there is the current phase; read its file whole.
 7. The rules your change touches, from `ls .agents/rules/`. The ones every phase touches:
    [`architecture-rule.md`](../rules/architecture-rule.md) (§2.1 ports, §5 one abstraction per
@@ -98,9 +117,38 @@ Work in this order and do not skip a line. Each line is either done or written d
 8. **Run the guards** on their own so a boundary regression is a named failure, not a line in a
    log: `pytest tests/unit/architecture -q` (once they exist).
 9. **Measure after.** Same scripts as step 4; the numbers go in the PR and in the task file.
-10. **Diagrams and documents.** If the step changed a class, a sequence or a boundary, the matching
-    `.puml` under `Docs/HLD/diagrams/` or `Docs/SDD/diagrams/` changes in the same PR. Check every
-    diagram you touched: `java -jar plantuml.jar -checkonly <file>` (any PlantUML ≥ 1.2026 will do).
+10. **Diagrams and documents — including the spec you just contradicted.** Two halves, and the
+    second is the one that gets skipped.
+
+    *The diagrams.* If the step changed a class, a sequence or a boundary, the matching `.puml`
+    under `Docs/HLD/diagrams/` or `Docs/SDD/diagrams/` changes in the same PR. Check every diagram
+    you touched — and use a current PlantUML: Ubuntu's `plantuml` package (1.2020.2) reports a
+    **false** syntax error on a bodyless nested package, which cost one review an afternoon.
+
+    ```bash
+    ls Docs/SDD/                                   # the spec is a directory, not one file
+    java -jar plantuml.jar -checkonly <file>        # any PlantUML >= 1.2025
+    ```
+
+    *The spec.* **A port almost never ships in the shape the spec gave it, and the difference is
+    not a defect — writing it down late is.** Every one of these was found by building the thing,
+    and every one is now recorded in `Docs/SDD/05_module_contracts.md` beside the port it belongs
+    to:
+
+    | Specified | Shipped | Why |
+    | :--- | :--- | :--- |
+    | `IMarketStream.start(...) -> StreamHandle`, `stop(handle)`, `stop_all(owner)` | `start(owner_id, symbols, interval) -> StreamOutcome`, `stop(owner_id)` | a handle needs per-stream subscriptions instead of one set per owner — a behaviour change, so the seam waits for `strategy` |
+    | `ISymbolCatalog.list_symbols(quote_asset)` | `list_symbols(force_refresh=False)` | measured: nothing filters by quote asset; publishing the parameter publishes a filter nobody implements |
+    | `IRangeCoverage -> RangeCoverageSnapshot` | `-> BacktestRangeCoverage` | that name is another port's answer; renaming a DTO that crosses the edge is churn |
+    | `LivePosition` never leaves; `PositionSnapshot` is its DTO | `LivePosition` and `Order` published under their own names | measured: both already frozen and flat, so the DTO would be field-for-field identical |
+    | `AccountSnapshot`, `PositionSnapshot`, `OpenOrderSnapshot` | never written | the types that already existed carried every field a consumer reads |
+    | `OrderIntent` (published) | `OrderRequest` | two other classes already hold that name, one of them in another module's contracts |
+    | `ITradingSession.claim_symbol/release_symbol` | absent | its first consumer is Phase 2's `strategy`; a lease with no caller is new locking on the app's riskiest state |
+
+    So: before you close a step, read the spec clause your code now disagrees with and **fix the
+    clause**. HLD §3.4's row and SDD §5's subsection are the two places it lives. `CLAUDE.md` puts
+    it plainly — when the code and the design disagree, the pull request is where it is fixed —
+    and the reason it needs a step of its own is that a green gate never mentions it.
 11. **Bookkeeping.** The task file's status and its "done when" list; `Tasks/ROADMAP.md`;
     `Tasks/epics/README.md` — `ONBOARDING.md` §6 says exactly which lines; and the Gantt in
     `Tasks/epics/EPIC-025_module_theo_bounded_context/TRACKING.md` (move the bar to `done`, re-date
