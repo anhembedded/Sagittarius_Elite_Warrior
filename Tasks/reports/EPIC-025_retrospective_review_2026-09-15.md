@@ -88,7 +88,7 @@ The ratchet, however, stops one directory short of the fix it guards — finding
 **Blocking: none.** Nothing in these eight commits ships a defect that can be demonstrated on the
 current tree.
 
-### S1 — Should fix · still actionable · the `BOT-133` guard cannot see `scripts/`, which is where its own sixth copy lived
+### S1 — Should fix · **FIXED 2026-09-15, same day** · the `BOT-133` guard could not see `scripts/`, which is where its own sixth copy lived
 
 `tests/unit/architecture/test_quick_widget_only_in_embed.py:34` scopes the whole scan to
 `src/presentation/ui`. `5f7eb359`'s own commit body says the theme wiring was *"six entry points
@@ -108,10 +108,31 @@ Six palette-carrying seeding sites exist outside `theme_bootstrap.py` today, all
 **What breaks if it ships as-is:** the next probe or E2E script under `scripts/` spells the pair out
 again — the exact defect `BOT-133` was written to make impossible — and nothing says so.
 
-**Smallest fix.** Add `scripts/` to the scanned roots. A test fixture seeding the theme before the
-bootstrapper runs is legitimate, so either exempt `tests/conftest.py` and the kit fixture by name
-with the reason, or leave `tests/` out and narrow the guard's docstring, which today claims the
-mechanism has one entry point without enforcing it outside one directory.
+**Fixed.** The two rules now have two scopes, and the guard's docstring argues each:
+
+- **Building a `QQuickWidget`** is forbidden in `src/presentation/ui` **and `scripts/`** — both run
+  as the real application in front of a user or a screenshot, which is where the black scene
+  appears. Deliberately **not** in `tests/`: a test that loads one `.qml` into a bare widget is
+  testing *that file*, not the embedding contract, and the render-to-texture defect cannot occur
+  headless at all (`BUG-115` §2.4 measured every `grab()` as correct while the screen was wrong).
+- **Seeding the theme** is confined in all three roots, `tests/` included, because a test process
+  needs the theme before it builds a widget for exactly the reason the app does — which makes a
+  fixture the seventh place tempted to spell the pair out.
+
+Four real copies in `tests/` were converted to `seed_app_theme()` rather than exempted:
+`tests/conftest.py` (the session-wide seeder — now one call, with a note on why the import stays
+inside the fixture), `test_preview_fixtures_exist.py`, `test_app_owns_its_size_tokens.py` (two
+sites) and `test_backtest_top_panel_layout.py` (whose `contextlib.suppress(ValueError)` is kept and
+now explained: the bridge is first-caller-wins and raises when a second caller offers a different
+palette). One exemption remains, named in `_SEEDING_EXEMPT` with its reason:
+`tests/unit/presentation/ui/kit/conftest.py` seeds a palette whose tokens are *deliberately
+distinct* so that suite can prove two roles render differently — a test double, not a copy of the
+app's wiring.
+
+`scanned_roots_registry.py` now lists all three roots for this guard, so a root that stops being
+scanned fails one row rather than hiding inside a total. Re-verified by mutation: the planted
+`configure_app_qml`/`get_theme_bridge`/`QQuickWidget`/`setClearColor` in `scripts/` now turns **3 of
+4** tests red, each naming the file and line; before the change it turned none.
 
 ### S2 — Should fix · **FIXED 2026-09-15, same day** · `SDD-06b` described four of five `market_data` ports with signatures that never shipped
 
@@ -166,7 +187,7 @@ shape from, and four of five rows taught a shape that does not compile.
    (`application/ports/`) the file left in PR 0.4a. Both corrected; the row now names
    `DatabaseStatusSnapshot`, which is what is actually there beside `RangeCoverageSnapshot`.
 
-### S3 — Should fix · still actionable · `.claude/skills/` has no path guard, and it holds the review checklist
+### S3 — Should fix · **FIXED 2026-09-15, same day** · `.claude/skills/` had no path guard, and it holds the review checklist
 
 `scripts/check_skill_prompt_references.py:30` globs `.agents/Skills/*.md` and nothing else.
 `b4037002` correctly added a `scanned_roots_registry.py` row for `.claude/rules` (`:150`) — and
@@ -181,8 +202,27 @@ future reviewer to a file that is gone, and the reviewer has no reason to doubt 
 `.agents/Skills/README.md` §1 describes this rot happening once already (`EPIC-011`) — which is why
 the checker exists for the other skills directory.
 
-**Smallest fix.** Widen `SKILLS_DIR` to both roots (the script already understands
-`CHECKED_ROOTS`, which includes `.claude/`), and add the registry row.
+**Fixed.** `SKILLS_DIR` became `PROMPT_TREES`, a list of (directory, glob) pairs:
+`.agents/Skills/*.md`, `.claude/skills/**/*.md` and `.claude/rules/*.md`. The last was added for
+the same reason as the second — a pointer's links to its neighbouring rules were unchecked — and it
+cost one line. `_link_references()` already resolved links against `source.parent`, so trees at
+three different depths need no special case. An empty or missing tree is now an **error** rather
+than a quiet skip, which is the completeness rule `scanned_roots_registry.py` gives the pytest
+guards and which this script cannot get from there, not being a test.
+
+**It found a real one on its first run**, which is the argument for the change better than anything
+above: `.claude/skills/test-health/SKILL.md` told its agent to write
+`Tasks/reports/test_health/YYYY-MM-DD.md`. That is a filename *template*, but nothing in it reads
+as one — no `<>`, no glob — so it was indistinguishable from a claim that the file exists. Rewritten
+as `<today>.md` with the format spelled out beside it, matching the `<agent>.md` convention the
+checker's own error message recommends. Sixteen documents now pass.
+
+Re-verified by mutation: a planted backticked `.agents/rules/does-not-exist-rule.md` **and** a
+planted relative link `../../../tests/unit/architecture/no_such_guard.py` in
+`.claude/skills/pr-review/SKILL.md` are both reported, with the file name; restored afterwards.
+
+Three places that described the old scope were corrected in the same commit: `ci-rule.md` §1's gate
+list, `.agents/Skills/README.md` §8, and the `pr-review` skill's own triage table and checklist K7.
 
 ### Q1 — Question · still actionable · which language does a row on the bug board take?
 
@@ -257,7 +297,7 @@ Both look like rule violations and are not, and saying so is cheaper than having
 | :--- | :--- |
 | `ruff check src tests scripts` | All checks passed |
 | `ruff format --check src tests scripts` | 1241 files already formatted |
-| `python3 scripts/check_skill_prompt_references.py` | OK — every `.agents/Skills/` path resolves |
+| `python3 scripts/check_skill_prompt_references.py` | Before: OK, `.agents/Skills/` only. After widening (S3): one real break found and fixed, then OK across 16 documents in three trees |
 | Guard mutation (`pr-review` E12) | Planted violation in `qml/host.py` → 2 of 4 guard tests red, naming `qml/host.py:70`; restored, `git diff` empty |
 | Guard scope probe (S1) | Planted violation in `scripts/` → 4 passed, guard blind; restored |
 | Diagram references after the `a`/`b` split | 20 of 20 `.puml` names referenced across `Docs/`, `Tasks/`, `.agents/` resolve; no dangling old name |
@@ -285,9 +325,9 @@ Not verified, and it matters:
 
 ## 5. What the reader has to decide
 
-1. **S2 is done** (`Docs/SDD/diagrams/sdd-06b_*.puml`, `Docs/SDD/README.md`,
-   `Docs/HLD/03_module_contracts.md`) — it was the one with a deadline, since PR 1.3 reads
-   `SDD-06b` as its template. **S1 and S3** remain: two small, independent guard changes.
+1. **All three are done.** S2 first (it had the deadline — PR 1.3 reads `SDD-06b` as its
+   template), then S1 and S3, each re-verified by planting the violation it is supposed to catch.
+   Nothing here is left open for the reader.
 2. **Q1** — one sentence in `CLAUDE.md` settles whether a bug-board row is Vietnamese or English.
    Until then the board stays bilingual.
 3. **N2** suggests one guard (three derived counts in an existing test file) that would have caught
