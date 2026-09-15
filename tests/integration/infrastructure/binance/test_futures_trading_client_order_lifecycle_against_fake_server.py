@@ -27,14 +27,14 @@ from pathlib import Path
 from unittest.mock import patch
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
-    ExchangeSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
+    FuturesSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
     FuturesTradingClient,
@@ -54,9 +54,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
     ResolvedCredentials,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
-    MarketDataVenue,
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "sanity"))
@@ -90,7 +87,7 @@ def test_placed_order_appears_in_open_orders_then_cancel_removes_it() -> None:
         patch.object(Client, "API_TESTNET_URL", urls.spot),
         patch.object(Client, "FUTURES_TESTNET_URL", urls.futures),
     ):
-        session_factory = ExchangeSessionFactory(MarketDataVenue.MAINNET_PUBLIC)
+        session_factory = FuturesSessionFactory()
         metadata_provider = FuturesMetadataProvider(
             session_factory, InMemoryFuturesSymbolMetadataCache()
         )
@@ -118,7 +115,7 @@ def test_cancel_all_orders_returns_what_was_open_and_clears_the_book() -> None:
         patch.object(Client, "API_TESTNET_URL", urls.spot),
         patch.object(Client, "FUTURES_TESTNET_URL", urls.futures),
     ):
-        session_factory = ExchangeSessionFactory(MarketDataVenue.MAINNET_PUBLIC)
+        session_factory = FuturesSessionFactory()
         metadata_provider = FuturesMetadataProvider(
             session_factory, InMemoryFuturesSymbolMetadataCache()
         )
@@ -148,7 +145,7 @@ def test_positions_are_always_flat_no_matching_engine() -> None:
         patch.object(Client, "API_TESTNET_URL", urls.spot),
         patch.object(Client, "FUTURES_TESTNET_URL", urls.futures),
     ):
-        session_factory = ExchangeSessionFactory(MarketDataVenue.MAINNET_PUBLIC)
+        session_factory = FuturesSessionFactory()
         metadata_provider = FuturesMetadataProvider(
             session_factory, InMemoryFuturesSymbolMetadataCache()
         )

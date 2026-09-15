@@ -1,7 +1,7 @@
 """`IMarketMetadataProvider`'s contract, against its verified fake (HLD §10.3).
 
 Only the fake runs it here, and the reason is written down rather than left as
-a gap: the real `FuturesMetadataProvider` takes the `ExchangeSessionFactory`
+a gap: the real `FuturesMetadataProvider` takes the `FuturesSessionFactory`
 **instance** that `market_data` also uses, so it cannot be constructed in this
 tier without a socket. `EPIC-025` PR 1.3b splits that factory one-per-context,
 and the real half of this suite arrives with it, in

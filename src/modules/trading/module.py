@@ -12,29 +12,32 @@ account's own connection state. Deciding *whether* to send an order — a signal
 a strategy, a backtest — belongs to another context and reaches this one
 through `contracts/`.
 
-@par Why `register()` binds only three things, unlike `market_data`'s
+@par Why `register()` binds only the published ports, unlike `market_data`'s
 PR 1.3a moved this context's code under `modules/trading/`; PR 1.3b published
-its three ports and bound them here. What is still **not** here is every
-adapter and handler registration, and the reason is a single shared object
-rather than laziness.
+its first three ports and bound them here, PR 1.3c-3 added `IEquityCurve`.
+What is still **not** here is every adapter and handler registration.
 
-`ExchangeSessionFactory` is built **once** and that one instance answers both
-this context's `ITradingSessionFactory` and `market_data`'s
-`IExchangeSessionFactory` (`EPIC-024A`: the handlers depend on the port so they
-auto-wire to the shared instance rather than each getting a throwaway one). The
-trading registrations are written against that instance — `FuturesAccountReader`,
-`FuturesMetadataProvider`, `FuturesUserDataStream` and `FuturesTradingClient` all
-take it. Moving them here means this module either resolves that instance from
-the container or builds its own, and building its own is **two factories where
-there was one**: a behaviour change, which ADR D12 keeps out of a move. The
-allowlist has scheduled that split since PR 0.4a ("`EPIC-025B` splits it, one
-factory per context") and it is PR 1.3b's, together with the three ports.
+The reason used to be a single shared object: one `ExchangeSessionFactory`
+answered both this context's `ITradingSessionFactory` and `market_data`'s
+`IExchangeSessionFactory`, so moving the registrations here meant either
+resolving that instance from the container or building a second one — a
+behaviour change ADR D12 keeps out of a move.
+
+**PR 1.3c-4 did the split**, which the allowlist had scheduled since PR 0.4a
+("one factory per context"): `FuturesSessionFactory` is this module's adapter,
+`MarketDataSessionFactory` is the other module's, and both mint their sessions
+through `support/binance_gateway`, still the one place allowed to construct a
+`python-binance` `Client`. So the blocker is gone; what remains is the move
+itself, which is PR 1.4's along with the surfaces — the registrations also
+name the credentials provider, the limits policy and the user-data stream's
+hosted-service lifetime, and moving a dozen bindings is its own change rather
+than a rider on the split that unblocked them.
 
 Until then `binance_bot_module.py` registers them, which costs no boundary
 violation: the boundary scan skips that file by name
 (`tests/unit/architecture/boundaries/scan.py`) because it *is* the composition
 root the strangler is replacing. `composition/port_bindings.py` explains which
-three could move early and why.
+ports could move early and why.
 
 **Hooks not implemented, and why:**
 
@@ -78,14 +81,14 @@ class TradingModule(BoundedContextModule):
     dependencies: list[str] = []  # noqa: RUF012 — the Engine reads a plain attribute
 
     def register(self, context: Any) -> None:
-        """The three published ports, and only those.
+        """The published ports, and only those.
 
-        PR 1.3b. The adapter and handler registrations still live in
-        `binance_bot_module.py` for the shared-`ExchangeSessionFactory` reason
-        in this module's docstring; these three need nothing but
-        `ICommandDispatcher` and the `TradingSessionState` singleton, so the
-        published surface can be bound from inside the module while its
-        internals wait for PR 1.3c.
+        PR 1.3b, plus `IEquityCurve` from PR 1.3c-3. The adapter and handler
+        registrations still live in `binance_bot_module.py` — see this
+        module's docstring for what unblocked that move and why it is still
+        PR 1.4's. These need nothing but `ICommandDispatcher` and two
+        singletons this module owns, so the published surface can be bound
+        from inside the module while its internals wait.
         """
         bind_published_ports(context.container)
 

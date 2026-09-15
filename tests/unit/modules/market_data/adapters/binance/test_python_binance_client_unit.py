@@ -63,7 +63,7 @@ def test_injected_client_is_used_directly_without_patching_the_sdk():
 
 def test_default_market_data_venue_uses_spot_klines_type():
     """`EPIC-021A`: `PythonBinanceClient` no longer constructs its own SDK
-    client (`ExchangeSessionFactory` is the one place allowed to) — this
+    client (a session factory is the one place allowed to) — this
     replaces the old fallback-construction test. Default `market_data_venue`
     (`MAINNET_PUBLIC`) must still resolve to `HistoricalKlinesType.SPOT`,
     keeping every existing call site's behavior unchanged."""

@@ -1,6 +1,12 @@
-"""`EPIC-021A` — `ExchangeSessionFactory` against a real HTTP round trip.
+"""`EPIC-021A` — both session factories against a real HTTP round trip.
 
-@details Not a unit test: `ExchangeSessionFactory.create_market_data_client()`
+`EPIC-025` PR 1.3c-4 split `ExchangeSessionFactory` one factory per bounded
+context, so this file now covers two classes: `MarketDataSessionFactory`'s
+public sessions and `FuturesSessionFactory`'s signed one. It stayed one file
+because what it actually tests is one thing — that a *constructed* session
+reaches the wire correctly — and the fake server it needs is the same one.
+
+@details Not a unit test: `MarketDataSessionFactory.create_market_data_client()`
 constructs a real `binance.client.Client`, and `Client()` pings on
 construction by default (`BUG-045`) — there is no way to exercise it without
 either a real network (blocked, by design, for this whole class of test —
@@ -25,8 +31,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
-    ExchangeSessionFactory,
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
+    MarketDataSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
+    FuturesSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
@@ -41,7 +50,7 @@ from binance_fake_server import run_binance_fake_server
 
 def test_mainnet_public_client_round_trips_against_the_fake_server():
     with run_binance_fake_server() as urls, patch.object(Client, "API_URL", urls.spot):
-        client = ExchangeSessionFactory(
+        client = MarketDataSessionFactory(
             MarketDataVenue.MAINNET_PUBLIC
         ).create_market_data_client()
 
@@ -57,7 +66,7 @@ def test_futures_testnet_client_round_trips_against_the_fake_server():
         run_binance_fake_server() as urls,
         patch.object(Client, "API_TESTNET_URL", urls.spot),
     ):
-        client = ExchangeSessionFactory(
+        client = MarketDataSessionFactory(
             MarketDataVenue.FUTURES_TESTNET
         ).create_market_data_client()
 
@@ -74,16 +83,19 @@ def test_create_trading_client_syncs_timestamp_offset_against_the_exchange_clock
     "behind" any real wall clock — which makes the correction trivially
     assertable: a correctly-synced client's `timestamp_offset` must be a
     large NEGATIVE number close to `-(now in ms)`, not the SDK's own `0`
-    default `create_trading_client()` used to leave it at."""
+    default `create_trading_client()` used to leave it at.
+
+    The factory takes no venue now: a signed session is always Futures
+    Testnet, so there was never a venue to pass it."""
     with (
         run_binance_fake_server() as urls,
         patch.object(Client, "API_TESTNET_URL", urls.spot),
         patch.object(Client, "FUTURES_TESTNET_URL", urls.futures),
     ):
         local_before_ms = int(time.time() * 1000)
-        client = ExchangeSessionFactory(
-            MarketDataVenue.MAINNET_PUBLIC
-        ).create_trading_client(ExchangeCredentials(api_key="k", api_secret="s"))
+        client = FuturesSessionFactory().create_trading_client(
+            ExchangeCredentials(api_key="k", api_secret="s")
+        )
         local_after_ms = int(time.time() * 1000)
 
         # fake serverTime is 0, so the correct offset is `0 - local_time_ms`,

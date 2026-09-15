@@ -64,7 +64,7 @@ class PythonBinanceClient(IExchangeClient):
     ) -> None:
         """
         @param client A pre-built `binance.client.Client` (or a test double). `EPIC-021A`:
-        this class never constructs the SDK client itself — `ExchangeSessionFactory` is the
+        this class never constructs the SDK client itself — `binance_session_builder` is the
         one place in the app allowed to call `Client(...)`, so the venue's endpoint and
         credentials are already baked into `client` by the time it gets here.
         @param market_data_venue Only affects which `klines_type` kline calls use

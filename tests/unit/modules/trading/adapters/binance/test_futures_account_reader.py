@@ -1,9 +1,9 @@
 """`EPIC-021D` — `FuturesAccountReader`: the classification logic that
 turns a raw Binance error/payload into a named `ConnectionFailureKind`.
-Uses `Mock` for the SDK-facing boundary (`ExchangeSessionFactory`/its
+Uses `Mock` for the SDK-facing boundary (`FuturesSessionFactory`/its
 `Client`) and the credentials provider — this file's whole job is proving
 the classification, not re-testing `EnvFirstCredentialsProvider` or
-`ExchangeSessionFactory` themselves."""
+`FuturesSessionFactory` themselves."""
 
 from __future__ import annotations
 

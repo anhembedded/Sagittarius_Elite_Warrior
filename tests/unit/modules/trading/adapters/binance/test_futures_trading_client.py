@@ -1,6 +1,6 @@
 """`EPIC-021F` — `FuturesTradingClient`: submission-mode routing and
 rejection translation. Uses `Mock` for the SDK-facing boundary
-(`ExchangeSessionFactory`/its `Client`), the credentials provider, and the
+(`FuturesSessionFactory`/its `Client`), the credentials provider, and the
 metadata provider — this file's whole job is proving this adapter's own
 logic, not re-testing those collaborators (same shape as
 `test_futures_account_reader.py`, `EPIC-021D`)."""

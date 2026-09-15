@@ -12,7 +12,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.client i
 @pytest.fixture
 def client():
     # EPIC-021A: PythonBinanceClient no longer constructs the SDK client
-    # itself (ExchangeSessionFactory is the one place allowed to) — inject a
+    # itself (a session factory is the one place allowed to) — inject a
     # mock session directly instead of patching Client() construction.
     mock_instance = Mock()
 

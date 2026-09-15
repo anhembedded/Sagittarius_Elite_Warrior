@@ -83,8 +83,8 @@ from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
-    ExchangeSessionFactory,
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
+    MarketDataSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,
@@ -736,7 +736,7 @@ def load_from_db(symbol: str, days: int) -> list[MarketData]:
 
 def load_from_binance(symbol: str, days: int) -> list[MarketData]:
     end = datetime.now(UTC).replace(microsecond=0)
-    client = ExchangeSessionFactory(
+    client = MarketDataSessionFactory(
         MarketDataVenue.MAINNET_PUBLIC
     ).create_market_data_client()
     return client.get_historical_klines(

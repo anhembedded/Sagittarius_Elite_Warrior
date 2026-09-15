@@ -5,11 +5,11 @@ see `conftest.py` for the two gates.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
-    ExchangeSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
+    FuturesSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
@@ -17,9 +17,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
     ResolvedCredentials,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
-    MarketDataVenue,
 )
 
 
@@ -37,7 +34,7 @@ class _StaticCredentialsProvider:
 def test_account_is_reachable(testnet_credentials: ExchangeCredentials) -> None:
     """Same call `main.py exchange-status` makes — real signed requests to
     Futures Testnet, no fake server anywhere in this tier."""
-    session_factory = ExchangeSessionFactory(MarketDataVenue.FUTURES_TESTNET)
+    session_factory = FuturesSessionFactory()
     reader = FuturesAccountReader(
         session_factory, _StaticCredentialsProvider(testnet_credentials)
     )

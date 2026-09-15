@@ -12,7 +12,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
 
 #: python-binance's own default `recvWindow` — matches what
-#: `ExchangeSessionFactory.create_trading_client()` implicitly uses (no
+#: `FuturesSessionFactory.create_trading_client()` implicitly uses (no
 #: override is passed), so this is the real threshold a request would be
 #: judged against, not an arbitrary display cutoff.
 _RECV_WINDOW_MS = 5000

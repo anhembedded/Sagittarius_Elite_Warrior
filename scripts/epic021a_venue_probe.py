@@ -4,7 +4,7 @@ Prints the real base URL and `testnet` flag each `MarketDataVenue` resolves
 to, proving the endpoint is genuinely configuration-driven (the thing
 `BUG-081` found missing), not hard-coded.
 
-Goes through the real `ExchangeSessionFactory` — the only place in the app
+Goes through the real `MarketDataSessionFactory` — one of the two places in the app
 allowed to construct `binance.client.Client(...)`, enforced by
 `tests/unit/infrastructure/binance/
 test_only_the_session_factory_constructs_binance_client.py`'s AST guard.
@@ -27,8 +27,8 @@ from __future__ import annotations
 
 from binance.client import BaseClient, Client
 
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
-    ExchangeSessionFactory,
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
+    MarketDataSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     klines_type_for,
@@ -62,7 +62,7 @@ def _probe(venue: MarketDataVenue) -> None:
 
     ping_note = ""
     try:
-        ExchangeSessionFactory(venue).create_market_data_client()
+        MarketDataSessionFactory(venue).create_market_data_client()
     except Exception as exc:  # noqa: BLE001 - probe boundary: network reachability varies by host, any failure just means "skip the ping line"
         ping_note = f"  [ping skipped: {type(exc).__name__}]"
 

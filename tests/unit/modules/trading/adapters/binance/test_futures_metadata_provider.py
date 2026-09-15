@@ -1,6 +1,6 @@
 """`EPIC-021C` — `FuturesMetadataProvider`: cache-first, `refresh()` always
 hits the network. Uses a `Mock` only for the SDK-facing boundary
-(`ExchangeSessionFactory`/its `Client`) — the cache is the real
+(`FuturesSessionFactory`/its `Client`) — the cache is the real
 `InMemoryFuturesSymbolMetadataCache`, so these tests exercise the actual
 cache-hit/miss logic, not a re-implementation of it."""
 

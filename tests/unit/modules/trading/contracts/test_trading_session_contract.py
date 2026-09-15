@@ -2,7 +2,7 @@
 
 The real `TradingSessionService` runs the same suite once PR 1.3c moves the
 handler registrations into the module: `enable()` needs
-`EnableTradingCommandHandler`, which needs the `ExchangeSessionFactory`
+`EnableTradingCommandHandler`, which needs the `FuturesSessionFactory`
 instance still shared with `market_data`. Recorded here rather than left as a
 silent gap.
 """

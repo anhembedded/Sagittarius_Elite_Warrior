@@ -94,8 +94,8 @@ def _build_database_config(container: IContainer) -> DatabaseConfig:
 def _build_exchange_client(container: IContainer) -> IExchangeClient:
     """The session factory decides the venue; this module only asks for a
     market-data client. `IExchangeSessionFactory` is still registered by the
-    legacy composition root (`binance_bot_module.py`), because one
-    `ExchangeSessionFactory` instance also serves trading's
-    `ITradingSessionFactory` — splitting that shared instance is Phase 1's job,
-    when `trading` becomes a module of its own."""
+    legacy composition root (`binance_bot_module.py`), but no longer because of
+    a shared instance: PR 1.3c-4 split that in two, and
+    `MarketDataSessionFactory` is now this module's own adapter. What is left is
+    moving the registration itself, which waits with the rest of them."""
     return container.resolve(IExchangeSessionFactory).create_market_data_client()

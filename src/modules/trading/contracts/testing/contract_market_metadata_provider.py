@@ -28,7 +28,7 @@ What this suite does **not** pin is what `refresh()` actually fetches: the
 fake has no exchange. That half belongs to the real implementation's own
 integration test against the fake exchange server — `EPIC-025` PR 1.3b, which
 is when `FuturesMetadataProvider` stops needing the shared
-`ExchangeSessionFactory` instance that keeps it unconstructible in this tier.
+`FuturesSessionFactory` that keeps it unconstructible in this tier.
 """
 
 from __future__ import annotations

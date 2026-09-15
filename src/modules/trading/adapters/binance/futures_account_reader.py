@@ -27,9 +27,6 @@ from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
-    ExchangeSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
@@ -41,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_r
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
+    ITradingSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -101,7 +101,7 @@ def _infer_margin_type(open_positions: list[dict[str, Any]]) -> MarginType | Non
 class FuturesAccountReader(ITradingAccountReader):
     def __init__(
         self,
-        session_factory: ExchangeSessionFactory,
+        session_factory: ITradingSessionFactory,
         credentials_provider: IExchangeCredentialsProvider,
     ) -> None:
         self._session_factory = session_factory

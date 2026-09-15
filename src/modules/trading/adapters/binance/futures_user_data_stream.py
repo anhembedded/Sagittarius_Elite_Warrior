@@ -47,9 +47,6 @@ from typing import Any
 
 from binance import AsyncClient, BinanceSocketManager
 from binance.exceptions import ReadLoopClosed
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
-    ExchangeSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
     FuturesTradingClient,
 )
@@ -103,6 +100,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
+    ITradingSessionFactory,
+)
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
@@ -138,7 +138,7 @@ class FuturesUserDataStream(IUserDataStream):
         self,
         event_bus: IEventBus,
         task_manager: ITaskManager,
-        session_factory: ExchangeSessionFactory,
+        session_factory: ITradingSessionFactory,
         credentials_provider: IExchangeCredentialsProvider,
         metadata_provider: IMarketMetadataProvider,
         session_state: TradingSessionState,

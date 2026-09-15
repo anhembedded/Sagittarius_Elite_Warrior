@@ -2,7 +2,7 @@
 
 The real `OrderSubmissionService` runs the same suite once PR 1.3c registers
 the three handlers inside the module — `ExecuteOrderCommandHandler` is the one
-file allowed to build a live client, and it takes the `ExchangeSessionFactory`
+file allowed to build a live client, and it takes the `FuturesSessionFactory`
 instance still shared with `market_data`.
 """
 

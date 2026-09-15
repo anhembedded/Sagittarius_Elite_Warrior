@@ -52,14 +52,14 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
-    ExchangeSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
+    FuturesSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
@@ -97,9 +97,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
     ResolvedCredentials,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
-    MarketDataVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -173,7 +170,7 @@ class _Pipeline:
 
 
 def _build_pipeline() -> _Pipeline:
-    session_factory = ExchangeSessionFactory(MarketDataVenue.MAINNET_PUBLIC)
+    session_factory = FuturesSessionFactory()
     metadata_provider = FuturesMetadataProvider(
         session_factory, InMemoryFuturesSymbolMetadataCache()
     )

@@ -20,7 +20,7 @@ directly and the real `FuturesAccountReader` is told by the venue.
 
 The real implementation's half of this suite runs against the fake exchange
 server in `tests/integration/`, and arrives with `EPIC-025` PR 1.3b: today
-`FuturesAccountReader` takes the `ExchangeSessionFactory` instance shared with
+`FuturesAccountReader` takes the `ITradingSessionFactory` it shares with
 `market_data`, which is the object 1.3b splits one-per-context.
 """
 

@@ -32,14 +32,14 @@ from typing import Any
 from unittest.mock import patch
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
-    ExchangeSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
+    FuturesSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
@@ -82,9 +82,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
     ResolvedCredentials,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
-    MarketDataVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -148,7 +145,7 @@ def _submit_manual_order(direction: ManualOrderDirection) -> None:
     _run_manual_order`), rebuilt here against real collaborators instead of
     a mocked dispatcher — read the real (fake) position, map the click,
     dispatch the real handler."""
-    session_factory = ExchangeSessionFactory(MarketDataVenue.MAINNET_PUBLIC)
+    session_factory = FuturesSessionFactory()
     metadata_provider = FuturesMetadataProvider(
         session_factory, InMemoryFuturesSymbolMetadataCache()
     )

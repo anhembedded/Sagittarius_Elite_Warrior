@@ -104,9 +104,6 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.support_resistance_strategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.volume_spike_flow_strategy import (
     VolumeSpikeFlowStrategy,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
-    ExchangeSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispatcher_adapter import (
     EngineCommandDispatcher,
 )
@@ -119,6 +116,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publishe
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
+    MarketDataSessionFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
@@ -130,6 +130,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_acco
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
+    FuturesSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
     FuturesTradingClient,
@@ -298,19 +301,26 @@ class BinanceBotModule(BaseModule):
         # install to MAINNET_PUBLIC regardless of config.
         market_data_venue = resolve_market_data_venue(config)
         app.container.singleton(MarketDataVenue, market_data_venue)
-        session_factory = ExchangeSessionFactory(market_data_venue)
-        app.container.singleton(IExchangeSessionFactory, session_factory)
+        # `EPIC-025` PR 1.3c-4 — one factory per bounded context, where there
+        # used to be one instance answering both. Each is its own module's
+        # adapter; the SDK session behind both comes from
+        # `support/binance_gateway`, still the only place allowed to construct
+        # a `python-binance` `Client`.
+        app.container.singleton(
+            IExchangeSessionFactory, MarketDataSessionFactory(market_data_venue)
+        )
+        session_factory = FuturesSessionFactory()
         # EPIC-024A: ExecuteOrderCommandHandler/EnableTradingCommandHandler/
         # EmergencyStopCommandHandler depend on this port, not the concrete
-        # ExchangeSessionFactory, so they auto-wire to this same shared
-        # instance rather than the container silently constructing each of
-        # them a throwaway one.
+        # factory, so they auto-wire to this same shared instance rather than
+        # the container silently constructing each of them a throwaway one.
         app.container.singleton(ITradingSessionFactory, session_factory)
 
-        # EPIC-021C: registered against the concrete ExchangeSessionFactory,
-        # not IExchangeSessionFactory — create_futures_metadata_client() is
-        # deliberately not part of that port (see its own docstring), so
-        # FuturesMetadataProvider needs the concrete type.
+        # EPIC-021C: `FuturesMetadataProvider` takes the concrete factory, not
+        # `ITradingSessionFactory` — `create_futures_metadata_client()` is
+        # deliberately not on that port (see the factory's own docstring), and
+        # both are `trading`'s own adapters, so there is no boundary between
+        # them to put one across.
         app.container.singleton(
             IFuturesSymbolMetadataCache, InMemoryFuturesSymbolMetadataCache
         )

@@ -24,14 +24,14 @@ from __future__ import annotations
 import time
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
-    ExchangeSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
+    FuturesSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
     FuturesTradingClient,
@@ -54,9 +54,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
     ResolvedCredentials,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
-    MarketDataVenue,
 )
 
 _SYMBOL = "BTCUSDT"
@@ -94,7 +91,7 @@ def _wait_until_position(client: FuturesTradingClient, predicate) -> list[LivePo
 def _build_client(
     testnet_credentials: ExchangeCredentials, mode: OrderSubmissionMode
 ) -> tuple[FuturesTradingClient, FuturesMetadataProvider]:
-    session_factory = ExchangeSessionFactory(MarketDataVenue.FUTURES_TESTNET)
+    session_factory = FuturesSessionFactory()
     metadata_provider = FuturesMetadataProvider(
         session_factory, InMemoryFuturesSymbolMetadataCache()
     )

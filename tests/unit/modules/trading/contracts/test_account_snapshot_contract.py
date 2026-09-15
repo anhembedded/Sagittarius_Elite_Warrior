@@ -2,7 +2,7 @@
 
 The real `AccountSnapshotService` runs the same suite once PR 1.3c moves the
 query handlers' registrations into the module — they reach the venue through
-the `ExchangeSessionFactory` instance still shared with `market_data`.
+the `FuturesSessionFactory` PR 1.3c-4 gave this module.
 """
 
 from __future__ import annotations

@@ -1,15 +1,15 @@
 """`EPIC-021C` — `IMarketMetadataProvider` implementation: fetches USD-M
-Futures `exchangeInfo` through `ExchangeSessionFactory` and caches it."""
+Futures `exchangeInfo` through `FuturesSessionFactory` and caches it."""
 
 from __future__ import annotations
 
 import logging
 
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
-    ExchangeSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_parser import (
     parse_futures_exchange_info,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
+    FuturesSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
     FuturesSymbolMetadata,
@@ -28,13 +28,13 @@ class FuturesMetadataProvider(IMarketMetadataProvider):
     """@brief Cache-first futures metadata provider.
     @details `session_factory` need not be (and, in production, is not)
     scoped to `MarketDataVenue.FUTURES_TESTNET` itself — see
-    `ExchangeSessionFactory.create_futures_metadata_client()`'s own
+    `FuturesSessionFactory.create_futures_metadata_client()`'s own
     docstring for why futures metadata always ignores that setting.
     """
 
     def __init__(
         self,
-        session_factory: ExchangeSessionFactory,
+        session_factory: FuturesSessionFactory,
         cache: IFuturesSymbolMetadataCache,
     ) -> None:
         self._session_factory = session_factory

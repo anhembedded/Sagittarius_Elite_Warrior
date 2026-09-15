@@ -66,19 +66,20 @@
 
 # ---------------------------------------------------------------------------
 # -> modules.market_data.adapters: reaching past the contracts into a module's
-# private adapters. The two worst entries in this file, and both are two lines
-# of code, not a design:
+# private adapters. There were two, and both were two lines of code rather than
+# a design:
 #
-# * exchange_session_factory constructs PythonBinanceClient directly. The class
-#   itself stays in the legacy tree on purpose (PR 0.4a): one instance answers
-#   both market_data's IExchangeSessionFactory and trading's
-#   ITradingSessionFactory, and splitting a shared instance is a behaviour
-#   change, not a move. EPIC-025B splits it, one factory per context.
+# * exchange_session_factory constructed PythonBinanceClient directly: RETIRED
+#   by PR 1.3c-4, which did the split this note had promised since PR 0.4a.
+#   MarketDataSessionFactory is market_data's own adapter now, so wrapping its
+#   own client is an intra-module call. The rule the shared class existed to
+#   keep -- ONE place may construct binance.client.Client -- moved down into
+#   support/binance_gateway with the construction itself, so the guard still
+#   asserts one call site by equality rather than growing to two.
 # * backtest_presenter falls back to InMemorySymbolMarketMetadataCache when the
 #   container has no cache registered. PR 0.4b rebuilds this screen and the
 #   fallback goes with it — a presenter that needs a stub is a presenter whose
 #   dependency should have been injected.
-infrastructure.binance.exchange_session_factory -> modules.market_data.adapters.binance.client
 presentation.ui.screens.backtest.backtest_presenter -> modules.market_data.adapters.persistence.symbol_market_metadata_cache
 
 # ---------------------------------------------------------------------------
@@ -212,16 +213,20 @@ presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules
 # in. This pull request is trading's 0.4a.
 
 # ---------------------------------------------------------------------------
-# modules.trading -> legacy: SIX entries, and the whole of the new tree's debt
-# to the old one. Each names the object or concept that keeps it standing.
+# modules.trading -> legacy: THREE entries, and the whole of the new tree's
+# debt to the old one. Each names the object or concept that keeps it standing.
 #
-# * exchange_session_factory (3): ONE instance answers both this context's
-#   ITradingSessionFactory and market_data's IExchangeSessionFactory
-#   (EPIC-024A registered it against the port precisely so the handlers share
-#   it instead of each building a throwaway). Moving it into either module
-#   means two factories where there is one, which is a behaviour change, not a
-#   move -- so it stays in the legacy tree for one more pull request and 1.3b
-#   splits it, one factory per context, as this file has said since PR 0.4a.
+# * exchange_session_factory (3): RETIRED by PR 1.3c-4. ONE instance used to
+#   answer both this context's ITradingSessionFactory and market_data's
+#   IExchangeSessionFactory (EPIC-024A registered it against the port precisely
+#   so the handlers shared it instead of each building a throwaway), and this
+#   note said for four pull requests that splitting it was a behaviour change
+#   rather than a move. It was -- so the split came with its own pull request
+#   and its own gate, and it is smaller than the note feared: the venue
+#   plumbing (one Client construction site, the 30s timeout, the BUG-111 clock
+#   sync) moved into support/binance_gateway, where both contexts already read
+#   resolve_testnet_flag and ExchangeCredentials, and each context kept a
+#   factory with only its own methods on it.
 # * margin_risk_policy (1): sanctioned in writing. EPIC-025B 1.3 says
 #   "`trading` keeps only the exchange's part of sizing -- lot/tick rounding
 #   and TradingLimitPolicy -- and its import of MarginRiskPolicy stays on the
@@ -231,9 +236,6 @@ presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules
 #   promoting them now would publish another context's language from this one.
 #   Phase 2 gives them an owner and these two entries leave with it.
 
-modules.trading.adapters.binance.futures_account_reader -> infrastructure.binance.exchange_session_factory
-modules.trading.adapters.binance.futures_metadata_provider -> infrastructure.binance.exchange_session_factory
-modules.trading.adapters.binance.futures_user_data_stream -> infrastructure.binance.exchange_session_factory
 modules.trading.domain.policies.position_sizing_bridge -> domain.backtesting.policies.margin_risk_policy
 modules.trading.domain.policies.position_sizing_bridge -> domain.value_objects.position_sizing
 modules.trading.domain.policies.signal_action_to_order_intent -> domain.value_objects.signal_action

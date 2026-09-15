@@ -18,6 +18,18 @@ from sagittarius_engine.interfaces.i_config import IConfig
 
 logger = logging.getLogger("App.ExchangeClient")
 
+#: `BUG-063` — python-binance's own default read timeout is 10s. A multi-day
+#: 1-second-interval sync needs hundreds of sequential requests, so at that
+#: default, an ordinary slow response (not an outage) was enough to fail the
+#: whole sync. 30s is still bounded — a genuinely dead connection fails loud
+#: well within human patience — but stops treating an occasional slow page as
+#: fatal.
+#:
+#: Here rather than in one factory because `EPIC-025` PR 1.3c-4 split the
+#: factory in two and both mint sessions with it: a number two contexts must
+#: agree on is vocabulary, which is what this package holds (HLD §8).
+REQUEST_TIMEOUT_SECONDS = 30.0
+
 _DEFAULT_MARKET_DATA_VENUE = MarketDataVenue.MAINNET_PUBLIC
 #: Trading is opt-in — an unset/unusable config value must never silently
 #: enable order submission (ADR §3).

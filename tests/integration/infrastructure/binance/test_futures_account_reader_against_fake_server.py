@@ -25,11 +25,11 @@ from pathlib import Path
 from unittest.mock import patch
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
-    ExchangeSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
+    FuturesSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     PositionMode,
@@ -40,9 +40,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
     ResolvedCredentials,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
-    MarketDataVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -71,7 +68,7 @@ def test_check_connection_round_trips_the_fake_servers_account_snapshot():
         patch.object(Client, "API_TESTNET_URL", urls.spot),
         patch.object(Client, "FUTURES_TESTNET_URL", urls.futures),
     ):
-        session_factory = ExchangeSessionFactory(MarketDataVenue.MAINNET_PUBLIC)
+        session_factory = FuturesSessionFactory()
         reader = FuturesAccountReader(session_factory, _FakeCredentialsProvider())
 
         status = reader.check_connection()

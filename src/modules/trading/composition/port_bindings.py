@@ -2,10 +2,10 @@
 
 The only binding table this module has, and the reason is the same one
 `module.py` records: PR 1.3a moved the code in but left the adapter and
-handler registrations in `binance_bot_module.py`, because they are written
-against the single shared `ExchangeSessionFactory` instance that also answers
-`market_data`'s factory port. Splitting that instance is a behaviour change,
-and it is PR 1.3c's with the rest of the registrations.
+handler registrations in `binance_bot_module.py`. PR 1.3c-4 has since split
+the shared `ExchangeSessionFactory` one factory per context, so what kept
+those registrations out is gone; moving the dozen of them is PR 1.4's, with
+the surfaces.
 
 These four are different: not one of them needs an exchange session or a
 credential. Three need only `ICommandDispatcher` (a `core/` port) plus, for the

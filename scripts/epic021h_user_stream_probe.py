@@ -37,14 +37,14 @@ from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryE
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 from sagittarius_engine.utils.path_utils import PathUtils
 
-from Sagittarius_Elite_Warrior.src.infrastructure.binance.exchange_session_factory import (
-    ExchangeSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
+    FuturesSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user_data_stream import (
     FuturesUserDataStream,
@@ -66,9 +66,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_cr
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
     SecretsFileSource,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
-    MarketDataVenue,
 )
 
 
@@ -100,7 +97,7 @@ async def _run(seconds: float) -> None:
     credentials_provider = EnvFirstCredentialsProvider(
         SecretsFileSource(secrets_file_path)
     )
-    session_factory = ExchangeSessionFactory(MarketDataVenue.FUTURES_TESTNET)
+    session_factory = FuturesSessionFactory()
     metadata_provider = FuturesMetadataProvider(
         session_factory, InMemoryFuturesSymbolMetadataCache()
     )

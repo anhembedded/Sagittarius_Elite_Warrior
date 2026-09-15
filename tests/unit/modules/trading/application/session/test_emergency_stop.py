@@ -1,7 +1,7 @@
 """`EPIC-021K` §2.2 — `EmergencyStopCommandHandler`.
 
 Same testing seam `test_execute_order.py`'s `TestLiveSubmission` already
-uses: `ExchangeSessionFactory` is a `Mock` whose `create_trading_client`
+uses: the session factory is a `Mock` whose `create_trading_client`
 returns a `Mock` raw `binance.client.Client` — `FuturesTradingClient`
 itself runs for real (so the real mapper/params code is exercised), but
 nothing reaches the network.

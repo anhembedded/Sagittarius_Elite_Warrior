@@ -1,7 +1,7 @@
 """`ITradingAccountReader`'s contract, against its verified fake (HLD §10.3).
 
 The real `FuturesAccountReader` runs the same suite against the fake exchange
-server once `EPIC-025` PR 1.3b splits the `ExchangeSessionFactory` instance it
+server once the handler registrations move into the module with the factory it
 shares with `market_data` — see the suite's own docstring.
 """
 

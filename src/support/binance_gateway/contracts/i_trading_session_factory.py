@@ -1,13 +1,15 @@
 """`EPIC-024A` — port covering the one thing `ExecuteOrderCommandHandler`,
 `EnableTradingCommandHandler` and `EmergencyStopCommandHandler` actually
-need from `ExchangeSessionFactory`: a signed session to hand to
+need from a session factory: a signed session to hand to
 `FuturesTradingClient`.
 
 @details Before this port existed, all three handlers depended on the
-*concrete* `ExchangeSessionFactory`/`FuturesTradingClient` classes directly
+*concrete* session factory and `FuturesTradingClient` classes directly
 — an `architecture-rule.md` §3 violation confirmed at `PRO-003` §2.
 `IExchangeSessionFactory` (`EPIC-021A`) could not simply grow a
-`create_trading_client()` method to fix this: that port's own docstring
+`create_trading_client()` method to fix this — and after `EPIC-025` PR 1.3c-4
+it could not at all, since the two ports are now implemented by two different
+modules' adapters. Even then: that port's own docstring
 already rules it out — "this port must not name `binance.client.Client` in
 its own signature" — and `create_trading_client()` on the concrete class
 returns exactly that raw SDK type.
@@ -18,7 +20,7 @@ plus a structural (`Protocol`) return type instead of the raw SDK class:
 `ITradingSessionClient` names every `futures_*` call any consumer of
 `create_trading_client()` actually makes — `FuturesTradingClient`
 (`EPIC-021F`) and `FuturesAccountReader` (`EPIC-021D`) both resolve the
-same client through `ExchangeSessionFactory`, so the Protocol has to cover
+same client through this port, so the Protocol has to cover
 both, not just the port's own two application-layer callers.
 `binance.client.Client` satisfies it structurally — it is never imported
 here, so nothing in `application/` gains a dependency on `python-binance`.
@@ -36,7 +38,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 
 class ITradingSessionClient(Protocol):
     """@brief Structural port for the raw signed session
-    `ExchangeSessionFactory.create_trading_client()` returns. Lists every
+    `create_trading_client()` returns. Lists every
     `futures_*` call its two consumers (`FuturesTradingClient`,
     `FuturesAccountReader`) actually make — not a stand-in for the whole
     `python-binance` `Client` surface."""
