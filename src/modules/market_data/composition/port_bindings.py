@@ -26,7 +26,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines import (
-    GetHistoricalKlinesQueryHandler,
+    StoredKlinesReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.market_data_sync_service import (
     MarketDataSyncService,
@@ -59,17 +59,17 @@ def _build_market_data_sync(container: IContainer) -> IMarketDataSync:
 
 
 def _build_historical_klines(container: IContainer) -> IHistoricalKlines:
-    """The query handler itself, per HLD §3.4: "a port implementation may be
-    the existing handler" — no pass-through object and no extra file, which is
+    """The reader itself, per HLD §3.4: "a port implementation may be the
+    existing handler" — no pass-through object and no extra file, which is
     the accidental complexity ADR D2 exists to avoid.
 
-    It is constructed here rather than resolved, and the difference matters.
-    `query_bindings.py` registers the same class against
-    `GetHistoricalKlinesQuery` for the module's own dispatches, and that
-    binding is transient — one handler per dispatch. A published port is a
-    `singleton`, so resolving the query binding here would tie the port's
-    lifetime to whatever the dispatcher happened to hand back. Two
-    registrations, one class, each with the lifetime its own caller needs;
-    the handler is stateless, so nothing is shared but the repository.
+    **This is now the only registration of that class.** When PR 1.1a
+    published the port, `query_bindings.py` still bound the same class
+    against `GetHistoricalKlinesQuery` for the module's own dispatches — and
+    once all six consumers had moved onto the port, nothing in `src/`
+    dispatched that query at all. The cleanup after 1.1a's review deleted the
+    query, the binding and the `execute()` they reached, so the lifetime
+    question those two registrations raised is gone with them: one class, one
+    `singleton`, stateless but for the repository it reads.
     """
-    return GetHistoricalKlinesQueryHandler(container.resolve(IMarketDataRepository))
+    return StoredKlinesReader(container.resolve(IMarketDataRepository))

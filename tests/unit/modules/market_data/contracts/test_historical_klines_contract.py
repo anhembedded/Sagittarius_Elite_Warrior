@@ -1,7 +1,7 @@
 """`IHistoricalKlines`'s contract, against both implementations (HLD §10.3).
 
 **Where the real half runs, and why here rather than `tests/integration/`.**
-`GetHistoricalKlinesQueryHandler` holds no I/O of its own: it reads
+`StoredKlinesReader` holds no I/O of its own: it reads
 `IMarketDataRepository`. Running it over `FakeMarketDataRepository` — itself a
 verified fake with its own contract suite (PR 0.4a-3) — exercises the real
 limit, ordering, range-filter and concurrency code paths with nothing to
@@ -14,7 +14,7 @@ suite already runs there against the real engine, which is where a divergence
 between the in-memory store and SQL would surface.
 
 **Why the real handler is composed here and not inside the fake.** The obvious
-shortcut is to make `FakeHistoricalKlines` *be* the handler over a fake store,
+shortcut is to make `FakeHistoricalKlines` *be* the reader over a fake store,
 which cannot diverge by construction — and would make `contracts/` depend on
 `application/`, inverting a direction this module has never inverted. The
 import costs nothing in a test file, so the composition lives here and
@@ -29,7 +29,7 @@ import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.handler import (
-    GetHistoricalKlinesQueryHandler,
+    StoredKlinesReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
@@ -73,7 +73,7 @@ class TestTheRealQueryHandler(HistoricalKlinesContract):
 
     @pytest.fixture
     def impl(self, store: FakeMarketDataRepository) -> IHistoricalKlines:
-        return GetHistoricalKlinesQueryHandler(store)
+        return StoredKlinesReader(store)
 
     @pytest.fixture
     def seed(self, store: FakeMarketDataRepository) -> SeedKlines:
@@ -182,7 +182,7 @@ def test_the_fake_and_the_handler_agree_on_a_seeded_series() -> None:
     fake.seed(rows)
     store = FakeMarketDataRepository()
     store.save_klines(rows)
-    real = GetHistoricalKlinesQueryHandler(store)
+    real = StoredKlinesReader(store)
 
     assert fake.load("BTCUSDT", MINUTE, limit=3, newest_first=True) == real.load(
         "BTCUSDT", MINUTE, limit=3, newest_first=True

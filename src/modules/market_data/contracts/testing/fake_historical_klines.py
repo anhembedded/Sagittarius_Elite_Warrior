@@ -7,7 +7,7 @@ agrees with whatever the test asserts and cannot notice the day the port's real
 behaviour changes.
 
 **Why this is a second implementation and not the real one over a fake store.**
-Composing `GetHistoricalKlinesQueryHandler` with `FakeMarketDataRepository`
+Composing `StoredKlinesReader` with `FakeMarketDataRepository`
 would give a fake that cannot diverge, which is tempting — but it would make
 `contracts/` depend on `application/`, and this file would be the first in the
 module to invert that direction. The epic has not settled whether a module's

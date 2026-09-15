@@ -2563,8 +2563,12 @@ def test_realtime_run_draws_its_own_committed_bars_not_a_fresh_kline_query(
     markers derived from them would otherwise sit above candles that
     disagree with the decisions actually made.
 
-    The dispatch stub deliberately answers GetHistoricalKlinesQuery with []
-    to reproduce the real "no candles stored for this timeframe" condition.
+    The history port is left **empty**, which is the real condition this
+    reproduces: nothing is stored for `config.timeframe`, because only
+    `tick_resolution` was ever synced. `EPIC-025` PR 1.1a's cleanup also made
+    the "never a fresh kline query" half of the name assertable — it is the
+    `reads == []` below, where before the move nothing checked it at all and
+    the test name promised what only its docstring said.
     """
     committed = _make_klines(count=4)
     result = _make_result(with_trades=True)
@@ -2580,6 +2584,9 @@ def test_realtime_run_draws_its_own_committed_bars_not_a_fresh_kline_query(
     card.render_historical_data.assert_called_once()
     drawn = card.render_historical_data.call_args.args[0]
     assert len(drawn) == len(committed)
+    assert fake_historical_klines.reads == [], (
+        "a realtime run draws its own bars and must not read stored candles"
+    )
 
 
 def test_static_run_still_queries_klines_when_no_committed_bars(

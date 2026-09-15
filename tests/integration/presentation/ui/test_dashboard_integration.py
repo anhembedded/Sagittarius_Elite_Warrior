@@ -29,7 +29,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_p
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
-from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.conftest import (
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.mock_klines import (
     build_mock_klines,
 )
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -130,19 +130,39 @@ def test_dashboard_integration_load_history(qapp, mock_app):
     assert history.was_read_for("ETHUSDT")
 
 
+class _AStoreThatCannotBeRead(IHistoricalKlines):
+    """An `IHistoricalKlines` whose reads raise, for the fallback tests.
+
+    A whole implementation rather than a patched method, and it inherits the
+    port so the day `IHistoricalKlines` gains a member this class fails to
+    instantiate — which is the reminder `Mock(spec=...)` cannot give
+    (`test_no_foreign_port_is_mocked.py` is the rule; this is the shape that
+    obeys it while still failing on purpose).
+    """
+
+    _MESSAGE = "Engine died"
+
+    def load(self, *_args, **_kwargs):
+        raise RuntimeError(self._MESSAGE)
+
+    def load_many(self, *_args, **_kwargs):
+        raise RuntimeError(self._MESSAGE)
+
+
 def test_dashboard_integration_exception_fallback(qapp, mock_app):
     mock_app.resolve.return_value = mock_app
     view = DashboardView()
     presenter = DashboardPresenter(view, mock_app.container)
     view.presenter = presenter
 
-    # Force an exception inside the slot logic. `EPIC-025` PR 1.1 — on the
-    # port, because that is what `_run_load_history` calls first; a dispatcher
-    # that raises would no longer be reached before the read.
-    def die(*_args, **_kwargs):
-        raise RuntimeError("Engine died")
-
-    presenter._stream_controller._historical_klines.load_many = die
+    # Force an exception inside the slot logic. `EPIC-025` PR 1.1a — on the
+    # port, because that is what `_run_load_history` reaches first; a
+    # dispatcher that raises is no longer reached before the read. Given as a
+    # real `IHistoricalKlines` whose every method raises, rather than a
+    # function patched onto the verified fake: a fake with one method
+    # replaced is neither the fake nor the failure, and the next reader
+    # cannot tell which promises still hold.
+    presenter._stream_controller._historical_klines = _AStoreThatCannotBeRead()
     mock_app.dispatch.side_effect = RuntimeError("Engine died")
 
     # Track logs

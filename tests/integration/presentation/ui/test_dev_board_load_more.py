@@ -2,12 +2,11 @@
 BOT-035 — load more historical candles when the user scrolls/pans near the
 left edge of the chart.
 
-conftest's mocked dispatch always returns the same fixed 5-candle batch
-regardless of query params (it never looks at end_time), which can't tell
-"initial load" apart from "load more" — every test here installs its own
-dispatch override (via `monkeypatch`, auto-reverted) that returns an OLDER
-batch specifically when GetHistoricalKlinesQuery.end_time is set, mirroring
-what the real repository does.
+`EPIC-025` PR 1.1a removed the hand-rolled dispatcher these tests used to
+install. The history read is `IHistoricalKlines` now, and its fake is a real
+store that honours `end_time` — so "initial load" and "load more" tell
+themselves apart, and a test only has to decide *when* the older page exists
+(`_reveal_older_history`, below).
 
 Simulates the "user scrolled near the edge" trigger by emitting
 ChartCard.sig_near_left_edge directly rather than a real drag gesture — this
@@ -15,55 +14,38 @@ repo has no existing precedent for simulating a pyqtgraph mouse-drag pan
 (only QPushButton/QML clicks), and EdgeScrollDetector's own unit tests
 already cover the pan-distance math in isolation.
 
-MOCK_KLINE_COUNT/build_mock_klines are duplicated from conftest.py rather
-than imported — this directory's test modules have no __init__.py, so
-they're collected as top-level modules, not a package (a relative
-`from .conftest import` fails at collection). Same workaround already used
-by test_sanity_ui_e2e.py.
+The series comes from `mock_klines.py`, which is where PR 1.1a's cleanup put
+it: a copy used to live in this file, and it had already drifted two years
+out of date once conftest's moved to the current clock. It is **not**
+imported from `conftest.py` — importing a conftest by name runs it a second
+time under a second module identity, which aborted this whole tier
+mid-run; `mock_klines.py`'s own docstring records that.
 """
 
-from datetime import UTC, datetime, timedelta
+from datetime import timedelta
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-
-MOCK_KLINE_COUNT = 5
-_BASE_TIME = datetime(2024, 1, 1, tzinfo=UTC)
-
-
-def _build_mock_klines(symbol: str, interval: str = "1m") -> list[MarketData]:
-    """Must match conftest.build_mock_klines exactly — this is what the
-    normal (non-load-more) dispatch path returns."""
-    klines = []
-    for i in range(MOCK_KLINE_COUNT):
-        open_time = _BASE_TIME + timedelta(minutes=i)
-        close_time = open_time + timedelta(minutes=1)
-        klines.append(
-            MarketData(
-                symbol=symbol,
-                interval=interval,
-                open_time=open_time,
-                open_price=100.0 + i,
-                high_price=101.0 + i,
-                low_price=99.0 + i,
-                close_price=100.5 + i,
-                volume=10.0,
-                close_time=close_time,
-                quote_asset_volume=1000.0,
-                number_of_trades=5,
-                taker_buy_base_asset_volume=5.0,
-                taker_buy_quote_asset_volume=500.0,
-            )
-        )
-    klines.reverse()
-    return klines
+from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.mock_klines import (
+    MOCK_KLINE_COUNT,
+    build_mock_klines,
+)
 
 
 def _older_mock_klines(symbol: str) -> list[MarketData]:
-    """Newest-first, all strictly older than build_mock_klines()'s oldest
-    candle (whose close_time is _BASE_TIME + 1 minute)."""
+    """Newest-first, all strictly older than the oldest candle the screen
+    already holds — which is `build_mock_klines()`'s last row, since that
+    builder hands its rows back newest-first.
+
+    Derived from that builder rather than from an epoch of its own: the page
+    this test prepends has to be *adjacent* to what the chart is showing, and
+    PR 1.1a's cleanup found this file's own constant two years away from it
+    after conftest moved to the current clock. One source for the anchor, so
+    it cannot drift again.
+    """
+    oldest_shown = build_mock_klines(symbol)[-1].open_time
     klines = []
     for i in range(MOCK_KLINE_COUNT):
-        open_time = _BASE_TIME - timedelta(minutes=MOCK_KLINE_COUNT - i)
+        open_time = oldest_shown - timedelta(minutes=MOCK_KLINE_COUNT - i)
         close_time = open_time + timedelta(minutes=1)
         klines.append(
             MarketData(

@@ -1,13 +1,15 @@
 """Port: *read stored candles* (HLD §3.4, §6.1).
 
-**Why this port exists.** Six call sites build `GetHistoricalKlinesQuery` and
-dispatch it — two backtest coordinators, the trading chart, the Dev Board
-stream controller, Data Management's kline inspector and the CLI's
-`trade-once`. Every one of them therefore imports
+**Why this port exists.** Six call sites used to build a
+`GetHistoricalKlinesQuery` and dispatch it — two backtest coordinators, the
+trading chart, the Dev Board stream controller, Data Management's kline
+inspector and the CLI's `trade-once`. Every one of them therefore imported
 `modules/market_data/application/`, which is the boundary rule's one
 prohibition: a consumer may import a module's `contracts/` and nothing else.
+All six now resolve this port, and PR 1.1a's cleanup deleted the query they
+dispatched — nothing was left to dispatch it.
 
-**What it fixes beyond the boundary.** The handler's return type is
+**What it fixes beyond the boundary.** That handler's return type was
 `list[MarketData] | dict[str, list[MarketData]]`, chosen by whether `symbol`
 was a `str` or a `list`. A union decided by an argument's *runtime type* is the
 shape `architecture-rule.md` §2.1 forbids, and the trading chart shows what it

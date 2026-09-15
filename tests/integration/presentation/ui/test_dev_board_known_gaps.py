@@ -211,13 +211,22 @@ def test_start_date_field_binds_to_the_view_model(
 
 
 def test_an_invalid_date_range_blocks_load_history(
-    qtbot, main_window, navigate, qml_item
+    qtbot, main_window, navigate, qml_item, seeded_history
 ):
-    """TC-GAP-05: FIXED by BOT-033 Phase 2 — Start date/End date are now
-    validated before dispatch; a Start date on/after End date must not
-    reach GetHistoricalKlinesQuery at all."""
+    """TC-GAP-05: FIXED by BOT-033 Phase 2 — Start date/End date are
+    validated before anything is read; a Start date on/after End date must
+    not reach the history store at all.
+
+    `EPIC-025` PR 1.1a's cleanup added the store assertion: "must not reach
+    it at all" was in the docstring and in the test's name, and nothing
+    checked it — the other two assertions would also hold for a read that
+    happened and came back empty. Counted rather than compared to `[]`,
+    because opening the screen legitimately reads once before the bad range
+    is typed.
+    """
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
+    reads_before_the_bad_range = len(seeded_history.reads)
 
     view._view_model.startDate = "2024-01-02 00:00"
     view._view_model.endDate = "2024-01-01 00:00"
@@ -228,6 +237,7 @@ def test_an_invalid_date_range_blocks_load_history(
     qtbot.wait(100)
 
     assert reloaded == []
+    assert len(seeded_history.reads) == reads_before_the_bad_range
     assert view._view_model.log_model.entries[-1].level == "error"
 
 

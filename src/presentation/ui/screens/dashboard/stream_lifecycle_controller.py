@@ -426,12 +426,12 @@ class StreamLifecycleController:
                     # Every symbol asked for is in the mapping — that is the
                     # port's promise — so an empty one means "nothing stored",
                     # never "the answer lost this symbol".
-                    newest_first = results[symbol]
-                    if not newest_first:
+                    newest_first_rows = results[symbol]
+                    if not newest_first_rows:
                         self._emit_log(f"No historical data found for {symbol}.")
                         continue
 
-                    ordered_klines = list(reversed(newest_first))
+                    ordered_klines = list(reversed(newest_first_rows))
                     mapped_data = map_klines(ordered_klines)
                     volume_data = map_volume(ordered_klines)
                     self._emit_history_reloaded(symbol, mapped_data, volume_data)
@@ -462,20 +462,20 @@ class StreamLifecycleController:
             # trap as the reload path above: the port returns a tuple, so
             # keeping that check would have reported "No older data" on every
             # successful page.
-            newest_first = self._historical_klines.load(
+            newest_first_rows = self._historical_klines.load(
                 symbol,
                 TimeFrame(interval_str),
                 limit=limit,
                 end_time=end_time,
                 newest_first=True,
             )
-            if not newest_first:
+            if not newest_first_rows:
                 self._emit_log(f"No older data found for {symbol}.")
                 return
 
             ordered_klines = [
                 k
-                for k in reversed(newest_first)
+                for k in reversed(newest_first_rows)
                 if k.close_time.timestamp() < before_timestamp
             ]
             if not ordered_klines:
