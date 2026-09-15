@@ -56,6 +56,45 @@ every module's `contribute()` has run, no module under `modules/*/ui/panels/` is
 `sys.modules`. This keeps `PresenterManager`'s laziness (`abstract_screen_module.py:22-30`), which
 the app relies on so that boot does not load every screen's dependency tree.
 
+### CLI commands declare through a second registry, not through this descriptor
+
+**Shipped differently from HLD §4.3, and measured** (`EPIC-025` PR 1.3c-5). That section lists
+`cli_command` as the sixth *contribution kind*, which would make a prompt command a
+`ContributionDescriptor` like any panel. It is not, and the reason is the descriptor above: a
+command has no `surface_id`, no `Place`, no `order`, no `SizeHint` and no widget `factory`.
+Putting one through this shape would have meant inventing a surface for something that never
+renders, and then teaching `ContributionRegistry` to skip its own validation for that one kind —
+which is how a validated mechanism stops validating.
+
+So there is a second, much smaller registry, and what the two share is the **inversion**, not the
+descriptor:
+
+```python
+@dataclass(frozen=True, slots=True)
+class CliCommandDescriptor:
+    name: str                              # the word the user types: "exchange-status", hyphen and all
+    handler: type[ICliCommandHandler]      # the class; `handle` is a staticmethod, so there is nothing to construct
+    contributor_id: str                    # which module declared it, so a clash names both sides
+
+class ICliRegistry(ABC):                   # what a module sees: declare only, no reads
+    def declare(self, descriptor: CliCommandDescriptor) -> None: ...
+
+class ICliCommandTable(ABC):               # what the prompt sees: read only, no declares
+    def handlers(self) -> dict[str, type[ICliCommandHandler]]: ...
+```
+
+Two ports over one implementation (`shell/cli_registry.py`), so a module cannot read what other
+modules declared — that is how a command starts depending on another context's presence — and the
+prompt cannot declare, which would give the collection two sources.
+
+One rule differs from the panel registry, and it is the interesting one. There, two modules
+choosing `order = 10` is normal and resolved by a stable sort. Here a **name is an identity**:
+`sync` can only mean one thing at the prompt, so the second claim raises `ContributionError`
+naming both modules, at boot — not the next time a user types it.
+
+The argument *spec* is unchanged and still lives in `cli_commands.json`; a declaration says who
+runs a command, not what its arguments are.
+
 ### Registry validation — at `contribute()` time, not at render time (pluggy's rule, HLD §7.3)
 
 1. `surface_id` must be one of the surfaces the shell **knows** (declared for this run, or declared

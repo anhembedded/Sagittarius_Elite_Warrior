@@ -89,9 +89,13 @@ goes."*
 
 ## 7. Ports and modules it exercises
 
-`trading`: `IOrderSubmission` — `preview()`, `submit(live=…)`, `cancel()`, the only way an order
-reaches the venue — with `OrderPreview`, `ExecuteOrderResult`, `ExecuteOrderSafetyGate`,
-`TradingLimitViolation`, `OrderRejectionReason` and `ClientOrderId` as the published vocabulary.
+`trading`: `IOrderSubmission` — `preview()`, `validate()`, `submit(live=…)`, `cancel()`, the only
+way an order reaches the venue — with `OrderPreview`, `ExecuteOrderResult`,
+`ExecuteOrderSafetyGate`, `TradingLimitViolation`, `OrderRejectionReason`,
+`InvalidOrderForSubmissionError` and `ClientOrderId` as the published vocabulary. The four methods
+are the four things step 3–6 do, and they are genuinely four: `preview()` makes no network call,
+`validate()` reaches the venue's test endpoint and creates nothing, `submit(live=False)` evaluates
+every gate against live data and sends nothing, `submit(live=True)` sends.
 `ITradingSession` holds the switch and the counters; `IMarketMetadataProvider` supplies the
 filters step 2 rounds with; `ITradingClient` is the module's own adapter boundary. Cancelling one
 open order is SPEC-006 (planned) and is the same port's `cancel()`.
@@ -107,6 +111,7 @@ open order is SPEC-006 (planned) and is the same port's `cancel()`.
 | What a manual order is allowed to be, as a domain rule | `tests/unit/modules/trading/domain/policies/test_manual_order_intent.py` | unit |
 | Both implementations of the port answer the same way | `tests/unit/modules/trading/contracts/test_order_submission_contract.py` | contract |
 | The command line's preview report, text and JSON | `tests/unit/presentation/cli/test_order_preview_formatter.py` | unit |
+| `order-preview` reaches the venue by neither route, and `order-dry-run` validates the order it previewed and submits nothing | `tests/unit/presentation/cli/test_order_cmds.py` | unit |
 | Preview → dry run → submit against a fake Binance server | `tests/integration/application/test_manual_order_pipeline_against_fake_server.py` | integration |
 | The Dev Board panel, driven by real Qt clicks | `tests/integration/presentation/ui/test_dev_board_manual_order_qt_click.py` | integration |
 | One order's real life cycle on the real Futures Testnet | `tests/testnet/test_order_lifecycle.py` — **the user runs it**: `SEW_TESTNET_TESTS=1` plus real credentials, via `ci-local.ps1 -TestnetOnly`; the ordinary gate never invokes this tier | human |

@@ -47,9 +47,9 @@ gantt
     PR 1.1b IMarketStream + its two screens    :done,    p11b, 2026-09-15, 1d
     PR 1.2 ISymbolCatalog + IRangeCoverage     :done,    p12, 2026-09-15, 1d
     PR 1.3a modules/trading, the move          :done,    p13a, 2026-09-15, 1d
-    PR 1.3b its three ports + first consumers  :active,  p13b, 2026-09-15, 2d
-    PR 1.3c the two Presenters, CLI, factory   :         p13c, after p13b, 3d
-    PR 1.4 Trading + Dev Board as surfaces, 59→0 :       p14, after p13, 5d
+    PR 1.3b its three ports + first consumers  :done,    p13b, 2026-09-15, 1d
+    PR 1.3c-1..5 both Presenters, orders, CLI, factory :done, p13c, 2026-09-15, 1d
+    PR 1.4 Trading + Dev Board as surfaces, 59→0 :active,  p14, after p13c, 5d
     PR 1.5 Welcome surface, dev.mode gate, restart :     p15, after p14, 3d
     User runs Testnet (orders, cancel, PnL)    :crit,    r1, after p15, 2d
     Phase 1 closed                             :milestone, m1, after r1, 0d

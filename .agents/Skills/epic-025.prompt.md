@@ -144,6 +144,10 @@ Work in this order and do not skip a line. Each line is either done or written d
     | `AccountSnapshot`, `PositionSnapshot`, `OpenOrderSnapshot` | never written | the types that already existed carried every field a consumer reads |
     | `OrderIntent` (published) | `OrderRequest` | two other classes already hold that name, one of them in another module's contracts |
     | `ITradingSession.claim_symbol/release_symbol` | absent | its first consumer is Phase 2's `strategy`; a lease with no caller is new locking on the app's riskiest state |
+    | `IOrderSubmission` = preview + execute + cancel | a **fourth** method, `validate()` | `order-dry-run` sends to `POST /fapi/v1/order/test`, which is neither `preview()` (no network) nor `submit(live=False)` (all gates, nothing sent) — a third thing, and a consumer was already reaching into the module for it |
+    | `EquityCurveRecorder` read directly by both screens | `IEquityCurve.samples()` | measured: both read exactly one thing off it, so the port has one method and `record()` stays unpublished — the only writer is the module's own stream |
+    | `cli_command` as HLD §4.3's sixth *contribution kind* | its own registry (`ICliRegistry`, `CliCommandDescriptor`) | a command has no surface, place, order or widget factory; forcing it through `ContributionDescriptor` would mean inventing a surface and teaching the registry to skip its own validation for one kind |
+    | one file may construct `binance.client.Client` | **two**, one session factory per context | the split was the plan since PR 0.4a; a single builder in `support/adapters/` is refused by the boundary rule, and a contract may not name the SDK type. The rule is restated as what it always meant — only a session factory mints a session — with both paths pinned by equality |
 
     So: before you close a step, read the spec clause your code now disagrees with and **fix the
     clause**. HLD §3.4's row and SDD §5's subsection are the two places it lives. `CLAUDE.md` puts
