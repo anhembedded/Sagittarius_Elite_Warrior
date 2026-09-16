@@ -78,6 +78,20 @@
    import when Phase 3 ends, plus the deletions in step 4, which only this phase can do.
 4. **Delete** `ui/common/`; **delete** `binance_bot_module.py` (now empty); the `settings` screen
    becomes a surface that hangs each module's `settings_section` contribution.
+
+   **This phase now also owns the epic's "59 duplicated members → 0" criterion**, by user
+   decision 2026-09-16
+   ([`DECISION_2026-09-16`](../DECISION_2026-09-16_the_duplication_criterion_waits.md)). It was
+   Phase 1's exit gate; after PRs 1.6a–1.6g the two screens' remaining legacy imports measured 42,
+   and 11 of them had no destination that exists yet — six QML packages **this phase deletes**
+   (ADR D20–D21) and five needing Phase 2's `modules/strategy`. Moving the screens early would
+   have meant writing those 11 into a shrink-only allowlist, so the criterion travels with the
+   deletions in this step instead. Concretely: once step 3 has emptied `ui/common` and the QML
+   packages are gone, `screens/trading` and `screens/dashboard` `git mv` into
+   `modules/trading/ui/` with the remaining imports pointing at `support/**` and
+   `modules/*/contracts` only, and `tools/measure_duplicate_members.py` is expected to report
+   **0** — which is also the last thing `test_presenter_duplication_only_shrinks.py` has to
+   ratchet.
 5. (ADR D6 is superseded by D20 — there is no QML to place.)
 6. **Inherited from Phase 0** (`EPIC-025A` §1.8, deferred 2026-09-14): `git mv` the rebuilt Data
    Management screen into `modules/market_data/ui/`, have `MarketDataModule.contribute()` offer it

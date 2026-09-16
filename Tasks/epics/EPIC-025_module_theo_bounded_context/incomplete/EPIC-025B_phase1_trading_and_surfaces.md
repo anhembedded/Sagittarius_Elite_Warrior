@@ -76,8 +76,18 @@
 
 ## 2. Done when
 
-- The script counting duplicated member names between `trading` and `dashboard` reports **59 → 0**
-  (the number is written into the pull request).
+- ~~The script counting duplicated member names between `trading` and `dashboard` reports
+  **59 → 0**~~ — **carried out of Phase 1 by user decision 2026-09-16**
+  ([`DECISION_2026-09-16`](../DECISION_2026-09-16_the_duplication_criterion_waits.md)). It stands
+  at 59 with `test_presenter_duplication_only_shrinks.py` holding it shrink-only. The number goes
+  to zero when both screens reach `modules/trading/ui/`, and after PRs 1.6a–1.6g that move was
+  measured at 42 remaining legacy imports, of which 31 could go now and **11 could not**: six are
+  QML packages ADR D21 **deletes** in Phase 4 rather than moves, four are
+  `components/strategy_params`, which needs `BaseStrategy` from Phase 2's `modules/strategy`, and
+  one is `components/strategy_overlay`. Reaching zero early therefore meant writing those 11 as
+  **new** lines in a shrink-only allowlist — spending the epic's one invariant to hit a number
+  four pull requests early — so the criterion waits for the work it is actually blocked on
+  instead. It is still counted and still guarded; it is no longer Phase 1's gate.
 - The user runs Testnet: placing a manual order, cancelling, enabling and disabling trading, PnL
   updating — all behave as before (the regression tests for `BUG-112 / 116 / 117` stay green).
 - The app opens on Welcome; Start lands on Trading; with `dev.mode=false` the sidebar shows no Dev
