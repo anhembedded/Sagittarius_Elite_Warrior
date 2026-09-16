@@ -91,6 +91,9 @@ must be confirmed failing for the right reason.
 - **Business Acceptance for Trading Features:** A backtest UI test MUST assert the business composition of the result, not merely that a run completed. For example, a long-only result may contain long entries and long exits but MUST contain no short trade; a future short-enabled strategy must prove a downtrend produces an actual SHORT fill, its SHORT table filter shows it, its PnL moves correctly as price falls, and its chart marker represents the fill rather than merely the strategy signal.
 - **Use repo's QML test helpers:** Use `qml_item` / `find_qml_item` fixtures from `tests/conftest.py`, `qtbot.waitUntil(...)`, and `item.mapToItem(root, 0, 0)`.
 - **Do not move click handling off the Button itself** when tests emit `.clicked`.
+- **A double's shape comes from the interface, never from the calls your code makes** (`BUG-124`, [`CS-001`](../../Docs/CASE_STUDIES/CS-001_a_double_that_could_not_disagree.md)): subclass the real collaborator, or derive the double from its ABC — and where the real thing is cheap and in-memory (the engine's `MemoryEventBus`, a fake repository), just use the real thing. A hand-written double answering whatever the code under test happens to ask **always passes**: the Welcome screen's `_Bus` defined `publish`, `on` and `subscribe` — the union of two different interfaces plus an invented verb — so it recorded a `publish()` the production bus does not have, and the Start button on the app's only entry screen shipped dead with the test file green. If you cannot name the interface your double implements, you are writing a mirror of your own code.
 - **Fixing a bug:** follow `.agents/rules/bug-fix-rule.md` in full — root
   cause first, regression test before the fix (confirmed failing for the
-  right reason, at the correct test tier), kept permanently after.
+  right reason, at the correct test tier), kept permanently after. When the
+  gate was green while the defect was live, §6.5 of that rule also asks for a
+  case study.

@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import (
     welcome_screen,
 )
 from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_view import WelcomeView
+from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
+    MemoryEventBus,
+)
 
 _CONFIG = {
     ConfigKeys.APP_NAME.value: "Sagittarius Elite Warrior",
@@ -80,18 +83,27 @@ class _Config:
         return self._values.get(key, default)
 
 
-class _Bus:
+class _RecordingBus(MemoryEventBus):
+    """The engine's **real** bus, with a tap on what came out of it.
+
+    `BUG-124` is why this is not a hand-written double any more. The double it
+    replaces defined `publish`, `on` and `subscribe` — the union of two
+    different interfaces plus one method that exists nowhere: `publish` is the
+    *app's* `IEventPublisher`, `on` is the *engine's* `IEventBus`, and nothing
+    has ever had `subscribe`. A double shaped like that cannot disagree with
+    the code under test, so it recorded a `publish()` the real bus does not
+    have and the Start button shipped broken while this file stayed green.
+
+    Subclassing the real bus means every method the Presenter reaches for has
+    to actually exist, and `published` is filled by a real subscription — so
+    the assertion now also proves the publisher's key and the subscriber's key
+    agree, which the double could not say anything about.
+    """
+
     def __init__(self) -> None:
+        super().__init__()
         self.published: list[object] = []
-
-    def publish(self, event: object) -> None:
-        self.published.append(event)
-
-    def subscribe(self, *args: object, **kwargs: object) -> None:
-        del args, kwargs
-
-    def on(self, *args: object, **kwargs: object) -> None:
-        del args, kwargs
+        self.on(StartRequested, self.published.append)
 
 
 def _container(
@@ -100,7 +112,7 @@ def _container(
     """A container that answers what `BasePresenter` resolves plus the config
     writer — the config, the bus and the writer are real doubles, because the
     Presenter's behaviour depends on all three."""
-    bus = _Bus()
+    bus = _RecordingBus()
     values = dict(_CONFIG)
     values.update(config or {})
     config_double = _Config(values)

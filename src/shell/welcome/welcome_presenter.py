@@ -33,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_end
 )
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter
 from sagittarius_engine.interfaces.i_container import IContainer
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 _UNNAMED = "Sagittarius"
 _UNKNOWN_VERSION = "unknown"
@@ -57,6 +58,15 @@ class WelcomePresenter(BasePresenter):
         super().__init__(view, container)
         self.view: WelcomeView = view
 
+        #: The same object as `BasePresenter.event_bus`, named again with its
+        #: type. `IContainer.resolve` is declared `(type[Any]) -> Any`, so the
+        #: inherited attribute is `Any` and **every** attribute access on it
+        #: typechecks — which is how `BUG-124` shipped: this Presenter called
+        #: `publish()`, the *app port's* verb, on the *engine bus*, whose verb
+        #: is `emit()`, and neither mypy nor the suite could see it. One
+        #: annotation puts the call back under the type gate.
+        self._bus: IEventBus = self.event_bus
+
         self.view.show_application(
             str(self.config.get(ConfigKeys.APP_NAME.value, _UNNAMED)),
             str(self.config.get(ConfigKeys.APP_VERSION.value, _UNKNOWN_VERSION)),
@@ -71,9 +81,18 @@ class WelcomePresenter(BasePresenter):
         self.view.restart_requested.connect(self._on_restart_requested)
 
     def _on_start_requested(self) -> None:
-        """Publishes the intent. *Main* decides where Start goes."""
+        """Raises the intent. *Main* decides where Start goes.
+
+        `emit`, not `publish`: this is the engine's `IEventBus`, and `emit` is
+        its verb. `publish` belongs to the app's own `IEventPublisher`
+        (`core/contracts/i_event_publisher.py`), a different port with a
+        different contract — it takes an `IDomainEvent`, and `StartRequested`
+        is deliberately not one. It is a UI intent, which is why the shell
+        raises it on the bus the subscriber is listening on
+        (`app_bootstrapper` does `event_bus.on(StartRequested, ...)`).
+        """
         self.logger.info("[WELCOME] Start requested.")
-        self.event_bus.publish(StartRequested())
+        self._bus.emit(StartRequested())
 
     def _developer_mode_now(self) -> bool:
         return bool(self.config.get(ConfigKeys.DEV_MODE.value, False))

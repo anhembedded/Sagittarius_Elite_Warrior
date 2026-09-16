@@ -220,7 +220,7 @@ That is: if the user's request creates an architectural contradiction, violates 
 
 ---
 
-## 8. Eleven traps that made other agents produce broken code
+## 8. Twelve traps that made other agents produce broken code
 
 All of them really happened in this repo; none are hypothetical.
 
@@ -235,6 +235,7 @@ All of them really happened in this repo; none are hypothetical.
 9. **Adding `logger.info()` inside a hot loop.** Logging is **not** free: `SignalLogHandler` is attached to the **root** `"App"` logger at INFO level (`data_management_presenter.py`), so **every** `App.*` record from **every** subsystem is pushed through a queued cross-thread signal to the UI thread, and each line then runs a full `beginInsertRows`/`endInsertRows`/`countChanged` cycle in `LogListModel`. `BUG-042`: `PaperExchange` logged at INFO on every fill → 838 trades produced **5,028 lines in 2 seconds** → the UI froze solid, freezing linearly with trade count. Which screen the log belongs to does **not** matter — the handler catches at the root logger. Inside a loop that runs many times (per trade, per candle, per tick) use `logger.debug()`, or batch/throttle before logging — see `ProgressThrottle` (`BUG-033`) as the model for the correct signal path.
 10. **Editing a `.qml` file while forgetting that the logic belongs in Python.** QML is declarations and bindings only; state machines, validation and computation all belong to the Presenter/ViewModel. And a `.qml` file over 300 lines should be split into components.
 11. **Adding a new `@abstractmethod` to a Port and updating only the "main" implementer.** `ruff` cannot catch this — checking whether a class implements the full interface is the type checker's job. `BUG-026`: a probe script implementing `IExchangeClient` was forgotten when the interface gained a method, and crashed at construction (`TypeError: Can't instantiate abstract class`). When you change a Port, grep for implementers in **`src/`, `scripts/`, AND `tests/`** — missing `scripts/` is exactly what went wrong while fixing `BUG-025`, leaving an identical live defect behind. `mypy` (gating `src`+`scripts` in one command, §5) is the second safety net — but don't rely on tooling alone; still grep when changing an interface.
+12. **Writing a test double from the calls your code makes, instead of from the real collaborator's interface.** Such a double cannot disagree with the code under test. `BUG-124`: the Welcome screen's `_Bus` defined `publish`, `on` **and** `subscribe` — the union of the app's `IEventPublisher`, the engine's `IEventBus`, and a verb that exists on neither — so the test recorded a `publish()` the real bus has no attribute for, and **Start on the app's first screen shipped dead** while that file stayed green. Two things make it invisible: `IContainer.resolve` returns `Any`, so mypy checks nothing reached through it, and no tier imports `src/shell/` wholesale. Subclass the real thing (`MemoryEventBus` is in-memory and free) or derive the double from the ABC. Full write-up: [`Docs/CASE_STUDIES/CS-001`](../Docs/CASE_STUDIES/CS-001_a_double_that_could_not_disagree.md).
 
 ---
 

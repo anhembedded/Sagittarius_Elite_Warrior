@@ -63,6 +63,7 @@ here), §10 (language/register), §11 (reporting), §12.5 (settled principles).
 | logging, or any new failure path | + I |
 | `tests/unit/architecture/**`, a baseline/allowlist, a new top-level `src/` package | + J |
 | `.agents/Skills/*.md` `.claude/skills/**` `.claude/rules/*.md` | + `python3 scripts/check_skill_prompt_references.py` |
+| `Docs/CASE_STUDIES/**` | + E14, and `python3 -m pytest tests/unit/architecture/test_case_study_index_is_consistent.py -q` |
 | only `Docs/` `Tasks/` `.agents/` `*.md` | A, K — see `ci` §1's exception first |
 
 The exception is narrow: one file able to affect build, lint, types, runtime or tests brings the
@@ -173,6 +174,8 @@ sed -i 's/^\(\s*\)<the line the test relies on>/\1pass  # broken on purpose/' sr
 python3 -m pytest tests/<its test file> -q   # expect exactly the one failure
 cp /tmp/keep.py src/<path>.py && git diff --stat -- src/<path>.py   # empty
 ```
+13. **Does every hand-written double name the interface it implements?** (`test` §2, [`CS-001`](../../../Docs/CASE_STUDIES/CS-001_a_double_that_could_not_disagree.md)) A double assembled from the calls the code makes always passes — `BUG-124`'s `_Bus` had `publish` **and** `on` **and** `subscribe`, the union of two interfaces plus an invented verb, and the Start button shipped dead with the file green. Read each double's methods against the real collaborator's; where the real thing is in-memory and free, ask why it was doubled at all. The tell is a double whose shape matches the test, not the production object.
+14. **Defect got through a green gate?** Then `bug` §6.5 wants a case study in the same commit — `Docs/CASE_STUDIES/`, one screen, naming which net was silent and what checks it now — and the check it names must exist, not be advice. `python3 -m pytest tests/unit/architecture/test_case_study_index_is_consistent.py -q` is the mechanical half.
 
 ### F. Domain truth (`truth`)
 1. Anything presenting a convenience as a fact — coverage proven by row count, a universal hard-coded exchange filter, an ETA stated as certainty?

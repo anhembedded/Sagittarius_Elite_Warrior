@@ -52,6 +52,21 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("tests/unit/modules", "*.py"),
         ),
     ),
+    # `BUG-124` — every method called on the event bus must exist on it. It
+    # scans `src/` and `scripts/` because those are what runs as the real
+    # application; `tests/` is deliberately absent (a test may build its own
+    # recorder around the bus).
+    (
+        "tests/unit/architecture/test_event_bus_calls_are_real.py",
+        (("src", "*.py"), ("scripts", "*.py")),
+    ),
+    # `CS-001`'s own index guard. `Docs/` rather than `src/`, and registered
+    # for the same reason as the rest: a case-study directory that moved would
+    # otherwise leave every check in that file passing over an empty scan.
+    (
+        "tests/unit/architecture/test_case_study_index_is_consistent.py",
+        (("Docs/CASE_STUDIES", "*.md"),),
+    ),
     # --- legacy presentation guards -----------------------------------------
     (
         "tests/unit/architecture/test_screen_layer_structure.py",

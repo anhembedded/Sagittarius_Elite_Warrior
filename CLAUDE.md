@@ -40,6 +40,7 @@ will drift too — to add a rule, edit the rule file; here you add one line poin
 | Before every commit | [`.agents/rules/commit-rule.md`](.agents/rules/commit-rule.md) |
 | **Reviewing a pull request, a branch, or a diff** — one checklist row per rule, each with the command that answers it | [`.claude/skills/pr-review/SKILL.md`](.claude/skills/pr-review/SKILL.md) |
 | The user reports a bug (**mandatory**) | [`.agents/rules/bug-fix-rule.md`](.agents/rules/bug-fix-rule.md) |
+| **A defect got through a green gate** — read the index before diagnosing, and before writing any test double: one screen per case, each naming which check was silent and what checks it now | [`Docs/CASE_STUDIES/README.md`](Docs/CASE_STUDIES/README.md) |
 | Adding or changing logs | [`.agents/rules/logging-rule.md`](.agents/rules/logging-rule.md) |
 | **Reporting work back to the user** (any report, any pull request, any "sao rồi"): context, a diagram, then the numbers with their targets | [`.agents/rules/report-rule.md`](.agents/rules/report-rule.md) |
 | Writing tests | [`.agents/rules/testing-rule.md`](.agents/rules/testing-rule.md) |

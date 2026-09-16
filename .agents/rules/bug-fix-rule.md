@@ -15,6 +15,12 @@ This file owns the whole bug-fix workflow — the single source of truth.
   trace the exact call chain the error came from.
 - State the root cause explicitly before touching the fix — what causes the bug, and why
   the planned fix resolves it cleanly without crossing architectural layer boundaries.
+- **Read [`Docs/CASE_STUDIES/README.md`](../../Docs/CASE_STUDIES/README.md) first when the gate
+  was green while the defect was live.** It is the catalogue of blind spots this repository has
+  already paid for, one screen each, and every entry carries a *"where else this is still open"*
+  list written by someone who had just finished understanding it. If the symptom rhymes with one,
+  start there — `CS-001` exists because a hand-written double and an `Any` at a seam hid a crash
+  on the app's only way off its first screen, and both conditions are still true elsewhere.
 
 ## 2. Never hotfix — investigate the mechanism, prioritize redesigning it to scale
 
@@ -108,6 +114,21 @@ failure path, unless explicitly replaced by stronger coverage of that exact same
   resolves it cleanly.
 - `fix:` commit type per [`commit-rule.md`](./commit-rule.md), referencing the root cause
   or issue ID (`BOT-xxx`/`BUG-xxx`).
+
+## 6.5 Write a case study when the gate was green
+
+A bug report says what broke. When the defect reached the user **through a passing gate**, and
+some existing check — a type checker, a test, a guard, a review row — covered that area and
+missed it, the reason it missed is worth more than the fix: it is a blind spot, and blind spots
+are never local. Add `Docs/CASE_STUDIES/CS-NNN_slug.md` in the fixing commit, one screen, with
+the three sections its [index](../../Docs/CASE_STUDIES/README.md) requires — *why nothing caught
+it* (net · why silent · still open?), *the fix*, *where else this is still open* — and list it in
+that index. `tests/unit/architecture/test_case_study_index_is_consistent.py` fails on an unlisted
+file, a dead citation, a missing section or a file over 60 lines.
+
+Not every bug earns one: if nothing was watching that line and nothing pretended to be, the bug
+report is the whole record. The test is whether the same blind spot is open somewhere else right
+now — and the case study must install the check that closes it, in the same commit.
 
 ## 7. Document it as a bug report
 
