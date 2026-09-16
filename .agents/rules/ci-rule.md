@@ -41,6 +41,59 @@ to the type checker too).
 Green here does **not** replace the full gate; it only means the full gate will not
 fail on lint or typing.
 
+### The unit of the full gate is the **pull request**, not the commit
+
+**User decision 2026-09-16.** A pull request in this repository is often several
+commits — a move, then the guards it retargets, then the boards. Running the
+four-minute gate after each of them buys nothing: the only tree that has to be
+proven is **the one that gets merged**.
+
+So the contract is two-tiered, and both tiers are mandatory:
+
+| When | What runs | Cost |
+| :--- | :--- | :--- |
+| **every commit** | `.\scripts\ci-local.ps1 -SkipTests` (the four static steps above) **plus** `pytest tests/unit/architecture -q` **plus** the tests whose subject the diff touches | ~25 s |
+| **before the pull request is offered** — pushed, merged, or called done | the full gate, on the **final** commit's tree, with the log file grepped | ~4 min |
+
+Two things this does **not** license, both of them mistakes already made here:
+
+1. **"Only the diff's tests" never means "skip lint."** The per-commit row is a
+   list, not a suggestion; `ruff`, `ruff format` and the architecture guards are
+   seconds and they are what keep a five-commit pull request from ending with
+   five things to untangle at once.
+2. **A gate run before the last commit is not evidence.** `EPIC-025` PR 1.6a ran
+   `ruff` green, then fixed two more imports, and the gate caught both as `I001`
+   — 3½ minutes spent proving a tree that no longer existed. §6 of the review
+   skill asks for the run's timestamp against the head commit's for exactly this
+   reason. If you commit after the gate, the gate runs again.
+
+**A move pull request adds one more per-commit check**, because three separate
+defects in `EPIC-025` PRs 1.6d–1.6f were invisible to lint, to mypy and to the
+tests, and all three were an import that stopped resolving: import **every module
+in the moved tree** and assert none raises. A package whose name collides with a
+module inside it (`sidebar/sidebar.py`, `environment_banner/environment_banner.py`,
+`chart_card/chart_card.py`) turns a rewritten relative import into a package
+importing itself, and nothing else says so until the app boots.
+
+```bash
+python - <<'EOF'
+import importlib
+from pathlib import Path
+base, pkg = Path("src/support"), "Sagittarius_Elite_Warrior.src.support"
+bad = []
+for path in sorted(base.rglob("*.py")):
+    name = path.name
+    if "__pycache__" in str(path) or name in {"preview.py", "__main__.py"}:
+        continue  # loaded by path, or a demo that *runs* on import
+    dotted = f"{pkg}." + ".".join(path.relative_to(base).with_suffix("").parts)
+    try:
+        importlib.import_module(dotted.removesuffix(".__init__"))
+    except Exception as exc:
+        bad.append(f"{dotted}: {type(exc).__name__}: {exc}")
+print(bad or "all modules import")
+EOF
+```
+
 ### Full gate — required before handoff, commit, merge, or claiming completion
 
 Run from the bot root (`Sagittarius_Elite_Warrior/`), not the parent workspace:

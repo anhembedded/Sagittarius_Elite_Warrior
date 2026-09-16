@@ -88,7 +88,7 @@ whole gate back. A mixed commit is a code commit.
 3. Every `WARNING`/`ERROR`/`CRITICAL` hit named and explained — real defect (then `bug` in full) or justified expected condition? "Already there before" means search `Tasks/bug_report/incomplete/`, not move on.
 4. A failure called flaky without evidence? (`ci` §3, §5)
 5. Whatever you *can* run, did you? `ruff check src tests`, `ruff format --check src tests`, the `python3` guards in `tests/unit/architecture/`, `python3 scripts/check_skill_prompt_references.py`.
-6. Was the gate run on **the tree under review**, or on an earlier one? A green run proves nothing about commits made after it, and "I ran the gate, then fixed one more thing" is the ordinary way a branch ends up unverified. Compare the run's own timestamp with the head commit's, and check that nothing is left uncommitted:
+6. Was the gate run on **the tree under review**, or on an earlier one? `ci` §1's two-tier clause (user decision 2026-09-16) makes this the whole question: one full gate per pull request is correct and expected — several commits sharing it is not a finding — but it must be the **last** commit's tree, and each intermediate commit must show the 1-second static checks plus `pytest tests/unit/architecture -q`. A green run proves nothing about commits made after it, and "I ran the gate, then fixed one more thing" is the ordinary way a branch ends up unverified. Compare the run's own timestamp with the head commit's, and check that nothing is left uncommitted:
 
 ```bash
 # B2/B3 — the scan the evidence must contain. Offscreen Qt noise lands after

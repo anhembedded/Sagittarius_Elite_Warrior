@@ -107,8 +107,13 @@ Work in this order and do not skip a line. Each line is either done or written d
    with a non-emptiness assertion). New tests follow HLD §10: one proof per layer, a verified fake
    and a contract suite per public port, no `Mock` of a foreign port. The sanity tier gains **zero**
    tests. No `skip` or `xfail`.
-7. **Run the gate** exactly as `ci-rule.md` says, redirecting to a log file, and grep the log file
-   — never the console:
+7. **Run the gate** exactly as `ci-rule.md` says — and note its §1 clause *"the unit of the full
+   gate is the pull request, not the commit"* (user decision 2026-09-16): each commit of a step
+   runs the 1-second static checks, `pytest tests/unit/architecture -q` and the tests its diff
+   touches; the **four-minute gate runs once, on the tree that gets merged**. A gate run before
+   the last commit is not evidence. A step that moves a tree also imports every module in it —
+   three defects in PRs 1.6d–1.6f were an import that stopped resolving, invisible to lint, to
+   mypy and to the tests. Redirect to a log file and grep the log file — never the console:
    ```bash
    pwsh -NoProfile -File scripts/ci-local.ps1 -Full > /tmp/ci.log 2>&1
    grep -nE "FAILED|ERROR|Traceback|ResourceWarning" "$(grep -m1 LOG_FILE: /tmp/ci.log | sed 's/.*LOG_FILE: *//')"
