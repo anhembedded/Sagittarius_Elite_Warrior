@@ -152,13 +152,17 @@ split.
 
 | PR | What | Why it can go now |
 | :--- | :--- | :--- |
-| **4.1a** | `components/order_book` (7 files) → `modules/trading/ui/` | 0 legacy imports; its outbound reads are `modules/trading/contracts` (×9) and `support/ui_kit` (×3), all legal from a module's `ui/`. The 1.6a shape: a clean leaf, zero allowlist either way |
-| **4.1b** | the seven `trading`-owned `ui/common` feeds → `modules/trading/ui/` | after 4.1a, their only legacy read is `order_book`, which will already be in the module |
-| **4.1c** | `screens/trading` (9 files) → `modules/trading/ui/`; the duplication criterion starts falling | after 4.1a/b its legacy-import count is **0** |
-| **4.2a** | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator` | §3.3 below: the destination this file left open is **forced**, not chosen |
-| **4.2b** | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) | after 4.2a, its remaining three are QML, so it waits on 4.3 |
+| **4.1a** | the six `trading`-owned `ui/common` feeds → `modules/trading/ui/` — `equity_chart_adapter`, `equity_feed`, `execute_order_block_reason`, `market_tick_feed`, `order_feed`, `order_fill_marker` | each has **0** legacy imports. The seventh, `live_order_book_coordinator`, reads `order_book` and travels with it in 4.1b |
+| **4.1b** | `components/order_book` (7 files) → `modules/trading/ui/` **together with** `screens/data_management`'s table models → `modules/market_data/ui/`, extracting the shared `RowTableModel` into `support/ui_kit` in the same pull request; `live_order_book_coordinator` comes too | §3.5: `order_book` is a clean leaf on its own, but moving it alone raises the duplication ratchet, and the user's decision of 2026-09-16 is to do the extraction **once**, when both packages move, rather than churning these files twice |
+| **4.1c** | `screens/trading` (9 files) → `modules/trading/ui/`; the duplication criterion starts falling | after 4.1a/b its legacy-import count is **0**, and none of its thirteen blockers was ever QML |
+| **4.2a** | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator`; `base_event_logger` → `modules/backtesting/ui/` | §3.3: the destination this file left open is **forced**, not chosen. All four have 0 legacy imports except `sync_progress_feed`, whose only one is the sibling travelling with it |
+| **4.2b** | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) | after 4.1b and 4.2a its remaining blockers are QML, so it waits on 4.3 |
 | **4.3** | the QML deletions (ADR D20–D21): the backtest screen's eleven modals become `QDialog`s and its panels docks, `qml/` is deleted, `find src -name '*.qml'` → 0 | the one step with real UI work in it, and the only one the user sees |
 | **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard`; `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's |
+
+After 4.1a and 4.2a, `ui/common` holds **two** files: `live_order_book_coordinator` (waiting on
+`order_book`, so 4.1b) and `qml_property` (which dies with the QML, so 4.3). Step 4's *"delete
+`ui/common/`"* is therefore 4.3's consequence rather than a task of its own.
 
 ### 3.3 `sync_progress_*`: the open question is closed by a rule, not by a preference
 
@@ -184,3 +188,85 @@ strategy_params` did not come, and it is open for the user"*: **PR 2.1e answered
 renders *a strategy's* parameters, so it went to `modules/strategy/ui`, and `EPIC-025C` carries the
 measurement (`bot_params_form.py` needs `BaseStrategy`, and §6.1 forbids a support package
 importing a module at all, so `support/indicators` was never satisfiable).
+
+### 3.5 PR 4.1a's first attempt moved `order_book`, and the ratchet refused it
+
+Worth recording because the refusal was **correct** and the reason is not the obvious one.
+
+`components/order_book` measures 0 legacy imports and reads only
+`modules/trading/contracts` (×9) and `support/ui_kit` (×3) — a clean leaf, `assets/`'s position in
+PR 1.6a. It was moved. `test_presenter_duplication_only_shrinks.py` then failed: the total across
+every pair went **115 → 123**.
+
+The first hypothesis was measurement noise, since a new `trading.ui` package makes the tool compare
+`order_book` against packages it never could before. Measured, that is wrong: excluding `__init__`
+brings it to 122, and excluding **every** Qt-mandated override name on top of that still leaves
+**118**. The five names that remain are `_display_text`, `_sort_value`, `row_for`, `selected_row`
+and `refresh`, shared with `screens/data_management` — and they are a **sortable table model plus
+panel** written twice: PR 0.4b wrote the pair for Database Status, PR 1.4b-2 wrote it again for
+positions and open orders, and neither could see the other because `presentation/ui/components/` was
+never in `UI_PACKAGE_GLOBS`. That is the same hole PR 2.1e found for `common/` and `components/`,
+and `ci-rule.md` §5.5 forbids raising a ratchet to get past it.
+
+**Put to the user with both scopes measured, and they chose to reorder** rather than widen 4.1a: the
+extraction happens **once**, when `order_book` and `data_management`'s models move into their
+modules together (4.1b), instead of touching these four model classes in one pull request and again
+two later. The cost is named: `screens/trading` waits one extra pull request, so the *"59 duplicated
+members → 0"* criterion starts falling at 4.1c rather than 4.1a.
+
+What 4.1a became is the six feeds — which is where the ratchet earned its keep a second time, in the
+other direction.
+
+### 3.6 `_subscribe`, and the one amendment the metric's definition has ever taken
+
+With the six feeds moved, the total was **116** against a baseline of 115, and the single name
+responsible was `_subscribe`: `BaseFeed`'s `@abstractmethod`, which PR 1.6c put into
+`support/ui_kit` precisely so that every feed could share it. `modules/strategy/ui`'s feed
+implements it, `modules/trading/ui`'s six now do too, and the tool counted the shared base class as
+duplication.
+
+That is a defect in the measurement rather than duplication in the code — implementing one
+abstraction in two packages is the *opposite* of duplicating it — so the tool's definition took its
+first amendment. `measure_duplicate_members.py`'s docstring says the definition is fixed and must
+not be *"improved silently"*, so the amendment is argued in that docstring, computed rather than
+hand-listed (`@abstractmethod` declarations under `src/support/` and `src/core/` only), and
+deliberately too narrow to reach §3.5's real duplication: Qt's `rowCount`/`data`/`headerData` are
+**still counted**, because nothing in this repository declares them, and so are `_display_text` and
+`_sort_value`.
+
+**The baseline was then re-measured on the pre-move tree under the amended definition** — 113, not
+lowered to fit — so the ratchet still compares like with like. Post-move it is also **113**, with the
+Phase 1 pair at **34**.
+
+### 3.7 The finding the move surfaced: `trading` had an undeclared dependency
+
+`TradingModule.dependencies` was `[]`, with a comment explaining that this context *"reads no other
+module's `contracts/` — it is the supplier in every relationship it has"*. True of every file under
+`modules/trading/` at the time, and false the moment `market_tick_feed` arrived: it normalises
+`market_data`'s published `MarketTickEvent` onto a Qt signal for the live chart, which is the Open
+Host Service relationship HLD §02 has drawn since round 1. The coupling did not arrive with the
+move — only its visibility did, and `test_module_declarations.py` failed on the shortfall within a
+minute of the files landing. Fourth time in this epic that the declaration guard has found a real
+edge nobody had written down.
+
+### 3.8 PR 4.1a's gate
+
+`pwsh -NoProfile -File scripts/ci-local.ps1 -Full` → `RESULT: PASS`, **4952 passed, 4 skipped** in
+190s, log `logs/ci-local-20260916-152411.log` grepped rather than the console: 4 hits for
+`FAILED|ERROR|Traceback|ResourceWarning` (the known benign set) and **0** records matching
+`- (WARNING|ERROR|CRITICAL) -`.
+
+Test count **unchanged at 4952**, and that is the expected answer rather than a suspicious one:
+`test_logging_namespace_guard.py` parametrizes per source *file name*, and a moved file keeps its
+name. No test was written, moved in spirit or deleted — four test files moved with their subjects
+and kept their ids.
+
+mypy clean on **486** source files, up from 480. Those six extra files are the point: mypy excludes
+`src/presentation/` **wholesale**, so a feed leaving that tree is type-checked for the first time.
+PR 2.1e found two real type errors this way; these six were already sound.
+
+The two ratchets, both verified as failing before they were satisfied: the boundary guard listed all
+twelve violations before the allowlist entries were written, and
+`test_module_declarations.py` failed on `trading: imports contracts from ['market_data'] without
+declaring it` within a minute of the files landing — which is §3.7's finding, found by the guard
+rather than by reading.
