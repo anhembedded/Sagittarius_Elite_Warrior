@@ -45,9 +45,8 @@ from pathlib import Path
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.embed import QuickSurface
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import StyleRole
-
-from ..embed import QuickSurface
 
 _QML_FILE = Path(__file__).with_name("ProgressBanner.qml")
 

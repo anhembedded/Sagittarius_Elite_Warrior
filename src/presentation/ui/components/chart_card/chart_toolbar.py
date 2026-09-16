@@ -90,16 +90,16 @@ from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
     all_options,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.embed import (
-    QuickSizePolicy,
-    QuickSurface,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog import (
     PinnedTimeframes,
     TimeframePickerDialog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_vm import (
     TimeframeVM,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.embed import (
+    QuickSizePolicy,
+    QuickSurface,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import StyleRole
 

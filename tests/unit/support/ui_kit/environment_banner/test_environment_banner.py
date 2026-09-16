@@ -4,7 +4,7 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.environment_banner import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
     EnvironmentBanner,
     EnvironmentBannerContent,
 )

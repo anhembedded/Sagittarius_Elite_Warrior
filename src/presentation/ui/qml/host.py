@@ -37,9 +37,8 @@ from pathlib import Path
 from PySide6.QtCore import QObject
 from PySide6.QtQuickWidgets import QQuickWidget
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.embed import QuickSurface
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Overlay, StyleRole
-
-from .embed import QuickSurface
 
 #: The inner widget's `objectName` — what `QTest` clicks and tests address.
 _BODY_OBJECT_NAME = "qmlBody"

@@ -1,6 +1,6 @@
 from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     SYSTEM_TIMEZONE_KEY,
     format_display_datetime,

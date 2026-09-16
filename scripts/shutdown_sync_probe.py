@@ -40,15 +40,15 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.modul
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
     SettingsScreenModule,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.theme_bootstrap import (
-    seed_app_theme,
-)
 from Sagittarius_Elite_Warrior.src.shell.legacy_screen_adapter import (
     as_screen_descriptor,
 )
 from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import welcome_screen
 from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import ScreenRegistry
 from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
+from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
+    seed_app_theme,
+)
 
 _START_TIMEOUT_SECONDS = 5.0
 _FINISH_TIMEOUT_SECONDS = 5.0

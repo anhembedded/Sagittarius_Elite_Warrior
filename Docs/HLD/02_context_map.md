@@ -85,7 +85,7 @@ business logic, so promoting it later is a move plus an import rewrite, never a 
 | `Currency`, `MarketType` | domain and presentation | ✅ |
 | `MarketData` (the OHLCV candle, `domain/entities/market_data.py`) | market_data, backtesting, strategy, indicators, charting | ✅ — renaming it `Candle` is a **candidate** for later; a rename storm is not a pure refactor |
 | `PositionSizing`, `PositionSizingType` | backtesting, trading (`position_sizing_bridge`), strategy | ✅ (the value type stays neutral; the *rule* that uses it, `MarginRiskPolicy`, belongs to `strategy` — ADR D17) |
-| `ExchangeCredentials`, `VenueAlignment` | kernel and settings | ❌ → `support/binance_gateway/contracts`, with the venues |
+| `ExchangeCredentials`, `VenueAlignment` | kernel and settings | ❌ → `support/binance_gateway/contracts`, with the venues — **`VenueAlignment` done, PR 1.6e**: it was the one legacy import keeping `environment_banner` out of `support/ui_kit`, and `support/*` may not import the legacy tree at all |
 | `SignalAction`, `Signal`, `LiveStrategyConfig` | strategy only (plus trading through the bridge) | ❌ → `strategy/contracts` |
 | `BrokerSimulationConfig`, `CommissionType` | backtesting only | ❌ → `backtesting/domain` |
 | `ExchangeConnectionStatus`, `PositionMode`, `MarginType` | trading and settings | ❌ → `trading/contracts` (the settings section is contributed by trading) |

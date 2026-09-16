@@ -1,9 +1,9 @@
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.venue_alignment import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
     VenueAlignment,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.environment_banner import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
     venue_alignment_banner_content,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.surfaces.banner import Severity

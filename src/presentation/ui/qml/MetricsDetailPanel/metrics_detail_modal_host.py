@@ -63,9 +63,9 @@ from pathlib import Path
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.embed import QuickSurface
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import StyleRole, apply_role
 
-from ..embed import QuickSurface
 from .metrics_detail_vm import MetricsDetailVM
 
 _QML_FILE = Path(__file__).with_name("MetricsDetailPanel.qml")

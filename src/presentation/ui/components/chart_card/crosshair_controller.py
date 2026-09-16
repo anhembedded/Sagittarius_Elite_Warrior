@@ -2,11 +2,11 @@ from collections.abc import Callable
 
 import pyqtgraph as pg
 from PySide6 import QtCore
-from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     format_display_timestamp,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 from . import theme
 

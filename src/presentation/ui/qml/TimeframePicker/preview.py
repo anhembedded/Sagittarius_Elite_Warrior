@@ -12,10 +12,10 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtWidgets import QVBoxLayout, QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.embed import QuickSurface
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_vm import (
     TimeframeVM,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.embed import QuickSurface
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import StyleRole
 
 _TOOLBAR_QML = Path(__file__).with_name("TimeframeToolbar.qml")

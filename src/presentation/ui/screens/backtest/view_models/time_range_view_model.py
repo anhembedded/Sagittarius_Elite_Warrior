@@ -31,7 +31,7 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.time_range_preset import (
     TimeRangePreset,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     get_display_timezone_label,
     get_supported_timezones,

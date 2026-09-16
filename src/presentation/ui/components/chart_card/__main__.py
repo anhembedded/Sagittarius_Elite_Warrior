@@ -8,7 +8,7 @@ import time
 
 from PySide6.QtCore import QTimer
 from PySide6.QtWidgets import QApplication
-from Sagittarius_Elite_Warrior.src.presentation.ui.theme_bootstrap import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
     seed_app_theme,
 )
 

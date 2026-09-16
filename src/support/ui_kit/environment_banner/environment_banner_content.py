@@ -15,7 +15,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.venue_alignment import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
     VenueAlignment,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.style import StyleRole

@@ -10,13 +10,13 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.embed import QuickSurface
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.metrics_detail_vm import (
     MetricsDetailVM,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
     StatCardData,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.embed import QuickSurface
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import StyleRole, Tone
 
 _QML_FILE = Path(__file__).with_name("MetricsDetailPanel.qml")

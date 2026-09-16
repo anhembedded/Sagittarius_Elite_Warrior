@@ -18,10 +18,10 @@ from unittest.mock import Mock
 
 import pytest
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.domain.value_objects.venue_alignment import (
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
     VenueAlignment,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.environment_banner import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
     EnvironmentBanner,
     venue_alignment_banner_content,
 )

@@ -14,7 +14,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.time_r
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.view_models.time_range_view_model import (
     TimeRangeViewModel,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     SYSTEM_TIMEZONE_KEY,
 )

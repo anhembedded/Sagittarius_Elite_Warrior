@@ -36,7 +36,7 @@ def _seed_app_theme():
     pull PySide6 and the engine into collection for every test in the
     repository, UI or not.
     """
-    from Sagittarius_Elite_Warrior.src.presentation.ui.theme_bootstrap import (
+    from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
         seed_app_theme,
     )
 

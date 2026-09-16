@@ -83,9 +83,6 @@ from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import (
     MainWindow,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.theme_bootstrap import (
-    seed_app_theme,
-)
 from Sagittarius_Elite_Warrior.src.shell.app_config import (
     load_app_config,
 )
@@ -94,6 +91,9 @@ from Sagittarius_Elite_Warrior.src.shell.composition_root import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import (
     Sidebar,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
+    seed_app_theme,
 )
 from Sagittarius_Elite_Warrior.tests.conftest import (
     real_screen_registry,

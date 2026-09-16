@@ -62,7 +62,10 @@ _UI_ROOT = _REPO_ROOT / "src" / "presentation" / "ui"
 _SUPPORT_UI_ROOT = _REPO_ROOT / "src" / "support" / "ui_kit"
 _SCRIPTS_ROOT = _REPO_ROOT / "scripts"
 _TESTS_ROOT = _REPO_ROOT / "tests"
-_EMBED_DIR = _UI_ROOT / "qml" / "embed"
+#: `support/ui_kit/embed` since `EPIC-025` PR 1.6e. The one place a
+#: `QQuickWidget` may be built follows the code, not the directory it used to
+#: sit in; the landmark test below is what failed and said so.
+_EMBED_DIR = _SUPPORT_UI_ROOT / "embed"
 
 #: Where a `QQuickWidget` may not be built: everything that runs as the real
 #: application. See the module docstring for why `tests/` is absent.
@@ -87,7 +90,7 @@ _SEEDING_CALLS = frozenset({"configure_app_qml", "get_theme_bridge"})
 #: the reason it is not a copy of the app's wiring.
 _SEEDING_EXEMPT: dict[str, str] = {
     # The mechanism itself.
-    "src/presentation/ui/theme_bootstrap.py": "this file *is* seed_app_theme()",
+    "src/support/ui_kit/theme_bootstrap.py": "this file *is* seed_app_theme()",
     # A deliberately DIFFERENT palette: every token distinct, so this package
     # can assert that two roles render differently. `seed_app_theme()` would
     # install the real palette and defeat the point, and the file's own

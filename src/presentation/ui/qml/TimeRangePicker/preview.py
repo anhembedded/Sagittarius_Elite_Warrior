@@ -12,10 +12,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.embed import QuickSurface
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeRangePicker.time_range_picker_vm import (
     TimeRangePickerVM,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.embed import QuickSurface
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import StyleRole
 
 _QML_FILE = Path(__file__).with_name("TimeRangePicker.qml")
