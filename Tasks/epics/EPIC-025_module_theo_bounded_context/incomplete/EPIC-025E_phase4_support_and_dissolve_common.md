@@ -590,3 +590,39 @@ The moved port keeps its file name, so its row is unchanged.
 
 **E12:** breaking `self.refresh_requested.connect(self._vm.refreshSymbolOptionsRequested)` fails
 exactly one test — the refetch one — and nothing else.
+
+### 4.3 PR 4.3c — the *other* duplicated picker, and this one was dead
+
+`TimeRangePicker` turned out to be the symbol picker's story again, with a sharper ending.
+`time_range_picker_vm.py`'s own docstring names it: *"Generalises
+`kit/overlays/date_range_overlay.py`'s `DateRangeOverlay` (presets + two-month calendar) to the QML
+widget shape."* So the app carried **two** date-range pickers as well — and **both hand-drew the
+calendar**, which is precisely what ADR D20 rules out, because `QCalendarWidget` is the component
+the platform already has.
+
+The difference from the symbol picker is that this one had no consumer to protect. Measured:
+nothing under `src/` has constructed `DateRangeOverlay` since `EPIC-015` gave the job to the QML
+picker. The only thing that built it was **`tools/kit_showcase`**, the developer gallery — which is
+`CS-002`'s shape one level out: a widget alive because something shows it, not because anything uses
+it. Its 454 lines built one `_DayCell(QPushButton)` per day and gave each an inline stylesheet.
+
+So 4.3c is a deletion, PR 3.1a's shape: `date_range_overlay.py`, its 13 tests, its two `kit/`
+re-export blocks, and its showcase page. `RangePreset` and `DEFAULT_PRESETS` went with it — measured
+first, and nothing outside that file and the showcase named either. The Backtest screen's own
+`TimeRangePreset` in `screens/backtest/logic/` is a **different** type and is untouched.
+
+**The ratchet is where this pays.** §11.4 counts four numbers and all four moved, so all four were
+lowered in the same commit as that section requires: `apply_role` **48 → 44** across **24 → 23**
+files, and — the one that matters — **`setStyleSheet` 149 → 145** across **22 → 21** files, the
+first fall in that number this phase. Deleting a widget that painted its own day cells is how the
+"no stylesheet anywhere" target actually gets reached.
+
+The QML `TimeRangePicker` is still there and is **4.3d**'s: it is the surviving implementation, and
+replacing it means a `QDialog` with a real `QCalendarWidget` rather than a `leftDays`/`rightDays`
+grid computed in Python.
+
+**Gate:** `RESULT: PASS`, **4928 passed, 4 skipped** in 189s, log
+`logs/ci-local-20260916-174723.log` grepped — 4 hits for the known benign set, **0** records at
+WARNING or above; mypy clean on 495 source files. Test count **4944 → 4928**: **−13** the deleted
+overlay's tests, **−1** the logging namespace guard's row for the deleted source file, **−2** the
+showcase-coverage guard's parametrisations for the two exports that went.
