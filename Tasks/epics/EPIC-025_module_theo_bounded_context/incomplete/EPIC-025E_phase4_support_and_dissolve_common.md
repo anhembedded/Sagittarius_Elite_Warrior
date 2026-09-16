@@ -154,7 +154,7 @@ split.
 | :--- | :--- | :--- |
 | **4.1a** | the six `trading`-owned `ui/common` feeds → `modules/trading/ui/` — `equity_chart_adapter`, `equity_feed`, `execute_order_block_reason`, `market_tick_feed`, `order_feed`, `order_fill_marker` | each has **0** legacy imports. The seventh, `live_order_book_coordinator`, reads `order_book` and travels with it in 4.1b |
 | **4.1b** | `components/order_book` (7 files) → `modules/trading/ui/` **together with** `screens/data_management`'s table models → `modules/market_data/ui/`, extracting the shared `RowTableModel` into `support/ui_kit` in the same pull request; `live_order_book_coordinator` comes too | §3.5: `order_book` is a clean leaf on its own, but moving it alone raises the duplication ratchet, and the user's decision of 2026-09-16 is to do the extraction **once**, when both packages move, rather than churning these files twice |
-| **4.1c** | `screens/trading` (9 files) → `modules/trading/ui/`; the duplication criterion starts falling | after 4.1a/b its legacy-import count is **0**, and none of its thirteen blockers was ever QML |
+| ~~4.1c~~ ❌ | `screens/trading` → `modules/trading/ui/` — **folded into 4.4, §3.11.** Its legacy-import count did reach **0**, and that turned out not to be the binding constraint: merging it into the existing `trading.ui` package deduplicates nothing (the total stays at 112) while making `phase_1_count` read a false **0**, and re-keying the metric honestly would raise its ratchet 32 → 39, which `ci-rule` §5.5 forbids. The two live screens travel together after the deletions, as the user's `DECISION_2026-09-16` said | — |
 | **4.2a** | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator`; `base_event_logger` → `modules/backtesting/ui/` | §3.3: the destination this file left open is **forced**, not chosen. All four have 0 legacy imports except `sync_progress_feed`, whose only one is the sibling travelling with it |
 | **4.2b** | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) | after 4.1b and 4.2a its remaining blockers are QML, so it waits on 4.3 |
 | **4.3** | the QML deletions (ADR D20–D21): the backtest screen's eleven modals become `QDialog`s and its panels docks, `qml/` is deleted, `find src -name '*.qml'` → 0 | the one step with real UI work in it, and the only one the user sees |
@@ -390,3 +390,56 @@ Test count **4952 → 4954**: two source files added (`support/ui_kit/table_mode
 `test_every_presenter_side_path_exists` guard), one of which the logging namespace guard
 parametrizes over and the other of which is itself a test. Four test files moved with their subjects
 and kept their ids.
+
+### 3.11 §3.1's finding is **wrong**, and the user's original decision was right
+
+`screens/trading` reached **0** legacy imports after 4.1a and 4.1b, exactly as §3.1 predicted. It
+still cannot move on its own, and §3.1's conclusion — *"the pair splits, and the criterion starts
+falling at 4.1c rather than after the deletions"* — is retracted here rather than left standing.
+
+**What §3.1 measured, and what it forgot to.** It measured *legacy imports*, which is what decides
+whether a move is **legal**. The epic's headline criterion is decided by something else:
+`tools/measure_duplicate_members.py`, with a shrink-only ratchet on it. Simulated before moving a
+file — `screens/trading`'s members merged into the existing `trading.ui` package, since that is what
+the move does:
+
+| | before 4.1c | after 4.1c |
+| :--- | :-: | :-: |
+| total across every pair | 112 | **112** |
+| `dashboard+trading` | 32 | — (the package is gone) |
+| `dashboard+trading.ui` | — | **39** |
+| `phase_1_count`, keyed `("dashboard", "trading")` | 32 | **0** |
+
+Three things in that table, in order of how badly they matter:
+
+1. **The total does not move.** The 39 names are still defined twice; the move deduplicates
+   nothing. That is the honest number and it is why the total-across-every-pair ratchet exists —
+   PR 2.1e added it after finding the Phase 1 pair falling while duplication merely relocated.
+2. **`phase_1_count` would read 0.** The epic and `PRO-004` are judged on that number reaching zero,
+   and it would reach zero by *renaming a package*. The tool's own docstring claims this cannot
+   happen — *"Renaming a package moves its count; it cannot hide it"* — and it is right about the
+   **total** and wrong about this key, because `PHASE_1_PAIR` is two literal package names.
+   `test_the_baseline_was_lowered_when_duplication_went` would then lock the false 0 into the
+   baseline, and the criterion would be permanently unfalsifiable.
+3. **Re-keying it honestly makes the ratchet rise**, 32 → 39, which `ci-rule.md` §5.5 forbids
+   outright. The 39 is not new duplication; it is the same duplication the pair was always carrying,
+   re-counted now that `trading`'s two halves are one package. But a ratchet that goes up is a
+   ratchet nobody can trust afterwards.
+
+So there is no version of 4.1c that ships alone. The two live screens travel **together**, after
+the QML deletions, which is what the user's
+[`DECISION_2026-09-16`](../DECISION_2026-09-16_the_duplication_criterion_waits.md) said in the first
+place: *"the criterion travels with the deletions in this step."* `screens/dashboard` still has 9
+legacy imports, 6 of them QML that ADR D21 deletes, so it is 4.3's dependency and 4.1c folds into
+4.4.
+
+**What 4.1a and 4.1b were worth anyway**, since the pull request they were supposed to unblock has
+moved: the feeds and `order_book` are in `modules/trading` where HLD §3.5 always put them, the Phase
+1 pair fell **39 → 32** on real de-duplication rather than on relocation, the total fell 115 → 112,
+four table models became one class, and three findings came out of them (§3.6, §3.9's three). None
+of that depended on 4.1c.
+
+**The lesson, and it is the second time in this phase.** §3.5 found that a move a *legality*
+measurement called free was refused by a *duplication* measurement. §3.11 finds the same thing one
+step further along: legality and the ratchets answer different questions, and Phase 4's cut has to
+be measured against **both** before a file moves. §3.2's table is corrected accordingly.
