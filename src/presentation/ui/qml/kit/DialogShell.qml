@@ -6,10 +6,11 @@ import QtQuick.Layouts
 // picker had its own header, padding and footer arrangement."
 //
 // For a fully-QML host (qml-rule.md §0.1's second row): a screen still
-// hosted by QtWidgets uses `QmlOverlay` for its chrome, same as
-// `SelectList`/`StatGrid`/`CheckboxList`/`Capital` today — this shell is
-// for the day a whole route is QML and a modal has nothing QtWidgets to
-// borrow chrome from.
+// hosted by QtWidgets used `QmlOverlay` for its chrome, which is what
+// `SelectList`/`StatGrid`/`CheckboxList`/`Capital` did until `EPIC-025`
+// PRs 4.3e-4.3i deleted all four. This shell was for the day a whole route
+// is QML; ADR D21 says that day is not coming, and `MetricsDetailPanel` is
+// the one consumer left standing.
 ColumnLayout {
     id: root
     objectName: "dialogShell"

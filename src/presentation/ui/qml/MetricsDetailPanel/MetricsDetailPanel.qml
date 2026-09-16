@@ -6,9 +6,11 @@ import "../kit"
 // QML redesign of "CHỈ SỐ CHI TIẾT BACKTEST" — see NOTES.md for exactly
 // which numbers are real (`BacktestMetrics`, unchanged) and which are this
 // widget's own invented verdict-badge heuristic. Self-contained modal via
-// the shared `kit/DialogShell` — not `QmlOverlay` (unlike `StatGrid`, the
-// widget this parallels): standalone and not wired to a screen yet, so
-// there is no host to supply `Overlay` chrome (NOTES.md).
+// the shared `kit/DialogShell` rather than `QmlOverlay`, because it draws
+// its own header and footer and would otherwise get two of each. It IS
+// wired now — `BackTestModalsHost` builds it as `_extended_metrics` — and
+// `StatGrid`, the widget this once paralleled, was deleted in `EPIC-025`
+// PR 4.3i once this replaced its dialog.
 DialogShell {
     id: root
     objectName: "metricsDetailPanel"
