@@ -22,9 +22,6 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strateg
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
     BaseStrategy,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
-    StatCardData,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
 )
@@ -36,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backte
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.extended_metrics_snapshot import (
     ExtendedMetricsSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
+    StatCardData,
 )
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
@@ -147,13 +147,19 @@ def test_extended_metrics_popup_opens_with_the_extended_stat_cards(
     assert dialog is not None
     assert dialog.objectName() == "backtestMetricsDetailDialog"
     assert dialog.isVisible() is True
-    # EPIC-015 Phase 3: body is MetricsDetailPanel.qml/MetricsDetailVM now;
-    # `MetricsDetailCard.qml`'s delegate carries no per-row objectName
-    # (see the `.qml` — nothing distinguishes one card's Rectangle from
-    # another in the widget tree), so the real assertion is on the VM's own
-    # grouped data, the same source the `.qml`'s Repeaters bind to.
-    group = next(g for g in dialog._widget_vm.groups if g["label"] == "PROFIT & LOSS")
-    assert {row["title"] for row in group["rows"]} == {"GROSS PROFIT", "GROSS LOSS"}
+    # `EPIC-025` PR 4.3j: a `QTreeWidget` with one top-level item per section,
+    # so the assertion is on what is actually on screen rather than on a
+    # ViewModel's `QVariantList` — which is what the QML version left it as,
+    # its delegates carrying no per-row objectName to find.
+    section = next(
+        dialog._tree.topLevelItem(index)
+        for index in range(dialog._tree.topLevelItemCount())
+        if dialog._tree.topLevelItem(index).text(0) == "PROFIT & LOSS"
+    )
+    assert {section.child(index).text(0) for index in range(section.childCount())} == {
+        "GROSS PROFIT",
+        "GROSS LOSS",
+    }
 
 
 def test_limitations_popup_opens_with_each_limitation_as_its_own_label(
