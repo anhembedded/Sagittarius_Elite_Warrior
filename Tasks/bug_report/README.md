@@ -58,9 +58,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :--- |
-| 🔴 **Đang mở** | 2 |
+| 🔴 **Đang mở** | 3 |
 | ✅ **Đã sửa / đã đóng** | 122 |
-| 📈 **Tổng** | **124** |
+| 📈 **Tổng** | **125** |
 
 ---
 
@@ -70,6 +70,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | :--- | :--- | :---: | :---: |
 | **[BUG-110](incomplete/BUG-110_chart_range_warning_tai_xuat_hien_sau_khi_BUG-034_da_sua.md)** | Cảnh báo `[chart-range]` (nến bị ép dẹp) tái xuất hiện trên màn Giao dịch (ETHUSDT), sau khi `BUG-034` đã sửa — log không nêu tên item thủ phạm nào khác ngoài nến, nên gần như chắc chắn là cơ chế khác, chưa root-cause | 🟡 P3 | 2026-09-09 |
 | **[BUG-121](incomplete/BUG-121_the_ui_integration_tier_hangs_or_aborts_when_run_serially.md)** | The 47 tests in `tests/integration/presentation/ui/` hang or abort when run in one process — measured on the merged tree too, so it predates `EPIC-025` PR 1.1a. A `ThreadManager` worker from a finished test is still inside `_run_load_history` → `feed_all` while the next test's fixtures set up (the shape `BUG-056` fixed once, with its drain in place), and one run died in an event filter on an already-deleted `QWidget` instead. The gate never sees it: xdist splits the tier four ways and `pytest-randomly` reorders it. `pytest-timeout`'s `signal` method cannot fire either, because the main thread never returns to Python — **the concrete gap `BUG-119` left**. Root cause not established; filed with the evidence and four next steps rather than a guess | 🟠 P2 | 2026-09-15 |
+| **[BUG-127](incomplete/BUG-127_backtest_market_rule_verification_never_verifies.md)** | Màn Backtest luôn báo *"Not verified against exchange rules"* — tính năng kiểm tra quy tắc sàn (`BOT-095E1`) **chưa bao giờ kiểm tra gì cả**. Đủ mọi mảnh, mỗi mảnh có test xanh, nhưng **thiếu hai sợi dây**: không ai gọi `parse_binance_symbol_metadata()` (producer duy nhất, không có caller nào trong `src/`), và `ISymbolMarketMetadataCache` **không được bind ở đâu cả** — đo trên graph thật thì `resolve()` raise, nên nhánh `except` trong `backtest_presenter.py:405-413` là đường **duy nhất** và màn hình luôn nhận một cache rỗng vĩnh viễn. Cùng bệnh với `CS-002` nhưng ở cơ quan khác: guard của `CS-002` chỉ quét *bus subscriber*, không quét port không có binding. Đo cả cây: 43 tên được `resolve()`, chỉ 3 tên không hề được bind — `IThreadManager` và `Scheduler` do **Engine** đăng ký (hợp lệ), còn lại đúng một cái là bug này. | 🟠 P2 | 2026-09-16 |
 
 > Hai hồ sơ cuối đóng cùng ngày theo hai đường khác hẳn nhau, và cặp đó đáng nhớ:
 > `BUG-068` đóng dạng **không tái hiện được từ môi trường hiện có** (cảnh báo Qt chỉ tồn tại trên

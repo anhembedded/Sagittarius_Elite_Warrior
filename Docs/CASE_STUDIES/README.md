@@ -40,6 +40,7 @@ column. **Writing a test double** — read `CS-001` first.
 | :--- | :--- | :--- | :--- |
 | [CS-001](CS-001_a_double_that_could_not_disagree.md) | A double that could not disagree | A double shaped like the union of two interfaces, over an `Any` | `tests/unit/architecture/test_engine_port_calls_are_real.py` + the annotation in `welcome_presenter.py` |
 | [CS-002](CS-002_the_subscriber_nobody_built.md) | The subscriber nobody built | A class that subscribes at construction, that nothing constructs | `tests/unit/architecture/test_a_bus_subscriber_is_constructed.py` |
+| [CS-003](CS-003_the_port_nobody_bound.md) | The port nobody bound | A port something resolves and nothing binds, behind an `except` that hides it | `tests/unit/architecture/test_every_resolved_type_is_bound.py` |
 
 Ids are sequential, never reused. `tests/unit/architecture/test_case_study_index_is_consistent.py`
 fails on an unlisted file, a missing file, a duplicate id, a dead path citation, a missing section

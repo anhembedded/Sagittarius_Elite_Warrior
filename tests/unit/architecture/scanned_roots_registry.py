@@ -28,6 +28,14 @@ UI_TREE_ROWS: tuple[tuple[str, str], ...] = tuple(
 GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     # --- tests/unit/architecture (EPIC-025) --------------------------------
     ("tests/unit/architecture/test_module_boundaries.py", (("src", "*.py"),)),
+    # `BUG-127` / `CS-003` — every type the app resolves must be bound. Scans
+    # both roots for both halves of the question: `scripts/` probes resolve real
+    # ports and bind their own doubles, so leaving them out would miss
+    # violations and invent them in equal measure.
+    (
+        "tests/unit/architecture/test_every_resolved_type_is_bound.py",
+        (("src", "*.py"), ("scripts", "*.py")),
+    ),
     ("tests/unit/architecture/test_no_new_qml.py", (("src", "*.qml"),)),
     (
         "tests/unit/architecture/test_module_domain_is_qt_free.py",
