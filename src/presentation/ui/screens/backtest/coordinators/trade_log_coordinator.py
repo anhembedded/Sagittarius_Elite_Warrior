@@ -5,12 +5,12 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_filter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_filter import (
     TradeLogFilter,
     filter_trade_log_rows,
     search_trade_log_rows,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
     TradeLogRow,
     build_trade_log_rows,
     trade_log_rows_to_qml,

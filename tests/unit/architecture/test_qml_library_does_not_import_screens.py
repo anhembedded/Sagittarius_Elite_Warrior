@@ -1,9 +1,9 @@
 """`EPIC-021L`/`BUG-082` — the shared `qml/` widget library must never
-import `presentation.ui.screens`: that is the one direction
-`stat_card_row_widget.py` documents this rollout uses throughout, and a
-widget that depends on a specific screen can no longer be reused by
-another one (exactly what blocked `EPIC-021I`'s Trading screen from
-reusing `qml/TradeLogTable/`).
+import `presentation.ui.screens`: a widget that depends on a specific
+screen can no longer be reused by another one — exactly what blocked
+`EPIC-021I`'s Trading screen from reusing `qml/TradeLogTable/`. Both files
+that sentence cited are gone (`EPIC-025` PR 4.3g and 4.3h), and the rule is
+not: it governs every `.qml` package ADR D21 has not reached yet.
 
 @details Scans by `ast` for an `ImportFrom`/`Import` node whose module path
 mentions `presentation.ui.screens` (absolute or dotted-relative-resolved),

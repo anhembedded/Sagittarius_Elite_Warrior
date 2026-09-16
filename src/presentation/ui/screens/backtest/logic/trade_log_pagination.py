@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import math
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
     TradeLogRow,
 )
 
