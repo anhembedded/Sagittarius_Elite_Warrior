@@ -283,7 +283,7 @@ of `ISymbolCatalog`:
 | ~~item 2~~ ✅ | the presenter's adapter import, fixed as `BUG-127`; see §3.4 | **36 → 35** |
 | 3.1b | publish `IStrategyEngine` + `IStrategyEngineFactory` with a verified fake and a contract suite, and move the two backtest handlers plus `paper_exchange` onto them. No files move yet — the 0.5 shape, a port with its consumers | shrinks by the 6 strategy-service lines |
 | ~~3.1c~~ ✅ | move **Half A** into `modules/backtesting/`, with its tests, tier unchanged. Done — §6. The estimate was 26 files and *~15 counted entries*; it shipped as **26 files / 2,676 lines** and **three** entries, because putting the boundary-crossing types in `contracts/` *with* the move absorbed 30 of the 33 inbound imports | **29 → 32** |
-| 3.1c-2 | split `paper_exchange.py`, which is **472 lines** against §5 rule 4's 400-line ceiling. §5.5 committed this to 3.1c and it is deliberately a second commit rather than a larger first one: a pure move and a class split are two logical changes (`commit-rule.md` §4), and PR 2.1c/2.1c-2 set that shape in Phase 2. The seam §5.5 named is the file's own: a broker's **books** (cash, positions, trades, the signal → fill dispatch) on top of the **arithmetic against `BrokerSimulationConfig`** that the three policies do | unchanged |
+| ~~3.1c-2~~ ✅ | split `paper_exchange.py`, which was **472 lines** against §5 rule 4's 400-line ceiling. §5.5 committed this to 3.1c and it is deliberately a second commit rather than a larger first one: a pure move and a class split are two logical changes (`commit-rule.md` §4), and PR 2.1c/2.1c-2 set that shape in Phase 2. The seam §5.5 named is the file's own: a broker's **books** (cash, positions, trades, the signal → fill dispatch) on top of the **arithmetic against `BrokerSimulationConfig`** that the three policies do. Done — §7, and the file held **three** things rather than two | unchanged |
 | 3.1d | item 3's Anticorruption Layer — `backtesting/adapters/` translating `PaperExchange` state into `strategy.contracts.StrategyContext`. Travels with 3.1c, because the translation only has a home once the module exists | unchanged |
 | → Phase 4 | **Half B, the screen.** Its eleven QML modals become `QDialog`s and its panels docks *as they move*, because ADR D21 deletes the QML rather than porting it — one piece of work, not two | shrinks |
 
@@ -494,3 +494,94 @@ Test count **4947 → 4950**, a net **+3**, and every id accounted for by
 | `test_contract_file_naming.py` — §6.4's rescued rule: two tests (the check and its subject assertion), plus the two `test_scanned_roots_are_not_empty.py` parametrisations its registry row brings | +4 |
 
 mypy clean on **478** source files, up from 476.
+
+---
+
+## 7. PR 3.1c-2 — the file held three things, and the ceiling is not the argument
+
+§5.5 committed this split to PR 3.1c and named the seam it could see from
+outside: *"a broker's books, and the matching/fee/margin policies it delegates
+to"*. Reading the file for the split found a **third** thing, which is why it is
+three files and not two:
+
+| File | Lines | What changes it |
+| :--- | :-: | :--- |
+| `paper_exchange.py` | 472 → **397** | pyramiding, a partial close, what goes in the trade log — the **books**: cash, open positions, the log, and the dispatch from a `Signal` to an entry or an exit. It records; it does not compute |
+| `fill_pricing.py` | **236** (new) | a second sizing rule (ADR D17 promises the user an ATR-based one), a venue with a different fee shape — the **arithmetic** against this run's `BrokerSimulationConfig` and `PositionSizing`, holding the four policies that do it |
+| `open_position.py` | **48** (new) | a new field on a position (funding, `mae`/`mfe` — `BOT-106B` is the open task) — the **record**, pure data, `IStoppablePosition`'s sole implementer |
+
+The 400-line ceiling (`architecture-rule.md` §5 rule 4) is what made this
+urgent, and it is deliberately **not** the argument: a file can be short and
+still hold two abstraction levels, so `fill_pricing.py`'s docstring argues from
+§5 rule 3 and from the column above — each of the three changes for a reason the
+other two do not. `code-quality-rule.md` §4's Single-Scope Cohesion is what a
+reader reaches for to argue they belong together, and rule 3 is the clause that
+wins: same *feature*, different *abstraction level*. It is the one place those
+two rules genuinely collide, and the reviewer's D8 asks for exactly this to be
+stated rather than assumed.
+
+**Not one formula moved.** Every method on `FillPricing` is the body it had as a
+`PaperExchange` private method; the four policies still do all the computing.
+The class is a holder — the same shape `StrategyEngineFactory` took in PR 3.1b
+and for the same reason: a caller asks in the vocabulary of a fill (*"what
+capital may a LONG entry at this price use?"*) instead of assembling four
+arguments out of two configuration objects at each of five call sites.
+
+### 7.1 `_OpenPosition` became `OpenPosition`
+
+A leading underscore means *private to this module*, and two modules now import
+it, so the underscore was one commit away from being a lie. The name it must not
+collapse into is `trading`'s `LivePosition` — a real exchange's answer about real
+money, against a number this app mutates on every candle — and HLD §1 C3 keeps
+them apart deliberately; `Docs/VOCABULARY` carries both rows and the reason.
+Three docstrings that named the old spelling are corrected
+(`order_matching_policy.py`, `live_position.py`, `fill_pricing.py`), as are
+HLD §01's cut-criteria row, HLD §03's Internal row and `BOT-106B`, which is a
+**backlog** task that would otherwise send its implementer to the wrong file.
+
+### 7.2 The finding, measured and **not** fixed here
+
+`PaperExchange.__init__` takes four policy parameters. Grepped across `src/`,
+`tests/` and `scripts/`: `margin_policy=`, `matching_policy=` and `fee_policy=`
+have **zero** callers — not one, anywhere, ever. Only `sizing_policy=` is passed
+(15 sites), and that one carries ADR D17's promise.
+
+Three constructor parameters nobody has ever passed are a seam that exists in
+code and is used nowhere, which is the shape `BUG-120` and PR 2.1d's
+"binding nothing resolves differently" both warn about. They are kept in this
+pull request on purpose: removing them is a **signature change**, this pull
+request is a split, and `commit-rule.md` §4 wants one logical change. The honest
+replacement is one `pricing: FillPricing | None = None` parameter — strictly more
+capable than the four it replaces, at the abstraction level the split just
+created — and it is recorded here rather than done quietly, so whoever next
+touches this constructor has the measurement instead of the guess.
+
+### 7.3 The evidence
+
+The golden master, the hand-verified per-trade tests and both integration
+backtest suites pass **without one line changed** — 315 passed / 4 skipped in
+132s across `tests/unit/modules/backtesting` and `tests/integration` — which is
+§2's bit-identical criterion, and the only evidence a pure refactor of this file
+can offer. mypy clean on 480 source files; `evaluate_intrabar_stops` is generic
+in the position type like the policy it delegates to, so `self._positions` stays
+`list[OpenPosition]` rather than widening to the contract on every bar.
+
+**No new test**, and that is `testing-rule.md` §1's other branch rather than an
+omission: `FillPricing` has no behaviour of its own to pin, and a test asserting
+that a delegation happened would pin a call rather than a promise
+(`domain-truth-rule.md`). What the split *could* have broken is the one wiring
+the pass-through carries, so it was probed rather than reasoned about: setting
+`sizing_policy=None` in the constructor's hand-off to `FillPricing` fails exactly
+`test_the_injected_sizing_policy_is_what_sizes_the_paper_fills` and nothing else —
+PR 3.1b wrote that test for this seam, and it still guards it after the split.
+
+### 7.4 The gate
+
+`pwsh -NoProfile -File scripts/ci-local.ps1 -Full` → `RESULT: PASS`,
+**4952 passed, 4 skipped** in 185s, log `logs/ci-local-20260916-145719.log` grepped rather
+than the console: 4 hits for `FAILED|ERROR|Traceback|ResourceWarning` (the known
+benign set) and **0** records matching `- (WARNING|ERROR|CRITICAL) -`.
+
+Test count **4950 → 4952**: `test_logging_namespace_guard.py` is
+parametrized per source file, and this pull request adds two
+(`fill_pricing.py`, `open_position.py`).

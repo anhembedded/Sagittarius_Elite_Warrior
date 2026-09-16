@@ -141,7 +141,7 @@ difference is the reason the contexts exist (HLD §1.2).
 
 | Term | Definition | Defined in |
 | :--- | :--- | :--- |
-| **Position** (`_OpenPosition`) | A **simulated** position inside `PaperExchange`, mutated by the app on every tick. A different word from trading's `LivePosition`; never merged. | `modules/backtesting/domain/paper_exchange.py` (`EPIC-025` PR 3.1c) |
+| **Position** (`OpenPosition`) | A **simulated** position inside `PaperExchange`, mutated by the app on every tick. A different word from trading's `LivePosition`; never merged. It lost its leading underscore in PR 3.1c-2, when it got its own file and a second module began importing it — an underscore says *private to this module* and would have become a lie. | `modules/backtesting/domain/open_position.py` (`EPIC-025` PR 3.1c-2) |
 | **Paper exchange** | The simulator that matches orders against candles with fee, margin and matching policies. It sizes each fill through `ISizingPolicy` — `strategy`'s rule, not its own (ADR D17) — which is what makes a backtested size and a live size one number. | `modules/backtesting/domain/` |
 | **Run** | One backtest execution with a configuration; produces a `BacktestResult`, metrics and a trade log. Two kinds, and the difference is what a candle means: a **static** run replays closed candles, a **historical-tick** run replays ticks and the newest bar is still forming (`BOT-042D`). | `modules/backtesting/application/` |
 | **Out-of-sample split** | Dividing the range into fit and validation parts. | `modules/backtesting/domain/` |

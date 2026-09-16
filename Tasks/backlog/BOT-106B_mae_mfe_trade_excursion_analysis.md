@@ -21,6 +21,6 @@
 
 1. **Domain**:
    - `Trade`: Thêm 2 trường `mae_percent: float` và `mfe_percent: float`.
-   - `PaperExchange`: Cập nhật `mae` và `mfe` của `_OpenPosition` trên từng nến/tick giá đi qua trong khi vị thế đang mở.
+   - `PaperExchange`: Cập nhật `mae` và `mfe` của `OpenPosition` (`modules/backtesting/domain/open_position.py` từ `EPIC-025` PR 3.1c-2) trên từng nến/tick giá đi qua trong khi vị thế đang mở.
 2. **Presentation**:
    - Hiển thị MAE / MFE trong dòng chi tiết mở rộng của Trade Logs (`BackTestTradeLogs.qml` dòng §2.2).
