@@ -5,7 +5,8 @@ is a separate widget, see NOTES.md), hosted behind `QmlOverlay`'s chrome.
 @par Choose-and-close-immediately, no footer buttons
 `TimeframePickerCard.qml`'s `onChosen` calls `vm.choose(code)` straight from
 the delegate — there is no separate Apply step in `TimeframePicker.qml`
-itself, exactly like `SelectList.qml`'s rows do for `TimezonePickerDialog`.
+itself, the same choose-and-close contract `kit.PickerOverlay`'s consumers
+have (`TimezonePickerDialog` is the closest one).
 So this host supplies no `_build_buttons()` override at all:
 `Overlay`'s own default (an empty row) is exactly right, and the native
 dialog close (X) / Escape is how a caller backs out without choosing — the

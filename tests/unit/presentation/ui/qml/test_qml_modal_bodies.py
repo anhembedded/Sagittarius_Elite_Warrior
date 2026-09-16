@@ -1,4 +1,8 @@
-"""The two `EPIC-015` bậc 1 pilots, rendered for real.
+"""`Capital.qml`, rendered for real — the last `EPIC-015` bậc 1 pilot here.
+
+`TimezonePickerDialog` was the other, and `EPIC-025` PR 4.3e took it off QML
+onto `kit.PickerOverlay`; its three promises are restated at
+`tests/unit/presentation/ui/screens/backtest/test_select_dialogs.py`.
 
 Thin on purpose: the rules are covered by the ViewModel tests, which need no
 GUI. What only a rendered test can prove is that the `.qml` loaded, that its
@@ -17,59 +21,15 @@ import pytest
 from PySide6.QtCore import QObject
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_modals import (
     CapitalDialogWidget,
-    TimezonePickerDialog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
 )
-from Sagittarius_Elite_Warrior.tests.conftest import find_all_named
 
 
 @pytest.fixture
 def view_model():
     return BackTestViewModel()
-
-
-def test_the_timezone_body_renders_one_row_per_option(qapp, view_model):
-    """`EPIC-015` §4c: body is now the shared `SelectList.qml` — see
-    `test_select_list_bodies.py` for that component's own render tests.
-    This one only proves `TimezonePickerDialog` wires the real ViewModel
-    data through it."""
-    dialog = TimezonePickerDialog(view_model)
-    dialog.resize(440, 350)
-    dialog.show()
-    qapp.processEvents()
-
-    rows = find_all_named(dialog.root_object, "selectItem_")
-    assert len(rows) == len(view_model.time_range.displayTimezoneOptions)
-    dialog.close()
-
-
-def test_the_timezone_body_marks_the_current_one(qapp, view_model):
-    view_model.setDisplayTimezone("Asia/Tokyo")
-    dialog = TimezonePickerDialog(view_model)
-    dialog.resize(440, 350)
-    dialog.show()
-    qapp.processEvents()
-
-    selected = [r["selected"] for r in dialog._widget_vm.rows]
-    assert sum(selected) == 1
-    chosen_id = dialog._widget_vm.rows[selected.index(True)]["id"]
-    assert chosen_id == "Asia/Tokyo"
-    dialog.close()
-
-
-def test_choosing_a_timezone_writes_through_and_closes(qapp, view_model):
-    dialog = TimezonePickerDialog(view_model)
-    dialog.resize(440, 350)
-    dialog.show()
-    qapp.processEvents()
-
-    dialog._widget_vm.choose("Asia/Tokyo")
-    qapp.processEvents()
-
-    assert view_model.time_range.displayTimezone == "Asia/Tokyo"
-    assert not dialog.isVisible()
 
 
 def test_the_capital_body_binds_the_amount_both_ways(qapp, view_model):

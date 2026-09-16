@@ -1,4 +1,10 @@
-"""Tests for the shared `MarketPickerDialog` widget."""
+"""Tests for the shared `MarketPickerDialog` widget.
+
+Restated in `EPIC-025` PR 4.3e, when the body moved from `SelectList.qml` onto
+`kit.PickerOverlay`. All four promises are the same sentences; only the way a
+test reaches a row changed — `SelectableCard`s in a grid layout rather than
+named items inside a `QQuickWidget`'s scene.
+"""
 
 from __future__ import annotations
 
@@ -6,13 +12,12 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.domain.value_objects.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.market_picker import (
     MarketPickerDialog,
 )
-from Sagittarius_Elite_Warrior.tests.conftest import find_all_named, find_qml_item
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import SelectableCard
 
 
 class _Source:
@@ -30,27 +35,36 @@ class _Source:
         return dialog
 
 
+def _cards(dialog: MarketPickerDialog) -> list[SelectableCard]:
+    found = []
+    for index in range(dialog._grid.count()):
+        entry = dialog._grid.itemAt(index)
+        widget = None if entry is None else entry.widget()
+        if isinstance(widget, SelectableCard):
+            found.append(widget)
+    return found
+
+
+def _labels(dialog: MarketPickerDialog) -> list[str]:
+    return [card.findChild(QLabel).text() for card in _cards(dialog)]
+
+
+def _card_for(dialog: MarketPickerDialog, label: str) -> SelectableCard:
+    return _cards(dialog)[_labels(dialog).index(label)]
+
+
 def test_opening_renders_every_market(qapp):
     dialog = _Source().build(qapp)
 
-    rows = find_all_named(dialog.root_object, "selectItem_")
-    assert {row.objectName() for row in rows} == {
-        "selectItem_spot",
-        "selectItem_futures_usd_m",
-        "selectItem_futures_coin_m",
-    }
+    assert _labels(dialog) == ["Spot", "Futures (USD-M)", "Futures (COIN-M)"]
     dialog.close()
-
-
-def _row(dialog: MarketPickerDialog, market_id: str) -> dict[str, object]:
-    return next(row for row in dialog._widget_vm.rows if row["id"] == market_id)
 
 
 def test_the_current_market_is_marked_selected(qapp):
     dialog = _Source(current=MarketType.FUTURES_USD_M.value).build(qapp)
 
-    assert _row(dialog, "futures_usd_m")["selected"] is True
-    assert _row(dialog, "spot")["selected"] is False
+    assert _card_for(dialog, "Futures (USD-M)").selected is True
+    assert _card_for(dialog, "Spot").selected is False
     dialog.close()
 
 
@@ -59,13 +73,7 @@ def test_choosing_emits_the_market_id_and_closes(qapp):
     chosen: list[str] = []
     dialog.chosen.connect(chosen.append)
 
-    item = find_qml_item(dialog.root_object, "selectItem_futures_coin_m")
-    centre = item.mapToScene(item.boundingRect().center())
-    QTest.mouseClick(
-        dialog.quick_widget,
-        Qt.MouseButton.LeftButton,
-        pos=QPoint(int(centre.x()), int(centre.y())),
-    )
+    _card_for(dialog, "Futures (COIN-M)").clicked.emit()
     qapp.processEvents()
 
     assert chosen == [MarketType.FUTURES_COIN_M.value]
@@ -78,12 +86,13 @@ def test_reopening_rereads_the_current_choice(qapp):
     documents."""
     source = _Source(current=MarketType.SPOT.value)
     dialog = source.build(qapp)
-    assert _row(dialog, "spot")["selected"] is True
+    assert _card_for(dialog, "Spot").selected is True
     dialog.close()
 
     source.current = MarketType.FUTURES_USD_M.value
     dialog.show()
     qapp.processEvents()
 
-    assert _row(dialog, "futures_usd_m")["selected"] is True
+    assert _card_for(dialog, "Futures (USD-M)").selected is True
+    assert _card_for(dialog, "Spot").selected is False
     dialog.close()
