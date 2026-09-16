@@ -536,3 +536,57 @@ deletes no `.qml`; 4.3b does.
 net, from three promises added (the virtualisation test, the star-marks-a-favourite test, the
 current-row-under-the-keyboard test, the wrap test) against one source file added and one deleted,
 which cancel in the logging guard's per-file parametrization.
+
+### 4.2 PR 4.3b — the QML picker is deleted, and one signal had to come with it
+
+`presentation/ui/qml/SymbolPicker/` is gone: **3 `.qml` + 10 `.py`**, four of those Python files
+being colocated tests the gate never ran. `qml/abstract/` and `qml/interfaces/` went with it — each
+held exactly one file, and both existed only for that picker.
+
+`ISymbolPickerSource` is **not** deleted, and it moved to
+`support/ui_kit/symbol_picker/i_symbol_picker_source.py`. It is still the right seam: two screens
+implement it, each translating its own ViewModel into the four questions a picker asks, and
+`architecture-rule.md` §5 is why those adapters do not live in the dialog files that construct them.
+`SymbolPickerOverlay` takes four callables, so a caller with nothing to adapt — Data Management
+reads its ViewModel directly — never sees the file.
+
+**The finding: one promise was carried by the QML host and nothing else.** Opening the picker asked
+the screen to refetch its symbol list from the exchange — Backtest connects
+`refreshSymbolOptionsRequested` in `signal_wiring.py`, Dev Board connects
+`symbolOptionsRefreshRequested` in `dashboard_presenter.py`. `SymbolPickerOverlay` had no such
+signal, because Data Management never needed one (its own scan populates the list). Deleting the
+QML host without noticing would have left a user who opened the picker before the exchange answered
+sitting on "Loading…" until they closed and reopened it. So the overlay gained
+`refresh_requested`, emitted in `showEvent()` **before** the lists are re-read — synchronous hosts
+are then read by the same open, asynchronous ones call `refresh()` when their answer lands.
+
+**Seven tests went with their subject, and four of their promises did not.** The E11 inventory is in
+the new `tests/unit/presentation/ui/screens/backtest/test_symbol_picker_dialog.py`: refetch-on-open,
+choose-writes-through-and-records-recent, star-without-choosing and swap-the-preferences-store all
+have homes there, plus a new one for un-starring (the overlay reports only *which* symbol was hit,
+so the dialog is what turns that into an add or a remove, and a dialog that only ever added would
+make un-starring impossible). Three were dropped with the toolkit that created them: two were about
+an inner QML `Popup` leaving the outer `QDialog` on screen (`qml-rule.md` §0.1 — there is one widget
+now, so no shell to strand) and one was about a broken `.qml` file.
+
+`test_dev_board_panel.py`'s `BUG-066` freeze test named *"SymbolPicker.qml virtualizes items"* in
+its docstring. Corrected, and **strengthened**: the wall-clock assertion is the user's own promise
+from that bug and stays, and beside it now sits the deterministic one — 1,358 symbols, fewer than a
+hundred widgets.
+
+**The numbers.** `.qml` **27 → 24**, and both ratchets were lowered in the same commit as their own
+rules require: `baseline_qml_files.txt` lost its three lines, `baseline_app_styling.json`'s
+`qml_files` **27 → 24** with `apply_role` **49 → 48** across **25 → 24** files, and the duplication
+total **112 → 107** (the two picker dialogs stopped being QML hosts with a shared set of method
+names). The Phase 1 pair is unchanged at 32.
+
+**Gate:** `RESULT: PASS`, **4944 passed, 4 skipped** in 190s, log
+`logs/ci-local-20260916-173900.log` grepped — 4 hits for
+`FAILED|ERROR|Traceback|ResourceWarning` (the known benign set) and **0** records matching
+`- (WARNING|ERROR|CRITICAL) -`; mypy clean on 496 source files. Test count **4958 → 4944**, and
+every one is accounted for: **−8** the two deleted test files' tests, **−11** the logging namespace
+guard's per-source-file rows for the eleven deleted `src/` files, **+5** the new dialog test file.
+The moved port keeps its file name, so its row is unchanged.
+
+**E12:** breaking `self.refresh_requested.connect(self._vm.refreshSymbolOptionsRequested)` fails
+exactly one test — the refetch one — and nothing else.
