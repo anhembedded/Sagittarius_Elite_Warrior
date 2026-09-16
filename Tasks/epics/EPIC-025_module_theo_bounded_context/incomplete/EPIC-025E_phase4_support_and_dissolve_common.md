@@ -157,7 +157,7 @@ split.
 | ~~4.1c~~ ❌ | `screens/trading` → `modules/trading/ui/` — **folded into 4.4, §3.11.** Its legacy-import count did reach **0**, and that turned out not to be the binding constraint: merging it into the existing `trading.ui` package deduplicates nothing (the total stays at 112) while making `phase_1_count` read a false **0**, and re-keying the metric honestly would raise its ratchet 32 → 39, which `ci-rule` §5.5 forbids. The two live screens travel together after the deletions, as the user's `DECISION_2026-09-16` said | — |
 | **4.2a** | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator`; `base_event_logger` → `modules/backtesting/ui/` | §3.3: the destination this file left open is **forced**, not chosen. All four have 0 legacy imports except `sync_progress_feed`, whose only one is the sibling travelling with it |
 | **4.2b** | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) | after 4.1b and 4.2a its remaining blockers are QML, so it waits on 4.3 |
-| **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** the two QML picker dialogs go and `qml/SymbolPicker/` is deleted, then `TimeRangePicker`, `SelectList`/`CheckboxList`/`Capital`, `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, and `kit/` last. `find src -name '*.qml'` → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
+| **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), then `SelectList`/`CheckboxList`/`Capital`, `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 22**, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
 | **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard`; `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's |
 
 After 4.1a and 4.2a, `ui/common` holds **two** files: `live_order_book_coordinator` (waiting on
@@ -626,3 +626,80 @@ grid computed in Python.
 WARNING or above; mypy clean on 495 source files. Test count **4944 → 4928**: **−13** the deleted
 overlay's tests, **−1** the logging namespace guard's row for the deleted source file, **−2** the
 showcase-coverage guard's parametrisations for the two exports that went.
+
+### 4.4 PR 4.3d — the surviving picker, one `QCalendarWidget`, and a bug the gate could not see
+
+4.3c deleted the dead half of the pair. This is the live half: `src/presentation/ui/qml/TimeRangePicker/`,
+the one three screens actually opened. It is now `src/support/ui_kit/time_range_picker/`, a `QDialog`
+with two real `QCalendarWidget`s, and the QML package is gone — `.qml` **24 → 22**.
+
+**The split is the point, not the widget.** The package is two files because the rules and the
+painting have different reasons to change: `range_rules.py` (181 lines) holds `parse_instant`,
+`format_instant`, `resolve_preset`, `seed_range`, `can_apply` and `build_summary` — pure functions
+over `datetime`, no Qt import — and `dialog.py` (360) holds the calendars, the fields, the preset
+row and the summary label. The QML version had these in one `QObject` ViewModel behind `Property`
+declarations, which is why its 13 tests needed a Qt event loop to assert that a week is seven days.
+The 14 tests in `test_range_rules.py` need nothing.
+
+**The three consumers did not notice.** `screens/backtest/backtest_modals/time_range_picker_dialog.py`,
+`screens/data_management/data_management_widgets/time_range_card.py` and
+`screens/dashboard/dev_board_panel.py` all constructed the QML dialog through the same signature
+(`from_text`, `to_text`, `parent`, then `applied`), so the change is an import swap in three files
+and nothing else. That signature was not a coincidence to be grateful for: it is what `EPIC-014`
+established, and it is the reason this deletion cost three lines instead of three screens.
+
+**`BUG-128` came out of writing the tests, not out of using the app.** `seed_range`'s ancestor
+tested `start is None or end is None or start > end` and then repaired only the first two disjuncts
+— an inverted pair is non-`None` on both sides, so both `or` fallbacks kept what they had and the
+dialog opened on `08 Jul → 01 Jul` with **Apply enabled**. A guard that detects a state and declines
+to repair it; `can_apply` could not catch it downstream, because *present* is a different question
+from *ordered*. Fixed as three explicit branches, since the defect **was** a fallback that missed
+the case its own condition named. The regression test was written first and confirmed red, returning
+the inverted pair.
+
+**And the review of this pull request found the other half of it.** Two calendars remove the old
+one-grid picker's disambiguation rule, and they introduce a state that picker could not reach: click
+From after To and the pair inverts by hand. `can_apply` said yes to that for exactly the reason it
+said yes to the seeded pair — *present* is not *ordered* — so fixing only `seed_range` would have
+left the symptom one click away, which is `bug-fix-rule` §2's "the mechanism, not the reported call
+site". `can_apply` now requires both ends and their order, and `build_summary` words that state
+(*"The end is before the start"*) rather than clamping the negative span to `0 days`, which read as
+a legitimate single instant. This file's own test docstring had asserted in prose that two calendars
+*cannot* reach an invalid state — true of the state the previous picker reached, false of the one
+this shape introduces, and the reason the review row about breaking the line (`E12`) earns its keep:
+the new test fails, and only it fails, when `_calendar()`'s `clicked` connection is deleted.
+
+**`CS-004` is the case study, and its check is the one that generalises.** The VM had 13 unit tests,
+one of them on that very condition's unparseable branch, and **no run has ever collected them**:
+they lived at `src/presentation/ui/qml/TimeRangePicker/tests/`, and the gate runs `pytest tests`.
+PR 1.4b-2 found the hole and counted twenty such files; this is the first time it cost something.
+`tests/unit/architecture/test_no_test_file_lives_under_src.py` now fails on a new `test_*.py`,
+`*_test.py` or `conftest.py` under `src/`, against a shrink-only baseline of the **22** that remain
+— all of them inside QML packages 4.3's remaining steps delete, so the list reaches zero with the
+last `.qml`.
+
+**One ratchet note worth recording.** The new dialog first **raised** `apply_role` 44 → 46: the
+obvious way to write a heading in this codebase is `apply_role(label, "heading")`, and §11.4's
+number counts every such call. A widget arriving in the phase whose job is to drive that number to
+zero cannot add two. Both were removed and `_heading()` returns a plain `QLabel`, with a docstring
+saying why — so the styling baseline moves only on its QML keys: `qml_files` **24 → 22**,
+`qml_theme_refs` **188 → 166**. The two `apply_role` numbers and both `setStyleSheet` numbers are
+untouched, which is the correct outcome for a PR that deletes `.qml` and adds a widget.
+
+**Six host-side tests had to be restated, and the first gate run is how I learned that.** They
+reached into the QML dialog's internals — `_widget_vm.fromText`, `_widget_vm.choosePreset("7d")`,
+`find_all_named(dialog.root_object, …)` — so each failed with an `AttributeError` three minutes in,
+exactly the shape PR 4.1b hit: they live under `tests/unit/presentation/`, which the pre-gate
+`tests/unit/architecture` run does not reach. Every promise was restated rather than deleted
+(`pr-review` E11): what an open seeds from, what an Apply writes to both fields and the ViewModel,
+that the Backtest modal lists one preset more than its ViewModel's option list (now asserted as the
+real number, 7, as well as as a relation), and that Dev Board's picker falls back to a 1m summary
+(now checked on the summary text too, not only on the two callables). The move's own test file is
+restated one for one: of seven, five keep their names, the `can_apply`-tracking one becomes two, and
+the broken-`.qml` one is dropped for want of a subject.
+
+**Gate:** `RESULT: PASS`, **4946 passed, 4 skipped** in 184s, log
+`logs/ci-local-20260916-181345.log` grepped — 4 hits for the known benign set, **0** records at
+WARNING or above; mypy clean on 498 source files. Test count **4928 → 4946**: **+16** the rules
+suite the gate can actually see, and **+2** net in the guards — the new `test_no_test_file_lives_under_src.py`'s
+three, less one parametrised row the deleted source files cost. The dialog's own file is 7 → 7.
