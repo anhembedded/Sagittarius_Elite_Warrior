@@ -31,12 +31,11 @@ embedded on it rendering from one source (`BUG-115`).
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette, get_icon_loader
 from sagittarius_engine.extensions.pyside_mvc import (
     configure_app_qml,
     get_theme_bridge,
 )
-
-from .assets import Palette, get_icon_loader
 
 
 def seed_app_theme() -> None:

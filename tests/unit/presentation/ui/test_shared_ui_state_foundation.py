@@ -112,7 +112,7 @@ def test_state_tokens_resolve_to_this_apps_real_palette_values(probe_view):
     stateDisabledOpacity is deliberately left unset in Palette (the engine
     default of 0.45 already matches the value this task standardized on),
     so that one alone still falls back to state_tokens.DEFAULT_STATE_TOKENS."""
-    from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+    from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
     from sagittarius_engine.extensions.pyside_mvc import DEFAULT_STATE_TOKENS
 
     root = probe_view.quick_widget.rootObject()

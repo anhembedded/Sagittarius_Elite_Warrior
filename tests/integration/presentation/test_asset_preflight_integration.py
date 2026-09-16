@@ -6,7 +6,7 @@ and AssetValidatorExtension.
 from unittest.mock import patch
 
 import pytest
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets.asset_validator_extension import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets.asset_validator_extension import (
     AssetValidatorExtension,
 )
 from sagittarius_engine import App
@@ -78,7 +78,7 @@ def test_asset_preflight_integration_warns_and_continues_in_production_with_miss
     app.use(extension)
 
     with patch(
-        "Sagittarius_Elite_Warrior.src.presentation.ui.assets.asset_validator_extension.logger.warning"
+        "Sagittarius_Elite_Warrior.src.support.ui_kit.assets.asset_validator_extension.logger.warning"
     ) as mock_warning:
         app.boot()
 

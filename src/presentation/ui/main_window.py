@@ -23,7 +23,6 @@ from collections.abc import Callable, Sequence
 from PySide6.QtCore import QByteArray
 from PySide6.QtGui import QCloseEvent, QMoveEvent, QResizeEvent
 from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import (
     ISidebar,
     NavItem,
@@ -37,6 +36,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
     UiStateCoordinator,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from sagittarius_engine.extensions.pyside_mvc import PresenterManager
 
 _WINDOW_TITLE = "Sagittarius Elite Warrior — Binance Trading Bot"

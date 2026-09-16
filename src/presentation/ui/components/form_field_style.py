@@ -24,7 +24,7 @@ visual change it is.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 FIELD_STYLE = (
     f"background-color: {Palette.BG_CARD_HEADER}; "

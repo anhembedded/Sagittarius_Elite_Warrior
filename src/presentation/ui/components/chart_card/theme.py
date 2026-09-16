@@ -15,7 +15,7 @@ green because it closed up, not because the theme says so. Those two carry
 real, the import above is the thing to remove, and these two are already in
 the right shape."""
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 BULL_COLOR = "#26a69a"  # token-exempt: candle/indicator series colour, not chrome
 BEAR_COLOR = "#ef5350"  # token-exempt: candle/indicator series colour, not chrome

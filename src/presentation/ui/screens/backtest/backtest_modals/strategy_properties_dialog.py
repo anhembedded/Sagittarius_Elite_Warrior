@@ -19,7 +19,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_params.param_field import (
     BotParamFieldWidget,
 )
@@ -33,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit.widget_value import (
     read_widget_value,
     write_widget_value,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 from ..logic.broker_properties_schema import BROKER_PROPERTY_FIELDS, owner_of
 from ._layout import _ACCENT, _field_row, _section_header

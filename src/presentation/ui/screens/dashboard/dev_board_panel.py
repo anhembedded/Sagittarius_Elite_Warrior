@@ -51,10 +51,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
     ManualOrderDirection,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
-    Palette,
-    get_icon_loader,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
     AppLogPanel,
 )
@@ -77,6 +73,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.status_pill_widget im
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeRangePicker.time_range_picker_dialog import (
     TimeRangePickerDialog,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
+    Palette,
+    get_icon_loader,
 )
 
 from .dashboard_symbol_picker_dialog import DashboardSymbolPickerDialog

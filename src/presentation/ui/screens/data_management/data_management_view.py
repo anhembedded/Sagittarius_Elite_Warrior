@@ -16,10 +16,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
-    Palette,
-    get_icon_loader,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
     AppLogPanel,
 )
@@ -49,6 +45,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
     KlineInspectorDialog,
     TimeRangeCardWidget,
     field_style,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
+    Palette,
+    get_icon_loader,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 

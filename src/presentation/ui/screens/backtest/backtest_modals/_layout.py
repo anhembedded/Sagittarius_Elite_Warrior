@@ -14,13 +14,13 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.form_field_style import (
     FIELD_STYLE,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     SelectableCard,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 #: `EPIC-022C` — moved to `components/form_field_style.py` so the
 #: parameter-field widget, now shared with the Trading screen, could stop

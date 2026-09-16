@@ -17,10 +17,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config imp
     MIN_LEVERAGE,
     MIN_SIZING_PERCENT,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
-    Palette,
-    get_icon_loader,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
     FALLBACK_SYMBOL,
 )
@@ -48,6 +44,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     StyledButton,
     StyleRole,
     apply_role,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
+    Palette,
+    get_icon_loader,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 

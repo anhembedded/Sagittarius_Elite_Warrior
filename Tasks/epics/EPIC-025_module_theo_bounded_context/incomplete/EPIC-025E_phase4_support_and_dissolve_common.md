@@ -17,6 +17,17 @@
    five genuinely shared items of `ui/common` (`action_ownership_tracker`, `app_defaults`,
    `base_feed`, `sync_progress_*`). `src/presentation/ui/qml/` is **deleted**; `find src -name
    '*.qml'` returns 0.
+   **Started early, in Phase 1, and not as a shortcut.** Phase 1 closed measuring that its own
+   last criterion — the two screens into `modules/trading/ui/`, and with them the 59 duplicated
+   members — cannot be met until this package exists, and Phase 2's strategy cards sit behind
+   the same wall. So the package is being built **bottom-up from Phase 1 onward**, one clean
+   leaf per pull request, each one costing zero allowlist entries because a legacy file may
+   import `support/**` whole. Done so far: `assets/` (PR 1.6a — `Palette`, `IconLoader`, the
+   Lucide icon set and the boot preflight). Next in dependency order, measured on the day
+   1.6a was cut: `kit/`, `qml/embed`, `qml/kit`, `theme_bootstrap.py`, `constants.py` —
+   these six import only each other; then `services/display_timezone_service.py` and the
+   `ui/common` helpers above. What remains for *this* phase is whatever still has a legacy
+   import when Phase 3 ends, plus the deletions in step 4, which only this phase can do.
 4. **Delete** `ui/common/`; **delete** `binance_bot_module.py` (now empty); the `settings` screen
    becomes a surface that hangs each module's `settings_section` contribution.
 5. (ADR D6 is superseded by D20 — there is no QML to place.)

@@ -11,7 +11,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
 )
 

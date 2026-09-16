@@ -48,8 +48,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
-from ..assets import Palette
 from .preferred_height_scroll_area import PreferredHeightScrollArea
 
 #: `QSplitter`'s initial pane split, not a hard cap — the user can still

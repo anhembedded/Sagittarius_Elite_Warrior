@@ -3,7 +3,6 @@ from datetime import UTC, datetime
 from enum import Enum
 
 import pyqtgraph as pg
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.qt_platform import (
     is_headless_qt_platform,
     qt_platform_name,
@@ -12,6 +11,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_ser
     DEFAULT_TIMEZONE,
     get_utc_offset_seconds,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 # Under "App" so StdLogger's handlers apply — see cached_frame_interaction.
 logger = logging.getLogger("App.ChartPlotLayout")

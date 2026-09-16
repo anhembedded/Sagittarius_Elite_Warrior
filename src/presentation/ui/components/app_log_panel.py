@@ -6,11 +6,11 @@ from __future__ import annotations
 
 from PySide6.QtCore import QModelIndex, QSize, Qt
 from PySide6.QtWidgets import QStyledItemDelegate, QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.kit import LogPanel
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import LogPanel
 
 #: Copy/Clear are English here because the buttons have always read that way
 #: on screen — see `EPIC-007E`. Everything else user-facing in this app is

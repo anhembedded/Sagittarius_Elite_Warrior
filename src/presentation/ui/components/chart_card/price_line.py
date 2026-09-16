@@ -1,6 +1,6 @@
 import pyqtgraph as pg
 from PySide6 import QtCore
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 from . import theme
 

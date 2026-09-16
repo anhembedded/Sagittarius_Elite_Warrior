@@ -16,10 +16,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
-    Palette,
-    get_icon_loader,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
     AppLogPanel,
 )
@@ -28,6 +24,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     Tab,
     TabBar,
     apply_role,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
+    Palette,
+    get_icon_loader,
 )
 
 from ._filter_tab_button import _FilterTabButton

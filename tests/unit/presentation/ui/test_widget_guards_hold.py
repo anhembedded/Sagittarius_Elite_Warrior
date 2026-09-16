@@ -58,7 +58,22 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit.guards import (
     format_unscoped_container_findings,
 )
 
-_UI_ROOT = Path(__file__).resolve().parents[4] / "src" / "presentation" / "ui"
+_REPO_ROOT = Path(__file__).resolve().parents[4]
+
+#: Both UI trees, not one. The three guards below were pointed at
+#: `src/presentation/ui` when it was the whole of the app's UI. `EPIC-025`
+#: PR 1.4b-1 moved the surface host into `support/ui_kit/` and PR 1.6a moved
+#: `assets/` after it, and neither move brought the guards along: for one
+#: pull request the host's own `setStyleSheet` would have been unguarded, and
+#: `palette.py` — the file the colour guard exists to exempt — had left the
+#: scanned tree entirely, which is what `test_ui_root_is_where_we_think_it_is`
+#: caught. Measured when the second root was added: it contributes 0 findings
+#: to all three guards, so nothing is being waved through here. The list
+#: shrinks back to one entry when Phase 4 deletes the legacy tree.
+_UI_ROOTS = (
+    _REPO_ROOT / "src" / "presentation" / "ui",
+    _REPO_ROOT / "src" / "support" / "ui_kit",
+)
 
 #: File định nghĩa màu của app — tương đương `style.py` của engine. Không có
 #: nó thì `palette.py` bị báo 15 lần vì *chứa* token, và 0 là bất khả thi.
@@ -119,16 +134,38 @@ _COLOUR_SOURCES = ("palette.py",)
 _BARE_QT_BASE_CEILING = 2
 
 
+def _bare_qt_base_findings() -> list[object]:
+    """Both ratchet tests below read the same number; computing it in one
+    place is what keeps them from disagreeing about which roots they scan."""
+    return [
+        finding for root in _UI_ROOTS for finding in find_bare_qt_base_widgets(root)
+    ]
+
+
 def test_ui_root_is_where_we_think_it_is() -> None:
     """Đường dẫn tính bằng `parents[4]`; nếu ai đó di chuyển file test này,
     hai test dưới sẽ quét một thư mục rỗng và xanh vì không có gì để tìm.
-    Đây là thứ chặn cái đó."""
-    assert _UI_ROOT.is_dir(), f"không thấy cây UI ở {_UI_ROOT}"
-    assert (_UI_ROOT / "assets" / "palette.py").is_file()
+    Đây là thứ chặn cái đó.
+
+    It earns its keep beyond a typo in `parents[4]`: when PR 1.6a moved
+    `assets/` into `support/ui_kit/`, this is the test that failed, and the
+    landmark below is why — the colour guard's own exempt file had walked out
+    of the scanned tree while the guard stayed green on what was left."""
+    for root in _UI_ROOTS:
+        assert root.is_dir(), f"không thấy cây UI ở {root}"
+    assert (
+        _REPO_ROOT / "src" / "support" / "ui_kit" / "assets" / "palette.py"
+    ).is_file()
 
 
 def test_no_hardcoded_colour_outside_palette() -> None:
-    findings = find_inline_stylesheets(_UI_ROOT, colour_source_names=_COLOUR_SOURCES)
+    findings = [
+        finding
+        for root in _UI_ROOTS
+        for finding in find_inline_stylesheets(
+            root, colour_source_names=_COLOUR_SOURCES
+        )
+    ]
 
     assert findings == [], (
         "EPIC-007D đưa con số này về 0 và nó phải ở đó.\n"
@@ -139,7 +176,7 @@ def test_no_hardcoded_colour_outside_palette() -> None:
 
 
 def test_bare_qt_base_classes_do_not_grow() -> None:
-    findings = find_bare_qt_base_widgets(_UI_ROOT)
+    findings = _bare_qt_base_findings()
 
     assert len(findings) <= _BARE_QT_BASE_CEILING, (
         f"số lớp kế thừa thẳng base của Qt tăng từ {_BARE_QT_BASE_CEILING} "
@@ -153,7 +190,7 @@ def test_the_ceiling_is_not_stale() -> None:
     """Trần chỉ hữu ích khi nó bám sát thực tế. Khi `007E`/`007F` kéo con số
     xuống, test này đỏ và buộc phải hạ trần theo — nếu không, khoảng hở tích
     lại và guard lặng lẽ ngừng có ý nghĩa."""
-    findings = find_bare_qt_base_widgets(_UI_ROOT)
+    findings = _bare_qt_base_findings()
 
     assert len(findings) == _BARE_QT_BASE_CEILING, (
         f"tốt — còn {len(findings)}, ít hơn trần {_BARE_QT_BASE_CEILING}. "
@@ -175,7 +212,11 @@ def test_no_container_leaks_its_chrome_onto_its_children() -> None:
     A deliberate exception is `# cascade-exempt: <reason>` on the same line,
     and that reason goes through review.
     """
-    findings = find_unscoped_container_stylesheets(_UI_ROOT)
+    findings = [
+        finding
+        for root in _UI_ROOTS
+        for finding in find_unscoped_container_stylesheets(root)
+    ]
 
     assert findings == [], (
         "a widget that owns children is styled with a bare property list, "

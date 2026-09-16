@@ -1,6 +1,6 @@
 from PySide6.QtCore import QElapsedTimer, QEvent, QObject, Qt, QTimer
 from PySide6.QtWidgets import QLabel, QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 _FPS_SAMPLE_INTERVAL_MS = 500
 _OVERLAY_MARGIN = 8

@@ -1,5 +1,5 @@
 import pytest
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets.icon_loader import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets.icon_loader import (
     IconLoader,
     IconTheme,
     get_icon_loader,

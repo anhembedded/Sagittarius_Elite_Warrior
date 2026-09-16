@@ -37,12 +37,12 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     Overlay,
     StyledButton,
     StyleRole,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 from .param_field import BotParamFieldWidget
 from .param_stepper import ParamStepper

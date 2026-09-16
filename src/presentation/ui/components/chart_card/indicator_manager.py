@@ -2,7 +2,7 @@ from collections.abc import Callable
 
 import pyqtgraph as pg
 from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 from .marker_layer import MarkerLayer, MarkerPoint
 from .plot_layout import ChartPlotLayout

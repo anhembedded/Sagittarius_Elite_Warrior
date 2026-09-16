@@ -10,10 +10,10 @@ by this test instead of by import.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets.palette import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.SymbolPicker.symbol_picker_theme import (
     SymbolPickerTheme,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets.palette import Palette
 
 #: Every token `SymbolPickerTheme` declares. Kept as an explicit list rather
 #: than introspecting the class so a newly-added token cannot skip this

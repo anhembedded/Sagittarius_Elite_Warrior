@@ -37,8 +37,11 @@ _REPO_ROOT = Path(__file__).resolve().parents[1]
 _SRC_ROOT = _REPO_ROOT / "src"
 
 #: The one place allowed to build QSS, and the one place allowed to hold colour.
+#: `EPIC-025` PR 1.6a moved the palette into `support/ui_kit`; the registry's own
+#: rule applies — when the epic moves a tree, the constant follows in the same
+#: commit, or the census silently counts nothing.
 STYLE_BUILDER = "src/presentation/ui/kit/style.py"
-PALETTE_MODULE = "src/presentation/ui/assets/palette.py"
+PALETTE_MODULE = "src/support/ui_kit/assets/palette.py"
 
 _QML_THEME_REF = re.compile(r"\bTheme\.[A-Za-z_][A-Za-z0-9_]*")
 

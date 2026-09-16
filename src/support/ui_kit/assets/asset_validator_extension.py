@@ -90,7 +90,7 @@ class AssetValidatorExtension(IExtension[Any]):
             error_msg = (
                 f"CRITICAL FAULT: Missing required UI icon assets: {', '.join(missing_icons)}\n"
                 f"Expected directory: {self.icons_dir}\n"
-                "Please restore the missing SVG files in src/presentation/ui/assets/icons/."
+                "Please restore the missing SVG files in src/support/ui_kit/assets/icons/."
             )
             logger.error(error_msg)
             if hasattr(context, "logger") and context.logger:

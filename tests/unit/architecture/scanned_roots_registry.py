@@ -63,7 +63,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ),
     (
         "tests/unit/presentation/ui/test_widget_guards_hold.py",
-        (("src/presentation/ui", "*.py"),),
+        (("src/presentation/ui", "*.py"), ("src/support/ui_kit", "*.py")),
     ),
     (
         "tests/unit/architecture/test_no_cross_screen_imports.py",
@@ -76,9 +76,13 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("src/presentation/ui/components/sidebar", "*.py"),
         ),
     ),
+    # Two roots since `EPIC-025` PR 1.6a: `Palette` itself now lives under
+    # `support/ui_kit/assets/`, while most of its consumers are still in the
+    # legacy tree. An empty scan of either root would silently stop guarding
+    # half the files.
     (
         "tests/unit/presentation/ui/test_palette_is_the_only_color_source.py",
-        (("src/presentation/ui", "*.py"),),
+        (("src/presentation/ui", "*.py"), ("src/support/ui_kit", "*.py")),
     ),
     (
         "tests/unit/architecture/test_qml_library_does_not_import_screens.py",

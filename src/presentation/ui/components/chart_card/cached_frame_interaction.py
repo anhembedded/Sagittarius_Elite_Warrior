@@ -18,7 +18,7 @@ from PySide6.QtGui import (
     QWheelEvent,
 )
 from PySide6.QtWidgets import QGraphicsView, QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 # Must live under "App": StdLogger attaches every handler to the "App" logger
 # and sets `propagate = False` on it, so a `__name__`-based logger here has no

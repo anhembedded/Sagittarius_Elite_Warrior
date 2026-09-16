@@ -23,13 +23,13 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_config_writer import IConfig
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.engine_capability_validator_extension import (
     EngineCapabilityValidatorExtension,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import (
-    AssetValidatorExtension,
-)
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
 from Sagittarius_Elite_Warrior.src.shell.config_writer import ConfigManagerWriter
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
 from Sagittarius_Elite_Warrior.src.shell.modules import MODULES, RegisteredModules
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
+    AssetValidatorExtension,
+)
 from sagittarius_engine import App
 from sagittarius_engine.extensions.dependency_validator import (
     DependencyValidatorExtension,

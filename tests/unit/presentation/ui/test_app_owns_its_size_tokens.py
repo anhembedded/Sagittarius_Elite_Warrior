@@ -31,11 +31,11 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui import kit
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.kit import StyleRole, apply_role
 from Sagittarius_Elite_Warrior.src.presentation.ui.theme_bootstrap import (
     seed_app_theme,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 #: `style.py` is the only place a role turns a token name into pixels, so
 #: it is also the only place that can read a token nobody supplies.

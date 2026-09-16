@@ -27,7 +27,7 @@ have. The QtWidgets equivalents are `setAccessibleName()` /
 `setAccessibleDescription()`, `setToolTip()`, `setFocusPolicy()` /
 `setTabOrder()`, `setCursor()` and `setWhatsThis()`.
 
-⚠️ **Naming collision:** `src/presentation/ui/assets/palette.py` defines a class
+⚠️ **Naming collision:** `src/support/ui_kit/assets/palette.py` defines a class
 literally called `Palette` — the app's colour-token system. That is not you.
 Reuse its tokens; never introduce a colour literal.
 

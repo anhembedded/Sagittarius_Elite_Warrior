@@ -77,7 +77,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_
     manual_order_intent_for,
 )
 from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
-from Sagittarius_Elite_Warrior.src.presentation.ui.assets import Palette
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
@@ -145,6 +144,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
     UiStateCoordinator,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
