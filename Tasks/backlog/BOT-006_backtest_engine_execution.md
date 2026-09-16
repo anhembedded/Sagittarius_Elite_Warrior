@@ -32,4 +32,13 @@ Bản `BOT-006` trước đây là 1 task lớn, mô tả chung chung ("Cỗ má
 ## 5. Lưu ý
 - Không bắt đầu Phase 2 trước khi Phase 1 chạy đúng và có unit test đầy đủ — logic `PaperExchange`/`StrategyEngine` nên được xác thực ở chế độ static (dễ debug, deterministic, không có yếu tố thời gian) trước khi đưa vào vòng lặp động.
 - `BOT-020` nên được đồng bộ với `BOT-008` (Live Trading) để tránh xây 2 bộ Indicator/Strategy khác nhau cho cùng 1 logic.
-- Có sẵn 1 điểm khởi đầu ở `src/application/use_cases/backtest/run_backtest/` (`RunBacktestCommand`/`RunBacktestCommandHandler`) — hiện tại đây **chỉ là vòng lặp phát `MarketTickEvent` có throttle**, chưa chạy chiến lược/khớp lệnh gì cả. Đây từng là điểm mà `BOT-023` (Dynamic) định mở rộng; task đó đã huỷ nên đoạn code này hiện **không có consumer nào** — `BOT-076` phải chốt tái dùng hay xoá hẳn trước khi bắt đầu. Nó **không phải** điểm khởi đầu cho `BOT-021` (Static, cần đường dẫn tính toán riêng, không throttle).
+- ~~Có sẵn 1 điểm khởi đầu ở `src/application/use_cases/backtest/run_backtest/`~~ — **the reuse-or-delete
+  question this bullet left to `BOT-076` is answered: deleted** (`EPIC-025` PR 3.1a, `EPIC-025D` item 4).
+  The loop was `RunBacktestCommand`/`RunBacktestCommandHandler` plus `BacktestState`: a throttled
+  republish of historical candles as `MarketTickEvent`, running no strategy and matching no order, bound
+  in the composition root and dispatched by nobody. Two reasons it went rather than waited for `BOT-076`:
+  nothing had consumed it since `BOT-023` was cancelled, and since PR 2.1c-2 the `MarketTickEvent` it
+  published on the real bus is the **live strategy's** own subscription — so a single dispatch would have
+  driven live order submission from historical data. `BOT-076` (Realtime, tick-driven) therefore starts
+  from `run_historical_tick_backtest/`, which is the engine that actually exists and is dispatched. As
+  this bullet already said, it was never the starting point for `BOT-021` (Static).

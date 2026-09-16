@@ -4,13 +4,6 @@ from decimal import Decimal
 
 logger = logging.getLogger("App.BinanceBotModule")
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest import (
-    RunBacktestCommand,
-    RunBacktestCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest.handler import (
-    BacktestState,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
     RunHistoricalTickBacktestCommand,
     RunHistoricalTickBacktestCommandHandler,
@@ -18,10 +11,6 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     RunStaticBacktestCommand,
     RunStaticBacktestCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.stop_backtest import (
-    StopBacktestCommand,
-    StopBacktestCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
@@ -430,7 +419,6 @@ class BinanceBotModule(BaseModule):
 
     def _register_state_singletons(self, app: App) -> None:
         """Registers long-lived application state singletons."""
-        app.container.singleton(BacktestState, BacktestState)
         # EPIC-021G: one per app process — never persisted, never seeded
         # from config on boot (see the class's own docstring for why).
         app.container.singleton(TradingSessionState, TradingSessionState)
@@ -472,8 +460,6 @@ class BinanceBotModule(BaseModule):
 
     def _register_use_cases(self, app: App) -> None:
         """Binds CQRS commands to their respective use case command handlers."""
-        app.container.bind(RunBacktestCommand, RunBacktestCommandHandler)
-        app.container.bind(StopBacktestCommand, StopBacktestCommandHandler)
         app.container.bind(RunStaticBacktestCommand, RunStaticBacktestCommandHandler)
         app.container.bind(
             RunHistoricalTickBacktestCommand, RunHistoricalTickBacktestCommandHandler

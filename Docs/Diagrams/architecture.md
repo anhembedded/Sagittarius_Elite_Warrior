@@ -2,6 +2,15 @@
 
 This document contains Mermaid diagrams illustrating the Clean Architecture, CQRS, and Event-Driven flows within the Binance Bot.
 
+> **This file predates `EPIC-025` and has not been redrawn for it.** It shows one layered
+> Application layer and mentions `modules/` nowhere, while the app is now split into bounded-context
+> modules — `Docs/HLD/` is the design of record, and `Docs/HLD/diagrams/` plus `Docs/SDD/diagrams/`
+> carry the current pictures. `EPIC-025` PR 3.1a corrected the two boxes that named **deleted**
+> classes (`RunBacktestCommand`, `StopBacktestCommand`) and the `BacktestState` flag arrow, because
+> a diagram of code that no longer exists is worse than no diagram. Everything else here is
+> deliberately left as it was: this needs a rewrite of its own, recorded as open in `EPIC-025D`,
+> not a path edit per pull request.
+
 ## 1. CQRS & Event-Driven Architecture (Flowchart)
 
 This diagram shows the high-level boundaries between layers and how Commands, Queries, and Events travel through the system.
@@ -20,8 +29,8 @@ flowchart TD
         subgraph Commands ["Commands (Write/Action)"]
             StartStream["StartLiveStreamCommand"]
             StopStream["StopLiveStreamCommand"]
-            RunBacktest["RunBacktestCommand"]
-            StopBacktest["StopBacktestCommand"]
+            RunStatic["RunStaticBacktestCommand"]
+            RunHistoricalTick["RunHistoricalTickBacktestCommand"]
         end
         
         subgraph Queries ["Queries (Read)"]
@@ -58,11 +67,9 @@ flowchart TD
 
     Queries -.-> |"Tối ưu limit & order_by_desc"| SQLiteRepo
     Commands -.-> |"Bật/Tắt Socket"| BinanceWS
-    Commands -.-> |"Cờ báo (BacktestState)"| RunBacktest
 
     %% Luồng sự kiện (Event Flow)
     BinanceWS == "1. emit(MarketTickEvent)" ==> EventBus
-    RunBacktest == "1. emit(Mock MarketTickEvent)" ==> EventBus
     
     EventBus == "2. Route" ==> TickHandler
     TickHandler --> |"3. Cập nhật"| Aggregator

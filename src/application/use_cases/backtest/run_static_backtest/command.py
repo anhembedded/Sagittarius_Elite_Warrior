@@ -20,10 +20,18 @@ class RunStaticBacktestCommand(BaseModel):
     """
     @brief Command representing the intent to run a static backtest: a
     single fast pass over historical data (no throttling, no real-time
-    simulation), as opposed to `RunBacktestCommand` (the older replay-only
-    loop). BOT-023, which would have grown that loop into a second engine,
-    was cancelled on 2026-08-18 — the planned second engine is now
-    BOT-076 (Realtime, tick-driven).
+    simulation).
+
+    @par The replay loop it was contrasted with is gone
+    This used to read *"as opposed to `RunBacktestCommand` (the older
+    replay-only loop)"*. `EPIC-025` PR 3.1a deleted that command, its handler
+    and `BacktestState`: they were bound in the composition root and
+    dispatched by nobody, and the loop republished historical candles as
+    `MarketTickEvent` on the real bus — which since PR 2.1c-2 is the live
+    strategy's own subscription. BOT-023, which would have grown that loop
+    into a second engine, was cancelled on 2026-08-18; the planned second
+    engine is BOT-076 (Realtime, tick-driven), and it starts from this
+    command rather than from the deleted one.
     """
 
     symbol: str = Field(description="Trading pair to backtest (e.g., BTCUSDT)")
