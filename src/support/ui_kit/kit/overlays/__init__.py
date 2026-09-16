@@ -2,6 +2,10 @@
 @brief The concrete `Overlay` subclasses this package ships — one file per
 class, per EPIC-007 §3.4.
 
+`ChecklistOverlay` arrived in `EPIC-025` PR 4.3f, the step that needed the
+shape `PickerOverlay`'s docstring had named as a candidate and declined to
+guess at: multi-select, toggling, and never closing.
+
 @details
 `DateRangeOverlay` was a third, deleted in `EPIC-025` PR 4.3c: it hand-drew a
 two-month calendar out of one `QPushButton` per day with inline QSS on each,
@@ -21,10 +25,13 @@ guard for no reason other than its address.
 
 from __future__ import annotations
 
+from .checklist_overlay import ChecklistItem, ChecklistOverlay
 from .confirm_overlay import ConfirmOverlay
 from .picker_overlay import PickerItem, PickerOverlay
 
 __all__ = [
+    "ChecklistItem",
+    "ChecklistOverlay",
     "ConfirmOverlay",
     "PickerItem",
     "PickerOverlay",

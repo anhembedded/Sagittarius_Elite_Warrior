@@ -1,8 +1,15 @@
-"""Render smoke tests for `StatGrid.qml` and `CheckboxList.qml`.
+"""Render smoke tests for `StatGrid.qml`.
 
-Thin on purpose, same reasoning as the bậc 1 pilot's `test_qml_modal_bodies`:
-rules live in the ViewModels and are covered with no GUI; only a render can
-prove the bindings point at properties that exist.
+Thin on purpose: rules live in the ViewModel and are covered with no GUI; only
+a render can prove the bindings point at properties that exist.
+
+`CheckboxList.qml` was the other subject until `EPIC-025` PR 4.3f replaced it
+with `kit.ChecklistOverlay`. Its five promises are restated at
+`tests/unit/support/ui_kit/kit/overlays/test_checklist_overlay.py`, except the
+`BUG-071` one — a `.qml` root binding `width: parent.width` inside a
+`QQuickWidget` that has no QML parent is a defect a QtWidgets layout cannot
+have, so that test has no subject rather than a new home. The file name is
+unchanged while `StatGrid` lives here; both go together.
 """
 
 from __future__ import annotations
@@ -13,19 +20,14 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from pathlib import Path
 
-from PySide6.QtCore import QMetaObject, Qt
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml import QmlOverlay
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.CheckboxList.checkbox_list_vm import (
-    CheckboxListVM,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.StatGrid.stat_grid_vm import (
     StatGridVM,
 )
-from Sagittarius_Elite_Warrior.tests.conftest import find_all_named, find_qml_item
+from Sagittarius_Elite_Warrior.tests.conftest import find_all_named
 
 _QML_ROOT = Path(__file__).resolve().parents[5] / "src" / "presentation" / "ui" / "qml"
 _STAT_GRID_QML = _QML_ROOT / "StatGrid" / "StatGrid.qml"
-_CHECKBOX_LIST_QML = _QML_ROOT / "CheckboxList" / "CheckboxList.qml"
 
 
 def _dialog(qml_file, widget_vm):
@@ -100,90 +102,6 @@ def test_stat_grid_construction_does_not_throw_on_the_root_items_width_binding(q
     vm = StatGridVM(get_cards=lambda: [{"title": "a", "value": "1"}])
     vm.refresh()
     dialog, messages = _construction_qml_messages(qapp, _STAT_GRID_QML, vm)
-
-    assert not any("TypeError" in m for m in messages), messages
-    dialog.close()
-
-
-# -- CheckboxList -------------------------------------------------------------- #
-
-
-def test_a_checkbox_is_rendered_per_row_with_its_state(qapp):
-    vm = CheckboxListVM(
-        get_rows=lambda: [
-            {"key": "a", "label": "A", "checked": True},
-            {"key": "b", "label": "B", "locked": True},
-        ]
-    )
-    vm.refresh()
-    dialog = _dialog(_CHECKBOX_LIST_QML, vm)
-    qapp.processEvents()
-
-    a = find_qml_item(dialog.root_object, "chk_a")
-    b = find_qml_item(dialog.root_object, "chk_b")
-    assert a.property("checked") is True
-    assert b.property("enabled") is False
-    dialog.close()
-
-
-def test_toggling_a_row_emits_its_key_and_new_state(qapp):
-    vm = CheckboxListVM(get_rows=lambda: [{"key": "a", "label": "A", "checked": False}])
-    vm.refresh()
-    dialog = _dialog(_CHECKBOX_LIST_QML, vm)
-    qapp.processEvents()
-
-    seen: list[tuple[str, bool]] = []
-    vm.toggled.connect(lambda key, checked: seen.append((key, checked)))
-    box = find_qml_item(dialog.root_object, "chk_a")
-    box.setProperty("checked", True)
-    QMetaObject.invokeMethod(box, "toggled", Qt.ConnectionType.DirectConnection)
-    qapp.processEvents()
-
-    assert seen == [("a", True)]
-    dialog.close()
-
-
-def test_a_locked_row_cannot_be_toggled_by_a_real_click(qapp):
-    """`enabled: !modelData.locked` has to actually gate interaction, not
-    merely grey the row out visually."""
-    vm = CheckboxListVM(get_rows=lambda: [{"key": "a", "label": "A", "locked": True}])
-    vm.refresh()
-    dialog = _dialog(_CHECKBOX_LIST_QML, vm)
-    qapp.processEvents()
-
-    box = find_qml_item(dialog.root_object, "chk_a")
-    assert box.property("enabled") is False
-    dialog.close()
-
-
-def test_reopening_re_renders_the_current_rows(qapp):
-    live_rows = [{"key": "a", "label": "A", "checked": False}]
-    vm = CheckboxListVM(get_rows=lambda: live_rows)
-    vm.refresh()
-    dialog = _dialog(_CHECKBOX_LIST_QML, vm)
-    qapp.processEvents()
-    assert find_qml_item(dialog.root_object, "chk_a").property("checked") is False
-
-    live_rows[0]["checked"] = True
-    vm.refresh()
-    qapp.processEvents()
-
-    # A fresh lookup, by design — the Repeater rebuilds delegates wholesale
-    # on every model change (measured in EPIC-015 §4c finding 4).
-    assert find_qml_item(dialog.root_object, "chk_a").property("checked") is True
-    dialog.close()
-
-
-def test_checkbox_list_construction_does_not_throw_on_the_root_items_width_binding(
-    qapp,
-):
-    """BUG-071: same root cause as `StatGrid.qml`'s regression test above —
-    `CheckboxList.qml`'s root `Column` bound `width: parent.width`, and this
-    file is likewise always loaded as a `QmlOverlay`'s `QQuickWidget` root
-    object, which never has a QML `parent`."""
-    vm = CheckboxListVM(get_rows=lambda: [{"key": "a", "label": "A", "checked": False}])
-    vm.refresh()
-    dialog, messages = _construction_qml_messages(qapp, _CHECKBOX_LIST_QML, vm)
 
     assert not any("TypeError" in m for m in messages), messages
     dialog.close()

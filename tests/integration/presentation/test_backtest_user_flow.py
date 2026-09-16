@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
-from PySide6.QtCore import QObject, Qt
+from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -141,12 +141,10 @@ def test_toolbar_popups_open_through_real_signals(backtest_screen, qapp):
     qapp.processEvents()
     capital_dialog = view._modals_host._capital
     assert capital_dialog is not None
-    # EPIC-015 bậc 1: the body is Capital.qml, so the amount field is a QML
-    # item reached through the loaded root rather than a QLineEdit attribute.
-    # Same objectName, so this still names the same field.
-    capital_field = capital_dialog.root_object.findChild(QObject, "txtBacktestCapital")
-    assert capital_field is not None
-    assert capital_field.property("visible") is True
+    # `EPIC-025` PR 4.3f: a `QLineEdit` again, same objectName as both
+    # previous versions of this dialog.
+    assert capital_dialog._field.objectName() == "txtBacktestCapital"
+    assert capital_dialog._field.isVisible() is True
 
     view.top_widget._btn_bot_params.click()
     qapp.processEvents()

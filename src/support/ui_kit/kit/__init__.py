@@ -46,6 +46,8 @@ from .guards import (
 )
 from .overlay import Overlay
 from .overlays import (
+    ChecklistItem,
+    ChecklistOverlay,
     ConfirmOverlay,
     PickerItem,
     PickerOverlay,
@@ -81,6 +83,8 @@ __all__ = [
     "Banner",
     "BareQtBaseFinding",
     "Card",
+    "ChecklistItem",
+    "ChecklistOverlay",
     "Column",
     "ConfirmOverlay",
     "DataRow",

@@ -1,74 +1,72 @@
-"""Backtest indicator multi-select — `EPIC-015` §4c: body is the shared
-`CheckboxList`, the live-model variant."""
+"""Backtest indicator multi-select — the shared `ChecklistOverlay`, wired to a
+live model.
+
+`EPIC-015` §4c hosted `CheckboxList.qml` here; `EPIC-025` PR 4.3f replaced it
+with `kit.ChecklistOverlay` (ADR D21), the shape `PickerOverlay` had declined to
+serve. Rows come from a live `IndicatorScriptListModel`, unlike
+`OrderExecutionDialog`'s fixed four — `key` is the model's real `KeyRole`, and
+toggling writes straight back through `model.setEnabled()`. No row is ever
+locked here.
+"""
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml import QmlOverlay
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.CheckboxList.checkbox_list_vm import (
-    CheckboxListVM,
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
+    ChecklistItem,
+    ChecklistOverlay,
 )
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
-_QML = Path(__file__).resolve().parents[3] / "qml" / "CheckboxList" / "CheckboxList.qml"
+_TITLE = "REFERENCE INDICATORS"
+#: The `.qml` this replaces rendered nothing at all with zero scripts — a blank
+#: box that reads as "loading" rather than "there are none", which is the
+#: distinction `ui-presentation-rule`'s UX principles ask an empty state to
+#: make. The QtWidgets version this replaced *did* have a label; it came back.
+_EMPTY_TEXT = "No indicator scripts are registered."
 
 
-class IndicatorPickerDialog(QmlOverlay):
-    """
-    @brief Which indicator scripts draw on the chart. Chrome is `Overlay`,
-    body is `CheckboxList.qml`, rules are `CheckboxListVM`.
-
-    @details Rows come from a live `IndicatorScriptListModel`, unlike
-    `OrderExecutionDialog`'s fixed four — `key` here is the model's real
-    `KeyRole`, and toggling writes straight back through `model.setEnabled()`.
-    No row is ever locked; `"Chưa có tập lệnh chỉ báo nào được đăng ký."`
-    (the old empty-state label) is not reproduced here because an empty
-    `CheckboxList` already renders nothing, which reads the same way a
-    picker with zero registered scripts should.
-    """
+class IndicatorPickerDialog(ChecklistOverlay):
+    """@brief Which indicator scripts draw on the chart."""
 
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
         self._vm = view_model
-        self._widget_vm = CheckboxListVM(get_rows=self._rows)
-        super().__init__(
-            "REFERENCE INDICATORS",
-            qml_file=_QML,
-            context={"vm": self._widget_vm},
-            parent=parent,
-        )
+        super().__init__(_TITLE, empty_text=_EMPTY_TEXT, parent=parent)
         self.setObjectName("indicatorPickerModal")
         self.resize(360, 300)
-        self._widget_vm.toggled.connect(self._on_toggled)
-        view_model.script_model.modelReset.connect(self._widget_vm.refresh)
+        self.toggled.connect(self._on_toggled)
+        view_model.script_model.modelReset.connect(self.refresh)
+        self.refresh()
 
     def showEvent(self, event) -> None:
-        self._widget_vm.refresh()
+        self.refresh()
         super().showEvent(event)
 
-    def _rows(self) -> list[dict[str, object]]:
+    def refresh(self) -> None:
+        """Re-reads the script model. Called on every open and on every model
+        reset: the registered set changes while this dialog exists."""
         model = self._vm.script_model
         rows = []
         for row in range(model.rowCount()):
             index = model.index(row, 0)
             rows.append(
-                {
-                    "key": model.data(index, model.KeyRole),
-                    "label": model.data(index, model.TitleRole),
-                    "checked": bool(model.data(index, model.EnabledRole)),
-                }
+                ChecklistItem(
+                    key=str(model.data(index, model.KeyRole)),
+                    label=str(model.data(index, model.TitleRole)),
+                    checked=bool(model.data(index, model.EnabledRole)),
+                )
             )
-        return rows
+        self.set_items(rows)
 
     def _on_toggled(self, key: str, checked: bool) -> None:
         model = self._vm.script_model
         for row in range(model.rowCount()):
-            if model.data(model.index(row, 0), model.KeyRole) == key:
+            if str(model.data(model.index(row, 0), model.KeyRole)) == key:
                 model.setEnabled(row, checked)
                 return
