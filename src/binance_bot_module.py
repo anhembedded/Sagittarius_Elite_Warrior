@@ -4,9 +4,6 @@ from decimal import Decimal
 
 logger = logging.getLogger("App.BinanceBotModule")
 
-from Sagittarius_Elite_Warrior.src.application.event_handlers.market_data.market_tick_event_handler import (
-    MarketTickEventHandler,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest import (
     RunBacktestCommand,
     RunBacktestCommandHandler,
@@ -50,9 +47,6 @@ from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_met
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
     MarketDataSessionFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
-    MarketTickEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_session_factory import (
     IExchangeSessionFactory,
@@ -540,10 +534,6 @@ class BinanceBotModule(BaseModule):
         config = app.container.resolve(IConfig)
         session = app.container.resolve(LiveStrategySession)
         self._arm_from_config(config, session)
-
-        # Initialize Event Handlers and subscribe to the Event Bus
-        event_handler = MarketTickEventHandler(session)
-        app.event_bus.on(MarketTickEvent, event_handler.handle)
 
         # `BUG-117` — one recurring job, registered once, for the lifetime
         # of the process; `PositionRefreshService.refresh_once()` is a

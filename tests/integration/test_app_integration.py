@@ -10,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_live_stream import (
     StopLiveStreamCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
+    MarketTickEvent,
+)
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
 from Sagittarius_Elite_Warrior.src.shell.modules import MODULES
 from sagittarius_engine import App
@@ -94,3 +97,44 @@ def test_app_boot_and_stream_use_case(app_instance):
         assert stop_response.success is True
 
         app.stop()
+
+
+def test_a_real_boot_leaves_exactly_one_subscriber_on_the_live_tick_path(
+    app_instance,
+):
+    """`EPIC-025` PR 2.1c-2 — the claim no unit test can make.
+
+    That pull request moved the `MarketTickEvent` subscription out of
+    `binance_bot_module.boot()` and into `StrategyModule.boot()`. Both modules
+    boot on this fixture, which registers the shipping `MODULES` list through
+    the same `register_modules()` the composition root calls, so this is where
+    the two ways of getting it wrong are visible:
+
+      · **zero** — the subscription was removed from one `boot()` and never
+        added to the other, which is the app quietly not trading while the UI
+        says trading is ON (`EPIC-022B`'s exact symptom, and `BUG-126`'s shape:
+        a handler nobody subscribes reaches nobody);
+      · **two** — it was added without removing the old one, so every candle
+        runs the armed strategy twice and one signal tries to submit two
+        orders.
+
+    A unit test of `StrategyModule.boot()` cannot see either, because it boots
+    that module alone. `tests/unit/modules/strategy/test_module_tick_
+    subscription.py` owns the wiring itself; this owns "on the app that ships,
+    once".
+
+    No network: `app.boot()` here starts hosted services, and the live stream
+    connects only when `StartLiveStreamCommand` asks (see
+    `MarketDataModule.boot()`).
+    """
+    app = app_instance
+
+    app.boot()
+
+    handlers = app.event_bus.subscriptions().get(MarketTickEvent.__name__, ())
+
+    assert len(handlers) == 1, (
+        f"{len(handlers)} handler(s) subscribed to {MarketTickEvent.__name__} "
+        "on a real boot — exactly one module must own the live tick path "
+        f"(EPIC-025 PR 2.1c-2). Got: {handlers!r}"
+    )

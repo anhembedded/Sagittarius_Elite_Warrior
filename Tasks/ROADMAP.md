@@ -58,7 +58,7 @@ Sagittarius_Elite_Warrior/Tasks/
 > ## 🧭 Định hướng đã chốt: **Backtest đáng tin trước, giao dịch thật gác lại**
 >
 > Từ 📄 [Rà soát định hướng App](reports/app_direction_audit.md) §3. Bot **chưa đặt được
-> lệnh nào** — [`market_tick_event_handler.py`](../src/application/event_handlers/market_data/market_tick_event_handler.py)
+> lệnh nào** — [`market_tick_event_handler.py`](../src/modules/strategy/application/event_handlers/market_tick_event_handler.py)
 > chỉ `logger.info()` rồi return; [`BOT-008`](backlog/BOT-008_live_trading_strategy_execution.md)
 > là **P1**, ghi *"sẵn sàng bắt đầu"*, vẫn chưa hề động tới.
 >

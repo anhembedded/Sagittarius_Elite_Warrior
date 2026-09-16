@@ -26,7 +26,14 @@ on the bus. No Coordinator, Presenter or widget is ever registered in the contai
 - A surface is built **once**, on first navigation, and kept: `PresenterManager` caches the view and
   presenter per route (`presenter_manager.py:71-79`). Factories therefore run once per surface per
   process. Navigating away hides, it does not destroy.
-- Module-level subscriptions (`subscribe(bridge)`) live for the process. A panel's Presenter owns a
+- Module-level subscriptions live for the process. **Which door depends on the thread the handler
+  must run on**, and `EPIC-025` PR 2.1c-2 measured the distinction rather than inheriting it: a
+  subscription whose handler belongs on the **emitting** thread is made in `boot()`, on the bus
+  itself, because `QtEventBridge` exists precisely to hop off that thread and needs a
+  `QApplication` the headless entry point does not create. `strategy`'s tick handler is that case,
+  and the threading contract below is why. `subscribe(bridge)` is for the other kind — a Qt-bound
+  normaliser feeding widgets — and has no caller yet: nothing in `src/` or `scripts/` invokes the
+  hook, so a module using it today would subscribe nothing. A panel's Presenter owns a
   `QtEventBridge` of its own and calls `off_all()` in `dispose()`, as `BasePresenter` does today.
 - On shutdown, `MainWindow` disposes surfaces in reverse creation order; a panel whose action is in
   flight records `ActionOutcome.INVALIDATED` through its tracker before its bridge is torn down.
@@ -34,7 +41,9 @@ on the bus. No Coordinator, Presenter or widget is ever registered in the contai
 ### Threading contract for ports
 
 The Engine's `MemoryEventBus` delivers on the **emitting thread**. `MarketTickEvent` is emitted from
-the market websocket thread; `strategy`'s handler runs there; so `IOrderSubmission.execute()` and
+the market websocket thread; `strategy`'s handler runs there — subscribed by
+`StrategyModule.boot()` since PR 2.1c-2, on the raw bus for exactly this reason; so
+`IOrderSubmission.execute()` and
 `ITradingSession.claim_symbol()` are called **off the main thread**. The rules, per kind:
 
 | Kind | Rule |

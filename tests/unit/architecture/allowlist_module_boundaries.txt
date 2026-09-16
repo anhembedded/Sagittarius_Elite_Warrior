@@ -15,7 +15,8 @@
 # 1.3b's two halves -> 46, 32, 29, 25, 23 after PR 1.3c-1..1.3c-5
 # -> 42 after PR 2.1b -> 40 after PR 2.1c -> 36 after PR 2.1d
 # -> 44 after PR 2.1e
-# -> 37 after PR 2.1g.
+# -> 37 after PR 2.1g
+# -> 36 after PR 2.1c-2.
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -422,13 +423,6 @@ domain.backtesting.paper_exchange -> modules.strategy.domain.policies.margin_siz
 # `IStrategyCatalog` becomes writable when the screens move (Phase 4), one
 # phase later than the note above expected.
 
-# -> the tick path becomes this module's own (PR 2.1c-2). The handler is
-# `strategy`'s subscriber wearing a `market_data` folder name: it reads
-# `MarketTickEvent` from that module's contracts and drives this module's
-# session. It moves into `modules/strategy/application/event_handlers/` with
-# its subscription, which `StrategyModule.boot()` then owns.
-application.event_handlers.market_data.market_tick_event_handler -> modules.strategy.application.services.live_strategy_session
-
 # -> the widgets move in (PR 2.1e), continued. See the note above for why a
 # keys port cannot serve a consumer that constructs the strategy.
 presentation.ui.screens.backtest.backtest_presenter -> modules.strategy.application.services.strategy_registry
@@ -490,6 +484,19 @@ presentation.ui.screens.trading.trading_presenter -> modules.strategy.ui.signal_
 presentation.ui.screens.trading.trading_presenter -> modules.strategy.ui.strategy_arming_coordinator
 presentation.ui.screens.trading.trading_view -> modules.strategy.ui.strategy_params.strategy_params_dialog
 presentation.ui.screens.trading.trading_view_model -> modules.strategy.ui.strategy_card_view_model
+
+# CLOSED by PR 2.1c-2: the tick handler is inside this module, so the one
+# `legacy -> modules.strategy.application.services` entry that named the live
+# session from an event handler is an intra-module read. Retired the 2.1b way
+# (the file moved) rather than the 0.5 way (a consumer went onto a port), and
+# there was nothing to publish here: the subscriber IS this context's, and the
+# folder name `event_handlers/market_data/` was the only market-data thing
+# about it. `StrategyModule.boot()` owns the subscription, on the raw bus --
+# `subscribe(bridge)` was read first and is the wrong door twice over, which
+# that method's docstring records.
+#
+# It also emptied `src/application/event_handlers/` entirely. What remains
+# under `src/application/` is the four backtest use cases, which are Phase 3's.
 
 # CLOSED by PR 2.1g: `trade-once` is this module's command now -- both files
 # live in `modules/strategy/cli/`, so the four entries that named this module

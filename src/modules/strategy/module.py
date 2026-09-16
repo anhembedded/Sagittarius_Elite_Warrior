@@ -71,6 +71,16 @@ screen had been using it since `EPIC-003F2`. Extracting it took the duplicated-
 member census **132 → 115** and the Phase 1 pair **59 → 39** — the first fall in
 that number since `PRO-004` measured it.
 
+@par `boot()` owns the live tick path since PR 2.1c-2
+`MarketTickEventHandler` moved out of `src/application/event_handlers/
+market_data/` — a folder name was the only market-data thing about it — and the
+subscription `binance_bot_module.boot()` used to make is this module's now. It
+is the last coded step of Phase 2, and it emptied `src/application/
+event_handlers/` entirely: what is left under `src/application/` is the four
+backtest use cases, which are Phase 3's. `boot()`'s own docstring carries why
+the raw bus rather than the `subscribe(bridge)` hook, and it is a measurement
+about threading, not a preference.
+
 @par `contribute()`, `declare_cli()` and `subscribe()` are still not implemented
 Each absence is a measurement, not an omission:
 
@@ -89,10 +99,18 @@ Each absence is a measurement, not an omission:
     subcommand, and `main.py` dispatches those. So this absence is now about a
     registry this context has nothing to put in, which is a different statement
     from the one that stood here before.
-  · **no Qt subscription** — `signal_feed` lives here now, but the Presenter
-    that owns its lifetime does not, and a feed subscribed by `subscribe()`
-    while a screen still constructs one would put two normalisers on one event.
-    It moves when the screens do.
+  · **no `subscribe()`** — and PR 2.1c-2 read the hook before using it. Two
+    things are true of it: **no code path calls it** (the composition root
+    calls `declare_cli()`, the entry point calls `contribute()`, and nothing
+    calls this one — the state `contribute()` was in before PR 1.4c-4), and the
+    `QtEventBridge` it hands over would be the wrong mechanism for the tick
+    path anyway, because that bridge marshals onto the Qt main thread and the
+    headless entry point has no Qt. `signal_feed` is the subscription that
+    genuinely wants it, being a Qt normaliser — but the Presenter that owns its
+    lifetime is still a legacy screen, and a feed subscribed here while a
+    screen still constructs one would put two normalisers on one event. So the
+    hook stays unimplemented, and whether it should exist at all is a question
+    for the pull request that moves the screens.
 """
 
 from __future__ import annotations
@@ -101,6 +119,15 @@ from typing import Any
 
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
+    MarketTickEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.event_handlers.market_tick_event_handler import (
+    MarketTickEventHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
+    LiveStrategySession,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.composition.port_bindings import (
     bind_published_ports,
@@ -123,13 +150,24 @@ class StrategyModule(BoundedContextModule):
     #: `market_data` arrived with PR 2.1g and corrects a sentence this comment
     #: used to carry: *"`market_data` reaches it the other way round, through
     #: the bus, so no dependency on that module appears here"*. True of the
-    #: tick path — `MarketTickEvent` is published, not called — and false since
+    #: tick path — `MarketTickEvent` is published, not called, and PR 2.1c-2's
+    #: subscription names the event type without calling into that module —
+    #: and false since
     #: `trade-once` moved in: that command asks `IHistoricalKlines` for the
     #: candles it evaluates a strategy against, which is a direct read of
     #: another module's contract. HLD §02 has it as the expected direction
     #: (`market_data → strategy`, Open Host Service), so what was missing was
     #: the declaration, not the permission.
     dependencies: list[str] = ["market_data", "trading"]  # noqa: RUF012 — the Engine reads a plain attribute
+
+    #: The tick subscriber, held for the life of the module instance
+    #: (PR 2.1c-2). `bus.on()` alone would keep it alive through the bound
+    #: method it registered — a lifetime nobody reading this file could see,
+    #: which is the objection `composition_root.py` records against exactly
+    #: that shape for `SystemFailureLog`. `RegisteredModules` holds this
+    #: instance, so the chain from the container to the subscriber is
+    #: readable in one direction.
+    _tick_handler: MarketTickEventHandler | None = None
 
     def register(self, context: Any) -> None:
         """The one published port, and only that (PR 2.1c).
@@ -141,3 +179,47 @@ class StrategyModule(BoundedContextModule):
         surface can be bound from inside the module while its internals wait.
         """
         bind_published_ports(context.container)
+
+    def boot(self, context: Any) -> None:
+        """Subscribe the live tick path — this context's own since PR 2.1c-2.
+
+        `MarketTickEventHandler` used to live in
+        `src/application/event_handlers/market_data/` and be subscribed by
+        `binance_bot_module.boot()`. It reads one thing from `market_data`
+        (the published `MarketTickEvent`) and drives one thing, this module's
+        `LiveStrategySession` — so it is this module's subscriber, and its own
+        docstring carries the measurement.
+
+        @par Why `boot()` and the raw bus, not the `subscribe(bridge)` hook
+        `BoundedContextModule` declares `subscribe(bridge: QtEventBridge)`
+        "after `contribute()`", and it was read before being used rather than
+        assumed to be the door — the mistake PR 2.1g caught with
+        `declare_cli()`. Two measurements say it is the wrong one here:
+
+          · **nothing calls it.** No code path in `src/` or `scripts/` invokes
+            `subscribe()` on a module; the composition root calls
+            `declare_cli()` and the entry point calls `contribute()`. It is a
+            hook in the same state `contribute()` was in before PR 1.4c-4.
+          · **`QtEventBridge` would change what this path does.** It marshals
+            every payload onto the Qt main thread and needs a `QApplication`.
+            This handler runs the strategy engine and submits orders on the
+            websocket thread that delivered the candle, and the headless entry
+            point (`main.py sync`/`stream`) has no Qt at all. Bridging it would
+            move live order submission onto the GUI thread — a behaviour
+            change, in a pull request whose done-when is "exactly as before".
+
+        So this is `boot()`: after every module registered, so
+        `LiveStrategySession` resolves, and on the same bus with the same
+        threading the tick path has always had.
+
+        @par No `shutdown()` counterpart
+        A subscription holds no OS resource — unlike `market_data`'s SQLite
+        engines and exchange client, which is why that module has one. The bus
+        is the `App`'s, created beside it in `composition_root.py` and gone
+        when it is, so an `off()` here would release nothing that outlives the
+        process.
+        """
+        self._tick_handler = MarketTickEventHandler(
+            context.container.resolve(LiveStrategySession)
+        )
+        context.event_bus.on(MarketTickEvent, self._tick_handler.handle)

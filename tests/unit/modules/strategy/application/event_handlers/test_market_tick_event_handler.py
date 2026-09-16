@@ -4,21 +4,29 @@
 the hand-off to `LiveTradingCoordinator` into `LiveStrategySession`, so
 the assertions that used to live here (including `BUG-085`'s
 interleaved-interval regressions) moved with them, to
-`tests/unit/application/services/test_live_strategy_session.py`. What
-stays here is what this class still owns: log level, and delegating every
-tick to the session unfiltered.
+`tests/unit/modules/strategy/application/services/test_live_strategy_session.py`.
+What stays here is what this class still owns: log level, and delegating
+every tick to the session unfiltered.
+
+`EPIC-025` PR 2.1c-2 moved this file from `tests/unit/application/
+event_handlers/` with its subject, tier unchanged. **That the handler is
+subscribed at all** is a different claim and is not this file's — a test
+constructing its own subject can say nothing about whether production
+builds one (`CS-002`), so the subscription has its own test next to the
+module that now owns it:
+`tests/unit/modules/strategy/test_module_tick_subscription.py`.
 """
 
 from datetime import UTC, datetime
 from unittest.mock import Mock
 
-from Sagittarius_Elite_Warrior.src.application.event_handlers.market_data.market_tick_event_handler import (
-    MarketTickEventHandler,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.event_handlers.market_tick_event_handler import (
+    MarketTickEventHandler,
 )
 
 

@@ -58,6 +58,21 @@ class MarketTickEventHandler:
     once-per-meaningful-event lines this handler's collaborators already
     log (an order sent, a limit hit).
 
+    @par Why this is `strategy`'s and not `market_data`'s (`EPIC-025` PR 2.1c-2)
+    It sat in `src/application/event_handlers/market_data/` for four epics, and
+    the folder name was the only market-data thing about it. Measured: it reads
+    `MarketTickEvent` from that module's `contracts/` — one import, the same one
+    any consumer of a published event makes — and everything it *does* is this
+    context's, `LiveStrategySession.dispatch_tick()`. A subscriber is owned by
+    what it drives, not by what it listens to; otherwise every module that
+    publishes an event would own its consumers, which is the arrow HLD §02 has
+    running the other way (`market_data → strategy`, Open Host Service).
+
+    `StrategyModule.boot()` now owns the subscription that
+    `binance_bot_module.boot()` used to make. See that method for why `boot()`
+    and the raw bus, rather than the `subscribe(bridge)` hook the same class
+    declares.
+
     @par No engine dependency (`EPIC-008F`)
     This class used to take `sagittarius_engine.App` in its constructor and
     store it as `self.app` — the whole engine runtime held by an

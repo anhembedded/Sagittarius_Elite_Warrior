@@ -42,7 +42,7 @@ khối lượng theo `stepSize` và kiểm `minNotional`, nếu không sàn tr�
 | :--- | :--- |
 | Sinh tín hiệu Buy/Sell/Short/Cover từ nến | [`StrategyEngine.on_tick()`](../../../src/application/services/strategy_engine.py) + `SignalGeneratedEvent` |
 | Mô hình khớp lệnh, phí, slippage, margin, đòn bẩy | [`PaperExchange`](../../../src/domain/backtesting/paper_exchange.py) + 3 policy thuần domain |
-| Chỗ hạ cánh cho tick live | [`MarketTickEventHandler`](../../../src/application/event_handlers/market_data/market_tick_event_handler.py) — hiện chỉ `logger.info()` |
+| Chỗ hạ cánh cho tick live | [`MarketTickEventHandler`](../../../src/modules/strategy/application/event_handlers/market_tick_event_handler.py) — hiện chỉ `logger.info()` |
 | Metadata symbol | `SymbolMarketMetadata` + `ISymbolMarketMetadataCache` + parser |
 | Test không chạm mạng | [`tests/sanity/binance_fake_server.py`](../../../tests/sanity/binance_fake_server.py) — server thật nói giao thức Binance |
 | Đường event chuẩn hoá | `BaseEvent` + Feed pattern (`EPIC-008`) |

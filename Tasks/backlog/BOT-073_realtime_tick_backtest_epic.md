@@ -30,7 +30,7 @@ chính là lý do tồn tại của việc có 2 chế độ.
 
 ### 2.1. Chưa hề có bot live để mà "không khớp"
 
-[`market_tick_event_handler.py`](../../src/application/event_handlers/market_data/market_tick_event_handler.py)
+[`market_tick_event_handler.py`](../../src/modules/strategy/application/event_handlers/market_tick_event_handler.py)
 — `handle()` chỉ `logger.info(...)` rồi return. Comment trong chính file:
 *"Here we will later invoke domain logic for strategy processing"*. Dòng log
 `Processing tick for ETHUSDT at ...` thấy trong [`BUG-002`](../bug_report/completed/BUG-002.md)

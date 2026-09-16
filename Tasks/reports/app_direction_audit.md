@@ -97,7 +97,7 @@ Nhưng nếu tham số đã overfit thì kết quả chân thực đó **vẫn v
 
 ### Bằng chứng
 
-- [`market_tick_event_handler.py`](../../src/application/event_handlers/market_data/market_tick_event_handler.py):
+- [`market_tick_event_handler.py`](../../src/modules/strategy/application/event_handlers/market_tick_event_handler.py):
   `handle()` chỉ `logger.info(...)` rồi return. Comment: *"Here we will later invoke
   domain logic for strategy processing"*.
 - [`BOT-008`](../backlog/BOT-008_live_trading_strategy_execution.md) — **P1**, ghi
