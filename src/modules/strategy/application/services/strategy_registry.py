@@ -19,7 +19,11 @@ class StrategyRegistry:
     filesystem scan, so what's installed is greppable and reviewable; the
     trade-off (writing a strategy but forgetting to register it) is covered
     by a guard test instead. No Protocol/interface — one implementation,
-    nothing swaps it out.
+    nothing swaps it out, and `EPIC-025` PR 2.1c measured that an
+    `IStrategyCatalog` over it would have had **no** consumer it could serve:
+    every caller that reads the keys also needs the strategy *classes*, which a
+    published contract must not carry. `EPIC-025C` §5 has the measurement and
+    the pull request that revisits it.
     """
 
     def __init__(self) -> None:

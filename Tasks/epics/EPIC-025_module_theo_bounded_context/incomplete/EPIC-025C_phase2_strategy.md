@@ -99,7 +99,7 @@ there is exactly one `OrderIntent` in the module, in `contracts/`, where HLD §3
 | :--- | :--- | :--- |
 | ~~2.1a~~ ✅ | `OrderIntent` published; the signal bridge identified as strategy's and isolated | unchanged (36) |
 | ~~2.1b~~ ✅ | `modules/strategy/` arrives: 31 files / 2930 lines — `domain/strategies` (10), the seven services, `arm`/`disarm`, the bridge, `contracts/` for the four published types, and `module.py`. 19 test files / 140 tests moved with them, tier unchanged | **23 → 42**: 23 in, 4 retired (their files moved into the module), each new line naming the PR that deletes it |
-| 2.1c | `IStrategyCatalog` published; `strategy_registry`'s consumers move onto it | shrinks |
+| ~~2.1c~~ ✅ | **`IArmedStrategy` published** — `ArmedStrategySnapshot`, both Presenters off `LiveStrategySession`. `IStrategyCatalog` was written, measured against its four would-be consumers, and **deleted**: see §5 | **42 → 40** |
 | 2.1d | `ISizingPolicy` (ADR D17): `position_sizing_bridge` and `MarginRiskPolicy` move in; the `trading → backtesting` entry retires | shrinks |
 | 2.1e | the UI: `strategy_arming_coordinator`, `signal_feed`, `strategy_display`, `strategy_params`, `strategy_overlay` → `modules/strategy/ui/`, with the strategy card contributed to both surfaces (§1 item 4) | shrinks |
 | 2.1f | `ITradingSession.claim_symbol`/`release_symbol` — the lease `IOrderSubmission` shipped without, whose first consumer is `arm_strategy` (`Docs/SDD/05` §3) | unchanged |
@@ -217,3 +217,103 @@ allowlist entry for it says so); the Qt feeds travel with the widgets.
   assertion, the guard fails and names the exact pair. The lesson is the review skill's §5 read
   literally: running the check is not enough if the *setup* is not also checked, and a probe that
   cannot fail proves as little as a test that cannot.
+
+---
+
+## 5. PR 2.1c — one port shipped, one measured and deleted
+
+### 5.1 What shipped: `IArmedStrategy`
+
+`contracts/i_armed_strategy.py` + `contracts/armed_strategy_snapshot.py`, implemented by
+`LiveStrategySession`, bound in `StrategyModule.register()` through
+`composition/port_bindings.py`. Two allowlist entries retired: both live Presenters stopped naming
+the session.
+
+The DTO's shape is a measurement, not §1 item 2's sentence. That said *"`ArmedStrategySnapshot`
+(carrying `symbol`)"*, and `LiveStrategyConfig` **already carries `symbol`** — so a snapshot of
+those fields would have been field-for-field identical, which is the `PositionSnapshot` outcome
+`Docs/SDD/05` already records. What the consumer needed was different:
+
+```python
+armed_config = self._strategy_session.config      # one acquisition of the session lock
+strategy_owns_symbol = (
+    self._strategy_session.is_armed               # ...and a second
+    and armed_config is not None
+    and armed_config.symbol == symbol
+)
+```
+
+Two facts that are **not** the same fact — the value the user armed, and whether an engine was
+built from it — read through two acquisitions, so a strategy armed between them was observable as a
+config with no engine. `armed()` answers both under one acquisition and the snapshot carries
+`config` and `engine_running`. That is the one behaviour this pull request changes, in the safe
+direction, and `Docs/SDD/05` §2c records it as a deviation from the spec's own field list.
+
+Proof the wiring is real, not assumed: removing `container.singleton(IArmedStrategy, …)` turns
+`tests/sanity/test_composition_root.py::test_every_navigable_route_constructs` red for **both**
+`dashboard` and `trading`. Probed, not reasoned about — and it means no new test was needed for
+the binding, which is what `testing-rule.md` §1 wants of this tier.
+
+### 5.2 What did not ship, and why deleting it was the step
+
+`IStrategyCatalog` is in HLD §3.4 and this pull request **built** it: the ABC, `FakeStrategyCatalog`,
+a four-guarantee contract suite, `StrategyRegistry` implementing it, and `trade_once_cmd` and
+`backtest_presenter` moved onto it. Then the four would-be consumers were read properly, and every
+one of them needs the strategy **classes**:
+
+| Caller | What it does with `available()` |
+| :--- | :--- |
+| `trading_presenter`, `dashboard_presenter` | hand it to `StrategyArmingCoordinator` and `StrategyOverlayCoordinator`, which call `.get(key)` and construct the strategy for `chart_line_colors()` / `chart_line_widths()` |
+| `backtest_presenter` | hands it to `StrategyConfigCoordinator` and `IndicatorCoordinator`, which do the same |
+| `trade_once_cmd` | hands the registry itself to `build_engine()` |
+
+A port answering with keys retires **none** of those, and a published contract may not carry
+`BaseStrategy`. Widening `IStrategy` — which declares `evaluate()` and nothing else — would publish
+chart concerns to every strategy that implements it.
+
+So the port was deleted rather than shipped with nothing to serve. The alternative, keeping it for
+the two key-reads while those files still resolve the concrete registry for their coordinators, is
+half a migration: two ways to ask one question in one file, no entry retired, and every consumer's
+test carrying a binding for a port nobody calls. `Docs/SDD/05` §2b records it beside
+`ITradingSession.claim_symbol` and PR 1.2's `list_symbols(quote_asset)` — the same lesson twice
+before.
+
+It is worth writing at **2.1e**, when the three UI callers' class-reads become intra-module; the
+CLI's exits with `IStrategyEngineFactory` in Phase 3. The allowlist's own block says so per entry.
+
+### 5.3 The gate found a tier the selective runs could not
+
+First gate run **failed**: four integration tests, all of them containers that bind
+`LiveStrategySession` by hand and now had to answer `IArmedStrategy` too. The unit-tier containers
+had been fixed while the port was being written — the integration ones were not, and no selective
+run touched them, so only the full gate said so. One of the four also reached into
+`presenter._strategy_session` directly, an attribute this pull request renamed because its *type*
+changed.
+
+Worth naming rather than just fixing: **seven** hand-written containers in this repository answer
+`resolve()` with an `if interface == …` chain or a dict, and each one is a place a new port has to
+be remembered. That is not this step's to fix, but it is why publishing a port costs more than the
+port — and it is the concrete argument for the fake-and-contract convention, since a consumer test
+that took `FakeArmedStrategy` from `contracts/testing/` would have needed no edit at all.
+
+### 5.4 What the review caught
+
+Run before merge, and it found two of the same kind — a document naming a type, where the type had
+moved out from under the sentence:
+
+- `Docs/VOCABULARY`'s **Strategy** row said strategies are *"Listed by `IStrategyCatalog`"*. After
+  §5.2 that port does not exist, so the row named nothing. Corrected to name `StrategyRegistry`
+  with the measurement and the port's planned status.
+- **`ArmedStrategySnapshot` had no vocabulary row at all.** It is a published type and "what is
+  armed" is a term this app uses on three screens, which is exactly `pr-review` K5's question. Added,
+  with the two-fields-because-two-facts reason, so the next reader does not have to infer it from
+  the dataclass.
+
+Nothing was found against the code. The E12-style probe of the new binding is in §5.1.
+
+### 5.5 Findings outside the step
+
+- `backtest_presenter`'s picker read and `trade_once_cmd`'s key check are *contract* reads sitting
+  in files that also need the concrete registry for another reason. Nothing is wrong with them
+  today; they are the two call sites that make `IStrategyCatalog` worth having once 2.1e removes
+  the other reason, and they are named here so that pull request does not have to re-find them.

@@ -44,6 +44,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_st
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
+    IArmedStrategy,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
@@ -226,6 +229,7 @@ def container(
             IOrderSubmission: order_submission,
             IEquityCurve: equity_curve,
             LiveStrategySession: strategy_session,
+            IArmedStrategy: strategy_session,
             StrategyRegistry: strategy_registry,
             IMarketStream: market_stream,
             IHistoricalKlines: historical_klines,

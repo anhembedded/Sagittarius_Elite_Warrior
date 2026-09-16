@@ -43,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
+    IArmedStrategy,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
@@ -274,7 +277,7 @@ def mock_container(
             return mock_thread_mgr
         if interface == StrategyRegistry:
             return strategy_registry
-        if interface == LiveStrategySession:
+        if interface in (LiveStrategySession, IArmedStrategy):
             return strategy_session
         if interface == IndicatorScriptRegistry:
             return script_registry
@@ -403,7 +406,7 @@ def test_boot_wires_the_container_registered_store_into_the_view(
             return mock_dispatcher
         if interface == StrategyRegistry:
             return strategy_registry
-        if interface == LiveStrategySession:
+        if interface in (LiveStrategySession, IArmedStrategy):
             return strategy_session
         if interface == IThreadManager:
             return mock_thread_mgr

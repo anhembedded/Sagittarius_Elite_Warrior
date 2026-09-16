@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_st
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
+    IArmedStrategy,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
     EquitySample,
 )
@@ -100,6 +103,7 @@ def container(
             IEquityCurve: equity_curve,
             IEventBus: mock_event_bus,
             LiveStrategySession: strategy_session,
+            IArmedStrategy: strategy_session,
             StrategyRegistry: strategy_registry,
         }
     )

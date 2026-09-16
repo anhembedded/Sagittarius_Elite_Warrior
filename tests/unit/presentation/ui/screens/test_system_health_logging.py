@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_st
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
+    IArmedStrategy,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
@@ -93,7 +96,7 @@ def health_mock_container(qapp):
     script_registry.register("ema_cross", EmaCrossScript)
 
     # `EPIC-023C` — must be real, not `MagicMock()`: `StrategyArmingCoordinator`
-    # reads `strategy_session.config` and formats it into the card's summary,
+    # reads `strategy_session.armed().config` and formats it into the card's summary,
     # and `restore_into_view_model()` calls `sorted(available_strategies())`
     # — same reasoning `test_dashboard_presenter.py`'s own fixtures document.
     strategy_registry = StrategyRegistry()
@@ -117,7 +120,7 @@ def health_mock_container(qapp):
             return script_registry
         if interface == StrategyRegistry:
             return strategy_registry
-        if interface == LiveStrategySession:
+        if interface in (LiveStrategySession, IArmedStrategy):
             return strategy_session
         if interface == IAccountSnapshot:
             return FakeAccountSnapshot()

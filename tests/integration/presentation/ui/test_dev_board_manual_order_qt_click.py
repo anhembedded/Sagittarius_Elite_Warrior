@@ -98,7 +98,7 @@ def test_a_real_long_click_hard_blocks_on_the_strategys_own_armed_symbol(
     panel._cbo_live_interval.setCurrentText("5m")
     qtbot.mouseClick(panel._btn_arm_strategy, Qt.MouseButton.LeftButton)
     qtbot.waitUntil(lambda: presenter._view_model.armedSummary != "", timeout=2000)
-    assert presenter._strategy_session.config.symbol == presenter._active_symbol
+    assert presenter._armed_strategy.armed().config.symbol == presenter._active_symbol
 
     # Spy installed only now — arming itself legitimately dispatches
     # `ArmStrategyCommandHandler`; what this test asserts is that the
@@ -139,7 +139,7 @@ def test_a_real_short_click_on_an_unarmed_symbol_reaches_the_real_execute_order_
     presenter, view = _open_dashboard(navigate)
     panel = view._panel
     calls = _spy_on_dispatch(monkeypatch, presenter)
-    assert not presenter._strategy_session.is_armed
+    assert not presenter._armed_strategy.armed().engine_running
 
     _set_limit_order(panel, price=50000.0, quantity=0.01)
     qtbot.mouseClick(panel._btn_manual_short, Qt.MouseButton.LeftButton)

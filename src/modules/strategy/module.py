@@ -23,19 +23,28 @@ OrderIntent` table had been sitting in `trading/domain/policies/` although
 nothing in that module called it, so it came here with its two callers and
 `trading` stopped naming `SignalAction` at all.
 
-@par `register()` binds nothing yet, and that is a statement
-Like `trading` at PR 1.3a, this module arrives as a **move**: the code is here,
-the container bindings are not. `binance_bot_module.py` still registers the
-strategy registry, the live session, the config store and the two handlers,
-which costs no boundary violation because the boundary scan skips that file by
-name (`tests/unit/architecture/boundaries/scan.py`) — it *is* the composition
-root the strangler is replacing, and it shrinks by one phase at a time.
+@par `register()` binds the published ports, and only those
+PR 2.1b brought the code with no bindings at all; **PR 2.1c binds the one port
+it publishes** — `IArmedStrategy`, what is armed right now — onto the single
+`LiveStrategySession` that `binance_bot_module.py` already registers.
+`composition/port_bindings.py` explains why that is a lambda rather than
+construction: a second session built here would give the screens an armed state
+the tick path never drives, which is the class of bug the
+`ExchangeSessionFactory` split took four pull requests to leave behind.
 
-They move in when there is a port to bind them behind, which is PR 2.1c's
-`IStrategyCatalog`. Binding them here first would mean this module resolving
-types its consumers still reach for directly, and `register()` may not resolve
-(SDD §4) — so the order is the same one `market_data` and `trading` both
-followed: move, publish, then move the consumers.
+`IStrategyCatalog` is **not** here, and that is a measurement rather than an
+omission — see `EPIC-025C` §5. Every caller that would read it also needs the
+strategy *classes*, to construct one for the chart overlay or to hand to
+`build_engine()`, and a published contract must not carry a domain type. All of
+those callers become intra-module in PR 2.1e, which is where the port is worth
+writing.
+
+Everything else is still that strangler root's: the registry itself, the live
+session, the factory, the config store and the two command handlers. It costs no
+boundary violation because the boundary scan skips that file by name
+(`tests/unit/architecture/boundaries/scan.py`) — it *is* the composition root
+the strangler is replacing. They move in at PR 2.1d, which already has to touch
+the factory's arguments for `ISizingPolicy`.
 
 @par `contribute()`, `declare_cli()` and `subscribe()` are not implemented
 Each absence is a measurement, not an omission:
@@ -57,14 +66,14 @@ Each absence is a measurement, not an omission:
 
 from __future__ import annotations
 
-import logging
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
-
-logger = logging.getLogger("App.StrategyModule")
+from Sagittarius_Elite_Warrior.src.modules.strategy.composition.port_bindings import (
+    bind_published_ports,
+)
 
 
 class StrategyModule(BoundedContextModule):
@@ -82,13 +91,12 @@ class StrategyModule(BoundedContextModule):
     dependencies: list[str] = ["trading"]  # noqa: RUF012 — the Engine reads a plain attribute
 
     def register(self, context: Any) -> None:
-        """Nothing, yet — see this module's docstring for why the bindings are
-        still `binance_bot_module.py`'s and which pull request moves them.
+        """The one published port, and only that (PR 2.1c).
 
-        Deliberately not `pass` with no words: an empty `register()` is the one
-        shape a reader cannot tell apart from a forgotten one.
+        The adapter and handler registrations still live in
+        `binance_bot_module.py` — see this module's docstring for why, and for
+        the pull request that moves them. This one needs nothing but the
+        container, and the lambda behind it resolves lazily, so the published
+        surface can be bound from inside the module while its internals wait.
         """
-        logger.debug(
-            "[STRATEGY] register(): no bindings yet — binance_bot_module.py still "
-            "holds them until IStrategyCatalog is published (EPIC-025C, PR 2.1c)."
-        )
+        bind_published_ports(context.container)

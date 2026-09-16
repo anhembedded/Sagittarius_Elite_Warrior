@@ -48,6 +48,12 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_tr
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_engine import (
     StrategyEngine,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.armed_strategy_snapshot import (
+    ArmedStrategySnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
+    IArmedStrategy,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     LiveStrategyConfig,
 )
@@ -55,13 +61,21 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_conf
 logger = logging.getLogger("App.LiveStrategySession")
 
 
-class LiveStrategySession:
+class LiveStrategySession(IArmedStrategy):
     """@brief Mutable, process-wide (DI singleton) holder for the armed
     strategy — the live counterpart to `TradingSessionState`.
 
     @details Starts disarmed. Nothing here decides *whether* arming is
     allowed (that is `ArmStrategyCommandHandler`'s business rule); this
     class only makes arming possible and keeps it consistent.
+
+    @par It implements `IArmedStrategy` since `EPIC-025` PR 2.1c
+    Only the **read** — `armed()`. `arm()`/`disarm()` stay off the port
+    because they are dispatched as commands that validate, claim the symbol
+    and publish events; a port method that armed a strategy would be a second
+    way in, past all of that. The properties below remain for callers inside
+    this module (the factory, the handlers, this class's own tests); a
+    consumer outside it reads the snapshot.
     """
 
     def __init__(self, factory: LiveStrategyFactory) -> None:
@@ -99,6 +113,19 @@ class LiveStrategySession:
         unstable order would reshuffle the list between sessions.
         """
         return tuple(sorted(self._factory.registry.available()))
+
+    def armed(self) -> ArmedStrategySnapshot:
+        """`IArmedStrategy`'s one method — both facts, one lock acquisition.
+
+        The reason it is one call is in `ArmedStrategySnapshot`'s docstring:
+        the caller that needs both was reading `config` and `is_armed`
+        through two separate acquisitions, so a strategy armed between them
+        was observable as a config with no engine.
+        """
+        with self._lock:
+            return ArmedStrategySnapshot(
+                config=self._config, engine_running=self._engine is not None
+            )
 
     @property
     def config(self) -> LiveStrategyConfig | None:

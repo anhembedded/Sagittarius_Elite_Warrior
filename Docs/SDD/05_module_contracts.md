@@ -150,6 +150,35 @@ is what lets `trading` stop naming `SignalAction` at all and is the phase's own
 done-when. `market_data`'s third `OrderIntent` is a different module's contract
 and stays.
 
+**2b. `IStrategyCatalog` was written, measured, and not shipped (PR 2.1c).**
+HLD §3.4 plans it and that pull request built it — the ABC, a verified fake, a
+contract suite and the registry implementing it. Then the four would-be
+consumers were read, and every one of them needs the strategy **classes**, not
+the keys: both live Presenters and `backtest_presenter` pass `available()` into
+coordinators that call `.get(key)` and construct the strategy to read
+`chart_line_colors()` / `chart_line_widths()`, and `trade_once_cmd` hands the
+registry to `build_engine()`. A keys port retires none of those, and widening
+`IStrategy` — which declares `evaluate()` and nothing else — would publish chart
+concerns to every strategy implementing it.
+
+So the port was deleted rather than shipped with nothing to serve. The same
+decision as §3's `claim_symbol` and PR 1.2's `list_symbols(quote_asset)`, and it
+costs more than it looks to get wrong: every consumer's test grows a binding for
+a port nobody calls, and the next reader cannot tell a port that is used from one
+that is merely present. Its consumers' class-reads become intra-module in PR
+2.1e, which is where it is worth writing.
+
+**2c. `ArmedStrategySnapshot` shipped, with fields the spec did not name.**
+§3.4 specified it as "carrying `symbol`". `LiveStrategyConfig` already carries
+`symbol`, so a snapshot of *that* would have been field-for-field identical —
+the `PositionSnapshot` outcome above. What the consumer actually needed was
+different: the Dev Board reads the armed config **and** whether an engine is
+running, and it read them through two separate acquisitions of the session's
+lock, so a strategy armed between the two reads was observable as a config with
+no engine. The DTO carries `config` and `engine_running`, and
+`IArmedStrategy.armed()` answers both under one acquisition. That is the one
+behaviour PR 2.1c changed, and it changed it in the safe direction.
+
 **3. `ITradingSession` shipped without the symbol lease.** Specified:
 `claim_symbol(symbol, owner_id)` / `release_symbol(...)`, an exclusive lease
 that refuses, so a manual order cannot be placed on a symbol a strategy is

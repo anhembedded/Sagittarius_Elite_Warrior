@@ -192,7 +192,7 @@ def test_strategy_dropdown_arms_the_selected_strategy(qtbot, main_window, naviga
     qtbot.mouseClick(panel._btn_arm_strategy, Qt.MouseButton.LeftButton)
     qtbot.waitUntil(lambda: presenter._view_model.armedSummary != "", timeout=2000)
 
-    assert presenter._strategy_session.config.strategy_key == "ema_crossover"
+    assert presenter._armed_strategy.armed().config.strategy_key == "ema_crossover"
     assert panel._lbl_armed_strategy.text() == presenter._view_model.armedSummary
 
 

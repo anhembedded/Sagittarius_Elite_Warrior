@@ -13,7 +13,7 @@
 # PR 0.4a -> 38 after PR 0.4a-2 -> 34 after PR 0.5 -> 28 after PR 1.1a -> 24
 # after PR 1.1b -> 20 after PR 1.2 -> 80 after PR 1.3a -> 60 and 56 after PR
 # 1.3b's two halves -> 46, 32, 29, 25, 23 after PR 1.3c-1..1.3c-5
-# -> 42 after PR 2.1b.
+# -> 42 after PR 2.1b -> 40 after PR 2.1c.
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -347,15 +347,42 @@ presentation.ui.screens.dashboard.dev_board_panel -> modules.trading.domain.poli
 modules.strategy.application.services.live_trading_coordinator -> domain.value_objects.position_sizing
 modules.strategy.application.services.live_trading_coordinator -> modules.trading.domain.policies.position_sizing_bridge
 
-# -> IStrategyCatalog and the armed-session read surface (PR 2.1c). Six
-# consumers ask this module "which strategies are there" or "what is armed on
-# this symbol" by reaching for the registry or the live session directly.
+# CLOSED by PR 2.1c: the TWO `live_strategy_session` entries. Each Presenter
+# read `.config`, and the Dev Board also read `.is_armed` through a SECOND
+# acquisition of the session's lock. `IArmedStrategy.armed()` answers both in
+# one `ArmedStrategySnapshot`, so the pair can no longer be observed
+# disagreeing with itself, and neither screen names the session any more.
+#
+# The FOUR `strategy_registry` entries did not retire, and the reason is a
+# measurement 2.1c made and then acted on: **an `IStrategyCatalog` returning
+# keys would have had no consumer it could serve alone.** Every caller that
+# reads the keys also needs the strategy *classes* —
+#
+#   · both Presenters pass `available()` into `StrategyArmingCoordinator` and
+#     `StrategyOverlayCoordinator`, which call `.get(key)` and construct the
+#     strategy for `chart_line_colors()` / `chart_line_widths()`;
+#   · `backtest_presenter` passes it to `StrategyConfigCoordinator` and
+#     `IndicatorCoordinator`, which do the same;
+#   · `trade_once_cmd` hands the registry to `build_engine()`.
+#
+# — and a published contract must not carry `BaseStrategy`. The port was
+# written, measured against its would-be consumers, and deleted rather than
+# shipped with nothing to serve (`Docs/SDD/05` §3's `claim_symbol` lesson, and
+# PR 1.2's `list_symbols(quote_asset)`). All four callers' class-reads become
+# intra-module in PR 2.1e for the UI ones and Phase 3's
+# `IStrategyEngineFactory` for the CLI, which is where each entry now exits.
+
+# -> the tick path becomes this module's own (PR 2.1c-2). The handler is
+# `strategy`'s subscriber wearing a `market_data` folder name: it reads
+# `MarketTickEvent` from that module's contracts and drives this module's
+# session. It moves into `modules/strategy/application/event_handlers/` with
+# its subscription, which `StrategyModule.boot()` then owns.
 application.event_handlers.market_data.market_tick_event_handler -> modules.strategy.application.services.live_strategy_session
-presentation.cli.trade_once_cmd -> modules.strategy.application.services.strategy_registry
+
+# -> the widgets move in (PR 2.1e), continued. See the note above for why a
+# keys port cannot serve a consumer that constructs the strategy.
 presentation.ui.screens.backtest.backtest_presenter -> modules.strategy.application.services.strategy_registry
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.strategy.application.services.live_strategy_session
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.strategy.application.services.strategy_registry
-presentation.ui.screens.trading.trading_presenter -> modules.strategy.application.services.live_strategy_session
 presentation.ui.screens.trading.trading_presenter -> modules.strategy.application.services.strategy_registry
 
 # -> IStrategyEngineFactory (Phase 3, EPIC-025D). EPIC-025C section 1 item 2
@@ -368,6 +395,7 @@ application.use_cases.backtest.run_historical_tick_backtest.handler -> modules.s
 application.use_cases.backtest.run_static_backtest.handler -> modules.strategy.application.services.strategy_factory
 application.use_cases.backtest.run_static_backtest.handler -> modules.strategy.application.services.strategy_registry
 presentation.cli.trade_once_cmd -> modules.strategy.application.services.strategy_factory
+presentation.cli.trade_once_cmd -> modules.strategy.application.services.strategy_registry
 
 # -> the widgets move in (PR 2.1e). These seven are UI files that need this
 # module's own types; they stop crossing anything when the files themselves

@@ -23,11 +23,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
-    LiveStrategySession,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
+    IArmedStrategy,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     SUPPORTED_LIVE_INTERVALS,
@@ -633,9 +633,7 @@ class DashboardPresenter(BasePresenter):
         # construction. `_active_symbol` is not read until the user actually
         # arms (the lambda below), well after it is assigned further down
         # this constructor.
-        self._strategy_session: LiveStrategySession = container.resolve(
-            LiveStrategySession
-        )
+        self._armed_strategy: IArmedStrategy = container.resolve(IArmedStrategy)
         self._arm_tracker: ActionOwnershipTracker[str, None, None] = (
             ActionOwnershipTracker()
         )
@@ -647,7 +645,7 @@ class DashboardPresenter(BasePresenter):
                 StrategyRegistry
             ).available(),
             get_active_symbol=lambda: self._active_symbol,
-            get_armed_config=lambda: self._strategy_session.config,
+            get_armed_config=lambda: self._armed_strategy.armed().config,
             tracker=self._arm_tracker,
             arm_action_kind=_ARM_ACTION,
             set_status=lambda message, _is_error: self._append_log(message),
@@ -1507,11 +1505,11 @@ class DashboardPresenter(BasePresenter):
             # up on a position it never opened. No network call needed for
             # this check, so it runs before reading the open positions — a
             # blocked attempt costs nothing.
-            armed_config = self._strategy_session.config
+            armed = self._armed_strategy.armed()
             strategy_owns_symbol = (
-                self._strategy_session.is_armed
-                and armed_config is not None
-                and armed_config.symbol == symbol
+                armed.engine_running
+                and armed.config is not None
+                and armed.config.symbol == symbol
             )
             if strategy_owns_symbol:
                 self.manualOrderCompleted.emit((action_id, None, True, None))
@@ -1652,7 +1650,7 @@ class DashboardPresenter(BasePresenter):
         )
 
     def _refresh_armed_summary(self, *, busy: bool) -> None:
-        self._on_armed_config_changed(self._strategy_session.config, busy)
+        self._on_armed_config_changed(self._armed_strategy.armed().config, busy)
 
     def _on_signal_generated(self, event) -> None:
         """`SignalFeed.signalGenerated` handler — already on the main
@@ -1664,7 +1662,7 @@ class DashboardPresenter(BasePresenter):
         signal = getattr(event, "signal", None)
         if signal is None:
             return
-        config = self._strategy_session.config
+        config = self._armed_strategy.armed().config
         if config is None or signal.symbol != config.symbol:
             return
         action = getattr(signal.action, "value", str(signal.action))

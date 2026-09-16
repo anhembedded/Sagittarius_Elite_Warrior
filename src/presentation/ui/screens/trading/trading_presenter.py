@@ -15,11 +15,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
-    LiveStrategySession,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
+    IArmedStrategy,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     SUPPORTED_LIVE_INTERVALS,
@@ -310,9 +310,7 @@ class TradingPresenter(BasePresenter):
         # and restored (`EPIC-022F`) before the chart starts, so the card
         # is never briefly blank on a screen that already knows what the
         # user picked last session.
-        self._strategy_session: LiveStrategySession = container.resolve(
-            LiveStrategySession
-        )
+        self._armed_strategy: IArmedStrategy = container.resolve(IArmedStrategy)
         self._arm_tracker: ActionOwnershipTracker[str, None, None] = (
             ActionOwnershipTracker()
         )
@@ -330,7 +328,7 @@ class TradingPresenter(BasePresenter):
                 StrategyRegistry
             ).available(),
             get_active_symbol=lambda: self._active_symbol,
-            get_armed_config=lambda: self._strategy_session.config,
+            get_armed_config=lambda: self._armed_strategy.armed().config,
             tracker=self._arm_tracker,
             arm_action_kind=_ARM_ACTION,
             set_status=self._view_model.set_status,
@@ -342,7 +340,7 @@ class TradingPresenter(BasePresenter):
         # Boot may already have armed a strategy from config
         # (`_arm_from_config`), so the overlay starts from the session's
         # truth rather than assuming nothing is armed.
-        self._overlay_coordinator.set_armed_config(self._strategy_session.config)
+        self._overlay_coordinator.set_armed_config(self._armed_strategy.armed().config)
 
         self._connect_ui_signals()
         self._connect_engine_events()
@@ -752,7 +750,7 @@ class TradingPresenter(BasePresenter):
         self._overlay_coordinator.set_armed_config(config)
 
     def _refresh_armed_summary(self, *, busy: bool) -> None:
-        self._on_armed_config_changed(self._strategy_session.config, busy)
+        self._on_armed_config_changed(self._armed_strategy.armed().config, busy)
 
     def _on_signal_generated(self, event) -> None:
         """Shows the strategy's latest decision, in its own words.
@@ -767,7 +765,7 @@ class TradingPresenter(BasePresenter):
         signal = getattr(event, "signal", None)
         if signal is None:
             return
-        config = self._strategy_session.config
+        config = self._armed_strategy.armed().config
         if config is None or signal.symbol != config.symbol:
             return
         action = getattr(signal.action, "value", str(signal.action))

@@ -16,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_st
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
+    IArmedStrategy,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
@@ -110,7 +113,7 @@ def mock_app():
             return app
         if interface == StrategyRegistry:
             return strategy_registry
-        if interface == LiveStrategySession:
+        if interface in (LiveStrategySession, IArmedStrategy):
             return strategy_session
         if interface == IAccountSnapshot:
             return FakeAccountSnapshot()
