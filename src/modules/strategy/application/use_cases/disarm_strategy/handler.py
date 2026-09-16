@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.disarm
     DisarmStrategyBlockReason,
     DisarmStrategyResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.strategy_owner import (
+    STRATEGY_OWNER,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
@@ -50,5 +53,13 @@ class DisarmStrategyCommandHandler(
                 disarmed=False,
                 block_reason=DisarmStrategyBlockReason.TRADING_IS_ENABLED,
             )
+        # `EPIC-025` PR 2.1f — read the symbol before disarming clears it, and
+        # release after, so the lease is given back exactly when the engine
+        # that justified it stops existing. `release_symbol` is a no-op when
+        # this owner does not hold that symbol, so a disarm with nothing armed
+        # needs no special case.
+        armed_symbol = self._session.config.symbol if self._session.config else None
         self._session.disarm()
+        if armed_symbol is not None:
+            self._trading_session.release_symbol(armed_symbol, STRATEGY_OWNER)
         return DisarmStrategyResult(disarmed=True)

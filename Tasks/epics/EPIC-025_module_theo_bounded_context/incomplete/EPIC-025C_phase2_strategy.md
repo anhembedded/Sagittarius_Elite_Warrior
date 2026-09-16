@@ -105,7 +105,7 @@ there is exactly one `OrderIntent` in the module, in `contracts/`, where HLD §3
 | ~~2.1e~~ ✅ | the UI moves (11 files / 1287 lines) **and** `StrategyCardViewModel` is extracted from the two live view models, which had been carrying its nineteen members each. Duplicated members **132 → 115**, Phase 1 pair **59 → 39** — its first fall since `PRO-004`. See §7 | **36 → 44**: 7 retired, 15 in, split 7 live-screen / 6 backtest / 2 view-model, each named |
 | 2.1e-2 | the strategy card's **widget** is contributed (§1 item 4): one widget replaces two inline `_build_strategy_card()` methods. Travels with the screens (Phase 4) — a rewrite with an ADR D18 inventory, not a move | shrinks |
 | 2.1e-3 | `IStrategyCatalog`, once the Presenters that hand the registry to those coordinators have moved too (Phase 4) | shrinks |
-| 2.1f | `ITradingSession.claim_symbol`/`release_symbol` — the lease `IOrderSubmission` shipped without, whose first consumer is `arm_strategy` (`Docs/SDD/05` §3) | unchanged |
+| ~~2.1f~~ ✅ | **the symbol lease**, and it turned out to be a rule that already existed in the wrong layer rather than new behaviour — see §8 | unchanged (36 → 44 stands) |
 
 `2.1e-2` inherited one line from 2.1d: PR 2.1d found that `ISizingPolicy` does **not** pass through
 `LiveStrategyFactory`'s arguments, so the container-binding move that `module.py` and
@@ -770,3 +770,112 @@ Two smaller findings, both honest rather than alarming:
 - **No `Docs/SPEC/` file describes arming a strategy at all** (`SPEC-004` is the trading toggle,
   `SPEC-005` the manual order). So this pull request changed no flow document, correctly — and the
   gap is a real one for a later step, because arming is the app's most consequential user action.
+
+---
+
+## 8. PR 2.1f — the lease, and the rule that was already there
+
+`Docs/SDD/05` §3 had deferred `claim_symbol`/`release_symbol` because *"a lease published now would
+be new exclusive-locking behaviour on the most dangerous mutable state in the app with **no caller
+at all**"*. Measured before building it, both halves of that sentence turned out to be wrong in the
+same direction, and that is this step's finding.
+
+### 8.1 The refusal already existed — in a Presenter
+
+`DashboardPresenter._run_manual_order()` read `IArmedStrategy.armed()` and hard-blocked a manual
+Long/Short on the armed symbol. Not a sketch: it carried the user's decision of 2026-09-09
+(`PRO-003` §4.1.2) in its own comment, with the reason — the strategy's `order_intent_for()` never
+re-reads the real position and assumes it started flat, so a human's *first* manual order on a flat
+armed symbol is what makes the strategy's next signal double up on a position it never opened.
+
+So the lease is not new behaviour. What it changes is **which layer enforces a trading safety
+rule** — `architecture-rule.md` §3 puts a rule like this on the order path, not in a screen — and
+the measurement says why that matters: **three callers reach `IOrderSubmission.submit()` and
+exactly one had the check.**
+
+| Caller | Before 2.1f |
+| :--- | :--- |
+| `strategy`'s `LiveTradingCoordinator` | allowed, correctly — it *is* the owner |
+| `DashboardPresenter`'s manual form | blocked, by its own check |
+| `presentation/cli/trade_once_cmd.py` | **not checked** |
+
+The CLI looked like a hole and is not one, and that was worth reading rather than assuming:
+`TradingSessionState` starts `enabled=False` in every process (`EPIC-021G` §2.3 — the one place
+this app deliberately forgets what the user last set) and nothing in `trade-once` enables it, so
+`TRADING_SWITCH_OFF` already refuses a fresh `trade-once --live`. The lease would not have closed
+that anyway: it is in-process state, and a second process shares none of it.
+
+### 8.2 Three deviations from the design, each measured
+
+| Specified | Shipped | Why |
+| :--- | :--- | :--- |
+| `OrderRejectionReason.SYMBOL_LEASED` | `ExecuteOrderSafetyGate.SYMBOL_LEASED` | That enum's own docstring: it is *"why the **exchange** refused an order, named rather than a raw Binance error code"*. A lease is this app's own pre-flight refusal, so it belongs beside the venue, the switch and the connection |
+| an exclusive lease that raises `SymbolAlreadyLeased` | `claim_symbol() -> bool` | A refusal is a value everywhere else in this module. It also cannot happen while one strategy can be armed — which is exactly why the *shape* must be able to say it (ADR §7 item 15) |
+| one owner per symbol | **one symbol per owner** | `LiveStrategySession.arm()` re-arms without disarming first, so a per-symbol lease would leave the previous symbol claimed by a strategy nobody is running — and the user's own manual order on it refused for no reason. Claiming a second symbol releases the first, and the contract suite pins it |
+
+And one addition the design did not have: **the gate is read twice.** The authoritative read is
+inside `live_submission_guard()`, which is `Docs/SDD/05` §3's claim-then-execute. But the refusal it
+replaces was explicitly *free* — *"no network call needed for this check, so it runs before reading
+the open positions — a blocked attempt costs nothing"* — and behind `check_connection()` it would
+not have been: a user with a flaky connection would have been told `CONNECTION_NOT_READY` about an
+order that was never going to be allowed. So there is a cheap read ahead of the connection check as
+well, and a test makes `check_connection()` itself fail the test if the cheap path ever reaches it.
+
+`OrderRequest` gained `owner_id`, defaulting to `MANUAL_OWNER`. The default is the **unprivileged**
+one deliberately: a caller that forgets to identify itself is refused on a leased symbol rather than
+waved through, so the mistake fails in the direction that cannot lose money. `ExecuteOrderCommand`
+carries it rather than `PreviewOrderQuery`, because a preview shapes an order and says nothing about
+whether this caller may send it.
+
+### 8.3 What it cost the Dev Board, and what the tests had to say instead
+
+Removing the screen's check removed the `strategy_conflict: bool` third element of
+`manualOrderCompleted`'s payload, and with it one branch of `_on_manual_order_completed`. Two unit
+tests and one integration test pinned the old shape and were **rewritten**, with the accounting ADR
+D18 asks for written into the replacement's docstring. The three guarantees they held:
+
+1. *an armed symbol refuses a manual order* → `test_execute_order.py::test_blocked_when_another_owner_holds_the_symbols_lease`, plus `test_arm_strategy.py::test_arming_claims_the_symbols_lease` for the claim that makes it true;
+2. *it fires on "armed" alone, with no position read to decide* → the same gate test, which reads only the lease;
+3. *the refusal is free* → `test_the_lease_is_refused_before_any_network_call`.
+
+What is **not** kept is the old *"no dispatch happens at all"* assertion, and that is a real
+behaviour change worth naming: the click now goes through `IOrderSubmission` like every other order,
+which costs one `open_positions()` read on a refused attempt. The user's decision was that the block
+is hard and what it says; the free-ness was an implementation note about where the check sat, and the
+gate itself is still free.
+
+The integration test could not be made to show the lease at all, which is a fixture fact rather than
+a gap: that suite boots with `TradingVenue.DISABLED`, so `TRADING_VENUE_DISABLED` fires first — 
+correctly, since "this app cannot trade at all" is more fundamental than "not this symbol". It now
+asserts what it still can prove with a real Qt click: that arming no longer short-circuits the
+screen's order path, and that the operator sees the real handler's refusal rather than a message the
+screen invented. Its docstring names where the lease's own proof lives.
+
+### 8.4 One fake helper, written and deleted
+
+`FakeTradingSession` got a `lease_holder()` reader so a consumer's test could see whether a claim
+landed — and `test_fake_helpers_are_verified.py` immediately failed it, because nothing exercised it.
+Right: `TradingSessionContract` proves every lease guarantee through `claim_symbol`'s own return
+value, since **a refused claim is the observation that somebody else holds it**. So the helper was
+deleted rather than given a test to justify it, which is `BUG-120` read the way it was meant.
+
+### 8.5 A deferral that had outlived its own reason
+
+`tests/unit/modules/trading/contracts/test_trading_session_contract.py` ran the suite against the
+**fake only**, and said why: *"the real `TradingSessionService` runs the same suite once PR 1.3c
+moves the handler registrations into the module"*, because `enable()` needs
+`EnableTradingCommandHandler` behind a real dispatcher.
+
+PR 1.3c landed five pull requests ago — 1.3c-4 even split the shared `FuturesSessionFactory` that
+note names as the blocker — and the real service still was not running it. That is the same shape
+as the allowlist count that stayed at 56 for eleven pull requests: a note that was true when it was
+written and nobody re-read.
+
+The lease needs none of that machinery, so it did not have to inherit the deferral. The suite is
+split — `SymbolLeaseContract` — and the **real** `TradingSessionService` runs those seven
+guarantees now, over a real `TradingSessionState`, with a dispatcher that **fails the test if it is
+ever called**. That last part is why it is more than a second run of the same assertions: it proves
+the claim `TradingSessionService.claim_symbol`'s own docstring makes, that a lease reaches no
+command handler. What is still deferred is now honestly narrower: `enable()`, `emergency_stop()`
+and `snapshot()` against the real service, which want the handler wiring the sanity tier already
+builds.

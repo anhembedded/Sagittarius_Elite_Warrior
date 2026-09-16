@@ -174,6 +174,68 @@ class TestSafetyGates:
         result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))
         assert result.blocked_by is ExecuteOrderSafetyGate.TRADING_SWITCH_OFF
 
+    def test_blocked_when_another_owner_holds_the_symbols_lease(self) -> None:
+        """`EPIC-025` PR 2.1f — the rule the user asked for on 2026-09-09
+        (`PRO-003` §4.1.2), enforced here instead of in one screen. A manual
+        order carries `OrderRequest`'s `MANUAL_OWNER` default, and the strategy
+        claimed the symbol on arm."""
+        handler, state = _handler()
+        state.claim_symbol("BTCUSDT", "strategy")
+
+        result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))
+
+        assert result.blocked_by is ExecuteOrderSafetyGate.SYMBOL_LEASED
+        assert result.preview is None
+
+    def test_the_lease_holder_is_not_blocked_by_its_own_lease(self) -> None:
+        handler, state = _handler()
+        state.claim_symbol("BTCUSDT", "strategy")
+
+        result = handler.execute(
+            ExecuteOrderCommand(order_request=_order_request(), owner_id="strategy")
+        )
+
+        assert result.blocked_by is None
+
+    def test_a_lease_on_another_symbol_does_not_block(self) -> None:
+        handler, state = _handler()
+        state.claim_symbol("ETHUSDT", "strategy")
+
+        result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))
+
+        assert result.blocked_by is None
+
+    def test_the_lease_is_refused_before_any_network_call(self) -> None:
+        """The refusal this replaces was explicitly free — `DashboardPresenter`
+        checked before reading positions, so *"a blocked attempt costs
+        nothing"*. Behind `check_connection()` the user would pay a round trip,
+        and a flaky connection would report `CONNECTION_NOT_READY` about an
+        order that was never going to be allowed. Proven by making the
+        connection check itself fail the test if it is reached."""
+        state = TradingSessionState()
+        state.enable(())
+        state.claim_symbol("BTCUSDT", "strategy")
+        account_reader = Mock()
+        account_reader.check_connection.side_effect = AssertionError(
+            "the lease must be refused before the connection is read"
+        )
+        metadata_provider = _metadata_provider()
+        handler = ExecuteOrderCommandHandler(
+            TradingVenue.FUTURES_TESTNET,
+            state,
+            account_reader,
+            PreviewOrderQueryHandler(metadata_provider),
+            TradingLimitPolicy(_LIMITS),
+            Mock(),
+            Mock(),
+            metadata_provider,
+        )
+
+        result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))
+
+        assert result.blocked_by is ExecuteOrderSafetyGate.SYMBOL_LEASED
+        account_reader.check_connection.assert_not_called()
+
     def test_blocked_when_connection_not_ready(self) -> None:
         bad_status = ExchangeConnectionStatus(
             venue=TradingVenue.FUTURES_TESTNET,

@@ -34,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizingType,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.strategy_owner import (
+    STRATEGY_OWNER,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.position_sizing_bridge import (
     calculate_live_order_quantity,
 )
@@ -156,6 +159,12 @@ class LiveTradingCoordinator:
             quantity=quantity,
             reference_price=reference_price,
             reduce_only=intent.reduce_only,
+            # `EPIC-025` PR 2.1f — the strategy's own lease, so the symbol it
+            # claimed on arm does not refuse the order it armed to place.
+            # Omitting this would leave `OrderRequest`'s `MANUAL_OWNER` default
+            # here and block the strategy with its own lease, which is why that
+            # default is the unprivileged one: the mistake fails safe.
+            owner_id=STRATEGY_OWNER,
         )
         # `EPIC-025` PR 1.3c-2 — the `cast` that used to stand here is gone
         # with the untyped dispatch it documented: `IOrderSubmission.submit()`

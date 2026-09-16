@@ -2683,20 +2683,43 @@ def test_run_manual_order_submits_one_live_order_with_the_mapped_intent(
     assert account_snapshot.position_reads == 1
 
 
-def test_run_manual_order_hard_blocks_when_strategy_owns_the_symbol_with_a_position(
-    presenter, mock_dispatcher, strategy_session, strategy_registry
+def test_a_leased_symbol_is_reported_to_the_card_in_the_operators_own_words(
+    presenter, order_submission
 ):
-    """`PRO-003` §4.1.2 (user decision) — the hard block."""
+    """`PRO-003` §4.1.2's hard block, after `EPIC-025` PR 2.1f moved the rule
+    onto the order path.
+
+    @par What the two tests this replaces asserted, and where each half went
+    They were `test_run_manual_order_hard_blocks_when_strategy_owns_the_symbol
+    _with_a_position` and `..._even_while_flat`, and between them they pinned
+    three things:
+
+      1. *an armed symbol refuses a manual order* — now
+         `tests/unit/modules/trading/application/orders/test_execute_order.py::
+         test_blocked_when_another_owner_holds_the_symbols_lease`, where the
+         refusal lives, plus `test_arm_strategy.py::
+         test_arming_claims_the_symbols_lease` for the claim that makes it
+         true;
+      2. *it fires on "armed" alone, with no position read needed to decide* —
+         the same execute-order test: the gate reads only the lease;
+      3. *the refusal is free* — `test_execute_order.py::
+         test_the_lease_is_refused_before_any_network_call`, which makes
+         `check_connection()` fail the test if it is reached.
+
+    What is left for this Presenter is the half that is genuinely its own: it
+    reports the refusal, with the words the user chose. Deliberately **not**
+    kept is the old "no dispatch happens at all" assertion — the click now
+    goes through `IOrderSubmission` like every other order, which is the point
+    of moving the rule to where every caller inherits it, and it costs one
+    `open_positions()` read on a refused attempt. The user decision was that
+    the block is hard and what it says; the free-ness was an implementation
+    note on where the check sat.
+    """
     from decimal import Decimal
 
-    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
-        LiveStrategyConfig,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order import (
-        ExecuteOrderCommand,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
-        GetOpenPositionsQuery,
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
+        ExecuteOrderResult,
+        ExecuteOrderSafetyGate,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
         OrderType,
@@ -2704,75 +2727,17 @@ def test_run_manual_order_hard_blocks_when_strategy_owns_the_symbol_with_a_posit
     from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
         ManualOrderDirection,
     )
+    from Sagittarius_Elite_Warrior.src.presentation.ui.common.execute_order_block_reason import (
+        format_execute_order_block_reason,
+    )
 
-    strategy_session.arm(
-        LiveStrategyConfig(
-            strategy_key="ema_crossover",
-            symbol="BTCUSDT",
-            interval="5m",
-            sizing_percent=20.0,
-            leverage=1.0,
-        )
+    order_submission.submit_answers(
+        ExecuteOrderResult(ExecuteOrderSafetyGate.SYMBOL_LEASED, None, (), None)
     )
-    completed = MagicMock()
-    presenter.manualOrderCompleted.connect(completed)
-    mock_dispatcher.dispatch.side_effect = lambda command_type, command: (
-        (_live_position("BTCUSDT", "0.01"),)
-        if command_type is GetOpenPositionsQuery
-        else None
-    )
+    context = presenter._manual_order_tracker.begin_action("manual_order", None, None)
 
     presenter._run_manual_order(
-        1,
-        "BTCUSDT",
-        ManualOrderDirection.SHORT,
-        Decimal("0.01"),
-        OrderType.MARKET,
-        Decimal(64000),
-    )
-
-    assert not any(
-        call.args[0] is ExecuteOrderCommand
-        for call in mock_dispatcher.dispatch.call_args_list
-    )
-    completed.assert_called_once_with((1, None, True, None))
-
-
-def test_run_manual_order_hard_blocks_when_strategy_owns_the_symbol_even_while_flat(
-    presenter, mock_dispatcher, strategy_session, strategy_registry
-):
-    """`PRO-003` §4.1.2, tightened 2026-09-09 (user decision): blocking only
-    "armed + has a position" still let a human's *first* order on a flat,
-    armed symbol through — exactly the race that lets the strategy's next
-    signal (which assumes it started flat) double up on a position it
-    never opened. The block must fire on "armed" alone, with no
-    GetOpenPositionsQuery round-trip needed to decide that."""
-    from decimal import Decimal
-
-    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
-        LiveStrategyConfig,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
-        OrderType,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
-        ManualOrderDirection,
-    )
-
-    strategy_session.arm(
-        LiveStrategyConfig(
-            strategy_key="ema_crossover",
-            symbol="BTCUSDT",
-            interval="5m",
-            sizing_percent=20.0,
-            leverage=1.0,
-        )
-    )
-    completed = MagicMock()
-    presenter.manualOrderCompleted.connect(completed)
-
-    presenter._run_manual_order(
-        1,
+        context.action_id,
         "BTCUSDT",
         ManualOrderDirection.LONG,
         Decimal("0.01"),
@@ -2780,8 +2745,11 @@ def test_run_manual_order_hard_blocks_when_strategy_owns_the_symbol_even_while_f
         Decimal(64000),
     )
 
-    mock_dispatcher.dispatch.assert_not_called()
-    completed.assert_called_once_with((1, None, True, None))
+    shown = presenter._view_model.manualOrderMessage
+    assert "managed by an armed strategy" in shown
+    assert (
+        format_execute_order_block_reason(ExecuteOrderSafetyGate.SYMBOL_LEASED) in shown
+    )
 
 
 def test_cancel_order_requested_submits_background_worker(presenter, mock_thread_mgr):

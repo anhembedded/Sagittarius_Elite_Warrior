@@ -13,20 +13,33 @@ read exactly three facts off the state — `enabled`,
 `orders_sent_this_session`, `known_open_symbols` — so those three are what
 `TradingSessionSnapshot` carries and nothing else (HLD §2.4).
 
-@par No symbol lease yet, and that is deliberate
-HLD §3.4's worked example gives this port `claim_symbol(symbol, owner_id)` /
-`release_symbol(...)` — an **exclusive lease that refuses**, so a manual order
-cannot be placed on a symbol a strategy is armed on. It is not here, for the
-reason `architecture-rule.md` §7.2.1 gives: the lease's first consumer is
-`strategy`, which claims on arm and releases on disarm, and `strategy` is
-Phase 2. A lease published now would be an exclusive-locking mechanism on
-shared mutable state with **no caller** — new behaviour on the riskiest state
-in the app, which ADR D12 keeps out of a port pull request. Phase 2 adds it
-under the existing lock, with claim-then-execute as one critical section,
-which is the design HLD §3.4 already argues.
+@par The symbol lease, since PR 2.1f — and where the refusal actually lives
+`claim_symbol(symbol, owner_id)` / `release_symbol(...)`: `strategy` claims on
+arm and releases on disarm, and the order path refuses an order on a symbol
+somebody else has claimed. It waited for Phase 2 because its first consumer is
+`strategy` (`architecture-rule.md` §7.2.1 — cut the seam at the consumer, not
+ahead of it), and PR 2.1f is where that consumer arrived.
 
-The same shape as `IMarketStream`'s missing `StreamHandle` (PR 1.1b) and for
-the same reason: the seam is cut when the second consumer arrives.
+**What it changes is which layer enforces a rule, not the rule.** The refusal
+already existed: `DashboardPresenter._run_manual_order()` read
+`IArmedStrategy.armed()` and hard-blocked a manual Long/Short on the armed
+symbol, per the user's decision of 2026-09-09 (`PRO-003` §4.1.2). A **UI class
+enforcing a trading safety rule** is backwards — `architecture-rule.md` §3 — and
+bypassable by any order path that is not that one form. Measured before moving
+it: three callers reach `IOrderSubmission.submit()`, and only one of them had
+the check. So it moves into `ExecuteOrderCommandHandler`, where every caller
+inherits it, as a fourth `ExecuteOrderSafetyGate`.
+
+`claim_symbol` returns a `bool` rather than nothing, and that is the honest
+shape even though it cannot fail today: with one armed strategy there is never
+a second owner. Two strategies on two symbols is ADR §7 item 15's seam, and
+when it arrives the refusal is already expressible.
+
+The lease is **in-process**, like everything else on `TradingSessionState`. A
+second process is not protected by it and does not need to be: `enabled` is
+never persisted (`EPIC-021G` §2.3), so a fresh `trade-once --live` is already
+refused by `TRADING_SWITCH_OFF` before any lease is consulted — checked, not
+assumed, because the reverse would have been a real hole.
 """
 
 from __future__ import annotations
@@ -92,6 +105,28 @@ class ITradingSession(ABC):
         """Stop allowing live submission. Returns nothing because it cannot
         refuse — it always succeeds, which is why there is no
         `DisableTradingResult`."""
+
+    @abstractmethod
+    def claim_symbol(self, symbol: str, owner_id: str) -> bool:
+        """Declare that `owner_id` is managing `symbol`, so the order path
+        refuses anyone else's order on it.
+
+        @return `False` when a different owner already holds it; nothing is
+        changed in that case.
+        @details One symbol per owner: claiming a second **replaces** the
+        first, because re-arming a strategy onto another symbol must not leave
+        the old one claimed by nobody. Re-claiming what you hold succeeds.
+        """
+
+    @abstractmethod
+    def release_symbol(self, symbol: str, owner_id: str) -> None:
+        """Give up `owner_id`'s claim on `symbol`.
+
+        @details A no-op when this owner does not hold it. It can never
+        release another owner's lease — that is the half that matters, since
+        the point of the lease is that a manual order path cannot clear the
+        strategy's claim to let itself through.
+        """
 
     @abstractmethod
     def emergency_stop(self) -> EmergencyStopResult:

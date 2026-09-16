@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.arm_st
     ArmStrategyBlockReason,
     ArmStrategyResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.strategy_owner import (
+    STRATEGY_OWNER,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
@@ -77,12 +80,32 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
                 armed=False, block_reason=ArmStrategyBlockReason.STRATEGY_NOT_FOUND
             )
 
+        # `EPIC-025` PR 2.1f — claim the symbol BEFORE arming, so a refused
+        # claim means nothing was armed. The reverse order would arm a strategy
+        # and then discover it may not have the symbol, leaving a live engine
+        # to unwind. A claim cannot be refused today (one armed strategy means
+        # one owner), which is exactly why the order has to be the one that
+        # stays correct when ADR §7 item 15's second strategy arrives.
+        if not self._trading_session.claim_symbol(config.symbol, STRATEGY_OWNER):
+            logger.info(
+                "Refused to arm '%s': %s is managed by another owner.",
+                config.strategy_key,
+                config.symbol,
+            )
+            return ArmStrategyResult(
+                armed=False, block_reason=ArmStrategyBlockReason.SYMBOL_LEASED
+            )
+
         try:
             self._session.arm(config)
         except ValueError as exc:
             logger.info(
                 "Refused to arm '%s': %s", config.strategy_key, exc, exc_info=False
             )
+            # The claim was this call's, so this call gives it back. Leaving it
+            # held would block the user's own next manual order on a symbol no
+            # strategy is running.
+            self._trading_session.release_symbol(config.symbol, STRATEGY_OWNER)
             return ArmStrategyResult(
                 armed=False,
                 block_reason=ArmStrategyBlockReason.INVALID_PARAMS,

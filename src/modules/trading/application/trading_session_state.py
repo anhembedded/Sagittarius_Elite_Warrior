@@ -79,6 +79,15 @@ class TradingSessionState:
         self.orders_sent_this_session = 0
         self.known_open_symbols: set[str] = set()
         self._last_order_time_by_symbol: dict[str, datetime] = {}
+        #: `EPIC-025` PR 2.1f — the symbol lease: who, if anyone, has declared
+        #: that they are managing a symbol. **One entry per owner, not per
+        #: symbol**, and that is the invariant: an owner claiming a second
+        #: symbol releases its first, so re-arming a strategy onto a different
+        #: symbol cannot leave the old one leased by a strategy nobody is
+        #: running. Keyed by owner for exactly that reason; the order path asks
+        #: the reverse question (`lease_holder(symbol)`) and pays a scan of a
+        #: dict that holds at most one entry today.
+        self._symbol_by_owner: dict[str, str] = {}
         #: Bumped by every state-changing call. See `enable()`'s own
         #: docstring for what this guards against.
         self._generation = 0
@@ -179,6 +188,59 @@ class TradingSessionState:
             self._last_order_time_by_symbol[symbol] = when
             self.known_open_symbols.add(symbol)
             self._generation += 1
+
+    def claim_symbol(self, symbol: str, owner_id: str) -> bool:
+        """@brief Declares that `owner_id` is managing `symbol`.
+        @return `False` when a **different** owner already holds it, and
+        nothing is changed; `True` when the lease is now this owner's.
+        @details Re-claiming what you already hold succeeds. Claiming a second
+        symbol **replaces** your first — see `_symbol_by_owner`'s note for why
+        that is the invariant rather than an accident: `LiveStrategySession.
+        arm()` re-arms without disarming first, so a per-symbol lease would
+        strand the previous symbol.
+        """
+        with self._lock:
+            holder = next(
+                (
+                    owner
+                    for owner, held in self._symbol_by_owner.items()
+                    if held == symbol
+                ),
+                None,
+            )
+            if holder is not None and holder != owner_id:
+                return False
+            self._symbol_by_owner[owner_id] = symbol
+            self._generation += 1
+            return True
+
+    def release_symbol(self, symbol: str, owner_id: str) -> None:
+        """@brief Gives up `owner_id`'s claim on `symbol`.
+        @details A no-op when this owner does not hold that symbol — releasing
+        something you never claimed is not an error, and refusing it would make
+        every caller check first. It cannot release *another* owner's lease,
+        which is the half that matters: the whole point is that a manual order
+        path cannot clear the strategy's claim to get itself through.
+        """
+        with self._lock:
+            if self._symbol_by_owner.get(owner_id) == symbol:
+                del self._symbol_by_owner[owner_id]
+                self._generation += 1
+
+    def lease_holder(self, symbol: str) -> str | None:
+        """@brief Who has declared they are managing `symbol`, if anyone.
+
+        @details Read by `ExecuteOrderCommandHandler` **inside**
+        `live_submission_guard()`, so the check and the submission it gates are
+        one critical section (`Docs/SDD/05` §3's claim-then-execute). Reading it
+        before that lock would let a strategy arm in the gap between the check
+        and the order.
+        """
+        with self._lock:
+            for owner, held in self._symbol_by_owner.items():
+                if held == symbol:
+                    return owner
+            return None
 
     def reconcile_position(self, symbol: str, *, has_position: bool) -> bool:
         """@brief Corrects `known_open_symbols` for `symbol` to match

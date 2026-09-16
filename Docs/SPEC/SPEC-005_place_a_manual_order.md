@@ -58,7 +58,7 @@ goes."*
 - `live=False` is the default everywhere, and it is a **real** dry run: every gate and limit is
   evaluated against live data, and no order-submission network call is made at all.
 - A refusal is a **named value on the result**, never an exception the caller had to anticipate:
-  one of three safety gates, the notional rejection, or one of four limit violations.
+  one of four safety gates, the notional rejection, or one of four limit violations.
 - The result carries evaluation as far as it got, and the shape says which: a safety-gate block
   has no preview and no limit checks; a minimum-notional block has a preview and no limit
   checks; a limit block shows every check with the numbers it was judged against.
@@ -73,6 +73,7 @@ goes."*
 | What goes wrong | What the actor sees | Why it is this and not a crash |
 | :--- | :--- | :--- |
 | Trading is off, or the venue is disabled, or the connection is not ready | Blocked by the named safety gate; nothing was normalised and no limits were evaluated | The gates are cheap and come first, and the empty preview is how the actor knows evaluation stopped there |
+| A strategy is armed on this symbol | Blocked by `SYMBOL_LEASED`, in the operator's own words: the strategy would lose track of its real position, so disarm it or trade a different symbol | The user's decision of 2026-09-09 (`PRO-003` §4.1.2), and it is *hard*, not a warning — even while the position is flat, because the strategy's next signal assumes it started flat. Enforced on the order path since `EPIC-025` PR 2.1f, so `trade-once` and every future caller inherit it; before that only the Dev Board's own form had it |
 | The order is below the venue's minimum notional | Blocked by `MIN_NOTIONAL`, with the preview that shows the computed notional | `BUG-090`: refusing locally beats a round trip for a rejection the app could already predict |
 | A session limit is reached | Blocked by that limit, with every check and the numbers behind it — e.g. order 21 of a 20-order session | The app's own configured safety policy, distinct from the venue's hard filters |
 | The exchange refuses the submitted order | The named `OrderRejectionReason`, with the exchange's original message kept for a human to look up | A raw English exchange string is not a stable contract; the name is what a caller branches on |
@@ -88,8 +89,10 @@ goes."*
 - It does not promise the fill price. A market order's notional is an estimate from the
   reference price the actor supplied.
 - No brackets, no OCO, no take-profit pairing. One order, one answer.
-- It does not reserve the symbol. Nothing prevents a strategy armed on the same symbol from
-  acting too — the lease is Phase 2's (SPEC-004 §6).
+- It does not reserve the symbol **for itself**. A manual order takes no lease and gives no
+  protection from the next one; what changed in `EPIC-025` PR 2.1f is the other direction — a
+  symbol an armed *strategy* claimed refuses a manual order (§5). Two manual orders on one symbol
+  are still governed only by the session's limits.
 - `trade-once` is not a daemon. It runs one strategy evaluation, attempts at most one order, and
   exits.
 
@@ -118,7 +121,10 @@ open order is SPEC-006 (planned) and is the same port's `cancel()`.
 | Evidence | Where | Tier |
 | :--- | :--- | :--- |
 | Normalisation, the notional check, and the preview's shape | `tests/unit/modules/trading/application/orders/test_preview_order.py` | unit |
-| Three gates, four limits, their order, and each result shape | `tests/unit/modules/trading/application/orders/test_execute_order.py` | unit |
+| Four gates, four limits, their order, and each result shape | `tests/unit/modules/trading/application/orders/test_execute_order.py` | unit |
+| A leased symbol is refused, its holder is not, and the refusal costs no network call | `tests/unit/modules/trading/application/orders/test_execute_order.py` (`TestSafetyGates`) | unit |
+| Arming claims the symbol and disarming gives it back — including a refused arming keeping nothing | `tests/unit/modules/strategy/application/use_cases/test_arm_strategy.py` | unit |
+| Both implementations of `ITradingSession` hold the lease the same way | `tests/unit/modules/trading/contracts/test_trading_session_contract.py` + its integration twin | contract |
 | A refused or undelivered submission never advances the session counters | `tests/unit/modules/trading/application/orders/test_execute_order.py` (`TestAFailedSubmissionIsNeverRecordedAsSent`) | unit |
 | The four limits themselves, at the domain level | `tests/unit/modules/trading/domain/policies/test_trading_limit_policy.py` | unit |
 | What a manual order is allowed to be, as a domain rule | `tests/unit/modules/trading/domain/policies/test_manual_order_intent.py` | unit |

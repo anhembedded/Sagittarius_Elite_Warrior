@@ -89,7 +89,9 @@ class OrderSubmissionService(IOrderSubmission):
     def submit(
         self, request: OrderRequest, *, live: bool = False
     ) -> ExecuteOrderResult:
-        command = ExecuteOrderCommand(order_request=_as_query(request), live=live)
+        command = ExecuteOrderCommand(
+            order_request=_as_query(request), live=live, owner_id=request.owner_id
+        )
         response = self._dispatcher.dispatch(ExecuteOrderCommand, command)
         return _answered(response, ExecuteOrderResult)  # type: ignore[return-value]
 

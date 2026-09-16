@@ -12,9 +12,11 @@ Two things, not the whole safety-gate/limits matrix (already covered by
 unit level — this file's job is only to prove the click is really wired to
 that pipeline, not to re-derive its business rules):
 
-1. A real click is hard-blocked, before any dispatch at all, when the
-   strategy is armed on the card's own symbol (`PRO-003` §4.1.2, tightened
-   2026-09-09 — see `dashboard_presenter.py`'s `_run_manual_order`).
+1. A real click on the symbol a strategy is armed on reaches the real
+   pipeline and shows the pipeline's own refusal. Until `EPIC-025` PR 2.1f
+   the screen refused it itself, before any dispatch; that rule is now
+   `ExecuteOrderSafetyGate.SYMBOL_LEASED` on the order path, and this test's
+   own docstring says why this suite cannot show that particular gate.
 2. A real click on an unarmed symbol genuinely reaches the real
    `ExecuteOrderCommandHandler` and shows its real safety-gate refusal —
    this suite's app always boots with `TradingVenue.DISABLED`
@@ -32,13 +34,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 
-_STRATEGY_SYMBOL_CONFLICT_MESSAGE = (
-    "Blocked: this symbol is managed by an armed strategy — manually trading "
-    "the exact symbol the strategy is watching can make the strategy lose "
-    "track of its real position (even while it is currently Flat). Use "
-    "Emergency Stop or disarm the strategy first, or trade manually on a "
-    "different symbol."
-)
 _TRADING_VENUE_DISABLED_MESSAGE = (
     "Manual order blocked: Trading venue is disabled in configuration — only "
     "Futures Testnet is supported."
@@ -78,16 +73,36 @@ def _spy_on_dispatch(monkeypatch, presenter) -> list:
     return calls
 
 
-def test_a_real_long_click_hard_blocks_on_the_strategys_own_armed_symbol(
+def test_a_real_long_click_on_the_armed_symbol_reaches_the_real_pipeline(
     qtbot, main_window, navigate, monkeypatch
 ):
-    """`PRO-003` §4.1.2 — arms `ema_crossover` on the card's own active
-    symbol (no symbol override, so it lands on the same default the manual
-    order card itself reads — `test_strategy_dropdown_arms_the_selected_
-    strategy` arms the same way), then clicks the real "LONG" button. The
-    block must fire before either `GetOpenPositionsQuery` or
-    `ExecuteOrderCommand` is ever dispatched — not merely before the order
-    reaches the exchange."""
+    """Arms `ema_crossover` on the card's own active symbol, then clicks the
+    real "LONG" button.
+
+    @par What changed, and what this test can and cannot prove
+    Before `EPIC-025` PR 2.1f this asserted the opposite of what it asserts
+    now: that the click was blocked *before any dispatch at all*, because
+    `DashboardPresenter._run_manual_order()` read `IArmedStrategy.armed()` and
+    refused on the spot. That rule now lives on the order path as
+    `ExecuteOrderSafetyGate.SYMBOL_LEASED`, so every caller inherits it rather
+    than one form — and the click therefore *does* go through the pipeline,
+    which is what this asserts instead.
+
+    It cannot show the lease refusal itself, and the reason is this suite's own
+    fixture: the app boots with `TradingVenue.DISABLED`
+    (`src/config/app_config.json`), so `TRADING_VENUE_DISABLED` fires first —
+    correctly, since "this app cannot trade at all" is a more fundamental
+    refusal than "not this symbol". The lease's own proof is at the unit level,
+    where the venue is enabled:
+    `tests/unit/modules/trading/application/orders/test_execute_order.py`
+    (refused for another owner, allowed for the holder, and refused before any
+    network call) and `tests/unit/modules/strategy/application/use_cases/
+    test_arm_strategy.py` (arming claims it, disarming gives it back).
+
+    What is left here is still worth a real click: that arming no longer
+    short-circuits the screen's own order path, and that the operator sees the
+    real handler's refusal rather than a message the screen invented.
+    """
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)
     panel = view._panel
@@ -103,25 +118,24 @@ def test_a_real_long_click_hard_blocks_on_the_strategys_own_armed_symbol(
     assert presenter._armed_strategy.armed().config.symbol == presenter._active_symbol
 
     # Spy installed only now — arming itself legitimately dispatches
-    # `ArmStrategyCommandHandler`; what this test asserts is that the
-    # *manual order click that follows* triggers no dispatch of its own.
+    # `ArmStrategyCommandHandler`; what this test reads is the dispatches the
+    # *manual order click that follows* makes.
     calls = _spy_on_dispatch(monkeypatch, presenter)
     _set_limit_order(panel, price=50000.0, quantity=0.01)
     qtbot.mouseClick(panel._btn_manual_long, Qt.MouseButton.LeftButton)
-    # Waits for the exact final text, not merely "non-empty" — the click
-    # synchronously sets a transient "Đang gửi lệnh..." status before the
-    # background worker (a real `ThreadPoolExecutor`, see `app_engine`'s
-    # docstring) reports the real outcome, so a bare `!= ""` check would
-    # race and could pass on that transient text instead.
+    # The exact final text, not merely "non-empty": the click synchronously
+    # sets a transient "Đang gửi lệnh..." status before the background worker
+    # reports the real outcome, so a bare `!= ""` check would race.
     qtbot.waitUntil(
         lambda: (
-            panel._lbl_manual_order_status.text() == _STRATEGY_SYMBOL_CONFLICT_MESSAGE
+            panel._lbl_manual_order_status.text() == _TRADING_VENUE_DISABLED_MESSAGE
         ),
         timeout=2000,
     )
 
-    assert calls == [], (
-        f"the armed-symbol hard block must fire before any dispatch — got {calls!r}"
+    assert ExecuteOrderCommand in calls, (
+        "the click must now reach the real order pipeline — the screen no "
+        f"longer refuses on its own; got {calls!r}"
     )
 
 

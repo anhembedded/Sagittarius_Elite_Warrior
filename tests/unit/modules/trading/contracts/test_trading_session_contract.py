@@ -1,15 +1,34 @@
-"""`ITradingSession`'s contract, against its verified fake (HLD §10.3).
+"""`ITradingSession`'s contract — the fake against all of it, the real service
+against the half that needs no dispatcher (HLD §10.3).
 
-The real `TradingSessionService` runs the same suite once PR 1.3c moves the
-handler registrations into the module: `enable()` needs
-`EnableTradingCommandHandler`, which needs the `FuturesSessionFactory`
-instance still shared with `market_data`. Recorded here rather than left as a
-silent gap.
+@par The recorded deferral had expired, and PR 2.1f is where that showed
+This file used to say the real `TradingSessionService` would run the suite
+*"once PR 1.3c moves the handler registrations into the module"*, because
+`enable()` needs `EnableTradingCommandHandler` behind a real dispatcher. PR
+1.3c has long since landed — 1.3c-4 even split the shared `FuturesSessionFactory`
+the note names — and the real service still was not running it, which is how a
+deferral outlives its own reason.
+
+The lease shipped in PR 2.1f needs none of that machinery: `claim_symbol` and
+`release_symbol` go straight to `TradingSessionState`. So the suite was split
+(`SymbolLeaseContract`), and the real service runs that half **here and now**
+rather than inheriting a blocker that has nothing to do with it. What is still
+deferred is honestly narrower than before: `enable()` / `emergency_stop()` /
+`snapshot()` against the real service, which wants the handler wiring a
+sanity-tier boot already builds.
 """
 
 from __future__ import annotations
 
+from unittest.mock import Mock
+
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.trading_session_service import (
+    TradingSessionService,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
+    TradingSessionState,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
     EmergencyStopStepResult,
@@ -23,6 +42,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session i
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.contract_trading_session import (
     GivenSession,
+    SymbolLeaseContract,
     TradingSessionContract,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
@@ -41,6 +61,29 @@ class TestTheFake(TradingSessionContract):
             impl.answer_with(snapshot)
 
         return seed
+
+
+class TestTheRealServicesLease(SymbolLeaseContract):
+    """The real `TradingSessionService` over a real `TradingSessionState`.
+
+    The dispatcher is one that fails the test if it is ever used, which makes
+    this more than a second run of the same assertions: it *proves* the lease
+    reaches no command handler. That is why `TradingSessionService.claim_symbol`
+    can go straight to the state, and it is the claim this class checks rather
+    than states.
+    """
+
+    @pytest.fixture
+    def impl(self) -> TradingSessionService:
+        def _never(handler_class: type, input_dto: object | None = None) -> object:
+            raise AssertionError(
+                "the symbol lease must not dispatch a command — it is a state "
+                f"mutation with nothing to reconcile (got {handler_class!r})"
+            )
+
+        dispatcher = Mock()
+        dispatcher.dispatch.side_effect = _never
+        return TradingSessionService(dispatcher, TradingSessionState())
 
 
 class TestTheFakesOwnBookkeeping:

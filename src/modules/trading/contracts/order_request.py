@@ -36,6 +36,15 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 
+#: Who an order belongs to when the caller does not say: a human at a form.
+#:
+#: The default is the **unprivileged** one on purpose (`EPIC-025` PR 2.1f). An
+#: `owner_id` matching a symbol's lease holder is what gets an order past
+#: `ExecuteOrderSafetyGate.SYMBOL_LEASED`, so a caller that forgets to identify
+#: itself is refused on a leased symbol rather than waved through — the failure
+#: direction that cannot lose money.
+MANUAL_OWNER = "manual"
+
 
 @dataclass(frozen=True, slots=True)
 class OrderRequest:
@@ -54,3 +63,9 @@ class OrderRequest:
     #: Closing an existing position rather than opening one. The exchange
     #: refuses a `reduce_only` order that would flip the side.
     reduce_only: bool = False
+    #: Who is asking (`EPIC-025` PR 2.1f). Only the symbol lease reads it: an
+    #: order on a symbol `ITradingSession.claim_symbol()` gave to somebody else
+    #: is refused, and an order from that somebody else goes through. Defaults
+    #: to `MANUAL_OWNER` — see its own note for why the default is the one with
+    #: the fewest privileges.
+    owner_id: str = MANUAL_OWNER

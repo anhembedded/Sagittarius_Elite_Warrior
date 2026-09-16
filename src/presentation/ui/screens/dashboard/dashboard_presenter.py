@@ -241,22 +241,12 @@ _EMERGENCY_STOP_ACTION = "emergency_stop"
 #: at a time, never two concurrent Long/Short clicks from the same card.
 _MANUAL_ORDER_ACTION = "manual_order"
 
-#: `PRO-003` §4.1.2 (user decision, tightened 2026-09-09) — the manual
-#: form's Long/Short is hard-blocked, not merely warned, on the strategy's
-#: currently-armed symbol outright — not only once it already holds a
-#: position there. The narrower "armed + has a position" rule this started
-#: as still let a human's *first* order on a flat, armed symbol through:
-#: `order_intent_for()` (the strategy's own side/`reduce_only` mapping)
-#: never re-reads the real position and assumes it started flat, so that
-#: first manual order is exactly what makes the strategy's next signal
-#: double up on a position it never opened itself.
-_STRATEGY_SYMBOL_CONFLICT_MESSAGE = (
-    "Blocked: this symbol is managed by an armed strategy — manually trading "
-    "the exact symbol the strategy is watching can make the strategy lose "
-    "track of its real position (even while it is currently Flat). Use "
-    "Emergency Stop or disarm the strategy first, or trade manually on a "
-    "different symbol."
-)
+#: `PRO-003` §4.1.2's message for the hard block on the strategy's armed
+#: symbol used to live here. `EPIC-025` PR 2.1f moved the rule onto the order
+#: path — `ExecuteOrderSafetyGate.SYMBOL_LEASED`, refused against `trading`'s
+#: symbol lease — so the text lives with the other gate messages in
+#: `ui/common/execute_order_block_reason.py`, word for word. The user's
+#: decision did not change; the layer that enforces it did.
 
 #: `EnumLabels`, not a bare dict — same reasoning `TradingPresenter`'s own
 #: `_BLOCK_REASON_MESSAGES` documents: construction refuses an incomplete
@@ -505,8 +495,11 @@ class DashboardPresenter(BasePresenter):
     emergencyStopCompleted = Signal(tuple)
 
     #: `EPIC-024B` — manual trading card + per-order cancel.
-    #: `(action_id, ExecuteOrderResult | None, strategy_conflict: bool,
-    #: error_message | None)`.
+    #: `(action_id, ExecuteOrderResult | None, error_message | None)`. The
+    #: `strategy_conflict: bool` that used to sit third is gone with the
+    #: screen's own hard block (PR 2.1f): an armed symbol now comes back as
+    #: `ExecuteOrderSafetyGate.SYMBOL_LEASED` on the result, which is the same
+    #: shape every other refusal already used.
     manualOrderCompleted = Signal(tuple)
     #: `(symbol, client_order_id, CancelOrderResult | None,
     #: error_message | None)`.
@@ -1504,25 +1497,19 @@ class DashboardPresenter(BasePresenter):
         reference_price: Decimal,
     ) -> None:
         try:
-            # `PRO-003` §4.1.2 (user decision, tightened 2026-09-09) — hard
-            # block on the strategy's armed symbol outright, not only once
-            # it already holds a position: blocking only "armed + has a
-            # position" still let a human's *first* manual order on a
-            # flat, armed symbol through — exactly the race that lets the
-            # strategy's next signal (which assumes it started flat) double
-            # up on a position it never opened. No network call needed for
-            # this check, so it runs before reading the open positions — a
-            # blocked attempt costs nothing.
-            armed = self._armed_strategy.armed()
-            strategy_owns_symbol = (
-                armed.engine_running
-                and armed.config is not None
-                and armed.config.symbol == symbol
-            )
-            if strategy_owns_symbol:
-                self.manualOrderCompleted.emit((action_id, None, True, None))
-                return
-
+            # `PRO-003` §4.1.2's hard block on the strategy's armed symbol is
+            # **not** here any more (`EPIC-025` PR 2.1f). It used to read
+            # `IArmedStrategy.armed()` and refuse before submitting — a screen
+            # enforcing a trading safety rule, which `architecture-rule.md` §3
+            # puts the wrong way round and which covered only this one form:
+            # measured, three callers reach `IOrderSubmission.submit()` and only
+            # this one had it. The rule now lives on the order path as
+            # `ExecuteOrderSafetyGate.SYMBOL_LEASED`, refused against
+            # `trading`'s own symbol lease, so every caller inherits it and the
+            # words the operator sees are unchanged (they moved to
+            # `execute_order_block_reason.py` with the gate). It is still free:
+            # the gate is evaluated ahead of `check_connection()`.
+            #
             # `EPIC-024B` §2 — read the REAL current position fresh, every
             # attempt; never guessed, never remembered from a prior click
             # (see `manual_order_intent_for()`'s own docstring).
@@ -1540,27 +1527,19 @@ class DashboardPresenter(BasePresenter):
                 ),
                 live=True,
             )
-            self.manualOrderCompleted.emit((action_id, result, False, None))
+            self.manualOrderCompleted.emit((action_id, result, None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self.manualOrderCompleted.emit((action_id, None, False, str(exc)))
+            self.manualOrderCompleted.emit((action_id, None, str(exc)))
 
     @Slot(tuple)
     def _on_manual_order_completed(self, payload: tuple) -> None:
-        action_id, result, strategy_conflict, error = payload
+        action_id, result, error = payload
         if not self._manual_order_tracker.is_current_pending(
             action_id, _MANUAL_ORDER_ACTION
         ):
             self._manual_order_tracker.log_stale_callback(
                 "manual_order", action_id, _MANUAL_ORDER_ACTION
             )
-            return
-
-        if strategy_conflict:
-            self._manual_order_tracker.finish_action(action_id, ActionOutcome.FAILED)
-            self._view_model.set_manual_order_state(
-                False, _STRATEGY_SYMBOL_CONFLICT_MESSAGE
-            )
-            self._append_log(_STRATEGY_SYMBOL_CONFLICT_MESSAGE)
             return
 
         if error is not None or result is None:

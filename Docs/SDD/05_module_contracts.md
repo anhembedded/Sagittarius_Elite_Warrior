@@ -225,7 +225,8 @@ Two consequences worth naming, because both are rules bent on evidence:
   formula cannot produce, which is `base_feed.py`'s own promote-on-the-second
   -need rule.
 
-**3. `ITradingSession` shipped without the symbol lease.** Specified:
+**3. `ITradingSession` shipped without the symbol lease — until PR 2.1f, which shipped it
+with three deviations and one finding.** Specified:
 `claim_symbol(symbol, owner_id)` / `release_symbol(...)`, an exclusive lease
 that refuses, so a manual order cannot be placed on a symbol a strategy is
 armed on. Its first consumer is `strategy`, which claims on arm and releases
@@ -236,6 +237,40 @@ at the second consumer) and ADR D12 both keep out. Phase 2 adds it under the
 existing lock with claim-then-execute as one critical section, which is the
 design the worked example above already argues. Same deferral, same reason, as
 `IMarketStream`'s `StreamHandle` in PR 1.1b.
+
+**Shipped in PR 2.1f**, and the interesting part is what measuring the existing code changed:
+
+- **The refusal already existed, in the wrong layer.** `DashboardPresenter._run_manual_order()`
+  read `IArmedStrategy.armed()` and hard-blocked a manual order on the armed symbol — the user's
+  decision of 2026-09-09 (`PRO-003` §4.1.2) enforced by a **screen**. Measured: three callers
+  reach `IOrderSubmission.submit()` and exactly one had the check. So 2.1f is not "new exclusive-
+  locking behaviour" as this section feared; it is the same rule moved to the order path, where
+  `architecture-rule.md` §3 says a trading safety rule belongs and where every caller inherits it.
+  The screen's copy is deleted, the words the operator sees are unchanged, and `SPEC-005` §5 now
+  carries the refusal as a named failure.
+- **`OrderRejectionReason.SYMBOL_LEASED` was the wrong home**, and that enum's own docstring says
+  why: it is *"why the **exchange** refused an order, named rather than a raw Binance error
+  code"*. A lease is this app's own pre-flight refusal, so it is a fourth
+  `ExecuteOrderSafetyGate` instead, beside the venue, the switch and the connection.
+- **`claim_symbol` answers a `bool`,** not a raise. A refusal is a value everywhere else in this
+  module; and it cannot happen at all while one strategy can be armed, which is precisely why the
+  *shape* has to be able to express it (ADR §7 item 15's second strategy).
+- **One symbol per owner, not one owner per symbol.** `LiveStrategySession.arm()` re-arms without
+  disarming, so a per-symbol lease would leave the previous symbol claimed by a strategy nobody is
+  running — and a manual order on it refused for no reason. Claiming a second symbol releases the
+  first.
+- **Claim-then-execute, twice.** The authoritative read is inside `live_submission_guard()`, as
+  this section asked. But the refusal it replaces was explicitly free (*"no network call needed
+  for this check … a blocked attempt costs nothing"*), and behind `check_connection()` it would
+  not have been — a user with a flaky connection would have been told `CONNECTION_NOT_READY`
+  about an order that was never going to be allowed. So the gate is read twice: once cheaply,
+  ahead of the connection check, and once atomically inside the lock. One test makes
+  `check_connection()` itself fail if the cheap path ever reaches it.
+- **What it does not protect, checked rather than assumed.** The lease is in-process. A separate
+  `trade-once --live` is not covered by it and does not need to be: `TradingSessionState` starts
+  `enabled=False` every process (`EPIC-021G` §2.3) and nothing in that command enables it, so the
+  switch already refuses. The reverse would have been a real hole, which is why it was read before
+  the lease was designed around it.
 
 **4. What `snapshot()` carries, and why the port exists at all.** The import
 count was never the real cost. Four presentation files read `enabled`,

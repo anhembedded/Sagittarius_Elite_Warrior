@@ -86,7 +86,7 @@ class ExecuteOrderCommandHandler(
             command.live,
         )
 
-        gate = self._first_blocked_safety_gate()
+        gate = self._first_blocked_safety_gate(command)
         if gate is not None:
             return ExecuteOrderResult(gate, None, (), None)
 
@@ -110,6 +110,28 @@ class ExecuteOrderCommandHandler(
         # order lands is a real race, not a hypothetical one. See
         # `TradingSessionState.live_submission_guard()`'s own docstring.
         with self._session_state.live_submission_guard():
+            # `EPIC-025` PR 2.1f — the symbol lease, and it is inside this lock
+            # for the reason `Docs/SDD/05` §3 calls claim-then-execute: reading
+            # the holder before acquiring the guard would let a strategy arm in
+            # the gap between the check and the order, which is exactly the
+            # race the check exists to prevent.
+            #
+            # It refuses an order from anyone the symbol was not leased to. The
+            # rule itself is the user's decision of 2026-09-09 (`PRO-003`
+            # §4.1.2): manually trading the symbol an armed strategy is
+            # watching makes that strategy lose track of its real position,
+            # *even while it is currently flat*, because
+            # `order_intent_for()` never re-reads the position and assumes it
+            # started flat. What moved here is the enforcement — it used to sit
+            # in `DashboardPresenter._run_manual_order()`, so the CLI and any
+            # future order path were not covered by a rule the user had asked
+            # for.
+            holder = self._session_state.lease_holder(symbol)
+            if holder is not None and holder != command.owner_id:
+                return ExecuteOrderResult(
+                    ExecuteOrderSafetyGate.SYMBOL_LEASED, preview, (), None
+                )
+
             now = datetime.now(UTC)
             context = TradingLimitContext(
                 orders_sent_this_session=self._session_state.orders_sent_this_session,
@@ -142,11 +164,31 @@ class ExecuteOrderCommandHandler(
             )
             return ExecuteOrderResult(None, preview, checks, submitted_order, context)
 
-    def _first_blocked_safety_gate(self) -> ExecuteOrderSafetyGate | None:
+    def _first_blocked_safety_gate(
+        self, command: ExecuteOrderCommand
+    ) -> ExecuteOrderSafetyGate | None:
+        """@details Ordered by cost, cheapest first, and the lease sits ahead of
+        the connection check deliberately (`EPIC-025` PR 2.1f). The refusal it
+        replaces — `DashboardPresenter`'s own hard block — was explicitly free:
+        *"No network call needed for this check, so it runs before reading the
+        open positions — a blocked attempt costs nothing."* Behind
+        `check_connection()` it would have cost a round trip, and a user with a
+        flaky connection would have been told `CONNECTION_NOT_READY` about an
+        order that was never going to be allowed anyway.
+
+        This read is **not** the authoritative one: it is outside
+        `live_submission_guard()`, so a strategy could still arm between here
+        and the submission. `execute()` reads the holder again inside that lock,
+        which is the check that closes the race. Two reads, one cheap and one
+        atomic, is the whole reason this method can stay free.
+        """
         if self._trading_venue is not TradingVenue.FUTURES_TESTNET:
             return ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
         if not self._session_state.enabled:
             return ExecuteOrderSafetyGate.TRADING_SWITCH_OFF
+        holder = self._session_state.lease_holder(command.order_request.symbol)
+        if holder is not None and holder != command.owner_id:
+            return ExecuteOrderSafetyGate.SYMBOL_LEASED
         status = self._account_reader.check_connection()
         if not status.reachable or status.failure is not None:
             return ExecuteOrderSafetyGate.CONNECTION_NOT_READY

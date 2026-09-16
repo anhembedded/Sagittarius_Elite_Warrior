@@ -80,6 +80,10 @@ ARM_BLOCK_MESSAGES = EnumLabels(
         ArmStrategyBlockReason.MISSING_SYMBOL_OR_INTERVAL: (
             "Both symbol and trading timeframe must be selected."
         ),
+        ArmStrategyBlockReason.SYMBOL_LEASED: (
+            "This symbol is already being managed by another strategy — "
+            "remove that one first, or choose a different symbol."
+        ),
     },
 )
 DISARM_BLOCKED_MESSAGE = (

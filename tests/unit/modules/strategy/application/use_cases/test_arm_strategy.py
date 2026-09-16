@@ -189,3 +189,91 @@ def test_refuses_to_disarm_while_trading_is_on() -> None:
     assert result.disarmed is False
     assert result.block_reason is DisarmStrategyBlockReason.TRADING_IS_ENABLED
     assert session.is_armed is True
+
+
+# --------------------------------------------------------------------- #
+# The symbol lease (`EPIC-025` PR 2.1f)
+# --------------------------------------------------------------------- #
+
+
+def test_arming_claims_the_symbols_lease() -> None:
+    """The claim is what makes `trading` refuse a manual order on the symbol
+    this strategy is now watching — the user's decision of 2026-09-09
+    (`PRO-003` §4.1.2), enforced on the order path instead of in one screen."""
+    session, state = _session(), FakeTradingSession()
+
+    ArmStrategyCommandHandler(session, state).execute(ArmStrategyCommand(_config()))
+
+    # Somebody else can no longer take it, which is the observable form of
+    # "the strategy holds it".
+    assert state.claim_symbol("BTCUSDT", "someone_else") is False
+
+
+def test_re_arming_onto_another_symbol_gives_the_first_one_back() -> None:
+    """One symbol per owner. Without this, a strategy moved from BTCUSDT to
+    ETHUSDT would leave BTCUSDT refused for a strategy nobody is running."""
+    session, state = _session(), FakeTradingSession()
+    handler = ArmStrategyCommandHandler(session, state)
+    handler.execute(ArmStrategyCommand(_config(symbol="BTCUSDT")))
+
+    handler.execute(ArmStrategyCommand(_config(symbol="ETHUSDT")))
+
+    assert state.claim_symbol("BTCUSDT", "someone_else") is True
+    assert state.claim_symbol("ETHUSDT", "someone_else") is False
+
+
+def test_a_refused_arming_does_not_keep_the_lease() -> None:
+    """The claim happens before the arming, so an arming that then fails has
+    to give it back — otherwise an invalid parameter value would leave the
+    user's own manual orders refused on a symbol with no strategy on it."""
+    session, state = _session(), FakeTradingSession()
+    handler = ArmStrategyCommandHandler(session, state)
+
+    result = handler.execute(
+        ArmStrategyCommand(_config(strategy_params={"nonexistent_param": 1}))
+    )
+
+    assert result.armed is False
+    assert result.block_reason is ArmStrategyBlockReason.INVALID_PARAMS
+    assert state.claim_symbol("BTCUSDT", "someone_else") is True
+
+
+def test_a_symbol_another_owner_holds_is_refused_and_nothing_is_armed() -> None:
+    """Unreachable with one armed strategy, and named anyway: `claim_symbol`'s
+    contract can refuse, and the handler claims *before* arming so that a
+    refusal leaves no half-armed session behind."""
+    session, state = _session(), FakeTradingSession()
+    state.claim_symbol("BTCUSDT", "someone_else")
+
+    result = ArmStrategyCommandHandler(session, state).execute(
+        ArmStrategyCommand(_config())
+    )
+
+    assert result.armed is False
+    assert result.block_reason is ArmStrategyBlockReason.SYMBOL_LEASED
+    assert session.is_armed is False
+
+
+def test_disarming_releases_the_lease() -> None:
+    session, state = _session(), FakeTradingSession()
+    ArmStrategyCommandHandler(session, state).execute(ArmStrategyCommand(_config()))
+
+    DisarmStrategyCommandHandler(session, state).execute(DisarmStrategyCommand())
+
+    assert state.claim_symbol("BTCUSDT", "someone_else") is True
+
+
+def test_a_refused_disarm_keeps_the_lease() -> None:
+    """Trading is on, so the disarm is refused — and a lease released anyway
+    would let a manual order onto the symbol of a strategy that is still
+    running, which is the exact hazard the lease exists for."""
+    session, state = _session(), FakeTradingSession()
+    ArmStrategyCommandHandler(session, state).execute(ArmStrategyCommand(_config()))
+    state.set_enabled(enabled=True)
+
+    result = DisarmStrategyCommandHandler(session, state).execute(
+        DisarmStrategyCommand()
+    )
+
+    assert result.disarmed is False
+    assert state.claim_symbol("BTCUSDT", "someone_else") is False

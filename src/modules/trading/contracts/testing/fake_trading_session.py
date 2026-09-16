@@ -55,6 +55,19 @@ class FakeTradingSession(ITradingSession):
         self.enables = 0
         self.disables = 0
         self.emergency_stops = 0
+        #: `EPIC-025` PR 2.1f — the lease, kept the way the real state keeps
+        #: it: **one symbol per owner**, so claiming a second releases the
+        #: first. A fake that allowed one owner two symbols would let a
+        #: consumer's test pass against a state the real session cannot be in,
+        #: which is the `BUG-026`/`BUG-027` failure the contract suite exists
+        #: to stop.
+        #:
+        #: No `lease_holder()` reader beside it, on purpose: one was written and
+        #: then deleted, because `TradingSessionContract` proves every lease
+        #: guarantee through `claim_symbol`'s own return value — a refused claim
+        #: *is* the observation that somebody else holds it. A helper a fake adds
+        #: beyond its port that no test needs is exactly what `BUG-120` was.
+        self._symbol_by_owner: dict[str, str] = {}
 
     def answer_with(self, snapshot: TradingSessionSnapshot) -> None:
         """Sets what the next `snapshot()` reports."""
@@ -120,6 +133,20 @@ class FakeTradingSession(ITradingSession):
     def disable(self) -> None:
         self.disables += 1
         self.set_enabled(enabled=False)
+
+    def claim_symbol(self, symbol: str, owner_id: str) -> bool:
+        holder = next(
+            (owner for owner, held in self._symbol_by_owner.items() if held == symbol),
+            None,
+        )
+        if holder is not None and holder != owner_id:
+            return False
+        self._symbol_by_owner[owner_id] = symbol
+        return True
+
+    def release_symbol(self, symbol: str, owner_id: str) -> None:
+        if self._symbol_by_owner.get(owner_id) == symbol:
+            del self._symbol_by_owner[owner_id]
 
     def emergency_stop(self) -> EmergencyStopResult:
         self.emergency_stops += 1

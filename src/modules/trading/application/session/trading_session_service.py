@@ -96,6 +96,17 @@ class TradingSessionService(ITradingSession):
         # result type by design.
         self._dispatcher.dispatch(DisableTradingCommand, DisableTradingCommand())
 
+    def claim_symbol(self, symbol: str, owner_id: str) -> bool:
+        """Straight to the state, not through a command: a lease claim is a
+        state mutation with no exchange round trip and nothing to reconcile —
+        the shape `snapshot()` already uses for the read side. A command would
+        add a dispatcher hop and a result type around one dict write.
+        """
+        return self._session_state.claim_symbol(symbol, owner_id)
+
+    def release_symbol(self, symbol: str, owner_id: str) -> None:
+        self._session_state.release_symbol(symbol, owner_id)
+
     def emergency_stop(self) -> EmergencyStopResult:
         response = self._dispatcher.dispatch(
             EmergencyStopCommand, EmergencyStopCommand()

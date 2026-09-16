@@ -31,6 +31,18 @@ _SAFETY_GATE_MESSAGES = EnumLabels(
         ExecuteOrderSafetyGate.CONNECTION_NOT_READY: (
             "Connection to the exchange is not ready — check your API key/network connection."
         ),
+        #: `EPIC-025` PR 2.1f — the same words `DashboardPresenter` used to
+        #: print from its own hard block, now that the refusal comes back as a
+        #: gate from the order path instead. The text is the user's decision of
+        #: 2026-09-09 (`PRO-003` §4.1.2) and is kept verbatim: what changed is
+        #: which layer decided, not what the operator is told.
+        ExecuteOrderSafetyGate.SYMBOL_LEASED: (
+            "Blocked: this symbol is managed by an armed strategy — manually trading "
+            "the exact symbol the strategy is watching can make the strategy lose "
+            "track of its real position (even while it is currently Flat). Use "
+            "Emergency Stop or disarm the strategy first, or trade manually on a "
+            "different symbol."
+        ),
     },
 )
 

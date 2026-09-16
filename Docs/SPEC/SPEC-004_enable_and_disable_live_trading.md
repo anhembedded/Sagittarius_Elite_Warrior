@@ -65,9 +65,12 @@ holds before it does."*
 
 ## 6. What this use case does NOT promise
 
-- **No symbol lease.** Turning trading on does not reserve anything. Nothing stops a manual order
-  on a symbol a strategy is armed on; `ITradingSession`'s docstring records that the lease is
-  Phase 2's, when `strategy` becomes its first consumer.
+- **Turning trading on still reserves nothing** — but the symbol lease exists now
+  (`EPIC-025` PR 2.1f). It is claimed by *arming a strategy*, not by enabling trading, and what
+  it refuses is an order from anyone else on that symbol: see `SPEC-005` §5. Enabling and
+  disabling the session do not touch it, which is deliberate — a lease tied to the switch would
+  be released by an Emergency Stop, exactly when an open position most needs the strategy that
+  planned its exit to still own the symbol.
 - It does not stay on. Closing the app turns it off, because this state is never persisted.
 - It does not promise the reconciled picture stays true. It is a snapshot at enable time; the
   account can change underneath, and the app's `known_open_symbols` is deliberately conservative

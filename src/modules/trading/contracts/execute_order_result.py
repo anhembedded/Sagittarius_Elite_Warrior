@@ -17,13 +17,26 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit
 
 
 class ExecuteOrderSafetyGate(str, Enum):
-    """@brief The three checks `EPIC-021G` §2.3 requires before any order
+    """@brief The checks `EPIC-021G` §2.3 requires before any order
     submission — independent of, and evaluated before, the four
-    `TradingLimitViolation` checks."""
+    `TradingLimitViolation` checks.
+
+    @details Three of them are about the *app's* readiness and are answered
+    before anything about the order is read. `SYMBOL_LEASED` is the fourth
+    (`EPIC-025` PR 2.1f) and the one that depends on the order: it is evaluated
+    inside `live_submission_guard()`, because a check that a symbol is unclaimed
+    is worthless if a strategy can claim it between the check and the order.
+    """
 
     TRADING_VENUE_DISABLED = "trading_venue_disabled"
     TRADING_SWITCH_OFF = "trading_switch_off"
     CONNECTION_NOT_READY = "connection_not_ready"
+    #: Somebody else has declared they are managing this symbol —
+    #: `ITradingSession.claim_symbol()`, which `strategy` calls on arm. The
+    #: refusal used to live in `DashboardPresenter._run_manual_order()`, where
+    #: only that one form was covered; here every caller of
+    #: `IOrderSubmission.submit()` inherits it.
+    SYMBOL_LEASED = "symbol_leased"
 
 
 class ExecuteOrderNotionalRejection(str, Enum):

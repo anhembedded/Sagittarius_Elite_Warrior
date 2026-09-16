@@ -28,6 +28,12 @@ class ArmStrategyBlockReason(str, Enum):
     #: Symbol or interval missing. An interval must never be guessed —
     #: `BUG-085`: a wrong interval is a wrong strategy, not a smaller one.
     MISSING_SYMBOL_OR_INTERVAL = "missing_symbol_or_interval"
+    #: `EPIC-025` PR 2.1f — somebody else holds `trading`'s lease on that
+    #: symbol (`ITradingSession.claim_symbol`). Unreachable while only one
+    #: strategy can be armed, and named anyway: the claim's contract can refuse,
+    #: so a caller that pretended it could not would be the one left with a
+    #: half-armed session when ADR §7 item 15's second strategy arrives.
+    SYMBOL_LEASED = "symbol_leased"
 
 
 @dataclass(frozen=True)
