@@ -1,3 +1,10 @@
+"""The five tabs above the Trade Logs table, and what each one keeps.
+
+Pure functions over `TradeLogRow`, with no Qt import: moved out of the deleted
+`qml/TradeLogTable/` with `trade_log_row.py` in `EPIC-025` PR 4.3h — see that
+file's docstring for what was dead in that package and what was not.
+"""
+
 from __future__ import annotations
 
 from enum import Enum

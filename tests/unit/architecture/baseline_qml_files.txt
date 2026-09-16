@@ -9,8 +9,6 @@ src/presentation/ui/qml/StatGrid/StatGrid.qml
 src/support/charting/TimeframePicker/TimeframePicker.qml
 src/support/charting/TimeframePicker/TimeframePickerCard.qml
 src/support/charting/TimeframePicker/TimeframeToolbar.qml
-src/presentation/ui/qml/TradeLogTable/TradeLogRow.qml
-src/presentation/ui/qml/TradeLogTable/TradeLogTable.qml
 src/presentation/ui/qml/kit/Button.qml
 src/presentation/ui/qml/kit/DialogShell.qml
 src/presentation/ui/qml/kit/LogPanel.qml

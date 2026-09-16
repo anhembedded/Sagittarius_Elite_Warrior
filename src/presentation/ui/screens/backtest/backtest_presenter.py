@@ -67,11 +67,11 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.perfor
     build_result_warning_text,
     stat_cards_to_qml,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
-    TradeLogRow,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
     BacktestProgress,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
+    TradeLogRow,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,

@@ -157,7 +157,7 @@ split.
 | ~~4.1c~~ ❌ | `screens/trading` → `modules/trading/ui/` — **folded into 4.4, §3.11.** Its legacy-import count did reach **0**, and that turned out not to be the binding constraint: merging it into the existing `trading.ui` package deduplicates nothing (the total stays at 112) while making `phase_1_count` read a false **0**, and re-keying the metric honestly would raise its ratchet 32 → 39, which `ci-rule` §5.5 forbids. The two live screens travel together after the deletions, as the user's `DECISION_2026-09-16` said | — |
 | **4.2a** | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator`; `base_event_logger` → `modules/backtesting/ui/` | §3.3: the destination this file left open is **forced**, not chosen. All four have 0 legacy imports except `sync_progress_feed`, whose only one is the sibling travelling with it |
 | **4.2b** | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) | after 4.1b and 4.2a its remaining blockers are QML, so it waits on 4.3 |
-| **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), **4.3e** ✅ `qml/SelectList/` deleted, its four hosts onto `kit.PickerOverlay` (and the read-only one out of the picker shape altogether), **4.3f** ✅ `qml/CheckboxList/` + `qml/Capital/` deleted — `kit.ChecklistOverlay` arrives for the two checklists, and the capital form keeps `BUG-064`'s lesson with one writer instead of three bindings, **4.3g** ✅ `qml/StatCardRow/` deleted — the performance figures stop being cards (HLD §11.3), then `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 18**, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
+| **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), **4.3e** ✅ `qml/SelectList/` deleted, its four hosts onto `kit.PickerOverlay` (and the read-only one out of the picker shape altogether), **4.3f** ✅ `qml/CheckboxList/` + `qml/Capital/` deleted — `kit.ChecklistOverlay` arrives for the two checklists, and the capital form keeps `BUG-064`'s lesson with one writer instead of three bindings, **4.3g** ✅ `qml/StatCardRow/` deleted — the performance figures stop being cards (HLD §11.3), **4.3h** ✅ `qml/TradeLogTable/` deleted — measured dead, its two pure files moved to `screens/backtest/logic/`, then `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 16**, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
 | **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard`; `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's |
 
 After 4.1a and 4.2a, `ui/common` holds **two** files: `live_order_book_coordinator` (waiting on
@@ -898,3 +898,45 @@ suite, **−6** in the guards (the logging-namespace guard is parametrised per `
 went; the `.qml` style guard lost one; the new baselines account for the rest). The two host tests
 that reached the old row through a QML scene now use `findChild`, and one is renamed — it was
 `test_qml_renders_a_metric_card_...`, which had stopped being what it checks.
+
+### 4.8 PR 4.3h — the second dead widget of this phase, and the two files inside it that were not
+
+`qml/TradeLogTable/` looked like the largest step left: 827 lines, two `.qml` files, a ViewModel with
+filter tabs, per-tab counts and row expansion. Measured first, as PR 3.1a's lesson requires, it is a
+**deletion**: nothing in `src/` has ever loaded `TradeLogTable.qml`. The Backtest screen renders its
+trades through the QtWidgets `BackTestTradeLogsPanel`, as it always has; the only thing that built
+the QML one was that package's own `preview.py`. `CS-002`'s shape one level out — alive because
+something *shows* it, not because anything *uses* it — and the second time this phase has found it,
+after 4.3c's `DateRangeOverlay`.
+
+Its NOTES said so in plain sight, and nobody had re-read them: *"this widget stands alone until it is
+wired to a real screen"*. `EPIC-015` built the rendering and never took the last step, and the two
+"additive design changes" its ViewModel documents — dropping pagination because a QML `ListView`
+virtualises, and per-tab counts — are features **the user has never had**. They are recorded here
+rather than carried: the live panel still paginates (`trade_log_pagination.py`, written because a
+`QWidget` per row was expensive at "hàng nghìn" trades), still has no per-tab counts, and a
+`QTableView` on `RowTableModel` would give it both — which is 4.4's work on that screen, not a
+deletion's.
+
+**What was not dead is the two pure files inside it.** `trade_log_row.py` (191 lines: one finished
+trade as the table shows it) and `trade_log_filter.py` (60: the five tabs) are imported by four live
+files in `screens/backtest/` — including `logic/trade_log_pagination.py`, which had been reaching
+across into a `qml/` package since it was written. They are `screens/backtest/logic/`'s now, beside
+that neighbour, and the move is what makes the package deletable at all. Both gained the module
+docstring neither had, naming where they lived and why they moved.
+
+The ten tests of `TradeLogVM` go with it, and every one of them is about the dead widget's own
+behaviour (tab counts, expansion surviving a filter change, an unknown filter id ignored) — promises
+of a feature that was never wired, not coverage this change drops. `trade_log_row.py` and
+`trade_log_filter.py` keep their own suites in `tests/`, which only changed an import line.
+`.qml` **18 → 16**, `qml_theme_refs` **152 → 123** — the largest single fall in that number this
+phase, because those two files drew every cell themselves.
+
+**Gate:** `RESULT: PASS`, **4934 passed, 4 skipped** in 210s, log
+`logs/ci-local-20260916-194254.log` grepped — 4 hits for the known benign set, **0** records at
+WARNING or above; mypy clean on 499 source files. Test count **4941 → 4934**: **−7**, all of it in
+the guards — the logging-namespace guard is parametrised per `src/` file and five went (two moved,
+so they are still counted at their new address), and the `.qml` style guard lost two. No test in
+`tests/` was added or deleted: the ten that went were under `src/`, where the gate never ran them.
+That is the same accounting `CS-004` predicts, seen from the other side — deleting ten tests the
+gate could not see changes its count by nothing at all.

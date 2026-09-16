@@ -1,3 +1,19 @@
+"""One finished trade, as the Trade Logs table shows it.
+
+@par Where this lived before, and why it moved
+`EPIC-015` put this file inside `qml/TradeLogTable/`, the package holding a QML
+rendering of this table. `EPIC-025` PR 4.3h deleted that package: measured,
+nothing in `src/` ever loaded its `.qml` — the screen has always rendered these
+rows through the QtWidgets `BackTestTradeLogsPanel`, and the only thing that
+built the QML one was its own `preview.py`. That is `CS-002`'s shape one level
+out, and PR 4.3c had already found it once, in `DateRangeOverlay`.
+
+What that package held that was **not** dead is this file and
+`trade_log_filter.py`: the pure shaping and filtering the live panel imports.
+They are `screens/backtest/logic/`'s now, beside `trade_log_pagination.py`,
+which had been importing across that boundary from the start.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Mapping
@@ -160,9 +176,9 @@ def trade_log_row_to_qml(
     return {
         "index": str(row.index),
         "positionLabel": f"#{row.index} {_POSITION_LABEL[row.side]}",
-        # Additive for the QML port's LOẠI column badge (`qml/TradeLogTable/`,
-        # 2026-08-29) — `positionLabel` already names the side in Vietnamese
-        # prose, but a badge needs the bare word plus a colour, not a sentence.
+        # Added 2026-08-29 for a badge column the deleted QML rendering drew:
+        # `positionLabel` already names the side in prose, and a badge needs the
+        # bare word plus a colour. Kept because the live panel reads it too.
         "sideLabel": row.side.value.upper(),
         "sideIsLong": row.side is PositionSide.LONG,
         "entryTimeText": _format_datetime(row.entry_time, tz_name=tz_name),

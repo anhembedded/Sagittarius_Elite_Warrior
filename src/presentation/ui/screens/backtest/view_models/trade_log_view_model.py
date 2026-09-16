@@ -28,7 +28,7 @@ genuine `QObject` signals on both ends.
 from __future__ import annotations
 
 from PySide6.QtCore import QObject, Signal
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_filter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_filter import (
     TradeLogFilter,
 )
 

@@ -6,7 +6,7 @@ without dragging in every other property this screen owns.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_filter import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_filter import (
     TradeLogFilter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.view_models.trade_log_view_model import (
