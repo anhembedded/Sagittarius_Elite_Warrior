@@ -236,6 +236,54 @@ class TestSafetyGates:
         assert result.blocked_by is ExecuteOrderSafetyGate.SYMBOL_LEASED
         account_reader.check_connection.assert_not_called()
 
+    def test_a_claim_that_lands_after_the_cheap_check_still_refuses(self) -> None:
+        """The reason the lease is read **twice** — `Docs/SDD/05` §3's
+        claim-then-execute.
+
+        The cheap read ahead of `check_connection()` keeps a refusal free, but
+        it is outside `live_submission_guard()`, so a strategy arming in the
+        window between it and the submission would slip past. The authoritative
+        read inside the guard is what closes that, and without this test it is
+        a line any refactor could delete with the suite still green — checked
+        by deleting it, which left all 496 tests in this module and the
+        integration tier passing.
+
+        The race is reproduced deterministically rather than with threads and a
+        sleep: `check_connection()` runs *after* the cheap gate and *before*
+        the guard, so claiming the symbol from inside it lands in exactly that
+        window. No timing, no flake — the window is where the call is.
+        """
+        state = TradingSessionState()
+        state.enable(())
+        account_reader = Mock()
+
+        def _claim_mid_flight() -> ExchangeConnectionStatus:
+            state.claim_symbol("BTCUSDT", "strategy")
+            return _ready_status()
+
+        account_reader.check_connection.side_effect = _claim_mid_flight
+        metadata_provider = _metadata_provider()
+        handler = ExecuteOrderCommandHandler(
+            TradingVenue.FUTURES_TESTNET,
+            state,
+            account_reader,
+            PreviewOrderQueryHandler(metadata_provider),
+            TradingLimitPolicy(_LIMITS),
+            Mock(),
+            Mock(),
+            metadata_provider,
+        )
+
+        result = handler.execute(
+            ExecuteOrderCommand(order_request=_order_request(), live=True)
+        )
+
+        assert result.blocked_by is ExecuteOrderSafetyGate.SYMBOL_LEASED
+        # The cheap gate had already passed, so evaluation reached
+        # normalisation — which is how the result shape says *which* of the two
+        # reads refused it.
+        assert result.preview is not None
+
     def test_blocked_when_connection_not_ready(self) -> None:
         bad_status = ExchangeConnectionStatus(
             venue=TradingVenue.FUTURES_TESTNET,

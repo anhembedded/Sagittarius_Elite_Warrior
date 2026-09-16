@@ -879,3 +879,34 @@ the claim `TradingSessionService.claim_symbol`'s own docstring makes, that a lea
 command handler. What is still deferred is now honestly narrower: `enable()`, `emergency_stop()`
 and `snapshot()` against the real service, which want the handler wiring the sanity tier already
 builds.
+
+### 8.6 The review found the atomic half of the lease unpinned
+
+E12 run as a probe on both halves of the double read, not reasoned about:
+
+| Line deleted | Result |
+| :--- | :--- |
+| the **cheap** gate, ahead of `check_connection()` | 2 tests fail, including the result-shape one (without it the refusal arrives *with* a preview) |
+| the **atomic** re-check, inside `live_submission_guard()` | **all 496 tests** in `unit/modules/trading` + the whole integration tier pass |
+
+The second is the one that mattered. That line exists for a race — `Docs/SDD/05` §3's
+claim-then-execute — and a line that guards a race is exactly the kind nothing accidentally covers,
+so a later refactor could have deleted it with the suite green. `EPIC-025` PR 0.4b shipped a search
+box whose two signal connections could be deleted with 22 tests still passing; this is the same
+shape on the order path, where the cost is a manual order landing on a symbol a strategy took
+ownership of a millisecond earlier.
+
+So the test was written, and **deterministically**, without threads or a sleep:
+`check_connection()` runs *after* the cheap gate and *before* the guard, so claiming the symbol from
+inside it lands in exactly the window. The window is where the call is, so there is no timing to get
+wrong. Re-probed: the new test is the only one that fails when the re-check is deleted, and it
+passes with it.
+
+One finding recorded rather than fixed:
+`tests/unit/modules/trading/application/orders/test_execute_order.py` is **487 lines** against
+`architecture-rule.md` §5 rule 4's 400, and this pull request grew it from **425** — the ceiling was
+already breached, and 62 of the overage are mine. §5 rule 6 is explicit that the rule covers tests,
+and the split is real work (the fixtures at the top of that file would go to a `conftest.py` before
+`TestSafetyGates` could stand alone), so it belongs to whichever pull request next changes that
+file's shape rather than riding on a gate change. The same handling as PR 2.1d's `paper_exchange.py`
+(452 → 468) and PR 2.1b's `BaseStrategy`, and named here so it is countable rather than forgotten.
