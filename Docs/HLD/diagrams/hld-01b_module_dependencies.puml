@@ -103,11 +103,20 @@ note bottom of charting
 end note
 
 note bottom of backtesting
-  **Anticorruption Layer inside backtesting.** strategy owns its
-  StrategyContext (candles plus the current position, as a neutral value
-  object); backtesting translates PaperExchange into it, and trading
-  builds the same context from LivePosition. Today three strategies still
-  import `domain/backtesting` — the wrong direction — and that is the
-  dependency this ACL removes.
+  **No Anticorruption Layer, and that is the measured answer**
+  (EPIC-025D section 8). This note used to describe one: strategy owns
+  its StrategyContext, backtesting was to translate PaperExchange into
+  it, and trading to build the same context from LivePosition. It also
+  justified the layer with "today three strategies still import
+  domain/backtesting" — a dependency HLD section 2's round-3 correction
+  had already measured as NOT EXISTING.
+
+  What backtesting actually hands the engine is one fact:
+  engine.on_tick(candle, current_position_side=exchange.current_side),
+  a PositionSide from trading/contracts. IStrategyEngine (PR 3.1b) IS
+  the boundary, and building the folder would need StrategyContext
+  published — a contract carrying MACDValue and SupportResistanceValue,
+  which PR 2.1c's rule forbids. Measured: backtesting imports four
+  strategy.contracts modules and nothing else.
 end note
 @enduml

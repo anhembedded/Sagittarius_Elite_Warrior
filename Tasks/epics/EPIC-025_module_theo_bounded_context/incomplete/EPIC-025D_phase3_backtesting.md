@@ -5,7 +5,8 @@
   Item 2 fell out of **`BUG-127`**, the live defect §3.4 found underneath it: the presenter's import
   of `market_data`'s adapter existed only to serve a path that binding the port removed, so fixing
   the bug retired the allowlist entry (36 → 35) and the layering item together. Items 1 and 3 — the
-  12,309-line move and the Anticorruption Layer — are open, and **§4 is the measurement that says
+  12,309-line move and the Anticorruption Layer — were open at that point; item 1's Half A is done (§6, §7) and item 3 is
+  **measured out** (§8). **§4 is the measurement that says
   how item 1 splits**: the screen's 74 files carry 29 imports of QML packages ADR D21 *deletes* in
   Phase 4, so they travel with those deletions the way Phase 1's two screens did (the user's
   `DECISION_2026-09-16`). What is left for this phase is the domain-and-use-case half — 26 files /
@@ -34,10 +35,17 @@
    *adapter*; it is gone, and the allowlist entry with it (**36 → 35**). It came out of a bug fix
    rather than a move, because the import only existed to serve a path that a proper binding
    removed — see §3.4.
-3. Build the Anticorruption Layer: `backtesting/adapters/` translates `PaperExchange` state into
-   `strategy.contracts.StrategyContext`. (Round-3 correction: `strategy_context.py` does **not**
-   import backtesting today; the wrong-direction import is `trading → backtesting` and is handled
-   under ADR O4 before Phase 1.) `backtesting` sizes paper fills through `strategy.contracts.ISizingPolicy` (ADR D17), so backtest and live sizes are one number by construction.
+3. ✅ **Satisfied, and the layer is not built — §8.** The item asked for
+   `backtesting/adapters/` translating `PaperExchange` state into
+   `strategy.contracts.StrategyContext`. Measured: nothing outside `modules/strategy` constructs a
+   `StrategyContext` — `StrategyEngine` builds it, from a candle and a `PositionSide | None` — so
+   `backtesting` hands the engine **one fact** about its own state, `exchange.current_side`, through
+   `IStrategyEngine.on_tick()`. **PR 3.1b's port is the translation surface**, and building the
+   folder would require *publishing* `StrategyContext`, a type carrying an indicator map with
+   `MACDValue` and `SupportResistanceValue` in it — exactly what PR 2.1c refused for
+   `IStrategyCatalog`, and it would make the boundary worse rather than better. `backtesting` sizes
+   paper fills through `strategy.contracts.ISizingPolicy` (ADR D17), so backtest and live sizes are
+   one number by construction.
 4. ✅ **PR 3.1a** — delete the dead use cases `RunBacktestCommand`, `StopBacktestCommand` and
    `BacktestState` (bound in the composition root, dispatched by nobody). Done, with the
    measurement and the hazard in §3. The clause's second half — *"fill and marker overlays go
@@ -284,7 +292,7 @@ of `ISymbolCatalog`:
 | 3.1b | publish `IStrategyEngine` + `IStrategyEngineFactory` with a verified fake and a contract suite, and move the two backtest handlers plus `paper_exchange` onto them. No files move yet — the 0.5 shape, a port with its consumers | shrinks by the 6 strategy-service lines |
 | ~~3.1c~~ ✅ | move **Half A** into `modules/backtesting/`, with its tests, tier unchanged. Done — §6. The estimate was 26 files and *~15 counted entries*; it shipped as **26 files / 2,676 lines** and **three** entries, because putting the boundary-crossing types in `contracts/` *with* the move absorbed 30 of the 33 inbound imports | **29 → 32** |
 | ~~3.1c-2~~ ✅ | split `paper_exchange.py`, which was **472 lines** against §5 rule 4's 400-line ceiling. §5.5 committed this to 3.1c and it is deliberately a second commit rather than a larger first one: a pure move and a class split are two logical changes (`commit-rule.md` §4), and PR 2.1c/2.1c-2 set that shape in Phase 2. The seam §5.5 named is the file's own: a broker's **books** (cash, positions, trades, the signal → fill dispatch) on top of the **arithmetic against `BrokerSimulationConfig`** that the three policies do. Done — §7, and the file held **three** things rather than two | unchanged |
-| 3.1d | item 3's Anticorruption Layer — `backtesting/adapters/` translating `PaperExchange` state into `strategy.contracts.StrategyContext`. Travels with 3.1c, because the translation only has a home once the module exists | unchanged |
+| ~~3.1d~~ ❌ | item 3's Anticorruption Layer — **measured out, §8.** Not deferred and not descoped: the boundary it was to protect is already clean (`backtesting` reads four `strategy.contracts` modules and nothing else, zero allowlist lines in that direction), and the layer would need `StrategyContext` published, which PR 2.1c's rule forbids. `IStrategyCatalog`'s outcome, a second time | unchanged |
 | → Phase 4 | **Half B, the screen.** Its eleven QML modals become `QDialog`s and its panels docks *as they move*, because ADR D21 deletes the QML rather than porting it — one piece of work, not two | shrinks |
 
 ### 4.4 What this means for the phase's own done-when
@@ -585,3 +593,80 @@ benign set) and **0** records matching `- (WARNING|ERROR|CRITICAL) -`.
 Test count **4950 → 4952**: `test_logging_namespace_guard.py` is
 parametrized per source file, and this pull request adds two
 (`fill_pricing.py`, `open_position.py`).
+
+---
+
+## 8. PR 3.1d — the Anticorruption Layer, measured out
+
+Item 3 and HLD §02's own row describe a folder: *"`backtesting/adapters/` translates `PaperExchange`
+into `StrategyContext`; `trading` provides one from `LivePosition`."* It is not built, and this is
+the `IStrategyCatalog` outcome a second time — measured, and correctly not shipped. The measurement
+is three greps.
+
+**1. Nothing outside `modules/strategy` constructs a `StrategyContext`.** In `src/` and `scripts/`
+there are exactly two construction sites, both inside that module: `StrategyEngine._process_one()`
+and `StrategyEngine.on_forming_bar_tick()`. `strategy_trend_zones.py` builds one too — also
+`strategy`'s, its own UI. `backtesting` builds none, and neither does `trading`.
+
+**2. What `backtesting` actually hands the engine is one fact, not a model.** All three call sites in
+the two runners read the same way:
+
+```python
+signal = engine.on_tick(candle, current_position_side=exchange.current_side)
+```
+
+`current_side` is a `PositionSide | None` from `trading/contracts` — published vocabulary, a legal
+import, and the one word HLD §02 says a paper position and a live one must agree on. The engine
+composes the context on the far side of the port. **`IStrategyEngine` is the anticorruption
+boundary**, and PR 3.1b built it.
+
+**3. The boundary it was to protect is already clean.** Everything `modules/backtesting` imports
+from `modules/strategy`:
+
+```
+modules.strategy.contracts.i_sizing_policy
+modules.strategy.contracts.i_strategy_engine
+modules.strategy.contracts.signal
+modules.strategy.contracts.signal_action
+```
+
+Four published contracts, nothing else, and **zero** `backtesting → strategy` lines on the
+allowlist. An ACL translates a foreign model that leaks in; nothing leaks in.
+
+### 8.1 Building it anyway would make the boundary worse
+
+`StrategyContext` is a frozen dataclass carrying a `MarketData`, a `PositionSide | None` and
+`Mapping[str, float | MACDValue | SupportResistanceValue]`. For `backtesting/adapters/` to construct
+one, `StrategyContext` would have to be **published** — and a published contract may not carry a
+domain type. That is PR 2.1c's rule, and it is the rule that deleted `IStrategyCatalog`: the port was
+written, and all four would-be consumers turned out to need `BaseStrategy` itself. Here the indicator
+map is worse than one class, because it drags `support/indicators`' value types into `strategy`'s
+published surface for the benefit of a translation nobody asked for.
+
+There is also nothing for the translation to do. The item's own phrasing is the tell — *"translates
+`PaperExchange` **state** into `StrategyContext`"* — and the state in question is one enum member. A
+layer whose whole job is `PositionSide → PositionSide` is the accidental complexity ADR D2 exists to
+avoid.
+
+### 8.2 The places that said otherwise, and one that was carrying a known falsehood
+
+The claim was in the diagram, the context map, the vocabulary, the migration table and this file —
+and the PlantUML note read *"today three strategies still import `domain/backtesting` — the wrong
+direction — and that is the dependency this ACL removes"*, which HLD §02's own round-3 correction had
+already measured as **false**. A design justified by a dependency that does not exist is the
+drifted-copy disease `CLAUDE.md` records twice, one abstraction level up.
+
+Corrected in this step: HLD §02's ASCII map and its ACL row, HLD §03's `StrategyContext` row and its
+consumer column, HLD §06's Phase 3 migration row, `Docs/VOCABULARY`'s ACL definition,
+`hld-01b_module_dependencies.puml`'s note, and items 1/3 plus §4.3's row here. The `binance_gateway`
+ACL is untouched and remains the repository's one real anticorruption layer — it wraps a foreign
+model, the Binance SDK, that genuinely does leak.
+
+### 8.3 What this means for the phase
+
+Phase 3's coded work is **done**: 3.1a (the deletion), `BUG-127`, 3.1b (`IStrategyEngine`), 3.1c (the
+move), 3.1c-2 (the split). §2's bit-identical criterion holds — the golden master and the
+hand-verified per-trade tests have passed unchanged through every one of them. Half B, the Backtest
+screen, is Phase 4's by §4.1's measurement, and §4.4 already said so.
+
+No gate: this step changes no code file (`ci-rule.md` §1's documentation exception).
