@@ -26,12 +26,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker impo
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
     describe as describe_timeframe,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
-    ConfirmOverlay,
-    PageShell,
-    StyleRole,
-    apply_role,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.progress_banner_widget import (
     ProgressBannerWidget,
 )
@@ -49,6 +43,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
+    ConfirmOverlay,
+    PageShell,
+    StyleRole,
+    apply_role,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 

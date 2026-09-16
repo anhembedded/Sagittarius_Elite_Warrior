@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Badge,
     Banner,
     Card,
@@ -48,7 +48,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     Tone,
     semantic_colour,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit.overlays import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.overlays import (
     DEFAULT_PRESETS,
 )
 from sagittarius_engine.extensions.pyside_mvc.tokens import get_theme_bridge
@@ -88,7 +88,7 @@ class ShowcaseWindow(QWidget):  # base-exempt: the gallery shell, not a surface
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
-        self.setWindowTitle("presentation.ui.kit — showcase")
+        self.setWindowTitle("support.ui_kit.kit — showcase")
         self.resize(760, 900)
         # The gallery shell paints the app background itself. Without this
         # it inherits Qt's light grey default, and every widget here is

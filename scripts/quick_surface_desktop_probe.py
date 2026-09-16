@@ -41,14 +41,14 @@ from PySide6.QtGui import QColor, QGuiApplication
 from PySide6.QtWidgets import QApplication
 from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
-    Panel,
-    StyleRole,
-    background_token,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.embed import QuickSurface
 from Sagittarius_Elite_Warrior.src.presentation.ui.theme_bootstrap import (
     seed_app_theme,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
+    Panel,
+    StyleRole,
+    background_token,
 )
 
 _WINDOW_SIZE = 300

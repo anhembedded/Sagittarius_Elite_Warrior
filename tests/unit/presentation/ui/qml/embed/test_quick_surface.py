@@ -22,13 +22,13 @@ import pytest
 from PySide6.QtCore import Property, QObject
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import QSizePolicy
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
-    StyleRole,
-    background_token,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.embed import (
     QuickSizePolicy,
     QuickSurface,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
+    StyleRole,
+    background_token,
 )
 from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
 

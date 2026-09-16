@@ -19,7 +19,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import QObject
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Tone
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
     StatCardData,
 )
@@ -32,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.extended_metrics_snapshot import (
     ExtendedMetricsSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
 
 _NEUTRAL = Tone.NEUTRAL
 

@@ -54,8 +54,8 @@ from pathlib import Path
 from PySide6.QtCore import QObject, Qt, Signal
 from PySide6.QtGui import QShowEvent
 from PySide6.QtWidgets import QDialog, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import StyleRole, apply_role
 
-from ...kit import StyleRole, apply_role
 from ..embed import QuickSurface
 from .symbol_picker_theme import SymbolPickerTheme
 from .symbol_picker_vm import SymbolPickerVM

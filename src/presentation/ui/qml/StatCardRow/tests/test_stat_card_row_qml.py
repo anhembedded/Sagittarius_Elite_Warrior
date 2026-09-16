@@ -21,10 +21,10 @@ from pathlib import Path
 from PySide6.QtCore import Property, QObject, QUrl
 from PySide6.QtGui import QColor
 from PySide6.QtQuickWidgets import QQuickWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Tone
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.StatCardRow.stat_card_row_vm import (
     StatCardRowVM,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
 
 _QML = Path(__file__).resolve().parents[1] / "StatCardRow.qml"
 

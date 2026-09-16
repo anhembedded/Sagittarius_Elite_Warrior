@@ -6,7 +6,6 @@ import contextlib
 from unittest.mock import MagicMock
 
 from PySide6.QtWidgets import QApplication
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Tone
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_top_panel import (
     BackTestTopPanel,
 )
@@ -16,6 +15,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 from Sagittarius_Elite_Warrior.src.presentation.ui.theme_bootstrap import (
     seed_app_theme,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
 
 
 def _ensure_theme_bridge(qapp: QApplication) -> None:

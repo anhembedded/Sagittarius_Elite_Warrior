@@ -20,14 +20,6 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
     all_options as all_timeframe_options,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
-    PageShell,
-    PreferredHeightScrollArea,
-    StyledButton,
-    StyledField,
-    StyleRole,
-    apply_role,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog import (
     PinnedTimeframes,
     TimeframePickerDialog,
@@ -41,6 +33,14 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
+    PageShell,
+    PreferredHeightScrollArea,
+    StyledButton,
+    StyledField,
+    StyleRole,
+    apply_role,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 

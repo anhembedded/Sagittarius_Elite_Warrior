@@ -23,10 +23,14 @@
    the same wall. So the package is being built **bottom-up from Phase 1 onward**, one clean
    leaf per pull request, each one costing zero allowlist entries because a legacy file may
    import `support/**` whole. Done so far: `assets/` (PR 1.6a — `Palette`, `IconLoader`, the
-   Lucide icon set and the boot preflight). Next in dependency order, measured on the day
-   1.6a was cut: `kit/`, `qml/embed`, `qml/kit`, `theme_bootstrap.py`, `constants.py` —
-   these six import only each other; then `services/display_timezone_service.py` and the
-   `ui/common` helpers above. What remains for *this* phase is whatever still has a legacy
+   Lucide icon set and the boot preflight) and `kit/` (PR 1.6b — 28 files, which
+   `assets/` leaving had turned into a leaf). Re-measured after 1.6b, which is what
+   decides the next cut rather than the order this list was first written in:
+   `qml/embed` (3 files), `constants.py` (1) and `components/sidebar` (9) are leaves
+   now, and `qml/kit` (13) plus `qml/DataTable` (5) depend only on `kit` and
+   `qml/embed`, so they follow immediately. `components/market_picker` does **not**:
+   it depends on `qml/SelectList`, which this phase deletes rather than moves.
+   Then `services/display_timezone_service.py` and the `ui/common` helpers above. What remains for *this* phase is whatever still has a legacy
    import when Phase 3 ends, plus the deletions in step 4, which only this phase can do.
 4. **Delete** `ui/common/`; **delete** `binance_bot_module.py` (now empty); the `settings` screen
    becomes a surface that hangs each module's `settings_section` contribution.

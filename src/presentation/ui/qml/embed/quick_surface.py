@@ -47,9 +47,12 @@ from pathlib import Path
 from PySide6.QtCore import QObject, QSize, QUrl
 from PySide6.QtQuickWidgets import QQuickWidget
 from PySide6.QtWidgets import QSizePolicy, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.style import (
+    StyleRole,
+    background_token,
+)
 from sagittarius_engine.extensions.pyside_mvc import create_quick_widget
 
-from ...kit.style import StyleRole, background_token
 from .size_policy import QuickSizePolicy
 
 

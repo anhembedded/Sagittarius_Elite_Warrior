@@ -25,7 +25,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.environment_banner
     EnvironmentBanner,
     venue_alignment_banner_content,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import PageShell
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import PageShell
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
 )

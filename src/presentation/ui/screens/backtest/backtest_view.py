@@ -5,11 +5,11 @@ from PySide6.QtWidgets import QFrame, QSplitter, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     PageShell,
     PreferredHeightScrollArea,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 from .backtest_modals import BackTestModalsHost

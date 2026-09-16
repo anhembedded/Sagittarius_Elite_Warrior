@@ -34,12 +34,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
-    Banner,
-    Severity,
-    StyleRole,
-    apply_role,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.progress_banner_widget import (
     ProgressBannerWidget,
 )
@@ -49,6 +43,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.StatCardRow.stat_card_row
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
+    Banner,
+    Severity,
+    StyleRole,
+    apply_role,
 )
 
 if TYPE_CHECKING:

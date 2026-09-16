@@ -1,5 +1,5 @@
 """
-@brief A runnable gallery of every type `presentation.ui.kit` exports.
+@brief A runnable gallery of every type `support.ui_kit.kit` exports.
 
 @details
 Replaces `kit.gallery_coverage_guard`, whose referent is the QML kit and

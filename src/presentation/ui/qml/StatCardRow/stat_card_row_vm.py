@@ -29,7 +29,7 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 
 from PySide6.QtCore import Property, QObject, Signal
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
 
 
 def _tone_name(value: object) -> str:

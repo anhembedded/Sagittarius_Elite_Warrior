@@ -8,7 +8,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.environment_banner
     EnvironmentBanner,
     EnvironmentBannerContent,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit.surfaces.banner import Severity
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.surfaces.banner import Severity
 
 
 def test_renders_the_given_content(qapp) -> None:

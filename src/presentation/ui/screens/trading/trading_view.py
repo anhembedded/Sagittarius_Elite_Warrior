@@ -38,16 +38,16 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positio
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positions_panel import (
     PositionsPanel,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
+    Palette,
+    get_icon_loader,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Card,
     PageShell,
     StyledButton,
     StyleRole,
     apply_role,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
-    Palette,
-    get_icon_loader,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 

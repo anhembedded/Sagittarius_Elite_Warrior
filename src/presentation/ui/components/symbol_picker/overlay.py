@@ -32,8 +32,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-
-from ...kit import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Overlay,
     StyledField,
     StyleRole,
@@ -41,6 +40,7 @@ from ...kit import (
     TabBar,
     apply_role,
 )
+
 from .filtering import (
     QUOTE_ANY,
     FilterState,

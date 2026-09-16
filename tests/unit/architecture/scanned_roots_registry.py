@@ -59,7 +59,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ),
     (
         "tests/unit/architecture/test_card_layer_structure.py",
-        (("src/presentation/ui", "*.py"),),
+        (("src/presentation/ui", "*.py"), ("src/support/ui_kit", "*.py")),
     ),
     (
         "tests/unit/presentation/ui/test_widget_guards_hold.py",
@@ -104,6 +104,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_quick_widget_only_in_embed.py",
         (
             ("src/presentation/ui", "*.py"),
+            ("src/support/ui_kit", "*.py"),
             ("scripts", "*.py"),
             ("tests", "*.py"),
         ),

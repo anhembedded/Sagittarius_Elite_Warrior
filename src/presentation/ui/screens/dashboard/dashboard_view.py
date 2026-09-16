@@ -21,7 +21,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positio
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positions_panel import (
     PositionsPanel,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     PreferredHeightScrollArea,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.surface_building import (

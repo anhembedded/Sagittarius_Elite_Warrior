@@ -59,17 +59,24 @@ from pathlib import Path
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _UI_ROOT = _REPO_ROOT / "src" / "presentation" / "ui"
+_SUPPORT_UI_ROOT = _REPO_ROOT / "src" / "support" / "ui_kit"
 _SCRIPTS_ROOT = _REPO_ROOT / "scripts"
 _TESTS_ROOT = _REPO_ROOT / "tests"
 _EMBED_DIR = _UI_ROOT / "qml" / "embed"
 
 #: Where a `QQuickWidget` may not be built: everything that runs as the real
 #: application. See the module docstring for why `tests/` is absent.
-_WIDGET_ROOTS = (_UI_ROOT, _SCRIPTS_ROOT)
+#:
+#: `support/ui_kit` joined the list when `EPIC-025` PR 1.6b moved the widget
+#: kit there. Both rules below are about what the running application does,
+#: and a file does not stop being the running application because it crossed
+#: into `support/` — a `QQuickWidget` built in the kit, or a hand-seeded
+#: theme there, is exactly the thing these two tests forbid.
+_WIDGET_ROOTS = (_UI_ROOT, _SUPPORT_UI_ROOT, _SCRIPTS_ROOT)
 
 #: Where the theme may not be seeded by hand — every root, because a test
 #: process seeds it for the same reason the app does.
-_SEEDING_ROOTS = (_UI_ROOT, _SCRIPTS_ROOT, _TESTS_ROOT)
+_SEEDING_ROOTS = (_UI_ROOT, _SUPPORT_UI_ROOT, _SCRIPTS_ROOT, _TESTS_ROOT)
 
 #: Seeding the theme means calling one of these **with an argument**. A bare
 #: `get_theme_bridge()` reads the already-seeded singleton and is fine
@@ -85,7 +92,7 @@ _SEEDING_EXEMPT: dict[str, str] = {
     # can assert that two roles render differently. `seed_app_theme()` would
     # install the real palette and defeat the point, and the file's own
     # docstring explains why the shared singleton cannot be relied on here.
-    "tests/unit/presentation/ui/kit/conftest.py": (
+    "tests/unit/support/ui_kit/kit/conftest.py": (
         "a placeholder palette with per-token distinct values — a test double, "
         "not a copy of the app's wiring"
     ),

@@ -29,7 +29,7 @@ underneath this prompt once:
 ```bash
 find src -name '*.qml' | wc -l                  # QML is going away; confirm what is left
 grep -rln QQuickWidget src --include='*.py'     # hits may be comments recording what replaced it
-ls src/presentation/ui/kit/                     # the widget kit
+ls src/support/ui_kit/kit/                     # the widget kit
 ```
 
 Hunting grounds, in the priority order above. **Named by what the code does,
@@ -51,7 +51,7 @@ ls src/domain src/application src/infrastructure 2>/dev/null   # what the strang
 3. **I/O & concurrency** — multi-symbol sync, batch fetching, background loads.
    `grep -rln "ThreadPoolExecutor\|asyncio\|ITaskManager" src --include='*.py'`.
 4. **UI rendering hot paths** — `pyqtgraph` drawing, custom paint delegates,
-   `QAbstractItemModel` views, and the widget kit (`ls src/presentation/ui/kit/`
+   `QAbstractItemModel` views, and the widget kit (`ls src/support/ui_kit/kit/`
    above).
 
 `scripts/benchmark.py` and `scripts/benchmarking/` already exist; prefer

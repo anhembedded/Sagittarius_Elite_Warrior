@@ -6,10 +6,10 @@
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Tone
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.StatCardRow.stat_card_row_vm import (
     StatCardRowVM,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
 
 
 def test_cards_are_empty_until_refreshed():

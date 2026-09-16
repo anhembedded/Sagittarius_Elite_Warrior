@@ -4,8 +4,13 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
+    SelectableCard,
+    StyledButton,
+    StyleRole,
+    apply_role,
+)
 
-from ...kit import SelectableCard, StyledButton, StyleRole, apply_role
 from .filtering import SymbolEntry
 
 #: Shown under the pair instead of its quote when the symbol is the one the

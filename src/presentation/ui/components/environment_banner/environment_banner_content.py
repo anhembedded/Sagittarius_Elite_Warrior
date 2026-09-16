@@ -18,8 +18,8 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.domain.value_objects.venue_alignment import (
     VenueAlignment,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit.style import StyleRole
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit.surfaces.banner import Severity
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.style import StyleRole
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.surfaces.banner import Severity
 
 #: English copy, translated from the task's own worked mock (`EPIC-021K`
 #: §2.1's table).

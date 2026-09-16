@@ -45,9 +45,25 @@ completeness test is what forces someone to notice they need to make it.
 import ast
 from pathlib import Path
 
-_UI_ROOT = Path(__file__).resolve().parents[3] / "src" / "presentation" / "ui"
+_REPO_ROOT = Path(__file__).resolve().parents[3]
+_UI_ROOT = _REPO_ROOT / "src" / "presentation" / "ui"
 _COMPONENTS_DIR = _UI_ROOT / "components"
-_KIT_DIR = _UI_ROOT / "kit"
+
+#: The kit, wherever it currently lives. `EPIC-025` PR 1.6b moved it to
+#: `support/ui_kit/kit`; before that it was `presentation/ui/kit`. The
+#: constant has to follow, or `test_the_kit_is_not_a_hiding_place` compares
+#: `_KIT_CARD_FILES` against an empty directory and fails — which is what it
+#: did, and is the honest way for a moved tree to announce itself.
+_KIT_DIR = _REPO_ROOT / "src" / "support" / "ui_kit" / "kit"
+
+#: Both UI trees. The layering rule is about where a Card may be *defined*,
+#: and that question does not stop mattering because a file crossed into
+#: `support/`: a Card dropped into `support/ui_kit/` outside the kit would be
+#: unguarded if only the legacy tree were read. Scanning both is also what
+#: keeps `test_the_guard_still_finds_something` honest — the legacy tree is
+#: down to one Card (`ChartCard`), which leaves for `support/charting` in a
+#: later phase, and the guard would then be inspecting nothing.
+_SCAN_ROOTS = (_UI_ROOT, _REPO_ROOT / "src" / "support" / "ui_kit")
 
 #: The kit files that define a Card subclass, pinned by name. Exempt from the
 #: components/ rule (see the module docstring), but not unexamined: a new card
@@ -57,7 +73,7 @@ _KIT_DIR = _UI_ROOT / "kit"
 _KIT_CARD_FILES = frozenset({"log_panel.py", "table_card.py"})
 
 #: Every base class that makes its subclass "a Card" for the purposes of the
-#: layering rule. `Card` is the kit's (`presentation.ui.kit.surface.Card`,
+#: layering rule. `Card` is the kit's (`support.ui_kit.kit.surface.Card`,
 #: formerly the engine's `pyside_mvc.widgets.surface.Card` before EPIC-007F);
 #: `BaseCard` was this app's own duplicate of it, deleted in `EPIC-007E` and
 #: kept here only so an old branch reintroducing it is still caught.
@@ -99,7 +115,8 @@ def test_card_classes_live_under_components_dir():
     """
     offenders = [
         path
-        for path in _iter_python_files(_UI_ROOT)
+        for root in _SCAN_ROOTS
+        for path in _iter_python_files(root)
         if _COMPONENTS_DIR not in path.parents
         and _KIT_DIR not in path.parents
         and _defines_card_class(path.read_text(encoding="utf-8"))
@@ -141,7 +158,8 @@ def test_the_guard_still_finds_something():
     you do."""
     cards = {
         path.name: names
-        for path in _iter_python_files(_UI_ROOT)
+        for root in _SCAN_ROOTS
+        for path in _iter_python_files(root)
         if (names := _card_classes(path.read_text(encoding="utf-8")))
     }
 

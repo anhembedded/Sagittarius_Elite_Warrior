@@ -19,7 +19,11 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
+    Palette,
+    get_icon_loader,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Column,
     DataRow,
     Overlay,
@@ -27,10 +31,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
     StyleRole,
     Tone,
     apply_role,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
-    Palette,
-    get_icon_loader,
 )
 
 if TYPE_CHECKING:

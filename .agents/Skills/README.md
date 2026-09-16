@@ -46,7 +46,7 @@ What replaces them — a command whose output is the answer:
 | :--- | :--- |
 | "the app uses QML" / "has no QML" | `find src -name '*.qml' \| wc -l` and `grep -rln QQuickWidget src tests --include=*.py` |
 | "there are N tests" | run the gate (§3) and read its summary |
-| "the widget kit is at X" | `ls src/presentation/ui/kit/` |
+| "the widget kit is at X" | `ls src/support/ui_kit/kit/` |
 | "these rule files exist" | `ls .agents/rules/` |
 | "this is a submodule" / "it is not" | `ls .gitmodules` |
 | "the mypy debt list contains X" | read `[tool.mypy]` in `pyproject.toml` |

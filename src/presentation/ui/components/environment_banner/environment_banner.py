@@ -4,7 +4,7 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit.surfaces.banner import Banner
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.surfaces.banner import Banner
 
 from .environment_banner_content import EnvironmentBannerContent
 

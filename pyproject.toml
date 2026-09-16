@@ -101,6 +101,13 @@ extend-select = ["S", "PLR2004", "B", "SIM", "ERA", "N"]
 # because an `assert` in production code is a check that vanishes under `-O`.
 "src/modules/*/contracts/testing/**" = ["S101", "PLR2004"]
 "src/presentation/ui/**" = ["N802", "N803", "N815"]
+# Same three, same reason, second tree: `EPIC-025` PR 1.6a/1.6b moved the icon
+# loader and then the whole widget kit into `support/ui_kit`, and a Qt override
+# is still `mousePressEvent`, not `mouse_press_event`, wherever the widget
+# lives. The ignore follows the widgets rather than the directory they used to
+# sit in — without it the move would have had to rename 14 Qt overrides, which
+# is a behaviour change dressed as a move (ADR D12).
+"src/support/ui_kit/**" = ["N802", "N803", "N815"]
 # The repository/package name is intentionally PascalCase; Ruff otherwise
 # derives it as the parent module name for these package markers.
 "scripts/__init__.py" = ["N999"]

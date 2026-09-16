@@ -57,14 +57,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel impo
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
     SymbolPreferences,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import (
-    Panel,
-    SectionLabel,
-    StyledButton,
-    StyledCheckBox,
-    StyleRole,
-    apply_role,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.progress_banner_widget import (
     ProgressBannerWidget,
 )
@@ -77,6 +69,14 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeRangePicker.time_rang
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
+    Panel,
+    SectionLabel,
+    StyledButton,
+    StyledCheckBox,
+    StyleRole,
+    apply_role,
 )
 
 from .dashboard_symbol_picker_dialog import DashboardSymbolPickerDialog

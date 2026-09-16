@@ -67,7 +67,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sid
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
     SymbolPreferences,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import PageShell
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.config_manager_state_store import (
     ConfigManagerStateStore,
@@ -97,6 +96,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_end
     resolve_market_data_venue,
     resolve_trading_venue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import PageShell
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
 )

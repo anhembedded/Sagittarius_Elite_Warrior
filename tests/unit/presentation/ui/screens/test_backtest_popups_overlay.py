@@ -23,7 +23,6 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import
     StrategyRegistry,
 )
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import Tone
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
     StatCardData,
 )
@@ -39,6 +38,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backte
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.extended_metrics_snapshot import (
     ExtendedMetricsSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
 from Sagittarius_Elite_Warrior.tests.conftest import find_all_named
 
 

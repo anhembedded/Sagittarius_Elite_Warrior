@@ -15,7 +15,6 @@ from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import StyleRole
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.embed import QuickSurface
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
     TradeLogRow,
@@ -23,6 +22,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_r
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_vm import (
     TradeLogVM,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import StyleRole
 
 _QML_FILE = Path(__file__).with_name("TradeLogTable.qml")
 

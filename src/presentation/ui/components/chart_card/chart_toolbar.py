@@ -90,7 +90,6 @@ from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
     all_options,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.kit import StyleRole
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.embed import (
     QuickSizePolicy,
     QuickSurface,
@@ -102,6 +101,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_vm import (
     TimeframeVM,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import StyleRole
 
 #: Re-exported for existing callers/tests (`from ...chart_toolbar import
 #: DEFAULT_TIMEFRAMES`) — the value itself now lives in

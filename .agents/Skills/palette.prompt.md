@@ -18,7 +18,7 @@ this paragraph's word for it either — ask the tree, every run:
 ```bash
 find src -name '*.qml' | wc -l                 # what is left of QML in the app
 grep -rln QQuickWidget src --include='*.py'    # hits may be comments recording what replaced it
-ls src/presentation/ui/kit/                    # the widget kit you actually work in
+ls src/support/ui_kit/kit/                    # the widget kit you actually work in
 ```
 
 It is a **desktop app**: PySide6 QtWidgets, with `pyqtgraph` for the chart. No
@@ -38,7 +38,7 @@ understand QML that still exists, never as licence to add more.
 
 ## What is already machine-enforced — do not spend a run on it
 
-`src/presentation/ui/kit/guards.py` already fails CI on three whole classes of
+`src/support/ui_kit/kit/guards.py` already fails CI on three whole classes of
 defect:
 
 - a colour literal set outside `kit/style.py`;
@@ -55,7 +55,7 @@ If you find a violation, the guard is broken — report that, don't hand-fix it.
 
 Re-derive the list each run; never work from a list written into a prompt.
 
-1. **The kit** — `ls src/presentation/ui/kit/controls/ src/presentation/ui/kit/surfaces/ src/presentation/ui/kit/overlays/`.
+1. **The kit** — `ls src/support/ui_kit/kit/controls/ src/support/ui_kit/kit/surfaces/ src/support/ui_kit/kit/overlays/`.
    A control missing a tooltip, an accessible name, a focus policy or a
    hover/pressed state is a defect every screen inherits at once. Fix it here,
    not at one call site.
@@ -67,7 +67,7 @@ Re-derive the list each run; never work from a list written into a prompt.
    a `preview.py` exposing `build_preview() -> QWidget`. Find one missing or no
    longer rendering (`find src/presentation/ui -name preview.py`); a stale preview
    costs every future UI run, including yours.
-4. **`apply_role()` / `StyleRole`** in `src/presentation/ui/kit/style.py` — a
+4. **`apply_role()` / `StyleRole`** in `src/support/ui_kit/kit/style.py` — a
    widget whose visual state (disabled, selected, hovered) is expressed by hand
    instead of through a role.
 
