@@ -290,3 +290,71 @@ of `ISymbolCatalog`:
 criterion. What changes is only the scope of "this phase": Half B is not abandoned, it is scheduled
 where its blocker is resolved, exactly as Phase 1's two screens were. Phase 3 closes when Half A is
 moved and the trade log is unchanged; the screen closes in Phase 4 with the QML it depends on.
+
+---
+
+## 5. PR 3.1b — two ports, and the six imports they retire
+
+`EPIC-025C` §1 item 2 reserved `IStrategyEngineFactory` *"for `backtesting` in Phase 3"*, and §4.2
+is the measurement that said what shape it needed. This is that pull request. **No file moved** —
+the PR 0.5 shape: a port, and its consumers put onto it.
+
+### 5.1 The engine is published as an interface, for PR 2.1c's reason
+
+`StrategyEngine` holds an `IStrategy`, a dict of `IIndicator`s and an `IEventPublisher` — three of
+`strategy`'s internals. A consumer naming the class would import all of them by reference, which is
+why PR 2.1c built `IStrategyCatalog`, measured it, and deleted it: *a published contract must not
+carry `BaseStrategy`*. So `IStrategyEngine` is the port and `StrategyEngine` now **declares** it,
+which makes a signature change a type error at every consumer rather than an `AttributeError` at
+runtime.
+
+**Two methods, not three.** `run_batch()` has no caller outside `modules/strategy/` anywhere in
+`src/` — only that module's own tests and `scripts/benchmark.py` — so publishing it would promise
+something nobody has asked anyone to keep. That is PR 1.2's `quote_asset` reasoning applied a fourth
+time.
+
+The contract suite pins the one promise a consumer cannot see and must not flatten: `on_tick()`
+**commits** indicator state, `on_forming_bar_tick()` **peeks** (`BOT-042D`). Two engines from one
+factory see the same closed candles; one is asked about a forming bar three times first; their
+decisions must match. A consumer that conflated the two would run a Realtime backtest whose
+indicators had been advanced by bars that never closed, and nothing at its own tier could tell.
+Both implementations run that suite — the fake, and the real factory over the real `StrategyRegistry`
+with a recording publisher, so the asymmetry is exercised against **real** indicator state.
+
+### 5.2 `ISizingPolicy` got its binding, and this file's own prediction came true
+
+`modules/strategy/composition/port_bindings.py` said: *"a binding nothing resolves is dead wiring,
+which is what `BUG-120` was — so it arrives in Phase 3 with the consumer that resolves it."* It did.
+The two backtest handlers now resolve the port and pass it to `PaperExchange` explicitly, so the
+binding is live and the second implementation ADR D17 promises the user reaches a real backtest with
+no change to the paper broker.
+
+`PaperExchange`'s **default** stays, and only its source changed. It was `MarginSizingPolicy()`
+imported from `strategy/domain/policies/` — a paper broker in another bounded context reaching past
+that module's `contracts/`, and the one allowlist line ADR D17 scheduled for this phase. It is now
+`contracts/default_sizing_policy()`, which returns that same one implementation. Removing the default
+instead would have been fifty-five edits in `test_paper_exchange.py`, every one passing the same
+object — `ONBOARDING` §8 trap 5's shape — and it would not have bought anything, because what ADR
+D17 actually requires is that backtest and live sizing be *one number by construction*, not that the
+number arrive by injection.
+
+### 5.3 What it cost, and the net the cost was caught by
+
+Nine handler construction sites in five test files and **two in `scripts/`**. The `scripts/` pair is
+worth naming: `ruff` was clean and every test passed, and **`mypy` is what failed the gate** —
+`ONBOARDING` §8 trap 11's own words are *"missing `scripts/` is exactly what went wrong while fixing
+`BUG-025`"*, and the gate running `src`+`scripts` in one command is the net that caught it here.
+
+Every rewritten site builds `StrategyEngineFactory` from the same real registry and publisher it
+already had, and passes `default_sizing_policy()` — the exact object the constructor defaulted to.
+That is deliberate and it is what makes the evidence worth anything: these include the
+hand-verified-trade tests and the **golden** runner, and they pass **unchanged**, which is §2's
+bit-identical criterion holding across the refactor.
+
+### 5.4 The gate
+
+Boundary allowlist **35 → 29**: six lines retired, none added. Five were consumers holding another
+context's internals (`StrategyRegistry`, `build_engine`, `StrategyEngine`); the sixth is
+`paper_exchange`'s. The three `presentation.ui.screens.* -> strategy_registry` lines are **not**
+among them and are a different debt — Presenters handing the registry to coordinators that construct
+a strategy for its chart lines, which PR 2.1c measured and which needs the screens to move (Phase 4).

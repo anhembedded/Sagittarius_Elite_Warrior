@@ -16,8 +16,14 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_engine_factory import (
+    StrategyEngineFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
+    default_sizing_policy,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_trend_pullback_strategy import (
     EmaTrendPullbackStrategy,
@@ -114,7 +120,10 @@ def _run_real_backtest() -> tuple:
     registry = StrategyRegistry()
     registry.register(_STRATEGY_KEY, EmaTrendPullbackStrategy)
     handler = RunStaticBacktestCommandHandler(
-        repository=repo, strategy_registry=registry, event_publisher=Mock()
+        repository=repo,
+        engine_factory=StrategyEngineFactory(registry, Mock()),
+        sizing_policy=default_sizing_policy(),
+        event_publisher=Mock(),
     )
     command = RunStaticBacktestCommand(
         symbol="BTCUSDT",

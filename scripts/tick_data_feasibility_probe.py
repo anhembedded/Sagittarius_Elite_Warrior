@@ -47,8 +47,14 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.data
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_engine_factory import (
+    StrategyEngineFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
+    default_sizing_policy,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
@@ -125,8 +131,15 @@ def main() -> None:
     print("\n=== Static backtest runtime on the 1s shard (no extra API calls) ===")
     registry = StrategyRegistry()
     registry.register("ema_crossover", EmaCrossoverStrategy)
+    # `EPIC-025` PR 3.1b — the handler takes ports now. Built from the same
+    # registry and publisher this probe already had, so the run it measures is
+    # unchanged; a probe whose numbers moved with a refactor would be useless.
+    publisher = EngineEventPublisher(MemoryEventBus())
     handler = RunStaticBacktestCommandHandler(
-        repo, registry, EngineEventPublisher(MemoryEventBus())
+        repository=repo,
+        engine_factory=StrategyEngineFactory(registry, publisher),
+        sizing_policy=default_sizing_policy(),
+        event_publisher=publisher,
     )
     command = RunStaticBacktestCommand(
         symbol="BTCUSDT_1S_SPIKE",

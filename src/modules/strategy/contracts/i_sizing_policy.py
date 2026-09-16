@@ -103,3 +103,44 @@ class ISizingPolicy(ABC):
         order a caller gets wrong silently.
         """
         ...
+
+
+def default_sizing_policy() -> ISizingPolicy:
+    """The one implementation, for a caller that has no container (PR 3.1b).
+
+    @par Why this exists, and why it is *here*
+    `PaperExchange` has fifty-five inline construction sites in its own test
+    file that pass no policy at all, so the parameter needs a default — a
+    parameter with that many call sites is `ONBOARDING` §8 trap 5's shape, and
+    making it required would be fifty-five edits that all pass the same object.
+    Until PR 3.1b that default was `MarginSizingPolicy()`, imported straight
+    from `domain/policies/`: a paper broker in another bounded context reaching
+    past this module's `contracts/`, which is the allowlist line ADR D17
+    scheduled for Phase 3.
+
+    Putting the factory in `contracts/` retires that line without giving
+    `backtesting` a sizing rule of its own — which is the point ADR D17 actually
+    cares about: *"backtest and live sizes are one number by construction."* A
+    second implementation of the rule would be two numbers.
+
+    @par This is not the container's binding, and does not replace it
+    `composition/port_bindings.py` binds `ISizingPolicy` for callers that *do*
+    have a container — the two backtest handlers resolve it and pass it in, so
+    a second implementation bound there reaches a real backtest without
+    `PaperExchange` changing. This factory is the floor for everything else:
+    tests, and any caller constructed outside the object graph.
+
+    `market_data/contracts/i_market_data_repository.py` sets the precedent for a
+    `contracts/` module importing its own `domain/` — the barrier this epic
+    enforces is between *modules*, not between one module's own layers.
+    """
+    from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.margin_sizing_policy import (
+        MarginSizingPolicy,
+    )
+
+    # Imported inside the function on purpose (`code-quality-rule.md` §4 asks
+    # for the reason): at module scope this would make every consumer of this
+    # port — and `contracts/__init__.py` imports them all — load a domain policy
+    # it may never use, and it would make the import cycle real, because that
+    # policy's own module imports `ISizingPolicy` from this file.
+    return MarginSizingPolicy()

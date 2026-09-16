@@ -30,13 +30,11 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
     ISizingPolicy,
+    default_sizing_policy,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.margin_sizing_policy import (
-    MarginSizingPolicy,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
@@ -121,11 +119,25 @@ class PaperExchange:
         self._margin_policy = margin_policy or MarginRiskPolicy()
         #: `EPIC-025` PR 2.1d - the sizing half of what `MarginRiskPolicy`
         #: used to do, now `strategy`'s (ADR D17) and reached through its
-        #: published port. The default names the one implementation because
-        #: sixty construction sites in this repository pass neither policy;
-        #: Phase 3 resolves it from the container when `backtesting` becomes
-        #: a module, which is what retires this file's allowlist entry.
-        self._sizing_policy = sizing_policy or MarginSizingPolicy()
+        #: published port.
+        #:
+        #: **PR 3.1b changed only where the default comes from**, and that is
+        #: what retired this file's allowlist entry. It was
+        #: `MarginSizingPolicy()`, imported from `strategy/domain/policies/` —
+        #: a paper broker in another bounded context reaching past that
+        #: module's `contracts/`. Now it is `default_sizing_policy()`, which
+        #: `contracts/` publishes and which returns that same one
+        #: implementation, so backtest and live sizing remain one number by
+        #: construction (ADR D17's actual requirement) with no import across
+        #: the boundary.
+        #:
+        #: The default stays rather than becoming a required argument because
+        #: fifty-five inline construction sites in `test_paper_exchange.py`
+        #: pass no policy at all — `ONBOARDING` §8 trap 5's shape. The two
+        #: backtest handlers *do* pass one, resolved from the container, so
+        #: the binding is live and a second implementation reaches a real
+        #: backtest without touching this file.
+        self._sizing_policy = sizing_policy or default_sizing_policy()
         self._matching_policy = matching_policy or OrderMatchingPolicy()
         self._fee_policy = fee_policy or FeeCalculatorPolicy()
 

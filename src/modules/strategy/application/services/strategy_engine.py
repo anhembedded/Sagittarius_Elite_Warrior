@@ -7,6 +7,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_engine import (
+    IStrategyEngine,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
@@ -26,10 +29,17 @@ from Sagittarius_Elite_Warrior.src.support.indicators.indicators.i_indicator imp
 )
 
 
-class StrategyEngine:
+class StrategyEngine(IStrategyEngine):
     """
     @brief Turns a stream of candles into actionable Buy/Sell signals, usable
     identically in batch (run_batch) or incremental (on_tick) mode.
+
+    @par It declares `IStrategyEngine` since PR 3.1b
+    Two of its three public methods are that port; `run_batch()` is not, because
+    nothing outside this module calls it (see the port's own note). Naming the
+    ABC rather than merely matching its shape is what makes a signature change
+    here a type error at every consumer instead of an `AttributeError` at
+    runtime — `ONBOARDING` §8 trap 11's lesson, applied to the declaring side.
     @details Both modes funnel through `_process_one`, the single point that
     updates indicators, evaluates the strategy, and emits
     `SignalGeneratedEvent` — this is what guarantees batch and incremental

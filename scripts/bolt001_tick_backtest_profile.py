@@ -30,8 +30,14 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_engine_factory import (
+    StrategyEngineFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
+    default_sizing_policy,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
     BaseStrategy,
@@ -78,8 +84,13 @@ repo.count_klines.side_effect = lambda **k: (
 repo.stream_klines.side_effect = lambda **k: iter(ticks[: k.get("limit")])
 reg = StrategyRegistry()
 reg.register("hold", _Hold)
+# `EPIC-025` PR 3.1b — ports, from the same registry this profile already had.
+_publisher = Mock()
 handler = RunHistoricalTickBacktestCommandHandler(
-    repository=repo, strategy_registry=reg, event_publisher=Mock()
+    repository=repo,
+    engine_factory=StrategyEngineFactory(reg, _publisher),
+    sizing_policy=default_sizing_policy(),
+    event_publisher=_publisher,
 )
 cmd = RunHistoricalTickBacktestCommand(
     symbol="BTCUSDT",

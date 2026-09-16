@@ -17,8 +17,14 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (
     FakeMarketDataRepository,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_engine_factory import (
+    StrategyEngineFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
+    default_sizing_policy,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
@@ -43,7 +49,8 @@ def run_golden_backtest() -> BacktestResult:
     registry.register(STRATEGY_KEY, EmaCrossoverStrategy)
     handler = RunStaticBacktestCommandHandler(
         repository=FakeMarketDataRepository(make_golden_klines()),
-        strategy_registry=registry,
+        engine_factory=StrategyEngineFactory(registry, RecordingEventPublisher()),
+        sizing_policy=default_sizing_policy(),
         event_publisher=RecordingEventPublisher(),
     )
     command = RunStaticBacktestCommand(

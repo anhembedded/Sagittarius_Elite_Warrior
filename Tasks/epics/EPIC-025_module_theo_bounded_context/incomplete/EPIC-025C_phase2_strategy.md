@@ -18,7 +18,10 @@
 1. `modules/strategy/`: `domain/strategies`, `services/live_strategy_*`, the
    `use_cases/trading/{arm, disarm}_strategy` handlers (moved out of trading),
    `StrategyArmingCoordinator` (392 lines, from `ui/common`), `signal_feed`.
-2. `contracts/`: `IStrategyCatalog`, `IStrategyEngineFactory` (for `backtesting` in Phase 3), the
+2. `contracts/`: `IStrategyCatalog`, ~~`IStrategyEngineFactory`~~ (**built in PR 3.1b**, exactly
+   where this line said it belonged — *for `backtesting` in Phase 3* — and it shipped as **two**
+   ports, `IStrategyEngine` behind the factory, because a published contract may not carry
+   `StrategyEngine` any more than it could carry `BaseStrategy`; see `EPIC-025D` §5), the
    DTOs `StrategyDescriptor` and `ArmedStrategySnapshot` (carrying `symbol`), the existing
    `SignalGeneratedEvent` (name unchanged) and the new `StrategyArmedEvent` / `StrategyDisarmedEvent`
    (carrying `symbol`).

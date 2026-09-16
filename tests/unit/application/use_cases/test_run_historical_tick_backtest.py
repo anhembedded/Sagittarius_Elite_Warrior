@@ -28,8 +28,14 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
     BacktestFailedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_engine_factory import (
+    StrategyEngineFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
+    default_sizing_policy,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
@@ -123,7 +129,10 @@ def _build_handler(
     registry.register(strategy_key, strategy_cls or _CountingHoldStrategy)
     event_publisher = Mock()
     handler = RunHistoricalTickBacktestCommandHandler(
-        repository=repo, strategy_registry=registry, event_publisher=event_publisher
+        repository=repo,
+        engine_factory=StrategyEngineFactory(registry, event_publisher),
+        sizing_policy=default_sizing_policy(),
+        event_publisher=event_publisher,
     )
     return handler, event_publisher
 
@@ -236,7 +245,8 @@ def test_one_tick_per_bar_matches_static_exactly():
     static_registry.register("ema", EmaCrossoverStrategy)
     static_handler = RunStaticBacktestCommandHandler(
         repository=static_repo,
-        strategy_registry=static_registry,
+        engine_factory=StrategyEngineFactory(static_registry, Mock()),
+        sizing_policy=default_sizing_policy(),
         event_publisher=Mock(),
     )
 

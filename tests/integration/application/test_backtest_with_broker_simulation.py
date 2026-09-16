@@ -26,8 +26,14 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
     BrokerSimulationConfig,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_engine_factory import (
+    StrategyEngineFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
+    default_sizing_policy,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
@@ -118,7 +124,8 @@ def test_static_backtest_with_position_sizing_and_pyramiding_integration(caplog)
     event_publisher = Mock()
     handler = RunStaticBacktestCommandHandler(
         repository=repo,
-        strategy_registry=registry,
+        engine_factory=StrategyEngineFactory(registry, event_publisher),
+        sizing_policy=default_sizing_policy(),
         event_publisher=event_publisher,
     )
 
@@ -219,7 +226,8 @@ def test_realtime_backtest_with_broker_simulation_integration(caplog):
     event_publisher = Mock()
     handler = RunHistoricalTickBacktestCommandHandler(
         repository=repo,
-        strategy_registry=registry,
+        engine_factory=StrategyEngineFactory(registry, event_publisher),
+        sizing_policy=default_sizing_policy(),
         event_publisher=event_publisher,
     )
 

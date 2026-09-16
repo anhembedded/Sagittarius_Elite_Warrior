@@ -18,7 +18,8 @@
 # -> 37 after PR 2.1g
 # -> 36 after PR 2.1c-2
 # -> 35 after PR bug-127 (the metadata port is bound; the presenter's
-#    adapter import goes with it).
+#    adapter import goes with it)
+# -> 29 after PR 3.1b.
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -399,7 +400,6 @@ presentation.ui.screens.dashboard.dev_board_panel -> modules.trading.domain.poli
 # in this repository pass no policy at all, so the class names the one
 # implementation to build when nobody hands it one. `EPIC-025D` retires it by
 # resolving the port from the container once `backtesting` is a module.
-domain.backtesting.paper_exchange -> modules.strategy.domain.policies.margin_sizing_policy
 
 # CLOSED by PR 2.1c: the TWO `live_strategy_session` entries. Each Presenter
 # read `.config`, and the Dev Board also read `.is_armed` through a SECOND
@@ -442,11 +442,6 @@ presentation.ui.screens.trading.trading_presenter -> modules.strategy.applicatio
 # publishes this port *for* backtesting, so its consumers retire when that
 # context moves -- not earlier, and saying "2.1c" here would be a date nobody
 # can meet.
-application.use_cases.backtest.run_historical_tick_backtest.handler -> modules.strategy.application.services.strategy_engine
-application.use_cases.backtest.run_historical_tick_backtest.handler -> modules.strategy.application.services.strategy_factory
-application.use_cases.backtest.run_historical_tick_backtest.handler -> modules.strategy.application.services.strategy_registry
-application.use_cases.backtest.run_static_backtest.handler -> modules.strategy.application.services.strategy_factory
-application.use_cases.backtest.run_static_backtest.handler -> modules.strategy.application.services.strategy_registry
 
 # CLOSED by PR 2.1e: all SEVEN, exactly as this note said they would be --
 # the files became `modules/strategy/ui/` and stopped crossing anything. What
@@ -493,6 +488,37 @@ presentation.ui.screens.trading.trading_presenter -> modules.strategy.ui.signal_
 presentation.ui.screens.trading.trading_presenter -> modules.strategy.ui.strategy_arming_coordinator
 presentation.ui.screens.trading.trading_view -> modules.strategy.ui.strategy_params.strategy_params_dialog
 presentation.ui.screens.trading.trading_view_model -> modules.strategy.ui.strategy_card_view_model
+
+# CLOSED by PR 3.1b: the two backtest handlers and `paper_exchange` stopped
+# reaching into this module. SIX lines, and each one was a consumer holding
+# another context's internals rather than asking it a question:
+#
+#   * the handlers took `StrategyRegistry` in their constructors and handed it
+#     back into `build_engine()` along with their own `IEventPublisher` --
+#     three of `strategy`'s internals to get one engine. `IStrategyEngine`
+#     behind `IStrategyEngineFactory` replaces all of it: name a key, get
+#     something you can drive. The engine had to be published as an ABC rather
+#     than the class, for PR 2.1c's reason (a published contract may not carry
+#     `BaseStrategy`), and the port carries **two** of `StrategyEngine`'s three
+#     public methods -- `run_batch()` has no caller outside this module in
+#     `src/`, so publishing it would promise something nobody asked for.
+#
+#   * `paper_exchange` defaulted its `sizing_policy` to `MarginSizingPolicy()`,
+#     imported straight from `domain/policies/`. This is the line ADR D17
+#     scheduled for Phase 3 and the one this whole allowlist was written to
+#     catch a second time. The default stays -- fifty-five inline construction
+#     sites in its own test file pass no policy, which is `ONBOARDING` section 8
+#     trap 5's shape -- but it now comes from `contracts/default_sizing_policy()`,
+#     which returns that same one implementation. Backtest and live sizing are
+#     still one number by construction, which is what D17 actually requires,
+#     with no import across the boundary. The handlers also pass the resolved
+#     port explicitly, so the container binding is live rather than the dead
+#     wiring `BUG-120` was.
+#
+# The three `presentation.ui.screens.* -> strategy_registry` lines are NOT
+# retired here and are a different debt: those are Presenters handing the
+# registry to coordinators that construct a strategy for its chart lines, which
+# PR 2.1c measured and which needs the screens to move (Phase 4).
 
 # CLOSED by PR 2.1c-2: the tick handler is inside this module, so the one
 # `legacy -> modules.strategy.application.services` entry that named the live

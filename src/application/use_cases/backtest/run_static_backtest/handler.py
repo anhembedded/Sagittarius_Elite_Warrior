@@ -34,11 +34,11 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_factory import (
-    build_engine,
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
+    ISizingPolicy,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
-    StrategyRegistry,
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_engine import (
+    IStrategyEngineFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 
@@ -69,11 +69,28 @@ class RunStaticBacktestCommandHandler(
     def __init__(
         self,
         repository: IMarketDataRepository,
-        strategy_registry: StrategyRegistry,
+        engine_factory: IStrategyEngineFactory,
+        sizing_policy: ISizingPolicy,
         event_publisher: IEventPublisher,
     ) -> None:
+        """`EPIC-025` PR 3.1b — two ports where three of `strategy`'s internals
+        used to arrive.
+
+        This took `StrategyRegistry` and handed it back into `build_engine()`
+        with its own `event_publisher`: a consumer assembling another context's
+        collaborators, which is the transitional shape this epic retires. Now it
+        names a strategy key and gets something it can drive
+        (`IStrategyEngineFactory`), and passes the sizing rule to
+        `PaperExchange` explicitly (`ISizingPolicy`, ADR D17) instead of letting
+        it default — so the container's binding is live and a second sizing
+        implementation reaches a real backtest with no change here.
+
+        `event_publisher` stays: this handler publishes its own backtest
+        lifecycle events, which is a separate concern from the engine's signals.
+        """
         self._repository = repository
-        self._strategy_registry = strategy_registry
+        self._engine_factory = engine_factory
+        self._sizing_policy = sizing_policy
         self._event_publisher = event_publisher
 
     def _log_trace(self, action: str, **fields: object) -> None:
@@ -225,11 +242,8 @@ class RunStaticBacktestCommandHandler(
         `klines` is consumed once, in order — a stream, not a list (BUG-025)
         — so `phase_bar_count` (from `count_klines()`/`split_count_for_out_of_sample()`)
         stands in for the `len(klines)` this used to read directly."""
-        engine = build_engine(
-            self._strategy_registry,
-            command.strategy_key,
-            self._event_publisher,
-            params=command.strategy_params,
+        engine = self._engine_factory.build(
+            command.strategy_key, params=command.strategy_params
         )
         exchange = PaperExchange(
             symbol=command.symbol,
@@ -237,6 +251,7 @@ class RunStaticBacktestCommandHandler(
             fee_percent=command.fee_percent,
             position_sizing=command.position_sizing,
             broker_config=command.broker_config,
+            sizing_policy=self._sizing_policy,
         )
 
         equity_curve: list[tuple[datetime, float]] = []

@@ -25,8 +25,14 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
     BrokerSimulationConfig,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_engine_factory import (
+    StrategyEngineFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
+    default_sizing_policy,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
@@ -151,7 +157,10 @@ def _build_handler(
     registry.register("scripted", _ScriptedStrategy)
     event_publisher = Mock()
     handler = RunStaticBacktestCommandHandler(
-        repository=repo, strategy_registry=registry, event_publisher=event_publisher
+        repository=repo,
+        engine_factory=StrategyEngineFactory(registry, event_publisher),
+        sizing_policy=default_sizing_policy(),
+        event_publisher=event_publisher,
     )
     return handler, event_publisher
 
@@ -432,7 +441,10 @@ def test_stop_loss_closes_the_position_on_a_bar_with_no_strategy_signal():
     registry = StrategyRegistry()
     registry.register("buy_once_hold", _BuyOnceThenHoldStrategy)
     handler = RunStaticBacktestCommandHandler(
-        repository=repo, strategy_registry=registry, event_publisher=Mock()
+        repository=repo,
+        engine_factory=StrategyEngineFactory(registry, Mock()),
+        sizing_policy=default_sizing_policy(),
+        event_publisher=Mock(),
     )
     command = RunStaticBacktestCommand(
         symbol="BTCUSDT",
@@ -512,7 +524,10 @@ def test_short_and_cover_signals_flow_through_the_real_handler_and_engine():
     registry = StrategyRegistry()
     registry.register("short_once", _ShortOnceThenCoverStrategy)
     handler = RunStaticBacktestCommandHandler(
-        repository=repo, strategy_registry=registry, event_publisher=Mock()
+        repository=repo,
+        engine_factory=StrategyEngineFactory(registry, Mock()),
+        sizing_policy=default_sizing_policy(),
+        event_publisher=Mock(),
     )
     command = RunStaticBacktestCommand(
         symbol="BTCUSDT",
