@@ -1,21 +1,27 @@
-"""Backtest order-execution settings — `EPIC-015` §4c: body is the shared
-`CheckboxList`, the fixed-rows-with-a-cross-row-rule variant."""
+"""Backtest order-execution settings — the shared `ChecklistOverlay`, plus one
+cross-row rule this class keeps.
+
+`EPIC-015` §4c hosted `CheckboxList.qml`; `EPIC-025` PR 4.3f replaced it with
+`kit.ChecklistOverlay` (ADR D21). What did **not** move, in either direction, is
+the rule: two of these four rows are mutually exclusive, the widget knows
+nothing about it, and `_rows()`/`_on_toggled()` are where it lives — exactly
+where the pre-QML `_sync()` kept it. Moving the rendering never moves the rule.
+"""
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml import QmlOverlay
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.CheckboxList.checkbox_list_vm import (
-    CheckboxListVM,
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
+    ChecklistItem,
+    ChecklistOverlay,
 )
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
-_QML = Path(__file__).resolve().parents[3] / "qml" / "CheckboxList" / "CheckboxList.qml"
+_TITLE = "ORDER EXECUTION"
 
 _EXECUTION_TRIGGERS = (
     ("On bar close", True, ""),
@@ -32,69 +38,58 @@ _EXECUTION_TRIGGERS = (
     ("On every tick of the real-time bar", True, ""),
 )
 
-#: The one row a user can actually toggle. Its `key` in `CheckboxListVM.rows`
-#: is this index as a string — `CheckboxListVM` does not know these are
-#: execution triggers, only that rows have string keys.
+#: The one row a user can actually toggle. Its key is this index as a string —
+#: `ChecklistOverlay` does not know these are execution triggers, only that
+#: rows have string keys.
 _HISTORICAL_TICK_INDEX = 2
 _HISTORICAL_TICK_KEY = str(_HISTORICAL_TICK_INDEX)
 _BAR_CLOSE_KEY = "0"
+_HISTORICAL_TICK_MODE = "HISTORICAL_TICK"
+_BAR_CLOSE_MODE = "BAR_CLOSE"
 
 
-class OrderExecutionDialog(QmlOverlay):
-    """
-    @brief When strategy re-evaluation runs. Chrome is `Overlay`, body is
-    `CheckboxList.qml`, rules are `CheckboxListVM` plus one cross-row rule
-    this class enforces itself.
-
-    @details `CheckboxListVM` renders whatever `checked`/`locked` state it is
-    handed and reports raw toggles — it has no idea two of these four rows
-    are mutually exclusive. That rule lives here, in `_rows()` and
-    `_on_toggled()`, exactly where the old widget's `_sync()` kept it. Moving
-    the *rendering* to QML did not move the *rule* — moving a rule into a
-    `.qml` file is the one thing `EPIC-015` §3.2 forbids.
-    """
+class OrderExecutionDialog(ChecklistOverlay):
+    """@brief When strategy re-evaluation runs."""
 
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
         self._vm = view_model
-        self._widget_vm = CheckboxListVM(get_rows=self._rows)
-        super().__init__(
-            "ORDER EXECUTION",
-            qml_file=_QML,
-            context={"vm": self._widget_vm},
-            parent=parent,
-        )
+        super().__init__(_TITLE, parent=parent)
         self.setObjectName("orderExecutionModal")
         self.resize(400, 250)
-        self._widget_vm.toggled.connect(self._on_toggled)
-        view_model.executionModeChanged.connect(self._widget_vm.refresh)
+        self.toggled.connect(self._on_toggled)
+        view_model.executionModeChanged.connect(self.refresh)
+        self.refresh()
 
     def showEvent(self, event) -> None:
-        self._widget_vm.refresh()
+        self.refresh()
         super().showEvent(event)
 
-    def _rows(self) -> list[dict[str, object]]:
-        is_realtime = self._vm.executionMode == "HISTORICAL_TICK"
-        # Only these two rows are ever driven by executionMode — the other
-        # two have no live source and stay unchecked, matching the widget
-        # version's QCheckBox() default that _sync() never touched.
+    def refresh(self) -> None:
+        """Renders the four triggers against the screen's execution mode."""
+        is_realtime = self._vm.executionMode == _HISTORICAL_TICK_MODE
+        # Only these two rows are ever driven by executionMode — the other two
+        # have no live source and stay unchecked, matching the shape every
+        # version of this dialog has had.
         checked_by_key = {
             _BAR_CLOSE_KEY: not is_realtime,
             _HISTORICAL_TICK_KEY: is_realtime,
         }
-        return [
-            {
-                "key": str(index),
-                "label": text,
-                "checked": checked_by_key.get(str(index), False),
-                "locked": locked,
-                "tooltip": tooltip,
-            }
-            for index, (text, locked, tooltip) in enumerate(_EXECUTION_TRIGGERS)
-        ]
+        self.set_items(
+            [
+                ChecklistItem(
+                    key=str(index),
+                    label=text,
+                    checked=checked_by_key.get(str(index), False),
+                    locked=locked,
+                    tooltip=tooltip,
+                )
+                for index, (text, locked, tooltip) in enumerate(_EXECUTION_TRIGGERS)
+            ]
+        )
 
     def _on_toggled(self, key: str, checked: bool) -> None:
         if key != _HISTORICAL_TICK_KEY:
             return
-        self._vm.executionMode = "HISTORICAL_TICK" if checked else "BAR_CLOSE"
+        self._vm.executionMode = _HISTORICAL_TICK_MODE if checked else _BAR_CLOSE_MODE

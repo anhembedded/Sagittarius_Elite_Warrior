@@ -15,7 +15,6 @@ from unittest.mock import Mock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtCore import QObject
 from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
@@ -192,12 +191,10 @@ def test_capital_popup_opens_with_the_capital_field_populated(qapp, backtest_scr
     assert dialog is not None
     assert dialog.objectName() == "capitalDialog"
     assert dialog.isVisible() is True
-    # EPIC-015 bậc 1: the body is Capital.qml now, so the amount is read off
-    # the QML TextField instead of a QLineEdit attribute. The objectName is
-    # deliberately unchanged, so this still names the same field.
-    field = dialog.root_object.findChild(QObject, "txtBacktestCapital")
-    assert field is not None
-    assert field.property("text") != ""
+    # `EPIC-025` PR 4.3f: a `QLineEdit` again, and the objectName is
+    # deliberately unchanged across all three versions of this dialog.
+    assert dialog._field.objectName() == "txtBacktestCapital"
+    assert dialog._field.text() != ""
 
 
 def test_capital_dialog_apply_button_disables_on_invalid_capital(qapp, backtest_screen):
@@ -208,10 +205,12 @@ def test_capital_dialog_apply_button_disables_on_invalid_capital(qapp, backtest_
     validation()`'s guard was always False and the button could never be
     disabled, letting a user submit an invalid capital value.
 
-    `EPIC-015` bậc 1 moved the body to QML but kept the Apply button in
-    `Overlay`'s chrome, so the same overwrite is still possible and this test
-    still guards it. Only how the amount is typed changed: assigning
-    `_widget_vm.text` is exactly what the QML `onTextEdited` handler does."""
+    `EPIC-015` bậc 1 moved the body to QML and `EPIC-025` PR 4.3f moved it
+    back, and through all three the Apply button stayed `Overlay` chrome built
+    by that hook — so the same overwrite is still possible and this test still
+    guards it. It now drives the **real** presenter: clearing the field emits
+    `textEdited`, which asks for validation, whose verdict is the only thing
+    that disables the button."""
     view, _ = backtest_screen
 
     view.top_widget._btn_capital.click()
@@ -220,7 +219,8 @@ def test_capital_dialog_apply_button_disables_on_invalid_capital(qapp, backtest_
     dialog = view._modals_host._capital
     assert dialog._btn_apply.isEnabled() is True
 
-    dialog._widget_vm.text = ""
+    dialog._field.clear()
+    dialog._field.textEdited.emit("")
     qapp.processEvents()
 
     assert dialog._btn_apply.isEnabled() is False

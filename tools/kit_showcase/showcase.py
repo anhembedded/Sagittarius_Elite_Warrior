@@ -19,6 +19,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Badge,
     Banner,
     Card,
+    ChecklistItem,
+    ChecklistOverlay,
     Column,
     ConfirmOverlay,
     DataRow,
@@ -220,17 +222,27 @@ class ShowcaseWindow(QWidget):  # base-exempt: the gallery shell, not a surface
                 PickerItem("b", "Second"),
             ]
         )
+        checklist = ChecklistOverlay("Checklist overlay")
+        checklist.set_items(
+            [
+                ChecklistItem("a", "Ticked", checked=True),
+                ChecklistItem("b", "Not ticked"),
+                ChecklistItem(
+                    "c", "Locked", locked=True, tooltip="Hover shows the reason"
+                ),
+            ]
+        )
         # `DateRangeOverlay` was the third overlay shown here until `EPIC-025`
         # PR 4.3c deleted it: it hand-drew a two-month calendar out of one
         # `QPushButton` per day with inline QSS on each, which is the
         # substitute for `QCalendarWidget` that ADR D20 rules out, and this
         # showcase was the only thing that had constructed it since
         # `EPIC-015` gave the job to the time-range picker.
-        for overlay in (confirm, picker):
+        for overlay in (confirm, picker, checklist):
             overlay.setParent(self)
             overlay.setWindowFlags(Qt.WindowType.Widget)
             overlay.setModal(False)
-        self._add(column, "Overlays", confirm, picker)
+        self._add(column, "Overlays", confirm, picker, checklist)
 
     def _page_shell(self, column: QVBoxLayout) -> None:
         shell = PageShell()
