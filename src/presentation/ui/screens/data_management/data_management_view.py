@@ -16,13 +16,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
-    AppLogPanel,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
-    SymbolPickerOverlay,
-    SymbolPreferences,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
     describe as describe_timeframe,
 )
@@ -40,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
     TimeRangeCardWidget,
     field_style,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import (
+    AppLogPanel,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
@@ -49,6 +45,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     PageShell,
     StyleRole,
     apply_role,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
+    SymbolPickerOverlay,
+    SymbolPreferences,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 

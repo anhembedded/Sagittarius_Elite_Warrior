@@ -50,13 +50,13 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_m
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 
 # ---------------------------------------------------------------------------

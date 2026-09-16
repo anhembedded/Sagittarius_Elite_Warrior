@@ -24,9 +24,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_clie
     ExchangeRequestCancelledError,
     IExchangeClient,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-from Sagittarius_Elite_Warrior.src.presentation.ui.registry import ScreenRegistry
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
 )
@@ -49,6 +47,8 @@ from Sagittarius_Elite_Warrior.src.shell.legacy_screen_adapter import (
     as_screen_descriptor,
 )
 from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import welcome_screen
+from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import ScreenRegistry
+from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
 
 _START_TIMEOUT_SECONDS = 5.0
 _FINISH_TIMEOUT_SECONDS = 5.0

@@ -13,13 +13,13 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_d
     DataGapDTO,
     GetDatabaseGapsResult,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
     DataManagementPresenter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view import (
     DataManagementView,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 

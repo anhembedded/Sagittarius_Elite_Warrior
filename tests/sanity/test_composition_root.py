@@ -214,8 +214,8 @@ def test_every_navigable_route_constructs(qapp, booted_app, route):
     constructs under `offscreen` *with* the full theme/font/theme-bridge
     bootstrap, which the retired tier never exercised.
     """
-    from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
     from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+    from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
     from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 
     registry = real_screen_registry(booted_app.context.container)
@@ -279,8 +279,8 @@ def test_the_window_shuts_down_within_budget(qapp, booted_app):
     Only the out-of-process layer (ADR D2/D2b) can assert on a real exit code,
     and that is why the ADR splits the tier in two.
     """
-    from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
     from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+    from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
     from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 
     before = {t.ident for t in threading.enumerate()}

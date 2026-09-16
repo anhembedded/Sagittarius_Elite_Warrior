@@ -14,11 +14,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
-    SymbolPreferences,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.interfaces.i_symbol_picker_source import (
     ISymbolPickerSource,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
+    SymbolPreferences,
 )
 
 if TYPE_CHECKING:

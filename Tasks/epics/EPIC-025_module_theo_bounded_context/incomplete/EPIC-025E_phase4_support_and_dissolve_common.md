@@ -22,19 +22,25 @@
    members — cannot be met until this package exists, and Phase 2's strategy cards sit behind
    the same wall. So the package is being built **bottom-up from Phase 1 onward**, one clean
    leaf per pull request, each one costing zero allowlist entries because a legacy file may
-   import `support/**` whole. Done so far: `assets/` (PR 1.6a — `Palette`, `IconLoader`, the
-   Lucide icon set and the boot preflight), `kit/` (PR 1.6b — 28 files, which
-   `assets/` leaving had turned into a leaf) and six of the `ui/common` helpers above
-   (PR 1.6c — `action_ownership_tracker`, `app_defaults`, `base_feed` and the three
-   `health_*` files). Re-measured after each cut, which is what decides the next one
-   rather than the order this list was first written in: `components/sidebar` (9
-   files) and `components/environment_banner` (3) are leaves now, `qml/embed` (3) and
-   `constants.py` (1) always were, and `qml/kit` (13) plus `qml/DataTable` (5) depend
-   only on `kit` and `qml/embed`. `components/market_picker` does **not**: it depends
-   on `qml/SelectList`, which this phase deletes rather than moves — and the same
-   argument applies to the two `qml/*` rows themselves, which ADR D21 deletes in this
-   phase, so moving them first is work done twice. Then
-   `services/display_timezone_service.py`.
+   import `support/**` whole. Done so far: `assets/` (PR 1.6a), `kit/` (PR 1.6b, 28
+   files), six `ui/common` helpers (PR 1.6c) and `constants.py` + `state/` +
+   `registry/` + `sidebar/` + `symbol_picker/` + `app_log_panel.py` (PR 1.6d).
+   **1.6d also retired four of the nine lines in
+   `baseline_shell_legacy_imports.txt` — the `registry` ones, which this file had
+   scheduled for Phase 5.** Not the way it expected: the plan was the Engine's
+   `NavigationService` replacing `ScreenRegistry`; what retired them is the
+   registry moving into `support/`, after which `shell -> support/**` is
+   permitted outright and needs no recorded permission.
+
+   What is left of this step, re-measured after 1.6d: `components/environment_banner`
+   (3 files) is a leaf **except** for `domain.value_objects.venue_alignment`, and
+   `support/*` may not import the legacy tree at all — HLD §02's own row already
+   assigns `VenueAlignment` to `support/binance_gateway/contracts`, and its only
+   imports are already from there, so that move unblocks it.
+   `components/market_picker` (3) waits on `qml/SelectList`, which this phase
+   deletes rather than moves, and the same argument applies to `qml/kit` (13) and
+   `qml/DataTable` (5) — moving something ADR D21 deletes in this phase is work
+   done twice. Then `services/display_timezone_service.py`.
 
    **`sync_progress_*` is no longer part of this step, and the reason is a conflict
    between two clauses of the HLD rather than a measurement that changed.** §3.5

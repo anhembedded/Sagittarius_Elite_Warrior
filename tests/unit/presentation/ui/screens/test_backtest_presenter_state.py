@@ -38,11 +38,11 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
     BacktestChartHostFactory,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.in_memory_state_store import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.in_memory_state_store import (
     InMemoryStateStore,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import StateScope
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import StateScope
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
     UiStateCoordinator,
 )
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY

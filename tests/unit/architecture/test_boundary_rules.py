@@ -81,8 +81,12 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.rules import (
         ("application.use_cases.x.handler", "shell.modules", False),
         # --- the shell is Main: during the strangler period it wires the old
         #     tree too, and the baseline file keeps that finite ---------------
-        ("shell.legacy_screens", "presentation.ui.registry", True),
-        ("shell.screen_wiring", "presentation.ui.registry", True),
+        # `presentation.ui.main_window`, not `presentation.ui.registry`: the
+        # registry moved to `support/ui_kit` in `EPIC-025` PR 1.6d, and a rule
+        # table asserting a verdict about a module that no longer exists is
+        # testing a fiction. Any surviving legacy module makes the same point.
+        ("shell.legacy_screens", "presentation.ui.main_window", True),
+        ("shell.screen_wiring", "presentation.ui.main_window", True),
         # --- outside the tree: never a violation ----------------------------
         ("domain.trading.order", "sagittarius_engine.domain.base_event", True),
         ("domain.trading.order", "PySide6.QtCore", True),

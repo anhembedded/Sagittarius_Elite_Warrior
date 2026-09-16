@@ -46,16 +46,16 @@ import concurrent.futures
 from pathlib import Path
 
 import pytest
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.config_manager_state_store import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.config_manager_state_store import (
     ConfigManagerStateStore,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.repo_state_store_locator import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.repo_state_store_locator import (
     RepoStateStoreLocator,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import StateScope
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import StateScope
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
     UiStateCoordinator,
 )
 from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry

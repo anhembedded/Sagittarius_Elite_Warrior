@@ -18,7 +18,6 @@ context — and merging them would hide which is which.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.registry import AbstractScreenModule
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module import (
     BacktestScreenModule,
 )
@@ -34,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module impor
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.module import (
     TradingScreenModule,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import AbstractScreenModule
 
 LEGACY_SCREEN_MODULES: tuple[type[AbstractScreenModule], ...] = (
     DashboardScreenModule,

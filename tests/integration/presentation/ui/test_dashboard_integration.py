@@ -31,13 +31,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_accoun
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_equity_curve import (
     FakeEquityCurve,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.mock_klines import (
     build_mock_klines,
 )

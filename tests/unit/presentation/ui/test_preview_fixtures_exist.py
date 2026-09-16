@@ -2,7 +2,7 @@
 Guard test for UI Preview Convention (BOT-031).
 
 Enforces the architectural rule:
-1. Every screen package in `src/presentation/ui/screens/` and the `src/presentation/ui/components/sidebar/`
+1. Every screen package in `src/presentation/ui/screens/` and the `src/support/ui_kit/sidebar/`
    component must provide a `preview.py` file exposing a `build_preview() -> QWidget` function.
 2. Every discovered `build_preview()` can be executed cleanly in offscreen mode with zero exceptions
    and zero QML syntax/runtime errors.
@@ -25,7 +25,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 _SCREENS_DIR = _REPO_ROOT / "src" / "presentation" / "ui" / "screens"
-_SIDEBAR_DIR = _REPO_ROOT / "src" / "presentation" / "ui" / "components" / "sidebar"
+#: `support/ui_kit/sidebar` since `EPIC-025` PR 1.6d. The convention is about
+#: the widget, not the directory it currently sits in.
+_SIDEBAR_DIR = _REPO_ROOT / "src" / "support" / "ui_kit" / "sidebar"
 
 
 def test_every_screen_and_sidebar_has_preview_file():
@@ -116,3 +118,34 @@ def test_all_discovered_previews_build_cleanly(qapp):
 
         widget.deleteLater()
         qapp.processEvents()
+
+
+def test_no_preview_uses_a_relative_import():
+    """`preview.py` is loaded **by path** by `scripts/preview_qml.py`, never as
+    part of its package, so a relative import raises `ImportError: attempted
+    relative import with no known parent package` — at discovery time, for
+    every preview, not just the one that was edited.
+
+    `EPIC-025` PR 1.6d is why this exists. Moving `sidebar/` into
+    `support/ui_kit` rewrote its preview's imports to absolute, a follow-up
+    pass restored intra-package imports to relative form (right for every
+    other file in the package), and this one broke. Nothing but the preview
+    tests would have said so, and they say it as an `ImportError` rather than
+    as the rule that was violated.
+    """
+    offenders: list[str] = []
+    for root in ("src/presentation/ui", "src/support/ui_kit"):
+        for preview in sorted((_REPO_ROOT / root).rglob("preview.py")):
+            tree = ast.parse(preview.read_text(encoding="utf-8"))
+            for node in ast.walk(tree):
+                if isinstance(node, ast.ImportFrom) and node.level:
+                    offenders.append(
+                        f"{preview.relative_to(_REPO_ROOT).as_posix()}:{node.lineno}: "
+                        f"from {'.' * node.level}{node.module or ''} import ..."
+                    )
+
+    assert offenders == [], (
+        "a `preview.py` uses a relative import. It is imported by path, not as "
+        "part of its package, so the relative form cannot resolve — write the "
+        "full dotted path:\n" + "\n".join(offenders)
+    )

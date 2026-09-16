@@ -2,11 +2,11 @@
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.logic.ui_mode_transitions import (
     ALLOWED_TRANSITIONS,
     install_transitions,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 
 
 class RecordingFsm:

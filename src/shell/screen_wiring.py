@@ -18,10 +18,6 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.registry import (
-    IScreenRegistry,
-    ScreenRegistry,
-)
 from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
     ContributionRegistry,
 )
@@ -30,6 +26,10 @@ from Sagittarius_Elite_Warrior.src.shell.legacy_screen_adapter import (
     legacy_screen_contributions,
 )
 from Sagittarius_Elite_Warrior.src.shell.legacy_screens import LEGACY_SCREEN_MODULES
+from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import (
+    IScreenRegistry,
+    ScreenRegistry,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 

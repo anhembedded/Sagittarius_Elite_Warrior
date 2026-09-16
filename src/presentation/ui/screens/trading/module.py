@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.registry import AbstractScreenModule
+from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import AbstractScreenModule
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, BaseView
 from sagittarius_engine.interfaces.i_container import IContainer
 

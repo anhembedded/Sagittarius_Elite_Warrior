@@ -21,10 +21,10 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.stream_lifecycle_controller import (
     StreamLifecycleController,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 

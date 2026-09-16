@@ -14,10 +14,11 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import SymbolPreferences
+
 from ....components.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
-from ....components.symbol_picker import SymbolPreferences
 from ..backtest_view_model import BackTestViewModel
 from ..logic.chart_canvas_view import ChartDisplayMode
 from .i_backtest_chart_controls import IBacktestChartControls

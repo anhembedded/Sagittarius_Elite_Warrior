@@ -20,14 +20,14 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import QObject
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
-    SymbolPreferences,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_modals import (
     SymbolPickerDialogWidget,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
+    SymbolPreferences,
 )
 
 

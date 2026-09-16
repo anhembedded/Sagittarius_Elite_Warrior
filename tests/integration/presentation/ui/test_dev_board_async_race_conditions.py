@@ -58,7 +58,7 @@ import time
 from datetime import UTC, datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 
 
 def _open_dashboard(navigate):

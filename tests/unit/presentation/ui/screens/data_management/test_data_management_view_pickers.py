@@ -15,14 +15,14 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
-    SymbolPreferences,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view import (
     DataManagementView,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view_model import (
     DataManagementViewModel,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
+    SymbolPreferences,
 )
 
 

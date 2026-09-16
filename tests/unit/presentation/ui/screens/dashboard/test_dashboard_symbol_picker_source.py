@@ -7,11 +7,11 @@ so the whole suite runs with `QApplication.instance()` staying `None`.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
-    SymbolPreferences,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_symbol_picker_source import (
     DashboardSymbolPickerSource,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
+    SymbolPreferences,
 )
 
 

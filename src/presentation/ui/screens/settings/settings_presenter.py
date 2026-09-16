@@ -17,12 +17,6 @@ from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter im
     format_exchange_connection_status,
 )
 from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.container_lookup import (
-    find_state_coordinator,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
-    UiStateCoordinator,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     resolve_market_data_venue,
     resolve_trading_venue,
@@ -41,6 +35,12 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_SYMBOL_OPTIONS,
     default_interval,
     default_symbol_options,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.container_lookup import (
+    find_state_coordinator,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
+    UiStateCoordinator,
 )
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager

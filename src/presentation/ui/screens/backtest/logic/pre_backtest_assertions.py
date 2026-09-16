@@ -8,7 +8,7 @@ from datetime import UTC, datetime
 from enum import Enum
 from typing import Protocol
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import DATETIME_FORMAT
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import DATETIME_FORMAT
 
 _INVALID_CAPITAL_TEMPLATE = "Invalid initial capital: {value!r}"
 _NON_POSITIVE_CAPITAL_MESSAGE = "Initial capital must be greater than 0."

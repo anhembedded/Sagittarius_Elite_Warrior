@@ -34,7 +34,15 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.theme_bootstrap import (
     seed_app_theme,
 )
 
-_UI_ROOT = _REPO_ROOT / "src" / "presentation" / "ui"
+#: Both UI trees. `EPIC-025` is moving the UI into `support/ui_kit` package by
+#: package, and a preview that crosses over must stay runnable: PR 1.6d moved
+#: `sidebar/` and the discovery — which read the legacy tree only — stopped
+#: finding it, which is what `test_discover_previews_finds_all_targets` said.
+#: The list shrinks back to one entry when Phase 4 deletes the legacy tree.
+_UI_ROOTS = (
+    _REPO_ROOT / "src" / "presentation" / "ui",
+    _REPO_ROOT / "src" / "support" / "ui_kit",
+)
 
 
 def _load_build_preview(
@@ -64,19 +72,36 @@ def _load_build_preview(
 
 def discover_previews() -> dict[str, Callable[[], QWidget]]:
     """
-    Scans `src/presentation/ui/` recursively for `preview.py` files.
+    Scans both UI trees recursively for `preview.py` files.
     Returns a mapping of {component_or_screen_name: build_preview_callable}.
     """
     previews: dict[str, Callable[[], QWidget]] = {}
-    if not _UI_ROOT.exists():
-        return previews
+    sources: dict[str, Path] = {}
 
-    for preview_path in sorted(_UI_ROOT.rglob("preview.py")):
-        # Key is the parent directory name (e.g. 'sidebar', 'dashboard', 'settings', 'backtest')
-        key = preview_path.parent.name
-        build_fn = _load_build_preview(preview_path, f"_preview_{key}")
-        if build_fn is not None:
-            previews[key] = build_fn
+    for root in _UI_ROOTS:
+        if not root.exists():
+            continue
+        for preview_path in sorted(root.rglob("preview.py")):
+            # Key is the parent directory name (e.g. 'sidebar', 'dashboard',
+            # 'settings', 'backtest').
+            key = preview_path.parent.name
+            if key in sources:
+                # Two roots make this reachable, and the docstring below has
+                # always warned that a colliding basename "would silently
+                # shadow or collide". Silently is the part worth removing: a
+                # shadowed preview is a widget nobody can open any more, and
+                # nothing else in the repository would say so. Measured when
+                # the second root was added: zero collisions across the 14
+                # `preview.py` files, so this raises only for something new.
+                raise RuntimeError(
+                    f"two preview.py files claim the key {key!r}: "
+                    f"{sources[key]} and {preview_path}. Rename one directory, "
+                    "or address it with --dir."
+                )
+            build_fn = _load_build_preview(preview_path, f"_preview_{key}")
+            if build_fn is not None:
+                previews[key] = build_fn
+                sources[key] = preview_path
 
     return previews
 

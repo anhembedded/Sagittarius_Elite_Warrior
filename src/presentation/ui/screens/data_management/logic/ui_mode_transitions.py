@@ -17,7 +17,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 
 #: Every legal `(from, to)` move, grouped as the original comments grouped
 #: them. Order is preserved from the code this replaces — `add_transition`

@@ -28,30 +28,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed imp
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
     SyncProgressReport,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
-    SymbolPreferences,
-    find_symbol_preferences,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
-    DATETIME_FORMAT,
-    UIMode,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators import (
     DataManagementActionKind,
     GapCoordinator,
     KLineInspectorCoordinator,
     ScanCoordinator,
     SyncCoordinator,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.container_lookup import (
-    find_state_coordinator,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import (
-    StateData,
-    StateScope,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
-    UiStateCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOwnershipTracker,
@@ -61,6 +43,24 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     default_interval,
     default_symbol,
     default_symbol_options,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
+    DATETIME_FORMAT,
+    UIMode,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.container_lookup import (
+    find_state_coordinator,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import (
+    StateData,
+    StateScope,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
+    UiStateCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
+    SymbolPreferences,
+    find_symbol_preferences,
 )
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_config import IConfig

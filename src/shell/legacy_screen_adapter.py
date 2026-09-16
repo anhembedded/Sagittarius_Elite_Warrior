@@ -24,8 +24,8 @@ from collections.abc import Iterable
 from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.registry import AbstractScreenModule
-from Sagittarius_Elite_Warrior.src.presentation.ui.registry.models import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import AbstractScreenModule
+from Sagittarius_Elite_Warrior.src.support.ui_kit.registry.models import (
     ScreenDescriptor,
 )
 from sagittarius_engine.interfaces.i_container import IContainer

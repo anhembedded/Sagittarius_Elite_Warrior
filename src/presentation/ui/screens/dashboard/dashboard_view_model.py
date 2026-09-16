@@ -9,11 +9,11 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_params import (
     step_numeric_param_value,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import DATETIME_FORMAT
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_SYMBOL,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import DATETIME_FORMAT
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseQmlViewModel,
     LogListModel,

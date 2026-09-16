@@ -8,11 +8,11 @@ and a real `SymbolPreferences`, so the whole suite runs with
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
-    SymbolPreferences,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_modals.backtest_symbol_picker_source import (
     BacktestSymbolPickerSource,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
+    SymbolPreferences,
 )
 
 

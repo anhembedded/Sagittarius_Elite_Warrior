@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import (
     AppLogPanel,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (

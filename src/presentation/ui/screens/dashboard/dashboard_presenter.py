@@ -116,21 +116,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timefra
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
     IndicatorScriptRunner,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
-    SymbolPreferences,
-    find_symbol_preferences,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.container_lookup import (
-    find_state_coordinator,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import (
-    StateData,
-    StateScope,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
-    UiStateCoordinator,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
@@ -142,8 +127,23 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     default_symbol,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from Sagittarius_Elite_Warrior.src.support.ui_kit.health_check_coordinator import (
     HealthCheckCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.container_lookup import (
+    find_state_coordinator,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import (
+    StateData,
+    StateScope,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
+    UiStateCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
+    SymbolPreferences,
+    find_symbol_preferences,
 )
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager

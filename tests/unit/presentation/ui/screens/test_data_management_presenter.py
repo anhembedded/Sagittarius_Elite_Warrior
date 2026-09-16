@@ -35,13 +35,13 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_hi
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
     DataManagementPresenter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view import (
     DataManagementView,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")

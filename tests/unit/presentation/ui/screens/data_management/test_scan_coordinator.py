@@ -20,7 +20,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.scan_
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
     FakeSymbolCatalog,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators import (
     DataManagementActionKind,
     ScanCoordinator,
@@ -32,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOutcome,
     ActionOwnershipTracker,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 
 
 @pytest.fixture

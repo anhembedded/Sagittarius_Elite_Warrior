@@ -133,6 +133,26 @@ exclude = [
     # checked meaningfully. See EPIC-002A report §2, §6.
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]presentation[\\/]",
 
+    # `EPIC-025` PR 1.6d re-keyed two entries out of the block above, the same
+    # way PR 0.4a re-keyed five: a path-only move neither fixes frozen debt nor
+    # creates it, and fixing it inside a move would make the move unreviewable.
+    # `sidebar/` carries 5 errors, every one the PySide6 `@Property`
+    # false-positive class the wholesale `presentation/` exclusion exists for
+    # (EPIC-002A §2): `Property("QVariant", ...)` takes a type name as a string
+    # at runtime while the stub says `type`, and mypy reads the descriptor as
+    # its own `Property` type instead of the value type it returns.
+    # `registry/screen_registry.py` carries 1, and it is not that class: the
+    # engine declares `PresenterManager.register(name, presenter_class: type,
+    # view_factory)` while its body only stores the argument in a dict and
+    # calls it later, so a factory callable is accepted at runtime and the
+    # annotation is simply narrower than the contract. Verified by reading that
+    # method — it performs no `issubclass` check. The exit for both is the same:
+    # `EPIC-025` Phase 4 rebuilds the sidebar as QtWidgets (ADR D20-D22), which
+    # removes the `@Property` bindings, and the engine's annotation belongs on
+    # the Engine board, not in this application's exclude list.
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]support[\\/]ui_kit[\\/]sidebar[\\/]",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]support[\\/]ui_kit[\\/]registry[\\/]",
+
     # Everything below: real per-file baseline debt (not Property noise),
     # frozen at EPIC-002A's measurement.
     # `scripts/backtest_timeframe_toolbar_e2e.py` was here too — the LIVE

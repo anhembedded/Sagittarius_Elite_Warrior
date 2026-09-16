@@ -9,7 +9,7 @@ whole presenter.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import StateData
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import StateData
 
 from .backtest_state_fields import (
     BACKTEST_STATE_FIELDS,

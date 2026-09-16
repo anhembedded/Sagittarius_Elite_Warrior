@@ -36,7 +36,10 @@ from __future__ import annotations
 from collections.abc import Callable, Mapping, Sequence
 from typing import TYPE_CHECKING
 
-from ...state.state_scope import StateData, StateScope
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import (
+    StateData,
+    StateScope,
+)
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer

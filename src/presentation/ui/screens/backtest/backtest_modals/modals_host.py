@@ -7,12 +7,12 @@ from typing import TYPE_CHECKING
 from PySide6.QtWidgets import (
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
-    SymbolPreferences,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog import (
     PinnedTimeframes,
     TimeframePickerDialog,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
+    SymbolPreferences,
 )
 
 from .capital_dialog import CapitalDialogWidget

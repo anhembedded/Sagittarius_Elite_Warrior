@@ -18,7 +18,7 @@ from datetime import UTC, date, datetime, time, timedelta
 from enum import Enum
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import DATETIME_FORMAT
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import DATETIME_FORMAT
 
 #: Monday-first, matching `DateRangeOverlay`'s `_FIRST_WEEKDAY`.
 _FIRST_WEEKDAY = 0

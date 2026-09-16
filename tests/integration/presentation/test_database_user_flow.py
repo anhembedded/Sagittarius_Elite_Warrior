@@ -11,13 +11,13 @@ from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
     DataManagementPresenter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view import (
     DataManagementView,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")

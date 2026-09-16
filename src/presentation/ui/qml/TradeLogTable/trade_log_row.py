@@ -15,11 +15,11 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme i
     BEAR_COLOR,
     BULL_COLOR,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import DATETIME_FORMAT
 from Sagittarius_Elite_Warrior.src.presentation.ui.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     format_display_datetime,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import DATETIME_FORMAT
 
 #: Matches `BackTestPresenter`'s `_CUSTOM_TIME_FORMAT` — reused here instead
 #: of the mockup's Vietnamese "16 thg 7, 2026" cosmetic format, which has no

@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.registry import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import (
     AbstractScreenModule,
     NavLocation,
 )

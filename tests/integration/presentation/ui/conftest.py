@@ -70,7 +70,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session i
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitPolicy,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
@@ -81,6 +80,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_s
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.mock_klines import (
     MOCK_KLINE_COUNT,

@@ -17,7 +17,7 @@ from typing import TYPE_CHECKING
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
     describe as describe_timeframe,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import DATETIME_FORMAT
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import DATETIME_FORMAT
 
 from ..logic.time_range_preset import TimeRangePreset, resolve_time_range
 

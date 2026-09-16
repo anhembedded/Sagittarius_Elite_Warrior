@@ -18,13 +18,13 @@ from unittest.mock import Mock
 import pytest
 from PySide6.QtCore import QPoint, Qt
 from PySide6.QtTest import QTest
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import UIMode
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
     DataManagementPresenter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view import (
     DataManagementView,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from Sagittarius_Elite_Warrior.tests.conftest import find_qml_item
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")

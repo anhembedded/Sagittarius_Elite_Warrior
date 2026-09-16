@@ -4,7 +4,7 @@ from collections.abc import Callable
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
     DEFAULT_LOG_MAX_ENTRIES,
 )
 

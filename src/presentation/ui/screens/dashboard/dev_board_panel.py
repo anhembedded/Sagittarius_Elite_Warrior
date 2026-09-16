@@ -51,12 +51,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
     ManualOrderDirection,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
-    AppLogPanel,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.symbol_picker import (
-    SymbolPreferences,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.progress_banner_widget import (
     ProgressBannerWidget,
 )
@@ -65,6 +59,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.status_pill_widget im
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeRangePicker.time_range_picker_dialog import (
     TimeRangePickerDialog,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import (
+    AppLogPanel,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
@@ -77,6 +74,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     StyledCheckBox,
     StyleRole,
     apply_role,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
+    SymbolPreferences,
 )
 
 from .dashboard_symbol_picker_dialog import DashboardSymbolPickerDialog

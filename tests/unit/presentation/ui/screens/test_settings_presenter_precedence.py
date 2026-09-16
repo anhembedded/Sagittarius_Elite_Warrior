@@ -38,13 +38,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_pre
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view import (
     SettingsView,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.adapters.in_memory_state_store import (
-    InMemoryStateStore,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import StateScope
-from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
-    UiStateCoordinator,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
     EnvFirstCredentialsProvider,
 )
@@ -53,6 +46,13 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.in_memory_state_store import (
+    InMemoryStateStore,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import StateScope
+from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
+    UiStateCoordinator,
 )
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_config import IConfig

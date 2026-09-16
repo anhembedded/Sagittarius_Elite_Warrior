@@ -9,10 +9,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.constants import DATETIME_FORMAT
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_modals.backtest_time_range_source import (
     BacktestTimeRangeSource,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import DATETIME_FORMAT
 
 
 class _FakeTimeRange:

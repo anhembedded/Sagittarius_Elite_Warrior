@@ -80,9 +80,6 @@ from binance_fake_server import (  # type: ignore[import-not-found]
 from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtWidgets import QApplication
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.sidebar import (
-    Sidebar,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import (
     MainWindow,
 )
@@ -94,6 +91,9 @@ from Sagittarius_Elite_Warrior.src.shell.app_config import (
 )
 from Sagittarius_Elite_Warrior.src.shell.composition_root import (
     create_app,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import (
+    Sidebar,
 )
 from Sagittarius_Elite_Warrior.tests.conftest import (
     real_screen_registry,

@@ -89,7 +89,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/presentation/ui/test_preview_fixtures_exist.py",
         (
             ("src/presentation/ui/screens", "*.py"),
-            ("src/presentation/ui/components/sidebar", "*.py"),
+            ("src/support/ui_kit/sidebar", "*.py"),
         ),
     ),
     # Two roots since `EPIC-025` PR 1.6a: `Palette` itself now lives under
