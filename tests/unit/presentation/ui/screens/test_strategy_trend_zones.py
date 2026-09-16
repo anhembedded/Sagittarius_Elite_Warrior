@@ -14,7 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strat
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.strategy_context import (
     StrategyContext,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_overlay.strategy_trend_zones import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_overlay.strategy_trend_zones import (
     compute_strategy_trend_zones,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (

@@ -97,7 +97,9 @@ def test_a_real_long_click_hard_blocks_on_the_strategys_own_armed_symbol(
     panel._cbo_live_strategy.setCurrentIndex(index)
     panel._cbo_live_interval.setCurrentText("5m")
     qtbot.mouseClick(panel._btn_arm_strategy, Qt.MouseButton.LeftButton)
-    qtbot.waitUntil(lambda: presenter._view_model.armedSummary != "", timeout=2000)
+    qtbot.waitUntil(
+        lambda: presenter._view_model.strategy.armedSummary != "", timeout=2000
+    )
     assert presenter._armed_strategy.armed().config.symbol == presenter._active_symbol
 
     # Spy installed only now — arming itself legitimately dispatches

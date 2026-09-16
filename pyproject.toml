@@ -119,6 +119,15 @@ extend-select = ["S", "PLR2004", "B", "SIM", "ERA", "N"]
 # `QAbstractListModel` — `rowCount`, `roleNames`, `setEnabled` and a
 # `enabledKeysChanged` signal are Qt's spellings, not choices.
 "src/support/indicators/**" = ["N802", "N803", "N815"]
+# Fifth tree, same reason, and this one is a re-key rather than a new
+# exemption: `EPIC-025` PR 2.1e-1 moved strategy's own UI out of
+# `presentation/ui/` (line 103's pattern) into `modules/strategy/ui/`, so the
+# same 11 files need the same three codes at their new path. `signal_feed.py`
+# declares a `signalGenerated` Signal, `param_field.py` overrides
+# `keyPressEvent`/`wheelEvent`, and `strategy_arming_coordinator.py`'s view
+# Protocol mirrors a Qt view model's camelCase properties -- renaming any of
+# them would be a behaviour change dressed as a move (ADR D12).
+"src/modules/strategy/ui/**" = ["N802", "N803", "N815"]
 # `TimeframePicker/` is a **QML module directory**, and QML requires its module
 # names to be PascalCase — the `.qml` files inside are addressed by that name.
 # It was invisible before 1.6f only by accident: under

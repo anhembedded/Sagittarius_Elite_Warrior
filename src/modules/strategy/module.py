@@ -57,22 +57,38 @@ expectation that `ISizingPolicy` would pass through `LiveStrategyFactory`'s
 arguments; measured, it does not touch them at all, so the move travels with
 PR 2.1e, where the strategy card and the chart overlay give it a reason.
 
-@par `contribute()`, `declare_cli()` and `subscribe()` are not implemented
+@par `ui/` since PR 2.1e — this context's own display code
+Eleven files: `strategy_arming_coordinator` (the arm/disarm behaviour),
+`signal_feed` (the `SignalGeneratedEvent` normaliser), `strategy_display`,
+`strategy_params/` (the parameter form, its fields and its dialog),
+`strategy_overlay/` (the chart's indicator lines and trend zones), and
+**`strategy_card_view_model`** — which is the one file that was not a move.
+`TradingViewModel` and `DashboardViewModel` each carried the card's *nineteen*
+members, identical name for name, with a note saying they could not be shared
+because Shiboken forbids inheriting Qt `Property`/`Signal` from two `QObject`
+bases. True of inheritance; composition was always available, and the Backtest
+screen had been using it since `EPIC-003F2`. Extracting it took the duplicated-
+member census **132 → 115** and the Phase 1 pair **59 → 39** — the first fall in
+that number since `PRO-004` measured it.
+
+@par `contribute()`, `declare_cli()` and `subscribe()` are still not implemented
 Each absence is a measurement, not an omission:
 
-  · **no contribution** — the strategy card, the last-signal card and the
-    parameters dialog are `EPIC-025C` §1 item 4, and they are still
-    `presentation/ui/components/strategy_params` and `strategy_overlay`, which
-    need `BaseStrategy` from *this* module and therefore could not move before
-    it existed. PR 2.1e brings them.
+  · **no contribution** — the card's *state* is this module's since PR 2.1e; the
+    card's *widget* is still built twice, once in `TradingView` and once in
+    `DevBoardPanel`, under identical object names. `EPIC-025C` §1 item 4 makes
+    one contributed widget of them, and it is a rewrite with two deletions
+    rather than a move: ADR D18 wants an assertion inventory first, and §2's
+    done-when wants the user on Testnet. It travels with the screens.
   · **no CLI command** — `trade-once` is a strategy run and reads as this
     context's, but it is declared by nobody today: `presentation/cli/` still
     parses it and `shell/cli_registry.py` collects what modules declare
     (PR 1.3c-5). Moving it is a behaviour question about one command's
     ownership rather than a rider on a move.
-  · **no Qt subscription** — `signal_feed` and `StrategyArmingCoordinator` are
-    Qt objects still under `presentation/ui/common/`, and they travel with the
-    widgets in PR 2.1e.
+  · **no Qt subscription** — `signal_feed` lives here now, but the Presenter
+    that owns its lifetime does not, and a feed subscribed by `subscribe()`
+    while a screen still constructs one would put two normalisers on one event.
+    It moves when the screens do.
 """
 
 from __future__ import annotations

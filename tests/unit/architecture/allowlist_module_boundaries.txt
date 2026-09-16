@@ -13,7 +13,8 @@
 # PR 0.4a -> 38 after PR 0.4a-2 -> 34 after PR 0.5 -> 28 after PR 1.1a -> 24
 # after PR 1.1b -> 20 after PR 1.2 -> 80 after PR 1.3a -> 60 and 56 after PR
 # 1.3b's two halves -> 46, 32, 29, 25, 23 after PR 1.3c-1..1.3c-5
-# -> 42 after PR 2.1b -> 40 after PR 2.1c -> 36 after PR 2.1d.
+# -> 42 after PR 2.1b -> 40 after PR 2.1c -> 36 after PR 2.1d
+# -> 44 after PR 2.1e.
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -400,6 +401,12 @@ domain.backtesting.paper_exchange -> modules.strategy.domain.policies.margin_siz
 # PR 1.2's `list_symbols(quote_asset)`). All four callers' class-reads become
 # intra-module in PR 2.1e for the UI ones and Phase 3's
 # `IStrategyEngineFactory` for the CLI, which is where each entry now exits.
+#
+# PR 2.1e moved the coordinators but **not** the Presenters that hand them
+# the registry, so these four are still here: the class-read became
+# intra-module, the `available()` call that feeds it did not.
+# `IStrategyCatalog` becomes writable when the screens move (Phase 4), one
+# phase later than the note above expected.
 
 # -> the tick path becomes this module's own (PR 2.1c-2). The handler is
 # `strategy`'s subscriber wearing a `market_data` folder name: it reads
@@ -426,16 +433,51 @@ application.use_cases.backtest.run_static_backtest.handler -> modules.strategy.a
 presentation.cli.trade_once_cmd -> modules.strategy.application.services.strategy_factory
 presentation.cli.trade_once_cmd -> modules.strategy.application.services.strategy_registry
 
-# -> the widgets move in (PR 2.1e). These seven are UI files that need this
-# module's own types; they stop crossing anything when the files themselves
-# become `modules/strategy/ui/`, which is why no port is invented for them.
-presentation.ui.common.strategy_arming_coordinator -> modules.strategy.application.services.live_strategy_config_store
-presentation.ui.common.strategy_arming_coordinator -> modules.strategy.application.use_cases.arm_strategy
-presentation.ui.common.strategy_arming_coordinator -> modules.strategy.application.use_cases.disarm_strategy
-presentation.ui.components.strategy_overlay.strategy_indicator_lines -> modules.strategy.domain.strategies.base_strategy
-presentation.ui.components.strategy_overlay.strategy_trend_zones -> modules.strategy.domain.strategies.base_strategy
-presentation.ui.components.strategy_overlay.strategy_trend_zones -> modules.strategy.domain.strategies.strategy_context
-presentation.ui.components.strategy_params.bot_params_form -> modules.strategy.domain.strategies.base_strategy
+# CLOSED by PR 2.1e: all SEVEN, exactly as this note said they would be --
+# the files became `modules/strategy/ui/` and stopped crossing anything. What
+# arrived instead is the inbound direction, below.
+
+# -> the two live screens move into a module's `ui/` (Phase 4, EPIC-025E), and
+# the backtest screen into `modules/backtesting/ui/` (Phase 3, EPIC-025D).
+#
+# PR 2.1e moved eleven files -- `strategy_arming_coordinator`, `signal_feed`,
+# `strategy_display`, `strategy_params/` and `strategy_overlay/` -- out of
+# `presentation/ui/{common,components}` into this module's `ui/`, and extracted
+# `StrategyCardViewModel` from the two live view models, which had been
+# carrying **nineteen identical members each**. So every consumer that names
+# one of these files is now a counted crossing. It is the 0.4a / 1.3a / 2.1b
+# shape for the fourth time, and this one bought the number the epic is
+# actually judged on: duplicated members across every UI pair **132 -> 115**,
+# and the Phase 1 pair **59 -> 39**, its first fall since `PRO-004` measured it.
+#
+# The fifteen split by context, and that split is why no port is invented here:
+#
+#   * SEVEN are the two live surfaces (Trading, Dev Board). Their exit is the
+#     screens themselves moving into `modules/*/ui` -- ADR D21's QML deletions
+#     and Phase 4 -- not a contract, because a screen and the card it hangs
+#     will then be in the same module.
+#   * SIX are the **backtest** screen, a different bounded context reading this
+#     one's parameter form, its chart overlays and its strategy-name display.
+#     `EPIC-025D` repays them: either that screen shares this card's view model
+#     (its own `StrategyParamsViewModel` is already the same shape, which is
+#     what `backtest+strategy.ui: 7` in the duplication tool now measures) or
+#     it reads them through a published widget contract.
+#   * TWO are the view models themselves, retiring with their screens.
+presentation.ui.screens.backtest.backtest_modals.strategy_properties_dialog -> modules.strategy.ui.strategy_params.param_field
+presentation.ui.screens.backtest.backtest_presenter -> modules.strategy.ui.strategy_display
+presentation.ui.screens.backtest.coordinators.indicator_coordinator -> modules.strategy.ui.strategy_overlay.strategy_indicator_lines
+presentation.ui.screens.backtest.coordinators.indicator_coordinator -> modules.strategy.ui.strategy_overlay.strategy_trend_zones
+presentation.ui.screens.backtest.coordinators.strategy_config_coordinator -> modules.strategy.ui.strategy_params.bot_params_form
+presentation.ui.screens.backtest.view_models.strategy_params_view_model -> modules.strategy.ui.strategy_params
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.strategy.ui.signal_feed
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.strategy.ui.strategy_arming_coordinator
+presentation.ui.screens.dashboard.dashboard_view_model -> modules.strategy.ui.strategy_card_view_model
+presentation.ui.screens.dashboard.dev_board_panel -> modules.strategy.ui.strategy_params.strategy_params_dialog
+presentation.ui.screens.trading.coordinators.strategy_overlay_coordinator -> modules.strategy.ui.strategy_overlay
+presentation.ui.screens.trading.trading_presenter -> modules.strategy.ui.signal_feed
+presentation.ui.screens.trading.trading_presenter -> modules.strategy.ui.strategy_arming_coordinator
+presentation.ui.screens.trading.trading_view -> modules.strategy.ui.strategy_params.strategy_params_dialog
+presentation.ui.screens.trading.trading_view_model -> modules.strategy.ui.strategy_card_view_model
 
 # -> `trade-once` becomes this module's declared CLI command (PR 2.1g). The
 # command *is* a strategy run, and `shell/cli_registry.py` has collected

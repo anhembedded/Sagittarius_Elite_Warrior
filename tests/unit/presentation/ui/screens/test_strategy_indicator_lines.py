@@ -13,7 +13,7 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strat
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.strategy_context import (
     StrategyContext,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_overlay.strategy_indicator_lines import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_overlay.strategy_indicator_lines import (
     assign_strategy_line_colors,
     compute_strategy_indicator_lines,
 )

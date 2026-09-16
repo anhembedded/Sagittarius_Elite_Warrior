@@ -27,7 +27,7 @@ between the two screens needs both halves to look like each other first.
 from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_params import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_params import (
     step_numeric_param_value,
 )
 

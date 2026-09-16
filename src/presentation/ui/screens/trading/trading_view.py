@@ -183,40 +183,44 @@ class TradingView(BaseView):
 
         # --- `EPIC-022D` strategy card --------------------------------- #
         self._apply_strategy_options(
-            view_model.strategyOptions, view_model.intervalOptions
+            view_model.strategy.strategyOptions, view_model.strategy.intervalOptions
         )
         self._apply_strategy_selection(view_model)
         self._apply_armed_summary(
-            view_model.armedSummary, view_model.strategyBusy, view_model.enabled
+            view_model.strategy.armedSummary,
+            view_model.strategy.strategyBusy,
+            view_model.enabled,
         )
-        self._apply_last_signal(view_model.lastSignalText)
+        self._apply_last_signal(view_model.strategy.lastSignalText)
 
         self._strategy_combo.currentIndexChanged.connect(
-            lambda _index: view_model.requestStrategySelection(
+            lambda _index: view_model.strategy.requestStrategySelection(
                 self._strategy_combo.currentData() or ""
             )
         )
         self._interval_combo.currentTextChanged.connect(
-            view_model.requestIntervalSelection
+            view_model.strategy.requestIntervalSelection
         )
-        self._sizing_spin.valueChanged.connect(view_model.requestSizingPercent)
-        self._leverage_spin.valueChanged.connect(view_model.requestLeverage)
-        self._arm_button.clicked.connect(view_model.requestArm)
-        self._disarm_button.clicked.connect(view_model.requestDisarm)
+        self._sizing_spin.valueChanged.connect(view_model.strategy.requestSizingPercent)
+        self._leverage_spin.valueChanged.connect(view_model.strategy.requestLeverage)
+        self._arm_button.clicked.connect(view_model.strategy.requestArm)
+        self._disarm_button.clicked.connect(view_model.strategy.requestDisarm)
         self._params_button.clicked.connect(self._open_strategy_params_dialog)
 
-        view_model.strategyConfigChanged.connect(
+        view_model.strategy.strategyConfigChanged.connect(
             lambda: self._on_strategy_config_changed(view_model)
         )
         # The card is also disabled by trading turning on, which arrives on
         # `tradingStateChanged`, not on `strategyConfigChanged`.
         view_model.tradingStateChanged.connect(
             lambda: self._apply_armed_summary(
-                view_model.armedSummary, view_model.strategyBusy, view_model.enabled
+                view_model.strategy.armedSummary,
+                view_model.strategy.strategyBusy,
+                view_model.enabled,
             )
         )
-        view_model.lastSignalChanged.connect(
-            lambda: self._apply_last_signal(view_model.lastSignalText)
+        view_model.strategy.lastSignalChanged.connect(
+            lambda: self._apply_last_signal(view_model.strategy.lastSignalText)
         )
 
     def set_positions(self, rows: list[PositionRow]) -> None:
@@ -270,11 +274,13 @@ class TradingView(BaseView):
 
     def _on_strategy_config_changed(self, view_model: TradingViewModel) -> None:
         self._apply_strategy_options(
-            view_model.strategyOptions, view_model.intervalOptions
+            view_model.strategy.strategyOptions, view_model.strategy.intervalOptions
         )
         self._apply_strategy_selection(view_model)
         self._apply_armed_summary(
-            view_model.armedSummary, view_model.strategyBusy, view_model.enabled
+            view_model.strategy.armedSummary,
+            view_model.strategy.strategyBusy,
+            view_model.enabled,
         )
 
     def _apply_strategy_options(
@@ -298,19 +304,19 @@ class TradingView(BaseView):
 
     def _apply_strategy_selection(self, view_model: TradingViewModel) -> None:
         self._strategy_combo.blockSignals(True)
-        index = self._strategy_combo.findData(view_model.selectedStrategyKey)
+        index = self._strategy_combo.findData(view_model.strategy.selectedStrategyKey)
         if index >= 0:
             self._strategy_combo.setCurrentIndex(index)
         self._strategy_combo.blockSignals(False)
 
         self._interval_combo.blockSignals(True)
-        if view_model.liveInterval:
-            self._interval_combo.setCurrentText(view_model.liveInterval)
+        if view_model.strategy.liveInterval:
+            self._interval_combo.setCurrentText(view_model.strategy.liveInterval)
         self._interval_combo.blockSignals(False)
 
         for spin, value in (
-            (self._sizing_spin, view_model.sizingPercent),
-            (self._leverage_spin, view_model.leverage),
+            (self._sizing_spin, view_model.strategy.sizingPercent),
+            (self._leverage_spin, view_model.strategy.leverage),
         ):
             spin.blockSignals(True)
             spin.setValue(value)
@@ -342,11 +348,11 @@ class TradingView(BaseView):
         never opens it should pay for at screen construction."""
         if self._view_model is None:
             return
-        from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_params.strategy_params_dialog import (
+        from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_params.strategy_params_dialog import (
             StrategyParamsDialog,
         )
 
-        dialog = StrategyParamsDialog(self._view_model, self)
+        dialog = StrategyParamsDialog(self._view_model.strategy, self)
         dialog.exec()
 
     # ------------------------------------------------------------------ #

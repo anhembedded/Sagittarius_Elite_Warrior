@@ -540,22 +540,28 @@ class DevBoardPanel(QObject):
         )
 
         self._cbo_live_strategy.currentIndexChanged.connect(
-            lambda _index: self._view_model.requestStrategySelection(
+            lambda _index: self._view_model.strategy.requestStrategySelection(
                 self._cbo_live_strategy.currentData() or ""
             )
         )
         self._cbo_live_interval.currentTextChanged.connect(
-            self._view_model.requestIntervalSelection
+            self._view_model.strategy.requestIntervalSelection
         )
         self._spn_sizing_percent.valueChanged.connect(
-            self._view_model.requestSizingPercent
+            self._view_model.strategy.requestSizingPercent
         )
-        self._spn_leverage.valueChanged.connect(self._view_model.requestLeverage)
-        self._btn_arm_strategy.clicked.connect(self._view_model.requestArm)
-        self._btn_disarm_strategy.clicked.connect(self._view_model.requestDisarm)
+        self._spn_leverage.valueChanged.connect(
+            self._view_model.strategy.requestLeverage
+        )
+        self._btn_arm_strategy.clicked.connect(self._view_model.strategy.requestArm)
+        self._btn_disarm_strategy.clicked.connect(
+            self._view_model.strategy.requestDisarm
+        )
         self._btn_strategy_params.clicked.connect(self._open_strategy_params_dialog)
 
-        self._view_model.strategyConfigChanged.connect(self._on_strategy_config_changed)
+        self._view_model.strategy.strategyConfigChanged.connect(
+            self._on_strategy_config_changed
+        )
         self._sync_strategy_options()
         self._sync_strategy_selection()
         self._sync_armed_summary()
@@ -573,7 +579,7 @@ class DevBoardPanel(QObject):
         self._lbl_last_signal.setObjectName("lblLastSignal")
         self._lbl_last_signal.setWordWrap(True)
         layout.addWidget(self._lbl_last_signal)
-        self._view_model.lastSignalChanged.connect(self._sync_last_signal)
+        self._view_model.strategy.lastSignalChanged.connect(self._sync_last_signal)
         self._sync_last_signal()
         return card
 
@@ -740,11 +746,11 @@ class DevBoardPanel(QObject):
         method documents. Imported lazily for the same reason: the dialog
         pulls in `QScrollArea`/`Overlay` chrome no user who never opens it
         should pay for at panel construction."""
-        from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_params.strategy_params_dialog import (
+        from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_params.strategy_params_dialog import (
             StrategyParamsDialog,
         )
 
-        dialog = StrategyParamsDialog(self._view_model, self)
+        dialog = StrategyParamsDialog(self._view_model.strategy, self)
         dialog.exec()
 
     def _on_strategy_config_changed(self) -> None:
@@ -759,7 +765,7 @@ class DevBoardPanel(QObject):
         otherwise)."""
         self._cbo_live_strategy.blockSignals(True)
         self._cbo_live_strategy.clear()
-        for option in self._view_model.strategyOptions:
+        for option in self._view_model.strategy.strategyOptions:
             self._cbo_live_strategy.addItem(
                 option.get("label", ""), option.get("key", "")
             )
@@ -767,25 +773,25 @@ class DevBoardPanel(QObject):
 
         self._cbo_live_interval.blockSignals(True)
         self._cbo_live_interval.clear()
-        self._cbo_live_interval.addItems(self._view_model.intervalOptions)
+        self._cbo_live_interval.addItems(self._view_model.strategy.intervalOptions)
         self._cbo_live_interval.blockSignals(False)
 
     def _sync_strategy_selection(self) -> None:
         vm = self._view_model
         self._cbo_live_strategy.blockSignals(True)
-        index = self._cbo_live_strategy.findData(vm.selectedStrategyKey)
+        index = self._cbo_live_strategy.findData(vm.strategy.selectedStrategyKey)
         if index >= 0:
             self._cbo_live_strategy.setCurrentIndex(index)
         self._cbo_live_strategy.blockSignals(False)
 
         self._cbo_live_interval.blockSignals(True)
-        if vm.liveInterval:
-            self._cbo_live_interval.setCurrentText(vm.liveInterval)
+        if vm.strategy.liveInterval:
+            self._cbo_live_interval.setCurrentText(vm.strategy.liveInterval)
         self._cbo_live_interval.blockSignals(False)
 
         for spin, value in (
-            (self._spn_sizing_percent, vm.sizingPercent),
-            (self._spn_leverage, vm.leverage),
+            (self._spn_sizing_percent, vm.strategy.sizingPercent),
+            (self._spn_leverage, vm.strategy.leverage),
         ):
             spin.blockSignals(True)
             spin.setValue(value)
@@ -793,7 +799,7 @@ class DevBoardPanel(QObject):
 
     def _sync_armed_summary(self) -> None:
         vm = self._view_model
-        summary = vm.armedSummary
+        summary = vm.strategy.armedSummary
         self._lbl_armed_strategy.setText(summary or _NOT_ARMED_TEXT)
         self._lbl_armed_strategy.setStyleSheet(
             f"color: {Palette.SUCCESS if summary else Palette.MUTED}; font-size: 11px;"
@@ -802,13 +808,13 @@ class DevBoardPanel(QObject):
         # refused by the command handler too; this is the same rule made
         # visible before the click rather than after it (`TradingView`'s
         # own `_apply_armed_summary` docstring).
-        editable = not vm.strategyBusy and not vm.enabled
+        editable = not vm.strategy.strategyBusy and not vm.enabled
         for widget in self._strategy_controls:
             widget.setEnabled(editable)
 
     def _sync_last_signal(self) -> None:
         self._lbl_last_signal.setText(
-            self._view_model.lastSignalText or _NO_SIGNAL_TEXT
+            self._view_model.strategy.lastSignalText or _NO_SIGNAL_TEXT
         )
 
     @staticmethod

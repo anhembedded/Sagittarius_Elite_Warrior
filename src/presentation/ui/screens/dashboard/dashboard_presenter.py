@@ -32,6 +32,10 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy i
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     SUPPORTED_LIVE_INTERVALS,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.signal_feed import SignalFeed
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_arming_coordinator import (
+    StrategyArmingCoordinator,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
 )
@@ -90,10 +94,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.market_tick_feed impor
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_fill_marker import (
     order_filled_marker,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.signal_feed import SignalFeed
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_arming_coordinator import (
-    StrategyArmingCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
     SymbolOptionsCoordinator,
@@ -638,7 +638,11 @@ class DashboardPresenter(BasePresenter):
             ActionOwnershipTracker()
         )
         self._arming_coordinator = StrategyArmingCoordinator(
-            view_model=self._view_model,
+            # PR 2.1e — the card's own view model, not the screen's. This is
+            # what `_StrategyCardView`'s Protocol has always described; until
+            # now the screen's view model satisfied it by carrying the card's
+            # nineteen members itself.
+            view_model=self._view_model.strategy,
             config=self.config,
             dispatcher=self.dispatcher,
             available_strategies=lambda: container.resolve(
@@ -1049,10 +1053,14 @@ class DashboardPresenter(BasePresenter):
 
         # `EPIC-023C` — strategy card, same connections `TradingPresenter`
         # makes for the identical ViewModel signals.
-        view_model.strategyConfigChanged.connect(self._on_strategy_selection_changed)
-        view_model.botParamsSaveRequested.connect(self._on_bot_params_save_requested)
-        view_model.armRequested.connect(self._on_arm_requested)
-        view_model.disarmRequested.connect(self._on_disarm_requested)
+        view_model.strategy.strategyConfigChanged.connect(
+            self._on_strategy_selection_changed
+        )
+        view_model.strategy.botParamsSaveRequested.connect(
+            self._on_bot_params_save_requested
+        )
+        view_model.strategy.armRequested.connect(self._on_arm_requested)
+        view_model.strategy.disarmRequested.connect(self._on_disarm_requested)
 
         # `EPIC-023D` — Enable/Disable trading + Emergency Stop, same
         # connections `TradingPresenter` makes for the identical ViewModel
@@ -1645,7 +1653,7 @@ class DashboardPresenter(BasePresenter):
         indicator/trend-region drawing stays Trading-only — Dev Board's own
         chart cards already exist for the indicator-script testbed this
         screen was built for)."""
-        self._view_model.set_armed_summary(
+        self._view_model.strategy.set_armed_summary(
             self._arming_coordinator.armed_summary(config), busy
         )
 
@@ -1667,7 +1675,7 @@ class DashboardPresenter(BasePresenter):
             return
         action = getattr(signal.action, "value", str(signal.action))
         when = signal.time.strftime("%H:%M:%S")
-        self._view_model.set_last_signal_text(
+        self._view_model.strategy.set_last_signal_text(
             f"{when} · {action} @ {signal.price:g} — {signal.reason}"
         )
 

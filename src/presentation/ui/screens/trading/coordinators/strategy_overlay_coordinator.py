@@ -36,7 +36,7 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     LiveStrategyConfig,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_overlay import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_overlay import (
     assign_strategy_line_colors,
     compute_strategy_indicator_lines,
     compute_strategy_trend_zones,

@@ -27,6 +27,17 @@ the roots live here, the guards import them, and the next move edits one tuple
 instead of five files — and if it forgets, every guard fails at once rather than
 quietly narrowing.
 
+**A fourth occasion, and the first one this file caught rather than suffered.**
+`EPIC-025` PR 2.1e moved eleven files into `modules/strategy/ui/` — the first UI
+a bounded context owns beyond `trading`'s one probe — and the tuple did not
+mention `modules/*/ui` at all. `modules/trading/ui` had in fact been outside
+every one of these guards since PR 1.4c-4 contributed the session probe, which
+is the same silence as the three repairs above, just never noticed because that
+package holds one small factory. Both are rows now, and the hole was real:
+planting a duplicate `Palette` hex in `modules/strategy/ui/strategy_display.py`
+leaves `test_palette_is_the_only_color_source.py` **green** without the row and
+red with it. Measured, not assumed — that probe is what this note rests on.
+
 `architecture-rule.md` §7.2.1's distinction applies to this file: it is a
 **seam**, not a variant. It does not decide what any guard checks, only where
 the UI is.
@@ -41,13 +52,19 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 #: Every tree that holds UI code today, legacy first.
 #:
 #: `src/presentation/ui` shrinks with each pull request of `EPIC-025` Phase
-#: 1/4 and is deleted in Phase 4; the `support/` entries grow. A guard that
-#: means "the application's UI" reads this tuple rather than naming a
-#: directory, so the sentence stays true as the tree moves under it.
+#: 1/4 and is deleted in Phase 4; the `support/` and `modules/*/ui` entries
+#: grow. A guard that means "the application's UI" reads this tuple rather than
+#: naming a directory, so the sentence stays true as the tree moves under it.
+#:
+#: `modules/*/ui` is where the UI is *going*: every screen ends up owned by the
+#: context whose subject it shows (ADR D22, HLD §4), so a new module's `ui/`
+#: needs a row here on the pull request that creates it, not later.
 UI_TREES: tuple[Path, ...] = (
     _REPO_ROOT / "src" / "presentation" / "ui",
     _REPO_ROOT / "src" / "support" / "ui_kit",
     _REPO_ROOT / "src" / "support" / "charting",
+    _REPO_ROOT / "src" / "modules" / "trading" / "ui",
+    _REPO_ROOT / "src" / "modules" / "strategy" / "ui",
 )
 
 #: The same list as repository-relative POSIX strings, for

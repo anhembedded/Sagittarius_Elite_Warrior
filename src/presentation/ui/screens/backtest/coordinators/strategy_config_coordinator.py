@@ -11,7 +11,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_m
     OrderIntent,
     validate_order_intent,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_params.bot_params_form import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_params.bot_params_form import (
     build_bot_params_rows,
     build_bot_params_schema,
     parse_bot_params,

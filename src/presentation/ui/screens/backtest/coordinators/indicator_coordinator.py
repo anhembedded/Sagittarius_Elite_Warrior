@@ -5,11 +5,11 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_overlay.strategy_indicator_lines import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_overlay.strategy_indicator_lines import (
     assign_strategy_line_colors,
     compute_strategy_indicator_lines,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_overlay.strategy_trend_zones import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_overlay.strategy_trend_zones import (
     compute_strategy_trend_zones,
 )
 from Sagittarius_Elite_Warrior.src.support.indicators.ui.runner import (

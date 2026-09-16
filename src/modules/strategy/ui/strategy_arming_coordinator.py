@@ -47,10 +47,10 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.disarm
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     LiveStrategyConfig,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_display import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_display import (
     humanize_strategy_key,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_params import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_params import (
     build_bot_params_rows,
     build_bot_params_schema,
     parse_bot_params,
@@ -300,9 +300,21 @@ class StrategyArmingCoordinator:
             self._append_log(f"Strategy armed: {summary}")
             return
 
-        # A total mapping — `result.block_reason` is non-None on this
-        # branch, and every member has a line by construction.
-        message = ARM_BLOCK_MESSAGES[result.block_reason]
+        # `EnumLabels` is a total mapping, so every member has a line by
+        # construction. What it cannot cover is `None`:
+        # `ArmStrategyCommandHandler` gives a reason to every `armed=False`
+        # result it returns (read it — all five do), but
+        # `ArmStrategyResult.block_reason` is declared optional because the
+        # armed case has none, so the invariant lives in the handler rather
+        # than in the type. The terminal branch is the shape
+        # `format_execute_order_block_reason()` already ends with, and it
+        # states what it knows instead of guessing a reason.
+        reason = result.block_reason
+        message = (
+            ARM_BLOCK_MESSAGES[reason]
+            if reason is not None
+            else "Strategy could not be armed (no reason reported)."
+        )
         if result.error_message:
             message = f"{message} ({result.error_message})"
         self._set_status(message, True)

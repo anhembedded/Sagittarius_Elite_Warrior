@@ -102,10 +102,12 @@ there is exactly one `OrderIntent` in the module, in `contracts/`, where HLD §3
 | ~~2.1b~~ ✅ | `modules/strategy/` arrives: 31 files / 2930 lines — `domain/strategies` (10), the seven services, `arm`/`disarm`, the bridge, `contracts/` for the four published types, and `module.py`. 19 test files / 140 tests moved with them, tier unchanged | **23 → 42**: 23 in, 4 retired (their files moved into the module), each new line naming the PR that deletes it |
 | ~~2.1c~~ ✅ | **`IArmedStrategy` published** — `ArmedStrategySnapshot`, both Presenters off `LiveStrategySession`. `IStrategyCatalog` was written, measured against its four would-be consumers, and **deleted**: see §5 | **42 → 40** |
 | ~~2.1d~~ ✅ | **`ISizingPolicy` published** (ADR D17) — `position_sizing_bridge` moved in, `MarginRiskPolicy` was **split** and only its sizing method came, `PositionSizing` went to `core/vo`, and `trading`'s published surface gained `OrderQuantityRoundingPolicy`. The `trading → backtesting` pair this whole allowlist was written to catch is gone: see §6 | **40 → 36** |
-| 2.1e | the UI: `strategy_arming_coordinator`, `signal_feed`, `strategy_display`, `strategy_params`, `strategy_overlay` → `modules/strategy/ui/`, with the strategy card contributed to both surfaces (§1 item 4) | shrinks |
+| ~~2.1e~~ ✅ | the UI moves (11 files / 1287 lines) **and** `StrategyCardViewModel` is extracted from the two live view models, which had been carrying its nineteen members each. Duplicated members **132 → 115**, Phase 1 pair **59 → 39** — its first fall since `PRO-004`. See §7 | **36 → 44**: 7 retired, 15 in, split 7 live-screen / 6 backtest / 2 view-model, each named |
+| 2.1e-2 | the strategy card's **widget** is contributed (§1 item 4): one widget replaces two inline `_build_strategy_card()` methods. Travels with the screens (Phase 4) — a rewrite with an ADR D18 inventory, not a move | shrinks |
+| 2.1e-3 | `IStrategyCatalog`, once the Presenters that hand the registry to those coordinators have moved too (Phase 4) | shrinks |
 | 2.1f | `ITradingSession.claim_symbol`/`release_symbol` — the lease `IOrderSubmission` shipped without, whose first consumer is `arm_strategy` (`Docs/SDD/05` §3) | unchanged |
 
-`2.1e` inherited one line from 2.1d: PR 2.1d found that `ISizingPolicy` does **not** pass through
+`2.1e-2` inherited one line from 2.1d: PR 2.1d found that `ISizingPolicy` does **not** pass through
 `LiveStrategyFactory`'s arguments, so the container-binding move that `module.py` and
 `composition/port_bindings.py` had both scheduled for 2.1d travels with `2.1e` instead, where the
 strategy card and the chart overlay give it a reason. Both docstrings now say so rather than
@@ -514,3 +516,189 @@ Two findings outside the change, both recorded rather than fixed:
   after the file moved to `contracts/`. Caught by the review and fixed in the documentation commit;
   it is the same class of finding as PR 2.1c's two — a document naming a path the code moved out
   from under.
+
+---
+
+## 7. PR 2.1e, measured 2026-09-16 — it is two pull requests, and the first one grows the allowlist
+
+`ls` was not the measurement; this is the AST of every file in `src/`.
+
+**11 files / 1287 lines** move: `ui/common/{strategy_arming_coordinator (392), signal_feed (48),
+strategy_display (27)}` and the two component packages `strategy_params/` (4 files, 612) and
+`strategy_overlay/` (3 files, 208).
+
+### 7.1 What the moving code reaches for — nothing to unblock
+
+Every outbound dependency is already legal once these files sit under `modules/strategy/ui/`:
+`core.vo.market_data`; this module's own `contracts/`, `application/` and `domain/strategies/`
+(intra-module, and **6 of the 7 retiring entries are exactly these**); `support/charting` and
+`support/ui_kit` (a module's `ui/` may read both whole — `_UI_SUPPORT_ZONES`); and
+`support.indicators.scripting`, one of the four Qt-free sub-packages PR 2.1b widened the rule for.
+So unlike 2.1b, the rule table has nothing to say about this move — which is itself worth recording,
+because three pull requests in a row found the opposite.
+
+### 7.2 Who reaches in — 8 files, 11 imports, and they split by context
+
+| Consumer | Names | Retired by |
+| :--- | :--- | :--- |
+| `trading_presenter`, `dashboard_presenter` | `strategy_arming_coordinator`, `signal_feed` (2 each) | **2.1e-2** — the contributed card owns both |
+| `trading_view`, `dev_board_panel` | `strategy_params.strategy_params_dialog` | **2.1e-2** — the dialog opens from the card |
+| `backtest_presenter` | `strategy_display` | Phase 3 |
+| `backtest_modals.strategy_properties_dialog` | `strategy_params.param_field` | Phase 3 |
+| `backtest.coordinators.strategy_config_coordinator` | `strategy_params.bot_params_form` | Phase 3 |
+| `backtest.coordinators.indicator_coordinator` | `strategy_overlay.{strategy_indicator_lines,strategy_trend_zones}` | Phase 3 |
+
+Six are the two live surfaces and five are the **backtest** screen — a different bounded context
+reading strategy's parameter form and chart overlays, which is `EPIC-025D`'s to repay, not this
+phase's. That division is the reason 2.1e is two pull requests rather than one: the move alone takes
+the allowlist **36 → 40** (7 retired, 11 in), and only the contribution brings it to **34**.
+
+Doing both at once was considered and rejected on PR 1.3c's own measurement — *"doing them as one
+pull request was tried first and measured 72 test failures"*. The grow is the shape this file's
+header calls **not a regression**, and it is far smaller than the three precedents (0.4a 8 → 41,
+1.3a 20 → 80, 2.1b 23 → 42); every new line names 2.1e-2 or `EPIC-025D`.
+
+### 7.2.1 …and then the duplication ratchet refused the split, which is the real finding
+
+The move was made and the guards run before any of the above was believed. Two failures, and
+neither is about the allowlist:
+
+```
+test_the_baseline_was_lowered_when_duplication_went  phase_1_count: 59 -> 53
+test_the_duplication_across_every_pair_does_not_grow  132 -> 134
+```
+
+**The 59 → 53 is not progress.** The six names that left the `dashboard+trading` pair are
+`_on_signal_generated`, `leverage`, `liveInterval`, `set_bot_params`, `set_strategy_selection` and
+`sizingPercent` — measured by diffing the tool's own pair list across the two trees. Not one of them
+was deleted: both screens still define all six. They left the *pair* count because
+`measure_duplicate_members.py` counts a name only when it is defined in exactly two packages, and
+`modules/strategy/ui` is now a third. The metric the epic's completion criterion is written against
+would have fallen by six for a move that removed nothing, which is precisely what that tool's
+docstring warns about — *"a script scanning only `screens/` returns 0 the moment the two packages
+are renamed"* — and exactly why its author added the second number.
+
+**The 132 → 134 is real duplication, newly visible.** `UI_PACKAGE_GLOBS` covers
+`presentation/ui/screens/*`, `modules/*/ui` and `shell/surfaces/*` — **not** `presentation/ui/common`
+or `presentation/ui/components`, where all eleven moving files used to live. So `_selected_strategy_class`
+and `on_strategy_selection_changed`, defined by both `StrategyArmingCoordinator` and the backtest
+screen's `StrategyConfigCoordinator`, were invisible to the tool while one of the two sat in an
+unscanned tree. Moving it into a scanned one did not create that duplication; it revealed it.
+
+Neither can be answered by editing a number. `ci-rule.md` §5.5 rule 2 is explicit — *"Never raise
+the ceiling instead. A ratchet raised to admit new code admits the old shape too, and the number
+stops meaning anything. A ratchet may only fall."* And the two revealed names cannot be honestly
+deleted here: `_selected_strategy_class` is `dict.get` in both places (extracting that into a shared
+function to satisfy a name count is name-gaming, not de-duplication), and the two
+`on_strategy_selection_changed` bodies do genuinely different things — one discards saved params and
+logs a backtest selection, the other compares keys and rebuilds a live form. They share a name, not
+an implementation.
+
+So the ratchet is doing its job, and what it says is that **the move is not a pull request**: the
+change is the move *plus* the de-duplication, or it is nothing. Which puts the decision back where
+§7.3 left it.
+
+### 7.2.2 What the de-duplication actually is, measured
+
+The two live view models expose an **identical** strategy surface, name for name — nineteen members:
+
+| Kind | Members |
+| :--- | :--- |
+| Qt signals | `strategyConfigChanged`, `botParamsChanged`, `lastSignalChanged`, `armRequested`, `disarmRequested`, `botParamsSaveRequested` |
+| setters (Presenter → view model) | `set_strategy_options`, `set_strategy_selection`, `set_armed_summary`, `set_bot_params`, `set_bot_params_error`, `set_last_signal_text` |
+| requests (view → view model) | `requestStrategySelection`, `requestIntervalSelection`, `requestSizingPercent`, `requestLeverage`, `requestArm`, `requestDisarm`, `requestBotParamsSave` |
+
+And both views build the card from the same parts under the same object names — `cboLiveStrategy`,
+`cboLiveInterval`, `spnLiveSizingPercent`, `spnLiveLeverage`, `btnStrategyParams`, `btnArmStrategy`,
+`btnDisarmStrategy`, `lblArmedStrategy` — which is what `DevBoardPanel._build_strategy_card()`'s own
+docstring means by *"mirrors `TradingView._build_strategy_card()` exactly"*.
+
+There is a precedent for where the nineteen go, and it is already in this repository: the **backtest**
+screen holds a nested `strategy_params` view model (`view_model.strategy_params.selectedStrategyKey`).
+So the shape is a `StrategyCardViewModel` in `modules/strategy/ui/`, held by both live view models as
+one field, with the widget bound to it — and that, not the file move, is what takes the duplicated-member
+count down.
+
+It is also a **screen refactor on the app's most safety-critical screen**, whose done-when (§2) is the
+user confirming arm → disarm → tick → order on Testnet, and ADR D18 requires the Trading and Dev Board
+screen tests to be rewritten from an assertion inventory written first. That is a different kind of
+work from PRs 2.1a–2.1d, and it is the same *"59 duplicated members"* work
+[`DECISION_2026-09-16`](../DECISION_2026-09-16_the_duplication_criterion_waits.md) deferred to
+Phase 2 + Phase 4 — so which half of it Phase 2 does now is the user's call, not a rider on a move.
+
+### 7.3 The card really is duplicated, in code rather than in the report
+
+`TradingView._build_strategy_card()` and `DevBoardPanel._build_strategy_card()` build the same card
+twice, and the second one's own docstring says so: *"mirrors `TradingView._build_strategy_card()`
+exactly — same fixed terms"*. Both re-declare `_PARAMS_BUTTON_TEXT`, `_ARM_TEXT`, `_NOT_ARMED_TEXT`
+and a `_strategy_controls` tuple, and both sync an armed summary against `strategyBusy`. So §1 item
+4's *"one implementation shared by Trading and Dev Board"* is a **rewrite with two deletions**, which
+ADR D18 says needs an assertion inventory written first — a different kind of work from a move, and
+the second reason to split.
+
+### 7.4 What PR 2.1e did, after the user chose between the three scopes
+
+Put to the user as one screen with §7.2.1's measurement and three options — move plus the shared
+view model; the full card contribution as well; or defer the whole thing to Phase 4 with the
+screens. **Chosen: the first** (2026-09-16). So this pull request is the eleven-file move *and* the
+extraction, and the card's *widget* stays built per screen until the screens themselves move.
+
+| Number | Before | After |
+| :--- | ---: | ---: |
+| Boundary allowlist | 36 | **44** |
+| Duplicated members, every UI pair | 132 | **115** |
+| Duplicated members, Phase 1 pair (`dashboard+trading`) | 59 | **39** |
+| mypy files checked | 461 | **473** |
+
+The allowlist grows by 8 and the census falls by 17 and 20 — which is the trade the user was shown,
+and the first time this epic has moved the number it is actually judged on. Every one of the 15 new
+lines names its exit, and the block groups them by the three different exits rather than listing
+them flat.
+
+**`StrategyCardViewModel` is the only file that is not a move**, and its docstring carries the
+reason the duplication survived four epics: both copies were annotated *"duplicated here, not
+shared, because Shiboken does not support one `QObject` inheriting Qt `Property`/`Signal` members
+from two independent `QObject` bases"*. That is true, and it is about **inheritance** — a shared
+base class. Composition was never blocked, and `BackTestViewModel.strategy_params` had been doing
+exactly that one screen over since `EPIC-003F2`, whose own docstring even says *"whoever eventually
+shares a single strategy-params ViewModel between the two screens needs both halves to look like
+each other first"*. They did. A correct fact about one design had been left standing as a reason
+against a different one — the same shape as PR 2.1c's *"a claim that is not true"* findings, one
+level up.
+
+Deliberately **not** copied from that precedent: it kept forwarding methods on the facade so that
+*"no call site changes"*. Forwarding here would have left all nineteen names defined on both
+screens, which is the duplication rather than a way of removing it. So 55 call sites moved to
+`view_model.strategy.…` instead — 25 in `trading_view`, 18 in `dev_board_panel`, 6 in each
+Presenter — and `StrategyArmingCoordinator` and `StrategyParamsDialog` now take the card's view
+model rather than the screen's, which is what `_StrategyCardView`'s Protocol had always described.
+
+### 7.5 Two real type errors, and a guard that had lost a tree
+
+**mypy excludes `presentation/` wholesale** (`EPIC-002A` §2: 52% of that layer's errors are one
+PySide6 `@Property` false positive). Eleven files leaving that tree came under the type checker for
+the first time and brought **six** errors — two real, four the known false positive:
+
+- `strategy_params_dialog.py`: `QLayoutItem | None` from `takeAt()` dereferenced without a guard.
+  Unreachable while `count()` holds, but `break` rather than `continue`, because a `None` that kept
+  the count non-zero would spin the loop forever.
+- `strategy_arming_coordinator.py`: `ARM_BLOCK_MESSAGES[result.block_reason]` indexed an
+  `ArmStrategyBlockReason | None`. The comment above it claimed the value is non-None on that
+  branch; read against the handler, that is true of all five of its `armed=False` returns and false
+  of the *type*, which declares the field optional because the armed case has none. The invariant
+  lives in the handler, so the lookup now states what it knows instead of guessing a reason — the
+  shape `format_execute_order_block_reason()` already ends with.
+
+Both **fixed**, not excluded. The four `Signal("QVariantMap")` / `Property("QVariantList")` errors
+are the documented false-positive class and took four local `type: ignore[arg-type]`s with one
+shared note, rather than a path exclusion — `qt_platform.py`'s precedent from PR 1.6f. The file
+stays checked for everything else, which is what surfaced the two above.
+
+**And `ui_trees.py` had no row for `modules/*/ui` at all.** That file exists because three separate
+pull requests left a path-scanning guard reading a smaller tree than the UI occupied — *"a guard
+that has lost part of its subject does not fail, it passes, faster"*. Moving eleven files into
+`modules/strategy/ui/` would have been the fourth, and it also turned up that `modules/trading/ui`
+has been outside all five of those guards since PR 1.4c-4 contributed the session probe. Both are
+rows now, and the hole was real rather than theoretical: planting a duplicate `Palette` hex in
+`modules/strategy/ui/strategy_display.py` leaves `test_palette_is_the_only_color_source.py` green
+without the row and fails it with the row. Probed both ways before the note was written.

@@ -151,6 +151,14 @@ class StrategyParamsDialog(Overlay):
     def _rebuild_fields(self, rows: list[dict]) -> None:
         while self._content_layout.count():
             item = self._content_layout.takeAt(0)
+            if item is None:
+                # `count()` just said there is one, so this cannot happen —
+                # but `takeAt()`'s own signature admits `None`, and this file
+                # came under the type checker when `EPIC-025` PR 2.1e-1 moved
+                # it out of `presentation/` (which mypy excludes wholesale).
+                # `break` rather than `continue`: a `None` that kept the count
+                # non-zero would spin this loop forever.
+                break
             widget = item.widget()
             if widget is not None:
                 widget.setParent(None)

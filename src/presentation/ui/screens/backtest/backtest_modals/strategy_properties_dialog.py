@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_params.param_field import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_params.param_field import (
     BotParamFieldWidget,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette

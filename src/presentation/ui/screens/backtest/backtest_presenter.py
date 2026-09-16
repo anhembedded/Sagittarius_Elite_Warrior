@@ -52,7 +52,7 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strateg
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_display import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_display import (
     humanize_strategy_key,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (

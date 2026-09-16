@@ -32,14 +32,14 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_conf
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_arming_coordinator import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_arming_coordinator import (
     StrategyArmingCoordinator,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_display import (
-    humanize_strategy_key,
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_card_view_model import (
+    StrategyCardViewModel,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_view_model import (
-    TradingViewModel,
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_display import (
+    humanize_strategy_key,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOwnershipTracker,
@@ -81,8 +81,8 @@ class _FakeConfig:
 
 
 @pytest.fixture
-def view_model(qapp) -> TradingViewModel:
-    return TradingViewModel()
+def view_model(qapp) -> StrategyCardViewModel:
+    return StrategyCardViewModel()
 
 
 @pytest.fixture

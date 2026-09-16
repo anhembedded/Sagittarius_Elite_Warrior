@@ -2119,9 +2119,9 @@ def test_construction_restores_the_strategy_card_from_the_real_registry(presente
     — an empty `strategyOptions` would mean the real "Chiến lược" combo
     stays empty forever, the exact gap the fake `_build_strategy_combo()`
     left before this epic."""
-    keys = [option["key"] for option in presenter._view_model.strategyOptions]
+    keys = [option["key"] for option in presenter._view_model.strategy.strategyOptions]
     assert "ema_crossover" in keys
-    assert presenter._view_model.armedSummary == ""
+    assert presenter._view_model.strategy.armedSummary == ""
 
 
 def test_arm_requested_delegates_to_the_coordinator(presenter, monkeypatch):
@@ -2178,9 +2178,11 @@ def test_signal_generated_for_the_armed_symbol_updates_the_card(
 
     presenter._on_signal_generated(_signal_event("BTCUSDT"))
 
-    assert "BTCUSDT" not in presenter._view_model.lastSignalText  # symbol not restated
-    assert "BUY" in presenter._view_model.lastSignalText
-    assert "RSI Oversold" in presenter._view_model.lastSignalText
+    assert (
+        "BTCUSDT" not in presenter._view_model.strategy.lastSignalText
+    )  # symbol not restated
+    assert "BUY" in presenter._view_model.strategy.lastSignalText
+    assert "RSI Oversold" in presenter._view_model.strategy.lastSignalText
 
 
 def test_signal_generated_for_a_different_symbol_is_ignored(
@@ -2200,13 +2202,13 @@ def test_signal_generated_for_a_different_symbol_is_ignored(
 
     presenter._on_signal_generated(_signal_event("ETHUSDT"))
 
-    assert presenter._view_model.lastSignalText == ""
+    assert presenter._view_model.strategy.lastSignalText == ""
 
 
 def test_signal_generated_with_nothing_armed_is_ignored(presenter):
     presenter._on_signal_generated(_signal_event("BTCUSDT"))
 
-    assert presenter._view_model.lastSignalText == ""
+    assert presenter._view_model.strategy.lastSignalText == ""
 
 
 def test_armed_config_changed_updates_the_summary(presenter, strategy_session):
@@ -2221,8 +2223,8 @@ def test_armed_config_changed_updates_the_summary(presenter, strategy_session):
 
     presenter._refresh_armed_summary(busy=False)
 
-    assert presenter._view_model.armedSummary != ""
-    assert presenter._view_model.strategyBusy is False
+    assert presenter._view_model.strategy.armedSummary != ""
+    assert presenter._view_model.strategy.strategyBusy is False
 
 
 # ---------------------------------------------------------------------------

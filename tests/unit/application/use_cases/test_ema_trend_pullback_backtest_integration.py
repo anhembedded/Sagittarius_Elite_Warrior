@@ -22,12 +22,12 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strateg
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_trend_pullback_strategy import (
     EmaTrendPullbackStrategy,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
-    PositionSide,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_overlay.strategy_indicator_lines import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_overlay.strategy_indicator_lines import (
     assign_strategy_line_colors,
     compute_strategy_indicator_lines,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
+    PositionSide,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
     trade_flag_markers,

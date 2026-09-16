@@ -14,7 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crosso
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.strategy_context import (
     StrategyContext,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_params.bot_params_form import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_params.bot_params_form import (
     build_bot_params_rows,
     build_bot_params_schema,
     parse_bot_params,

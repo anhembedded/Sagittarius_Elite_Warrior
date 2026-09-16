@@ -24,6 +24,10 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy i
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     SUPPORTED_LIVE_INTERVALS,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.signal_feed import SignalFeed
+from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_arming_coordinator import (
+    StrategyArmingCoordinator,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
 )
@@ -71,10 +75,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.market_tick_feed impor
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_fill_marker import (
     order_filled_marker,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.signal_feed import SignalFeed
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_arming_coordinator import (
-    StrategyArmingCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -321,7 +321,11 @@ class TradingPresenter(BasePresenter):
             ).available(),
         )
         self._arming_coordinator = StrategyArmingCoordinator(
-            view_model=self._view_model,
+            # PR 2.1e — the card's own view model, not the screen's. This is
+            # what `_StrategyCardView`'s Protocol has always described; until
+            # now the screen's view model satisfied it by carrying the card's
+            # nineteen members itself.
+            view_model=self._view_model.strategy,
             config=self.config,
             dispatcher=self.dispatcher,
             available_strategies=lambda: container.resolve(
@@ -400,12 +404,12 @@ class TradingPresenter(BasePresenter):
         self._view_model.emergencyStopRequested.connect(
             self._on_emergency_stop_requested
         )
-        self._view_model.armRequested.connect(self._on_arm_requested)
-        self._view_model.disarmRequested.connect(self._on_disarm_requested)
-        self._view_model.botParamsSaveRequested.connect(
+        self._view_model.strategy.armRequested.connect(self._on_arm_requested)
+        self._view_model.strategy.disarmRequested.connect(self._on_disarm_requested)
+        self._view_model.strategy.botParamsSaveRequested.connect(
             self._on_bot_params_save_requested
         )
-        self._view_model.strategyConfigChanged.connect(
+        self._view_model.strategy.strategyConfigChanged.connect(
             self._on_strategy_selection_changed
         )
 
@@ -744,7 +748,7 @@ class TradingPresenter(BasePresenter):
         """Called by the Coordinator whenever what is armed may have
         changed — keeps the summary line and the chart overlay in step
         from one place instead of each caller remembering both."""
-        self._view_model.set_armed_summary(
+        self._view_model.strategy.set_armed_summary(
             self._arming_coordinator.armed_summary(config), busy
         )
         self._overlay_coordinator.set_armed_config(config)
@@ -770,7 +774,7 @@ class TradingPresenter(BasePresenter):
             return
         action = getattr(signal.action, "value", str(signal.action))
         when = signal.time.strftime("%H:%M:%S")
-        self._view_model.set_last_signal_text(
+        self._view_model.strategy.set_last_signal_text(
             f"{when} · {action} @ {signal.price:g} — {signal.reason}"
         )
 
