@@ -1114,3 +1114,37 @@ Links into the old path were fixed where the document is live (`Tasks/ROADMAP.md
 `Tasks/backlog/BOT-073`, `Tasks/reports/app_direction_audit.md`, `EPIC-021`'s README) and left in
 completed records, which describe the tree as it was on their date — the same convention PR 2.1b
 followed when `src/application/services/` disappeared.
+
+### 10.7 The review's finding: the count was right and the thing counted was wrong
+
+`test_a_real_boot_leaves_exactly_one_subscriber_on_the_live_tick_path` asserted
+`len(app.event_bus.subscriptions()["MarketTickEvent"]) == 1`. It passed, and it was a **false
+statement about the running app**: `presentation/ui/common/market_tick_feed.py:41` subscribes to
+the same event, because `MarketTickFeed` is the one Qt normaliser both live screens read the raw
+tick through — `architecture-rule.md` §6's exactly-one-Feed rule, and `EPIC-021I` is when that feed
+replaced two presenters each calling `event_bus.on()`. The integration fixture boots no screens, so
+nothing constructed it and the total happened to be 1.
+
+Two things were wrong with that, and `ONBOARDING` §8 trap 3 names the second:
+
+- the assertion's own message said *"exactly one module must own the live tick path"*, which is not
+  what a total subscriber count measures;
+- the test would go red the first time anything else legitimately subscribes at boot — the count
+  that breaks when nothing is wrong.
+
+What must be exactly one is the subscriber that **drives the armed strategy**, because that is the
+one whose duplication submits two orders for one signal. So both tests now filter by handler
+identity rather than counting subscriptions: the integration test keeps only bus handlers whose
+`__self__` is a `MarketTickEventHandler`, and the unit test asserts the handler *types* on a bus
+`boot()` is the only writer of. Re-probed in both directions after the change — breaking
+`context.event_bus.on(...)` fails all four, and re-adding `binance_bot_module`'s old subscription
+fails the integration test with `2 MarketTickEventHandler(s)`.
+
+It is worth noting what found this, because it was not the gate: the gate was green on the wrong
+assertion, twice (once with the total, once with the double-subscription probe that the total also
+caught). It was reading `MarketTickEvent`'s other consumers in `src/` — the §10.2 question *"who
+else listens to this event"* asked for a different purpose.
+
+Second gate after the fix: **PASS** on `logs/ci-local-20260916-111929.log`, **4906 passed / 4
+skipped**, the same 4 known benign hits, **0** records at WARNING or above, mypy clean on **476**
+files. The count is unchanged — the fix renamed two tests and narrowed their assertions, adding none.

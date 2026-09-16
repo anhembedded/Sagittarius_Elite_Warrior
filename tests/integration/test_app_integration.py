@@ -13,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.stop_l
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.event_handlers.market_tick_event_handler import (
+    MarketTickEventHandler,
+)
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
 from Sagittarius_Elite_Warrior.src.shell.modules import MODULES
 from sagittarius_engine import App
@@ -99,7 +102,27 @@ def test_app_boot_and_stream_use_case(app_instance):
         app.stop()
 
 
-def test_a_real_boot_leaves_exactly_one_subscriber_on_the_live_tick_path(
+def _tick_handler_subscriptions(app) -> list:
+    """Bus subscribers to `MarketTickEvent` that are a `MarketTickEventHandler`.
+
+    Not *every* subscriber to that event, deliberately. `MarketTickFeed`
+    (`presentation/ui/common/`) legitimately subscribes too — it is the one Qt
+    normaliser both live screens read the raw tick through — so a running app
+    with a screen open has more than one, and a total count would be asserting
+    something false about it (`ONBOARDING` §8 trap 3: the count that breaks when
+    nothing is wrong). What must be exactly one is the subscriber that *drives
+    the armed strategy*, because that is the one whose duplication submits two
+    orders for one signal.
+    """
+    subscribed = app.event_bus.subscriptions().get(MarketTickEvent.__name__, ())
+    return [
+        handler
+        for handler in subscribed
+        if isinstance(getattr(handler, "__self__", None), MarketTickEventHandler)
+    ]
+
+
+def test_a_real_boot_leaves_exactly_one_tick_handler_on_the_strategy_path(
     app_instance,
 ):
     """`EPIC-025` PR 2.1c-2 — the claim no unit test can make.
@@ -131,10 +154,10 @@ def test_a_real_boot_leaves_exactly_one_subscriber_on_the_live_tick_path(
 
     app.boot()
 
-    handlers = app.event_bus.subscriptions().get(MarketTickEvent.__name__, ())
+    handlers = _tick_handler_subscriptions(app)
 
     assert len(handlers) == 1, (
-        f"{len(handlers)} handler(s) subscribed to {MarketTickEvent.__name__} "
-        "on a real boot — exactly one module must own the live tick path "
-        f"(EPIC-025 PR 2.1c-2). Got: {handlers!r}"
+        f"{len(handlers)} MarketTickEventHandler(s) subscribed to "
+        f"{MarketTickEvent.__name__} on a real boot — exactly one module must "
+        f"own the live tick path (EPIC-025 PR 2.1c-2). Got: {handlers!r}"
     )

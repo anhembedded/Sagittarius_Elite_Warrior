@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.event_handlers.market_tick_event_handler import (
+    MarketTickEventHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
@@ -129,16 +132,22 @@ def test_boot_subscribes_the_session_the_container_already_holds() -> None:
     assert session.ticks and session.ticks[0] is tick
 
 
-def test_exactly_one_handler_is_registered_for_the_tick_event() -> None:
-    """One subscriber, under the event's own name.
+def test_boot_subscribes_one_tick_handler_and_nothing_else() -> None:
+    """One handler, under the event's own name, and no other subscription.
 
     Two would run the armed strategy twice per candle and try to submit two
     orders for one signal — the failure PR 2.1c-2 could cause by adding the
-    subscription here without removing `binance_bot_module.boot()`'s, so it is
-    worth stating at this tier and again on a real boot in
-    `tests/integration/test_app_integration.py`.
+    subscription here without removing `binance_bot_module.boot()`'s. This bus
+    is fresh and `boot()` is the only thing that has touched it, so the whole
+    subscription table is readable and the count means what it says; on a real
+    boot it does not, because `MarketTickFeed` legitimately subscribes to the
+    same event, which is why
+    `tests/integration/test_app_integration.py` filters to
+    `MarketTickEventHandler` instead of counting subscribers.
     """
     _, event_bus = _booted(_RecordingSession())
+    subscribed = event_bus.subscriptions()
 
-    assert list(event_bus.subscriptions()) == [MarketTickEvent.__name__]
-    assert len(event_bus.subscriptions()[MarketTickEvent.__name__]) == 1
+    assert list(subscribed) == [MarketTickEvent.__name__]
+    handlers = subscribed[MarketTickEvent.__name__]
+    assert [type(handler.__self__) for handler in handlers] == [MarketTickEventHandler]
