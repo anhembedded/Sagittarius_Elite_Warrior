@@ -77,7 +77,13 @@ item is worth being Phase 3's first step instead of travelling with the 12,309-l
 
 ### 3.2 bis Assertion inventory of the four deleted tests
 
-HLD §9's delete category still requires saying what was lost:
+**Subject deleted; behaviour exists nowhere else.** That is HLD §9.3's category-3 sentence, verbatim,
+because that section tells the reviewer to check for it rather than to re-derive it — and it is true
+of all four: each asserted the replay loop itself, and the loop is gone. The one line of it that
+reads like a general rule, *"an empty repository must publish nothing"*, is not an exception but an
+improvement, as the table's last column says.
+
+Two files, four tests:
 
 | Deleted test | Asserted | Where that guarantee lives now |
 | :--- | :--- | :--- |
@@ -152,3 +158,24 @@ parametrisations of `test_logging_namespace_guard.py`, which is parametrised per
 lost one for each of the six files deleted. mypy **476 → 470** for the same six. The boundary
 allowlist is **unchanged at 36** — the deleted files held no allowlisted import, which is itself
 worth noting: this deletion bought no boundary debt back, it only removed code.
+
+### 3.6 What the review of this pull request found
+
+Two compliance gaps in its own documents, both cheap and both about a rule that names a *form*
+rather than a fact:
+
+- **HLD §9.3's category 3 requires the sentence "subject deleted; behaviour exists nowhere else" in
+  the task file, and tells the reviewer to check for that sentence.** §3.2 bis carried the same
+  content as a table with a "where that guarantee lives now" column — richer, and unusable for the
+  check the rule actually specifies. The sentence is now there, verbatim, above the table.
+- **`Docs/HLD/09`'s row said PR 3.1a "took the first three"** of a list of five, which is a count in
+  prose whose unit — tests, files or subjects — the sentence never states, exactly what
+  `.agents/Skills/README.md` §1 bans. It now reads **2 files / 4 tests**, and names the thing the row
+  had never listed: `StopBacktestCommand`, deleted here although that row only mentioned
+  `RunBacktestCommand` and `BacktestState`.
+
+Also re-verified rather than assumed, because a deletion's characteristic failure is an import that
+stops resolving and is invisible to lint, mypy and the tests (`epic-025.prompt.md` §3 step 7, which
+records three such defects in PRs 1.6d–1.6f): `create_app(ConfigManager())` builds the whole object
+graph and returns with 10 extensions registered. The boundary allowlist is **unchanged at 36** and no
+baseline file was touched — this pull request removed code and bought back no debt.
