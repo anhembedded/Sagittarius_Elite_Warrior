@@ -1,7 +1,10 @@
 ---
 name: Async UI Action Ownership Rule
 description: Action ownership, stale-callback fencing, and cooperative cancellation for every user-initiated background task, plus the Coordinator Pattern for when a Presenter becomes overloaded.
-trigger: on_demand
+trigger: on_file_change
+patterns:
+  - src/**/*presenter*.py
+  - src/**/*coordinator*.py
 ---
 
 # ASYNC UI ACTION OWNERSHIP & CANCELLATION

@@ -1,7 +1,9 @@
 ---
 name: Testing Rule
 description: How to write tests correctly — what each level proves, async without sleeps, financial invariants, Boundary Value Analysis + mutation-verify, business acceptance for trading features.
-trigger: on_demand
+trigger: on_file_change
+patterns:
+  - tests/**/*.py
 ---
 
 # TESTING RULES — how to WRITE tests
