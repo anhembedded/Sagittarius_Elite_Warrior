@@ -94,6 +94,60 @@ def test_no_two_task_files_share_an_id() -> None:
     )
 
 
+#: Which board makes each pool's files *visible*. The bug board is the only
+#: place an open bug is listed (`bug-fix-rule.md` §7); `ROADMAP.md` is the only
+#: place a task is. `proposal/` is absent on purpose: a proposal is accepted
+#: onto the board by becoming a task, not by being listed.
+_POOL_BOARDS: tuple[tuple[str, str], ...] = (
+    ("backlog", "ROADMAP.md"),
+    ("in_progress", "ROADMAP.md"),
+    ("completed", "ROADMAP.md"),
+    ("cancelled", "ROADMAP.md"),
+    ("bug_report/incomplete", "bug_report/README.md"),
+    ("bug_report/completed", "bug_report/README.md"),
+)
+
+
+def test_every_task_file_is_mentioned_on_its_board() -> None:
+    """The other half of the two checks above. A dangling link is a row with no
+    file; this is a file with no row — which reads, to anyone who only opens
+    the board, as a task that does not exist. Matching by id rather than by
+    link is deliberate: an id cited inside another row's prose still tells the
+    reader what to `ls` for. When this was written (2026-09-16) eight files had
+    no mention at all — three in `backlog/`, five in `completed/`, two of those
+    the output of scheduled agents whose runs never touched the board."""
+    boards = {name: (_TASKS / name).read_text("utf-8") for _, name in _POOL_BOARDS}
+    invisible: list[str] = []
+    for pool, board_name in _POOL_BOARDS:
+        for path in sorted((_TASKS / pool).glob("*.md")):
+            match = _ID.match(path.name)
+            if match and match.group(1) not in boards[board_name]:
+                invisible.append(f"{pool}/{path.name} -> not on {board_name}")
+
+    assert invisible == [], (
+        "task files with no row on their board — add the row, the board is the "
+        f"only place a reader looks: {invisible}"
+    )
+
+
+def test_every_epic_sub_task_is_mentioned_in_its_epic_readme() -> None:
+    """Same check, one level down: an epic's `README.md` is its board
+    (`Tasks/epics/README.md`, "Thư mục là nguồn sự thật mà người ta *liệt kê*,
+    README là thứ người ta *đọc*")."""
+    invisible: list[str] = []
+    for epic in sorted(_TASKS.glob("epics/EPIC-*")):
+        readme = (epic / "README.md").read_text("utf-8")
+        for pool in _EPIC_POOLS:
+            for path in sorted((epic / pool).glob("*.md")):
+                match = _ID.match(path.name)
+                if match and match.group(1) not in readme:
+                    invisible.append(str(path.relative_to(_TASKS)))
+
+    assert invisible == [], (
+        f"epic sub-task files not mentioned by id in their epic's README.md: {invisible}"
+    )
+
+
 def test_every_board_link_resolves() -> None:
     """A renumber that misses a link leaves the board pointing at a file that
     no longer exists — which reads exactly like a task nobody finished."""

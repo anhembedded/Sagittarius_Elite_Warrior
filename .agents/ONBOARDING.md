@@ -28,14 +28,17 @@ A map of the process, not a copy of the rules: it tells you *when* to read *whic
 | 10 | `.agents/rules/async-ui-action-rule.md` | Presenters, background tasks, cancellation, Coordinator |
 | 11 | `.agents/rules/domain-truth-rule.md` | When touching `src/domain/`, `src/application/` |
 | 12 | `.agents/rules/ui-presentation-rule.md` | When touching `src/presentation/` (Python) |
-| 13 | `.agents/rules/qml-rule.md` | When touching `.qml` files |
+| 13 | `.agents/rules/qml-rule.md` | **Retired 2026-09-13** (ADR D20) — only to read QML that still exists; never for new work |
+| 14 | `.agents/rules/report-rule.md` | Before reporting work back to the user — any report, any pull request, any *"sao rồi"* |
+| 15 | `.agents/rules/install-rule.md` | Setting up an environment, or when a tool the gate needs is missing (install it; never report "cannot verify") |
+| 16 | `.agents/rules/code-rule.md` | Never as a rule — a navigation stub, kept because `.agents/Skills/` still points at it |
 | — | `Docs/VOCABULARY/README.md` | **Look up any term** (architecture, UI places, per-context domain words); the only place a term is defined — add a new term there in the same commit that coins it |
 | — | `Tasks/ROADMAP.md` | Where the system stands, which tasks exist |
 | — | `Tasks/bug_report/README.md` | Bug Board — which bugs are open |
 | — | `Tasks/epics/README.md` | Epic list (each Epic has its own directory + README, §3) |
 | — | **§12 of this file** | **Picking up work in progress** — and §12.2 for where live state actually lives |
 
-Count the real number of rule files with `ls .agents/rules/` — **do not load them all**, each file has its own `trigger`. `install-rule.md` covers installation specifically; read it when a task actually touches that scope. `code-rule.md` is **only a navigation stub** (the real content was split into the files above); the stub is kept because `.agents/Skills/` still points at it (`grep -rl code-rule .agents/Skills/`). Security rules live in `.agents/Skills/sentinel.prompt.md` + `Tasks/epics/EPIC-004_static_security_and_quality_analysis/`, **not** in `rules/`.
+Count the real number of rule files with `ls .agents/rules/` — **do not load them all**, each file has its own `trigger` — and compare with the table: `tests/unit/test_rule_navigation_is_complete.py` fails when a rule file is missing from this table, from `CLAUDE.md` or from `AGENTS.md`, because `report-rule.md` sat in the other two for two days while this reading order never mentioned it. Security rules live in `.agents/Skills/sentinel.prompt.md` + `Tasks/epics/EPIC-004_static_security_and_quality_analysis/`, **not** in `rules/`.
 
 ---
 
