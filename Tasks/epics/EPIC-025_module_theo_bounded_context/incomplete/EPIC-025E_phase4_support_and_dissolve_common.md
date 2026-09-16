@@ -1,6 +1,6 @@
 # EPIC-025E — Phase 4: `support/{charting, indicators, ui_kit}`; dissolve `presentation/ui/common/`
 
-- **Status:** 🔴 Backlog
+- **Status:** 🟡 In progress — §3 is the measured cut, taken 2026-09-16 after Phase 3 closed its coded work
 - **Repository:** Elite
 - **Blocked by:** D · **Blocks:** F
 - **Read first:** HLD §2.3 (a support package is not a bounded context: no business language, no
@@ -32,8 +32,9 @@
    `BaseStrategy` from `domain/strategies` — Phase 2's `modules/strategy`. So the assignment
    cannot be satisfied before that module exists, and it is not obvious it should be: a form
    that renders *a strategy's* parameters reads more like `modules/strategy/ui` than like a
-   generic indicators package. **Open for the user**, same shape as `sync_progress_*` in step 3,
-   and the pair stays where it is until then.
+   generic indicators package. ~~**Open for the user**~~ — **answered by PR 2.1e, see §3.4**: it went
+   to `modules/strategy/ui`, and `support/indicators` was never satisfiable because §6.1 forbids a
+   support package importing a module at all.
 3. `support/ui_kit/` ← what survives of `kit/` after HLD §11 (no `PageShell`, no `style.py`, no
    tokens, no `qml/`): the generic QtWidgets helpers (`binding`, `widget_value`, guards) and the
    five genuinely shared items of `ui/common` (`action_ownership_tracker`, `app_defaults`,
@@ -73,8 +74,9 @@
    the rule table refusing it, not an allowlist entry waiting to be written. A feed
    whose whole job is to normalise *one module's* events is that module's UI, so the
    destination should be `modules/market_data/ui/`. That re-assignment changes what
-   the epic promised, so it is **open** and needs the user's call; until then the pair
-   stays where it is and nothing is moved quietly. What remains for *this* phase is whatever still has a legacy
+   the epic promised, so it was left **open**. — **Closed in §3.3, and by a rule rather than a
+   preference:** `support/ui_kit` is refused by the rule table, so `modules/market_data/ui/` is the
+   only destination that does not require changing a rule the user already has. It goes as PR 4.2a. What remains for *this* phase is whatever still has a legacy
    import when Phase 3 ends, plus the deletions in step 4, which only this phase can do.
 4. **Delete** `ui/common/`; **delete** `binance_bot_module.py` (now empty); the `settings` screen
    becomes a surface that hangs each module's `settings_section` contribution.
@@ -86,8 +88,12 @@
    and 11 of them had no destination that exists yet — six QML packages **this phase deletes**
    (ADR D20–D21) and five needing Phase 2's `modules/strategy`. Moving the screens early would
    have meant writing those 11 into a shrink-only allowlist, so the criterion travels with the
-   deletions in this step instead. Concretely: once step 3 has emptied `ui/common` and the QML
-   packages are gone, `screens/trading` and `screens/dashboard` `git mv` into
+   deletions in this step instead. **§3.1 revises the assumption underneath that decision:** it took the two screens as travelling
+   together, both waiting on the QML; measured, only `screens/dashboard` does (four QML imports),
+   while `screens/trading`'s thirteen blockers are all `trading`'s own code, so the pair splits and
+   the criterion starts falling at PR 4.1c rather than after the deletions. Concretely: once
+   step 3 has emptied `ui/common` and the QML packages are gone, `screens/trading` and
+   `screens/dashboard` `git mv` into
    `modules/trading/ui/` with the remaining imports pointing at `support/**` and
    `modules/*/contracts` only, and `tools/measure_duplicate_members.py` is expected to report
    **0** — which is also the last thing `test_presenter_duplication_only_shrinks.py` has to
@@ -106,3 +112,75 @@
 
 - `ls src/presentation/ui/common` → does not exist; the guard allowlist is **empty**; the two
   layer violations (screens importing `infrastructure/`) are gone.
+
+---
+
+## 3. The cut, measured 2026-09-16 before any code moved
+
+Phase 3's §4 is the template: measure every remaining group's imports of the legacy tree *first*,
+because that number is what says which pull request can exist and in what order. Item counts are
+`.py` files, `__pycache__` excluded; the imports counted are those naming
+`presentation`, `domain`, `application`, `infrastructure` or `binance_bot_module` from **outside**
+the group's own package.
+
+| Group | Files | Legacy imports | What they are |
+| :--- | :-: | :-: | :--- |
+| `ui/components/order_book` | 7 | **0** | — it is a **clean leaf**, exactly `assets/`'s position in PR 1.6a |
+| `ui/components` (root: `__init__`, `critical_error_dialog`) | 2 | **0** | — |
+| `ui/qml` | 68 (+24 `.qml`) | **0** | — the leaf this phase **deletes** rather than moves (ADR D20–D21) |
+| `screens/settings` | 6 | **1** | `presentation.cli.exchange_status_formatter` |
+| `ui/components/market_picker` | 3 | **2** | both `qml/SelectList` |
+| `ui/common` | 13 | **2** | both `components/order_book` |
+| `screens/data_management` | 23 | **6** | 3 `sync_progress_*`, `qml_property`, `qml/kit`, `qml/TimeRangePicker` |
+| `screens/trading` | 9 | **13** | 6 `order_book`, 7 `ui/common` — **and all thirteen are `trading`'s own code** |
+| `screens/dashboard` | 15 | **20** | 4 `order_book`, 8 `ui/common`, 4 QML (`SymbolPicker` ×2, `kit` ×2), 4 others |
+| `screens/backtest` | 74 | **33** | **28 of them QML**, which is `EPIC-025D` §4.1's finding restated |
+
+### 3.1 The finding: `screens/trading` is three pull requests from moving, and none of them is hard
+
+Its thirteen blockers are **six** `order_book` imports and **seven** `ui/common` feeds, and every
+one of those thirteen names code that HLD §3.5 already assigns to `modules/trading`:
+`equity_chart_adapter`, `equity_feed`, `execute_order_block_reason`, `live_order_book_coordinator`,
+`market_tick_feed`, `order_feed`, `order_fill_marker`. Nothing it needs is QML, and nothing it needs
+belongs to another context. So the epic's *"59 duplicated members → 0"* criterion — Phase 1's exit
+gate, handed to this phase by the user's `DECISION_2026-09-16` — is reachable **before** the QML
+deletions, which is not what that decision assumed. It assumed the two screens travel together and
+both wait on the QML; measured, only `screens/dashboard` does (four QML imports), and the pair can be
+split.
+
+### 3.2 The pull requests, in the order the measurement dictates
+
+| PR | What | Why it can go now |
+| :--- | :--- | :--- |
+| **4.1a** | `components/order_book` (7 files) → `modules/trading/ui/` | 0 legacy imports; its outbound reads are `modules/trading/contracts` (×9) and `support/ui_kit` (×3), all legal from a module's `ui/`. The 1.6a shape: a clean leaf, zero allowlist either way |
+| **4.1b** | the seven `trading`-owned `ui/common` feeds → `modules/trading/ui/` | after 4.1a, their only legacy read is `order_book`, which will already be in the module |
+| **4.1c** | `screens/trading` (9 files) → `modules/trading/ui/`; the duplication criterion starts falling | after 4.1a/b its legacy-import count is **0** |
+| **4.2a** | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator` | §3.3 below: the destination this file left open is **forced**, not chosen |
+| **4.2b** | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) | after 4.2a, its remaining three are QML, so it waits on 4.3 |
+| **4.3** | the QML deletions (ADR D20–D21): the backtest screen's eleven modals become `QDialog`s and its panels docks, `qml/` is deleted, `find src -name '*.qml'` → 0 | the one step with real UI work in it, and the only one the user sees |
+| **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard`; `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's |
+
+### 3.3 `sync_progress_*`: the open question is closed by a rule, not by a preference
+
+Step 3 left the destination open for the user because HLD §3.5 assigns the pair to
+`support/ui_kit` while §6.1 forbids `support/* → modules/*` with no contracts exception, and
+`sync_progress_feed` reads `modules.market_data.contracts.events.sync_events`. Re-read as a
+question of *what is legal*, there is only one answer: `support/ui_kit` is refused by the rule
+table (`boundaries/rules.py::import_is_allowed` returns `False`), so the only destination that
+does not require changing a rule the user already has is `modules/market_data/ui/` — which is
+also what the code says it is, a feed whose whole job is to normalise one module's events.
+
+Recorded here as a decision taken rather than a question deferred (`ONBOARDING` §7: a choice with
+one legal answer is not the user's to make), and it changes what the epic promised, so it is written
+down in the place that promised it: HLD §3.5's row is corrected with 4.2a.
+
+### 3.4 What `ui/components/strategy_overlay/` and `strategy_params/` were
+
+Two directories holding nothing but `__pycache__`. PR 2.1e moved their contents into
+`modules/strategy/ui/` and `git` does not track empty directories, so they survived the move
+invisibly — the same way `src/application/` and three of `src/domain/`'s subtrees survived PR 3.1c
+until they were looked for. Deleted with 4.1a. This also answers step 2's *"`components/
+strategy_params` did not come, and it is open for the user"*: **PR 2.1e answered it** — the form
+renders *a strategy's* parameters, so it went to `modules/strategy/ui`, and `EPIC-025C` carries the
+measurement (`bot_params_form.py` needs `BaseStrategy`, and §6.1 forbids a support package
+importing a module at all, so `support/indicators` was never satisfiable).
