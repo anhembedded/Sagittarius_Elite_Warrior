@@ -5,10 +5,10 @@ from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizingType,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.broker_simulation_config import (
     BrokerSimulationConfig,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type import (
     CommissionType,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_fsm_matrix import (

@@ -9,15 +9,15 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_historical_tick_backtest import (
     RunHistoricalTickBacktestCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest import (
     BacktestCancelled,
     RunStaticBacktestCommand,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type import (
     CommissionType,
 )
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken

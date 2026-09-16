@@ -6,24 +6,24 @@ from typing import ClassVar
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
-    RunHistoricalTickBacktestCommand,
-    RunHistoricalTickBacktestCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
-    RunStaticBacktestCommand,
-    RunStaticBacktestCommandHandler,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizing,
     PositionSizingType,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_historical_tick_backtest import (
+    RunHistoricalTickBacktestCommand,
+    RunHistoricalTickBacktestCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest import (
+    RunStaticBacktestCommand,
+    RunStaticBacktestCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.broker_simulation_config import (
     BrokerSimulationConfig,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_engine_factory import (

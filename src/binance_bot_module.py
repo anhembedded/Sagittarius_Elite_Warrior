@@ -4,14 +4,6 @@ from decimal import Decimal
 
 logger = logging.getLogger("App.BinanceBotModule")
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
-    RunHistoricalTickBacktestCommand,
-    RunHistoricalTickBacktestCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
-    RunStaticBacktestCommand,
-    RunStaticBacktestCommandHandler,
-)
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
@@ -33,6 +25,14 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publishe
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_historical_tick_backtest import (
+    RunHistoricalTickBacktestCommand,
+    RunHistoricalTickBacktestCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest import (
+    RunStaticBacktestCommand,
+    RunStaticBacktestCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
     MarketDataSessionFactory,

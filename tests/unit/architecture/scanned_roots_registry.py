@@ -180,9 +180,21 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ),
     ("tests/unit/presentation/test_enum_labels.py", (("src/presentation", "*.py"),)),
     # --- application / domain / infrastructure ------------------------------
+    # PR 3.1c retargeted this guard: `src/application/` is **empty** now, and a
+    # path-scanning guard that has lost its subject passes faster rather than
+    # failing. The row is what caught it — `src/modules/*/application` is a glob
+    # the registry cannot express, so the guard keeps its own non-emptiness
+    # assertion and this row names the parent it walks.
     (
         "tests/unit/architecture/test_application_layer_structure.py",
-        (("src/application", "*.py"),),
+        (("src/modules", "*.py"),),
+    ),
+    # PR 3.1c rescued the `i_*.py` naming rule the retarget above would have
+    # dropped. `src/` rather than `src/modules`, because `support/*` packages
+    # publish contracts too and the convention is the repository's.
+    (
+        "tests/unit/architecture/test_contract_file_naming.py",
+        (("src", "*.py"),),
     ),
     (
         "tests/unit/support/indicators/test_indicator_script_conventions.py",
@@ -242,8 +254,11 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             # had wrong until the gate said so. `modules/*/application` is
             # derived from disk by `_use_case_roots()` and so cannot go stale;
             # these two are written down and can, which is exactly what a row
-            # here is for.
-            ("src/application/use_cases", "*.py"),
+            # here is for. PR 3.1c is the second time that paid: the legacy
+            # `application/use_cases` root emptied out when `backtest/` became
+            # `modules/backtesting/application/`, and this row failed rather
+            # than the scan quietly reading nothing.
+            ("src/modules/backtesting/application", "*.py"),
             ("src/modules/strategy/domain/strategies", "*.py"),
         ),
     ),

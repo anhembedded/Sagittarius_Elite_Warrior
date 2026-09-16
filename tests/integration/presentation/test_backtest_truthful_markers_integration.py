@@ -2,14 +2,16 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_metrics import (
     BacktestMetrics,
 )
-from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
-from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
-from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason import (
+    ExitReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
 )

@@ -35,7 +35,7 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizingType,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type import (
     CommissionType,
 )
 

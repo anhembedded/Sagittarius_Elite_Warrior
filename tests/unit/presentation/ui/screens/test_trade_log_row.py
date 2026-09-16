@@ -1,7 +1,9 @@
 from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
-from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason import (
+    ExitReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )

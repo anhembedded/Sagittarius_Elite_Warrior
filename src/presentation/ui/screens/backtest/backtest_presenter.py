@@ -7,24 +7,24 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
-    BacktestCancelled,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest import (
+    BacktestCancelled,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
-from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
-from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import (
-    BacktestCompletedEvent,
-)
-from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
-    BacktestFailedEvent,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type import (
     CommissionType,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest_completed_event import (
+    BacktestCompletedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest_failed_event import (
+    BacktestFailedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
 )

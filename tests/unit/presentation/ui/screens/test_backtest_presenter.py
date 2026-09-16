@@ -26,28 +26,30 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest.command import (
-    RunHistoricalTickBacktestCommand,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
-    BacktestCancelled,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.command import (
-    RunStaticBacktestCommand,
-)
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_historical_tick_backtest.command import (
+    RunHistoricalTickBacktestCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest import (
+    BacktestCancelled,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest.command import (
+    RunStaticBacktestCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_metrics import (
     BacktestMetrics,
 )
-from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
-from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.currency import (
+    Currency,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.out_of_sample_validation import (
     OutOfSampleValidation,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
     InMemorySymbolMarketMetadataCache,
 )
@@ -316,7 +318,9 @@ def _make_result(with_trades: bool) -> BacktestResult:
     )
     trades = []
     if with_trades:
-        from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+        from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import (
+            Trade,
+        )
 
         trades = [
             Trade(
@@ -350,7 +354,7 @@ def _make_fake_result(trades: list) -> BacktestResult:
 def _make_result_with_trades(trade_count: int, win_count: int) -> BacktestResult:
     """@brief BOT-057: `_make_result`'s `with_trades: bool` only ever makes
     0 or 1 trade — filter/search/pagination tests need a real spread."""
-    from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
 
     trades = [
         Trade(

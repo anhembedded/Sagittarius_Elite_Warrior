@@ -19,7 +19,8 @@
 # -> 36 after PR 2.1c-2
 # -> 35 after PR bug-127 (the metadata port is bound; the presenter's
 #    adapter import goes with it)
-# -> 29 after PR 3.1b.
+# -> 29 after PR 3.1b
+# -> 32 after PR 3.1c.
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -542,3 +543,30 @@ presentation.ui.screens.trading.trading_view_model -> modules.strategy.ui.strate
 # is the *interactive shell*'s and `trade-once` has never been one of its
 # commands. Recorded because the note this replaces said "declared CLI
 # command", which would have sent the next reader to the wrong registry.
+
+# ---------------------------------------------------------------------------
+# PR 3.1c -- `modules/backtesting` arrives. THREE entries in, none retired,
+# and three is the number worth explaining, because the measured estimate was
+# five times that.
+#
+# `EPIC-025D` section 4 counted 33 imports reaching into the moving code from
+# 17 files. Almost all of them read the *answers* a backtest produces --
+# `BacktestResult`, `Trade`, `ExitReason`, `BacktestMetrics`, `CommissionType`,
+# `Currency`, `BrokerSimulationConfig`, the two lifecycle events -- and those
+# went into `contracts/` with the move, so they became legal imports rather
+# than counted violations. PR 1.3b's first half did exactly this for `trading`
+# and took its inbound count 61 -> 41 without touching a single consumer; this
+# is the same trick, and here it absorbed 30 of 33.
+#
+# What is left is the one thing `contracts/` cannot absorb: the Backtest screen
+# **builds this module's commands and dispatches them**. That is the
+# transitional shape `EPIC-025` exists to retire -- a consumer assembling
+# another context's command object for the Engine's dispatcher -- and HLD
+# section 3.4 records its exit: *"if a CLI `backtest` command appears,
+# `IBacktestRunner` is added then"*. It is `IMarketDataSync`'s arc exactly (PR
+# 0.4a moved the code, PR 0.5 published the port and four screens stopped
+# building the command), so these three retire with the port, at the latest
+# when the screen itself moves in Phase 4.
+presentation.ui.screens.backtest.backtest_presenter -> modules.backtesting.application.run_static_backtest
+presentation.ui.screens.backtest.coordinators.execution_coordinator -> modules.backtesting.application.run_historical_tick_backtest
+presentation.ui.screens.backtest.coordinators.execution_coordinator -> modules.backtesting.application.run_static_backtest
