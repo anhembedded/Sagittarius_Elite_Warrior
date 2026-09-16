@@ -169,7 +169,7 @@ Documentation is something an agent has to go looking for; a type hits you in th
 | **A price knowingly paid** (a deliberate trade-off) | A **test locking the current behavior** + a docstring stating what was given up and why it is acceptable. Not just a one-line note. |
 
 - **Trade-off:** `EPIC-008F` dropped `frozen=True` on 4 domain events so they could inherit `BaseEvent` — instead of deleting the immutability test it **turned it into a test locking the new behavior** (`test_signal_generated_event_is_no_longer_frozen`) with the reason and the conditions for restoring it.
-- **Extension point:** `SystemErrorFeed` is the first Feed, `HealthFeed`/`SyncProgressFeed` are already agreed to be coming → there must be a `BaseFeed` as the contract, so that promoting a private truth onto the bus (§6.3) has a **named landing spot**.
+- **Extension point:** `SystemErrorFeed` was the first Feed, with `HealthFeed`/`SyncProgressFeed` already agreed to be coming → there must be a `BaseFeed` as the contract, so that promoting a private truth onto the bus (§6.3) has a **named landing spot**. The example is in the past tense on purpose: `BaseFeed` was the right landing spot and still serves three feeds, while the class that motivated it turned out never to be **constructed** at all and was deleted by `BUG-126`. A landing spot is a claim about shape, never evidence that anything landed — see [`CS-002`](../../Docs/CASE_STUDIES/CS-002_the_subscriber_nobody_built.md), and §6.3's own rule that a fact is promoted when the *second* consumer appears, which this one never had a first of.
 
 ### 7.2 Always favor abstraction — a class is a **contract**, not a lump of code
 

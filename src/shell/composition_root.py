@@ -27,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
 from Sagittarius_Elite_Warrior.src.shell.config_writer import ConfigManagerWriter
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
 from Sagittarius_Elite_Warrior.src.shell.modules import MODULES, RegisteredModules
+from Sagittarius_Elite_Warrior.src.shell.system_failure_log import SystemFailureLog
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     AssetValidatorExtension,
 )
@@ -67,7 +68,8 @@ def create_app(config_manager: ConfigManager) -> App:
     # `StdLogger` nữa cho DI — không nhân đôi log, vì **cả hai bọc cùng một**
     # `logging.getLogger("App")`; lần dựng sau chỉ dọn rồi gắn lại đúng bộ
     # handler theo cùng config.
-    event_bus = MemoryEventBus(StdLogger(config_manager))
+    app_logger = StdLogger(config_manager)
+    event_bus = MemoryEventBus(app_logger)
 
     # Register core ports
     container.singleton(IContainer, container)
@@ -79,6 +81,19 @@ def create_app(config_manager: ConfigManager) -> App:
     # screen's developer-mode switch is the first caller to go through the
     # port instead, and the downcast retires with that screen (SDD §4).
     container.singleton(IConfigWriter, ConfigManagerWriter(config_manager))
+
+    # `BUG-126` — the two failure paths `EPIC-008` §1 found unsubscribed get a
+    # subscriber here, at the one place both entry points pass through, rather
+    # than in a screen. `EPIC-008G`'s answer was a Qt feed constructed *by a
+    # screen*, and no screen ever constructed it: a UI slot that raised and a
+    # background task that died still reached nobody. Registered as a singleton
+    # so the graph owns it — `bus.on()` alone would keep it alive through the
+    # bound handler, which is a lifetime nobody reading this file could see.
+    #
+    # Before `boot()` on purpose: an extension that fails during `boot()` is
+    # exactly the failure worth seeing, and a subscriber registered afterwards
+    # would miss it.
+    container.singleton(SystemFailureLog, SystemFailureLog(event_bus, app_logger))
 
     app = App(container, event_bus)
 

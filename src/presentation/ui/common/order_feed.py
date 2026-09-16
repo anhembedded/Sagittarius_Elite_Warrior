@@ -6,8 +6,15 @@ nhiều nơi hiển thị (`EPIC-021H`).
 biết chuyện này có vô lý không?" — trả lời không vô lý: bảng lệnh, chart
 marker (`BOT-009`'s Trade Markers Manager, đang chờ đúng `OrderFilledEvent`
 này), và log đều quan tâm khi một lệnh khớp hoặc một vị thế đổi. Feed thứ
-tư cạnh `SyncProgressFeed`/`HealthFeed`/`SystemErrorFeed` — không tạo hình
-dạng thứ năm.
+tư cạnh `SyncProgressFeed`/`HealthFeed` — không tạo hình dạng thứ năm.
+
+`SystemErrorFeed` từng được kể ở đây là Feed thứ ba; `BUG-126` đã xoá nó, vì
+**không ai dựng nó cả** nên hai event lỗi nó đăng ký chảy vào hư không. Dòng
+docstring đó chính là một trong hai "tham chiếu" khiến HLD §3.5 xếp nó vào
+diện *live, do not delete* — grep văn bản không phân biệt được một lần **nhắc
+tên** với một lần **import**. Nay việc đó do `shell/system_failure_log.py`
+làm, và `tests/unit/architecture/test_a_bus_subscriber_is_constructed.py` đọc
+**AST** nên một docstring không thể làm nó im lặng nữa.
 
 Phát lại nguyên vẹn `OrderFilledEvent`/`PositionChangedEvent`/
 `PositionClosedEvent` (không chuẩn hoá thành DTO riêng): cả ba đã là kiểu

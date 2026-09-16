@@ -72,6 +72,17 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_engine_port_calls_are_real.py",
         (("src", "*.py"), ("scripts", "*.py")),
     ),
+    # `BUG-126` — a class that subscribes to the event bus must be named
+    # somewhere else in the application, or nothing can construct it and its
+    # events reach nobody. Two roots: `src/` is where a subscriber may be
+    # defined, `scripts/` is a legitimate place for the construction (a probe
+    # or an end-to-end script is a real consumer). An empty `scripts/` scan
+    # would silently turn every script-only subscriber into a false positive,
+    # which is the opposite failure but registered for the same reason.
+    (
+        "tests/unit/architecture/test_a_bus_subscriber_is_constructed.py",
+        (("src", "*.py"), ("scripts", "*.py")),
+    ),
     # PR 1.6g — every name declared to be the repository root must resolve to
     # it. A hop count breaks on any change of depth, which is every move this
     # epic makes, and it did so twice in two pull requests.
