@@ -75,8 +75,15 @@ What replaces them — a command whose output is the answer:
 
 ## 3. The gate — non-negotiable
 
-[`ci-rule.md`](../rules/ci-rule.md) §1 is the authority, and it says `-UnitOnly`
-is *"diagnostic-only and never sufficient for handoff or commit"*.
+[`ci-rule.md`](../rules/ci-rule.md) §1–§2 is the authority. Read the cadence there
+before running anything: the full gate is required **once per pull request, on the
+final tree**; every commit runs the one-second static checks and the architecture
+guards; and the diagnostic modes (`-UnitOnly`, `-SanityOnly`, `-SkipLint`,
+`-SkipTests`) *"MUST NOT be used to bypass a failing required gate, justify a
+commit, or mark a task complete"* — those are §2's own words. An earlier version of
+this paragraph attributed a sentence to `ci-rule.md` that the file had never
+contained, which is §1's *restated rule* in its most convincing disguise: a
+quotation.
 
 ```bash
 pwsh -NoProfile -File scripts/ci-local.ps1 -Full > /tmp/ci.log 2>&1   # Linux
@@ -158,7 +165,8 @@ never generic Python/Qt advice from any textbook.
 - Architectural changes, and anything crossing a layer boundary.
 
 🚫 **Never**
-- Commit without the §3 gate passing, when your change touches code.
+- Offer a pull request without the §3 gate green on its final tree, or commit code the
+  static checks and architecture guards have shown red (`ci-rule.md` §1's two tiers).
 - Weaken, skip, delete or `xfail` a test to make your change pass.
 - Break a public contract, or change behaviour in a run whose stated job is not to
   change behaviour.

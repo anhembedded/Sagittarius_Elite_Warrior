@@ -23,6 +23,10 @@ ago; this audit is the replacement instrument.
 
 ## Run it
 
+Whether this audit is actually *scheduled* is answered by `list_triggers`, and whether it has
+run by `ls Tasks/reports/test_health/` — never by this paragraph. (On 2026-09-16 the answer was:
+seven scheduled agents, none of them this audit, and one run on disk.)
+
 ```bash
 python3 .claude/skills/test-health/scan.py            # human summary
 python3 .claude/skills/test-health/scan.py --json     # machine-readable
@@ -68,13 +72,14 @@ the calls that need judgement rather than a threshold.
 | **C6** | A hand-written constant drives `parametrize` with no completeness guard in the same file. | None that survives scrutiny. An allowlist catches deletions and is blind to an addition nobody registered — which is the failure that actually happens. The correct pattern already exists in `tests/sanity/test_view_model_thread_affinity_sanity.py`: pin the list, then prove the list complete against a live scan. |
 | **C7** | The same fixture name is defined in several files of one tier. | Two genuinely different fixtures that happen to share a name. Check the bodies — if they are near-copies, they have already drifted or will. |
 | **Excluded from CI** | A directory the project's own CI entry point refuses to run. | Never leave unreported. Report the test count being skipped as a number: that is the size of the blind spot. |
-| **Rule contract** | A mandatory clause of `ci-rule.md` / `code-rule.md` with zero enforcement in the tier it governs. | A clause that has just been retired — in which case fix the rule and `contract.json` in the same change, so the audit stops checking a rule nobody has. |
+| **Rule contract** | A mandatory clause of `ci-rule.md` / `testing-rule.md` with zero enforcement in the tier it governs. | A clause that has just been retired — in which case fix the rule and `contract.json` in the same change, so the audit stops checking a rule nobody has. |
 | **Orphaned assets** | Files under `src/` that no `src/*.py` loads any more. | Assets loaded by path built at runtime. Verify. Ones still referenced *by tests* are the real signal: a guard outliving what it guards is worse than no guard — it reports green about something production stopped using, and costs CI time to say nothing. |
 
 ## Keeping `contract.json` honest
 
 `contract.json` is the machine-readable half of `.agents/rules/ci-rule.md` §6
-and `code-rule.md` §4. When either rule changes, change this file in the same
+and `testing-rule.md` §1 (`code-rule.md` §4 until the 2026-08-25 split; the stub
+that remains holds no clause). When either rule changes, change this file in the same
 commit. If they drift, the audit starts grading the suite against a rule the
 project no longer holds — which is precisely the failure the first audit found
 (`code-rule.md` mandated `quick_widget.errors() == []` for a year after the UI

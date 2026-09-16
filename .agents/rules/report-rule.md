@@ -1,4 +1,6 @@
 ---
+name: Report Rule
+description: The shape of every report back to the user — context, one diagram, then the numbers with their targets; Vietnamese in chat, English in the repository.
 trigger: always_on
 ---
 

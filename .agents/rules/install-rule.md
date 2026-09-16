@@ -1,4 +1,6 @@
 ---
+name: Install Rule
+description: How the engine and the dependencies are installed, the Python floor, and the rule that a missing tool is installed rather than reported — with the Linux bootstrap that has actually been run.
 trigger: always_on
 ---
 
@@ -14,12 +16,21 @@ options and guidelines when setting up the environment or resolving `sagittarius
 local editable**, when developing/debugging engine and bot together.
 
 ```bash
-# Option 1
-pip install git+https://github.com/anhembedded/Sagittarius_Engine.git
-pip install --upgrade --force-reinstall git+https://github.com/anhembedded/Sagittarius_Engine.git
+# Option 1 — clone without submodules, then install from the path.
+git clone --depth 1 https://github.com/anhembedded/Sagittarius_Engine.git /tmp/engine
+pip install /tmp/engine            # or: uv pip install --python .venv/bin/python /tmp/engine
 # Option 2 (from workspace root)
 pip install -e Sagittarius_Engine
 ```
+
+**Why the clone, and not `pip install git+URL`:** pip follows a git URL with
+`git submodule update --init --recursive`, and the engine carries a **private** submodule
+(`tools/Sagittarius_LogViewer`, a developer tool, not a runtime dependency). An unauthenticated
+environment then fails with *"could not read Username for 'https://github.com'"* — the single line
+that failed every GitHub Actions run in this repository's history until
+`.github/workflows/ci.yml`'s *Install Sagittarius Engine* step switched to the clone. This file
+recommended the failing form for a month after that step was written. (`Sagittarius_Engine` and
+`Sagittarius-Engine` both resolve — GitHub redirects the older spelling.)
 
 ## 1b. Python version — floor 3.12, and develop *on* it
 
@@ -88,6 +99,23 @@ chmod +x /opt/microsoft/powershell/7/pwsh
 ln -sf /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh
 pwsh --version        # PowerShell 7.5.0
 pwsh -NoProfile -File scripts/ci-local.ps1 -Full
+```
+
+**The whole Linux bootstrap, as run on 2026-09-16 in a fresh remote container** (Python 3.11 on
+the image, so the floor had to be brought in; every step measured, none assumed):
+
+```bash
+uv venv .venv --python 3.12                       # uv finds or fetches a 3.12 interpreter
+uv pip install --python .venv/bin/python -r requirements.txt
+git clone --depth 1 https://github.com/anhembedded/Sagittarius_Engine.git /tmp/engine
+uv pip install --python .venv/bin/python /tmp/engine
+apt-get update -qq && apt-get install -y -qq --no-install-recommends \
+  libegl1 libgl1 libglib2.0-0 libdbus-1-3 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 \
+  libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+  libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xfixes0   # the list ci.yml installs
+QT_QPA_PLATFORM=offscreen .venv/bin/python -c "from PySide6.QtWidgets import QApplication; QApplication([])"
+# then the pwsh tarball above, and:
+pwsh -NoProfile -File scripts/ci-local.ps1 -SkipTests > /tmp/gate.log 2>&1   # PASS in ~1 s
 ```
 
 **Do not raise `-Workers` without measuring:** on a 4-core container, 6 (the default) and 12

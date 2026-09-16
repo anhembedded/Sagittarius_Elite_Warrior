@@ -14,7 +14,7 @@ theo **Clean Architecture** (Domain → Application → Infrastructure/Presentat
 | | |
 | :--- | :--- |
 | **Python** | ≥ 3.12 (sàn thật, được `tests/sanity/test_python_floor.py` canh — xem [`install-rule.md`](.agents/rules/install-rule.md) §1b) |
-| **UI** | PySide6 (QtWidgets) + pyqtgraph cho chart; QML nhúng theo từng widget |
+| **UI** | PySide6 (QtWidgets) + pyqtgraph cho chart; **không còn QML cho code mới** (ADR D20, 2026-09-13) — phần QML còn sót được `EPIC-025` gỡ dần, guard chặn file `.qml` mới |
 | **Lưu trữ** | SQLite (WAL) qua SQLAlchemy |
 | **Cổng kiểm thử bắt buộc** | [`scripts/ci-local.ps1 -Full`](scripts/ci-local.ps1) + [GitHub Actions](.github/workflows/ci.yml) |
 | **Trạng thái / lộ trình** | [`Tasks/ROADMAP.md`](Tasks/ROADMAP.md) · [`Tasks/epics/README.md`](Tasks/epics/README.md) · [Bug Board](Tasks/bug_report/README.md) |
@@ -276,7 +276,7 @@ code hỏng** ở đây.
 | Thêm/sửa log | [`logging-rule.md`](.agents/rules/logging-rule.md) |
 | Viết test | [`testing-rule.md`](.agents/rules/testing-rule.md) |
 | Làm UI: bố cục màn hình, `preview.py`, icon, cột bảng | [`ui-presentation-rule.md`](.agents/rules/ui-presentation-rule.md) |
-| Bất kỳ file `.qml` nào, hoặc chọn QML vs QtWidgets | [`qml-rule.md`](.agents/rules/qml-rule.md) |
+| File `.qml` còn sót lại (chỉ để đọc — rule đã retired, code mới không dùng QML) | [`ui-presentation-rule.md`](.agents/rules/ui-presentation-rule.md) · [`qml-rule.md`](.agents/rules/qml-rule.md) |
 | Tác vụ nền khởi động từ UI: sở hữu action, huỷ, tách Coordinator | [`async-ui-action-rule.md`](.agents/rules/async-ui-action-rule.md) |
 | Đụng `src/domain/**` hoặc `src/application/**`: dữ liệu trung thực | [`domain-truth-rule.md`](.agents/rules/domain-truth-rule.md) |
 | Dựng môi trường, thiếu công cụ | [`install-rule.md`](.agents/rules/install-rule.md) |

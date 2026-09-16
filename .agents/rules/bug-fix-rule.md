@@ -124,7 +124,8 @@ are never local. Add `Docs/CASE_STUDIES/CS-NNN_slug.md` in the fixing commit, on
 the three sections its [index](../../Docs/CASE_STUDIES/README.md) requires — *why nothing caught
 it* (net · why silent · still open?), *the fix*, *where else this is still open* — and list it in
 that index. `tests/unit/architecture/test_case_study_index_is_consistent.py` fails on an unlisted
-file, a dead citation, a missing section or a file over 60 lines.
+file, a dead citation, a missing section, or a file longer than the cap that index states — the
+guard holds the number and this file does not repeat it (it said 60 while the guard held 35).
 
 Not every bug earns one: if nothing was watching that line and nothing pretended to be, the bug
 report is the whole record. The test is whether the same blind spot is open somewhere else right

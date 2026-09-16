@@ -127,7 +127,7 @@ PYTHONPATH=. \
 
 **This applies to EVERY verification command, including `ci-local.ps1 -Full`** — and the reason is worse than "noise": `| tail -N` can **completely lose** the real error line. Evidence (`BUG-029`/`BUG-030`): a previous agent only ran raw `pytest`; when it finally ran `ci-local.ps1 -Full` and redirected everything to a file (`> file 2>&1`, not pipe/tail), two real bugs surfaced at once — (1) `Join-Path` only works on PowerShell 7+, breaking the CI gate on PowerShell 5.1 which the script itself claims to support; (2) `-n 6` (parallel) killed one worker after a `ResourceWarning: unclosed database`, reproducing 2/2 times, not flaky. Both only surfaced because there was a complete log file to re-read. Always `> logfile 2>&1`, never `| tail`.
 
-**On lint:** the repo always carries a few `I001` errors (unsorted imports) from other sessions that you did not cause — check for real with `ruff check src tests`. Only fix lint in the **files you are already changing for the current task**; don't go tidying unrelated files (nobody can review a bug-fix diff mixed with unrelated changes). If you want to clean the whole repo, do it in a separate `style:` commit, after asking the user.
+**On lint:** the tree is lint-clean at every merge — the gate makes it so — but a session merged beside yours can leave an `I001` (unsorted import) in a file you never touched; check for real with `ruff check src tests tools scripts` before assuming the error is yours. (This sentence used to say the repo *always* carries a few, which licensed ignoring them.) Only fix lint in the **files you are already changing for the current task**; don't go tidying unrelated files (nobody can review a bug-fix diff mixed with unrelated changes). If you want to clean the whole repo, do it in a separate `style:` commit, after asking the user.
 
 ---
 
@@ -223,9 +223,9 @@ That is: if the user's request creates an architectural contradiction, violates 
 
 ---
 
-## 8. Thirteen traps that made other agents produce broken code
+## 8. Traps that made other agents produce broken code
 
-All of them really happened in this repo; none are hypothetical.
+All of them really happened in this repo; none are hypothetical. Count them here rather than in the heading — the heading carried a number once and it was wrong the day the next trap was added.
 
 1. **Computing a test's expected value in your head instead of running the real code.** In `BOT-106A`, a return series that is mathematically constant still made `statistics.stdev()` yield ~1e-16 rather than `0.0`, blowing Sharpe up to ~3.2×10¹⁵. Run the real code, then fix the expected number.
 2. **Comparing floats with `== 0` or `if value:`.** Use `math.isclose(x, 0.0, abs_tol=1e-9)`. See trap 1 for the consequences.
@@ -241,6 +241,8 @@ All of them really happened in this repo; none are hypothetical.
 12. **Writing a test double from the calls your code makes, instead of from the real collaborator's interface.** Such a double cannot disagree with the code under test. `BUG-124`: the Welcome screen's `_Bus` defined `publish`, `on` **and** `subscribe` — the union of the app's `IEventPublisher`, the engine's `IEventBus`, and a verb that exists on neither — so the test recorded a `publish()` the real bus has no attribute for, and **Start on the app's first screen shipped dead** while that file stayed green. Two things make it invisible: `IContainer.resolve` returns `Any`, so mypy checks nothing reached through it, and no tier imports `src/shell/` wholesale. Subclass the real thing (`MemoryEventBus` is in-memory and free) or derive the double from the ABC. Full write-up: [`Docs/CASE_STUDIES/CS-001`](../Docs/CASE_STUDIES/CS-001_a_double_that_could_not_disagree.md).
 
 13. **Proving a class works, and calling that proof the program works.** A unit test constructs its subject — so it can never fail because *production* forgot to. `BUG-126`: `SystemErrorFeed` subscribed to the two events `EPIC-008` §1 had found unsubscribed, its test file was green, and **nothing in `src/` or `scripts/` ever constructed it**, so that P1 finding stayed true for two more epics. ruff sees an unused *import*, never an unreachable class; mypy checks one either way; and HLD §3.5's *re-measured* dead-code list called it live because a **docstring** mentioned it and a text search cannot tell a mention from an import. Ask what constructs the thing, and assert it against the graph `create_app()` builds. Full write-up: [`Docs/CASE_STUDIES/CS-002`](../Docs/CASE_STUDIES/CS-002_the_subscriber_nobody_built.md).
+
+14. **Committing whatever the index holds, and never looking at the repository root.** `git commit` commits the whole index, not the paths you meant. Three scratch files (`pr_body.txt`, `message_for_reviewer.txt`, `get_file_content.py`) rode into the repository root in August 2026 and stayed a month, through roughly 370 commits and twenty reviewed pull requests — one of them carrying the `Co-Authored-By: Antigravity` trailer that `AGENTS.md` records as purged. Nothing noticed because every check scans a named tree (`src/`, `tests/`, `scripts/`, `tools/`, `Docs/`, `Tasks/`, `.agents/`, `.claude/`) and nobody owns the root itself. Read `git status --short` before every commit and `git show --stat HEAD` after it; `pr-review` L6 exists for exactly this, and the strategic review of 2026-09-16 (`Tasks/reports/ai_process_strategic_review_2026-09-16.md`) records the shape of the blind spot.
 
 ---
 
@@ -308,6 +310,8 @@ git -C . status
 git -C ../Sagittarius_Engine status
 cat Tasks/epics/README.md
 ```
+
+In a single-repository checkout — every remote session clones only this app, at `/home/user/Sagittarius_Elite_Warrior` or similar, with an ordinary directory above it — the second command fails, and that failure *is* the answer: there is no Engine working tree to check and Engine work is out of that session's scope. The bash commands in §5 that prefix `Sagittarius_Elite_Warrior/` assume the superproject; from inside a lone checkout the equivalent is `PYTHONPATH=..` (what `.github/workflows/ci.yml` does) and `.venv/bin/python` without the prefix.
 
 **Work on this project is often left uncommitted between sessions** — per §7, agents don't commit on their own. So `git status` is not a formality: a task board that looks untouched **plus** a dirty working tree means the work is **already done**, just not recorded. Read the diff before concluding a task is untouched. Trust the output of those 3 commands, not any paragraph describing the state.
 
