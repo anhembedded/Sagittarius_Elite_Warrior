@@ -41,6 +41,13 @@ store to be current, and the app decides where to start reading from.
 6. The actor may cancel. The app polls the actor's cancellation between fetches and stops there.
 7. When the range is covered, the app finishes. The command line prints `✅ Sync complete.`; a
    screen returns to idle and re-reads what is now stored.
+8. **On the Backtest screen only**, the same worker then caches that symbol's exchange order
+   filters — minimum notional, lot step, price tick — so the screen's market-rule check has
+   something to check against (`BUG-127`). It reads the **same** `exchangeInfo` payload the symbol
+   list already fetches, so it costs no extra request, and it runs here rather than where the check
+   runs because the check is on the Qt main thread and must not make a network call. A failure at
+   this step does **not** fail the sync: the candles are already on disk, and the screen keeps
+   saying *"not verified yet"* — see §6.
 
 ## 4. What must be true afterwards
 
@@ -74,12 +81,20 @@ store to be current, and the app decides where to start reading from.
   still be forming.
 - It does not promise an ETA. Step 5's `total` is an **estimate** computed from the range and
   the timeframe, and the app says so rather than presenting it as a countdown.
+- **It does not promise step 8's filters arrived.** A sync reported as complete means the candles
+  are on disk; the exchange-rule check is a separate, best-effort read, and a Backtest screen that
+  still says *"not verified against exchange rules"* after a successful sync is telling the truth
+  rather than hiding a failure. Before `BUG-127` that message was permanent for every symbol,
+  because nothing ever cached a filter — the honest transient is the fix, and this line is the
+  promise that it stays a transient rather than becoming a guarantee.
 
 ## 7. Ports and modules it exercises
 
 `market_data`: `IMarketDataSync` (the published sentence — every one of the four callers goes
 through it), `IMarketDataRepository` (what is stored), `IExchangeClient` (the fetch),
-`IRangeCoverage` (what a later reader asks about coverage). `InFlightSyncGuard` is internal to
+`IRangeCoverage` (what a later reader asks about coverage), and — for step 8, on the Backtest
+screen's path only — `ISymbolMetadataProvider` (fetches the filters) writing through
+`ISymbolMarketMetadataCache` (what the main-thread check reads). `InFlightSyncGuard` is internal to
 the module and deliberately not published.
 
 ## 8. Proven by

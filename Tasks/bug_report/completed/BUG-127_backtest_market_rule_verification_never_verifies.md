@@ -81,8 +81,20 @@ and the parser that reads them sits in the same package. The fetch is already pa
 ## 3. Positive proof the fix runs
 
 `bug-fix-rule.md` §3: absence of the old symptom is weak evidence, so this is the new mechanism
-firing through the real logging config, with the branch that had never executed in production
-producing a real answer either way.
+firing, with the branch that had never executed in production producing a real answer either way.
+
+The review of this fix corrected how the first take was captured: it used `logging.basicConfig`,
+and [`logging-rule.md`](../../../.agents/rules/logging-rule.md) §9 asks for the **real** logging
+config — which is not pedantry here, because `BUG-009`'s second root cause was a logger outside the
+`"App"` tree that had no handler and dropped everything. Re-taken through
+`composition_root.create_app()`, so the record below comes out of the app's own `StdLogger`, in the
+format the gate's log scan greps:
+
+```
+>>> calling refresh() through the real graph and the real logger:
+2026-09-16 13:16:30,546 - App.SymbolMetadata - INFO - Symbol metadata refreshed: 2 symbols cached.
+>>> refresh() returned 2
+```
 
 ```
 --- BEFORE the warm: what the screen showed since BOT-095E1 ---
@@ -211,3 +223,23 @@ And the port's own contract suite,
 `None` and never a placeholder, the second read costs no round trip, a **stale** entry is refetched
 (`BUG-098`, where the futures twin shipped `is_stale()` and never called it), and `refresh()` reports
 its count rather than raising on an empty catalog.
+
+## 8. What the review of the fix found
+
+Two gaps, both in the fix's own paperwork rather than its code, and both cheap:
+
+- **The log evidence used the wrong instrument.** `logging-rule.md` §9 wants the diagnostic seen
+  through the real logging config; the first take used `logging.basicConfig`. Re-taken through
+  `create_app()` (§3). Worth stating why the distinction is not pedantry: a logger outside the
+  `"App"` tree has no handler and silently drops everything, which was `BUG-009`'s *second* root
+  cause. Also measured while checking: **zero** `App.*` records appear in the gate's own run log, so
+  the log-scan step reads the application's run log rather than pytest's output — the gate cannot
+  confirm §9 for any logger, and a hand-run through the real config is the only instrument that can.
+- **`Docs/SPEC/SPEC-001` §3 describes this flow and did not mention the new step.** That use case is
+  "sync a symbol's history", and its §8 already cited `test_data_sync_coordinator.py` — the very
+  file this fix changed. The sync now has a step 8 (cache the symbol's filters, on the Backtest
+  screen's path only), §6 gained the promise it deliberately does **not** make (a completed sync
+  does not guarantee the filters arrived, so a screen still saying "not verified" is telling the
+  truth), and §7 names the two new ports. `test_spec_index_is_consistent.py` was green throughout:
+  it checks sections and citations, never whether a described flow silently changed — which is
+  exactly the limit `pr-review` K4 warns about.
