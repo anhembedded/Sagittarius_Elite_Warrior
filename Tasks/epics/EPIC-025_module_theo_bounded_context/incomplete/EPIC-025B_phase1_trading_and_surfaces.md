@@ -3,9 +3,14 @@
 - **Status:** 🟡 In progress. The two `market_data` ports this phase was given are **done** — PR
   1.1a `IHistoricalKlines` (#217, plus its review cleanup #218) and PR 1.1b `IMarketStream` (#219)
   — as is PR 1.2 (`ISymbolCatalog`, `IRangeCoverage`, #220), which completed `market_data`'s
-  published set. **PR 1.3a is done: `modules/trading` exists.** Next is PR 1.3b (the three ports),
-  then 1.4 (the surfaces) and 1.5 (Welcome). The pull-request cut and what each one retires live in
-  the epic [`README`](../README.md) §"the cut"; `TRACKING.md` carries the per-PR log.
+  published set. **Every pull request this phase planned is done**: 1.3a (`modules/trading` exists),
+  1.3b (the three ports), 1.3c-1..1.3c-5 (every consumer onto them, the factory split, the CLI
+  inversion), 1.4 (the surfaces), 1.5 (Welcome and developer mode) and 1.6a–1.6g, which started
+  Phase 4's `support/*` extraction early because `ui_kit` and `charting` had to exist before the two
+  screens could move. What is left is in §2 and is **not code**: the user's Testnet run, and the
+  duplication criterion the user carried out of this phase. The pull-request cut and what each one
+  retires live in the epic [`README`](../README.md) §"the cut"; `TRACKING.md` carries the per-PR
+  log, which is the only place a per-PR number is safe to read.
 - **1.3 was cut in two, and the halves are in the order the guard allows, not the order first
   proposed.** The epic's table had 1.3 publishing three ports *and* moving the code in one pull
   request, ~3000–4900 lines over the live-order path. Splitting it was the user's call
@@ -78,9 +83,15 @@
 
 - ~~The script counting duplicated member names between `trading` and `dashboard` reports
   **59 → 0**~~ — **carried out of Phase 1 by user decision 2026-09-16**
-  ([`DECISION_2026-09-16`](../DECISION_2026-09-16_the_duplication_criterion_waits.md)). It stands
-  at 59 with `test_presenter_duplication_only_shrinks.py` holding it shrink-only. The number goes
-  to zero when both screens reach `modules/trading/ui/`, and after PRs 1.6a–1.6g that move was
+  ([`DECISION_2026-09-16`](../DECISION_2026-09-16_the_duplication_criterion_waits.md)).
+  `test_presenter_duplication_only_shrinks.py` holds it shrink-only, and
+  `tests/unit/architecture/baseline_presenter_duplication.json` is where the current figure lives —
+  read it there rather than from this sentence. It stood at 59 from `PRO-004` until **PR 2.1e**,
+  which extracted `StrategyCardViewModel` out of the two live view models and took the pair to
+  **39** (and the whole-app census 132 → 115) — the first fall in that number, and it came from
+  Phase 2 rather than Phase 1, which is exactly what carrying the criterion out predicted. The
+  number goes to zero when both screens reach `modules/trading/ui/`, and after PRs 1.6a–1.6g that
+  move was
   measured at 42 remaining legacy imports, of which 31 could go now and **11 could not**: six are
   QML packages ADR D21 **deletes** in Phase 4 rather than moves, four are
   `components/strategy_params`, which needs `BaseStrategy` from Phase 2's `modules/strategy`, and
