@@ -39,9 +39,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.signal_action
 
 
 def test_both_producers_return_the_published_type() -> None:
-    """`is` on the class, not `isinstance`: two structurally identical
-    dataclasses both satisfy `isinstance` against themselves, so only class
-    identity catches a second declaration."""
+    """`is` on the class rather than `isinstance`, and **not** for the reason
+    the first version of this docstring gave.
+
+    It claimed `isinstance` could not tell a second declaration apart. It can:
+    two structurally identical but unrelated dataclasses are unrelated types, so
+    `isinstance(Other(), OrderIntent)` is `False`. Measured, because a reviewer
+    should not have to take that on trust. What `isinstance` does accept is a
+    **subclass**, and a subclass is the shape this assertion is really about — a
+    producer that wrapped the published type in one of its own would satisfy
+    `isinstance` while handing every consumer something the contract does not
+    describe."""
     from_signal = order_intent_for(SignalAction.BUY)
     from_click = manual_order_intent_for(ManualOrderDirection.LONG, None)
 
@@ -61,11 +69,16 @@ def test_the_two_paths_agree_where_they_describe_the_same_order() -> None:
 
 def test_the_pair_is_frozen() -> None:
     """It crosses a module boundary to two consumers outside this module, so one
-    of them must not be able to edit what the other sees. `FrozenInstanceError`
-    rather than `AttributeError`, which is its base class: the narrower name is
-    what the repository's other frozen-contract tests assert
-    (`tests/unit/modules/trading/domain/test_order.py`), and a plain
-    `AttributeError` would also pass for a misspelled field name."""
+    of them must not be able to edit what the other sees.
+
+    `FrozenInstanceError` rather than its base class `AttributeError`, for one
+    reason and not the two the first version of this docstring gave: it is what
+    the repository's other frozen-contract tests assert
+    (`tests/unit/modules/trading/domain/test_order.py`, and two `market_data`
+    command tests), so a reader meets one idiom. The second reason given there —
+    that a bare `AttributeError` would also pass for a misspelled field name —
+    was wrong: a frozen dataclass without `slots` raises `FrozenInstanceError`
+    for **any** attribute, spelled right or not. Checked, not assumed."""
     intent = OrderIntent(side=OrderSide.BUY, reduce_only=False)
 
     with pytest.raises(FrozenInstanceError):

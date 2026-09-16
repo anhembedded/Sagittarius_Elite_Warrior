@@ -97,12 +97,33 @@ def test_the_allowlist_has_not_gone_stale() -> None:
     )
 
 
-#: Every `N after PR <id>` in the allowlist header's own account of its count.
-#: The **last** one is the file's current claim. Matched this way rather than by
-#: anchoring on the end of the sentence, because "PR 0.3" contains a full stop
-#: and a pattern that ended at one read the *first* figure instead of the last —
-#: which this guard caught on its first run, against itself.
+#: Where the allowlist narrates its count, and where that narration ends: the
+#: sentence begins at `_HISTORY_OPENS` and runs to the next blank comment line.
+#: Slicing first, then matching, is the difference between "the last figure in
+#: the history sentence" — which is what this guard means — and "the last figure
+#: anywhere in the file", which is what it did until the review of PR 2.1a. The
+#: file has eight `N after PR` matches today and all eight are inside the
+#: sentence, so the looser version happened to agree; a later comment mentioning
+#: one would have made the guard compare a number nobody claimed.
+_HISTORY_OPENS = "History of the count:"
+_HISTORY_ENDS = "\n#\n"
+
+#: Every `N after PR <id>` inside that slice. The **last** one is the file's
+#: current claim. Matched as a list rather than by anchoring on the end of the
+#: sentence, because "PR 0.3" contains a full stop and a pattern that ended at
+#: one read the *first* figure instead of the last — which this guard caught on
+#: its first run, against itself.
 _HISTORY_COUNT = re.compile(r"(\d+)\s+after\s+PR\s")
+
+
+def _documented_count(header: str) -> int | None:
+    """The last figure the allowlist's history sentence claims, or `None` when
+    the sentence is not there to read."""
+    if _HISTORY_OPENS not in header:
+        return None
+    sentence = header.split(_HISTORY_OPENS, 1)[1].split(_HISTORY_ENDS, 1)[0]
+    figures = _HISTORY_COUNT.findall(sentence)
+    return int(figures[-1]) if figures else None
 
 
 def test_the_documented_count_is_the_real_count() -> None:
@@ -122,16 +143,14 @@ def test_the_documented_count_is_the_real_count() -> None:
     A pull request that adds or retires one edits that line in the same commit,
     and every document quoting the number has one place to copy from.
     """
-    header = _ALLOWLIST_FILE.read_text(encoding="utf-8")
-    figures = _HISTORY_COUNT.findall(header)
+    documented = _documented_count(_ALLOWLIST_FILE.read_text(encoding="utf-8"))
 
-    assert figures, (
-        "the allowlist header no longer carries a 'History of the count: ... N "
-        "after PR X' account. It is what every board quotes; restore it, or "
+    assert documented is not None, (
+        f"the allowlist header no longer carries a {_HISTORY_OPENS!r} sentence "
+        "ending in 'N after PR X'. It is what every board quotes; restore it, or "
         "retarget this guard at whatever replaced it."
     )
 
-    documented = int(figures[-1])
     real = len(read_allowlist(_ALLOWLIST_FILE))
 
     assert documented == real, (
