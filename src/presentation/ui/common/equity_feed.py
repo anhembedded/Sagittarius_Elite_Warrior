@@ -21,7 +21,7 @@ from PySide6.QtCore import Signal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.base_feed import BaseFeed
+from Sagittarius_Elite_Warrior.src.support.ui_kit.base_feed import BaseFeed
 
 
 class EquityFeed(BaseFeed):

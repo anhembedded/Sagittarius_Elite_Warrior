@@ -23,14 +23,30 @@
    the same wall. So the package is being built **bottom-up from Phase 1 onward**, one clean
    leaf per pull request, each one costing zero allowlist entries because a legacy file may
    import `support/**` whole. Done so far: `assets/` (PR 1.6a — `Palette`, `IconLoader`, the
-   Lucide icon set and the boot preflight) and `kit/` (PR 1.6b — 28 files, which
-   `assets/` leaving had turned into a leaf). Re-measured after 1.6b, which is what
-   decides the next cut rather than the order this list was first written in:
-   `qml/embed` (3 files), `constants.py` (1) and `components/sidebar` (9) are leaves
-   now, and `qml/kit` (13) plus `qml/DataTable` (5) depend only on `kit` and
-   `qml/embed`, so they follow immediately. `components/market_picker` does **not**:
-   it depends on `qml/SelectList`, which this phase deletes rather than moves.
-   Then `services/display_timezone_service.py` and the `ui/common` helpers above. What remains for *this* phase is whatever still has a legacy
+   Lucide icon set and the boot preflight), `kit/` (PR 1.6b — 28 files, which
+   `assets/` leaving had turned into a leaf) and six of the `ui/common` helpers above
+   (PR 1.6c — `action_ownership_tracker`, `app_defaults`, `base_feed` and the three
+   `health_*` files). Re-measured after each cut, which is what decides the next one
+   rather than the order this list was first written in: `components/sidebar` (9
+   files) and `components/environment_banner` (3) are leaves now, `qml/embed` (3) and
+   `constants.py` (1) always were, and `qml/kit` (13) plus `qml/DataTable` (5) depend
+   only on `kit` and `qml/embed`. `components/market_picker` does **not**: it depends
+   on `qml/SelectList`, which this phase deletes rather than moves — and the same
+   argument applies to the two `qml/*` rows themselves, which ADR D21 deletes in this
+   phase, so moving them first is work done twice. Then
+   `services/display_timezone_service.py`.
+
+   **`sync_progress_*` is no longer part of this step, and the reason is a conflict
+   between two clauses of the HLD rather than a measurement that changed.** §3.5
+   assigned `sync_progress_{feed,report}` to `support/ui_kit`; `sync_progress_feed`
+   reads `modules.market_data.contracts.events.sync_events`, and §6.1's
+   `support/* → modules/*` prohibition has **no** contracts exception — driving that
+   pair through `boundaries/rules.py::import_is_allowed` returns `False`, so this is
+   the rule table refusing it, not an allowlist entry waiting to be written. A feed
+   whose whole job is to normalise *one module's* events is that module's UI, so the
+   destination should be `modules/market_data/ui/`. That re-assignment changes what
+   the epic promised, so it is **open** and needs the user's call; until then the pair
+   stays where it is and nothing is moved quietly. What remains for *this* phase is whatever still has a legacy
    import when Phase 3 ends, plus the deletions in step 4, which only this phase can do.
 4. **Delete** `ui/common/`; **delete** `binance_bot_module.py` (now empty); the `settings` screen
    becomes a surface that hangs each module's `settings_section` contribution.

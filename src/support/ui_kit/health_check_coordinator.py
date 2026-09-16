@@ -17,8 +17,8 @@ from __future__ import annotations
 from collections.abc import Callable
 
 from PySide6.QtCore import QObject
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_feed import HealthFeed
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.health_feed import HealthFeed
+from Sagittarius_Elite_Warrior.src.support.ui_kit.health_status_report import (
     HealthStatusReport,
 )
 from sagittarius_engine.interfaces.i_event_bus import IEventBus

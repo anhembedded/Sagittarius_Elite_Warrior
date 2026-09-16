@@ -18,9 +18,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_r
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (
     FakeMarketDataRepository,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
-    default_symbol,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     _FALLBACK_SYMBOL,
     BackTestPresenter,
@@ -30,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_vie
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_state import (
     BacktestUiState,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
+    default_symbol,
 )
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 

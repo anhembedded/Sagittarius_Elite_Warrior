@@ -48,10 +48,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config imp
     LiveStrategyConfig,
 )
 from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
-    ActionOutcome,
-    ActionOwnershipTracker,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_display import (
     humanize_strategy_key,
 )
@@ -59,6 +55,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_params im
     build_bot_params_rows,
     build_bot_params_schema,
     parse_bot_params,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
+    ActionOutcome,
+    ActionOwnershipTracker,
 )
 
 logger = logging.getLogger("App.TradingStrategyArming")

@@ -26,8 +26,8 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import Signal
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.base_feed import BaseFeed
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_status_report import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.base_feed import BaseFeed
+from Sagittarius_Elite_Warrior.src.support.ui_kit.health_status_report import (
     HealthStatusReport,
 )
 from sagittarius_engine.extensions.health.health_check_requested import (

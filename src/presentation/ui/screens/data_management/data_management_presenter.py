@@ -22,15 +22,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
-    ActionOwnershipTracker,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
-    FALLBACK_SYMBOL_OPTIONS,
-    default_interval,
-    default_symbol,
-    default_symbol_options,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (
     SyncProgressFeed,
 )
@@ -61,6 +52,15 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import (
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
     UiStateCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
+    ActionOwnershipTracker,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
+    FALLBACK_SYMBOL_OPTIONS,
+    default_interval,
+    default_symbol,
+    default_symbol_options,
 )
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_config import IConfig

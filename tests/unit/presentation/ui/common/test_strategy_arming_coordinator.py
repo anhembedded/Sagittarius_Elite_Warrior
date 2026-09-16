@@ -32,9 +32,6 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy impo
 from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
     LiveStrategyConfig,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
-    ActionOwnershipTracker,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_arming_coordinator import (
     StrategyArmingCoordinator,
 )
@@ -43,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_display impor
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_view_model import (
     TradingViewModel,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
+    ActionOwnershipTracker,
 )
 
 #: Mirrors `screens/trading/conftest.py`'s own `TEST_STRATEGY_KEY`. Restated

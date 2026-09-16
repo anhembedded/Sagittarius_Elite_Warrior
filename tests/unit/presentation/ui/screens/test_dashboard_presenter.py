@@ -2273,7 +2273,7 @@ def test_toggle_when_enabled_submits_disable(
 def test_toggle_is_blocked_while_emergency_stop_is_pending(presenter, mock_thread_mgr):
     """`BUG-089`'s precedent, Dev Board's own copy — a toggle click must
     never race an Emergency Stop already in flight."""
-    from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
+    from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
         ActionOutcome,
     )
 

@@ -32,7 +32,7 @@ duplicated: "read Settings, validate it, fall back if unusable".
 
 from __future__ import annotations
 
-from collections.abc import Mapping, Sequence
+from collections.abc import Container, Mapping, Sequence
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -88,7 +88,9 @@ def default_symbol_options(
 
 
 def default_interval(
-    config_values: Mapping[str, Any], fallback: str, allowed: object = None
+    config_values: Mapping[str, Any],
+    fallback: str,
+    allowed: Container[str] | None = None,
 ) -> str:
     """The interval a screen should start on, honouring Settings.
 
@@ -98,6 +100,15 @@ def default_interval(
     through to `fallback` rather than raising: Settings is free-text
     here, and a screen refusing to open is a worse answer than a screen
     opening on its default.
+
+    `Container[str]`, not `object`. It was `object` until `EPIC-025` PR 1.6c
+    moved this file out of the `src/presentation/` mypy exclusion, and
+    `candidate not in allowed` does not typecheck against `object` — nothing
+    guarantees an `object` has `__contains__`, so the annotation described no
+    contract at all (`architecture-rule` §2.1). `Container` is the narrowest
+    type the body actually needs: the two real callers pass a `tuple[str,
+    ...]` and a view model's `Sequence[str]`, and membership is all this does
+    with it.
     """
     raw = config_values.get(_INTERVAL_CONFIG_KEY)
     candidate = raw.strip() if isinstance(raw, str) else ""

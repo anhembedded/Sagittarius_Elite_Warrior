@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
 )

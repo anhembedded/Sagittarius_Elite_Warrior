@@ -31,7 +31,7 @@ from PySide6.QtCore import Signal
 from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.base_feed import BaseFeed
+from Sagittarius_Elite_Warrior.src.support.ui_kit.base_feed import BaseFeed
 
 
 class SignalFeed(BaseFeed):

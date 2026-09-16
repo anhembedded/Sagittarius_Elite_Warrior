@@ -29,10 +29,10 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import Signal
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.base_feed import BaseFeed
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.system_error_report import (
     SystemErrorReport,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.base_feed import BaseFeed
 from sagittarius_engine.extensions.pyside_mvc.safety.ui_action_events import (
     UiActionFailedEvent,
 )

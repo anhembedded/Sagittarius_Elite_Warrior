@@ -10,7 +10,7 @@ they do not is a contract.
 from __future__ import annotations
 
 import pytest
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.base_feed import BaseFeed
+from Sagittarius_Elite_Warrior.src.support.ui_kit.base_feed import BaseFeed
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 
 

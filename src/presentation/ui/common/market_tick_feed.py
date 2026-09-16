@@ -28,7 +28,7 @@ from PySide6.QtCore import Signal
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.base_feed import BaseFeed
+from Sagittarius_Elite_Warrior.src.support.ui_kit.base_feed import BaseFeed
 
 
 class MarketTickFeed(BaseFeed):

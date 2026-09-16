@@ -33,7 +33,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.base_feed import BaseFeed
+from Sagittarius_Elite_Warrior.src.support.ui_kit.base_feed import BaseFeed
 
 
 class OrderFeed(BaseFeed):

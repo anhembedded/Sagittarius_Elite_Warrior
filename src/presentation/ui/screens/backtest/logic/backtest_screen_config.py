@@ -26,7 +26,7 @@ from dataclasses import dataclass
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     default_symbol,
 )
 from sagittarius_engine.extensions.pyside_mvc.mvc.base_view import DEV_MODE_CONFIG_KEY

@@ -7,7 +7,7 @@ removes the need for a screen to fabricate its own `HealthUpdatedEvent`.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_feed import HealthFeed
+from Sagittarius_Elite_Warrior.src.support.ui_kit.health_feed import HealthFeed
 from sagittarius_engine.extensions.health.health_check_requested import (
     HealthCheckRequested,
 )

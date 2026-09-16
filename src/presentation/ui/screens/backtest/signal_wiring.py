@@ -21,11 +21,11 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
 from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_check_coordinator import (
-    HealthCheckCoordinator,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (
     SyncProgressFeed,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.health_check_coordinator import (
+    HealthCheckCoordinator,
 )
 
 from .backtest_state_fields import BACKTEST_STATE_FIELDS, read_notifier

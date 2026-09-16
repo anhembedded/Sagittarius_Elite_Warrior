@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
-    FALLBACK_SYMBOL_OPTIONS,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.qml_property import (
     notifying_property,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
+    FALLBACK_SYMBOL_OPTIONS,
 )
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseQmlViewModel,

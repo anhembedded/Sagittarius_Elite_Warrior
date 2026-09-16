@@ -8,7 +8,7 @@ of three with nothing to tell the user the others were not listening.
 from __future__ import annotations
 
 import pytest
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_INTERVAL,
     FALLBACK_SYMBOL,
     FALLBACK_SYMBOL_OPTIONS,

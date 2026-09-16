@@ -3,9 +3,6 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
-    FALLBACK_SYMBOL,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.list_model import (
     IndicatorScriptListModel,
 )
@@ -13,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_params im
     step_numeric_param_value,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.constants import DATETIME_FORMAT
+from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
+    FALLBACK_SYMBOL,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from sagittarius_engine.extensions.pyside_mvc import (
     BaseQmlViewModel,

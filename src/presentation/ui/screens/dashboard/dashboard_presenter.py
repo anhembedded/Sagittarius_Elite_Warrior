@@ -77,16 +77,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_
     manual_order_intent_for,
 )
 from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.action_ownership_tracker import (
-    ActionOutcome,
-    ActionOwnershipTracker,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
-    FALLBACK_INTERVAL,
-    FALLBACK_SYMBOL,
-    default_interval,
-    default_symbol,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
     equity_sample_to_candle,
     equity_samples_to_candles,
@@ -94,9 +84,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter i
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_feed import EquityFeed
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.execute_order_block_reason import (
     format_execute_order_block_reason,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.health_check_coordinator import (
-    HealthCheckCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.live_order_book_coordinator import (
     LiveOrderBookCoordinator,
@@ -144,7 +131,20 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.state.state_scope import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.state.ui_state_coordinator import (
     UiStateCoordinator,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
+    ActionOutcome,
+    ActionOwnershipTracker,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
+    FALLBACK_INTERVAL,
+    FALLBACK_SYMBOL,
+    default_interval,
+    default_symbol,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.ui_kit.health_check_coordinator import (
+    HealthCheckCoordinator,
+)
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken

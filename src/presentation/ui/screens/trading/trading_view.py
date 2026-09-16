@@ -17,9 +17,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config imp
     MIN_LEVERAGE,
     MIN_SIZING_PERCENT,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.app_defaults import (
-    FALLBACK_SYMBOL,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.app_log_panel import (
     AppLogPanel,
 )
@@ -37,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positio
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positions_panel import (
     PositionsPanel,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
+    FALLBACK_SYMBOL,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
