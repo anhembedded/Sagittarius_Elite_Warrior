@@ -1,9 +1,13 @@
 # EPIC-025C — Phase 2: `modules/strategy` (the Core domain)
 
-- **Status:** 🟡 In progress since 2026-09-16 — **2.1a, 2.1b, 2.1c and 2.1d done**: the
-  unblocking measurement (§3.3), the move itself (§4), `IArmedStrategy` with the catalog measured
-  out (§5), and `ISizingPolicy` with `MarginRiskPolicy` split (§6). Allowlist 23 → 42 → 40 → 36.
-  Next: **2.1e**, the UI. §3.4 carries the remaining cut, measured rather than estimated.
+- **Status:** 🟡 In progress since 2026-09-16 — **every coded step done: 2.1a, 2.1b, 2.1c, 2.1d,
+  2.1e, 2.1f, 2.1g and 2.1c-2.** The unblocking measurement (§3.3), the move itself (§4),
+  `IArmedStrategy` with the catalog measured out (§5), `ISizingPolicy` with `MarginRiskPolicy` split
+  (§6), the UI plus `StrategyCardViewModel` (§7), the symbol lease (§8), `trade-once` (§9) and the
+  tick path (§10). Allowlist 23 → 42 → 40 → 36 → 44 → 37 → **36**. What remains is **not code**:
+  §2's second done-when needs the **user** to confirm arm / disarm / tick → order on Testnet. The
+  two deferred UI steps (2.1e-2, 2.1e-3) travel with Phase 4's screens by design, not as Phase 2
+  debt. §3.4 carries the cut, measured rather than estimated.
 - **Repository:** Elite
 - **Blocked by:** B · **Blocks:** D
 - **Read first:** HLD §3.4; ADR D1 (`strategy` is the Core domain, separated from `trading` — the
@@ -106,6 +110,7 @@ there is exactly one `OrderIntent` in the module, in `contracts/`, where HLD §3
 | 2.1e-2 | the strategy card's **widget** is contributed (§1 item 4): one widget replaces two inline `_build_strategy_card()` methods. Travels with the screens (Phase 4) — a rewrite with an ADR D18 inventory, not a move | shrinks |
 | 2.1e-3 | `IStrategyCatalog`, once the Presenters that hand the registry to those coordinators have moved too (Phase 4) | shrinks |
 | ~~2.1f~~ ✅ | **the symbol lease**, and it turned out to be a rule that already existed in the wrong layer rather than new behaviour — see §8 | unchanged (36 → 44 stands) |
+| ~~2.1c-2~~ ✅ | **the tick path is this module's** — `MarketTickEventHandler` moves in with its tests and `StrategyModule.boot()` owns the subscription. The last coded step of Phase 2, and it emptied `src/application/event_handlers/`. Its finding is a hook: `subscribe(bridge)` is the wrong door **twice** — nothing calls it, and `QtEventBridge` would move live order submission onto the Qt main thread. See §10 | **37 → 36** |
 | ~~2.1g~~ ✅ | `trade-once` is this module's command — **and not through `declare_cli()`**, which is the interactive shell's registry and never held it. The four limit value types are published on the way, because `ExecuteOrderResult` had been carrying them since PR 1.3b: §9 | **44 → 37** |
 
 `2.1e-2` inherited one line from 2.1d: PR 2.1d found that `ISizingPolicy` does **not** pass through
@@ -987,3 +992,125 @@ the probe earned its keep**, which is worth saying plainly: the checklist item i
 Two tests now pin it — the thresholds arrive with the numbers, and a safety-gate block carries
 neither (they are `None` on the same condition, which is the shape `ExecuteOrderResult`'s docstring
 promises). Re-probed: exactly the first of them fails when the line is removed.
+
+---
+
+## 10. PR 2.1c-2 — the tick handler, and the hook that was the wrong door twice over
+
+The last coded step of Phase 2, and the entry the allowlist had been carrying since PR 2.1b with
+this pull request's name on it.
+
+### 10.1 A folder name was the only market-data thing about it
+
+`MarketTickEventHandler` had lived in `src/application/event_handlers/market_data/` since
+`EPIC-021G`, which is four epics of a path saying it belonged to the context that *publishes* the
+event. Measured before moving it, the file is 90 lines of docstring over two statements, and what
+it touches splits cleanly:
+
+| What it reaches for | Sites | Whose |
+| :--- | ---: | :--- |
+| `market_data.contracts.events.MarketTickEvent` | 1 | that module's, and it is a **published** event — the same single import any consumer makes |
+| `modules.strategy.application.services.LiveStrategySession` | 1 | this context's, and it is what the handler *does* |
+
+So the ownership question answers itself: **a subscriber is owned by what it drives, not by what it
+listens to.** The other reading — a module owns every consumer of the events it publishes — is the
+arrow HLD §02 draws the other way (`market_data → strategy`, Open Host Service), and it would make
+`market_data` the owner of the strategy engine's whole live path.
+
+It moved with its two tests, tier unchanged, and the folder it left was the last one under
+`src/application/event_handlers/`, so that tree is gone. What remains under `src/application/` is
+the four backtest use cases, which are Phase 3's (`EPIC-025D`).
+
+### 10.2 The finding: `subscribe(bridge)` is the wrong door, for two independent reasons
+
+Every note about this step — the allowlist entry included — said the subscription becomes
+`StrategyModule.boot()`'s. `BoundedContextModule`'s own hook table says something else: `subscribe
+(bridge)` exists to "attach event handlers for the life of the process", which is exactly what this
+is. PR 2.1g had just been burned by trusting a plan's wording about `declare_cli()`, so the hook was
+read rather than assumed. Two measurements, either one sufficient:
+
+1. **Nothing calls it.** `grep` across `src/` and `scripts/` for any invocation of the hook finds
+   none: `composition_root.py` calls `declare_cli()`, `app_bootstrapper.py` calls `contribute()`,
+   and `subscribe()` is called by nobody. It is in the state `contribute()` was in before PR 1.4c-4
+   — *"a hook no code path called"* — and a module using it today would subscribe nothing and pass
+   its own tests, which is `CS-002` in a new costume.
+2. **`QtEventBridge` would change what this path does.** That bridge's whole purpose is to hop a
+   payload onto the Qt main thread, and it needs a `QApplication`. `Docs/SDD/03`'s threading
+   contract already states the design: *"`MarketTickEvent` is emitted from the market websocket
+   thread; `strategy`'s handler runs there"* — which is why `TradingSessionState` carries a lock
+   and `IOrderSubmission` is thread-safe by contract. Bridging the tick path would move live order
+   submission onto the GUI thread, and the headless entry point (`main.py sync`/`stream`) has no Qt
+   at all. In a pull request whose done-when is *"exactly as before"*, that is disqualifying.
+
+So `boot()`, on the bus itself. Note that the two reasons point different ways: (1) says the hook is
+unbuilt, (2) says it would be wrong here even if it were built. **SDD §03 carried the
+contradiction** — one bullet routed module-level subscriptions through `subscribe(bridge)` while the
+section three lines below required this handler to run on the emitting thread — and that is fixed in
+the same commit, with the distinction written down: the door depends on the thread the handler must
+run on.
+
+`module.py`'s bullet is rewritten to say what is now true. `signal_feed` is the subscription that
+genuinely wants the bridge, being a Qt normaliser, and it still cannot use it: the Presenter that
+owns its lifetime is a legacy screen, so a `subscribe()` here would put two normalisers on one
+event. **Whether the hook should exist at all is now a live question for the pull request that
+moves the screens**, rather than an assumption.
+
+### 10.3 Lifetime, stated rather than implied
+
+`binance_bot_module.boot()` built the handler as a local and subscribed its bound method, which
+keeps it alive — correctly, and invisibly. `composition_root.py` records the objection to exactly
+that shape for `SystemFailureLog`: *"`bus.on()` alone would keep it alive through the bound handler,
+which is a lifetime nobody reading this file could see."* The module holds it on
+`self._tick_handler` instead, and `RegisteredModules` holds the module, so the chain from the
+container to the subscriber reads in one direction. No test asserts the attribute: a bound method
+would keep the object alive either way, so a test there could not fail and would be `onb` §8's trap
+in miniature.
+
+### 10.4 Three tests, for the claim the handler's own tests cannot make
+
+The moved file's tests construct their own handler, which is precisely the step production was
+missing in `BUG-126`. So the subscription got its own subject:
+
+| Test | Tier | What only it can say |
+| :--- | :--- | :--- |
+| `test_a_market_tick_on_the_bus_reaches_the_live_session` | unit | `boot()` really wires the bus to the session, through a real `MemoryEventBus` |
+| `test_boot_subscribes_the_session_the_container_already_holds` | unit | it is **the** session, by identity — not a second one, the bug the `ExchangeSessionFactory` split took four pull requests to leave behind |
+| `test_a_real_boot_leaves_exactly_one_subscriber_on_the_live_tick_path` | integration | on the shipping `MODULES` list, booted through the same `register_modules()` the composition root calls, there is exactly **one** |
+
+The last one is the only place the two ways of getting this wrong are visible, and neither is a
+green-looking failure: **zero** subscribers is the app silently not trading while the UI says
+trading is ON (`EPIC-022B`'s exact symptom), and **two** is one candle running the armed strategy
+twice and one signal attempting two orders. A unit test of `StrategyModule.boot()` sees neither,
+because it boots that module alone.
+
+Both directions were probed rather than reasoned about: breaking `context.event_bus.on(...)` fails
+all three, and re-adding `binance_bot_module`'s old subscription alongside the new one fails exactly
+the integration test with `2 handler(s)`.
+
+### 10.5 The gate
+
+Gate **PASS** on the first run: `logs/ci-local-20260916-110940.log`, **4906 passed / 4 skipped**,
+grepped — 4 hits, all the known benign set (one test id parametrised `[ERROR]`, twice, plus the log
+scan's own two headings), **0** records at WARNING or above; mypy clean on **476** files.
+
+The counts account exactly. Tests **4903 → 4906**: the three new ones, and nothing else — the two
+moved tests keep their names, and one parametrisation of the logging-namespace guard disappeared
+with the deleted `event_handlers/market_data/__init__.py`, offsetting nothing because it was never a
+separate id. mypy **477 → 476** for that same deleted file. Allowlist **37 → 36**.
+
+### 10.6 Two things left as they were, deliberately
+
+- **`_arm_from_config` stayed in `binance_bot_module.py`.** It seeds the live strategy from
+  `trading.live_*` at startup, and it is this context's rule — but it reads `config/config_keys.py`,
+  which `EPIC-025C` §3.1 assigns to **Phase 5**. Moving it now would trade one allowlist entry for
+  another, so it travels with the config keys.
+- **`Docs/Diagrams/architecture.md` is pre-epic and was not rewritten.** It shows the handler inside
+  a layered "Application Layer (CQRS)" with an `Event Handlers` subgraph, mentions `modules/` zero
+  times, and has not been touched since before `EPIC-025` began. `Docs/HLD/` is the design of
+  record and its §3.4 row is updated here; that diagram needs a rewrite of its own, not a path
+  edit, and it is recorded as open rather than half-fixed.
+
+Links into the old path were fixed where the document is live (`Tasks/ROADMAP.md`,
+`Tasks/backlog/BOT-073`, `Tasks/reports/app_direction_audit.md`, `EPIC-021`'s README) and left in
+completed records, which describe the tree as it was on their date — the same convention PR 2.1b
+followed when `src/application/services/` disappeared.
