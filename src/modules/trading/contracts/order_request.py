@@ -15,13 +15,17 @@ CQRS vocabulary of the module behind it.
 
 @par Not `OrderIntent`
 HLD §3.4 lists `OrderIntent` among trading's published DTOs, and this type is
-deliberately **not** called that: `order_intent_for()` in
-`domain/policies/signal_action_to_order_intent.py` already owns that name for
-a different and much smaller thing — the `(side, reduce_only)` pair a
-`SignalAction` maps to. Two types called `OrderIntent` in one module, one of
-them published, is how a reader picks the wrong one. `market_data`'s
-`contracts/symbol_market_metadata.py` holds a third. HLD §3.4 is corrected to
-this name rather than the collision being shipped.
+deliberately **not** called that. The reason was a collision when this file was
+written (PR 1.3b): `order_intent_for()` in `domain/policies/` owned the name for
+a different and much smaller thing, the `(side, reduce_only)` pair a
+`SignalAction` maps to. PR 2.1a published that pair as
+`contracts/order_intent.py`, so the collision is gone and the names are now
+distinct on their own merits — an `OrderIntent` is *which side, and may it only
+reduce*; an `OrderRequest` is a whole order, with symbol, quantity, type and
+price. This one keeps its name for the reason that always justified it: a
+published contract does not speak the CQRS vocabulary of the module behind it.
+`market_data`'s `contracts/symbol_market_metadata.py` holds a third
+`OrderIntent`, in a different module's contracts, and stays.
 """
 
 from __future__ import annotations

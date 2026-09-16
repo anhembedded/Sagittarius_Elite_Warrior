@@ -124,14 +124,31 @@ one consumer being touched.
 `ExchangeConnectionStatus`, which already existed and already carried every
 field the three measured consumers read.
 
-**2. `OrderIntent` became `OrderRequest`.** HLD §3.4 listed `OrderIntent` among
-trading's published DTOs. That name was already taken twice —
-`order_intent_for()` in `modules/trading/domain/policies/` owns it for the
-`(side, reduce_only)` pair a `SignalAction` maps to, and
-`modules/market_data/contracts/symbol_market_metadata.py` holds a third. Two
-published types with one name is how a reader picks the wrong one, so the
-port's argument type is `OrderRequest`, carrying `PreviewOrderQuery`'s six
-fields unchanged.
+**2. `OrderIntent` became `OrderRequest`, and `OrderIntent` is now published
+too.** HLD §3.4 listed `OrderIntent` among trading's published DTOs. At PR 1.3b
+that name was taken twice — `order_intent_for()` in
+`modules/trading/domain/policies/` owned it for the `(side, reduce_only)` pair a
+`SignalAction` maps to, and `modules/market_data/contracts/symbol_market_metadata.py`
+holds a third. Two published types with one name is how a reader picks the wrong
+one, so the port's argument type is `OrderRequest`, carrying `PreviewOrderQuery`'s
+six fields unchanged.
+
+**PR 2.1a resolved the half of that collision which was inside this module**, and
+`OrderRequest` keeps its name for the reason that actually justifies it: a
+published contract does not speak the CQRS vocabulary of the module behind it.
+The `(side, reduce_only)` pair is now `contracts/order_intent.py` — measured
+before moving it: **both** producers of a pair are policies in
+`domain/policies/` while **both** consumers are outside the module
+(`presentation/cli/trade_once_cmd.py` and
+`application/services/live_trading_coordinator.py` read the one
+`order_intent_for()` returns, the Dev Board reads the one
+`manual_order_intent_for()` returns), so by HLD §2.4's admission rule it already
+crossed the boundary. `order_intent_for()` itself is **`strategy`'s** — HLD §02
+calls it *"strategy only (plus trading through the bridge)"* — and has **no**
+caller inside `modules/trading`; it moves to `modules/strategy` in Phase 2, which
+is what lets `trading` stop naming `SignalAction` at all and is the phase's own
+done-when. `market_data`'s third `OrderIntent` is a different module's contract
+and stays.
 
 **3. `ITradingSession` shipped without the symbol lease.** Specified:
 `claim_symbol(symbol, owner_id)` / `release_symbol(...)`, an exclusive lease

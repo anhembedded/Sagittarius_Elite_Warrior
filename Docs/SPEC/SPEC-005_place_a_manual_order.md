@@ -98,10 +98,17 @@ goes."*
 `trading`: `IOrderSubmission` — `preview()`, `validate()`, `submit(live=…)`, `cancel()`, the only
 way an order reaches the venue — with `OrderPreview`, `ExecuteOrderResult`,
 `ExecuteOrderSafetyGate`, `TradingLimitViolation`, `OrderRejectionReason`,
-`InvalidOrderForSubmissionError` and `ClientOrderId` as the published vocabulary. The four methods
+`InvalidOrderForSubmissionError`, `ClientOrderId` and — since `EPIC-025` PR 2.1a — `OrderIntent`
+as the published vocabulary. The four methods
 are the four things step 3–6 do, and they are genuinely four: `preview()` makes no network call,
 `validate()` reaches the venue's test endpoint and creates nothing, `submit(live=False)` evaluates
 every gate against live data and sends nothing, `submit(live=True)` sends.
+`OrderIntent` is what step 6's Long or Short resolves to before any of that runs: the
+`(side, reduce_only)` pair, which is the whole of what One-way mode lets a caller decide. It is
+published rather than internal because the Dev Board reads the pair `manual_order_intent_for()`
+returns — *Long* against a short position and *Short* against a long one come back
+`reduce_only=True`, and that flag is the difference between closing a position and opening the
+opposite one.
 `ITradingSession` holds the switch and the counters; `IMarketMetadataProvider` supplies the
 filters step 2 rounds with; `ITradingClient` is the module's own adapter boundary. Cancelling one
 open order is SPEC-006 (planned) and is the same port's `cancel()`.
