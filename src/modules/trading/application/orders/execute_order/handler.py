@@ -39,8 +39,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_roun
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitContext,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitPolicy,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
@@ -145,11 +147,14 @@ class ExecuteOrderCommandHandler(
             )
             checks = self._limits_policy.evaluate(context)
             violation = next((c.violation for c in checks if not c.passed), None)
+            limits = self._limits_policy.limits
             if violation is not None:
-                return ExecuteOrderResult(violation, preview, checks, None, context)
+                return ExecuteOrderResult(
+                    violation, preview, checks, None, context, limits
+                )
 
             if not command.live:
-                return ExecuteOrderResult(None, preview, checks, None, context)
+                return ExecuteOrderResult(None, preview, checks, None, context, limits)
 
             trading_client = FuturesTradingClient(
                 self._session_factory,
@@ -162,7 +167,9 @@ class ExecuteOrderCommandHandler(
             logger.info(
                 "Live order submitted: %s %s", symbol, submitted_order.client_order_id
             )
-            return ExecuteOrderResult(None, preview, checks, submitted_order, context)
+            return ExecuteOrderResult(
+                None, preview, checks, submitted_order, context, limits
+            )
 
     def _first_blocked_safety_gate(
         self, command: ExecuteOrderCommand

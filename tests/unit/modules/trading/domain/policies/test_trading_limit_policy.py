@@ -3,11 +3,13 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitContext,
-    TradingLimitPolicy,
     TradingLimits,
     TradingLimitViolation,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
+    TradingLimitPolicy,
 )
 
 _LIMITS = TradingLimits(

@@ -9,9 +9,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview import (
     OrderPreview,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitCheck,
     TradingLimitContext,
+    TradingLimits,
     TradingLimitViolation,
 )
 
@@ -82,6 +83,16 @@ class ExecuteOrderResult:
     #: 1/20") never has to recompute what the handler already knows,
     #: risking drift between the decision and what gets shown for it.
     limit_context: TradingLimitContext | None = None
+    #: The configured thresholds those numbers were judged against, `None`
+    #: on the same condition as `limit_context` (`EPIC-025` PR 2.1g). The
+    #: same argument as the field above, one step further: `trade-once`
+    #: prints "notional 128.20 ≤ 500 ✔", and both sides of that comparison
+    #: have to come from the run that decided it. Before this the CLI read
+    #: them off `container.resolve(TradingLimitPolicy).limits` — a
+    #: presentation file resolving a domain policy to read one attribute,
+    #: and the one thing keeping `trade-once` from being `strategy`'s own
+    #: command.
+    limits: TradingLimits | None = None
 
     @property
     def blocked(self) -> bool:

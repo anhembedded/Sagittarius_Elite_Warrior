@@ -12,7 +12,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitCheck,
     TradingLimitContext,
     TradingLimits,

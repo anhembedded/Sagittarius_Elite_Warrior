@@ -14,7 +14,8 @@
 # after PR 1.1b -> 20 after PR 1.2 -> 80 after PR 1.3a -> 60 and 56 after PR
 # 1.3b's two halves -> 46, 32, 29, 25, 23 after PR 1.3c-1..1.3c-5
 # -> 42 after PR 2.1b -> 40 after PR 2.1c -> 36 after PR 2.1d
-# -> 44 after PR 2.1e.
+# -> 44 after PR 2.1e
+# -> 37 after PR 2.1g.
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -337,10 +338,23 @@ presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules
 # second only changed prefix: the bridge is `strategy`'s now, so the entry
 # below replaces it and retires with PR 2.1g (`trade-once` becomes strategy's
 # declared CLI command).
-presentation.cli.trade_once_cmd -> modules.strategy.domain.policies.position_sizing_bridge
-presentation.cli.trade_once_cmd -> modules.trading.domain.policies.trading_limit_policy
-presentation.cli.trade_once_formatter -> modules.trading.domain.policies.trading_limit_policy
-presentation.ui.common.execute_order_block_reason -> modules.trading.domain.policies.trading_limit_policy
+# CLOSED by PR 2.1g: the THREE `trading_limit_policy` entries, and none of
+# them by moving a consumer. `TradingLimitViolation`, `TradingLimits`,
+# `TradingLimitContext` and `TradingLimitCheck` are published as
+# `trading/contracts/trading_limits.py`, on the measurement PR 2.1a and PR 2.1d
+# both used: `ExecuteOrderResult` has carried all four since PR 1.3b -- a
+# `TradingLimitViolation` inside its `blocked_by` union, the `limit_checks`
+# tuple, the `limit_context` they were judged against -- so a consumer reading
+# the answer had to import them out of `domain/`. The type crossed; the file
+# had not. `TradingLimitPolicy` itself, the thing that *decides*, stays
+# internal: publishing the answer is not publishing the judgement.
+#
+# The `trade_once_cmd` entry needed one more thing, and it is the better half
+# of this change: that file did `container.resolve(TradingLimitPolicy)` to read
+# `.limits` for its display. A command-line file resolving a domain policy for
+# one attribute is what `ExecuteOrderResult.limits` now answers instead -- the
+# same promise `limit_context` already made, that what gets shown is what
+# decided.
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.domain.policies.manual_order_intent
 presentation.ui.screens.dashboard.dev_board_panel -> modules.trading.domain.policies.manual_order_intent
 
@@ -430,8 +444,6 @@ application.use_cases.backtest.run_historical_tick_backtest.handler -> modules.s
 application.use_cases.backtest.run_historical_tick_backtest.handler -> modules.strategy.application.services.strategy_registry
 application.use_cases.backtest.run_static_backtest.handler -> modules.strategy.application.services.strategy_factory
 application.use_cases.backtest.run_static_backtest.handler -> modules.strategy.application.services.strategy_registry
-presentation.cli.trade_once_cmd -> modules.strategy.application.services.strategy_factory
-presentation.cli.trade_once_cmd -> modules.strategy.application.services.strategy_registry
 
 # CLOSED by PR 2.1e: all SEVEN, exactly as this note said they would be --
 # the files became `modules/strategy/ui/` and stopped crossing anything. What
@@ -479,9 +491,12 @@ presentation.ui.screens.trading.trading_presenter -> modules.strategy.ui.strateg
 presentation.ui.screens.trading.trading_view -> modules.strategy.ui.strategy_params.strategy_params_dialog
 presentation.ui.screens.trading.trading_view_model -> modules.strategy.ui.strategy_card_view_model
 
-# -> `trade-once` becomes this module's declared CLI command (PR 2.1g). The
-# command *is* a strategy run, and `shell/cli_registry.py` has collected
-# module-declared commands since PR 1.3c-5 -- but which context owns
-# `trade-once` is a question about one command rather than a rider on a move,
-# so `modules/strategy/module.py` records it and this entry waits for it.
-presentation.cli.trade_once_cmd -> modules.strategy.domain.policies.signal_action_to_order_intent
+# CLOSED by PR 2.1g: `trade-once` is this module's command now -- both files
+# live in `modules/strategy/cli/`, so the four entries that named this module
+# from `presentation/cli/` are intra-module reads. `main.py` imports
+# `execute_trade_once` from the new path, which is exactly how
+# `modules/market_data/cli/{sync,stream}_cmd.py` have worked since PR 0.4a-2;
+# `declare_cli()` was read and is **not** the mechanism, because that registry
+# is the *interactive shell*'s and `trade-once` has never been one of its
+# commands. Recorded because the note this replaces said "declared CLI
+# command", which would have sent the next reader to the wrong registry.

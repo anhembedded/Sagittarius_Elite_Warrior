@@ -7,55 +7,24 @@ mechanism in this epic that stops a bad signal loop from firing hundreds
 of orders (§1's stated real risk). All four limits are on by default —
 there is no "disable this one limit" toggle; only their numeric
 thresholds are configurable (`ConfigKeys` §`TRADING_MAX_*`).
+
+`EPIC-025` PR 2.1g moved the four value types this reads and answers with —
+`TradingLimitViolation`, `TradingLimits`, `TradingLimitContext`,
+`TradingLimitCheck` — into `contracts/trading_limits.py`, because
+`ExecuteOrderResult` had been publishing all of them since PR 1.3b while their
+file stayed internal. What is left here is the **judgement**, which no consumer
+outside this module may reach: publishing the answer is not publishing the
+decision.
 """
 
 from __future__ import annotations
 
-from dataclasses import dataclass
-from datetime import timedelta
-from decimal import Decimal
-from enum import Enum
-
-
-class TradingLimitViolation(str, Enum):
-    """@brief Which of the four limits blocked an order — named so a
-    caller (and a human reading a log line) never has to infer it from a
-    bare `False`."""
-
-    MAX_ORDERS_PER_SESSION = "max_orders_per_session"
-    MAX_NOTIONAL_PER_ORDER = "max_notional_per_order"
-    MAX_POSITIONS_PER_SYMBOL = "max_positions_per_symbol"
-    MIN_ORDER_INTERVAL = "min_order_interval"
-
-
-@dataclass(frozen=True)
-class TradingLimits:
-    """Configured thresholds — see `ConfigKeys.TRADING_MAX_ORDERS_PER_SESSION`
-    et al. for where these come from at runtime."""
-
-    max_orders_per_session: int
-    max_notional_per_order: Decimal
-    max_positions_per_symbol: int
-    min_order_interval: timedelta
-
-
-@dataclass(frozen=True)
-class TradingLimitContext:
-    """The live, per-attempt facts `TradingLimitPolicy` checks against
-    `TradingLimits`. Sourced from `TradingSessionState`, never from a
-    fresh network call per order — reconciliation happens once, at
-    `EnableTradingCommand` time (`ADR §4`)."""
-
-    orders_sent_this_session: int
-    order_notional: Decimal
-    open_position_count_for_symbol: int
-    time_since_last_order_for_symbol: timedelta | None
-
-
-@dataclass(frozen=True)
-class TradingLimitCheck:
-    violation: TradingLimitViolation
-    passed: bool
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
+    TradingLimitCheck,
+    TradingLimitContext,
+    TradingLimits,
+    TradingLimitViolation,
+)
 
 
 class TradingLimitPolicy:

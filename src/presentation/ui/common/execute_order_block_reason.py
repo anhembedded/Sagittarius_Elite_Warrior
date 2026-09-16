@@ -11,7 +11,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderNotionalRejection,
     ExecuteOrderSafetyGate,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitViolation,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels

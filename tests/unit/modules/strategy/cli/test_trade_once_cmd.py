@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_hi
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.cli.trade_once_cmd import (
+    execute_trade_once,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
@@ -56,9 +59,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_account_reader import (
     FakeTradingAccountReader,
-)
-from Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_cmd import (
-    execute_trade_once,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -194,7 +194,7 @@ def test_a_live_order_rejected_by_the_exchange_prints_a_friendly_message_not_a_c
     )
 
     with patch(
-        "Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_cmd.build_engine"
+        "Sagittarius_Elite_Warrior.src.modules.strategy.cli.trade_once_cmd.build_engine"
     ) as mock_build_engine:
         mock_build_engine.return_value.on_tick.return_value = _signal()
         execute_trade_once(app, _args())  # must not raise
@@ -209,7 +209,7 @@ def test_a_network_failure_during_live_submission_prints_a_friendly_message_not_
     submission.submit_raises(BinanceRequestException("boom"))
 
     with patch(
-        "Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_cmd.build_engine"
+        "Sagittarius_Elite_Warrior.src.modules.strategy.cli.trade_once_cmd.build_engine"
     ) as mock_build_engine:
         mock_build_engine.return_value.on_tick.return_value = _signal()
         execute_trade_once(app, _args())  # must not raise

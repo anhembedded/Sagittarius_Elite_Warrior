@@ -45,10 +45,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_rea
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
-    TradingLimitPolicy,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimits,
     TradingLimitViolation,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
+    TradingLimitPolicy,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
@@ -283,6 +285,46 @@ class TestSafetyGates:
         # normalisation — which is how the result shape says *which* of the two
         # reads refused it.
         assert result.preview is not None
+
+    def test_the_result_carries_the_thresholds_it_judged_against(self) -> None:
+        """`EPIC-025` PR 2.1g — and it is a wiring line, so it is probed rather
+        than assumed: setting `limits = None` in the handler left **920** tests
+        green, which means `trade-once`'s limit table would have gone silently
+        blank.
+
+        The promise is the one `limit_context`'s own docstring makes about the
+        raw numbers — what gets shown is what decided — extended to the
+        thresholds on the other side of the same comparison. It is what let the
+        command stop doing `container.resolve(TradingLimitPolicy)` to read one
+        attribute, which was the last thing keeping it out of
+        `modules/strategy`.
+        """
+        limits = TradingLimits(
+            max_orders_per_session=7,
+            max_notional_per_order=Decimal(1234),
+            max_positions_per_symbol=1,
+            min_order_interval=timedelta(seconds=30),
+        )
+        handler, _ = _handler(limits=limits)
+
+        result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))
+
+        assert result.limits == limits
+        # Paired with the context, and `None` on the same condition: a
+        # safety-gate block never reaches limit evaluation, so neither field
+        # can claim to describe one.
+        assert result.limit_context is not None
+
+    def test_a_safety_gate_block_carries_neither_the_numbers_nor_the_limits(
+        self,
+    ) -> None:
+        handler, _ = _handler(enabled=False)
+
+        result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))
+
+        assert result.blocked_by is ExecuteOrderSafetyGate.TRADING_SWITCH_OFF
+        assert result.limit_context is None
+        assert result.limits is None
 
     def test_blocked_when_connection_not_ready(self) -> None:
         bad_status = ExchangeConnectionStatus(

@@ -27,6 +27,11 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strateg
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.cli.trade_once_formatter import (
+    format_candle_and_signal,
+    format_limit_checks,
+    format_result,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.position_sizing_bridge import (
     calculate_live_order_quantity,
 )
@@ -55,14 +60,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request impor
     OrderRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
-    TradingLimitPolicy,
-)
-from Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_formatter import (
-    format_candle_and_signal,
-    format_limit_checks,
-    format_result,
-)
 from sagittarius_engine import App
 
 #: How many closed candles to warm indicators up on before trusting the
@@ -169,11 +166,16 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
         )
         return
 
-    if result.limit_context is not None:
-        limits_policy = app.container.resolve(TradingLimitPolicy)
+    # `EPIC-025` PR 2.1g — the thresholds come off the result, not off a
+    # `container.resolve(TradingLimitPolicy)`. A command-line file resolving a
+    # domain policy to read one attribute was the last thing keeping this
+    # command out of `modules/strategy`, and `ExecuteOrderResult.limits` is the
+    # same promise `limit_context` already made: what gets shown is what
+    # decided.
+    if result.limit_context is not None and result.limits is not None:
         print(
             format_limit_checks(
-                result.limit_checks, result.limit_context, limits_policy.limits
+                result.limit_checks, result.limit_context, result.limits
             )
         )
 

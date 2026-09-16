@@ -80,11 +80,15 @@ Each absence is a measurement, not an omission:
     one contributed widget of them, and it is a rewrite with two deletions
     rather than a move: ADR D18 wants an assertion inventory first, and §2's
     done-when wants the user on Testnet. It travels with the screens.
-  · **no CLI command** — `trade-once` is a strategy run and reads as this
-    context's, but it is declared by nobody today: `presentation/cli/` still
-    parses it and `shell/cli_registry.py` collects what modules declare
-    (PR 1.3c-5). Moving it is a behaviour question about one command's
-    ownership rather than a rider on a move.
+  · **no `declare_cli()`, and `trade-once` still does not need one** —
+    `modules/strategy/cli/{trade_once_cmd,trade_once_formatter}.py` since PR
+    2.1g, imported by `main.py` exactly as `modules/market_data/cli/
+    {sync,stream}_cmd.py` have been since PR 0.4a-2. `declare_cli()` was read
+    before assuming otherwise: `ICliRegistry` is the **interactive shell**'s,
+    and `trade-once` has never been one of its commands — it is an argparse
+    subcommand, and `main.py` dispatches those. So this absence is now about a
+    registry this context has nothing to put in, which is a different statement
+    from the one that stood here before.
   · **no Qt subscription** — `signal_feed` lives here now, but the Presenter
     that owns its lifetime does not, and a feed subscribed by `subscribe()`
     while a screen still constructs one would put two normalisers on one event.
@@ -108,16 +112,24 @@ class StrategyModule(BoundedContextModule):
 
     module_id = "strategy"
 
-    #: `trading`, and checked: `test_module_declarations.py` reads the imports
-    #: actually present under `modules/strategy/` and fails on both surplus and
-    #: shortfall. This context is the **customer** in its one relationship —
-    #: it reads `trading/contracts/` for `IOrderSubmission`, `ITradingSession`,
-    #: `IMarketMetadataProvider`, `ITradingAccountReader`, `PositionSide` and
-    #: (since PR 2.1d) `OrderQuantityRoundingPolicy`, the exchange's lot filter
-    #: ADR D17 leaves on trading's side of the sizing line —
-    #: and `market_data` reaches it the other way round, through the bus, so no
-    #: dependency on that module appears here.
-    dependencies: list[str] = ["trading"]  # noqa: RUF012 — the Engine reads a plain attribute
+    #: Checked, not declared by hand: `test_module_declarations.py` reads the
+    #: imports actually present under `modules/strategy/` and fails on both
+    #: surplus and shortfall — which is how `market_data` got here. It reads
+    #: `trading/contracts/` for `IOrderSubmission`, `ITradingSession`,
+    #: `IMarketMetadataProvider`, `ITradingAccountReader`, `PositionSide`,
+    #: `OrderQuantityRoundingPolicy` (PR 2.1d) and the four limit types
+    #: (PR 2.1g), as the **customer** in that Customer/Supplier pair.
+    #:
+    #: `market_data` arrived with PR 2.1g and corrects a sentence this comment
+    #: used to carry: *"`market_data` reaches it the other way round, through
+    #: the bus, so no dependency on that module appears here"*. True of the
+    #: tick path — `MarketTickEvent` is published, not called — and false since
+    #: `trade-once` moved in: that command asks `IHistoricalKlines` for the
+    #: candles it evaluates a strategy against, which is a direct read of
+    #: another module's contract. HLD §02 has it as the expected direction
+    #: (`market_data → strategy`, Open Host Service), so what was missing was
+    #: the declaration, not the permission.
+    dependencies: list[str] = ["market_data", "trading"]  # noqa: RUF012 — the Engine reads a plain attribute
 
     def register(self, context: Any) -> None:
         """The one published port, and only that (PR 2.1c).

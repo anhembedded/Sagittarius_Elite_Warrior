@@ -4,6 +4,11 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.modules.strategy.cli.trade_once_formatter import (
+    format_candle_and_signal,
+    format_limit_checks,
+    format_result,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
@@ -21,16 +26,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import
     OrderStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitCheck,
     TradingLimitContext,
     TradingLimits,
     TradingLimitViolation,
-)
-from Sagittarius_Elite_Warrior.src.presentation.cli.trade_once_formatter import (
-    format_candle_and_signal,
-    format_limit_checks,
-    format_result,
 )
 
 _LIMITS = TradingLimits(

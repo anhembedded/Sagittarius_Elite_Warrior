@@ -68,13 +68,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_r
     ITradingAccountReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
+    TradingLimits,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
     ManualOrderDirection,
     manual_order_intent_for,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitPolicy,
-    TradingLimits,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,

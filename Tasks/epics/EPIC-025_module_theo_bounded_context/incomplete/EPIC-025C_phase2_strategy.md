@@ -106,6 +106,7 @@ there is exactly one `OrderIntent` in the module, in `contracts/`, where HLD §3
 | 2.1e-2 | the strategy card's **widget** is contributed (§1 item 4): one widget replaces two inline `_build_strategy_card()` methods. Travels with the screens (Phase 4) — a rewrite with an ADR D18 inventory, not a move | shrinks |
 | 2.1e-3 | `IStrategyCatalog`, once the Presenters that hand the registry to those coordinators have moved too (Phase 4) | shrinks |
 | ~~2.1f~~ ✅ | **the symbol lease**, and it turned out to be a rule that already existed in the wrong layer rather than new behaviour — see §8 | unchanged (36 → 44 stands) |
+| ~~2.1g~~ ✅ | `trade-once` is this module's command — **and not through `declare_cli()`**, which is the interactive shell's registry and never held it. The four limit value types are published on the way, because `ExecuteOrderResult` had been carrying them since PR 1.3b: §9 | **44 → 37** |
 
 `2.1e-2` inherited one line from 2.1d: PR 2.1d found that `ISizingPolicy` does **not** pass through
 `LiveStrategyFactory`'s arguments, so the container-binding move that `module.py` and
@@ -910,3 +911,79 @@ and the split is real work (the fixtures at the top of that file would go to a `
 `TestSafetyGates` could stand alone), so it belongs to whichever pull request next changes that
 file's shape rather than riding on a gate change. The same handling as PR 2.1d's `paper_exchange.py`
 (452 → 468) and PR 2.1b's `BaseStrategy`, and named here so it is countable rather than forgotten.
+
+---
+
+## 9. PR 2.1g — `trade-once` comes in, and `declare_cli()` was the wrong door
+
+Allowlist **44 → 37**: seven entries retired, **none** arrived.
+
+`trade-once` is a strategy run — it evaluates one strategy over fresh candles and attempts at most
+one order — so the two files move to `modules/strategy/cli/` and `main.py` imports
+`execute_trade_once` from there. That is exactly how `modules/market_data/cli/{sync,stream}_cmd.py`
+have worked since PR 0.4a-2, and it is the whole of the "move" half.
+
+**The plan's own wording pointed at the wrong mechanism, and reading it first is what caught that.**
+Every note about this step — this file's §3.4, `module.py`, the allowlist entry — called it *"strategy's
+**declared** CLI command", implying `BoundedContextModule.declare_cli()`. That hook takes an
+`ICliRegistry` and a `CliCommandDescriptor`, and it is the **interactive shell**'s registry
+(PR 1.3c-5): `sync`, `stream`, `exchange-status`. `trade-once` has never been one of its commands —
+it is an argparse subcommand, and `main.py` dispatches those. So `declare_cli()` is still
+unimplemented for this module, and `module.py` now says *that* rather than promising a registry
+entry that would have been the wrong shape.
+
+### 9.1 What actually blocked the move, and the better half of the fix
+
+The command could not simply move: it did `container.resolve(TradingLimitPolicy)` to read `.limits`
+for its worked display ("notional 128.20 ≤ 500 ✔"). A **command-line file resolving a domain
+policy** is `architecture-rule.md` §3 backwards, and from inside `modules/strategy` it would have
+been a module-to-module reach into another module's `domain/` — an allowlist entry where a retirement
+was the point.
+
+`ExecuteOrderResult.limits` answers it instead, and the argument is already written on the field
+above it: `limit_context` exists *"so a formatter never has to recompute what the handler already
+knows, risking drift between the decision and what gets shown for it"*. The thresholds are the other
+half of that same comparison. The CLI now reads both off the result and resolves nothing.
+
+### 9.2 The four limit types were published, on a measurement made twice before
+
+`TradingLimitViolation`, `TradingLimits`, `TradingLimitContext` and `TradingLimitCheck` are now
+`trading/contracts/trading_limits.py`. The measurement is PR 2.1a's and PR 2.1d's for the third time:
+**`ExecuteOrderResult` has carried all four since PR 1.3b** — a violation inside its `blocked_by`
+union, the `limit_checks` tuple, the context they were judged against — so a consumer reading that
+answer had to import three types out of `domain/policies/`. Three files outside the module did, each
+as a counted entry. The type crossed the boundary; the file had not.
+
+`TradingLimitPolicy` itself stays internal, and that is the line this repository keeps finding:
+**publishing the answer is not publishing the judgement.** PR 2.1d wrote the same sentence about
+`TradingLimitPolicy` while publishing `OrderQuantityRoundingPolicy`, and it still holds — what
+changed is only that four of that file's five names turned out to be answers.
+
+### 9.3 A dependency that was real and undeclared
+
+`test_module_declarations.py` failed the moment the command landed: **`strategy` imports
+`market_data`'s contracts** and did not declare it. `trade-once` asks `IHistoricalKlines` for the
+candles it evaluates against — a direct read of another module's contract, where the tick path only
+ever received a published event. So `module.py`'s own comment was false where it said *"`market_data`
+reaches it the other way round, through the bus, so no dependency on that module appears here"*;
+`dependencies` is `["market_data", "trading"]` now, and HLD §02 has that as the expected direction
+(Open Host Service) — what was missing was the declaration, not the permission. A guard written in
+PR 0.4a is what said so, four phases later.
+
+### 9.4 The gate, and the review's own finding — again a wiring line
+
+Gate **PASS** on the first run: `logs/ci-local-20260916-104805.log`, **4901 passed / 4 skipped**,
+grepped — 4 hits, all the known benign set, **0** records at WARNING or above; mypy clean on
+**477** files. The **+1** is one logging-guard parametrisation for the new
+`trading_limits.py`; the four moved files keep their basenames, so nothing else moved the count,
+and no test was written or deleted for the move itself.
+
+**The review's E12 probe found `ExecuteOrderResult.limits` unpinned.** Setting
+`limits = None` in the handler left **920** tests green — so `trade-once`'s limit table would have
+gone silently blank, which is the same class of failure as the atomic lease re-check in PR 2.1f one
+step earlier, and as PR 0.4b's dead search box before that. **Third time in three pull requests that
+the probe earned its keep**, which is worth saying plainly: the checklist item is not ceremony.
+
+Two tests now pin it — the thresholds arrive with the numbers, and a safety-gate block carries
+neither (they are `None` on the same condition, which is the shape `ExecuteOrderResult`'s docstring
+promises). Re-probed: exactly the first of them fails when the line is removed.
