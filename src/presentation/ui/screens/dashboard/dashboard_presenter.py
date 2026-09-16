@@ -77,23 +77,23 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_
     ManualOrderDirection,
     manual_order_intent_for,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
     equity_sample_to_candle,
     equity_samples_to_candles,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_feed import EquityFeed
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.execute_order_block_reason import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_feed import EquityFeed
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
     format_execute_order_block_reason,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market_tick_feed import (
+    MarketTickFeed,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
+    order_filled_marker,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.live_order_book_coordinator import (
     LiveOrderBookCoordinator,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.market_tick_feed import (
-    MarketTickFeed,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_feed import OrderFeed
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_fill_marker import (
-    order_filled_marker,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
     SymbolOptionsCoordinator,

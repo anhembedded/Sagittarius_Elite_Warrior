@@ -1877,7 +1877,7 @@ def _fill_event(symbol="ETHUSDT", order_time=None, status=None):
 def test_order_filled_draws_a_marker_on_that_symbols_open_chart(presenter):
     from datetime import UTC, datetime
 
-    from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_fill_marker import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
         order_filled_marker,
     )
 
@@ -2070,7 +2070,7 @@ def test_construction_with_an_empty_recorder_seeds_an_empty_chart(
 def test_construction_seeds_the_full_backlog_from_the_recorder(
     view, mock_container, equity_curve, monkeypatch
 ):
-    from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
         equity_samples_to_candles,
     )
 
@@ -2091,7 +2091,7 @@ def test_equity_sampled_event_appends_one_point_to_the_chart(
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
         EquitySampledEvent,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
         equity_sample_to_candle,
     )
 
@@ -2727,7 +2727,7 @@ def test_a_leased_symbol_is_reported_to_the_card_in_the_operators_own_words(
     from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
         ManualOrderDirection,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.common.execute_order_block_reason import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
         format_execute_order_block_reason,
     )
 

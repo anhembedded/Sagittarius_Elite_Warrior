@@ -344,7 +344,7 @@ def test_order_filled_renders_a_fill_marker_on_the_active_symbols_chart(
 ):
     from datetime import UTC, datetime
 
-    from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_fill_marker import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
         order_filled_marker,
     )
 

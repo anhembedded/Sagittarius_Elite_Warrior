@@ -8,7 +8,7 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
     EquitySample,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
     equity_sample_to_candle,
     equity_samples_to_candles,
 )

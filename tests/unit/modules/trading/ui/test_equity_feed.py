@@ -14,7 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_feed import EquityFeed
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_feed import EquityFeed
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 
 

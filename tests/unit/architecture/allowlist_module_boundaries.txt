@@ -21,6 +21,7 @@
 #    adapter import goes with it)
 # -> 29 after PR 3.1b
 # -> 32 after PR 3.1c.
+# -> 44 after PR 4.1a.
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -570,3 +571,48 @@ presentation.ui.screens.trading.trading_view_model -> modules.strategy.ui.strate
 presentation.ui.screens.backtest.backtest_presenter -> modules.backtesting.application.run_static_backtest
 presentation.ui.screens.backtest.coordinators.execution_coordinator -> modules.backtesting.application.run_historical_tick_backtest
 presentation.ui.screens.backtest.coordinators.execution_coordinator -> modules.backtesting.application.run_static_backtest
+
+
+# ---------------------------------------------------------------------------
+# PR 4.1a -- `trading`'s six UI feeds come in, and TWELVE entries arrive for a
+# move that retires none. That is the worst ratio in this epic, and it is the
+# right trade for a measured reason: the entries are the *same* twelve imports
+# that existed before the move, pointing at the same six files. What changed is
+# only which side of the boundary the files sit on.
+#
+# `equity_chart_adapter`, `equity_feed`, `execute_order_block_reason`,
+# `market_tick_feed`, `order_feed` and `order_fill_marker` normalise `trading`'s
+# own published events onto Qt signals. HLD section 3.5 has assigned all six to
+# `modules/trading` since the epic was cut, and PR 1.4b-2 measured why they
+# could not go then -- the two legacy Presenters are their only consumers, and a
+# legacy file may import a module only through `contracts/`. That is still true;
+# it is why these twelve lines exist rather than nothing.
+#
+# What makes the move worth its twelve lines NOW rather than at Phase 4's end:
+# the duplication ratchet. `tools/measure_duplicate_members.py` reports the
+# Phase 1 pair (`dashboard` + `trading`) at **39 -> 34** on this move alone,
+# its first fall since PR 2.1e, with the total across every pair unchanged at
+# 113. The epic is judged on that number reaching 0, and each feed that leaves
+# `presentation/ui/common/` for its owning module takes a handful of duplicated
+# member names with it.
+#
+# Their exit is the whole point and it is two pull requests away, not five:
+# `EPIC-025E` section 3.1 measured `screens/trading` as having exactly thirteen
+# legacy imports -- these six plus seven into `components/order_book` -- and
+# **nothing else, no QML at all**. So 4.1b (order_book, travelling with
+# `data_management` by the user's decision of 2026-09-16) and then 4.1c
+# (`screens/trading` itself into `modules/trading/ui/`) retire all twelve of
+# these in one go, along with the six `dashboard` ones once that screen's four
+# QML imports are gone in 4.3.
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.equity_chart_adapter
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.equity_feed
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.execute_order_block_reason
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.market_tick_feed
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.order_feed
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.order_fill_marker
+presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.equity_chart_adapter
+presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.equity_feed
+presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.execute_order_block_reason
+presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.market_tick_feed
+presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.order_feed
+presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.order_fill_marker

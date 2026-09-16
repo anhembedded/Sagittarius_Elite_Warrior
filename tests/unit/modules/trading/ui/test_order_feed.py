@@ -34,7 +34,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_feed import OrderFeed
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 
 

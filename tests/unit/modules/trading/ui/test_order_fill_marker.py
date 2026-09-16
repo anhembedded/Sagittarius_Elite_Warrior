@@ -12,7 +12,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_fill_marker import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
     order_filled_marker,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (

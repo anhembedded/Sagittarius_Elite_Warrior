@@ -20,6 +20,34 @@ packages A and B is a member name defined in A and in B **and in no third
 package**. Dunder names are members too (`__init__` is excluded by the third
 package rule in practice, never by hand). Free functions are not members.
 
+@par The one amendment, PR 4.1a, and it is loud because that clause says to be
+A member name is **not** counted when a shared base class outside the UI
+packages declares it `@abstractmethod`. Implementing one abstraction in two
+packages is the *opposite* of duplication: it is the shared abstraction doing
+its job, and counting it punishes the very move this epic is making.
+
+It was found rather than anticipated. Moving `trading`'s six feeds into
+`modules/trading/ui/` raised the total 115 -> 116, and the single name
+responsible was `_subscribe` — `BaseFeed`'s `@abstractmethod`, which PR 1.6c put
+in `support/ui_kit` so that every feed could share it. `modules/strategy/ui`'s
+feed implements it too, so the moment a second module's `ui/` had a feed, the
+tool reported the shared base class as duplication.
+
+The exclusion is deliberately **computed, not a hand-list**, and deliberately
+narrow: only `@abstractmethod` declarations under `src/support/` and `src/core/`
+qualify. Qt's own mandated overrides (`rowCount`, `data`, `headerData`) are
+**still counted**, because nothing in this repository declares them — and so is
+the real duplication that PR 4.1a's first attempt exposed: four
+`QAbstractTableModel` subclasses in two packages sharing `_display_text`,
+`_sort_value`, `row_for` and `selected_row`, which is a sortable-table shape
+written twice and is `EPIC-025E` section 3.5's to fix. The amendment must not be
+widened to cover that; if it ever does, this metric has stopped measuring
+anything.
+
+The baseline was re-measured on the pre-move tree under the amended definition
+rather than lowered to fit the post-move number, so the ratchet still compares
+like with like.
+
 Run from the repository root:
 
     python3 tools/measure_duplicate_members.py            # human-readable
@@ -50,6 +78,36 @@ UI_PACKAGE_GLOBS: tuple[str, ...] = (
 #: The pair Phase 1 must bring to zero.
 PHASE_1_PAIR: tuple[str, str] = ("dashboard", "trading")
 
+#: Where a *shared* abstraction may live. A name declared `@abstractmethod`
+#: inside one of these trees is a contract every implementer must spell the same
+#: way, so two UI packages spelling it the same way is not duplication. Kept to
+#: two roots on purpose: a base class inside a UI package would be that
+#: package's own, and excluding its names would let real duplication hide behind
+#: an `@abstractmethod` added for the purpose.
+SHARED_ABSTRACTION_ROOTS: tuple[str, ...] = ("support", "core")
+
+
+def _shared_abstract_member_names() -> frozenset[str]:
+    """Every name declared `@abstractmethod` under `SHARED_ABSTRACTION_ROOTS`."""
+    names: set[str] = set()
+    for root in SHARED_ABSTRACTION_ROOTS:
+        for py_file in (_SRC / root).rglob("*.py"):
+            if "__pycache__" in py_file.parts:
+                continue
+            tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
+            for node in ast.walk(tree):
+                if not isinstance(node, ast.ClassDef):
+                    continue
+                for item in node.body:
+                    if not isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
+                        continue
+                    if any(
+                        isinstance(d, ast.Name) and d.id == "abstractmethod"
+                        for d in item.decorator_list
+                    ):
+                        names.add(item.name)
+    return frozenset(names)
+
 
 def _package_dirs() -> dict[str, Path]:
     found: dict[str, Path] = {}
@@ -79,7 +137,8 @@ def _member_names(package_dir: Path) -> set[str]:
 
 def measure() -> dict[str, object]:
     packages = _package_dirs()
-    members = {name: _member_names(path) for name, path in packages.items()}
+    shared = _shared_abstract_member_names()
+    members = {name: _member_names(path) - shared for name, path in packages.items()}
     owners: dict[str, set[str]] = defaultdict(set)
     for package, names in members.items():
         for name in names:
