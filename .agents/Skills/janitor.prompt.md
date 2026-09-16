@@ -22,7 +22,7 @@ will not find any of it:
   *scan* (screen packages on disk, registered use cases, navigable routes)
   rather than list. Something with no caller can still be found by a scan and
   constructed;
-- **indicator scripts** — `src/domain/indicator_scripts/` is loaded by
+- **indicator scripts** — `src/support/indicators/indicator_scripts/` is loaded by
   convention, not by import;
 - **Qt** — a slot connected by name, an `objectName` looked up from a test or a
   preview.

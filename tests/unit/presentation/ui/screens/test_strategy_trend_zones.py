@@ -3,7 +3,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import (
     TREND_ZONE_DOWN,
     TREND_ZONE_UP,
@@ -22,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.ema import EMA
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
 

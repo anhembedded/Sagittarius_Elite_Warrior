@@ -74,9 +74,6 @@ def test_backtest_bottom_tabs_switch_between_trades_and_logs(qapp) -> None:
 
 
 def test_backtest_presenter_event_bus_handlers(qapp) -> None:
-    from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
-        IndicatorScriptRegistry,
-    )
     from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
         StrategyRegistry,
     )
@@ -85,6 +82,9 @@ def test_backtest_presenter_event_bus_handlers(qapp) -> None:
     )
     from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
         BackTestView,
+    )
+    from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
+        IndicatorScriptRegistry,
     )
     from sagittarius_engine.interfaces.i_config import IConfig
     from sagittarius_engine.interfaces.i_event_bus import IEventBus

@@ -42,7 +42,19 @@ _QT_FREE_GLOBS = (
     "modules/*/domain/**/*.py",
     "modules/*/application/**/*.py",
     "modules/*/contracts/**/*.py",
-    "support/indicators/**/*.py",
+    # `support/indicators` minus its `ui/`, and the asymmetry is the same one
+    # `modules/*` has above: the mathematics must be callable from any thread
+    # with no display, while a widget over it cannot be. This glob was written
+    # in Phase 0, before the package existed, and PR 1.6g is when the two
+    # halves actually arrived — HLD §3.5 assigns `components/indicator_scripts`
+    # (a `QAbstractListModel` and its selection state) to this package, and
+    # this line declared the whole package Qt-free. Both intents survive by
+    # naming the sub-packages rather than the package, which is how every other
+    # zone here is written.
+    "support/indicators/indicators/**/*.py",
+    "support/indicators/indicator_scripts/**/*.py",
+    "support/indicators/scripting/**/*.py",
+    "support/indicators/indicator_script_registry.py",
     "support/binance_gateway/**/*.py",
 )
 

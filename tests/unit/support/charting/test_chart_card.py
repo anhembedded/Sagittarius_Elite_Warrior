@@ -1280,7 +1280,9 @@ def test_region_refresh_does_not_rebuild_items_when_visible_slice_is_unchanged(q
 
 
 def test_script_info_renders_label_value_pairs_into_the_panel(qapp):
-    from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
+    from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts import (
+        InfoField,
+    )
 
     card = ChartCard("BTCUSDT")
 
@@ -1294,7 +1296,9 @@ def test_script_info_renders_label_value_pairs_into_the_panel(qapp):
 
 
 def test_script_info_from_two_scripts_both_appear(qapp):
-    from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
+    from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts import (
+        InfoField,
+    )
 
     card = ChartCard("BTCUSDT")
 
@@ -1307,7 +1311,9 @@ def test_script_info_from_two_scripts_both_appear(qapp):
 
 
 def test_clearing_one_scripts_info_leaves_the_others_visible(qapp):
-    from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
+    from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts import (
+        InfoField,
+    )
 
     card = ChartCard("BTCUSDT")
     card.set_script_info("ema_cross", [InfoField(label="Trend", value="UP")])
@@ -1323,7 +1329,9 @@ def test_clearing_one_scripts_info_leaves_the_others_visible(qapp):
 def test_replacing_a_scripts_info_with_an_empty_list_clears_its_rows(qapp):
     """set_script_info(key, []) is how a script author expresses "nothing to
     report this bar" — it must not leave the previous bar's rows stuck."""
-    from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
+    from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts import (
+        InfoField,
+    )
 
     card = ChartCard("BTCUSDT")
     card.set_script_info("ema_cross", [InfoField(label="Trend", value="UP")])

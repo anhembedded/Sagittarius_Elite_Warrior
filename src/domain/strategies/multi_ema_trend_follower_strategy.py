@@ -1,14 +1,6 @@
 from collections.abc import Mapping
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
-from Sagittarius_Elite_Warrior.src.domain.indicators.i_indicator import IIndicator
-from Sagittarius_Elite_Warrior.src.domain.scripting import (
-    constant_series,
-    crossed_above,
-    crossed_below,
-    is_above,
-)
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     IndicatorValue,
@@ -16,6 +8,16 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.ema import EMA
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.i_indicator import (
+    IIndicator,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.scripting import (
+    constant_series,
+    crossed_above,
+    crossed_below,
+    is_above,
 )
 
 _DEFAULT_FAST_PERIOD = 8

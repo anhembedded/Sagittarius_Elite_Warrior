@@ -12,10 +12,10 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
-from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
+from Sagittarius_Elite_Warrior.src.support.indicators.ui.runner import (
     IndicatorScriptRunner,
 )
 

@@ -16,9 +16,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from unittest.mock import MagicMock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
-    IndicatorScriptRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.services.live_strategy_factory import (
     LiveStrategyFactory,
 )
@@ -27,10 +24,6 @@ from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session im
 )
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
-)
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
-    EmaCrossScript,
-    EmaRibbonScript,
 )
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
@@ -55,6 +48,13 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_p
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts import (
+    EmaCrossScript,
+    EmaRibbonScript,
 )
 from sagittarius_engine.extensions.health.health_check_query import HealthCheckQuery
 from sagittarius_engine.extensions.health.health_check_requested import (

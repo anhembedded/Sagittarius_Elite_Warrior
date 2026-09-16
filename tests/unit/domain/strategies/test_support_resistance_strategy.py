@@ -1,6 +1,3 @@
-from Sagittarius_Elite_Warrior.src.domain.indicators.support_resistance import (
-    SupportResistanceValue,
-)
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     StrategyContext,
 )
@@ -9,6 +6,9 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.support_resistance_strategy
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.support_resistance import (
+    SupportResistanceValue,
 )
 from Sagittarius_Elite_Warrior.tests.unit.domain.strategies.conftest import (
     build_candle,

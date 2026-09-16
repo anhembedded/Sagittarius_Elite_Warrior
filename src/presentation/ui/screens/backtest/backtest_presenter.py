@@ -7,9 +7,6 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
-from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
-    IndicatorScriptRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
@@ -64,9 +61,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordin
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
     SyncProgressReport,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
-    IndicatorScriptRunner,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
@@ -85,6 +79,12 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_pre
 )
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     describe as describe_timeframe,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.ui.runner import (
+    IndicatorScriptRunner,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOwnershipTracker,

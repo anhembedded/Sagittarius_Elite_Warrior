@@ -4,12 +4,15 @@ from __future__ import annotations
 
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.domain.scripting import InputKind, ScriptInput
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.coordinators import (
     StrategyConfigCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.scripting import (
+    InputKind,
+    ScriptInput,
 )
 from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.screens.backtest.coordinators.conftest import (
     InMemoryScreenState,

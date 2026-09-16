@@ -16,9 +16,6 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import QObject
-from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
-    IndicatorScriptRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
@@ -37,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backte
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.extended_metrics_snapshot import (
     ExtendedMetricsSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
+    IndicatorScriptRegistry,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
 from Sagittarius_Elite_Warrior.tests.conftest import find_all_named

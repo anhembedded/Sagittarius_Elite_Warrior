@@ -1,0 +1,34 @@
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+
+from .base_indicator_script import (
+    BaseIndicatorScript,
+)
+
+
+class Ema20Script(BaseIndicatorScript):
+    """
+    @brief EMA(20) — one of the Dev Board's default indicators (US-07: "no
+    indicator hardcoded in the engine, default is EMA 200/100/50/20").
+
+    @details A single, independently toggleable EMA rather than reusing
+    `ema_ribbon_script.py` on purpose — that script draws all four EMAs as
+    one unit with no way to enable just one of them. `default_enabled = True`
+    is what makes it show up already checked the first time the app runs.
+    """
+
+    title = "EMA 20"
+    overlay = True
+    #: Tied to input_int's own default below (BOT-048) — stays accurate
+    #: because nothing today calls IndicatorScriptRegistry.create() with a
+    #: real params override for this script (see dashboard_presenter.py's
+    #: _compute_fetch_limit(), which reads this off the class, no instance).
+    #: Needs to become per-instance once BOT-063 wires a real params UI.
+    min_warmup_bars = 20
+    default_enabled = True
+
+    def setup(self) -> None:
+        period = self.input_int("period", 20, label="Period", minval=1)
+        self.a = self.ema(period)
+
+    def execute(self, candle: MarketData) -> None:
+        self.plot(self.a(candle.close_price), "EMA 20", color="#e74c3c")

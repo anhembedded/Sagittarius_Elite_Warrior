@@ -6,9 +6,6 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
-from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
-    IndicatorScriptRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
     LiveStrategySession,
 )
@@ -104,9 +101,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordin
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (
     SyncProgressFeed,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
-    IndicatorScriptRunner,
-)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
@@ -114,6 +108,12 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
     find_timeframe_pin_preferences,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.ui.runner import (
+    IndicatorScriptRunner,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,

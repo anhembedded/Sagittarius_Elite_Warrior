@@ -72,6 +72,18 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_engine_port_calls_are_real.py",
         (("src", "*.py"), ("scripts", "*.py")),
     ),
+    # PR 1.6g — every name declared to be the repository root must resolve to
+    # it. A hop count breaks on any change of depth, which is every move this
+    # epic makes, and it did so twice in two pull requests.
+    (
+        "tests/unit/architecture/test_no_root_is_found_by_counting.py",
+        (
+            ("src", "*.py"),
+            ("tests", "*.py"),
+            ("scripts", "*.py"),
+            ("tools", "*.py"),
+        ),
+    ),
     # `CS-001`'s own index guard. `Docs/` rather than `src/`, and registered
     # for the same reason as the rest: a case-study directory that moved would
     # otherwise leave every check in that file passing over an empty scan.
@@ -154,8 +166,16 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         (("src/application", "*.py"),),
     ),
     (
-        "tests/unit/domain/test_indicator_script_conventions.py",
-        (("src/domain/indicator_scripts", "*.py"), ("src/domain", "*.py")),
+        "tests/unit/support/indicators/test_indicator_script_conventions.py",
+        (
+            # `support/indicators/indicator_scripts` since PR 1.6g; the second
+            # root is still the legacy domain tree, because the convention this
+            # guard checks (a script declares its indicators, never computes
+            # them inline) is about *scripts*, and the guard also proves none
+            # has been left behind under `domain/`.
+            ("src/support/indicators/indicator_scripts", "*.py"),
+            ("src/domain", "*.py"),
+        ),
     ),
     (
         "tests/unit/architecture/test_only_the_session_factory_constructs_binance_client.py",

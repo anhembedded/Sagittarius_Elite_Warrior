@@ -9,7 +9,6 @@ from Sagittarius_Elite_Warrior.src.application.services.strategy_engine import (
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_trend_pullback_strategy import (
     EmaTrendPullbackStrategy,
 )
@@ -19,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.ema import EMA
 
 _TEST_PARAMS = {
     "ema_long_len": 12,

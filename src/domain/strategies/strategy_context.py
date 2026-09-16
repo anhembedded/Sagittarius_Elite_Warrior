@@ -2,12 +2,12 @@ from collections.abc import Mapping
 from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.indicators.macd import MACDValue
-from Sagittarius_Elite_Warrior.src.domain.indicators.support_resistance import (
-    SupportResistanceValue,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.macd import MACDValue
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.support_resistance import (
+    SupportResistanceValue,
 )
 
 IndicatorValue = float | MACDValue | SupportResistanceValue

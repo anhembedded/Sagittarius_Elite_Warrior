@@ -5,13 +5,13 @@ from unittest.mock import Mock
 from Sagittarius_Elite_Warrior.src.application.services.strategy_engine import (
     StrategyEngine,
 )
-from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.strategies.multi_ema_trend_follower_strategy import (
     MultiEmaTrendFollowerStrategy,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
 )
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.ema import EMA
 
 _TEST_PERIODS = {
     "fast_period": 2,

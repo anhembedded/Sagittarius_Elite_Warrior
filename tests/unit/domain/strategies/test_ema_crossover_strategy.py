@@ -6,13 +6,13 @@ from unittest.mock import Mock
 from Sagittarius_Elite_Warrior.src.application.services.strategy_engine import (
     StrategyEngine,
 )
-from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
 )
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.ema import EMA
 
 # Flat, then ramp up, then ramp down, then ramp up again — guarantees at least
 # one cross in each direction. Verified by actually running EMA(3)/EMA(5)

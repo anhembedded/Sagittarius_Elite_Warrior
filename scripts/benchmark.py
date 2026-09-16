@@ -6,23 +6,23 @@ from datetime import UTC, datetime, timedelta
 # Cấu hình sys.path để import thẳng từ thư viện của app
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..")))
 
-from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_20_script import (
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_20_script import (
     Ema20Script,
 )
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_50_script import (
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_50_script import (
     Ema50Script,
 )
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_100_script import (
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_100_script import (
     Ema100Script,
 )
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_200_script import (
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_200_script import (
     Ema200Script,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
+from Sagittarius_Elite_Warrior.src.support.indicators.ui.runner import (
     IndicatorScriptRunner,
     qualified_line_name,
 )

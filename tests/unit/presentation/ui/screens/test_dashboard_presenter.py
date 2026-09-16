@@ -230,18 +230,11 @@ def mock_container(
 ):
     container = MagicMock()
 
-    from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
-        IndicatorScriptRegistry,
-    )
     from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
         LiveStrategySession,
     )
     from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
         StrategyRegistry,
-    )
-    from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
-        EmaCrossScript,
-        EmaRibbonScript,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
         IAccountSnapshot,
@@ -254,6 +247,13 @@ def mock_container(
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
         ITradingSession,
+    )
+    from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
+        IndicatorScriptRegistry,
+    )
+    from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts import (
+        EmaCrossScript,
+        EmaRibbonScript,
     )
     from sagittarius_engine.interfaces.i_config import IConfig
     from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
@@ -367,9 +367,6 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     `app_bootstrapper.py` shape — construction must hand the View that
     exact instance, so a Dev Board symbol-list rebuild reads/writes the
     same persisted, per-symbol pins as any other screen."""
-    from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
-        IndicatorScriptRegistry,
-    )
     from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
         LiveStrategySession,
     )
@@ -387,6 +384,9 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
         ITradingSession,
+    )
+    from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
+        IndicatorScriptRegistry,
     )
     from sagittarius_engine.interfaces.i_config import IConfig
     from sagittarius_engine.interfaces.i_dispatcher import IDispatcher

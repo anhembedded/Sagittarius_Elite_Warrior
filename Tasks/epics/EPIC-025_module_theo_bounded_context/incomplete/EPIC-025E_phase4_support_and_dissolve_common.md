@@ -18,8 +18,22 @@
    extraction raised — HLD §6.1 now lets the two UI support packages import each other whole,
    measured and pinned, rather than routing 20 imports through an ABC façade written for one
    consumer.
-2. `support/indicators/` ← `domain/indicators`, `indicator_scripts`, `scripting`, plus
-   `IIndicatorCatalog`.
+2. ✅ **Done, PR 1.6g** (pulled forward like steps 1 and 3). `support/indicators/` ←
+   `domain/{indicators,indicator_scripts,scripting}`, `application/services/
+   indicator_script_registry.py` and `components/indicator_scripts` (as `ui/`) — 26 files,
+   measured clean before the move: the only external imports were `core.vo` and
+   `support/charting/contracts`, both permitted. `IIndicatorCatalog` is **not** published yet;
+   its consumers are Phase 2's `strategy` and Phase 3's backtesting, both still in the legacy
+   tree, and a port with no caller outside its own package is a seam invented ahead of its
+   need.
+
+   **`components/strategy_params` did not come, and the reason belongs in the design rather
+   than in a to-do list.** §3.5 assigns it here, but `bot_params_form.py` imports
+   `BaseStrategy` from `domain/strategies` — Phase 2's `modules/strategy`. So the assignment
+   cannot be satisfied before that module exists, and it is not obvious it should be: a form
+   that renders *a strategy's* parameters reads more like `modules/strategy/ui` than like a
+   generic indicators package. **Open for the user**, same shape as `sync_progress_*` in step 3,
+   and the pair stays where it is until then.
 3. `support/ui_kit/` ← what survives of `kit/` after HLD §11 (no `PageShell`, no `style.py`, no
    tokens, no `qml/`): the generic QtWidgets helpers (`binding`, `widget_value`, guards) and the
    five genuinely shared items of `ui/common` (`action_ownership_tracker`, `app_defaults`,

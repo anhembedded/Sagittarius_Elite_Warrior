@@ -5,8 +5,11 @@ from collections.abc import Mapping, Sequence
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.domain.scripting import InputKind, ScriptInput
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
+from Sagittarius_Elite_Warrior.src.support.indicators.scripting import (
+    InputKind,
+    ScriptInput,
+)
 
 #: Key used for fields whose ScriptInput.group is None — QML skips rendering
 #: a group header when it sees this (an empty string, never a real group name).

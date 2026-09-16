@@ -26,9 +26,6 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
-    IndicatorScriptRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
     StrategyRegistry,
 )
@@ -53,10 +50,6 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
 from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation import (
     OutOfSampleValidation,
 )
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.base_indicator_script import (
-    BaseIndicatorScript,
-)
-from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import (
     TREND_ZONE_DOWN,
     TREND_ZONE_UP,
@@ -135,6 +128,13 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.base_indicator_script import (
+    BaseIndicatorScript,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.ema import EMA
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher

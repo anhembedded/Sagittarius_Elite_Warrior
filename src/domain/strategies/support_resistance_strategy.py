@@ -1,12 +1,6 @@
 from collections.abc import Mapping
 from typing import Any, cast
 
-from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
-from Sagittarius_Elite_Warrior.src.domain.indicators.i_indicator import IIndicator
-from Sagittarius_Elite_Warrior.src.domain.indicators.support_resistance import (
-    SupportResistance,
-    SupportResistanceValue,
-)
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     IndicatorValue,
@@ -14,6 +8,14 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.ema import EMA
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.i_indicator import (
+    IIndicator,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.support_resistance import (
+    SupportResistance,
+    SupportResistanceValue,
 )
 
 _DEFAULT_LOOKBACK_PERIOD = 20

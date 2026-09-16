@@ -11,7 +11,6 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.indicators.rsi import RSI
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     StrategyContext,
 )
@@ -22,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.rsi import RSI
 
 RSI_OVERSOLD_THRESHOLD = 30.0
 RSI_OVERBOUGHT_THRESHOLD = 70.0

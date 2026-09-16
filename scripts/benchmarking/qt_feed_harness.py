@@ -33,11 +33,11 @@ from dataclasses import dataclass
 from PySide6 import QtCore
 from sagittarius_engine.infrastructure.thread_manager import ThreadManager
 
-from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
+from Sagittarius_Elite_Warrior.src.support.indicators.ui.runner import (
     IndicatorScriptRunner,
 )
 

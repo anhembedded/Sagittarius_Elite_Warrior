@@ -70,6 +70,11 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.rules import (
             "support.ui_kit.kit",
             False,
         ),
+        # PR 1.6g — a support package's own `ui/` is display code, like a
+        # module's; its mathematics is not.
+        ("support.indicators.ui.list_model", "support.ui_kit.model_indexes", True),
+        ("support.indicators.indicator_scripts.ema", "support.ui_kit.kit", False),
+        ("support.indicators.ui.list_model", "modules.trading.contracts.x", False),
         ("support.charting.chart_card", "support.binance_gateway.session", False),
         ("support.charting.chart_card", "modules.trading.contracts.order", False),
         ("support.charting.chart_card", "domain.value_objects.x", False),

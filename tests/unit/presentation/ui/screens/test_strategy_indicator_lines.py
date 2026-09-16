@@ -4,7 +4,6 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.indicators.ema import EMA
 from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     StrategyContext,
@@ -16,6 +15,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_overlay.s
     assign_strategy_line_colors,
     compute_strategy_indicator_lines,
 )
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.ema import EMA
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
 

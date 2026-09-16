@@ -38,9 +38,7 @@ from typing import ClassVar, Final
 
 from PySide6.QtCore import (
     QAbstractTableModel,
-    QModelIndex,
     QObject,
-    QPersistentModelIndex,
     Qt,
 )
 from PySide6.QtGui import QFont
@@ -50,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_or
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.position_row import (
     PositionRow,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.model_indexes import (
+    AnyIndex,
+)
 
 #: The role carrying the comparable value behind a cell's display text, so a
 #: numeric column sorts numerically. Defined per table family rather than
@@ -57,11 +58,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positio
 #: component importing a screen is the cross-screen import the guards refuse,
 #: and the shared home for both is `support/ui_kit` in Phase 4.
 SORT_ROLE: Final = Qt.ItemDataRole.UserRole + 1
-
-#: Any Qt index type a model method may be handed. PySide6 passes
-#: `QPersistentModelIndex` to `data()` in some call paths, so an annotation of
-#: `QModelIndex` alone is a lie mypy cannot catch but Qt can produce.
-type AnyIndex = QModelIndex | QPersistentModelIndex
 
 
 def _as_number(text: str) -> float:

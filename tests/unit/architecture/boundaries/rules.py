@@ -111,10 +111,23 @@ def _support_may_import(
     # the only other option is for the charting package to carry its own copy
     # of the kit, which is the duplication this epic exists to delete.
     #
-    # Deliberately narrow: *these two zones*, not support-wide. A gateway or
-    # an indicators package reaching into another support package's internals
-    # still fails here, because neither is UI and neither has the reason.
-    return src_zone in _UI_SUPPORT_ZONES and dst_zone in _UI_SUPPORT_ZONES
+    # PR 1.6g widened the *importing* side once, and only in the way the
+    # rules already treat modules: a support package's own `ui/` sub-package is
+    # display code, so it may use the UI kit exactly as `modules/X/ui` may.
+    # `support/indicators` is the case that forced it — its mathematics is
+    # Qt-free (`test_module_domain_is_qt_free.py` names those three
+    # sub-packages) while its `ui/` holds a `QAbstractListModel`, and that
+    # model needs `AnyIndex` from the kit.
+    #
+    # Still deliberately narrow, and the three edges that must keep failing
+    # are pinned in `test_boundary_rules.py`: `binance_gateway -> ui_kit` has
+    # no `ui/` and no reason; `indicators.indicator_scripts -> ui_kit` is the
+    # mathematics reaching for a widget, which the Qt-free guard forbids from
+    # the other side; and nothing in `support/` may reach a module or the
+    # legacy tree at all.
+    if dst_zone not in _UI_SUPPORT_ZONES:
+        return False
+    return src_zone in _UI_SUPPORT_ZONES or sub_package_of(importing_module) == "ui"
 
 
 def _module_may_import(

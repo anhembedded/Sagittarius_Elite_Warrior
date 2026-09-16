@@ -2,15 +2,6 @@ from abc import abstractmethod
 from collections.abc import Mapping, Sequence
 from typing import Any, cast
 
-from Sagittarius_Elite_Warrior.src.domain.indicators.i_indicator import IIndicator
-from Sagittarius_Elite_Warrior.src.domain.scripting import (
-    DEFAULT_HISTORY,
-    InputDeclarations,
-    InputKind,
-    ScriptInput,
-    Series,
-    build_input,
-)
 from Sagittarius_Elite_Warrior.src.domain.strategies.i_strategy import IStrategy
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     IndicatorValue,
@@ -19,6 +10,17 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicators.i_indicator import (
+    IIndicator,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.scripting import (
+    DEFAULT_HISTORY,
+    InputDeclarations,
+    InputKind,
+    ScriptInput,
+    Series,
+    build_input,
 )
 
 _HOLD_REASON = "no signal"

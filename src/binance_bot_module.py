@@ -7,9 +7,6 @@ logger = logging.getLogger("App.BinanceBotModule")
 from Sagittarius_Elite_Warrior.src.application.event_handlers.market_data.market_tick_event_handler import (
     MarketTickEventHandler,
 )
-from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
-    IndicatorScriptRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.services.live_strategy_config_store import (
     LiveStrategyConfigStore,
 )
@@ -58,33 +55,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import (
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
-)
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.dev_indicator_script import (
-    DevIndicatorScript,
-)
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_20_script import (
-    Ema20Script,
-)
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_50_script import (
-    Ema50Script,
-)
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_100_script import (
-    Ema100Script,
-)
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_200_script import (
-    Ema200Script,
-)
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_cross_script import (
-    EmaCrossScript,
-)
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.ema_ribbon_script import (
-    EmaRibbonScript,
-)
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.macd_full_script import (
-    MacdFullScript,
-)
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts.rsi_14_script import (
-    Rsi14Script,
 )
 from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
@@ -234,6 +204,36 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.dev_indicator_script import (
+    DevIndicatorScript,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_20_script import (
+    Ema20Script,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_50_script import (
+    Ema50Script,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_100_script import (
+    Ema100Script,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_200_script import (
+    Ema200Script,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_cross_script import (
+    EmaCrossScript,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_ribbon_script import (
+    EmaRibbonScript,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.macd_full_script import (
+    MacdFullScript,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.rsi_14_script import (
+    Rsi14Script,
 )
 from sagittarius_engine import App
 from sagittarius_engine.base import BaseModule

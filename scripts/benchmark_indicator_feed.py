@@ -31,10 +31,10 @@ from Sagittarius_Elite_Warrior.scripts.benchmarking.qt_feed_harness import (
     run_main_thread_path,
 )
 from Sagittarius_Elite_Warrior.scripts.benchmarking.report import format_result
-from Sagittarius_Elite_Warrior.src.application.services.indicator_script_registry import (
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import (
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts import (
     Ema20Script,
     Ema50Script,
     Ema100Script,
