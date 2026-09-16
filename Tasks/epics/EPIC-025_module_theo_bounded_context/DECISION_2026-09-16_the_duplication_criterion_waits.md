@@ -30,7 +30,19 @@ not: they are QML packages that ADR D21 **deletes** in Phase 4 rather than moves
 `components/strategy_params`, which needs `BaseStrategy` from Phase 2's `modules/strategy`. A
 legacy screen may import a module only through its `contracts/`, so those 11 would have had to
 become **new lines in `allowlist_module_boundaries.txt`** — a file whose whole discipline is that
-it only ever shrinks (316 lines today, 36 live entries, down from 56).
+it only ever shrinks (316 lines today, **23** live entries, down from 80 at PR 1.3a).
+
+> **The count in that sentence was 36 when this file was written, and 36 was never right.**
+> `grep -cvE '^\s*#|^\s*$' tests/unit/architecture/allowlist_module_boundaries.txt` answers
+> **23**, and walking the file's history says it has answered 23 since PR 1.3c-5 — 80 after
+> 1.3a, then 56, 46, 32, 29, 25, 23. The wrong number came from `Tasks/epics/README.md`'s
+> Phase 1 row and was copied forward into six `TRACKING.md` rows and into this file, all on
+> the same day, each time as "unchanged at 36" — which is the failure
+> `.agents/Skills/README.md` §1 bans by name: a count written into a briefing as current
+> state. It changes nothing about the decision below (the question was whether to *add* 11
+> entries, and 11 added to 23 is as much a growth as 11 added to 36), which is why it is a
+> note here rather than a re-decision. Corrected everywhere on 2026-09-16, and the command is
+> written out so the next reader measures instead of copying.
 
 So the question was not "which is cheaper". It was whether to spend the epic's one invariant —
 *the allowlist never grows* — to reach a number four pull requests early. That trades a measured

@@ -11,7 +11,18 @@
 #
 # History of the count: 10 as found (2026-09-13) -> 8 after PR 0.3 -> 41 after
 # PR 0.4a -> 38 after PR 0.4a-2 -> 34 after PR 0.5 -> 28 after PR 1.1a -> 24
-# after PR 1.1b -> 20 after PR 1.2 -> 80 after PR 1.3a -> 56 after PR 1.3b.
+# after PR 1.1b -> 20 after PR 1.2 -> 80 after PR 1.3a -> 60 and 56 after PR
+# 1.3b's two halves -> 46, 32, 29, 25, 23 after PR 1.3c-1..1.3c-5.
+#
+# THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
+# `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
+# for eleven pull requests while the file held 23, and the wrong figure was
+# read out of `Tasks/epics/README.md` (which said 36 - a number this file has
+# never held) and copied into six tracking rows and a decision record on
+# 2026-09-16, each time as "unchanged at 36". A count in prose is a claim about
+# state, and `.agents/Skills/README.md` section 1 bans writing one without a
+# way to check it; this is the way. Add or retire an entry, edit this line in
+# the same commit.
 #
 # The jump at 1.3a is 0.4a's again, and for the same reason: it moved the
 # `trading` context into `modules/trading/`, so every legacy screen, CLI

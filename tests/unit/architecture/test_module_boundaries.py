@@ -28,6 +28,7 @@ tree. `test_boundary_rules.py` pins the policy table;
 
 from __future__ import annotations
 
+import re
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.allowlist import (
@@ -93,6 +94,52 @@ def test_the_allowlist_has_not_gone_stale() -> None:
     assert stale == [], (
         "allowlist entries no longer correspond to an existing import — delete them:\n"
         + _render(stale)
+    )
+
+
+#: Every `N after PR <id>` in the allowlist header's own account of its count.
+#: The **last** one is the file's current claim. Matched this way rather than by
+#: anchoring on the end of the sentence, because "PR 0.3" contains a full stop
+#: and a pattern that ended at one read the *first* figure instead of the last —
+#: which this guard caught on its first run, against itself.
+_HISTORY_COUNT = re.compile(r"(\d+)\s+after\s+PR\s")
+
+
+def test_the_documented_count_is_the_real_count() -> None:
+    """The allowlist header narrates its own count, and that sentence is the
+    number every board and tracking row quotes. It does not update itself.
+
+    It went stale for eleven pull requests — the header said 56 while the file
+    held 23 — and on 2026-09-16 a *third* figure, 36, was read out of
+    `Tasks/epics/README.md` and copied into six tracking rows and a decision
+    record in one day, as "unchanged at 36". 36 is a number this file has never
+    held. Nothing was watching, because a count in prose is not checkable
+    unless something checks it, which is what
+    `.agents/Skills/README.md` section 1 means by banning a count written into a
+    briefing as current state.
+
+    So: the last figure in the history sentence must equal the entries below it.
+    A pull request that adds or retires one edits that line in the same commit,
+    and every document quoting the number has one place to copy from.
+    """
+    header = _ALLOWLIST_FILE.read_text(encoding="utf-8")
+    figures = _HISTORY_COUNT.findall(header)
+
+    assert figures, (
+        "the allowlist header no longer carries a 'History of the count: ... N "
+        "after PR X' account. It is what every board quotes; restore it, or "
+        "retarget this guard at whatever replaced it."
+    )
+
+    documented = int(figures[-1])
+    real = len(read_allowlist(_ALLOWLIST_FILE))
+
+    assert documented == real, (
+        f"the allowlist header says its history ends at {documented} entries; it "
+        f"holds {real}. Update the last figure on that line in the commit that "
+        "changed the entries — a stale one gets copied into the boards, which is "
+        "exactly how 36 (a count this file never held) reached six tracking rows "
+        "and a decision record on 2026-09-16."
     )
 
 
