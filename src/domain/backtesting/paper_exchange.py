@@ -117,26 +117,16 @@ class PaperExchange:
             )
 
         self._margin_policy = margin_policy or MarginRiskPolicy()
-        #: `EPIC-025` PR 2.1d - the sizing half of what `MarginRiskPolicy`
-        #: used to do, now `strategy`'s (ADR D17) and reached through its
-        #: published port.
-        #:
-        #: **PR 3.1b changed only where the default comes from**, and that is
-        #: what retired this file's allowlist entry. It was
-        #: `MarginSizingPolicy()`, imported from `strategy/domain/policies/` —
-        #: a paper broker in another bounded context reaching past that
-        #: module's `contracts/`. Now it is `default_sizing_policy()`, which
-        #: `contracts/` publishes and which returns that same one
-        #: implementation, so backtest and live sizing remain one number by
-        #: construction (ADR D17's actual requirement) with no import across
-        #: the boundary.
-        #:
-        #: The default stays rather than becoming a required argument because
-        #: fifty-five inline construction sites in `test_paper_exchange.py`
-        #: pass no policy at all — `ONBOARDING` §8 trap 5's shape. The two
-        #: backtest handlers *do* pass one, resolved from the container, so
-        #: the binding is live and a second implementation reaches a real
-        #: backtest without touching this file.
+        #: The sizing half of what `MarginRiskPolicy` used to do — `strategy`'s
+        #: since PR 2.1d (ADR D17), reached through its published port. PR 3.1b
+        #: changed only where the *default* comes from: `MarginSizingPolicy()`
+        #: imported across the boundary became `contracts/
+        #: default_sizing_policy()`, the same implementation reached legally,
+        #: which is what retired this file's allowlist entry. The default stays
+        #: because this constructor has fifty-five inline call sites in its own
+        #: test file (`ONBOARDING` §8 trap 5); the backtest handlers pass the
+        #: resolved port, so a second rule reaches a real backtest. Full
+        #: account: `EPIC-025D` §5.2.
         self._sizing_policy = sizing_policy or default_sizing_policy()
         self._matching_policy = matching_policy or OrderMatchingPolicy()
         self._fee_policy = fee_policy or FeeCalculatorPolicy()

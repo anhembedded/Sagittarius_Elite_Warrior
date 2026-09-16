@@ -358,3 +358,30 @@ context's internals (`StrategyRegistry`, `build_engine`, `StrategyEngine`); the 
 `paper_exchange`'s. The three `presentation.ui.screens.* -> strategy_registry` lines are **not**
 among them and are a different debt — Presenters handing the registry to coordinators that construct
 a strategy for its chart lines, which PR 2.1c measured and which needs the screens to move (Phase 4).
+
+### 5.5 What the review of this pull request found
+
+Two findings, both on its own work:
+
+**The `sizing_policy=` wiring was pinned by nothing, and could not be.** Deleting
+`sizing_policy=self._sizing_policy` from the static handler left **37** tests green — the fourth
+time in five pull requests that the E12 probe has earned its keep. The reason is worth recording,
+because it is a different reason from the previous three: the injected object and
+`PaperExchange`'s default are the *same implementation*, so no behavioural test can tell them apart.
+An "assert it was called" test would have been the obvious answer and a bad one — it pins a call,
+not a promise (`domain-truth-rule.md`).
+
+What the injection actually buys is ADR D17's promise that a **second** sizing rule bound in the
+container reaches a real backtest, and that *is* observable. `test_the_injected_sizing_policy_is_
+what_sizes_the_paper_fills` runs the same candles twice — once with the real rule, once with an
+`ISizingPolicy` that delegates to it and halves the result — and asserts the trade quantities
+differ. Cut the wire and both runs use the default, the quantities match, and it fails. Re-probed:
+exactly that test, and only it.
+
+**`paper_exchange.py` was 468 lines and this pull request made it 480**, against `architecture-rule`
+§5 rule 4's 400-line ceiling. The added lines were all comment, which is not an excuse: the file was
+already 68 over and the direction was wrong. Trimmed to 470 — the same content, one paragraph
+instead of three, with the full account here in §5.2 where it belongs. **The file is still 70 over
+the ceiling, and that is PR 3.1c's to fix**, not a comment's: it is the one file in Half A that
+genuinely holds two abstraction levels (a broker's books, and the matching/fee/margin policies it
+delegates to), and the move is when splitting it costs nothing extra.

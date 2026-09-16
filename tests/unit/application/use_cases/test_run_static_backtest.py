@@ -32,6 +32,8 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strateg
     StrategyRegistry,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
+    ISizingPolicy,
+    MarginAllocation,
     default_sizing_policy,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
@@ -150,6 +152,7 @@ def _configure_repo_with_klines(repo: Mock, klines: list[MarketData]) -> None:
 
 def _build_handler(
     klines: list[MarketData],
+    sizing_policy: ISizingPolicy | None = None,
 ) -> tuple[RunStaticBacktestCommandHandler, Mock]:
     repo = Mock()
     _configure_repo_with_klines(repo, klines)
@@ -159,10 +162,75 @@ def _build_handler(
     handler = RunStaticBacktestCommandHandler(
         repository=repo,
         engine_factory=StrategyEngineFactory(registry, event_publisher),
-        sizing_policy=default_sizing_policy(),
+        sizing_policy=sizing_policy or default_sizing_policy(),
         event_publisher=event_publisher,
     )
     return handler, event_publisher
+
+
+class _HalvingSizingPolicy(ISizingPolicy):
+    """`ISizingPolicy`, allocating exactly half of what the real rule would.
+
+    Derived from the ABC and delegating to the real implementation rather than
+    answering canned numbers, so the only difference from a default run is the
+    halving — `CS-001`'s rule about a double that cannot disagree, applied in
+    the direction that matters here: this one *must* disagree, visibly, or the
+    test below proves nothing.
+    """
+
+    def __init__(self) -> None:
+        self._real = default_sizing_policy()
+
+    def allocate(self, **kwargs) -> MarginAllocation:
+        full = self._real.allocate(**kwargs)
+        return MarginAllocation(
+            margin=full.margin / 2, notional_capital=full.notional_capital / 2
+        )
+
+
+def test_the_injected_sizing_policy_is_what_sizes_the_paper_fills() -> None:
+    """`EPIC-025` PR 3.1b — the seam ADR D17 promises the user, as a test.
+
+    @par Why this test exists, and what the obvious version would have missed
+    The handler passes `sizing_policy=self._sizing_policy` into
+    `PaperExchange`. Deleting that line changes **nothing** observable, because
+    the constructor falls back to `default_sizing_policy()` — the same
+    implementation — so every existing test here passes with the wire cut.
+    Measured, not assumed: thirty-seven of them did.
+
+    What the injection actually buys is D17's promise that a *second* sizing
+    rule bound in the container reaches a real backtest. That is observable,
+    and it is the only thing that is: run the same candles twice, once with the
+    real rule and once with one that allocates half, and the trade quantities
+    must differ. Cut the wire and both runs use the default, the quantities
+    match, and this fails.
+    """
+    klines = _build_klines()
+    command = RunStaticBacktestCommand(
+        symbol="BTCUSDT",
+        interval=TimeFrame.ONE_HOUR,
+        strategy_key="scripted",
+        initial_balance=1000.0,
+        fee_percent=0.0,
+    )
+
+    full_handler, _ = _build_handler(klines)
+    full = full_handler.execute(command)
+
+    half_handler, _ = _build_handler(klines, sizing_policy=_HalvingSizingPolicy())
+    half = half_handler.execute(command)
+
+    assert full is not None and half is not None
+    assert full.trades and half.trades, (
+        "both runs must produce trades, or this test compares two empty lists "
+        "and cannot fail"
+    )
+    assert [t.quantity for t in half.trades] != [t.quantity for t in full.trades], (
+        "halving the sizing policy did not change a single trade quantity — "
+        "the handler is not passing its policy to PaperExchange, which falls "
+        "back to the default and silently ignores whatever the container bound "
+        "(EPIC-025 PR 3.1b, ADR D17)"
+    )
 
 
 def test_fills_happen_at_the_next_bars_open_not_the_signal_bar():
