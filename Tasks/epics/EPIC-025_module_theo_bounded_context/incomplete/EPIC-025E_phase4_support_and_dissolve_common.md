@@ -157,7 +157,7 @@ split.
 | ~~4.1c~~ ❌ | `screens/trading` → `modules/trading/ui/` — **folded into 4.4, §3.11.** Its legacy-import count did reach **0**, and that turned out not to be the binding constraint: merging it into the existing `trading.ui` package deduplicates nothing (the total stays at 112) while making `phase_1_count` read a false **0**, and re-keying the metric honestly would raise its ratchet 32 → 39, which `ci-rule` §5.5 forbids. The two live screens travel together after the deletions, as the user's `DECISION_2026-09-16` said | — |
 | **4.2a** | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator`; `base_event_logger` → `modules/backtesting/ui/` | §3.3: the destination this file left open is **forced**, not chosen. All four have 0 legacy imports except `sync_progress_feed`, whose only one is the sibling travelling with it |
 | **4.2b** | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) | after 4.1b and 4.2a its remaining blockers are QML, so it waits on 4.3 |
-| **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), **4.3e** ✅ `qml/SelectList/` deleted, its four hosts onto `kit.PickerOverlay` (and the read-only one out of the picker shape altogether), then `CheckboxList`/`Capital`, `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 21**, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
+| **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), **4.3e** ✅ `qml/SelectList/` deleted, its four hosts onto `kit.PickerOverlay` (and the read-only one out of the picker shape altogether), **4.3f** ✅ `qml/CheckboxList/` + `qml/Capital/` deleted — `kit.ChecklistOverlay` arrives for the two checklists, and the capital form keeps `BUG-064`'s lesson with one writer instead of three bindings, then `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 19**, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
 | **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard`; `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's |
 
 After 4.1a and 4.2a, `ui/common` holds **two** files: `live_order_book_coordinator` (waiting on
@@ -768,3 +768,81 @@ rather than reasoned about: **−12** `test_select_list_vm.py`, **−4** `test_s
 **−3** the timezone trio leaving `test_qml_modal_bodies.py` (6 → 3), **+11**
 `test_select_dialogs.py`, **+1** `test_picker_overlay.py` (16 → 17), **−3** in the guards (two
 parametrised rows for the deleted source files, one for the deleted `.qml`).
+
+### 4.6 PR 4.3f — the shape `PickerOverlay` refused to guess at, and `BUG-064`'s lesson restated without bindings
+
+Two `.qml` bodies go together here because they are what is left of `EPIC-015`'s "bậc 1 pilots":
+`CheckboxList` (two hosts) and `Capital` (one). `.qml` **21 → 19**.
+
+**`ChecklistOverlay` is the first genuinely new `kit/` widget this phase has added, and its
+justification was written eighteen months of commits ago.** `PickerOverlay`'s docstring names this
+exact shape and declines it: *"The app's indicator picker is multi-select, toggles checkboxes, and
+never closes — a genuinely different interaction, not a parameter of this one. Left as a candidate
+rather than guessed at, the lesson EPIC-006's four abandoned card stubs paid for."* This is the step
+that needed it, and the judgement held: a picker emits *the* choice and its consumers `accept()` on
+it; a checklist emits *a* change and its consumers stay open. Two consumers exist, which is
+`base_feed`'s bar for a shared widget — unlike 4.3e's read-only list, which had one and stayed in
+its dialog.
+
+**The re-entrancy is the design constraint, and it is why `set_items()` is not a plain rebuild.**
+`OrderExecutionDialog` has a cross-row rule — two of its four rows are mutually exclusive — and it
+enforces that rule the only honest way: the toggle handler writes the screen's state, whose change
+signal calls `set_items()` again, *from inside the checkbox's own `toggled` emission*. A rebuild
+there would tear down the widget whose signal is still being delivered. So an unchanged key set
+updates the existing controls in place (with signals blocked, so writing the state a consumer just
+asked for does not return as a second user toggle), and only a changed key set rebuilds. Written as
+its own test, because that path exists for this and nothing else.
+
+**Writing that widget's tests found a third defect in my own draft, two PRs running.** The empty
+state never appeared: `set_items([])` on a freshly built overlay is an *unchanged* key set (empty to
+empty), so it took the in-place path, which touched no visibility. The empty/rows decision now sits
+outside both paths. The pattern across 4.3e and 4.3f is worth naming — both defects were in the
+branch that skips work, and both were found by a test asserting what is on screen rather than what
+the code did.
+
+**`BUG-064` is the interesting half of `Capital`.** That bug was a `QLineEdit`, a `QComboBox`, a
+validation `QLabel` and a `_sync_validation()` holding the label and the Apply button in agreement —
+three writers of one truth, one of them forgotten. `EPIC-015` answered it by moving to QML, where
+the message's text, its visibility and the button's `enabled` are three declarative bindings, and
+said so: the bug *"cannot recur in this shape"*. ADR D21 takes that shape away, so the answer had to
+be restated rather than re-earned: **one** method, `_render_verdict()`, writes all three from the
+presenter's verdict, and nothing else in the file touches them. The failure `BUG-064` describes
+needs a second writer to exist, and there is not one. `CapitalVM` is deleted; its one non-rendering
+rule — Apply does nothing while the verdict is bad, rather than trusting the button to be disabled —
+is kept in `_apply()`, for the reason that VM itself gave.
+
+Two small truths came back with it. `textEdited` rather than `textChanged`, so seeding the field on
+open does not read as typing and ask the presenter to validate a value nobody touched. And the
+indicator picker gets an empty state again — *"No indicator scripts are registered."* — which the
+`.qml` had dropped on the argument that an empty list "reads the same way"; a blank box reads as
+*loading*, which is the distinction an empty state exists to make.
+
+**Restated, not deleted.** `CheckboxListVM`'s 5 tests and `CheckboxList.qml`'s 5 render tests become
+`test_checklist_overlay.py`'s 14, except `BUG-071`'s (`width: parent.width` on a `QQuickWidget` root
+with no QML parent) which has no subject in a layout. `CapitalVM`'s 8 become
+`test_capital_dialog.py`'s 8, minus three about that `QObject`'s own mechanics — `canApply` derived
+rather than stored, the same-text no-op, `currencies` as a plain list — and plus the one that
+matters, that a verdict's three consequences cannot disagree. The order-execution modal's three host
+tests lose the two paragraphs they carried about reaching items inside a `Repeater`'s scene graph;
+they use `ChecklistOverlay.checkbox_for(key)`, which is public for exactly that reason. The capital
+regression test that guards `_build_buttons()`-ordering now drives the **real** presenter instead of
+assigning a ViewModel property. `test_qml_modal_bodies.py` has lost both its subjects and is renamed
+`test_qml_overlay_load_failure.py` for the third test, which was never about either: a `.qml` that
+fails to load must raise rather than render a blank rectangle, and that promise lives until the last
+`.qml` does.
+
+**The first gate run failed on `ruff format`, and the cause is worth a line.** 4.3e's lesson was to
+run `pytest tests/unit/presentation` whole; this one is the same mistake in the cheap checks —
+`ruff format` had been run on `tests` after the last edit to `src`, so one file in `src` was left
+unformatted and three minutes of gate found it. The pre-gate routine is both paths, always:
+`ruff check src tests tools scripts` **and** `ruff format src tests tools scripts`, then the
+presentation tier, then the gate.
+
+**Gate:** `RESULT: PASS`, **4937 passed, 4 skipped** in 220s, log
+`logs/ci-local-20260916-190422.log` grepped — 4 hits for the known benign set, **0** records at
+WARNING or above; mypy clean on 499 source files. Test count **4936 → 4937**, measured file by file:
+**−8** `test_capital_vm.py`, **−5** `test_checkbox_list_vm.py`, **−5** the `CheckboxList` half of
+`test_stat_grid_and_checkbox_list_bodies.py` (8 → 3), **−2** the two pilots leaving what is now
+`test_qml_overlay_load_failure.py` (3 → 1), **+14** `test_checklist_overlay.py`, **+8**
+`test_capital_dialog.py`, **−1** in the guards. A net of one, for four deleted suites and two new
+ones — which is what a restatement should look like.
