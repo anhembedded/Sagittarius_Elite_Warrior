@@ -83,6 +83,19 @@ class _FakeExchangeClient:
     def get_available_symbols(self) -> list[str]:
         return list(self.available_symbols)
 
+    def get_symbol_metadata(self) -> list:
+        """`BUG-127` added this to the port, and
+        `test_the_fake_client_still_covers_every_method_the_port_declares`
+        below is what noticed — this was the fifth implementer, after the real
+        client, the two `scripts/` probes and the contract test's subclass.
+        `ONBOARDING` §8 trap 11's whole point.
+
+        Empty: this flow's subject is Data Management's sync and delete paths,
+        which never read exchange filters. A plausible-looking entry would be a
+        fact the test never asserts and a shape the flow cannot produce.
+        """
+        return []
+
 
 @pytest.fixture
 def database_app_context(qapp, qtbot, monkeypatch, request):

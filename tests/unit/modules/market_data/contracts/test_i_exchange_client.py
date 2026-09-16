@@ -7,6 +7,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
+    SymbolMarketMetadata,
+)
 
 
 def test_cannot_instantiate_interface():
@@ -46,6 +49,13 @@ def test_valid_implementation():
             yield []
 
         def get_available_symbols(self) -> list[str]:
+            return []
+
+        def get_symbol_metadata(self) -> list[SymbolMarketMetadata]:
+            # `BUG-127` added this to the port. Spelled out rather than
+            # inherited: this test's whole subject is that a class claiming to
+            # implement the port implements *all* of it, so the method the port
+            # just gained is exactly the one it must now name.
             return []
 
     client = MockExchangeClient()

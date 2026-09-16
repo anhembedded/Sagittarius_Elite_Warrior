@@ -4,6 +4,9 @@ from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
+    SymbolMarketMetadata,
+)
 
 CancellationCheck = Callable[[], bool]
 
@@ -65,4 +68,27 @@ class IExchangeClient(ABC):
         @brief Lists every actively tradeable symbol on the exchange (BOT-102).
         @return Sorted list of symbol names (e.g. ["BTCUSDT", "ETHUSDT", ...]),
         restricted to symbols currently open for trading.
+        """
+
+    @abstractmethod
+    def get_symbol_metadata(self) -> list[SymbolMarketMetadata]:
+        """
+        @brief Every symbol's price, lot and notional filters (`BUG-127`).
+
+        @details The same payload `get_available_symbols()` already fetches and
+        then keeps only the names from. This is that discarded half, and it is a
+        second method rather than a wider return on the first because the two
+        have different callers: the symbol picker wants names, and only the
+        Backtest screen's exchange-rule check wants filters. Widening the
+        existing method would have made every name-reader carry a payload it
+        never looks at.
+
+        Neither method caches. `SymbolCatalogService` stores names through
+        `ISymbolCatalogRepository` and `ISymbolMetadataProvider` stores filters
+        through `ISymbolMarketMetadataCache`; a client that cached would be
+        deciding freshness for both of them.
+
+        @return One entry per symbol the exchange reports, in the exchange's own
+        order. Filtering by status is the caller's, exactly as it already is for
+        names.
         """

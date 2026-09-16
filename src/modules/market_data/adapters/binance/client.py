@@ -10,11 +10,15 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_metadata_parser import (
     DEFAULT_STATUS,
     BinanceMetadataKey,
+    parse_binance_symbol_metadata,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     CancellationCheck,
     ExchangeRequestCancelledError,
     IExchangeClient,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
+    SymbolMarketMetadata,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     klines_type_for,
@@ -328,8 +332,7 @@ class PythonBinanceClient(IExchangeClient):
         return self._map_to_market_data(raw_klines, symbol, interval.value)
 
     def get_available_symbols(self) -> list[str]:
-        info = self.client.get_exchange_info()
-        symbols_raw = info.get(_EXCHANGE_INFO_SYMBOLS_KEY, [])
+        symbols_raw = self._exchange_info_entries()
         tradeable = {
             str(entry.get(BinanceMetadataKey.SYMBOL.value, "")).upper()
             for entry in symbols_raw
@@ -339,6 +342,32 @@ class PythonBinanceClient(IExchangeClient):
         }
         tradeable.discard("")
         return sorted(tradeable)
+
+    def get_symbol_metadata(self) -> list[SymbolMarketMetadata]:
+        """`BUG-127` — the half of `exchangeInfo` this adapter used to drop.
+
+        `parse_binance_symbol_metadata` has existed since `BOT-095E1` and had
+        **no caller in `src/`**: the filters the Backtest screen's rule check
+        needs were being fetched on every symbol-list read and thrown away one
+        line later. Same payload, same endpoint, no extra request weight — the
+        cost was only ever that nobody asked.
+        """
+        fetched_at = datetime.now(UTC)
+        return [
+            parse_binance_symbol_metadata(entry, fetched_at=fetched_at)
+            for entry in self._exchange_info_entries()
+            if isinstance(entry, dict)
+        ]
+
+    def _exchange_info_entries(self) -> list[dict]:
+        """The raw per-symbol entries of `GET /api/v3/exchangeInfo`.
+
+        One reader for two derived facts (names, filters), so a change to the
+        payload's shape lands in one place rather than two that can drift.
+        """
+        info = self.client.get_exchange_info()
+        entries = info.get(_EXCHANGE_INFO_SYMBOLS_KEY, [])
+        return entries if isinstance(entries, list) else []
 
     def close(self) -> None:
         """Close the underlying requests.Session to unblock any pending network read.

@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_range_coverage import (
     IRangeCoverage,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_metadata_provider import (
+    ISymbolMetadataProvider,
+)
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from ..ports.i_backtest_screen_state import IBacktestScreenState
@@ -40,6 +43,7 @@ class DataSyncCoordinator:
         self,
         market_data_sync: IMarketDataSync,
         range_coverage: IRangeCoverage,
+        symbol_metadata: ISymbolMetadataProvider,
         state: IBacktestScreenState,
         effective_data_interval: Callable[[object], object],
         resolve_action_id: Callable[[], int | None],
@@ -51,6 +55,7 @@ class DataSyncCoordinator:
     ) -> None:
         self._market_data_sync = market_data_sync
         self._range_coverage = range_coverage
+        self._symbol_metadata = symbol_metadata
         self._state = state
         self._effective_data_interval = effective_data_interval
         self._resolve_action_id = resolve_action_id
@@ -197,6 +202,8 @@ class DataSyncCoordinator:
             self._emit_cancelled(resolved_action_id)
             return
 
+        self._warm_symbol_metadata(config.symbol)
+
         coverage = self.probe_coverage(config)
         if not coverage.is_fully_covered:
             message = (
@@ -211,6 +218,46 @@ class DataSyncCoordinator:
             self._emit_failed(resolved_action_id, message)
             return
         self._emit_succeeded(resolved_action_id)
+
+    def _warm_symbol_metadata(self, symbol: str) -> None:
+        """`BUG-127` — put this symbol's exchange filters in the cache, here.
+
+        @par Why on this worker and not where the check runs
+        `StrategyConfigCoordinator.refresh_market_rule_verification()` runs on
+        the Qt main thread, on every capital keystroke, and reads the cache with
+        a plain `get()`. Fetching there would put an HTTP round trip on the UI
+        thread — `BUG-045`/`BUG-107`'s rule that opening a screen must not open
+        a connection, one layer up. This worker is already off the main thread
+        and already about this exact symbol, so it is where the fetch belongs;
+        after it, the main-thread read is a pure dictionary lookup.
+
+        @par Why after the sync rather than before
+        A sync that fails tells the user something is wrong with the connection,
+        and that message must not be preceded by a *different* network failure
+        about metadata. The filters are also worth nothing without candles: the
+        check needs a reference price, which it takes from the loaded klines.
+
+        @par Why a failure here is logged and swallowed
+        Deliberate, and the narrow case where that is right: the sync has
+        already succeeded, the candles are on disk, and the run can proceed. The
+        only consequence of no metadata is the honest *"not verified yet"* the
+        screen already shows, so raising would turn a cosmetic gap into a failed
+        sync. It is logged at `WARNING` rather than silently passed, because the
+        gate greps for that level and `BUG-127` is what silence costs.
+        """
+        try:
+            cached = self._symbol_metadata.get_or_fetch(symbol)
+        except Exception as exc:  # noqa: BLE001 - see the docstring
+            logger.warning(
+                "Could not read exchange filters for %s: %s. The backtest can "
+                "still run; its market-rule check will read 'not verified'.",
+                symbol,
+                exc,
+            )
+            return
+        self._log_dev_trace(
+            "symbol_metadata_warmed", symbol=symbol, found=cached is not None
+        )
 
     def _ask_for_the_sync(
         self, config, sync_interval, sync_start, cancellation_token, correlation_id

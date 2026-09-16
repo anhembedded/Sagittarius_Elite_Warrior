@@ -103,6 +103,9 @@ difference is the reason the contexts exist (HLD §1.2).
 | **Market stream** | The live kline websocket for one symbol/timeframe, started and stopped by `owner_id`. | `contracts/IMarketStream` |
 | **`StreamOutcome`** | What `IMarketStream.start`/`stop` answer: `success` (the owner's subscription set is now what was asked for) plus a `message` fit to show a user. `success=False` from `stop` means there was nothing to release — an ordinary state, not an error. | `contracts/IMarketStream` |
 | **Market data venue** (`MarketDataVenue`) | Which endpoint set market data comes from (mainnet public, testnet). | `core/vo` |
+| **Symbol metadata** (`SymbolMarketMetadata`) | One symbol's exchange order rules as filters: price min/max/tick, quantity min/max/step, minimum notional, plus `fetched_at` so staleness is a fact rather than a guess. Distinct from `trading`'s flat `FuturesSymbolMetadata`, which carries the rounding scalars an order path needs and no bounds. | `contracts/symbol_market_metadata.py` |
+| **Symbol metadata provider** (`ISymbolMetadataProvider`) vs **cache** (`ISymbolMarketMetadataCache`) | Two halves on purpose: the **cache** stores and is read on the Qt main thread; the **provider** fetches the catalog and may block, so only a worker calls it. A cache read that could make a network call is `BUG-045`/`BUG-107`'s defect, and a store nobody fills is `BUG-127`'s. | `contracts/i_symbol_metadata_provider.py` |
+| **Market rule verification** (`MetadataVerificationStatus`) | What the Backtest screen says about *this* capital on *this* symbol against the exchange's filters: `VERIFIED` (checked, and it says whether it passes), `UNVERIFIED_MISSING` (no metadata for the pair **yet**), `UNVERIFIED_STALE` (metadata too old to trust). The two unverified states are honest transients since `BUG-127`; before it, `UNVERIFIED_MISSING` was permanent. | `contracts/symbol_market_metadata.py` |
 
 ### `trading`
 

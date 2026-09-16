@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.json
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
+    InMemorySymbolMarketMetadataCache,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.in_flight_sync_guard import (
     InFlightSyncGuard,
 )
@@ -54,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_r
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog_repository import (
     ISymbolCatalogRepository,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
+    ISymbolMarketMetadataCache,
+)
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
 
@@ -69,6 +75,14 @@ def bind_adapters(container: IContainer) -> None:
     container.singleton(DatabaseManager, DatabaseManager)
     container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
     container.singleton(ISymbolCatalogRepository, JsonSymbolCatalogRepository)
+    # `BUG-127` — the store the Backtest screen's exchange-rule check reads.
+    # It was written in `BOT-095E1` and bound by **nobody** for two epics, so
+    # `container.resolve()` raised, the presenter's `except` built a private
+    # empty one, and the check answered "not verified" for every symbol from
+    # the day it shipped. A `singleton`, not `bind()`: the sync warms it on a
+    # worker thread and the screen reads it on the main thread, and two
+    # instances would mean the reader never sees the write.
+    container.singleton(ISymbolMarketMetadataCache, InMemorySymbolMarketMetadataCache)
     container.singleton(ILiveStreamService, BinanceWebsocketService)
     container.singleton(IExchangeClient, _build_exchange_client)
 

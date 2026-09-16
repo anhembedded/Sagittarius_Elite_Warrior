@@ -12,7 +12,7 @@ without a single edit outside the module.
 
 | Kind | Members | Who implements it |
 | :--- | :--- | :--- |
-| **Ports** — what a consumer needs *someone* to do | **Published** (bound in `composition/port_bindings.py`): `IMarketDataSync` (PR 0.5, four screens), `IHistoricalKlines` (PR 1.1a, six call sites), `IMarketStream` (PR 1.1b, two screens), `ISymbolCatalog` and `IRangeCoverage` (PR 1.2, two call sites each). Internal to the module: `IMarketDataRepository`, `ISymbolCatalogRepository`, `IExchangeClient`, `IExchangeSessionFactory`, `ILiveStreamService`, `ISymbolMarketMetadataCache` | the adapters in `modules/market_data/adapters/`, and `application/sync/`, `application/stream/`, `application/queries/` for the three published ports, bound in `composition/` |
+| **Ports** — what a consumer needs *someone* to do | **Published** (bound in `composition/port_bindings.py`): `IMarketDataSync` (PR 0.5, four screens), `IHistoricalKlines` (PR 1.1a, six call sites), `IMarketStream` (PR 1.1b, two screens), `ISymbolCatalog` and `IRangeCoverage` (PR 1.2, two call sites each), `ISymbolMetadataProvider` (`BUG-127`, one call site — the Backtest screen's sync worker). Internal to the module: `IMarketDataRepository`, `ISymbolCatalogRepository`, `IExchangeClient`, `IExchangeSessionFactory`, `ILiveStreamService`. **`ISymbolMarketMetadataCache` moved out of that internal list with `BUG-127`** and is bound in `composition/adapter_bindings.py`: the Backtest screen reads it directly on the Qt main thread, because a cache read must not be able to make a network call, and the fetching half is the provider above. It had been listed as internal while a legacy-tree consumer resolved it — which is how it came to be bound by nobody at all | the adapters in `modules/market_data/adapters/`, and `application/sync/`, `application/stream/`, `application/queries/` for the three published ports, bound in `composition/` |
 | **Answers** — the shapes a query hands back | `BacktestRangeCoverage`, `DatabaseStatusSnapshot`, `RangeCoverageSnapshot`, `SymbolMarketMetadata` | nobody: they are values |
 | **Events** — what this context announces (`events/`) | `MarketTickEvent`, the sync and bulk-sync events | published by the adapters and handlers |
 | **Failures** — what a consumer must be able to catch by name | `ExchangeRequestCancelledError` | raised by the adapters |
@@ -102,6 +102,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalo
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
     ISymbolMarketMetadataCache,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_metadata_provider import (
+    ISymbolMetadataProvider,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
     LotSizeFilter,
     MetadataVerificationStatus,
@@ -131,6 +134,7 @@ __all__ = [
     "ISymbolCatalog",
     "ISymbolCatalogRepository",
     "ISymbolMarketMetadataCache",
+    "ISymbolMetadataProvider",
     "LotSizeFilter",
     "MarketDataSyncRequest",
     "MarketTickEvent",

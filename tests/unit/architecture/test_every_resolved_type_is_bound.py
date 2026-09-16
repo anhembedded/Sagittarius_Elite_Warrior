@@ -98,13 +98,14 @@ _RESOLVE_VERB = "resolve"
 #: failure is a boot crash that no guard can pre-empt.
 _ENGINE_PROVIDED = frozenset({"IThreadManager", "Scheduler"})
 
-#: `BUG-127`, and the one entry this guard ships with. `ISymbolMarketMetadataCache`
-#: is resolved by `backtest_presenter.py` and bound by nobody, which is the defect
-#: the guard was written for — so it lands red and is admitted here, once, naming
-#: its exit. **The line is deleted by the commit that binds the port**, and the
-#: guard then has no ratchet at all. Anything else added here needs the argument
-#: `ci-rule.md` §5.5 demands of a ceiling; this list may only shrink.
-_KNOWN_UNBOUND: frozenset[str] = frozenset({"ISymbolMarketMetadataCache"})
+#: **Empty, and that is the point.** This guard shipped with one entry —
+#: `ISymbolMarketMetadataCache`, `BUG-127`'s unbound port — on the commit before
+#: the fix, naming its exit. The fix bound the port and deleted the line, which
+#: is what `test_the_known_unbound_list_is_still_earning_its_place` below exists
+#: to force: it fails on an entry that is bound now, so a ratchet cannot outlive
+#: its reason and quietly excuse a regression. Anything added here needs the
+#: argument `ci-rule.md` §5.5 demands of a ceiling; this list may only shrink.
+_KNOWN_UNBOUND: frozenset[str] = frozenset()
 
 
 def _trees(*roots: str) -> dict[Path, ast.Module]:

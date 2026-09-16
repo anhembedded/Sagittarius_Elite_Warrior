@@ -16,7 +16,9 @@
 # -> 42 after PR 2.1b -> 40 after PR 2.1c -> 36 after PR 2.1d
 # -> 44 after PR 2.1e
 # -> 37 after PR 2.1g
-# -> 36 after PR 2.1c-2.
+# -> 36 after PR 2.1c-2
+# -> 35 after PR bug-127 (the metadata port is bound; the presenter's
+#    adapter import goes with it).
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -93,11 +95,18 @@
 #   keep -- ONE place may construct binance.client.Client -- moved down into
 #   support/binance_gateway with the construction itself, so the guard still
 #   asserts one call site by equality rather than growing to two.
-# * backtest_presenter falls back to InMemorySymbolMarketMetadataCache when the
-#   container has no cache registered. PR 0.4b rebuilds this screen and the
-#   fallback goes with it — a presenter that needs a stub is a presenter whose
-#   dependency should have been injected.
-presentation.ui.screens.backtest.backtest_presenter -> modules.market_data.adapters.persistence.symbol_market_metadata_cache
+# * ~~backtest_presenter falls back to InMemorySymbolMarketMetadataCache when
+#   the container has no cache registered.~~ **CLOSED by BUG-127's fix.** This
+#   note read "PR 0.4b rebuilds this screen and the fallback goes with it -- a
+#   presenter that needs a stub is a presenter whose dependency should have
+#   been injected", and the last clause was exactly right for a reason nobody
+#   checked: the container had **no** cache registered, ever, so the fallback
+#   was not a fallback but the only path, and the screen's exchange-rule check
+#   answered "not verified" for every symbol from the day it shipped. The port
+#   is bound now (`market_data/composition/adapter_bindings.py`), the presenter
+#   resolves it plainly, and the import of another module's adapter is gone.
+#   Retired by a **fix**, not by a move -- the third way an entry has left this
+#   file, after 2.1b's (the file moved) and 0.5's (a consumer went onto a port).
 
 # ---------------------------------------------------------------------------
 # presentation -> modules.market_data.cli: RETIRED by PR 1.3c-5, and the route

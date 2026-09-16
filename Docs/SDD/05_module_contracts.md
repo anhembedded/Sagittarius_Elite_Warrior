@@ -38,8 +38,10 @@ exceptions the port raises across the boundary: `core/contracts/errors.py::Contr
 
 ### `market_data`: what this specification asked for, and what shipped
 
-All five ports are built (PR 0.5 through PR 1.2), and **every one of them differs from the shape
-specified here** — four in mechanism, one in a name. The list below is the authoritative record of that distance; `SDD-06b` now draws
+All five specified ports are built (PR 0.5 through PR 1.2), and **every one of them differs from the
+shape specified here** — four in mechanism, one in a name. A **sixth** port, which this
+specification never asked for, arrived with `BUG-127`; item 6 below records it, because a port
+nobody specified is exactly the kind of thing that ends up in no document at all. The list below is the authoritative record of that distance; `SDD-06b` now draws
 the shipped signatures with the same reasons in per-port notes, so the diagram and this section say
 one thing. The shipped surface itself is described where it lives — HLD
 [§3.4](../HLD/03_module_contracts.md)'s `market_data` table, and each port's own docstring.
@@ -97,6 +99,28 @@ also takes `now` explicitly, because "is the last candle still open?" is a quest
 and a port must not read it for itself.
 
 ---
+
+**6. `ISymbolMetadataProvider` was never specified, and its absence was the defect.** This section
+listed `ISymbolMarketMetadataCache` among the module's *internal* ports, which is how it came to be
+bound by nobody while a legacy-tree consumer resolved it — `container.resolve()` raised on every
+construction of `BackTestPresenter`, an `except` built a private empty cache, and the Backtest
+screen's exchange-rule check answered *"not verified against exchange rules"* for every symbol from
+the day `BOT-095E1` shipped. `BUG-127` and [`CS-003`](../CASE_STUDIES/CS-003_the_port_nobody_bound.md)
+carry the full account.
+
+What shipped is the split `trading` has run since `EPIC-021C` and this section already documents for
+that context: a **store** read on the Qt main thread (`ISymbolMarketMetadataCache`, now bound in
+`composition/adapter_bindings.py`) and a **provider** that may leave the process
+(`ISymbolMetadataProvider.get_or_fetch` / `refresh`, bound in `composition/port_bindings.py`). Two
+objects rather than a fetching cache, because a `get()` that promises "if present" must not be able
+to make a network call — `BUG-045` and `BUG-107`'s rule.
+
+The consumer calls `get_or_fetch()` from `DataSyncCoordinator`'s existing background worker, not
+from the check itself: `refresh_market_rule_verification()` runs on every capital keystroke on the
+main thread. `IExchangeClient` gained `get_symbol_metadata()` to expose the half of `exchangeInfo`
+that `get_available_symbols()` already fetched and discarded, so the fix costs no extra request
+weight; both read one private `_exchange_info_entries()` so the two derived facts cannot drift.
+Verified fake and contract suite per HLD §10.3, both implementations running it.
 
 ### `trading`: what this specification asked for, and what shipped
 

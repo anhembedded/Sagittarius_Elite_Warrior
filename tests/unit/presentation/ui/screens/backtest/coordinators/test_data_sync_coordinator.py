@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_range_coverage import (
     FakeRangeCoverage,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_metadata_provider import (
+    FakeSymbolMetadataProvider,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.coordinators import (
     DataSyncCoordinator,
 )
@@ -51,8 +54,12 @@ def _coverage(*, covered=True, missing=(), duplicates=0, unclosed=False):
     )
 
 
-def _config(start=None, end=None):
+def _config(start=None, end=None, symbol="BTCUSDT"):
+    """`symbol` since `BUG-127`: `run_sync` warms that symbol's exchange
+    filters on the worker, so a config without one is a shape the screen cannot
+    produce — `RunBacktestConfig` has carried a symbol since it existed."""
     return SimpleNamespace(
+        symbol=symbol,
         start_time=start or datetime(2026, 8, 1, tzinfo=UTC),
         end_time=end,
     )
@@ -92,13 +99,20 @@ class _Sync(FakeMarketDataSync):
             raise self.raises
 
 
-def _build(coverage=None, action_id=7, sync=None):
+def _build(coverage=None, action_id=7, sync=None, symbol_metadata=None):
     coverage = coverage if coverage is not None else _range_coverage()
     sync = sync or _Sync()
     events: list[tuple] = []
     coordinator = DataSyncCoordinator(
         market_data_sync=sync,
         range_coverage=coverage,
+        # `BUG-127` — the coordinator warms this symbol's exchange filters on
+        # its own worker, because the check that reads them runs on the Qt main
+        # thread and must not make a network call. The port's **verified fake**,
+        # not a `Mock`: it is foreign to this screen
+        # (`test_no_foreign_port_is_mocked.py`), and the fake counts round trips,
+        # which is what a test can assert about a cache warm.
+        symbol_metadata=symbol_metadata or FakeSymbolMetadataProvider(),
         state=InMemoryScreenState(symbol="BTCUSDT"),
         # The real enum, not a stand-in: the coordinator reads `.value` and
         # `.to_seconds()` off it, and the real sync path's pydantic command
@@ -251,3 +265,71 @@ def test_progress_without_an_action_is_dropped() -> None:
     coordinator.on_progress(SimpleNamespace(current=3, total=10))
 
     assert events == []
+
+
+# ------------------------------------------------------------------ #
+# `BUG-127` — the cache warm
+# ------------------------------------------------------------------ #
+
+
+def test_a_successful_sync_warms_the_symbols_exchange_filters() -> None:
+    """The wire `BUG-127` was missing, at the tier that owns it.
+
+    Nothing in the app had ever filled `ISymbolMarketMetadataCache`, so the
+    Backtest screen's exchange-rule check answered "not verified" for every
+    symbol. This worker is where the fill belongs: already off the Qt main
+    thread, already about the symbol the user is going to backtest.
+
+    Deleting `self._warm_symbol_metadata(config.symbol)` from `run_sync` is what
+    makes this fail — measured by breaking that line, not assumed.
+    """
+    metadata = FakeSymbolMetadataProvider()
+    coordinator, _coverage_port, events, _sync = _build(symbol_metadata=metadata)
+
+    coordinator.run_sync(_config(symbol="ETHUSDT"))
+
+    assert metadata.fetch_count == 1, (
+        "the sync worker did not ask for the symbol's exchange filters, so the "
+        "screen's market-rule check has nothing to read (BUG-127)"
+    )
+    assert ("succeeded", 7) in events
+
+
+def test_the_warm_does_not_turn_a_metadata_failure_into_a_failed_sync() -> None:
+    """The candles are already on disk and the run can proceed, so a catalog
+    read that fails must cost the user nothing but the honest "not verified
+    yet". The alternative — a sync reported as failed because a *cosmetic*
+    lookup failed — would be a worse lie than the one this bug was."""
+
+    class _Refusing(FakeSymbolMetadataProvider):
+        def get_or_fetch(self, symbol):
+            raise RuntimeError("exchangeInfo unreachable")
+
+    coordinator, _coverage_port, events, _sync = _build(symbol_metadata=_Refusing())
+
+    coordinator.run_sync(_config())
+
+    assert ("succeeded", 7) in events
+    assert not any(name == "failed" for name, *_ in events)
+
+
+def test_a_failed_sync_does_not_reach_the_warm() -> None:
+    """Ordering, and it is deliberate: a sync that failed tells the user
+    something is wrong with the connection, and that message must not be
+    preceded by a second network attempt for metadata. The filters are also
+    useless without candles — the check needs a reference price from them."""
+
+    def _raises(*_a, **_k):
+        raise RuntimeError("no data")
+
+    metadata = FakeSymbolMetadataProvider()
+    sync = FakeMarketDataSync()
+    sync.sync = _raises  # type: ignore[method-assign]
+    coordinator, _coverage_port, events, _sync = _build(
+        sync=sync, symbol_metadata=metadata
+    )
+
+    coordinator.run_sync(_config())
+
+    assert metadata.fetch_count == 0
+    assert any(name == "failed" for name, *_ in events)

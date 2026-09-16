@@ -25,6 +25,9 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.symbol_metadata_provider import (
+    BinanceSymbolMetadataProvider,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
     RangeCoverageService,
 )
@@ -64,6 +67,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalo
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog_repository import (
     ISymbolCatalogRepository,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
+    ISymbolMarketMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_metadata_provider import (
+    ISymbolMetadataProvider,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
@@ -74,6 +83,7 @@ def bind_published_ports(container: IContainer) -> None:
     container.singleton(IMarketStream, _build_market_stream)
     container.singleton(ISymbolCatalog, _build_symbol_catalog)
     container.singleton(IRangeCoverage, _build_range_coverage)
+    container.singleton(ISymbolMetadataProvider, _build_symbol_metadata_provider)
 
 
 def _build_market_data_sync(container: IContainer) -> IMarketDataSync:
@@ -139,3 +149,23 @@ def _build_range_coverage(container: IContainer) -> IRangeCoverage:
     as `_build_symbol_catalog` above, and unlike the sync and the stream).
     """
     return RangeCoverageService(container.resolve(IMarketDataRepository))
+
+
+def _build_symbol_metadata_provider(container: IContainer) -> ISymbolMetadataProvider:
+    """`BUG-127` — the wire that was missing, and the reason it is a *provider*.
+
+    `ISymbolMarketMetadataCache` is a store; something has to fill it, and for
+    two epics nothing did — `parse_binance_symbol_metadata()`, the only producer
+    of a `SymbolMarketMetadata` anywhere, had no caller in `src/` at all. This
+    binds the object that closes that gap.
+
+    The client is resolved **lazily**, exactly as `_build_symbol_catalog` above
+    resolves it and for the same reason: constructing `PythonBinanceClient` is a
+    network call (`BUG-045`), and three Presenters resolve this module's ports
+    while they are being built, so a session that never opens the Backtest
+    screen must never build one.
+    """
+    return BinanceSymbolMetadataProvider(
+        lambda: container.resolve(IExchangeClient),
+        container.resolve(ISymbolMarketMetadataCache),
+    )

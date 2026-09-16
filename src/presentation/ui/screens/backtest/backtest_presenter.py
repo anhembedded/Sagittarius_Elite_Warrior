@@ -25,9 +25,6 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
-    InMemorySymbolMarketMetadataCache,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
 )
@@ -45,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalo
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
     ISymbolMarketMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_metadata_provider import (
+    ISymbolMetadataProvider,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
@@ -402,15 +402,34 @@ class BackTestPresenter(BasePresenter):
         self._chart_script_keys: list[str] = []
         self._current_raw_klines: list[MarketData] = []
         self._chart_klines_fetch_limit = self._screen_config.chart_klines_fetch_limit
-        try:
-            resolved_cache = container.resolve(ISymbolMarketMetadataCache)
-            self._market_metadata_cache: ISymbolMarketMetadataCache = (
-                resolved_cache
-                if isinstance(resolved_cache, ISymbolMarketMetadataCache)
-                else InMemorySymbolMarketMetadataCache()
-            )
-        except Exception:  # noqa: BLE001
-            self._market_metadata_cache = InMemorySymbolMarketMetadataCache()
+        # `BUG-127` — a plain resolve, because the port is bound now.
+        #
+        # This was a `try` whose body resolved the port, an `isinstance` check on
+        # the answer, and an `except Exception` that constructed
+        # `InMemorySymbolMarketMetadataCache()` — this module's own import of
+        # another module's *adapter*, which is what the boundary allowlist
+        # carried. Measured: the port was bound nowhere, so the `resolve()`
+        # raised on every construction and the `except` was the **only** path.
+        # The screen therefore held a private empty cache that nothing would
+        # ever write to, and the exchange-rule check answered "not verified"
+        # for every symbol from the day `BOT-095E1` shipped.
+        #
+        # Deliberately no fallback now. A missing binding must fail loudly at
+        # construction rather than degrade into a permanently negative answer:
+        # that silence is the whole defect, and
+        # `tests/unit/architecture/test_every_resolved_type_is_bound.py` is the
+        # check that keeps the binding there.
+        self._market_metadata_cache: ISymbolMarketMetadataCache = container.resolve(
+            ISymbolMarketMetadataCache
+        )
+        # The cache's filler, handed to `DataSyncCoordinator` — the one place on
+        # this screen that already runs off the main thread and already knows
+        # which symbol the user is about to backtest. The Presenter resolves it
+        # so a Coordinator never reaches into the container
+        # (`async-ui-action-rule.md`).
+        self._symbol_metadata: ISymbolMetadataProvider = container.resolve(
+            ISymbolMetadataProvider
+        )
 
         self._view_model = BackTestViewModel()
         view.set_view_model(self._view_model)

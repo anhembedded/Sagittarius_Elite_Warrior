@@ -66,6 +66,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_range_coverag
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
+    ISymbolMarketMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_metadata_provider import (
+    ISymbolMetadataProvider,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
     LotSizeFilter,
     MetadataVerificationStatus,
@@ -84,6 +90,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ra
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
     FakeSymbolCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_metadata_provider import (
+    FakeSymbolMetadataProvider,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
@@ -526,6 +535,16 @@ def mock_container(
             return fake_symbol_catalog
         if interface == IMarketDataSync:
             return fake_market_data_sync
+        # `BUG-127` — named, not left to the `Mock()` below. The real cache is
+        # in-memory and free, so `CS-001`'s rule says use it: a `Mock` would
+        # answer a truthy object from `get()` and a truthy `is_stale()`, which
+        # would silently move every market-rule assertion in this file from
+        # UNVERIFIED_MISSING to UNVERIFIED_STALE. The `Mock()` fallthrough is
+        # itself what let `BUG-125` ship, so a new port gets a row here.
+        if interface == ISymbolMarketMetadataCache:
+            return InMemorySymbolMarketMetadataCache()
+        if interface == ISymbolMetadataProvider:
+            return FakeSymbolMetadataProvider()
         return Mock()
 
     container.resolve.side_effect = resolve_mock

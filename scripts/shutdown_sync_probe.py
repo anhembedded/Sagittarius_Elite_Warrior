@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_clie
     ExchangeRequestCancelledError,
     IExchangeClient,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
+    SymbolMarketMetadata,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
@@ -106,6 +109,14 @@ class _BlockingExchangeClient(IExchangeClient):
         raise ExchangeRequestCancelledError("shutdown probe cancelled")
 
     def get_available_symbols(self) -> list[str]:
+        return []
+
+    def get_symbol_metadata(self) -> list[SymbolMarketMetadata]:
+        """`BUG-127` added this to the port. This probe blocks on klines and
+        never reads the catalog, so an empty answer is the honest one — and it
+        is written out rather than inherited, because `IExchangeClient` is an
+        ABC and a probe that skipped a method would fail to construct
+        (`ONBOARDING` §8 trap 11, which is `BUG-026`)."""
         return []
 
 

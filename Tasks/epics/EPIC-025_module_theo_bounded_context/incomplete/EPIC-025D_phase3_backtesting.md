@@ -1,9 +1,12 @@
 # EPIC-025D — Phase 3: `modules/backtesting`
 
-- **Status:** 🟡 In progress since 2026-09-16 — **item 4 done (PR 3.1a)**: the three dead use cases
-  are gone, and re-measuring them first is what turned a cleanup into a finding (§3). Items 1–3 are
-  open; §3.3 records that item 2's stated location is stale and what the violation actually is now,
-  and §3.4 that it sits on top of a live defect (`BUG-127`).
+- **Status:** 🟡 In progress since 2026-09-16 — **items 2 and 4 done**. Item 4 is PR 3.1a: the three
+  dead use cases are gone, and re-measuring them first is what turned a cleanup into a finding (§3).
+  Item 2 fell out of **`BUG-127`**, the live defect §3.4 found underneath it: the presenter's import
+  of `market_data`'s adapter existed only to serve a path that binding the port removed, so fixing
+  the bug retired the allowlist entry (36 → 35) and the layering item together. Items 1 and 3 — the
+  12,309-line move and the Anticorruption Layer — are open, and item 1 is the whole weight of this
+  phase.
 - **Repository:** Elite
 - **Blocked by:** C · **Blocks:** E
 - **Read first:** HLD §3.4; ADR D12. This is the **largest phase by line count** (the backtest
@@ -15,8 +18,12 @@
 1. `modules/backtesting/`: `domain/backtesting` (`PaperExchange`, `_OpenPosition` — **not** merged
    with `LivePosition`, HLD §1 C3), `use_cases/backtest`, the backtest mode — its eleven QML modals
    rebuilt as `QDialog`s and its panels as docks (HLD §11).
-2. Fix the existing layer violation at `backtest_presenter.py:43` (an import of
-   `infrastructure/persistence`) by going through `market_data.contracts`.
+2. ✅ **done by `BUG-127`'s fix** — fix the existing layer violation at `backtest_presenter.py:43`
+   (an import of `infrastructure/persistence`) by going through `market_data.contracts`. The stated
+   coordinates were stale (§3.3) and the real violation was the presenter naming `market_data`'s
+   *adapter*; it is gone, and the allowlist entry with it (**36 → 35**). It came out of a bug fix
+   rather than a move, because the import only existed to serve a path that a proper binding
+   removed — see §3.4.
 3. Build the Anticorruption Layer: `backtesting/adapters/` translates `PaperExchange` state into
    `strategy.contracts.StrategyContext`. (Round-3 correction: `strategy_context.py` does **not**
    import backtesting today; the wrong-direction import is `trading → backtesting` and is handled
@@ -137,11 +144,23 @@ rules (no metadata for this trading pair yet)"* — permanently. The stale check
 calculation and the actual filter evaluation below it are unreachable in production. `BOT-095E1`
 built that verification; it has never verified anything.
 
-Filed as `BUG-127` and fixed on the user's decision of 2026-09-16 rather than folded in here:
-fixing it is a **behaviour change** (the screen starts really checking, and may start refusing a
-capital/symbol combination it used to pass over in silence), and `bug-fix-rule.md` wants the report
-and a regression test written first. Item 2 then falls out of it, because a bound port is what
-removes the presenter's reason to name the adapter at all.
+Filed as `BUG-127` and **fixed** on the user's decision of 2026-09-16, in its own commit rather than
+folded in here: fixing it is a **behaviour change** (the screen starts really checking, and may now
+refuse a capital/symbol combination it used to pass over in silence), and `bug-fix-rule.md` wants
+the report and a regression test written first. Item 2 fell out of it exactly as predicted — a bound
+port is what removed the presenter's reason to name the adapter at all.
+
+What shipped, in one line each: `ISymbolMetadataProvider` is a new published port with a verified
+fake and a contract suite both implementations run; the cache is bound; `IExchangeClient` gained
+`get_symbol_metadata()` to expose the half of `exchangeInfo` that `get_available_symbols()` already
+fetched and threw away, so there is **no new request weight**; and the fetch happens on
+`DataSyncCoordinator`'s existing background worker, because the check itself runs on the Qt main
+thread on every capital keystroke. The presenter's `try`/`isinstance`/`except` is gone entirely: a
+missing binding must fail loudly at construction, since that silence was the defect. The full
+account, including positive log evidence that the previously-unreachable branch now really refuses a
+sub-minimum order value, is in
+[`BUG-127`](../../bug_report/completed/BUG-127_backtest_market_rule_verification_never_verifies.md)
+and [`CS-003`](../../../Docs/CASE_STUDIES/CS-003_the_port_nobody_bound.md).
 
 `trading`'s parallel `IFuturesSymbolMetadataCache` is bound *and* written (by
 `FuturesMetadataProvider`), which is why the live order path's rounding works — the twin in
