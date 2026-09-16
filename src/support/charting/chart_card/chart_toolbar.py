@@ -87,14 +87,14 @@ from pathlib import Path
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
+from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     all_options,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog import (
+from Sagittarius_Elite_Warrior.src.support.charting.TimeframePicker.timeframe_picker_dialog import (
     PinnedTimeframes,
     TimeframePickerDialog,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_vm import (
+from Sagittarius_Elite_Warrior.src.support.charting.TimeframePicker.timeframe_vm import (
     TimeframeVM,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.embed import (
@@ -110,12 +110,20 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import StyleRole
 #: `EPIC-014`/duration-fit reasoning behind the five codes chosen.
 from .timeframe_pin_preferences import DEFAULT_TIMEFRAMES, TimeframePinPreferences
 
+#: `parents[1]` is `support/charting`, so this reaches a sibling package. It
+#: was `parents[2] / "qml" / ...` until `EPIC-025` PR 1.6f, when `parents[2]`
+#: stopped being `presentation/ui` and became `src/support` — path arithmetic
+#: counted in directory hops is exactly what a move breaks, and it broke
+#: loudly (a `RuntimeError` at import, which is why the check that imports
+#: every moved module found it before the gate did).
 _QML_FILE = (
-    Path(__file__).resolve().parents[2]
-    / "qml"
-    / "TimeframePicker"
-    / "TimeframeToolbar.qml"
+    Path(__file__).resolve().parents[1] / "TimeframePicker" / "TimeframeToolbar.qml"
 )
+if not _QML_FILE.is_file():  # pragma: no cover - a moved tree, not a branch
+    raise RuntimeError(
+        f"the toolbar's QML is not beside this package any more: {_QML_FILE}. "
+        "A pull request moved one of them without the other."
+    )
 
 
 class _ActiveTimeframe:

@@ -1,9 +1,9 @@
 import math
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
     ChartCard,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_lod import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_lod import (
     aggregate_ohlc_bucket,
     aggregate_volume_bucket,
     build_ohlc_lod_pyramid,

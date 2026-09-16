@@ -20,11 +20,11 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog import (
+from Sagittarius_Elite_Warrior.src.support.charting.TimeframePicker.timeframe_picker_dialog import (
     PinnedTimeframes,
     TimeframePickerDialog,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_vm import (
+from Sagittarius_Elite_Warrior.src.support.charting.TimeframePicker.timeframe_vm import (
     TimeframeVM,
 )
 
@@ -126,7 +126,7 @@ def test_reopening_picks_up_a_changed_current_code(qapp, dialog, seed):
 def test_a_broken_qml_file_raises_instead_of_rendering_a_blank_box(
     qapp, tmp_path, monkeypatch
 ):
-    import Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog as host_module
+    import Sagittarius_Elite_Warrior.src.support.charting.TimeframePicker.timeframe_picker_dialog as host_module
 
     broken = tmp_path / "Broken.qml"
     broken.write_text("import QtQuick\nItem { this is not qml }\n")

@@ -3,12 +3,6 @@ from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QLabel, QToolButton, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
-    ChartCard,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
-    TimeframePinPreferences,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_order_row import (
     OpenOrderRow,
 )
@@ -20,6 +14,12 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positio
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positions_panel import (
     PositionsPanel,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
+    ChartCard,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     PreferredHeightScrollArea,

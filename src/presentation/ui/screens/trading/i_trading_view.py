@@ -28,8 +28,8 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable
 
 from PySide6.QtCore import SignalInstance
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 
-from ...components.chart_card import ChartCard
 from ...components.order_book.open_order_row import OpenOrderRow
 from ...components.order_book.position_row import PositionRow
 from .trading_view_model import TradingViewModel

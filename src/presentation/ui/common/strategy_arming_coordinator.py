@@ -47,7 +47,6 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disarm_strategy
 from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
     LiveStrategyConfig,
 )
-from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_display import (
     humanize_strategy_key,
 )
@@ -60,6 +59,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOutcome,
     ActionOwnershipTracker,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 logger = logging.getLogger("App.TradingStrategyArming")
 

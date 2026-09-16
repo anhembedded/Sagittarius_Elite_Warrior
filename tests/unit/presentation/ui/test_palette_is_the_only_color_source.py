@@ -20,6 +20,9 @@ import re
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+from Sagittarius_Elite_Warrior.tests.unit.architecture.ui_trees import (
+    UI_TREES,
+)
 
 REPO_ROOT = Path(__file__).resolve().parents[4]
 
@@ -33,24 +36,10 @@ _PALETTE_HEX_VALUES = frozenset(
 
 _HEX_LITERAL = re.compile(r"#(?:[0-9A-Fa-f]{8}|[0-9A-Fa-f]{6}|[0-9A-Fa-f]{3})\b")
 
-#: Scope is the UI's own two trees, NOT all of `src/` — this is `Palette`'s own
-#: domain (app chrome: window, sidebar, cards, status text). `src/domain/` (indicator
-#: scripts, strategies) hardcodes hex for a different reason entirely: those are
-#: *chart drawing* colors for indicator overlays, chosen independently of the app's
-#: UI theme — a strategy's EMA line color duplicating Palette.ACCENT by coincidence is
-#: not the bug this guards against, and scanning `domain/` was tried first and
-#: produced exactly that noise (macd/ema/dev indicator scripts, ema_trend_pullback).
-#:
-#: Two roots since `EPIC-025` PR 1.6a moved `assets/` (Palette's own home) to
-#: `support/ui_kit/`: the legacy tree still holds most of Palette's consumers, and
-#: the new one holds Palette itself plus whatever the extraction has reached so far.
-#: Scanning only the tree Palette now lives in would stop watching the 40 legacy
-#: files that import it; scanning only the legacy tree would stop watching the
-#: extracted ones. Both roots stay until the legacy tree is gone.
-_SCAN_ROOTS = (
-    REPO_ROOT / "src" / "presentation" / "ui",
-    REPO_ROOT / "src" / "support" / "ui_kit",
-)
+#: The UI, wherever it currently is (`tests/unit/architecture/ui_trees.py`).
+#: Scanning one tree while the UI occupies three means watching `Palette`'s
+#: consumers or `Palette` itself, never both.
+_SCAN_ROOTS = UI_TREES
 
 #: `chart_card/` is its own package with a written reason to duplicate rather than
 #: import Palette — see `chart_card/theme.py`'s own docstring: "this package doesn't

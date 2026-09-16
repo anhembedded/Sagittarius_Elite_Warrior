@@ -100,17 +100,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ra
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
     FakeSymbolCatalog,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_type_renderer import (
-    CANDLESTICK,
-    LINE,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
-    BEAR_COLOR,
-    BULL_COLOR,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
-    TimeframePinPreferences,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     _FALLBACK_SYMBOL,
     BackTestPresenter,
@@ -134,6 +123,17 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backte
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
     ChartDisplayMode,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_type_renderer import (
+    CANDLESTICK,
+    LINE,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
+    BEAR_COLOR,
+    BULL_COLOR,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
 )
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_config import IConfig

@@ -14,15 +14,15 @@ now the sole implementation.
 
 from unittest.mock import patch
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
-    ChartCard,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
     BacktestChartHostFactory,
     PythonBacktestChartHost,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
+    ChartCard,
 )
 
 

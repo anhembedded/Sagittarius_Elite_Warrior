@@ -15,12 +15,12 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
 from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
     SignalAction,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
-    BEAR_COLOR,
-    BULL_COLOR,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_overlay.strategy_trend_zones import (
     compute_strategy_trend_zones,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
+    BEAR_COLOR,
+    BULL_COLOR,
 )
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)

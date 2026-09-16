@@ -12,7 +12,7 @@ from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import (
 from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
     StrategyContext,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
 )

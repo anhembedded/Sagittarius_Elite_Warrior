@@ -29,10 +29,10 @@ from PySide6.QtGui import QColor
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
     ChartCard,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.cached_frame_interaction import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.cached_frame_interaction import (
     _BACKGROUND_COLOR,
 )
 

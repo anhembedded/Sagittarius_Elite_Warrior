@@ -11,13 +11,13 @@ changed, leaving a stale slice on screen.
 """
 
 import pyqtgraph as pg
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
     volume_renderer,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.candlestick_item import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.candlestick_item import (
     FastCandlestickItem,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.viewport_windowing import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.viewport_windowing import (
     DEFAULT_VISIBLE_PADDING_WIDTHS,
 )
 

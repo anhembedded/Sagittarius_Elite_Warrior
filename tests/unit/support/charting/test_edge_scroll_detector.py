@@ -5,7 +5,7 @@ to plot.vb.sigRangeChangedManually, so pyqtgraph's own ViewBox is enough.
 """
 
 import pyqtgraph as pg
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.edge_scroll_detector import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.edge_scroll_detector import (
     EdgeScrollDetector,
 )
 

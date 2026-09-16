@@ -14,7 +14,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
+from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     describe as describe_timeframe,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import DATETIME_FORMAT

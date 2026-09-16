@@ -11,7 +11,7 @@ from __future__ import annotations
 
 from unittest.mock import Mock
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     DEFAULT_TIMEFRAMES,
     TimeframePinPreferences,
     find_timeframe_pin_preferences,

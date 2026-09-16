@@ -108,12 +108,27 @@ extend-select = ["S", "PLR2004", "B", "SIM", "ERA", "N"]
 # sit in — without it the move would have had to rename 14 Qt overrides, which
 # is a behaviour change dressed as a move (ADR D12).
 "src/support/ui_kit/**" = ["N802", "N803", "N815"]
+# And a third tree, for the same reason: `EPIC-025` PR 1.6f moved `chart_card`,
+# `timeframe_picker` and the QML timeframe picker into `support/charting`.
+# pyqtgraph and Qt both hand this package camelCase overrides to implement
+# (`eventFilter`, `viewRangeChanged`, `orthoRange`), and a `Signal` named
+# `stateChanged` is Qt's own spelling of that concept.
+"src/support/charting/**" = ["N802", "N803", "N815"]
+# `TimeframePicker/` is a **QML module directory**, and QML requires its module
+# names to be PascalCase — the `.qml` files inside are addressed by that name.
+# It was invisible before 1.6f only by accident: under
+# `presentation/ui/qml/` it was a *sub*package of a package with an
+# `__init__.py`, and Ruff validates the package root's name, while `support/` is
+# a namespace package throughout, which makes this directory a root. Renaming it
+# would break the QML imports; the alternative to this line is renaming a Qt
+# convention to satisfy a Python one.
+"src/support/charting/TimeframePicker/**" = ["N999"]
 # The repository/package name is intentionally PascalCase; Ruff otherwise
 # derives it as the parent module name for these package markers.
 "scripts/__init__.py" = ["N999"]
 "scripts/benchmarking/__init__.py" = ["N999"]
 # This standalone chart demo generates visual noise, never security tokens.
-"src/presentation/ui/components/chart_card/__main__.py" = ["S311"]
+"src/support/charting/chart_card/__main__.py" = ["S311"]
 
 [tool.mypy]
 # EPIC-002 — gate opened at the exact baseline measured by EPIC-002A
@@ -152,6 +167,35 @@ exclude = [
     # the Engine board, not in this application's exclude list.
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]support[\\/]ui_kit[\\/]sidebar[\\/]",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]support[\\/]ui_kit[\\/]registry[\\/]",
+
+    # `EPIC-025` PR 1.6f, third re-key on PR 0.4a's precedent and the largest:
+    # `chart_card` (27 files) + the QML timeframe picker left `presentation/`
+    # and arrived with **43** pre-existing errors in 20 files. Measured by
+    # code before deciding, because "43 errors, excluded" is not a record:
+    #
+    #   13  import-untyped   `pyqtgraph` ships no `py.typed`. Not fixable in
+    #                        this repository at all — it needs a stub package
+    #                        or an `ignore_missing_imports` override, and both
+    #                        are decisions about a dependency, not about this
+    #                        move.
+    #   16  attr-defined     PySide6 stub gaps of the same family as
+    #                        `QCoreApplication.platformName` — `Qt`
+    #                        enumerations and `pyqtgraph` attributes the stubs
+    #                        do not carry.
+    #    8  annotation-unchecked  bodies mypy declines to check because they
+    #                        are inside an unannotated function.
+    #    6  arg-type/return-value  real typing debt in the chart's geometry
+    #                        batching, frozen 2026-08-21 with the rest.
+    #
+    # Fixing 43 typing errors inside a 37-file move makes the move
+    # unreviewable, which is the reason PR 0.4a's comment above gives for
+    # re-keying rather than either fixing or dropping. Two were **not**
+    # re-keyed because they were this pull request's own doing and are fixed
+    # in it: the `InfoField` re-export needed to be explicit, and
+    # `qt_platform.py`'s stub gap took a one-line local ignore rather than a
+    # path. The exit: ADR D21's rebuild of the chart's chrome, and a decision
+    # about `pyqtgraph` stubs that belongs on `EPIC-002D`, not here.
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]support[\\/]charting[\\/]",
 
     # Everything below: real per-file baseline debt (not Property noise),
     # frozen at EPIC-002A's measurement.

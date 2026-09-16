@@ -3,11 +3,11 @@ from datetime import UTC, datetime
 from enum import Enum
 
 import pyqtgraph as pg
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.qt_platform import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.ui_kit.qt_platform import (
     is_headless_qt_platform,
     qt_platform_name,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     get_utc_offset_seconds,

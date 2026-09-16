@@ -24,11 +24,11 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_toolbar import (
     DEFAULT_TIMEFRAMES,
     ChartToolbar,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
 
@@ -242,7 +242,7 @@ def test_no_symbol_or_store_falls_back_to_the_unpersisted_shape(qapp):
 def test_a_broken_qml_file_raises_instead_of_rendering_a_blank_box(
     qapp, tmp_path, monkeypatch
 ):
-    import Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_toolbar as toolbar_module
+    import Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_toolbar as toolbar_module
 
     broken = tmp_path / "Broken.qml"
     broken.write_text("import QtQuick\nItem { this is not qml }\n")

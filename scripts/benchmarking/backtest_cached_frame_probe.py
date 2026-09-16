@@ -26,7 +26,7 @@ from Sagittarius_Elite_Warrior.scripts.benchmarking.backtest_chart_interaction i
     _percentile_95,
     _volume,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
     ChartCard,
 )
 

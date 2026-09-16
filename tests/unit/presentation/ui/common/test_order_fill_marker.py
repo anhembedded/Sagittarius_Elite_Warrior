@@ -15,7 +15,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_fill_marker import (
     order_filled_marker,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
 )

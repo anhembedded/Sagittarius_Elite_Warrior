@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
+from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     GROUP_CAPTIONS,
     GROUP_LABELS,
     TimeframeGroup,

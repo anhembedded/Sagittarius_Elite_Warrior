@@ -43,18 +43,18 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
-    map_klines,
-    map_volume,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
-    TimeframePinPreferences,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view import (
     DashboardView,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping import (
+    map_klines,
+    map_volume,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY

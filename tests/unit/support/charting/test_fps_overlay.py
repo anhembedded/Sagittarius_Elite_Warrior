@@ -1,4 +1,4 @@
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.fps_overlay import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.fps_overlay import (
     FrameRateSampler,
 )
 

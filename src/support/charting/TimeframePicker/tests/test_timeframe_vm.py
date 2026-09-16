@@ -6,13 +6,14 @@
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
+from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     GROUP_CAPTIONS,
     GROUP_LABELS,
     TimeframeGroup,
     all_options,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_vm import (
+
+from ..timeframe_vm import (
     TimeframeVM,
 )
 

@@ -9,7 +9,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ConnectionFailureKind,
     ExchangeConnectionStatus,
 )
-from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
+from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 #: python-binance's own default `recvWindow` — matches what
 #: `FuturesSessionFactory.create_trading_client()` implicitly uses (no

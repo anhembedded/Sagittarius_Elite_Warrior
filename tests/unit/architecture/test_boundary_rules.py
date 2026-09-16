@@ -61,6 +61,18 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.rules import (
             "support.binance_gateway.contracts.i_gateway",
             True,
         ),
+        # --- the two UI support packages may use each other whole (PR 1.6f) --
+        ("support.charting.chart_card.chart_card", "support.ui_kit.kit", True),
+        ("support.ui_kit.kit.style", "support.charting.chart_card", True),
+        # ...and that allowance is for those two zones only, not support-wide
+        (
+            "support.binance_gateway.adapters.x",
+            "support.ui_kit.kit",
+            False,
+        ),
+        ("support.charting.chart_card", "support.binance_gateway.session", False),
+        ("support.charting.chart_card", "modules.trading.contracts.order", False),
+        ("support.charting.chart_card", "domain.value_objects.x", False),
         ("core.contracts.i_place_host", "support.ui_kit.page_shell", False),
         ("support.ui_kit.page_shell", "core.contracts.i_place_host", True),
         ("support.ui_kit.page_shell", "modules.trading.contracts.i_session", False),

@@ -1,5 +1,5 @@
 from PySide6 import QtCore, QtWidgets
-from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
+from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 from .chart_canvas_view import ChartDisplayMode
 

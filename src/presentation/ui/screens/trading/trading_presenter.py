@@ -54,7 +54,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
-from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
     equity_sample_to_candle,
     equity_samples_to_candles,
@@ -89,6 +88,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     default_symbol,
     default_symbol_options,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken

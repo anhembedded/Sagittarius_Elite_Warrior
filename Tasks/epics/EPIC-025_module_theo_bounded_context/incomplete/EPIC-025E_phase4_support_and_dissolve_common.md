@@ -8,8 +8,16 @@
 
 ## 1. What to do
 
-1. `support/charting/` ← `components/chart_card` (QtWidgets, permanently) plus `IChartHost` and
-   the marker / region / info types in `contracts/`.
+1. ✅ **Done, PR 1.6f** (pulled forward for the same reason as step 3). `support/charting/` ←
+   `components/chart_card` (27 files, QtWidgets permanently), `components/timeframe_picker` and
+   the QML `TimeframePicker`, plus `InfoField` in `contracts/` — split out of
+   `domain/indicator_scripts/base_indicator_script.py`, which re-exports it, because it was the
+   single legacy import keeping the package in. `IChartHost` and the marker/region types are
+   **not** published yet: their consumer is Phase 3's backtesting, and `backtest_chart_host.py`
+   still lives beside the backtest screen. What 1.6f *did* settle is the boundary question the
+   extraction raised — HLD §6.1 now lets the two UI support packages import each other whole,
+   measured and pinned, rather than routing 20 imports through an ABC façade written for one
+   consumer.
 2. `support/indicators/` ← `domain/indicators`, `indicator_scripts`, `scripting`, plus
    `IIndicatorCatalog`.
 3. `support/ui_kit/` ← what survives of `kit/` after HLD §11 (no `PageShell`, no `style.py`, no

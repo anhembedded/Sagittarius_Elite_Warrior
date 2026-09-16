@@ -17,7 +17,7 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
     ChartCard,
 )
 

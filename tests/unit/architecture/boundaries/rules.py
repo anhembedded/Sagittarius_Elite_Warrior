@@ -53,7 +53,9 @@ def import_is_allowed(importing_module: str, imported_module: str) -> bool:
     if src_top == "core":
         return False  # core imports only core (the equality above)
     if src_top == "support":
-        return _support_may_import(dst_zone, imported_module)
+        return _support_may_import(
+            importing_module, src_zone, dst_zone, imported_module
+        )
     if src_top == "modules":
         return _module_may_import(importing_module, dst_zone, imported_module)
     return False
@@ -88,11 +90,31 @@ def _legacy_layer_allows(src_zone: str, dst_zone: str) -> bool:
     return False  # domain and config import nothing else
 
 
-def _support_may_import(dst_zone: str, imported_module: str) -> bool:
+def _support_may_import(
+    importing_module: str, src_zone: str, dst_zone: str, imported_module: str
+) -> bool:
     dst_top = top_of(dst_zone)
     if dst_top == "core":
         return True
-    return dst_top == "support" and is_contracts_package(imported_module)
+    if dst_top != "support":
+        return False
+    if is_contracts_package(imported_module):
+        return True
+    # The two support packages HLD §6.1 calls **UI** may use each other whole,
+    # exactly as a module's `ui/` may use them both (`_UI_SUPPORT_ZONES`).
+    # `EPIC-025` PR 1.6f is what forced the question and measured the
+    # alternatives: `support/charting`'s chart card reads `ui_kit`'s palette,
+    # its widget kit, its QML embed host, `theme_bootstrap` and the display
+    # timezone service — 20 imports across 12 files. Routing them through
+    # `ui_kit/contracts` would mean publishing an ABC façade over `Palette`,
+    # `StyleRole`, `apply_role` and `QmlOverlay` for a single consumer, and
+    # the only other option is for the charting package to carry its own copy
+    # of the kit, which is the duplication this epic exists to delete.
+    #
+    # Deliberately narrow: *these two zones*, not support-wide. A gateway or
+    # an indicators package reaching into another support package's internals
+    # still fails here, because neither is UI and neither has the reason.
+    return src_zone in _UI_SUPPORT_ZONES and dst_zone in _UI_SUPPORT_ZONES
 
 
 def _module_may_import(

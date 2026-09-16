@@ -5,15 +5,15 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
-    BEAR_COLOR,
-    BULL_COLOR,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
     TradeLogRow,
     build_trade_log_rows,
     trade_log_row_to_qml,
     trade_log_rows_to_qml,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
+    BEAR_COLOR,
+    BULL_COLOR,
 )
 
 _T0 = datetime(2026, 1, 1, 6, 0, tzinfo=UTC)

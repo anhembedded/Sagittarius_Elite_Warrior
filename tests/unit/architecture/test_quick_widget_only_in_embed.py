@@ -57,15 +57,18 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from .ui_trees import UI_TREES
+
 _REPO_ROOT = Path(__file__).resolve().parents[3]
-_UI_ROOT = _REPO_ROOT / "src" / "presentation" / "ui"
-_SUPPORT_UI_ROOT = _REPO_ROOT / "src" / "support" / "ui_kit"
 _SCRIPTS_ROOT = _REPO_ROOT / "scripts"
 _TESTS_ROOT = _REPO_ROOT / "tests"
 #: `support/ui_kit/embed` since `EPIC-025` PR 1.6e. The one place a
 #: `QQuickWidget` may be built follows the code, not the directory it used to
 #: sit in; the landmark test below is what failed and said so.
-_EMBED_DIR = _SUPPORT_UI_ROOT / "embed"
+#: Derived from the seam like everything else here: naming the tree a second
+#: time is how a retargeted guard rots on the *next* move, which is the
+#: failure `ui_trees.py` exists to end.
+_EMBED_DIR = _REPO_ROOT / "src" / "support" / "ui_kit" / "embed"
 
 #: Where a `QQuickWidget` may not be built: everything that runs as the real
 #: application. See the module docstring for why `tests/` is absent.
@@ -75,11 +78,15 @@ _EMBED_DIR = _SUPPORT_UI_ROOT / "embed"
 #: and a file does not stop being the running application because it crossed
 #: into `support/` — a `QQuickWidget` built in the kit, or a hand-seeded
 #: theme there, is exactly the thing these two tests forbid.
-_WIDGET_ROOTS = (_UI_ROOT, _SUPPORT_UI_ROOT, _SCRIPTS_ROOT)
+#: `ui_trees.py` supplies the UI half — the third tree (`support/charting`)
+#: arrived in PR 1.6f and `chart_toolbar.py` builds a `QQuickWidget`, so a
+#: guard reading two trees would have stopped watching the only package
+#: that does.
+_WIDGET_ROOTS = (*UI_TREES, _SCRIPTS_ROOT)
 
 #: Where the theme may not be seeded by hand — every root, because a test
 #: process seeds it for the same reason the app does.
-_SEEDING_ROOTS = (_UI_ROOT, _SUPPORT_UI_ROOT, _SCRIPTS_ROOT, _TESTS_ROOT)
+_SEEDING_ROOTS = (*UI_TREES, _SCRIPTS_ROOT, _TESTS_ROOT)
 
 #: Seeding the theme means calling one of these **with an argument**. A bare
 #: `get_theme_bridge()` reads the already-seeded singleton and is fine
@@ -193,7 +200,7 @@ def test_the_scanned_trees_are_where_this_guard_expects_them():
     stays green when one whole root stops being scanned, which is the exact
     failure this guard shipped with for five days.
     """
-    for root in (_UI_ROOT, _SCRIPTS_ROOT, _TESTS_ROOT):
+    for root in (*UI_TREES, _SCRIPTS_ROOT, _TESTS_ROOT):
         assert root.is_dir(), f"{root} is gone — retarget this guard"
         assert _python_files(root), f"no .py under {root}"
 

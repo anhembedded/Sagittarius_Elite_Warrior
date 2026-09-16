@@ -23,10 +23,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled
     OrderFilledEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.marker_layer import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.marker_layer import (
     MarkerPoint,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
 )

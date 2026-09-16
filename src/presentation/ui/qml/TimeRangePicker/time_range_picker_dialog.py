@@ -28,8 +28,8 @@ from pathlib import Path
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.qml_overlay import QmlOverlay
 
-from ..host import QmlOverlay
 from .time_range_picker_vm import TimeRangePickerVM
 
 _QML = Path(__file__).with_name("TimeRangePicker.qml")

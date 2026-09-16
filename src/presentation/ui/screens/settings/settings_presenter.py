@@ -16,7 +16,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session i
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter import (
     format_exchange_connection_status,
 )
-from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     resolve_market_data_venue,
     resolve_trading_venue,
@@ -36,6 +35,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     default_interval,
     default_symbol_options,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.container_lookup import (
     find_state_coordinator,
 )

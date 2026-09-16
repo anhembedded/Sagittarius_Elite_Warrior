@@ -42,7 +42,7 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QColor, QFont
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
 )

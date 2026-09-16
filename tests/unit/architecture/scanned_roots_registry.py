@@ -13,6 +13,17 @@ retargeted and its row here changes in the same commit.
 
 from __future__ import annotations
 
+from .ui_trees import UI_TREE_PATHS
+
+#: The UI trees as registry rows. Four guards below read `UI_TREES` from
+#: `ui_trees.py`, so their registered roots are derived from the same tuple
+#: rather than repeated here — `EPIC-025` moved the UI three times and each
+#: move meant editing the guard *and* its row, which is two chances to forget
+#: one.
+UI_TREE_ROWS: tuple[tuple[str, str], ...] = tuple(
+    (path, "*.py") for path in UI_TREE_PATHS
+)
+
 #: (guard file, ((scanned root, file glob), ...)) — paths relative to the repo root.
 GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     # --- tests/unit/architecture (EPIC-025) --------------------------------
@@ -75,11 +86,11 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ),
     (
         "tests/unit/architecture/test_card_layer_structure.py",
-        (("src/presentation/ui", "*.py"), ("src/support/ui_kit", "*.py")),
+        UI_TREE_ROWS,
     ),
     (
         "tests/unit/presentation/ui/test_widget_guards_hold.py",
-        (("src/presentation/ui", "*.py"), ("src/support/ui_kit", "*.py")),
+        UI_TREE_ROWS,
     ),
     (
         "tests/unit/architecture/test_no_cross_screen_imports.py",
@@ -98,7 +109,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     # half the files.
     (
         "tests/unit/presentation/ui/test_palette_is_the_only_color_source.py",
-        (("src/presentation/ui", "*.py"), ("src/support/ui_kit", "*.py")),
+        UI_TREE_ROWS,
     ),
     (
         "tests/unit/architecture/test_qml_library_does_not_import_screens.py",
@@ -118,12 +129,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     # at a time rather than in total.
     (
         "tests/unit/architecture/test_quick_widget_only_in_embed.py",
-        (
-            ("src/presentation/ui", "*.py"),
-            ("src/support/ui_kit", "*.py"),
-            ("scripts", "*.py"),
-            ("tests", "*.py"),
-        ),
+        (*UI_TREE_ROWS, ("scripts", "*.py"), ("tests", "*.py")),
     ),
     (
         "tests/unit/presentation/ui/qml/test_select_list_bodies.py",

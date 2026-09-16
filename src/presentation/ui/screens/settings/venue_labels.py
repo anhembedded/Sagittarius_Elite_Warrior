@@ -15,13 +15,13 @@ following any of those needs to recognise what they picked here.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 MARKET_DATA_VENUE_LABELS = EnumLabels(
     MarketDataVenue,

@@ -33,6 +33,17 @@ from Sagittarius_Elite_Warrior.src.domain.scripting import (
     is_below,
 )
 
+# `InfoField` moved to `support/charting/contracts` in `EPIC-025` PR 1.6f and is
+# re-exported here. HLD §3.4 assigns it to charting's published contracts, and
+# the reason is visible in its only two consumers: the chart card that *renders*
+# a status panel and the script runner that *fills* one. It is the shape of a
+# row in that panel, not a rule about indicators — so it is the chart's
+# vocabulary, and putting it there is what lets `support/charting` be extracted
+# without importing anything from the indicator tree.
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.info_field import (
+    InfoField as InfoField,  # noqa: PLC0414 - explicit re-export, see above
+)
+
 #: Matches IIndicator's own TypeVar style rather than PEP 695 syntax, so the
 #: two generic classes in domain/ read the same way.
 T = TypeVar("T")
@@ -89,23 +100,6 @@ class PlottedRegion:
 
     color: str
     opacity: float = 0.15
-
-
-@dataclass(frozen=True)
-class InfoField:
-    """
-    @brief One row of a script's status panel (Pine's `table.cell`), e.g.
-    ("Trend", "UP", color=green).
-    @details Only ever shown for the most recently computed bar — a status
-    panel reports "where things stand now", not a time series, so there is no
-    history to keep. That also removes any need for Pine's `barstate.islast`
-    guard: whichever bar was computed last is definitionally the one whose
-    info is current.
-    """
-
-    label: str
-    value: str
-    color: str | None = None
 
 
 class IndicatorHandle[T]:

@@ -10,12 +10,12 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
-from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import DATETIME_FORMAT
+from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     format_display_datetime,

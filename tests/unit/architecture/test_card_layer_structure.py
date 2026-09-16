@@ -45,6 +45,8 @@ completeness test is what forces someone to notice they need to make it.
 import ast
 from pathlib import Path
 
+from .ui_trees import UI_TREES
+
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _UI_ROOT = _REPO_ROOT / "src" / "presentation" / "ui"
 _COMPONENTS_DIR = _UI_ROOT / "components"
@@ -63,7 +65,7 @@ _KIT_DIR = _REPO_ROOT / "src" / "support" / "ui_kit" / "kit"
 #: keeps `test_the_guard_still_finds_something` honest — the legacy tree is
 #: down to one Card (`ChartCard`), which leaves for `support/charting` in a
 #: later phase, and the guard would then be inspecting nothing.
-_SCAN_ROOTS = (_UI_ROOT, _REPO_ROOT / "src" / "support" / "ui_kit")
+_SCAN_ROOTS = UI_TREES
 
 #: The kit files that define a Card subclass, pinned by name. Exempt from the
 #: components/ rule (see the module docstring), but not unexamined: a new card
@@ -106,24 +108,45 @@ def _defines_card_class(source: str) -> bool:
     return bool(_card_classes(source))
 
 
+#: Where a Card may be defined. Three entries, and the reason the rule is
+#: stated as a *list of owning packages* rather than "inside `components/`" is
+#: `EPIC-025` PR 1.6f: once the UI occupies three trees, one directory cannot
+#: express it. The intent in the docstring below has not changed — a Card must
+#: not be defined **alongside a screen** — and each entry is a package whose
+#: job is to own a card:
+#:
+#:   · `presentation/ui/components/` — the legacy component tree, shrinking
+#:   · the kit — where `Card` itself is defined (see the module docstring)
+#:   · `support/charting/chart_card/` — the chart card *is* that package
+#:
+#: A new entry here is the question "should this be a card of its own package,
+#: or a component?" asked deliberately, which is the same mechanism
+#: `_KIT_CARD_FILES` uses one level down.
+_CARD_OWNING_DIRS = (
+    _COMPONENTS_DIR,
+    _KIT_DIR,
+    _REPO_ROOT / "src" / "support" / "charting" / "chart_card",
+)
+
+
 def test_card_classes_live_under_components_dir():
     """
-    A Card (subclasses BaseCard) must be defined inside components/, never
-    alongside a screen. This guards against the exact mistake made once
+    A Card (subclasses BaseCard) must be defined inside a card-owning package,
+    never alongside a screen. This guards against the exact mistake made once
     already: SyncControlCard/DatabaseStatusCard were briefly placed under
-    screens/data_management/ before being moved here.
+    screens/data_management/ before being moved out.
     """
     offenders = [
         path
         for root in _SCAN_ROOTS
         for path in _iter_python_files(root)
-        if _COMPONENTS_DIR not in path.parents
-        and _KIT_DIR not in path.parents
+        if not any(owner in path.parents for owner in _CARD_OWNING_DIRS)
         and _defines_card_class(path.read_text(encoding="utf-8"))
     ]
 
     assert offenders == [], (
-        f"Card classes (subclassing BaseCard) found outside {_COMPONENTS_DIR}: "
+        "Card classes (subclassing BaseCard) found outside the card-owning "
+        f"packages {[str(d) for d in _CARD_OWNING_DIRS]}: "
         f"{[str(p) for p in offenders]}"
     )
 

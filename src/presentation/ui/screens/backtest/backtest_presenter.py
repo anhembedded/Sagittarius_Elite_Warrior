@@ -64,15 +64,8 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordin
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
     SyncProgressReport,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
-    TimeframePinPreferences,
-    find_timeframe_pin_preferences,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.runner import (
     IndicatorScriptRunner,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
-    describe as describe_timeframe,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
     build_extended_stat_cards,
@@ -85,6 +78,13 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_r
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
     BacktestProgress,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
+    find_timeframe_pin_preferences,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
+    describe as describe_timeframe,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOwnershipTracker,

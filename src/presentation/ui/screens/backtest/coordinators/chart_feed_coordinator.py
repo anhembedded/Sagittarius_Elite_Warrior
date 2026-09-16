@@ -24,7 +24,7 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping import (
     map_klines,
     map_volume,
 )

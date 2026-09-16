@@ -16,15 +16,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
-    describe as describe_timeframe,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.progress_banner_widget import (
     ProgressBannerWidget,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog import (
-    PinnedTimeframes,
-    TimeframePickerDialog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
     DatabaseStatusPanel,
@@ -32,6 +25,13 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
     KlineInspectorDialog,
     TimeRangeCardWidget,
     field_style,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
+    describe as describe_timeframe,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.TimeframePicker.timeframe_picker_dialog import (
+    PinnedTimeframes,
+    TimeframePickerDialog,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import (
     AppLogPanel,

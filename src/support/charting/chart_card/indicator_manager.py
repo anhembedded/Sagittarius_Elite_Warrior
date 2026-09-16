@@ -1,7 +1,9 @@
 from collections.abc import Callable
 
 import pyqtgraph as pg
-from Sagittarius_Elite_Warrior.src.domain.indicator_scripts import InfoField
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.info_field import (
+    InfoField,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 from .marker_layer import MarkerLayer, MarkerPoint

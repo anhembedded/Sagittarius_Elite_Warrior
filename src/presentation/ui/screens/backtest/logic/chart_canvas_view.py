@@ -11,13 +11,13 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_card import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_card import (
     OhlcCandle,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.marker_layer import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.marker_layer import (
     MarkerPoint,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.theme import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
     TAKE_PROFIT_COLOR,

@@ -47,8 +47,8 @@ from pathlib import Path
 
 from PySide6.QtCore import Signal
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.support.ui_kit.qml_overlay import QmlOverlay
 
-from ..host import QmlOverlay
 from .timeframe_vm import TimeframeVM
 
 _QML = Path(__file__).with_name("TimeframePicker.qml")

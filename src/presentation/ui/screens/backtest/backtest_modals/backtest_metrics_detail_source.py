@@ -37,14 +37,14 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
-    describe as describe_timeframe,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
     StatCardData,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.extended_metrics_snapshot import (
     ExtendedMetricsSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
+    describe as describe_timeframe,
 )
 
 if TYPE_CHECKING:

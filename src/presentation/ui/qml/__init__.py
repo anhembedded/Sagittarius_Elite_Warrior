@@ -38,7 +38,7 @@ def __getattr__(name: str):
     discovering their colocated tests.
     """
     if name == "QmlOverlay":
-        from .host import QmlOverlay
+        from Sagittarius_Elite_Warrior.src.support.ui_kit.qml_overlay import QmlOverlay
 
         return QmlOverlay
     raise AttributeError(name)

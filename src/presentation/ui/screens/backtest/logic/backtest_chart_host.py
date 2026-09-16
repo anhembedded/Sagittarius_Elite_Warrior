@@ -11,13 +11,13 @@ import logging
 from collections.abc import Callable
 
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
     ChartCard,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_card import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_card import (
     OhlcCandle,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
 

@@ -14,7 +14,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitViolation,
 )
-from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
+from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 #: `ExecuteOrderResult.blocked_by`/`CancelOrderResult.blocked_by` share
 #: `ExecuteOrderSafetyGate` — one table covers the manual order card and

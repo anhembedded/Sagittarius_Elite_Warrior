@@ -10,9 +10,10 @@ from __future__ import annotations
 
 from typing import Protocol, runtime_checkable
 
-from ....components.chart_card.timeframe_pin_preferences import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
+
 from .i_backtest_chart_host import IBacktestChartHost
 
 

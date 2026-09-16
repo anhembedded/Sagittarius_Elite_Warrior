@@ -6,9 +6,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.indicator_scripts.list_model import (
     IndicatorScriptListModel,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
-    all_options as all_timeframe_options,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_state import (
     BacktestExecutionMode,
     BacktestUiState,
@@ -30,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.view_models.
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.view_models.trade_log_view_model import (
     TradeLogViewModel,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
+    all_options as all_timeframe_options,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel, from_qml
 from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (

@@ -22,7 +22,7 @@ from dataclasses import dataclass
 from enum import Enum
 
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
+from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 
 class TimeframeGroup(Enum):

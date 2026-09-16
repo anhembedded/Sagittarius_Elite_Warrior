@@ -5,20 +5,20 @@ import pyqtgraph as pg
 import pytest
 from PySide6 import QtCore
 from PySide6.QtWidgets import QApplication
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
     ChartCard,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.chart_card import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.chart_card import (
     _PRICE_BAND_MIN_VIEW_FRACTION,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.marker_layer import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.marker_layer import (
     TriangleMarkerItem,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.plot_layout import (
     ChartAntialiasMode,
     ChartPlotLayout,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
 
@@ -90,11 +90,11 @@ def test_add_overlay_indicator_honors_a_custom_line_width(qapp):
 def test_chart_plot_layout_falls_back_to_cpu_on_headless_platform(qapp):
     with (
         patch(
-            "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout.qt_platform_name",
+            "Sagittarius_Elite_Warrior.src.support.charting.chart_card.plot_layout.qt_platform_name",
             return_value="offscreen",
         ),
         patch(
-            "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout.is_headless_qt_platform",
+            "Sagittarius_Elite_Warrior.src.support.charting.chart_card.plot_layout.is_headless_qt_platform",
             return_value=True,
         ),
         patch.object(pg.GraphicsLayoutWidget, "useOpenGL") as use_opengl,
@@ -111,11 +111,11 @@ def test_chart_plot_layout_falls_back_to_cpu_on_headless_platform(qapp):
 def test_chart_plot_layout_enables_opengl_per_widget_on_desktop(qapp):
     with (
         patch(
-            "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout.qt_platform_name",
+            "Sagittarius_Elite_Warrior.src.support.charting.chart_card.plot_layout.qt_platform_name",
             return_value="windows",
         ),
         patch(
-            "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout.is_headless_qt_platform",
+            "Sagittarius_Elite_Warrior.src.support.charting.chart_card.plot_layout.is_headless_qt_platform",
             return_value=False,
         ),
         patch.object(pg.GraphicsLayoutWidget, "useOpenGL") as use_opengl,
@@ -131,11 +131,11 @@ def test_chart_plot_layout_enables_opengl_per_widget_on_desktop(qapp):
 def test_chart_plot_layout_falls_back_when_opengl_setup_fails(qapp):
     with (
         patch(
-            "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout.qt_platform_name",
+            "Sagittarius_Elite_Warrior.src.support.charting.chart_card.plot_layout.qt_platform_name",
             return_value="windows",
         ),
         patch(
-            "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout.is_headless_qt_platform",
+            "Sagittarius_Elite_Warrior.src.support.charting.chart_card.plot_layout.is_headless_qt_platform",
             return_value=False,
         ),
         patch.object(
@@ -154,11 +154,11 @@ def test_chart_plot_layout_falls_back_when_opengl_setup_fails(qapp):
 def test_chart_plot_layout_falls_back_when_shown_viewport_has_no_context(qapp):
     with (
         patch(
-            "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout.qt_platform_name",
+            "Sagittarius_Elite_Warrior.src.support.charting.chart_card.plot_layout.qt_platform_name",
             return_value="windows",
         ),
         patch(
-            "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout.is_headless_qt_platform",
+            "Sagittarius_Elite_Warrior.src.support.charting.chart_card.plot_layout.is_headless_qt_platform",
             return_value=False,
         ),
         patch.object(pg.GraphicsLayoutWidget, "useOpenGL"),

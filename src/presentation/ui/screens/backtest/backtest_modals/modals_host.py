@@ -7,7 +7,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtWidgets import (
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_picker_dialog import (
+from Sagittarius_Elite_Warrior.src.support.charting.TimeframePicker.timeframe_picker_dialog import (
     PinnedTimeframes,
     TimeframePickerDialog,
 )

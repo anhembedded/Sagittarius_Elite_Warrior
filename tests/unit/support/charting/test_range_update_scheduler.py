@@ -1,4 +1,4 @@
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.range_update_scheduler import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.range_update_scheduler import (
     RangeUpdateScheduler,
 )
 

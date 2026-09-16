@@ -18,7 +18,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker.catalogue import (
+from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker.catalogue import (
     GROUP_CAPTIONS,
     GROUP_LABELS,
     TimeframeOption,

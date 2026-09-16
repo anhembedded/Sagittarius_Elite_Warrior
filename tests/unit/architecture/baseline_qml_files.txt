@@ -15,9 +15,9 @@ src/presentation/ui/qml/SymbolPicker/SymbolPickerCard.qml
 src/presentation/ui/qml/SymbolPicker/SymbolPickerTab.qml
 src/presentation/ui/qml/TimeRangePicker/TimeRangePicker.qml
 src/presentation/ui/qml/TimeRangePicker/TimeRangePickerMonth.qml
-src/presentation/ui/qml/TimeframePicker/TimeframePicker.qml
-src/presentation/ui/qml/TimeframePicker/TimeframePickerCard.qml
-src/presentation/ui/qml/TimeframePicker/TimeframeToolbar.qml
+src/support/charting/TimeframePicker/TimeframePicker.qml
+src/support/charting/TimeframePicker/TimeframePickerCard.qml
+src/support/charting/TimeframePicker/TimeframeToolbar.qml
 src/presentation/ui/qml/TradeLogTable/TradeLogRow.qml
 src/presentation/ui/qml/TradeLogTable/TradeLogTable.qml
 src/presentation/ui/qml/kit/Button.qml

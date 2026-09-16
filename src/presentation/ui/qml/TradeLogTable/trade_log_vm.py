@@ -28,7 +28,7 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
+from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 from .trade_log_filter import TradeLogFilter, filter_trade_log_rows
 from .trade_log_row import TradeLogRow, trade_log_rows_to_qml

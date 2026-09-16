@@ -27,7 +27,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_kl
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_range_coverage import (
     IRangeCoverage,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.kline_mapping import (
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping import (
     map_klines,
     map_volume,
 )

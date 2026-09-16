@@ -57,23 +57,20 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.guards import (
     format_inline_stylesheet_findings,
     format_unscoped_container_findings,
 )
+from Sagittarius_Elite_Warrior.tests.unit.architecture.ui_trees import (
+    UI_TREES,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[4]
 
-#: Both UI trees, not one. The three guards below were pointed at
-#: `src/presentation/ui` when it was the whole of the app's UI. `EPIC-025`
-#: PR 1.4b-1 moved the surface host into `support/ui_kit/` and PR 1.6a moved
-#: `assets/` after it, and neither move brought the guards along: for one
-#: pull request the host's own `setStyleSheet` would have been unguarded, and
-#: `palette.py` — the file the colour guard exists to exempt — had left the
-#: scanned tree entirely, which is what `test_ui_root_is_where_we_think_it_is`
-#: caught. Measured when the second root was added: it contributes 0 findings
-#: to all three guards, so nothing is being waved through here. The list
-#: shrinks back to one entry when Phase 4 deletes the legacy tree.
-_UI_ROOTS = (
-    _REPO_ROOT / "src" / "presentation" / "ui",
-    _REPO_ROOT / "src" / "support" / "ui_kit",
-)
+#: The UI, wherever it currently is — `tests/unit/architecture/ui_trees.py`
+#: records why this is a shared constant rather than a tuple written out per
+#: guard. Short version: these three guards lost part of their subject three
+#: times during `EPIC-025`, and the third time (PR 1.6f, `chart_card` leaving
+#: for `support/charting`) the bare-base ratchet read **1** instead of 2 — a
+#: ratchet going *down* is the most expensive way for this to present, because
+#: it looks like progress.
+_UI_ROOTS = UI_TREES
 
 #: File định nghĩa màu của app — tương đương `style.py` của engine. Không có
 #: nó thì `palette.py` bị báo 15 lần vì *chứa* token, và 0 là bất khả thi.

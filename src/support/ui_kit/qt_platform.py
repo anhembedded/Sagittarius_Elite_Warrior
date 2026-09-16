@@ -23,7 +23,13 @@ def qt_platform_name() -> str:
     """The running `QApplication`'s platform plugin name, lowercased — the
     empty string if no `QApplication` exists yet."""
     app = QApplication.instance()
-    return app.platformName().lower() if app is not None else ""
+    # `platformName()` is on `QGuiApplication` at runtime, but
+    # `QCoreApplication.instance()` is typed as returning the base class, and
+    # PySide6's stubs do not narrow it. A local ignore rather than a path
+    # excluded from the gate: the gap is one attribute on one line, and this
+    # file only left the wholesale `presentation/` exclusion in `EPIC-025`
+    # PR 1.6f.
+    return app.platformName().lower() if app is not None else ""  # type: ignore[attr-defined]
 
 
 def is_headless_qt_platform() -> bool:

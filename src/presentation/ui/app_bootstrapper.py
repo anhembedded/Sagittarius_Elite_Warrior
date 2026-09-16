@@ -47,14 +47,8 @@ from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.main import create_app
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.qt_platform import (
-    is_headless_qt_platform,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.timeframe_pin_preferences import (
-    TimeframePinPreferences,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.shell.app_config import (
@@ -75,11 +69,17 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_end
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
     compute_venue_alignment,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
+    TimeframePinPreferences,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
     EnvironmentBanner,
     venue_alignment_banner_content,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import PageShell
+from Sagittarius_Elite_Warrior.src.support.ui_kit.qt_platform import (
+    is_headless_qt_platform,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.config_manager_state_store import (
     ConfigManagerStateStore,

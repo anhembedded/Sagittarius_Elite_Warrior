@@ -9,7 +9,7 @@ renders a flat list — nothing here does that job over again.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.enum_labels import EnumLabels
+from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 from .....domain.value_objects.market_type import MarketType
 

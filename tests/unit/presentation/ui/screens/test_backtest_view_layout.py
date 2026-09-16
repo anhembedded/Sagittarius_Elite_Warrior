@@ -192,11 +192,11 @@ def test_backtest_requests_opengl_for_current_and_future_chart_cards(qapp, reque
     v.set_chart_opengl_enabled(True)
     with (
         patch(
-            "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout.qt_platform_name",
+            "Sagittarius_Elite_Warrior.src.support.charting.chart_card.plot_layout.qt_platform_name",
             return_value="offscreen",
         ),
         patch(
-            "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.plot_layout.is_headless_qt_platform",
+            "Sagittarius_Elite_Warrior.src.support.charting.chart_card.plot_layout.is_headless_qt_platform",
             return_value=True,
         ),
     ):

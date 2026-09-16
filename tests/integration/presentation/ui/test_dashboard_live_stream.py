@@ -170,7 +170,7 @@ def test_dashboard_integration_start_stream_chart_rendering(qapp, mock_app):
     from unittest.mock import patch
 
     with patch(
-        "Sagittarius_Elite_Warrior.src.presentation.ui.components.chart_card.FastCandlestickItem.update"
+        "Sagittarius_Elite_Warrior.src.support.charting.chart_card.FastCandlestickItem.update"
     ):
         # Trigger Load History first
         presenter._on_load_history()

@@ -12,7 +12,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from PySide6.QtWidgets import QVBoxLayout, QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeframePicker.timeframe_vm import (
+from Sagittarius_Elite_Warrior.src.support.charting.TimeframePicker.timeframe_vm import (
     TimeframeVM,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.embed import QuickSurface
@@ -37,7 +37,7 @@ class _PreviewSeed:
         self.pinned = set(_DEFAULT_PINNED)
 
     def get_codes(self):
-        from Sagittarius_Elite_Warrior.src.presentation.ui.components.timeframe_picker import (
+        from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
             all_options,
         )
 
