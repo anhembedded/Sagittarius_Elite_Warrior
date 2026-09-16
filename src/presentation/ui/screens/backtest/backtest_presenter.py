@@ -61,14 +61,14 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordin
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
     SyncProgressReport,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
+    BacktestProgress,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
     build_result_warning_text,
     stat_cards_to_qml,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
-    BacktestProgress,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
     TradeLogRow,

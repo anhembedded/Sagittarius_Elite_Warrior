@@ -1,7 +1,8 @@
 """`ExtendedMetricsSnapshot` — the boundary type between `BackTestPresenter`
-and `MetricsDetailPanel`'s screen wiring (`EPIC-015` Phase 3).
+and the extended-metrics dialog's screen wiring (`EPIC-015` Phase 3;
+the dialog is QtWidgets again since `EPIC-025` PR 4.3j).
 
-@details `MetricsDetailVM` needs `StatCardData` objects plus a handful of raw
+@details The metrics readout needs `StatCardData` objects plus a handful of raw
 `BacktestMetrics` figures (`architecture-rule.md` §2.1: a cross-boundary
 contract must be a named type, not a bag of loose values passed around by
 convention). `BackTestViewModel.extendedStatCards` cannot serve that role —
@@ -22,14 +23,14 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
     StatCardData,
 )
 
 
 @dataclass(frozen=True)
 class ExtendedMetricsSnapshot:
-    """Everything `MetricsDetailVM` needs from one finished `BacktestResult`,
+    """Everything the metrics readout needs from one finished `BacktestResult`,
     captured once rather than re-derived (`build_extended_stat_cards(result)`
     already ran for `BackTestViewModel.extendedStatCards` — this is that same
     call's output, not a second one)."""

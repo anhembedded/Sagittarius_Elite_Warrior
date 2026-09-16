@@ -1,5 +1,7 @@
 """`BacktestMetricsDetailSource` — translates `BackTestViewModel`'s retained
-run data into the seven plain `get_*` callbacks `MetricsDetailVM` wants.
+run data into the seven plain `get_*` callbacks the metrics readout reads
+through (`MetricsDetailVM`'s until `EPIC-025` PR 4.3j deleted it; the dialog's
+own since).
 
 Kept apart from `metrics_detail_dialog.py` (the `QDialog` composition root
 that constructs this and wires it in) per `architecture-rule.md` §5: a
@@ -37,11 +39,11 @@ from __future__ import annotations
 from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
-    StatCardData,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.extended_metrics_snapshot import (
     ExtendedMetricsSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
+    StatCardData,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     describe as describe_timeframe,
@@ -66,8 +68,8 @@ _EMPTY_SNAPSHOT = ExtendedMetricsSnapshot(
 
 class BacktestMetricsDetailSource:
     """Reads `BackTestViewModel`'s retained extended-metrics snapshot plus
-    its live `selectedTimeframe`, in exactly the shape
-    `MetricsDetailVM.__init__`'s seven `get_*` parameters need."""
+    its live `selectedTimeframe`, in exactly the seven shapes
+    `MetricsDetailDialogWidget.refresh()` asks for."""
 
     def __init__(self, view_model: BackTestViewModel) -> None:
         self._view_model = view_model
