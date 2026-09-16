@@ -157,7 +157,7 @@ split.
 | ~~4.1c~~ ❌ | `screens/trading` → `modules/trading/ui/` — **folded into 4.4, §3.11.** Its legacy-import count did reach **0**, and that turned out not to be the binding constraint: merging it into the existing `trading.ui` package deduplicates nothing (the total stays at 112) while making `phase_1_count` read a false **0**, and re-keying the metric honestly would raise its ratchet 32 → 39, which `ci-rule` §5.5 forbids. The two live screens travel together after the deletions, as the user's `DECISION_2026-09-16` said | — |
 | **4.2a** | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator`; `base_event_logger` → `modules/backtesting/ui/` | §3.3: the destination this file left open is **forced**, not chosen. All four have 0 legacy imports except `sync_progress_feed`, whose only one is the sibling travelling with it |
 | **4.2b** | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) | after 4.1b and 4.2a its remaining blockers are QML, so it waits on 4.3 |
-| **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), then `SelectList`/`CheckboxList`/`Capital`, `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 22**, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
+| **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), **4.3e** ✅ `qml/SelectList/` deleted, its four hosts onto `kit.PickerOverlay` (and the read-only one out of the picker shape altogether), then `CheckboxList`/`Capital`, `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 21**, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
 | **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard`; `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's |
 
 After 4.1a and 4.2a, `ui/common` holds **two** files: `live_order_book_coordinator` (waiting on
@@ -703,3 +703,68 @@ the broken-`.qml` one is dropped for want of a subject.
 WARNING or above; mypy clean on 498 source files. Test count **4928 → 4946**: **+16** the rules
 suite the gate can actually see, and **+2** net in the guards — the new `test_no_test_file_lives_under_src.py`'s
 three, less one parametrised row the deleted source files cost. The dialog's own file is 7 → 7.
+
+### 4.5 PR 4.3e — `SelectList` had a replacement already written, and one of its four hosts was never a picker
+
+`qml/SelectList/` was the "choose one from a list" body, shared by four dialogs. Unlike 4.3a's
+symbol picker and 4.3c's date-range overlay, **nothing had to be built**: `kit.PickerOverlay`
+(PR 1.6b, 240 lines, 16 tests) is the same component in QtWidgets and has served the symbol pickers
+and Data Management since. So this step is a survey followed by four rewirings — `onb` §12.5
+principle 5's outcome in the cheap direction, for once.
+
+Three of the four are ordinary: `timezone_picker_dialog`, `strategy_picker_dialog` and
+`components/market_picker/overlay` each become a `PickerOverlay` subclass with a `refresh()` that
+maps the screen's own option shape into `PickerItem`s and a `_on_selected` that writes and closes.
+The timezone one gains `searchable=True` on the way, which the component already had and the `.qml`
+never did.
+
+**The fourth was the finding: `limitations_dialog` is not a picker and never was.** `EPIC-015` §4c
+had served it from `SelectListVM(selectable=False)` on the argument that a read-only bullet list is
+a picker with nothing to click — true of a `.qml` delegate that can branch on a flag, and the wrong
+shape here, because `PickerOverlay`'s whole contract is *a row can be chosen and emits its value*.
+Serving this screen from it would have meant a parameter that switches off the component's only
+promise. It is now what HLD §11.3 calls a read-only summary: an `Overlay` over a scroll area of
+wrapped labels, one bullet each, built in the dialog rather than promoted to `kit/` because there
+is exactly **one** consumer (`base_feed`'s rule — a shape becomes shared when the second one
+appears). The empty case says *"This run reported no limitations."* rather than showing a blank box.
+
+**Two defects came out of writing its tests.** The rebuild first took each label out of the layout
+and called `deleteLater()`, which is how `PickerOverlay` does it — and a deferred delete is
+delivered by the main event loop, not by the call that scheduled it, so between the two the host
+still holds the previous run's labels and the "replaces the previous run" test read both runs at
+once. `setParent(None)` before the delete is the fix. And the first draft of the strategy test
+**skipped** when `strategyOptions` was empty, which a bare `BackTestViewModel` always is: a skip
+that covers nothing looks exactly like a pass. It seeds two strategies now, which is what the
+Presenter does from the registry.
+
+**Restated, not deleted** (`pr-review` E11). `SelectListVM`'s 13 tests and `SelectList.qml`'s 4 go
+with their subject; the component-level promises are `test_picker_overlay.py`'s, which gains the one
+the deleted suite covered and it did not — *a selected value no longer on offer marks nothing*, the
+state a screen reaches when a strategy is unregistered. The per-dialog promises are restated in
+`tests/unit/presentation/ui/screens/backtest/test_select_dialogs.py` (11) and the market picker's
+own file (4, same sentences, different way of reaching a row). Two are deliberately dropped:
+`selectable=False`'s two behaviours, because the read-only dialog no longer inherits a picker to
+switch off, and the broken-`.qml` render pair, for want of a subject. `scanned_roots_registry.py`
+loses the row for the deleted guard — a registry row outliving its guard is the silently-empty scan
+that file exists to catch, pointed the other way.
+
+`.qml` **22 → 21**, `qml_theme_refs` **166 → 157**; the `apply_role` and `setStyleSheet` numbers are
+untouched again, for the same reason 4.4 records.
+
+**Two host tests failed on the first gate run, and that is the third time this phase.** 4.1b's
+`FileNotFoundError` and 4.3d's six `AttributeError`s were the same shape: a guard or a host test
+under `tests/unit/presentation/` that the pre-gate `tests/unit/architecture` run cannot see. This
+time the pre-gate run was widened to `tests/unit/presentation/ui/screens/backtest`, `…/ui/qml` and
+`…/ui/components` — and the two failures were in `tests/unit/presentation/ui/screens/`, one
+directory **above** all three. The rule this leaves: before a gate, run
+`pytest tests/unit/presentation` whole (231s), not the directories the change looks like it touched.
+Both were restated — the limitations popup counts `lblLimitation_` labels and now asserts their
+**text**, not just the row count; the strategy modal counts `SelectableCard`s.
+
+**Gate:** `RESULT: PASS`, **4936 passed, 4 skipped** in 192s, log
+`logs/ci-local-20260916-183909.log` grepped — 4 hits for the known benign set, **0** records at
+WARNING or above; mypy clean on 498 source files. Test count **4946 → 4936**, measured file by file
+rather than reasoned about: **−12** `test_select_list_vm.py`, **−4** `test_select_list_bodies.py`,
+**−3** the timezone trio leaving `test_qml_modal_bodies.py` (6 → 3), **+11**
+`test_select_dialogs.py`, **+1** `test_picker_overlay.py` (16 → 17), **−3** in the guards (two
+parametrised rows for the deleted source files, one for the deleted `.qml`).

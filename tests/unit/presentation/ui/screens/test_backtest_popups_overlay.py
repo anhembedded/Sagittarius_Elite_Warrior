@@ -16,6 +16,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import QObject
+from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
@@ -40,7 +41,7 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.extend
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import SelectableCard, Tone
 from Sagittarius_Elite_Warrior.tests.conftest import find_all_named
 
 
@@ -170,10 +171,15 @@ def test_limitations_popup_opens_with_each_limitation_as_its_own_label(
     assert dialog is not None
     assert dialog.objectName() == "limitationsPopup"
     assert dialog.isVisible() is True
-    # EPIC-015 §4c: body is SelectList.qml with selectable=False, so each
-    # limitation is a "bulletItem_" delegate rather than a QLabel.
-    rows = find_all_named(dialog.root_object, "bulletItem_")
-    assert len(rows) == 2
+    # `EPIC-025` PR 4.3e: one wrapped `QLabel` per caveat. `EPIC-015` §4c had
+    # served this from `SelectList.qml` with `selectable=False`, which is a
+    # picker with its only promise switched off — see `EPIC-025E` §4.5.
+    rows = [
+        label
+        for label in dialog.findChildren(QLabel)
+        if label.objectName().startswith("lblLimitation_")
+    ]
+    assert [label.text() for label in rows] == ["• Limitation 1", "• Limitation 2"]
 
 
 def test_capital_popup_opens_with_the_capital_field_populated(qapp, backtest_screen):
@@ -256,9 +262,14 @@ def test_strategy_picker_modal_opens_and_lists_the_registered_strategy(
     assert dialog is not None
     assert dialog.objectName() == "strategyPickerModal"
     assert dialog.isVisible() is True
-    # EPIC-015 §4c: body is the shared SelectList.qml, selectable=True.
-    rows = find_all_named(dialog.root_object, "selectItem_")
-    assert len(rows) == 1
+    # `EPIC-025` PR 4.3e: the shared `kit.PickerOverlay`, one `SelectableCard`
+    # per registered strategy.
+    cards = [
+        entry.widget()
+        for entry in (dialog._grid.itemAt(i) for i in range(dialog._grid.count()))
+        if entry is not None and isinstance(entry.widget(), SelectableCard)
+    ]
+    assert len(cards) == 1
 
 
 def test_timeframe_picker_modal_opens_and_lists_every_timeframe_option(
