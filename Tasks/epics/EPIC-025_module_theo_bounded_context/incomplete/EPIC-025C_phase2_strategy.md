@@ -468,3 +468,49 @@ five cases and says at the top where the missing ones went, so a reader counting
 to wonder. `test_order_quantity_rounding_policy.py` moved from `tests/unit/domain/policies/` —
 where it had been left behind by PR 1.3a — to `tests/unit/modules/trading/contracts/`, beside its
 subject at last. New: `SizingPolicyContract` and the one file that runs it.
+
+### 6.7 The gate, and what the review found
+
+Gate **PASS** on the first run, which is the first time in this phase — `logs/ci-local-20260916-084957.log`,
+**4866 passed / 4 skipped** in 3:05, grepped rather than read off the console: 4 hits, all the known
+benign set (a test id parametrised `[ERROR]`, twice, and the log-scan step's own two headings), and
+**0** records matching `- (WARNING|ERROR|CRITICAL) -`. mypy clean on 461 files.
+
+The **+18** is accounted for id by id rather than asserted, by collecting `--collect-only` on both
+trees and diffing: 42 ids added, 24 removed. The only genuinely new tests are the 15 of
+`SizingPolicyContract` and 3 parametrisations `test_logging_namespace_guard.py` adds for the three
+new files (it parametrises per file, not per logger). The 5 sizing cases and the two moved test
+files are net zero, which is what ADR D18 means by *"tests travel with the code"*.
+
+**E12 done as a probe rather than as reasoning**, twice, and the second one is the useful one:
+
+- Removing the clamp inside `MarginSizingPolicy` fails **4** tests in three files — the contract
+  suite's own clamp case, the moved unit case, *and*
+  `test_paper_exchange.py::test_leverage_margin_is_clamped_to_available_balance_preserving_the_ratio`.
+  That last one is the evidence that `PaperExchange` really goes through the moved rule; a port that
+  is merely *present* in a constructor would have left it green.
+- Making `MarginAllocation.is_fundable` always answer `True` fails **9**.
+
+**The review's own finding, and it is about a guard that cannot fail.** Probed the third one:
+deleting `PaperExchange`'s `if not allocation.is_fundable: return 0.0, 0.0, 0.0` leaves all **125**
+tests in `unit/domain/backtesting` and `integration/application` green, because a zero notional
+reaches `calculate_entry_fee_and_quantity()` and comes back as a zero quantity, which the next line
+refuses anyway. The bridge's copy of the same guard is unreachable for the same kind of reason and
+says so at the line. Both stay: the condition is not new (the old code read
+`if margin <= 0 or notional_capital <= 0`, equally unpinned), the behaviour is identical, and what
+they actually defend against is a **second** implementation of the port answering a negative
+notional — which is exactly what ADR D17 promises the user will be droppable in. Written down here
+rather than left for the next reader to discover by probing.
+
+Two findings outside the change, both recorded rather than fixed:
+
+- **`src/domain/backtesting/paper_exchange.py` is 468 lines**, over `architecture-rule.md` §5 rule
+  4's 400-line ceiling — and this pull request grew it from **452**, of which 7 lines are the
+  comment explaining the `or MarginSizingPolicy()` default. It was already 52 lines over before the
+  branch, and the split belongs where the file is going: `EPIC-025D` moves it into
+  `modules/backtesting`, and splitting a simulated broker inside a sizing move would make the move
+  unreviewable — the same argument PR 2.1b's mypy re-key and `BaseStrategy`'s 19 methods rest on.
+- **HLD §3.4's file-assignment row for `trading` still read `policies/order_quantity_rounding_policy`**
+  after the file moved to `contracts/`. Caught by the review and fixed in the documentation commit;
+  it is the same class of finding as PR 2.1c's two — a document naming a path the code moved out
+  from under.
