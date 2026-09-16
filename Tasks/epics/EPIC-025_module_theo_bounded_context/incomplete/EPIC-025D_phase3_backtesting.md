@@ -22,9 +22,12 @@
 
 ## 1. What to do
 
-1. `modules/backtesting/`: `domain/backtesting` (`PaperExchange`, `_OpenPosition` — **not** merged
-   with `LivePosition`, HLD §1 C3), `use_cases/backtest`, the backtest mode — its eleven QML modals
-   rebuilt as `QDialog`s and its panels as docks (HLD §11).
+1. 🟡 **Half A done — PR 3.1c** (§6). `modules/backtesting/`: `domain/backtesting`
+   (`PaperExchange`, `_OpenPosition` — **not** merged with `LivePosition`, HLD §1 C3) and
+   `use_cases/backtest` are in, as `contracts/` (11 files), `domain/` (6) and `application/` (8).
+   **Half B — the backtest mode, its eleven QML modals rebuilt as `QDialog`s and its panels as
+   docks (HLD §11) — is Phase 4's**, measured rather than deferred for room: §4.1 counted 74 files
+   whose 29 QML imports name packages ADR D21 **deletes** rather than moves.
 2. ✅ **done by `BUG-127`'s fix** — fix the existing layer violation at `backtest_presenter.py:43`
    (an import of `infrastructure/persistence`) by going through `market_data.contracts`. The stated
    coordinates were stale (§3.3) and the real violation was the presenter naming `market_data`'s
@@ -279,7 +282,8 @@ of `ISymbolCatalog`:
 | ~~3.1a~~ ✅ | delete the three dead use cases; see §3 | unchanged (36) |
 | ~~item 2~~ ✅ | the presenter's adapter import, fixed as `BUG-127`; see §3.4 | **36 → 35** |
 | 3.1b | publish `IStrategyEngine` + `IStrategyEngineFactory` with a verified fake and a contract suite, and move the two backtest handlers plus `paper_exchange` onto them. No files move yet — the 0.5 shape, a port with its consumers | shrinks by the 6 strategy-service lines |
-| 3.1c | move **Half A** (26 files / 2,538 lines) into `modules/backtesting/`, with its tests, tier unchanged. The 2.1b shape: the screen's ~15 reads of it become counted `legacy → modules.backtesting` entries, each naming Phase 4 as its exit | grows, every line named |
+| ~~3.1c~~ ✅ | move **Half A** into `modules/backtesting/`, with its tests, tier unchanged. Done — §6. The estimate was 26 files and *~15 counted entries*; it shipped as **26 files / 2,676 lines** and **three** entries, because putting the boundary-crossing types in `contracts/` *with* the move absorbed 30 of the 33 inbound imports | **29 → 32** |
+| 3.1c-2 | split `paper_exchange.py`, which is **472 lines** against §5 rule 4's 400-line ceiling. §5.5 committed this to 3.1c and it is deliberately a second commit rather than a larger first one: a pure move and a class split are two logical changes (`commit-rule.md` §4), and PR 2.1c/2.1c-2 set that shape in Phase 2. The seam §5.5 named is the file's own: a broker's **books** (cash, positions, trades, the signal → fill dispatch) on top of the **arithmetic against `BrokerSimulationConfig`** that the three policies do | unchanged |
 | 3.1d | item 3's Anticorruption Layer — `backtesting/adapters/` translating `PaperExchange` state into `strategy.contracts.StrategyContext`. Travels with 3.1c, because the translation only has a home once the module exists | unchanged |
 | → Phase 4 | **Half B, the screen.** Its eleven QML modals become `QDialog`s and its panels docks *as they move*, because ADR D21 deletes the QML rather than porting it — one piece of work, not two | shrinks |
 
@@ -385,3 +389,108 @@ instead of three, with the full account here in §5.2 where it belongs. **The fi
 the ceiling, and that is PR 3.1c's to fix**, not a comment's: it is the one file in Half A that
 genuinely holds two abstraction levels (a broker's books, and the matching/fee/margin policies it
 delegates to), and the move is when splitting it costs nothing extra.
+
+---
+
+## 6. PR 3.1c — the move, and a number that came out five times smaller than measured
+
+### 6.1 What moved
+
+26 files, 2,676 lines, into three trees whose names are the whole design decision:
+
+| Tree | What | Why there |
+| :--- | :--- | :--- |
+| `contracts/` (11 files) | `BacktestResult`, `Trade`, `BacktestMetrics`, `ExitReason`, `BacktestCancelled`, `OutOfSampleValidation`; `BrokerSimulationConfig`, `CommissionType`, `Currency`; `BacktestCompletedEvent` / `BacktestFailedEvent` under `contracts/events/` | every one of them is read from **outside** the context — by the Backtest screen, which does not move until Phase 4 |
+| `domain/` (6 files) | `PaperExchange`, `_OpenPosition`, `out_of_sample_split`, and the three fill policies under `domain/policies/` | the paper broker's own rules; nothing outside names them |
+| `application/` (8 files) | both runners (`run_static_backtest/`, `run_historical_tick_backtest/`) and `progress_throttle` | the use cases, and they stay internal — see §6.3 |
+
+Plus `module.py`, the one file `shell/` may import, appended to `shell/modules.py` as the **fourth
+and last** module: three suppliers (`market_data`, `strategy`, `trading`) and no customer, which is
+what made this the least entangled phase and is checked rather than claimed —
+`test_module_declarations.py` reads the imports actually present and fails on both surplus and
+shortfall.
+
+Two consequences outside the module are worth naming because a reader will go looking for them:
+`src/application/` is **empty** and gone from disk, and `src/domain/` holds exactly one file —
+`value_objects/market_type.py`, whose only production consumer is
+`presentation/ui/components/market_picker/catalogue.py`, so it travels with that component in
+Phase 4.
+
+### 6.2 33 inbound imports became 3 allowlist entries
+
+§4 measured 33 imports reaching into the moving code from 17 files, and the pull-request table
+above predicted *"~15 counted entries"*. It shipped as **three**, and the reason is not restraint:
+almost all 33 read the *answers* a run produces, and those went into `contracts/` **with** the move,
+so they became legal imports rather than counted violations. This is PR 1.3b's first half repeated
+exactly — it took `trading`'s inbound count 61 → 41 without touching a single consumer — and it is
+worth stating as a rule, because the estimate was wrong by 5× in the same direction both times:
+
+> A move that carries its boundary-crossing types into `contracts/` costs almost no allowlist. A
+> move that leaves them in `domain/` pays for every consumer, one line at a time.
+
+The three that remain are the one thing `contracts/` cannot absorb: the Backtest screen **builds
+this module's commands and dispatches them** through `ICommandDispatcher`. That is the
+transitional shape this epic exists to retire, and HLD §3.4 records its exit — *"if a CLI
+`backtest` command appears, `IBacktestRunner` is added then"*. It is `IMarketDataSync`'s arc
+exactly (PR 0.4a moved the code, PR 0.5 published the port, four callers stopped building the
+command), so these three retire with that port, at the latest when the screen moves in Phase 4.
+
+The count moved **29 → 32**, and the allowlist file carries the same argument inline, because the
+reviewer's first question about a grown ratchet is *why this many and not more*.
+
+### 6.3 `register()` binds nothing, and that is a measurement rather than an omission
+
+Both command handlers stay registered in `binance_bot_module.py`, the strangler root the boundary
+scan skips by name. Moving a *registration* while the dispatcher and the screen both stay put buys
+a second place to look for one fact — the accidental complexity ADR D2 exists to avoid — and a
+binding nothing resolves differently is the dead wiring `BUG-120` was. `ISizingPolicy` is
+**resolved** here rather than bound: `strategy` owns that binding (ADR D17), and this module is the
+consumer PR 3.1b's binding was waiting for, which §5.2 predicted in those words.
+
+`contribute()`, `declare_cli()` and `subscribe()` are all absent, and `module.py`'s docstring gives
+each one its measurement rather than leaving a reader to assume scope ran out.
+
+### 6.4 The retargeted guard, and the rule it nearly took with it
+
+`test_application_layer_structure.py` scanned `src/application/`, which this pull request emptied.
+A path-scanning guard whose subject has left **passes faster rather than failing**, and
+`test_scanned_roots_are_not_empty.py` is what caught it — the second time that registry has earned
+its row in this epic. The guard was retargeted onto `src/modules/*/application/`, measured before
+retargeting (105 files across four modules, zero misnamed CQRS files, zero `I*` classes), and it
+gained its own `test_the_guard_has_a_subject`.
+
+The retarget also made one of its rules **stricter** and that is the interesting half. In the legacy
+tree the question was *"is this interface under `application/ports/`"*; a module has no `ports/` at
+all, because its abstractions are its `contracts/` (HLD §3.2). So the rule is now *no `I*` class
+under `application/`, full stop*.
+
+Which left a third rule with no subject anywhere: *a file declaring an interface is named
+`i_*.py`*, checked only under `application/ports/`. Dropping it with the directory would have been
+the quiet half of a retarget — **a rule that stopped being checked reads exactly like a rule that
+was obeyed** (`ci-rule.md` §5.5; the reviewer's question J2). It was rescued to the address its
+subject moved to, as `test_contract_file_naming.py` over every `contracts/` tree in `src/` —
+`support/*` packages publish ports too, so the scope is the repository's rather than one tree's.
+Measured before writing: 143 contract files, 36 declaring an interface, **zero** offenders, which is
+what makes a ratchet the right shape. Probed by planting an `IPlantedPort` in
+`contracts/trade.py`: exactly that test fails, and only it.
+
+### 6.5 The gate
+
+`pwsh -NoProfile -File scripts/ci-local.ps1 -Full` → `RESULT: PASS`, **4950 passed, 4 skipped**
+in 187s. The log file was grepped rather than the console: 4 hits for
+`FAILED|ERROR|Traceback|ResourceWarning` — the two the parametrized test id `[ERROR]` produces and
+the log-scan step's own two headings — and **0** records matching `- (WARNING|ERROR|CRITICAL) -`.
+
+Test count **4947 → 4950**, a net **+3**, and every id accounted for by
+`--collect-only` on both trees:
+
+| Change | Δ |
+| :--- | :-: |
+| the 165 moved tests | 0 — same ids at new paths |
+| `test_application_layer_structure.py` rewritten: 4 tests → 3 (`test_cqrs_classes_live_under_use_cases_dir`, `test_interface_classes_live_under_ports_dir` and `test_interface_files_use_i_prefix_naming` out; `test_no_interface_class_lives_under_a_modules_application_tree` and `test_the_guard_has_a_subject` in) | −1 |
+| `test_scanned_roots_are_not_empty.py` — two rows retargeted, same two tests | 0 |
+| `test_logging_namespace_guard.py` — per-source-file parametrization: `src/domain/backtesting/__init__.py` out, `src/modules/backtesting/module.py` in | 0 |
+
+| `test_contract_file_naming.py` — §6.4's rescued rule: two tests (the check and its subject assertion), plus the two `test_scanned_roots_are_not_empty.py` parametrisations its registry row brings | +4 |
+
+mypy clean on **478** source files, up from 476.

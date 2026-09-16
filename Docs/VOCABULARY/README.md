@@ -141,10 +141,12 @@ difference is the reason the contexts exist (HLD §1.2).
 
 | Term | Definition | Defined in |
 | :--- | :--- | :--- |
-| **Position** (`_OpenPosition`) | A **simulated** position inside `PaperExchange`, mutated by the app on every tick. A different word from trading's `LivePosition`; never merged. | `domain/backtesting/paper_exchange.py` |
-| **Paper exchange** | The simulator that matches orders against candles with fee, margin and matching policies. | `domain/backtesting` |
-| **Run** | One backtest execution with a configuration; produces a `BacktestResult`, metrics and a trade log. | `application/` |
-| **Out-of-sample split** | Dividing the range into fit and validation parts. | `domain/backtesting` |
+| **Position** (`_OpenPosition`) | A **simulated** position inside `PaperExchange`, mutated by the app on every tick. A different word from trading's `LivePosition`; never merged. | `modules/backtesting/domain/paper_exchange.py` (`EPIC-025` PR 3.1c) |
+| **Paper exchange** | The simulator that matches orders against candles with fee, margin and matching policies. It sizes each fill through `ISizingPolicy` — `strategy`'s rule, not its own (ADR D17) — which is what makes a backtested size and a live size one number. | `modules/backtesting/domain/` |
+| **Run** | One backtest execution with a configuration; produces a `BacktestResult`, metrics and a trade log. Two kinds, and the difference is what a candle means: a **static** run replays closed candles, a **historical-tick** run replays ticks and the newest bar is still forming (`BOT-042D`). | `modules/backtesting/application/` |
+| **Out-of-sample split** | Dividing the range into fit and validation parts. | `modules/backtesting/domain/` |
+| **Answer** (`BacktestResult`, `Trade`, `BacktestMetrics`, `ExitReason`, `BacktestCancelled`, `OutOfSampleValidation`) | What a run hands back, and the reason this context publishes anything at all. They are `contracts/` rather than `domain/` since PR 3.1c on one measurement: the screen that displays them is outside the module, so they cross the boundary on every run, and a boundary-crossing type is published whether or not anyone declared it so. | `modules/backtesting/contracts/` |
+| **Broker simulation** (`BrokerSimulationConfig`, `CommissionType`, `Currency`) | The configuration vocabulary for *how* the paper exchange should behave — fees, their kind, the account currency. Refused admission to `core/vo` (HLD §2.4: two consumers in two modules) because every consumer is this context or its screen. | `modules/backtesting/contracts/` |
 
 ## 4. Process terms
 
