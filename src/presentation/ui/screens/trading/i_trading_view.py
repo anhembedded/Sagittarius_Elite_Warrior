@@ -28,10 +28,14 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable
 
 from PySide6.QtCore import SignalInstance
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
+    OpenOrderRow,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
+    PositionRow,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 
-from ...components.order_book.open_order_row import OpenOrderRow
-from ...components.order_book.position_row import PositionRow
 from .trading_view_model import TradingViewModel
 
 #: `set_view_model`'s second argument — kept for the same reason

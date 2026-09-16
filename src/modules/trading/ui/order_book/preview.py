@@ -18,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     MarginType,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
+    LiquidationPrice,
     LivePosition,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
@@ -26,16 +27,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import
     OrderStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_order_row import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     build_open_order_row,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_orders_panel import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_orders_panel import (
     OpenOrdersPanel,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.position_row import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     build_position_row,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positions_panel import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.positions_panel import (
     PositionsPanel,
 )
 
@@ -51,7 +52,16 @@ def _position(symbol: str, amt: str, pnl: str, liquidation: str | None) -> LiveP
         unrealized_pnl=Decimal(pnl),
         leverage=10,
         margin_type=MarginType.CROSSED,
-        liquidation_price=Decimal(liquidation) if liquidation else None,
+        # Wrapped, not a bare `Decimal`: `LiquidationPrice` is a `NewType`
+        # that exists so a locally-computed price can never be passed where an
+        # exchange-reported one belongs, and this fixture is standing in for
+        # what the exchange said. The bare `Decimal` here was invisible for as
+        # long as this file sat under `src/presentation/`, which mypy excludes
+        # wholesale; PR 4.1b moved it into `modules/trading/ui/` and mypy
+        # found it on the first run.
+        liquidation_price=(
+            LiquidationPrice(Decimal(liquidation)) if liquidation else None
+        ),
         updated_at=_NOW,
     )
 

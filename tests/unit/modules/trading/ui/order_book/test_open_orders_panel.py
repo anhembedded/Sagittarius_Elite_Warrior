@@ -19,14 +19,14 @@ from decimal import Decimal
 
 from PySide6.QtCore import Qt
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_order_row import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     OpenOrderRow,
     build_open_order_row,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_orders_panel import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_orders_panel import (
     OpenOrdersPanel,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.table_models import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.table_models import (
     OpenOrdersTableModel,
 )
 

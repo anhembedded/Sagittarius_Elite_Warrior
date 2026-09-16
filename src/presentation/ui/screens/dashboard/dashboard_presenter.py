@@ -85,15 +85,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_feed import EquityF
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
     format_execute_order_block_reason,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.live_order_book_coordinator import (
+    LiveOrderBookCoordinator,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market_tick_feed import (
     MarketTickFeed,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
     order_filled_marker,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.live_order_book_coordinator import (
-    LiveOrderBookCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
     SymbolOptionsCoordinator,

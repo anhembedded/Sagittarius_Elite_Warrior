@@ -1934,7 +1934,7 @@ def _position(symbol="BTCUSDT"):
 def test_order_filled_with_a_live_status_adds_to_open_orders(
     presenter, view, monkeypatch
 ):
-    from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_order_row import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
         build_open_order_row,
     )
 
@@ -1966,7 +1966,7 @@ def test_position_changed_updates_the_positions_table(presenter, view, monkeypat
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_changed_event import (
         PositionChangedEvent,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.position_row import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
         build_position_row,
     )
 
@@ -2296,7 +2296,7 @@ def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
         EnableTradingResult,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_order_row import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
         build_open_order_row,
     )
 
@@ -2332,7 +2332,7 @@ def test_refused_enable_shows_the_block_reason_and_seeds_positions(
         EnableTradingBlockReason,
         EnableTradingResult,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.position_row import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
         build_position_row,
     )
 

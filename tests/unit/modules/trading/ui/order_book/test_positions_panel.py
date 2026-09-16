@@ -17,16 +17,16 @@ from decimal import Decimal
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.position_row import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     build_position_row,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positions_panel import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.positions_panel import (
     PositionsPanel,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.table_models import (
-    SORT_ROLE,
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.table_models import (
     PositionsTableModel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import SORT_ROLE
 
 from .test_order_book_rows import position
 

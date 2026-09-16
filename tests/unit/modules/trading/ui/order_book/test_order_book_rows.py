@@ -32,10 +32,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_order_row import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     build_open_order_row,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.position_row import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     build_position_row,
 )
 

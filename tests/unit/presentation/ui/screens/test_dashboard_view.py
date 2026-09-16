@@ -185,10 +185,10 @@ def test_the_account_tables_are_docks_of_their_own(qapp):
     (`BOT-128`). As docks they are as wide as the user drags them, which is
     the placement HLD §11.2 assigns and the reason the workbench is worth
     having."""
-    from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_orders_panel import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_orders_panel import (
         OpenOrdersPanel,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positions_panel import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.positions_panel import (
         PositionsPanel,
     )
 

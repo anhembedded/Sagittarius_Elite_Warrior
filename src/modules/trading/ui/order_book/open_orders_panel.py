@@ -37,13 +37,13 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_order_row import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     OpenOrderRow,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.table_models import (
-    SORT_ROLE,
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.table_models import (
     OpenOrdersTableModel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import SORT_ROLE
 
 _EMPTY_TEXT = "No pending orders."
 _CANCEL_TEXT = "Cancel order"

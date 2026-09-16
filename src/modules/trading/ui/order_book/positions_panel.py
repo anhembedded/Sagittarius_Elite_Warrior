@@ -26,13 +26,13 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.position_row import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     PositionRow,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.table_models import (
-    SORT_ROLE,
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.table_models import (
     PositionsTableModel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import SORT_ROLE
 
 _EMPTY_TEXT = "No open positions."
 

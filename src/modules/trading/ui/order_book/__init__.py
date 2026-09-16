@@ -9,18 +9,18 @@ destination for the whole package is `modules/trading/ui/`, in the phase where
 the two screens follow it (HLD §3.5).
 """
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_order_row import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     OpenOrderRow,
     build_open_order_row,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_orders_panel import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_orders_panel import (
     OpenOrdersPanel,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.position_row import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     PositionRow,
     build_position_row,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positions_panel import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.positions_panel import (
     PositionsPanel,
 )
 

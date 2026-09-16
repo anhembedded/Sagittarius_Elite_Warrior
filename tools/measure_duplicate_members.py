@@ -20,38 +20,44 @@ packages A and B is a member name defined in A and in B **and in no third
 package**. Dunder names are members too (`__init__` is excluded by the third
 package rule in practice, never by hand). Free functions are not members.
 
-@par The one amendment, PR 4.1a, and it is loud because that clause says to be
-A member name is **not** counted when a shared base class outside the UI
-packages declares it `@abstractmethod`. Implementing one abstraction in two
-packages is the *opposite* of duplication: it is the shared abstraction doing
-its job, and counting it punishes the very move this epic is making.
+@par The one amendment, PR 4.1b, and it is loud because that clause says to be
+A member name is **not** counted for a package when a shared base class that
+package actually subclasses declares it. Overriding an inherited method is the
+*opposite* of duplication: the name is the base class's, the package had no
+choice about it, and counting it punishes the very extraction this epic makes.
 
-It was found rather than anticipated. Moving `trading`'s six feeds into
-`modules/trading/ui/` raised the total 115 -> 116, and the single name
-responsible was `_subscribe` — `BaseFeed`'s `@abstractmethod`, which PR 1.6c put
-in `support/ui_kit` so that every feed could share it. `modules/strategy/ui`'s
-feed implements it too, so the moment a second module's `ui/` had a feed, the
-tool reported the shared base class as duplication.
+It was found rather than anticipated, twice. PR 4.1a moved `trading`'s six feeds
+into `modules/trading/ui/` and the total rose 115 -> 116, the one name
+responsible being `_subscribe` — `BaseFeed`'s, which PR 1.6c put in
+`support/ui_kit` so every feed could share it. PR 4.1b then extracted
+`RowTableModel` into `support/ui_kit`, removing four models' worth of real
+duplication, and the total rose again on `_role_data`: the new base class's own
+extension point, overridden by two of its four subclasses.
 
-The exclusion is deliberately **computed, not a hand-list**, and deliberately
-narrow: only `@abstractmethod` declarations under `src/support/` and `src/core/`
-qualify. Qt's own mandated overrides (`rowCount`, `data`, `headerData`) are
-**still counted**, because nothing in this repository declares them — and so is
-the real duplication that PR 4.1a's first attempt exposed: four
-`QAbstractTableModel` subclasses in two packages sharing `_display_text`,
-`_sort_value`, `row_for` and `selected_row`, which is a sortable-table shape
-written twice and is `EPIC-025E` section 3.5's to fix. The amendment must not be
-widened to cover that; if it ever does, this metric has stopped measuring
-anything.
+**Two wider rules were measured and rejected**, because a metric that excuses
+duplication is worth nothing:
 
-The baseline was re-measured on the pre-move tree under the amended definition
-rather than lowered to fit the post-move number, so the ratchet still compares
+  · *Every `@abstractmethod` under `src/support/` and `src/core/`* (43 names) —
+    PR 4.1a's first attempt at this. It is a proxy for "the base class declares
+    it", and it failed on the first hook that was deliberately **not** abstract:
+    `_role_data` has a `return None` default so that a table with no extra roles
+    need not implement it.
+  · *Every method of every class under `src/support/` and `src/core/`* (564
+    names) — this drops the total to **104**, excusing ten pairs, because a
+    support class somewhere happens to define `_build_ui`, `_apply` and
+    `_choose`. Rejected on that measurement.
+
+What is implemented is neither: for each UI package, read the base classes its
+own classes name, keep those that are classes under `src/support/` or
+`src/core/`, and exclude exactly those classes' method names — **for that
+package only**. So `_role_data` leaves `data_management`'s and
+`trading.ui`'s counts because both subclass `RowTableModel`, while
+`selected_row`, which those two packages define independently, is **still
+counted** and is the next real duplication to remove.
+
+The baseline is re-measured on the pre-change tree under the amended definition
+rather than lowered to fit the post-change number, so the ratchet still compares
 like with like.
-
-Run from the repository root:
-
-    python3 tools/measure_duplicate_members.py            # human-readable
-    python3 tools/measure_duplicate_members.py --json     # machine-readable
 """
 
 from __future__ import annotations
@@ -78,18 +84,15 @@ UI_PACKAGE_GLOBS: tuple[str, ...] = (
 #: The pair Phase 1 must bring to zero.
 PHASE_1_PAIR: tuple[str, str] = ("dashboard", "trading")
 
-#: Where a *shared* abstraction may live. A name declared `@abstractmethod`
-#: inside one of these trees is a contract every implementer must spell the same
-#: way, so two UI packages spelling it the same way is not duplication. Kept to
-#: two roots on purpose: a base class inside a UI package would be that
-#: package's own, and excluding its names would let real duplication hide behind
-#: an `@abstractmethod` added for the purpose.
+#: Where a *shared* base class may live. A base class inside a UI package is
+#: that package's own, and excluding its names would let real duplication hide
+#: behind a base class introduced for the purpose.
 SHARED_ABSTRACTION_ROOTS: tuple[str, ...] = ("support", "core")
 
 
-def _shared_abstract_member_names() -> frozenset[str]:
-    """Every name declared `@abstractmethod` under `SHARED_ABSTRACTION_ROOTS`."""
-    names: set[str] = set()
+def _shared_base_members() -> dict[str, frozenset[str]]:
+    """Class name -> its method names, for every class under the shared roots."""
+    found: dict[str, set[str]] = {}
     for root in SHARED_ABSTRACTION_ROOTS:
         for py_file in (_SRC / root).rglob("*.py"):
             if "__pycache__" in py_file.parts:
@@ -98,15 +101,47 @@ def _shared_abstract_member_names() -> frozenset[str]:
             for node in ast.walk(tree):
                 if not isinstance(node, ast.ClassDef):
                     continue
-                for item in node.body:
-                    if not isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef):
-                        continue
-                    if any(
-                        isinstance(d, ast.Name) and d.id == "abstractmethod"
-                        for d in item.decorator_list
-                    ):
-                        names.add(item.name)
-    return frozenset(names)
+                found.setdefault(node.name, set()).update(
+                    item.name
+                    for item in node.body
+                    if isinstance(item, ast.FunctionDef | ast.AsyncFunctionDef)
+                )
+    return {name: frozenset(members) for name, members in found.items()}
+
+
+def _base_class_names(package_dir: Path) -> set[str]:
+    """Every name this package's classes inherit from, as written.
+
+    Resolved by *name* rather than by import, because a metric that needed a
+    working import graph could not run on a tree mid-move. A `Subscript` base
+    (`RowTableModel[PositionRow]`) is unwrapped to its generic; an `Attribute`
+    base (`QtCore.QObject`) contributes its attribute.
+    """
+    names: set[str] = set()
+    for py_file in package_dir.rglob("*.py"):
+        if "__pycache__" in py_file.parts:
+            continue
+        tree = ast.parse(py_file.read_text(encoding="utf-8"), filename=str(py_file))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef):
+                continue
+            for base in node.bases:
+                while isinstance(base, ast.Subscript):
+                    base = base.value
+                if isinstance(base, ast.Name):
+                    names.add(base.id)
+                elif isinstance(base, ast.Attribute):
+                    names.add(base.attr)
+    return names
+
+
+def _inherited_member_names(package_dir: Path) -> frozenset[str]:
+    """The names this package inherits from shared base classes it subclasses."""
+    shared = _shared_base_members()
+    inherited: set[str] = set()
+    for base in _base_class_names(package_dir) & shared.keys():
+        inherited |= shared[base]
+    return frozenset(inherited)
 
 
 def _package_dirs() -> dict[str, Path]:
@@ -137,8 +172,10 @@ def _member_names(package_dir: Path) -> set[str]:
 
 def measure() -> dict[str, object]:
     packages = _package_dirs()
-    shared = _shared_abstract_member_names()
-    members = {name: _member_names(path) - shared for name, path in packages.items()}
+    members = {
+        name: _member_names(path) - _inherited_member_names(path)
+        for name, path in packages.items()
+    }
     owners: dict[str, set[str]] = defaultdict(set)
     for package, names in members.items():
         for name in names:
