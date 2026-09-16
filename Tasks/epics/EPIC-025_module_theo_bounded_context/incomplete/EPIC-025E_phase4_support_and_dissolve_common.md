@@ -157,7 +157,7 @@ split.
 | ~~4.1c~~ ❌ | `screens/trading` → `modules/trading/ui/` — **folded into 4.4, §3.11.** Its legacy-import count did reach **0**, and that turned out not to be the binding constraint: merging it into the existing `trading.ui` package deduplicates nothing (the total stays at 112) while making `phase_1_count` read a false **0**, and re-keying the metric honestly would raise its ratchet 32 → 39, which `ci-rule` §5.5 forbids. The two live screens travel together after the deletions, as the user's `DECISION_2026-09-16` said | — |
 | **4.2a** | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator`; `base_event_logger` → `modules/backtesting/ui/` | §3.3: the destination this file left open is **forced**, not chosen. All four have 0 legacy imports except `sync_progress_feed`, whose only one is the sibling travelling with it |
 | **4.2b** | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) | after 4.1b and 4.2a its remaining blockers are QML, so it waits on 4.3 |
-| **4.3** | the QML deletions (ADR D20–D21): the backtest screen's eleven modals become `QDialog`s and its panels docks, `qml/` is deleted, `find src -name '*.qml'` → 0 | the one step with real UI work in it, and the only one the user sees |
+| **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** the two QML picker dialogs go and `qml/SymbolPicker/` is deleted, then `TimeRangePicker`, `SelectList`/`CheckboxList`/`Capital`, `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, and `kit/` last. `find src -name '*.qml'` → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
 | **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard`; `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's |
 
 After 4.1a and 4.2a, `ui/common` holds **two** files: `live_order_book_coordinator` (waiting on
@@ -443,3 +443,96 @@ of that depended on 4.1c.
 measurement called free was refused by a *duplication* measurement. §3.11 finds the same thing one
 step further along: legality and the ratchets answer different questions, and Phase 4's cut has to
 be measured against **both** before a file moves. §3.2's table is corrected accordingly.
+
+---
+
+## 4. PR 4.3's cut, measured 2026-09-16
+
+27 `.qml` files: **24** under `presentation/ui/qml/` and 3 under
+`support/charting/TimeframePicker/`. Nothing is dead — the first reading said `DataTable` and
+`StatGrid` had no consumer, and re-checking (PR 3.1a's lesson, twice paid) found both are imported
+by **other QML**: `TradeLogTable.qml` uses `DataTable`, and `kit/DialogShell.qml` pulls in
+`Capital`, `CheckboxList`, `SelectList` **and** `StatGrid`. So there is no deletion-only pull
+request here; each package dies when its *Python* consumer stops loading it.
+
+| QML package | `.qml` | `.py` | Python consumers |
+| :--- | :-: | :-: | :--- |
+| `kit` | 8 | 13 | `backtest_top_panel`, `data_management_view`, `dev_board_panel` — and every other QML package |
+| `SymbolPicker` | 3 | 10 | the Backtest and Dev Board picker dialogs |
+| `TradeLogTable` | 2 | 9 | 5 backtest files |
+| `MetricsDetailPanel` | 2 | 9 | 4 backtest files |
+| `TimeRangePicker` | 2 | 8 | backtest modal, `time_range_card` (Data Management), `dev_board_panel` |
+| `DataTable` | 2 | 5 | none in Python — `TradeLogTable.qml` |
+| `StatCardRow` | 1 | 7 | `backtest_top_panel` |
+| `SelectList` | 1 | 1 | 3 backtest modals + `market_picker/overlay` |
+| `CheckboxList` | 1 | 1 | 2 backtest modals |
+| `Capital` | 1 | 1 | 1 backtest modal |
+| `StatGrid` | 1 | 1 | none in Python — `DialogShell.qml`, `MetricsDetailPanel.qml` |
+| `abstract` | 0 | 1 | **one colocated test under `src/`, which the gate never runs** |
+
+That last row is PR 1.4b-2's finding still standing: 20 test files live under
+`src/presentation/ui/qml/*/tests/`, the gate runs `pytest Sagittarius_Elite_Warrior/tests`, so
+those tests have never run in it and whatever they guard is unprotected. They go with their `.qml`.
+
+**What decides the shape of each replacement is already written down**, which is why no part of this
+needed a new decision: HLD §11.2 maps `MODAL` → `QDialog`; §11.3 **retires the card** outright on
+the user's own judgement (*"các card cũ cũng rất là tệ"*) and gives the replacement for a list of
+things as *"a table (`QTableView` on a model)"*; §11.4's ratchet counts what styling is left and
+deletes `Palette` and `kit/style.py` in this phase, *"together with the last `.qml` file and the
+last `kit/` widget"*.
+
+### 4.1 PR 4.3a — the symbol picker had **two** implementations, one per toolkit
+
+The measurement that reordered this step. `support/ui_kit/symbol_picker/` holds a QtWidgets
+`SymbolPickerOverlay`, used by Data Management. `presentation/ui/qml/SymbolPicker/` holds a QML one,
+used by Backtest and Dev Board. They are the same dialog, and the QML one's docstring says exactly
+why it exists: *"Replaces `SymbolPickerOverlay` for Dev Board (Dashboard), eliminating UI freeze
+when displaying thousands of symbols via virtualized QML GridView."*
+
+So ADR D21 cannot simply delete the QML picker: the QtWidgets one built **one `SymbolCard` widget
+per entry** into a `QGridLayout` (`overlay.py:335`), which with the exchange's ~1400 pairs is 1400
+widgets constructed on every keystroke. That is the freeze, and it was real.
+
+4.3a fixes the freeze in the toolkit the app is keeping, so that 4.3b can delete the QML one without
+reintroducing it. `SymbolPickerOverlay`'s results area is now a `QTableView` on a new
+`SymbolTableModel(RowTableModel[SymbolEntry])` — three columns (the pair, why it matters, the star)
+— which virtualises natively: the view asks `data()` only for the rows it is about to paint. It is
+also HLD §11.3's own answer rather than an invention, and it retires `SymbolCard`, which was a
+`SelectableCard` and therefore exactly what §11.3 retires. **`RowTableModel` is PR 4.1b's**, one
+pull request old, which is the second consumer that justified extracting it.
+
+**The star is a column, not a painted hit-rect.** `QTableView` reports the index it was clicked on,
+so "did the user star this row or choose it" is a column comparison — the platform doing the work
+a custom delegate would otherwise do with mouse arithmetic.
+
+**One promise was deliberately dropped**, and it is the only user-visible loss: the two section
+headings, "FAVOURITES" and "ALL RESULTS". A heading between two groups of rows cannot live inside
+one virtualised view, and on the Favourites tab it labelled every row anyway. The *pinning* those
+headings described is kept and still asserted; what marks a favourite now is the filled star on its
+own row, which is also what the user clicks. Two promises were **added** rather than lost: the
+current symbol's row is under the keyboard on open (so Enter works without an arrow key first), and
+the highlight still wraps at the end.
+
+The twelve existing tests were restated promise by promise rather than made to pass —
+`test_symbol_picker_overlay.py`'s docstring carries the inventory table (`pr-review` E11), and the
+five Data Management picker tests that reached through `_cards` were retargeted the same way with a
+note that nothing about that screen's behaviour changed.
+
+**And the promise this change exists for was pinned by nothing**, in either implementation:
+`test_a_long_symbol_list_creates_no_widget_per_symbol` builds a 20-symbol dialog and a 1400-symbol
+dialog and asserts the widget count is the **same** — a comparison rather than an absolute, since
+the absolute is Qt's business (`ONBOARDING` §8 trap 3). Probed: adding one `QLabel` per row inside
+`_rebuild()` fails exactly that test and nothing else, which is also the evidence that the old card
+implementation would have failed it.
+
+§11.4's ratchet moved and was lowered in the same commit, as that section requires:
+`apply_role` calls **52 → 49** across **26 → 25** files. The QML numbers are untouched — 4.3a
+deletes no `.qml`; 4.3b does.
+
+**Gate:** `RESULT: PASS`, **4958 passed, 4 skipped** in 188s, log
+`logs/ci-local-20260916-161525.log` grepped rather than the console — 4 hits for
+`FAILED|ERROR|Traceback|ResourceWarning` (the known benign set) and **0** records matching
+`- (WARNING|ERROR|CRITICAL) -`. mypy clean on 495 source files. Test count **4954 → 4958**: four
+net, from three promises added (the virtualisation test, the star-marks-a-favourite test, the
+current-row-under-the-keyboard test, the wrap test) against one source file added and one deleted,
+which cancel in the logging guard's per-file parametrization.
