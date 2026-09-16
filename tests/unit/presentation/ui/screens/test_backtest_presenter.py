@@ -23,6 +23,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock, patch
 
 import pytest
+from PySide6.QtWidgets import QWidget
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -2081,9 +2082,12 @@ def test_qml_sync_button_retries_from_error_when_data_is_still_missing(
 # ---------------------------------------------------------------------------
 
 
-def test_qml_renders_a_metric_card_per_primary_stat_card_after_a_run(
-    presenter, view_model, qapp, mock_dispatcher, qml_item
+def test_a_metric_tile_is_rendered_per_primary_stat_card_after_a_run(
+    presenter, view_model, qapp, mock_dispatcher
 ):
+    """Renamed in `EPIC-025` PR 4.3g — the row is QtWidgets again, so "qml
+    renders" was no longer what this test checks. The promise is unchanged:
+    a completed run puts a tile on screen per primary figure."""
     config = _lock_and_get_config(presenter, view_model)
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
         _make_result(with_trades=True)
@@ -2093,8 +2097,13 @@ def test_qml_renders_a_metric_card_per_primary_stat_card_after_a_run(
     qapp.processEvents()
 
     top_widget = presenter.view.top_widget
-    card = qml_item(top_widget._stat_cards_row.root_object, "cardMetric_0")
-    assert card is not None
+    tiles = [
+        child
+        for child in top_widget._stat_cards_row.findChildren(QWidget)
+        if child.objectName().startswith("cardMetric_")
+    ]
+    assert len(tiles) == len(presenter._view_model.run_result.primaryStatCards)
+    assert tiles
 
 
 def test_qml_documents_load_without_errors(presenter, qapp):

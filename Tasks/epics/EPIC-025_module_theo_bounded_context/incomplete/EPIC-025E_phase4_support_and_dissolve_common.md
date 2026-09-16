@@ -157,7 +157,7 @@ split.
 | ~~4.1c~~ ❌ | `screens/trading` → `modules/trading/ui/` — **folded into 4.4, §3.11.** Its legacy-import count did reach **0**, and that turned out not to be the binding constraint: merging it into the existing `trading.ui` package deduplicates nothing (the total stays at 112) while making `phase_1_count` read a false **0**, and re-keying the metric honestly would raise its ratchet 32 → 39, which `ci-rule` §5.5 forbids. The two live screens travel together after the deletions, as the user's `DECISION_2026-09-16` said | — |
 | **4.2a** | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator`; `base_event_logger` → `modules/backtesting/ui/` | §3.3: the destination this file left open is **forced**, not chosen. All four have 0 legacy imports except `sync_progress_feed`, whose only one is the sibling travelling with it |
 | **4.2b** | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) | after 4.1b and 4.2a its remaining blockers are QML, so it waits on 4.3 |
-| **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), **4.3e** ✅ `qml/SelectList/` deleted, its four hosts onto `kit.PickerOverlay` (and the read-only one out of the picker shape altogether), **4.3f** ✅ `qml/CheckboxList/` + `qml/Capital/` deleted — `kit.ChecklistOverlay` arrives for the two checklists, and the capital form keeps `BUG-064`'s lesson with one writer instead of three bindings, then `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 19**, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
+| **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), **4.3e** ✅ `qml/SelectList/` deleted, its four hosts onto `kit.PickerOverlay` (and the read-only one out of the picker shape altogether), **4.3f** ✅ `qml/CheckboxList/` + `qml/Capital/` deleted — `kit.ChecklistOverlay` arrives for the two checklists, and the capital form keeps `BUG-064`'s lesson with one writer instead of three bindings, **4.3g** ✅ `qml/StatCardRow/` deleted — the performance figures stop being cards (HLD §11.3), then `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 18**, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
 | **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard`; `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's |
 
 After 4.1a and 4.2a, `ui/common` holds **two** files: `live_order_book_coordinator` (waiting on
@@ -846,3 +846,55 @@ WARNING or above; mypy clean on 499 source files. Test count **4936 → 4937**, 
 `test_qml_overlay_load_failure.py` (3 → 1), **+14** `test_checklist_overlay.py`, **+8**
 `test_capital_dialog.py`, **−1** in the guards. A net of one, for four deleted suites and two new
 ones — which is what a restatement should look like.
+
+### 4.7 PR 4.3g — the figures stop being cards, and two guards said what "no styling" means
+
+`StatCardRow.qml` is the third rendering of the same five numbers: `EPIC-006E` drew them as
+`MetricCard.qml`, `EPIC-007F` replaced that with the QtWidgets `kit.StatCard`, `EPIC-015` Phase 4
+replaced *that* with a `Repeater` of `StatCard.qml`. All three were **cards** — a titled box with a
+border and a background — and HLD §11.3 retires the card outright on the user's judgement
+(*"các card cũ cũng rất là tệ"*), offering a read-only summary instead. `BacktestStatRow` is that:
+title over figure, four across, no chrome. `.qml` **19 → 18**.
+
+Its own file rather than another method on `BackTestTopPanel`, which is already **746 lines**
+against `architecture-rule` §5's 400-line ceiling — a pre-existing violation this PR does not get to
+make worse. (The panel is `screens/backtest`'s, so PR 4.4 is where it gets split.)
+
+**Two guards decided the colour question, and neither was the styling ratchet.** ADR D21 leaves
+colour only where it carries meaning and only through a `QPalette` role or a per-widget property,
+and PR 0.4b had read that rule strictly for its database-status table: **no** colour at all, because
+Qt has no palette role meaning *"this shard has holes in it"* and the text already said so. A profit
+figure is the other case — green for gain and red for loss is a convention of this domain, not
+decoration this screen invented — so the tone survives as a colour on the one label carrying the
+figure.
+
+The first draft wrote those two colours as hex literals, with a note explaining that reading them
+from `Palette` would raise §11.4's `palette_files`. Two guards disagreed, in the useful way:
+
+- `find_inline_stylesheets` fails **any** hardcoded colour outside `kit/style.py` — a number
+  `EPIC-007D` drove to zero. The answer was already written: `semantic_colour()` is that module's
+  documented escape hatch for *"a colour chosen per instance rather than per role"*, and its
+  docstring names this exact case. It returns a token, so a palette change still reaches here, and
+  it costs none of §11.4's four numbers.
+- `find_bare_qt_base_widgets` caps direct `QWidget` subclasses at 2 and asks for a kit base or an
+  explicit `# base-exempt:`. A row of labels is genuinely not a surface, so it carries the same
+  exemption the three panels `modules/trading/ui` wrote before it — *a container, not a surface*.
+
+Both are the shape a ratchet is supposed to have: the guard did not stop the change, it said which
+of two spellings the codebase had already settled on. (A third, smaller one: ruff's `S105` reads any
+`*_TOKEN = "..."` as a possible credential, so the two names are `_GAIN_COLOUR`/`_LOSS_COLOUR`.)
+
+**Its tests were written here rather than moved, because the originals were `CS-004`'s subject.**
+`StatCardRowVM`'s 8 and `StatCardRow.qml`'s 5 lived under `src/`, where the gate has never collected
+them — the hole `BUG-128` cost something for. The 10 new ones restate every promise that still has a
+subject; the two that do not are the QML root loading itself and the lowercase `"positive"` strings
+`StatCard.qml` compared against, which existed only because a `.qml` file cannot read a Python enum.
+`baseline_tests_under_src.txt` falls **22 → 19**, its first movement since 4.3d created it.
+
+**Gate:** `RESULT: PASS`, **4941 passed, 4 skipped** in 188s, log
+`logs/ci-local-20260916-192832.log` grepped — 4 hits for the known benign set, **0** records at
+WARNING or above; mypy clean on 499 source files. Test count **4937 → 4941**: **+10** the new row's
+suite, **−6** in the guards (the logging-namespace guard is parametrised per `src/` file and seven
+went; the `.qml` style guard lost one; the new baselines account for the rest). The two host tests
+that reached the old row through a QML scene now use `findChild`, and one is renamed — it was
+`test_qml_renders_a_metric_card_...`, which had stopped being what it checks.
