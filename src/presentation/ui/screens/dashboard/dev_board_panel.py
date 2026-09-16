@@ -57,9 +57,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.progress_banner_widge
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.status_pill_widget import (
     StatusPillWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeRangePicker.time_range_picker_dialog import (
-    TimeRangePickerDialog,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import (
     AppLogPanel,
 )
@@ -77,6 +74,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPreferences,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.time_range_picker import (
+    TimeRangePickerDialog,
 )
 
 from .dashboard_symbol_picker_dialog import DashboardSymbolPickerDialog

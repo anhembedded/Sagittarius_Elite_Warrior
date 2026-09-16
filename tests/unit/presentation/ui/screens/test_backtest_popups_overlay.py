@@ -285,12 +285,15 @@ def test_timeframe_picker_modal_opens_and_lists_every_timeframe_option(
 
 
 def test_time_range_picker_modal_opens_and_lists_every_preset(qapp, backtest_screen):
-    """`EPIC-015`: body is now the standalone `TimeRangePicker.qml` — its
-    preset list is `TimeRangePickerVM`'s own hardcoded set (confirmed
-    label-compatible with `BackTestViewModel.timeRangePresetOptions`, see
-    `qml/TimeRangePicker/time_range_picker_vm.py`), plus a bonus "Hôm nay"
-    entry that dialog never offered — one more row than the ViewModel's own
-    option list, not the same count."""
+    """`EPIC-015` put the standalone `TimeRangePicker.qml` here; `EPIC-025` PR
+    4.3d replaced it with `support/ui_kit/time_range_picker`'s `QDialog`, and
+    the count this test holds survived the swap unchanged.
+
+    Both offer a "Today" preset the screen's own
+    `BackTestViewModel.time_range.presetOptions` does not — an accepted gain,
+    so this is deliberately **one more** than the ViewModel's option list
+    rather than the same number. Asserting the real count too, so a regression
+    to the six-row list is a failure rather than a coincidence."""
     view, presenter = backtest_screen
 
     view.top_widget._btn_range.click()
@@ -300,5 +303,7 @@ def test_time_range_picker_modal_opens_and_lists_every_preset(qapp, backtest_scr
     assert dialog is not None
     assert dialog.objectName() == "backtestTimeRangePickerDialog"
     assert dialog.isVisible() is True
-    rows = find_all_named(dialog.root_object, "timeRangePreset_")
-    assert len(rows) == len(presenter._view_model.time_range.presetOptions) + 1
+    assert len(dialog._preset_buttons) == (
+        len(presenter._view_model.time_range.presetOptions) + 1
+    )
+    assert len(dialog._preset_buttons) == 7

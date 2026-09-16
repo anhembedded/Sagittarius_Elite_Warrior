@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dev_board_p
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolTableModel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.time_range_picker import (
+    RangePresetKind,
+)
 from Sagittarius_Elite_Warrior.tests.conftest import find_qml_item
 
 
@@ -414,9 +417,14 @@ def test_opening_the_range_picker_seeds_from_the_current_fields(qapp, panel):
     panel._btn_pick_range.click()
     qapp.processEvents()
 
-    assert panel._time_range_dialog._widget_vm.fromText == "2026-07-01 00:00"
-    assert panel._time_range_dialog._widget_vm.toText == "2026-07-08 00:00"
-    panel._time_range_dialog.close()
+    dialog = panel._time_range_dialog
+    assert dialog._from_field.dateTime().toString("yyyy-MM-dd HH:mm") == (
+        "2026-07-01 00:00"
+    )
+    assert dialog._to_field.dateTime().toString("yyyy-MM-dd HH:mm") == (
+        "2026-07-08 00:00"
+    )
+    dialog.close()
 
 
 def test_the_picker_falls_back_to_a_1m_summary(qapp, panel):
@@ -427,8 +435,9 @@ def test_the_picker_falls_back_to_a_1m_summary(qapp, panel):
     qapp.processEvents()
 
     dialog = panel._time_range_dialog
-    assert dialog._widget_vm._get_timeframe_seconds() == 60
-    assert dialog._widget_vm._get_timeframe_label() == "1m"
+    assert dialog._get_timeframe_seconds() == 60
+    assert dialog._get_timeframe_label() == "1m"
+    assert "candles 1m" in dialog._summary_label.text()
     dialog.close()
 
 
@@ -437,9 +446,9 @@ def test_applying_writes_both_fields_and_the_view_model(qapp, panel, view_model)
     qapp.processEvents()
 
     dialog = panel._time_range_dialog
-    dialog._widget_vm.choosePreset("7d")
+    dialog._choose_preset(RangePresetKind.LAST_7_DAYS)
     qapp.processEvents()
-    dialog._widget_vm.apply()
+    dialog._btn_apply.click()
     qapp.processEvents()
 
     assert view_model.startDate == panel._txt_start_date.text()
