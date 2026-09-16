@@ -702,3 +702,71 @@ has been outside all five of those guards since PR 1.4c-4 contributed the sessio
 rows now, and the hole was real rather than theoretical: planting a duplicate `Palette` hex in
 `modules/strategy/ui/strategy_display.py` leaves `test_palette_is_the_only_color_source.py` green
 without the row and fails it with the row. Probed both ways before the note was written.
+
+### 7.6 The gate, and what the review found
+
+**Gate: PASS on the third run** — `logs/ci-local-20260916-094347.log`, **4875 passed / 4 skipped**
+in 3:03, grepped rather than read off the console: 4 hits, all the known benign set, and **0**
+records matching `- (WARNING|ERROR|CRITICAL) -`. mypy clean on **473** files, up from 461.
+
+The **+9** is accounted for id by id (`--collect-only` on both trees, 22 added / 12 removed): the 12
+coordinator tests moved, and the only new entries are **8** `test_scanned_roots_are_not_empty`
+parametrisations — four path-scanning guards × the two UI trees §7.5 added — plus one
+`test_logging_namespace_guard` row for the new file. **No test was written or deleted**, which is
+what ADR D18 asks of a move.
+
+The two red runs before it are worth keeping rather than hiding:
+
+1. **17 unit failures**, every one a test reading the card through the screen's view model. The
+   coordinator's own test file was building a real `TradingViewModel` and handing it over; it now
+   builds `StrategyCardViewModel`, which is both correct and one fewer `tests → presentation`
+   dependency in a module's test. Note what this is: the 58 retargeted call sites came with their
+   own E12 evidence, because getting them wrong turned 17 tests red rather than leaving them green.
+2. **2 integration failures**, the Dev Board's `qtbot` journeys, which no selective run touched —
+   the same tier lesson as PR 2.1c, one pull request later.
+
+Both red runs also logged one `- App - ERROR -`: `_recheck_edge` firing into a `ChartCard` a failing
+test had already torn down, reported by `SystemFailureLog` (`BUG-126`'s subscriber, doing its job).
+Checked rather than assumed: it appears in **neither** of the ten clean gate logs from earlier today
+**nor** in the green run, and it disappears the moment those two tests pass. Collateral from an
+abandoned `main_window` with a cooldown timer armed, not a new defect — and worth knowing that a
+failing Qt journey test can produce an `ERROR` record of its own.
+
+**What the review found, and it is about a rule with a hard number.**
+`StrategyCardViewModel` declares **25** public members, over `architecture-rule.md` §5 rule 4's
+ceiling of 15 — and it is a new file, so 2.1b's *"it was already like that"* does not apply. Three
+things measured before deciding not to split it:
+
+| Class | Before | After |
+| :--- | ---: | ---: |
+| `TradingViewModel` | 35 public / 352 lines | **11 / 189** |
+| `DashboardQmlViewModel` | 51 public / 608 lines | **27 / 464** |
+| `StrategyCardViewModel` | — | 25 / 252 |
+
+So the change takes 86 public members across the pair down to 38, and brings `TradingViewModel`
+under the ceiling for the first time. The 25 are then the *shared* copy of what both classes were
+carrying, not a new class of debt.
+
+**And the ceiling cannot be met by any honest split of this shape.** The obvious cuts were
+measured: pulling out the parameter form (6 members, and the Backtest screen models exactly that as
+its own `StrategyParamsViewModel`) leaves 19; pulling the last signal out too leaves **17**. What
+remains is the card's own state — eleven `@Property` getters, one per field the card displays, plus
+a setter per group and a slot per user action — and a card showing eleven fields cannot have fewer
+than eleven getters. §5 rule 3's counterweight is the clause that applies: they describe one
+lifecycle, *"what the card is showing right now"*, and they change together.
+
+What the review does recommend, recorded rather than done here: the parameter-form split is worth
+making in **Phase 3**, not for the ceiling but because the Backtest screen already has that class
+and sharing it retires one of the six `backtest → strategy.ui` entries. Doing it now, before the
+widget is contributed, buys a deeper attribute path and nothing else.
+
+Two smaller findings, both honest rather than alarming:
+
+- **The `QObject` parent on the nested view model is not pinned by any test.** Probed: removing it
+  leaves all **1099** tests in `unit/modules/strategy/ui` and `unit/presentation/ui/screens` green.
+  It is not a defect — `self._strategy` holds the Python reference either way, and the parent is
+  the C++-side guarantee — but the docstring claims a lifetime and nothing checks it, so it is
+  written here rather than left as an unverified claim.
+- **No `Docs/SPEC/` file describes arming a strategy at all** (`SPEC-004` is the trading toggle,
+  `SPEC-005` the manual order). So this pull request changed no flow document, correctly — and the
+  gap is a real one for a later step, because arming is the app's most consequential user action.
