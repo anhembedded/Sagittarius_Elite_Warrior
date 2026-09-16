@@ -32,23 +32,44 @@ MOCK_KLINE_COUNT = 5
 SEEDED_SYMBOLS = ("BTCUSDT", "ETHUSDT", "SOLUSDT", "BNBUSDT", "XRPUSDT")
 
 
+#: The one instant this module's grid hangs from, read **once per process**
+#: (`BUG-123`). It used to be `datetime.now()` inside the builder, so every
+#: call got its own grid: the store was seeded in a fixture, the load-more
+#: tests derived "the page below what the screen shows" from a second call in
+#: the test body, and a minute rolling over between the two shifted that
+#: second grid one minute later. The older page's newest row then landed
+#: exactly on the row the chart already held, the store deduplicated it, and 4
+#: of 5 candles were new — a failure that needed no code change to appear or
+#: disappear, only a clock. The same read also put the five seeded symbols on
+#: five different grids, which nothing was watching at all.
+#:
+#: Freezing it at import keeps both properties the clock was read for: the
+#: series stays inside any recent-window default, and it only ever gets
+#: *older* as the session runs, so it never claims a candle from the future.
+_SERIES_ANCHOR = datetime.now(UTC).replace(second=0, microsecond=0) - timedelta(
+    minutes=MOCK_KLINE_COUNT
+)
+
+
 def build_mock_klines(symbol: str, interval: str = "1m") -> list[MarketData]:
     """Newest-first `MarketData` list, matching what the real repository
     returns (DashboardPresenter reverses it before rendering).
 
-    **Anchored to now, and `EPIC-025` PR 1.1a is why.** These rows used to sit
-    at a fixed `2024-01-01`, which worked because the dispatch stub answering
-    the klines query ignored `start_time`/`end_time` entirely and handed the
-    list back whatever was asked. `IHistoricalKlines` reads a store, and a
-    store honours the range — so rows two years outside the Data Range
+    **Anchored to the clock, and `EPIC-025` PR 1.1a is why.** These rows used
+    to sit at a fixed `2024-01-01`, which worked because the dispatch stub
+    answering the klines query ignored `start_time`/`end_time` entirely and
+    handed the list back whatever was asked. `IHistoricalKlines` reads a store,
+    and a store honours the range — so rows two years outside the Data Range
     picker's own default window are correctly filtered to nothing, and every
     Dev Board history test went quiet. Ending one minute in the past keeps the
     series inside any recent-window default while never claiming a candle from
     the future.
+
+    **One anchor, not one per call** — see `_SERIES_ANCHOR` and `BUG-123`.
+    Every caller in a process gets the same grid, which is what lets one
+    caller build a page adjacent to what another caller stored.
     """
-    base_time = datetime.now(UTC).replace(second=0, microsecond=0) - timedelta(
-        minutes=MOCK_KLINE_COUNT
-    )
+    base_time = _SERIES_ANCHOR
     klines = [
         MarketData(
             symbol=symbol,
