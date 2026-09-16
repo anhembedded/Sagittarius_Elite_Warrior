@@ -197,3 +197,23 @@ measurement written into `module.py`: the strategy cards need `BaseStrategy` fro
 so could not move before it existed (2.1e); `trade-once` reads as this context's command but which
 context owns it is a question about one command rather than a rider on a move (2.1g, and the
 allowlist entry for it says so); the Qt feeds travel with the widgets.
+
+### 4.5 Findings outside the step
+
+- **`base_strategy.py:37` — `BaseStrategy` declares 19 public methods**, over
+  `architecture-rule.md` §5 rule 4's ceiling of 15. It declared 19 before the move as well
+  (verified against `master-warrior`), and that ceiling is an `eye` check rather than a gated one,
+  so nothing measured it while the class sat in `src/domain/`. Not fixed here: the 19 are a
+  scripting surface rather than a God object — five are the signal verbs
+  (`buy`/`sell`/`hold`/`short`/`cover`), four are `input_*` parameter declarations, and splitting
+  them inside a move would make the move unreviewable, which is the same argument the mypy re-key
+  above rests on. It belongs to whichever pull request next changes that class's shape, and 2.1e is
+  the likely one.
+- **A near-miss in this pull request's own verification, worth writing down.** The first probe of
+  the widened rule — plant a `modules/strategy/domain → support/indicators/ui` import and require
+  the guard to refuse it — **passed**, which would have meant the widening was too loose. It had
+  not: the edit anchored on `from __future__ import annotations`, a line that file does not contain,
+  so the plant never landed and the probe was vacuous. Re-run with the plant verified before the
+  assertion, the guard fails and names the exact pair. The lesson is the review skill's §5 read
+  literally: running the check is not enough if the *setup* is not also checked, and a probe that
+  cannot fail proves as little as a test that cannot.
