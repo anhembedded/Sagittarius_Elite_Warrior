@@ -71,9 +71,21 @@ get on with it."*
   enable, disable or widen anything about live trading. Turning it on does not make the app
   able to trade, and turning it off does not make it safe.
 - **The Dev Board screen itself is still always present.** Only its contributed probes follow the
-  switch. The screen still carries manual order entry and the strategy controls, which have no
-  home on the Trading surface yet — gating the screen before they move would take a feature away
-  from the actor, so that step waits (recorded in `EPIC-025`'s `TRACKING.md`).
+  switch, and the mechanism says why: `ContributionRegistry.contribute()` evaluates
+  `surface_is_open()` for a contributed **panel**, while `contribute_screen()` evaluates no gate
+  at all.
+
+  That asymmetry is a promise, not an oversight. The screen still carries manual order entry and
+  the strategy controls, and **nothing on the Trading surface carries them** — measured rather
+  than assumed: `grep -rn "manual_order" src/presentation/ui/screens/trading/` is empty, while
+  `dashboard_presenter.py` holds the manual-order action, its ownership tracker and the
+  armed-symbol block reason. Gating the screen before they move would take a capability away from
+  the actor, which ADR D12 forbids as an undeclared behaviour change. So the blocker is a **home
+  on Trading for those two things** — a feature placement, and the actor's call — not a missing
+  gate; it travels with the screens into `modules/trading/ui/` in Phase 2 + Phase 4
+  (`Tasks/epics/EPIC-025_module_theo_bounded_context/DECISION_2026-09-16_the_duplication_criterion_waits.md`).
+  `EPIC-025B`'s "done when" list carried the **opposite** sentence until 2026-09-16 and was
+  corrected against this clause; `TRACKING.md` carries the per-pull-request record.
 
 ## 7. Ports and modules it exercises
 

@@ -90,6 +90,36 @@
   instead. It is still counted and still guarded; it is no longer Phase 1's gate.
 - The user runs Testnet: placing a manual order, cancelling, enabling and disabling trading, PnL
   updating — all behave as before (the regression tests for `BUG-112 / 116 / 117` stay green).
-- The app opens on Welcome; Start lands on Trading; with `dev.mode=false` the sidebar shows no Dev
-  Board and no probe is constructed (asserted by a test that counts constructed factories); the
-  toggle plus restart brings Dev Board back.
+- The app opens on Welcome; Start lands on Trading; with `dev.mode=false` **no probe is
+  constructed**; the toggle plus restart brings the probes back. ✅ done by PRs 1.5a–1.5b, proven
+  by `tests/unit/shell/test_contribution_assembly.py::test_a_gated_surface_drops_the_contribution_and_the_app_still_boots`
+  and `tests/integration/presentation/ui/test_main_window_state.py`.
+
+  **The half of this line that said "the sidebar shows no Dev Board" is struck, and it is a
+  contradiction this list had with the spec rather than work left undone.**
+  [`SPEC-011`](../../../Docs/SPEC/SPEC-011_start_the_app_and_choose_developer_mode.md) §6 states the
+  opposite as a *promise*: the Dev Board screen is always present, only its contributed probes
+  follow the switch — because the screen still carries manual order entry and the strategy
+  controls, and **nothing on the Trading surface carries them**. Measured, not assumed:
+  `grep -rn "manual_order" src/presentation/ui/screens/trading/` is empty, while
+  `dashboard_presenter.py` holds the manual-order action, its ownership tracker and the
+  armed-symbol block reason. So gating the screen today removes a capability the actor has, which
+  ADR D12 forbids as an undeclared behaviour change and which no amount of test coverage makes
+  acceptable.
+
+  What it is really blocked on, therefore, is not a gate but **a home on the Trading surface for
+  manual order entry and the strategy controls** — a feature placement, and the user's call, not a
+  measurement. It travels with the screens into `modules/trading/ui/`, which
+  [`DECISION_2026-09-16`](../DECISION_2026-09-16_the_duplication_criterion_waits.md) put in Phase
+  2 + Phase 4.
+
+  The mechanism for it is designed and measured, so that step is a small one when it comes:
+  `ContributionRegistry.contribute()` already evaluates `surface_is_open()` for a **panel**, and
+  `contribute_screen()` evaluates nothing at all — so a `ScreenContribution` gains the
+  `surface_id` of the surface it hosts (every one of the six has exactly one: `welcome`,
+  `trading`, `dev_board`, `settings`, `backtest`, `data_management`, and the route is *not* it —
+  the Dev Board's route is `dashboard`), and the registry reuses the same evaluator. One gate
+  concept, one evaluator, and a second gated screen later is one line in `SURFACES`
+  (`architecture-rule.md` §7.2.1 — a seam, not a variant). Three tests in
+  `test_screen_wiring.py` pin today's five routes at `dev_mode=False` and become parametrised over
+  the flag at that point.
