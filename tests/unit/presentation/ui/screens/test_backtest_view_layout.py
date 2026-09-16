@@ -15,6 +15,7 @@ instead of `qml_item()`/`rootObject()`.
 from unittest.mock import patch
 
 import pytest
+from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
     BackTestView,
 )
@@ -73,7 +74,7 @@ def view(qapp, request):
     return v, vm
 
 
-def test_stat_cards_row_replaces_result_box_when_a_run_completes(view, qapp, qml_item):
+def test_stat_cards_row_replaces_result_box_when_a_run_completes(view, qapp):
     v, vm = view
     assert v.top_widget._stat_cards_row.isVisible() is False
     assert v.top_widget._result_box.isVisible() is True
@@ -83,8 +84,9 @@ def test_stat_cards_row_replaces_result_box_when_a_run_completes(view, qapp, qml
 
     assert v.top_widget._stat_cards_row.isVisible() is True
     assert v.top_widget._result_box.isVisible() is False
-    card = qml_item(v.top_widget._stat_cards_row.root_object, "cardMetric_0")
-    assert card is not None
+    # `EPIC-025` PR 4.3g: a `QWidget` again, reachable by `findChild` — the
+    # name is unchanged from every previous version of this row.
+    assert v.top_widget._stat_cards_row.findChild(QWidget, "cardMetric_0") is not None
 
 
 def test_metrics_header_and_expand_button_appear_when_a_run_completes(view, qapp):

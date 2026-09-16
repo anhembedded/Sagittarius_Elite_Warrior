@@ -3,9 +3,6 @@ src/presentation/ui/qml/DataTable/tests/test_data_table_qml.py
 src/presentation/ui/qml/MetricsDetailPanel/tests/conftest.py
 src/presentation/ui/qml/MetricsDetailPanel/tests/test_metrics_detail_qml.py
 src/presentation/ui/qml/MetricsDetailPanel/tests/test_metrics_detail_vm.py
-src/presentation/ui/qml/StatCardRow/tests/conftest.py
-src/presentation/ui/qml/StatCardRow/tests/test_stat_card_row_qml.py
-src/presentation/ui/qml/StatCardRow/tests/test_stat_card_row_vm.py
 src/presentation/ui/qml/TradeLogTable/tests/conftest.py
 src/presentation/ui/qml/TradeLogTable/tests/test_trade_log_qml.py
 src/presentation/ui/qml/TradeLogTable/tests/test_trade_log_vm.py

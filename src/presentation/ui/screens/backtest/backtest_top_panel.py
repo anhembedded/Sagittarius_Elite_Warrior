@@ -7,16 +7,14 @@ the chart. Behaviour-preserving port: every `objectName` from the QML
 carries over unchanged (tests/presenter both key off them).
 
 `EPIC-015` Phase 4 replaced two pieces of that QtWidgets port with QML
-embeds sitting directly beside this screen's chart — `ProgressBannerWidget`
-(`qml/kit/`) for the run/sync progress banner, `StatCardRowWidget`
-(`qml/StatCardRow/`) for the primary performance stat-cards row. Their
-QtWidgets predecessors' `objectName`s (`btnCancelBacktestProgress`, the
-per-card `cardMetric_N` as a `QWidget`) do not carry over as widget
-attributes — the cancel button and each stat card now live inside a QML
-scene, reached by `objectName` through `qml_item()`
-(`tests/conftest.py`), same as every other `Repeater`/QML-scene lookup in
-this rollout. `backtestProgressBanner` (the outer `QFrame`) and the four
-`_sync_*`/`_build_*` method names are unchanged.
+embeds: `ProgressBannerWidget` (`qml/kit/`) for the run/sync progress banner,
+and `StatCardRowWidget` (`qml/StatCardRow/`) for the performance figures.
+`EPIC-025` PR 4.3g has taken the second one back (ADR D21) — the figures are
+`BacktestStatRow`, read-only tiles in this screen's own package, and their
+`cardMetric_N` names are `QWidget`s again, reachable by `findChild` rather than
+through a QML scene. The banner is still an embed and goes with `qml/kit/`, the
+last step of 4.3. `backtestProgressBanner` (the outer `QFrame`) and the four
+`_sync_*`/`_build_*` method names are unchanged throughout.
 """
 
 from __future__ import annotations
@@ -37,9 +35,6 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.progress_banner_widget import (
     ProgressBannerWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.StatCardRow.stat_card_row_widget import (
-    StatCardRowWidget,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
@@ -51,6 +46,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     apply_role,
 )
 
+from .backtest_stat_row import BacktestStatRow
+
 if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
 
@@ -59,11 +56,6 @@ if TYPE_CHECKING:
 #: `_PROGRESS_BANNER_HEIGHT`) — a `QQuickWidget` with `SizeRootObjectToView`
 #: has no natural size of its own, unlike the `AppProgressBar` it replaces.
 _PROGRESS_BANNER_HEIGHT = 32
-
-#: `StatCardRow.qml` cards have container styling (background, border,
-#: rounded corners, and padding) with title, value, and subtitle/badge.
-#: 82px accommodates all lines comfortably without vertical clipping.
-_STAT_CARD_ROW_HEIGHT = 82
 
 
 def _clamp_percent(value: float) -> float:
@@ -520,16 +512,12 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         label.setWordWrap(True)
         return label
 
-    def _build_stat_cards_row(self) -> StatCardRowWidget:
-        # EPIC-015 Phase 4: `StatCardRow.qml` (a `Repeater` of `StatCard.qml`
-        # delegates) replaces per-run construction/teardown of the
-        # QtWidgets `StatCard` (`kit/surfaces/stat_card.py`). Callback-
-        # constructed (`qml-rule.md` §1.1) — this widget reads
-        # `primaryStatCards` live, `_sync_stat_cards()` below only tells it
-        # *when* to re-pull that list, not what is in it.
-        widget = StatCardRowWidget(lambda: self._vm.run_result.primaryStatCards)
-        widget.setFixedHeight(_STAT_CARD_ROW_HEIGHT)
-        return widget
+    def _build_stat_cards_row(self) -> BacktestStatRow:
+        # `EPIC-025` PR 4.3g: read-only tiles (HLD §11.3), after `EPIC-015`'s
+        # `StatCardRow.qml` and `EPIC-007F`'s QtWidgets `StatCard` before it.
+        # Callback-constructed — the widget reads `primaryStatCards` live, and
+        # `_sync_stat_cards()` below only says *when* to re-pull that list.
+        return BacktestStatRow(lambda: self._vm.run_result.primaryStatCards)
 
     def _build_result_box(self) -> QWidget:
         widget = QWidget()
@@ -712,13 +700,8 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         self._stat_cards_row.setVisible(has_cards)
         self._result_box.setVisible(not has_cards)
         if has_cards:
-            # `StatCardRow.qml`'s `Repeater` reads `vm.cards` off
-            # `StatCardRowVM`, not `BackTestViewModel.primaryStatCards`
-            # directly — `refresh()` is the one call that re-pulls and
-            # re-converts it (`qml-rule.md` §4.2: safe to call every time,
-            # since a full delegate rebuild is what a `Repeater` over a
-            # list-of-dicts model always does on any change, not something
-            # this call triggers additionally).
+            # The row reads `primaryStatCards` through its own callback, so
+            # this says *when*, never what: one call per `statCardsChanged`.
             self._stat_cards_row.refresh()
 
     def _sync_metrics_header(self) -> None:
