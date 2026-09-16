@@ -3,6 +3,12 @@
 class, per EPIC-007 §3.4.
 
 @details
+`DateRangeOverlay` was a third, deleted in `EPIC-025` PR 4.3c: it hand-drew a
+two-month calendar out of one `QPushButton` per day with inline QSS on each,
+which is the substitute for `QCalendarWidget` that ADR D20 rules out, and
+nothing in `src/` had constructed it since `EPIC-015` gave the job to the QML
+time-range picker — only `tools/kit_showcase` did.
+
 `Overlay` itself has named these two in its abstract-instantiation
 `TypeError` since it was written ("instantiate a subclass (e.g.
 ConfirmOverlay, PickerOverlay)"), while neither existed anywhere in the
@@ -16,18 +22,10 @@ guard for no reason other than its address.
 from __future__ import annotations
 
 from .confirm_overlay import ConfirmOverlay
-from .date_range_overlay import (
-    DEFAULT_PRESETS,
-    DateRangeOverlay,
-    RangePreset,
-)
 from .picker_overlay import PickerItem, PickerOverlay
 
 __all__ = [
-    "DEFAULT_PRESETS",
     "ConfirmOverlay",
-    "DateRangeOverlay",
     "PickerItem",
     "PickerOverlay",
-    "RangePreset",
 ]
