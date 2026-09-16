@@ -5,13 +5,20 @@
   Item 2 fell out of **`BUG-127`**, the live defect §3.4 found underneath it: the presenter's import
   of `market_data`'s adapter existed only to serve a path that binding the port removed, so fixing
   the bug retired the allowlist entry (36 → 35) and the layering item together. Items 1 and 3 — the
-  12,309-line move and the Anticorruption Layer — are open, and item 1 is the whole weight of this
-  phase.
+  12,309-line move and the Anticorruption Layer — are open, and **§4 is the measurement that says
+  how item 1 splits**: the screen's 74 files carry 29 imports of QML packages ADR D21 *deletes* in
+  Phase 4, so they travel with those deletions the way Phase 1's two screens did (the user's
+  `DECISION_2026-09-16`). What is left for this phase is the domain-and-use-case half — 26 files /
+  2,538 lines, six blocking imports, all of them what `IStrategyEngineFactory` was reserved for.
 - **Repository:** Elite
 - **Blocked by:** C · **Blocks:** E
-- **Read first:** HLD §3.4; ADR D12. This is the **largest phase by line count** (the backtest
-  screen is 12,309 lines in 74 files) but the **least entangled**: it depends only on
-  `market_data.contracts` and `strategy.contracts`.
+- **Read first:** HLD §3.4; ADR D12, and **§4 before touching any code** — it is the measured cut,
+  and it corrects two things this line said. The header's "12,309 lines in 74 files" is the
+  **screen alone** (74 / 12,400 today); the context is 95 files / 14,786 lines. And "it depends only
+  on `market_data.contracts` and `strategy.contracts`" is false as stated: measured, the moving code
+  makes 13 imports into `modules/strategy`'s **non-contracts** packages and 33 into
+  `presentation/ui`, 29 of them QML. It is still the least entangled phase — just not that
+  entangled-free.
 
 ## 1. What to do
 
@@ -198,3 +205,88 @@ stops resolving and is invisible to lint, mypy and the tests (`epic-025.prompt.m
 records three such defects in PRs 1.6d–1.6f): `create_app(ConfigManager())` builds the whole object
 graph and returns with 10 extensions registered. The boundary allowlist is **unchanged at 36** and no
 baseline file was touched — this pull request removed code and bought back no debt.
+
+---
+
+## 4. The cut, measured 2026-09-16 before any code moved
+
+`ls`-and-`grep` are not a measurement; these numbers come from walking the AST of every file under
+`src/` and `scripts/`. The header's own figure — *"the backtest screen is 12,309 lines in 74
+files"* — turns out to be **the screen alone**, and it is very nearly right (74 files / 12,400
+lines today). The context as a whole is larger:
+
+| What §1 assigns to this phase | Files | Lines |
+| :--- | ---: | ---: |
+| `src/domain/backtesting` | 12 | 1,360 |
+| `src/application/use_cases/backtest` | 9 | 1,026 |
+| `src/presentation/ui/screens/backtest` | 74 | 12,400 |
+| **total** | **95** | **14,786** |
+
+### 4.1 The finding: this phase splits in two, and the halves are not the same kind of work
+
+The 185 imports the moving code makes to things that are **not** moving separate cleanly, and the
+line between them is QML:
+
+| What it reaches for | Imports | Verdict |
+| :--- | ---: | :--- |
+| `core.vo`, `core.contracts`, `modules.*.contracts`, `support.*` | 105 | already permitted — nothing to unblock |
+| `presentation.ui.qml.*` | **29** | **ADR D21 deletes these in Phase 4 rather than moving them** |
+| `presentation.ui.common.*` (4 helpers) | 4 | Phase 4's `support/` extraction |
+| `domain.value_objects.{commission_type,broker_simulation_config,currency}`, `domain.events.backtest_{completed,failed}_event` | 24 | backtesting's own vocabulary — moves with it, the 2.1b shape |
+| `modules.strategy.{application,ui,domain}` | 13 | the hard refusal: module → another module's non-`contracts/` |
+| `config.config_keys` | 3 | Phase 5's |
+
+**Twenty-nine of the thirty-three `presentation.ui` imports are QML packages ADR D21 deletes.** That
+is the same wall Phase 1 hit, and the user already ruled on it:
+[`DECISION_2026-09-16`](../DECISION_2026-09-16_the_duplication_criterion_waits.md) kept the
+shrink-only allowlist clean and let Trading and Dev Board **travel with the QML deletions in Phase
+4** rather than spend the epic's one invariant to hit a number early. The backtest screen is the
+third screen in that position, for the same reason, so it travels the same way. Phase 3's *code* is
+therefore the other half, and it is a clean one:
+
+| Half | Files | Lines | Blocking imports |
+| :--- | ---: | ---: | :--- |
+| **A — domain + use cases** (`domain/backtesting`, `use_cases/backtest`, and the five legacy value objects/events above) | 26 | 2,538 | **6**, all `modules.strategy.application`/`.domain` |
+| **B — the screen** | 74 | 12,400 | 29 QML imports to packages Phase 4 deletes |
+
+### 4.2 Half A's six blockers are what `IStrategyEngineFactory` was reserved for
+
+`EPIC-025C` §1 item 2 says that port is published *for* `backtesting`, and this is the measurement
+that says which shape it needs. The two backtest handlers reach into `strategy` for three things —
+`StrategyRegistry`, `build_engine()` and the `StrategyEngine` type — and `paper_exchange.py` reads
+`MarginSizingPolicy`, which is already on the allowlist with **this phase** named as its exit
+(PR 2.1d's line).
+
+**The engine has to be published as an interface, not as a class**, and PR 2.1c is why: that pull
+request built `IStrategyCatalog` and then deleted it, because *a published contract must not carry
+`BaseStrategy`*. `StrategyEngine` is the same kind of type. So the surface is `IStrategyEngine`
+(what a backtest *drives*) behind `IStrategyEngineFactory` (what builds one from a key and
+parameters).
+
+And the surface is **two methods, not three** — measured, the way PR 1.2 measured `quote_asset` out
+of `ISymbolCatalog`:
+
+| `StrategyEngine` method | Called from outside `modules/strategy/` in `src/`? |
+| :--- | :--- |
+| `on_tick()` | yes — both backtest handlers |
+| `on_forming_bar_tick()` | yes — the historical-tick handler |
+| `run_batch()` | **no.** Only `strategy`'s own tests and `scripts/benchmark.py`. It stays intra-module |
+
+### 4.3 The remaining pull requests
+
+| PR | What | Allowlist |
+| :--- | :--- | :--- |
+| ~~3.1a~~ ✅ | delete the three dead use cases; see §3 | unchanged (36) |
+| ~~item 2~~ ✅ | the presenter's adapter import, fixed as `BUG-127`; see §3.4 | **36 → 35** |
+| 3.1b | publish `IStrategyEngine` + `IStrategyEngineFactory` with a verified fake and a contract suite, and move the two backtest handlers plus `paper_exchange` onto them. No files move yet — the 0.5 shape, a port with its consumers | shrinks by the 6 strategy-service lines |
+| 3.1c | move **Half A** (26 files / 2,538 lines) into `modules/backtesting/`, with its tests, tier unchanged. The 2.1b shape: the screen's ~15 reads of it become counted `legacy → modules.backtesting` entries, each naming Phase 4 as its exit | grows, every line named |
+| 3.1d | item 3's Anticorruption Layer — `backtesting/adapters/` translating `PaperExchange` state into `strategy.contracts.StrategyContext`. Travels with 3.1c, because the translation only has a home once the module exists | unchanged |
+| → Phase 4 | **Half B, the screen.** Its eleven QML modals become `QDialog`s and its panels docks *as they move*, because ADR D21 deletes the QML rather than porting it — one piece of work, not two | shrinks |
+
+### 4.4 What this means for the phase's own done-when
+
+§2 asks for a backtest that runs **bit-identical** on the same data. That is testable for 3.1b and
+3.1c (both are refactorings under ADR D12, and the trade log is the comparison), and it stays the
+criterion. What changes is only the scope of "this phase": Half B is not abandoned, it is scheduled
+where its blocker is resolved, exactly as Phase 1's two screens were. Phase 3 closes when Half A is
+moved and the trade log is unchanged; the screen closes in Phase 4 with the QML it depends on.
