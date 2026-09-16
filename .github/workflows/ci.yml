@@ -76,13 +76,17 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Ruff — Lint
-        # `tools` as well as `src`/`tests`: the widget-kit showcase lives
-        # there, and a whole top-level directory outside the lint gate is
-        # how the gate quietly stops covering the repo.
-        run: ruff check src tests tools
+        # The same four targets as scripts/ci-local.ps1: `tools` because the
+        # widget-kit showcase lives there, `scripts` because the local gate
+        # gained it on 2026-09-14 (four import-order errors the gate had
+        # called green) and this workflow did not follow for two days — a
+        # whole top-level directory outside one of the two gates is how a
+        # gate quietly stops covering the repo, and nothing checked the two
+        # agreed. ci-rule.md §7 holds the table of what still differs.
+        run: ruff check src tests tools scripts
 
       - name: Ruff — Format Check
-        run: ruff format --check src tests tools
+        run: ruff format --check src tests tools scripts
 
       - name: Mypy — Static Type Check
         # Left out when this workflow was restored (PR #114) because the gate
@@ -127,8 +131,15 @@ jobs:
         # scripts/ci-local.ps1's `-Full` gate. Without it, a PR that drops
         # coverage below 80% still gets a green check here — the report would
         # show the drop, but nothing would fail on it.
+        #
+        # `--ignore=tests/testnet` is the second of that tier's two gates
+        # (ci-rule.md §3a): its own conftest skips without SEW_TESTNET_TESTS=1
+        # and credentials, and the local gate excludes it outright as well.
+        # One layer already failed once in this repository's history; this
+        # workflow ran on the conftest alone until 2026-09-16.
         run: |
           PYTHONPATH=.. pytest tests/ \
+            --ignore=tests/testnet \
             --cov=src \
             --cov-report=xml \
             --cov-report=term-missing \

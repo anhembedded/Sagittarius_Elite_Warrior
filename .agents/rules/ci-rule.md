@@ -351,6 +351,8 @@ before treating either one as sufficient:
 | Sanity | separate job, always sequential | mixed into `pytest tests/` |
 | 80% coverage gate | yes | yes (since 2026-08-27) |
 | Ruff/`mypy`/`.agents/Skills` guard | all 3 | all 3 (since 2026-08-27) |
+| `ruff` targets | `src tests tools scripts` | the same four since 2026-09-16 — `scripts` was missing for two days after the local gate gained it, and nothing checked the two agreed |
+| `tests/testnet` | excluded by `--ignore` **and** by the tier's own opt-in skip (§3a) | the same two layers since 2026-09-16; the opt-in skip alone before that |
 
 The parallelism/job-separation difference is **deliberately not reconciled yet**, not a defect to
 patch immediately. Do not assume either side subsumes the other.
