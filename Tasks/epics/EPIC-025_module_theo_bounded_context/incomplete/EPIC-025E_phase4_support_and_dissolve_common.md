@@ -270,3 +270,123 @@ twelve violations before the allowlist entries were written, and
 `test_module_declarations.py` failed on `trading: imports contracts from ['market_data'] without
 declaring it` within a minute of the files landing — which is §3.7's finding, found by the guard
 rather than by reading.
+
+### 3.9 PR 4.1b — the extraction the user asked for, and a metric that had to be fixed twice
+
+`support/ui_kit/table_model.py` is the shared home §3.5 measured the need for. Its own docstring
+carries the design argument; what belongs here is the measurement and the two findings.
+
+**What was duplicated, exactly.** Four models — `PositionsTableModel`, `OpenOrdersTableModel`
+(PR 1.4b-2) and `DatabaseStatusTableModel`, `KLineInspectorTableModel` (PR 0.4b) — had
+`rowCount()`, `columnCount()`, `headerData()` and `row_for()` **byte-for-byte identical**, a `data()`
+differing only in which extra roles it served, and `SORT_ROLE` and `_as_number()` each defined
+**twice at module level**. The module-level pair is worth naming: `measure_duplicate_members.py`
+counts only a `def` inside a `class`, so those two copies were invisible to the metric *and* to the
+comment in `table_models.py` that had already written the fix down — *"the shared home for both is
+`support/ui_kit` in Phase 4."* This is Phase 4.
+
+`RowTableModel[TRow]` now owns Qt's contract plus `data()` as a template; a subclass declares
+`HEADERS`, `RIGHT_ALIGNED`, `_display_text()`, `_sort_value()` and optionally `_role_data()`. The two
+`@abstractmethod`s follow `BaseFeed`'s pattern rather than `ABC`, because
+`QAbstractTableModel`'s Shiboken metaclass will not mix with `ABCMeta`; PEP 695 generics on a
+`QObject` subclass were **tested before the file was written** rather than assumed, which is what
+keeps `row_for()` returning `TRow | None` instead of `Any` in a tree mypy actually checks.
+
+`DatabaseStatusTableModel` is why the base holds its rows in a `list`: it re-scans one shard at a
+time through `upsert_row()` and emits `dataChanged` for that row alone, so forcing it through
+`set_rows()` would reset the model and throw away the user's selection and scroll position on every
+scan. `KLineInspectorTableModel` lost its `__init__` entirely (it did nothing but call `super()`) and
+keeps `_sort_value()` returning display text with the reason written at the line: that table is
+deliberately **not** sortable, and the method is declared abstract rather than defaulted precisely
+so a table that *does* need numeric sorting cannot get it wrong in silence.
+
+**The numbers.** Total across every pair **112 → 112**, the Phase 1 pair **34 → 32**. The extraction
+alone took the total 113 → 112; moving `order_book` and `live_order_book_coordinator` in then cost
+**nothing**, which is the whole point — before the extraction that same move had cost **+8**.
+Allowlist **44 → 58**: fourteen entries, none retired, argued inline and retiring together with
+4.1a's twelve at 4.1c.
+
+**Finding 1: the metric's amendment was wrong, and the second attempt is the right rule.** PR 4.1a
+had excluded names declared `@abstractmethod` under `src/support/` and `src/core/`. That is a
+*proxy* for "a shared base class declares it", and it failed on the first hook that was deliberately
+not abstract: `_role_data` has a `return None` default so a table with no extra roles need not
+implement it, and two of `RowTableModel`'s four subclasses override it — so the total read 114
+against a baseline of 113 for a pull request that *removed* duplication.
+
+Two candidate rules were measured before either was written:
+
+| Rule | Excluded names | Total |
+| :--- | :-: | :-: |
+| every `@abstractmethod` under `support/`, `core/` (4.1a's) | 43 | **114** |
+| every method of every class under `support/`, `core/` | 564 | **104** — excuses ten pairs |
+| **a name declared by a shared base class this package subclasses** | per package | **112** |
+
+The middle row is why the obvious widening was refused: a support class somewhere defines
+`_build_ui`, `_apply` and `_choose`, so excluding every such name would silently excuse ten pairs of
+real duplication, and a metric that excuses duplication is worth nothing. What shipped is the third:
+per package, read the base classes its own classes name, keep the ones that are classes under
+`support/` or `core/`, exclude exactly those classes' methods **for that package only**. Resolved by
+name rather than by import, deliberately, so the metric still runs on a tree mid-move.
+
+The test of whether it is narrow enough is what it still counts: `selected_row`, defined
+independently by Data Management's panel and by the two order-book panels, remains on the books as
+`data_management+trading.ui: 1`. That is the next real duplication — a *panel* shape, where this
+pull request removed a *model* shape — and it is 4.2b's or 4.4's, not something to widen a rule
+over. The baseline was again re-measured on the pre-change tree under the amended definition (112)
+rather than lowered to fit.
+
+**Finding 2: a real type error, in the file that left `presentation/`.** `order_book/preview.py`
+built its `LivePosition` fixtures with `liquidation_price=Decimal(...)`, where the field is a
+`LiquidationPrice` `NewType` that exists — says its own comment — *"so a locally-computed price can
+never be passed where an exchange-reported one belongs"*. Harmless at runtime in a preview fixture,
+and invisible for as long as the file sat under `src/presentation/`, which mypy excludes
+**wholesale**. Fixed by wrapping, which is also the honest statement that the fixture stands in for
+what the exchange said. Third time in this epic that moving a file out of `presentation/` has
+produced a real type error on the first mypy run (PR 2.1e found two).
+
+**The E12 probe, and it answers a question the tests alone could not.** Both families' tests passed
+after the rebase, but passing does not prove they *go through* the extracted class rather than
+merely importing it. Breaking one line — `data()`'s `if role == SORT_ROLE:` branch in
+`support/ui_kit/table_model.py` — fails **7** tests across **both** trees at once:
+`test_pnl_sorts_by_the_number_not_by_its_text` and
+`test_it_cancels_the_row_the_user_sees_after_sorting` under `modules/trading/ui`, and
+`test_candle_counts_sort_as_numbers_not_as_text`,
+`test_intervals_sort_by_duration_not_alphabetically` and
+`test_a_count_that_is_not_a_number_sorts_below_every_real_count` under `data_management`. One line,
+two bounded contexts, seven promises — which is the evidence the extraction is real.
+
+No new test. The four models' existing tests are the proof, and they now exercise one
+implementation instead of four (`testing-rule.md` §1's "an existing test shown to already cover it"
+branch); `RowTableModel` has no behaviour its subclasses' tests do not drive.
+
+**Finding 3: a guard's hard-coded path, and the gate is what found it.** `RESULT: FAIL` on the
+first run, three failures in `test_trading_view_contract.py`, all of them a `FileNotFoundError`
+inside `ast.parse()`: the guard's `_PRESENTER_SIDE` tuple named
+`_SCREEN_DIR.parents[1] / "common" / "live_order_book_coordinator.py"`, and that file had just
+become `modules/trading/ui/`'s. This is the reviewer's J4 — *"a guard's own file moved, did its path
+constant follow"* — and it is the check my pre-gate run could not make, because I had run
+`tests/unit/architecture` and this guard lives under `tests/unit/presentation/`.
+
+Failing loudly was the right behaviour; what was wrong is that it took a three-minute gate run to
+say so, and it said it as a stack trace rather than as a sentence. So the fix is three things, not
+one: the path now points at the module, `_REPO_ROOT` is found by **landmark** instead of
+`parents[6]` (`test_no_root_is_found_by_counting.py` exists because a hop count breaks on every move
+this epic makes, and it had already cost PR 1.6f and PR 1.6g a run each), and a new
+`test_every_presenter_side_path_exists` names any missing file in milliseconds. The next move that
+touches this list gets a sentence instead of a traceback.
+
+### 3.10 PR 4.1b's gate
+
+`pwsh -NoProfile -File scripts/ci-local.ps1 -Full` → **FAIL on the first run** (finding 3 above,
+3 failed / 4950 passed, log `logs/ci-local-20260916-154118.log`), then `RESULT: PASS` on the second:
+**4954 passed, 4 skipped** in 188s, log `logs/ci-local-20260916-154555.log` grepped rather than the console —
+4 hits for `FAILED|ERROR|Traceback|ResourceWarning` (the known benign set) and **0** records
+matching `- (WARNING|ERROR|CRITICAL) -`.
+
+mypy clean on **495** source files, up from 486 — and finding 2 is what those nine extra files
+bought.
+
+Test count **4952 → 4954**: two source files added (`support/ui_kit/table_model.py` and the
+`test_every_presenter_side_path_exists` guard), one of which the logging namespace guard
+parametrizes over and the other of which is itself a test. Four test files moved with their subjects
+and kept their ids.
