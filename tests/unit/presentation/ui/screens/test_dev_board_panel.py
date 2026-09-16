@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_v
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dev_board_panel import (
     DevBoardPanel,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
+    SymbolTableModel,
+)
 from Sagittarius_Elite_Warrior.tests.conftest import find_qml_item
 
 
@@ -342,7 +345,12 @@ def test_choosing_from_the_picker_writes_through_to_the_view_model(
     panel._btn_symbol.click()
     qapp.processEvents()
 
-    panel._symbol_picker._widget_vm.choose("ETHBTC")
+    # Through the view's own `clicked` signal since `EPIC-025` PR 4.3b: the
+    # QML view model's `choose()` is gone with `SymbolPicker.qml`, and what
+    # decides between starring and choosing is now the column the user hit.
+    picker = panel._symbol_picker
+    row = [entry.symbol for entry in picker._model.rows].index("ETHBTC")
+    picker._table.clicked.emit(picker._model.index(row, SymbolTableModel.SYMBOL_COLUMN))
     qapp.processEvents()
 
     assert view_model.symbol == "ETHBTC"
@@ -354,8 +362,19 @@ def test_choosing_from_the_picker_writes_through_to_the_view_model(
 def test_symbol_picker_handles_large_symbol_list_without_freezing(
     qapp, panel, view_model
 ):
-    """BUG-066: 1,358 Binance symbols must not freeze the UI or instantiate
-    thousands of QtWidgets SymbolCards. SymbolPicker.qml virtualizes items."""
+    """`BUG-066`: 1,358 Binance symbols must not freeze the UI.
+
+    The docstring used to end *"SymbolPicker.qml virtualizes items"*, and that
+    file is deleted (ADR D21, `EPIC-025` PR 4.3b). What virtualises now is a
+    `QTableView` on `SymbolTableModel` inside the **shared** overlay — PR 4.3a's
+    work, done precisely so this promise survived the deletion instead of
+    reverting to the card grid that caused `BUG-066`.
+
+    Two assertions, and the second is the one that cannot flake: the elapsed
+    time is the user's own promise from `BUG-066` and is kept, while "no widget
+    per symbol" is the *mechanism* that makes it true and is deterministic on
+    any machine.
+    """
     large_list = [f"SYM{i}USDT" for i in range(1358)]
     view_model.set_symbol_options(large_list)
 
@@ -369,6 +388,10 @@ def test_symbol_picker_handles_large_symbol_list_without_freezing(
     assert panel._symbol_picker is not None
     # Must open in well under 1 second (previously froze for >5.0s)
     assert elapsed < 1.0
+    assert len(panel._symbol_picker._model.rows) == 1358, "all of them are listed"
+    assert len(panel._symbol_picker.findChildren(QWidget)) < 100, (
+        "1,358 symbols must not mean 1,358 widgets — the view is virtualised"
+    )
     panel._symbol_picker.close()
 
 

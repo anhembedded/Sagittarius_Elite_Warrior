@@ -100,6 +100,18 @@ class SymbolPickerOverlay(Overlay):
     symbol_chosen = Signal(str)
     favourite_toggled = Signal(str)
 
+    #: Emitted on every open, **before** the lists are re-read: "if your symbol
+    #: list can be refetched, now is the time".
+    #:
+    #: Added in PR 4.3b, and it is a promise carried over rather than a new
+    #: idea. The QML picker this replaces raised it — Backtest connects it to
+    #: `refreshSymbolOptionsRequested` (`signal_wiring.py`) and Dev Board to
+    #: `symbolOptionsRefreshRequested` (`dashboard_presenter.py`) — and without
+    #: it a user who opened the picker before the exchange's list had arrived
+    #: would sit on "Loading…" until they closed and reopened. Data Management
+    #: connects nothing: its own scan is what populates the list.
+    refresh_requested = Signal()
+
     def __init__(
         self,
         get_symbols: Callable[[], Sequence[str]],
@@ -229,6 +241,10 @@ class SymbolPickerOverlay(Overlay):
         """
         self._search_field.clear()
         self._filter = FilterState()
+        # Before `refresh()`, not after: a host that refetches synchronously
+        # then has its new list read by the same open, and one that refetches
+        # asynchronously calls `refresh()` itself when the answer lands.
+        self.refresh_requested.emit()
         self.refresh()
         self._search_field.setFocus()
         super().showEvent(event)

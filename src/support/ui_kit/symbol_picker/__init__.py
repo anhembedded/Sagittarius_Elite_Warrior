@@ -11,6 +11,7 @@ from .filtering import (
     build_entries,
     partition_favourites,
 )
+from .i_symbol_picker_source import ISymbolPickerSource
 from .overlay import RECENT_LIMIT, SymbolPickerOverlay
 from .preferences import SymbolPreferences, find_symbol_preferences
 from .quote_asset import CRYPTO_QUOTES, FIAT_QUOTES, SymbolParts, split_symbol
@@ -23,6 +24,7 @@ __all__ = [
     "QUOTE_FIAT",
     "RECENT_LIMIT",
     "FilterState",
+    "ISymbolPickerSource",
     "Scope",
     "SymbolEntry",
     "SymbolParts",
