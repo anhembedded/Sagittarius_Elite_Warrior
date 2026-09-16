@@ -1,16 +1,19 @@
-"""State behind `MetricsDetailPanel.qml` — a QML redesign of "CHỈ SỐ CHI
-TIẾT BACKTEST" (`ExtendedMetricsDialog`/`StatGrid` today).
+"""State behind `MetricsDetailPanel.qml` — "CHỈ SỐ CHI TIẾT BACKTEST".
 
-Standalone and not wired to a screen (user decision 2026-08-30):
-`ExtendedMetricsDialog`/`StatGrid` are the one already-shipped, already-wired
-consumer their own `NOTES.md` names — enhancing them in place risked the
-live dialog Backtest already uses. This widget reuses their real, tested
-pure functions (`StatCardData`, `build_extended_stat_cards`) as input
-rather than re-deriving a card's value/colour, and adds only what the
-mockup shows that those do not compute today: section grouping, verdict
-badges on the risk-ratio cards, and the gross-profit-vs-loss bar. See
-NOTES.md for exactly which numbers are real and which are an invented
-heuristic.
+@par What this replaced, and what is no longer true above
+It was written standalone (user decision 2026-08-30) beside the shipped
+`ExtendedMetricsDialog`/`StatGrid`, so that enhancing the live dialog in place
+could not break it. It is the live one now: `BackTestModalsHost` builds it, and
+`EPIC-025` PR 4.3i deleted `qml/StatGrid/` once nothing constructed it any
+more. This docstring said "standalone and not wired to a screen" for two
+epics after that stopped being so, which is why PR 4.3h re-measures rather than
+reading a package's own notes.
+
+It reuses the real, tested pure functions (`StatCardData`,
+`build_extended_stat_cards`) rather than re-deriving a card's value or colour,
+and adds only what those do not compute: section grouping, verdict badges on
+the risk-ratio cards, and the gross-profit-vs-loss bar. See NOTES.md for
+exactly which numbers are real and which are an invented heuristic.
 """
 
 from __future__ import annotations

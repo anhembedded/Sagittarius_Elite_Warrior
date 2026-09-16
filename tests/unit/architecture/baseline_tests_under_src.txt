@@ -1,5 +1,3 @@
-src/presentation/ui/qml/DataTable/tests/conftest.py
-src/presentation/ui/qml/DataTable/tests/test_data_table_qml.py
 src/presentation/ui/qml/MetricsDetailPanel/tests/conftest.py
 src/presentation/ui/qml/MetricsDetailPanel/tests/test_metrics_detail_qml.py
 src/presentation/ui/qml/MetricsDetailPanel/tests/test_metrics_detail_vm.py

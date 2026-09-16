@@ -163,10 +163,6 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         (*UI_TREE_ROWS, ("scripts", "*.py"), ("tests", "*.py")),
     ),
     (
-        "tests/unit/presentation/ui/qml/test_stat_grid_and_checkbox_list_bodies.py",
-        (("src/presentation/ui/qml", "*.qml"),),
-    ),
-    (
         "tests/unit/presentation/ui/screens/backtest/test_backtest_view_contract.py",
         (("src/presentation/ui/screens/backtest", "*.py"),),
     ),
