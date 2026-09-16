@@ -16,7 +16,7 @@ class IStoppablePosition(ABC):
     """Contract for positions evaluated in intrabar stop/target checks.
 
     `ABC`, not `Protocol` (`architecture-rule.md` §2.1 default): the sole
-    implementer, `_OpenPosition` (`paper_exchange.py`), is a plain
+    implementer, `OpenPosition` (`open_position.py`), is a plain
     `@dataclass` with no competing base class and no `QObject`/third-party
     constraint — none of the 3 reasons that justify `Protocol` apply, so
     nominal inheritance costs nothing here.

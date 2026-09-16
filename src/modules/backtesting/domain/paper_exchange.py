@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
@@ -20,6 +19,12 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason imp
     ExitReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
+from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.fill_pricing import (
+    FillPricing,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.open_position import (
+    OpenPosition,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.fee_calculator_policy import (
     FeeCalculatorPolicy,
 )
@@ -27,12 +32,10 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.margin_ri
     MarginRiskPolicy,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.order_matching_policy import (
-    IStoppablePosition,
     OrderMatchingPolicy,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
     ISizingPolicy,
-    default_sizing_policy,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
@@ -54,31 +57,20 @@ _EXIT_LOG_LABEL: dict[PositionSide, str] = {
 }
 
 
-@dataclass
-class _OpenPosition(IStoppablePosition):
-    quantity: float
-    entry_price: float
-    entry_time: datetime
-    balance_before_entry: float
-    entry_fee: float
-    entry_reason: str
-    entry_metadata: Mapping[str, Any] = field(default_factory=dict)
-    stop_loss_price: float | None = None
-    take_profit_price: float | None = None
-    side: PositionSide = PositionSide.LONG
-    leverage: float = 1.0
-
-
 class PaperExchange:
     """
     @brief Simulated broker/exchange for backtesting strategy executions (BOT-021, BOT-041, BOT-050, BOT-104, EPIC-003C).
-    @details Orchestrates trade lifecycle, delegating financial calculations to pure Domain Policies:
-    - ISizingPolicy (`modules/strategy`, ADR D17): how much capital one entry
-      may use. A paper fill sizes by the same rule a live order does, so a
-      backtest keeps predicting the live bot.
-    - MarginRiskPolicy: leverage, mark-to-market, realized PnL
-    - OrderMatchingPolicy: slippage, effective entry/exit prices, intrabar stops
-    - FeeCalculatorPolicy: commission calculation on notional/contracts
+    @details The **books**: cash, open positions, the trade log, and the
+    dispatch from a `Signal` to an entry or an exit. It records; it does not
+    compute.
+
+    Every number it records is asked of `FillPricing` (`fill_pricing.py`), which
+    holds this run's configuration together with the four policies that do the
+    arithmetic; a position is an `OpenPosition` (`open_position.py`). PR 3.1c-2
+    split the three apart and `fill_pricing.py`'s docstring carries the
+    argument. The constructor's four policy parameters pass straight through and
+    are unchanged: fifty-five inline call sites in this class's own test file
+    construct it (`ONBOARDING` §8 trap 5).
     """
 
     def __init__(
@@ -118,22 +110,18 @@ class PaperExchange:
                 value=100.0,
             )
 
-        self._margin_policy = margin_policy or MarginRiskPolicy()
-        #: The sizing half of what `MarginRiskPolicy` used to do — `strategy`'s
-        #: since PR 2.1d (ADR D17), reached through its published port. PR 3.1b
-        #: changed only where the *default* comes from: `MarginSizingPolicy()`
-        #: imported across the boundary became `contracts/
-        #: default_sizing_policy()`, the same implementation reached legally,
-        #: which is what retired this file's allowlist entry. The default stays
-        #: because this constructor has fifty-five inline call sites in its own
-        #: test file (`ONBOARDING` §8 trap 5); the backtest handlers pass the
-        #: resolved port, so a second rule reaches a real backtest. Full
-        #: account: `EPIC-025D` §5.2.
-        self._sizing_policy = sizing_policy or default_sizing_policy()
-        self._matching_policy = matching_policy or OrderMatchingPolicy()
-        self._fee_policy = fee_policy or FeeCalculatorPolicy()
+        #: Every number this class records is asked of this object; the four
+        #: `None` defaults are resolved there, once, rather than here.
+        self._pricing = FillPricing(
+            self._broker_config,
+            self._position_sizing,
+            margin_policy=margin_policy,
+            sizing_policy=sizing_policy,
+            matching_policy=matching_policy,
+            fee_policy=fee_policy,
+        )
 
-        self._positions: list[_OpenPosition] = []
+        self._positions: list[OpenPosition] = []
         self._trades: list[Trade] = []
 
         logger.info(
@@ -182,7 +170,7 @@ class PaperExchange:
         if not self._positions:
             return self._balance
         total_open_value = sum(
-            self._margin_policy.mark_to_market(
+            self._pricing.mark_to_market(
                 pos.side,
                 pos.leverage,
                 pos.quantity,
@@ -229,60 +217,6 @@ class PaperExchange:
         )
         return closed[-1] if closed else None
 
-    def _slippage_delta(self) -> float:
-        return self._matching_policy.calculate_slippage_delta(
-            self._broker_config.slippage_ticks, self._broker_config.tick_size
-        )
-
-    def _entry_effective_price(self, side: PositionSide, price: float) -> float:
-        return self._matching_policy.calculate_entry_effective_price(
-            side, price, self._slippage_delta()
-        )
-
-    def _exit_effective_price(self, side: PositionSide, price: float) -> float:
-        return self._matching_policy.calculate_exit_effective_price(
-            side, price, self._slippage_delta()
-        )
-
-    def _leverage_for(self, side: PositionSide) -> float:
-        return self._margin_policy.get_leverage(
-            side,
-            self._broker_config.long_leverage,
-            self._broker_config.short_leverage,
-        )
-
-    def _calculate_entry_capital(
-        self, side: PositionSide, price: float, current_equity: float
-    ) -> tuple[float, float, float]:
-        effective_price = self._entry_effective_price(side, price)
-        if effective_price <= 0:
-            return 0.0, 0.0, 0.0
-
-        leverage = self._leverage_for(side)
-        allocation = self._sizing_policy.allocate(
-            sizing=self._position_sizing,
-            effective_price=effective_price,
-            current_equity=current_equity,
-            available_balance=self._balance,
-            leverage=leverage,
-            stop_loss_pct=self._broker_config.stop_loss_pct,
-        )
-
-        if not allocation.is_fundable:
-            return 0.0, 0.0, 0.0
-
-        entry_fee, quantity = self._fee_policy.calculate_entry_fee_and_quantity(
-            allocation.notional_capital,
-            effective_price,
-            self._broker_config.commission_type,
-            self._broker_config.commission_value,
-        )
-
-        if quantity <= 0:
-            return 0.0, 0.0, 0.0
-
-        return allocation.margin, quantity, entry_fee
-
     def _open(
         self,
         side: PositionSide,
@@ -309,8 +243,8 @@ class PaperExchange:
             return
 
         current_eq = self.equity(price)
-        capital_deployed, quantity, entry_fee = self._calculate_entry_capital(
-            side, price, current_eq
+        capital_deployed, quantity, entry_fee = self._pricing.entry_capital(
+            side, price, current_eq, self._balance
         )
         if quantity <= 0 or capital_deployed <= 0:
             logger.debug(
@@ -319,16 +253,12 @@ class PaperExchange:
             )
             return
 
-        effective_price = self._entry_effective_price(side, price)
-        stop_loss_price = self._matching_policy.calculate_stop_loss_price(
-            side, effective_price, self._broker_config.stop_loss_pct
-        )
-        take_profit_price = self._matching_policy.calculate_take_profit_price(
-            side, effective_price, self._broker_config.take_profit_pct
-        )
+        effective_price = self._pricing.entry_effective_price(side, price)
+        stop_loss_price = self._pricing.stop_loss_price(side, effective_price)
+        take_profit_price = self._pricing.take_profit_price(side, effective_price)
 
         self._balance -= capital_deployed
-        position = _OpenPosition(
+        position = OpenPosition(
             quantity=quantity,
             entry_price=effective_price,
             entry_time=time,
@@ -339,10 +269,10 @@ class PaperExchange:
             take_profit_price=take_profit_price,
             entry_metadata=metadata,
             side=side,
-            leverage=self._leverage_for(side),
+            leverage=self._pricing.leverage_for(side),
         )
         self._positions.append(position)
-        slippage_delta = self._slippage_delta()
+        slippage_delta = self._pricing.slippage_delta()
         slip_sign = "+" if side is PositionSide.LONG else "-"
         logger.debug(
             f"[paper-exchange] {_ENTRY_LOG_LABEL[side]} filled | Price: {effective_price:,.2f} "
@@ -353,7 +283,7 @@ class PaperExchange:
 
     def _close_one_position(
         self,
-        pos: _OpenPosition,
+        pos: OpenPosition,
         exit_price: float,
         time: datetime,
         exit_reason: ExitReason,
@@ -361,14 +291,9 @@ class PaperExchange:
         raw_price: float | None = None,
         slippage_delta: float = 0.0,
     ) -> Trade:
-        exit_fee = self._fee_policy.calculate_exit_fee(
-            pos.quantity,
-            exit_price,
-            self._broker_config.commission_type,
-            self._broker_config.commission_value,
-        )
+        exit_fee = self._pricing.exit_fee(pos.quantity, exit_price)
 
-        pnl, pnl_percent, balance_release = self._margin_policy.calculate_realized_pnl(
+        pnl, pnl_percent, balance_release = self._pricing.realized_pnl(
             pos.side,
             pos.leverage,
             pos.quantity,
@@ -427,8 +352,8 @@ class PaperExchange:
             )
             return []
 
-        effective_price = self._exit_effective_price(side, price)
-        slippage_delta = self._slippage_delta()
+        effective_price = self._pricing.exit_effective_price(side, price)
+        slippage_delta = self._pricing.slippage_delta()
 
         closed_trades = [
             self._close_one_position(
@@ -458,7 +383,7 @@ class PaperExchange:
         if not self._positions:
             return []
 
-        triggered, still_open = self._matching_policy.evaluate_intrabar_stops(
+        triggered, still_open = self._pricing.evaluate_intrabar_stops(
             self._positions, high, low
         )
 
