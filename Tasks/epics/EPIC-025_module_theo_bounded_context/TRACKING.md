@@ -62,6 +62,7 @@ gantt
     PR 2.1a OrderIntent published, bridge isolated :done, p21a, after b126, 1d
     PR 2.1b modules/strategy arrives, 31 files :done, p21b, after p21a, 1d
     PR 2.1c IArmedStrategy; catalog measured out :done, p21c, after p21b, 1d
+    PR 2.1d ISizingPolicy; MarginRiskPolicy split :done, p21d, after p21c, 1d
     User runs Testnet (orders, cancel, PnL)    :crit,    r1, after p21c, 2d
     Phase 1 closed                             :milestone, m1, after r1, 0d
 

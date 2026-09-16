@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview import (
     OrderPreview,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
+    NotionalCheck,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
     OrderRejectionReason,
@@ -47,9 +50,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_submission import (
     FakeOrderSubmission,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.order_quantity_rounding_policy import (
-    NotionalCheck,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.order_dry_run_cmd import (
     execute_order_dry_run,

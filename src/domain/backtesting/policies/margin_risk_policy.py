@@ -1,21 +1,26 @@
+"""`MarginRiskPolicy` — the paper broker's books: leverage by direction,
+mark-to-market valuation and PnL realization.
+
+@details It used to allocate capital too, and that method is gone from here:
+`EPIC-025` PR 2.1d moved the sizing rule to
+`modules/strategy/domain/policies/margin_sizing_policy.py` behind
+`strategy.contracts.ISizingPolicy`, because ADR D17 decided *how much to bet*
+is the armed strategy's decision and `backtesting` must size a paper fill by
+the same rule live trading uses. The formula is unchanged; what changed is
+which context owns it. What is left here is what a broker does **after** the
+size is known, which is `backtesting`'s own and moves with it in Phase 3.
+"""
+
 from __future__ import annotations
 
-import logging
-
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
-    PositionSizing,
-    PositionSizingType,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
 
-logger = logging.getLogger("App.PaperExchange")
-
 
 class MarginRiskPolicy:
     """
-    @brief Domain policy for margin allocation, leverage, mark-to-market valuation, and PnL realization.
+    @brief Domain policy for leverage, mark-to-market valuation, and PnL realization.
     """
 
     def get_leverage(
@@ -28,66 +33,6 @@ class MarginRiskPolicy:
         @brief Resolves configured leverage multiplier based on position direction.
         """
         return long_leverage if side is PositionSide.LONG else short_leverage
-
-    def calculate_margin_and_notional(
-        self,
-        side: PositionSide,
-        effective_price: float,
-        current_equity: float,
-        available_balance: float,
-        sizing: PositionSizing,
-        leverage: float,
-        stop_loss_pct: float | None = None,
-    ) -> tuple[float, float]:
-        """
-        @brief Calculates required margin and notional capital based on position sizing and leverage.
-        @details
-        - PERCENT_OF_EQUITY / FIXED_CASH: leverage scales margin into larger notional capital.
-        - FIXED_CONTRACTS / RISK_PERCENT: leverage reduces required margin for the fixed contract count/risk.
-        Clamps margin to available liquid balance while preserving the exact leverage ratio.
-        @return tuple of (margin, notional_capital). Returns (0.0, 0.0) if invalid or insufficient.
-        """
-        if effective_price <= 0 or leverage <= 0:
-            return 0.0, 0.0
-
-        sizing_type = sizing.type
-        sizing_val = sizing.value
-
-        if sizing_type is PositionSizingType.PERCENT_OF_EQUITY:
-            margin = current_equity * (sizing_val / 100.0)
-            notional_capital = margin * leverage
-        elif sizing_type is PositionSizingType.FIXED_CASH:
-            margin = sizing_val
-            notional_capital = margin * leverage
-        elif sizing_type is PositionSizingType.FIXED_CONTRACTS:
-            notional_capital = sizing_val * effective_price
-            margin = notional_capital / leverage
-        elif sizing_type is PositionSizingType.RISK_PERCENT:
-            if stop_loss_pct is None or stop_loss_pct <= 0:
-                logger.debug(
-                    f"[paper-exchange] {side.value.upper()} rejected: RISK_PERCENT "
-                    "sizing requires BrokerSimulationConfig.stop_loss_pct to be set"
-                )
-                return 0.0, 0.0
-            stop_distance = effective_price * (stop_loss_pct / 100.0)
-            if stop_distance <= 0:
-                return 0.0, 0.0
-            risk_amount = current_equity * (sizing_val / 100.0)
-            notional_capital = risk_amount * (effective_price / stop_distance)
-            margin = notional_capital / leverage
-        else:
-            margin = available_balance
-            notional_capital = margin * leverage
-
-        if margin > available_balance:
-            scale = (available_balance / margin) if margin > 0 else 0.0
-            margin = available_balance
-            notional_capital *= scale
-
-        if margin <= 0 or notional_capital <= 0:
-            return 0.0, 0.0
-
-        return margin, notional_capital
 
     def mark_to_market(
         self,

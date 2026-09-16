@@ -1,12 +1,18 @@
+"""`MarginRiskPolicy` — leverage, mark-to-market and PnL realization.
+
+The five sizing cases that used to open this file left with the rule they
+tested: `EPIC-025` PR 2.1d (ADR D17) moved
+`calculate_margin_and_notional()` into `modules/strategy` as `ISizingPolicy`,
+and they are now
+`tests/unit/modules/strategy/domain/policies/test_margin_sizing_policy.py`
+with their numbers unchanged. Nothing was dropped.
+"""
+
 from __future__ import annotations
 
 import pytest
 from Sagittarius_Elite_Warrior.src.domain.backtesting.policies.margin_risk_policy import (
     MarginRiskPolicy,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
-    PositionSizing,
-    PositionSizingType,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
@@ -21,96 +27,6 @@ def policy() -> MarginRiskPolicy:
 def test_get_leverage(policy: MarginRiskPolicy):
     assert policy.get_leverage(PositionSide.LONG, 3.0, 5.0) == 3.0
     assert policy.get_leverage(PositionSide.SHORT, 3.0, 5.0) == 5.0
-
-
-def test_calculate_margin_and_notional_percent_of_equity(policy: MarginRiskPolicy):
-    sizing = PositionSizing(PositionSizingType.PERCENT_OF_EQUITY, 50.0)
-    # $10,000 equity, available balance $10,000, 3x leverage -> margin = $5,000, notional = $15,000
-    margin, notional = policy.calculate_margin_and_notional(
-        side=PositionSide.LONG,
-        effective_price=100.0,
-        current_equity=10000.0,
-        available_balance=10000.0,
-        sizing=sizing,
-        leverage=3.0,
-    )
-    assert margin == 5000.0
-    assert notional == 15000.0
-
-
-def test_calculate_margin_and_notional_fixed_cash(policy: MarginRiskPolicy):
-    sizing = PositionSizing(PositionSizingType.FIXED_CASH, 2000.0)
-    # $2,000 cash with 2x leverage -> margin = $2,000, notional = $4,000
-    margin, notional = policy.calculate_margin_and_notional(
-        side=PositionSide.LONG,
-        effective_price=100.0,
-        current_equity=10000.0,
-        available_balance=5000.0,
-        sizing=sizing,
-        leverage=2.0,
-    )
-    assert margin == 2000.0
-    assert notional == 4000.0
-
-
-def test_calculate_margin_and_notional_fixed_contracts(policy: MarginRiskPolicy):
-    sizing = PositionSizing(PositionSizingType.FIXED_CONTRACTS, 10.0)
-    # 10 contracts at $100 = $1,000 notional. At 5x leverage -> margin = $200
-    margin, notional = policy.calculate_margin_and_notional(
-        side=PositionSide.LONG,
-        effective_price=100.0,
-        current_equity=10000.0,
-        available_balance=5000.0,
-        sizing=sizing,
-        leverage=5.0,
-    )
-    assert margin == 200.0
-    assert notional == 1000.0
-
-
-def test_calculate_margin_and_notional_risk_percent(policy: MarginRiskPolicy):
-    sizing = PositionSizing(PositionSizingType.RISK_PERCENT, 2.0)
-    # Missing stop loss pct returns (0.0, 0.0)
-    assert policy.calculate_margin_and_notional(
-        side=PositionSide.LONG,
-        effective_price=100.0,
-        current_equity=10000.0,
-        available_balance=10000.0,
-        sizing=sizing,
-        leverage=2.0,
-        stop_loss_pct=None,
-    ) == (0.0, 0.0)
-
-    # 2% risk on $10,000 equity = $200 risk amount.
-    # 5% stop distance -> notional = 200 * (100 / 5) = $4,000.
-    # At 2x leverage -> margin = $2,000.
-    margin, notional = policy.calculate_margin_and_notional(
-        side=PositionSide.LONG,
-        effective_price=100.0,
-        current_equity=10000.0,
-        available_balance=10000.0,
-        sizing=sizing,
-        leverage=2.0,
-        stop_loss_pct=5.0,
-    )
-    assert margin == pytest.approx(2000.0)
-    assert notional == pytest.approx(4000.0)
-
-
-def test_calculate_margin_clamped_to_available_balance(policy: MarginRiskPolicy):
-    sizing = PositionSizing(PositionSizingType.FIXED_CASH, 5000.0)
-    # Wants $5,000 margin with 2x leverage ($10,000 notional), but only $2,500 available
-    # Clamps margin to $2,500 and scales notional to $5,000 (maintaining 2x ratio)
-    margin, notional = policy.calculate_margin_and_notional(
-        side=PositionSide.LONG,
-        effective_price=100.0,
-        current_equity=10000.0,
-        available_balance=2500.0,
-        sizing=sizing,
-        leverage=2.0,
-    )
-    assert margin == 2500.0
-    assert notional == 5000.0
 
 
 def test_mark_to_market(policy: MarginRiskPolicy):

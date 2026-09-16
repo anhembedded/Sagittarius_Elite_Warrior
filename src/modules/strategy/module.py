@@ -39,12 +39,23 @@ strategy *classes*, to construct one for the chart overlay or to hand to
 those callers become intra-module in PR 2.1e, which is where the port is worth
 writing.
 
+**PR 2.1d publishes the second port, `ISizingPolicy`** (ADR D17) — how much
+capital one order may use — and binds **nothing**, on purpose. Its consumers
+hold it rather than resolve it: `PaperExchange` takes it as a constructor
+parameter, and this module's own `position_sizing_bridge` constructs the one
+implementation directly, because a sizing rule is a domain policy and not a
+collaborator with a lifecycle. A container binding nothing resolves is the dead
+wiring `BUG-120` was; it arrives in Phase 3 with `backtesting`, which will
+resolve it (`EPIC-025D`).
+
 Everything else is still that strangler root's: the registry itself, the live
 session, the factory, the config store and the two command handlers. It costs no
 boundary violation because the boundary scan skips that file by name
 (`tests/unit/architecture/boundaries/scan.py`) — it *is* the composition root
-the strangler is replacing. They move in at PR 2.1d, which already has to touch
-the factory's arguments for `ISizingPolicy`.
+the strangler is replacing. They were scheduled to move in PR 2.1d, on the
+expectation that `ISizingPolicy` would pass through `LiveStrategyFactory`'s
+arguments; measured, it does not touch them at all, so the move travels with
+PR 2.1e, where the strategy card and the chart overlay give it a reason.
 
 @par `contribute()`, `declare_cli()` and `subscribe()` are not implemented
 Each absence is a measurement, not an omission:
@@ -85,7 +96,9 @@ class StrategyModule(BoundedContextModule):
     #: actually present under `modules/strategy/` and fails on both surplus and
     #: shortfall. This context is the **customer** in its one relationship —
     #: it reads `trading/contracts/` for `IOrderSubmission`, `ITradingSession`,
-    #: `IMarketMetadataProvider`, `ITradingAccountReader` and `PositionSide` —
+    #: `IMarketMetadataProvider`, `ITradingAccountReader`, `PositionSide` and
+    #: (since PR 2.1d) `OrderQuantityRoundingPolicy`, the exchange's lot filter
+    #: ADR D17 leaves on trading's side of the sizing line —
     #: and `market_data` reaches it the other way round, through the bus, so no
     #: dependency on that module appears here.
     dependencies: list[str] = ["trading"]  # noqa: RUF012 — the Engine reads a plain attribute

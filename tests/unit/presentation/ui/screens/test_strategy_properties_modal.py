@@ -6,13 +6,13 @@ from unittest.mock import Mock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
+    PositionSizingType,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
-    PositionSizingType,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )

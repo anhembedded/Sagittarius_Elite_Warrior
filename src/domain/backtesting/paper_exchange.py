@@ -6,6 +6,10 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
+    PositionSizing,
+    PositionSizingType,
+)
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.backtesting.policies.fee_calculator_policy import (
     FeeCalculatorPolicy,
@@ -24,13 +28,15 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
-    PositionSizing,
-    PositionSizingType,
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
+    ISizingPolicy,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.margin_sizing_policy import (
+    MarginSizingPolicy,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
@@ -67,7 +73,10 @@ class PaperExchange:
     """
     @brief Simulated broker/exchange for backtesting strategy executions (BOT-021, BOT-041, BOT-050, BOT-104, EPIC-003C).
     @details Orchestrates trade lifecycle, delegating financial calculations to pure Domain Policies:
-    - MarginRiskPolicy: margin, leverage, mark-to-market, realized PnL
+    - ISizingPolicy (`modules/strategy`, ADR D17): how much capital one entry
+      may use. A paper fill sizes by the same rule a live order does, so a
+      backtest keeps predicting the live bot.
+    - MarginRiskPolicy: leverage, mark-to-market, realized PnL
     - OrderMatchingPolicy: slippage, effective entry/exit prices, intrabar stops
     - FeeCalculatorPolicy: commission calculation on notional/contracts
     """
@@ -80,6 +89,7 @@ class PaperExchange:
         position_sizing: PositionSizing | None = None,
         broker_config: BrokerSimulationConfig | None = None,
         margin_policy: MarginRiskPolicy | None = None,
+        sizing_policy: ISizingPolicy | None = None,
         matching_policy: OrderMatchingPolicy | None = None,
         fee_policy: FeeCalculatorPolicy | None = None,
     ) -> None:
@@ -109,6 +119,13 @@ class PaperExchange:
             )
 
         self._margin_policy = margin_policy or MarginRiskPolicy()
+        #: `EPIC-025` PR 2.1d - the sizing half of what `MarginRiskPolicy`
+        #: used to do, now `strategy`'s (ADR D17) and reached through its
+        #: published port. The default names the one implementation because
+        #: sixty construction sites in this repository pass neither policy;
+        #: Phase 3 resolves it from the container when `backtesting` becomes
+        #: a module, which is what retires this file's allowlist entry.
+        self._sizing_policy = sizing_policy or MarginSizingPolicy()
         self._matching_policy = matching_policy or OrderMatchingPolicy()
         self._fee_policy = fee_policy or FeeCalculatorPolicy()
 
@@ -238,21 +255,20 @@ class PaperExchange:
             return 0.0, 0.0, 0.0
 
         leverage = self._leverage_for(side)
-        margin, notional_capital = self._margin_policy.calculate_margin_and_notional(
-            side,
-            effective_price,
-            current_equity,
-            self._balance,
-            self._position_sizing,
-            leverage,
-            self._broker_config.stop_loss_pct,
+        allocation = self._sizing_policy.allocate(
+            sizing=self._position_sizing,
+            effective_price=effective_price,
+            current_equity=current_equity,
+            available_balance=self._balance,
+            leverage=leverage,
+            stop_loss_pct=self._broker_config.stop_loss_pct,
         )
 
-        if margin <= 0 or notional_capital <= 0:
+        if not allocation.is_fundable:
             return 0.0, 0.0, 0.0
 
         entry_fee, quantity = self._fee_policy.calculate_entry_fee_and_quantity(
-            notional_capital,
+            allocation.notional_capital,
             effective_price,
             self._broker_config.commission_type,
             self._broker_config.commission_value,
@@ -261,7 +277,7 @@ class PaperExchange:
         if quantity <= 0:
             return 0.0, 0.0, 0.0
 
-        return margin, quantity, entry_fee
+        return allocation.margin, quantity, entry_fee
 
     def _open(
         self,

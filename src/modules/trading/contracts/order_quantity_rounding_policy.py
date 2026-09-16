@@ -11,6 +11,23 @@ first.
 
 `Decimal` throughout, never `float` — see `FuturesSymbolMetadata`'s own
 docstring for why.
+
+@par Why it sits in `contracts/` rather than `domain/policies/`
+`EPIC-025` PR 2.1d, on the same measurement PR 2.1a used to publish
+`OrderIntent`: what a module's `contracts/` holds is what crosses its boundary,
+and this file already did. `contracts/order_preview.py` — a published DTO — has
+a `notional_check: NotionalCheck` field, so a consumer reading that answer had
+to import the enum out of this module's `domain/`; and two callers outside the
+module (`presentation/cli/order_preview_formatter.py` and, since PR 2.1d,
+`strategy`'s own `position_sizing_bridge`) name the policy itself. It is also
+the half of order construction that carries no trading decision: what the
+exchange will accept is a filter, not a judgement about whether to trade — that
+is `TradingLimitPolicy`, which stays in `domain/policies/` where nothing
+outside the module may reach it. ADR D17 draws the same line from the other
+side: `strategy` decides how much capital to commit, `trading` owns what the
+venue accepts, so the rounding rule has to be reachable from `strategy`
+*without* a boundary violation, and publishing what already crossed is the
+answer rather than a second copy of `ROUND_FLOOR`.
 """
 
 from __future__ import annotations

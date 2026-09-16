@@ -32,11 +32,11 @@ from __future__ import annotations
 from contextlib import suppress
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
+from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
+    PositionSizingType,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
-    PositionSizingType,
 )
 
 #: `BOT-041`'s own defaults, unchanged by this move — a fresh app must

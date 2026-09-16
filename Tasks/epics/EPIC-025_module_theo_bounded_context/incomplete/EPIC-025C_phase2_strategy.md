@@ -1,8 +1,9 @@
 # EPIC-025C — Phase 2: `modules/strategy` (the Core domain)
 
-- **Status:** 🟡 Started 2026-09-16 — **PR 2.1a done** (the unblocking measurement and the one
-  split it produced). The move itself, PR 2.1b, is next; §3 below is the cut, measured rather
-  than estimated.
+- **Status:** 🟡 In progress since 2026-09-16 — **2.1a, 2.1b, 2.1c and 2.1d done**: the
+  unblocking measurement (§3.3), the move itself (§4), `IArmedStrategy` with the catalog measured
+  out (§5), and `ISizingPolicy` with `MarginRiskPolicy` split (§6). Allowlist 23 → 42 → 40 → 36.
+  Next: **2.1e**, the UI. §3.4 carries the remaining cut, measured rather than estimated.
 - **Repository:** Elite
 - **Blocked by:** B · **Blocks:** D
 - **Read first:** HLD §3.4; ADR D1 (`strategy` is the Core domain, separated from `trading` — the
@@ -100,9 +101,15 @@ there is exactly one `OrderIntent` in the module, in `contracts/`, where HLD §3
 | ~~2.1a~~ ✅ | `OrderIntent` published; the signal bridge identified as strategy's and isolated | unchanged (36) |
 | ~~2.1b~~ ✅ | `modules/strategy/` arrives: 31 files / 2930 lines — `domain/strategies` (10), the seven services, `arm`/`disarm`, the bridge, `contracts/` for the four published types, and `module.py`. 19 test files / 140 tests moved with them, tier unchanged | **23 → 42**: 23 in, 4 retired (their files moved into the module), each new line naming the PR that deletes it |
 | ~~2.1c~~ ✅ | **`IArmedStrategy` published** — `ArmedStrategySnapshot`, both Presenters off `LiveStrategySession`. `IStrategyCatalog` was written, measured against its four would-be consumers, and **deleted**: see §5 | **42 → 40** |
-| 2.1d | `ISizingPolicy` (ADR D17): `position_sizing_bridge` and `MarginRiskPolicy` move in; the `trading → backtesting` entry retires | shrinks |
+| ~~2.1d~~ ✅ | **`ISizingPolicy` published** (ADR D17) — `position_sizing_bridge` moved in, `MarginRiskPolicy` was **split** and only its sizing method came, `PositionSizing` went to `core/vo`, and `trading`'s published surface gained `OrderQuantityRoundingPolicy`. The `trading → backtesting` pair this whole allowlist was written to catch is gone: see §6 | **40 → 36** |
 | 2.1e | the UI: `strategy_arming_coordinator`, `signal_feed`, `strategy_display`, `strategy_params`, `strategy_overlay` → `modules/strategy/ui/`, with the strategy card contributed to both surfaces (§1 item 4) | shrinks |
 | 2.1f | `ITradingSession.claim_symbol`/`release_symbol` — the lease `IOrderSubmission` shipped without, whose first consumer is `arm_strategy` (`Docs/SDD/05` §3) | unchanged |
+
+`2.1e` inherited one line from 2.1d: PR 2.1d found that `ISizingPolicy` does **not** pass through
+`LiveStrategyFactory`'s arguments, so the container-binding move that `module.py` and
+`composition/port_bindings.py` had both scheduled for 2.1d travels with `2.1e` instead, where the
+strategy card and the chart overlay give it a reason. Both docstrings now say so rather than
+keeping the prediction.
 
 `2.1e` is also where §3.1's `strategy_params` row is answered: HLD §3.5 assigns that package to
 `support/indicators`, the rule table cannot satisfy it (`bot_params_form.py` needs `BaseStrategy`),
@@ -317,3 +324,147 @@ Nothing was found against the code. The E12-style probe of the new binding is in
   in files that also need the concrete registry for another reason. Nothing is wrong with them
   today; they are the two call sites that make `IStrategyCatalog` worth having once 2.1e removes
   the other reason, and they are named here so that pull request does not have to re-find them.
+
+---
+
+## 6. PR 2.1d — `ISizingPolicy`, and the two things the decision got slightly wrong
+
+Allowlist **40 → 36**: six entries retired, two arrived, and one of the six is the pair this file's
+header says the whole ratchet was written to catch — `trading → backtesting`, a dependency HLD §2.1
+forbids and no diagram in this repository ever drew.
+
+| Retired | Why |
+| :--- | :--- |
+| `trading.…position_sizing_bridge → backtesting.…margin_risk_policy` | the sizing rule is `strategy`'s now (§6.2) |
+| `trading.…position_sizing_bridge → domain.value_objects.position_sizing` | `PositionSizing` is `core/vo` (§6.1) |
+| `strategy.…live_trading_coordinator → domain.value_objects.position_sizing` | the same |
+| `strategy.…live_trading_coordinator → trading.…position_sizing_bridge` | the bridge is intra-module |
+| `cli.order_preview_formatter → trading.…order_quantity_rounding_policy` | published (§6.3) |
+| `cli.trade_once_cmd → trading.…position_sizing_bridge` | replaced by the same import one prefix over, which PR 2.1g retires with the command |
+
+| Arrived | Repaid by |
+| :--- | :--- |
+| `cli.trade_once_cmd → strategy.…position_sizing_bridge` | PR 2.1g — `trade-once` becomes strategy's declared CLI command |
+| `backtesting.paper_exchange → strategy.…margin_sizing_policy` | `EPIC-025D` — `modules/backtesting` resolves `ISizingPolicy` from the container instead of defaulting it |
+
+The second arrival is worth reading carefully, because the *dependency* it records is legal and only
+the **default** is not. `PaperExchange`'s constructor takes `ISizingPolicy` — a contract, which a
+legacy file may import freely and which needs no entry. What the entry records is the `or
+MarginSizingPolicy()` fallback: sixty construction sites in this repository pass no policy at all,
+so something has to name the implementation to build when nobody hands one over. That is the shape
+PR 0.5 and PR 1.3b ran twice, and it is the shape
+[`EPIC-025D`](EPIC-025D_phase3_backtesting.md) already scheduled — *"`backtesting` sizes paper fills
+through `strategy.contracts.ISizingPolicy` (ADR D17), so backtest and live sizes are one number by
+construction"*.
+
+### 6.1 `PositionSizing` moved with no argument needed
+
+HLD §2.4's table had already decided it — *"✅ (the value type stays neutral; the rule that uses it
+belongs to `strategy`)"* — and reading the file confirmed the row: a frozen dataclass, a `str` enum
+of four members, range validation, and no trading rule anywhere. So it moved to
+`core/vo/position_sizing.py` as a move plus an import rewrite, which is what §2.4's own admission
+rule promises such a promotion will be. Its measured consumer list is in fact wider than 2026-09-11
+recorded: the backtest UI, both backtest commands, `config_keys`' comments and `trade_once_cmd` name
+it too.
+
+### 6.2 The finding: `MarginRiskPolicy` was two rules, and moving both would have re-drawn the arrow
+
+ADR D17 says *"`MarginRiskPolicy` and `position_sizing_bridge` move from `domain/backtesting` and
+`domain/trading` into `modules/strategy/domain/`"*. Measured against the class, that is one method
+too many. `MarginRiskPolicy` declares four:
+
+| Method | What it is | Whose |
+| :--- | :--- | :--- |
+| `calculate_margin_and_notional()` | how much capital an entry may use | **sizing — `strategy`** (ADR D17) |
+| `get_leverage()` | which configured leverage applies to a direction | a paper broker's books |
+| `mark_to_market()` | what an open position is worth right now | the same |
+| `calculate_realized_pnl()` | PnL, PnL %, and balance release on close | the same |
+
+Its logger is even named `App.PaperExchange`. Moving the whole class would have put PnL realization
+inside `modules/strategy`, and then Phase 3 — which turns `backtesting` into a module — would have
+had to import `calculate_realized_pnl` from `modules/strategy/domain/`, a module-to-module
+non-contract import: the same wrong-direction arrow this pull request exists to delete, one context
+over and one phase later.
+
+So the sizing method left as `MarginSizingPolicy`, the other three stayed where they are, and the
+formula is the one `BOT-104` and `BOT-041` wrote, unchanged. **This is the fourth time in this epic
+that one file has been found holding two things with different owners** — PR 2.1a's
+`order_intent.py`, PR 2.1b's indicator surface, PR 2.1c's catalog, and now this one — which is
+enough of a pattern to expect it at 2.1e rather than be surprised by it.
+
+The port's shape is the second correction. ADR D17 says `ISizingPolicy` *"computes the order
+quantity"*; it cannot, because a quantity is capital divided by a price and then rounded down to the
+symbol's lot filter, and the same ADR leaves the exchange's filters with `trading`. `allocate()`
+therefore answers a named `MarginAllocation` — the margin an order locks and the notional it buys —
+and the capital-to-quantity step is `position_sizing_bridge`, `strategy`'s own domain code, which
+nothing outside the module needs to know about. ADR D17's line is exactly the line that shipped;
+what moved is which side of it the published method sits on. `Docs/SDD/05` §2d records both
+corrections.
+
+Two smaller choices, so a reviewer does not have to re-derive them. **The bridge constructs
+`MarginSizingPolicy` directly** rather than taking `ISizingPolicy` as a parameter: a port is how a
+consumer across the boundary asks, and the bridge is this module's own domain code sitting beside
+the implementation — it constructed `MarginRiskPolicy()` the same way before the move, and adding
+an injection point nothing else needs is the seam `architecture-rule.md` §7.2.1 says to cut at the
+second consumer. **The bridge's `if not allocation.is_fundable` guard is unreachable with today's
+implementation** — `MarginSizingPolicy` answers `NO_ALLOCATION`, whose zero notional divides to
+zero anyway — and it stays because what it actually refuses is a *negative* notional turning into a
+negative order quantity, which is a second implementation's failure mode rather than this one's.
+That is written at the guard rather than left for a reader to test.
+
+### 6.3 `OrderQuantityRoundingPolicy` is published, on PR 2.1a's own argument
+
+The bridge rounds, so once it is `strategy`'s it has to reach trading's rounding rule — and copying
+`ROUND_FLOOR` into a second file is the drift disease `CLAUDE.md` records this repository catching
+twice. Measured before deciding, exactly as PR 2.1a measured `OrderIntent`:
+
+- `contracts/order_preview.py` — a **published DTO** — has a `notional_check: NotionalCheck` field,
+  so any consumer reading that answer had to import the enum out of the module's `domain/`. The
+  type already crossed the boundary; the file just had not moved with it.
+- Two callers outside the module name the policy itself (`cli/order_preview_formatter.py`,
+  `scripts/epic021c_metadata_probe.py`), which is HLD §2.4's admission rule.
+- It carries no trading decision. What the venue accepts is a filter; whether to trade at all is
+  `TradingLimitPolicy`, which stays in `domain/policies/` where nothing outside may reach it.
+
+### 6.4 Why the bridge still rounds, although ADR D17 says `trading` rounds
+
+It rounds twice today: `position_sizing_bridge` rounds down to `step_size`, and the submit path's
+`PreviewOrderQueryHandler` rounds the result down again, against the same `step_size` from the same
+`IMarketMetadataProvider`. Removing the first looks like exactly what ADR D17 asks for, and the
+measurement says not to:
+
+rounding down twice is idempotent, so the *quantity* is identical either way — but a sub-lot
+quantity is only **zero** after rounding. With the bridge's rounding, `LiveTradingCoordinator`
+answers *"Computed live order quantity was zero for balance X at Y% sizing — nothing to send"* and
+publishes it to the Trading screen's log panel. Without it, the quantity travels on, `preview`
+rounds it to zero, and the operator is told `MIN_NOTIONAL` instead. That would be undoing
+`BUG-084`'s own fix, which is the commit that made this distinction visible in the first place — so
+the rounding stayed, and the bridge's docstring says why.
+
+### 6.5 No verified fake, and that is against HLD §10.3 rule 1 on purpose
+
+Every other published port in this module and in `trading` ships one, because every other port
+reaches something a test cannot have. This one is arithmetic: pure, in-memory, instant, no I/O to
+stand in for. A double could only re-type the formula, or answer canned numbers — which is
+[`CS-001`](../../../Docs/CASE_STUDIES/CS-001_a_double_that_could_not_disagree.md), a double that
+could not disagree with the code it was standing in for. A consumer that needs a different
+allocation gives the real policy different inputs.
+
+So `SizingPolicyContract` runs against the real implementation, in the unit tier, and its reason for
+existing is the one ADR D17 gave the user: *"changing how size is computed (ATR-based, Kelly, …) is
+one change in the strategy module, and backtest and live change together"*. A second implementation
+is what that suite is for. A fake arrives with the first consumer that needs an allocation the
+formula cannot produce — `base_feed.py`'s promote-on-the-second-need rule, the same one `BUG-126`
+applied when it deleted a feed instead of keeping it.
+
+### 6.6 Tests
+
+Moved, not rewritten (ADR D18): the four `position_sizing_bridge` cases to
+`tests/unit/modules/strategy/domain/policies/`, and the five sizing cases out of
+`tests/unit/domain/backtesting/policies/test_margin_risk_policy.py` into
+`test_margin_sizing_policy.py` beside them — numbers and comments unchanged, the only edit being
+that the answer is a named `MarginAllocation` rather than a bare pair. That file keeps its other
+five cases and says at the top where the missing ones went, so a reader counting tests is not left
+to wonder. `test_order_quantity_rounding_policy.py` moved from `tests/unit/domain/policies/` —
+where it had been left behind by PR 1.3a — to `tests/unit/modules/trading/contracts/`, beside its
+subject at last. New: `SizingPolicyContract` and the one file that runs it.

@@ -179,6 +179,52 @@ no engine. The DTO carries `config` and `engine_running`, and
 `IArmedStrategy.armed()` answers both under one acquisition. That is the one
 behaviour PR 2.1c changed, and it changed it in the safe direction.
 
+**2d. `ISizingPolicy` shipped in capital, not in quantities, and the class it
+came out of was split (PR 2.1d, ADR D17).** Two corrections to the decision's
+own wording, both measured before anything moved.
+
+First, ADR D17 says the port *"computes the order quantity"*. It cannot: a
+quantity is capital divided by a price and then rounded down to the symbol's lot
+filter, and the same ADR leaves the exchange's filters with `trading`. So
+`allocate(...)` answers `MarginAllocation` — the margin an order locks and the
+notional it buys — and `position_sizing_bridge`, which moved into
+`modules/strategy/domain/policies/` with it, is the one step from that to a
+step-rounded `Decimal`. The bridge is `strategy`'s own domain code, not a
+published contract, so nothing outside the module has to know that step exists.
+The line ADR D17 draws is still the line that shipped; what changed is which
+side of it the *published* method sits on.
+
+Second, `MarginRiskPolicy` was not one rule. Of its four methods only
+`calculate_margin_and_notional()` is sizing; `get_leverage()`, `mark_to_market()`
+and `calculate_realized_pnl()` are what a paper broker does **after** a size is
+known, and its logger was even named `App.PaperExchange`. Moving the whole class
+would have put PnL realization in `strategy` and left Phase 3's
+`modules/backtesting` reaching into `modules/strategy` for it — the same
+wrong-direction arrow this pull request exists to delete, one context over. So
+the sizing method left as `MarginSizingPolicy`, the other three stayed, and the
+formula is byte-for-byte the one `BOT-104` and `BOT-041` wrote. Fourth time this
+epic has found one file holding two things with different owners (§2's
+`order_intent`, §2b's catalog, PR 2.1b's indicator surface).
+
+Two consequences worth naming, because both are rules bent on evidence:
+
+- **`OrderQuantityRoundingPolicy` is published** (`trading/contracts/`), so the
+  bridge can round without a boundary violation. The argument is §2's exactly:
+  `contracts/order_preview.py` already had a `notional_check: NotionalCheck`
+  field, so the enum already crossed, and what the venue accepts is a filter
+  rather than a judgement about whether to trade — that is `TradingLimitPolicy`,
+  which stays internal. It retires the CLI formatter's entry as well.
+- **No verified fake, against HLD §10.3 rule 1.** The implementation is pure
+  arithmetic: a double could only re-type the formula, which is the drift
+  disease `CLAUDE.md` records twice, or answer canned numbers, which is
+  `CS-001`. `SizingPolicyContract` therefore runs against the real
+  implementation in the unit tier, and it exists for the second implementation
+  ADR D17 promises the user — *"changing how size is computed (ATR-based,
+  Kelly, …) is one change in the strategy module"* is a promise only a suite can
+  keep. A fake arrives with the first consumer that needs an allocation the
+  formula cannot produce, which is `base_feed.py`'s own promote-on-the-second
+  -need rule.
+
 **3. `ITradingSession` shipped without the symbol lease.** Specified:
 `claim_symbol(symbol, owner_id)` / `release_symbol(...)`, an exclusive lease
 that refuses, so a manual order cannot be placed on a symbol a strategy is

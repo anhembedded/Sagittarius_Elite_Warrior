@@ -8,7 +8,7 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview import (
     OrderPreview,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.order_quantity_rounding_policy import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
 )
 

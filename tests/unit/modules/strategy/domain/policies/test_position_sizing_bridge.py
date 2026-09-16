@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
+from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizing,
     PositionSizingType,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.position_sizing_bridge import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.position_sizing_bridge import (
     calculate_live_order_quantity,
 )
 
@@ -47,10 +47,10 @@ def test_zero_reference_price_returns_zero_quantity() -> None:
 
 
 def test_risk_percent_without_stop_loss_returns_zero_quantity() -> None:
-    """`MarginRiskPolicy`'s own contract: RISK_PERCENT sizing needs a
-    stop-loss distance to convert a risk % into a quantity; without one it
-    returns (0, 0), and this bridge passes that through as zero rather
-    than raising."""
+    """`ISizingPolicy`'s own contract: RISK_PERCENT sizing needs a
+    stop-loss distance to convert a risk % into a quantity; without one the
+    allocation is not fundable, and this bridge passes that through as zero
+    rather than raising."""
     quantity = calculate_live_order_quantity(
         sizing=PositionSizing(type=PositionSizingType.RISK_PERCENT, value=1.0),
         available_balance=Decimal(1000),

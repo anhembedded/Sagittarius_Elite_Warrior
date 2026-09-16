@@ -3,6 +3,10 @@ from datetime import UTC, datetime
 from typing import Any
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
+    PositionSizing,
+    PositionSizingType,
+)
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
 from Sagittarius_Elite_Warrior.src.domain.backtesting.paper_exchange import (
     PaperExchange,
@@ -12,10 +16,6 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
-    PositionSizing,
-    PositionSizingType,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (

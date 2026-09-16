@@ -7,11 +7,11 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.order_quantity_rounding_policy import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
     OrderQuantityRoundingPolicy,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 
 policy = OrderQuantityRoundingPolicy()
 

@@ -13,7 +13,7 @@
 # PR 0.4a -> 38 after PR 0.4a-2 -> 34 after PR 0.5 -> 28 after PR 1.1a -> 24
 # after PR 1.1b -> 20 after PR 1.2 -> 80 after PR 1.3a -> 60 and 56 after PR
 # 1.3b's two halves -> 46, 32, 29, 25, 23 after PR 1.3c-1..1.3c-5
-# -> 42 after PR 2.1b -> 40 after PR 2.1c.
+# -> 42 after PR 2.1b -> 40 after PR 2.1c -> 36 after PR 2.1d.
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -250,9 +250,17 @@ presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules
 #   strategy's verdict. Both are `strategy`'s vocabulary, not trading's, so
 #   promoting them now would publish another context's language from this one.
 #   Phase 2 gives them an owner and these two entries leave with it.
-
-modules.trading.domain.policies.position_sizing_bridge -> domain.backtesting.policies.margin_risk_policy
-modules.trading.domain.policies.position_sizing_bridge -> domain.value_objects.position_sizing
+#
+# CLOSED by PR 2.1d (ADR D17) -- BOTH, and they were the pair this whole file
+# was first written to catch: `trading` depended on `backtesting`, which no
+# diagram in this repository ever drew. `position_sizing_bridge` moved into
+# `modules/strategy/domain/policies/`, `PositionSizing` into `core/vo` (HLD
+# 2.4's row for it), and the sizing rule out of `MarginRiskPolicy` into
+# `strategy`'s `MarginSizingPolicy` behind `ISizingPolicy`. What stayed in
+# `backtesting` is that class's other half -- leverage by direction,
+# mark-to-market and realized PnL -- because those are a paper broker's books
+# and moving them would have re-drawn the same wrong arrow one context over in
+# Phase 3.
 
 
 # ---------------------------------------------------------------------------
@@ -317,8 +325,18 @@ modules.trading.domain.policies.position_sizing_bridge -> domain.value_objects.p
 #   moves the caller into `modules/strategy`; what it no longer has to do is
 #   change the call.
 
-presentation.cli.order_preview_formatter -> modules.trading.domain.policies.order_quantity_rounding_policy
-presentation.cli.trade_once_cmd -> modules.trading.domain.policies.position_sizing_bridge
+# CLOSED by PR 2.1d: `order_preview_formatter -> order_quantity_rounding_policy`
+# and `trade_once_cmd -> position_sizing_bridge`. The first is a retirement,
+# not a move of its consumer: `OrderQuantityRoundingPolicy` and `NotionalCheck`
+# are published as `trading/contracts/order_quantity_rounding_policy.py`,
+# because `contracts/order_preview.py` already had a `notional_check` field
+# typed by that enum -- a published DTO whose field type was not published --
+# and because ADR D17 puts the exchange's lot filter on trading's side of the
+# line, where `strategy`'s sizing bridge has to be able to reach it. The
+# second only changed prefix: the bridge is `strategy`'s now, so the entry
+# below replaces it and retires with PR 2.1g (`trade-once` becomes strategy's
+# declared CLI command).
+presentation.cli.trade_once_cmd -> modules.strategy.domain.policies.position_sizing_bridge
 presentation.cli.trade_once_cmd -> modules.trading.domain.policies.trading_limit_policy
 presentation.cli.trade_once_formatter -> modules.trading.domain.policies.trading_limit_policy
 presentation.ui.common.execute_order_block_reason -> modules.trading.domain.policies.trading_limit_policy
@@ -343,9 +361,20 @@ presentation.ui.screens.dashboard.dev_board_panel -> modules.trading.domain.poli
 #
 # EPIC-025C section 3.4 carries the cut these exits refer to.
 
-# -> ISizingPolicy (PR 2.1d, ADR D17). The only outbound pair.
-modules.strategy.application.services.live_trading_coordinator -> domain.value_objects.position_sizing
-modules.strategy.application.services.live_trading_coordinator -> modules.trading.domain.policies.position_sizing_bridge
+# CLOSED by PR 2.1d (ADR D17): the only outbound pair this module had, and
+# the module now points nowhere but `core`, `support` and
+# `trading/contracts`. `PositionSizing` went to `core/vo`; the bridge is
+# `strategy`'s own domain and the coordinator calls it as one.
+#
+# ONE inbound entry arrived in exchange, and it is the shape 0.5 and 1.3b ran:
+# `PaperExchange` sizes a paper fill by the same rule live trading uses (ADR
+# D17's *"one number by construction"*), so it depends on `ISizingPolicy` --
+# its constructor parameter is the contract, which a legacy file may import
+# freely. What the entry records is the **default**: sixty construction sites
+# in this repository pass no policy at all, so the class names the one
+# implementation to build when nobody hands it one. `EPIC-025D` retires it by
+# resolving the port from the container once `backtesting` is a module.
+domain.backtesting.paper_exchange -> modules.strategy.domain.policies.margin_sizing_policy
 
 # CLOSED by PR 2.1c: the TWO `live_strategy_session` entries. Each Presenter
 # read `.config`, and the Dev Board also read `.is_armed` through a SECOND

@@ -25,13 +25,13 @@ from collections.abc import Callable, Iterable
 from dataclasses import dataclass
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
+    PositionSizingType,
+)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
-    PositionSizingType,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_fsm_matrix import (
     BacktestExecutionMode,
 )

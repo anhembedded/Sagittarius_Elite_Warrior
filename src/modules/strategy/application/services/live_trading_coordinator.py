@@ -29,11 +29,14 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
+from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizing,
     PositionSizingType,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.position_sizing_bridge import (
+    calculate_live_order_quantity,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.signal_action_to_order_intent import (
     order_intent_for,
 )
@@ -56,9 +59,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request impor
     OrderRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.position_sizing_bridge import (
-    calculate_live_order_quantity,
-)
 
 logger = logging.getLogger("App.LiveTradingCoordinator")
 

@@ -1,15 +1,15 @@
 """Unit tests for BacktestRunConfig and FSM State Matrix (BOT-095B, BOT-104)."""
 
+from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
+    PositionSizing,
+    PositionSizingType,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
     BrokerSimulationConfig,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
-    PositionSizing,
-    PositionSizingType,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_fsm_matrix import (
     BACKTEST_STATE_TRANSITIONS,
