@@ -98,7 +98,7 @@ there is exactly one `OrderIntent` in the module, in `contracts/`, where HLD §3
 | PR | What | Allowlist |
 | :--- | :--- | :--- |
 | ~~2.1a~~ ✅ | `OrderIntent` published; the signal bridge identified as strategy's and isolated | unchanged (36) |
-| **2.1b** | `modules/strategy/` arrives: `domain/strategies` (9), the six strategy services, `arm`/`disarm`, `LiveTradingCoordinator`, and `contracts/` for `Signal`, `SignalAction`, `LiveStrategyConfig`, `SignalGeneratedEvent` and the bridge | grows — one entry per consumer in §3.2, each named with the PR that retires it |
+| ~~2.1b~~ ✅ | `modules/strategy/` arrives: 31 files / 2930 lines — `domain/strategies` (10), the seven services, `arm`/`disarm`, the bridge, `contracts/` for the four published types, and `module.py`. 19 test files / 140 tests moved with them, tier unchanged | **23 → 42**: 23 in, 4 retired (their files moved into the module), each new line naming the PR that deletes it |
 | 2.1c | `IStrategyCatalog` published; `strategy_registry`'s consumers move onto it | shrinks |
 | 2.1d | `ISizingPolicy` (ADR D17): `position_sizing_bridge` and `MarginRiskPolicy` move in; the `trading → backtesting` entry retires | shrinks |
 | 2.1e | the UI: `strategy_arming_coordinator`, `signal_feed`, `strategy_display`, `strategy_params`, `strategy_overlay` → `modules/strategy/ui/`, with the strategy card contributed to both surfaces (§1 item 4) | shrinks |
@@ -109,3 +109,91 @@ there is exactly one `OrderIntent` in the module, in `contracts/`, where HLD §3
 and a form rendering *a strategy's* parameters is `modules/strategy/ui`. That was recorded as open
 for the user in `EPIC-025E`; Phase 2 existing is what makes it answerable, and the HLD row is fixed
 in that pull request rather than left to disagree with the code.
+
+---
+
+## 4. PR 2.1b — what the move actually cost, and the two things it found
+
+31 files / 2930 lines under `src/modules/strategy/`; 19 test files / 140 tests moved beside them
+with the tier unchanged (ADR D7). `src/application/services/` is **gone** — all seven of its files
+were this context's — and `src/domain/strategies/` with it. Allowlist 23 → 42. Duplicated members
+unchanged at 59, as expected: that number moves when the two *screens* move, which
+[`DECISION_2026-09-16`](../DECISION_2026-09-16_the_duplication_criterion_waits.md) put in Phase 2 +
+Phase 4.
+
+### 4.1 The rule table refused the move, and the rule was narrower than this design
+
+`modules/strategy/domain/strategies/*` imports `EMA`, `IIndicator`, `MACDValue`,
+`SupportResistance` and `scripting.Series` from `support/indicators` — and HLD §6.1 let a module
+import a support package only through its `contracts/`. So the guard refused **14 imports across 8
+files**, which is that package's entire public surface rather than a corner of it.
+
+This is the third time in this epic that the table has been narrower than the HLD's own assignment,
+and it was settled the way the first two were rather than with a second answer: the *imported* side
+widened once, for one zone. A module may read `support/indicators`' four Qt-free sub-packages —
+`indicators/`, `indicator_scripts/`, `scripting/`, `indicator_script_registry.py`, exactly the four
+`test_module_domain_is_qt_free.py` already names — directly. The alternative was a
+`support/indicators/contracts/` re-exporting five names for one consumer, which is the alias file
+with no decision in it that PR 1.6f rejected for `Palette`.
+
+Named rather than excluded, so a future `adapters/` under that package is refused by default. Six
+edges pinned in `test_boundary_rules.py`, including the ones that must keep failing —
+`modules/* → support/indicators/ui` above all, a module reaching for another package's
+`QAbstractListModel`. Recorded in HLD §6.1.
+
+### 4.2 Two defects the tests could not see, both found by the checks `ci-rule` §1 names
+
+- **A test importing its own `conftest` by dotted path.** `test_support_resistance_strategy.py`
+  read `from Sagittarius_Elite_Warrior.tests.unit.domain.strategies.conftest import …`, which the
+  import rewriter never saw because the prefix was `tests.…` and not `src.…`. Collection error, not
+  a failure — the whole unit tier refused to run. The all-modules import check is what surfaced it.
+- **Four mypy exclusions keyed on the old path.** The same four strategy files have been frozen
+  2026-08-21 debt in both `pyproject.toml`'s `exclude` list and a per-module override, keyed
+  `src.domain.strategies.*`; the move made the keys stale and 29 errors resurfaced. Classified
+  before deciding, as PR 1.6f's note requires: all 29 are `[operator]`/`[arg-type]` in those four
+  files, all from the one documented root cause (the shared indicator-handle dict collapsing to
+  `float | MACDValue | SupportResistanceValue`). **Re-keyed, not newly excluded** — deleting the
+  lines would have hidden old debt behind a move, and fixing the union inside a move would have
+  made the move unreviewable.
+
+### 4.3 And a third, which the gate found and no unit test could
+
+The **sanity tier** failed on the first gate run, and it is the more valuable of
+the three findings.
+
+`test_every_strategy_on_disk_is_registered` scans `src/domain/strategies` by
+path and compares the count with the real `StrategyRegistry`. The path moved, so
+it counted 0 on disk against 7 registered — a loud failure, because the *other*
+side of that assertion is read from production. Retargeted, and given the
+non-emptiness assertion HLD §9.3 rule 4 asks for: 0 == 0 would have passed the
+day the registry was empty too.
+
+Its neighbour was worse and nothing had noticed. `test_every_use_case_resolves_to_a_handler`
+scanned `application/use_cases` **alone** — and `EPIC-025` has been moving
+contexts out from under that path since PR 0.4a. Measured on the tree that
+exposed it: the guard was checking **4** of the application's **26**
+`Command`/`Query` classes (4 legacy, 11 `market_data`, 9 `trading`, 2
+`strategy`), and its `checked > 0` assertion kept it green for three phases
+while it lost 85% of its subject.
+
+Fixed as a seam rather than a list, the way `ui_trees.py` was: `_use_case_roots()`
+reads `src/modules/*/application` off disk, so Phase 3's `backtesting` cannot be
+forgotten, and `_MINIMUM_USE_CASES_CHECKED = 20` turns a *narrowing* into a
+failure — chosen so that seeing only the legacy tree, or only any one module,
+fails. Both roots it still names by path are now rows in
+`scanned_roots_registry.py`. All 26 resolve, so widening the scan surfaced no
+second defect; what it bought is that the next narrowing says so.
+
+### 4.4 What did not move, and why
+
+`register()` binds **nothing**. Like `trading` at PR 1.3a, this module arrives as a move and
+`binance_bot_module.py` still holds the container bindings — which costs no boundary violation
+because the boundary scan skips that file by name. They come in when there is a port to bind them
+behind, which is 2.1c; `register()` may not resolve (SDD §4), so binding first would mean this
+module resolving types its consumers still reach for directly.
+
+`contribute()`, `declare_cli()` and `subscribe()` are unimplemented, and each absence is a
+measurement written into `module.py`: the strategy cards need `BaseStrategy` from this module and
+so could not move before it existed (2.1e); `trade-once` reads as this context's command but which
+context owns it is a question about one command rather than a rider on a move (2.1g, and the
+allowlist entry for it says so); the Qt feeds travel with the widgets.

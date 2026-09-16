@@ -14,19 +14,19 @@ from decimal import Decimal
 from unittest.mock import Mock, patch
 
 from binance.exceptions import BinanceRequestException
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
-    StrategyRegistry,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
-from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
-    SignalAction,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
+    StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
+    SignalAction,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ExchangeConnectionStatus,

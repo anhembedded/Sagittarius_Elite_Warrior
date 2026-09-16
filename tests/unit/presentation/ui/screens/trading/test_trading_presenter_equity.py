@@ -19,10 +19,10 @@ from unittest.mock import MagicMock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (

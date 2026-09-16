@@ -1,10 +1,10 @@
 import logging
 
-from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
-    LiveStrategySession,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
+    LiveStrategySession,
 )
 
 

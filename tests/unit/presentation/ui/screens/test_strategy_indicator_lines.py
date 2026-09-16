@@ -4,12 +4,14 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
-from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
-    StrategyContext,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
+    BaseStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.strategy_context import (
+    StrategyContext,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_overlay.strategy_indicator_lines import (
     assign_strategy_line_colors,

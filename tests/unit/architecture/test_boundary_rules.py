@@ -75,6 +75,24 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.rules import (
         ("support.indicators.ui.list_model", "support.ui_kit.model_indexes", True),
         ("support.indicators.indicator_scripts.ema", "support.ui_kit.kit", False),
         ("support.indicators.ui.list_model", "modules.trading.contracts.x", False),
+        # PR 2.1b — the indicator mathematics is readable by any module, and
+        # this package's `ui/` still is not. Six edges, because the finding was
+        # that a rule narrower than the HLD's own assignment refused the move.
+        (
+            "modules.strategy.domain.strategies.ema_crossover_strategy",
+            "support.indicators.indicators.ema",
+            True,
+        ),
+        (
+            "modules.strategy.application.services.strategy_engine",
+            "support.indicators.indicators.i_indicator",
+            True,
+        ),
+        ("modules.strategy.domain.x", "support.indicators.scripting", True),
+        ("modules.strategy.domain.x", "support.indicators.indicator_scripts.rsi", True),
+        # ...and the edges it must not open:
+        ("modules.strategy.domain.x", "support.indicators.ui.list_model", False),
+        ("modules.trading.application.x", "support.binance_gateway.session", False),
         ("support.charting.chart_card", "support.binance_gateway.session", False),
         ("support.charting.chart_card", "modules.trading.contracts.order", False),
         ("support.charting.chart_card", "domain.value_objects.x", False),

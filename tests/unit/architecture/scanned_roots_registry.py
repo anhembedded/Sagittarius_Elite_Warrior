@@ -227,7 +227,17 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     # --- sanity ---------------------------------------------------------------
     (
         "tests/sanity/test_composition_root.py",
-        (("src", "*.py"), ("src/presentation/ui/screens", "*.py")),
+        (
+            ("src", "*.py"),
+            ("src/presentation/ui/screens", "*.py"),
+            # PR 2.1b — the two roots this file scans by name, both of which it
+            # had wrong until the gate said so. `modules/*/application` is
+            # derived from disk by `_use_case_roots()` and so cannot go stale;
+            # these two are written down and can, which is exactly what a row
+            # here is for.
+            ("src/application/use_cases", "*.py"),
+            ("src/modules/strategy/domain/strategies", "*.py"),
+        ),
     ),
     ("tests/sanity/test_self_check_process.py", (("src", "main.py"),)),
     (

@@ -30,21 +30,21 @@ import logging
 from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 
-from Sagittarius_Elite_Warrior.src.application.services.live_strategy_config_store import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
     LiveStrategyConfigStore,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.arm_strategy import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.arm_strategy import (
     ArmStrategyBlockReason,
     ArmStrategyCommand,
     ArmStrategyCommandHandler,
     ArmStrategyResult,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disarm_strategy import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.disarm_strategy import (
     DisarmStrategyCommand,
     DisarmStrategyCommandHandler,
     DisarmStrategyResult,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     LiveStrategyConfig,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_display import (

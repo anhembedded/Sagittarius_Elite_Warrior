@@ -42,18 +42,18 @@ from typing import Any
 from unittest.mock import Mock, patch
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.application.services.live_trading_coordinator import (
-    LiveTradingCoordinator,
-)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
-from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
-    SignalAction,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_trading_coordinator import (
+    LiveTradingCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
+    SignalAction,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,

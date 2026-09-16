@@ -20,6 +20,33 @@ from .zones import (
 #: through their `contracts/` (HLD §6.1: charting and the UI kit are UI).
 _UI_SUPPORT_ZONES = frozenset({"support/ui_kit", "support/charting"})
 
+#: `support/indicators` minus its `ui/`: the indicator **mathematics**, which any
+#: module may read directly rather than through a `contracts/` package.
+#:
+#: The third widening of the importing side in this epic, and the same shape as
+#: the two before it — a rule narrower than the assignment the HLD itself makes.
+#: HLD §3.4 puts the indicator library in this support package and §3.4 puts the
+#: strategies in `modules/strategy`, and a strategy's whole job is to declare and
+#: read indicators. Measured before changing anything (PR 2.1b):
+#: `modules/strategy` needs `IIndicator`, `EMA`, `MACDValue`,
+#: `SupportResistance` and `scripting.Series` — **14 imports across 8 files** —
+#: which is not a corner of the package but its entire public surface.
+#:
+#: So the alternative was a `support/indicators/contracts/` re-exporting five
+#: names for one consumer: an alias file with no decision in it, written to
+#: satisfy a rule. PR 1.6f rejected the same construction for `Palette` and
+#: widened the table instead; this follows that precedent rather than inventing
+#: a second answer.
+#:
+#: The sub-packages are named, not excluded, so a future `adapters/` under this
+#: package is refused by default rather than importable by omission. They are the
+#: same four `test_module_domain_is_qt_free.py` declares Qt-free — one fact,
+#: stated in two guards, and each file says so.
+_COMPUTATION_SUPPORT_ZONES = frozenset({"support/indicators"})
+_COMPUTATION_SUB_PACKAGES = frozenset(
+    {"indicators", "indicator_scripts", "scripting", "indicator_script_registry"}
+)
+
 #: Nothing imports the shell — it is *Main*, so a dependency on it is a cycle by
 #: definition. The exception is an **entry point**: a module whose only job is to
 #: start the process. The GUI's still lives in the legacy tree and calls the
@@ -141,10 +168,29 @@ def _module_may_import(
     if dst_top == "support":
         if is_contracts_package(imported_module):
             return True
+        if _is_computation_library(dst_zone, imported_module):
+            return True
         return (
             sub_package_of(importing_module) == "ui" and dst_zone in _UI_SUPPORT_ZONES
         )
     return False
+
+
+def _is_computation_library(dst_zone: str, imported_module: str) -> bool:
+    """The Qt-free half of `support/indicators` — readable from anywhere in a
+    module, including its `ui/`, because mathematics has no layer.
+
+    Deliberately not restricted to `domain`: `strategy_engine` reads
+    `IIndicator` from `application/services/`, and a rule that let the
+    strategies read the library while refusing the engine that runs them would
+    be arbitrary. What it does refuse is this package's `ui/` — a module
+    reaching for another package's `QAbstractListModel` is the edge
+    `test_boundary_rules.py` pins as a failure.
+    """
+    return (
+        dst_zone in _COMPUTATION_SUPPORT_ZONES
+        and sub_package_of(imported_module) in _COMPUTATION_SUB_PACKAGES
+    )
 
 
 def _shell_may_import(dst_zone: str, imported_module: str) -> bool:

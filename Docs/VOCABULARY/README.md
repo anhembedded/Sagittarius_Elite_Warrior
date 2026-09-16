@@ -121,7 +121,7 @@ difference is the reason the contexts exist (HLD §1.2).
 
 | Term | Definition | Defined in |
 | :--- | :--- | :--- |
-| **Strategy** | A rule that turns a candle buffer and a `StrategyContext` into a `Signal`. Listed by `IStrategyCatalog`. | `domain/strategies` |
+| **Strategy** | A rule that turns a candle buffer and a `StrategyContext` into a `Signal`. Listed by `IStrategyCatalog`. | `modules/strategy/domain/strategies` (since `EPIC-025` PR 2.1b) |
 | **Signal** / `SignalAction` | A strategy's output on one candle: long, short, close, hold. | `contracts/dto` |
 | **Arm** / **Disarm** | Attaching a strategy with a configuration to a symbol so that ticks produce orders; and detaching it. Arming claims the symbol lease. | `application/` |
 | **Strategy context** (`StrategyContext`) | What a strategy is allowed to see: candles plus the current position expressed neutrally. Provided by `trading` (live) and `backtesting` (simulated). | `contracts/` |

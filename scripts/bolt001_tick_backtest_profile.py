@@ -24,16 +24,18 @@ import sys
 from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
-    StrategyRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
     RunHistoricalTickBacktestCommand,
     RunHistoricalTickBacktestCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
+    StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
+    BaseStrategy,
+)
 
 N = int(sys.argv[1]) if len(sys.argv) > 1 else 120_000
 BASE = datetime(2026, 1, 1, tzinfo=UTC)

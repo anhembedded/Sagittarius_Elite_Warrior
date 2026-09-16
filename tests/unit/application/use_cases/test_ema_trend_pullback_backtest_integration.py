@@ -9,9 +9,6 @@ not to re-verify each piece's own logic in isolation."""
 from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
-    StrategyRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     RunStaticBacktestCommand,
     RunStaticBacktestCommandHandler,
@@ -19,7 +16,10 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.backtesting.exit_reason import ExitReason
-from Sagittarius_Elite_Warrior.src.domain.strategies.ema_trend_pullback_strategy import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
+    StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_trend_pullback_strategy import (
     EmaTrendPullbackStrategy,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (

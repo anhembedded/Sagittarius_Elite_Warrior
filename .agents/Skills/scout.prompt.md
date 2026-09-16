@@ -45,7 +45,7 @@ Then aim at what actually costs money when it breaks:
 
 - **Trading math edge cases** — empty series, a zero denominator, `NaN`, a flat
   equity curve, an extreme spike: `src/domain/backtesting/`,
-  `src/support/indicators/indicators/`, `src/domain/strategies/`.
+  `src/support/indicators/indicators/`, `src/modules/strategy/domain/strategies/`.
 - **Semantics, not payloads.** [`domain-truth-rule.md`](../rules/domain-truth-rule.md)
   is explicit that a signal, an order intent, a fill, an entry and an exit are
   distinct facts, and that in a long-only engine `SELL` is an exit, not a short. A

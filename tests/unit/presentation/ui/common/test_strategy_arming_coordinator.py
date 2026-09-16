@@ -12,25 +12,25 @@ import json
 from unittest.mock import MagicMock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.arm_strategy import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.arm_strategy import (
     ArmStrategyBlockReason,
     ArmStrategyCommand,
     ArmStrategyResult,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disarm_strategy import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.disarm_strategy import (
     DisarmStrategyBlockReason,
     DisarmStrategyCommand,
     DisarmStrategyResult,
 )
-from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
-    EmaCrossoverStrategy,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     LiveStrategyConfig,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
+    EmaCrossoverStrategy,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_arming_coordinator import (
     StrategyArmingCoordinator,

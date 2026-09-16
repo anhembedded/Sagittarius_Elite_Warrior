@@ -223,10 +223,10 @@ exclude = [
     # `kline_row_mapper.py` note below records — a split that silently drops a
     # file out of gate coverage — caught this time by the gate itself.
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]application[\\/]queries[\\/]get_historical_klines[\\/]handler\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]ema_crossover_strategy\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]ema_trend_pullback_strategy\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]long_term_trend_zone_strategy\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]domain[\\/]strategies[\\/]multi_ema_trend_follower_strategy\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]strategy[\\/]domain[\\/]strategies[\\/]ema_crossover_strategy\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]strategy[\\/]domain[\\/]strategies[\\/]ema_trend_pullback_strategy\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]strategy[\\/]domain[\\/]strategies[\\/]long_term_trend_zone_strategy\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]strategy[\\/]domain[\\/]strategies[\\/]multi_ema_trend_follower_strategy\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]adapters[\\/]binance[\\/]client\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]adapters[\\/]persistence[\\/]models\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]adapters[\\/]persistence[\\/]sqlalchemy_repository\\.py$",
@@ -321,17 +321,28 @@ extra_checks = true
 # non-trivial reason (their shared indicator-handle dict collapses to
 # `float | MACDValue | SupportResistanceValue`, so every per-strategy read
 # needs a narrowing decision, not a one-line annotation) — already carried
-# as pre-existing debt in the main `exclude` list above. Re-excluded from
+# as pre-existing debt in the main `exclude` list above.
+#
+# `EPIC-025` PR 2.1b **re-keyed** these four, in both places, from
+# `src.domain.strategies.*` to `src.modules.strategy.domain.strategies.*`:
+# the context moved into its module and the keys had to follow. The debt is
+# the same debt — 29 errors, all `[operator]` or `[arg-type]`, all four
+# files, all the one root cause named above — measured on the moved tree
+# before the keys were changed, so this is a re-key and not a fresh
+# exclusion. Deleting the lines would have hidden 2026-08-21 debt behind a
+# move; fixing the union inside a move would have made the move
+# unreviewable. Same reasoning, and same trap, as the
+# `get_historical_klines/handler.py` note in the exclude list above. Re-excluded from
 # the blanket Domain strictness immediately above (each flag reset to its
 # global, non-strict default) so this module pattern matching them too does
 # not newly force them into the gate via being imported by another
 # strict-checked Domain module; fixing them for real is follow-up work for
 # a later `EPIC-002D` increment, not part of this one.
 module = [
-    "Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy",
-    "Sagittarius_Elite_Warrior.src.domain.strategies.ema_trend_pullback_strategy",
-    "Sagittarius_Elite_Warrior.src.domain.strategies.long_term_trend_zone_strategy",
-    "Sagittarius_Elite_Warrior.src.domain.strategies.multi_ema_trend_follower_strategy",
+    "Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy",
+    "Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_trend_pullback_strategy",
+    "Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.long_term_trend_zone_strategy",
+    "Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.multi_ema_trend_follower_strategy",
 ]
 disallow_any_generics = false
 disallow_subclassing_any = false

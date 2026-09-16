@@ -7,18 +7,6 @@ logger = logging.getLogger("App.BinanceBotModule")
 from Sagittarius_Elite_Warrior.src.application.event_handlers.market_data.market_tick_event_handler import (
     MarketTickEventHandler,
 )
-from Sagittarius_Elite_Warrior.src.application.services.live_strategy_config_store import (
-    LiveStrategyConfigStore,
-)
-from Sagittarius_Elite_Warrior.src.application.services.live_strategy_factory import (
-    LiveStrategyFactory,
-)
-from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
-    LiveStrategySession,
-)
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
-    StrategyRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_backtest import (
     RunBacktestCommand,
     RunBacktestCommandHandler,
@@ -38,14 +26,6 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.stop_backtest 
     StopBacktestCommand,
     StopBacktestCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.arm_strategy import (
-    ArmStrategyCommand,
-    ArmStrategyCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.trading.disarm_strategy import (
-    DisarmStrategyCommand,
-    DisarmStrategyCommandHandler,
-)
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
@@ -55,24 +35,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import (
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
-)
-from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
-    EmaCrossoverStrategy,
-)
-from Sagittarius_Elite_Warrior.src.domain.strategies.ema_trend_pullback_strategy import (
-    EmaTrendPullbackStrategy,
-)
-from Sagittarius_Elite_Warrior.src.domain.strategies.long_term_trend_zone_strategy import (
-    LongTermTrendZoneStrategy,
-)
-from Sagittarius_Elite_Warrior.src.domain.strategies.multi_ema_trend_follower_strategy import (
-    MultiEmaTrendFollowerStrategy,
-)
-from Sagittarius_Elite_Warrior.src.domain.strategies.support_resistance_strategy import (
-    SupportResistanceStrategy,
-)
-from Sagittarius_Elite_Warrior.src.domain.strategies.volume_spike_flow_strategy import (
-    VolumeSpikeFlowStrategy,
 )
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispatcher_adapter import (
     EngineCommandDispatcher,
@@ -94,6 +56,44 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_session_factory import (
     IExchangeSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
+    LiveStrategyConfigStore,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_factory import (
+    LiveStrategyFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
+    LiveStrategySession,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
+    StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.arm_strategy import (
+    ArmStrategyCommand,
+    ArmStrategyCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.disarm_strategy import (
+    DisarmStrategyCommand,
+    DisarmStrategyCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
+    EmaCrossoverStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_trend_pullback_strategy import (
+    EmaTrendPullbackStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.long_term_trend_zone_strategy import (
+    LongTermTrendZoneStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.multi_ema_trend_follower_strategy import (
+    MultiEmaTrendFollowerStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.support_resistance_strategy import (
+    SupportResistanceStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.volume_spike_flow_strategy import (
+    VolumeSpikeFlowStrategy,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,

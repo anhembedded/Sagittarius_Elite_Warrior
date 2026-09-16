@@ -6,9 +6,6 @@ from typing import ClassVar
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
-    StrategyRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
     RunHistoricalTickBacktestCommand,
     RunHistoricalTickBacktestCommandHandler,
@@ -22,10 +19,6 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
     BacktestResult,
 )
-from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
-from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
-    StrategyContext,
-)
 from Sagittarius_Elite_Warrior.src.domain.value_objects.broker_simulation_config import (
     BrokerSimulationConfig,
 )
@@ -33,8 +26,17 @@ from Sagittarius_Elite_Warrior.src.domain.value_objects.position_sizing import (
     PositionSizing,
     PositionSizingType,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
+    StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
+    BaseStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.strategy_context import (
+    StrategyContext,
 )
 
 _T0 = datetime(2024, 1, 1, tzinfo=UTC)

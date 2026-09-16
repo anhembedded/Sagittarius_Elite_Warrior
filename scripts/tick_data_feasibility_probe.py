@@ -27,9 +27,6 @@ from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
     MemoryEventBus,
 )
 
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
-    StrategyRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.command import (
     RunStaticBacktestCommand,
 )
@@ -37,9 +34,6 @@ from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_bac
     RunStaticBacktestCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
-    EmaCrossoverStrategy,
-)
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
 )
@@ -52,6 +46,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.data
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
+    StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
+    EmaCrossoverStrategy,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,

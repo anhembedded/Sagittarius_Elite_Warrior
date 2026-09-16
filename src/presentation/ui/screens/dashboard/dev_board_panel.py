@@ -41,7 +41,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     MAX_LEVERAGE,
     MAX_SIZING_PERCENT,
     MIN_LEVERAGE,

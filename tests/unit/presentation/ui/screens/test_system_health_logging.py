@@ -16,16 +16,16 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from unittest.mock import MagicMock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.services.live_strategy_factory import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_factory import (
     LiveStrategyFactory,
 )
-from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
@@ -223,7 +223,7 @@ def test_backtest_initializes_and_handles_health_updated_event(
     qapp, health_mock_container
 ):
     """Verify BackTestPresenter initializes and handles health events directly into log."""
-    from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
         BaseStrategy,
     )
     from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (

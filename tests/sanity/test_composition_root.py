@@ -76,6 +76,45 @@ def _import_all_under(relative_dir: str):
         yield importlib.import_module(dotted)
 
 
+def _use_case_roots() -> tuple[str, ...]:
+    """Every tree this application keeps use cases in, read from disk.
+
+    **Derived, not listed, and that is the whole point.** This scan read
+    `application/use_cases` alone from PR 0.2 until PR 2.1b, while `EPIC-025`
+    moved three contexts out from under it — so it was checking **4** of the
+    **26** `Command`/`Query` classes the app has, and `checked > 0` kept it
+    green the whole time. Measured on the tree that found it: 4 in the legacy
+    root, 11 in `market_data`, 9 in `trading`, 2 in `strategy`.
+
+    Listing the module roots here would have the same failure one phase later,
+    when Phase 3 brings `backtesting`. Reading `src/modules/*/application` off
+    disk means a module cannot be forgotten, and `_MINIMUM_USE_CASES_CHECKED`
+    below is what turns a *narrowing* — the shape that actually happens — into a
+    failure rather than a smaller silent pass.
+    """
+    modules_root = _SRC / "modules"
+    module_roots = sorted(
+        f"modules/{package.name}/application"
+        for package in modules_root.iterdir()
+        if package.is_dir()
+        and not package.name.startswith("_")
+        and (package / "application").is_dir()
+    )
+    return ("application/use_cases", *module_roots)
+
+
+#: A floor, not a count: it moves with every use case added and a ratchet on it
+#: would be noise. Chosen so that seeing **only** the legacy tree (4) or only one
+#: module (11 at most today) fails — which is the exact regression above.
+_MINIMUM_USE_CASES_CHECKED = 20
+
+#: Where the strategy implementations live. `EPIC-025` PR 2.1b moved them from
+#: `domain/strategies` into the module that owns them; the constant has to
+#: follow, and this one was caught by the gate rather than by reading, because
+#: the count on the other side of its assertion is read from the real registry.
+_STRATEGIES_ROOT = "modules/strategy/domain/strategies"
+
+
 def _classes_defined_in(module, suffix: str) -> list[type]:
     """Classes whose name ends with `suffix` and that this module actually
     defines — re-exports would otherwise be counted several times over."""
@@ -114,22 +153,26 @@ def test_every_use_case_resolves_to_a_handler(booted_app):
 
     unresolved: list[str] = []
     checked = 0
-    for module in _import_all_under("application/use_cases"):
-        for cls in _classes_defined_in(module, "Command") + _classes_defined_in(
-            module, "Query"
-        ):
-            if cls.__name__ in _NOT_DISPATCHED:
-                continue
-            checked += 1
-            try:
-                if container.resolve(cls) is None:
-                    unresolved.append(f"{cls.__module__}.{cls.__name__} -> None")
-            except Exception as exc:  # noqa: BLE001 - the failure is the finding
-                unresolved.append(f"{cls.__module__}.{cls.__name__} -> {exc!r}")
+    for root in _use_case_roots():
+        for module in _import_all_under(root):
+            for cls in _classes_defined_in(module, "Command") + _classes_defined_in(
+                module, "Query"
+            ):
+                if cls.__name__ in _NOT_DISPATCHED:
+                    continue
+                checked += 1
+                try:
+                    if container.resolve(cls) is None:
+                        unresolved.append(f"{cls.__module__}.{cls.__name__} -> None")
+                except Exception as exc:  # noqa: BLE001 - the failure is the finding
+                    unresolved.append(f"{cls.__module__}.{cls.__name__} -> {exc!r}")
 
-    assert checked > 0, (
-        "Scanned src/application/use_cases and found no Command/Query classes — "
-        "the scan itself is broken, which would make this test silently vacuous."
+    assert checked >= _MINIMUM_USE_CASES_CHECKED, (
+        f"only {checked} Command/Query classes were checked across "
+        f"{list(_use_case_roots())}, which is fewer than this application has. A "
+        "scan that has lost part of its subject does not fail, it passes faster — "
+        "this one read the legacy tree alone for three phases while the contexts "
+        "moved out from under it. Find the tree it is no longer reading."
     )
     assert unresolved == [], (
         f"{len(unresolved)} of {checked} use cases do not resolve through the "
@@ -149,19 +192,25 @@ def test_every_strategy_on_disk_is_registered(booted_app):
     still catches the regression that matters — a strategy added and never
     registered — and the message names both sides.
     """
-    from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
         StrategyRegistry,
     )
 
     on_disk = [
         cls.__name__
-        for module in _import_all_under("domain/strategies")
+        for module in _import_all_under(_STRATEGIES_ROOT)
         for cls in _classes_defined_in(module, "Strategy")
     ]
     registered = sorted(
         booted_app.context.container.resolve(StrategyRegistry).available()
     )
 
+    assert on_disk, (
+        f"no strategy class found under src/{_STRATEGIES_ROOT}. The equality "
+        "below would then read 0 == 0 the day the registry is empty too, so this "
+        "says it out loud instead: the scan root moved, and `_STRATEGIES_ROOT` "
+        "did not follow."
+    )
     assert len(on_disk) == len(registered), (
         f"{len(on_disk)} strategy implementations on disk but {len(registered)} "
         f"registered — one was added without registering it, or a registration "

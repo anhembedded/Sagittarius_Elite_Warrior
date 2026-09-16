@@ -4,12 +4,6 @@ from dataclasses import replace
 from datetime import datetime
 from time import perf_counter
 
-from Sagittarius_Elite_Warrior.src.application.services.strategy_factory import (
-    build_engine,
-)
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
-    StrategyRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.progress_throttle import (
     ProgressThrottle,
 )
@@ -37,10 +31,16 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
     BacktestFailedEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_factory import (
+    build_engine,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
+    StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 
 from .backtest_cancelled import BacktestCancelled
 from .command import RunStaticBacktestCommand

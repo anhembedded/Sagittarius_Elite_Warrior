@@ -18,7 +18,7 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
     BacktestFailedEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (

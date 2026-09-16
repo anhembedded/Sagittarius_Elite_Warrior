@@ -33,7 +33,7 @@ from collections.abc import Callable, Mapping, Sequence
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     LiveStrategyConfig,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_overlay import (

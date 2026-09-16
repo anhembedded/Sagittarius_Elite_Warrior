@@ -17,18 +17,6 @@ from __future__ import annotations
 from unittest.mock import MagicMock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.application.services.live_strategy_factory import (
-    LiveStrategyFactory,
-)
-from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
-    LiveStrategySession,
-)
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
-    StrategyRegistry,
-)
-from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
-    EmaCrossoverStrategy,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -46,6 +34,18 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_factory import (
+    LiveStrategyFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
+    LiveStrategySession,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
+    StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
+    EmaCrossoverStrategy,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
     IEquityCurve,

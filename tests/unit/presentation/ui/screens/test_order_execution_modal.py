@@ -44,10 +44,12 @@ from unittest.mock import Mock
 
 import pytest
 from PySide6.QtCore import QMetaObject, Qt
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
+    BaseStrategy,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
 )

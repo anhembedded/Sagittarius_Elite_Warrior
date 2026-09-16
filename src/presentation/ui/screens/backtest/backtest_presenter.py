@@ -7,9 +7,6 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
-    StrategyRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
     BacktestCancelled,
 )
@@ -24,9 +21,6 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import
 )
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
     BacktestFailedEvent,
-)
-from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
-    SignalGeneratedEvent,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
     CommissionType,
@@ -51,6 +45,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalo
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
     ISymbolMarketMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
+    StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
+    SignalGeneratedEvent,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_display import (
     humanize_strategy_key,

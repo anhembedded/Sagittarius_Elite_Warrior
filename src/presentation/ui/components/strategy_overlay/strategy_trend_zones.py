@@ -4,12 +4,12 @@ from collections.abc import Iterable
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
     TREND_ZONE_DOWN,
     TREND_ZONE_UP,
     BaseStrategy,
 )
-from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.strategy_context import (
     StrategyContext,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (

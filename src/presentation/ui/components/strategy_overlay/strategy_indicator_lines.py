@@ -5,7 +5,9 @@ from collections.abc import Iterable, Mapping, Sequence
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
+    BaseStrategy,
+)
 
 #: First 4 entries match ema_ribbon_script.py's own EMA 20/50/100/200 colors
 #: (red/orange/cyan/blue) so a strategy whose indicators happen to line up

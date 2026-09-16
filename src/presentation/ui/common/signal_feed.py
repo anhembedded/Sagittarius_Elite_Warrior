@@ -28,7 +28,7 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import Signal
-from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.base_feed import BaseFeed

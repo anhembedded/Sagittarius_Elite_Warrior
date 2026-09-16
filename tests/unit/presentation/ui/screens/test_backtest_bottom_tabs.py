@@ -8,7 +8,7 @@ from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import
 from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
     BacktestFailedEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_trade_logs_panel import (
@@ -74,7 +74,7 @@ def test_backtest_bottom_tabs_switch_between_trades_and_logs(qapp) -> None:
 
 
 def test_backtest_presenter_event_bus_handlers(qapp) -> None:
-    from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
         StrategyRegistry,
     )
     from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (

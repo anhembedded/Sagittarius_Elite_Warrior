@@ -5,11 +5,13 @@ grouping and value-coercion logic in isolation before any QML round trip.
 """
 
 import pytest
-from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import BaseStrategy
-from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
+    BaseStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
-from Sagittarius_Elite_Warrior.src.domain.strategies.strategy_context import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.strategy_context import (
     StrategyContext,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.strategy_params.bot_params_form import (

@@ -473,8 +473,8 @@ factored out of `domain/indicator_scripts/` specifically so strategies could
 reuse it without moving files — this section used to predict a
 `BaseStrategyScript`/`StrategyScriptRegistry` pair mirroring the indicator
 script names 1:1. `BOT-026` built it under different names instead:
-`BaseStrategy` (`domain/strategies/base_strategy.py`) and `StrategyRegistry`
-(`application/services/strategy_registry.py`) — the `_script` suffix on the
+`BaseStrategy` (`modules/strategy/domain/strategies/base_strategy.py`) and
+`StrategyRegistry` (`modules/strategy/application/services/strategy_registry.py`) — the `_script` suffix on the
 indicator classes deliberately means "user-authored, plot-producing", which
 doesn't fit a strategy (it evaluates `StrategyContext` and returns exactly
 one `Signal`, no `plot()`/`mark()`/`shade()` output). `StrategyRegistry`'s

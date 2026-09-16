@@ -117,10 +117,10 @@ def strategy_registry():
     `test_trading_presenter_toggle.py`'s own fixture has: `restore_into_
     view_model()` calls `sorted(self._available_strategies())`, which a bare
     `MagicMock` cannot satisfy."""
-    from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
         StrategyRegistry,
     )
-    from Sagittarius_Elite_Warrior.src.domain.strategies.ema_crossover_strategy import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
         EmaCrossoverStrategy,
     )
 
@@ -133,10 +133,10 @@ def strategy_registry():
 def strategy_session(strategy_registry):
     """A real session over a real registry, with only the network-facing
     collaborators mocked — same fixture Trading's own tests use."""
-    from Sagittarius_Elite_Warrior.src.application.services.live_strategy_factory import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_factory import (
         LiveStrategyFactory,
     )
-    from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
         LiveStrategySession,
     )
 
@@ -230,10 +230,10 @@ def mock_container(
 ):
     container = MagicMock()
 
-    from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
         LiveStrategySession,
     )
-    from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
         StrategyRegistry,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
@@ -367,10 +367,10 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     `app_bootstrapper.py` shape — construction must hand the View that
     exact instance, so a Dev Board symbol-list rebuild reads/writes the
     same persisted, per-symbol pins as any other screen."""
-    from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
         LiveStrategySession,
     )
-    from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
         StrategyRegistry,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
@@ -2142,11 +2142,11 @@ def test_disarm_requested_delegates_to_the_coordinator(presenter, monkeypatch):
 def _signal_event(symbol="BTCUSDT"):
     from datetime import UTC, datetime
 
-    from Sagittarius_Elite_Warrior.src.domain.events.signal_generated_event import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
         SignalGeneratedEvent,
     )
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
         SignalAction,
     )
 
@@ -2163,7 +2163,7 @@ def _signal_event(symbol="BTCUSDT"):
 def test_signal_generated_for_the_armed_symbol_updates_the_card(
     presenter, strategy_session
 ):
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
         LiveStrategyConfig,
     )
 
@@ -2185,7 +2185,7 @@ def test_signal_generated_for_a_different_symbol_is_ignored(
 ):
     """A signal from a *backtest* `StrategyEngine` on the same shared bus
     must never appear on this card as if it were live."""
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
         LiveStrategyConfig,
     )
 
@@ -2207,7 +2207,7 @@ def test_signal_generated_with_nothing_armed_is_ignored(presenter):
 
 
 def test_armed_config_changed_updates_the_summary(presenter, strategy_session):
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
         LiveStrategyConfig,
     )
 
@@ -2684,7 +2684,7 @@ def test_run_manual_order_hard_blocks_when_strategy_owns_the_symbol_with_a_posit
     """`PRO-003` §4.1.2 (user decision) — the hard block."""
     from decimal import Decimal
 
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
         LiveStrategyConfig,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order import (
@@ -2744,7 +2744,7 @@ def test_run_manual_order_hard_blocks_when_strategy_owns_the_symbol_even_while_f
     GetOpenPositionsQuery round-trip needed to decide that."""
     from decimal import Decimal
 
-    from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
         LiveStrategyConfig,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (

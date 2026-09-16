@@ -6,17 +6,8 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
-from Sagittarius_Elite_Warrior.src.application.services.live_strategy_session import (
-    LiveStrategySession,
-)
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
-    StrategyRegistry,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.domain.value_objects.live_strategy_config import (
-    SUPPORTED_LIVE_INTERVALS,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
@@ -31,6 +22,15 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
+    LiveStrategySession,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
+    StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
+    SUPPORTED_LIVE_INTERVALS,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,

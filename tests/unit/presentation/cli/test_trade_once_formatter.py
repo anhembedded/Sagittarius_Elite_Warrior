@@ -4,8 +4,8 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
-from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (

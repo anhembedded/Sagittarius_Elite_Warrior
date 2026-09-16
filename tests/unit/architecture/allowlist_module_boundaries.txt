@@ -12,7 +12,8 @@
 # History of the count: 10 as found (2026-09-13) -> 8 after PR 0.3 -> 41 after
 # PR 0.4a -> 38 after PR 0.4a-2 -> 34 after PR 0.5 -> 28 after PR 1.1a -> 24
 # after PR 1.1b -> 20 after PR 1.2 -> 80 after PR 1.3a -> 60 and 56 after PR
-# 1.3b's two halves -> 46, 32, 29, 25, 23 after PR 1.3c-1..1.3c-5.
+# 1.3b's two halves -> 46, 32, 29, 25, 23 after PR 1.3c-1..1.3c-5
+# -> 42 after PR 2.1b.
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -22,7 +23,9 @@
 # 2026-09-16, each time as "unchanged at 36". A count in prose is a claim about
 # state, and `.agents/Skills/README.md` section 1 bans writing one without a
 # way to check it; this is the way. Add or retire an entry, edit this line in
-# the same commit.
+# the same commit -- and keep `N after PR <id>` on ONE line, because the guard
+# reads the phrase and a `#` wrapped into the middle of it hides the figure.
+# PR 2.1b found that out by breaking it and being told.
 #
 # The jump at 1.3a is 0.4a's again, and for the same reason: it moved the
 # `trading` context into `modules/trading/`, so every legacy screen, CLI
@@ -250,7 +253,6 @@ presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules
 
 modules.trading.domain.policies.position_sizing_bridge -> domain.backtesting.policies.margin_risk_policy
 modules.trading.domain.policies.position_sizing_bridge -> domain.value_objects.position_sizing
-modules.trading.domain.policies.signal_action_to_order_intent -> domain.value_objects.signal_action
 
 
 # ---------------------------------------------------------------------------
@@ -315,13 +317,72 @@ modules.trading.domain.policies.signal_action_to_order_intent -> domain.value_ob
 #   moves the caller into `modules/strategy`; what it no longer has to do is
 #   change the call.
 
-application.services.live_trading_coordinator -> modules.trading.domain.policies.position_sizing_bridge
-application.services.live_trading_coordinator -> modules.trading.domain.policies.signal_action_to_order_intent
 presentation.cli.order_preview_formatter -> modules.trading.domain.policies.order_quantity_rounding_policy
 presentation.cli.trade_once_cmd -> modules.trading.domain.policies.position_sizing_bridge
-presentation.cli.trade_once_cmd -> modules.trading.domain.policies.signal_action_to_order_intent
 presentation.cli.trade_once_cmd -> modules.trading.domain.policies.trading_limit_policy
 presentation.cli.trade_once_formatter -> modules.trading.domain.policies.trading_limit_policy
 presentation.ui.common.execute_order_block_reason -> modules.trading.domain.policies.trading_limit_policy
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.domain.policies.manual_order_intent
 presentation.ui.screens.dashboard.dev_board_panel -> modules.trading.domain.policies.manual_order_intent
+
+# ---------------------------------------------------------------------------
+# PR 2.1b -- `modules/strategy` arrives. 23 entries in, 4 retired out, and the
+# jump is 0.4a's and 1.3a's for the third time: moving a context makes every
+# import of it a counted violation instead of an indistinguishable same-tree
+# one. Each line below names the pull request that deletes it, and the four
+# that left did so because their file moved, not because a direction was
+# excused -- `live_trading_coordinator` and the `SignalAction` bridge are
+# inside this module now.
+#
+# The direction that would be architecturally alarming is OUT of the new tree,
+# and it is two lines, both ADR D17's and both retiring together in PR 2.1d:
+# the coordinator computes a quantity through `trading`'s position-sizing
+# bridge and reads the legacy `PositionSizing` value object. D17 moves the
+# bridge and `MarginRiskPolicy` here behind `strategy/contracts/ISizingPolicy`,
+# which is what makes them intra-module.
+#
+# EPIC-025C section 3.4 carries the cut these exits refer to.
+
+# -> ISizingPolicy (PR 2.1d, ADR D17). The only outbound pair.
+modules.strategy.application.services.live_trading_coordinator -> domain.value_objects.position_sizing
+modules.strategy.application.services.live_trading_coordinator -> modules.trading.domain.policies.position_sizing_bridge
+
+# -> IStrategyCatalog and the armed-session read surface (PR 2.1c). Six
+# consumers ask this module "which strategies are there" or "what is armed on
+# this symbol" by reaching for the registry or the live session directly.
+application.event_handlers.market_data.market_tick_event_handler -> modules.strategy.application.services.live_strategy_session
+presentation.cli.trade_once_cmd -> modules.strategy.application.services.strategy_registry
+presentation.ui.screens.backtest.backtest_presenter -> modules.strategy.application.services.strategy_registry
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.strategy.application.services.live_strategy_session
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.strategy.application.services.strategy_registry
+presentation.ui.screens.trading.trading_presenter -> modules.strategy.application.services.live_strategy_session
+presentation.ui.screens.trading.trading_presenter -> modules.strategy.application.services.strategy_registry
+
+# -> IStrategyEngineFactory (Phase 3, EPIC-025D). EPIC-025C section 1 item 2
+# publishes this port *for* backtesting, so its consumers retire when that
+# context moves -- not earlier, and saying "2.1c" here would be a date nobody
+# can meet.
+application.use_cases.backtest.run_historical_tick_backtest.handler -> modules.strategy.application.services.strategy_engine
+application.use_cases.backtest.run_historical_tick_backtest.handler -> modules.strategy.application.services.strategy_factory
+application.use_cases.backtest.run_historical_tick_backtest.handler -> modules.strategy.application.services.strategy_registry
+application.use_cases.backtest.run_static_backtest.handler -> modules.strategy.application.services.strategy_factory
+application.use_cases.backtest.run_static_backtest.handler -> modules.strategy.application.services.strategy_registry
+presentation.cli.trade_once_cmd -> modules.strategy.application.services.strategy_factory
+
+# -> the widgets move in (PR 2.1e). These seven are UI files that need this
+# module's own types; they stop crossing anything when the files themselves
+# become `modules/strategy/ui/`, which is why no port is invented for them.
+presentation.ui.common.strategy_arming_coordinator -> modules.strategy.application.services.live_strategy_config_store
+presentation.ui.common.strategy_arming_coordinator -> modules.strategy.application.use_cases.arm_strategy
+presentation.ui.common.strategy_arming_coordinator -> modules.strategy.application.use_cases.disarm_strategy
+presentation.ui.components.strategy_overlay.strategy_indicator_lines -> modules.strategy.domain.strategies.base_strategy
+presentation.ui.components.strategy_overlay.strategy_trend_zones -> modules.strategy.domain.strategies.base_strategy
+presentation.ui.components.strategy_overlay.strategy_trend_zones -> modules.strategy.domain.strategies.strategy_context
+presentation.ui.components.strategy_params.bot_params_form -> modules.strategy.domain.strategies.base_strategy
+
+# -> `trade-once` becomes this module's declared CLI command (PR 2.1g). The
+# command *is* a strategy run, and `shell/cli_registry.py` has collected
+# module-declared commands since PR 1.3c-5 -- but which context owns
+# `trade-once` is a question about one command rather than a rider on a move,
+# so `modules/strategy/module.py` records it and this entry waits for it.
+presentation.cli.trade_once_cmd -> modules.strategy.domain.policies.signal_action_to_order_intent

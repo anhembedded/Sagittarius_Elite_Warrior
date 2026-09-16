@@ -6,7 +6,7 @@ DRY-RUN/LIVE outcome."""
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.domain.value_objects.signal import Signal
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderNotionalRejection,
     ExecuteOrderResult,

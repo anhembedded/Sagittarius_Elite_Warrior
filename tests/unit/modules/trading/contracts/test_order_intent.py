@@ -22,8 +22,11 @@ from __future__ import annotations
 from dataclasses import FrozenInstanceError
 
 import pytest
-from Sagittarius_Elite_Warrior.src.domain.value_objects.signal_action import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.signal_action_to_order_intent import (
+    order_intent_for,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_intent import (
     OrderIntent,
@@ -32,9 +35,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import O
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
     ManualOrderDirection,
     manual_order_intent_for,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.signal_action_to_order_intent import (
-    order_intent_for,
 )
 
 

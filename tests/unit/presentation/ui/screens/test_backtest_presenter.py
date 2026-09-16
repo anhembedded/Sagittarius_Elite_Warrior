@@ -26,9 +26,6 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Sagittarius_Elite_Warrior.src.application.services.strategy_registry import (
-    StrategyRegistry,
-)
 from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest.command import (
     RunHistoricalTickBacktestCommand,
 )
@@ -49,11 +46,6 @@ from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
 )
 from Sagittarius_Elite_Warrior.src.domain.backtesting.out_of_sample_validation import (
     OutOfSampleValidation,
-)
-from Sagittarius_Elite_Warrior.src.domain.strategies.base_strategy import (
-    TREND_ZONE_DOWN,
-    TREND_ZONE_UP,
-    BaseStrategy,
 )
 from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
@@ -92,6 +84,14 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ra
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
     FakeSymbolCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
+    StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
+    TREND_ZONE_DOWN,
+    TREND_ZONE_UP,
+    BaseStrategy,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     _FALLBACK_SYMBOL,
