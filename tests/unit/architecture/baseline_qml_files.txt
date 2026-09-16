@@ -10,8 +10,6 @@ src/presentation/ui/qml/MetricsDetailPanel/MetricsDetailPanel.qml
 src/presentation/ui/qml/SelectList/SelectList.qml
 src/presentation/ui/qml/StatCardRow/StatCardRow.qml
 src/presentation/ui/qml/StatGrid/StatGrid.qml
-src/presentation/ui/qml/TimeRangePicker/TimeRangePicker.qml
-src/presentation/ui/qml/TimeRangePicker/TimeRangePickerMonth.qml
 src/support/charting/TimeframePicker/TimeframePicker.qml
 src/support/charting/TimeframePicker/TimeframePickerCard.qml
 src/support/charting/TimeframePicker/TimeframeToolbar.qml

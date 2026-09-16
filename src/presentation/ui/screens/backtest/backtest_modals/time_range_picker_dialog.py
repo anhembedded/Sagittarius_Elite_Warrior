@@ -1,11 +1,15 @@
-"""Backtest time-range chooser — `EPIC-015`: hosts the standalone
-`TimeRangePicker.qml` in place of the old preset-list-only `Overlay`.
+"""Backtest time-range chooser — the shared picker, wired to this screen.
 
-Replaces `TimeRangePickerDialog` (the QtWidgets preset-list dialog this
-module used to define). `BackTestViewModel.timeRangePresetOptions`
-(`7d/30d/90d/365d/all/custom`) already matches `TimeRangePickerVM`'s own
-hardcoded preset labels; the new widget additionally offers "Hôm nay" and a
-live two-month calendar, both accepted gains, not gaps to paper over.
+`EPIC-015` replaced the preset-list-only `Overlay` this module used to define
+with `TimeRangePicker.qml`; `EPIC-025` PR 4.3d replaced *that* with
+`support/ui_kit/time_range_picker`, a `QDialog` on two real `QCalendarWidget`s
+(ADR D20 — the platform has a calendar, so nothing here draws one).
+
+What survives both swaps: `BackTestViewModel.time_range.presetOptions`
+(`7d/30d/90d/365d/all/custom`) matches the shared picker's preset labels, which
+additionally offer "Today" — an accepted gain, not a gap to paper over, and the
+reason this screen's popup test asserts one row *more* than the ViewModel's
+option list.
 """
 
 from __future__ import annotations
@@ -13,7 +17,7 @@ from __future__ import annotations
 from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeRangePicker.time_range_picker_dialog import (
+from Sagittarius_Elite_Warrior.src.support.ui_kit.time_range_picker import (
     TimeRangePickerDialog,
 )
 

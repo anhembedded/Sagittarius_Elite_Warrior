@@ -14,11 +14,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeRangePicker.time_range_picker_dialog import (
-    TimeRangePickerDialog,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.time_range_picker import (
+    TimeRangePickerDialog,
 )
 
 from .field_style import field_style
