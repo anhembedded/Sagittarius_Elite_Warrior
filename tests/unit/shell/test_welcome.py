@@ -40,6 +40,7 @@ from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_view import WelcomeView
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
     MemoryEventBus,
 )
+from sagittarius_engine.infrastructure.logging.std_logger import StdLogger
 
 _CONFIG = {
     ConfigKeys.APP_NAME.value: "Sagittarius Elite Warrior",
@@ -126,6 +127,14 @@ def _container(
             return config_double
         if name == "IConfigWriter":
             return config_writer
+        if name == "ILogger":
+            # The real one. `BUG-125` is why: this used to fall through to
+            # `Mock()`, and a `Mock` answers `logger.exception(...)` — a
+            # method `ILogger` does not have — so the failed-write test below
+            # drove that exact line and stayed green while the real app raised
+            # `AttributeError`. Same shape as `BUG-124` one line above, same
+            # fixture, same lesson (`CS-001`): a double that cannot disagree.
+            return StdLogger(config_double)
         return Mock()
 
     container = Mock()

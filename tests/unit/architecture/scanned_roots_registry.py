@@ -52,12 +52,13 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("tests/unit/modules", "*.py"),
         ),
     ),
-    # `BUG-124` — every method called on the event bus must exist on it. It
-    # scans `src/` and `scripts/` because those are what runs as the real
+    # `BUG-124`/`BUG-125` — every method called on an engine port (the event
+    # bus, and `self.logger` inside a presenter) must exist on it. It scans
+    # `src/` and `scripts/` because those are what runs as the real
     # application; `tests/` is deliberately absent (a test may build its own
     # recorder around the bus).
     (
-        "tests/unit/architecture/test_event_bus_calls_are_real.py",
+        "tests/unit/architecture/test_engine_port_calls_are_real.py",
         (("src", "*.py"), ("scripts", "*.py")),
     ),
     # `CS-001`'s own index guard. `Docs/` rather than `src/`, and registered

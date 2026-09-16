@@ -110,15 +110,25 @@ class WelcomePresenter(BasePresenter):
             writer = self.container.resolve(IConfigWriter)
             writer.set(ConfigKeys.DEV_MODE.value, enabled)
             writer.save()
-        except (OSError, ValueError):
-            self.logger.exception(
-                "[WELCOME] Could not save developer mode = %s. The setting is "
-                "unchanged on disk.",
-                enabled,
+        except (OSError, ValueError) as exc:
+            # `error`, not `exception`, and the reason is `BUG-125`: the
+            # engine's `ILogger` offers exactly info/warning/error/debug/
+            # critical/trace. `exception` is `logging.Logger`'s, so this line
+            # raised `AttributeError` inside the slot — on the failure path,
+            # where the whole point was to leave the switch honest. The
+            # exception text goes into the message because `ILogger` has no
+            # `exc_info`: its second parameter is `extra: dict | None`.
+            self.logger.error(
+                f"[WELCOME] Could not save developer mode = {enabled}. "
+                f"The setting is unchanged on disk: {exc!r}"
             )
             self.view.show_developer_mode(enabled=self._developer_mode_now())
             return
-        self.logger.info("[WELCOME] Developer mode written as %s.", enabled)
+        # An f-string, not `%s` with a positional argument: `ILogger.info`
+        # takes `(message, extra: dict | None)`, so the value would have been
+        # passed as `extra` and the log would have printed a literal `%s`
+        # (`BUG-125`) — a line that says less than it appears to.
+        self.logger.info(f"[WELCOME] Developer mode written as {enabled}.")
         self.view.show_restart_is_needed()
 
     def _on_restart_requested(self) -> None:

@@ -84,7 +84,7 @@ Three changes, because the one-character fix would have left all three reasons a
    re-introducing `publish` on that line: mypy now reports
    `"IEventBus" has no attribute "publish"`, where before the annotation the same edit was clean.
 3. **A guard for the class, not the instance.**
-   `tests/unit/architecture/test_event_bus_calls_are_real.py` reads every call on a bus-shaped
+   `tests/unit/architecture/test_engine_port_calls_are_real.py` reads every call on a bus-shaped
    attribute across `src/` and `scripts/` and compares the method name with `IEventBus`'s real
    interface, read off the class at runtime. It matches by **name**, deliberately: that is what
    makes it immune to the `Any` which defeated mypy. Probed by re-introducing the bug — it fails

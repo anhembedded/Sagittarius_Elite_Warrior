@@ -38,7 +38,7 @@ column. **Writing a test double** — read `CS-001` first.
 
 | Id | Title | Class | Check that exists now |
 | :--- | :--- | :--- | :--- |
-| [CS-001](CS-001_a_double_that_could_not_disagree.md) | A double that could not disagree | A double shaped like the union of two interfaces, over an `Any` | `tests/unit/architecture/test_event_bus_calls_are_real.py` + the annotation in `welcome_presenter.py` |
+| [CS-001](CS-001_a_double_that_could_not_disagree.md) | A double that could not disagree | A double shaped like the union of two interfaces, over an `Any` | `tests/unit/architecture/test_engine_port_calls_are_real.py` + the annotation in `welcome_presenter.py` |
 
 Ids are sequential, never reused. `tests/unit/architecture/test_case_study_index_is_consistent.py`
 fails on an unlisted file, a missing file, a duplicate id, a dead path citation, a missing section

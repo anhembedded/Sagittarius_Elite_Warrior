@@ -1,4 +1,4 @@
-"""`BUG-124` — every method this app calls on the event bus must exist on it.
+"""`BUG-124`/`BUG-125` — every method called on an engine port must exist on it.
 
 ## Why a guard and not just a fix
 
@@ -37,9 +37,32 @@ what a name check catches. The allowed set is read off `IEventBus` at runtime
 rather than pinned as a literal, so an engine release that renames `emit`
 fails here with the new name in the message instead of drifting quietly.
 
-Subject size, measured when it was written: 20 `on`, 6 `emit`, and the one
-`publish` that was the bug. A guard with 26 real call sites is not a guard
-watching an empty room.
+## Two ports, and why only two
+
+`BUG-125` arrived a day later from following `CS-001`'s own "where else this is
+still open" list, and it was the same mistake on the neighbouring collaborator:
+`self.logger.exception(...)`, which is `logging.Logger`'s verb — the engine's
+`ILogger` offers exactly info/warning/error/debug/critical/trace. Same file,
+same `Any`, and the test that drove that very line stayed green because the
+container fixture answered `Mock()` for `ILogger`.
+
+So the bus check grew a sibling. It stops at two ports, measured rather than
+chosen: the name `logger` is bound to **three** different real types in this
+tree — the stdlib logger (196 call sites, and it *does* have `exception`), the
+engine's `ILogger`, and `BacktestEventLogger` with its own domain verbs — so a
+guard keyed on the name alone would report ten false positives and be
+abandoned. `self.logger` **inside a `BasePresenter` subclass** is the one
+binding that is unambiguous, because that is the line of the base class which
+assigns it. `config` and `dispatcher` were measured the same way and left out:
+`config` names `IConfig`, `IConfigWriter` and an `ActionContext` at different
+call sites.
+
+Subject size when written, measured by running the guard's own collectors
+rather than by grepping: **15** bus calls and **5** presenter logger calls
+across two files. Small, and that is the honest number — a `grep` for the same
+thing answers 26, because it also counts docstrings and import lines. Each
+half has a companion test that fails if its subject reaches zero, which is the
+only way a name-keyed guard dies quietly.
 """
 
 from __future__ import annotations
@@ -48,6 +71,7 @@ import ast
 from pathlib import Path
 
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
+from sagittarius_engine.interfaces.i_logger import ILogger
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 
@@ -141,9 +165,97 @@ def test_the_guard_has_a_subject() -> None:
     stopped reading anything, which is the only outcome worth failing on."""
     calls = _all_bus_calls()
 
-    assert len(calls) > 10, (
+    assert len(calls) >= 5, (
         f"only {len(calls)} bus call(s) found in {[str(r) for r in _SCAN_ROOTS]}. "
         "Either the app stopped using the event bus, or the attribute naming "
         f"convention moved away from {sorted(_BUS_NAMES)} and this guard is "
         "now inspecting nothing."
+    )
+
+
+# ---------------------------------------------------------------------------
+# `ILogger` — `BUG-125`
+# ---------------------------------------------------------------------------
+
+#: Read off the interface, like the bus's set above.
+_REAL_LOG_METHODS = frozenset(name for name in dir(ILogger) if not name.startswith("_"))
+
+
+def _presenter_logger_calls() -> list[tuple[Path, str, int, int]]:
+    """Every `self.logger.<method>(...)` in a module that subclasses
+    `BasePresenter`, as `(path, method, line, positional_args)`.
+
+    Scoped to `self.logger` in a presenter module deliberately — see the
+    module docstring on why the bare name `logger` cannot be keyed on.
+    """
+    calls: list[tuple[Path, str, int, int]] = []
+    for path in _python_files():
+        text = path.read_text(encoding="utf-8")
+        if "BasePresenter" not in text:
+            continue
+        for node in ast.walk(ast.parse(text)):
+            if not isinstance(node, ast.Call) or not isinstance(
+                node.func, ast.Attribute
+            ):
+                continue
+            receiver = node.func.value
+            if not (
+                isinstance(receiver, ast.Attribute)
+                and receiver.attr == "logger"
+                and isinstance(receiver.value, ast.Name)
+                and receiver.value.id == "self"
+            ):
+                continue
+            calls.append((path, node.func.attr, node.lineno, len(node.args)))
+    return calls
+
+
+def test_no_presenter_invents_a_logger_method() -> None:
+    """`BUG-125`: `self.logger.exception(...)` on the failure path of the
+    developer-mode switch — the one place whose whole job was to stay honest
+    when the write failed."""
+    offenders = [
+        f"{path.relative_to(_REPO_ROOT).as_posix()}:{line}: self.logger.{method}()"
+        for path, method, line, _ in _presenter_logger_calls()
+        if method not in _REAL_LOG_METHODS
+    ]
+
+    assert offenders == [], (
+        f"`ILogger` offers {sorted(_REAL_LOG_METHODS)}. `exception`, "
+        "`isEnabledFor` and friends belong to `logging.Logger`, which is a "
+        "different object — a presenter holds the engine's port.\n"
+        + "\n".join(offenders)
+    )
+
+
+def test_no_presenter_logs_printf_style() -> None:
+    """The quieter half of `BUG-125`. `ILogger.info(message, extra=None)` has
+    no printf pass-through, so `info("saved %s", value)` hands the value over
+    as `extra` and prints a literal `%s`. Nothing raises; the log simply says
+    less than it looks like it says, which `logging-rule.md` §2 is about."""
+    offenders = [
+        f"{path.relative_to(_REPO_ROOT).as_posix()}:{line}: "
+        f"self.logger.{method}() with {args} positional arguments"
+        for path, method, line, args in _presenter_logger_calls()
+        if method in _REAL_LOG_METHODS and args > 1
+    ]
+
+    assert offenders == [], (
+        "`ILogger` takes `(message, extra: dict | None)` — a second "
+        "positional argument is not a printf parameter, it lands in `extra` "
+        "and the placeholder is printed verbatim. Format the message "
+        "instead.\n" + "\n".join(offenders)
+    )
+
+
+def test_the_logger_guard_has_a_subject() -> None:
+    calls = _presenter_logger_calls()
+
+    assert len(calls) >= 3, (
+        f"only {len(calls)} presenter logger call(s) found. Either presenters "
+        "stopped logging, or `self.logger` is no longer how they reach the "
+        "port and this guard is inspecting nothing. The floor is deliberately "
+        "well under the count measured when it was written: this test exists "
+        "to catch the scan going empty, not to pin a number that moves with "
+        "every screen."
     )
