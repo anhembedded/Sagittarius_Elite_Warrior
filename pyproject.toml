@@ -128,6 +128,14 @@ extend-select = ["S", "PLR2004", "B", "SIM", "ERA", "N"]
 # Protocol mirrors a Qt view model's camelCase properties -- renaming any of
 # them would be a behaviour change dressed as a move (ADR D12).
 "src/modules/strategy/ui/**" = ["N802", "N803", "N815"]
+
+# `EPIC-025` PR 4.1a: `trading`'s six feeds left `presentation/ui/common/` (line
+# 103's pattern) for `modules/trading/ui/`, and every one of them declares Qt
+# `Signal` attributes in camelCase — `orderFilled`, `positionChanged`,
+# `equitySampled`, `marketTick`. Same reason as `modules/strategy/ui` above: the
+# names are PySide6's convention, not this repository's, and a `Signal` renamed
+# to snake_case stops matching the QML and the `connect()` sites.
+"src/modules/trading/ui/**" = ["N802", "N803", "N815"]
 # `TimeframePicker/` is a **QML module directory**, and QML requires its module
 # names to be PascalCase — the `.qml` files inside are addressed by that name.
 # It was invisible before 1.6f only by accident: under

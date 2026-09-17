@@ -23,6 +23,19 @@ has no palette role meaning "this shard has holes in it" — so health is
 carried by the text itself (`"OK"` against `"3 gaps found!"`), by a bold
 status cell, and by the `Sync gaps` action being enabled on exactly the rows
 that have gaps.
+
+@par What left this file in PR 4.1b
+`rowCount()`, `columnCount()`, `headerData()`, `row_for()` and the first three
+branches of `data()` — byte-for-byte identical to the two order-book models PR
+1.4b-2 wrote, which neither pair could see because
+`presentation/ui/components/` was never in the duplication metric's package set.
+They, `SORT_ROLE` and `_as_number()` are `support/ui_kit/table_model.py`'s now.
+What stays is what is actually this table's: its columns, the interval sort that
+puts `1m` before `15m` before `1h`, the unhealthy-first status sort, the bold
+status cell, and the **incremental** row API — `upsert_row()` re-scans one shard
+and emits `dataChanged` for that row alone, so the user keeps their selection
+and their scroll position, which a `set_rows()` reset would throw away. That is
+why the base class holds its rows in a list.
 """
 
 from __future__ import annotations
@@ -31,30 +44,24 @@ from dataclasses import dataclass
 from typing import ClassVar, Final
 
 from PySide6.QtCore import (
-    QAbstractTableModel,
     QModelIndex,
     QObject,
-    QPersistentModelIndex,
     QSortFilterProxyModel,
     Qt,
     Signal,
 )
 from PySide6.QtGui import QFont
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.support.ui_kit.model_indexes import AnyIndex
+from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import (
+    SORT_ROLE,
+    RowTableModel,
+    as_number,
+)
 
 #: Statuses that mean "no gaps" — everything else is rendered as a problem.
 #: Mirrors the strings the Presenter forwards from DatabaseStatusDTO.
 HEALTHY_STATUSES = frozenset({"OK", "0 gaps found!"})
-
-#: The role carrying the comparable value behind a cell's display text, so a
-#: numeric column sorts numerically. `UserRole` itself is left free: Qt's own
-#: item views use it for application data and a future delegate may want it.
-SORT_ROLE: Final = Qt.ItemDataRole.UserRole + 1
-
-#: Any Qt index type a model method may be handed. PySide6 passes
-#: `QPersistentModelIndex` to `data()` in some call paths, so an annotation of
-#: `QModelIndex` alone is a lie mypy cannot catch but Qt can produce.
-type AnyIndex = QModelIndex | QPersistentModelIndex
 
 
 @dataclass
@@ -87,17 +94,7 @@ def _interval_seconds(interval: str) -> int:
         return 0
 
 
-def _as_number(text: str) -> float:
-    """The number a formatted count means, for sorting. Display text arrives
-    from the Presenter already grouped (`"1,234"`), and `-` or `N/A` stands in
-    for "nothing scanned yet" — which sorts as less than any real count."""
-    try:
-        return float(text.replace(",", "").replace(" ", ""))
-    except ValueError:
-        return float("-inf")
-
-
-class DatabaseStatusTableModel(QAbstractTableModel):
+class DatabaseStatusTableModel(RowTableModel[DatabaseStatusRow]):
     """
     @brief Table model backing the Database screen's per-symbol/interval
     status table.
@@ -113,7 +110,7 @@ class DatabaseStatusTableModel(QAbstractTableModel):
     TOTAL_CANDLES_COLUMN: Final = 4
     STATUS_COLUMN: Final = 5
 
-    _HEADERS: ClassVar[tuple[str, ...]] = (
+    HEADERS: ClassVar[tuple[str, ...]] = (
         "Symbol",
         "TF",
         "First record",
@@ -124,7 +121,7 @@ class DatabaseStatusTableModel(QAbstractTableModel):
 
     #: Right-aligned because the eye compares a column of counts by its last
     #: digit; every other column is text and stays left-aligned.
-    _RIGHT_ALIGNED: ClassVar[frozenset[int]] = frozenset({TOTAL_CANDLES_COLUMN})
+    RIGHT_ALIGNED: ClassVar[frozenset[int]] = frozenset({TOTAL_CANDLES_COLUMN})
 
     #: Emitted whenever the row set changes, so a header badge can show a live
     #: count without reaching into this model's internals.
@@ -132,61 +129,9 @@ class DatabaseStatusTableModel(QAbstractTableModel):
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
-        self._rows: list[DatabaseStatusRow] = []
         self._row_index: dict[str, int] = {}
 
-    # ------------------------------------------------------------------ #
-    # QAbstractTableModel contract
-    # ------------------------------------------------------------------ #
-
-    def rowCount(self, parent: AnyIndex | None = None) -> int:
-        if parent is not None and parent.isValid():
-            return 0
-        return len(self._rows)
-
-    def columnCount(self, parent: AnyIndex | None = None) -> int:
-        if parent is not None and parent.isValid():
-            return 0
-        return len(self._HEADERS)
-
-    def headerData(
-        self,
-        section: int,
-        orientation: Qt.Orientation,
-        role: int = Qt.ItemDataRole.DisplayRole,
-    ) -> object:
-        if role != Qt.ItemDataRole.DisplayRole:
-            return None
-        if orientation != Qt.Orientation.Horizontal:
-            return None
-        if not 0 <= section < len(self._HEADERS):
-            return None
-        return self._HEADERS[section]
-
-    def data(self, index: AnyIndex, role: int = Qt.ItemDataRole.DisplayRole) -> object:
-        row = self.row_for(index)
-        if row is None:
-            return None
-        column = index.column()
-
-        if role == Qt.ItemDataRole.DisplayRole:
-            return self._display_text(row, column)
-        if role == SORT_ROLE:
-            return self._sort_value(row, column)
-        if role == Qt.ItemDataRole.TextAlignmentRole and column in self._RIGHT_ALIGNED:
-            return int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
-        if (
-            role == Qt.ItemDataRole.FontRole
-            and column == self.STATUS_COLUMN
-            and not row.is_healthy
-        ):
-            # The one emphasis this table carries, and it replaces a colour:
-            # a shard with holes in it is the row the user came here to act
-            # on (ADR D21 — no palette of our own).
-            font = QFont()
-            font.setBold(True)
-            return font
-        return None
+    # -- what this table decides (the rest is `RowTableModel`'s) -----------
 
     def _display_text(self, row: DatabaseStatusRow, column: int) -> str:
         return {
@@ -202,7 +147,7 @@ class DatabaseStatusTableModel(QAbstractTableModel):
         if column == self.INTERVAL_COLUMN:
             return _interval_seconds(row.interval)
         if column == self.TOTAL_CANDLES_COLUMN:
-            return _as_number(row.total_candles)
+            return as_number(row.total_candles)
         if column == self.STATUS_COLUMN:
             # Unhealthy first: the point of sorting by status is to bring the
             # shards that need work to the top. Prefixed into one string
@@ -213,27 +158,19 @@ class DatabaseStatusTableModel(QAbstractTableModel):
             return f"{1 if row.is_healthy else 0}{row.status_text}"
         return self._display_text(row, column)
 
-    # ------------------------------------------------------------------ #
-    # Reading one row as a row, not as six cells
-    # ------------------------------------------------------------------ #
-
-    def row_for(self, index: AnyIndex) -> DatabaseStatusRow | None:
-        """The row behind an index, or `None` when the index is stale.
-
-        A typed accessor rather than a `Qt.UserRole` payload: the panel needs
-        the whole row (its symbol, its interval and whether it has gaps) to
-        decide which actions apply, and `data(index, SomeRole)` returning an
-        `object` would make every caller cast.
-        """
-        if not index.isValid():
-            return None
-        if not 0 <= index.row() < len(self._rows):
-            return None
-        return self._rows[index.row()]
-
-    @property
-    def rows(self) -> list[DatabaseStatusRow]:
-        return list(self._rows)
+    def _role_data(self, row: DatabaseStatusRow, column: int, role: int) -> object:
+        """A shard with holes in it gets a bold status cell — the one emphasis
+        this table carries, and it replaces a colour: that row is the one the
+        user came here to act on (ADR D21 — no palette of our own)."""
+        if (
+            role == Qt.ItemDataRole.FontRole
+            and column == self.STATUS_COLUMN
+            and not row.is_healthy
+        ):
+            font = QFont()
+            font.setBold(True)
+            return font
+        return None
 
     def gap_targets(self) -> list[tuple[str, str]]:
         """`(symbol, interval)` of every shard whose status reports gaps."""

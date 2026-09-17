@@ -1,58 +1,60 @@
-"""Backtest timezone chooser — `EPIC-015` bậc 2: body is the shared `SelectList`."""
+"""Backtest timezone chooser — the shared `PickerOverlay`, wired to this screen.
+
+`EPIC-015` §4c made this one of four hosts of `SelectList.qml`; `EPIC-025` PR
+4.3e deletes that component (ADR D21) and every one of the four moves onto
+`kit.PickerOverlay`, the QtWidgets "pick one from a list" that has existed since
+PR 1.6b and already serves the symbol pickers. Nothing was invented here: the
+survey found the component, and this file is the four lines of wiring it cannot
+own — where the options come from, and what a choice means for this screen.
+"""
 
 from __future__ import annotations
 
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml import QmlOverlay
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.SelectList.select_list_vm import (
-    SelectListVM,
-)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import PickerItem, PickerOverlay
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
-_QML = Path(__file__).resolve().parents[3] / "qml" / "SelectList" / "SelectList.qml"
+_TITLE = "SELECT DISPLAY TIME ZONE"
+_SUBTITLE = (
+    "Only changes the displayed time zone. "
+    "Data and backtests are always computed in UTC."
+)
 
 
-class TimezonePickerDialog(QmlOverlay):
-    """
-    @brief Which timezone the UI displays. Chrome is `Overlay`, body is the
-    shared `SelectList.qml`, rules are `SelectListVM`.
-
-    @details `EPIC-015` §4c. Was its own `TimezonePicker.qml` +
-    `TimezonePickerVM` in bậc 1 — deleted here, not kept as a forwarder,
-    after counting the remaining modals turned up `strategy_picker_dialog`
-    doing the exact same shape with a different title. One component now
-    serves both, plus the read-only variant `limitations_dialog` uses.
-    """
+class TimezonePickerDialog(PickerOverlay):
+    """@brief Which timezone the UI displays."""
 
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
         self._vm = view_model
-        self._widget_vm = SelectListVM(
-            get_options=lambda: view_model.time_range.displayTimezoneOptions,
-            get_current=lambda: view_model.time_range.displayTimezone,
-        )
-        super().__init__(
-            "SELECT DISPLAY TIME ZONE",
-            "Only changes the displayed time zone. Data and backtests are always computed in UTC.",
-            qml_file=_QML,
-            context={"vm": self._widget_vm},
-            parent=parent,
-        )
+        super().__init__(_TITLE, _SUBTITLE, searchable=True, parent=parent)
         self.setObjectName("timezonePickerModal")
         self.resize(440, 350)
-        self._widget_vm.chosen.connect(self._on_selected)
+        self.selection_changed.connect(self._on_selected)
 
     def showEvent(self, event) -> None:
         """Re-reads on every open — the current timezone changes between them,
         and the dialog is built once and reused."""
-        self._widget_vm.refresh()
+        self.refresh()
         super().showEvent(event)
+
+    def refresh(self) -> None:
+        """Offers the supported timezones, with the current one marked."""
+        self.selected = self._vm.time_range.displayTimezone
+        self.set_items(
+            [
+                PickerItem(
+                    value=str(option.get("id", "")),
+                    label=str(option.get("label", "")) or str(option.get("id", "")),
+                )
+                for option in self._vm.time_range.displayTimezoneOptions
+            ]
+        )
 
     def _on_selected(self, timezone_id: str) -> None:
         self._vm.setDisplayTimezone(timezone_id)

@@ -85,13 +85,23 @@ class TradingModule(BoundedContextModule):
 
     module_id = "trading"
 
-    #: Empty, and checked: `test_module_declarations.py` reads the imports
-    #: actually present under `modules/trading/` and fails on both surplus and
-    #: shortfall. This context reads no other module's `contracts/` — it is the
-    #: *supplier* in every relationship it has (`strategy` and `backtesting`
-    #: read it, not the reverse), and what it does depend on is
-    #: `support/binance_gateway`'s contracts, which is not a module.
-    dependencies: list[str] = []  # noqa: RUF012 — the Engine reads a plain attribute
+    #: Checked, not declared by hand: `test_module_declarations.py` reads the
+    #: imports actually present under `modules/trading/` and fails on both
+    #: surplus and shortfall.
+    #:
+    #: **This was `[]` until PR 4.1a, and the guard is what corrected it.** The
+    #: comment here said *"this context reads no other module's `contracts/` —
+    #: it is the supplier in every relationship it has"*, and that was true of
+    #: everything under `modules/trading/` at the time. What made it false is
+    #: `market_tick_feed`, one of the six feeds that moved in from
+    #: `presentation/ui/common/`: it normalises `market_data`'s published
+    #: `MarketTickEvent` onto a Qt signal for the live chart, which is the
+    #: Open Host Service relationship HLD §02 has always drawn
+    #: (`market_data → trading`) and which no file in this module had happened
+    #: to exercise yet. The coupling did not arrive with the move; only its
+    #: visibility did, which is the whole point of declaring it where the
+    #: module list is read.
+    dependencies: list[str] = ["market_data"]  # noqa: RUF012 — the Engine reads a plain attribute
 
     def register(self, context: Any) -> None:
         """The published ports, and only those.

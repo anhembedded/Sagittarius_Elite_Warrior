@@ -7,8 +7,6 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
-from PySide6.QtCore import QObject, Qt
-from PySide6.QtTest import QTest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
@@ -141,12 +139,10 @@ def test_toolbar_popups_open_through_real_signals(backtest_screen, qapp):
     qapp.processEvents()
     capital_dialog = view._modals_host._capital
     assert capital_dialog is not None
-    # EPIC-015 bậc 1: the body is Capital.qml, so the amount field is a QML
-    # item reached through the loaded root rather than a QLineEdit attribute.
-    # Same objectName, so this still names the same field.
-    capital_field = capital_dialog.root_object.findChild(QObject, "txtBacktestCapital")
-    assert capital_field is not None
-    assert capital_field.property("visible") is True
+    # `EPIC-025` PR 4.3f: a `QLineEdit` again, same objectName as both
+    # previous versions of this dialog.
+    assert capital_dialog._field.objectName() == "txtBacktestCapital"
+    assert capital_dialog._field.isVisible() is True
 
     view.top_widget._btn_bot_params.click()
     qapp.processEvents()
@@ -208,33 +204,30 @@ def test_chart_toolbar_click_replaces_visible_candles_with_selected_timeframe(
     false-positive test; the accepted result is 5m-spaced candles rendered by
     the visible Backtest ChartCard.
 
-    `EPIC-015` Phase 4: `ChartToolbar` is QML-hosted now
-    (`TimeframeToolbar.qml`), so "click the 5m button" is a real click on
-    its rendered pill rather than `QPushButton.click()`.
+    `EPIC-015` Phase 4 made `ChartToolbar` QML-hosted, so "click the 5m
+    button" became a `QTest` click at scene coordinates; `EPIC-025` PR 4.3k
+    brought the pills back to `QPushButton`, so it is a click again.
     """
     presenter, view = backtest_screen
     chart = view.chart_cards[0].chart_card
     toolbar = chart.toolbar
-    pill = qml_item(toolbar.root_object, f"timeframePill_{_TOOLBAR_TIMEFRAME_INTERVAL}")
+    pill = toolbar._row.button_for(_TOOLBAR_TIMEFRAME_INTERVAL)
     assert pill is not None
-    point = pill.mapToScene(pill.boundingRect().center())
 
     with qtbot.waitSignal(view.chartPreviewRendered, timeout=5000):
-        QTest.mouseClick(
-            toolbar.quick_widget, Qt.MouseButton.LeftButton, pos=point.toPoint()
-        )
+        pill.click()
 
     assert presenter._view_model.selectedTimeframe == _TOOLBAR_TIMEFRAME_INTERVAL
     assert len(chart._raw_history) == _RUNTIME_KLINE_COUNT
-    assert toolbar._vm.currentCode == _TOOLBAR_TIMEFRAME_INTERVAL
+    assert toolbar._selection.current_code == _TOOLBAR_TIMEFRAME_INTERVAL
     assert chart._raw_history[1][0] - chart._raw_history[0][0] == 300.0
     assert view._last_klines == chart._raw_history
 
 
 def test_progress_banner_cancel_button_cancels_active_backtest_flow(
-    backtest_screen, qtbot, qml_item
+    backtest_screen, qtbot
 ):
-    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QPushButton
 
     presenter, view = backtest_screen
     view_model = presenter._view_model
@@ -246,10 +239,10 @@ def test_progress_banner_cancel_button_cancels_active_backtest_flow(
     # Trigger backtest run via toolbar button
     view.top_widget._btn_run.click()
 
-    # `EPIC-015` Phase 4: the Cancel button lives inside
-    # `ProgressBannerWidget`'s QML scene (`kit/ProgressBanner.qml`), reached
-    # by `objectName` like every other `Repeater`/QML-scene lookup in this
-    # rollout — not a direct `QPushButton` attribute anymore.
+    # The Cancel button belongs to the banner, not to this panel: it was
+    # inside `ProgressBanner.qml`'s scene until `EPIC-025` PR 4.3l and is
+    # `kit.ProgressBanner`'s own `QPushButton` now, so it is reached by
+    # `objectName` rather than as an attribute of the screen.
     progress_widget = view.top_widget._progress_banner_widget
     assert progress_widget is not None
 
@@ -258,14 +251,9 @@ def test_progress_banner_cancel_button_cancels_active_backtest_flow(
         BacktestUiState.RUNNING,
         BacktestUiState.SYNCING,
     ):
-        cancel_btn = qml_item(progress_widget.root_object, "progressBannerCancelButton")
+        cancel_btn = progress_widget.findChild(QPushButton, "progressBannerCancel")
         assert cancel_btn is not None
-        centre = cancel_btn.mapToScene(cancel_btn.boundingRect().center())
-        qtbot.mouseClick(
-            progress_widget,
-            Qt.MouseButton.LeftButton,
-            pos=QPoint(int(centre.x()), int(centre.y())),
-        )
+        cancel_btn.click()
 
     qtbot.waitUntil(
         lambda: (

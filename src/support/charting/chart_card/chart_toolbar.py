@@ -3,30 +3,25 @@ full picker it opens. Embedded (not modal) in `ChartCard`'s header via
 `ChartCard.add_to_header` — shared by both Backtest's and Dev Board's chart
 headers, since both build their chart area from `ChartCard`.
 
-`EPIC-015` Phase 4: replaces the QtWidgets pill row (fixed
-`DEFAULT_TIMEFRAMES` buttons + `TimeframePickerOverlay` for "…") with
-`TimeframeToolbar.qml` (embedded here, a bare `QQuickWidget`, same shape
-`StatusPillWidget`/`ProgressBannerWidget` already proved for a panel
-embedded directly beside — not inside — a live chart) and
-`TimeframePickerDialog` (`QmlOverlay`-hosted, unchanged from Phase 1, opened
-modally on the "…" button). Public surface is unchanged
-(`sig_timeframe_changed`, `set_active()`) so `ChartCard._setup_layout()`,
-`backtest_chart_host.py`'s `PythonBacktestChartHost`, and
-`dashboard_presenter.py` need no changes at all — they still read
-`card.toolbar.sig_timeframe_changed` / call `card.toolbar.set_active(...)`.
+@par Three versions, and the public surface never moved
+It began as a QtWidgets pill row (fixed `DEFAULT_TIMEFRAMES` buttons plus
+`TimeframePickerOverlay` behind "…"). `EPIC-015` Phase 4 replaced that with
+`TimeframeToolbar.qml` embedded in a `QQuickWidget`, and `EPIC-025` PR 4.3k
+brings it back to widgets (ADR D21) as `TimeframePillRow` — a checkable
+`QPushButton` per pinned code, which is what a pill is. Through all three,
+`sig_timeframe_changed` and `set_active()` are unchanged, so
+`ChartCard._setup_layout()`, `backtest_chart_host.py`'s
+`PythonBacktestChartHost` and `dashboard_presenter.py` need no changes at all.
 
-@par The one hard requirement: one `TimeframeVM`, not two
-`qml/TimeframePicker/NOTES.md` flags this widget by name as the reason
-`TimeframeVM` exists as ONE class shared by two `.qml` files: the toolbar's
-pinned pills and the picker's pin stars must agree, instantly, without a
-second refresh. This class builds exactly one `TimeframeVM` at construction
-and hands the SAME instance to both `TimeframeToolbar.qml` (via this
-widget's own `rootContext()`) and to the `TimeframePickerDialog` it lazily
-opens (`TimeframePickerDialog(vm)`, the constructor `EPIC-015` Phase 4 added
-specifically for this — see that module's docstring). Toggling a pin from
-the full picker updates the SAME `pinnedRows` the embedded toolbar reads;
-choosing a card there or a pill here both go through the same `vm.chosen`,
-which this class listens to exactly once.
+@par The one hard requirement: one selection, not two
+The pinned pills here and the pin boxes in the full picker must agree
+instantly, without a second refresh — the user's own instruction (*"2 widget,
+common nếu reuse được"*). So this class builds exactly one
+`TimeframeSelection` and hands the SAME instance to both `TimeframePillRow`
+and the `TimeframePickerDialog` it lazily opens. Pinning in the picker updates
+the very `pinned_rows` this row reads; choosing a row there or a pill here both
+travel through the same `selection.chosen`, which this class listens to exactly
+once.
 
 @par Design decision — pinned-state scope and persistence (qml-rule.md
 §0.2's "make a reasoned call, do not default into it")
@@ -38,7 +33,7 @@ originally shipped, recorded here rather than silently rewritten
    toolbar and its own picker modal — not across sibling `ChartCard`s on the
    same screen (Backtest/Dev Board each render one `ChartCard` per symbol,
    each building its own `ChartToolbar`). The original phase framed this as
-   "one `TimeframeVM` per chart" and left open whether "which timeframes I
+   "one selection per chart" and left open whether "which timeframes I
    pin" should instead be one preference for a whole screen. **Resolved
    (follow-up task, `EPIC-015`): per chart, keyed by the chart's own
    symbol** — a Backtest screen comparing a 1m scalp symbol against a 1d
@@ -73,7 +68,7 @@ originally shipped, recorded here rather than silently rewritten
    as `SymbolPreferences`, but `dict[str, list[str]]` keyed by symbol
    instead of two flat lists, since "which timeframes I pin" really is a
    per-chart question. `ChartToolbar`'s own public surface did not change:
-   only what backs `TimeframeVM`'s `get_pinned`/`set_pinned` did, exactly as
+   only what backs the selection's `get_pinned`/`set_pinned` did, exactly as
    predicted. A bare `ChartToolbar()` with no store injected still falls
    back to the in-memory `PinnedTimeframes` this class always used —
    unpersisted, but otherwise identical to today's behaviour, the same
@@ -83,25 +78,16 @@ originally shipped, recorded here rather than silently rewritten
 from __future__ import annotations
 
 from collections.abc import Sequence
-from pathlib import Path
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QHBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
-    all_options,
-)
-from Sagittarius_Elite_Warrior.src.support.charting.TimeframePicker.timeframe_picker_dialog import (
     PinnedTimeframes,
     TimeframePickerDialog,
+    TimeframePillRow,
+    TimeframeSelection,
+    all_options,
 )
-from Sagittarius_Elite_Warrior.src.support.charting.TimeframePicker.timeframe_vm import (
-    TimeframeVM,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.embed import (
-    QuickSizePolicy,
-    QuickSurface,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import StyleRole
 
 #: Re-exported for existing callers/tests (`from ...chart_toolbar import
 #: DEFAULT_TIMEFRAMES`) — the value itself now lives in
@@ -110,32 +96,20 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import StyleRole
 #: `EPIC-014`/duration-fit reasoning behind the five codes chosen.
 from .timeframe_pin_preferences import DEFAULT_TIMEFRAMES, TimeframePinPreferences
 
-#: `parents[1]` is `support/charting`, so this reaches a sibling package. It
-#: was `parents[2] / "qml" / ...` until `EPIC-025` PR 1.6f, when `parents[2]`
-#: stopped being `presentation/ui` and became `src/support` — path arithmetic
-#: counted in directory hops is exactly what a move breaks, and it broke
-#: loudly (a `RuntimeError` at import, which is why the check that imports
-#: every moved module found it before the gate did).
-_QML_FILE = (
-    Path(__file__).resolve().parents[1] / "TimeframePicker" / "TimeframeToolbar.qml"
-)
-if not _QML_FILE.is_file():  # pragma: no cover - a moved tree, not a branch
-    raise RuntimeError(
-        f"the toolbar's QML is not beside this package any more: {_QML_FILE}. "
-        "A pull request moved one of them without the other."
-    )
-
 
 class _ActiveTimeframe:
     """The interval this toolbar currently highlights, in one mutable box.
 
-    A `QWidget` subclass may not set instance attributes before its Qt base
-    is constructed, and `QuickSurface` takes its context objects *at*
-    construction — so the `TimeframeVM` below has to exist before
-    `super().__init__()`, while the value its `get_current` callback reads
-    keeps changing afterwards. One shared box is the honest way to say that:
-    the closure and the toolbar read and write the same object, so there is
-    no second copy of "which interval is active" to drift.
+    The `TimeframeSelection` below is built from closures that have to read
+    "which interval is active" long after construction, and a `QWidget`
+    subclass may not set instance attributes before its Qt base exists. One
+    shared box is the honest way to say that: the closure and the toolbar read
+    and write the same object, so there is no second copy to drift.
+
+    `EPIC-025` PR 4.3k removed the *other* half of the reason this class
+    existed — `QuickSurface` took its context objects at construction, forcing
+    the selection to exist before `super().__init__()`. A plain `QWidget` has
+    no such constraint, but the closures still do, so the box stays.
     """
 
     __slots__ = ("code",)
@@ -144,7 +118,7 @@ class _ActiveTimeframe:
         self.code = code
 
 
-class ChartToolbar(QuickSurface):
+class ChartToolbar(QWidget):  # base-exempt: a container, not a surface
     """
     @brief Compact timeframe pill row for a `ChartCard` header, plus the
     full picker its "…" affordance opens.
@@ -186,9 +160,8 @@ class ChartToolbar(QuickSurface):
         # constructor's own `timeframes` so a fresh chart header is not an
         # empty row plus a lone "…" button.
         # Locals until after `super().__init__()`: a `QWidget` subclass may
-        # not take instance attributes before its Qt base is constructed,
-        # and `QuickSurface` needs the two callbacks below to build the VM
-        # it is handed.
+        # not take instance attributes before its Qt base is constructed, and
+        # the two callbacks below are what the selection is built from.
         pin_preferences: TimeframePinPreferences | None = None
         if timeframe_pin_preferences is not None and symbol is not None:
             pin_preferences = timeframe_pin_preferences
@@ -196,56 +169,41 @@ class ChartToolbar(QuickSurface):
         else:
             fallback = PinnedTimeframes(initial=timeframes)
             get_pinned, set_pinned = fallback.get, fallback.set
-        # ONE VM for both this embedded toolbar and the picker modal it
-        # opens — see this module's docstring, "the one hard requirement".
-        # `get_codes` offers every domain timeframe (matches the old
-        # `ChartToolbar._open_picker()`'s `get_options=lambda: [option.code
-        # for option in all_options()]`), not just the pinned/default
-        # subset — pinning and choosing both reach codes outside
-        # `DEFAULT_TIMEFRAMES`.
-        #
-        # Built before `super().__init__()`, because `QuickSurface` takes its
-        # context properties at construction — hence `_ActiveTimeframe`, the
-        # one box both this closure and the toolbar itself read (see that
-        # class). `refresh()` runs first so the very first rendered frame
-        # already shows the seeded pills instead of an empty row that fills
-        # in a moment later, avoiding exactly the chart-adjacent flicker
-        # `qml-rule.md` §6 warns this phase to watch for.
-        vm = TimeframeVM(
+        # ONE selection for both this row and the picker it opens — see this
+        # module's docstring, "the one hard requirement". `get_codes` offers
+        # every domain timeframe rather than the pinned/default subset, because
+        # pinning and choosing both reach codes outside `DEFAULT_TIMEFRAMES`.
+        selection = TimeframeSelection(
             get_codes=lambda: [option.code for option in all_options()],
             get_current=lambda: active_state.code or "",
             get_pinned=get_pinned,
             set_pinned=set_pinned,
         )
-        vm.refresh()
-        # `HUG`: a compact row must hug its pills' natural width, not stretch
-        # to fill whatever space `ChartCard`'s header row leaves — the
-        # opposite need from every fill-the-panel host in this app. The row
-        # sits on `ChartCard`'s own SURFACE, and `QuickSurface` clears the
-        # scene to that token instead of to a transparent colour that renders
-        # black on a real screen (`BUG-115`).
-        super().__init__(
-            _QML_FILE,
-            surface=StyleRole.SURFACE,
-            context={"vm": vm},
-            size_policy=QuickSizePolicy.HUG,
-            object_name="chartToolbarQuick",
-            parent=parent,
-        )
+        selection.refresh()
+
+        super().__init__(parent)
         self.setObjectName("chartToolbar")
         self._active_state = active_state
         self._symbol = symbol
         self._pin_preferences = pin_preferences
-        self._vm = vm
-        self._vm.chosen.connect(self._on_chosen)
+        self._selection = selection
+        self._selection.chosen.connect(self._on_chosen)
         self._picker: TimeframePickerDialog | None = None
-        self.root_object.moreRequested.connect(self._open_picker)
+
+        # A compact row hugs its pills rather than stretching across whatever
+        # space `ChartCard`'s header leaves; `TimeframePillRow` carries that
+        # size policy, and this layout only has to not fight it.
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self._row = TimeframePillRow(selection)
+        self._row.more_requested.connect(self._open_picker)
+        layout.addWidget(self._row)
 
     def _on_chosen(self, code: str) -> None:
-        """`vm.chosen` fires from either view — a pill clicked here, or a
-        card chosen in the picker modal — so connecting once here, rather
-        than also connecting to `self._picker.chosen`, is what keeps a
-        picker choice from re-emitting `sig_timeframe_changed` twice."""
+        """`selection.chosen` fires from either view — a pill clicked here, or
+        a row chosen in the picker — so connecting once here, rather than also
+        connecting to `self._picker.chosen`, is what keeps a picker choice from
+        re-emitting `sig_timeframe_changed` twice."""
         self._active_state.code = code
         self.sig_timeframe_changed.emit(code)
 
@@ -256,16 +214,16 @@ class ChartToolbar(QuickSurface):
         needs this row's own highlight to catch up — `EPIC-010D`'s restored
         interval on launch, or a Presenter's echo-back after its own change
         already fired through some other path. Delegates to
-        `TimeframeVM.set_current()`, which exists for exactly this
+        `TimeframeSelection.set_current()`, which exists for exactly this
         (`choose()` cannot be reused here: it always emits `chosen`, which
         would loop straight back into `_on_chosen`).
         """
         self._active_state.code = timeframe
-        self._vm.set_current(timeframe)
+        self._selection.set_current(timeframe)
 
     def _open_picker(self) -> None:
         """Opens the full timeframe picker, sharing this toolbar's own
-        `TimeframeVM` rather than building a second one.
+        `TimeframeSelection` rather than building a second one.
 
         @details Still a dumb component (Rule 1): it opens a chooser for the
         very thing it already chooses and emits the same signal through the
@@ -276,5 +234,5 @@ class ChartToolbar(QuickSurface):
         reasoning the QtWidgets original documented for `TimeframePickerOverlay`.
         """
         if self._picker is None:
-            self._picker = TimeframePickerDialog(self._vm, parent=self)
+            self._picker = TimeframePickerDialog(self._selection, parent=self)
         self._picker.open_dialog()

@@ -17,16 +17,16 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_conf
     MIN_LEVERAGE,
     MIN_SIZING_PERCENT,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_order_row import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     OpenOrderRow,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_orders_panel import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_orders_panel import (
     OpenOrdersPanel,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.position_row import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     PositionRow,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.positions_panel import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.positions_panel import (
     PositionsPanel,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (

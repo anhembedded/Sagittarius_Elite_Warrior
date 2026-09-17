@@ -1,12 +1,12 @@
 from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_metrics import (
     BacktestMetrics,
 )
-from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
-from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.result_formatter import (
     format_result_summary,
 )

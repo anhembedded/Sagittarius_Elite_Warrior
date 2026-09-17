@@ -11,10 +11,11 @@ from .filtering import (
     build_entries,
     partition_favourites,
 )
+from .i_symbol_picker_source import ISymbolPickerSource
 from .overlay import RECENT_LIMIT, SymbolPickerOverlay
 from .preferences import SymbolPreferences, find_symbol_preferences
 from .quote_asset import CRYPTO_QUOTES, FIAT_QUOTES, SymbolParts, split_symbol
-from .symbol_card import SymbolCard
+from .symbol_table_model import SymbolTableModel
 
 __all__ = [
     "CRYPTO_QUOTES",
@@ -23,12 +24,13 @@ __all__ = [
     "QUOTE_FIAT",
     "RECENT_LIMIT",
     "FilterState",
+    "ISymbolPickerSource",
     "Scope",
-    "SymbolCard",
     "SymbolEntry",
     "SymbolParts",
     "SymbolPickerOverlay",
     "SymbolPreferences",
+    "SymbolTableModel",
     "apply_filter",
     "available_quotes",
     "build_entries",

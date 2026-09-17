@@ -27,15 +27,15 @@ from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
     MemoryEventBus,
 )
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.command import (
-    RunStaticBacktestCommand,
-)
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.handler import (
-    RunStaticBacktestCommandHandler,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest.command import (
+    RunStaticBacktestCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest.handler import (
+    RunStaticBacktestCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
     MarketDataSessionFactory,

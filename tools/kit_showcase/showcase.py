@@ -6,7 +6,6 @@ reads.
 from __future__ import annotations
 
 import sys
-from datetime import date
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
@@ -20,10 +19,11 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Badge,
     Banner,
     Card,
+    ChecklistItem,
+    ChecklistOverlay,
     Column,
     ConfirmOverlay,
     DataRow,
-    DateRangeOverlay,
     DateTimeField,
     LogPanel,
     PageShell,
@@ -32,7 +32,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     PickerItem,
     PickerOverlay,
     PreferredHeightScrollArea,
-    RangePreset,
+    ProgressBanner,
     RowAction,
     SectionLabel,
     SelectableCard,
@@ -47,9 +47,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     TableCard,
     Tone,
     semantic_colour,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.overlays import (
-    DEFAULT_PRESETS,
 )
 from sagittarius_engine.extensions.pyside_mvc.tokens import get_theme_bridge
 
@@ -211,6 +208,15 @@ class ShowcaseWindow(QWidget):  # base-exempt: the gallery shell, not a surface
             ),
             Banner("Something failed", icon="x", severity=Severity.DANGER),
         )
+        measured = ProgressBanner()
+        measured.set_status_text("Measured — 37.5% of the work reported done")
+        measured.set_percent(37.5)
+        sweeping = ProgressBanner()
+        sweeping.set_status_text("Indeterminate — no percentage to report yet")
+        sweeping.set_indeterminate(True)
+        sweeping.set_cancel_label("Stop")
+        sweeping.set_cancelling(True)
+        self._add(column, "Progress banner", measured, sweeping)
 
     def _overlays(self, column: QVBoxLayout) -> None:
         """Overlays are modal dialogs, so they are built and shown inline
@@ -226,21 +232,27 @@ class ShowcaseWindow(QWidget):  # base-exempt: the gallery shell, not a surface
                 PickerItem("b", "Second"),
             ]
         )
-        # A fixed pair rather than `date.today()`: the showcase doubles as
-        # the visual baseline, and a gallery whose calendar moves every day
-        # cannot be compared against yesterday's capture.
-        date_range = DateRangeOverlay(
-            "Date range overlay",
-            start=date(2026, 8, 19),
-            end=date(2026, 8, 26),
-            presets=(*DEFAULT_PRESETS, RangePreset("All history")),
+        checklist = ChecklistOverlay("Checklist overlay")
+        checklist.set_items(
+            [
+                ChecklistItem("a", "Ticked", checked=True),
+                ChecklistItem("b", "Not ticked"),
+                ChecklistItem(
+                    "c", "Locked", locked=True, tooltip="Hover shows the reason"
+                ),
+            ]
         )
-        date_range.summary = "7 days · 2026-08-19 → 2026-08-26"
-        for overlay in (confirm, picker, date_range):
+        # `DateRangeOverlay` was the third overlay shown here until `EPIC-025`
+        # PR 4.3c deleted it: it hand-drew a two-month calendar out of one
+        # `QPushButton` per day with inline QSS on each, which is the
+        # substitute for `QCalendarWidget` that ADR D20 rules out, and this
+        # showcase was the only thing that had constructed it since
+        # `EPIC-015` gave the job to the time-range picker.
+        for overlay in (confirm, picker, checklist):
             overlay.setParent(self)
             overlay.setWindowFlags(Qt.WindowType.Widget)
             overlay.setModal(False)
-        self._add(column, "Overlays", confirm, picker, date_range)
+        self._add(column, "Overlays", confirm, picker, checklist)
 
     def _page_shell(self, column: QVBoxLayout) -> None:
         shell = PageShell()

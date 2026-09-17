@@ -516,9 +516,9 @@ def test_the_toolbars_more_button_opens_the_full_picker_on_a_real_dev_board_card
     qapp.processEvents()
     picker = card.toolbar._picker
     assert picker is not None
-    assert picker._widget_vm is card.toolbar._vm
+    assert picker._selection is card.toolbar._selection
 
-    picker._widget_vm.choose("3d")
+    picker._selection.choose("3d")
     qapp.processEvents()
 
     presenter._stream_controller._on_timeframe_changed.assert_called_once_with("3d")
@@ -1877,7 +1877,7 @@ def _fill_event(symbol="ETHUSDT", order_time=None, status=None):
 def test_order_filled_draws_a_marker_on_that_symbols_open_chart(presenter):
     from datetime import UTC, datetime
 
-    from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_fill_marker import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
         order_filled_marker,
     )
 
@@ -1934,7 +1934,7 @@ def _position(symbol="BTCUSDT"):
 def test_order_filled_with_a_live_status_adds_to_open_orders(
     presenter, view, monkeypatch
 ):
-    from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_order_row import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
         build_open_order_row,
     )
 
@@ -1966,7 +1966,7 @@ def test_position_changed_updates_the_positions_table(presenter, view, monkeypat
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_changed_event import (
         PositionChangedEvent,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.position_row import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
         build_position_row,
     )
 
@@ -2070,7 +2070,7 @@ def test_construction_with_an_empty_recorder_seeds_an_empty_chart(
 def test_construction_seeds_the_full_backlog_from_the_recorder(
     view, mock_container, equity_curve, monkeypatch
 ):
-    from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
         equity_samples_to_candles,
     )
 
@@ -2091,7 +2091,7 @@ def test_equity_sampled_event_appends_one_point_to_the_chart(
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
         EquitySampledEvent,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
         equity_sample_to_candle,
     )
 
@@ -2296,7 +2296,7 @@ def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
         EnableTradingResult,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.open_order_row import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
         build_open_order_row,
     )
 
@@ -2332,7 +2332,7 @@ def test_refused_enable_shows_the_block_reason_and_seeds_positions(
         EnableTradingBlockReason,
         EnableTradingResult,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.components.order_book.position_row import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
         build_position_row,
     )
 
@@ -2727,7 +2727,7 @@ def test_a_leased_symbol_is_reported_to_the_card_in_the_operators_own_words(
     from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
         ManualOrderDirection,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.common.execute_order_block_reason import (
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
         format_execute_order_block_reason,
     )
 

@@ -24,11 +24,11 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
-    all_options as all_timeframe_options,
-)
-from Sagittarius_Elite_Warrior.src.support.charting.TimeframePicker.timeframe_picker_dialog import (
     PinnedTimeframes,
     TimeframePickerDialog,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
+    all_options as all_timeframe_options,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,

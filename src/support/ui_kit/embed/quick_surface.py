@@ -37,6 +37,18 @@ the QML scene itself (`ProgressBannerWidget`, `StatusPillWidget`,
 `StatCardRowWidget`, `ChartToolbar`) subclasses it — its callers only ever
 used setters and signals, never `QQuickWidget` API, so nothing above them
 changes.
+
+@par No host of either shape is left
+`EPIC-025` PR 4.3l deleted the last `.qml` under `src/` (ADR D21), and with
+it every class named above. This package still loads and is still tested, but
+the only thing that constructs a `QuickSurface` now is
+`scripts/quick_surface_desktop_probe.py` — the manual probe `BUG-115` left
+behind, which is a real reason to keep the contract working and not a reason
+to keep the package. It is PR 4.4's to remove, together with the theme layer
+(`theme_bootstrap`, `configure_app_qml`, `Palette`, `kit/style.py`), which
+still has many live consumers and which HLD §11.4 retires in the same step.
+Deleted here instead: `support/ui_kit/qml_overlay.py`, whose whole purpose
+was a modal with a `.qml` body, so it can never have a consumer again.
 """
 
 from __future__ import annotations

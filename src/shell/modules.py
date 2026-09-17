@@ -12,13 +12,18 @@ read.
 exists but is not listed is dead code that looks alive; a listed module that
 does not exist is a boot crash waiting for the next run.
 
-PR 0.4a brings the first entry, PR 1.3a the second, PR 2.1b the third.
+PR 0.4a brings the first entry, PR 1.3a the second, PR 2.1b the third, PR 3.1c
+the fourth.
 `market_data` is first because it depends on no other context — every other one
 reads prices, and it reads nobody. `trading` follows because it is the
 *supplier* of `strategy` and `backtesting` rather than their customer, so it can
 register before either exists. `strategy` comes after `trading` for the same
 reason read forwards: it is the customer, and the order of this tuple is the
-order `register()` runs in. The rest of the app is still carried by
+order `register()` runs in. `backtesting` is **last**, and that is the same rule
+one step further: HLD §02 gives it three suppliers (`market_data`, `strategy`,
+`trading`) and **no customer at all** — nothing in the app consumes a backtest
+except the screen that displays one — so it can only register after every
+context it reads. The rest of the app is still carried by
 `binance_bot_module.py` during the strangler period and joins this list one
 context per phase.
 """
@@ -30,6 +35,7 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.module import BacktestingModule
 from Sagittarius_Elite_Warrior.src.modules.market_data.module import MarketDataModule
 from Sagittarius_Elite_Warrior.src.modules.strategy.module import StrategyModule
 from Sagittarius_Elite_Warrior.src.modules.trading.module import TradingModule
@@ -38,6 +44,7 @@ MODULES: tuple[type[BoundedContextModule], ...] = (
     MarketDataModule,
     TradingModule,
     StrategyModule,
+    BacktestingModule,
 )
 
 

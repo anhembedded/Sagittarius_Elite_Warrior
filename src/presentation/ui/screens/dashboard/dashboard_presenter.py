@@ -77,22 +77,22 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_
     ManualOrderDirection,
     manual_order_intent_for,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
     equity_sample_to_candle,
     equity_samples_to_candles,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_feed import EquityFeed
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.execute_order_block_reason import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_feed import EquityFeed
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
     format_execute_order_block_reason,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.live_order_book_coordinator import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.live_order_book_coordinator import (
     LiveOrderBookCoordinator,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.market_tick_feed import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market_tick_feed import (
     MarketTickFeed,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_feed import OrderFeed
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.order_fill_marker import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
     order_filled_marker,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
@@ -276,7 +276,7 @@ _BLOCK_REASON_MESSAGES = EnumLabels(
 # WS status badge (top bar) text/color/tone per FSM state — presentational
 # only, derived from the state DashboardPresenter already tracks.
 #
-# `tone` (third element) is `StatusPill.qml`'s semantic vocabulary
+# `tone` (third element) is `WsStatusPill`'s semantic vocabulary
 # ("idle"|"active"|"success"|"danger" — see that file's own docstring).
 # `EPIC-015` Phase 4 added it here, as a third element of the SAME dict,
 # rather than a second `UIMode -> tone` switch: the tone for a mode is a
@@ -284,7 +284,7 @@ _BLOCK_REASON_MESSAGES = EnumLabels(
 # out of sync with its text/colour. Do NOT derive `tone` from `color`
 # (a Palette hex string, or `BULL_COLOR`/`BEAR_COLOR`) — that would break
 # silently if any of those values ever changed, since a colour string
-# carries no semantic meaning `StatusPill.qml` could read back out of it.
+# carries no semantic meaning `WsStatusPill` could read back out of it.
 _WS_STATUS_BY_MODE = {
     UIMode.IDLE: ("WS: IDLE", Palette.MUTED, "idle"),
     UIMode.LOCKED: ("WS: SYNCING", Palette.ACCENT, "active"),

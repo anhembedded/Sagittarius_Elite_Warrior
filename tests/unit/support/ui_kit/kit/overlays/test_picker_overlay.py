@@ -110,6 +110,21 @@ def test_selected_can_be_preset_by_the_consumer(qtbot):
     assert [card.selected for card in _cards(overlay)] == [True, False]
 
 
+def test_a_selected_value_no_longer_offered_marks_nothing(qtbot):
+    """Restated from `SelectListVM`'s own suite when `EPIC-025` PR 4.3e deleted
+    it: a screen's stored choice can vanish from the offered list (a strategy
+    unregistered, a market withdrawn), and the picker must then mark nothing
+    rather than the first row."""
+    overlay = PickerOverlay("Title")
+    qtbot.addWidget(overlay)
+    overlay.selected = "gone"
+
+    overlay.set_items([PickerItem("a", "A"), PickerItem("b", "B")])
+
+    assert [card.selected for card in _cards(overlay)] == [False, False]
+    assert overlay.selected == "gone"
+
+
 def test_search_field_is_hidden_unless_searchable(qtbot):
     plain = PickerOverlay("Title")
     qtbot.addWidget(plain)

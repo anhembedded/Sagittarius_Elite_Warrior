@@ -1,6 +1,6 @@
 """`EPIC-021E` — one open position on the exchange, as read back from it.
 
-@details Distinct from `_OpenPosition`
+@details Distinct from `OpenPosition`
 (`domain/backtesting/paper_exchange.py`): that one is a backtest
 simulation's private bookkeeping, mutated tick-by-tick by this app's own
 matching logic. `LivePosition` is a read-only snapshot of exchange-reported

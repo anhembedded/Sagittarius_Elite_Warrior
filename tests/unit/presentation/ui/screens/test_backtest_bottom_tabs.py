@@ -2,10 +2,10 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
-from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest_completed_event import (
     BacktestCompletedEvent,
 )
-from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest_failed_event import (
     BacktestFailedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (

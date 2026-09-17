@@ -46,11 +46,11 @@ from .guards import (
 )
 from .overlay import Overlay
 from .overlays import (
+    ChecklistItem,
+    ChecklistOverlay,
     ConfirmOverlay,
-    DateRangeOverlay,
     PickerItem,
     PickerOverlay,
-    RangePreset,
 )
 from .page_shell import PageShell
 from .preferred_height_scroll_area import PreferredHeightScrollArea
@@ -71,6 +71,7 @@ from .surfaces import (
     LogModel,
     LogPanel,
     Pagination,
+    ProgressBanner,
     RowAction,
     Severity,
     Tab,
@@ -83,10 +84,11 @@ __all__ = [
     "Banner",
     "BareQtBaseFinding",
     "Card",
+    "ChecklistItem",
+    "ChecklistOverlay",
     "Column",
     "ConfirmOverlay",
     "DataRow",
-    "DateRangeOverlay",
     "DateTimeField",
     "InlineStylesheetFinding",
     "LogModel",
@@ -98,7 +100,7 @@ __all__ = [
     "PickerItem",
     "PickerOverlay",
     "PreferredHeightScrollArea",
-    "RangePreset",
+    "ProgressBanner",
     "RowAction",
     "SectionLabel",
     "SelectableCard",

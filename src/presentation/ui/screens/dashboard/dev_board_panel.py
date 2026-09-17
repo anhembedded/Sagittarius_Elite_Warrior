@@ -51,15 +51,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
     ManualOrderDirection,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.progress_banner_widget import (
-    ProgressBannerWidget,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.status_pill_widget import (
-    StatusPillWidget,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TimeRangePicker.time_range_picker_dialog import (
-    TimeRangePickerDialog,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import (
     AppLogPanel,
 )
@@ -69,6 +60,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Panel,
+    ProgressBanner,
     SectionLabel,
     StyledButton,
     StyledCheckBox,
@@ -78,9 +70,13 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPreferences,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.time_range_picker import (
+    TimeRangePickerDialog,
+)
 
 from .dashboard_symbol_picker_dialog import DashboardSymbolPickerDialog
 from .dashboard_view_model import DashboardQmlViewModel
+from .ws_status_pill import WsStatusPill
 
 #: `DashboardQmlViewModel` (unlike `DataManagementViewModel`) exposes no
 #: per-timeframe concept this panel can read — `startDate`/`endDate` are the
@@ -94,11 +90,6 @@ from .dashboard_view_model import DashboardQmlViewModel
 #: two constants cannot silently drift apart from each other.
 _FALLBACK_TIMEFRAME_SECONDS = TimeFrame.ONE_MINUTE.to_seconds()
 _FALLBACK_TIMEFRAME_LABEL = TimeFrame.ONE_MINUTE.value
-
-#: Same value `BackTestTopPanel`/`DataManagementView` use for their own
-#: `ProgressBannerWidget` — one size for "a long task, a percent, a Cancel"
-#: everywhere it appears (BOT-123).
-_PROGRESS_BANNER_HEIGHT = 32
 
 # --- `EPIC-023C` strategy card — same fixed domain terms `TradingView`
 # uses (`ui-presentation-rule.md`: "Strategy Parameters" is a fixed term,
@@ -241,13 +232,13 @@ class DevBoardPanel(QObject):
         self._price_ticker_label.setObjectName("lblPriceTicker")
 
         # EPIC-015 Phase 4 — was a bare QLabel + colour-square QFrame, styled
-        # inline via `_sync_ws_status()`. Now `StatusPill.qml` embedded
-        # inline (no modal, no `QmlOverlay` — see `StatusPillWidget`'s own
-        # docstring): the pill draws its own rounded background/border/dot
-        # from `Theme` tokens, so nothing here styles it.
-        self._ws_status_pill = StatusPillWidget()
+        # inline via `_sync_ws_status()`; then `StatusPill.qml` embedded
+        # inline. PR 4.3l makes it `WsStatusPill`, a dot and a label in this
+        # screen's own package (ADR D21): it colours its own dot from
+        # `semantic_colour()`, so nothing here styles it, and it measures
+        # itself, so nothing here sizes it either.
+        self._ws_status_pill = WsStatusPill()
         self._ws_status_pill.setObjectName("wsStatusPill")
-        self._ws_status_pill.setFixedHeight(22)
 
         self._btn_reload = QPushButton()
         self._btn_reload.setObjectName("btnReload")
@@ -422,17 +413,16 @@ class DevBoardPanel(QObject):
         # give no feedback at all: the log line "Syncing missing data from
         # Binance..." was the only sign anything was happening, for however
         # long that fetch took, with no way to cancel it short of killing
-        # the app. Same `ProgressBannerWidget` Backtest/Data Management
+        # the app. Same `kit.ProgressBanner` Backtest/Data Management
         # already use, in the same spot relative to their own sync trigger.
         self._progress_banner = self._build_progress_banner()
         layout.addWidget(self._progress_banner)
 
         return card
 
-    def _build_progress_banner(self) -> ProgressBannerWidget:
-        banner = ProgressBannerWidget()
+    def _build_progress_banner(self) -> ProgressBanner:
+        banner = ProgressBanner()
         banner.setObjectName("devBoardProgressBanner")
-        banner.setFixedHeight(_PROGRESS_BANNER_HEIGHT)
         banner.setVisible(False)
         banner.cancelRequested.connect(self._view_model.requestStopStream)
         return banner
@@ -1037,9 +1027,9 @@ class DevBoardPanel(QObject):
 
     def _sync_ws_status(self) -> None:
         """`vm.wsStatusColor` (a raw hex string) is not read here at all —
-        `StatusPill.qml` resolves its own colours from `Theme` given only
-        the semantic `tone`, which `vm.wsStatusTone` already carries (set
-        alongside text/color by the same `set_ws_status()` call, see
+        `WsStatusPill` resolves its own colour given only the semantic
+        `tone`, which `vm.wsStatusTone` already carries (set alongside
+        text/color by the same `set_ws_status()` call, see
         `dashboard_view_model.py`)."""
         vm = self._view_model
         self._ws_status_pill.set_text(vm.wsStatusText)

@@ -22,14 +22,24 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_view 
     TradingView,
 )
 
-_SCREEN_DIR = (
-    Path(__file__).resolve().parents[6]
-    / "src"
-    / "presentation"
-    / "ui"
-    / "screens"
-    / "trading"
-)
+
+def _repo_root() -> Path:
+    """By landmark, not by hop count.
+
+    `parents[6]` was correct here and is still a hop count, which
+    `test_no_root_is_found_by_counting.py` exists because of: it breaks on any
+    change of depth, and this file already paid once for a hard-coded path in
+    PR 4.1b (see `_LIVE_ORDER_BOOK_COORDINATOR` below).
+    """
+    for candidate in Path(__file__).resolve().parents:
+        if (candidate / "pyproject.toml").is_file():
+            return candidate
+    raise RuntimeError("no pyproject.toml above this file")
+
+
+_REPO_ROOT = _repo_root()
+
+_SCREEN_DIR = _REPO_ROOT / "src" / "presentation" / "ui" / "screens" / "trading"
 
 #: The modules that sit on the Presenter side of the boundary.
 #: `preview.py` and `module.py` are deliberately absent — neither reaches
@@ -37,19 +47,49 @@ _SCREEN_DIR = (
 #: constructs a bare `TradingView()` for a developer harness; `module.py`
 #: only imports the class).
 #:
-#: `live_order_book_coordinator.py` lives in `presentation/ui/common/`, not
-#: in this screen's own `coordinators/` — it is genuinely shared with
-#: `DashboardPresenter` (`EPIC-023A` follow-up), the same reason
-#: `PositionsPanel`/`OpenOrdersPanel` moved to `qml/` instead of staying
-#: Trading-private. It still fills exactly the role this list already
-#: grants every `coordinators/*.py` file: something `TradingPresenter`
-#: constructs and hands `self.view` to, reaching for `ITradingView`
-#: members on this screen's behalf.
+#: `live_order_book_coordinator.py` is **`modules/trading/ui/`'s since PR
+#: 4.1b**, not this screen's own `coordinators/` and no longer
+#: `presentation/ui/common/` — it is genuinely shared with
+#: `DashboardPresenter` (`EPIC-023A` follow-up), which is why it belongs to
+#: the context both screens read rather than to either of them. It still
+#: fills exactly the role this list already grants every
+#: `coordinators/*.py` file: something `TradingPresenter` constructs and
+#: hands `self.view` to, reaching for `ITradingView` members on this
+#: screen's behalf.
+#:
+#: **This row is why the path is derived from `_REPO_ROOT` and asserted
+#: below.** It used to read `_SCREEN_DIR.parents[1] / "common" / ...`, and
+#: PR 4.1b's move turned it into a `FileNotFoundError` in the middle of the
+#: gate — the reviewer's J4, "a guard's own file moved, did its path
+#: constant follow". Failing loudly was the right behaviour and the fix is
+#: to make the next move fail the same way rather than quietly scan less.
+_LIVE_ORDER_BOOK_COORDINATOR = (
+    _REPO_ROOT / "src" / "modules" / "trading" / "ui" / "live_order_book_coordinator.py"
+)
+
 _PRESENTER_SIDE = (
     _SCREEN_DIR / "trading_presenter.py",
     *sorted((_SCREEN_DIR / "coordinators").glob("*.py")),
-    _SCREEN_DIR.parents[1] / "common" / "live_order_book_coordinator.py",
+    _LIVE_ORDER_BOOK_COORDINATOR,
 )
+
+
+def test_every_presenter_side_path_exists() -> None:
+    """The three checks below read these files; a path that has moved makes all
+    three fail somewhere inside an `ast.parse()`, which is how PR 4.1b spent a
+    three-minute gate run finding a one-line edit. This says it in
+    milliseconds, and names the file."""
+    missing = [
+        path.relative_to(_REPO_ROOT).as_posix()
+        for path in _PRESENTER_SIDE
+        if not path.is_file()
+    ]
+
+    assert missing == [], (
+        "these Presenter-side paths do not exist — something moved and this "
+        f"guard's list did not follow: {missing}"
+    )
+
 
 #: Names that hold a View on the Presenter side.
 _VIEW_NAMES = frozenset({"view", "_view"})

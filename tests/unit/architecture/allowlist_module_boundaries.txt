@@ -19,7 +19,10 @@
 # -> 36 after PR 2.1c-2
 # -> 35 after PR bug-127 (the metadata port is bound; the presenter's
 #    adapter import goes with it)
-# -> 29 after PR 3.1b.
+# -> 29 after PR 3.1b
+# -> 32 after PR 3.1c.
+# -> 44 after PR 4.1a.
+# -> 58 after PR 4.1b.
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -542,3 +545,110 @@ presentation.ui.screens.trading.trading_view_model -> modules.strategy.ui.strate
 # is the *interactive shell*'s and `trade-once` has never been one of its
 # commands. Recorded because the note this replaces said "declared CLI
 # command", which would have sent the next reader to the wrong registry.
+
+# ---------------------------------------------------------------------------
+# PR 3.1c -- `modules/backtesting` arrives. THREE entries in, none retired,
+# and three is the number worth explaining, because the measured estimate was
+# five times that.
+#
+# `EPIC-025D` section 4 counted 33 imports reaching into the moving code from
+# 17 files. Almost all of them read the *answers* a backtest produces --
+# `BacktestResult`, `Trade`, `ExitReason`, `BacktestMetrics`, `CommissionType`,
+# `Currency`, `BrokerSimulationConfig`, the two lifecycle events -- and those
+# went into `contracts/` with the move, so they became legal imports rather
+# than counted violations. PR 1.3b's first half did exactly this for `trading`
+# and took its inbound count 61 -> 41 without touching a single consumer; this
+# is the same trick, and here it absorbed 30 of 33.
+#
+# What is left is the one thing `contracts/` cannot absorb: the Backtest screen
+# **builds this module's commands and dispatches them**. That is the
+# transitional shape `EPIC-025` exists to retire -- a consumer assembling
+# another context's command object for the Engine's dispatcher -- and HLD
+# section 3.4 records its exit: *"if a CLI `backtest` command appears,
+# `IBacktestRunner` is added then"*. It is `IMarketDataSync`'s arc exactly (PR
+# 0.4a moved the code, PR 0.5 published the port and four screens stopped
+# building the command), so these three retire with the port, at the latest
+# when the screen itself moves in Phase 4.
+presentation.ui.screens.backtest.backtest_presenter -> modules.backtesting.application.run_static_backtest
+presentation.ui.screens.backtest.coordinators.execution_coordinator -> modules.backtesting.application.run_historical_tick_backtest
+presentation.ui.screens.backtest.coordinators.execution_coordinator -> modules.backtesting.application.run_static_backtest
+
+
+# ---------------------------------------------------------------------------
+# PR 4.1a -- `trading`'s six UI feeds come in, and TWELVE entries arrive for a
+# move that retires none. That is the worst ratio in this epic, and it is the
+# right trade for a measured reason: the entries are the *same* twelve imports
+# that existed before the move, pointing at the same six files. What changed is
+# only which side of the boundary the files sit on.
+#
+# `equity_chart_adapter`, `equity_feed`, `execute_order_block_reason`,
+# `market_tick_feed`, `order_feed` and `order_fill_marker` normalise `trading`'s
+# own published events onto Qt signals. HLD section 3.5 has assigned all six to
+# `modules/trading` since the epic was cut, and PR 1.4b-2 measured why they
+# could not go then -- the two legacy Presenters are their only consumers, and a
+# legacy file may import a module only through `contracts/`. That is still true;
+# it is why these twelve lines exist rather than nothing.
+#
+# What makes the move worth its twelve lines NOW rather than at Phase 4's end:
+# the duplication ratchet. `tools/measure_duplicate_members.py` reports the
+# Phase 1 pair (`dashboard` + `trading`) at **39 -> 34** on this move alone,
+# its first fall since PR 2.1e, with the total across every pair unchanged at
+# 113. The epic is judged on that number reaching 0, and each feed that leaves
+# `presentation/ui/common/` for its owning module takes a handful of duplicated
+# member names with it.
+#
+# Their exit is the whole point and it is two pull requests away, not five:
+# `EPIC-025E` section 3.1 measured `screens/trading` as having exactly thirteen
+# legacy imports -- these six plus seven into `components/order_book` -- and
+# **nothing else, no QML at all**. So 4.1b (order_book, travelling with
+# `data_management` by the user's decision of 2026-09-16) and then 4.1c
+# (`screens/trading` itself into `modules/trading/ui/`) retire all twelve of
+# these in one go, along with the six `dashboard` ones once that screen's four
+# QML imports are gone in 4.3.
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.equity_chart_adapter
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.equity_feed
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.execute_order_block_reason
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.market_tick_feed
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.order_feed
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.order_fill_marker
+presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.equity_chart_adapter
+presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.equity_feed
+presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.execute_order_block_reason
+presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.market_tick_feed
+presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.order_feed
+presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.order_fill_marker
+
+
+# ---------------------------------------------------------------------------
+# PR 4.1b -- `order_book` and `live_order_book_coordinator` come in. FOURTEEN
+# more entries, none retired, and the same argument as 4.1a's twelve: they are
+# the imports that already existed, from the same two screens to the same
+# files. All 26 retire together at 4.1c and 4.4, when the two screens
+# themselves move into `modules/trading/ui/`.
+#
+# `EPIC-025E` section 3.1 is why these cannot wait for that: `screens/trading`
+# has exactly thirteen legacy imports and **no QML at all**, so it is the one
+# live screen whose move does not depend on ADR D21's deletions. 4.1a took six
+# of the thirteen, these take the other seven, and 4.1c then retires all
+# twenty-six of this module's lines in one pull request.
+#
+# The move itself waited for a de-duplication rather than for a dependency, and
+# that was the user's call on 2026-09-16: moving `order_book` alone raised the
+# duplication ratchet, because its two table models and Data Management's two
+# were the same class written twice (section 3.5). `support/ui_kit/table_model.py`
+# is that class now, so the move costs the ratchet nothing -- the Phase 1 pair
+# goes 34 -> 32 and the total across every pair stays at 112.
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.live_order_book_coordinator
+presentation.ui.screens.dashboard.dashboard_view -> modules.trading.ui.order_book.open_order_row
+presentation.ui.screens.dashboard.dashboard_view -> modules.trading.ui.order_book.open_orders_panel
+presentation.ui.screens.dashboard.dashboard_view -> modules.trading.ui.order_book.position_row
+presentation.ui.screens.dashboard.dashboard_view -> modules.trading.ui.order_book.positions_panel
+presentation.ui.screens.trading.i_trading_view -> modules.trading.ui.order_book.open_order_row
+presentation.ui.screens.trading.i_trading_view -> modules.trading.ui.order_book.position_row
+presentation.ui.screens.trading.preview -> modules.trading.ui.order_book.open_order_row
+presentation.ui.screens.trading.preview -> modules.trading.ui.order_book.position_row
+presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.live_order_book_coordinator
+presentation.ui.screens.trading.trading_view -> modules.trading.ui.order_book.open_order_row
+presentation.ui.screens.trading.trading_view -> modules.trading.ui.order_book.open_orders_panel
+presentation.ui.screens.trading.trading_view -> modules.trading.ui.order_book.position_row
+presentation.ui.screens.trading.trading_view -> modules.trading.ui.order_book.positions_panel

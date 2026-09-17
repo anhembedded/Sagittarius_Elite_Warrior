@@ -1,11 +1,14 @@
 """Data Management's "Chọn lịch" button, after `EPIC-015`.
 
 Replaces `pick_date_range()` (`components/date_range_picker.py`, now
-deleted) with the standalone `TimeRangePicker.qml` behind
-`TimeRangeCardWidget._on_pick_range()`. `TimeRangeCardWidget` itself holds
-no ViewModel reference (every other setter on it is the same push-down
-shape — see its docstring), so these tests exercise it the way
-`DataManagementView` actually wires it: through `set_view_model()`.
+deleted) with the standalone picker behind `TimeRangeCardWidget._on_pick_range()`
+— `TimeRangePicker.qml` from `EPIC-015` until `EPIC-025` PR 4.3d put
+`support/ui_kit/time_range_picker`'s `QDialog` there. The promises below did not
+change with it: what an open seeds from, and what an Apply writes.
+
+`TimeRangeCardWidget` itself holds no ViewModel reference (every other setter on
+it is the same push-down shape — see its docstring), so these tests exercise it
+the way `DataManagementView` actually wires it: through `set_view_model()`.
 """
 
 from __future__ import annotations
@@ -20,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view_model import (
     DataManagementViewModel,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.time_range_picker import (
+    RangePresetKind,
 )
 
 
@@ -64,9 +70,14 @@ def test_opening_the_dialog_seeds_from_the_current_fields(qapp, view):
     card._btn_pick_range.click()
     qapp.processEvents()
 
-    assert card._range_dialog._widget_vm.fromText == "2026-07-01 00:00"
-    assert card._range_dialog._widget_vm.toText == "2026-07-08 00:00"
-    card._range_dialog.close()
+    dialog = card._range_dialog
+    assert dialog._from_field.dateTime().toString("yyyy-MM-dd HH:mm") == (
+        "2026-07-01 00:00"
+    )
+    assert dialog._to_field.dateTime().toString("yyyy-MM-dd HH:mm") == (
+        "2026-07-08 00:00"
+    )
+    dialog.close()
 
 
 def test_applying_writes_both_fields_and_the_view_model(qapp, view, view_model):
@@ -74,9 +85,9 @@ def test_applying_writes_both_fields_and_the_view_model(qapp, view, view_model):
     card._btn_pick_range.click()
     qapp.processEvents()
 
-    card._range_dialog._widget_vm.choosePreset("7d")
+    card._range_dialog._choose_preset(RangePresetKind.LAST_7_DAYS)
     qapp.processEvents()
-    card._range_dialog._widget_vm.apply()
+    card._range_dialog._btn_apply.click()
     qapp.processEvents()
 
     assert view_model.fromDateTime == card._from_field.text()

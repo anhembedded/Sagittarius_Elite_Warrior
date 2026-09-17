@@ -24,6 +24,23 @@ UI_TREE_ROWS: tuple[tuple[str, str], ...] = tuple(
     (path, "*.py") for path in UI_TREE_PATHS
 )
 
+#: The rows where finding **nothing** is the point, not a lost subject.
+#:
+#: `test_scanned_roots_are_not_empty.py` exists because a path-scanning guard
+#: whose tree moved passes faster rather than failing — four times in
+#: `EPIC-025` alone. Exactly one rule inverts that: ADR D21 drives `.qml` to
+#: **zero**, which `EPIC-025` PR 4.3l reached. `test_no_new_qml.py` is a ban
+#: now rather than a ratchet, and an empty scan is it succeeding.
+#:
+#: This is deliberately a list of (guard, root, pattern) triples rather than a
+#: flag on a guard: an exemption has to name the exact scan it excuses, so a
+#: guard that later gains a second, genuinely-emptied root still fails.
+#: `test_scanned_roots_are_not_empty.py` also checks every entry here is a real
+#: registered row, so a stale exemption cannot sit unnoticed.
+EMPTY_BY_DESIGN: tuple[tuple[str, str, str], ...] = (
+    ("tests/unit/architecture/test_no_new_qml.py", "src", "*.qml"),
+)
+
 #: (guard file, ((scanned root, file glob), ...)) — paths relative to the repo root.
 GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     # --- tests/unit/architecture (EPIC-025) --------------------------------
@@ -142,13 +159,13 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/presentation/ui/test_palette_is_the_only_color_source.py",
         UI_TREE_ROWS,
     ),
+    # Retargeted by `EPIC-025` PR 4.3l: `src/presentation/ui/qml/` is deleted,
+    # and the rule (a shared widget library may not import a screen) moved to
+    # the two libraries that replaced it. `test_qml_style_discipline.py` had a
+    # row here too and went with the tree — its subject was `.qml` files.
     (
         "tests/unit/architecture/test_qml_library_does_not_import_screens.py",
-        (("src/presentation/ui/qml", "*.py"),),
-    ),
-    (
-        "tests/unit/presentation/ui/qml/test_qml_style_discipline.py",
-        (("src/presentation/ui/qml", "*.qml"),),
+        (("src/support/ui_kit", "*.py"), ("src/support/charting", "*.py")),
     ),
     # `BUG-115`/`BOT-133`, widened 2026-09-15 (review finding S1). Two rules
     # with two scopes, so all three roots are registered: building a
@@ -163,14 +180,6 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         (*UI_TREE_ROWS, ("scripts", "*.py"), ("tests", "*.py")),
     ),
     (
-        "tests/unit/presentation/ui/qml/test_select_list_bodies.py",
-        (("src/presentation/ui/qml/SelectList", "*.qml"),),
-    ),
-    (
-        "tests/unit/presentation/ui/qml/test_stat_grid_and_checkbox_list_bodies.py",
-        (("src/presentation/ui/qml", "*.qml"),),
-    ),
-    (
         "tests/unit/presentation/ui/screens/backtest/test_backtest_view_contract.py",
         (("src/presentation/ui/screens/backtest", "*.py"),),
     ),
@@ -180,9 +189,21 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ),
     ("tests/unit/presentation/test_enum_labels.py", (("src/presentation", "*.py"),)),
     # --- application / domain / infrastructure ------------------------------
+    # PR 3.1c retargeted this guard: `src/application/` is **empty** now, and a
+    # path-scanning guard that has lost its subject passes faster rather than
+    # failing. The row is what caught it — `src/modules/*/application` is a glob
+    # the registry cannot express, so the guard keeps its own non-emptiness
+    # assertion and this row names the parent it walks.
     (
         "tests/unit/architecture/test_application_layer_structure.py",
-        (("src/application", "*.py"),),
+        (("src/modules", "*.py"),),
+    ),
+    # PR 3.1c rescued the `i_*.py` naming rule the retarget above would have
+    # dropped. `src/` rather than `src/modules`, because `support/*` packages
+    # publish contracts too and the convention is the repository's.
+    (
+        "tests/unit/architecture/test_contract_file_naming.py",
+        (("src", "*.py"),),
     ),
     (
         "tests/unit/support/indicators/test_indicator_script_conventions.py",
@@ -242,8 +263,11 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             # had wrong until the gate said so. `modules/*/application` is
             # derived from disk by `_use_case_roots()` and so cannot go stale;
             # these two are written down and can, which is exactly what a row
-            # here is for.
-            ("src/application/use_cases", "*.py"),
+            # here is for. PR 3.1c is the second time that paid: the legacy
+            # `application/use_cases` root emptied out when `backtest/` became
+            # `modules/backtesting/application/`, and this row failed rather
+            # than the scan quietly reading nothing.
+            ("src/modules/backtesting/application", "*.py"),
             ("src/modules/strategy/domain/strategies", "*.py"),
         ),
     ),

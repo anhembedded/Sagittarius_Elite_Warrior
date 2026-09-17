@@ -91,21 +91,30 @@ def _use_case_roots() -> tuple[str, ...]:
     disk means a module cannot be forgotten, and `_MINIMUM_USE_CASES_CHECKED`
     below is what turns a *narrowing* — the shape that actually happens — into a
     failure rather than a smaller silent pass.
+
+    **PR 3.1c: the legacy root is gone from this tuple, and that prediction came
+    true one phase early.** `backtesting` arrived and took `application/
+    use_cases/backtest` with it, which left `src/application/` **empty** — so
+    the hard-coded first element became a root with nothing in it. Deriving the
+    module roots is what kept the scan honest through that; the one written-down
+    entry is the one that had to be deleted by hand.
     """
     modules_root = _SRC / "modules"
-    module_roots = sorted(
-        f"modules/{package.name}/application"
-        for package in modules_root.iterdir()
-        if package.is_dir()
-        and not package.name.startswith("_")
-        and (package / "application").is_dir()
+    return tuple(
+        sorted(
+            f"modules/{package.name}/application"
+            for package in modules_root.iterdir()
+            if package.is_dir()
+            and not package.name.startswith("_")
+            and (package / "application").is_dir()
+        )
     )
-    return ("application/use_cases", *module_roots)
 
 
 #: A floor, not a count: it moves with every use case added and a ratchet on it
-#: would be noise. Chosen so that seeing **only** the legacy tree (4) or only one
-#: module (11 at most today) fails — which is the exact regression above.
+#: would be noise. Chosen so that seeing only one module's tree fails — which is
+#: the exact regression above. The legacy tree it also used to guard against is
+#: gone: PR 3.1c emptied `src/application/` entirely.
 _MINIMUM_USE_CASES_CHECKED = 20
 
 #: Where the strategy implementations live. `EPIC-025` PR 2.1b moved them from

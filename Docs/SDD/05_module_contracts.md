@@ -316,6 +316,61 @@ PR 0.5.
 
 ---
 
+### `backtesting`: a module that publishes no port, and publishes eight types anyway
+
+HLD §3.4 gave this context one row — *"no public port yet"* — and the reason
+still holds after PR 3.1c: nothing asks `backtesting` a question through an
+interface. Its two runners are reached by building their commands, and the only
+caller is its own screen. `IBacktestRunner` is what HLD says would change that,
+*"if a CLI `backtest` command appears"*, and none has.
+
+What the specification got wrong is the step from *no port* to *nothing
+published*. HLD §02 sent `BrokerSimulationConfig` and `CommissionType` to
+`backtesting/domain`, and listed `BacktestCompletedEvent` / `BacktestFailedEvent`
+as **internal** on the grounds that *"only the backtest screen listens"*. Both
+sentences were measured correctly and concluded wrongly, for one reason: the
+screen is 74 files that do not move until Phase 4, so *its own screen* is a
+cross-boundary consumer today. Measured on the moving code, eight types are read
+from outside the context — the six that make up a run's **answer**
+(`BacktestResult`, `Trade`, `BacktestMetrics`, `ExitReason`, `BacktestCancelled`,
+`OutOfSampleValidation`) and the three that configure the paper broker
+(`BrokerSimulationConfig`, `CommissionType`, `Currency`) — for **33** inbound
+imports in total.
+
+So they shipped in `contracts/`, and the number is the argument: 33 inbound
+imports became **three** allowlist entries, which is PR 1.3b's measurement
+repeated exactly (it took `trading`'s inbound count from 61 to 41 without
+touching a single consumer). A type that crosses a boundary is published whether
+or not a document declares it so; `contracts/` is where the crossing is legal,
+and the alternative was 33 lines in a shrink-only ratchet.
+
+The three that remain are the screen's **command dispatches** — it builds
+`RunStaticBacktestCommand` and `RunHistoricalTickBacktestCommand` and hands them
+to `ICommandDispatcher`. Those are exactly the lines `IBacktestRunner` would
+retire, and they are allowlisted rather than published because the runners stay
+internal (§5 above, `trading`'s item 5, made the same choice for the same
+reason).
+
+Two smaller things shipped differently from what the phase plan described:
+
+- **`register()` binds nothing.** The two command handlers stay registered in
+  `binance_bot_module.py`. Moving a *registration* while both the dispatcher and
+  the screen stay put would buy a second place to look for one fact, and a
+  binding nothing resolves differently is the dead wiring `BUG-120` was.
+- **`module.py` declares three dependencies and no `ui/`.** `market_data` for the
+  candles, `strategy` for the engine and the sizing rule, `trading` for
+  `PositionSide` — the one word a paper position and a live one must agree on.
+  `test_module_declarations.py` reads the imports actually present and fails on
+  both surplus and shortfall, so that list is checked rather than claimed.
+
+One consequence outside the module is worth recording here, because a reader
+looking for the legacy tree will not find it: `src/application/` is now
+**empty**, and `src/domain/` holds one file — `value_objects/market_type.py`,
+whose only production consumer is the market picker, so it travels with that
+component in Phase 4.
+
+---
+
 ### `shell` and `core`: the contribution mechanism as it shipped
 
 The mechanism is not a module, but it is a published surface all the same — the

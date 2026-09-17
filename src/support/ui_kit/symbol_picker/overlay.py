@@ -22,14 +22,13 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QModelIndex, Qt, Signal
 from PySide6.QtWidgets import (
-    QFrame,
-    QGridLayout,
+    QAbstractItemView,
     QHBoxLayout,
+    QHeaderView,
     QLabel,
-    QScrollArea,
-    QVBoxLayout,
+    QTableView,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
@@ -51,15 +50,13 @@ from .filtering import (
     build_entries,
     partition_favourites,
 )
-from .symbol_card import SymbolCard
+from .symbol_table_model import SymbolTableModel
 
 _TITLE = "SELECT SYMBOL"
 _SEARCH_PLACEHOLDER = "Search symbol (e.g. BTC)"
 _LOADING_TEXT = "Loading symbol list from the exchange..."
 _NO_MATCH_TEXT = "No symbol matches the current filter."
 
-_FAVOURITES_HEADING = "FAVOURITES"
-_RESULTS_HEADING = "ALL RESULTS"
 _RESULT_COUNT_TEXT = "{count} results"
 _CURRENT_FOOTER_TEXT = "Current: {symbol}"
 _KEY_HINTS = "↑↓ move   ↵ select   ☆ favourite"
@@ -71,9 +68,9 @@ _SCOPE_TABS = (
 )
 _QUOTE_ANY_LABEL = "All"
 
-#: Symbols are short, so three to a row reads as a keypad rather than a list —
-#: the shape both existing dialogs already rendered.
-_COLUMNS = 3
+#: How wide the star column is. Fixed, because it holds one glyph and a
+#: resizable column of stars would let the user drag the hit target away.
+_STAR_COLUMN_WIDTH = 36
 
 #: How many quote tabs to offer beyond "All". The exchange quotes in more
 #: than a dozen assets; past the top few the tab bar wraps and stops being
@@ -103,6 +100,18 @@ class SymbolPickerOverlay(Overlay):
     symbol_chosen = Signal(str)
     favourite_toggled = Signal(str)
 
+    #: Emitted on every open, **before** the lists are re-read: "if your symbol
+    #: list can be refetched, now is the time".
+    #:
+    #: Added in PR 4.3b, and it is a promise carried over rather than a new
+    #: idea. The QML picker this replaces raised it — Backtest connects it to
+    #: `refreshSymbolOptionsRequested` (`signal_wiring.py`) and Dev Board to
+    #: `symbolOptionsRefreshRequested` (`dashboard_presenter.py`) — and without
+    #: it a user who opened the picker before the exchange's list had arrived
+    #: would sit on "Loading…" until they closed and reopened. Data Management
+    #: connects nothing: its own scan is what populates the list.
+    refresh_requested = Signal()
+
     def __init__(
         self,
         get_symbols: Callable[[], Sequence[str]],
@@ -121,8 +130,8 @@ class SymbolPickerOverlay(Overlay):
         self._get_current = get_current
 
         self._filter = FilterState()
-        self._cards: list[SymbolCard] = []
-        self._focused_index = -1
+        self._entries: list[SymbolEntry] = []
+        self._model = SymbolTableModel(self)
 
         self._build_search_row()
         self._build_filter_rows()
@@ -173,30 +182,36 @@ class SymbolPickerOverlay(Overlay):
         apply_role(self._status_label, StyleRole.CAPTION)
         self.body_layout.addWidget(self._status_label)
 
-        content = QWidget()
-        self._content_layout = QVBoxLayout(content)
-        self._content_layout.setContentsMargins(0, 0, 0, 0)
-        self._content_layout.setSpacing(14)
-
-        self._favourites_heading = self._section_heading(_FAVOURITES_HEADING)
-        self._favourites_grid = QGridLayout()
-        self._favourites_grid.setSpacing(8)
-        self._content_layout.addWidget(self._favourites_heading)
-        self._content_layout.addLayout(self._favourites_grid)
-
-        self._results_heading = self._section_heading(_RESULTS_HEADING)
-        self._results_grid = QGridLayout()
-        self._results_grid.setSpacing(8)
-        self._content_layout.addWidget(self._results_heading)
-        self._content_layout.addLayout(self._results_grid)
-        self._content_layout.addStretch(1)
-
-        self._scroll = QScrollArea()
-        self._scroll.setWidgetResizable(True)
-        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll.setWidget(content)
-        apply_role(self._scroll, StyleRole.LIST_SURFACE)
-        self.body_layout.addWidget(self._scroll, 1)
+        self._table = QTableView()
+        self._table.setObjectName("tblSymbolResults")
+        self._table.setModel(self._model)
+        # One row at a time, whole-row: this is a chooser, and a user who
+        # clicked a cell meant the pair it belongs to.
+        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self._table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self._table.setShowGrid(False)
+        self._table.setAlternatingRowColors(True)
+        # No headers: "Symbol" over a column of symbols in a dialog called
+        # SELECT SYMBOL is a label for something the user is already looking at,
+        # and the other two columns have nothing to say in a header.
+        self._table.horizontalHeader().setVisible(False)
+        self._table.verticalHeader().setVisible(False)
+        self._table.horizontalHeader().setSectionResizeMode(
+            SymbolTableModel.SYMBOL_COLUMN, QHeaderView.ResizeMode.Stretch
+        )
+        self._table.horizontalHeader().setSectionResizeMode(
+            SymbolTableModel.STATUS_COLUMN, QHeaderView.ResizeMode.ResizeToContents
+        )
+        self._table.horizontalHeader().setSectionResizeMode(
+            SymbolTableModel.FAVOURITE_COLUMN, QHeaderView.ResizeMode.Fixed
+        )
+        self._table.setColumnWidth(
+            SymbolTableModel.FAVOURITE_COLUMN, _STAR_COLUMN_WIDTH
+        )
+        self._table.clicked.connect(self._on_cell_clicked)
+        apply_role(self._table, StyleRole.LIST_SURFACE)
+        self.body_layout.addWidget(self._table, 1)
 
     def _build_footer_row(self) -> None:
         row = QHBoxLayout()
@@ -210,12 +225,6 @@ class SymbolPickerOverlay(Overlay):
         apply_role(self._current_label, StyleRole.CAPTION)
         row.addWidget(self._current_label)
         self.body_layout.addLayout(row)
-
-    @staticmethod
-    def _section_heading(text: str) -> QLabel:
-        label = QLabel(text)
-        apply_role(label, StyleRole.SECTION_LABEL)
-        return label
 
     # ------------------------------------------------------------------ #
     # Data
@@ -232,6 +241,10 @@ class SymbolPickerOverlay(Overlay):
         """
         self._search_field.clear()
         self._filter = FilterState()
+        # Before `refresh()`, not after: a host that refetches synchronously
+        # then has its new list read by the same open, and one that refetches
+        # asynchronously calls `refresh()` itself when the answer lands.
+        self.refresh_requested.emit()
         self.refresh()
         self._search_field.setFocus()
         super().showEvent(event)
@@ -286,11 +299,6 @@ class SymbolPickerOverlay(Overlay):
     # ------------------------------------------------------------------ #
 
     def _rebuild(self) -> None:
-        self._clear_grid(self._favourites_grid)
-        self._clear_grid(self._results_grid)
-        self._cards = []
-        self._focused_index = -1
-
         has_symbols = bool(self._entries)
         visible = apply_filter(self._entries, self._filter) if has_symbols else []
         favourites, rest = partition_favourites(visible)
@@ -308,45 +316,54 @@ class SymbolPickerOverlay(Overlay):
             return
 
         self._status_label.setVisible(False)
-        self._scroll.setVisible(True)
+        self._table.setVisible(True)
 
-        # Favourites are only given their own section when they are not the
-        # whole list — on the "Yêu thích" tab a heading over every row, and an
-        # empty "all results" heading under it, is noise.
-        show_split = bool(favourites) and self._filter.scope is not Scope.FAVOURITES
-        if show_split:
-            self._fill_grid(self._favourites_grid, favourites)
-            self._fill_grid(self._results_grid, rest)
-        else:
-            self._fill_grid(self._results_grid, visible)
+        # Favourites first, then the rest, both in the order the filter
+        # produced. The two section *headings* went with the card grid in PR
+        # 4.3a and the pinning did not: a heading over a `QTableView` cannot
+        # be virtualised, and on the Favourites tab it labelled every row
+        # anyway. What tells a favourite apart is now the filled star in its
+        # own column, on the row itself, which is also what the user clicks.
+        self._model.set_rows([*favourites, *rest])
 
-        self._favourites_heading.setVisible(show_split)
-        self._results_heading.setVisible(show_split and bool(rest))
+        # A chooser opens with something under the keyboard, so Enter works
+        # without an arrow key first — and it is the current symbol's row when
+        # the filter still admits it.
+        self._select_initial_row()
 
     def _show_status(self, text: str) -> None:
         self._status_label.setText(text)
         self._status_label.setVisible(True)
-        self._scroll.setVisible(False)
-        self._favourites_heading.setVisible(False)
-        self._results_heading.setVisible(False)
+        self._table.setVisible(False)
+        self._model.clear()
 
-    def _fill_grid(self, grid: QGridLayout, entries: Sequence[SymbolEntry]) -> None:
-        for index, entry in enumerate(entries):
-            card = SymbolCard(entry)
-            card.clicked.connect(lambda symbol=entry.symbol: self._choose(symbol))
-            card.favourite_toggled.connect(self.favourite_toggled)
-            grid.addWidget(card, index // _COLUMNS, index % _COLUMNS)
-            self._cards.append(card)
+    def _select_initial_row(self) -> None:
+        rows = self._model.rows
+        if not rows:
+            return
+        current = self._get_current()
+        index = next((i for i, entry in enumerate(rows) if entry.symbol == current), 0)
+        self._focus_row(index)
 
-    @staticmethod
-    def _clear_grid(grid: QGridLayout) -> None:
-        while grid.count():
-            entry = grid.takeAt(0)
-            if entry is None:  # pragma: no cover - count() > 0 guarantees one
-                break
-            widget = entry.widget()
-            if widget is not None:
-                widget.deleteLater()
+    def _focus_row(self, row: int) -> None:
+        index = self._model.index(row, SymbolTableModel.SYMBOL_COLUMN)
+        self._table.setCurrentIndex(index)
+        self._table.scrollTo(index)
+
+    def _on_cell_clicked(self, index: QModelIndex) -> None:
+        """Starring is not choosing, and the column is what says which.
+
+        The card this replaced carried a separate `favourite_toggled` button;
+        a `QTableView` reports the index it was clicked on, so the same
+        distinction is a column comparison instead of a second widget per row.
+        """
+        entry = self._model.row_for(index)
+        if entry is None:
+            return
+        if index.column() == SymbolTableModel.FAVOURITE_COLUMN:
+            self.favourite_toggled.emit(entry.symbol)
+            return
+        self._choose(entry.symbol)
 
     # ------------------------------------------------------------------ #
     # Interaction
@@ -375,28 +392,32 @@ class SymbolPickerOverlay(Overlay):
         self.accept()
 
     def keyPressEvent(self, event) -> None:
-        """Arrow keys move a highlight, Enter chooses it.
+        """Arrow keys move the highlight, Enter chooses it.
 
-        Typing stays in the search box the whole time — a grid of this size is
+        Typing stays in the search box the whole time — a list of this size is
         faster typed than clicked, and forcing the user to leave the field to
-        reach the result they just narrowed to would undo that.
+        reach the result they just narrowed to would undo that. So the dialog
+        intercepts the arrows rather than giving the table focus; the table is
+        what *shows* the highlight, and `setCurrentIndex` is what moves it.
+
+        The wrap-around is kept from the card grid: at the bottom of a
+        fourteen-hundred-row list, Down reaching the top again is faster than
+        scrolling back.
         """
         key = event.key()
-        if key in (Qt.Key.Key_Down, Qt.Key.Key_Up) and self._cards:
+        count = self._model.rowCount()
+        if key in (Qt.Key.Key_Down, Qt.Key.Key_Up) and count:
             step = 1 if key == Qt.Key.Key_Down else -1
-            self._move_focus(step)
+            self._focus_row((self._current_row() + step) % count)
             event.accept()
             return
-        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and self._cards:
-            index = max(self._focused_index, 0)
-            self._choose(self._cards[index].entry.symbol)
+        if key in (Qt.Key.Key_Return, Qt.Key.Key_Enter) and count:
+            entry = self._model.rows[self._current_row()]
+            self._choose(entry.symbol)
             event.accept()
             return
         super().keyPressEvent(event)
 
-    def _move_focus(self, step: int) -> None:
-        count = len(self._cards)
-        self._focused_index = (self._focused_index + step) % count
-        for index, card in enumerate(self._cards):
-            card.selected = index == self._focused_index
-        self._scroll.ensureWidgetVisible(self._cards[self._focused_index])
+    def _current_row(self) -> int:
+        index = self._table.currentIndex()
+        return index.row() if index.isValid() else 0

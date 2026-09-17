@@ -7,24 +7,24 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
-    BacktestCancelled,
-)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest import (
+    BacktestCancelled,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
-from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
-from Sagittarius_Elite_Warrior.src.domain.events.backtest_completed_event import (
-    BacktestCompletedEvent,
-)
-from Sagittarius_Elite_Warrior.src.domain.events.backtest_failed_event import (
-    BacktestFailedEvent,
-)
-from Sagittarius_Elite_Warrior.src.domain.value_objects.commission_type import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type import (
     CommissionType,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest_completed_event import (
+    BacktestCompletedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest_failed_event import (
+    BacktestFailedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
 )
@@ -61,17 +61,17 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordin
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
     SyncProgressReport,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
+    BacktestProgress,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
     build_result_warning_text,
     stat_cards_to_qml,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
     TradeLogRow,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
-    BacktestProgress,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,

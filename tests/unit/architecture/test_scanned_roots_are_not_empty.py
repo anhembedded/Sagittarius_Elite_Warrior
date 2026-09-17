@@ -26,6 +26,7 @@ from pathlib import Path
 
 import pytest
 from Sagittarius_Elite_Warrior.tests.unit.architecture.scanned_roots_registry import (
+    EMPTY_BY_DESIGN,
     GUARDS,
 )
 
@@ -40,6 +41,12 @@ _MINIMUM_GUARDS_EXPECTED = 20
 
 def _registered_files() -> set[str]:
     return {guard for guard, _ in GUARDS}
+
+
+def _registered_rows() -> set[tuple[str, str, str]]:
+    return {
+        (guard, root, pattern) for guard, roots in GUARDS for root, pattern in roots
+    }
 
 
 def test_repo_root_is_where_we_think_it_is() -> None:
@@ -63,8 +70,24 @@ def test_scanned_root_exists_and_is_not_empty(
     directory = _REPO_ROOT / root
     assert directory.is_dir(), f"{guard} scans {root}, which does not exist"
     matches = [p for p in directory.rglob(pattern) if "__pycache__" not in p.parts]
+    if (guard, root, pattern) in EMPTY_BY_DESIGN:
+        # The one inverted case: a ban, whose scan finding nothing is it
+        # holding. See `EMPTY_BY_DESIGN`'s own docstring.
+        return
     assert matches, (
         f"{guard} scans {root} for {pattern} and would find nothing — retarget the guard"
+    )
+
+
+@pytest.mark.parametrize(("guard", "root", "pattern"), EMPTY_BY_DESIGN)
+def test_an_empty_by_design_row_is_a_real_registered_scan(
+    guard: str, root: str, pattern: str
+) -> None:
+    """An exemption for a scan nobody performs is an exemption nobody can see
+    is stale."""
+    assert (guard, root, pattern) in _registered_rows(), (
+        f"EMPTY_BY_DESIGN names a scan that is not registered in GUARDS: "
+        f"{(guard, root, pattern)}"
     )
 
 

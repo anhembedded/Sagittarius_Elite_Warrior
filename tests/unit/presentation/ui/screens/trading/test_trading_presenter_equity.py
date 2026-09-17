@@ -40,7 +40,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve impo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.equity_chart_adapter import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
     equity_sample_to_candle,
     equity_samples_to_candles,
 )

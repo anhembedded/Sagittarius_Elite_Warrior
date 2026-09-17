@@ -44,7 +44,7 @@ heavy pieces are moved.
 | 0 | `EPIC-025A` | `core/`, `shell/`, `BoundedContextModule`, `IContributionRegistry`, the three guards (allowlist = as found), `support/binance_gateway`, and **`modules/market_data`** end to end | ✅ Data Management plus CLI `sync` / `stream` |
 | 1 | `EPIC-025B` | `modules/trading`; Trading and Dev Board become surfaces; the first `dev_probe`; the 59 duplicates removed | ✅ the user runs Testnet: manual orders, cancel, enable/disable, PnL |
 | 2 | `EPIC-025C` | `modules/strategy` (Core); `claim_symbol`; `StrategyContext` in the right direction | ✅ arm / disarm / tick → order |
-| 3 | `EPIC-025D` | `modules/backtesting`; the `PaperExchange` ACL; dead use cases deleted | ✅ backtests bit-identical |
+| 3 | `EPIC-025D` | `modules/backtesting`; dead use cases deleted. **The `PaperExchange` ACL this row asked for is measured out** (`EPIC-025D` §8): `IStrategyEngine.on_tick()` is the boundary, and the layer would need `StrategyContext` published | ✅ backtests bit-identical |
 | 4 | `EPIC-025E` | `support/{charting, indicators, ui_kit}`; `ui/common` and `binance_bot_module.py` deleted; settings becomes a surface; ADR D6 revisited | ✅ |
 | 5 | `EPIC-025F` | Engine `EPIC-001D` / `TASK-043`; `ScreenRegistry` → `NavigationService`; the conformance suite | ✅ |
 

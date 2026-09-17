@@ -2,7 +2,9 @@ from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.domain.value_objects.currency import Currency
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.currency import (
+    Currency,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_state import (
     BacktestExecutionMode,
     BacktestUiState,

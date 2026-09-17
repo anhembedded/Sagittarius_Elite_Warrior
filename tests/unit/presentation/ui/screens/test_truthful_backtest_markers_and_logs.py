@@ -1,21 +1,14 @@
 from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_metrics import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_metrics import (
     BacktestMetrics,
 )
-from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
-from Sagittarius_Elite_Warrior.src.domain.backtesting.trade import Trade
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_filter import (
-    TradeLogFilter,
-    filter_trade_log_rows,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.TradeLogTable.trade_log_row import (
-    build_trade_log_rows,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
     _LONG_ENTRY_LABEL,
@@ -24,6 +17,13 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_
     _SHORT_EXIT_LABEL,
     TradeMarkerType,
     trade_flag_markers,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_filter import (
+    TradeLogFilter,
+    filter_trade_log_rows,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
+    build_trade_log_rows,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,

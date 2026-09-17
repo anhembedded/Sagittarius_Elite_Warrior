@@ -552,10 +552,17 @@ because three pull requests in a row found the opposite.
 | :--- | :--- | :--- |
 | `trading_presenter`, `dashboard_presenter` | `strategy_arming_coordinator`, `signal_feed` (2 each) | **2.1e-2** — the contributed card owns both |
 | `trading_view`, `dev_board_panel` | `strategy_params.strategy_params_dialog` | **2.1e-2** — the dialog opens from the card |
-| `backtest_presenter` | `strategy_display` | Phase 3 |
-| `backtest_modals.strategy_properties_dialog` | `strategy_params.param_field` | Phase 3 |
-| `backtest.coordinators.strategy_config_coordinator` | `strategy_params.bot_params_form` | Phase 3 |
-| `backtest.coordinators.indicator_coordinator` | `strategy_overlay.{strategy_indicator_lines,strategy_trend_zones}` | Phase 3 |
+| `backtest_presenter` | `strategy_display` | Phase **4** |
+| `backtest_modals.strategy_properties_dialog` | `strategy_params.param_field` | Phase **4** |
+| `backtest.coordinators.strategy_config_coordinator` | `strategy_params.bot_params_form` | Phase **4** |
+| `backtest.coordinators.indicator_coordinator` | `strategy_overlay.{strategy_indicator_lines,strategy_trend_zones}` | Phase **4** |
+
+These four rows said *Phase 3* and are corrected to **Phase 4**, measured against what Phase 3
+actually did: PR 3.1c moved `backtesting`'s `contracts/`, `domain/` and `application/`, and every
+one of these five entries is the backtest **screen** reading a widget — so they retire when the
+screen moves, which `EPIC-025D` §4.1 measured into Phase 4 (74 files, 29 imports naming QML that
+ADR D21 deletes rather than moves). The debt is still `EPIC-025D`'s to have caused and Phase 4's to
+repay; only the phase number was wrong.
 
 Six are the two live surfaces and five are the **backtest** screen — a different bounded context
 reading strategy's parameter form and chart overlays, which is `EPIC-025D`'s to repay, not this
@@ -1021,8 +1028,10 @@ arrow HLD §02 draws the other way (`market_data → strategy`, Open Host Servic
 `market_data` the owner of the strategy engine's whole live path.
 
 It moved with its two tests, tier unchanged, and the folder it left was the last one under
-`src/application/event_handlers/`, so that tree is gone. What remains under `src/application/` is
-the four backtest use cases, which are Phase 3's (`EPIC-025D`).
+`src/application/event_handlers/`, so that tree is gone. What remained under `src/application/` was
+the four backtest use cases; **PR 3.1c took them**, so `src/application/` is now empty and gone from
+disk, and `src/domain/` holds one file — `value_objects/market_type.py`, which travels with the
+market picker in Phase 4.
 
 ### 10.2 The finding: `subscribe(bridge)` is the wrong door, for two independent reasons
 

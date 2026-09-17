@@ -9,14 +9,14 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_historical_tick_backtest import (
     RunHistoricalTickBacktestCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest import (
     BacktestCancelled,
     RunStaticBacktestCommand,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.coordinators import (
     ExecutionCoordinator,
 )

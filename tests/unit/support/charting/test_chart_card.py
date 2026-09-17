@@ -1021,7 +1021,7 @@ def test_chart_card_chart_type_switch_heikin_ashi(qapp):
 def test_chart_card_toolbar_emits_timeframe_and_tracks_active_button(qapp):
     """`EPIC-015` Phase 4: `ChartToolbar` is QML-hosted now
     (`TimeframeToolbar.qml`) — driven through its `TimeframeVM`
-    (`_vm.choose()`, the same call a real pill click makes) rather than a
+    (`selection.choose()`, the same call a real pill click makes) rather than a
     QtWidgets `QPushButton`, but the public signal this test cares about
     (`sig_timeframe_changed`) is unchanged."""
     card = ChartCard("BTCUSDT")
@@ -1029,10 +1029,10 @@ def test_chart_card_toolbar_emits_timeframe_and_tracks_active_button(qapp):
     changes = []
     card.toolbar.sig_timeframe_changed.connect(changes.append)
 
-    card.toolbar._vm.choose("15m")
+    card.toolbar._selection.choose("15m")
 
     assert changes == ["15m"]
-    assert card.toolbar._vm.currentCode == "15m"
+    assert card.toolbar._selection.current_code == "15m"
 
 
 def test_chart_card_threads_its_own_symbol_into_its_toolbar(qapp):
@@ -1048,7 +1048,7 @@ def test_chart_card_forwards_the_injected_pin_store_scoped_to_its_symbol(qapp):
     store = TimeframePinPreferences()
     card = ChartCard("BTCUSDT", timeframe_pin_preferences=store)
 
-    card.toolbar._vm.togglePinned("4h")
+    card.toolbar._selection.toggle_pinned("4h")
 
     assert "4h" in store.get_pinned("BTCUSDT")
 
@@ -1061,14 +1061,14 @@ def test_a_dev_board_style_rebuild_recovers_the_same_pinned_set(qapp):
     rebuild — only the symbol, and the shared store keyed by it, are."""
     store = TimeframePinPreferences()
     original = ChartCard("BTCUSDT", timeframe_pin_preferences=store)
-    original.toolbar._vm.togglePinned("4h")
+    original.toolbar._selection.toggle_pinned("4h")
     original.cleanup()
 
     # Simulates the teardown-and-reconstruct Dev Board does for an
     # unchanged symbol still present in a new symbol list.
     rebuilt = ChartCard("BTCUSDT", timeframe_pin_preferences=store)
 
-    assert "4h" in {row["code"] for row in rebuilt.toolbar._vm.pinnedRows}
+    assert "4h" in {row.code for row in rebuilt.toolbar._selection.pinned_rows}
 
 
 def test_chart_card_crosshair_mouse_hover(qapp):

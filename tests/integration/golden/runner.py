@@ -5,13 +5,13 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.command import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest.command import (
     RunStaticBacktestCommand,
 )
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_static_backtest.handler import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest.handler import (
     RunStaticBacktestCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.domain.backtesting.backtest_result import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (

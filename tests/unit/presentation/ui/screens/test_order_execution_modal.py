@@ -22,19 +22,19 @@ Truthful lock states now:
   design" the same way BOT-074's did — do not weaken the loop below to
   silently accept it.
 
-`EPIC-015` §4c moved the body to the shared `CheckboxList.qml`. Two things
-changed in how this test reaches the checkboxes, both load-bearing rather
-than cosmetic:
+`EPIC-015` §4c moved the body to `CheckboxList.qml` and this file grew two
+paragraphs about reaching items inside a `Repeater`'s scene graph. `EPIC-025`
+PR 4.3f moved it back to QtWidgets, onto the shared `kit.ChecklistOverlay`, and
+both paragraphs are gone with their subject: the rows are real `QCheckBox`es
+again, reached through `ChecklistOverlay.checkbox_for(key)` rather than a
+`findChild` that silently finds nothing. That accessor is public for this
+reason — a consumer's test needs to click a row, and reaching through a private
+layout is how a test starts depending on the widget's internals.
 
-1. `dialog.findChild(...)` used to work because the checkboxes were real
-   `QCheckBox` children of the `QDialog`. They are QML items now, children of
-   `dialog.root_object`'s scene graph, not of the `QDialog` itself — a plain
-   `findChild` on the dialog silently finds nothing.
-2. `Repeater`-created items are unreachable by `findChild` even through
-   `root_object` (see `conftest.find_qml_item`'s docstring), and they are
-   destroyed and recreated wholesale on every model rebuild — so every
-   checkbox lookup below is a *fresh* one, taken after the state change it
-   is checking, never a Python reference held across a refresh.
+The one habit worth keeping from the QML era: look a row up **after** the state
+change being checked, never hold a reference across a refresh. It costs nothing
+and it is the difference between testing what is on screen and testing a stale
+Python handle.
 """
 
 from __future__ import annotations
@@ -43,7 +43,6 @@ import os
 from unittest.mock import Mock
 
 import pytest
-from PySide6.QtCore import QMetaObject, Qt
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
@@ -62,7 +61,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backte
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Sagittarius_Elite_Warrior.tests.conftest import find_qml_item
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -137,16 +135,8 @@ def _open_order_execution_modal(qapp, view):
 
 
 def _checkbox(dialog, index: int):
-    """A fresh lookup, by design — see this module's docstring point 2."""
-    return find_qml_item(dialog.root_object, f"chk_{index}")
-
-
-def _click(checkbox, checked: bool) -> None:
-    """Simulates a real user click: writes the property the way Qt Quick's
-    own event handling does, then fires the signal `onToggled:` is
-    connected to — a plain `setProperty` alone does not fire it."""
-    checkbox.setProperty("checked", checked)
-    QMetaObject.invokeMethod(checkbox, "toggled", Qt.ConnectionType.DirectConnection)
+    """A fresh lookup, by design — see this module's docstring."""
+    return dialog.checkbox_for(str(index))
 
 
 def test_order_execution_modal_lock_states_and_default_selection_are_truthful(
@@ -158,13 +148,12 @@ def test_order_execution_modal_lock_states_and_default_selection_are_truthful(
         checkbox = _checkbox(dialog, index)
         assert checkbox is not None, f"chk_{index} not found"
 
-        assert checkbox.property("checked") is checked, (
-            f"Trigger {index} checked should be {checked}, "
-            f"was {checkbox.property('checked')}"
+        assert checkbox.isChecked() is checked, (
+            f"Trigger {index} checked should be {checked}, was {checkbox.isChecked()}"
         )
-        assert checkbox.property("enabled") is not locked, (
+        assert checkbox.isEnabled() is not locked, (
             f"Trigger {index} enabled should be {not locked} "
-            f"(locked={locked}), was {checkbox.property('enabled')}"
+            f"(locked={locked}), was {checkbox.isEnabled()}"
         )
 
 
@@ -180,11 +169,11 @@ def test_checking_historical_tick_mode_sets_view_model_execution_mode(
     view_model = view._view_model
     assert view_model.executionMode == "BAR_CLOSE"
 
-    _click(_checkbox(dialog, 2), True)
+    _checkbox(dialog, 2).click()
     qapp.processEvents()
     assert view_model.executionMode == "HISTORICAL_TICK"
 
-    _click(_checkbox(dialog, 2), False)
+    _checkbox(dialog, 2).click()
     qapp.processEvents()
     assert view_model.executionMode == "BAR_CLOSE"
 
@@ -200,5 +189,5 @@ def test_setting_execution_mode_from_python_updates_the_modal_checkboxes(
     view._view_model.executionMode = "HISTORICAL_TICK"
     qapp.processEvents()
 
-    assert _checkbox(dialog, 0).property("checked") is False
-    assert _checkbox(dialog, 2).property("checked") is True
+    assert _checkbox(dialog, 0).isChecked() is False
+    assert _checkbox(dialog, 2).isChecked() is True

@@ -15,15 +15,12 @@ from unittest.mock import Mock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from PySide6.QtCore import QObject
+from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
     BaseStrategy,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.MetricsDetailPanel.performance_metrics_view import (
-    StatCardData,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
@@ -37,11 +34,13 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backte
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.extended_metrics_snapshot import (
     ExtendedMetricsSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
+    StatCardData,
+)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
-from Sagittarius_Elite_Warrior.tests.conftest import find_all_named
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import SelectableCard, Tone
 
 
 class _RichParamsStrategy(BaseStrategy):
@@ -147,13 +146,19 @@ def test_extended_metrics_popup_opens_with_the_extended_stat_cards(
     assert dialog is not None
     assert dialog.objectName() == "backtestMetricsDetailDialog"
     assert dialog.isVisible() is True
-    # EPIC-015 Phase 3: body is MetricsDetailPanel.qml/MetricsDetailVM now;
-    # `MetricsDetailCard.qml`'s delegate carries no per-row objectName
-    # (see the `.qml` — nothing distinguishes one card's Rectangle from
-    # another in the widget tree), so the real assertion is on the VM's own
-    # grouped data, the same source the `.qml`'s Repeaters bind to.
-    group = next(g for g in dialog._widget_vm.groups if g["label"] == "PROFIT & LOSS")
-    assert {row["title"] for row in group["rows"]} == {"GROSS PROFIT", "GROSS LOSS"}
+    # `EPIC-025` PR 4.3j: a `QTreeWidget` with one top-level item per section,
+    # so the assertion is on what is actually on screen rather than on a
+    # ViewModel's `QVariantList` — which is what the QML version left it as,
+    # its delegates carrying no per-row objectName to find.
+    section = next(
+        dialog._tree.topLevelItem(index)
+        for index in range(dialog._tree.topLevelItemCount())
+        if dialog._tree.topLevelItem(index).text(0) == "PROFIT & LOSS"
+    )
+    assert {section.child(index).text(0) for index in range(section.childCount())} == {
+        "GROSS PROFIT",
+        "GROSS LOSS",
+    }
 
 
 def test_limitations_popup_opens_with_each_limitation_as_its_own_label(
@@ -170,10 +175,15 @@ def test_limitations_popup_opens_with_each_limitation_as_its_own_label(
     assert dialog is not None
     assert dialog.objectName() == "limitationsPopup"
     assert dialog.isVisible() is True
-    # EPIC-015 §4c: body is SelectList.qml with selectable=False, so each
-    # limitation is a "bulletItem_" delegate rather than a QLabel.
-    rows = find_all_named(dialog.root_object, "bulletItem_")
-    assert len(rows) == 2
+    # `EPIC-025` PR 4.3e: one wrapped `QLabel` per caveat. `EPIC-015` §4c had
+    # served this from `SelectList.qml` with `selectable=False`, which is a
+    # picker with its only promise switched off — see `EPIC-025E` §4.5.
+    rows = [
+        label
+        for label in dialog.findChildren(QLabel)
+        if label.objectName().startswith("lblLimitation_")
+    ]
+    assert [label.text() for label in rows] == ["• Limitation 1", "• Limitation 2"]
 
 
 def test_capital_popup_opens_with_the_capital_field_populated(qapp, backtest_screen):
@@ -186,12 +196,10 @@ def test_capital_popup_opens_with_the_capital_field_populated(qapp, backtest_scr
     assert dialog is not None
     assert dialog.objectName() == "capitalDialog"
     assert dialog.isVisible() is True
-    # EPIC-015 bậc 1: the body is Capital.qml now, so the amount is read off
-    # the QML TextField instead of a QLineEdit attribute. The objectName is
-    # deliberately unchanged, so this still names the same field.
-    field = dialog.root_object.findChild(QObject, "txtBacktestCapital")
-    assert field is not None
-    assert field.property("text") != ""
+    # `EPIC-025` PR 4.3f: a `QLineEdit` again, and the objectName is
+    # deliberately unchanged across all three versions of this dialog.
+    assert dialog._field.objectName() == "txtBacktestCapital"
+    assert dialog._field.text() != ""
 
 
 def test_capital_dialog_apply_button_disables_on_invalid_capital(qapp, backtest_screen):
@@ -202,10 +210,12 @@ def test_capital_dialog_apply_button_disables_on_invalid_capital(qapp, backtest_
     validation()`'s guard was always False and the button could never be
     disabled, letting a user submit an invalid capital value.
 
-    `EPIC-015` bậc 1 moved the body to QML but kept the Apply button in
-    `Overlay`'s chrome, so the same overwrite is still possible and this test
-    still guards it. Only how the amount is typed changed: assigning
-    `_widget_vm.text` is exactly what the QML `onTextEdited` handler does."""
+    `EPIC-015` bậc 1 moved the body to QML and `EPIC-025` PR 4.3f moved it
+    back, and through all three the Apply button stayed `Overlay` chrome built
+    by that hook — so the same overwrite is still possible and this test still
+    guards it. It now drives the **real** presenter: clearing the field emits
+    `textEdited`, which asks for validation, whose verdict is the only thing
+    that disables the button."""
     view, _ = backtest_screen
 
     view.top_widget._btn_capital.click()
@@ -214,7 +224,8 @@ def test_capital_dialog_apply_button_disables_on_invalid_capital(qapp, backtest_
     dialog = view._modals_host._capital
     assert dialog._btn_apply.isEnabled() is True
 
-    dialog._widget_vm.text = ""
+    dialog._field.clear()
+    dialog._field.textEdited.emit("")
     qapp.processEvents()
 
     assert dialog._btn_apply.isEnabled() is False
@@ -256,9 +267,14 @@ def test_strategy_picker_modal_opens_and_lists_the_registered_strategy(
     assert dialog is not None
     assert dialog.objectName() == "strategyPickerModal"
     assert dialog.isVisible() is True
-    # EPIC-015 §4c: body is the shared SelectList.qml, selectable=True.
-    rows = find_all_named(dialog.root_object, "selectItem_")
-    assert len(rows) == 1
+    # `EPIC-025` PR 4.3e: the shared `kit.PickerOverlay`, one `SelectableCard`
+    # per registered strategy.
+    cards = [
+        entry.widget()
+        for entry in (dialog._grid.itemAt(i) for i in range(dialog._grid.count()))
+        if entry is not None and isinstance(entry.widget(), SelectableCard)
+    ]
+    assert len(cards) == 1
 
 
 def test_timeframe_picker_modal_opens_and_lists_every_timeframe_option(
@@ -276,21 +292,30 @@ def test_timeframe_picker_modal_opens_and_lists_every_timeframe_option(
     assert dialog is not None
     assert dialog.objectName() == "timeframePickerDialog"
     assert dialog.isVisible() is True
-    cards = find_all_named(dialog.root_object, "timeframeCard_")
-    assert len(cards) == len(presenter._view_model.timeframeOptions)
+    # `EPIC-025` PR 4.3k: a `QTreeWidget` of groups, so the count is the rows
+    # under the headings rather than delegates in a Quick scene.
+    rows = [
+        dialog._tree.topLevelItem(group).child(child)
+        for group in range(dialog._tree.topLevelItemCount())
+        for child in range(dialog._tree.topLevelItem(group).childCount())
+    ]
+    assert len(rows) == len(presenter._view_model.timeframeOptions)
     # EPIC-014: the picker used to offer `DEFAULT_TIMEFRAMES` (5 of the
     # domain's 16). Asserting the real number here, not just "same as the
     # ViewModel", so a regression back to the toolbar tuple is a failure.
-    assert len(cards) == 16
+    assert len(rows) == 16
 
 
 def test_time_range_picker_modal_opens_and_lists_every_preset(qapp, backtest_screen):
-    """`EPIC-015`: body is now the standalone `TimeRangePicker.qml` — its
-    preset list is `TimeRangePickerVM`'s own hardcoded set (confirmed
-    label-compatible with `BackTestViewModel.timeRangePresetOptions`, see
-    `qml/TimeRangePicker/time_range_picker_vm.py`), plus a bonus "Hôm nay"
-    entry that dialog never offered — one more row than the ViewModel's own
-    option list, not the same count."""
+    """`EPIC-015` put the standalone `TimeRangePicker.qml` here; `EPIC-025` PR
+    4.3d replaced it with `support/ui_kit/time_range_picker`'s `QDialog`, and
+    the count this test holds survived the swap unchanged.
+
+    Both offer a "Today" preset the screen's own
+    `BackTestViewModel.time_range.presetOptions` does not — an accepted gain,
+    so this is deliberately **one more** than the ViewModel's option list
+    rather than the same number. Asserting the real count too, so a regression
+    to the six-row list is a failure rather than a coincidence."""
     view, presenter = backtest_screen
 
     view.top_widget._btn_range.click()
@@ -300,5 +325,7 @@ def test_time_range_picker_modal_opens_and_lists_every_preset(qapp, backtest_scr
     assert dialog is not None
     assert dialog.objectName() == "backtestTimeRangePickerDialog"
     assert dialog.isVisible() is True
-    rows = find_all_named(dialog.root_object, "timeRangePreset_")
-    assert len(rows) == len(presenter._view_model.time_range.presetOptions) + 1
+    assert len(dialog._preset_buttons) == (
+        len(presenter._view_model.time_range.presetOptions) + 1
+    )
+    assert len(dialog._preset_buttons) == 7

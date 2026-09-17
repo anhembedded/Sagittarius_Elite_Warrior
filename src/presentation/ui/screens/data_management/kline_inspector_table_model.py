@@ -34,10 +34,6 @@ from dataclasses import dataclass
 from typing import ClassVar, Final
 
 from PySide6.QtCore import (
-    QAbstractTableModel,
-    QModelIndex,
-    QObject,
-    QPersistentModelIndex,
     Qt,
 )
 from PySide6.QtGui import QColor, QFont
@@ -46,6 +42,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
 
 _LARGE_PRICE_THRESHOLD = 100.0
 _THOUSAND = 1_000.0
@@ -57,8 +54,6 @@ _MILLION = 1_000_000.0
 #: string because `ForegroundRole` wants a colour, not CSS.
 BULLISH_COLOR: Final = QColor(BULL_COLOR)
 BEARISH_COLOR: Final = QColor(BEAR_COLOR)
-
-type AnyIndex = QModelIndex | QPersistentModelIndex
 
 
 @dataclass(frozen=True)
@@ -118,7 +113,7 @@ def market_data_to_kline_row(k: MarketData) -> KLineDisplayRow:
     )
 
 
-class KLineInspectorTableModel(QAbstractTableModel):
+class KLineInspectorTableModel(RowTableModel[KLineDisplayRow]):
     """
     @brief Every stored candle for one symbol/interval shard, already
     formatted for display.
@@ -133,7 +128,7 @@ class KLineInspectorTableModel(QAbstractTableModel):
     CHANGE_COLUMN: Final = 6
     TRADES_COLUMN: Final = 7
 
-    _HEADERS: ClassVar[tuple[str, ...]] = (
+    HEADERS: ClassVar[tuple[str, ...]] = (
         "Time (UTC)",
         "Open",
         "High",
@@ -145,7 +140,7 @@ class KLineInspectorTableModel(QAbstractTableModel):
     )
 
     #: Every numeric column. A price column only lines up if its digits do.
-    _NUMERIC_COLUMNS: ClassVar[frozenset[int]] = frozenset(
+    RIGHT_ALIGNED: ClassVar[frozenset[int]] = frozenset(
         {
             OPEN_COLUMN,
             HIGH_COLUMN,
@@ -162,51 +157,34 @@ class KLineInspectorTableModel(QAbstractTableModel):
         {CLOSE_COLUMN, CHANGE_COLUMN}
     )
 
-    def __init__(self, parent: QObject | None = None) -> None:
-        super().__init__(parent)
-        self._rows: list[KLineDisplayRow] = []
+    # -- what this table decides (the rest is `RowTableModel`'s) -----------
+    #
+    # No `__init__`: it did nothing but call `super()` once `_rows` moved to
+    # the base class.
 
-    # ------------------------------------------------------------------ #
-    # QAbstractTableModel contract
-    # ------------------------------------------------------------------ #
+    def _display_text(self, row: KLineDisplayRow, column: int) -> str:
+        return {
+            self.TIME_COLUMN: row.formatted_time,
+            self.OPEN_COLUMN: row.open_str,
+            self.HIGH_COLUMN: row.high_str,
+            self.LOW_COLUMN: row.low_str,
+            self.CLOSE_COLUMN: row.close_str,
+            self.VOLUME_COLUMN: row.volume_str,
+            self.CHANGE_COLUMN: row.change_pct_str,
+            self.TRADES_COLUMN: str(row.trades),
+        }.get(column, "")
 
-    def rowCount(self, parent: AnyIndex | None = None) -> int:
-        if parent is not None and parent.isValid():
-            return 0
-        return len(self._rows)
+    def _sort_value(self, row: KLineDisplayRow, column: int) -> object:
+        """Every column sorts by its display text, because this table is
+        **not sortable**: the candles arrive in time order, and that is the only
+        order a candle table has any business being in — a price column sorted
+        by price is a chart, not an inspector. It is written out rather than
+        inherited, because `RowTableModel` declares it abstract instead of
+        defaulting it precisely so that a table which *does* need numeric
+        sorting cannot get it wrong in silence (`SORT_ROLE`'s whole reason)."""
+        return self._display_text(row, column)
 
-    def columnCount(self, parent: AnyIndex | None = None) -> int:
-        if parent is not None and parent.isValid():
-            return 0
-        return len(self._HEADERS)
-
-    def headerData(
-        self,
-        section: int,
-        orientation: Qt.Orientation,
-        role: int = Qt.ItemDataRole.DisplayRole,
-    ) -> object:
-        if role != Qt.ItemDataRole.DisplayRole:
-            return None
-        if orientation != Qt.Orientation.Horizontal:
-            return None
-        if not 0 <= section < len(self._HEADERS):
-            return None
-        return self._HEADERS[section]
-
-    def data(self, index: AnyIndex, role: int = Qt.ItemDataRole.DisplayRole) -> object:
-        row = self.row_for(index)
-        if row is None:
-            return None
-        column = index.column()
-
-        if role == Qt.ItemDataRole.DisplayRole:
-            return self._display_text(row, column)
-        if (
-            role == Qt.ItemDataRole.TextAlignmentRole
-            and column in self._NUMERIC_COLUMNS
-        ):
-            return int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+    def _role_data(self, row: KLineDisplayRow, column: int, role: int) -> object:
         if role == Qt.ItemDataRole.FontRole:
             # Monospace on every cell: a column of prices is only comparable
             # at a glance if every digit is the same width — the same reason
@@ -224,28 +202,7 @@ class KLineInspectorTableModel(QAbstractTableModel):
             return BULLISH_COLOR if row.is_bullish else BEARISH_COLOR
         return None
 
-    def _display_text(self, row: KLineDisplayRow, column: int) -> str:
-        return {
-            self.TIME_COLUMN: row.formatted_time,
-            self.OPEN_COLUMN: row.open_str,
-            self.HIGH_COLUMN: row.high_str,
-            self.LOW_COLUMN: row.low_str,
-            self.CLOSE_COLUMN: row.close_str,
-            self.VOLUME_COLUMN: row.volume_str,
-            self.CHANGE_COLUMN: row.change_pct_str,
-            self.TRADES_COLUMN: str(row.trades),
-        }.get(column, "")
-
-    # ------------------------------------------------------------------ #
-    # Reading and writing the candle list
-    # ------------------------------------------------------------------ #
-
-    def row_for(self, index: AnyIndex) -> KLineDisplayRow | None:
-        if not index.isValid():
-            return None
-        if not 0 <= index.row() < len(self._rows):
-            return None
-        return self._rows[index.row()]
+    # -- reading and writing the candle list -------------------------------
 
     @property
     def total_records(self) -> int:
@@ -253,11 +210,4 @@ class KLineInspectorTableModel(QAbstractTableModel):
 
     def set_klines(self, klines: list[MarketData]) -> None:
         """Populates the model from domain `MarketData` entities."""
-        self.beginResetModel()
-        self._rows = [market_data_to_kline_row(k) for k in klines]
-        self.endResetModel()
-
-    def clear(self) -> None:
-        self.beginResetModel()
-        self._rows = []
-        self.endResetModel()
+        self.set_rows([market_data_to_kline_row(k) for k in klines])

@@ -23,6 +23,7 @@ from __future__ import annotations
 from .banner import Banner, Severity
 from .data_row import Column, DataRow, RowAction
 from .log_panel import LogModel, LogPanel
+from .progress_banner import ProgressBanner
 from .tab_bar import Tab, TabBar
 from .table_card import Pagination, TableCard
 
@@ -33,6 +34,7 @@ __all__ = [
     "LogModel",
     "LogPanel",
     "Pagination",
+    "ProgressBanner",
     "RowAction",
     "Severity",
     "Tab",

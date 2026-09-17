@@ -8,7 +8,7 @@ produce: mypy reports it as a Liskov violation against
 **Why it lives here and not beside a model.** `EPIC-025` PR 1.6g moved the
 indicator-script list model into `support/indicators/ui`, and the alias it
 needed was already written — once — inside
-`presentation/ui/components/order_book/table_models.py`. Reaching for it there
+`modules/trading/ui/order_book/table_models.py`. Reaching for it there
 is `support -> legacy`, which the boundary rule refuses outright, and it stays
 refused after that file becomes `modules/trading/ui`, because `support ->
 modules` is refused too. A second copy of a four-line alias in each tree is the

@@ -37,7 +37,7 @@ Sections: [1 Architecture](#1-architecture-terms) · [2 Workbench (UI places)](#
 | **Shared Kernel** | In this repository, **exactly two** Engine symbols — `IDomainEvent`, `BaseEvent` — and a test locks that. Do not use the phrase for anything else. | Engine | `architecture-rule.md` | the Published Language |
 | **Customer / Supplier** | Two contexts where the downstream (customer) depends on the upstream's contracts and the upstream does not know the customer exists. `strategy` is a customer of `trading`. | — | HLD §2.3 | — |
 | **Open Host Service** | A context that publishes a general-purpose API for many consumers, in the Published Language. `market_data` is one. | — | HLD §2.3 | — |
-| **Anticorruption Layer (ACL)** | A translation layer that keeps another model from leaking in: `binance_gateway` around the SDK; `backtesting/adapters` translating `PaperExchange` into `StrategyContext`. | the downstream side | HLD §2.3 | — |
+| **Anticorruption Layer (ACL)** | A translation layer that keeps another model from leaking in. This repository has **one**: `binance_gateway` around the Binance SDK. The second example this row used to give — `backtesting/adapters` translating `PaperExchange` into `StrategyContext` — was measured out in `EPIC-025D` §8: nothing leaked in, so there was nothing to translate. The word is for a foreign model that genuinely leaks, not for any boundary. | the downstream side | HLD §2.3 | a **port**, which is the boundary itself rather than a translation across it |
 | **Seam** | The extension point built on the first case: a port, a base class, a place enum, a list a new case is added to. Mandatory (Open/Closed). | — | `architecture-rule.md` §7.2.1 | a *variant* (below) |
 | **Variant** | A second implementation or a feature nobody has asked for. Built only when a real case arrives (YAGNI). | — | `architecture-rule.md` §7.2.1 | a seam |
 | **Verified fake** | The one in-memory implementation of a public port that ships with the port under `contracts/testing/`, and passes the same **contract suite** the real implementation passes. Consumers test against it; nobody `Mock`s a foreign port. | the provider module | HLD §10.3 | a `Mock(spec=IPort)`; a stub a consumer wrote for itself |
@@ -141,10 +141,12 @@ difference is the reason the contexts exist (HLD §1.2).
 
 | Term | Definition | Defined in |
 | :--- | :--- | :--- |
-| **Position** (`_OpenPosition`) | A **simulated** position inside `PaperExchange`, mutated by the app on every tick. A different word from trading's `LivePosition`; never merged. | `domain/backtesting/paper_exchange.py` |
-| **Paper exchange** | The simulator that matches orders against candles with fee, margin and matching policies. | `domain/backtesting` |
-| **Run** | One backtest execution with a configuration; produces a `BacktestResult`, metrics and a trade log. | `application/` |
-| **Out-of-sample split** | Dividing the range into fit and validation parts. | `domain/backtesting` |
+| **Position** (`OpenPosition`) | A **simulated** position inside `PaperExchange`, mutated by the app on every tick. A different word from trading's `LivePosition`; never merged. It lost its leading underscore in PR 3.1c-2, when it got its own file and a second module began importing it — an underscore says *private to this module* and would have become a lie. | `modules/backtesting/domain/open_position.py` (`EPIC-025` PR 3.1c-2) |
+| **Paper exchange** | The simulator that matches orders against candles with fee, margin and matching policies. It sizes each fill through `ISizingPolicy` — `strategy`'s rule, not its own (ADR D17) — which is what makes a backtested size and a live size one number. | `modules/backtesting/domain/` |
+| **Run** | One backtest execution with a configuration; produces a `BacktestResult`, metrics and a trade log. Two kinds, and the difference is what a candle means: a **static** run replays closed candles, a **historical-tick** run replays ticks and the newest bar is still forming (`BOT-042D`). | `modules/backtesting/application/` |
+| **Out-of-sample split** | Dividing the range into fit and validation parts. | `modules/backtesting/domain/` |
+| **Answer** (`BacktestResult`, `Trade`, `BacktestMetrics`, `ExitReason`, `BacktestCancelled`, `OutOfSampleValidation`) | What a run hands back, and the reason this context publishes anything at all. They are `contracts/` rather than `domain/` since PR 3.1c on one measurement: the screen that displays them is outside the module, so they cross the boundary on every run, and a boundary-crossing type is published whether or not anyone declared it so. | `modules/backtesting/contracts/` |
+| **Broker simulation** (`BrokerSimulationConfig`, `CommissionType`, `Currency`) | The configuration vocabulary for *how* the paper exchange should behave — fees, their kind, the account currency. Refused admission to `core/vo` (HLD §2.4: two consumers in two modules) because every consumer is this context or its screen. | `modules/backtesting/contracts/` |
 
 ## 4. Process terms
 

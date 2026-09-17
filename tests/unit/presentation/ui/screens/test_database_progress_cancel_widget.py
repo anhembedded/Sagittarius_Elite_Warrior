@@ -1,14 +1,16 @@
 """EPIC-015 Phase 2: `AppProgressBar` + a standalone Cancel `QPushButton`
-replaced by `ProgressBanner.qml`, embedded inline via `ProgressBannerWidget`
-(`view._progress_banner`) — there is no `view._btn_cancel_sync` `QPushButton`
-any more; the Cancel control is now a QML `Button` reached through
-`view._progress_banner.root_object` (see `conftest.find_qml_item`,
-same helper `test_select_list_bodies.py` and friends already use).
+replaced by a progress banner that owns its own Cancel control — there is no
+`view._btn_cancel_sync` `QPushButton` any more.
+
+That banner was `ProgressBanner.qml` in an inline embed, reached through
+`view._progress_banner.root_object` and clicked at scene coordinates. `EPIC-025`
+PR 4.3l makes it `kit.ProgressBanner` (ADR D21): the button is a `QPushButton`
+found by `objectName`, and `CANCELLING` disables it without relabelling it —
+this screen's own `_sync_progress()` never asked the `.qml` to relabel either,
+so what changes here is only how the control is reached.
 
 Renamed from `test_database_progress_cancel_qml.py` at `EPIC-005E` when this
-screen went QtWidgets-first; renamed again in spirit (not on disk) at
-`EPIC-015` Phase 2 as the Cancel control itself goes back to being QML —
-this time as an inline embed, not a `QmlHostView` screen."""
+screen went QtWidgets-first."""
 
 from __future__ import annotations
 
@@ -16,8 +18,7 @@ import os
 from unittest.mock import Mock
 
 import pytest
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtTest import QTest
+from PySide6.QtWidgets import QPushButton
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
     DataManagementPresenter,
 )
@@ -25,7 +26,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
     DataManagementView,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
-from Sagittarius_Elite_Warrior.tests.conftest import find_qml_item
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -68,20 +68,14 @@ def database_screen(qapp, request):
     return view, presenter
 
 
-def _cancel_button(view: DataManagementView):
-    return find_qml_item(
-        view._progress_banner.root_object, "progressBannerCancelButton"
-    )
+def _cancel_button(view: DataManagementView) -> QPushButton:
+    button = view._progress_banner.findChild(QPushButton, "progressBannerCancel")
+    assert button is not None
+    return button
 
 
 def _click(view: DataManagementView, qapp) -> None:
-    button = _cancel_button(view)
-    centre = button.mapToScene(button.boundingRect().center())
-    QTest.mouseClick(
-        view._progress_banner.quick_widget,
-        Qt.MouseButton.LeftButton,
-        pos=QPoint(int(centre.x()), int(centre.y())),
-    )
+    _cancel_button(view).click()
     qapp.processEvents()
 
 
@@ -104,9 +98,8 @@ def test_database_cancel_button_visibility_and_interaction(qapp, database_screen
 
     assert view._progress_container.isVisible() is True
     cancel_btn = _cancel_button(view)
-    assert cancel_btn.property("enabled") is True
-    label = find_qml_item(cancel_btn, "buttonLabel")
-    assert "Cancel" in label.property("text")
+    assert cancel_btn.isEnabled() is True
+    assert "Cancel" in cancel_btn.text()
 
     # 3. Clicking cancel emits cancelRequested and transitions to CANCELLING
     cancel_signal_called = False
@@ -121,13 +114,14 @@ def test_database_cancel_button_visibility_and_interaction(qapp, database_screen
     assert cancel_signal_called is True
     assert presenter.fsm.current_state == UIMode.CANCELLING
 
-    # In CANCELLING mode, the button is disabled and relabelled by the QML
-    # component itself (`ProgressBanner.qml`'s `cancelling` property).
+    # In CANCELLING mode the banner disables the button. Its label is this
+    # screen's `_CANCEL_LABEL` throughout: `set_cancelling()` does not rename
+    # it, and a button that changes its own wording mid-click is exactly what
+    # `kit.ProgressBanner`'s docstring declines to invent.
     qapp.processEvents()
     cancel_btn = _cancel_button(view)
-    assert cancel_btn.property("enabled") is False
-    label = find_qml_item(cancel_btn, "buttonLabel")
-    assert label.property("text") == "Cancelling..."
+    assert cancel_btn.isEnabled() is False
+    assert cancel_btn.text() == "Cancel Progress (Cancel)"
 
 
 def test_fsm_transition_alone_reaches_ui_mode_without_a_manual_set_ui_mode_call(

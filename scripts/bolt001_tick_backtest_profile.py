@@ -24,12 +24,12 @@ import sys
 from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 
-from Sagittarius_Elite_Warrior.src.application.use_cases.backtest.run_historical_tick_backtest import (
+from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_historical_tick_backtest import (
     RunHistoricalTickBacktestCommand,
     RunHistoricalTickBacktestCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_engine_factory import (
     StrategyEngineFactory,
 )
