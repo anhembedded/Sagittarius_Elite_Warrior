@@ -24,7 +24,7 @@ The user's idea, weighed against what the platform documents and what large repo
 | **templates/** | `.claude/templates/{task,bug-report,case-study,epic,decision}.md`, each with a `description:` and brace placeholders; the governing rule points at its template | The formats were implicit in five places (ONBOARDING §3, bug-fix-rule §7, the case-study README, the epics README, the ADR convention of `EPIC-016`); now each is one file. The pull-request body goes where the platform fills it in: `.github/PULL_REQUEST_TEMPLATE.md` |
 | **skills/** | the two audit briefs and the `EPIC-025` executor become `.claude/skills/<name>/SKILL.md` beside `pr-review` and `test-health` | Skills are the platform's unit for a workflow: invocable as `/name`, discoverable from the description, with scripts and data beside them |
 | — | `.claude/agents/reviewer.md`: a read-only subagent preloaded with `pr-review` | A second reader in a context that did not write the change — the author's own pre-check before the independent review `ONBOARDING.md` §7 requires (Fagan 1976) |
-| — | `.claude/settings.json`: permission rules for the gate commands and a `SessionStart` hook printing `git status --short --branch` | The first of §12.1's "three commands, every time" now runs itself; the map is imported by `CLAUDE.md` (`@.claude/ONBOARDING.md`), so it is in context without being remembered |
+| — | `.claude/settings.json`: permission rules for the gate commands; a `SessionStart` hook printing `git status --short --branch` shipped with it and was removed the same day at the user's word (*"bỏ hook SessionStart đi, giữ permission"*) | The map is imported by `CLAUDE.md` (`@.claude/ONBOARDING.md`), so it is in context without being remembered; §12.1's three commands stay the agent's to run |
 | — | `AGENTS.md` and `Skills/README.md` deleted; the shared unattended-run rules become `ONBOARDING.md` §13 | Claude Code reads `CLAUDE.md`, not `AGENTS.md` (documented); one map instead of three indexes |
 
 **What now loads every session** (measured by `scripts/measure_process.py`, held under a ceiling that only falls by `test_claude_tree_is_wired.py`): `CLAUDE.md`, the map, and the four rules without a file scope (`ci`, `commit`, `bug-fix`, `report`) — 363 lines. `logging-rule.md` and `install-rule.md` are path-scoped now; the one behavioural sentence of the latter (a missing tool is installed, never reported) lives in the map, §5.
@@ -35,7 +35,7 @@ The user's idea, weighed against what the platform documents and what large repo
 | :--- | :--- |
 | `.claude/rules/*-rule.md` | moved from `.agents/rules/`; front matter is `description` plus `paths` (the six former pointer scopes, `src/application/**` dropped because it matches nothing since `EPIC-025` PR 3.1c) |
 | `.claude/rules/pitfalls/` | new, three files |
-| `.claude/ONBOARDING.md` | moved; §1 says what loads when, §3–§4 point at the templates, §7 names the pull-request template and `settings.json`, §8 points at the pitfalls, §9 is "two rule trees", §12.1 notes the hook, §13 holds the unattended-run rules |
+| `.claude/ONBOARDING.md` | moved; §1 says what loads when, §3–§4 point at the templates, §7 names the pull-request template and `settings.json`, §8 points at the pitfalls, §9 is "two rule trees", §13 holds the unattended-run rules |
 | `CLAUDE.md` | imports the map; rows for pitfalls, templates, the pull-request template, the reviewer, the audits, the manifest |
 | `.claude/README.md`, `scripts/render_claude_manifest.py` | the manifest and its renderer |
 | `.claude/skills/{process-drift,epic-025}/SKILL.md` | moved from `.agents/Skills/*.prompt.md`, given front matter, links re-based |
@@ -56,4 +56,5 @@ The architecture tier plus the board and navigation guards (`python -m pytest te
 - The board guard found one more: `ROADMAP.md` linked `../.agents/ONBOARDING.md` in a 2026-08 note.
 - `.claude/settings.json` is tool configuration, which `ONBOARDING.md` §7 says to ask about: it is in the pull request for that reason, and the report to the user names it as the one decision in the diff.
 - The `reviewer` subagent read the commit before the pull request was opened (its first run): one blocking finding — `measure_process.py` imported by package path and crashed when run bare, as every document says to run it — and five stale citations, all fixed in the follow-up commit.
+- 2026-09-17, after the merge: the `SessionStart` hook is removed at the user's word; the eight permission rules stay. The manifest row re-rendered from the file.
 - Not moved: the engine repository's own `.agents/` (a separate repository, `ONBOARDING.md` §9). The two Routines' prompts cite the new paths with the old ones as a fallback until this lands on `master-warrior`.

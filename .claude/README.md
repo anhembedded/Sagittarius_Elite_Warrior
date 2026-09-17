@@ -12,7 +12,7 @@ Everything an AI session on this repository is given, and what loads it. This is
 | `skills/<name>/SKILL.md` | workflows: the review checklist, the two scheduled audits, the `EPIC-025` executor; a skill keeps its scripts and data beside it | the user with `/<name>`, or Claude from the `description` |
 | `agents/<name>.md` | subagents that run in their own context, with their own tools and a preloaded skill | delegation, or `@<name> (agent)` |
 | `templates/` | the formats: task, bug report, case study, epic, decision record | nothing loads them; a writer copies one and deletes its front matter |
-| `settings.json` | project settings shared by every session: permission rules for the gate commands, a `SessionStart` hook printing `git status` | Claude Code |
+| `settings.json` | project settings shared by every session: permission rules for the gate commands and the repository scripts (no hooks: the user removed the `SessionStart` one on 2026-09-17) | Claude Code |
 
 Not here, on purpose: `Docs/CASE_STUDIES/` (knowledge for people and agents alike, indexed and guarded where the other design documents live; the one-line form of each study is a pitfall under `rules/pitfalls/`), and `.github/PULL_REQUEST_TEMPLATE.md` (GitHub fills it in). The engine repository keeps its own tree under `.agents/`; `ONBOARDING.md` §9 says which wins.
 
@@ -26,7 +26,7 @@ Derived from the tree: `python3 scripts/render_claude_manifest.py` prints it fro
 | Path | Kind | Loads | What it is |
 | :--- | :--- | :--- | :--- |
 | `ONBOARDING.md` | map | imported by `CLAUDE.md`, every session | The process map for any AI agent on Sagittarius Elite Warrior — layout, lifecycles, the real verification commands, authority, principles, and where the traps live. Imported by CLAUDE.md, so it is in context every session. |
-| `settings.json` | settings | Claude Code, every session | 8 permission rules; hooks on `SessionStart` |
+| `settings.json` | settings | Claude Code, every session | 8 permission rules |
 | `rules/architecture-rule.md` | rule | `src/**/*.py` | Layers, ports and explicit contracts, CQRS, one abstraction per file, event placement, seams. Loads by path for every src/ file. |
 | `rules/async-ui-action-rule.md` | rule | `src/**/*presenter*.py`, `src/**/*coordinator*.py` | Action identity, stale-callback fencing and cooperative cancellation for every background task started from the UI; the Coordinator pattern. |
 | `rules/bug-fix-rule.md` | rule | every session | Root cause first, never a hotfix, log evidence, regression test before the fix at the right tier, kept forever, a report, and a case study when the gate was green. |

@@ -101,7 +101,7 @@ git -C . status
 git -C ../Sagittarius_Engine status     # fails in a lone checkout: no engine work here
 cat Tasks/epics/README.md
 ```
-The first one runs by itself: the `SessionStart` hook in `.claude/settings.json` prints the branch and the dirty tree when a session opens. An untouched-looking board plus a dirty tree means the work is done, not recorded. Read the diff before concluding a task is untouched.
+An untouched-looking board plus a dirty tree means the work is done, not recorded. Read the diff before concluding a task is untouched.
 
 ### 12.2 Where state lives — never in a hand-written summary
 | Question | Source |
