@@ -17,8 +17,9 @@ answered "identical", proving nothing.
 `Sagittarius_Elite_Warrior` (matching this repository's own name, whatever the
 caller's checkout is called) inside a fresh temporary parent, so `PYTHONPATH` set to
 that parent can resolve the import only from the worktree -- there is no path back to
-the original checkout's code left to fall into. `tests/unit/test_verify_against_base.py`
-pins this by asserting the worktree's basename, not by trusting the docstring.
+the original checkout's code left to fall into.
+`tests/unit/architecture/test_verify_against_base.py` pins this by asserting the
+worktree's basename, not by trusting the docstring.
 """
 
 from __future__ import annotations
