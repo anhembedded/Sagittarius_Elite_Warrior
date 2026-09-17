@@ -1272,9 +1272,11 @@ is `ls .claude/rules/`"*). Run properly against `569842d7..800d14d4`, over all *
 rather than the 7 the `CLAUDE.md` table happens to list, it found three real things. They are
 recorded here rather than quietly fixed, because two of them are mistakes in what §4.12 *claims*.
 
-**1. The gate that merged this pull request was not evidence for it (`ci` §1).** That clause is
-explicit: *"A gate run before the last commit is not evidence … If you commit after the gate, the
-gate runs again."* The PASS quoted in §4.12 ran at 01:47; five documentation files were then edited
+**1. The gate that merged this pull request was not evidence for it.** The clause is explicit:
+*"A gate run before the last commit is not evidence … Commit after the gate → run the gate
+again."* `BOT-134` rewrote the rules as tagged norms while this review was running, and that clause
+came through carrying `[review: B6]` — the very row it was found under, which is now the canonical
+way to cite it. The PASS quoted in §4.12 ran at 01:47; five documentation files were then edited
 to write that very paragraph, and the commits landed at 01:54. What had been re-run after the edits
 was the static tier plus `pytest tests/unit/architecture` and the board guards — the **every commit**
 row of §1's table, not the **before the pull request is offered** row. Re-run on the merged tree:
@@ -1364,3 +1366,136 @@ with `BUG-129`'s report. What it does **not** close is the habit underneath: not
 workflow reads CI's verdict for the branch it just pushed, which is why a green local gate and a
 red remote could coexist for half a day. Reading it is a step, not a tool, and this phase is the
 evidence for taking it.
+
+### 4.15 The review of 4.3d–4.3k, run against the rule files
+
+§4.13 admitted that the eight steps before 4.3l had their checklist applied from memory rather
+than from the rule files. This is that review, run properly over `3444cee0^..2266fdd6` — 16
+commits — and it found two things plus one measurement error of its own.
+
+**1. A fixed pixel width on something that holds text** (`capital_dialog.py`, PR 4.3f).
+`ui-presentation-rule.md` allows a fixed size only for a true leaf glyph — *"never a fixed pixel
+size on a container holding text or widgets (a leaf glyph may)"*, now tagged `[review: H4]` — and
+the consequence for anything else is a clip at another DPI or in another locale, because a
+localized string can run longer than its English source. The currency `QComboBox` carries codes, and it was `setFixedWidth(90)`. The row is the
+amount field at stretch 1 beside a combo with no stretch, so a **floor** gives the same layout
+today and grows instead of clipping: `_CURRENCY_MIN_WIDTH` and `setMinimumWidth`. Pinned by a test
+that reads `maximumWidth()` — a `setFixedWidth` sets minimum and maximum to the same number, so
+putting one back fails it. Verified by putting one back: exactly one failure.
+
+**2. PR 4.3h left two live modules named `trade_log_row`** — the row *widget*
+(`screens/backtest/_trade_log_row.py`, there since PR 1.6a) and the row *as the table shows it*
+(`screens/backtest/logic/trade_log_row.py`, added by 4.3h). Both are imported by the live screen,
+so neither is dead; what is wrong is that the name no longer says which. Deliberately **not**
+renamed here: PR 4.4 moves this whole screen into `modules/backtesting/ui/`, and a five-importer
+rename now is churn against a file that is about to move anyway. Recorded so that move does it.
+
+**3. The review's own first measurement was wrong, and the way it was wrong is worth keeping.**
+`baseline_tests_under_src.txt` compared across the range read **0 → 8**, which would be a ratchet
+growing — `ci-rule.md` §5.5's blocking case. It is not: `git show <before>:<path>` on a file that
+did not exist yet prints nothing, and `wc -l` of nothing is 0. The file was *created* by 4.3d at
+22 entries and shrank 22 → 19 → 16 → 14 → 11 → 8 across the range. Reading it per commit is what
+said so. A diff against a commit where the file was absent cannot be read as a count.
+
+**What the review confirmed, with the commands:** every ratchet fell or held flat (`qml_files`
+22 → 8, `qml_theme_refs` 166 → 62, `apply_role` 44 → 43 across 23 → 22 files, `setStyleSheet`
+145/21 unchanged, the boundary allowlist 58 → 58); 11 test files under `tests/` and 23 under `src/`
+deleted with **zero** skips or `xfail`s added anywhere in the range; all eight epic sections
+§4.4–§4.11 and all eight `TRACKING` status rows present; `test_spec_index_is_consistent` green, so
+no `SPEC` cites a test the range deleted; 4.3h's own E11 claim spot-checked against the tree (the
+four `trade_log_*` files in `logic/` really are imported by the panel, the coordinator and the
+presenter); no `hasattr`/`getattr` probing added, no `logger.info` in a hot loop, no new
+`@safe_ui_action` slot; and the four files still over the 400-line ceiling
+(`backtest_presenter.py` 1819, `dev_board_panel.py` 1070, `backtest_top_panel.py` 726,
+`data_management_view.py` 691) all predate the range and are already on PR 4.4's split list.
+
+**Footnote, written after the fact.** `BOT-134` merged into `master-warrior` between this review's
+last check and its merge: the twelve rules rewritten as norms, 1 976 → 453 lines, `qml-rule.md` and
+`code-rule.md` deleted, and an enforcer tag on every clause. Both findings above were re-checked
+against the rewritten files rather than assumed to survive — every clause this review cited is
+still there, and each now carries the `[review: …]` row it was found under, `B6` and `H4`
+included. The reference checker `BUG-129` had just taught to read `git ls-files` is what confirmed
+the rewrite left no dangling path behind it: **11 documents, every path resolving**, on the merged
+tree.
+
+### 4.16 A second session's review of §4.15 (PR #223), and what it found still open
+
+`ONBOARDING.md` §7 requires a different session to review before code reaches `master-warrior`;
+PR #223 got one. No blocking findings — the code was sound — but four should-fix and two nits,
+and two of the four are worth recording here because they are not typos: they are the same class
+this whole review cycle exists to close, caught a level up.
+
+**S1 — `CS-005` struck through a class that was still open, and the strikethrough was wrong on a
+live instance, not just on a hypothetical one.** The reviewer reproduced `BUG-129`'s exact shape
+on `test_module_boundaries.py`'s zone check: `git rm --cached` the one file `domain` tracks, leave
+the directory (and its `__pycache__`) on disk, and `test_src_root_is_where_we_think_it_is` kept
+passing — `is_dir()` cannot tell a zone still holding real files from one surviving only as a
+stale shell, exactly the shape that let `application` sit in `_ZONES_THAT_MUST_EXIST` for 14
+hours after the repository had nothing left under it. Fixed the same way: the check now asks
+`git_tracked_paths.tracked_paths()` for at least one file under each zone. That helper is new too
+— it did not exist when §4.15 was written; there were **two** independent copies of the same
+`git ls-files` logic (the script's, the registry's), and writing a third for this check would have
+been the exact drift `CLAUDE.md`'s opening warning names. All three guards (the script keeps its
+own, since it must not import `tests/`; the registry; the zone check) now read from one place.
+`CS-005`'s strikethrough is un-struck, with a new row for the mistake itself: closing the *class*
+after fixing one instance, when a second lived in the same shape, is the failure a case study
+exists to catch, and it caught its own.
+
+**S2 — the registry's `_tracked_paths()` returned `None` and skipped the filter with no warning,
+unlike the script's own `check()`, which prints one naming `BUG-129`.** `git_tracked_paths.py`
+carries that warning now, in the one place both callers reach it.
+
+**S3 — "Architecture tier: 386 passed" in the PR body was a number this disk produced, not one the
+repository does.** The reviewer reproduced 380 on the same head; the discrepancy is
+`test_claude_rule_pointers_match_agents_rules.py`, which parametrizes from `.agents/rules/` and
+`.claude/rules/` **on disk** — and `BOT-134`'s merge, landing mid-review, had deleted `qml-rule.md`
+and `code-rule.md` from the repository while an earlier `ruff`/pytest run of mine had left them on
+this container's disk. The number in the PR body is corrected to the reproducible one.
+
+**S4 — the cited gate log did not run on the head commit.** `cdfdffd3` is documentation-only, so
+`ci-rule.md`'s exception covers it, and GitHub CI ran the full gate on that exact head and passed
+(run 397) — but the PR body should have cited that run for the head commit and the local log only
+for its parent, not one log for both. Corrected in the PR body.
+
+**N1 — the fix was scoped to the one regression, and the deferral was not written down.**
+`src/` carries eleven more `setFixedWidth`/`setFixedSize` calls the reviewer listed by file and
+line, several on text-holding widgets (`backtest_trade_logs_panel.py`'s search field,
+`settings_view.py`'s save button and sync-days spinner, `gap_inspector_dialog.py`'s close button).
+Left alone deliberately: fixing eleven call sites nobody asked about, while reviewing a fix for
+one, is the scope creep `pr-review` row A1 exists to catch from the other direction. Recorded here
+as the list for whoever next touches the H4 clause, rather than fixed as a side effect of this PR.
+
+**N2 — `BUG-129` had no line in `Tasks/ROADMAP.md`.** Added, at the top of `🟢 Completed`, per
+`ONBOARDING.md` §6.
+
+### 4.17 A third session's review, and the S2 fix it found still silent
+
+A third independently-spawned session re-verified §4.16's fixes rather than trust the commit
+messages, and reproduced every break-the-line probe itself. No blocking findings; one should-fix,
+worth recording for the same reason S1 was: it is the same *class* of defect one level over again.
+
+**S2's own fix — `warnings.warn()` naming `BUG-129` when git cannot answer — fires, but is
+invisible to both mechanisms this repository actually uses to detect a failure.** `CLAUDE.md`'s
+mandated `grep -nE "FAILED|ERROR|Traceback|ResourceWarning"` does not match a pytest
+warnings-summary line, and `ci-local.ps1`'s `Invoke-RunLogScan` greps the structured
+`- (WARNING|ERROR|CRITICAL) -` app-log format, not pytest's own output. Reproduced: `git` removed
+from `PATH`, both guard files finished `130 passed, 81 warnings`, exit 0 — the exact silent green
+`BUG-129` exists to close, wearing a warning as a costume. Fixed by removing the warning entirely:
+`git_tracked_paths.tracked_paths()` now raises `GitUnavailableError` instead of returning `None`,
+so a caller's own test fails rather than skipping its filter — pinned by the new
+`tests/unit/architecture/test_git_tracked_paths.py` (5 tests, two of them E12 breaks against the
+real guards, not just against `tracked_paths()` in isolation). `CS-005` and `BUG-129`'s own report
+carry the addendum.
+
+This makes three independent sessions finding a live instance of the identical shape — the
+filesystem-vs-repository disagreement, or its silence — at three different points in the same
+mechanism (a script, then two test guards, then the warning meant to cover both). The pattern
+itself is now the lesson worth naming: a fix for a *silent* failure mode should be verified by
+trying to make it fail silently again, not by confirming the new code path runs.
+
+**What the reviewer confirmed, independently, in a fresh container:** installed the toolchain
+itself rather than trusting the PR's claim that one existed; ran the full gate and got the same
+pass/fail shape; ran the registry's own break-the-line probes and the two new ones above, all
+producing exactly the failure named; read the GitHub CI run for the head commit rather than taking
+the PR body's word for it; and restored every probe, leaving `git status` and `git diff HEAD`
+both empty when done — the housekeeping this whole review chain has been asking every step to do.

@@ -47,6 +47,9 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.zones import (
     LEGACY_ZONES,
     zone_of,
 )
+from Sagittarius_Elite_Warrior.tests.unit.architecture.git_tracked_paths import (
+    tracked_paths,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SRC_ROOT = _REPO_ROOT / "src"
@@ -59,14 +62,27 @@ _SHELL_LEGACY_FILE = Path(__file__).with_name("baseline_shell_legacy_imports.txt
 #: it.** `EPIC-025` emptied `src/application/` — PR 2.1c-2 took the last event
 #: handler and PR 3.1c the last use case — so the directory is gone from the
 #: repository by design, and a list that demands it would fail every fresh
-#: clone. It did not fail *anyone* for a month, which is `BUG-129`: every
-#: working tree kept the directory alive as a `__pycache__` shell, and GitHub
-#: CI never reached pytest because the reference checker ahead of it was
-#: already red. The rule below is untouched — it scans `src` whole, and
-#: `_MINIMUM_SCANNED_FILES` is what catches a wrong tree.
+#: clone. It failed nobody for **14 hours** — the last tracked file under it went
+#: in `538978a3` on 2026-09-16 and this was corrected on 2026-09-17 — which is
+#: `BUG-129`: every working tree kept the directory alive as a `__pycache__`
+#: shell, and GitHub CI never reached pytest, because the reference checker ahead
+#: of it was already red for the very same reason. The rule below is untouched —
+#: it scans `src` whole, and `_MINIMUM_SCANNED_FILES` (asserted, not decorative)
+#: is what catches a wrong tree.
 #:
-#: `domain` is next: it holds exactly one file (`value_objects/market_type.py`),
-#: and the pull request that moves it must drop this entry in the same commit.
+#: **The existence check itself was the same bug, one clause over — a second
+#: session's review of this exact commit found it (`CS-005`).** `is_dir()`
+#: cannot tell a zone still holding real files from one surviving only as a
+#: `__pycache__` shell, which is exactly the shape that let `application` sit
+#: here for 14 hours after the repository had nothing left under it. Reproduced
+#: on `domain`: `git rm --cached` its one file, leave the directory (and the
+#: `__pycache__` it still holds) on disk, and this test kept passing. Fixed
+#: below by checking `git_tracked_paths.tracked_paths()` for at least one file
+#: under each zone, not `Path.is_dir()`.
+#:
+#: `domain` holds exactly one tracked file (`value_objects/market_type.py`),
+#: and the pull request that moves it must drop this entry in the same commit
+#: — dropping it a commit late now fails loudly instead of passing quietly.
 #: `LEGACY_ZONES` keeps both names on purpose — a zone with no files classifies
 #: nothing, while the rule table still has to know what a legacy zone *is*.
 _ZONES_THAT_MUST_EXIST = ("domain", "presentation", "infrastructure")
@@ -82,10 +98,28 @@ def _render(violations: list[Violation]) -> str:
 def test_src_root_is_where_we_think_it_is() -> None:
     """`parents[3]` is a hand-computed path. One level off and every test below
     scans an empty directory and passes — the vacuous-guard failure HLD §9.3
-    rule 4 forbids."""
+    rule 4 forbids.
+
+    Each zone's existence is answered against git, not `Path.is_dir()`
+    (`BUG-129`, `CS-005`): a directory a move emptied survives on disk as a
+    `__pycache__` shell, which `is_dir()` cannot tell from a real zone — the
+    exact reason `application` sat in `_ZONES_THAT_MUST_EXIST` for 14 hours
+    after the repository had nothing left under it. `tracked_paths()` raises
+    rather than degrading to `is_dir()` when git cannot answer, so this test
+    fails loudly instead of silently trusting the filesystem again."""
     assert _SRC_ROOT.is_dir(), f"no src tree at {_SRC_ROOT}"
+    tracked = tracked_paths(_REPO_ROOT)
     for zone in _ZONES_THAT_MUST_EXIST:
-        assert (_SRC_ROOT / zone).is_dir(), f"zone `{zone}` missing under {_SRC_ROOT}"
+        zone_dir = _SRC_ROOT / zone
+        assert zone_dir.is_dir(), f"zone `{zone}` missing under {_SRC_ROOT}"
+        # `tracked_paths()` adds every ancestor directory of every tracked
+        # file, so the zone's own path is in the set the moment any file
+        # under it is tracked — no need to walk the set per zone.
+        zone_prefix = zone_dir.relative_to(_REPO_ROOT).as_posix()
+        assert zone_prefix in tracked, (
+            f"zone `{zone}` has no file the repository tracks — it survives on "
+            f"disk only as a stale leftover (`BUG-129`)"
+        )
     assert len(scanned_files(_SRC_ROOT)) > _MINIMUM_SCANNED_FILES
 
 

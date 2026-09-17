@@ -11,25 +11,25 @@ skipped and **20 runs went red over ~11½ hours** — including the four that cl
 
 | Net | Why it was silent | Still open? |
 | :--- | :--- | :--- |
-| this very script, in the local gate | it asked the filesystem. A working tree is not the repository, and the difference is exactly what a move leaves behind | no — it reads `git ls-files` now |
-| the full local gate, four runs across three pull requests | it runs the script the same way, so it inherited the same wrong answer: a gate is only as honest as its narrowest check | no, via the same fix |
-| GitHub CI | it was **right** and nobody read it for 20 runs. Worse, the first session to look inherited the timeline from the newest runs and recorded it as three; reading run 371 is what found the other seventeen | **yes**: nothing in the local workflow reads CI's verdict for the branch it just pushed |
-| `tests/unit/architecture/test_module_boundaries.py` | it *required* the deleted application zone to exist, so it carried the same false green — and CI never reached pytest to say so, the two failures queued behind each other for 11 hours | no — that entry is retired, `domain` flagged as next |
-| the review checklist `.claude/skills/pr-review/SKILL.md` §B | it asks whether the log was scanned, never whether the tree the gate ran on is the tree a clone would get | **yes** |
+| this script, in the local gate | asked the filesystem, not the repository | no — reads `git ls-files` |
+| GitHub CI | it was **right**, unread for 20 runs | **yes** — nothing reads CI's verdict for a fresh push |
+| `test_module_boundaries.py`'s zone check | `is_dir()` has `Path.exists()`'s blind spot | no — fixed below |
+| the first fix's own warning | fired, but a pytest warnings line is invisible to this repo's two failure checks (`grep`, `Invoke-RunLogScan`) — a round-2 review reproduced it as `130 passed, exit 0` | no — raises now |
+| this case study's own "closed" line, twice | closed the class after one instance, then claimed a warning that proved nothing failed | closed by two independent-session reviews (`ONBOARDING.md` §7) |
 
 ## The fix
 
-- `_tracked_paths()` reads `git ls-files -z` and adds every ancestor of every tracked file, so a
-  cited directory resolves from what git holds inside it. Where git cannot answer, the filesystem
-  fallback **prints a warning naming this bug** rather than degrading quietly.
-- `tests/unit/architecture/test_skill_prompt_references_ask_git.py` — five tests, each building a
-  real repository, since stubbing either side cannot show git and the filesystem disagreeing.
-- `_ZONES_THAT_MUST_EXIST` drops the zone the epic deleted, reason recorded in place.
+- `git_tracked_paths.py` (the script keeps its own copy — must not import `tests/`) reads `git
+  ls-files -z` and **raises**, naming this bug, when git cannot answer — never `None` plus a
+  warning nothing reads. The registry and the zone check both filter through it.
+- `test_skill_prompt_references_ask_git.py` and `test_git_tracked_paths.py` (5 tests each, the
+  raise pinned via E12 on both real guards) build a real repository, since a stub cannot show git
+  and the filesystem disagreeing.
 
 ## Where else this is still open
 
-- **Any check that asks the filesystem about repository content**: the `rglob` guards scan what is
-  on disk, so an untracked leftover `.py` under a scanned root reads as source.
+- **Any check asking the filesystem about repository content, in general.** Three closed above;
+  `tests/unit/test_logging_namespace_guard.py` is not, on purpose — it scans every `.py` on disk,
+  tracked or not, to catch a bad name before a commit.
 - **A local gate cannot see a red CI.** The habit this cost: after pushing, read the run.
-- Stale directories survive `git rm` when they hold ignored files — the same leftovers bit PRs
-  4.3e–4.3l as packages that looked deleted and were not.
+- **A warning is not a failure** by this repo's own two mechanisms — raise, don't warn.

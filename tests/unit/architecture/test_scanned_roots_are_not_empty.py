@@ -13,8 +13,10 @@ live for the whole migration.
 **How.** `GUARDS` is the registry: each path-scanning test file in the
 repository together with the directories it scans, relative to the repository
 root. Three checks: (1) every registered guard file exists; (2) every registered
-root exists and contains at least one file of the kind the guard reads;
-(3) every test file that computes `Path(__file__).resolve().parents[` **and**
+root exists and contains at least one file of the kind the guard reads —
+answered against `git_tracked_paths.tracked_paths()`, not `Path.rglob()` alone
+(`BUG-129`, `CS-005`): a root surviving on disk only as a `__pycache__` shell
+reads as empty; (3) every test file that computes `Path(__file__).resolve().parents[` **and**
 walks a directory (`glob`, `rglob`, `iterdir`) is registered here — a new guard must add its row, and a retargeted guard must
 update its row, in the same commit.
 """
@@ -25,6 +27,9 @@ import re
 from pathlib import Path
 
 import pytest
+from Sagittarius_Elite_Warrior.tests.unit.architecture.git_tracked_paths import (
+    tracked_paths,
+)
 from Sagittarius_Elite_Warrior.tests.unit.architecture.scanned_roots_registry import (
     EMPTY_BY_DESIGN,
     GUARDS,
@@ -70,12 +75,20 @@ def test_scanned_root_exists_and_is_not_empty(
     directory = _REPO_ROOT / root
     assert directory.is_dir(), f"{guard} scans {root}, which does not exist"
     matches = [p for p in directory.rglob(pattern) if "__pycache__" not in p.parts]
+    # The repository's answer, not this disk's — see `git_tracked_paths`.
+    # Raises rather than falling back to `rglob()` alone when git cannot
+    # answer, so this guard fails loudly instead of silently trusting the
+    # filesystem again (`BUG-129`, `CS-005`).
+    tracked = tracked_paths(_REPO_ROOT)
+    matches = [p for p in matches if p.relative_to(_REPO_ROOT).as_posix() in tracked]
     if (guard, root, pattern) in EMPTY_BY_DESIGN:
         # The one inverted case: a ban, whose scan finding nothing is it
         # holding. See `EMPTY_BY_DESIGN`'s own docstring.
         return
     assert matches, (
-        f"{guard} scans {root} for {pattern} and would find nothing — retarget the guard"
+        f"{guard} scans {root} for {pattern} and would find nothing in a fresh "
+        f"clone — retarget the guard (a leftover `__pycache__` shell on your "
+        f"disk does not count; `BUG-129`)"
     )
 
 

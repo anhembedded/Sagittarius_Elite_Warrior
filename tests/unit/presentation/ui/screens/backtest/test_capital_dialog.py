@@ -151,3 +151,17 @@ def test_the_amount_field_refuses_anything_but_a_number(qapp, dialog):
 
     assert validator is not None
     assert validator.bottom() == 0.0
+
+
+def test_the_currency_combo_can_grow_past_its_floor(qapp, dialog):
+    """`ui-presentation-rule.md`: a fixed pixel size belongs to a leaf glyph,
+    never to something holding text — it trades an overlap that is not there for
+    a clip at another DPI or in another locale. This combo carries currency
+    codes, so 90px is a floor. Reviewing PR 4.3f is what found it as a cap.
+
+    `maximumWidth` at Qt's own default is the readable way to say "no cap": a
+    `setFixedWidth` sets minimum and maximum to the same number, so this fails
+    the moment somebody puts one back.
+    """
+    assert dialog._currency.minimumWidth() == 90
+    assert dialog._currency.maximumWidth() > 90
