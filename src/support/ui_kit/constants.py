@@ -33,3 +33,16 @@ DEFAULT_LOG_MAX_ENTRIES: int = 500
 #: the other", which is the intent to share written down beside a
 #: duplicate of the thing being shared.
 DATETIME_FORMAT: str = "%Y-%m-%d %H:%M"
+
+
+#: What a screen puts in its progress caption while `UIMode.CANCELLING`.
+#:
+#: `ProgressBanner.qml` used to write this word on the Cancel button itself
+#: (`text: cancelling ? "Cancelling..." : cancelLabel`), so every host got it
+#: for free. `EPIC-025` PR 4.3l replaced that scene with `kit.ProgressBanner`,
+#: which disables the button and deliberately does not rename it — a button
+#: that changes its own wording mid-click is not what a caller wants — and the
+#: word moved to the caption, where the Backtest screen already put it. It is
+#: shared rather than typed twice for the reason `DATETIME_FORMAT` above is:
+#: two screens showing the same state must not drift into two wordings for it.
+CANCELLING_CAPTION: str = "Cancelling safely..."

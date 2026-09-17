@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
+    CANCELLING_CAPTION,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Banner,
     ProgressBanner,
@@ -653,7 +656,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
             cancelling = mode == "CANCELLING"
             self._progress_banner_widget.set_cancelling(cancelling)
             if cancelling:
-                self._progress_banner_widget.set_status_text("Cancelling safely...")
+                self._progress_banner_widget.set_status_text(CANCELLING_CAPTION)
                 self._progress_banner_widget.set_indeterminate(True)
             elif mode == "SYNCING":
                 self._progress_banner_widget.set_indeterminate(False)
