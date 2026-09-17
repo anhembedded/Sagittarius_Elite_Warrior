@@ -158,8 +158,8 @@ split.
 | ~~4.2a~~ ❌ | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator`; `base_event_logger` → `modules/backtesting/ui/` — **folded into 4.4, §3.12.** Measured at PR review time (2026-09-17): moving these four alone costs the boundary allowlist 58 → 68 (10 new lines across 7 legacy consumer files), which the rewritten `architecture-rule.md` now forbids outright. Worse than a ratchet problem: every one of those 7 consumers is itself moving in 4.2b or 4.4, so the only zero-cost sequencing is moving each leaf file in the same pull request as **all** of its consumers — which for `sync_progress_{feed,report}` means 4.2b and 4.4 at once, since `data_management` (4.2b) and `backtest`/`dashboard` (4.4) both import them | — |
 | ~~4.2b~~ ❌ | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) — **folded into 4.4, §3.12**, for the same reason as 4.2a: after 4.1b its only remaining blockers are QML (so it already waited on 4.3, same as 4.4) and the four leaf files 4.2a would have moved, which it shares consumers with across 4.4's screens too | — |
 | **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), **4.3e** ✅ `qml/SelectList/` deleted, its four hosts onto `kit.PickerOverlay` (and the read-only one out of the picker shape altogether), **4.3f** ✅ `qml/CheckboxList/` + `qml/Capital/` deleted — `kit.ChecklistOverlay` arrives for the two checklists, and the capital form keeps `BUG-064`'s lesson with one writer instead of three bindings, **4.3g** ✅ `qml/StatCardRow/` deleted — the performance figures stop being cards (HLD §11.3), **4.3h** ✅ `qml/TradeLogTable/` deleted — measured dead, its two pure files moved to `screens/backtest/logic/`, **4.3i** ✅ `qml/StatGrid/` + `qml/DataTable/` deleted — dead too, the second losing its last caller *to 4.3h*, **4.3j** ✅ `qml/MetricsDetailPanel/` → a `QDialog` on a `QTreeWidget`, leaving `qml/` holding only `kit/`, **4.3k** ✅ `charting/TimeframePicker/` → a pill row of `QPushButton`s and a `QTreeWidget` picker sharing one selection, then `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 8**, all of them `qml/kit/`'s, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
-| **4.3m** | `strategy` contributes `SignalFeed`, `StrategyArmingCoordinator`, `StrategyCardViewModel`, `strategy_overlay.*` and `strategy_params.strategy_params_dialog` onto `trading`/`dashboard`/`backtest`'s surfaces via `contribute()` + `Place`, instead of those screens importing them directly | found starting 4.4, not a file move — see the ADR and §3.14. **Blocks 4.4** |
-| **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard` and `screens/trading` → `modules/trading/ui/` (4.1c's fold); `screens/data_management` → `modules/market_data/ui/` (4.2b's fold); `sync_progress_{feed,report}` + `symbol_options_coordinator` → `modules/market_data/ui/`, `base_event_logger` → `modules/backtesting/ui/` (4.2a's fold); `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's; folding 4.1c, 4.2a and 4.2b in is what keeps every leaf file's move in the same commit as all of its consumers, §3.12 — and now 4.3m, §3.14 |
+| **4.3m** | `IStrategyCatalog`/`IStrategyChartOverlay`/`IStrategyArming` published and bound; `modules/strategy/ui/` deleted, its three shared classes relocated (not duplicated) to `presentation/ui/common/`, `strategy_params/`'s widgets to `support/ui_kit/param_form/`; `trading`/`dashboard`/`backtest` rewired onto the ports | ✅ **Done 2026-09-17** (`6678d456`/`f76d5ced`/`67a36405`) — found starting 4.4, not a file move; the ADR's original "duplicate per screen" plan was corrected mid-course (§3.14, ADR §7) after the duplication ratchet measured it worse than the shared-class fix it replaced |
+| **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard` and `screens/trading` → `modules/trading/ui/` (4.1c's fold); `screens/data_management` → `modules/market_data/ui/` (4.2b's fold); `sync_progress_{feed,report}` + `symbol_options_coordinator` → `modules/market_data/ui/`, `base_event_logger` → `modules/backtesting/ui/` (4.2a's fold); `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | **unblocked as of 4.3m** — every blocker 4.3 and 4.3m named is resolved; folding 4.1c, 4.2a and 4.2b in is what keeps every leaf file's move in the same commit as all of its consumers, §3.12; scope not yet re-measured against the post-4.3m tree |
 
 After 4.1a and 4.2a, `ui/common` holds **two** files: `live_order_book_coordinator` (waiting on
 `order_book`, so 4.1b) and `qml_property` (which dies with the QML, so 4.3). Step 4's *"delete
@@ -600,11 +600,29 @@ out of `support/ui_kit/assets/` into `support/ui_kit/palette.py` so a future cal
 just the colours does not pay for `icon_loader`'s Qt import either — `assets/__init__.py`
 re-exports it, so every existing consumer is unaffected.
 
-**Not yet done** — the actual point of this PR: relocating `strategy_params/`'s three widgets to
-`support/ui_kit/param_form/`, deleting `StrategyCardViewModel` and `build_bot_params_rows`, and
-rewiring `screens/trading`/`dashboard`/`backtest`'s call sites onto the three new ports. PR 4.4
-stays blocked until those land and the boundary guard is clean against each of the three screens
-moved in isolation.
+**Done 2026-09-17 (`f76d5ced`/`67a36405`) — and the plan's own second half was wrong, measured.**
+`strategy_params/`'s three widgets relocated to `support/ui_kit/param_form/` as planned, and
+`screens/trading`/`dashboard`/`backtest` rewired onto `IStrategyCatalog`/`IStrategyChartOverlay`/
+`IStrategyArming`, closing `modules/strategy/ui/` for good. But **deleting `StrategyCardViewModel`
+was not the right move**, and the duplication ratchet is what caught it: flattening its nineteen
+members directly onto `TradingViewModel`/`DashboardViewModel` (this paragraph's original plan)
+read `test_presenter_duplication_only_shrinks.py`'s Phase 1 pair **32 → 63** — the names came back
+unprefixed, not gone, which undoes the exact criterion this epic is judged on. Corrected before it
+reached the user, recorded in the ADR's own §7: the *class* stays one shared owner, only its
+*location* moves — from a module's `ui/` (now forbidden to cross, `architecture-rule.md` §3) to
+`presentation/ui/common/` (never forbidden, since both consumers are Presenters, not modules), the
+same move `strategy_arming_coordinator.py` and `signal_feed.py` make beside it. Net result: Phase 1
+pair unchanged at **32**, duplication total **107 → 99** (better than either screen carrying its
+own copy), allowlist **58 → 40**. A third duplicate this correction exposed — `_on_signal_generated`,
+identical on `TradingPresenter`/`DashboardPresenter` since before this epic started — was closed at
+the mechanism by moving its body into the shared `StrategyArmingCoordinator.on_signal_generated()`
+rather than left as a tolerated ratchet number. Two real bugs fixed on the way:
+`StrategyChartOverlayService.overlay_for()` crashing on `dict(None)` when a backtest run carries no
+`strategy_params`, and `StrategyConfigCoordinator`'s two `validate_params()` call sites raising an
+uncaught `KeyError` for an unregistered strategy key instead of returning `False`. Full gate
+compared against the clean pre-change tree via `git stash` to confirm two Dev Board integration
+test failures plus one `_recheck_edge` log-scan ERROR are pre-existing and unrelated to this PR.
+**PR 4.4 is unblocked**: its scope (§3.2's table) has not yet been re-measured against this tree.
 
 ### 4.1 PR 4.3a — the symbol picker had **two** implementations, one per toolkit
 
