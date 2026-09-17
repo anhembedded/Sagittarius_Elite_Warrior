@@ -157,7 +157,7 @@ split.
 | ~~4.1c~~ ❌ | `screens/trading` → `modules/trading/ui/` — **folded into 4.4, §3.11.** Its legacy-import count did reach **0**, and that turned out not to be the binding constraint: merging it into the existing `trading.ui` package deduplicates nothing (the total stays at 112) while making `phase_1_count` read a false **0**, and re-keying the metric honestly would raise its ratchet 32 → 39, which `ci-rule` §5.5 forbids. The two live screens travel together after the deletions, as the user's `DECISION_2026-09-16` said | — |
 | **4.2a** | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator`; `base_event_logger` → `modules/backtesting/ui/` | §3.3: the destination this file left open is **forced**, not chosen. All four have 0 legacy imports except `sync_progress_feed`, whose only one is the sibling travelling with it |
 | **4.2b** | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) | after 4.1b and 4.2a its remaining blockers are QML, so it waits on 4.3 |
-| **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), **4.3e** ✅ `qml/SelectList/` deleted, its four hosts onto `kit.PickerOverlay` (and the read-only one out of the picker shape altogether), **4.3f** ✅ `qml/CheckboxList/` + `qml/Capital/` deleted — `kit.ChecklistOverlay` arrives for the two checklists, and the capital form keeps `BUG-064`'s lesson with one writer instead of three bindings, **4.3g** ✅ `qml/StatCardRow/` deleted — the performance figures stop being cards (HLD §11.3), **4.3h** ✅ `qml/TradeLogTable/` deleted — measured dead, its two pure files moved to `screens/backtest/logic/`, **4.3i** ✅ `qml/StatGrid/` + `qml/DataTable/` deleted — dead too, the second losing its last caller *to 4.3h*, **4.3j** ✅ `qml/MetricsDetailPanel/` → a `QDialog` on a `QTreeWidget`, leaving `qml/` holding only `kit/`, then `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 11**, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
+| **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), **4.3e** ✅ `qml/SelectList/` deleted, its four hosts onto `kit.PickerOverlay` (and the read-only one out of the picker shape altogether), **4.3f** ✅ `qml/CheckboxList/` + `qml/Capital/` deleted — `kit.ChecklistOverlay` arrives for the two checklists, and the capital form keeps `BUG-064`'s lesson with one writer instead of three bindings, **4.3g** ✅ `qml/StatCardRow/` deleted — the performance figures stop being cards (HLD §11.3), **4.3h** ✅ `qml/TradeLogTable/` deleted — measured dead, its two pure files moved to `screens/backtest/logic/`, **4.3i** ✅ `qml/StatGrid/` + `qml/DataTable/` deleted — dead too, the second losing its last caller *to 4.3h*, **4.3j** ✅ `qml/MetricsDetailPanel/` → a `QDialog` on a `QTreeWidget`, leaving `qml/` holding only `kit/`, **4.3k** ✅ `charting/TimeframePicker/` → a pill row of `QPushButton`s and a `QTreeWidget` picker sharing one selection, then `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 8**, all of them `qml/kit/`'s, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
 | **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard`; `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's |
 
 After 4.1a and 4.2a, `ui/common` holds **two** files: `live_order_book_coordinator` (waiting on
@@ -1027,3 +1027,60 @@ WARNING or above; mypy clean on 499 source files. Test count **4913 → 4920**: 
 suite, **−4** the deleted QML host's file, **+2** net on the screen's own dialog file (5 → 7), and
 **−7** in the guards. The twelve tests that were under `src/` cost nothing on either side of this,
 for the reason 4.3h's paragraph gives.
+
+### 4.11 PR 4.3k — the timeframe picker, both views of it, and a segfault the design predicted
+
+`support/charting/TimeframePicker/` held the **last three `.qml` files outside `qml/kit/`**: the
+compact pill row in every chart header, the full grouped grid it opens, and that grid's cell. All
+three are widgets now — `.qml` **11 → 8**, and every remaining one is in `qml/kit/`, the final step.
+
+**The design's one hard requirement survived the toolkit, which is the point.** The user's
+instruction shaped this widget: *"2 widget, common nếu reuse được"* — pinning an interval in one
+view has to show in the other at once, so the two views share one state object rather than each
+holding a copy. That is still true: `TimeframeSelection` (was `TimeframeVM`) is one `QObject` two
+widgets read, with its `Property`/`Slot` decorations dropped because nothing binds to it. Its rows
+are frozen dataclasses instead of `QVariantList` dicts, so `row.code` replaces `row["code"]` and a
+missing field is an error where it is written rather than a `None` where it is rendered.
+
+- `pill_row.py` — a checkable `QPushButton` per pinned code, which is what a pill is; the current
+  one is simply the checked one, and the platform draws that.
+- `dialog.py` — a `QTreeWidget`: headings with rows under them (what the groups always were) and a
+  real check box for the pin (what a pin always was). Choosing closes; **pinning does not**, because
+  pinning three intervals is a different act from choosing one.
+- `chart_toolbar.py` stops being a `QuickSurface` and becomes a plain `QWidget` holding the row.
+  `sig_timeframe_changed` and `set_active()` are untouched, so `ChartCard`,
+  `PythonBacktestChartHost` and `dashboard_presenter.py` needed no changes at all — the third time
+  this widget has been rebuilt behind that same surface.
+
+**The segfault is worth recording, because `ChecklistOverlay` had warned about it one PR earlier.**
+Ticking a pin reaches `_render()` from inside that row's own `itemChanged` emission, and the first
+draft called `QTreeWidget.clear()` there — destroying the item whose signal was still being
+delivered. Not a flaky test: a hard crash, and it did not appear when the file ran alone. 4.3f had
+already learned this for checkboxes and written it into `set_items()`; the fix here is the same
+shape, and easier, because pinning and choosing never change *which* intervals are offered: a
+layout signature (group labels and their codes) decides between updating in place and rebuilding.
+The lesson generalises past both widgets — **a Qt view that rebuilds itself from a signal one of its
+own items raised is a crash waiting for a user to click.**
+
+**Restated.** `TimeframeVM`'s 12 tests were under `src/` (the fourth such suite this phase, `CS-004`)
+and are restated as `test_selection.py`'s 14. The deleted QML host's 7 become 12 across
+`test_dialog_and_pill_row.py` — six of them one for one, the seventh (a broken `.qml` raising) gone
+with its subject, plus new coverage the pill row never had of its own, because
+`TimeframeToolbar.qml` was only ever exercised through `ChartToolbar`. `test_chart_toolbar.py`'s 11
+wiring promises are unchanged sentences; only the click changed, from `QTest` coordinates in a Quick
+scene to `QPushButton.click()`. Nine other test files across four screens swapped the same two
+attribute names.
+
+**And the first gate run failed in a tier the pre-gate routine still did not cover** — three
+`tests/integration/` tests clicking a pill through `QTest` scene coordinates. That is the third time
+this phase, each one a layer wider: 4.3e's was `tests/unit/presentation` above the directories I had
+run, 4.3f's was `ruff format` on `src` after the last edit there, and this one is the integration
+tier. The routine is now the whole of `ruff check`/`ruff format` over all four directories, then
+`pytest tests/unit tests/integration`, then the gate — which is most of the gate, and the honest
+price of a change that reaches widgets four screens deep.
+
+**Gate:** `RESULT: PASS`, **4934 passed, 4 skipped** in 178s, log
+`logs/ci-local-20260917-010650.log` grepped — 4 hits for the known benign set, **0** records at
+WARNING or above; mypy clean on 499 source files. Test count **4920 → 4934**: **+14** the selection
+suite, **+12** the dialog and pill row's, **−7** the deleted QML host's file, and **−5** in the
+guards. `test_chart_toolbar.py` is 12 → 11, its broken-`.qml` test gone with the `.qml`.
