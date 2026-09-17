@@ -13,8 +13,10 @@ live for the whole migration.
 **How.** `GUARDS` is the registry: each path-scanning test file in the
 repository together with the directories it scans, relative to the repository
 root. Three checks: (1) every registered guard file exists; (2) every registered
-root exists and contains at least one file of the kind the guard reads;
-(3) every test file that computes `Path(__file__).resolve().parents[` **and**
+root exists and contains at least one file of the kind the guard reads —
+answered against `git_tracked_paths.tracked_paths()`, not `Path.rglob()` alone
+(`BUG-129`, `CS-005`): a root surviving on disk only as a `__pycache__` shell
+reads as empty; (3) every test file that computes `Path(__file__).resolve().parents[` **and**
 walks a directory (`glob`, `rglob`, `iterdir`) is registered here — a new guard must add its row, and a retargeted guard must
 update its row, in the same commit.
 """
@@ -22,11 +24,12 @@ update its row, in the same commit.
 from __future__ import annotations
 
 import re
-import shutil
-import subprocess
 from pathlib import Path
 
 import pytest
+from Sagittarius_Elite_Warrior.tests.unit.architecture.git_tracked_paths import (
+    tracked_paths,
+)
 from Sagittarius_Elite_Warrior.tests.unit.architecture.scanned_roots_registry import (
     EMPTY_BY_DESIGN,
     GUARDS,
@@ -51,37 +54,6 @@ def _registered_rows() -> set[tuple[str, str, str]]:
     }
 
 
-def _tracked_paths() -> set[str] | None:
-    """Every file the repository holds, or `None` when git cannot answer.
-
-    @details `BUG-129`/`CS-005`, one layer over from where they were found. A
-    scan of the **working tree** is not a scan of the repository: `EPIC-025`'s
-    moves leave directories behind holding nothing but `__pycache__`, so a
-    registered root can look populated on a developer's disk and be gone in a
-    fresh clone. That is exactly how `test_module_boundaries.py` came to require
-    a directory the epic had deleted, and how CI stayed red for 20 runs while
-    every local gate was green. Measured when this was written: filtering to
-    tracked files flips **no** registered root from populated to empty, so this
-    tightens the guard without moving anything.
-    """
-    git = shutil.which("git")
-    if git is None:
-        return None
-    try:
-        # No `noqa` needed: `pyproject.toml` already exempts `tests/**` from
-        # `S603`. The argument vector is a literal list, there is no shell, and
-        # `git` is the absolute path resolved above (`S607`).
-        completed = subprocess.run(
-            [git, "-C", str(_REPO_ROOT), "ls-files", "-z"],
-            check=True,
-            capture_output=True,
-            text=True,
-        )
-    except (OSError, subprocess.CalledProcessError):  # pragma: no cover - no git
-        return None
-    return {entry for entry in completed.stdout.split("\0") if entry}
-
-
 def test_repo_root_is_where_we_think_it_is() -> None:
     assert (_REPO_ROOT / "src").is_dir() and (_REPO_ROOT / "tests").is_dir(), _REPO_ROOT
 
@@ -103,9 +75,9 @@ def test_scanned_root_exists_and_is_not_empty(
     directory = _REPO_ROOT / root
     assert directory.is_dir(), f"{guard} scans {root}, which does not exist"
     matches = [p for p in directory.rglob(pattern) if "__pycache__" not in p.parts]
-    tracked = _tracked_paths()
+    tracked = tracked_paths(_REPO_ROOT)
     if tracked is not None:
-        # The repository's answer, not this disk's — see `_tracked_paths`.
+        # The repository's answer, not this disk's — see `git_tracked_paths`.
         matches = [
             p for p in matches if p.relative_to(_REPO_ROOT).as_posix() in tracked
         ]
