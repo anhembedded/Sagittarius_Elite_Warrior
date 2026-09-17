@@ -22,6 +22,8 @@ update its row, in the same commit.
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -49,6 +51,37 @@ def _registered_rows() -> set[tuple[str, str, str]]:
     }
 
 
+def _tracked_paths() -> set[str] | None:
+    """Every file the repository holds, or `None` when git cannot answer.
+
+    @details `BUG-129`/`CS-005`, one layer over from where they were found. A
+    scan of the **working tree** is not a scan of the repository: `EPIC-025`'s
+    moves leave directories behind holding nothing but `__pycache__`, so a
+    registered root can look populated on a developer's disk and be gone in a
+    fresh clone. That is exactly how `test_module_boundaries.py` came to require
+    a directory the epic had deleted, and how CI stayed red for 20 runs while
+    every local gate was green. Measured when this was written: filtering to
+    tracked files flips **no** registered root from populated to empty, so this
+    tightens the guard without moving anything.
+    """
+    git = shutil.which("git")
+    if git is None:
+        return None
+    try:
+        # No `noqa` needed: `pyproject.toml` already exempts `tests/**` from
+        # `S603`. The argument vector is a literal list, there is no shell, and
+        # `git` is the absolute path resolved above (`S607`).
+        completed = subprocess.run(
+            [git, "-C", str(_REPO_ROOT), "ls-files", "-z"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):  # pragma: no cover - no git
+        return None
+    return {entry for entry in completed.stdout.split("\0") if entry}
+
+
 def test_repo_root_is_where_we_think_it_is() -> None:
     assert (_REPO_ROOT / "src").is_dir() and (_REPO_ROOT / "tests").is_dir(), _REPO_ROOT
 
@@ -70,12 +103,20 @@ def test_scanned_root_exists_and_is_not_empty(
     directory = _REPO_ROOT / root
     assert directory.is_dir(), f"{guard} scans {root}, which does not exist"
     matches = [p for p in directory.rglob(pattern) if "__pycache__" not in p.parts]
+    tracked = _tracked_paths()
+    if tracked is not None:
+        # The repository's answer, not this disk's — see `_tracked_paths`.
+        matches = [
+            p for p in matches if p.relative_to(_REPO_ROOT).as_posix() in tracked
+        ]
     if (guard, root, pattern) in EMPTY_BY_DESIGN:
         # The one inverted case: a ban, whose scan finding nothing is it
         # holding. See `EMPTY_BY_DESIGN`'s own docstring.
         return
     assert matches, (
-        f"{guard} scans {root} for {pattern} and would find nothing — retarget the guard"
+        f"{guard} scans {root} for {pattern} and would find nothing in a fresh "
+        f"clone — retarget the guard (a leftover `__pycache__` shell on your "
+        f"disk does not count; `BUG-129`)"
     )
 
 
