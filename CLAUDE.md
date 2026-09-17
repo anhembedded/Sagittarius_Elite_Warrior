@@ -1,30 +1,37 @@
 # CLAUDE.md — entry point
 
-**Read [`.agents/ONBOARDING.md`](.agents/ONBOARDING.md) first.** This file navigates and copies no rule: a copy drifts, and this repository has paid for that twice. Every file in `.agents/rules/` has a row below (`tests/unit/test_rule_navigation_is_complete.py` fails otherwise); rules marked `on_file_change` also load by themselves through the pointers in [`.claude/rules/`](.claude/rules/) when you open a matching file.
+The map is imported here, so it is already in your context: @.claude/ONBOARDING.md
+
+This file navigates and copies no rule: a copy drifts, and this repository has paid for that twice. Every rule under `.claude/rules/` loads by itself — every session, or when you open a file its `paths:` front matter names — and has a row below (`tests/unit/test_rule_navigation_is_complete.py` fails otherwise). [`.claude/README.md`](.claude/README.md) is the manifest of everything under `.claude/` and what loads it.
 
 ## Where to read what
 
 | Task | File |
 | :--- | :--- |
-| Starting; picking up work; authority; deciding alone; the settled principles; the traps | [`.agents/ONBOARDING.md`](.agents/ONBOARDING.md) |
+| Starting; picking up work; authority; deciding alone; the settled principles | [`.claude/ONBOARDING.md`](.claude/ONBOARDING.md) |
 | What the app must do, one use case per file | [`Docs/SPEC/README.md`](Docs/SPEC/README.md) |
-| Architecture: layers, ports, explicit contracts, events, seams | [`architecture-rule.md`](.agents/rules/architecture-rule.md) |
-| Code quality | [`code-quality-rule.md`](.agents/rules/code-quality-rule.md) |
-| Before calling anything done: the gate, its cadence, the test levels | [`ci-rule.md`](.agents/rules/ci-rule.md) |
-| Before every commit | [`commit-rule.md`](.agents/rules/commit-rule.md) |
-| Reviewing a pull request, branch or diff | [`.claude/skills/pr-review/SKILL.md`](.claude/skills/pr-review/SKILL.md) |
-| The user reports a bug | [`bug-fix-rule.md`](.agents/rules/bug-fix-rule.md) |
+| Architecture: layers, ports, explicit contracts, events, seams | [`architecture-rule.md`](.claude/rules/architecture-rule.md) |
+| Code quality | [`code-quality-rule.md`](.claude/rules/code-quality-rule.md) |
+| Before calling anything done: the gate, its cadence, the test levels | [`ci-rule.md`](.claude/rules/ci-rule.md) |
+| Before every commit | [`commit-rule.md`](.claude/rules/commit-rule.md) |
+| Reviewing a pull request, branch or diff | [`.claude/skills/pr-review/SKILL.md`](.claude/skills/pr-review/SKILL.md); a first independent read before asking for review: the `reviewer` subagent ([`.claude/agents/reviewer.md`](.claude/agents/reviewer.md)) |
+| The user reports a bug | [`bug-fix-rule.md`](.claude/rules/bug-fix-rule.md) |
 | A defect got through a green gate | [`Docs/CASE_STUDIES/README.md`](Docs/CASE_STUDIES/README.md) |
-| Adding or changing logs | [`logging-rule.md`](.agents/rules/logging-rule.md) |
-| Reporting to the user, or asking a question | [`report-rule.md`](.agents/rules/report-rule.md) |
-| Writing tests | [`testing-rule.md`](.agents/rules/testing-rule.md) |
-| UI: QtWidgets only, desktop UX principles, layout, preview | [`ui-presentation-rule.md`](.agents/rules/ui-presentation-rule.md) · [`Docs/HLD/11_desktop_workbench.md`](Docs/HLD/11_desktop_workbench.md) |
-| Background work started from the UI | [`async-ui-action-rule.md`](.agents/rules/async-ui-action-rule.md) |
-| Domain and application code | [`domain-truth-rule.md`](.agents/rules/domain-truth-rule.md) |
-| Environment setup; a missing tool | [`install-rule.md`](.agents/rules/install-rule.md) |
+| Adding or changing logs | [`logging-rule.md`](.claude/rules/logging-rule.md) |
+| Reporting to the user, or asking a question | [`report-rule.md`](.claude/rules/report-rule.md) |
+| Writing tests | [`testing-rule.md`](.claude/rules/testing-rule.md) |
+| UI: QtWidgets only, desktop UX principles, layout, preview | [`ui-presentation-rule.md`](.claude/rules/ui-presentation-rule.md) · [`Docs/HLD/11_desktop_workbench.md`](Docs/HLD/11_desktop_workbench.md) |
+| Background work started from the UI | [`async-ui-action-rule.md`](.claude/rules/async-ui-action-rule.md) |
+| Domain and application code | [`domain-truth-rule.md`](.claude/rules/domain-truth-rule.md) |
+| Environment setup; a missing tool | [`install-rule.md`](.claude/rules/install-rule.md) |
+| The traps that produced broken code here, loading with the files they concern | [`pitfalls/tests.md`](.claude/rules/pitfalls/tests.md) · [`pitfalls/ui.md`](.claude/rules/pitfalls/ui.md) · [`pitfalls/source.md`](.claude/rules/pitfalls/source.md) |
+| The format of a task, bug report, case study, epic or decision record | [`.claude/templates/`](.claude/templates/) |
+| The body of a pull request | [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) |
 | A word you do not know or are about to coin | [`Docs/VOCABULARY/README.md`](Docs/VOCABULARY/README.md) |
-| Executing `EPIC-025` | [`.agents/Skills/epic-025.prompt.md`](.agents/Skills/epic-025.prompt.md) |
+| Executing `EPIC-025` | [`.claude/skills/epic-025/SKILL.md`](.claude/skills/epic-025/SKILL.md) |
+| The scheduled audits | [`.claude/skills/test-health/SKILL.md`](.claude/skills/test-health/SKILL.md) · [`.claude/skills/process-drift/SKILL.md`](.claude/skills/process-drift/SKILL.md) |
 | Where the system stands | [`Tasks/ROADMAP.md`](Tasks/ROADMAP.md) · [`Tasks/bug_report/README.md`](Tasks/bug_report/README.md) · [`Tasks/epics/README.md`](Tasks/epics/README.md) |
+| What is under `.claude/`, what loads it and when | [`.claude/README.md`](.claude/README.md) |
 
 ## Four things that cost half a day if you get them wrong once
 

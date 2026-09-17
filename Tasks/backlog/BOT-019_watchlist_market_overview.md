@@ -12,7 +12,7 @@ Thêm `WatchlistCard`/`WatchlistScreen` hiển thị bảng (QTableView) các sy
 - [ ] Highlight màu xanh/đỏ tạm thời khi giá tăng/giảm (dùng `theme.py`'s `BULL_COLOR`/`BEAR_COLOR` đã có sẵn từ chart_card).
 - [ ] Danh sách symbol theo dõi lấy từ `DEFAULT_SYMBOLS` trong config (tái dùng, không tạo cơ chế cấu hình symbol thứ hai) — mở rộng thêm được nếu BOT-017 (Settings Screen) đã có UI quản lý symbol.
 - [ ] Click vào 1 dòng trong watchlist để chuyển ChartCard tương ứng lên focus (nếu đang hiển thị) — không bắt buộc phải mở chart mới.
-- [ ] Unit test cho `WatchlistTableModel`/`WatchlistPresenter` (mock event bus, assert đúng dòng/cột được cập nhật) theo `.agents/rules/testing.md`.
+- [ ] Unit test cho `WatchlistTableModel`/`WatchlistPresenter` (mock event bus, assert đúng dòng/cột được cập nhật) theo `.claude/rules/testing-rule.md`.
 
 ## 4. Rủi ro / Lưu ý (Constraints & Risks)
 - Nhiều symbol tick liên tục — đảm bảo update UI qua đúng cơ chế thread-safe hiện có (giống cách `dashboard_presenter.py` marshal sang main thread), không update trực tiếp từ WebSocket thread.

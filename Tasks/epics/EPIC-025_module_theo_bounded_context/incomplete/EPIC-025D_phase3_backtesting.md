@@ -207,7 +207,7 @@ rather than a fact:
   check the rule actually specifies. The sentence is now there, verbatim, above the table.
 - **`Docs/HLD/09`'s row said PR 3.1a "took the first three"** of a list of five, which is a count in
   prose whose unit — tests, files or subjects — the sentence never states, exactly what
-  `.agents/Skills/README.md` §1 bans. It now reads **2 files / 4 tests**, and names the thing the row
+  `.claude/ONBOARDING.md` §13 bans. It now reads **2 files / 4 tests**, and names the thing the row
   had never listed: `StopBacktestCommand`, deleted here although that row only mentioned
   `RunBacktestCommand` and `BacktestState`.
 

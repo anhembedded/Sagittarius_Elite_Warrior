@@ -4,7 +4,7 @@ nơi hiển thị".
 
 @details
 Đây là **điểm hạ cánh có tên** cho quy tắc thăng cấp ở
-`.agents/rules/architecture-rule.md` §6.3, tồn tại theo §7 của cùng file: một
+`.claude/rules/architecture-rule.md` §6.3, tồn tại theo §7 của cùng file: một
 điểm mở rộng đã chốt thì phải có type trong code, không được chỉ nằm trong tài
 liệu — vì tài liệu là thứ phải đi tìm mới thấy, còn type thì đập vào mắt khi
 đọc code.

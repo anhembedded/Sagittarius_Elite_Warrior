@@ -1,6 +1,6 @@
 Giữ thư mục này tồn tại khi không còn bug nào đang mở.
 
-`README.md` của Bug Board và `.agents/rules/bug-fix-rule.md` đều bảo bug mới
+`README.md` của Bug Board và `.claude/rules/bug-fix-rule.md` đều bảo bug mới
 phải tạo ở đây; git không theo dõi thư mục rỗng, nên không có file này thì
 đường dẫn biến mất khỏi bản clone sạch và người/agent tiếp theo phải đoán.
 

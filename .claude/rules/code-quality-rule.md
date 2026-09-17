@@ -1,10 +1,8 @@
 ---
-name: Python Code Quality Rule
 description: Typing, readability, immutability, and the hard rules — no magic numbers, no nested loops, no God objects, no lazy imports, Single-Scope Cohesion.
-trigger: on_file_change
-patterns:
-  - src/**/*.py
-  - scripts/**/*.py
+paths:
+  - "src/**/*.py"
+  - "scripts/**/*.py"
 ---
 
 # Python code quality

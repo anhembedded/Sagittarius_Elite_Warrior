@@ -1,9 +1,7 @@
 ---
-name: Architecture Rule
 description: Layers, ports and explicit contracts, CQRS, one abstraction per file, event placement, seams. Loads by path for every src/ file.
-trigger: on_file_change
-patterns:
-  - src/**/*.py
+paths:
+  - "src/**/*.py"
 ---
 
 # Architecture

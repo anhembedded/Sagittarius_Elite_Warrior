@@ -13,20 +13,20 @@ has shipped defects before.
 decides it. Read the clause in its own file before citing it; never quote a rule from memory or
 from here. And never treat any list of rules as complete: `CLAUDE.md` records an agent reading the
 seven rules a table listed, calling that the whole set, and violating three of the six it never
-saw. Your first command is `ls .agents/rules/`, the directory, not a table.
+saw. Your first command is `ls .claude/rules/`, the directory, not a table.
 
 ## Rule keys
 
 | Key | File | | Key | File |
 | :-- | :--- | :-- | :-- | :--- |
-| `arch` | [architecture-rule.md](../../../.agents/rules/architecture-rule.md) | | `log` | [logging-rule.md](../../../.agents/rules/logging-rule.md) |
-| `cq` | [code-quality-rule.md](../../../.agents/rules/code-quality-rule.md) | | `ui` | [ui-presentation-rule.md](../../../.agents/rules/ui-presentation-rule.md) |
-| `ci` | [ci-rule.md](../../../.agents/rules/ci-rule.md) | | `async` | [async-ui-action-rule.md](../../../.agents/rules/async-ui-action-rule.md) |
-| `test` | [testing-rule.md](../../../.agents/rules/testing-rule.md) | | `truth` | [domain-truth-rule.md](../../../.agents/rules/domain-truth-rule.md) |
-| `bug` | [bug-fix-rule.md](../../../.agents/rules/bug-fix-rule.md) | | `onb` | [ONBOARDING.md](../../../.agents/ONBOARDING.md) |
-| `commit` | [commit-rule.md](../../../.agents/rules/commit-rule.md) | | `skills` | [Skills/README.md](../../../.agents/Skills/README.md) |
+| `arch` | [architecture-rule.md](../../../.claude/rules/architecture-rule.md) | | `log` | [logging-rule.md](../../../.claude/rules/logging-rule.md) |
+| `cq` | [code-quality-rule.md](../../../.claude/rules/code-quality-rule.md) | | `ui` | [ui-presentation-rule.md](../../../.claude/rules/ui-presentation-rule.md) |
+| `ci` | [ci-rule.md](../../../.claude/rules/ci-rule.md) | | `async` | [async-ui-action-rule.md](../../../.claude/rules/async-ui-action-rule.md) |
+| `test` | [testing-rule.md](../../../.claude/rules/testing-rule.md) | | `truth` | [domain-truth-rule.md](../../../.claude/rules/domain-truth-rule.md) |
+| `bug` | [bug-fix-rule.md](../../../.claude/rules/bug-fix-rule.md) | | `onb` | [ONBOARDING.md](../../../.claude/ONBOARDING.md) |
+| `commit` | [commit-rule.md](../../../.claude/rules/commit-rule.md) | | `pit` | [rules/pitfalls/](../../rules/pitfalls/tests.md) (`tests.md`, `ui.md`, `source.md`) |
 
-`ls .agents/rules/` is the real index — read every file the diff's paths touch, including any not
+`ls .claude/rules/` is the real index — read every file the diff's paths touch, including any not
 keyed above. Unknown word → `Docs/VOCABULARY/README.md`. Every rule clause carries an enforcer tag
 (`[gate]`, `[guard: file]`, `[review: row]`, `[eye]`); the rows below are the `[review: …]` half.
 
@@ -63,7 +63,7 @@ here), §10 (language/register), §11 (reporting), §12.5 (settled principles).
 | tests, or source that should have brought one | + E |
 | logging, or any new failure path | + I |
 | `tests/unit/architecture/**`, a baseline/allowlist, a new top-level `src/` package | + J |
-| `.agents/Skills/*.md` `.claude/skills/**` `.claude/rules/*.md` | + `python3 scripts/check_skill_prompt_references.py` |
+| `CLAUDE.md`, anything under `.claude/` | + `python3 scripts/check_skill_prompt_references.py`, and for a rule, skill, agent or template: `python3 -m pytest tests/unit/architecture/test_claude_tree_is_wired.py tests/unit/test_rule_navigation_is_complete.py -q` |
 | `Docs/CASE_STUDIES/**` | + E14, and `python3 -m pytest tests/unit/architecture/test_case_study_index_is_consistent.py -q` |
 | only the documentation-only paths `onb` §7 defines | A, K — see `ci` §1's exception first |
 
@@ -106,7 +106,7 @@ git status --short          # anything here was never in the verified tree
 ### C. Architecture (`arch`) — almost all `eye`
 1. Layer crossed the wrong way? §3 — `grep -rn "sagittarius_engine" src/domain src/application --include=*.py`; only the two Shared Kernel symbols named there are allowed.
 2. A new-tree package importing the legacy tree? Boundary guards in `tests/unit/architecture/`; read `tests/unit/architecture/allowlist_module_boundaries.txt` and J1.
-3. A Port gained an `@abstractmethod` with implementers left behind? §2, `onb` trap 11 — grep implementers in **`src/`, `scripts/` and `tests/`**.
+3. A Port gained an `@abstractmethod` with implementers left behind? §2, `pit` `source.md` 3 — grep implementers in **`src/`, `scripts/` and `tests/`**.
 4. Every boundary contract a named type? §2.1 — `hasattr`/`getattr` probing and unannotated `view` are the forbidden shape; `typing.Protocol` is **not**.
 5. `Protocol` chosen over ABC — does the docstring name which of the three reasons applies? §2.1.
 6. Two abstraction levels sharing a file or a directory? §5 rules 1–2.
@@ -159,15 +159,15 @@ for path in sys.argv[1:]:
 4. A test weakened, skipped, `xfail`ed or deleted to get green? `git diff --stat -M "$BASE...$HEAD" -- tests/`. Blocking wherever it appears.
 5. A **new** test added under `tests/sanity/`? (`test` §1 — a feature adds zero; a new one means the existing ones were written wrong)
 6. A port hand-substituted instead of drawing the boundary at configuration? (same section)
-7. Counts, full-dict equality, or float `== 0` in a new assertion? (`onb` §8 traps 1–4)
-8. A new field on a frozen dataclass without a default? (trap 5)
+7. Counts, full-dict equality, or float `== 0` in a new assertion? (`pit` `tests.md` 1–4)
+8. A new field on a frozen dataclass without a default? (`pit` `source.md` 1)
 9. Bug fix: regression test written **first**, confirmed failing for the right reason, at a tier that actually reaches the failure? (`bug` §4 — a `Mock` standing in for the crashing method cannot reproduce it)
 10. Bug fix: does it fix the mechanism or patch the one reported call site? (`bug` §2, `onb` §12.5 principle 1 — the general solution is required; cost is not a reason to prefer local)
 11. A widget or module **rewritten together with its tests**? Then E4's file-level check is not enough: the new tests can be more numerous and still cover less. List what the deleted tests asserted, say where each guarantee now lives, and name the ones deliberately dropped with the reason (a framework now does it; the feature is gone).
 12. Where a new test pins a **wiring or a rule** — a signal connection, an enable/disable gate, a guard's threshold, a confirmation before a destructive act — **would it fail if that line were removed?** Do not reason about it; break the line and run. (Not every test needs this: one that feeds a pure function its own inputs already shows it can fail. It is the tests whose subject is *that two things are connected* which pass just as happily when they are not.) `EPIC-025` PR 0.4b shipped a search box whose two `textEdited` connections could be deleted with all 22 tests in the file still green — every test drove the setter method, and typing is a different code path. Three commands, and the answer is evidence rather than opinion:
 
 ```bash
-# E12 — the test that cannot fail is not a test (`onb` §8 traps 1-4 are the
+# E12 — the test that cannot fail is not a test (`pit` `tests.md` 1–4 are the
 # same disease). Break the one line the test names, run only that file,
 # restore. Copy first: an interrupted review must not leave the break behind.
 cp src/<path>.py /tmp/keep.py
@@ -191,7 +191,7 @@ cp /tmp/keep.py src/<path>.py && git diff --stat -- src/<path>.py   # empty
 2. Cancellation cooperative and idempotent — no success/failure published after a cancel, no blind force to `IDLE`?
 3. A Coordinator owning FSM state or its own action-id bookkeeping? (It must not — one owner.)
 4. A Coordinator DI-registered or self-resolving instead of constructor-injected and Presenter-owned?
-5. Important work placed *after* a call that can throw inside a `@safe_ui_action` slot? (`onb` traps 7–8)
+5. Important work placed *after* a call that can throw inside a `@safe_ui_action` slot? (`pit` `ui.md` 1–2)
 
 ### H. UI presentation (`ui`)
 1. A new `.qml` file, global stylesheet, palette or theme library? Run the guards in `tests/unit/architecture/`.
@@ -204,7 +204,7 @@ cp /tmp/keep.py src/<path>.py && git diff --stat -- src/<path>.py   # empty
 
 ### I. Logging (`log`)
 1. Every new logger under `"App."`? `grep -rn 'getLogger(' src --include=*.py`, read each non-`"App"` hit; `tests/unit/test_logging_namespace_guard.py` is the mechanical half.
-2. A new `logger.info()` inside a hot loop (per trade/candle/tick/frame)? (`onb` trap 9)
+2. A new `logger.info()` inside a hot loop (per trade/candle/tick/frame)? (`pit` `ui.md` 3)
 3. Does it log the **decision** — which backend, which fallback, why — not just the outcome? (§2–§3)
 4. Narrowest level that fits, and a stable bracketed tag? (§6, §8)
 5. Has the new diagnostic been seen to emit through the **real** logging config? (§9)
@@ -214,7 +214,7 @@ cp /tmp/keep.py src/<path>.py && git diff --stat -- src/<path>.py   # empty
 2. Does a removed line correspond to a real fix, or to a rule that stopped being checked? A line removed because the import became legal is a retirement; removed with the violation intact is a hole.
 3. A new top-level `src/` package registered in `tests/unit/architecture/scanned_roots_registry.py` and covered by the relevant guards? Without a row an empty scan passes quietly forever.
 4. A guard's own file moved — did its path constant follow?
-5. A new abstract method, config key or engine API arriving without its declaration/registry row? (`Docs/HLD/`, `src/infrastructure/engine_adapters/`; `.agents/Skills/epic-025.prompt.md` §2 lists the module-split invariants with their check commands)
+5. A new abstract method, config key or engine API arriving without its declaration/registry row? (`Docs/HLD/`, `src/infrastructure/engine_adapters/`; `.claude/skills/epic-025/SKILL.md` §2 lists the module-split invariants with their check commands)
 6. Does a guard the diff runs into encode a rule a **newer ADR reversed** — a ratchet written under a doctrine a later decision overturned? Read `ci` §5.5, which says what the author must have done: the guard's own documented exemption naming the ADR, the ceiling *not* raised, the reversal recorded in that guard's docstring. A raised ceiling, or a guard quietly loosened to get the diff through, is a finding even when the new code is correct.
 
 ### K. Bookkeeping and documents
@@ -225,15 +225,15 @@ cp /tmp/keep.py src/<path>.py && git diff --stat -- src/<path>.py   # empty
 5. A term coined without its `Docs/VOCABULARY/README.md` entry in the same change?
 6. Every `.md` English, book register — why before what, a worked example over adjectives? (`onb` §10)
 7. A rule file added without its row in `CLAUDE.md`'s table? (an unlisted rule is an unread rule)
-8. `.agents/Skills/`, `.claude/skills/` or `.claude/rules/` edited — `python3 scripts/check_skill_prompt_references.py` still clean? (it reads all three, and an empty tree is an error, not a skip)
-9. A count, version or date written into a briefing as current state? (`skills` §1's banned list)
+8. `CLAUDE.md` or anything under `.claude/` edited — `python3 scripts/check_skill_prompt_references.py` still clean, and `.claude/README.md`'s inventory re-rendered rather than hand-edited? (an empty tree is an error, not a skip)
+9. A count, version or date written into a briefing as current state? (`onb` §13)
 
 ### L. Commits (`commit`)
 1. Conventional Commits — allowed type, real scope, imperative subject? (§2)
 2. A `fix:` body stating the root cause? (§5, `bug` §6)
 3. The AI trailer present, naming the assistant that actually wrote it? (§3 — read the trailer there, never copy one)
 4. Any scratch file, `.db`, virtualenv, `logs/`, `state/`, secret or leftover `print()`? (§4; read a suspicious file's contents before calling it harmless)
-5. A dependency or tool-config change nobody asked for? `git diff "$BASE...$HEAD" -- requirements.txt pyproject.toml` (`skills` §6 puts this in ask-first)
+5. A dependency or tool-config change nobody asked for? `git diff "$BASE...$HEAD" -- requirements.txt pyproject.toml` (`onb` §7 puts this in ask-first)
 6. Does **each commit** contain only what its subject names? A2 asks that of the diff; §4's atomicity is per commit, and the usual way it breaks is an index that was already staged — a `git mv` from an earlier step rides along in the next `git commit`, which commits the whole index and not the paths you just added. One command reads it, and it is the author's own commits it catches:
 
 ```bash
@@ -266,7 +266,7 @@ this PR's.
 
 Altitude per `onb` §11: conclusion, state, what the reader must decide, risks — implementation
 detail only where it drives the next action. Conversation in the user's language; anything committed
-or posted to GitHub in English (`onb` §10). Check `ls .agents/rules/` for a reporting rule and follow
+or posted to GitHub in English (`onb` §10). Check `ls .claude/rules/` for a reporting rule and follow
 it if one is there. **Say what you did not read** — a truncated diff, a tier you could not run.
 **An empty review is a real outcome**: "no findings, here is what I ran" beats a manufactured nit,
 and still lists the checklists covered. On GitHub: one grouped review, not a comment per thought,

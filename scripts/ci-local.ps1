@@ -312,17 +312,17 @@ if (-not $SkipLint) {
         Write-Host $_.Exception.Message -ForegroundColor Yellow
     } finally { Pop-Location }
 
-    # EPIC-011H / EPIC-012 -- the seven agent prompts under .agents/Skills/
-    # (moved there from .jules/ in EPIC-012) are system prompts for agents that
-    # run on a schedule with nobody watching, so a prompt pointing at a file the
-    # repo has since deleted fails silently: the run completes and reports
-    # success. sentinel.prompt.md instructed its agent for months to scan
-    # against a rule file that has no commit in any branch's history. A checker
-    # that only runs when someone remembers to type it is how that survived,
-    # which is why it belongs here beside the other static gates rather than in
-    # a test tier -- it needs neither Qt nor the engine, and runs in
+    # EPIC-011H / EPIC-012 / BOT-135 -- the rules, skills, agents, templates and
+    # map under .claude/ are read by sessions that follow their links without
+    # doubting them (a scheduled audit runs with nobody watching), so a document
+    # pointing at a file the repo has since deleted fails silently: the run
+    # completes and reports success. One briefing instructed its agent for months
+    # to scan against a rule file that has no commit in any branch's history. A
+    # checker that only runs when someone remembers to type it is how that
+    # survived, which is why it belongs here beside the other static gates rather
+    # than in a test tier -- it needs neither Qt nor the engine, and runs in
     # milliseconds.
-    Write-Step "Skill Prompts - Repository Reference Check (.agents/Skills/*.md)"
+    Write-Step "Repository Reference Check (CLAUDE.md, .claude/**/*.md)"
     Push-Location $botRoot
     try {
         & $pythonExe (Join-Path $botRoot "scripts/check_skill_prompt_references.py")

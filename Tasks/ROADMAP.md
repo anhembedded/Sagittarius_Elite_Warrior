@@ -22,13 +22,15 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 131 | 69.3% |
+| 🟢 **Completed** | 132 | 69.5% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 52 | 27.5% |
+| 🔴 **Backlog** | 52 | 27.4% |
 | ❌ **Cancelled** | 6 | 3.2% |
-| 📈 **Tổng số Task** | **189** | **100%** |
+| 📈 **Tổng số Task** | **190** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
+
+> **Updated 2026-09-17 (2):** `BOT-135` — one tree for the AI process. `.agents/` is gone; `.claude/` holds the map (imported by `CLAUDE.md`), the rules with the platform's own `paths:` scoping, `rules/pitfalls/`, the skills, a `reviewer` subagent, the templates, `settings.json` and a derived, guarded manifest (`.claude/README.md`). The pointer guard is replaced by `tests/unit/architecture/test_claude_tree_is_wired.py`.
 
 > **Updated 2026-09-17:** `BOT-134` second round — the rules rewritten as tagged norms (1 976 → 453 lines), `qml-rule`/`code-rule` deleted, GitHub CI runs `ci-local.ps1` itself, the count table below is computed by `scripts/render_task_counts.py` and guarded, `ONBOARDING.md` §7 now requires an independent review before a code merge, the seven persona agents were retired for two scheduled audits. Report §5.
 
@@ -125,6 +127,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **`BOT-135`**: [One tree for the AI process — `.agents/` folded into `.claude/` and wired to the platform: the twelve rules load themselves (`paths:` front matter, or every session), the fifteen traps became path-scoped `rules/pitfalls/`, the audit briefs became skills, five templates and a pull-request template hold the formats, a read-only `reviewer` subagent pre-checks a diff, `settings.json` prints `git status` at session start, and `.claude/README.md` is a manifest derived from the tree and guarded. `CLAUDE.md` imports the map. Always-loaded text: 363 lines, under a ceiling that only falls](completed/BOT-135_one_claude_tree.md)
 - [x] **`BUG-129`**: [`scripts/check_skill_prompt_references.py` and a path-scanning guard resolved cited/registered paths with `Path.exists()`/`is_dir()` — the disk, not the repository. A directory a move emptied survives as a `__pycache__` shell, so `master-warrior` was red for 20 runs (~11½h from run 371) while every local gate reported green. Fixed as a shared `git_tracked_paths.py`: every guard answers against `git ls-files` now and warns by name when git cannot. A second session's review (`ONBOARDING.md` §7) found and closed a second live instance (the `domain` zone check) a first pass had mistaken for retired. `CS-005`](bug_report/completed/BUG-129_the_checker_that_answered_about_my_disk.md)
 - [x] **`BOT-134`**: [AI-process strategic review — the process read as a system: its philosophy stated in one place, seven process case studies with evidence (a super-session monoculture, boards copied by hand five times over, seven scheduled agents that succeed at nothing, an immune system that only closes the last hole, a pull request that merges in five seconds, rules that quote themselves, nobody owning the repository root), and ranked recommendations with what each commits the user to. The drift it found was brought back to standard in the same branch: `commit-rule` contradicted `ci-rule` on the gate's cadence and `ONBOARDING` §7 on authority; `Skills/README` quoted a sentence `ci-rule` never contained; `bug-fix-rule` said 60 lines where the guard held 35; `report-rule` was missing from the reading order; GitHub CI linted one directory fewer than the local gate; `install-rule`'s Option 1 was the command that had failed every CI run; three scratch files had sat at the repository root since August; `testing-rule` and `async-ui-action-rule` never auto-loaded and now do by path. Report: `Tasks/reports/ai_process_strategic_review_2026-09-16.md`](completed/BOT-134_ai_process_strategic_review.md)
 - [x] **`BOLT-001`**: [*(row added 2026-09-16; completed 2026-08-26 by the scheduled Bolt agent and never listed)* `_bar_bounds()` was recomputed on every tick of the historical tick backtest; hoisted to once per bar, 17.37% → 0.32% of the run — profiled over the whole handler with cProfile, then micro-benchmarked to confirm, in that order](completed/BOLT-001_bar_bounds_per_tick_recompute.md)
@@ -348,7 +351,7 @@ Sagittarius_Elite_Warrior/Tasks/
 > Phiên trước dừng ở prompt-adaptation (`.jules/bolt.prompt.md`, `.jules/palette.prompt.md`)
 > và tạo `.agents/Handover.md`.
 > ⚠️ *Sửa 2026-08-25: `Handover.md` đã được viết lại hoàn toàn và **không còn** mục quy ước/gotcha
-> mà dòng trên hứa hẹn — quy ước thật ở [`.agents/ONBOARDING.md`](../.agents/ONBOARDING.md), bản
+> mà dòng trên hứa hẹn — quy ước thật ở [`.claude/ONBOARDING.md`](../.claude/ONBOARDING.md), bản
 > Handover cũ ở `git show f0e63ca:.agents/Handover.md`.* Trạng thái thật:
 > - `BOT-087`/`BOT-088`: cả 2 checklist trong task file **100% chưa tick**, chưa có branch,
 >   chưa có commit nào ở `sagittarius_engine/` hay `Sagittarius_Elite_Warrior/` cho Track A.

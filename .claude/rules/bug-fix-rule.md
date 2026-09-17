@@ -1,7 +1,5 @@
 ---
-name: Bug Fix Rule
 description: Root cause first, never a hotfix, log evidence, regression test before the fix at the right tier, kept forever, a report, and a case study when the gate was green.
-trigger: always_on
 ---
 
 # Bug fix workflow
@@ -25,7 +23,7 @@ The regression test is never deleted, skipped, weakened or rewritten off the ori
 The fix and its regression test in one `fix:` commit whose body states the root cause and the id. `[review: L2]`
 
 ## 6.5 Case study when the gate was green
-If an existing net (type checker, test, guard, review row) covered the area and missed it, and the same blind spot is open elsewhere now, add `Docs/CASE_STUDIES/CS-NNN_slug.md` in the fixing commit — one screen, the three sections the index requires — and **the check that closes it ships in the same commit**. Not every bug earns one. `[guard: test_case_study_index_is_consistent.py]`
+If an existing net (type checker, test, guard, review row) covered the area and missed it, and the same blind spot is open elsewhere now, add `Docs/CASE_STUDIES/CS-{nnn}_{slug}.md` from `.claude/templates/case-study.md` in the fixing commit — one screen, the three sections the index requires — and **the check that closes it ships in the same commit**. Not every bug earns one. `[guard: test_case_study_index_is_consistent.py]`
 
 ## 7. Report
-`Tasks/bug_report/incomplete/BUG-XXX_slug.md` (next number after the highest across both subdirectories, taken from disk): header (reported, severity, status), Symptom with real evidence, Root cause with `file:line`, Fix, Regression test (file; failed before, passes after). Filing before the fix is fine (`Status: Open`, suggested next steps). On fix: `git mv` to `completed/`, update status, move the row on the Bug Board (`Tasks/bug_report/README.md`) — the only place an open bug is visible. `[guard: test_task_board_is_consistent.py; review: K2]`
+`Tasks/bug_report/incomplete/BUG-{nnn}_{slug}.md` from `.claude/templates/bug-report.md` (next number after the highest across both subdirectories, taken from disk): header (reported, severity, status), Symptom with real evidence, Root cause with `file:line`, Fix, Regression test (file; failed before, passes after). Filing before the fix is fine (`Status: Open`, suggested next steps). On fix: `git mv` to `completed/`, update status, move the row on the Bug Board (`Tasks/bug_report/README.md`) — the only place an open bug is visible. `[guard: test_task_board_is_consistent.py; review: K2]`

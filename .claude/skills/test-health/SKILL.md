@@ -25,7 +25,7 @@ ago; this audit is the replacement instrument.
 
 Scheduled as a Routine since 2026-09-17 (every three days; `list_triggers` confirms, and
 `ls Tasks/reports/test_health/` shows the runs). Every run leaves its dated file even when the
-verdict is one line — `.agents/Skills/README.md` rule 4.
+verdict is one line — `.claude/ONBOARDING.md` §13.
 
 ```bash
 python3 .claude/skills/test-health/scan.py            # human summary
@@ -77,7 +77,7 @@ the calls that need judgement rather than a threshold.
 
 ## Keeping `contract.json` honest
 
-`contract.json` is the machine-readable half of `.agents/rules/ci-rule.md` §6
+`contract.json` is the machine-readable half of `.claude/rules/ci-rule.md` §6
 and `testing-rule.md` §1 (`code-rule.md` §4 until the 2026-08-25 split; the stub
 that remains holds no clause). When either rule changes, change this file in the same
 commit. If they drift, the audit starts grading the suite against a rule the

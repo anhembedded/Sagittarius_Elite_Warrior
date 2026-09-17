@@ -59,7 +59,7 @@ _REQUIRED_SECTIONS = (
 #: repository actually has, so prose like `IEventBus.emit` is not mistaken for
 #: a file. Trailing punctuation and a `:line` suffix are trimmed by the caller.
 _CITED_PATH = re.compile(
-    r"`((?:src|tests|scripts|tools|Docs|Tasks|\.agents|\.claude)/[A-Za-z0-9_./*-]+)`"
+    r"`((?:src|tests|scripts|tools|Docs|Tasks|\.claude|\.github)/[A-Za-z0-9_./*-]+)`"
 )
 
 #: A markdown link to a file, `[text](path)`. The other half of the citation

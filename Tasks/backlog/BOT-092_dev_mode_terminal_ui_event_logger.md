@@ -19,7 +19,7 @@
 - Khi chạy với `run-ui.ps1 --dev`:
   1. Mọi thao tác người dùng (bấm nút QML, bấm nút QtWidgets trên ChartCard, thay đổi ComboBox/Dropdown, Checkbox, nhập text form, chuyển tab Sidebar, đóng/mở popup modal) được **in trực tiếp ra Terminal (stdout)** theo thời gian thực.
   2. Log có định dạng rõ ràng, giàu ngữ nghĩa (tên màn hình, tên action/component, tham số truyền vào, timestamp).
-  3. Giúp lập trình viên / QA khi gặp bug có thể nhìn ngay chuỗi thao tác (action sequence) để viết regression test theo đúng quy chuẩn dự án (`.agents/rules/code-rule.md`).
+  3. Giúp lập trình viên / QA khi gặp bug có thể nhìn ngay chuỗi thao tác (action sequence) để viết regression test theo đúng quy chuẩn dự án (`.claude/rules/testing-rule.md`).
 - Khi chạy bình thường (Production mode, không có `--dev`):
   - Hoàn toàn im lặng, không ghi đè hay làm chậm UI event loop (Zero runtime overhead).
 

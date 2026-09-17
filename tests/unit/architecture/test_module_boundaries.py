@@ -185,7 +185,7 @@ def test_the_documented_count_is_the_real_count() -> None:
     record in one day, as "unchanged at 36". 36 is a number this file has never
     held. Nothing was watching, because a count in prose is not checkable
     unless something checks it, which is what
-    `.agents/Skills/README.md` section 1 means by banning a count written into a
+    `.claude/ONBOARDING.md` §13 means by banning a count written into a
     briefing as current state.
 
     So: the last figure in the history sentence must equal the entries below it.

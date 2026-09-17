@@ -1,7 +1,5 @@
 ---
-name: Report Rule
 description: Every report to the user — context, one diagram, the numbers with targets; Vietnamese in chat, English in the repository.
-trigger: always_on
 ---
 
 # Reporting to the user
