@@ -1,28 +1,24 @@
 ---
 name: Domain Truthfulness Rule
-description: Truthful data — real coverage, real exchange filters, immutable snapshots, no collapsing of trading semantics, a UI that never promises what the engine cannot yet do, benchmarks with a stated methodology.
+description: The system never lies about what it did — real coverage, real exchange filters, immutable snapshots, distinct trading facts, a UI that promises only what the engine delivers.
 trigger: on_file_change
 patterns:
   - src/domain/**/*.py
   - src/application/**/*.py
+  - src/modules/*/domain/**/*.py
+  - src/modules/*/application/**/*.py
 ---
 
-# TRUTHFUL DATA, VALIDATION & SNAPSHOT SEMANTICS
+# Truthful data
 
-The principle running through all of this: **the system must not lie about what it actually
-did.** A number that is valid as a data type can still be a lie about the business — and in a
-trading bot, that is real money.
+A number valid as a type can still lie about the business, and here that is real money.
 
----
-
-9. **Truthful Data, Validation & Snapshot Semantics:**
-   - A range-coverage check MUST verify internal gaps using the timeframe cadence and normalized UTC boundaries; min/max timestamps or total row count alone do not prove coverage.
-   - Exchange trading rules (minimum notional, lot size, tick size, leverage) MUST come from cached metadata for the active symbol/market. Never treat account capital as order notional and never hard-code a universal exchange filter.
-   - UI history/cache snapshots MUST be immutable (no retained mutable model references), memory-bounded, and include enough provenance to describe the result honestly: configuration, data window/watermark, strategy version/parameters, fee model, and execution mode.
-   - **Business Contract Before Implementation Contract:** Tests MUST first express the observable business promise, then verify the implementation. A green suite that only proves private calls, existing data structures, or an intentionally limited engine contract is not evidence that the user-facing behaviour is correct. For every critical trading journey, write deterministic acceptance coverage for the expected inputs, orders/position transitions, fills, trade side, PnL direction, and the visible table/chart outcome.
-   - **Do Not Collapse Trading Semantics:** A strategy signal, order intent, execution fill, position entry, position exit, and short entry are distinct domain facts. Model and test them separately; never let an ambiguous `BUY`/`SELL` label silently stand for more than one. In a long-only engine, `SELL` is an exit of an existing LONG, not an opened SHORT.
-   - **Truthful Trading UI:** Every label, icon, marker, filter, metric, and empty state MUST describe what has actually happened and what the engine supports now. A close-long marker must use a distinct exit semantic/icon from a short-entry/sell marker. Do not present a planned or unsupported capability as available; hide/disable it or explicitly label it unavailable. Test the displayed semantics, not only the underlying payload.
-- Never claim instantaneous or fixed latency without a reproducible benchmark fixture. State the workload, cache condition, and measurement method; display ETA as an estimate only.
-- **Renderer benchmark methodology:** A renderer comparison must drive the same immutable source payload, viewport/input sequence, event drain and completed visual grab through both implementations. Record median/p95, DPR, actual backend, environment, visual semantics and warning capture. Treat CPU/GPU frame time and business/pixel correctness as separate proofs; never improve a benchmark by dropping markers, labels, data or a final render check.
-- **Backtest chart host boundary:** Use a narrow Backtest-scoped `Protocol` (`IBacktestChartHost`) and transient factory so Presenters/Backtest Views depend only on the port, never a concrete renderer directly. A host is UI-thread/view-owned and may not be singleton or hot-swapped. (A former native C++/QML host lived behind this same port and was deleted outright — the port stayed worth keeping even with one implementation.)
-- **Counterintuitive Story Check:** When a story, label, default, or acceptance criterion can reasonably conflict with a user's mental model (especially a TradingView-style workflow), stop and report the observable behavior, evidence, and trade-off before finalizing the design. Do not invent a hidden user intent; encode the chosen semantics truthfully in UI copy and deterministic acceptance tests.
+- **Coverage** is proven by internal gaps at the timeframe cadence on normalised UTC boundaries, never by min/max or row count. `[review: F1]`
+- **Exchange rules** (min notional, lot size, tick size, leverage) come from cached metadata for the active symbol; never account capital as notional, never a universal hard-coded filter. `[review: F1]`
+- **Snapshots** are immutable, memory-bounded and carry provenance: configuration, data window/watermark, strategy version and parameters, fee model, execution mode. `[review: F4]`
+- **Business contract before implementation contract.** A test first states the observable business promise (inputs, order and position transitions, fills, side, PnL direction, visible table/chart), then the implementation. Green on private calls is not evidence. `[review: E2]`
+- **Distinct trading facts.** Signal, order intent, fill, position entry, position exit and short entry are separate facts; an ambiguous `BUY`/`SELL` never stands for two of them. In a long-only engine `SELL` is an exit, not a short. `[review: F2]`
+- **Truthful UI.** Every label, marker, filter, metric and empty state describes what happened and what the engine supports now; an unsupported capability is hidden, disabled or labelled unavailable. Test the displayed semantics, not only the payload. `[review: F3]`
+- **No latency claims** without a reproducible benchmark (workload, cache condition, method); ETA is an estimate. A renderer comparison drives the same payload, input sequence and visual grab through both implementations and reports median/p95, DPR, backend and warnings; never improve a number by dropping markers or a final render check. `[review: F5]`
+- **Backtest chart host** stays behind the narrow `IBacktestChartHost` protocol and a transient factory; view-owned, never a singleton or hot-swapped.
+- **Counterintuitive story check.** When a story, label or default can conflict with a TradingView-style mental model, report the observable behaviour and trade-off before finalising; encode the chosen semantics in copy and acceptance tests. `[eye]`

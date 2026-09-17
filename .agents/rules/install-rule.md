@@ -1,138 +1,49 @@
 ---
+name: Install Rule
+description: How the engine and dependencies are installed, the Python floor, and the rule that a missing tool is installed rather than reported.
 trigger: always_on
 ---
 
-# Sagittarius Engine & Dependency Installation Guidelines
+# Installation
 
-All developers and AI assistants working on this repository MUST follow these installation
-options and guidelines when setting up the environment or resolving `sagittarius_engine`.
-
-## 1. Sagittarius Engine Installation Options
-
-**Option 1 — GitHub** (production / shared / CI / fresh environments), repo
-[Sagittarius_Engine](https://github.com/anhembedded/Sagittarius_Engine); **Option 2 —
-local editable**, when developing/debugging engine and bot together.
-
+## 1. The engine
 ```bash
-# Option 1
-pip install git+https://github.com/anhembedded/Sagittarius_Engine.git
-pip install --upgrade --force-reinstall git+https://github.com/anhembedded/Sagittarius_Engine.git
-# Option 2 (from workspace root)
+# Option 1 (fresh environments, CI): clone without submodules, install from the path.
+git clone --depth 1 https://github.com/anhembedded/Sagittarius_Engine.git /tmp/engine
+pip install /tmp/engine            # or: uv pip install --python .venv/bin/python /tmp/engine
+# Option 2 (developing engine and app together, from the workspace root):
 pip install -e Sagittarius_Engine
 ```
+`pip install git+URL` fails: pip inits submodules and the engine carries a private one (`tools/Sagittarius_LogViewer`, a dev tool). Never a plain PyPI install. With Option 2 leave no build artefacts in the engine tree.
 
-## 1b. Python version — floor 3.12, and develop *on* it
-
-`pyproject.toml` declares `requires-python = ">=3.12"`. **Create the venv with Python 3.12
-and run CI on it**, even though 3.13 also works.
-
-- **Floor, not preference:** the engine uses PEP 695 generics (`class Foo[T]:`) in
-  `extensions/persistence/repository.py`, `extensions/fsm/state_machine.py`,
-  `extensions/fsm/declarative_state_machine.py`; Python ≤3.11 **cannot parse them at all**.
-  3.12 and 3.13 are both green; on `3.14.0rc2` the pinned `pydantic` fails
-  (`typing._eval_type() got an unexpected keyword argument 'prefer_fwd_module'`).
-- Do **not** pass `--ignore-requires-python`. If it is ever needed again the engine's
-  constraint has regressed — that is a bug report, not a command line.
-- **CI must run *on* the floor, not merely declare it:** a developer on 3.13 can use
-  3.13-only syntax, watch every test pass locally, and leave `requires-python = ">=3.12"`
-  silently false — breaking only for whoever installs on the floor.
-  `tests/sanity/test_python_floor.py` guards the syntax half interpreter-independently
-  (reads the floor from `pyproject.toml`, re-parses every first-party module via
-  `ast.parse(feature_version=...)`, names the offending file/line); running CI on 3.12
-  covers the standard library, which no syntax check can reach.
-
-### When an Engine API "doesn't exist", suspect the installed build first
-
-Current and outdated engine builds both report version `2.3.0`, so `pip show` proves
-nothing. The trap has bitten twice:
-[`BUG-044`](../../Tasks/bug_report/completed/BUG-044_published_engine_has_python2_except_syntax.md)
-(published engine unimportable), then
-[`BUG-054`](../../Tasks/bug_report/completed/BUG-054_settings_screen_crashes_on_missing_stylerole_members.md)
-/ [`BUG-055`](../../Tasks/bug_report/completed/BUG-055_data_row_action_stretch_not_in_installed_engine.md)
-(2026-08-26) — `StyleRole has no attribute 'HEADING'` and
-`DataRow.__init__() got an unexpected keyword argument 'action_stretch'`, both **initially
-misdiagnosed** as "app code references a non-existent API" when both APIs **do exist**
-upstream and only the installed build was old. Check the real signature, and the install
-**source** (BUG-055's stale build came from an old local `file:///...` checkout, not
-GitHub):
-
+**When an engine API "does not exist", suspect the installed build first.** Old and new builds report the same version (`BUG-044`, `054`, `055`, `BOT-133` — misdiagnosed every time). Check the real signature and the install source, then reinstall:
 ```bash
 .venv/bin/python -c "import inspect; from sagittarius_engine.extensions.pyside_mvc.widgets import DataRow; print(inspect.signature(DataRow.__init__))"
-uv pip list --python .venv/bin/python | grep sagittarius
 ```
+`EngineCapabilityValidatorExtension` now fails boot with the reinstall command when a declared API is missing (`src/infrastructure/engine_adapters/engine_capabilities.py`).
 
-Any environment created before 2026-08-25 must reinstall rather than trust the version.
+## 1b. Python: floor 3.12, develop on it
+`requires-python = ">=3.12"` (PEP 695 generics in the engine; 3.11 cannot parse them; `3.14.0rc2` breaks pinned `pydantic`). Never `--ignore-requires-python`. CI runs on 3.12 so the floor stays true; `tests/sanity/test_python_floor.py` guards the syntax half. `[guard]`
 
-## 2. Full Environment Bootstrap
+## 2. Bootstrap
+`pip install -r requirements.txt`, then §1. Windows: `.\scripts\run.ps1`, `.\scripts\run-ui.ps1`; verification `.\scripts\ci-local.ps1 -Full`.
 
-For [Sagittarius_Elite_Warrior](https://github.com/anhembedded/Sagittarius_Elite_Warrior):
-`pip install -r requirements.txt`, then the engine per §1. Or the automated scripts —
-**Windows (PowerShell):** `.\scripts\run.ps1` / `.\scripts\run-ui.ps1`;
-**Verification:** `.\scripts\ci-local.ps1 -Full`.
-
-### 2b. On Linux: install PowerShell first, or the mandatory gate cannot run
-
-`ci-rule.md` §1 makes `scripts/ci-local.ps1` the **single source of truth** for verification,
-and it is a `.ps1` file. A clean Linux machine has no `pwsh`, so the mandatory gate **cannot
-run**; running each command by hand is **not equivalent** — you lose the final log-scan step
-and the parallel Sanity run. Use the tarball (no GPG key or apt source needed, just one
-directory plus one symlink):
-
+### 2b. Linux, as run in a fresh container (2026-09-16)
 ```bash
-V=7.5.0
-curl -fsSL -o /tmp/pwsh.tar.gz \
-  "https://github.com/PowerShell/PowerShell/releases/download/v$V/powershell-$V-linux-x64.tar.gz"
-mkdir -p /opt/microsoft/powershell/7
-tar -xzf /tmp/pwsh.tar.gz -C /opt/microsoft/powershell/7
-chmod +x /opt/microsoft/powershell/7/pwsh
-ln -sf /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh
-pwsh --version        # PowerShell 7.5.0
-pwsh -NoProfile -File scripts/ci-local.ps1 -Full
+uv venv .venv --python 3.12
+uv pip install --python .venv/bin/python -r requirements.txt
+git clone --depth 1 https://github.com/anhembedded/Sagittarius_Engine.git /tmp/engine
+uv pip install --python .venv/bin/python /tmp/engine
+apt-get update -qq && apt-get install -y -qq --no-install-recommends \
+  libegl1 libgl1 libglib2.0-0 libdbus-1-3 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 \
+  libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \
+  libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 libxcb-xfixes0
+V=7.5.0; curl -fsSL -o /tmp/pwsh.tar.gz "https://github.com/PowerShell/PowerShell/releases/download/v$V/powershell-$V-linux-x64.tar.gz"
+mkdir -p /opt/microsoft/powershell/7 && tar -xzf /tmp/pwsh.tar.gz -C /opt/microsoft/powershell/7
+chmod +x /opt/microsoft/powershell/7/pwsh && ln -sf /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh
+pwsh -NoProfile -File scripts/ci-local.ps1 -SkipTests > /tmp/gate.log 2>&1   # PASS in ~1 s
 ```
+`-Workers` beyond `nproc` only adds contention; measure before raising it.
 
-**Do not raise `-Workers` without measuring:** on a 4-core container, 6 (the default) and 12
-workers gave the same pytest time (~147s vs 150.5s) — workers beyond the core count only add
-contention. Check `nproc` first; every timing figure is specific to the machine it came from.
-
-## 3. Environment setup is the agent's job — install what verification needs
-
-**Added 2026-08-31 (user request).** Reporting "cannot verify — missing X" without first
-trying to install X is stopping one command early, not hitting a wall. Missing tooling, a
-missing system library, or a dependency the project **already declares** but this
-environment hasn't installed yet is something to install, not a reason to skip the gate:
-
-- System packages the app's own GUI stack needs to boot under `QT_QPA_PLATFORM=offscreen`
-  (Qt's EGL/GL/font/D-Bus loaders) — install with
-  `apt-get update && apt-get install -y <package>`. On one clean container this took
-  `libegl1` (which pulled in `libegl-mesa0`), `libgl1`, `libxkbcommon0`, `libfontconfig1`,
-  `libdbus-1-3`; the exact list can drift with the base image, so let the actual
-  `ImportError` / `cannot open shared object file` name the missing `.so` rather than
-  trusting this list.
-- `pwsh` itself — §2b above.
-- `sagittarius_engine` — §1/§2 above. It is a genuinely separate repo, but still something
-  to `pip install`, not a reason to stop.
-- Any package already pinned in `requirements.txt` / `pyproject.toml` that simply isn't
-  installed yet in *this* environment (`pip install PySide6==<pinned version>`, matching
-  the pin).
-
-This is **not** the same permission as adding a new dependency to the project. Installing
-an already-declared or environment-only tool into the current sandbox is setup; editing
-`requirements.txt` / `pyproject.toml` to add something the project has never depended on is
-a design decision and still requires asking first (`.agents/Skills/README.md` §6,
-`architecture-rule.md`). The test: does the install change a manifest file committed to the
-repo? If yes, ask first. If it only changes what's present on disk in this environment,
-install it and move on.
-
-Only report "cannot verify" once an install attempt itself fails for a reason outside your
-control — no network, a registry/proxy blocking the package, or missing credentials/access
-to a private repo you were never given. Say plainly which install failed and why, rather
-than working around the gap by skipping the gate.
-
-## 4. Mandatory Rules for AI Agents & Automated Tools
-
-1. **Never attempt a plain PyPI install for the Engine.** Always the GitHub URL or the
-   local editable path above — never plain `pip install sagittarius-engine` /
-   `pip install sagittarius_engine` without the git URL.
-2. **Keep the submodule tree clean.** With Option 2, no build artifacts, `.egg-info` or
-   `__pycache__` may leave `Sagittarius_Engine` `(dirty)`. In automated agent runs prefer
-   Option 1, or clean with `git -C Sagittarius_Engine clean -fdx`.
+## 3. Setup is the agent's job (user decision 2026-08-31)
+"Cannot verify — missing X" without an install attempt is stopping one command early. Install system libraries (let the `ImportError` name the `.so`), `pwsh`, the engine, and any package the project already declares. This is not permission to add a dependency: editing `requirements.txt`/`pyproject.toml` is asked first. Report "cannot verify" only when the install itself fails for a reason outside your control, and say which. `[review: B5]`

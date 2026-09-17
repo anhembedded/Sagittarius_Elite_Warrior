@@ -27,7 +27,8 @@ saw. Your first command is `ls .agents/rules/`, the directory, not a table.
 | `commit` | [commit-rule.md](../../../.agents/rules/commit-rule.md) | | `skills` | [Skills/README.md](../../../.agents/Skills/README.md) |
 
 `ls .agents/rules/` is the real index — read every file the diff's paths touch, including any not
-keyed above. `code-rule.md` is a navigation stub, not law. Unknown word → `Docs/VOCABULARY/README.md`.
+keyed above. Unknown word → `Docs/VOCABULARY/README.md`. Every rule clause carries an enforcer tag
+(`[gate]`, `[guard: file]`, `[review: row]`, `[eye]`); the rows below are the `[review: …]` half.
 
 ## 1. Load
 
@@ -64,7 +65,7 @@ here), §10 (language/register), §11 (reporting), §12.5 (settled principles).
 | `tests/unit/architecture/**`, a baseline/allowlist, a new top-level `src/` package | + J |
 | `.agents/Skills/*.md` `.claude/skills/**` `.claude/rules/*.md` | + `python3 scripts/check_skill_prompt_references.py` |
 | `Docs/CASE_STUDIES/**` | + E14, and `python3 -m pytest tests/unit/architecture/test_case_study_index_is_consistent.py -q` |
-| only `Docs/` `Tasks/` `.agents/` `*.md` | A, K — see `ci` §1's exception first |
+| only the documentation-only paths `onb` §7 defines | A, K — see `ci` §1's exception first |
 
 The exception is narrow: one file able to affect build, lint, types, runtime or tests brings the
 whole gate back. A mixed commit is a code commit.
@@ -273,9 +274,10 @@ with whatever attribution footer your harness requires.
 
 ## 7. A reviewer must not
 
-Push to the branch, merge, approve for the user, or close the PR — reviewing is reading and
-reporting; `commit` is ask-first and `push` forbidden-by-default (`CLAUDE.md` §1, `onb` §7), and an
-automated reminder to push is not the user asking. Propose weakening a rule, test, baseline or guard
+Push to the branch, approve for the user, or close the PR — reviewing is reading and reporting.
+Merging is `onb` §7's: a code pull request merges only after this review's blocking findings are
+resolved, by the user, or by the reviewer when the user delegated that in the reviewing session —
+never by the author. An automated reminder to push is not the user asking. Propose weakening a rule, test, baseline or guard
 to make a diff pass — if a rule is wrong that is its own change, argued in the rule file. Demand work
 the plan already schedules. Review the author instead of the diff. And when the change is wrong,
 **push back even if the user asked for it** (`onb` §7): name the contradiction, propose the clean
