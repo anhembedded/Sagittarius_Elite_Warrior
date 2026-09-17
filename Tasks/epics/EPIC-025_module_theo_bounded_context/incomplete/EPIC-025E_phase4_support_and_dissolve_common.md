@@ -581,6 +581,31 @@ they import `modules.strategy.ui.signal_feed`, `.strategy_arming_coordinator`,
 measurements are not written yet — the three open questions in the ADR (§4, O1–O3) are where that
 starts.
 
+**First slice landed 2026-09-17 (`6678d456`):** the three ports the ADR's O5 declared —
+`IStrategyCatalog`, `IStrategyChartOverlay`, `IStrategyArming` — each with a real service
+(`StrategyCatalogService`, `StrategyChartOverlayService`, `StrategyArmingService`), a verified
+fake and an HLD §10.3 contract suite run against both. `ArmStrategyCommandHandler` now persists a
+successful arming itself (O6), so `LiveStrategyConfigStore.save()` moves off the caller.
+`ParamField`/`ParamGroup`/`ParamKind` landed in `core/contracts/` (neutral ground), not
+`support/ui_kit`, matching the `nav_metadata.py` precedent.
+
+Wiring `StrategyChartOverlayService` into `composition/port_bindings.py` surfaced a real defect
+`test_module_contribution_laziness.py` had not been forced to see before: importing `strategy`'s
+`module.py` now costs a `PySide6` import in every run, headless included, because
+`modules/strategy/ui/strategy_overlay` reaches `support/charting/chart_card/theme.py`, whose
+package `__init__` imports the real `ChartCard` widget. Fixed at the mechanism, not by widening the
+guard: the `ui.strategy_overlay` import in `StrategyChartOverlayService.overlay_for()` is now lazy
+(the same documented exception `modules/trading/ui/probes.py` already uses), and `Palette` moved
+out of `support/ui_kit/assets/` into `support/ui_kit/palette.py` so a future caller reaching for
+just the colours does not pay for `icon_loader`'s Qt import either — `assets/__init__.py`
+re-exports it, so every existing consumer is unaffected.
+
+**Not yet done** — the actual point of this PR: relocating `strategy_params/`'s three widgets to
+`support/ui_kit/param_form/`, deleting `StrategyCardViewModel` and `build_bot_params_rows`, and
+rewiring `screens/trading`/`dashboard`/`backtest`'s call sites onto the three new ports. PR 4.4
+stays blocked until those land and the boundary guard is clean against each of the three screens
+moved in isolation.
+
 ### 4.1 PR 4.3a — the symbol picker had **two** implementations, one per toolkit
 
 The measurement that reordered this step. `support/ui_kit/symbol_picker/` holds a QtWidgets

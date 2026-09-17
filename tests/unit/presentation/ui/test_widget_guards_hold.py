@@ -150,9 +150,7 @@ def test_ui_root_is_where_we_think_it_is() -> None:
     of the scanned tree while the guard stayed green on what was left."""
     for root in _UI_ROOTS:
         assert root.is_dir(), f"không thấy cây UI ở {root}"
-    assert (
-        _REPO_ROOT / "src" / "support" / "ui_kit" / "assets" / "palette.py"
-    ).is_file()
+    assert (_REPO_ROOT / "src" / "support" / "ui_kit" / "palette.py").is_file()
 
 
 def test_no_hardcoded_colour_outside_palette() -> None:
