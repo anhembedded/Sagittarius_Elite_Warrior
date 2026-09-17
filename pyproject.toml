@@ -143,6 +143,13 @@ extend-select = ["S", "PLR2004", "B", "SIM", "ERA", "N"]
 # names are PySide6's convention, not this repository's, and a `Signal` renamed
 # to snake_case stops matching the QML and the `connect()` sites.
 "src/modules/trading/ui/**" = ["N802", "N803", "N815"]
+# Sixth tree, same reason: `EPIC-025E` PR 4.4a moved `sync_progress_feed.py`
+# and `symbol_options_coordinator.py` out of `presentation/ui/common/` (line
+# 110's pattern) into `modules/market_data/ui/`. `sync_progress_feed.py`
+# declares `progressUpdated = Signal(object)` — PySide6's convention, not a
+# choice this repository made, and renaming it would be a behaviour change
+# dressed as a move (ADR D12), the same reason line 137 and line 145 exist.
+"src/modules/market_data/ui/**" = ["N802", "N803", "N815"]
 # `TimeframePicker/` is a **QML module directory**, and QML requires its module
 # names to be PascalCase — the `.qml` files inside are addressed by that name.
 # It was invisible before 1.6f only by accident: under

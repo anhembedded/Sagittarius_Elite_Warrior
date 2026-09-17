@@ -19,7 +19,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalo
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
     FakeSymbolCatalog,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.symbol_options_coordinator import (
     SymbolOptionsCoordinator,
 )
 

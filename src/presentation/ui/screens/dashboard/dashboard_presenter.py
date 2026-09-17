@@ -23,6 +23,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.symbol_options_coordinator import (
+    SymbolOptionsCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.sync_progress_feed import (
+    SyncProgressFeed,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
     IArmedStrategy,
 )
@@ -97,12 +103,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.signal_feed import SignalFeed
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_arming_coordinator import (
     StrategyArmingCoordinator,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
-    SymbolOptionsCoordinator,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_feed import (
-    SyncProgressFeed,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,

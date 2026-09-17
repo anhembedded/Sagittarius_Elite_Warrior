@@ -24,6 +24,7 @@
 # -> 44 after PR 4.1a.
 # -> 58 after PR 4.1b.
 # -> 40 after PR 4.3m.
+# -> 45 after PR 4.4a.
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -640,3 +641,28 @@ presentation.ui.screens.trading.trading_view -> modules.trading.ui.order_book.op
 presentation.ui.screens.trading.trading_view -> modules.trading.ui.order_book.open_orders_panel
 presentation.ui.screens.trading.trading_view -> modules.trading.ui.order_book.position_row
 presentation.ui.screens.trading.trading_view -> modules.trading.ui.order_book.positions_panel
+
+
+# ---------------------------------------------------------------------------
+# PR 4.4a -- `symbol_options_coordinator`, `sync_progress_feed` come in.
+# `EPIC-025E` section 3.2/3.3 measured both as needing `modules/market_data/ui`
+# as their only legal home (each already reads `modules.market_data.contracts.*`
+# directly), while their consumers -- `backtest_presenter`, `dashboard_presenter`,
+# `data_management_presenter` and the two screens' own signal/sync wiring --
+# are still legacy. FIVE entries, none retired: they are the same imports that
+# already existed, from `presentation.ui.common.*` to the same two classes,
+# now crossing a module boundary because the classes moved rather than because
+# a new coupling was introduced. `sync_progress_report` (the DTO) moved one
+# step further, into `modules/market_data/contracts/`, so it needs no entry --
+# a contracts import is legal from legacy unconditionally.
+#
+# These retire as their four legacy consumers move into their own modules:
+# `backtest_presenter`/`signal_wiring` at 4.4d (`modules/backtesting/ui/`),
+# `dashboard_presenter` at 4.4c (`modules/trading/ui/`), and
+# `data_management_presenter` at 4.4b (`modules/market_data/ui/` -- at which
+# point the import is same-module and needs no entry at all).
+presentation.ui.screens.backtest.backtest_presenter -> modules.market_data.ui.symbol_options_coordinator
+presentation.ui.screens.backtest.signal_wiring -> modules.market_data.ui.sync_progress_feed
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.market_data.ui.symbol_options_coordinator
+presentation.ui.screens.dashboard.dashboard_presenter -> modules.market_data.ui.sync_progress_feed
+presentation.ui.screens.data_management.data_management_presenter -> modules.market_data.ui.sync_progress_feed
