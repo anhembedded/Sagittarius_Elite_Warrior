@@ -1574,7 +1574,7 @@ def test_chart_toolbar_timeframe_click_updates_backtest_data_contract(
     mock_thread_mgr.reset_mock()
     toolbar = presenter.view.chart_cards[0].chart_card.toolbar
 
-    toolbar._vm.choose("5m")
+    toolbar._selection.choose("5m")
 
     assert view_model.selectedTimeframe == "5m"
     worker, config, preview_id = mock_thread_mgr.submit.call_args.args
@@ -1589,7 +1589,7 @@ def test_qml_timeframe_selection_keeps_chart_toolbar_in_sync(presenter, view_mod
 
     view_model.selectedTimeframe = "15m"
 
-    assert toolbar._vm.currentCode == "15m"
+    assert toolbar._selection.current_code == "15m"
 
 
 def test_preview_result_updates_coverage_and_chart_but_stale_result_is_fenced(

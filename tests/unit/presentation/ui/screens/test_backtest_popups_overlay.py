@@ -41,7 +41,6 @@ from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry 
     IndicatorScriptRegistry,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import SelectableCard, Tone
-from Sagittarius_Elite_Warrior.tests.conftest import find_all_named
 
 
 class _RichParamsStrategy(BaseStrategy):
@@ -293,12 +292,18 @@ def test_timeframe_picker_modal_opens_and_lists_every_timeframe_option(
     assert dialog is not None
     assert dialog.objectName() == "timeframePickerDialog"
     assert dialog.isVisible() is True
-    cards = find_all_named(dialog.root_object, "timeframeCard_")
-    assert len(cards) == len(presenter._view_model.timeframeOptions)
+    # `EPIC-025` PR 4.3k: a `QTreeWidget` of groups, so the count is the rows
+    # under the headings rather than delegates in a Quick scene.
+    rows = [
+        dialog._tree.topLevelItem(group).child(child)
+        for group in range(dialog._tree.topLevelItemCount())
+        for child in range(dialog._tree.topLevelItem(group).childCount())
+    ]
+    assert len(rows) == len(presenter._view_model.timeframeOptions)
     # EPIC-014: the picker used to offer `DEFAULT_TIMEFRAMES` (5 of the
     # domain's 16). Asserting the real number here, not just "same as the
     # ViewModel", so a regression back to the toolbar tuple is a failure.
-    assert len(cards) == 16
+    assert len(rows) == 16
 
 
 def test_time_range_picker_modal_opens_and_lists_every_preset(qapp, backtest_screen):
