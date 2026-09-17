@@ -25,7 +25,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view import (
     DataManagementView,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
+    CANCELLING_CAPTION,
+    UIMode,
+)
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -114,14 +117,17 @@ def test_database_cancel_button_visibility_and_interaction(qapp, database_screen
     assert cancel_signal_called is True
     assert presenter.fsm.current_state == UIMode.CANCELLING
 
-    # In CANCELLING mode the banner disables the button. Its label is this
-    # screen's `_CANCEL_LABEL` throughout: `set_cancelling()` does not rename
-    # it, and a button that changes its own wording mid-click is exactly what
-    # `kit.ProgressBanner`'s docstring declines to invent.
+    # In CANCELLING mode the banner disables the button and the screen says the
+    # word in its caption. The button keeps this screen's `_CANCEL_LABEL`
+    # throughout: `set_cancelling()` does not rename it, because a button that
+    # changes its own wording mid-click is not what a caller wants.
     qapp.processEvents()
     cancel_btn = _cancel_button(view)
     assert cancel_btn.isEnabled() is False
     assert cancel_btn.text() == "Cancel Progress (Cancel)"
+    assert view._progress_banner._status.text() == CANCELLING_CAPTION
+    # No percentage is meaningful once a cancel is in flight.
+    assert view._progress_banner._bar.indeterminate is True
 
 
 def test_fsm_transition_alone_reaches_ui_mode_without_a_manual_set_ui_mode_call(

@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
+    CANCELLING_CAPTION,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     ConfirmOverlay,
     PageShell,
@@ -331,15 +334,26 @@ class DataManagementView(BaseView):
     def _sync_progress(self) -> None:
         vm = self._view_model
         self._progress_container.setVisible(vm.progressVisible)
-        self._progress_banner.set_status_text(vm.progressText)
-        self._progress_banner.set_indeterminate(vm.progressMaximum == 0)
-        # `progressPercent` already computes and clamps value/maximum with a
-        # `progressMaximum <= 0` guard (`DataManagementViewModel`) — reused
-        # rather than re-deriving the same number a second place here.
-        self._progress_banner.set_percent(vm.progressPercent)
-        # The banner's own Cancel button disables itself from `cancelling`
-        # — no separate button text/enabled state to set here.
-        self._progress_banner.set_cancelling(vm.uiMode == _CANCELLING_MODE)
+        cancelling = vm.uiMode == _CANCELLING_MODE
+        if cancelling:
+            # The caption is the only place this screen can say the word: the
+            # banner disables its Cancel button without renaming it, and
+            # `progressText` still holds the last sync line, which would leave
+            # a greyed button beside a caption claiming work is still running.
+            # Reviewing PR 4.3l is what caught that — `ProgressBanner.qml` had
+            # written "Cancelling..." on the button for all three of its hosts,
+            # and only the Backtest screen had its own caption for it.
+            self._progress_banner.set_status_text(CANCELLING_CAPTION)
+            # A cancel has no known duration, so the bar stops claiming one.
+            self._progress_banner.set_indeterminate(True)
+        else:
+            self._progress_banner.set_status_text(vm.progressText)
+            self._progress_banner.set_indeterminate(vm.progressMaximum == 0)
+            # `progressPercent` already computes and clamps value/maximum with
+            # a `progressMaximum <= 0` guard (`DataManagementViewModel`) —
+            # reused rather than re-deriving the same number a second place.
+            self._progress_banner.set_percent(vm.progressPercent)
+        self._progress_banner.set_cancelling(cancelling)
 
     def _sync_stats(self) -> None:
         self._stat_records_value.setText(self._view_model.storedRecords)

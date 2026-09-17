@@ -38,9 +38,20 @@ class ProgressBanner(QWidget):  # base-exempt: a container, not a surface
     and `cancelRequested`.
 
     **`set_cancelling(True)` disables the button and leaves its label alone.**
-    A caller that wants "Cancelling…" on it says so with `set_cancel_label`;
-    this class does not invent the word, because two of the three callers have
-    their own phrasing for it.
+    A button that renames itself under the cursor is not what a caller wants,
+    and what "cancelling" should say belongs to the screen — so the word goes
+    in the caption, where `constants.CANCELLING_CAPTION` keeps the two screens
+    that show it from drifting apart. A caller that really wants it on the
+    button says so with `set_cancel_label`.
+
+    Reviewing PR 4.3l is what settled that wording. The `.qml` this replaced
+    *did* rename its own button, and the first draft of this class dropped the
+    behaviour claiming "two of the three callers have their own phrasing" —
+    true of the Backtest screen, false of Data Management, whose caption still
+    read the last sync line while its button greyed out. One screen therefore
+    shipped a state the user could not see. Qt renders no bar text at all while
+    the bar is indeterminate, which is the honest reading of a cancel: it has
+    no percentage to report.
 
     **The percentage is written on the bar, not beside it.** The `.qml` drew a
     second `Text` item for it (`progressBannerPercentText`) because a QML
@@ -102,13 +113,6 @@ class ProgressBanner(QWidget):  # base-exempt: a container, not a surface
         clamped = max(0.0, min(float(value), _MAX_PERCENT))
         self._bar.setValue(round(clamped * _PERCENT_SCALE))
         self._bar.setFormat(_percent_text(clamped))
-
-    def percent_text(self) -> str:
-        """@brief What the bar currently reads, as the user sees it.
-
-        @details Qt renders no text at all while the bar is indeterminate,
-        which is the honest answer there: a sweep reports no percentage."""
-        return self._bar.text()
 
     def set_indeterminate(self, indeterminate: bool) -> None:
         """A bar that reports no percentage: `StyledProgressBar` remembers the

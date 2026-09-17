@@ -305,7 +305,7 @@ def test_progress_banner_reflects_the_view_model(qapp, panel, view_model):
     assert panel._progress_banner.isVisible() is True
     banner = panel._progress_banner
     assert banner._status.text() == "Syncing ETHUSDT 5m (25/100 candles)"
-    assert banner.percent_text() == "25%"
+    assert banner._bar.text() == "25%"
 
     view_model.hide_progress()
     qapp.processEvents()
