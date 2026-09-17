@@ -49,7 +49,7 @@ module-to-module in shape, only unchecked because the importing side had not yet
 
 | # | Decision | Status | Consequence |
 | :-- | :--- | :-- | :--- |
-| D1 | `strategy` contributes its UI onto `trading`, `dashboard` and `backtest`'s surfaces through the existing `contribute()` + `IContributionRegistry` + `Place` mechanism (built in Phase 0, used today by `TradingModule`'s own `DEV_PROBE`), instead of those three screens importing `SignalFeed`, `StrategyArmingCoordinator`, `StrategyCardViewModel`, `strategy_overlay.*`, `strategy_params.strategy_params_dialog` or `strategy_registry` directly | ✅ | A real redesign of how the armed-strategy card, chart overlay and params dialog reach each screen — not a file move. Blocks PR 4.4 until done. New `Place` members or a new contribution shape may be needed for a chart overlay and an inline view-model composite, neither of which is a panel-shaped `ContributionDescriptor` today |
+| D1 | `strategy` stops being imported by `trading`, `dashboard` and `backtest`: the params dialog arrives as a `Place.MODAL` contribution, and everything else the three screens read (strategy options, the parameter form's schema, parameter validation, the chart overlay's lines and zones) arrives as **data on a published port**, computed inside `modules/strategy` where `BaseStrategy` lives | ✅ | A real redesign, not a file move — blocks PR 4.4. **No new `Place` member and no new contribution shape are needed**: §4 O1–O4 measured every call site and each one lands on an existing mechanism (the port pattern, `Place.MODAL` + `show_modal`, `ICommandDispatcher`) |
 | D2 | This redesign is its own piece of work, separate from PR 4.4, planned as `EPIC-025E` §3.2's new **PR 4.3m** | ✅ | PR 4.4 does not start moving `screens/trading`/`dashboard`/`backtest` until 4.3m lands and the boundary guard is clean against the moved trees |
 
 **User's own words, choosing this over widening the rule:** *"P6. Sửa tận gốc rễ cơ chế (Fix the
@@ -58,10 +58,85 @@ hướng nào? phải là redesign ko?"* — then, given the full size of the re
 Presenter/ViewModel internals across three screens) named explicitly: *"Làm redesign đầy đủ ngay,
 tách khỏi PR 4.4."*
 
-## 4. Open questions
+## 4. The three open questions, answered (2026-09-17, same day)
+
+Answered by reading the real call sites rather than the plan, and decided against the ten
+principles (`ONBOARDING.md` §12.5) rather than by preference. The user, as architect, delegated
+the choice with the principles as the standard: *"Dựa vào hiến pháp mà quyết… tui không rành
+implement, tui là SA."*
+
+### O1 — the chart overlay. **First answer was wrong; P6 caught it.**
+
+The overlay's three entry points (`compute_strategy_indicator_lines`,
+`compute_strategy_trend_zones`, `assign_strategy_line_colors`) are Qt-free pure functions over a
+`BaseStrategy` instance plus candles, so the first answer here was "publish the three functions as
+contracts and let `trading` keep calling them". That is wrong, and it is wrong in the exact shape
+P6 names: to call them, `trading` must first build the throwaway strategy
+(`strategy_overlay_coordinator._build_throwaway_strategy`), which needs `type[BaseStrategy]` from
+the registry. The computation sitting on the caller's side is *why* the caller needs the other
+module's class at all. Publishing the functions would legalise the symptom and leave the cause.
+
+**Answered:** `strategy` publishes the overlay as **already-computed data**. The throwaway
+strategy, the registry lookup and the three compute calls all stay inside `modules/strategy`, where
+the domain model lives; the port answers with line series and zones. `chart_coordinator` keeps
+drawing them through `support/charting` exactly as it does now — that part was never the problem.
+No `Place` is involved: an overlay is not a contributed widget, it is data the screen already knows
+how to draw (P5 — the existing chart API is the mechanism; nothing new is invented).
+
+### O2 — the params dialog. **`Place.MODAL`, and the runtime hook already ships.**
+
+`WorkbenchSurface.show_modal(title)` exists and is in production use:
+`dashboard_view.py:287` opens the manual-order dialog with
+`self._surface.show_modal(MANUAL_ORDER_DIALOG).show()`, and `_keep_modal` fills the same
+`_modals` dict whether the descriptor came from a screen's own `contribute()` or from another
+module's `contribute(registry)` — `build_surface()` walks both through one `_FILL_ORDER`.
+
+**Answered:** `strategy` contributes `Place.MODAL` with a `StrategyParamsDialog` factory onto the
+`trading`, `dashboard` and `backtest` surfaces; each screen's "Strategy Parameters…" button calls
+`show_modal(...)` instead of importing the dialog. Nothing new is built (P5), and the seam is
+already load-bearing for a second case (P7).
+
+### O3 — `StrategyCardViewModel`, and what actually crosses
+
+Measured at the call sites: `TradingView` builds its own plain Qt controls (`_strategy_combo`,
+`_sizing_spin`, `_leverage_spin`, `_arm_button`, `_disarm_button`, `_params_button`) — none of them
+is strategy's widget. What crosses the boundary is only (a) the data those controls display
+(options, armed summary, busy flag, last signal text) and (b) the intents they raise (select, set
+sizing, arm, disarm).
+
+**Answered:** each screen keeps its own view model and its own controls. The data comes from the new
+port plus the existing `IArmedStrategy`; the intents go out as commands through
+`ICommandDispatcher`, which is why the command side needs publishing (O4). `StrategyCardViewModel`
+as a shared concrete class disappears rather than being relocated — the duplication it was written
+to avoid (`EPIC-023C`) is now data on a port, computed once inside `strategy` (P3: one computation,
+no copies).
+
+### O4 — the command side, found while answering O3
+
+`ICommandDispatcher.dispatch(handler_class, dto)` takes the handler class **as the lookup key** —
+its own docstring says so — so any caller of a use case must hold that type. `ArmStrategyCommand`,
+`ArmStrategyCommandHandler`, `ArmStrategyResult`, `ArmStrategyBlockReason` and the `Disarm`
+equivalents live in `modules/strategy/application/use_cases/`, and no module dispatches another
+module's command anywhere in the tree today (measured: zero occurrences) — `trading` will be the
+first.
+
+**Answered:** those command/result/reason types are published in `modules/strategy/contracts/`.
+This is the app-wide dispatch pattern applied, not a new one (P5), and it does **not** contradict
+`IArmedStrategy`'s deliberate omission of `arm()`/`disarm()`: the command stays the single way in,
+with its validation, symbol lease and events intact. A port method that armed a strategy is still
+refused.
+
+### What this does **not** do: reverse PR 2.1c
+
+PR 2.1c deleted `IStrategyCatalog` on two findings — a keys-only port served no consumer, and a
+published contract may not carry `BaseStrategy`. The answer above is neither: not a keys-only port,
+and not a class-carrying one. It is a port that answers the questions the three consumers actually
+ask, in data, with the class-handling kept inside the module that owns the class. 2.1c's second
+finding stands untouched, which is why this needed no user decision to reverse it (P2 — checked
+what the earlier decision protected before assuming it was in the way).
+
+## 5. Still open
 
 | # | Question | Blocks | Asked on |
 | :-- | :--- | :--- | :--- |
-| O1 | What `Place` (or new kind) does a chart overlay (`strategy_overlay`) contribute as — it draws directly onto another screen's chart surface, not a dockable panel | PR 4.3m | 2026-09-17 |
-| O2 | Does `strategy_params_dialog` become a `Place.MODAL` contribution `trading`/`dashboard`/`backtest` request by id, or does `strategy` publish a port the screen calls to open it | PR 4.3m | 2026-09-17 |
-| O3 | `StrategyCardViewModel`'s data (composed into `TradingViewModel` today) needs a shape that crosses through a contribution or a contract rather than direct composition — measure what each screen's view actually reads from it before designing the replacement | PR 4.3m | 2026-09-17 |
+| O5 | The port's name and exact method set, written as an ABC with its verified fake and contract suite before any screen moves onto it (HLD §10) — `options`/`params_schema`/`validate_params`/`chart_overlay` above is the measured shape, not yet the declared one | PR 4.3m | 2026-09-17 |
