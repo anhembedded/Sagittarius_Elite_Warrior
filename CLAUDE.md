@@ -17,7 +17,7 @@ This file navigates and copies no rule: a copy drifts, and this repository has p
 | Before every commit | [`commit-rule.md`](.claude/rules/commit-rule.md) |
 | Reviewing a pull request, branch or diff | [`.claude/skills/pr-review/SKILL.md`](.claude/skills/pr-review/SKILL.md); a first independent read before asking for review: the `reviewer` subagent ([`.claude/agents/reviewer.md`](.claude/agents/reviewer.md)) |
 | Creating or maintaining a bug report | [`create-bug-report-rule.md`](.claude/rules/create-bug-report-rule.md) |
-| Diagnosing or fixing a bug | [`fix-bug-rule.md`](.claude/rules/fix-bug-rule.md) |
+| Diagnosing or fixing a bug | [`.claude/skills/fix-bug/SKILL.md`](.claude/skills/fix-bug/SKILL.md); governing rule: [`fix-bug-rule.md`](.claude/rules/fix-bug-rule.md) |
 | A defect got through a green gate | [`Docs/CASE_STUDIES/README.md`](Docs/CASE_STUDIES/README.md) |
 | Adding or changing logs | [`logging-rule.md`](.claude/rules/logging-rule.md) |
 | Reporting to the user, or asking a question | [`report-rule.md`](.claude/rules/report-rule.md) |
