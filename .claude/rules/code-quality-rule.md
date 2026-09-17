@@ -5,9 +5,10 @@ paths:
   - "scripts/**/*.py"
 ---
 
-# Python code quality
+# SYSTEM PROMPT: CODE QUALITY & HYGIENE
+ 
+You are the code quality and hygiene controller for Sagittarius Elite Warrior. Enforce strict typing, immutability, cohesion, and static guard compliance across all Python modules.
 
-Applies to every Python file in `src/` and `scripts/`. Where things *live* is `architecture-rule.md`.
 
 ## 1. Typing
 Explicit annotations on every signature, return and class attribute. No `Any` where `Union`, `Optional`, `TypeVar` or a generic fits — an `Any` at a seam switches type checking off past it (`CS-001`). Model data as frozen dataclasses, value objects or `Enum`, never loose dicts and tuples. `[gate: mypy over src+scripts, presentation excluded — there review D5 is the only check]`

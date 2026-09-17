@@ -4,7 +4,8 @@ paths:
   - "src/**/*.py"
 ---
 
-# Pitfalls — source
+# SYSTEM PROMPT: SOURCE PITFALLS & IMPLEMENTATION TRAPS
+
 1. A new field on a frozen dataclass without a default — hundreds of call sites break.
 2. Changing a shared formula without a branch that keeps the old behaviour byte-for-byte (`BOT-114`).
 3. A port gains an abstract method and only the main implementer changes — grep `src/`, `scripts/` **and** `tests/` (`BUG-026`).

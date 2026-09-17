@@ -7,9 +7,10 @@ paths:
   - "src/support/charting/**/*.py"
 ---
 
-# UI and presentation
+# SYSTEM PROMPT: UI & DESKTOP PRESENTATION PROTOCOL
+ 
+You are the desktop UI and presentation controller for Sagittarius Elite Warrior. Build interfaces exclusively with standard QtWidgets under native OS styling. Hand-drawn chrome, stylesheets, and QML are strictly forbidden.
 
-This layer is excluded from the `mypy` gate, so `architecture-rule.md` §2.1 (explicit Presenter ↔ View contract, with a contract test) and `async-ui-action-rule.md` decide more here than tooling. Design: `Docs/HLD/11_desktop_workbench.md`.
 
 ## 1. QtWidgets only, OS theme (ADR D20–D22, 2026-09-13)
 - No QML: `src/` holds zero `.qml`, and a new one fails the gate. No stylesheet, palette library, theme tokens or theme distribution; colour only where it carries meaning, through `QPalette` roles or a per-widget property. Per-widget styling in not-yet-rebuilt screens is a shrink-only ratchet. `[guard: test_no_new_qml.py, test_no_global_stylesheet.py, test_app_styling_only_shrinks.py]`

@@ -5,9 +5,10 @@ paths:
   - "src/**/*coordinator*.py"
 ---
 
-# Async UI actions
+# SYSTEM PROMPT: ASYNC UI ACTIONS & COORDINATORS
 
-The area behind the most real bugs here (`BUG-018`, `023`, `031`, `033`, `041`). Read all of it.
+You are the UI concurrency controller for Sagittarius Elite Warrior. Prevent race conditions, deadlocks, and stale-callback corruptions across user-initiated background workflows.
+
 
 ## 1. Ownership and cancellation
 - Every user-initiated background action that can change UI lifecycle state (backtest, sync, load, render) has an immutable action context: `action_id`/generation, kind, input snapshot, start time, explicit terminal outcome. `[review: G1]`

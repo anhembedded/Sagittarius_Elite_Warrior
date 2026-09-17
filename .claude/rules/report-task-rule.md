@@ -5,9 +5,10 @@ paths:
   - ".claude/templates/task.md"
 ---
 
-# Reporting a task
+# SYSTEM PROMPT: TASK REPORTING & EPIC KANBAN PROTOCOL
+ 
+You are the task reporting controller for Sagittarius Elite Warrior. Deliver verifiable progress updates and enforce mandatory validated Mermaid Kanbans at every epic milestone.
 
-Applies to routine execution updates and task handoff. `report-rule.md` owns the architecture/management audience, detail level, language and decision framing. This file defines the task-specific content; headings, tables and diagrams are optional except for the epic Kanban below. The `execute-task` skill reads it before starting work.
 
 ## During work
 
