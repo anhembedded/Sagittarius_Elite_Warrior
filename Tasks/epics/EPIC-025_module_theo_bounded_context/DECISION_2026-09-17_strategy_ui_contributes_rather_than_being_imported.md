@@ -111,20 +111,51 @@ as a shared concrete class disappears rather than being relocated — the duplic
 to avoid (`EPIC-023C`) is now data on a port, computed once inside `strategy` (P3: one computation,
 no copies).
 
-### O4 — the command side, found while answering O3
+### O4 — the command side, found while answering O3. **First answer was wrong too, same mistake as O1.**
 
-`ICommandDispatcher.dispatch(handler_class, dto)` takes the handler class **as the lookup key** —
-its own docstring says so — so any caller of a use case must hold that type. `ArmStrategyCommand`,
-`ArmStrategyCommandHandler`, `ArmStrategyResult`, `ArmStrategyBlockReason` and the `Disarm`
-equivalents live in `modules/strategy/application/use_cases/`, and no module dispatches another
-module's command anywhere in the tree today (measured: zero occurrences) — `trading` will be the
-first.
+`ICommandDispatcher.dispatch(handler_class, dto)` takes the handler class as its lookup key, so the
+first answer published `ArmStrategyCommand`/`ArmStrategyCommandHandler`/results/reasons through
+`contracts/` so `trading` could keep calling `dispatch()` itself. Checked against every *other*
+dispatch call site in the tree before committing to it (`BulkSyncMarketDataCommand`,
+`RunStaticBacktestCommand`, `GetDatabaseStatusQuery`, …) — every one of them is same-module: a
+screen dispatching its own module's command. None crosses a boundary, and every cross-module
+action in this app already answers through a **port method** (`IOrderSubmission.submit()`,
+`ITradingSession.claim_symbol()`), never through a caller holding a dispatched command's classes.
+Publishing `ArmStrategyCommandHandler` — a class with real dependencies and an `execute()` body —
+through `contracts/` would have been the first behaviour-bearing class published there, the same
+shape rejected for `BaseStrategy`.
 
-**Answered:** those command/result/reason types are published in `modules/strategy/contracts/`.
-This is the app-wide dispatch pattern applied, not a new one (P5), and it does **not** contradict
-`IArmedStrategy`'s deliberate omission of `arm()`/`disarm()`: the command stays the single way in,
-with its validation, symbol lease and events intact. A port method that armed a strategy is still
-refused.
+**Answered:** a new port, symmetric with the existing read-only `IArmedStrategy`:
+
+```python
+# modules/strategy/contracts/i_strategy_arming.py
+class IStrategyArming(ABC):
+    def arm(self, config: LiveStrategyConfig) -> ArmStrategyResult: ...
+    def disarm(self) -> DisarmStrategyResult: ...
+    def saved_selection(self) -> LiveStrategyConfig: ...  # O6's read side, see below
+```
+
+Its implementation lives inside `modules/strategy/application/` and dispatches
+`ArmStrategyCommand`/`DisarmStrategyCommand` internally exactly as today — same-module, so nothing
+about `ICommandDispatcher`'s call shape changes. `ArmStrategyResult`, `ArmStrategyBlockReason` and
+`DisarmStrategyResult` are plain dataclasses/enums and do publish through `contracts/`, same as
+`LiveStrategyConfig` already does; only the command and handler classes stay internal. This does
+**not** contradict `IArmedStrategy`'s deliberate omission of `arm()`/`disarm()` — that port stays
+read-only; `IStrategyArming` is the separate write port its own docstring anticipated ("dispatched
+as `ArmStrategyCommand`/`DisarmStrategyCommand`… a port method that armed a strategy would be a
+second way in" is a reason to keep the *read* port pure, not a reason to have no write port at all).
+
+### O6, answered here rather than left open
+
+`LiveStrategyConfigStore.save()` (persist on a successful arm) moves inside `IStrategyArming.arm()`'s
+implementation — the handler now takes the store as a constructor dependency and saves after
+`self._session.arm(config)` succeeds, exactly where the validation and the symbol lease already
+are. Observable behaviour is unchanged (a successful arm was always saved, a refused one never
+was); only which object calls `save()` changes, so this is the relocation ADR D12 permits inside a
+structural pull request, not the behaviour change it forbids. `LiveStrategyConfigStore.load()`
+(the restore side, today called directly by `StrategyArmingCoordinator.restore_into_view_model()`)
+becomes `IStrategyArming.saved_selection()` for the same reason: `modules/strategy/application/
+services/` is no more reachable from a screen-module than `application/use_cases/` is.
 
 ### What this does **not** do: reverse PR 2.1c
 
@@ -171,7 +202,7 @@ not build the variant when the case turns out not to exist).
 | `strategy_overlay.compute_*`, `assign_strategy_line_colors`, `strategy.chart_line_{colors,widths}()` | `IStrategyChartOverlay.overlay_for()` — computed inside `strategy` | published port | P6 |
 | `strategy_registry.available()` → `type[BaseStrategy]` | **stops crossing**: the throwaway instance is built inside `strategy` | — | P6 |
 | `strategy_display.humanize_strategy_key` | **stops crossing**: `options()` already returns the label | — | P3 |
-| `Arm`/`DisarmStrategyCommand` + handler + result + reason | `modules/strategy/contracts/` | `ICommandDispatcher`'s documented lookup-key pattern | P5 |
+| `dispatcher.dispatch(Arm/DisarmStrategyCommandHandler, …)` + `LiveStrategyConfigStore` | `IStrategyArming.arm()`/`disarm()`/`saved_selection()` — dispatch and persistence both stay inside `strategy`, same-module | published port, matching `IOrderSubmission`/`ITradingSession` | P5, P6 |
 | `SignalFeed` | `modules/trading/ui/` (12 lines; its only strategy tie is the published `SignalGeneratedEvent`) | `architecture-rule.md` §6 — a subscriber is owned by what it drives | P6 |
 | `StrategyCardViewModel` | **deleted** — each screen keeps its own card state (§4 O3) | — | — |
 | `StrategyArmingCoordinator` | each screen's own `coordinators/`, reading the port + dispatching the published commands | `async-ui-action-rule.md` §2 | P6 |
@@ -234,8 +265,10 @@ publishing edge. Both terms go in `Docs/VOCABULARY/README.md` in the same commit
 Loose `list[dict]` does not cross: `code-quality-rule.md` §1 forbids it, and publishing the
 QML-era dict shape into the Published Language would outlive the toolkit that asked for it.
 
-## 6. Still open
+## 6. All open questions answered — implementation may start
 
-| # | Question | Blocks | Asked on |
-| :-- | :--- | :--- | :--- |
-| O6 | `LiveStrategyConfigStore` (an `application/` service the arming coordinator calls to persist a successful arming) also stops being reachable once the coordinator is a screen's. Publish it as two port methods, or move the persistence into `ArmStrategyCommandHandler` where the validation and the lease already are? The second is cleaner and is a **behaviour move**, which ADR D12 keeps out of a structural change — so it is a decision, not a detail | PR 4.3m's last commit | 2026-09-17 |
+Three ports total: `IStrategyCatalog`, `IStrategyChartOverlay`, `IStrategyArming`. One relocation
+(`support/ui_kit/param_form/`). Two deletions (`StrategyCardViewModel`, `build_bot_params_rows`).
+Nothing crosses that is not data, and nothing new was invented (P5) except the one thing the app
+had no shape for yet — the strategy card's own state per screen, which stays each screen's own
+view model rather than becoming a fourth thing to publish.
