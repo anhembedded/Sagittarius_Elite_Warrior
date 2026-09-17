@@ -114,7 +114,7 @@ def test_choosing_a_timeframe_writes_through(qapp, view, view_model):
     view._btn_interval.click()
     qapp.processEvents()
 
-    view._timeframe_picker._widget_vm.choose("4h")
+    view._timeframe_picker._selection.choose("4h")
     qapp.processEvents()
 
     assert view_model.selectedInterval == "4h"
@@ -126,9 +126,9 @@ def test_the_timeframe_picker_offers_every_domain_timeframe(qapp, view):
     qapp.processEvents()
 
     codes = [
-        row["code"]
-        for group in view._timeframe_picker._widget_vm.groups
-        for row in group["rows"]
+        row.code
+        for group in view._timeframe_picker._selection.groups
+        for row in group.rows
     ]
     assert sorted(codes) == sorted(member.value for member in TimeFrame)
     view._timeframe_picker.close()

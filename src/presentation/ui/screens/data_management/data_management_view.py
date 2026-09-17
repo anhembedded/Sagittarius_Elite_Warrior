@@ -27,11 +27,11 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_
     field_style,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
-    describe as describe_timeframe,
-)
-from Sagittarius_Elite_Warrior.src.support.charting.TimeframePicker.timeframe_picker_dialog import (
     PinnedTimeframes,
     TimeframePickerDialog,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
+    describe as describe_timeframe,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import (
     AppLogPanel,

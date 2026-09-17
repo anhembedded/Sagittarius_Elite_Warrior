@@ -516,9 +516,9 @@ def test_the_toolbars_more_button_opens_the_full_picker_on_a_real_dev_board_card
     qapp.processEvents()
     picker = card.toolbar._picker
     assert picker is not None
-    assert picker._widget_vm is card.toolbar._vm
+    assert picker._selection is card.toolbar._selection
 
-    picker._widget_vm.choose("3d")
+    picker._selection.choose("3d")
     qapp.processEvents()
 
     presenter._stream_controller._on_timeframe_changed.assert_called_once_with("3d")

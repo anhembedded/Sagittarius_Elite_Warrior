@@ -85,7 +85,7 @@ def test_host_timeframe_operations_go_through_the_toolbar(qapp, request):
     assert received == ["5m"]
 
     host.set_active_timeframe("15m")
-    assert card.toolbar._vm.currentCode == "15m"
+    assert card.toolbar._selection.current_code == "15m"
 
 
 def test_the_toolbars_more_button_opens_the_full_picker_on_a_real_backtest_card(
@@ -106,9 +106,9 @@ def test_the_toolbars_more_button_opens_the_full_picker_on_a_real_backtest_card(
     qapp.processEvents()
     picker = card.toolbar._picker
     assert picker is not None
-    assert picker._widget_vm is card.toolbar._vm
+    assert picker._selection is card.toolbar._selection
 
-    picker._widget_vm.choose("3d")
+    picker._selection.choose("3d")
     qapp.processEvents()
 
     assert received == ["3d"]
