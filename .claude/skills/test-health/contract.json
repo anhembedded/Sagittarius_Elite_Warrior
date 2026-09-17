@@ -17,14 +17,14 @@
     },
     {
       "id": "sanity-boots-the-real-composition-root",
-      "source": ".claude/rules/ci-rule.md §6 (level 3)",
+      "source": ".claude/rules/ci-rule.md §2 (level 3)",
       "requirement": "Sanity must boot the real app via create_app()",
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "create_app\\("
     },
     {
       "id": "diagnostics-are-observed-during-boot",
-      "source": ".claude/rules/testing-rule.md (Sanity) / ci-rule.md §6 (level 3)",
+      "source": ".claude/rules/testing-rule.md (Sanity) / ci-rule.md §2 (level 3)",
       "requirement": "Sanity must fail on any problem-level diagnostic emitted during boot/construct/shutdown, on every channel the app owns (Python logging, Qt message handler, warnings) — the retired quick_widget.errors() clause's successor",
       "evidence_dir": "tests/sanity",
       "evidence_pattern": "qInstallMessageHandler"
@@ -52,7 +52,7 @@
     },
     {
       "id": "integration-proves-user-journeys",
-      "source": ".claude/rules/ci-rule.md §6 (level 2)",
+      "source": ".claude/rules/ci-rule.md §2 (level 2)",
       "requirement": "Integration must drive real input and wait on a terminal signal/state",
       "evidence_dir": "tests/integration",
       "evidence_pattern": "\\.click\\(\\)|waitSignal|waitUntil"

@@ -32,7 +32,7 @@ description: The format of a standalone task under Tasks/backlog/ or an epic chi
 | {path} | {what, and why} |
 
 ## 5. Testing
-{Map each acceptance criterion to a test or a manual check with its expected result. Name the tier (`ci-rule.md` §6); for documentation-only work, name the required document guards. Record checks not yet run explicitly.}
+{Map each acceptance criterion to a test or a manual check with its expected result. Name the tier (`ci-rule.md` §2); for documentation-only work, name the required document guards. Record checks not yet run explicitly.}
 
 ## Implementation notes (written when done)
 {The real bugs met, decisions taken, verification commands and results tied to the checked revision/snapshot, and the gate's `LOG_FILE:` path when applicable. Link evidence for each acceptance criterion and state the actual delivery state. Follow ONBOARDING §6 for standalone tasks and §12.3 for epic children.}

@@ -14,7 +14,7 @@ You are the test suite architect for Sagittarius Elite Warrior. Every test must 
 - **Sanity** (`Tasks/epics/EPIC-009_sanity_tier_redesign/DECISION_2026-08-25_sanity_model_and_execution.md`): one real boot per session (`booted_app`); every assertion scans a real source of truth (registered use cases, navigable routes, packages on disk) so **a new feature adds zero sanity tests**; `diagnostic_guard` fails on any Qt message, WARNING+ record or `warnings.warn` during boot/construct/shutdown; the only substitution is the network boundary at configuration (`binance_fake_server.py`), never a hand-written port substitute (`BUG-026`/`027`); no business facts; `--self-check` launches the real entry point as a subprocess. `[review: E5, E6; contract: .claude/skills/test-health/contract.json]`
 - **Integration**: deterministic journeys in `tests/integration/`, real input, wait on a terminal signal/state, seeded/fake boundaries, never a live exchange.
 - **Desktop E2E**: a reported GUI defect or native rendering change keeps an opt-in harness on a real display with real `QTest`/`qtbot` input and clean Qt messages.
-- **`tests/testnet/`**: real Futures Testnet, opt-in twice (`ci-rule.md` §3a); assert invariants (`FILLED`, a position back to zero), never figures; clean up in `finally`; wait on a named condition.
+- **`tests/testnet/`**: real Futures Testnet, opt-in twice (`ci-rule.md` §2a); assert invariants (`FILLED`, a position back to zero), never figures; clean up in `finally`; wait on a named condition.
 
 ## 2. Writing a test that can fail
 - **No timing sleeps.** Wait on a named signal, FSM state, terminal event or bounded `qtbot.waitUntil`. Give every critical control a stable `objectName`. `[review: E3]`
