@@ -7,6 +7,7 @@ import time
 from unittest.mock import patch
 
 import pytest
+from PySide6.QtWidgets import QPushButton
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
@@ -146,8 +147,6 @@ def test_database_cancel_button_cancels_active_sync_flow(
     `EPIC-025` PR 4.3l; it is `kit.ProgressBanner`'s `QPushButton` now,
     reached the same way `test_database_progress_cancel_widget.py`'s unit
     tests reach it."""
-    from PySide6.QtWidgets import QPushButton
-
     view, presenter, _ = database_app_context
     view_model = presenter._view_model
 

@@ -7,6 +7,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
+from PySide6.QtWidgets import QPushButton
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
@@ -227,8 +228,6 @@ def test_chart_toolbar_click_replaces_visible_candles_with_selected_timeframe(
 def test_progress_banner_cancel_button_cancels_active_backtest_flow(
     backtest_screen, qtbot
 ):
-    from PySide6.QtWidgets import QPushButton
-
     presenter, view = backtest_screen
     view_model = presenter._view_model
     view_model.selectedTimeframe = _RUNTIME_INTERVAL

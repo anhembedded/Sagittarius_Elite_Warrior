@@ -34,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backte
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
+    CANCELLING_CAPTION,
+)
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -142,7 +145,7 @@ def test_progress_banner_cancel_button_in_running_and_syncing_modes(
 
     assert banner.isVisible() is True
     assert _cancel_button(widget).isEnabled() is False
-    assert widget._status.text() == "Cancelling safely..."
+    assert widget._status.text() == CANCELLING_CAPTION
 
     # 4. In RUNNING mode, button is enabled and text is "Cancel"
     view_model.set_ui_mode("RUNNING")
@@ -168,7 +171,7 @@ def test_progress_banner_status_text_and_percent_are_wired(qapp, backtest_screen
     qapp.processEvents()
 
     assert widget._status.text() == "Syncing candles: 45/100 (45%)"
-    assert widget.percent_text() == "45%"
+    assert widget._bar.text() == "45%"
 
     view_model.set_ui_mode("IDLE")
     view_model.run_progress.set_backtest_progress(80.0, "Running full dataset: 80%")
@@ -176,7 +179,7 @@ def test_progress_banner_status_text_and_percent_are_wired(qapp, backtest_screen
     qapp.processEvents()
 
     assert widget._status.text() == "Running full dataset: 80%"
-    assert widget.percent_text() == "80%"
+    assert widget._bar.text() == "80%"
 
 
 def test_progress_banner_clamps_an_out_of_range_percent(qapp, backtest_screen):
@@ -193,11 +196,11 @@ def test_progress_banner_clamps_an_out_of_range_percent(qapp, backtest_screen):
     view_model.set_ui_mode("RUNNING")
     qapp.processEvents()
 
-    assert widget.percent_text() == "100%"
+    assert widget._bar.text() == "100%"
 
     view_model.set_ui_mode("IDLE")
     view_model.run_progress.set_backtest_progress(-10.0, "under")
     view_model.set_ui_mode("RUNNING")
     qapp.processEvents()
 
-    assert widget.percent_text() == "0%"
+    assert widget._bar.text() == "0%"
