@@ -64,6 +64,21 @@ the two prompts, so the reference check passed, pytest finally ran for the first
 So the two halves of this bug were queued behind each other: the reference check hid the boundary
 guard's identical false green for 11 hours by failing before pytest could run.
 
+## The same fix one layer over
+
+The two instances above are a script and one guard's constant. The *class* is any check that asks
+the filesystem about repository content, and the registry of path-scanning guards is where that
+class lives: `test_scanned_roots_are_not_empty.py` asserted each registered root "contains at
+least one file of the kind the guard reads", by `rglob` — so a root surviving only as a
+`__pycache__` shell reads as populated. It now filters those matches through `git ls-files`.
+
+Measured before changing it, because a tightened guard that moves a ratchet is a different pull
+request: filtering to tracked files flips **no** registered root from populated to empty today.
+Verified by registering a root whose only file is untracked — it fails, and failed for the right
+row. A sweep of this disk found **eight** stale directories git tracks nothing in (the
+`order_book` pair from PR 4.1b, three under `tests/unit/application`, three under
+`tests/unit/domain`); none is a registered root, so none was faking a green.
+
 ## Regression test
 
 `tests/unit/architecture/test_skill_prompt_references_ask_git.py` — five tests, each building a

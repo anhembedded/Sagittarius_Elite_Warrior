@@ -45,7 +45,12 @@ if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
 _TITLE = "SET INITIAL CAPITAL"
-_CURRENCY_WIDTH = 90
+#: A floor, not a cap (`ui-presentation-rule.md`): the currency combo holds
+#: **text**, so a fixed width is the clipped-at-another-DPI bug that rule names,
+#: traded for an overlap that was never there. 90px keeps it from collapsing
+#: beside the amount field, which is the only thing the number was ever for —
+#: found reviewing PR 4.3f, where this dialog was rebuilt.
+_CURRENCY_MIN_WIDTH = 90
 _MAX_DECIMALS = 8
 
 
@@ -76,7 +81,7 @@ class CapitalDialogWidget(Overlay):
 
         self._currency = QComboBox()
         self._currency.setObjectName("cboBacktestCurrency")
-        self._currency.setFixedWidth(_CURRENCY_WIDTH)
+        self._currency.setMinimumWidth(_CURRENCY_MIN_WIDTH)
         self._currency.addItems([str(code) for code in view_model.currencyOptions])
         row.addWidget(self._currency)
         self.body_layout.addLayout(row)
