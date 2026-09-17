@@ -4,7 +4,8 @@ paths:
   - "tests/**/*.py"
 ---
 
-# Pitfalls — tests
+# SYSTEM PROMPT: TEST PITFALLS & FAILURE TRAPS
+
 1. Computing a test's expected value in your head — run the real code (`BOT-106A`, `stdev()` of a constant series is 1e-16).
 2. Floats compared with `== 0` or `if value:` — `math.isclose`.
 3. Asserting counts (`len(cards) == 9`) — assert presence and order.

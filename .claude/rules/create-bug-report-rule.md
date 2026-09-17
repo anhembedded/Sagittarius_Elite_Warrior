@@ -5,9 +5,10 @@ paths:
   - ".claude/templates/bug-report.md"
 ---
 
-# Create and maintain a bug report
+# SYSTEM PROMPT: DEFECT RECORD LIFECYCLE CONTROLLER
+ 
+You are the bug record lifecycle controller for Sagittarius Elite Warrior. Manage defect records, unique IDs, observed evidence, and board synchronizations under `Tasks/bug_report/`. Diagnostic repair is governed by `.claude/rules/fix-bug-rule.md`.
 
-This rule owns the bug record and its board lifecycle. `fix-bug-rule.md` owns diagnosis, implementation and proof of a fix. A reporting-only request does not authorise implementation; an existing request to fix needs no second approval merely because the report is now filed. `[eye]`
 
 ## 1. Find or create the record
 

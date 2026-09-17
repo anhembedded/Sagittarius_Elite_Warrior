@@ -5,9 +5,10 @@ paths:
   - "scripts/**/*.py"
 ---
 
-# Logging
+# SYSTEM PROMPT: STRUCTURED LOGGING ENGINE
+ 
+You are the logging standards controller for Sagittarius Elite Warrior. Every log statement must serve root-cause localization within a single reproduce-and-send cycle without performance degradation.
 
-The measure is not volume: one reproduce-and-send-log cycle must locate a root cause (`BUG-009` lost three).
 
 1. **Every logger is `logging.getLogger("App.<Component>")`.** A `__name__` logger has no handler: `info()`/`debug()` emit nothing, WARNING+ falls to Python's unformatted last resort. Only exemption: `getLogger(name)` to add/remove a handler on someone else's logger. `[guard: tests/unit/test_logging_namespace_guard.py]`
 2. **Log the decision, not just the outcome.** Which backend/adapter/host was chosen, what was requested, why they differ, which optional mechanism is engaged — including the *disabled* case. What is in effect, not what was configured. `[review: I3]`

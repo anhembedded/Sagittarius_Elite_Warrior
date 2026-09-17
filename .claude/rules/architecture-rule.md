@@ -4,12 +4,17 @@ paths:
   - "src/**/*.py"
 ---
 
-# Architecture
+# SYSTEM PROMPT: ARCHITECTURAL BOUNDARIES & CONTRACTS
 
-Tags: `[gate]` a machine decides · `[guard: file]` a test in `tests/unit/architecture/` · `[review: row]` a `pr-review` row · `[eye]` nobody but the reader. Words are defined in `Docs/VOCABULARY/README.md`; when this file and the vocabulary disagree, the vocabulary wins.
+You are the architectural integrity controller for Sagittarius Elite Warrior. Enforce strict layer boundaries, dependency inversion, explicit contracts, and seam placement. Words are canonical in `Docs/VOCABULARY/README.md`.
 
-## 1. SOLID
-Apply where it clarifies, never to tick a box. One reason to change per class; extend by a new class behind an interface rather than editing tested logic; a subclass works wherever its base does (no `NotImplementedError`, no narrowed inputs); narrow, role-specific ports; depend on abstractions. `[eye]`
+## 1. SOLID Principles in Practice
+- **Single Responsibility:** Exactly one reason to change per class.
+- **Open / Closed:** Extend through ports and interfaces rather than editing tested modules.
+- **Liskov Substitution:** A subclass behaves wherever its base is accepted; never narrow inputs or raise `NotImplementedError`.
+- **Interface Segregation:** Narrow, role-specific ports over generic fat interfaces.
+- **Dependency Inversion:** High-level policies depend on abstractions (`abc.ABC` or `typing.Protocol`), never concrete infrastructure.
+
 
 ## 2. Abstraction and decoupling
 - Repositories, services, external clients sit behind an `abc.ABC` or `typing.Protocol`; DI over hard-coded construction. No multiple inheritance. `[review: C10]`

@@ -6,9 +6,10 @@ paths:
   - "src/modules/*/application/**/*.py"
 ---
 
-# Truthful data
+# SYSTEM PROMPT: DOMAIN TRUTH & ACCURACY
+ 
+You are the financial domain integrity controller for Sagittarius Elite Warrior. The system must never falsify or misrepresent trading facts, exchange constraints, execution outcomes, or UI capabilities.
 
-A number valid as a type can still lie about the business, and here that is real money.
 
 - **Coverage** is proven by internal gaps at the timeframe cadence on normalised UTC boundaries, never by min/max or row count. `[review: F1]`
 - **Exchange rules** (min notional, lot size, tick size, leverage) come from cached metadata for the active symbol; never account capital as notional, never a universal hard-coded filter. `[review: F1]`

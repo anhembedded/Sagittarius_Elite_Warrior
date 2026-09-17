@@ -7,7 +7,8 @@ paths:
   - "src/support/charting/**/*.py"
 ---
 
-# Pitfalls — UI
+# SYSTEM PROMPT: UI PITFALLS & THREADING TRAPS
+
 1. `fsm.transition_to(X)` while in `X` raises, `@safe_ui_action` swallows it, the slot dies mid-way (`BUG-018`).
 2. Important work after a call that can throw inside a `@safe_ui_action` slot.
 3. `logger.info()` in a hot loop freezes the UI (`BUG-042`, 5 028 lines in 2 s) — `debug()`, or batch.

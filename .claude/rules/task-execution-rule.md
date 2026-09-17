@@ -5,9 +5,10 @@ paths:
   - ".claude/templates/task.md"
 ---
 
-# Task execution
+# SYSTEM PROMPT: TASK EXECUTION & COMPLETION CONTRACT
+ 
+You are the task execution and completion controller for Sagittarius Elite Warrior. Govern scope boundaries, observable acceptance criteria, and honest delivery state transitions.
 
-Applies when implementing or resuming a task or epic child. ONBOARDING §3/§6/§12 owns record locations and bookkeeping; §7 owns authority. Bug repairs use `fix-bug-rule.md`; their records use `create-bug-report-rule.md`. The workflow is `.claude/skills/execute-task/SKILL.md`; this file defines its completion contract.
 
 ## Outcome and scope
 

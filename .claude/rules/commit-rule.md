@@ -2,39 +2,29 @@
 description: How a commit is made — Conventional Commits, atomic changes, the AI trailer, what never gets committed. Whether a commit, push or merge is allowed is ONBOARDING.md §7.
 ---
 
-# Commits
+# SYSTEM PROMPT: COMMIT & ATOMIC CHANGE PROTOCOL
 
-## 0. Authority
-`ONBOARDING.md` §7 decides what may be committed, pushed and merged. This file says how.
+You are the commit and atomic change controller for Sagittarius Elite Warrior. Authority to commit, push, or merge is governed by `ONBOARDING.md` §7.
 
-## 1. Verification
-`ci-rule.md` §1 sets the cadence: the 1-second static checks, the architecture guards and the touched tests before every commit; the full gate on the final tree before a pull request. Never commit code a required check has shown red. Documentation-only commits (§7's set) need only the document guards §7 names. `[gate]`
+## 1. Pre-Commit Verification Cadence
+- **Standard Commits:** Execute 1-second static checks (`ruff check`, `ruff format --check`, `mypy`), architecture guards (`pytest tests/unit/architecture -q`), and tests touched by the diff. Never commit code when any check is red (`.claude/rules/ci-rule.md`).
+- **PR / Delivery:** Full machine gate (`.\scripts\ci-local.ps1 -Full`) on final tree; inspect generated log file directly.
+- **Documentation-Only:** Requires only document guards and reference check (`python3 scripts/check_skill_prompt_references.py`).
 
-## 2. Message
+## 2. Conventional Commit Format
 ```
 <type>(<scope>): <imperative subject>
 
-<body: the reasoning — what, why, what was measured; a fix: names the root cause>
+<body: architectural reasoning — what changed, why, root cause for fix:, cited LOG_FILE:>
 
-Co-Authored-By: <assistant that wrote it> <noreply@provider.example>
+Co-Authored-By: <assistant model> <noreply@provider.example>
 ```
-Types: `feat`, `fix`, `refactor`, `perf`, `test`, `ci`, `docs`, `chore`. Scope: a name a reader can grep — a module (`market_data`, `trading`, `strategy`, `backtesting`), `shell`/`core`, a support package, `architecture`, `tasks`, `agents`, `ci`, or the epic/bug id (`epic-025`, `bug-127`). `git log --format=%s -40` shows current usage. `[review: L1]`
+- **Allowed Types:** `feat`, `fix`, `refactor`, `perf`, `test`, `ci`, `docs`, `chore`.
+- **Allowed Scopes:** Bounded module (`market_data`, `trading`, `strategy`, `backtesting`), `shell`/`core`, support package, `architecture`, `tasks`, `agents`, `ci`, or task/defect ID (`epic-025`, `bug-127`).
+- **Body Requirement:** Explain intent and systemic impact; a body merely restating the subject is invalid. For fixes, cite root cause and bug ID (`.claude/rules/fix-bug-rule.md`).
 
-The body is the record: `ONBOARDING.md` §12.2 makes `git log` the source for "what happened and why", so a body that only restates the subject is a missing record. A gate result cites its `LOG_FILE:` path. `[review: L2]`
+## 3. Cleanliness & Prohibitions
+- **Atomic Change:** Exactly one logical change per commit. Inspect `git status --short` before and `git show --stat HEAD` after.
+- **Forbidden Content:** Scratch files, `print()` debugging, commented code, temporary mocks, `.venv`, `*.db`, `logs/`, `state/`, secrets, `.obsidian/`.
+- **Configuration & Dependencies:** Modifying `requirements.txt`, `pyproject.toml`, linter/mypy settings, or `.claude/settings.json` strictly requires prior user confirmation.
 
-## 3. Trailer
-The assistant that actually wrote the commit, e.g. `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>` (the model the harness names; plain `Claude` when none). A harness trailer such as `Claude-Session: <url>` stays. Never a name copied from an older commit — that is how a wrong trailer spread here. `[review: L3]`
-
-## 4. Atomic and clean
-- One logical change per commit; `git commit` takes the whole index, so read `git status --short` before and `git show --stat HEAD` after (`ONBOARDING.md` §8). `[review: L6]`
-- Never commit scratch files, leftover `print()`, commented-out code, temporary mocks, virtualenvs, `*.db`, `database/`, `logs/`, `state/`, secrets, or `.obsidian/`. `[review: L4]`
-- A dependency or tool-config change (`requirements.txt`, `pyproject.toml`, ruff/mypy settings, `.claude/settings.json`) is asked first. `[review: L5]`
-
-## 5. Bug fixes
-`fix-bug-rule.md` in full: the regression test ships in the fixing commit; the body states the root cause; the id is in the subject or body.
-
-## 6. Pull request
-The body follows `.github/PULL_REQUEST_TEMPLATE.md` — what, why, verification with the gate's `LOG_FILE:` path; GitHub fills it in. `[review: L2]`
-
-## 7. Merging a branch an unattended agent opened
-Check it is still relevant and not already merged; resolve conflicts without reintroducing old patterns; run `-Full` on the merged tree before pushing.

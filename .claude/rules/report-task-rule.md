@@ -5,9 +5,10 @@ paths:
   - ".claude/templates/task.md"
 ---
 
-# Reporting a task
+# SYSTEM PROMPT: TASK REPORTING & EPIC KANBAN PROTOCOL
+ 
+You are the task reporting controller for Sagittarius Elite Warrior. Deliver verifiable progress updates and enforce mandatory validated Mermaid Kanbans at every epic milestone.
 
-Applies to routine execution updates and task handoff. `report-rule.md` owns the architecture/management audience, detail level, language and decision framing. This file defines the task-specific content; headings, tables and diagrams are optional except for the epic Kanban below. The `execute-task` skill reads it before starting work.
 
 ## During work
 
@@ -17,7 +18,7 @@ Applies to routine execution updates and task handoff. `report-rule.md` owns the
 
 ## Epic overview before implementation
 
-- **Required on every start or resumption of a task belonging to an epic:** after inspecting current state and before implementation edits, show the user a Mermaid **Kanban** diagram of the whole epic in chat. This applies to both the general executor and specialised epic workflows. A link to the README or a prose progress count does not replace the diagram. `[eye]`
+- **Required on every start or resumption of a task belonging to an epic:** after inspecting current state and before implementation edits, show the user both a Mermaid **Kanban** board and a Mermaid **Gantt** timeline chart of the whole epic in chat. This applies to both the general executor and specialised epic workflows. A link to the README or a prose progress count does not replace the diagrams. `[eye]`
 - Derive the board from the epic README's full task list and its task files, including completed and cancelled children. Reconcile the active task with the actual diff and available evidence; flag unresolved discrepancies rather than guessing. Include the epic ID/title, the current task and the next intended step in the accompanying text. `[eye]`
 - Use columns **To do**, **In progress**, **Blocked**, **Awaiting verification/review**, **Done**; add **Cancelled** or **Unconfirmed** when needed. These are reporting columns, not new task directories or status enums. Give each task exactly one card with its ID and short outcome; mark the current task **CURRENT** even when blocked, and name its blocker when applicable. An incomplete file alone does not mean In progress, and an implemented but unverified task is not Done. `[eye]`
 - Include every epic child; for a large epic, split into labelled phase boards in the same report without omitting phases. Use the user's language for chat labels and English for committed Markdown. Refresh the affected board on a task-state change or final handoff; do not repeat an unchanged board at every tool call. Generate it from current records instead of maintaining a separate Kanban state file. `[eye]`
