@@ -225,12 +225,26 @@ def _sections(document: Path) -> tuple[set[str], dict[str, set[str]]]:
 
 
 def _anchor_resolves(anchor: str, document: Path) -> bool:
-    """Whether `document` holds the section `anchor` names."""
+    """Whether `document` holds the section `anchor` names.
+
+    A rule may number its sections as headings (`ci-rule.md`) or as one
+    top-level ordered list (`logging-rule.md`, whose §7 is item 7 and has no
+    heading at all). Both are cited the same way, so both resolve here;
+    treating only headings as sections would report every citation into a
+    list-shaped rule as dangling.
+    """
     numbers, items = _sections(document)
+    if not numbers:
+        return anchor in _top_level_items(document)
     if anchor in numbers:
         return True
     parent, _, item = anchor.rpartition(".")
     return bool(parent) and parent in numbers and item in items.get(parent, set())
+
+
+def _top_level_items(document: Path) -> set[str]:
+    """The numbers of a list-shaped rule's top-level ordered items."""
+    return set(_ORDERED_ITEM.findall(document.read_text(encoding="utf-8")))
 
 
 def _dangling_anchors(source: Path, text: str, root: Path) -> list[str]:
