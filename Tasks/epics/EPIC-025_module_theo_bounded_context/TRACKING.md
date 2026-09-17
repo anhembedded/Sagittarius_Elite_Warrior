@@ -33,7 +33,7 @@ gantt
     PR 0.4a-2 CLI inverted, 0.4a-3 contracts    :done,    p04a2, 2026-09-14, 1d
     PR 0.4b-1 Data Management in QtWidgets      :done,    p04b, 2026-09-14, 1d
     PR 0.5 skeleton walks, N=4 not 2 (#214)     :done,    p05, 2026-09-14, 1d
-    User check 0.x (app runs: 3 screens + CLI)  :crit, done, r0x, 2026-09-14, 2d
+    User check 0.x (app runs — 3 screens + CLI)  :crit, done, r0x, 2026-09-14, 2d
     Phase 0 measured, Phases 1–5 re-estimated  :milestone, done, m0, 2026-09-15, 0d
 
     section Engine track
@@ -101,8 +101,8 @@ gantt
     Phase 3 closed                             :milestone, m3, after p3, 0d
 
     section Phase 4 — support/*, ui/common dissolved (EPIC-025E)
-    charting, indicators, ui_kit; Settings dialog; qml/ deleted : p4, after m3, 5d
-    User review: designed theme? (D21 deferred)  :crit,    r4, after p4, 1d
+    charting, indicators, ui_kit; Settings dialog; qml/ deleted : active, p4, after m3, 5d
+    User review — designed theme? (D21 deferred)  :crit,    r4, after p4, 1d
     Phase 4 closed                             :milestone, m4, after r4, 0d
 
     section Phase 5 — Engine navigation (EPIC-025F)
