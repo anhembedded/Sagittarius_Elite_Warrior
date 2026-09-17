@@ -1153,7 +1153,7 @@ such suite, and the 12 under `tests/unit/presentation/ui/qml/` went with their s
 
 | Deleted | Where its guarantee lives now |
 | :--- | :--- |
-| `test_progress_banner_qml.py` (5) + `test_progress_banner_widget.py` (4) | `surfaces/test_progress_banner.py` (6) — status/percent, clamping, the reversible sweep, the click, and "no stylesheet of its own". The one sentence **dropped**: the `.qml` relabelled its own Cancel button, which `kit.ProgressBanner` deliberately does not do; two of its three callers have their own wording, and the test that asserted the rename is replaced by one asserting the label survives `set_cancelling(True)` |
+| `test_progress_banner_qml.py` (5) + `test_progress_banner_widget.py` (4) | `surfaces/test_progress_banner.py` (6) — status/percent, clamping, the reversible sweep, the click, and "no stylesheet of its own". The one sentence **dropped**: the `.qml` relabelled its own Cancel button, which `kit.ProgressBanner` deliberately does not do — a button that renames itself under the cursor is not what a caller wants. **The reason first written here was wrong and §4.13 fixes it**: "two of its three callers have their own wording" is true of Backtest and false of Data Management, which lost the word entirely. The state now lives in the caption on both screens, from one shared constant |
 | `test_status_pill_qml.py` (3) + `test_status_pill_widget.py` (4) | `screens/dashboard/test_ws_status_pill.py` (7) — text, four tones, three distinct colours, the hideable dot. "Loads with a real QML root object" has no subject and its place is taken by the one thing the `.qml` could not be asked: an unknown tone renders as idle rather than raising |
 | `test_button_qml.py` (3) | `kit/test_controls.py` — `StyledButton` is a real `QPushButton` that accepts every button role and restyles on `setEnabled`; "a disabled button ignores clicks" is Qt's, not ours to re-test |
 | `test_dialog_shell_qml.py` (6) | `kit/test_overlay.py` (title, subtitle, footer wiring, body layout) and `overlays/test_confirm_overlay.py` (confirm vs cancel) — the chrome those six described has been QtWidgets since `EPIC-007`, which is why `QmlOverlay` only ever replaced the *body* |
@@ -1211,3 +1211,68 @@ these five numbers are why this one is a deletion of duplicated coverage rather 
 deleted, one bug found (`BUG-128`) and one case study written (`CS-004`, closed here), `.qml` **27 →
 0**, `setStyleSheet` 149 → 145, `qml_theme_refs` 229 → 0, and `CS-004`'s under-`src/` test ratchet 22
 → 0. Next: **4.2a**, **4.2b**, then **4.4**.
+
+### 4.13 The review of 4.3l, and the one screen that lost a word
+
+PR 4.3 was merged before this review ran, because the `pr-review` skill had been loaded once at the
+start of the session and its rows applied from memory afterwards — which is the one thing that file
+forbids in its own opening paragraph (*"never quote a rule from memory"*, and *"your first command
+is `ls .agents/rules/`"*). Run properly against `569842d7..800d14d4`, over all **14** rule files
+rather than the 7 the `CLAUDE.md` table happens to list, it found three real things. They are
+recorded here rather than quietly fixed, because two of them are mistakes in what §4.12 *claims*.
+
+**1. The gate that merged this pull request was not evidence for it (`ci` §1).** That clause is
+explicit: *"A gate run before the last commit is not evidence … If you commit after the gate, the
+gate runs again."* The PASS quoted in §4.12 ran at 01:47; five documentation files were then edited
+to write that very paragraph, and the commits landed at 01:54. What had been re-run after the edits
+was the static tier plus `pytest tests/unit/architecture` and the board guards — the **every commit**
+row of §1's table, not the **before the pull request is offered** row. Re-run on the merged tree:
+`RESULT: PASS`, 4922 passed / 4 skipped in 177s, `logs/ci-local-20260917-021018.log`, 4 hits for the
+known benign set, **0** records at WARNING or above, `git status` clean.
+
+There is a structural tension underneath it, and it is the user's call, not a rule to bend: a pull
+request whose documentation quotes its own gate's numbers can never satisfy §1 in one pass. Either
+every such pull request pays for two gates (~7 minutes), or §1 gains a clause naming
+documentation-after-the-gate as its own case. Nothing here weakens the rule in the meantime.
+
+**2. Data Management lost the word "Cancelling", and §4.12's stated reason was false.**
+`ProgressBanner.qml` wrote it on the button itself — `text: cancelling ? "Cancelling..." :
+cancelLabel` — so all three hosts got it for free. `kit.ProgressBanner.set_cancelling()` only
+disables, which §4.12 justified with *"two of the three callers have their own phrasing for it"*.
+Measured, that is true of exactly one: the Backtest screen sets its own caption, Dev Board never
+enters the state at all, and Data Management's caption is `progressText`, which nothing updates on
+cancel — `_cancel_active_work()` transitions the FSM and emits a log line. So that screen showed a
+greyed button beside a caption still claiming a sync was running, and the only place the user could
+read the truth was the log panel.
+
+Fixed where the word now belongs, for both screens, from one constant:
+`constants.CANCELLING_CAPTION`, beside `DATETIME_FORMAT`, which is in that file for the same reason
+— two screens showing one state must not drift into two wordings. Data Management also goes
+indeterminate while cancelling, because a cancel has no percentage to report. The restored guarantee
+has a test on the screen that lost it, verified by breaking the line: exactly one failure.
+
+**3. `EMPTY_BY_DESIGN` had no `Docs/VOCABULARY` row**, while the **Allowlist ratchet** row already
+standing there warns in its own last column against *"a permanent exemption list"*. A new term that
+needs distinguishing from an existing one is exactly what that file is for, so it has a row now
+saying what it is and how it differs: it exempts one scan from the emptiness check, never from its
+own rule, and a second test asserts the triple is a scan that is really registered.
+
+Two nits went with them: `ProgressBanner.percent_text()` was a public method with **no `src/`
+consumer** — five test call sites and nothing else, so it is gone and the tests read the bar, as they
+already did for the caption — and two function-local imports this pull request introduced into the
+integration tests moved to the top of their files (`code-quality-rule.md` §4 names test cases
+explicitly, though the rule's own scope line is `src/` and `scripts/`).
+
+**What the review confirmed, with the commands run:** scope and per-commit atomicity (the code commit
+carries no `Docs/`/`Tasks/` file), no layer crossing and no new abstract method, every file the step
+edited shorter or unchanged, no `sleep` and no new hand-written double, six break-the-line checks
+(the four in §4.12 plus two this review added on the new registry exemption — a bogus row fails, and
+removing the early return makes the `.qml` scan fail, so the exemption is load-bearing rather than
+dead code), the styling ratchet only falling, `preview.py` present, no new logger,
+`SPEC-002`'s *Proven by* row still naming a file that exists and a promise this step kept, and the
+skill-reference checker clean.
+
+**What nobody has checked is pixels.** `setTextVisible(True)` on the banner's bar is a visual change
+verified only through the QSS (`style.py`'s `PROGRESS` role already sets `color: textPrimary` and
+`text-align: center`, so the role was written for a bar that shows its text) and through offscreen
+tests. It wants one look on a real desktop, which is the user's run, not the gate's.
