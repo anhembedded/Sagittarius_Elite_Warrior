@@ -1,7 +1,7 @@
 """Port: *which symbols can I trade?* (HLD §3.4, SDD-06b).
 
 **Why this port exists.** Two call sites ask for the exchange's tradeable
-pair list — the shared symbol picker (`ui/common/symbol_options_coordinator`,
+pair list — the shared symbol picker (`modules/market_data/ui/symbol_options_coordinator`,
 which three screens use) and Data Management's auto-discover — and both build
 `ListAvailableSymbolsQuery` and dispatch it, so both import
 `modules/market_data/application/`. That is the boundary rule's one

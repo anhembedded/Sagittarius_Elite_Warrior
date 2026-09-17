@@ -50,7 +50,7 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 from .dashboard_view_model import DATETIME_FORMAT
 
 if TYPE_CHECKING:
-    from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
+    from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.sync_progress_report import (
         SyncProgressReport,
     )
     from sagittarius_engine.interfaces.i_config import IConfig

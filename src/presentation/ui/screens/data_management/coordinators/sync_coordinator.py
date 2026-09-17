@@ -16,7 +16,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
     IMarketDataSync,
     MarketDataSyncRequest,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.sync_progress_report import (
     SyncProgressReport,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators.action_kinds import (

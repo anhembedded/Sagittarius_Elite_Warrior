@@ -46,6 +46,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_metadata_provider import (
     ISymbolMetadataProvider,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.sync_progress_report import (
+    SyncProgressReport,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.symbol_options_coordinator import (
+    SymbolOptionsCoordinator,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
@@ -54,12 +60,6 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
     IStrategyChartOverlay,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
-    SymbolOptionsCoordinator,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.sync_progress_report import (
-    SyncProgressReport,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
     BacktestProgress,
