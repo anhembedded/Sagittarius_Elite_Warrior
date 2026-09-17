@@ -1,8 +1,10 @@
 ---
-description: Root cause first, never a hotfix, log evidence, regression test before the fix at the right tier, kept forever, a report, and a case study when the gate was green.
+description: Fix defects at their mechanism — root cause, log evidence, regression proof, verification and eligible case studies; report creation and lifecycle belong to create-bug-report-rule.md.
 ---
 
 # Bug fix workflow
+
+Use this when diagnosing or fixing a defect. Creating or maintaining its report follows `.claude/rules/create-bug-report-rule.md`; a reporting-only request does not require implementing a fix. `[eye]`
 
 ## 1. Root cause first
 Read the real evidence (traceback, log, screenshot) and the code it points at before writing a line. State the mechanism with `file:line` and why the fix resolves it without crossing a layer. When the gate was green while the defect was live, read `Docs/CASE_STUDIES/README.md` first — if the symptom rhymes with one, start from its "still open" list. `[review: E9]`
@@ -25,5 +27,5 @@ The fix and its regression test in one `fix:` commit whose body states the root 
 ## 6.5 Case study when the gate was green
 If an existing net (type checker, test, guard, review row) covered the area and missed it, and the same blind spot is open elsewhere now, add `Docs/CASE_STUDIES/CS-{nnn}_{slug}.md` from `.claude/templates/case-study.md` in the fixing commit — one screen, the three sections the index requires — and **the check that closes it ships in the same commit**. Not every bug earns one. `[guard: test_case_study_index_is_consistent.py]`
 
-## 7. Report
-`Tasks/bug_report/incomplete/BUG-{nnn}_{slug}.md` from `.claude/templates/bug-report.md` (next number after the highest across both subdirectories, taken from disk): header (reported, severity, status), Symptom with real evidence, Root cause with `file:line`, Fix, Regression test (file; failed before, passes after). Filing before the fix is fine (`Status: Open`, suggested next steps). On fix: `git mv` to `completed/`, update status, move the row on the Bug Board (`Tasks/bug_report/README.md`) — the only place an open bug is visible. `[guard: test_task_board_is_consistent.py; review: K2]`
+## 7. Report handoff
+Supply the established cause, fix and verification evidence to the existing bug report. File, update and close that record under `create-bug-report-rule.md`; it owns the format, ID allocation, status and board transitions. `[review: K2]`

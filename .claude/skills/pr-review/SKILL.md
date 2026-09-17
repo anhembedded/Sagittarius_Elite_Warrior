@@ -28,6 +28,7 @@ Resolve rule names below under `.claude/rules/`. Use their current clauses, not 
 | Every change | A, K; `ONBOARDING.md`, `report-rule.md`. L for existing commits; L4/L5 also for uncommitted changes. |
 | Anything outside ONBOARDING §7's documentation-only set | B; `ci-rule.md`. C/D for affected source, scripts, tools and tests; `architecture-rule.md`, `code-quality-rule.md`. Build/config/workflow changes also need their applicable rules. |
 | Behavior or tests | E; `testing-rule.md`. Bug fixes also read `fix-bug-rule.md`. |
+| Bug reports or their lifecycle | K2; `create-bug-report-rule.md`. An Open report may have pending cause, fix and verification; filing alone does not trigger the repair requirements. |
 | Domain/application behavior, including module code and displayed trading facts | F; `domain-truth-rule.md`. |
 | UI, including `src/modules/*/ui/`, `src/support/ui_kit/` and charting | H and C4/D5; `ui-presentation-rule.md`. Background actions also G and `async-ui-action-rule.md`. |
 | Logging or failure paths | I; `logging-rule.md`. |
@@ -108,7 +109,9 @@ Report preferences only when requested. Keep pre-existing issues separate and me
 
 ## 6. Report
 
-Lead with the conclusion and scope/revision. List findings by severity, each with `file:line`, trigger, consequence, supporting evidence and the governing clause when applicable. Then state checks run or evidence inspected, relevant groups covered, and unread or unverified portions. Follow `report-rule.md` for language and reader context. "No findings" is valid; it does not imply verification that did not run.
+For the user, follow `report-rule.md`: lead with readiness, scope and the highest-impact findings in terms of system behavior, risk and the recommended action. State meaningful verification gaps; omit code mechanics and raw check output unless a technical review was requested or they are essential to the decision. "No findings" is valid; it does not imply verification that did not run.
+
+Keep actionable engineering findings in the existing task/review record, or in the response to an agent requesting the review: severity, `file:line`, trigger, consequence, evidence and governing clause when applicable, followed by checks covered and unverified portions. If the user requests the technical findings, provide those details directly. A concise user summary must not omit a blocking risk; link its detailed record when available.
 
 Return the review in chat unless posting was explicitly authorised by the user or invoking workflow. If posting is authorised, use one grouped review in English. Distinguish the author's subagent pre-check from the independent session required by ONBOARDING §7.
 

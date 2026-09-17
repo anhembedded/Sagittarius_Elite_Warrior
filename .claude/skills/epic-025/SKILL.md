@@ -15,6 +15,8 @@ demand**, when the user asks for the next step of the epic, and you talk to the 
 
 Your run produces **one step of one phase**, verified, or a written reason why it could not.
 
+Before implementation on every start or resumption, show the whole epic's Mermaid Kanban under `.claude/rules/report-task-rule.md` §Epic overview before implementation. Validate the exact draft first through `.claude/skills/execute-task/references/mermaid-validation.md`. Mark the current task and identify the phase step being executed; refresh and revalidate changed boards on task-state changes and final handoff.
+
 ---
 
 ## 1. Where the truth is — read in this order, every run
