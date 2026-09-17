@@ -64,6 +64,7 @@ Derived from the tree: `python3 scripts/render_claude_manifest.py` prints it fro
 | `rules/pitfalls/source.md` | rule | `src/**/*.py` | Traps that produced broken source here — one line each, with the bug id. Loads with every src/ file. |
 | `rules/pitfalls/tests.md` | rule | `tests/**/*.py` | Traps that produced broken tests here — one line each, with the bug or case-study id. Loads with every tests/ file. |
 | `rules/pitfalls/ui.md` | rule | `src/presentation/**/*.py`, `src/modules/*/ui/**/*.py`, `src/support/ui_kit/**/*.py`, `src/support/charting/**/*.py` | Traps that produced broken UI code here — one line each, with the bug id. Loads with every presentation, module UI, ui_kit and charting file. |
+| `skills/create-skill/SKILL.md` | skill | `/create-skill`, or Claude from its description | Scaffold, author, or audit a repository skill (.claude/skills/<name>/SKILL.md) against constitutional invariants, modularity standards, and automated guards. Use when creating a new skill or auditing an existing one. |
 | `skills/epic-025/SKILL.md` | skill | `/epic-025`, or Claude from its description | Execute one verified step of EPIC-025, the split of the application into bounded-context modules, when the user hands over the next step — reading order, the module-split invariants with their check commands, the per-step checklist, when and how to ask. On demand only. |
 | `skills/execute-task/SKILL.md` | skill | `/execute-task`, or Claude from its description | Implement or resume a requested task or epic sub-task in this repository, from acceptance criteria through verification and reporting. Use when asked to do a task, continue its implementation or finish an agreed change; not for review-only, proposal-only or status-only requests. |
 | `skills/fix-bug/SKILL.md` | skill | `/fix-bug`, or Claude from its description | Diagnose and repair a defect at its mechanism — root cause discovery, red-before regression proof, no hotfixes, bounded redesign, positive log verification, and case study eligibility. |
@@ -76,6 +77,7 @@ Derived from the tree: `python3 scripts/render_claude_manifest.py` prints it fro
 | `templates/decision.md` | template | on demand, copied | The format of a decision record (ADR, Nygard 2011) inside an epic — DECISION_{date}_{slug}.md. Copy it, fill every brace, delete this front matter. |
 | `templates/epic.md` | template | on demand, copied | The format of an epic's README.md under Tasks/epics/EPIC-nnn_slug/ (Tasks/epics/README.md). Copy it, fill every brace, delete this front matter. |
 | `templates/proposal.md` | template | on demand, copied | The format of an unaccepted proposal under Tasks/proposal/PRO-nnn.md (ONBOARDING §3). Copy it, fill every brace, delete this front matter and instructional comments. |
+| `templates/skill.md` | template | on demand, copied | The format of a repository skill under .claude/skills/<name>/SKILL.md (create-skill). Copy it, fill every brace, delete this front matter and instructional comments. |
 | `templates/task.md` | template | on demand, copied | The format of a standalone task under Tasks/backlog/ or an epic child under its incomplete/ directory (ONBOARDING §3). Copy it, fill every brace, delete this front matter and instructional comments. |
 <!-- manifest:end -->
 
@@ -83,7 +85,7 @@ Derived from the tree: `python3 scripts/render_claude_manifest.py` prints it fro
 
 - **A rule**: a file under `rules/` with a `description:` and, when it belongs to a kind of file, a `paths:` list of globs that match tracked files; a row in `CLAUDE.md`'s table and in `ONBOARDING.md` §1; every clause tagged `[gate]`, `[guard: file]`, `[review: row]` or `[eye]`. A rule without `paths:` costs every session; the guard holds the total under its ceiling, which only falls.
 - **A pitfall**: one line in the `rules/pitfalls/` file for its area, with the bug or case-study id.
-- **A skill**: `skills/<name>/SKILL.md` whose `name` is the directory name; a scheduled one obeys `ONBOARDING.md` §13.
+- **A skill**: `skills/<name>/SKILL.md` whose `name` is the directory name; scaffold or validate via `.claude/skills/create-skill/SKILL.md`; a scheduled one obeys `ONBOARDING.md` §13.
 - **A subagent**: `agents/<name>.md` with `name`, `description`, `tools`, and the skill it runs.
 - **A template**: a file under `templates/` with a `description:`; the rule that governs the document points at it.
 - Then `python3 scripts/check_skill_prompt_references.py` (every cited path must exist) and the re-rendered inventory above.
