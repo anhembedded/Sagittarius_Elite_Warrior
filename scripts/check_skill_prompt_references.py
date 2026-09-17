@@ -26,6 +26,19 @@ would have sent the next reviewer to a file that no longer exists, with no
 reason to doubt it. Same rot, same fix -- `EPIC-011` is the record of it
 happening once already.
 
+@par Why it asks git and not the filesystem (`BUG-129`, 2026-09-17)
+It resolved every reference with `Path.exists()` until then, which answers about
+the disk it runs on rather than about the repository. A working tree carries
+more than the repository does: `EPIC-025`'s moves left `src/domain/backtesting/`
+and `src/application/use_cases/` behind as directories holding nothing but
+`__pycache__`, and nothing deletes those. So two prompts citing those paths
+passed here on every developer machine and failed in GitHub CI, which clones
+fresh -- and because this step runs before the tests, every later step was
+skipped: `master-warrior` was red for three merges while the local gate called
+that step green. A checker whose answer depends on who runs it is worse than no
+checker, because it is believed. It reads `git ls-files` now, so local and CI
+answer the same question: is this path in the repository?
+
 Run it before committing any edit under any of `PROMPT_TREES` below:
 
     python3 scripts/check_skill_prompt_references.py
@@ -36,8 +49,10 @@ Exit code 0 = every referenced path resolves; 1 = at least one does not.
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
 import sys
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 #: The document trees this checker reads, as (directory, glob) pairs relative to
 #: the repository root. A tree is listed here because a reader follows its links
@@ -128,15 +143,77 @@ def _prompt_files(root: Path) -> list[Path]:
     return list(found)
 
 
+def _tracked_paths(root: Path) -> set[str] | None:
+    """Every path the repository holds, or `None` when git cannot answer.
+
+    @details `git ls-files` lists **files**, and the briefings cite directories
+    too, so every ancestor of every tracked file is added: `src/kept/module.py`
+    also registers `src/kept` and `src` as things that exist. The index is read
+    rather than a commit, because a move that has been staged but not yet
+    committed is real work and this checker runs before that commit.
+
+    Returns `None` rather than an empty set when git is unavailable or `root` is
+    not a repository. An empty set would read as "the repository holds nothing"
+    and fail every reference; `None` says "no answer", which the caller handles
+    by falling back to the filesystem **and saying so**.
+    """
+    git = shutil.which("git")
+    if git is None:
+        return None
+    try:
+        # `S603` is suppressed, not worked around: the argument vector is this
+        # literal list plus `root`, which is this checkout's own path, there is
+        # no shell, and `git` is an absolute path resolved above rather than a
+        # name looked up at spawn time.
+        completed = subprocess.run(  # noqa: S603
+            [git, "-C", str(root), "ls-files", "-z"],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+    except (OSError, subprocess.CalledProcessError):
+        return None
+
+    tracked: set[str] = set()
+    for entry in completed.stdout.split("\0"):
+        if not entry:
+            continue
+        tracked.add(entry)
+        parent = PurePosixPath(entry).parent
+        while parent != PurePosixPath("."):
+            tracked.add(parent.as_posix())
+            parent = parent.parent
+    return tracked
+
+
+def _resolves(reference: str, tracked: set[str] | None, root: Path) -> bool:
+    """Whether the repository holds `reference`.
+
+    A cited directory may or may not carry a trailing slash — the briefings are
+    written both ways — so it is stripped before the lookup.
+    """
+    if tracked is None:
+        return (root / reference).exists()
+    return reference.rstrip("/") in tracked
+
+
 def check(root: Path) -> list[tuple[Path, str]]:
     """Return every (source file, missing path) pair across `PROMPT_TREES`."""
+    tracked = _tracked_paths(root)
+    if tracked is None:
+        print(
+            "warning: git could not list this tree, so paths are being checked "
+            "against the working directory. An untracked leftover will read as "
+            "present here and missing in CI (`BUG-129`).",
+            file=sys.stderr,
+        )
     missing: list[tuple[Path, str]] = []
     for source in _prompt_files(root):
         text = source.read_text(encoding="utf-8")
         references = _backticked_references(text) + _link_references(text, source, root)
         # A document naturally names the same path more than once; report once.
         for reference in dict.fromkeys(references):
-            if not (root / reference).exists():
+            if not _resolves(reference, tracked, root):
                 missing.append((source.relative_to(root), reference))
     return missing
 
