@@ -4,9 +4,9 @@
   case, test layer, module hay như nào… các layer nào"* ("revisit the test philosophy — test cases,
   test layers, how modules are tested, which layers"). §9 says what happens to the *existing* tests
   during the migration; this section says what the suite **is** once the architecture exists.
-- **Builds on, does not replace:** [`.agents/rules/testing-rule.md`](../../.agents/rules/testing-rule.md)
+- **Builds on, does not replace:** [`.claude/rules/testing-rule.md`](../../.claude/rules/testing-rule.md)
   (how to write a test; BVA; mutation-verify; no sleeps) and
-  [`.agents/rules/ci-rule.md`](../../.agents/rules/ci-rule.md) (the four levels — Unit,
+  [`.claude/rules/ci-rule.md`](../../.claude/rules/ci-rule.md) (the four levels — Unit,
   Integration, Sanity, Desktop E2E — and the gate). Those stay the authority. This section adds the
   **map from architecture layer to proof**, because the old map ("test the presenter, test the
   handler") stops describing a system made of modules, contracts, cards and surfaces.

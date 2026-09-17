@@ -431,7 +431,7 @@ class DashboardPresenter(BasePresenter):
     #              (`presentation/ui/common/`), nhiều màn chỉ *hiển thị*.
     # Thăng cấp lên bus KHI consumer thứ hai xuất hiện thật, không thăng trước.
     #
-    # Luật đầy đủ + số liệu đo thật: .agents/rules/architecture-rule.md §6.
+    # Luật đầy đủ + số liệu đo thật: .claude/rules/architecture-rule.md §6.
     # Lịch sử: EPIC-008G §2 từng đặt chỉ tiêu "xoá 48 signal cầu nối"; đo lại
     # thấy 47/48 là cầu nối thread (không phải cầu nối bus) nên đã dừng.
     # ------------------------------------------------------------------ #

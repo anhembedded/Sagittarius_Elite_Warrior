@@ -6,7 +6,7 @@ nó; `HealthUpdatedEvent` có ba bản định dạng dù nguyên tắc "một n
 được viết ra. Luật đúng mà không có phép đo thì không ai theo — nên mỗi luật ở
 đây phải có một test **đỏ được**.
 
-Luật đầy đủ: `.agents/rules/architecture-rule.md` §6.
+Luật đầy đủ: `.claude/rules/architecture-rule.md` §6.
 """
 
 from __future__ import annotations

@@ -7,7 +7,7 @@ it**: the nets that were in place, and the reason each looked away.
 | :--- | :--- |
 | [`Tasks/bug_report/`](../../Tasks/bug_report/README.md) | what broke, root cause, fix |
 | **`Docs/CASE_STUDIES/`** (this) | which check was silent, and what checks it now |
-| [`.agents/ONBOARDING.md`](../../.agents/ONBOARDING.md) §8 | the one-line form, for skimming before you code |
+| [`.claude/rules/pitfalls/`](../../.claude/rules/pitfalls/tests.md) | the one-line form, loading with the files it concerns |
 
 ## Write one only when all three hold
 
@@ -21,7 +21,7 @@ reason is still true elsewhere.
 
 ## Form
 
-**A short list, not an analysis.** One table — net · why silent · still open? — then bullets, one
+**A short list, not an analysis** — the format is `.claude/templates/case-study.md`. One table — net · why silent · still open? — then bullets, one
 line each. Required sections: `## Why nothing caught it`, `## The fix`, `## Where else this is
 still open`. The guard fails a file over **35 lines**. Explaining at length is what the
 bug report is for.

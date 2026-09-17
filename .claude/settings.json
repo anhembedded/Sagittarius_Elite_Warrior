@@ -1,0 +1,26 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(pwsh -NoProfile -File scripts/ci-local.ps1:*)",
+      "Bash(python3 scripts/check_skill_prompt_references.py)",
+      "Bash(python3 scripts/render_task_counts.py)",
+      "Bash(python3 scripts/render_claude_manifest.py)",
+      "Bash(python3 scripts/measure_process.py)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git log:*)"
+    ]
+  },
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "git status --short --branch"
+          }
+        ]
+      }
+    ]
+  }
+}

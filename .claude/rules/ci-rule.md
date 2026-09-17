@@ -1,7 +1,5 @@
 ---
-name: Local CI Execution Rule
 description: The one gate, its two-tier cadence, the diagnostic modes, the four test levels, failure handling, and the mandatory log scan.
-trigger: always_on
 ---
 
 # The gate

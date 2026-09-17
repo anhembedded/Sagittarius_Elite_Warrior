@@ -1,7 +1,8 @@
 ---
-name: Logging Rules
 description: Where a log line goes so one reproduce-and-send cycle locates a root cause; namespace, levels, tags, dev/debug modes.
-trigger: always_on
+paths:
+  - "src/**/*.py"
+  - "scripts/**/*.py"
 ---
 
 # Logging

@@ -1,10 +1,8 @@
 ---
-name: Async UI Action Ownership Rule
 description: Action identity, stale-callback fencing and cooperative cancellation for every background task started from the UI; the Coordinator pattern.
-trigger: on_file_change
-patterns:
-  - src/**/*presenter*.py
-  - src/**/*coordinator*.py
+paths:
+  - "src/**/*presenter*.py"
+  - "src/**/*coordinator*.py"
 ---
 
 # Async UI actions

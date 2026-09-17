@@ -1,7 +1,10 @@
 ---
-name: Install Rule
 description: How the engine and dependencies are installed, the Python floor, and the rule that a missing tool is installed rather than reported.
-trigger: always_on
+paths:
+  - "requirements.txt"
+  - "pyproject.toml"
+  - "scripts/**"
+  - ".github/workflows/**"
 ---
 
 # Installation

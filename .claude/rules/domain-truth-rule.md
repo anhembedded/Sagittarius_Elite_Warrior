@@ -1,12 +1,9 @@
 ---
-name: Domain Truthfulness Rule
 description: The system never lies about what it did — real coverage, real exchange filters, immutable snapshots, distinct trading facts, a UI that promises only what the engine delivers.
-trigger: on_file_change
-patterns:
-  - src/domain/**/*.py
-  - src/application/**/*.py
-  - src/modules/*/domain/**/*.py
-  - src/modules/*/application/**/*.py
+paths:
+  - "src/domain/**/*.py"
+  - "src/modules/*/domain/**/*.py"
+  - "src/modules/*/application/**/*.py"
 ---
 
 # Truthful data

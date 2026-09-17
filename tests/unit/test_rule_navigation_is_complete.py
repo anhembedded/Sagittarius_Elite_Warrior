@@ -1,30 +1,25 @@
-"""Guard: every `.agents/rules/*.md` is listed by both navigation files.
+"""Guard: every rule under `.claude/rules/` is listed by both navigation files.
 
-Claude Code loads `CLAUDE.md` automatically; it never loads `.agents/rules/*.md`
-— the `trigger: always_on` front-matter field in the rule files is a convention
-of `.agents/Skills/`, not a loading mechanism. So the table in `CLAUDE.md` is
-not a convenience index: it is the *only* thing that tells an agent a rule
-file exists. `.agents/AGENTS.md` plays the same role for the scheduled agents.
+Claude Code loads the rules by itself — every session, or when a file matching a rule's
+`paths:` front matter is opened. A path-scoped rule therefore exists without announcing
+itself to an agent who has not opened a matching file yet, and a planning session decides
+what to touch before it opens anything. The table in `CLAUDE.md` and the reading order in
+`.claude/ONBOARDING.md` are what tell that agent the rule is there.
 
-The one partial exception is the `trigger: on_file_change` rules, which have a
-thin pointer under `.claude/rules/` so Claude loads them on reading a matching
-source file (`test_claude_rule_pointers_match_agents_rules.py` keeps the two in
-step). A pointer routes to a rule; it never announces that the rule exists to
-someone who has not opened a matching file, so it replaces no row below.
+An unlisted rule is an unread rule, and this has already cost real defects. On 2026-09-02
+the `CLAUDE.md` table listed 7 of the 13 rule files; an agent read those 7, took them for
+the complete set, and shipped work violating three of the six it never saw — a QML container
+around the chart, a Coordinator with its own `action_id` bookkeeping, the mandatory
+`preview.py` omitted. On 2026-09-16 `report-rule.md` had a row in `CLAUDE.md` and none in
+the reading order, so the file an agent actually reads in order never said the rule existed.
 
-An unlisted rule is an unread rule, and this has already cost real defects.
-On 2026-09-02 the `CLAUDE.md` table listed 7 of the 13 rule files. An agent
-read those 7, took them for the complete set, and shipped work violating
-three of the six it never saw — a plan that put a QML container around the
-chart (`qml-rule.md` §0 forbids it: QML nests inside QtWidgets, never the
-reverse), gave a Coordinator its own `action_id` bookkeeping
-(`async-ui-action-rule.md` §2), and omitted the mandatory `preview.py`
-(`ui-presentation-rule.md`). `AGENTS.md` listed all 13 at the same time, so
-the gap was in exactly the file an interactive agent reads.
+The check is a text scan rather than a Markdown parse: the point is whether the rule's name
+appears at all, which no table-formatting choice can change. A rule in a subdirectory is
+looked up by its path under `rules/` (`pitfalls/tests.md`), so a row cannot satisfy this
+guard with the bare word `tests.md`.
 
-The check is a filesystem/text scan rather than a Markdown parse: the point
-is whether the filename appears at all, which no table-formatting choice can
-change.
+Retire when: Claude Code lists every discovered rule to the session at start — then a row
+announces nothing the platform has not already said.
 """
 
 from pathlib import Path
@@ -32,24 +27,22 @@ from pathlib import Path
 import pytest
 
 _REPO_ROOT = Path(__file__).resolve().parents[2]
-_RULES_DIR = _REPO_ROOT / ".agents" / "rules"
+_RULES_DIR = _REPO_ROOT / ".claude" / "rules"
 
-#: Every entry point, and why each one matters. `CLAUDE.md` is what Claude
-#: Code itself loads; `AGENTS.md` is what the scheduled agents under
-#: `.agents/Skills/` are pointed at; `ONBOARDING.md` §1 is the reading order
-#: `CLAUDE.md` sends every agent to first. The third was added on 2026-09-16:
-#: `report-rule.md` had a row in the first two and none in the reading order,
-#: so the guard was green while the file an agent actually reads in order never
-#: said the rule existed — the same gap as the original incident, one file over.
+#: `CLAUDE.md` is what Claude Code loads first; `ONBOARDING.md` §1 is the reading order it
+#: imports. Both must name every rule.
 _NAVIGATION_FILES = (
     _REPO_ROOT / "CLAUDE.md",
-    _REPO_ROOT / ".agents" / "AGENTS.md",
-    _REPO_ROOT / ".agents" / "ONBOARDING.md",
+    _REPO_ROOT / ".claude" / "ONBOARDING.md",
 )
 
 
 def _rule_files() -> list[Path]:
-    return sorted(_RULES_DIR.glob("*-rule.md"))
+    return sorted(_RULES_DIR.rglob("*.md"))
+
+
+def _rule_id(rule: Path) -> str:
+    return rule.relative_to(_RULES_DIR).as_posix()
 
 
 def test_rules_directory_is_where_this_guard_expects_it() -> None:
@@ -69,7 +62,7 @@ def test_rules_directory_is_where_this_guard_expects_it() -> None:
 )
 def test_navigation_file_lists_every_rule(navigation_file: Path) -> None:
     text = navigation_file.read_text(encoding="utf-8")
-    unlisted = [rule.name for rule in _rule_files() if rule.name not in text]
+    unlisted = [_rule_id(rule) for rule in _rule_files() if _rule_id(rule) not in text]
 
     assert not unlisted, (
         f"{navigation_file.relative_to(_REPO_ROOT)} does not mention "

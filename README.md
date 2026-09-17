@@ -13,7 +13,7 @@ theo **Clean Architecture** (Domain → Application → Infrastructure/Presentat
 
 | | |
 | :--- | :--- |
-| **Python** | ≥ 3.12 (sàn thật, được `tests/sanity/test_python_floor.py` canh — xem [`install-rule.md`](.agents/rules/install-rule.md) §1b) |
+| **Python** | ≥ 3.12 (sàn thật, được `tests/sanity/test_python_floor.py` canh — xem [`install-rule.md`](.claude/rules/install-rule.md) §1b) |
 | **UI** | PySide6 (QtWidgets) + pyqtgraph cho chart; **không còn QML cho code mới** (ADR D20, 2026-09-13) — phần QML còn sót được `EPIC-025` gỡ dần, guard chặn file `.qml` mới |
 | **Lưu trữ** | SQLite (WAL) qua SQLAlchemy |
 | **Cổng kiểm thử bắt buộc** | [`scripts/ci-local.ps1 -Full`](scripts/ci-local.ps1) + [GitHub Actions](.github/workflows/ci.yml) |
@@ -41,7 +41,7 @@ theo **Clean Architecture** (Domain → Application → Infrastructure/Presentat
 ## 2. Kiến trúc
 
 Bốn lớp, phụ thuộc luôn hướng vào trong. Chi tiết và lý do từng quyết định nằm ở
-[`.agents/rules/architecture-rule.md`](.agents/rules/architecture-rule.md) và
+[`.claude/rules/architecture-rule.md`](.claude/rules/architecture-rule.md) và
 [`Docs/Diagrams/architecture.md`](Docs/Diagrams/architecture.md).
 
 ```text
@@ -66,7 +66,7 @@ Ba ràng buộc quyết định phần lớn cách code được tổ chức:
    thư mục; file > 400 dòng hoặc class > 15 public method là bắt buộc phải tách.
 
 **Hai repository độc lập, không phải submodule.** `Sagittarius_Engine` (framework) và
-`Sagittarius_Elite_Warrior` (app này) có remote riêng, `.agents/` riêng, task board riêng — commit
+`Sagittarius_Elite_Warrior` (app này) có remote riêng, cây rule riêng (`.claude/`), task board riêng — commit
 và push tách bạch, không có bước "bump" con trỏ nào cả.
 
 ---
@@ -92,7 +92,7 @@ Sagittarius_Elite_Warrior/
 ├── scripts/                 # ci-local.ps1, run.ps1, run-ui.ps1, preview-qml.ps1, probe/benchmark
 ├── Tasks/                   # ROADMAP.md, epics/, bug_report/, backlog/, completed/, reports/
 ├── Docs/                    # Sơ đồ kiến trúc, ý định dự án, thiết kế chi tiết
-├── .agents/                 # ONBOARDING.md + rules/ — quy trình bắt buộc cho người & AI agent
+├── .claude/                 # ONBOARDING.md, rules/, skills/, agents/, templates/ — quy trình cho người & AI agent
 └── database/                # trading.db (không commit)
 ```
 
@@ -129,7 +129,7 @@ pip install -e ../Sagittarius_Engine        # chạy từ thư mục workspace c
 Trên Linux còn cần `pwsh` để chạy được **cổng kiểm thử bắt buộc**, và vài thư viện hệ thống cho Qt
 chạy `offscreen` (`libegl1`, `libgl1`, `libxkbcommon0`, `libfontconfig1`, `libdbus-1-3` trên một
 container sạch — cứ để `ImportError` gọi tên file `.so` còn thiếu). Hướng dẫn đầy đủ:
-[`.agents/rules/install-rule.md`](.agents/rules/install-rule.md) §2b, §3.
+[`.claude/rules/install-rule.md`](.claude/rules/install-rule.md) §2b, §3.
 
 ### Khai báo API key cho Futures Testnet
 
@@ -212,7 +212,7 @@ cd Sagittarius_Elite_Warrior
 
 `-Full` chạy: `ruff check` + `ruff format --check` (đã bật thêm nhóm `S`/`PLR2004`/`B`/`SIM`/`ERA`/`N`
 — tương đương lớp bảo mật/chất lượng kiểu Bandit), `mypy` trên `src` **và** `scripts` **trong cùng
-một lệnh**, guard tham chiếu của `.agents/Skills/`, toàn bộ test, tầng Sanity chạy tuần tự riêng, và
+một lệnh**, guard tham chiếu của `.claude/`, toàn bộ test, tầng Sanity chạy tuần tự riêng, và
 ngưỡng coverage 80%. Các cờ `-UnitOnly`/`-SanityOnly`/`-SkipLint`/`-SkipTests` là **công cụ chẩn
 đoán**, không được dùng để đi vòng qua một cổng đang đỏ.
 
@@ -261,25 +261,25 @@ và soi **khoảng trống (gap)** trước khi backtest hay bật live stream.
 ## 8. Đóng góp — đọc trước khi viết dòng code đầu tiên
 
 Repo này có quy trình bắt buộc, áp dụng cho cả người lẫn AI agent. Điểm vào duy nhất:
-**[`.agents/ONBOARDING.md`](.agents/ONBOARDING.md)** — bố cục 2 repo, vòng đời task/bug, lệnh kiểm
+**[`.claude/ONBOARDING.md`](.claude/ONBOARDING.md)** — bố cục 2 repo, vòng đời task/bug, lệnh kiểm
 chứng thật trên Linux, cách ghi sổ `ROADMAP.md`, và §8 liệt kê những cái bẫy **đã thật sự tạo ra
 code hỏng** ở đây.
 
 | Việc | Đọc file |
 | :--- | :--- |
-| Quyết một mình hay phải hỏi | [`ONBOARDING.md`](.agents/ONBOARDING.md) §7 |
-| Kiến trúc: lớp, Port/ABC, Shared Kernel, đặt event ở đâu | [`architecture-rule.md`](.agents/rules/architecture-rule.md) |
-| Chất lượng code: typing, magic number, cohesion, lazy import | [`code-quality-rule.md`](.agents/rules/code-quality-rule.md) |
-| Trước khi tuyên bố "xong" | [`ci-rule.md`](.agents/rules/ci-rule.md) |
-| Trước mỗi commit | [`commit-rule.md`](.agents/rules/commit-rule.md) |
-| Khi có bug được báo (**bắt buộc**) | [`bug-fix-rule.md`](.agents/rules/bug-fix-rule.md) |
-| Thêm/sửa log | [`logging-rule.md`](.agents/rules/logging-rule.md) |
-| Viết test | [`testing-rule.md`](.agents/rules/testing-rule.md) |
-| Làm UI: bố cục màn hình, `preview.py`, icon, cột bảng | [`ui-presentation-rule.md`](.agents/rules/ui-presentation-rule.md) |
-| Bất kỳ code UI nào (QtWidgets only, không còn QML từ ADR D20) | [`ui-presentation-rule.md`](.agents/rules/ui-presentation-rule.md) |
-| Tác vụ nền khởi động từ UI: sở hữu action, huỷ, tách Coordinator | [`async-ui-action-rule.md`](.agents/rules/async-ui-action-rule.md) |
-| Đụng `src/domain/**` hoặc `src/application/**`: dữ liệu trung thực | [`domain-truth-rule.md`](.agents/rules/domain-truth-rule.md) |
-| Dựng môi trường, thiếu công cụ | [`install-rule.md`](.agents/rules/install-rule.md) |
+| Quyết một mình hay phải hỏi | [`ONBOARDING.md`](.claude/ONBOARDING.md) §7 |
+| Kiến trúc: lớp, Port/ABC, Shared Kernel, đặt event ở đâu | [`architecture-rule.md`](.claude/rules/architecture-rule.md) |
+| Chất lượng code: typing, magic number, cohesion, lazy import | [`code-quality-rule.md`](.claude/rules/code-quality-rule.md) |
+| Trước khi tuyên bố "xong" | [`ci-rule.md`](.claude/rules/ci-rule.md) |
+| Trước mỗi commit | [`commit-rule.md`](.claude/rules/commit-rule.md) |
+| Khi có bug được báo (**bắt buộc**) | [`bug-fix-rule.md`](.claude/rules/bug-fix-rule.md) |
+| Thêm/sửa log | [`logging-rule.md`](.claude/rules/logging-rule.md) |
+| Viết test | [`testing-rule.md`](.claude/rules/testing-rule.md) |
+| Làm UI: bố cục màn hình, `preview.py`, icon, cột bảng | [`ui-presentation-rule.md`](.claude/rules/ui-presentation-rule.md) |
+| Bất kỳ code UI nào (QtWidgets only, không còn QML từ ADR D20) | [`ui-presentation-rule.md`](.claude/rules/ui-presentation-rule.md) |
+| Tác vụ nền khởi động từ UI: sở hữu action, huỷ, tách Coordinator | [`async-ui-action-rule.md`](.claude/rules/async-ui-action-rule.md) |
+| Đụng `src/domain/**` hoặc `src/application/**`: dữ liệu trung thực | [`domain-truth-rule.md`](.claude/rules/domain-truth-rule.md) |
+| Dựng môi trường, thiếu công cụ | [`install-rule.md`](.claude/rules/install-rule.md) |
 
 Bốn điều dễ mất nửa ngày nếu làm sai:
 
@@ -293,7 +293,7 @@ Bốn điều dễ mất nửa ngày nếu làm sai:
 
 ### Ngôn ngữ
 
-Tài liệu trong `.agents/`: **tiếng Anh**. Code, định danh, docstring, comment, commit subject:
+Tài liệu trong `.claude/`: **tiếng Anh**. Code, định danh, docstring, comment, commit subject:
 **tiếng Anh**. Hội thoại với user, file task, bug report, tài liệu trong `Tasks/`, và chuỗi hiển thị
 trên UI: **tiếng Việt**.
 

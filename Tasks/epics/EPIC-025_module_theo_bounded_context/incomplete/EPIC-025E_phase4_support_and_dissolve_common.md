@@ -1217,7 +1217,7 @@ deleted, one bug found (`BUG-128`) and one case study written (`CS-004`, closed 
 PR 4.3 was merged before this review ran, because the `pr-review` skill had been loaded once at the
 start of the session and its rows applied from memory afterwards — which is the one thing that file
 forbids in its own opening paragraph (*"never quote a rule from memory"*, and *"your first command
-is `ls .agents/rules/`"*). Run properly against `569842d7..800d14d4`, over all **14** rule files
+is `ls .claude/rules/`"*). Run properly against `569842d7..800d14d4`, over all **14** rule files
 rather than the 7 the `CLAUDE.md` table happens to list, it found three real things. They are
 recorded here rather than quietly fixed, because two of them are mistakes in what §4.12 *claims*.
 

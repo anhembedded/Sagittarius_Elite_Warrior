@@ -231,7 +231,7 @@ class BackTestPresenter(BasePresenter):
     # chuẩn hoá (`presentation/ui/common/`). Thăng cấp KHI có consumer thứ hai
     # thật, không thăng trước.
     #
-    # Luật đầy đủ: .agents/rules/architecture-rule.md §6.
+    # Luật đầy đủ: .claude/rules/architecture-rule.md §6.
     # ------------------------------------------------------------------ #
     _backtestSucceededSignal = Signal(int, object)  # action_id, BacktestResult
     _backtestEmptySignal = Signal(int, str, object)  # action_id, message, config

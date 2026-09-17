@@ -33,7 +33,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 - **Khi sửa xong:** `git mv incomplete/BUG-XXX_*.md completed/` (kèm ảnh của
   nó), cập nhật `Status` trong file, rồi chuyển dòng tương ứng ở bảng dưới từ
   mục "Đang mở" sang mục "Đã sửa".
-- Quy trình xử lý bug: [`.agents/rules/bug-fix-rule.md`](../../.agents/rules/bug-fix-rule.md)
+- Quy trình xử lý bug: [`.claude/rules/bug-fix-rule.md`](../../.claude/rules/bug-fix-rule.md)
   — root cause trước, regression test **fail đúng lý do** trước khi sửa, giữ
   test vĩnh viễn, ghi hồ sơ.
 - Bug **không** được tính vào các con số task ở `ROADMAP.md`.
@@ -203,7 +203,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | **[BUG-012](completed/BUG-012.md)** | Indicator data có leading gap, không có giá trị trước để giữ | 🟡 P2 | 2026-08-18 | [`BOT-085`](../completed/BOT-085_dev_board_volume_spike_after_live_reload.md) |
 | **[BUG-011](completed/BUG-011.md)** | UI block ở trạng thái health-check | 🟡 P2 | 2026-08-18 | [`BOT-085`](../completed/BOT-085_dev_board_volume_spike_after_live_reload.md) |
 | **[BUG-010](completed/BUG-010_backtest_sync_never_satisfies_range_coverage.md)** | "Đồng bộ dữ liệu ngay" không bao giờ thoả range coverage, bấm bao nhiêu lần cũng vậy | 🔴 P1 | 2026-08-18 | Trong chính hồ sơ này (2026-08-18) |
-| **[BUG-009](completed/BUG-009_backtest_cached_frame_preview_widget_shift.md)** | Cached-frame drag preview trông như dịch cả widget rồi giật về | 🟡 P2 | 2026-08-18 | Trong chính hồ sơ này (2026-08-18). Là case study của [`logging-rule.md`](../../.agents/rules/logging-rule.md) |
+| **[BUG-009](completed/BUG-009_backtest_cached_frame_preview_widget_shift.md)** | Cached-frame drag preview trông như dịch cả widget rồi giật về | 🟡 P2 | 2026-08-18 | Trong chính hồ sơ này (2026-08-18). Là case study của [`logging-rule.md`](../../.claude/rules/logging-rule.md) |
 | **[BUG-008](completed/BUG-008_backtest_chart_toolbar_timeframe_noop.md)** | Nút timeframe trên chart-header chỉ có hình, không có tác dụng | 🔴 P1 | 2026-08-17 | Trong chính hồ sơ này |
 | **[BUG-007](completed/BUG-007.md)** | Đóng app desktop nhưng tiến trình Python vẫn chạy | 🔴 P1 | 2026-08-17 | [`BOT-099`](../completed/) |
 | **[BUG-006](completed/BUG-006.md)** | Trade marker chồng lên nhau đến mức không đọc nổi chart | 🟡 P2 | 2026-08-17 | [`BOT-098A1`](../completed/) |
@@ -220,7 +220,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 `BUG-001`…`BUG-005`, `BUG-011`, `BUG-012` là ghi chú thô (ảnh chụp + log dán
 vào), không theo cấu trúc header. Từ `BUG-006` trở đi mới có định dạng chuẩn
 (Reported / Severity / Status / Symptom / Root cause / Fix / Regression test)
-mà [`bug-fix-rule.md`](../../.agents/rules/bug-fix-rule.md) §7 quy định. Mức
+mà [`bug-fix-rule.md`](../../.claude/rules/bug-fix-rule.md) §7 quy định. Mức
 độ và ngày của nhóm cũ ở bảng trên được suy ra từ nội dung file và từ task đã
 sửa chúng, không phải do file tự khai — nếu cần chính xác tuyệt đối thì đọc
 thẳng file gốc.
