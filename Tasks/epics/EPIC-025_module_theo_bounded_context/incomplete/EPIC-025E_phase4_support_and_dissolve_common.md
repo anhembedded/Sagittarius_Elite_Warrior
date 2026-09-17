@@ -532,6 +532,31 @@ leaf files move together, so the cross-module UI import never has to exist even 
 row in §3.2 carries the merged scope; 4.2a and 4.2b are struck there rather than deleted, so the
 measurement above stays attached to the decision it produced.
 
+### 3.13 Correction to §3.12's second finding — the precedent already exists
+
+Measuring PR 4.4's actual scope (step 4 of the `epic-025` executor's checklist, before touching any
+code) found §3.12's "no `modules/*/ui` file imports another module's `ui/`" claim false. The grep
+it was based on only searched files already living under `modules/*/ui`; `screens/trading`,
+`screens/dashboard` and `screens/backtest` are still legacy, so their imports of
+`modules.strategy.ui.signal_feed`, `.strategy_arming_coordinator`, `.strategy_card_view_model`,
+`.strategy_overlay.*` and `.strategy_params.*` — eleven files' worth, dating to PR 2.1e, reviewed
+and merged — never showed up. The moment any one of these three screens moves into its own
+module's `ui/`, this pattern becomes exactly the cross-module UI import §3.12 called
+unprecedented: `modules/trading/ui` (or `backtesting.ui`) importing `modules/strategy/ui` directly,
+already true today in legacy form.
+
+**What this changes and what it does not.** `symbol_options_coordinator` landing in
+`modules/market_data/ui/` and being read by `backtest_presenter.py`/`dashboard_presenter.py` would
+not have been a first case — `strategy.ui` already publishes concrete display widgets other
+screens depend on directly, on the theory (never written down until now, so writing it down here)
+that "the armed strategy's card" and "the symbol catalog's picker" are each one module's own
+concept, and a screen rendering it is not the same shape as two modules' *business logic* reaching
+into each other. The fold decision from §3.12 is unaffected: the boundary-allowlist arithmetic
+(58 → 68, forbidden outright) is the argument that actually carries it, independent of the
+precedent question. What changes is that a future symbol-picker-as-a-port design, if anyone
+proposes it later, should not cite "no precedent for the concrete class" as a reason — the
+precedent is `strategy.ui`, cited here so the next session does not have to re-discover it.
+
 ### 4.1 PR 4.3a — the symbol picker had **two** implementations, one per toolkit
 
 The measurement that reordered this step. `support/ui_kit/symbol_picker/` holds a QtWidgets
