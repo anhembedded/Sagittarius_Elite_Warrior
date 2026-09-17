@@ -62,7 +62,7 @@ _EXEMPT_MARKER = "token-exempt"
 
 #: The one file inline-stylesheet literals are permitted in, for this
 #: package's own tree. A consuming app keeps its colours somewhere else —
-#: the reference consumer's is `assets/palette.py` — and names it through
+#: the reference consumer's is `ui_kit/palette.py` — and names it through
 #: `find_inline_stylesheets`'s `colour_source_names`. Hardcoding this one
 #: name meant an app could never reach zero findings: the file defining its
 #: tokens was itself reported, fifteen times, for containing tokens.

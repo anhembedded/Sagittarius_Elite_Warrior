@@ -48,6 +48,15 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_arming_service import (
+    StrategyArmingService,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
+    StrategyCatalogService,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
+    StrategyChartOverlayService,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_engine_factory import (
     StrategyEngineFactory,
 )
@@ -60,6 +69,15 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy i
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
     ISizingPolicy,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
+    IStrategyArming,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+    IStrategyCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+    IStrategyChartOverlay,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_engine import (
     IStrategyEngineFactory,
 )
@@ -70,10 +88,16 @@ from sagittarius_engine.interfaces.i_container import IContainer
 
 
 def bind_published_ports(container: IContainer) -> None:
-    """`IArmedStrategy` (PR 2.1c), and PR 3.1b's two for `backtesting`."""
+    """`IArmedStrategy` (PR 2.1c), PR 3.1b's two for `backtesting`, and PR
+    4.3m's three — `trading`/`dashboard`/`backtest` stop importing this
+    module's `ui/`/`application/` directly and read/write through these
+    instead (`DECISION_2026-09-17_strategy_ui_contributes_rather_than_being_imported.md`)."""
     container.singleton(IArmedStrategy, _the_live_session)
     container.singleton(IStrategyEngineFactory, _the_engine_factory)
     container.singleton(ISizingPolicy, MarginSizingPolicy)
+    container.singleton(IStrategyCatalog, _the_catalog)
+    container.singleton(IStrategyChartOverlay, _the_chart_overlay)
+    container.singleton(IStrategyArming, StrategyArmingService)
 
 
 def _the_live_session(container: IContainer) -> IArmedStrategy:
@@ -94,3 +118,13 @@ def _the_engine_factory(container: IContainer) -> IStrategyEngineFactory:
     return StrategyEngineFactory(
         container.resolve(StrategyRegistry), container.resolve(IEventPublisher)
     )
+
+
+def _the_catalog(container: IContainer) -> IStrategyCatalog:
+    """Same reason as `_the_engine_factory`: one `StrategyRegistry`, resolved
+    late rather than during `register()`."""
+    return StrategyCatalogService(container.resolve(StrategyRegistry))
+
+
+def _the_chart_overlay(container: IContainer) -> IStrategyChartOverlay:
+    return StrategyChartOverlayService(container.resolve(StrategyRegistry))

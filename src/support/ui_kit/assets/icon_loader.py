@@ -5,7 +5,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QIcon, QPainter, QPixmap
 from PySide6.QtSvg import QSvgRenderer
 
-from .palette import Palette
+from ..palette import Palette
 
 logger = logging.getLogger("App.IconLoader")
 

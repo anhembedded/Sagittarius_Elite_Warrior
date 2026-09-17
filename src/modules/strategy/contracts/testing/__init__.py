@@ -8,7 +8,13 @@ mocking a port it does not own. A consumer's test imports the fake from here.
 
 from .contract_armed_strategy import ArmedStrategyContract
 from .contract_sizing_policy import SizingPolicyContract
+from .contract_strategy_arming import StrategyArmingContract
+from .contract_strategy_catalog import StrategyCatalogContract
+from .contract_strategy_chart_overlay import StrategyChartOverlayContract
 from .fake_armed_strategy import FakeArmedStrategy
+from .fake_strategy_arming import FakeStrategyArming
+from .fake_strategy_catalog import FakeStrategyCatalog
+from .fake_strategy_chart_overlay import FakeStrategyChartOverlay
 
 #: `SizingPolicyContract` has no fake beside it, and the reason is written
 #: in its own module docstring: `ISizingPolicy` is pure arithmetic, so a
@@ -18,5 +24,11 @@ from .fake_armed_strategy import FakeArmedStrategy
 __all__ = [
     "ArmedStrategyContract",
     "FakeArmedStrategy",
+    "FakeStrategyArming",
+    "FakeStrategyCatalog",
+    "FakeStrategyChartOverlay",
     "SizingPolicyContract",
+    "StrategyArmingContract",
+    "StrategyCatalogContract",
+    "StrategyChartOverlayContract",
 ]
