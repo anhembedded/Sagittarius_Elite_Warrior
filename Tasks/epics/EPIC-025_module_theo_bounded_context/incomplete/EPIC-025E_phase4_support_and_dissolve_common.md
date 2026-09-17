@@ -1313,3 +1313,45 @@ with `BUG-129`'s report. What it does **not** close is the habit underneath: not
 workflow reads CI's verdict for the branch it just pushed, which is why a green local gate and a
 red remote could coexist for half a day. Reading it is a step, not a tool, and this phase is the
 evidence for taking it.
+
+### 4.15 The review of 4.3d–4.3k, run against the rule files
+
+§4.13 admitted that the eight steps before 4.3l had their checklist applied from memory rather
+than from the rule files. This is that review, run properly over `3444cee0^..2266fdd6` — 16
+commits — and it found two things plus one measurement error of its own.
+
+**1. A fixed pixel width on something that holds text** (`capital_dialog.py`, PR 4.3f).
+`ui-presentation-rule.md` allows a fixed size only for a true leaf glyph — icon, badge, divider —
+and names the consequence for anything else: it trades an overlap that is not there for a clip at
+another DPI or in another locale, because a localized string can run longer than its English
+source. The currency `QComboBox` carries codes, and it was `setFixedWidth(90)`. The row is the
+amount field at stretch 1 beside a combo with no stretch, so a **floor** gives the same layout
+today and grows instead of clipping: `_CURRENCY_MIN_WIDTH` and `setMinimumWidth`. Pinned by a test
+that reads `maximumWidth()` — a `setFixedWidth` sets minimum and maximum to the same number, so
+putting one back fails it. Verified by putting one back: exactly one failure.
+
+**2. PR 4.3h left two live modules named `trade_log_row`** — the row *widget*
+(`screens/backtest/_trade_log_row.py`, there since PR 1.6a) and the row *as the table shows it*
+(`screens/backtest/logic/trade_log_row.py`, added by 4.3h). Both are imported by the live screen,
+so neither is dead; what is wrong is that the name no longer says which. Deliberately **not**
+renamed here: PR 4.4 moves this whole screen into `modules/backtesting/ui/`, and a five-importer
+rename now is churn against a file that is about to move anyway. Recorded so that move does it.
+
+**3. The review's own first measurement was wrong, and the way it was wrong is worth keeping.**
+`baseline_tests_under_src.txt` compared across the range read **0 → 8**, which would be a ratchet
+growing — `ci-rule.md` §5.5's blocking case. It is not: `git show <before>:<path>` on a file that
+did not exist yet prints nothing, and `wc -l` of nothing is 0. The file was *created* by 4.3d at
+22 entries and shrank 22 → 19 → 16 → 14 → 11 → 8 across the range. Reading it per commit is what
+said so. A diff against a commit where the file was absent cannot be read as a count.
+
+**What the review confirmed, with the commands:** every ratchet fell or held flat (`qml_files`
+22 → 8, `qml_theme_refs` 166 → 62, `apply_role` 44 → 43 across 23 → 22 files, `setStyleSheet`
+145/21 unchanged, the boundary allowlist 58 → 58); 11 test files under `tests/` and 23 under `src/`
+deleted with **zero** skips or `xfail`s added anywhere in the range; all eight epic sections
+§4.4–§4.11 and all eight `TRACKING` status rows present; `test_spec_index_is_consistent` green, so
+no `SPEC` cites a test the range deleted; 4.3h's own E11 claim spot-checked against the tree (the
+four `trade_log_*` files in `logic/` really are imported by the panel, the coordinator and the
+presenter); no `hasattr`/`getattr` probing added, no `logger.info` in a hot loop, no new
+`@safe_ui_action` slot; and the four files still over the 400-line ceiling
+(`backtest_presenter.py` 1819, `dev_board_panel.py` 1070, `backtest_top_panel.py` 726,
+`data_management_view.py` 691) all predate the range and are already on PR 4.4's split list.

@@ -28,8 +28,8 @@ skipped and **20 runs went red over ~11½ hours** — including the four that cl
 
 ## Where else this is still open
 
-- **Any check that asks the filesystem about repository content**: the `rglob` guards scan what is
-  on disk, so an untracked leftover `.py` under a scanned root reads as source.
+- ~~**Any check that asks the filesystem about repository content.**~~ Closed for the registry:
+  `test_scanned_roots_are_not_empty.py` filters its matches through `git ls-files`, so a root alive
+  only as a shell reads as empty. Eight stale directories sat on this disk — they survive `git rm`
+  whenever they still hold ignored files — and none of them was a registered root.
 - **A local gate cannot see a red CI.** The habit this cost: after pushing, read the run.
-- Stale directories survive `git rm` when they hold ignored files — the same leftovers bit PRs
-  4.3e–4.3l as packages that looked deleted and were not.
