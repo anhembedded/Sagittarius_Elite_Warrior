@@ -34,12 +34,17 @@ import pytest
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _RULES_DIR = _REPO_ROOT / ".agents" / "rules"
 
-#: Both entry points, and why each one matters. `CLAUDE.md` is what Claude
+#: Every entry point, and why each one matters. `CLAUDE.md` is what Claude
 #: Code itself loads; `AGENTS.md` is what the scheduled agents under
-#: `.agents/Skills/` are pointed at.
+#: `.agents/Skills/` are pointed at; `ONBOARDING.md` §1 is the reading order
+#: `CLAUDE.md` sends every agent to first. The third was added on 2026-09-16:
+#: `report-rule.md` had a row in the first two and none in the reading order,
+#: so the guard was green while the file an agent actually reads in order never
+#: said the rule existed — the same gap as the original incident, one file over.
 _NAVIGATION_FILES = (
     _REPO_ROOT / "CLAUDE.md",
     _REPO_ROOT / ".agents" / "AGENTS.md",
+    _REPO_ROOT / ".agents" / "ONBOARDING.md",
 )
 
 
