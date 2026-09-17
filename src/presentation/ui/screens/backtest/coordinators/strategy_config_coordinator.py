@@ -11,10 +11,8 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_m
     OrderIntent,
     validate_order_intent,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_params.bot_params_form import (
-    build_bot_params_rows,
-    build_bot_params_schema,
-    parse_bot_params,
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+    IStrategyCatalog,
 )
 
 from ..logic.broker_properties_schema import BROKER_PROPERTY_FIELDS, owner_of
@@ -48,14 +46,14 @@ class StrategyConfigCoordinator:
         self,
         view_model,
         state: IBacktestScreenState,
-        strategy_registry,
+        catalog: IStrategyCatalog,
         logger,
         get_market_metadata: Callable[[str], Any],
         notify_config_changed: Callable[[], None],
     ) -> None:
         self._view_model = view_model
         self._state = state
-        self._strategy_registry = strategy_registry
+        self._catalog = catalog
         self._logger = logger
         self._get_market_metadata = get_market_metadata
         self._notify_config_changed = notify_config_changed
@@ -79,21 +77,16 @@ class StrategyConfigCoordinator:
         self._notify_config_changed()
 
     def refresh_bot_params_schema(self) -> None:
-        strategy_cls = self._selected_strategy_class()
-        schema = (
-            build_bot_params_schema(strategy_cls, self._state.strategy_params)
-            if strategy_cls is not None
-            else []
-        )
-        self._view_model.strategy_params.set_bot_params_schema(schema)
-        self._view_model.strategy_params.set_bot_params_rows(
-            build_bot_params_rows(schema)
-        )
-
-    def _selected_strategy_class(self):
-        return self._strategy_registry.available().get(
-            self._view_model.strategy_params.selectedStrategyKey
-        )
+        key = self._view_model.strategy_params.selectedStrategyKey
+        try:
+            groups = (
+                self._catalog.params_form(key, self._state.strategy_params or {})
+                if key
+                else ()
+            )
+        except KeyError:
+            groups = ()
+        self._view_model.strategy_params.set_bot_params_groups(groups)
 
     # ---------------------------------------------------------------- #
     # Saving
@@ -107,16 +100,18 @@ class StrategyConfigCoordinator:
 
         Returns True when the caller should start a re-run.
         """
-        strategy_cls = self._selected_strategy_class()
-        if strategy_cls is None:
+        key = self._view_model.strategy_params.selectedStrategyKey
+        if not key:
             return False
         try:
-            parsed = parse_bot_params(strategy_cls().inputs, raw_values)
-            strategy_cls(parsed)  # construct-and-discard: the real validator
-        except ValueError as exc:
-            self._view_model.strategy_params.set_bot_params_error(str(exc))
+            result = self._catalog.validate_params(key, raw_values)
+        except KeyError:
+            return False
+        if not result.accepted:
+            self._view_model.strategy_params.set_bot_params_error(result.error)
             return False
 
+        parsed = dict(result.values)
         self._state.strategy_params = parsed
         self._finish_save(parsed)
         return True
@@ -166,15 +161,16 @@ class StrategyConfigCoordinator:
         inputs = payload.get("inputs", {})
         props = payload.get("properties", {})
 
-        strategy_cls = self._selected_strategy_class()
-        if strategy_cls is not None and inputs:
+        key = self._view_model.strategy_params.selectedStrategyKey
+        if key and inputs:
             try:
-                parsed = parse_bot_params(strategy_cls().inputs, inputs)
-                strategy_cls(parsed)
-                self._state.strategy_params = parsed
-            except ValueError as exc:
-                self._view_model.strategy_params.set_bot_params_error(str(exc))
+                result = self._catalog.validate_params(key, inputs)
+            except KeyError:
                 return False
+            if not result.accepted:
+                self._view_model.strategy_params.set_bot_params_error(result.error)
+                return False
+            self._state.strategy_params = dict(result.values)
 
         self._apply_broker_properties(props)
         return True

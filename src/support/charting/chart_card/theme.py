@@ -13,9 +13,20 @@ What stays a literal here is what is genuinely not chrome: a candle body is
 green because it closed up, not because the theme says so. Those two carry
 `token-exempt` with that reason. If this package is ever made portable for
 real, the import above is the thing to remove, and these two are already in
-the right shape."""
+the right shape.
 
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+`EPIC-025` PR 4.3m: imports `Palette` from `ui_kit/palette.py` rather than
+the `assets` package, whose `__init__` also imports `icon_loader` —
+Qt-backed, unlike `Palette`'s plain hex strings. `assets/__init__.py`
+importing anything runs its own top, so reaching `Palette` through
+`assets.palette` would still have paid for `icon_loader`'s `PySide6`
+import; only a module outside that package avoids it.
+`StrategyChartOverlayService` now reaches this file from the application
+layer, wired eagerly in `strategy`'s composition root, and that Qt import
+would have landed on every run, headless included
+(`tests/unit/architecture/test_module_contribution_laziness.py`)."""
+
+from Sagittarius_Elite_Warrior.src.support.ui_kit.palette import Palette
 
 BULL_COLOR = "#26a69a"  # token-exempt: candle/indicator series colour, not chrome
 BEAR_COLOR = "#ef5350"  # token-exempt: candle/indicator series colour, not chrome

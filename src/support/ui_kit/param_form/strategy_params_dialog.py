@@ -13,17 +13,23 @@ Showing empty or inapplicable tabs here would be `domain-truth-rule.md`'s
 "do not present an unsupported capability as available", one dialog down.
 
 The fields themselves are `BotParamFieldWidget`, the same widget the
-Backtest dialog renders, from the same schema built by the same
-`build_bot_params_schema()` — so a strategy's parameters look and validate
-identically wherever they are edited.
+Backtest dialog renders, from the same `ParamGroup`/`ParamField` shape
+`IStrategyCatalog.params_form()` publishes — so a strategy's parameters
+look and validate identically wherever they are edited.
 
 `EPIC-023C` moved this out of `screens/trading/` and replaced the
 `TradingViewModel` type hint with `BotParamsSink` below: every screen's
 ViewModel that carries the `EPIC-022D` strategy-card Qt Property/Signal
-block (duplicated per-screen — see `dashboard_view_model.py`'s own
-docstring for why Shiboken forces that) satisfies it structurally, the
-same `ParamStepper` precedent `param_stepper.py` already set for
-`BotParamFieldWidget`.
+block satisfies it structurally, the same `ParamStepper` precedent
+`param_stepper.py` already set for `BotParamFieldWidget`.
+
+`EPIC-025` PR 4.3m: moved here from `modules/strategy/ui/strategy_params/`
+— it imports only `support/ui_kit`, never a strategy, so it belongs beside
+`param_field.py` rather than in the module that happens to be the source
+of the data it renders. `botParamsRows: list[dict]` became
+`botParamsGroups: tuple[ParamGroup, ...]`: `build_bot_params_rows`'s
+QML-`Repeater` flattening is dead (PR 4.3 deleted the QML), so this dialog
+now renders the strategy's declared groups directly.
 """
 
 from __future__ import annotations
@@ -37,6 +43,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Overlay,
@@ -70,7 +77,7 @@ class BotParamsSink(ParamStepper, Protocol):
 
     botParamsChanged: Any
     botParamsError: str
-    botParamsRows: list[dict]
+    botParamsGroups: tuple[ParamGroup, ...]
 
     def requestBotParamsSave(self, values: dict) -> None: ...
 
@@ -146,9 +153,9 @@ class StrategyParamsDialog(Overlay):
     def _sync_from_view_model(self) -> None:
         self._error_label.setText(self._vm.botParamsError)
         self._error_label.setVisible(bool(self._vm.botParamsError))
-        self._rebuild_fields(self._vm.botParamsRows)
+        self._rebuild_fields(self._vm.botParamsGroups)
 
-    def _rebuild_fields(self, rows: list[dict]) -> None:
+    def _rebuild_fields(self, groups: tuple[ParamGroup, ...]) -> None:
         while self._content_layout.count():
             item = self._content_layout.takeAt(0)
             if item is None:
@@ -164,22 +171,21 @@ class StrategyParamsDialog(Overlay):
                 widget.setParent(None)
         self._field_widgets = []
 
-        if not rows:
+        if not groups:
             empty = QLabel(_EMPTY_TEXT)
             empty.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
             self._content_layout.addWidget(empty)
             self._content_layout.addStretch(1)
             return
 
-        for row in rows:
-            if row.get("rowType") == "header":
-                header = QLabel(str(row.get("groupLabel", "")))
-                header.setStyleSheet(
-                    f"color: {Palette.TEXT_PRIMARY}; font-size: 12px; font-weight: 600;"
-                )
-                self._content_layout.addWidget(header)
-                continue
-            field_widget = BotParamFieldWidget(dict(row.get("field", {})), self._vm)
-            self._field_widgets.append(field_widget)
-            self._content_layout.addWidget(field_widget)
+        for group in groups:
+            header = QLabel(group.label)
+            header.setStyleSheet(
+                f"color: {Palette.TEXT_PRIMARY}; font-size: 12px; font-weight: 600;"
+            )
+            self._content_layout.addWidget(header)
+            for field in group.fields:
+                field_widget = BotParamFieldWidget(field, self._vm)
+                self._field_widgets.append(field_widget)
+                self._content_layout.addWidget(field_widget)
         self._content_layout.addStretch(1)

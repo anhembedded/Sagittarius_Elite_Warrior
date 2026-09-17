@@ -272,3 +272,34 @@ Three ports total: `IStrategyCatalog`, `IStrategyChartOverlay`, `IStrategyArming
 Nothing crosses that is not data, and nothing new was invented (P5) except the one thing the app
 had no shape for yet — the strategy card's own state per screen, which stays each screen's own
 view model rather than becoming a fourth thing to publish.
+
+## 7. Correction (implementation day) — §5's last two rows were wrong, measured
+
+Implementing §5's table exactly as written — deleting `StrategyCardViewModel` and
+`StrategyArmingCoordinator` and giving Trading and Dev Board a byte-identical copy of each —
+`tests/unit/architecture/test_presenter_duplication_only_shrinks.py` failed: 32 → 63 duplicated
+members for the Phase 1 pair, 107 → 135 across every pair. §5's own reasoning ("nothing behavioural
+to duplicate wrongly") was about the *data* the coordinator reads, and was correct about that; it
+did not account for the coordinator's and the card's own **method and property names** being the
+thing this specific ratchet counts, data-carrying or not. Two per-screen copies of an
+orchestration class are still two definitions of every one of its names.
+
+**The fix, found by the ratchet rather than anticipated by it:** put `StrategyCardViewModel` and
+`StrategyArmingCoordinator` back where they lived before `EPIC-025` PR 2.1e ever moved them into
+`modules/strategy/ui/` — `presentation/ui/common/` — instead of deleting them. This is not a
+reversal of the port work above: `IStrategyCatalog`/`IStrategyChartOverlay`/`IStrategyArming` still
+carry every piece of `strategy`-owned data across the boundary exactly as designed, and the class
+that reads them now lives in `presentation/`, which never crosses a module boundary to reach
+`modules/strategy` — the whole reason PR 2.1e's placement stopped being legal is moot once the
+class is not *in* a module's `ui/` at all. §5's row for `SignalFeed` (`modules/trading/ui/`) is
+corrected the same way, to `presentation/ui/common/` rather than `modules/trading/ui/`: Dev Board
+has no relationship to the `trading` module, and importing that module's `ui/` from an unrelated
+screen swaps one wrong crossing for another — `presentation/ui/common/sync_progress_feed.py`
+already established the "both screens want it, neither module does" home this class belongs in.
+
+Net effect measured on the finished tree: Phase 1 pair back at its own baseline (32, unchanged from
+before this PR), and the total *fell* (107 → 99) because consolidating `SignalFeed` and the
+`_on_signal_generated` handler it drove removed a real, separate duplicate
+(`presentation/ui/common/strategy_arming_coordinator.py` now owns that handler as
+`on_signal_generated()`, connected to the signal directly — neither Presenter defines it any more).
+`tests/unit/architecture/baseline_presenter_duplication.json` is lowered to 99 in the same commit.

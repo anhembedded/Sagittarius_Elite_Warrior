@@ -1,4 +1,5 @@
-"""The strategy card's own state, owned once (`EPIC-025` PR 2.1e).
+"""The strategy card's own state, owned once (`EPIC-025` PR 2.1e, kept
+shared by PR 4.3m).
 
 @details `TradingViewModel` and `DashboardViewModel` each carried this block —
 **nineteen members, name for name**: six signals, six setters the Presenter
@@ -8,38 +9,45 @@ and stayed identical by hand, which is how `BUG-084` and `BUG-086` each had to
 be fixed twice. `tools/measure_duplicate_members.py` counted them, and
 `EPIC-025`'s Phase 1 criterion ("59 duplicated members → 0") is mostly this.
 
-@par Why here rather than in `support/ui_kit`
+@par Why here rather than `modules/strategy/ui/` (PR 2.1e's original home)
 A card that picks a strategy, holds its parameters and asks to arm it is
-`strategy`'s vocabulary, not a reusable widget's. HLD §6.1 forbids a support
-package from knowing a module exists, and this class names `LiveStrategyConfig`'s
-own bounds through the widgets that bind to it. It is the module's `ui/`, which
-is exactly what ADR D22 and HLD §4 mean by a bounded context owning its own
-display code.
+still `strategy`'s vocabulary, not a reusable widget's — but a module's
+`ui/` may not be imported by another module the instant `strategy` becomes a
+real module boundary (`architecture-rule.md` §3, `EPIC-025` PR 4.4). `PR
+4.3m`'s first draft answered that by deleting this class and flattening its
+members directly onto `TradingViewModel`/`DashboardViewModel` — which
+undid the whole point of `EPIC-025`'s Phase 1 criterion: the nineteen names
+came right back as duplicates, just spelled without a `.strategy.` prefix
+(`tests/unit/architecture/test_presenter_duplication_only_shrinks.py`
+measured it, 32 → 63). This file is the correct fix: keep the *class* one
+shared owner, move its *location* one step sideways, from a module's `ui/`
+(now forbidden to cross) to `presentation/ui/common/` (never forbidden,
+since both consumers are Presenters, not modules) — the same move
+`strategy_arming_coordinator.py` makes in this same directory, for the
+same reason.
 
 @par The shape is the one the Backtest screen already used
-`backtest/view_models/strategy_params_view_model.py` is the same idea one screen
-over — *"whoever eventually shares a single strategy-params ViewModel between the
-two screens needs both halves to look like each other first"*, its own docstring
-says. They did look like each other; this is that sharing. The difference from
-that extraction is deliberate: it kept forwarding methods on the facade so that
-*"no call site changes"*, and here the call sites **do** change, to
-`view_model.strategy.…`. Forwarding would have left all nineteen names defined
-on both screens, which is the duplication itself rather than a way of removing
-it.
+`backtest/view_models/strategy_params_view_model.py` is the same idea one
+screen over. The difference from that extraction is deliberate: it kept
+forwarding methods on the facade so that *"no call site changes"*, and here
+the call sites **do** change, to `view_model.strategy.…`. Forwarding would
+have left all nineteen names defined on both screens, which is the
+duplication itself rather than a way of removing it.
 
 @par Not a widget, and not a Presenter
-State plus the signals that state emits, exactly like the Backtest half. What
-stays on each screen's own view model is what belongs to *that* screen: the
-Enable/Disable toggle, session stats, the symbol picker, the manual order card.
-`StrategyArmingCoordinator` is the behaviour — this is only what it reads and
-writes, and its `_StrategyCardView` Protocol is the port shape one of these
-satisfies.
+State plus the signals that state emits. What stays on each screen's own
+view model is what belongs to *that* screen: the Enable/Disable toggle,
+session stats, the symbol picker, the manual order card.
+`StrategyArmingCoordinator` (this directory) is the behaviour — this is
+only what it reads and writes, and its `StrategyCardViewModel` Protocol is
+the port shape this class satisfies.
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_params import (
+from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
+from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
     step_numeric_param_value,
 )
 
@@ -51,9 +59,10 @@ class StrategyCardViewModel(QObject):
     #: and what is armed). One signal for the whole block because the card
     #: redraws as a unit.
     strategyConfigChanged = Signal()
-    #: The parameter rows behind the "Thông số Chiến lược" dialog. Separate
-    #: from `strategyConfigChanged` because rebuilding a form the user is
-    #: typing into is not the same event as the card's own state changing.
+    #: The parameter groups behind the "Thông số Chiến lược" dialog.
+    #: Separate from `strategyConfigChanged` because rebuilding a form the
+    #: user is typing into is not the same event as the card's own state
+    #: changing.
     botParamsChanged = Signal()
     #: The most recent `SignalGeneratedEvent`.
     lastSignalChanged = Signal()
@@ -66,18 +75,11 @@ class StrategyCardViewModel(QObject):
     #: "Gỡ chiến lược".
     disarmRequested = Signal()
     #: The parameters dialog's Save.
-    #: The four `type: ignore[arg-type]`s in this file are one thing: Qt takes
+    #: The `type: ignore[arg-type]`s in this file are one thing: Qt takes
     #: a type *name* as a string at runtime (`"QVariantMap"`, `"QVariantList"`,
     #: `"QStringList"`) while the PySide6 stub declares `type`. That is the
     #: same false-positive class `pyproject.toml`'s wholesale `presentation/`
-    #: exclusion exists for (`EPIC-002A` §2), and this block came out of that
-    #: excluded tree — so it is re-keyed debt, not new. Taken as four local
-    #: ignores rather than a path exclusion, which is `qt_platform.py`'s
-    #: precedent from PR 1.6f: the file stays checked for everything else, and
-    #: it earned that immediately — two real errors (`union-attr` in the params
-    #: dialog, an optional enum index in the arming coordinator) surfaced the
-    #: moment this package left `presentation/`, and both are fixed rather
-    #: than excluded.
+    #: exclusion exists for (`EPIC-002A` §2).
     botParamsSaveRequested = Signal("QVariantMap")  # type: ignore[arg-type]
 
     def __init__(self, parent: QObject | None = None) -> None:
@@ -90,8 +92,7 @@ class StrategyCardViewModel(QObject):
         self._leverage = 1.0
         self._armed_summary = ""
         self._strategy_busy = False
-        self._bot_params_schema: list[dict] = []
-        self._bot_params_rows: list[dict] = []
+        self._bot_params_groups: tuple[ParamGroup, ...] = ()
         self._bot_params_error = ""
         self._last_signal_text = ""
 
@@ -101,8 +102,9 @@ class StrategyCardViewModel(QObject):
 
     @Property("QVariantList", notify=strategyConfigChanged)  # type: ignore[arg-type]
     def strategyOptions(self) -> list[dict]:
-        """`[{"key": ..., "label": ...}]` — the registry's keys, humanised
-        for display but always carrying the key the command needs."""
+        """`[{"key": ..., "label": ...}]` — `IStrategyCatalog.options()`,
+        already humanised for display but always carrying the key the
+        port needs."""
         return self._strategy_options
 
     @Property("QStringList", notify=strategyConfigChanged)  # type: ignore[arg-type]
@@ -200,32 +202,26 @@ class StrategyCardViewModel(QObject):
     # ------------------------------------------------------------------ #
 
     @Property("QVariantList", notify=botParamsChanged)  # type: ignore[arg-type]
-    def botParamsRows(self) -> list[dict]:
-        return self._bot_params_rows
+    def botParamsGroups(self) -> tuple[ParamGroup, ...]:
+        return self._bot_params_groups
 
     @Property(str, notify=botParamsChanged)
     def botParamsError(self) -> str:
         return self._bot_params_error
 
-    @Slot(list, list)
-    def set_bot_params(self, schema: list[dict], rows: list[dict]) -> None:
-        """@details Schema and rows are set together because they are two
-        views of one thing: rows are what the dialog renders, schema is
-        what `step_bot_param_value()` clamps against. Letting them be set
-        separately is how they end up describing different strategies."""
-        self._bot_params_schema = list(schema)
-        self._bot_params_rows = list(rows)
+    def set_bot_params(self, groups: tuple[ParamGroup, ...]) -> None:
+        self._bot_params_groups = groups
         self.botParamsChanged.emit()
 
     def step_bot_param_value(
         self, field_name: str, raw_value: str, direction: int
     ) -> str:
         """`ParamStepper` — normalises one Up/Down/wheel step against the
-        current schema, so `BotParamFieldWidget` never does the clamping
+        current groups, so `BotParamFieldWidget` never does the clamping
         arithmetic itself."""
-        for group in self._bot_params_schema:
-            for field in group.get("fields", []):
-                if field.get("name") == field_name:
+        for group in self._bot_params_groups:
+            for field in group.fields:
+                if field.name == field_name:
                     return step_numeric_param_value(field, raw_value, direction)
         return raw_value
 

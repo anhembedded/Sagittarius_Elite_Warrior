@@ -11,7 +11,7 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_st
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.disarm_strategy.command import (
     DisarmStrategyCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.disarm_strategy.result import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.disarm_strategy_result import (
     DisarmStrategyBlockReason,
     DisarmStrategyResult,
 )

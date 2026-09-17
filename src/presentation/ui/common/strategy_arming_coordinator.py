@@ -1,27 +1,41 @@
-"""`EPIC-022D`/`EPIC-022F` — a screen's strategy card, minus the widgets.
+"""`EPIC-022D`/`EPIC-022F`/`EPIC-023C` — a screen's strategy card, minus the
+widgets.
 
 @details Holds the parameter values the user is editing, turns the card's
-two buttons into `ArmStrategyCommand`/`DisarmStrategyCommand`, and
-persists a successful arming to `IConfig` so the next session starts from
-the same choice.
+two buttons into an arm/disarm request through `IStrategyArming`, and
+reads what strategies exist and their parameter forms through
+`IStrategyCatalog`.
 
-Split out of `TradingPresenter` rather than added to it: that file was
-already 729 lines before this feature, and `async-ui-action-rule.md` §2
-says a Presenter whose background-action logic outgrows one file splits
-by feature slice. Per that same section this Coordinator owns **no**
-action-id/cancellation bookkeeping — the owning Presenter keeps its own
-`ActionOwnershipTracker` and calls in here; nothing below starts its own
-background work.
+`EPIC-025` PR 4.3m: neither `trading` nor `dashboard` imports
+`modules.strategy.ui.*` or `modules.strategy.application.services.
+strategy_registry` directly any more (`architecture-rule.md` §3 forbids it
+the moment `strategy` becomes a module in PR 4.4). What crossed as
+`StrategyRegistry.available()`, `build_bot_params_schema`/
+`build_bot_params_rows`/`parse_bot_params` and a direct
+`dispatcher.dispatch(ArmStrategyCommandHandler, …)` +
+`LiveStrategyConfigStore` now crosses as two published ports —
+`IStrategyCatalog` and `IStrategyArming` — with the class-handling and the
+persistence both kept inside `modules/strategy`
+(`DECISION_2026-09-17_strategy_ui_contributes_rather_than_being_imported.md`
+§5).
 
-`EPIC-023C` moved this out of `screens/trading/coordinators/` into
-`common/` once Dev Board needed the identical strategy card — every
-dependency already arrived through the `view_model`/`dispatcher`/callable
-Protocol below, with zero direct reference to `TradingPresenter`/
-`TradingViewModel`, so the move is a pure path change. Importing across
-from `screens/dashboard/` into a sibling screen's private `coordinators/`
-dir would have been the cross-screen-import anti-pattern
-`architecture-rule.md` §5 documents — the same reason `EPIC-023A`/`B`
-already promoted `PositionsPanel`/`OpenOrdersPanel`/`equity_chart_adapter.py`.
+**This file stays shared rather than becoming two per-screen copies.** An
+earlier PR 4.3m draft gave Trading and Dev Board a byte-identical copy
+each, reasoning that the ADR's §5 crossing table had put every piece of
+*data* on the port, leaving only "orchestration glue with nothing
+behavioural to duplicate wrongly" — a claim
+`tests/unit/architecture/test_presenter_duplication_only_shrinks.py`
+disproved by measurement (32 → 63 duplicated members): the glue's own
+method names are exactly what that ratchet counts, data or not. This is
+also where the class lived before `EPIC-025` PR 2.1e ever moved it into
+`modules/strategy/ui/` (`git log --follow` on this path shows the same
+`presentation/ui/common/strategy_arming_coordinator.py` name), so
+un-crossing the module boundary and re-sharing the file are the same
+move, not two.
+
+Per `async-ui-action-rule.md` §2, this Coordinator owns **no** action-id or
+FSM bookkeeping: the owning Presenter keeps its own `ActionOwnershipTracker`
+and hands it in.
 """
 
 from __future__ import annotations
@@ -30,30 +44,22 @@ import logging
 from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
-    LiveStrategyConfigStore,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.arm_strategy import (
+from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.arm_strategy_result import (
     ArmStrategyBlockReason,
-    ArmStrategyCommand,
-    ArmStrategyCommandHandler,
     ArmStrategyResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.disarm_strategy import (
-    DisarmStrategyCommand,
-    DisarmStrategyCommandHandler,
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.disarm_strategy_result import (
     DisarmStrategyResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
+    IStrategyArming,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+    IStrategyCatalog,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     LiveStrategyConfig,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_display import (
-    humanize_strategy_key,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_params import (
-    build_bot_params_rows,
-    build_bot_params_schema,
-    parse_bot_params,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -61,7 +67,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
-logger = logging.getLogger("App.TradingStrategyArming")
+logger = logging.getLogger("App.StrategyArming")
 
 #: English copy for each refusal. Every branch of
 #: `ArmStrategyBlockReason` has a line here — a missing one would surface
@@ -91,25 +97,13 @@ DISARM_BLOCKED_MESSAGE = (
 )
 
 
-class CommandDispatcher(Protocol):
-    """The one method this Coordinator needs from the dispatcher.
-
-    @details `architecture-rule.md` requires explicit contracts rather
-    than implicit duck-typing. This used to be an untyped `dispatcher`
-    parameter, which said nothing about what was expected and let a test
-    pass anything at all (`BOT-125` review).
-    """
-
-    def dispatch(self, handler_class: type, input_dto: object | None = None) -> Any: ...
-
-
 class StrategyCardViewModel(Protocol):
     """What the strategy card's Coordinator reads from and writes to.
 
-    @details Narrower than `TradingViewModel` on purpose: this Coordinator
-    has no business touching the toggle, the chart, or the session stats
-    that ViewModel also carries, and naming only what it uses is what makes
-    that reviewable.
+    @details Narrower than either screen's own ViewModel on purpose: this
+    Coordinator has no business touching the toggle, the chart, or the
+    session stats that ViewModel also carries, and naming only what it
+    uses is what makes that reviewable.
     """
 
     @property
@@ -132,21 +126,22 @@ class StrategyCardViewModel(Protocol):
         self, strategy_key: str, interval: str, sizing_percent: float, leverage: float
     ) -> None: ...
 
-    def set_bot_params(self, schema: list[dict], rows: list[dict]) -> None: ...
+    def set_bot_params(self, groups: tuple[ParamGroup, ...]) -> None: ...
 
     def set_bot_params_error(self, message: str) -> None: ...
+
+    def set_last_signal_text(self, text: str) -> None: ...
 
 
 class StrategyArmingCoordinator:
     """@brief Strategy selection, parameters, arming and persistence for
-    the Trading screen."""
+    the screen it is constructed for."""
 
     def __init__(
         self,
         view_model: StrategyCardViewModel,
-        config,
-        dispatcher: CommandDispatcher,
-        available_strategies: Callable[[], Mapping[str, type]],
+        catalog: IStrategyCatalog,
+        arming: IStrategyArming,
         get_active_symbol: Callable[[], str],
         get_armed_config: Callable[[], LiveStrategyConfig | None],
         tracker: ActionOwnershipTracker,
@@ -156,18 +151,17 @@ class StrategyArmingCoordinator:
         on_armed_changed: Callable[[LiveStrategyConfig | None, bool], None],
     ) -> None:
         self._view_model = view_model
-        self._dispatcher = dispatcher
-        self._available_strategies = available_strategies
+        self._catalog = catalog
+        self._arming = arming
         self._get_active_symbol = get_active_symbol
         self._get_armed_config = get_armed_config
-        #: Owned by `TradingPresenter`, handed in — never minted here
-        #: (`async-ui-action-rule.md` §2).
+        #: Owned by the constructing Presenter, handed in — never minted
+        #: here (`async-ui-action-rule.md` §2).
         self._tracker = tracker
         self._arm_action_kind = arm_action_kind
         self._set_status = set_status
         self._append_log = append_log
         self._on_armed_changed = on_armed_changed
-        self._store = LiveStrategyConfigStore(config)
         self._params: dict[str, Any] = {}
         #: Sentinel for "the form has never been built", distinct from
         #: `""` which legitimately means "no strategy is picked".
@@ -178,40 +172,36 @@ class StrategyArmingCoordinator:
     # ------------------------------------------------------------------ #
 
     def restore_into_view_model(self, interval_options: list[str]) -> None:
-        """Fills the card from `trading.live_*` — and does nothing else.
+        """Fills the card from the saved selection — and does nothing else.
 
-        @details No `ArmStrategyCommand`, no `EnableTradingCommand`, no
-        network call. `BUG-101` (a Backtest restore that fired a real
-        200k-row query because it went through the same setters a user
-        does) and `BUG-104` (a remembered route that started a live
-        stream on boot) are the same bug twice; this method is written to
-        not be its third occurrence. After a restore the screen shows the
-        saved choice and nothing is armed, so the user still has to press
-        "Nạp chiến lược" themselves.
+        @details No arm request, no `EnableTradingCommand`, no network
+        call. `BUG-101` (a Backtest restore that fired a real 200k-row
+        query because it went through the same setters a user does) and
+        `BUG-104` (a remembered route that started a live stream on boot)
+        are the same bug twice; this method is written to not be its third
+        occurrence. After a restore the screen shows the saved choice and
+        nothing is armed, so the user still has to press "Nạp chiến lược"
+        themselves.
+
+        `IStrategyArming.saved_selection()` never raises — an invalid saved
+        config restores as "nothing selected" inside the port itself.
         """
-        available = sorted(self._available_strategies())
+        options = self._catalog.options()
         self._view_model.set_strategy_options(
-            [{"key": key, "label": humanize_strategy_key(key)} for key in available],
+            [{"key": opt.key, "label": opt.label} for opt in options],
             interval_options,
         )
-        try:
-            saved = self._store.load()
-        except ValueError as exc:
-            # A saved config the domain rejects (leverage 0, an interval
-            # live trading does not support) must not blank the card or
-            # crash the screen — show the defaults and say why.
-            logger.warning("Saved strategy configuration is invalid: %s", exc)
-            saved = LiveStrategyConfig(strategy_key="", symbol="", interval="")
-            self._view_model.set_bot_params_error(str(exc))
+        saved = self._arming.saved_selection()
 
         saved_key = saved.strategy_key
-        if saved_key not in available:
+        available_keys = [opt.key for opt in options]
+        if saved_key not in available_keys:
             # A saved key that no longer exists (renamed, removed) must
             # not be shown as if it were selectable. The combo falls back
             # to the first real strategy so the card is never empty — but
             # nothing is armed either way, so the fallback can only ever
             # become live if the user presses "Nạp chiến lược" on it.
-            saved_key = available[0] if available else ""
+            saved_key = available_keys[0] if available_keys else ""
         self._params = dict(saved.strategy_params)
         self._view_model.set_strategy_selection(
             saved_key, saved.interval, saved.sizing_percent, saved.leverage
@@ -224,36 +214,37 @@ class StrategyArmingCoordinator:
 
     def refresh_params_rows(self) -> None:
         """Rebuilds the parameter form for whatever strategy is selected."""
-        strategy_cls = self._selected_strategy_class()
-        if strategy_cls is None:
-            self._view_model.set_bot_params([], [])
+        key = self._view_model.selectedStrategyKey
+        if not key:
+            self._view_model.set_bot_params(())
             return
-        schema = build_bot_params_schema(strategy_cls, self._params)
-        self._view_model.set_bot_params(schema, build_bot_params_rows(schema))
+        try:
+            groups = self._catalog.params_form(key, self._params)
+        except KeyError:
+            self._view_model.set_bot_params(())
+            return
+        self._view_model.set_bot_params(groups)
         self._view_model.set_bot_params_error("")
 
     def apply_params(self, raw_values: Mapping[str, Any]) -> bool:
         """@returns Whether the values were accepted.
 
-        @details Validation is `parse_bot_params` against the strategy's
-        own declared `inputs` — the same call the Backtest screen makes,
-        so a value accepted on one screen cannot be rejected on the other.
+        @details Validation is `IStrategyCatalog.validate_params()` against
+        the strategy's own declared inputs — the same call the Backtest
+        screen makes, so a value accepted on one screen cannot be rejected
+        on the other.
         """
-        strategy_cls = self._selected_strategy_class()
-        if strategy_cls is None:
+        key = self._view_model.selectedStrategyKey
+        if not key:
             return False
-        try:
-            parsed = parse_bot_params(strategy_cls().inputs, raw_values)
-        except ValueError as exc:
-            self._view_model.set_bot_params_error(str(exc))
+        result = self._catalog.validate_params(key, raw_values)
+        if not result.accepted:
+            self._view_model.set_bot_params_error(result.error)
             return False
-        self._params = dict(parsed)
+        self._params = dict(result.values)
         self._view_model.set_bot_params_error("")
         self.refresh_params_rows()
         return True
-
-    def _selected_strategy_class(self) -> type | None:
-        return self._available_strategies().get(self._view_model.selectedStrategyKey)
 
     # ------------------------------------------------------------------ #
     # Arm / disarm
@@ -272,16 +263,11 @@ class StrategyArmingCoordinator:
     def on_arm_clicked(self) -> None:
         """The "Nạp chiến lược" button, end to end.
 
-        @details Moved here from `TradingPresenter` (`BOT-125` review):
-        the Presenter had grown to 926 lines, well past the 400 that
-        `architecture-rule.md` §5 makes a hard split threshold, and this
-        block is one coherent feature slice — the same reason
-        `async-ui-action-rule.md` §2 gives for Coordinators existing.
-
         Action ownership stays the Presenter's: it owns the tracker and
-        hands it in, which §2 explicitly sanctions ("a single shared
-        tracker the Presenter owns and hands to every Coordinator") and
-        distinguishes from a Coordinator minting its own action ids.
+        hands it in, which `async-ui-action-rule.md` §2 explicitly sanctions
+        ("a single shared tracker the Presenter owns and hands to every
+        Coordinator") and distinguishes from a Coordinator minting its own
+        action ids.
         """
         action = self._tracker.begin_action(self._arm_action_kind, None, None)
         self._report_state(busy=True)
@@ -307,12 +293,9 @@ class StrategyArmingCoordinator:
         # `EnumLabels` is a total mapping, so every member has a line by
         # construction. What it cannot cover is `None`:
         # `ArmStrategyCommandHandler` gives a reason to every `armed=False`
-        # result it returns (read it — all five do), but
-        # `ArmStrategyResult.block_reason` is declared optional because the
-        # armed case has none, so the invariant lives in the handler rather
-        # than in the type. The terminal branch is the shape
-        # `format_execute_order_block_reason()` already ends with, and it
-        # states what it knows instead of guessing a reason.
+        # result it returns, but `ArmStrategyResult.block_reason` is
+        # declared optional because the armed case has none, so the
+        # invariant lives in the handler rather than in the type.
         reason = result.block_reason
         message = (
             ARM_BLOCK_MESSAGES[reason]
@@ -361,25 +344,13 @@ class StrategyArmingCoordinator:
         self._on_armed_changed(self._get_armed_config(), busy)
 
     def arm(self) -> ArmStrategyResult:
-        """Runs `ArmStrategyCommand`; persists only on success.
-
-        @details Persisting only a successful arming is deliberate: a
-        half-typed parameter set that the strategy rejected is not a
-        configuration worth reloading next session, and writing it would
-        make the next boot's `_arm_from_config` fail the same way with no
-        user around to see why.
-        """
-        result = self._dispatcher.dispatch(
-            ArmStrategyCommandHandler, ArmStrategyCommand(self.build_config())
-        )
-        if result.armed:
-            self._store.save(self.build_config())
-        return result
+        """Runs the arm request through `IStrategyArming`; persistence on a
+        successful arm now happens inside the port's own implementation
+        (`EPIC-025` PR 4.3m O6) rather than here."""
+        return self._arming.arm(self.build_config())
 
     def disarm(self) -> DisarmStrategyResult:
-        return self._dispatcher.dispatch(
-            DisarmStrategyCommandHandler, DisarmStrategyCommand()
-        )
+        return self._arming.disarm()
 
     def armed_summary(self, config: LiveStrategyConfig | None) -> str:
         """One line describing what is actually running, or "" for nothing.
@@ -393,7 +364,7 @@ class StrategyArmingCoordinator:
         if config is None:
             return ""
         parts = [
-            humanize_strategy_key(config.strategy_key),
+            self._label_for(config.strategy_key),
             f"{config.symbol} {config.interval}",
             f"{config.sizing_percent:g}%/order",
             f"{config.leverage:g}x",
@@ -406,3 +377,38 @@ class StrategyArmingCoordinator:
                 )
             )
         return " · ".join(parts)
+
+    def on_signal_generated(self, event: Any) -> None:
+        """`SignalFeed.signalGenerated`'s handler — connected directly to
+        that signal by the constructing Presenter, so `TradingPresenter`
+        and `DashboardPresenter` need no `_on_signal_generated` method of
+        their own to define identically (`tests/unit/architecture/
+        test_presenter_duplication_only_shrinks.py`).
+
+        Filtered to the armed symbol on purpose: `SignalGeneratedEvent`
+        goes out on the same `IEventBus` a *backtest* run's own
+        `StrategyEngine` publishes on, and an unfiltered card would show a
+        backtest's output as if it were live.
+        """
+        signal = getattr(event, "signal", None)
+        if signal is None:
+            return
+        config = self._get_armed_config()
+        if config is None or signal.symbol != config.symbol:
+            return
+        action = getattr(signal.action, "value", str(signal.action))
+        when = signal.time.strftime("%H:%M:%S")
+        self._view_model.set_last_signal_text(
+            f"{when} · {action} @ {signal.price:g} — {signal.reason}"
+        )
+
+    def _label_for(self, key: str) -> str:
+        """`options()` already returns each key's display label —
+        `strategy_display.humanize_strategy_key` stops crossing (ADR §5).
+        A key an armed config still names but `options()` no longer lists
+        (renamed/removed since arming) falls back to the raw key rather
+        than crashing."""
+        for option in self._catalog.options():
+            if option.key == key:
+                return option.label
+        return key

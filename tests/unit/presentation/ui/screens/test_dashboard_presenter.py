@@ -236,8 +236,26 @@ def mock_container(
     from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
         LiveStrategySession,
     )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
+        StrategyCatalogService,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
+        StrategyChartOverlayService,
+    )
     from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
         StrategyRegistry,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
+        IStrategyArming,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+        IStrategyCatalog,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+        IStrategyChartOverlay,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing import (
+        FakeStrategyArming,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
         IAccountSnapshot,
@@ -268,6 +286,14 @@ def mock_container(
     script_registry.register("ema_ribbon", EmaRibbonScript)
     script_registry.register("ema_cross", EmaCrossScript)
 
+    # `EPIC-025` PR 4.3m — `IStrategyCatalog`/`IStrategyChartOverlay` are the
+    # real, cheap services over the same `strategy_registry`; `IStrategyArming`
+    # is its verified fake, same reasoning as `trading_session`/
+    # `order_submission` above.
+    _strategy_catalog = StrategyCatalogService(strategy_registry)
+    _chart_overlay = StrategyChartOverlayService(strategy_registry)
+    _strategy_arming = FakeStrategyArming()
+
     def resolve_side_effect(interface):
         if interface == IConfig:
             return mock_config
@@ -279,6 +305,12 @@ def mock_container(
             return strategy_registry
         if interface in (LiveStrategySession, IArmedStrategy):
             return strategy_session
+        if interface == IStrategyCatalog:
+            return _strategy_catalog
+        if interface == IStrategyChartOverlay:
+            return _chart_overlay
+        if interface == IStrategyArming:
+            return _strategy_arming
         if interface == IndicatorScriptRegistry:
             return script_registry
         if interface == IEquityCurve:
@@ -373,8 +405,26 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
         LiveStrategySession,
     )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
+        StrategyCatalogService,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
+        StrategyChartOverlayService,
+    )
     from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
         StrategyRegistry,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
+        IStrategyArming,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+        IStrategyCatalog,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+        IStrategyChartOverlay,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing import (
+        FakeStrategyArming,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
         IAccountSnapshot,
@@ -398,6 +448,9 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     shared_store = TimeframePinPreferences()
     container = Mock()
     container.registrations.return_value = {TimeframePinPreferences: shared_store}
+    _strategy_catalog = StrategyCatalogService(strategy_registry)
+    _chart_overlay = StrategyChartOverlayService(strategy_registry)
+    _strategy_arming = FakeStrategyArming()
 
     def resolve_side_effect(interface):
         if interface == IConfig:
@@ -408,6 +461,12 @@ def test_boot_wires_the_container_registered_store_into_the_view(
             return strategy_registry
         if interface in (LiveStrategySession, IArmedStrategy):
             return strategy_session
+        if interface == IStrategyCatalog:
+            return _strategy_catalog
+        if interface == IStrategyChartOverlay:
+            return _chart_overlay
+        if interface == IStrategyArming:
+            return _strategy_arming
         if interface == IThreadManager:
             return mock_thread_mgr
         if interface == IndicatorScriptRegistry:
@@ -2176,7 +2235,7 @@ def test_signal_generated_for_the_armed_symbol_updates_the_card(
         )
     )
 
-    presenter._on_signal_generated(_signal_event("BTCUSDT"))
+    presenter._arming_coordinator.on_signal_generated(_signal_event("BTCUSDT"))
 
     assert (
         "BTCUSDT" not in presenter._view_model.strategy.lastSignalText
@@ -2200,13 +2259,13 @@ def test_signal_generated_for_a_different_symbol_is_ignored(
         )
     )
 
-    presenter._on_signal_generated(_signal_event("ETHUSDT"))
+    presenter._arming_coordinator.on_signal_generated(_signal_event("ETHUSDT"))
 
     assert presenter._view_model.strategy.lastSignalText == ""
 
 
 def test_signal_generated_with_nothing_armed_is_ignored(presenter):
-    presenter._on_signal_generated(_signal_event("BTCUSDT"))
+    presenter._arming_coordinator.on_signal_generated(_signal_event("BTCUSDT"))
 
     assert presenter._view_model.strategy.lastSignalText == ""
 

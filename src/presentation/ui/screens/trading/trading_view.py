@@ -348,7 +348,7 @@ class TradingView(BaseView):
         never opens it should pay for at screen construction."""
         if self._view_model is None:
             return
-        from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_params.strategy_params_dialog import (
+        from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
             StrategyParamsDialog,
         )
 

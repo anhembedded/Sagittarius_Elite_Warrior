@@ -158,12 +158,67 @@ split.
 | ~~4.2a~~ ❌ | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator`; `base_event_logger` → `modules/backtesting/ui/` — **folded into 4.4, §3.12.** Measured at PR review time (2026-09-17): moving these four alone costs the boundary allowlist 58 → 68 (10 new lines across 7 legacy consumer files), which the rewritten `architecture-rule.md` now forbids outright. Worse than a ratchet problem: every one of those 7 consumers is itself moving in 4.2b or 4.4, so the only zero-cost sequencing is moving each leaf file in the same pull request as **all** of its consumers — which for `sync_progress_{feed,report}` means 4.2b and 4.4 at once, since `data_management` (4.2b) and `backtest`/`dashboard` (4.4) both import them | — |
 | ~~4.2b~~ ❌ | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) — **folded into 4.4, §3.12**, for the same reason as 4.2a: after 4.1b its only remaining blockers are QML (so it already waited on 4.3, same as 4.4) and the four leaf files 4.2a would have moved, which it shares consumers with across 4.4's screens too | — |
 | **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), **4.3e** ✅ `qml/SelectList/` deleted, its four hosts onto `kit.PickerOverlay` (and the read-only one out of the picker shape altogether), **4.3f** ✅ `qml/CheckboxList/` + `qml/Capital/` deleted — `kit.ChecklistOverlay` arrives for the two checklists, and the capital form keeps `BUG-064`'s lesson with one writer instead of three bindings, **4.3g** ✅ `qml/StatCardRow/` deleted — the performance figures stop being cards (HLD §11.3), **4.3h** ✅ `qml/TradeLogTable/` deleted — measured dead, its two pure files moved to `screens/backtest/logic/`, **4.3i** ✅ `qml/StatGrid/` + `qml/DataTable/` deleted — dead too, the second losing its last caller *to 4.3h*, **4.3j** ✅ `qml/MetricsDetailPanel/` → a `QDialog` on a `QTreeWidget`, leaving `qml/` holding only `kit/`, **4.3k** ✅ `charting/TimeframePicker/` → a pill row of `QPushButton`s and a `QTreeWidget` picker sharing one selection, then `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 8**, all of them `qml/kit/`'s, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
-| **4.3m** | `strategy` contributes `SignalFeed`, `StrategyArmingCoordinator`, `StrategyCardViewModel`, `strategy_overlay.*` and `strategy_params.strategy_params_dialog` onto `trading`/`dashboard`/`backtest`'s surfaces via `contribute()` + `Place`, instead of those screens importing them directly | found starting 4.4, not a file move — see the ADR and §3.14. **Blocks 4.4** |
-| **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard` and `screens/trading` → `modules/trading/ui/` (4.1c's fold); `screens/data_management` → `modules/market_data/ui/` (4.2b's fold); `sync_progress_{feed,report}` + `symbol_options_coordinator` → `modules/market_data/ui/`, `base_event_logger` → `modules/backtesting/ui/` (4.2a's fold); `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's; folding 4.1c, 4.2a and 4.2b in is what keeps every leaf file's move in the same commit as all of its consumers, §3.12 — and now 4.3m, §3.14 |
+| **4.3m** | `IStrategyCatalog`/`IStrategyChartOverlay`/`IStrategyArming` published and bound; `modules/strategy/ui/` deleted, its three shared classes relocated (not duplicated) to `presentation/ui/common/`, `strategy_params/`'s widgets to `support/ui_kit/param_form/`; `trading`/`dashboard`/`backtest` rewired onto the ports | ✅ **Done 2026-09-17** (`6678d456`/`f76d5ced`/`67a36405`) — found starting 4.4, not a file move; the ADR's original "duplicate per screen" plan was corrected mid-course (§3.14, ADR §7) after the duplication ratchet measured it worse than the shared-class fix it replaced |
+| **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard` and `screens/trading` → `modules/trading/ui/` (4.1c's fold); `screens/data_management` → `modules/market_data/ui/` (4.2b's fold); `sync_progress_{feed,report}` + `symbol_options_coordinator` → `modules/market_data/ui/`, `base_event_logger` → `modules/backtesting/ui/` (4.2a's fold); `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | **measured 2026-09-17, §3.15: 133 files / 27,480 lines, plus a new port `symbol_options_coordinator`/`sync_progress_*` need that did not exist when this row was written.** Splitting into (a)–(f) is §3.15's recommendation, not yet decided or started |
 
-After 4.1a and 4.2a, `ui/common` holds **two** files: `live_order_book_coordinator` (waiting on
-`order_book`, so 4.1b) and `qml_property` (which dies with the QML, so 4.3). Step 4's *"delete
-`ui/common/`"* is therefore 4.3's consequence rather than a task of its own.
+This paragraph's own prediction is now superseded — corrected in §3.15 rather than deleted, so the
+record shows the prediction was wrong rather than erasing it. `live_order_book_coordinator` did
+move with `order_book` in 4.1b as predicted, but `qml_property` never died with the QML: its one
+consumer (`data_management_view_model.py`) was never QML, and PR 4.3m then added three **new**
+files to `ui/common` — `strategy_card_view_model.py`, `strategy_arming_coordinator.py`,
+`signal_feed.py` — that this paragraph could not have anticipated, since they did not exist here
+yet. `ui/common` holds **eight** files today, not two; §3.15 has the real count.
+
+### 3.15 PR 4.4's scope, measured on the post-4.3m tree (2026-09-17)
+
+`epic-025`'s own checklist step 4 ("measure before") applied to the tree PR 4.3m left, before
+writing any code. **The four screens**, by line count (`find … -name '*.py' | xargs wc -l`,
+excluding `__pycache__`):
+
+| Screen | Files | Lines | Destination |
+| :--- | :-: | :-: | :--- |
+| `screens/backtest` | 79 | 13,714 | `modules/backtesting/ui/` |
+| `screens/dashboard` | 16 | 5,167 | `modules/trading/ui/` (with `trading`, `DECISION_2026-09-16`) |
+| `screens/data_management` | 23 | 4,951 | `modules/market_data/ui/` |
+| `screens/trading` | 9 | 2,307 | `modules/trading/ui/` |
+| `screens/settings` | 6 | 1,341 | `shell/settings/` — a **surface**, not a module (HLD §4 table: *"surfaces about the application itself belong to the shell, exactly as `welcome` does"*), so it is not one more row folded into a module and needs its own step |
+
+Legality of the four screens' move is **already proven**: every one of the 40 current
+`allowlist_module_boundaries.txt` entries is `presentation.ui.screens.<x> → modules.<x>.…` for the
+*same* `<x>` each screen is scheduled to land in, so `zone_of(src) == zone_of(dst)` the moment the
+move lands and all **40** retire in the same commit, with zero new lines — exactly §3.12's
+zero-cost-sequencing rule, this time satisfied by construction rather than by folding.
+
+**`ui/common`'s eight files (1,084 lines) do not all travel the same way, and two of them repeat
+§3.12's cross-module problem with a module PR 4.3m had not yet published a port for:**
+
+| File | Lines | Consumer(s) | Resolution |
+| :--- | :-: | :--- | :--- |
+| `strategy_card_view_model.py`, `strategy_arming_coordinator.py`, `signal_feed.py` | 723 | `trading`, `dashboard` only | both consumers land in `modules/trading/ui/` — travel there **as one module's own files**, not shared any more; `presentation/ui/common/` is a legacy zone `modules/*` may never import (`boundaries/rules.py::import_is_allowed`), so this is not optional |
+| `qml_property.py` | 64 | `data_management` only | travels to `modules/market_data/ui/` |
+| `base_event_logger.py` | 96 | `backtest` only | travels to `modules/backtesting/ui/` |
+| `symbol_options_coordinator.py` | 77 | `backtest_presenter.py` (→ `backtesting`) **and** `dashboard_presenter.py` (→ `trading`) — two different destination modules | **open question.** It already imports `modules.market_data.contracts.i_symbol_catalog` directly, so `modules/market_data/ui/` is its only legal home (§3.12) — but landing it there leaves `backtesting.ui` and `trading.ui` importing `market_data.ui` directly, which `boundaries/rules.py::_module_may_import` refuses (a module reaches another module only through `contracts/`, no `ui/` exception). §3.13 called this precedented by `modules.strategy.ui`'s pre-4.3m concrete imports and was itself corrected the same day: PR 4.3m's actual answer was to **publish a port** (`IStrategyCatalog`/`IStrategyChartOverlay`/`IStrategyArming`), not to leave the cross-module `ui/` import standing. The same treatment — a port on `modules/market_data/contracts/` — is what this file needs before it can move |
+| `sync_progress_feed.py`, `sync_progress_report.py` | 109 | `backtest` (→ `backtesting`), `dashboard` (→ `trading`), `data_management` (→ `market_data`) — **three** different destination modules | same open question, one module wider: PR 1.6c already found *"a feed normalising one module's events belongs in that module's `ui/`"* (§6.1 gives `support/*` no `modules/*` exception), so the feed's home is `modules/market_data/ui/`; the other two modules then need the port, not the concrete class |
+
+**Scale.** Screens + `ui/common`'s two clean pieces + settings: **133 files / 27,480 lines**, before
+counting whatever `symbol_options_coordinator`/`sync_progress_*`'s port costs. Every prior "big"
+move in this epic was split the moment it measured this large — PR 1.3a alone cost 80 allowlist
+lines before its own split, PR 1.3c became five pull requests at 72 test failures for trying to be
+one. **Recommendation, not yet decided: split PR 4.4 rather than land it as one.** A natural cut,
+each independently gate-able: (a) publish the market_data port `symbol_options_coordinator` and
+`sync_progress_*` need — the one piece every other slice depends on, same shape as PR 4.3m; (b)
+`data_management` + `qml_property`, the smallest screen with no cross-module UI dependency once
+(a) lands; (c) `trading` + `dashboard` + the three relocated shared classes together, since
+`DECISION_2026-09-16` ties them; (d) `backtest` + `base_event_logger`, the largest slice, last so
+its size does not block the smaller three; (e) `settings` → `shell/settings/`, its own step because
+it is a surface, not a module cut, and HLD §4's `settings_section` contribution point
+(`core/contracts/place.py`) has **zero** real publishers today — every module still hard-codes its
+own config fields on the current monolithic screen, so this is a design step, not a file move; (f)
+`binance_bot_module.py` deleted, last, once nothing imports it — **36** files in `src/`, `scripts/`
+and `tests/` still name it today, and most of those are historical docstring mentions this
+measurement did not classify one by one, so its real remaining scope needs its own pass before (f)
+starts. Sequencing (a)–(f) is what the next session decides and executes; this paragraph only
+measures.
 
 ### 3.3 `sync_progress_*`: the open question is closed by a rule, not by a preference
 
@@ -580,6 +635,62 @@ they import `modules.strategy.ui.signal_feed`, `.strategy_arming_coordinator`,
 `modules.strategy.application.services.strategy_registry` directly. Its own scope, sequencing and
 measurements are not written yet — the three open questions in the ADR (§4, O1–O3) are where that
 starts.
+
+**First slice landed 2026-09-17 (`6678d456`):** the three ports the ADR's O5 declared —
+`IStrategyCatalog`, `IStrategyChartOverlay`, `IStrategyArming` — each with a real service
+(`StrategyCatalogService`, `StrategyChartOverlayService`, `StrategyArmingService`), a verified
+fake and an HLD §10.3 contract suite run against both. `ArmStrategyCommandHandler` now persists a
+successful arming itself (O6), so `LiveStrategyConfigStore.save()` moves off the caller.
+`ParamField`/`ParamGroup`/`ParamKind` landed in `core/contracts/` (neutral ground), not
+`support/ui_kit`, matching the `nav_metadata.py` precedent.
+
+Wiring `StrategyChartOverlayService` into `composition/port_bindings.py` surfaced a real defect
+`test_module_contribution_laziness.py` had not been forced to see before: importing `strategy`'s
+`module.py` now costs a `PySide6` import in every run, headless included, because
+`modules/strategy/ui/strategy_overlay` reaches `support/charting/chart_card/theme.py`, whose
+package `__init__` imports the real `ChartCard` widget. Fixed at the mechanism, not by widening the
+guard: the `ui.strategy_overlay` import in `StrategyChartOverlayService.overlay_for()` is now lazy
+(the same documented exception `modules/trading/ui/probes.py` already uses), and `Palette` moved
+out of `support/ui_kit/assets/` into `support/ui_kit/palette.py` so a future caller reaching for
+just the colours does not pay for `icon_loader`'s Qt import either — `assets/__init__.py`
+re-exports it, so every existing consumer is unaffected.
+
+**Done 2026-09-17 (`f76d5ced`/`67a36405`) — and the plan's own second half was wrong, measured.**
+`strategy_params/`'s three widgets relocated to `support/ui_kit/param_form/` as planned, and
+`screens/trading`/`dashboard`/`backtest` rewired onto `IStrategyCatalog`/`IStrategyChartOverlay`/
+`IStrategyArming`, closing `modules/strategy/ui/` for good. But **deleting `StrategyCardViewModel`
+was not the right move**, and the duplication ratchet is what caught it: flattening its nineteen
+members directly onto `TradingViewModel`/`DashboardViewModel` (this paragraph's original plan)
+read `test_presenter_duplication_only_shrinks.py`'s Phase 1 pair **32 → 63** — the names came back
+unprefixed, not gone, which undoes the exact criterion this epic is judged on. Corrected before it
+reached the user, recorded in the ADR's own §7: the *class* stays one shared owner, only its
+*location* moves — from a module's `ui/` (now forbidden to cross, `architecture-rule.md` §3) to
+`presentation/ui/common/` (never forbidden, since both consumers are Presenters, not modules), the
+same move `strategy_arming_coordinator.py` and `signal_feed.py` make beside it. Net result: Phase 1
+pair unchanged at **32**, duplication total **107 → 99** (better than either screen carrying its
+own copy), allowlist **58 → 40**. A third duplicate this correction exposed — `_on_signal_generated`,
+identical on `TradingPresenter`/`DashboardPresenter` since before this epic started — was closed at
+the mechanism by moving its body into the shared `StrategyArmingCoordinator.on_signal_generated()`
+rather than left as a tolerated ratchet number. Two real bugs fixed on the way:
+`StrategyChartOverlayService.overlay_for()` crashing on `dict(None)` when a backtest run carries no
+`strategy_params`, and `StrategyConfigCoordinator`'s two `validate_params()` call sites raising an
+uncaught `KeyError` for an unregistered strategy key instead of returning `False`.
+
+**Correction, found by an independent PR review (PR #226), not by this session:** this paragraph
+originally claimed the full gate's two Dev Board integration test failures and one `_recheck_edge`
+log-scan ERROR were confirmed pre-existing via a `git stash` comparison against the pre-change
+tree. That comparison ran with `PYTHONPATH=..` from a checkout already on this branch, so the
+"pre-change tree" run imported this branch's own `src/` regardless of which tree the test files
+came from — comparing this PR's code against itself and calling it independent. The real cause,
+verified after the review found it: `6678d456` (this same PR) added a required `config_store`
+argument to `ArmStrategyCommandHandler.__init__`, and
+`tests/integration/presentation/ui/conftest.py:290`'s `mock_dispatch` fixture — which hand-builds
+the real handler, not a fake — was not updated to pass it. A one-line fixture fix
+(`tests/integration/presentation/ui/conftest.py`) makes both tests pass and the log ERROR
+disappear (it was a downstream symptom of the same broken arm flow, not an independent mechanism).
+Full account, including the retracted first hypothesis: `Tasks/bug_report/completed/BUG-130_dev_board_recheck_edge_fires_on_a_deleted_chart_card.md`.
+
+**PR 4.4 is unblocked**: its scope (§3.2's table) has not yet been re-measured against this tree.
 
 ### 4.1 PR 4.3a — the symbol picker had **two** implementations, one per toolkit
 

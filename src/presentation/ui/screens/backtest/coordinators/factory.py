@@ -70,7 +70,7 @@ def build_coordinators(presenter) -> Coordinators:
     _strategy_config = StrategyConfigCoordinator(
         view_model=presenter._view_model,
         state=state,
-        strategy_registry=presenter._strategy_registry,
+        catalog=presenter._strategy_catalog,
         logger=presenter._logger,
         # `lambda`, not `presenter._market_metadata_cache.get`: binding the
         # method captures the cache object that exists right now, and
@@ -83,7 +83,7 @@ def build_coordinators(presenter) -> Coordinators:
     _indicators = IndicatorCoordinator(
         view_model=presenter._view_model,
         state=state,
-        strategy_registry=presenter._strategy_registry,
+        chart_overlay=presenter._chart_overlay,
         logger=presenter._logger,
         script_runner=presenter._chart_script_runner,
         get_first_chart_card=presenter._first_chart_card,

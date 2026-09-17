@@ -5,12 +5,8 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_overlay.strategy_indicator_lines import (
-    assign_strategy_line_colors,
-    compute_strategy_indicator_lines,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_overlay.strategy_trend_zones import (
-    compute_strategy_trend_zones,
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+    IStrategyChartOverlay,
 )
 from Sagittarius_Elite_Warrior.src.support.indicators.ui.runner import (
     IndicatorScriptRunner,
@@ -19,9 +15,6 @@ from Sagittarius_Elite_Warrior.src.support.indicators.ui.runner import (
 
 from ..logic.chart_canvas_view import ChartDisplayMode
 from ..ports.i_backtest_screen_state import IBacktestScreenState
-
-#: Width for a strategy line the strategy itself does not specify.
-_DEFAULT_STRATEGY_LINE_WIDTH = 2
 
 
 class IndicatorCoordinator:
@@ -42,7 +35,7 @@ class IndicatorCoordinator:
         self,
         view_model,
         state: IBacktestScreenState,
-        strategy_registry,
+        chart_overlay: IStrategyChartOverlay,
         logger,
         script_runner: IndicatorScriptRunner,
         get_first_chart_card: Callable[[], Any],
@@ -53,7 +46,7 @@ class IndicatorCoordinator:
     ) -> None:
         self._view_model = view_model
         self._state = state
-        self._strategy_registry = strategy_registry
+        self._chart_overlay = chart_overlay
         self._logger = logger
         self._script_runner = script_runner
         self._get_first_chart_card = get_first_chart_card
@@ -198,58 +191,47 @@ class IndicatorCoordinator:
         self, action_id: int, config, raw_klines: list
     ) -> None:
         """BOT-060: draws whatever indicators the backtested strategy itself
-        declares (`build_indicators()`), instead of the fixed `ema_ribbon`
-        script this used to hardcode — so the chart always matches what
-        actually drove that run's Buy/Sell decisions.
+        declares, instead of the fixed `ema_ribbon` script this used to
+        hardcode — so the chart always matches what actually drove that
+        run's Buy/Sell decisions.
 
-        Builds a second, throwaway strategy instance (construct-and-discard,
-        the pattern BOT-047's save-validation uses) purely to replay its
-        indicators over the candles already fetched — entirely separate from
-        the real `StrategyEngine` run, so `strategy_engine.py` stays
-        untouched.
+        `EPIC-025` PR 4.3m: the throwaway-strategy build and the replay now
+        happen inside `modules/strategy`
+        (`IStrategyChartOverlay.overlay_for()`) — this screen may not build
+        a `BaseStrategy` itself once it becomes a module. Calling the port
+        once per emit method (rather than once and sharing the result)
+        matches the two-separate-throwaway-instances discipline this method
+        always kept: `overlay_for()` builds its own fresh instance and
+        `build_indicators()` returns fresh indicator state on every call
+        regardless, so this is not extra replay cost, it is the same cost
+        differently placed.
         """
-        strategy = self._throwaway_strategy(config)
-        if strategy is None:
-            return
-        lines = compute_strategy_indicator_lines(strategy, raw_klines)
-        colors = assign_strategy_line_colors(
-            list(lines.keys()), strategy.chart_line_colors()
-        )
-        widths = strategy.chart_line_widths()
-        for name, (x_data, y_data) in lines.items():
+        overlay = self._chart_overlay.overlay_for(config, raw_klines)
+        for line in overlay.lines:
             self._emit_strategy_line(
                 action_id,
-                name,
-                colors[name],
-                x_data,
-                y_data,
-                widths.get(name, _DEFAULT_STRATEGY_LINE_WIDTH),
+                line.name,
+                line.colour,
+                list(line.x),
+                list(line.y),
+                line.width,
             )
 
     def emit_strategy_trend_zones(
         self, action_id: int, config, raw_klines: list
     ) -> None:
         """BOT-113: draws the backtested strategy's own long-term-trend
-        background shading (`classify_trend_zone()`), TradingView's
-        `bgcolor()` pattern.
+        background shading, TradingView's `bgcolor()` pattern.
 
-        A second, separate throwaway instance from
-        `emit_strategy_indicator_lines` — that one's indicators are already
-        fully replayed to the end of `raw_klines` by the time this runs, so
-        reusing the instance would resume mid-warmup instead of starting
-        fresh. A strategy that never overrides `classify_trend_zone()` (every
+        A strategy that never overrides `classify_trend_zone()` (every
         strategy predating BOT-113) computes an empty span list: one no-op
         emit, no zones drawn.
         """
-        strategy = self._throwaway_strategy(config)
-        if strategy is None:
-            return
+        overlay = self._chart_overlay.overlay_for(config, raw_klines)
         self._emit_strategy_region(
-            action_id, compute_strategy_trend_zones(strategy, raw_klines)
+            action_id,
+            [
+                (zone.start, zone.end, zone.colour, zone.opacity)
+                for zone in overlay.zones
+            ],
         )
-
-    def _throwaway_strategy(self, config):
-        strategy_cls = self._strategy_registry.available().get(config.strategy_key)
-        if strategy_cls is None:
-            return None
-        return strategy_cls(config.strategy_params)

@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from types import SimpleNamespace
 
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing import (
+    FakeStrategyChartOverlay,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.coordinators import (
     IndicatorCoordinator,
 )
@@ -78,7 +81,7 @@ def _build(
     coordinator = IndicatorCoordinator(
         view_model=view_model,
         state=state,
-        strategy_registry=SimpleNamespace(available=dict),
+        chart_overlay=FakeStrategyChartOverlay(),
         logger=SimpleNamespace(info=lambda _m: None),
         script_runner=runner,
         get_first_chart_card=lambda: card,
@@ -193,7 +196,16 @@ def test_a_script_enabled_during_equity_mode_starts_hidden() -> None:
     assert ("ema:fast", False) in card.visibility
 
 
-def test_an_unknown_strategy_key_emits_nothing() -> None:
+def test_an_unknown_strategy_key_draws_no_lines_and_an_empty_region() -> None:
+    """`EPIC-025` PR 4.3m: `IStrategyChartOverlay.overlay_for()` answers
+    "nothing to draw" the same way for an unregistered key and for a
+    registered one with nothing to show (its own contract suite,
+    `test_strategy_chart_overlay_contract.py`, requires exactly that) — the
+    Coordinator has no registry of its own left to tell them apart, and the
+    visible result is identical either way. Trend zones still emit once,
+    with an empty span list, matching `test_strategy_with_no_trend_zone_
+    override_draws_no_zones`'s "must still call, not skip" requirement for
+    a known strategy with nothing to show."""
     ctx = _build(card=_Card())
 
     config = SimpleNamespace(strategy_key="nope", strategy_params={})
@@ -201,4 +213,4 @@ def test_an_unknown_strategy_key_emits_nothing() -> None:
     ctx.coordinator.emit_strategy_trend_zones(1, config, [])
 
     assert ctx.emitted_lines == []
-    assert ctx.emitted_regions == []
+    assert ctx.emitted_regions == [(1, [])]

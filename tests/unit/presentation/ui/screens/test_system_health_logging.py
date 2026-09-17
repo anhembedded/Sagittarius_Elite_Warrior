@@ -22,11 +22,29 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_st
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
+    StrategyCatalogService,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
+    StrategyChartOverlayService,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
     IArmedStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
+    IStrategyArming,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+    IStrategyCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+    IStrategyChartOverlay,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing import (
+    FakeStrategyArming,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
@@ -122,6 +140,12 @@ def health_mock_container(qapp):
             return strategy_registry
         if interface in (LiveStrategySession, IArmedStrategy):
             return strategy_session
+        if interface == IStrategyCatalog:
+            return StrategyCatalogService(strategy_registry)
+        if interface == IStrategyChartOverlay:
+            return StrategyChartOverlayService(strategy_registry)
+        if interface == IStrategyArming:
+            return FakeStrategyArming()
         if interface == IAccountSnapshot:
             return FakeAccountSnapshot()
         if interface == IEquityCurve:
@@ -255,6 +279,10 @@ def test_backtest_initializes_and_handles_health_updated_event(
     def resolve_with_strategy(interface):
         if interface == StrategyRegistry:
             return strategy_registry
+        if interface == IStrategyCatalog:
+            return StrategyCatalogService(strategy_registry)
+        if interface == IStrategyChartOverlay:
+            return StrategyChartOverlayService(strategy_registry)
         return orig_side_effect(interface)
 
     container.resolve.side_effect = resolve_with_strategy

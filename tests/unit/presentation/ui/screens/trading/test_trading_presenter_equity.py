@@ -28,6 +28,15 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strateg
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
     IArmedStrategy,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
+    IStrategyArming,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+    IStrategyCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+    IStrategyChartOverlay,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
     EquitySample,
 )
@@ -90,6 +99,9 @@ def container(
     mock_event_bus,
     strategy_session,
     strategy_registry,
+    strategy_catalog,
+    chart_overlay,
+    strategy_arming,
     make_container,
 ):
     # `BOT-125` review — one shared fake, so adding a Presenter
@@ -105,6 +117,9 @@ def container(
             LiveStrategySession: strategy_session,
             IArmedStrategy: strategy_session,
             StrategyRegistry: strategy_registry,
+            IStrategyCatalog: strategy_catalog,
+            IStrategyChartOverlay: chart_overlay,
+            IStrategyArming: strategy_arming,
         }
     )
 

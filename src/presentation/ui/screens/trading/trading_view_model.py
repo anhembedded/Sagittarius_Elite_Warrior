@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_card_view_model import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_card_view_model import (
     StrategyCardViewModel,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel, LogListModel
@@ -20,9 +20,19 @@ class TradingViewModel(BaseQmlViewModel):
     (`components/order_book/table_models.py`), pushed to directly by
     `TradingPresenter` through `ITradingView.set_positions`/
     `set_open_orders` — a panel owning its own rows, pushed to from the
-    Presenter, rather than a screen view model holding them. PR 1.4b-2
-    replaced the two QML `*VM`s with those models; what this class does
-    (and does not) hold did not change.
+    Presenter, rather than a screen view model holding them.
+
+    @par The strategy card, composed (`EPIC-025` PR 2.1e, still true after PR 4.3m)
+    `StrategyCardViewModel` (`presentation/ui/common/`) is the card's one
+    shared owner, so this class and `DashboardViewModel` do not carry
+    nineteen byte-identical members each. PR 4.3m moved that shared class
+    out of `modules/strategy/ui/` (where a module's `ui/` may not be
+    imported by another module the instant `strategy` becomes a real
+    module boundary) and back into `presentation/ui/common/`, rather than
+    flattening it onto each screen's own ViewModel — flattening was tried
+    first and reverted: it put the same nineteen names right back as
+    measured duplication, just without the `.strategy.` prefix
+    (`tests/unit/architecture/test_presenter_duplication_only_shrinks.py`).
     """
 
     symbolOptionsChanged = Signal()
@@ -48,11 +58,10 @@ class TradingViewModel(BaseQmlViewModel):
         self._orders_sent_this_session = 0
         self._open_symbols_count = 0
         self._log_model = LogListModel(self)
-        #: `EPIC-025` PR 2.1e — the strategy card is one object owned by
-        #: `modules/strategy`, not nineteen members copied into this class
-        #: and into `DashboardViewModel`. Parented to `self`, so it lives and
-        #: dies with the screen's view model exactly as the block it replaces
-        #: did.
+        #: `EPIC-025` PR 2.1e — the strategy card is one object owned once
+        #: (`presentation/ui/common/`), not nineteen members copied into
+        #: this class and into `DashboardViewModel`. Parented to `self`,
+        #: so it lives and dies with the screen's view model.
         self._strategy = StrategyCardViewModel(self)
 
     # ------------------------------------------------------------------ #

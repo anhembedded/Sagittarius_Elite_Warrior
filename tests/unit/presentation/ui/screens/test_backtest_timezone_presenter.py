@@ -5,6 +5,12 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason imp
     ExitReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
+    StrategyCatalogService,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
+    StrategyChartOverlayService,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
 )
@@ -53,6 +59,8 @@ def test_timezone_change_does_not_dirty_config_or_dispatch_job(qapp) -> None:
 
     strategy_registry = MagicMock()
     strategy_registry.available.return_value = {}
+    strategy_catalog = StrategyCatalogService(strategy_registry)
+    chart_overlay = StrategyChartOverlayService(strategy_registry)
     config = MagicMock()
     config.get.return_value = None
     config.get_all.return_value = {}
@@ -60,6 +68,10 @@ def test_timezone_change_does_not_dirty_config_or_dispatch_job(qapp) -> None:
     container.resolve.side_effect = lambda key: (
         strategy_registry
         if "StrategyRegistry" in str(key)
+        else strategy_catalog
+        if "IStrategyCatalog" in str(key)
+        else chart_overlay
+        if "IStrategyChartOverlay" in str(key)
         else config
         if "IConfig" in str(key)
         else MagicMock()

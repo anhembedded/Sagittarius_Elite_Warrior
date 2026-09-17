@@ -55,7 +55,7 @@ _EXEMPT_DIRS = frozenset({"components/chart_card", "qml/SymbolPicker"})
 #: methods return, and the test file itself quotes hexes in its docstring/asserts.
 _EXEMPT_FILES = frozenset(
     {
-        "src/support/ui_kit/assets/palette.py",
+        "src/support/ui_kit/palette.py",
         "tests/unit/presentation/ui/test_palette_is_the_only_color_source.py",
     }
 )

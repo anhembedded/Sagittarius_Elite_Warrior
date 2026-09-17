@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
+    StrategyCatalogService,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
 )
@@ -40,6 +43,10 @@ class _Strategy:
 
 
 class _Registry:
+    """The one method `StrategyCatalogService` reads — wrapped by the real
+    service below rather than passed to the Coordinator directly, since
+    `EPIC-025` PR 4.3m moved the Coordinator onto `IStrategyCatalog`."""
+
     def __init__(self, strategies: dict[str, type]) -> None:
         self._strategies = strategies
 
@@ -83,8 +90,8 @@ def _build(strategies=None, state=None):
 
     coordinator = StrategyConfigCoordinator(
         view_model=view_model,
-        strategy_registry=_Registry(
-            {"s1": _Strategy} if strategies is None else strategies
+        catalog=StrategyCatalogService(
+            _Registry({"s1": _Strategy} if strategies is None else strategies)
         ),
         logger=logger,
         state=state,

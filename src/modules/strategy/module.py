@@ -32,12 +32,18 @@ construction: a second session built here would give the screens an armed state
 the tick path never drives, which is the class of bug the
 `ExchangeSessionFactory` split took four pull requests to leave behind.
 
-`IStrategyCatalog` is **not** here, and that is a measurement rather than an
-omission — see `EPIC-025C` §5. Every caller that would read it also needs the
-strategy *classes*, to construct one for the chart overlay or to hand to
-`build_engine()`, and a published contract must not carry a domain type. All of
-those callers become intra-module in PR 2.1e, which is where the port is worth
-writing.
+`IStrategyCatalog` was **not** here at 2.1c, and that was a measurement rather
+than an omission — see `EPIC-025C` §5. Every caller that read it also needed
+the strategy *classes*, to construct one for the chart overlay or to hand to
+`build_engine()`, and a published contract must not carry a domain type.
+**`EPIC-025` PR 4.3m writes the port this paragraph predicted**, answering in
+data instead of classes (`options()`, `params_form()`, `validate_params()`),
+alongside two more the same redesign needed: `IStrategyChartOverlay`
+(`overlay_for()` — the throwaway-strategy replay, done here instead of by the
+caller) and `IStrategyArming` (`arm()`/`disarm()`/`saved_selection()`, moving
+`trading`/`dashboard`/`backtest`'s direct dispatch and persistence inside this
+module). All three are bound in `composition/port_bindings.py`, same file,
+same function, same reason as `IArmedStrategy` above.
 
 **PR 2.1d publishes the second port, `ISizingPolicy`** (ADR D17) — how much
 capital one order may use — and binds **nothing**, on purpose. Its consumers
@@ -57,19 +63,31 @@ expectation that `ISizingPolicy` would pass through `LiveStrategyFactory`'s
 arguments; measured, it does not touch them at all, so the move travels with
 PR 2.1e, where the strategy card and the chart overlay give it a reason.
 
-@par `ui/` since PR 2.1e — this context's own display code
-Eleven files: `strategy_arming_coordinator` (the arm/disarm behaviour),
-`signal_feed` (the `SignalGeneratedEvent` normaliser), `strategy_display`,
-`strategy_params/` (the parameter form, its fields and its dialog),
-`strategy_overlay/` (the chart's indicator lines and trend zones), and
-**`strategy_card_view_model`** — which is the one file that was not a move.
-`TradingViewModel` and `DashboardViewModel` each carried the card's *nineteen*
-members, identical name for name, with a note saying they could not be shared
-because Shiboken forbids inheriting Qt `Property`/`Signal` from two `QObject`
-bases. True of inheritance; composition was always available, and the Backtest
-screen had been using it since `EPIC-003F2`. Extracting it took the duplicated-
-member census **132 → 115** and the Phase 1 pair **59 → 39** — the first fall in
-that number since `PRO-004` measured it.
+@par `ui/` — arrived at PR 2.1e, gone again by PR 4.3m
+Eleven files arrived at PR 2.1e: `strategy_arming_coordinator` (the arm/disarm
+behaviour), `signal_feed` (the `SignalGeneratedEvent` normaliser),
+`strategy_display`, `strategy_params/` (the parameter form, its fields and its
+dialog), `strategy_overlay/` (the chart's indicator lines and trend zones), and
+`strategy_card_view_model` — the one file that was not a move, extracting a
+card `TradingViewModel` and `DashboardViewModel` had each carried as nineteen
+byte-identical members (duplicated-member census **132 → 115**, Phase 1 pair
+**59 → 39**, `PRO-004`'s first fall since it was measured).
+
+**None of it lives here any more.** `EPIC-025` PR 4.3m deleted this directory
+outright once `strategy` was about to become a real module boundary
+(`architecture-rule.md` §3 — a module's `ui/` may not be imported by another
+module) rather than relocate it intra-module: `strategy_params/`'s three
+generic widgets had no strategy knowledge in them at all and moved to
+`support/ui_kit/param_form/`; `strategy_overlay/`'s compute functions and
+`strategy_display.humanize_strategy_key` moved behind the three ports above,
+called from inside `StrategyCatalogService`/`StrategyChartOverlayService`
+rather than published; `strategy_arming_coordinator` and
+`strategy_card_view_model` moved to `presentation/ui/common/` — one shared
+class each, not one copy per screen (a first attempt at the latter measured as
+*more* duplication, not less; see that file's own docstring and
+`DECISION_2026-09-17_strategy_ui_contributes_rather_than_being_imported.md`
+§7). `signal_feed` moved there too, for the same "both screens want it"
+reason `sync_progress_feed.py` already established in that directory.
 
 @par `boot()` owns the live tick path since PR 2.1c-2
 `MarketTickEventHandler` moved out of `src/application/event_handlers/

@@ -5,13 +5,16 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
+    LiveStrategyConfigStore,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.arm_strategy.command import (
     ArmStrategyCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.arm_strategy.result import (
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.arm_strategy_result import (
     ArmStrategyBlockReason,
     ArmStrategyResult,
 )
@@ -54,9 +57,17 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
         self,
         session: LiveStrategySession,
         trading_session: ITradingSession,
+        config_store: LiveStrategyConfigStore,
     ) -> None:
         self._session = session
         self._trading_session = trading_session
+        #: `EPIC-025` PR 4.3m — persisting a successful arming used to be the
+        #: caller's job (`StrategyArmingCoordinator.on_arm_clicked()`), which
+        #: only worked because that coordinator lived in the same legacy tree
+        #: as this handler. Moved here, next to the validation and the symbol
+        #: lease that already gate `arm()`, so every caller through
+        #: `IStrategyArming` gets it for free and none can forget it.
+        self._config_store = config_store
 
     def execute(self, command: ArmStrategyCommand) -> ArmStrategyResult:
         config = command.config
@@ -111,4 +122,5 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
                 block_reason=ArmStrategyBlockReason.INVALID_PARAMS,
                 error_message=str(exc),
             )
+        self._config_store.save(config)
         return ArmStrategyResult(armed=True)
