@@ -30,6 +30,11 @@ _PACKAGE_ROOT = Path(surfaces.__file__).parent
 #: not come back in `EPIC-025` PR 4.3g, which deleted that `.qml`: HLD §11.3
 #: retires the card itself, so the figures are read-only tiles in the screen's
 #: own package rather than a third version of a titled box.
+#:
+#: `ProgressBanner` added `EPIC-025` PR 4.3l, for the opposite reason: three
+#: screens were embedding `ProgressBanner.qml`, which ADR D21 deletes, and
+#: `StyledProgressBar`'s own docstring had already recorded the composite as a
+#: candidate held back for having one instance.
 _EXPECTED_EXPORTS = (
     "Banner",
     "Column",
@@ -37,6 +42,7 @@ _EXPECTED_EXPORTS = (
     "LogModel",
     "LogPanel",
     "Pagination",
+    "ProgressBanner",
     "RowAction",
     "Severity",
     "Tab",
@@ -81,6 +87,7 @@ def test_one_class_per_file():
         "banner",
         "data_row",
         "log_panel",
+        "progress_banner",
         "tab_bar",
         "table_card",
     ]

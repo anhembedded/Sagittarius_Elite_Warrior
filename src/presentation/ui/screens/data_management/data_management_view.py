@@ -16,9 +16,6 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.progress_banner_widget import (
-    ProgressBannerWidget,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
     DatabaseStatusPanel,
     GapInspectorDialog,
@@ -43,6 +40,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     ConfirmOverlay,
     PageShell,
+    ProgressBanner,
     StyleRole,
     apply_role,
 )
@@ -79,21 +77,11 @@ _ACTION_BUTTONS = [
 _IDLE_MODE = "IDLE"
 _CANCELLING_MODE = "CANCELLING"
 
-#: `ProgressBanner.qml`'s own default (`"Hủy"`) is shorter than what this
+#: The `.qml`'s own default (`"Hủy"`) was shorter than what this
 #: screen's `AppProgressBar`-era `QPushButton` said — kept as the explicit
 #: label here so the on-screen wording does not silently change as part of
 #: this retrofit.
 _CANCEL_LABEL = "Cancel Progress (Cancel)"
-
-#: `ProgressBanner.qml`'s `ColumnLayout` measures to a stable 30px
-#: `implicitHeight` at this card's real inner width (292px = the 320px
-#: `_build_sync_controls` card minus its 14px side margins), unchanged
-#: across every state this screen drives it through (status text set,
-#: `indeterminate`, `cancelling`) — verified empirically rather than
-#: guessed, since `QQuickWidget.sizeHint()` only echoes whatever size it
-#: was last resized to (not the root item's actual `implicitHeight`) and so
-#: cannot be trusted to auto-size this widget inside `QVBoxLayout`.
-_PROGRESS_BANNER_HEIGHT = 32
 
 #: `describe()` returns `None` for a code the domain no longer recognises
 #: (a remembered value on disk that has gone stale, same reasoning as
@@ -349,8 +337,8 @@ class DataManagementView(BaseView):
         # `progressMaximum <= 0` guard (`DataManagementViewModel`) — reused
         # rather than re-deriving the same number a second place here.
         self._progress_banner.set_percent(vm.progressPercent)
-        # `ProgressBanner.qml`'s own Cancel button relabels/disables itself
-        # from `cancelling` — no separate button text/enabled state to set.
+        # The banner's own Cancel button disables itself from `cancelling`
+        # — no separate button text/enabled state to set here.
         self._progress_banner.set_cancelling(vm.uiMode == _CANCELLING_MODE)
 
     def _sync_stats(self) -> None:
@@ -589,11 +577,12 @@ class DataManagementView(BaseView):
         progress_layout.setSpacing(8)
 
         # EPIC-015 Phase 2: replaces `AppProgressBar` + a standalone Cancel
-        # `QPushButton` — `ProgressBanner.qml` renders the caption, a bar
-        # that actually shows its percent, and has its own Cancel button
-        # built in, so there is nothing left for a sibling widget to add.
-        self._progress_banner = ProgressBannerWidget()
-        self._progress_banner.setFixedHeight(_PROGRESS_BANNER_HEIGHT)
+        # `QPushButton` — the banner renders the caption, a bar that actually
+        # shows its percent, and has its own Cancel button built in, so there
+        # is nothing left for a sibling widget to add. A QML embed until
+        # PR 4.3l; the fixed 32px height went with it, because a `QWidget`
+        # measures itself and a `QQuickWidget` could not.
+        self._progress_banner = ProgressBanner()
         self._progress_banner.set_cancel_label(_CANCEL_LABEL)
         progress_layout.addWidget(self._progress_banner)
 

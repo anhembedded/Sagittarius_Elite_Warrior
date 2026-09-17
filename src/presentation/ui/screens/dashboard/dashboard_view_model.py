@@ -21,7 +21,7 @@ from sagittarius_engine.extensions.pyside_mvc import (
 
 _IDLE_STATUS_TEXT = "WS: IDLE"
 _IDLE_STATUS_COLOR = Palette.MUTED
-#: `StatusPill.qml`'s semantic vocabulary — see that file's own docstring
+#: `WsStatusPill`'s semantic vocabulary — see that file's own docstring
 #: and `dashboard_presenter.py`'s `_WS_STATUS_BY_MODE` for the full mapping.
 _IDLE_STATUS_TONE = "idle"
 
@@ -115,9 +115,9 @@ class DashboardQmlViewModel(BaseQmlViewModel):
 
         # BOT-123 — Start Live's `SyncMarketDataCommand` phase (fetching
         # missing candles from Binance before the websocket opens) used to
-        # run with no visible feedback at all: same gap `ProgressBanner.qml`
-        # already closed for Backtest/Data Management (see that file's own
-        # docstring), just never wired up on this screen. Same property
+        # run with no visible feedback at all: same gap the progress banner
+        # already closed for Backtest/Data Management (see
+        # `kit.ProgressBanner`), just never wired up on this screen. Same property
         # shape as `DataManagementViewModel`'s progress block on purpose —
         # one shape for "a long task, a percent, a Cancel" everywhere it
         # appears.
@@ -217,7 +217,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     def _get_ws_status_tone(self) -> str:
         return self._ws_status_tone
 
-    #: `StatusPill.qml`'s semantic tone ("idle"|"active"|"success"|"danger"),
+    #: `WsStatusPill`'s semantic tone ("idle"|"active"|"success"|"danger"),
     #: set alongside text/color by the same `set_ws_status()` call — never
     #: derived from `wsStatusColor` by a reader, which is exactly the
     #: fragile reverse-engineering `dashboard_presenter.py`'s
@@ -247,7 +247,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
 
     # ------------------------------------------------------------------ #
     # Sync progress (BOT-123) — the `SyncMarketDataCommand` phase inside
-    # Start Live, read by `ProgressBannerWidget` via `DevBoardPanel`.
+    # Start Live, read by `kit.ProgressBanner` via `DevBoardPanel`.
     # Mirrors `DataManagementViewModel`'s progress block exactly.
     # ------------------------------------------------------------------ #
     def _get_progress_value(self) -> int:

@@ -276,7 +276,7 @@ _BLOCK_REASON_MESSAGES = EnumLabels(
 # WS status badge (top bar) text/color/tone per FSM state — presentational
 # only, derived from the state DashboardPresenter already tracks.
 #
-# `tone` (third element) is `StatusPill.qml`'s semantic vocabulary
+# `tone` (third element) is `WsStatusPill`'s semantic vocabulary
 # ("idle"|"active"|"success"|"danger" — see that file's own docstring).
 # `EPIC-015` Phase 4 added it here, as a third element of the SAME dict,
 # rather than a second `UIMode -> tone` switch: the tone for a mode is a
@@ -284,7 +284,7 @@ _BLOCK_REASON_MESSAGES = EnumLabels(
 # out of sync with its text/colour. Do NOT derive `tone` from `color`
 # (a Palette hex string, or `BULL_COLOR`/`BEAR_COLOR`) — that would break
 # silently if any of those values ever changed, since a colour string
-# carries no semantic meaning `StatusPill.qml` could read back out of it.
+# carries no semantic meaning `WsStatusPill` could read back out of it.
 _WS_STATUS_BY_MODE = {
     UIMode.IDLE: ("WS: IDLE", Palette.MUTED, "idle"),
     UIMode.LOCKED: ("WS: SYNCING", Palette.ACCENT, "active"),

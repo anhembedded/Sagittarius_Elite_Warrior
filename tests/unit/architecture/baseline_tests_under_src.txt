@@ -1,8 +1,0 @@
-src/presentation/ui/qml/kit/tests/conftest.py
-src/presentation/ui/qml/kit/tests/test_button_qml.py
-src/presentation/ui/qml/kit/tests/test_dialog_shell_qml.py
-src/presentation/ui/qml/kit/tests/test_log_panel_qml.py
-src/presentation/ui/qml/kit/tests/test_panel_header_qml.py
-src/presentation/ui/qml/kit/tests/test_progress_banner_qml.py
-src/presentation/ui/qml/kit/tests/test_stat_card_qml.py
-src/presentation/ui/qml/kit/tests/test_status_pill_qml.py

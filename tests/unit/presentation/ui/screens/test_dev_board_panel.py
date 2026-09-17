@@ -11,12 +11,11 @@ from __future__ import annotations
 import os
 
 import pytest
-from PySide6.QtCore import QPoint, Qt
-from PySide6.QtTest import QTest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtGui import QPalette
+from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_presenter import (
     _WS_STATUS_BY_MODE,
 )
@@ -26,13 +25,15 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_v
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dev_board_panel import (
     DevBoardPanel,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.ws_status_pill import (
+    WsStatusPill,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolTableModel,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.time_range_picker import (
     RangePresetKind,
 )
-from Sagittarius_Elite_Warrior.tests.conftest import find_qml_item
 
 
 @pytest.fixture
@@ -48,11 +49,10 @@ def panel(qapp, view_model, request):
     `DevBoardPanel` stopped being a widget in `EPIC-025` PR 1.4c-3: it builds
     the cards and `DashboardView` places them — five docks, a dialog, a
     toolbar and the status bar. Several of these tests need their widget
-    actually *shown* (a `QQuickWidget` loads its QML only then, which is how
-    the status-pill tests read `root_object`), so the fixture stands in for
-    that placement with one plain host. Every test body below is unchanged:
-    they reach the widgets through the panel's own attributes, exactly as
-    before.
+    actually *shown* — the QML embeds this panel carried until `EPIC-025`
+    PR 4.3l loaded their scene only then — so the fixture stands in for that
+    placement with one plain host. Every test body below reaches the widgets
+    through the panel's own attributes.
     """
     controls = DevBoardPanel(view_model)
     host = QWidget()
@@ -78,36 +78,56 @@ def test_price_ticker_reflects_the_view_model(qapp, panel, view_model):
     assert "#0ECB81" in panel._price_ticker_label.styleSheet()
 
 
+def _dot_colour(pill: WsStatusPill) -> str:
+    return pill._dot.palette().color(QPalette.ColorRole.WindowText).name()
+
+
+def _colour_for_tone(qtbot_free_parent: QWidget, tone: str) -> str:
+    """What a pill asked for `tone` directly would paint its dot.
+
+    A tone is no longer readable back off the widget the way a QML property
+    was, so the assertion compares renderings: a second pill is told the tone
+    the Presenter declared, and the panel's pill must have painted the same
+    thing. The four tones `_WS_STATUS_BY_MODE` uses each resolve to a
+    different colour (`test_ws_status_pill.py` pins that), so this fails if
+    `_sync_ws_status()` passes the wrong one — which a hardcoded hex
+    expectation here would not, since it would then be asserting
+    `semantic_colour()`'s output rather than the wiring.
+    """
+    reference = WsStatusPill(qtbot_free_parent)
+    reference.set_tone(tone)
+    return _dot_colour(reference)
+
+
 def test_ws_status_reflects_the_view_model(qapp, panel, view_model):
-    """`EPIC-015` Phase 4 — the WS badge is now `StatusPillWidget`
-    (`StatusPill.qml` embedded inline), driven by plain setters rather than
-    an inline stylesheet. Tone, not the raw `wsStatusColor` hex string, is
-    what reaches the QML root — see `dev_board_panel.py`'s
-    `_sync_ws_status()` docstring."""
+    """`EPIC-015` Phase 4 made the WS badge a pill driven by plain setters
+    rather than an inline stylesheet; PR 4.3l makes that pill `WsStatusPill`
+    (QtWidgets). Tone, not the raw `wsStatusColor` hex string, is what
+    reaches it — see `dev_board_panel.py`'s `_sync_ws_status()` docstring."""
     view_model.set_ws_status("WS: LIVE", "#0ECB81", "success")
     qapp.processEvents()
 
-    root = panel._ws_status_pill.root_object
-    assert root.property("text") == "WS: LIVE"
-    assert root.property("tone") == "success"
+    pill = panel._ws_status_pill
+    assert pill._label.text() == "WS: LIVE"
+    assert _dot_colour(pill) == _colour_for_tone(pill, "success")
 
 
 @pytest.mark.parametrize("mode", list(_WS_STATUS_BY_MODE.keys()))
 def test_ws_status_pill_reflects_every_ui_mode_row(qapp, panel, view_model, mode):
-    """Screen-level wiring test (`qml-rule.md` §7): `_sync_ws_status()` must
-    drive `StatusPillWidget` with the exact text/tone
-    `dashboard_presenter.py`'s `_WS_STATUS_BY_MODE` declares for every
-    `UIMode`, not just the one state the older test above happened to pick.
-    Reads the same dict the Presenter reads rather than a second hardcoded
-    copy of the four rows, so this cannot drift from the real mapping.
+    """Screen-level wiring test: `_sync_ws_status()` must drive the pill with
+    the exact text/tone `dashboard_presenter.py`'s `_WS_STATUS_BY_MODE`
+    declares for every `UIMode`, not just the one state the older test above
+    happened to pick. Reads the same dict the Presenter reads rather than a
+    second hardcoded copy of the four rows, so this cannot drift from the
+    real mapping.
     """
     text, _color, tone = _WS_STATUS_BY_MODE[mode]
     view_model.set_ws_status(text, _color, tone)
     qapp.processEvents()
 
-    root = panel._ws_status_pill.root_object
-    assert root.property("text") == text
-    assert root.property("tone") == tone
+    pill = panel._ws_status_pill
+    assert pill._label.text() == text
+    assert _dot_colour(pill) == _colour_for_tone(pill, tone)
 
 
 def test_indicator_checkboxes_match_the_script_model(qapp, panel, view_model):
@@ -269,8 +289,8 @@ def test_symbol_button_follows_the_view_model(qapp, panel, view_model):
 
 # ---------------------------------------------------------------------- #
 # Progress banner (BOT-123) — Start Live's sync-from-Binance phase used to
-# show no progress at all. Same `ProgressBannerWidget` component/wiring
-# shape as `test_database_progress_cancel_widget.py`'s own tests.
+# show no progress at all. Same `kit.ProgressBanner` component/wiring shape
+# as `test_database_progress_cancel_widget.py`'s own tests.
 # ---------------------------------------------------------------------- #
 
 
@@ -283,19 +303,19 @@ def test_progress_banner_reflects_the_view_model(qapp, panel, view_model):
     qapp.processEvents()
 
     assert panel._progress_banner.isVisible() is True
-    root = panel._progress_banner.root_object
-    assert root.property("statusText") == "Syncing ETHUSDT 5m (25/100 candles)"
-    assert root.property("percent") == pytest.approx(25.0)
+    banner = panel._progress_banner
+    assert banner._status.text() == "Syncing ETHUSDT 5m (25/100 candles)"
+    assert banner.percent_text() == "25%"
 
     view_model.hide_progress()
     qapp.processEvents()
     assert panel._progress_banner.isVisible() is False
 
 
-def _progress_cancel_button(panel: DevBoardPanel):
-    return find_qml_item(
-        panel._progress_banner.root_object, "progressBannerCancelButton"
-    )
+def _progress_cancel_button(panel: DevBoardPanel) -> QPushButton:
+    button = panel._progress_banner.findChild(QPushButton, "progressBannerCancel")
+    assert button is not None
+    return button
 
 
 def test_clicking_the_progress_banners_cancel_button_requests_stop(
@@ -312,13 +332,7 @@ def test_clicking_the_progress_banners_cancel_button_requests_stop(
     stopped = []
     view_model.stopStreamRequested.connect(lambda: stopped.append(True))
 
-    button = _progress_cancel_button(panel)
-    centre = button.mapToScene(button.boundingRect().center())
-    QTest.mouseClick(
-        panel._progress_banner.quick_widget,
-        Qt.MouseButton.LeftButton,
-        pos=QPoint(int(centre.x()), int(centre.y())),
-    )
+    _progress_cancel_button(panel).click()
     qapp.processEvents()
 
     assert stopped == [True]
