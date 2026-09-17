@@ -176,7 +176,7 @@ def diagnostic_guard(request):
     Python's logging format and not the one Qt uses.
 
     Expect this to go red on its first run. Every message it surfaces is either
-    a real defect, which then follows `bug-fix-rule.md` in full, or an
+    a real defect, which then follows `fix-bug-rule.md` in full, or an
     explicitly justified entry in the allowlists above. It is not evidence that
     the guard is broken.
     """

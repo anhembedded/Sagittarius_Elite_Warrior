@@ -52,7 +52,7 @@ Not investigated further here — this bug exists to record the finding BOT-038'
 removal surfaced, not to root-cause it. Whoever picks this up: start by
 checking whether `DashboardPresenter`'s construction-time autostart still
 synchronously reaches `LIVE` under `mock_thread_mgr.submit_sync`, per
-`.agents/rules/bug-fix-rule.md`.
+`.agents/rules/fix-bug-rule.md`.
 
 ## Regression test
 

@@ -100,7 +100,7 @@ def test_no_two_task_files_share_an_id() -> None:
 
 
 #: Which board makes each pool's files *visible*. The bug board is the only
-#: place an open bug is listed (`bug-fix-rule.md` §7); `ROADMAP.md` is the only
+#: place an open bug is listed (`fix-bug-rule.md` §7); `ROADMAP.md` is the only
 #: place a task is. `proposal/` is absent on purpose: a proposal is accepted
 #: onto the board by becoming a task, not by being listed.
 _POOL_BOARDS: tuple[tuple[str, str], ...] = (

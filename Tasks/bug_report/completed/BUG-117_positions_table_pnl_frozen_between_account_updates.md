@@ -41,7 +41,7 @@ Số đo được: mark price app giữ 2437.26 (khớp `(2437.26-2436.72)×4.80
 
 ## 3. Fix
 
-**Bản đầu (bị từ chối — xem `bug-fix-rule.md` §2, "không hotfix"):** một
+**Bản đầu (bị từ chối — xem `fix-bug-rule.md` §2, "không hotfix"):** một
 `QTimer` trong từng Presenter (Trading, Dev Board), tự poll
 `GetOpenPositionsQuery` rồi gọi thẳng vào bảng của riêng màn đó. Sửa đúng
 triệu chứng nhưng là **2 timer độc lập** cùng gọi một endpoint, và màn thứ
@@ -114,4 +114,4 @@ Bản đầu (per-screen `QTimer`) đã bị user chặn lại đúng lúc ("ko 
 nhé, cần thiết thì phải design lại cơ chế để có thế scalable") — root cause
 đúng, fix đúng triệu chứng, nhưng sai tầm kiến trúc: vá tại từng điểm gọi
 thay vì sửa cơ chế dùng chung. Đã redesign theo đúng yêu cầu, và ghi thành
-luật thường trực ở `bug-fix-rule.md` §2 (mới) để không lặp lại lớp lỗi này.
+luật thường trực ở `fix-bug-rule.md` §2 (mới) để không lặp lại lớp lỗi này.

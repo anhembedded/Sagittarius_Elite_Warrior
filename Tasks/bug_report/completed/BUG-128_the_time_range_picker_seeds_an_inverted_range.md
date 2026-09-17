@@ -55,7 +55,7 @@ fallback that missed the case its condition named:
 3. anything missing → fill from `now` and a week back.
 
 **The user's own clicks.** Fixing only the seed would have left the same symptom one click away,
-which is `bug-fix-rule` §2's "fix the mechanism, not the reported call site": two calendars let a
+which is `fix-bug-rule` §2's "fix the mechanism, not the reported call site": two calendars let a
 user pick a From date after the To date, and `can_apply` said yes for exactly the reason it said
 yes to the seeded pair. It now requires both ends *and* their order, so Apply greys out, and
 `build_summary` words that state — *"The end is before the start"* — instead of clamping the

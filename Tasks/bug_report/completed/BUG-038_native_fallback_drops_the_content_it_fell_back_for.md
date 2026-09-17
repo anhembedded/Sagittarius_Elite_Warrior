@@ -86,7 +86,7 @@ Hai lỗ hổng cộng lại — và **user chỉ ra cả hai**:
 
 Test `BOT-113` còn dùng `Mock()` với `side_effect` — nó chỉ khẳng định lại
 niềm tin của người viết về *khi nào adapter raise*, và không hề chạm tới việc
-nội dung có tới đích không. Cùng họ bẫy `Mock` mà `bug-fix-rule.md` §3 và
+nội dung có tới đích không. Cùng họ bẫy `Mock` mà `fix-bug-rule.md` §3 và
 `BUG-013` đã cảnh báo.
 
 ---

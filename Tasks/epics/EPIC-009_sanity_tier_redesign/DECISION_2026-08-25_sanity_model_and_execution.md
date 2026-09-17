@@ -572,7 +572,7 @@ drops from ~24 app boots to 1. Test count stops tracking feature count.
 **Paid.** `app_bootstrapper.main()` must be refactored — production code
 changed to serve testability, which needs its own verification. Adding the
 diagnostic guard is expected to turn the tier **red**, and every message it
-surfaces must be triaged per `bug-fix-rule.md` rather than allowlisted for
+surfaces must be triaged per `fix-bug-rule.md` rather than allowlisted for
 convenience. `testing-rule.md` and `ci-rule.md` §6 both have to be rewritten
 before any code lands.
 

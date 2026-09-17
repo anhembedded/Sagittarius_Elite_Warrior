@@ -1,5 +1,5 @@
 ---
-description: The format of a bug report under Tasks/bug_report/incomplete/ (bug-fix-rule.md §7). Copy it, fill every brace, delete this front matter.
+description: The format of a bug report under Tasks/bug_report/incomplete/ (fix-bug-rule.md §7). Copy it, fill every brace, delete this front matter.
 ---
 
 # BUG-{nnn} — {the symptom as the user met it, one line}
@@ -18,16 +18,16 @@ description: The format of a bug report under Tasks/bug_report/incomplete/ (bug-
 {The real evidence, pasted: the traceback, the log lines, the screenshot path. What was expected instead.}
 
 ## Root cause
-{The mechanism with `file:line`, and why the fix resolves it without crossing a layer. When the gate was green: which net was silent, and whether a case study follows (`bug-fix-rule.md` §6.5).}
+{The mechanism with `file:line`, and why the fix resolves it without crossing a layer. When the gate was green: which net was silent, and whether a case study follows (`fix-bug-rule.md` §6.5).}
 
 ## Fix
-{What changed, per file, and why it is the mechanism and not the symptom (`bug-fix-rule.md` §2).}
+{What changed, per file, and why it is the mechanism and not the symptom (`fix-bug-rule.md` §2).}
 
 ## Regression test
 {`tests/{tier}/{file}::{test}` — failed before the fix for this reason: {…}; passes after. The tier reaches the crash; no `Mock` stands in for it.}
 
 ## Verification
-{Not run, or the commands, results, checked commit and log path. Include positive evidence that the repaired mechanism ran when reproducing again (`bug-fix-rule.md` §3), plus the required gate result. Link the case study when one was required.}
+{Not run, or the commands, results, checked commit and log path. Include positive evidence that the repaired mechanism ran when reproducing again (`fix-bug-rule.md` §3), plus the required gate result. Link the case study when one was required.}
 
 ## Suggested next steps
 {Only while the status is Open.}

@@ -34,7 +34,7 @@ từng được ghi vào `BackTestViewModel`. Lần mở dialog kế tiếp, `_s
 **Phát hiện thứ hai trong lúc sửa (user chỉ ra, không phải tôi tự thấy):** phần
 `save_and_rerun()`/`_sync_properties()` đọc/ghi 12 widget bằng tay
 (`self._prop_order_size_value.text()`, `.currentData()`, `.value()`,
-`.isChecked()`...) — đúng loại "hot fix nhân bản" mà `bug-fix-rule.md`/§12.5 cấm.
+`.isChecked()`...) — đúng loại "hot fix nhân bản" mà `fix-bug-rule.md`/§12.5 cấm.
 Cùng một tập "12 broker property" bị khai 2 lần độc lập: 1 lần ở
 `StrategyConfigCoordinator._BROKER_PROPERTIES` (áp giá trị vào ViewModel), 1 lần rải
 rác trong `StrategyPropertiesDialog` (đọc/ghi widget) — thêm 1 property mới mà quên
@@ -121,7 +121,7 @@ nhân: đường mất-focus vẫn đi qua nguyên vẹn pipeline **"save"**. C�
 hiện tại và khởi động luôn một lần chạy backtest**, dù user chưa hề bấm Lưu.
 
 Việc tôi làm ở mục trên (`_commit_without_closing`, tạm ngắt kết nối
-`botParamsSaved → accept`) là đúng loại "hot fix" mà `bug-fix-rule.md` §1 và
+`botParamsSaved → accept`) là đúng loại "hot fix" mà `fix-bug-rule.md` §1 và
 ONBOARDING §12.5.1 cấm: che một triệu chứng của việc dùng sai pipeline, thay vì
 tách pipeline ra.
 

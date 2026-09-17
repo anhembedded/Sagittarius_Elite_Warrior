@@ -109,7 +109,7 @@ subplots (RSI, Equity, the `chart_card/__main__.py` demo) are unaffected — pro
 
 ## 4. Regression tests
 
-Two tests, at the two layers the defect actually spans (bug-fix-rule §3 — pick the tier where the
+Two tests, at the two layers the defect actually spans (fix-bug-rule §3 — pick the tier where the
 bug lives; a mock-only test at either layer alone could not have proven the fix, so both were
 required):
 
@@ -139,4 +139,4 @@ This session had no pre-built `.venv` and no sibling `Sagittarius_Engine` checko
 dev machine per `.agents/ONBOARDING.md` §2) — both were bootstrapped from scratch (`python3.12 -m
 venv .venv`, `pip install -r requirements.txt`, `pip install git+https://github.com/anhembedded/Sagittarius_Engine.git`,
 plus system `libegl1`/`libgl1-mesa-dri` for headless Qt) to get a real `pytest -q` run rather than
-trusting static reading alone, per `bug-fix-rule.md` §1–3.
+trusting static reading alone, per `fix-bug-rule.md` §1–3.

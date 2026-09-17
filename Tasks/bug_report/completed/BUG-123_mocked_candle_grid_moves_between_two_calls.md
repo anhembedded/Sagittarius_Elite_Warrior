@@ -95,7 +95,7 @@ _SERIES_ANCHOR = datetime.now(UTC).replace(second=0, microsecond=0) - timedelta(
 the call site: every current and future caller derives the same grid for free, so a test
 can build a page adjacent to what another caller stored — which is the property the
 load-more tests were relying on without anything guaranteeing it. The alternative shape,
-"pass the anchor in at each call site", is the per-caller patch `bug-fix-rule.md` §2
+"pass the anchor in at each call site", is the per-caller patch `fix-bug-rule.md` §2
 forbids: it would leave the next caller free to read the clock again.
 
 Both reasons the clock was read for survive: the series still sits inside any

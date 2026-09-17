@@ -1,7 +1,7 @@
 """Regression test for `BUG-080`'s second, independent problem: API Key/
 Secret used to be written to `user_config.json`, a git-tracked file
 (`git ls-files src/config/` includes it). Written before the fix, per
-`bug-fix-rule.md`: confirmed failing (both keys present, and
+`fix-bug-rule.md`: confirmed failing (both keys present, and
 `settings_presenter.py` calling `IConfig.set("API_KEY", ...)`) on the code
 as `EPIC-021B` found it.
 

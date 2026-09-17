@@ -111,12 +111,12 @@ Bản sao **nguyên văn** của test, chỉ đổi `100.0 → 40.0`:
 1 failed in 0.77s      # 100px, reanchors=1   ← bản gốc
 ```
 
-## 5. Hướng sửa và tại sao nó **không** làm yếu test (`bug-fix-rule.md` §4)
+## 5. Hướng sửa và tại sao nó **không** làm yếu test (`fix-bug-rule.md` §4)
 
 Đổi hai literal `100.0` (dòng 284, 326) thành `_SHORT_PAN_PIXELS` — đúng hằng số mà file đã định
 nghĩa và các test anh em đang dùng.
 
-`bug-fix-rule.md` §4 cấm sửa test theo hướng làm nó dễ hơn. Sửa này không rơi vào đó, vì:
+`fix-bug-rule.md` §4 cấm sửa test theo hướng làm nó dễ hơn. Sửa này không rơi vào đó, vì:
 
 - Test này **tự khai** mục tiêu là "pure cached-pixmap transform, never trips the mid-drag
   re-render". Dùng 40px là **đưa nó về đúng phạm vi nó tuyên bố**, không phải nới lỏng.
@@ -143,7 +143,7 @@ Không sửa một dòng code sản phẩm nào — §3 đã chứng minh sản 
 
 ## 7. Regression test — chứng minh **không** làm yếu, không phải khẳng định suông
 
-`bug-fix-rule.md` §4 cấm sửa test thành thứ *"no longer reaches the original failure path"*.
+`fix-bug-rule.md` §4 cấm sửa test thành thứ *"no longer reaches the original failure path"*.
 Đường lỗi gốc của `BUG-009` là *"pan transform áp lên cả khung viewport thay vì chỉ vùng dữ
 liệu"*. Đo bằng đột biến: gieo lại đúng lỗi đó vào code sản phẩm (bỏ cả hai `setClipRect` trong
 `_paint_transformed_region`) rồi chạy test **đã sửa**:

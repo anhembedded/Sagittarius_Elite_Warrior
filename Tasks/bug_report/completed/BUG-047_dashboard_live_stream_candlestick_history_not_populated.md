@@ -37,7 +37,7 @@ Two candidate directions, neither confirmed:
 ## Regression test
 
 This test itself is the regression test once fixed. Follow
-`.agents/rules/bug-fix-rule.md`: confirm the fail reason first (mock leaking
+`.agents/rules/fix-bug-rule.md`: confirm the fail reason first (mock leaking
 into data population vs. a genuine pipeline break) before changing either the
 test or `src/`.
 

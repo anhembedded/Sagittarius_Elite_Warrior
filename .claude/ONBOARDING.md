@@ -17,7 +17,7 @@ Every rule under `.claude/rules/` loads by itself: a rule with a `paths:` list i
 | 3 | `.claude/rules/code-quality-rule.md` | opening a `src/` or `scripts/` file |
 | 4 | `.claude/rules/ci-rule.md` | every session — before calling anything done |
 | 5 | `.claude/rules/commit-rule.md` | every session — before every commit |
-| 6 | `.claude/rules/bug-fix-rule.md` | every session — the user reports a bug (mandatory) |
+| 6 | `.claude/rules/fix-bug-rule.md` | every session — the user reports a bug (mandatory) |
 | 7 | `.claude/rules/logging-rule.md` | opening a `src/` or `scripts/` file; every bug fix |
 | 8 | `.claude/rules/testing-rule.md` | opening a `tests/` file |
 | 9 | `.claude/rules/async-ui-action-rule.md` | opening a presenter or coordinator |
@@ -44,7 +44,7 @@ Every rule under `.claude/rules/` loads by itself: a rule with a `paths:` list i
 5. Bookkeeping §6.
 
 ## 4. A bug
-`bug-fix-rule.md` is the authority. The three most violated points: the regression test is written **before** the fix and confirmed red for the right reason; the tier reaches the crash (a `Mock` cannot); the report `Tasks/bug_report/incomplete/BUG-{nnn}_{slug}.md` from `.claude/templates/bug-report.md` with real evidence, moved to `completed/` and its row moved on the Bug Board when fixed. Read pasted logs and screenshots with tools before hypothesising.
+`fix-bug-rule.md` is the authority. The three most violated points: the regression test is written **before** the fix and confirmed red for the right reason; the tier reaches the crash (a `Mock` cannot); the report `Tasks/bug_report/incomplete/BUG-{nnn}_{slug}.md` from `.claude/templates/bug-report.md` with real evidence, moved to `completed/` and its row moved on the Bug Board when fixed. Read pasted logs and screenshots with tools before hypothesising.
 
 ## 5. Real verification
 ```bash

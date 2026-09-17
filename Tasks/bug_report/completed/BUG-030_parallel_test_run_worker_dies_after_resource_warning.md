@@ -216,7 +216,7 @@ tự viết lại probe này sẽ dẫm đúng vào:**
    — đó là nguồn của 18 cáo buộc sai ở §3.
 
 Cả ba đều cho ra kết quả trông rất thuyết phục mà hoàn toàn sai. Đây đúng loại
-"test/probe pass mà không chứng minh được gì" mà `bug-fix-rule.md` §3 cảnh báo.
+"test/probe pass mà không chứng minh được gì" mà `fix-bug-rule.md` §3 cảnh báo.
 
 ### 5. Bước tiếp theo (cần một máy Windows)
 

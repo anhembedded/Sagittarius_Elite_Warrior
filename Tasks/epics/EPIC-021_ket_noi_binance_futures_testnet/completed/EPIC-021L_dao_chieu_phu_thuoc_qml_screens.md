@@ -74,7 +74,7 @@ thì có — file phải là model của **bảng đó**.
 người vội. Guard quét `ast` toàn `ui/qml/`, đỏ khi thấy bất kỳ import nào tới
 `presentation.ui.screens`.
 
-Thứ tự bắt buộc, theo `bug-fix-rule.md`: **viết guard trước → chạy → xác nhận nó đỏ với đúng 9 hit
+Thứ tự bắt buộc, theo `fix-bug-rule.md`: **viết guard trước → chạy → xác nhận nó đỏ với đúng 9 hit
 hiện có → rồi mới dời file.** Guard viết sau khi dời là guard không ai chứng minh được là nó bắt
 được gì.
 

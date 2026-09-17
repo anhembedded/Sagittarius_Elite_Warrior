@@ -6,7 +6,7 @@
   what a person does while writing one of these tests) hits a hang roughly half the time
   and has nothing to read.
 - **Status:** Open — reproduced on both trees, root cause **not** established. Filed with
-  the evidence rather than a guess, per `bug-fix-rule.md` §7.
+  the evidence rather than a guess, per `fix-bug-rule.md` §7.
 
 ## 1. Symptom
 
@@ -102,7 +102,7 @@ not pretend otherwise.
 2. Make the leak fail loudly instead of later: a session-scoped autouse fixture that, after
    each test, asserts the `ThreadManager` has no running worker and that no `QWidget`
    created by the test survives — the same "prove the mechanism ran" move
-   `bug-fix-rule.md` §3 asks for.
+   `fix-bug-rule.md` §3 asks for.
 3. Fix `pytest-timeout`'s blind spot for this tier: `--timeout-method=thread` kills the
    process from a watchdog thread and does not depend on the main thread returning to
    Python. That is a one-line change in `pyproject.toml` and it converts every future hang
@@ -114,6 +114,6 @@ not pretend otherwise.
 
 It surfaced while verifying `EPIC-025` PR 1.1a's review cleanup, and it predates that
 cleanup: the merged tree hangs too. Fixing it means root-causing cross-test state leakage in
-a 47-test Qt tier, which is its own task and not a review follow-up — and `bug-fix-rule.md`
+a 47-test Qt tier, which is its own task and not a review follow-up — and `fix-bug-rule.md`
 §1 forbids the shortcut of fixing the symptom (a longer timeout, a re-run) that is the only
 thing that fits inside this one.

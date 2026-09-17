@@ -61,7 +61,7 @@ also explains how it came to be constructed by nobody:
    — so there was no screen whose job it obviously was, and it became nobody's.
 2. It needed a **display** to connect its signal to. This application has no app-wide one: every
    log panel belongs to a screen. So even wired, it would have needed N connections for N screens,
-   which is the per-Presenter duplication `bug-fix-rule.md` §2 forbids.
+   which is the per-Presenter duplication `fix-bug-rule.md` §2 forbids.
 3. It is **Qt**, so the CLI entry point — which has no `QApplication` — could never have had it,
    although `TaskFailed` is published just as often headlessly.
 

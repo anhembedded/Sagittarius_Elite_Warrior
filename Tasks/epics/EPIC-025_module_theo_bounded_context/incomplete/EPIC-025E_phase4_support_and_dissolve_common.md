@@ -761,7 +761,7 @@ the inverted pair.
 one-grid picker's disambiguation rule, and they introduce a state that picker could not reach: click
 From after To and the pair inverts by hand. `can_apply` said yes to that for exactly the reason it
 said yes to the seeded pair — *present* is not *ordered* — so fixing only `seed_range` would have
-left the symptom one click away, which is `bug-fix-rule` §2's "the mechanism, not the reported call
+left the symptom one click away, which is `fix-bug-rule` §2's "the mechanism, not the reported call
 site". `can_apply` now requires both ends and their order, and `build_summary` words that state
 (*"The end is before the start"*) rather than clamping the negative span to `0 days`, which read as
 a legitimate single instant. This file's own test docstring had asserted in prose that two calendars

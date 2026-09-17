@@ -103,7 +103,7 @@ nặng.
 ### Bằng chứng trực tiếp
 
 Cài `QObject` event filter lên chart item rồi in kèm giá trị property trước
-và sau mỗi `grabWindow()` (`bug-fix-rule.md` §2 — instrument nhiều tầng, ở
+và sau mỗi `grabWindow()` (`fix-bug-rule.md` §2 — instrument nhiều tầng, ở
 đây là tầng event delivery và tầng property):
 
 ```
@@ -217,7 +217,7 @@ không phải 2. Đã đổi sang đọc trước khi bơm event; không bỏ as
 `tests/sanity/test_bug036_benchmark_crosshair_hover_race.py` — **tầng Sanity,
 chạy với plugin native thật**. Bắt buộc phải ở tầng này: chỗ ghi đè nằm bên
 trong `NativeChartItem::hoverMoveEvent()`, nên một test double cho item sẽ
-không bao giờ chạm tới đường lỗi (`bug-fix-rule.md` §3, bài học `BUG-013`).
+không bao giờ chạm tới đường lỗi (`fix-bug-rule.md` §3, bài học `BUG-013`).
 
 Test bơm hover ma qua **đúng đường delivery thật** — gửi `QMouseEvent` tới
 *window* để `QQuickDeliveryAgent` tự chuyển thành hover, chứ không gửi thẳng

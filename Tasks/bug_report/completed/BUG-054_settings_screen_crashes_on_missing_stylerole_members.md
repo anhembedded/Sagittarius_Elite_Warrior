@@ -52,7 +52,7 @@ Ghi lại đúng những gì đã nhìn thấy, **chưa** truy nguyên nhân:
 
 ## Việc cần làm khi bắt tay sửa
 
-Theo [`bug-fix-rule.md`](../../../.agents/rules/bug-fix-rule.md):
+Theo [`fix-bug-rule.md`](../../../.agents/rules/fix-bug-rule.md):
 
 1. Truy root cause thật trước (đừng vá bằng cách đổi đại sang `SECTION_LABEL`
    — phải biết ý đồ thị giác gốc của EPIC-007F là gì).

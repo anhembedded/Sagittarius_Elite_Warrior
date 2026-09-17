@@ -104,7 +104,7 @@ thay cho `bar_end`. Phát hiện thêm khi test
 
 Sửa `_build_bar_ticks` dựng `close_time = next_open - 1ms` đúng như dữ liệu
 Binance thật (kèm docstring giải thích vì sao, để không ai "sửa lại cho gọn"
-về mốc cũ). **Xác nhận fail trước khi sửa** theo `bug-fix-rule.md`: 2 test
+về mốc cũ). **Xác nhận fail trước khi sửa** theo `fix-bug-rule.md`: 2 test
 fail đúng lý do —
 `test_every_tick_is_evaluated_exactly_once_no_double_firing_on_bar_close`
 (double-eval) và `test_one_tick_per_bar_matches_static_exactly` (lệch 1ms) —

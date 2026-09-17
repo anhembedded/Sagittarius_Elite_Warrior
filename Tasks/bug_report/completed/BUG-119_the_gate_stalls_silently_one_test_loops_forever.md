@@ -125,7 +125,7 @@ same 3993.
 
 ## 4. Fix
 
-**The mechanism, not the ten call sites** (`bug-fix-rule.md` §2). The defect was not "one test
+**The mechanism, not the ten call sites** (`fix-bug-rule.md` §2). The defect was not "one test
 mocks the wrong method" — it was "four test files each held their own copy of the knowledge of how
 the CLI reaches the dispatcher, and one of those copies going stale hangs the gate".
 

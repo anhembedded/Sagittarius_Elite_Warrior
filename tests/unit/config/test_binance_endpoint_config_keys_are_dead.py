@@ -1,6 +1,6 @@
 """Regression test for `BUG-081` — `BINANCE_REST_URL`/`BINANCE_WS_URL` were
 declared in `ConfigKeys` and `app_config.json` but read nowhere in `src/`, so
-editing them changed nothing. Written before the fix, per `bug-fix-rule.md`:
+editing them changed nothing. Written before the fix, per `fix-bug-rule.md`:
 confirmed failing (both keys present) on the code as `EPIC-021A` found it.
 
 Not a blanket "every `ConfigKeys` member must be referenced" scanner — this

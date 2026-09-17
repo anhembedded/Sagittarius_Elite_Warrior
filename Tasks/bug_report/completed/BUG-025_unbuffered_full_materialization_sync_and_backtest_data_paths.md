@@ -187,7 +187,7 @@ raise `RuntimeError` tường minh nếu điều đó xảy ra (thay vì crash m
 
 ## Ghi chú
 
-Root cause ban đầu chỉ dựa trên **đọc code tĩnh** (bước 1 của `bug-fix-rule.md`),
+Root cause ban đầu chỉ dựa trên **đọc code tĩnh** (bước 1 của `fix-bug-rule.md`),
 không có log/profiler thật đo RAM (bước 2 đầy đủ). Khi sửa nhánh Sync (§3.1),
 bản đầu chỉ có test call-count-based (mock) — **bị hỏi lại đúng chỗ yếu**:
 call-count chứng minh `save_klines()` được gọi đúng số lần, nhưng không

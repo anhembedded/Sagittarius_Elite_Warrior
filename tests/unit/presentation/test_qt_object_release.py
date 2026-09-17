@@ -14,7 +14,7 @@ Why that is the right subject. A first attempt asserted a plain
 `weakref.ref(BackTestView())` dies after the release — and it passed **without
 the fix**, because an acyclic widget is freed by refcounting the moment its last
 reference goes. That test would have proven nothing, the same trap `BUG-013`
-fell into (`bug-fix-rule.md` §4). A *cycle* is what the real views form — a view
+fell into (`fix-bug-rule.md` §4). A *cycle* is what the real views form — a view
 holds its view-model, the view-model's signals hold the view's slots — and a
 cycle survives until the cyclic collector runs.
 """

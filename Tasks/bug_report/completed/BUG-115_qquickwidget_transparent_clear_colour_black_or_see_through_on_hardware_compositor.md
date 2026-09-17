@@ -334,7 +334,7 @@ Pixel-diff `grab()` ↔ màn hình thật, cùng cách đo §1:
 `timeframe_picker_xcb_screen_after_fix.png`, `data_management_xcb_screen_after_fix.png`,
 `backtest_xcb_screen_after_fix.png`.
 
-### 6.3 Test giữ lại vĩnh viễn (`bug-fix-rule.md` §4)
+### 6.3 Test giữ lại vĩnh viễn (`fix-bug-rule.md` §4)
 
 | Tầng | File | Khoá điều gì |
 | :--- | :--- | :--- |

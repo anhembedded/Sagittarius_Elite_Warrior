@@ -144,7 +144,7 @@ function Invoke-RunLogScan {
         ForEach-Object { Write-Host "     $_" -ForegroundColor DarkYellow }
     Write-Host ""
     Write-Host "  Every hit MUST be investigated and reported (code-rule.md §4):" -ForegroundColor Yellow
-    Write-Host "  either a real defect (then follow bug-fix-rule.md in full), or an" -ForegroundColor Yellow
+    Write-Host "  either a real defect (then follow fix-bug-rule.md in full), or an" -ForegroundColor Yellow
     Write-Host "  understood expected condition, named with its reason." -ForegroundColor Yellow
     Write-Host "  Full log: $LogFile" -ForegroundColor DarkGray
     return $true
