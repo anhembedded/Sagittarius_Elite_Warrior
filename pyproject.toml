@@ -82,6 +82,13 @@ asyncio_mode = "auto"
 # (killing the whole run) is not worth making until such a hang actually appears.
 timeout = 60
 
+[tool.ruff]
+# Pinned with requirements.txt (user decision 2026-09-17). Without a pin the gate's
+# answer depended on the install date: on one tree, ruff 0.15.8 reported 92 E402
+# errors that 0.16.7 does not. `required-version` makes a mismatched local ruff
+# refuse to run instead of quietly reporting a different answer.
+required-version = "==0.16.7"
+
 [tool.ruff.lint]
 # EPIC-004 — security and maintainability rules enabled incrementally from
 # the baseline audit (Tasks/reports/EPIC-004A_ruff_security_quality_baseline_audit.md).

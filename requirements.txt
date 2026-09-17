@@ -5,7 +5,7 @@ pydantic
 pytest
 pytest-asyncio
 pytest-cov
-ruff
+ruff==0.16.7
 PySide6==6.11.1
 pyqtgraph
 pytest-qt
