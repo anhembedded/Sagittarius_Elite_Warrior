@@ -1,13 +1,13 @@
-# Restored on master-warrior, where it had simply gone missing: the branch
-# carried no .github/ at all, so no run had fired since 2026-08-10 and the
-# repository looked green only because nothing was checking it.
+# One gate, two runners. This workflow prepares the environment and then runs
+# scripts/ci-local.ps1 -Full — the same script every local handoff uses — so
+# "green" has one definition (ci-rule.md §7). Until 2026-09-17 it re-listed
+# the script's steps by hand and drifted from them twice (the ruff targets,
+# the testnet exclusion) with nothing to say so.
 #
-# Three separate faults had to be cleared before a run could reach the tests:
-#   1. the file's absence from this branch (above);
-#   2. triggers on `[main, develop]`, neither of which exists any more;
-#   3. the engine install — see the "Install Sagittarius Engine" step, which
-#      is why every historical run died before Ruff and pytest never once
-#      executed on CI.
+# History that still matters: this file was once missing from the branch
+# entirely, and every early run died installing the engine, because
+# `pip install git+URL` inits the engine's PRIVATE submodule
+# (tools/Sagittarius_LogViewer) — hence the clone below (install-rule.md §1).
 name: Sagittarius Elite Warrior CI
 
 on:
@@ -15,6 +15,7 @@ on:
     branches: [master-warrior]
   pull_request:
     branches: [master-warrior]
+  workflow_dispatch:
 
 concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
@@ -25,33 +26,31 @@ defaults:
     shell: bash
 
 jobs:
-  lint-and-test:
-    name: Lint & Test
+  gate:
+    name: ci-local.ps1 -Full
     runs-on: ubuntu-latest
-
-    env:
-      # Qt has no display on the runner. Every local gate exports the same
-      # thing (scripts/ci-local.ps1), so this only brings CI level with it.
-      QT_QPA_PLATFORM: offscreen
 
     steps:
       - name: Checkout Repository
+        # actions/checkout nests the repo as <workspace>/Sagittarius_Elite_Warrior,
+        # which is the package name the tests import — the script puts the
+        # parent on PYTHONPATH exactly as it does locally.
         uses: actions/checkout@v4
 
       - name: Install Qt runtime libraries
-        # PySide6 ships its own Qt binaries but still dlopen()s these from the
-        # system; without them `import PySide6.QtWidgets` fails at collection
-        # time, taking the whole suite with it. Never needed before because no
-        # CI run ever got as far as importing Qt.
+        # PySide6 ships its own Qt but still dlopen()s these from the system;
+        # without them `import PySide6.QtWidgets` fails at collection time.
         run: |
           sudo apt-get update
           sudo apt-get install -y --no-install-recommends \
             libegl1 libgl1 libglib2.0-0 libdbus-1-3 libxkbcommon-x11-0 \
             libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
             libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-xinerama0 \
-            libxcb-xfixes0 libxkbcommon0
+            libxcb-xfixes0 libxkbcommon0 libfontconfig1
 
       - name: Set up Python 3.12
+        # The floor, on purpose: a 3.13-only construct must fail here, not on
+        # the next person who installs on 3.12 (install-rule.md §1b).
         uses: actions/setup-python@v5
         with:
           python-version: "3.12"
@@ -59,14 +58,6 @@ jobs:
           cache-dependency-path: "requirements.txt"
 
       - name: Install Sagittarius Engine
-        # Cloned without submodules, then installed from the local path.
-        # `pip install git+...` cannot be used: pip always follows a git URL
-        # with `git submodule update --init --recursive`, and the engine
-        # carries a PRIVATE submodule (tools/Sagittarius_LogViewer) that an
-        # unauthenticated runner cannot clone — "could not read Username for
-        # 'https://github.com'". That single line is what failed every CI run
-        # in this repository's history. LogViewer is a developer tool, not a
-        # runtime dependency, so leaving it uncloned costs the tests nothing.
         run: |
           git clone --depth 1 https://github.com/anhembedded/Sagittarius-Engine.git "${{ runner.temp }}/engine"
           python -m pip install --upgrade pip
@@ -75,73 +66,26 @@ jobs:
       - name: Install dependencies
         run: pip install -r requirements.txt
 
-      - name: Ruff — Lint
-        # The same four targets as scripts/ci-local.ps1: `tools` because the
-        # widget-kit showcase lives there, `scripts` because the local gate
-        # gained it on 2026-09-14 (four import-order errors the gate had
-        # called green) and this workflow did not follow for two days — a
-        # whole top-level directory outside one of the two gates is how a
-        # gate quietly stops covering the repo, and nothing checked the two
-        # agreed. ci-rule.md §7 holds the table of what still differs.
-        run: ruff check src tests tools scripts
-
-      - name: Ruff — Format Check
-        run: ruff format --check src tests tools scripts
-
-      - name: Mypy — Static Type Check
-        # Left out when this workflow was restored (PR #114) because the gate
-        # was red on a clean base with two errors in scripts/; PR #122 fixed
-        # them, so it can be enforced now rather than traded for a gate that
-        # is always red.
-        #
-        # Two details are load-bearing, both copied from scripts/ci-local.ps1:
-        #   * run from the PARENT of the checkout and name the targets
-        #     `Sagittarius_Elite_Warrior/{src,scripts}` — src and scripts must
-        #     be in the SAME invocation or a Port that stops being fully
-        #     implemented goes undetected (BUG-026);
-        #   * PYTHONPATH must carry the checkout AND its parent. Without it
-        #     mypy cannot resolve `Sagittarius_Elite_Warrior.src...` to the
-        #     same module names the config excludes, so `presentation/` stops
-        #     being excluded and the run reports 561 errors instead of 0.
+      - name: Run the gate
+        # No .venv on the runner, so the script uses the tools on PATH — the
+        # ones pip just installed. Worker count derives from the runner's
+        # cores. Output goes to a file and the verdict block is printed from
+        # it, the way ci-rule.md §8 says to read a run.
         run: |
-          cd ..
-          PYTHONPATH="$GITHUB_WORKSPACE:$PWD" mypy \
-            --config-file "$GITHUB_WORKSPACE/pyproject.toml" \
-            --namespace-packages --explicit-package-bases \
-            Sagittarius_Elite_Warrior/src Sagittarius_Elite_Warrior/scripts
+          set +e
+          pwsh -NoProfile -File scripts/ci-local.ps1 -Full > gate-stdout.log 2>&1
+          status=$?
+          sed -n '/===CI_LOCAL_RESULT===/,/===END_CI_LOCAL_RESULT===/p' gate-stdout.log
+          exit $status
 
-      - name: Skill Prompts - Repository Reference Check
-        # scripts/ci-local.ps1's counterpart step (EPIC-011, moved and renamed
-        # in EPIC-012): the seven agents under .agents/Skills/ run unattended
-        # on a schedule, so a prompt pointing at a file the repo has since
-        # deleted fails silently — the run completes and reports success.
-        # This was local-only until EPIC-011H, which meant a broken reference
-        # could merge to master-warrior with a green check. Needs neither Qt
-        # nor the engine; runs in milliseconds.
-        run: python3 scripts/check_skill_prompt_references.py
-
-      - name: Run Pytest with Coverage
-        # Tests import `Sagittarius_Elite_Warrior.src...` — the checkout
-        # directory itself as a package — so the PARENT of the checkout must be
-        # on the path, not the checkout root. actions/checkout nests the repo as
-        # <workspace>/<repo>, and the directory name already matches the package
-        # name, so `..` is exactly right.
-        #
-        # `--cov-fail-under=80` matches ci-rule.md's own required threshold and
-        # scripts/ci-local.ps1's `-Full` gate. Without it, a PR that drops
-        # coverage below 80% still gets a green check here — the report would
-        # show the drop, but nothing would fail on it.
-        #
-        # `--ignore=tests/testnet` is the second of that tier's two gates
-        # (ci-rule.md §3a): its own conftest skips without SEW_TESTNET_TESTS=1
-        # and credentials, and the local gate excludes it outright as well.
-        # One layer already failed once in this repository's history; this
-        # workflow ran on the conftest alone until 2026-09-16.
-        run: |
-          PYTHONPATH=.. pytest tests/ \
-            --ignore=tests/testnet \
-            --cov=src \
-            --cov-report=xml \
-            --cov-report=term-missing \
-            --cov-fail-under=80 \
-            -q
+      - name: Keep the logs
+        # The log file is the evidence (P4): on any outcome, attach the
+        # script's transcript and stdout so a red run can be read, not guessed.
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: ci-local-logs
+          path: |
+            logs/
+            gate-stdout.log
+          if-no-files-found: warn
