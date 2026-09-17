@@ -51,11 +51,16 @@ machine or a later decision already says, or a one-parameter extension of a guar
   sub-task its README does not name.
 - `pr_body.txt`, `message_for_reviewer.txt`, `get_file_content.py` deleted from the root.
 
-## 3. What was deliberately left to the user
+## 3. Second round, 2026-09-17 — the recommendations applied
 
-The seven scheduled Routines (report S6), the autonomy policy and the documentation-only path set
-(S8, S10), the unpinned `ruff` (a dependency change), and every structural recommendation (S1, S3,
-S4, S5, S9). No new guard file was added, on purpose — report PCS-4 says why.
+The user asked for the rules to be short and token-cheap and for the recommendations to be
+applied (*"sửa luôn những gì bạn đề xuất"*). Report §5 carries the table; in one line each: the
+twelve rules rewritten as tagged norms (1 976 → 453 lines, section numbers kept), two retired
+rules deleted, six path pointers, GitHub CI runs `ci-local.ps1 -Full`, the count table is computed
+and guarded, the authority table rewritten with independent review before a code merge, the
+seven persona agents and their Routines retired for two audits that always leave a file. Still
+left to the user: pinning `ruff` (a dependency change). No new guard file was added in either
+round — report PCS-4 says why; the one new check lives in the existing board guard.
 
 ## 4. Verification
 

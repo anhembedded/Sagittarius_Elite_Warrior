@@ -30,6 +30,8 @@ Sagittarius_Elite_Warrior/Tasks/
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
+> **Updated 2026-09-17:** `BOT-134` second round — the rules rewritten as tagged norms (1 976 → 453 lines), `qml-rule`/`code-rule` deleted, GitHub CI runs `ci-local.ps1` itself, the count table below is computed by `scripts/render_task_counts.py` and guarded, `ONBOARDING.md` §7 now requires an independent review before a code merge, the seven persona agents were retired for two scheduled audits. Report §5.
+
 > **Updated 2026-09-16:** `BOT-134` — the AI-process strategic review (`Tasks/reports/ai_process_strategic_review_2026-09-16.md`): the process as a system, its philosophy stated, seven process case studies, ranked recommendations. Recount from disk: completed 131, backlog 52, cancelled 6. Eight task files had no row anywhere on this board and got one (`BOT-092`, `BOT-119`, `BOT-131` in the backlog; `BOLT-001`, `DOCTOR-001`, `DOCTOR-002`, `BOT-118`, `BOT-130` under Completed); `tests/unit/test_task_board_is_consistent.py` now fails on the next omission.
 
 > **Cập nhật 2026-09-10 (2):** Hoàn thành `BOT-133` — chuyển 3 chỗ "phải nhớ mới làm đúng" thành cơ chế tự chặn/tự chỉ đường. Đối soát: completed 130, backlog 52, cancelled 6.

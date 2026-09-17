@@ -370,6 +370,32 @@ Everything here is in the branch `claude/cool-gauss-dy2n2z`, verified with the s
 architecture and document guards, and the full gate on the final tree (log path in `BOT-134`'s
 task file). Nothing was merged.
 
+**2026-09-17 — the user applied the recommendations** (*"fix rule cho tui, làm tui nó ngắn gọn,
+xúc tích hơn… sửa luôn những gì bạn đề xuất"*). The second table is that round.
+
+| Recommendation | Done on 2026-09-17 |
+| :--- | :--- |
+| S1 norm/history split, every clause tagged | the twelve rules rewritten as norms with `[gate]`/`[guard]`/`[review]`/`[eye]` tags; `qml-rule.md` (retired, 323 lines) and `code-rule.md` (stub) deleted; section numbers kept so every `§` citation still resolves |
+| S2 load by path | six pointers: `architecture` (new, every `src/` file), `code-quality`, `domain-truth` (now also `modules/*/domain|application`), `testing`, `async-ui-action`, `ui-presentation` (now also `modules/*/ui`, `support/ui_kit`, `support/charting`) |
+| S3 one gate | `.github/workflows/ci.yml` prepares the runner and runs `scripts/ci-local.ps1 -Full`, uploads `logs/` on every outcome, and accepts `workflow_dispatch`; `ci-rule` §7's comparison table is gone because there is nothing to compare |
+| S4 derive the boards | `scripts/render_task_counts.py` is the one computation of the count table and `test_task_board_is_consistent.py` holds `ROADMAP.md` to it; the orphan and sub-task checks from 09-16 stay. Epic status prose stays hand-written |
+| S5 independent review | `ONBOARDING.md` §7: a code change merges only after a *different* session has run `pr-review` and the user (or a delegated reviewer) merges; the author never merges its own code |
+| S6 personas retired | seven prompts and the Bolt journal deleted (its lesson is trap 15); the seven Routines deleted; two audit Routines created — `test-health` and `process-drift` (`.agents/Skills/process-drift.prompt.md`), every three days, each run leaving a dated file even when empty |
+| S7 measure the process | `scripts/measure_process.py` prints the baseline rows; the drift audit records them each run |
+| S8 autonomy policy written | §7 is the one table: commit and branch push free after the per-commit checks, docs-only merges free, code merges gated by S5, direct pushes to `master-warrior` never |
+| S9 guard retirement | `testing-rule.md` §2 and principle 12: a new guard's docstring states `Retire when:`; existing guards gain it when next touched |
+| S10 one definition of documentation-only | §7: `Docs/`, `Tasks/`, `.agents/`, `.claude/**/*.md`, `CLAUDE.md`, `README.md`; `CLAUDE.md` and `ci-rule.md` point there |
+
+| Measure | Before | After S1 | Target |
+| :--- | :-: | :-: | :-: |
+| rule lines, all rule files | 1 976 (14 files) | 453 (12 files) | — |
+| lines an agent reads before a `src/` change | 1 567 | 440 | under ~700 |
+| all process text (`.agents/`, `CLAUDE.md`, `.claude/`) | 4 263 | 1 409 | — |
+| rules loading by path | 6 of 14 | 6 of 12, `architecture` included | every rule with a file scope |
+| scheduled Routines / with a durable output | 7 / 0 | 2 / 2 | — |
+
+The first-round table follows.
+
 | Measure | Before | Now | Target |
 | :--- | :-: | :-: | :-: |
 | rule files that contradict another rule or a guard (found by reading) | 7 places | 0 | 0, kept by S1 |
@@ -383,15 +409,14 @@ task file). Nothing was merged.
 | new guard files added by this review | — | 0 | (PCS-4) |
 | `install-rule` Option 1 installs the engine | no | yes | — |
 
-Deliberately **not** changed, because each is the user's decision: the seven Routines (S6); the
-autonomy policy and the documentation-only set (S8, S10); the unpinned `ruff` in
+Still **not** changed after the second round, because it is a dependency decision: the unpinned `ruff` in
 `requirements.txt` (the fresh environment installed 0.16.7 and the gate was green; an installed
 0.15.8 reported 92 `E402` errors on the same tree — the linter's version decides what green means,
 and pinning it is a dependency change, which `install-rule` §3 puts in ask-first).
 
-**What the user must decide next, in order of leverage:** S5 (independent review) and S6
-(retire the personas) change outcomes soonest and cost least to reverse; S1 and S4 are the
-structural work and want an epic each; S8 and S10 are one conversation.
+**What the user must decide next:** whether to pin `ruff` (S-dependency, ask-first); and, now that
+S5 is policy, the running `EPIC-025` session must stop merging its own pull requests — its next
+read of `ONBOARDING.md` §7 says so, and the first pull request it opens after that is the test.
 
 ---
 
