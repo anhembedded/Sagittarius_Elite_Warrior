@@ -23,6 +23,7 @@ description: The format of an epic's README.md under Tasks/epics/EPIC-nnn_slug/ 
 | {…} | {…} | {…} |
 
 ## 3. Sub-tasks, ordered by risk
+<!-- This table and the task files feed the Mermaid Kanban shown to the user before starting/resuming any child task; follow .claude/rules/report-task-rule.md. Include every child and refresh its status from evidence. Do not maintain a separate hand-edited Kanban snapshot. -->
 {Order executable tasks by risk while respecting dependencies. Create each child from the task template, using its EPIC-nnnA id.}
 
 | Id | Task | Repo | Depends on | Risk | Status |

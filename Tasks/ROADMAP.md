@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 134 | 69.8% |
+| 🟢 **Completed** | 137 | 70.3% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 52 | 27.1% |
+| 🔴 **Backlog** | 52 | 26.7% |
 | ❌ **Cancelled** | 6 | 3.1% |
-| 📈 **Tổng số Task** | **192** | **100%** |
+| 📈 **Tổng số Task** | **195** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -126,6 +126,12 @@ Sagittarius_Elite_Warrior/Tasks/
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
+
+- [x] **`BOT-140`**: [Separate bug reporting from fixing — report creation and closure have their own rule; repair retains root-cause and regression proof](completed/BOT-140_separate_bug_reporting_from_fixing.md)
+
+- [x] **`BOT-139`**: [Architecture-level communication — outcomes, system impact and recommendations by default; implementation details on request and full evidence retained](completed/BOT-139_architecture_level_communication.md)
+
+- [x] **`BOT-138`**: [Task execution workflow — one general skill, scoped acceptance/reporting rules, honest verification and a resumption point in the task itself](completed/BOT-138_task_execution_workflow.md)
 
 - [x] **`BOT-137`**: [Streamline PR review — retain 91 review IDs, remove repeated rule text, correct working-diff routing and require evidence tied to the reviewed snapshot](completed/BOT-137_streamline_pr_review_skill.md)
 
@@ -284,6 +290,9 @@ Sagittarius_Elite_Warrior/Tasks/
 > ở đây giờ nằm trong chính các file task/bug đã huỷ, không lặp lại ở đây.
 
 ### 🔴 Backlog (Danh sách Ưu tiên & Phụ thuộc)
+
+
+
 
 
 

@@ -5,6 +5,7 @@ description: The format of a standalone task under Tasks/backlog/ or an epic chi
 # {task id} — {the outcome, not the activity}
 
 <!-- Use BOT-nnn for a standalone task or EPIC-nnnA for an epic child. Choose one value for status, risk and complexity. Remove optional fields that do not apply. -->
+<!-- Execute through .claude/skills/execute-task/SKILL.md; completion follows .claude/rules/task-execution-rule.md and chat reports follow .claude/rules/report-task-rule.md. -->
 **Status:** {🔵 Backlog / 🟡 In progress / ✅ Done (YYYY-MM-DD) / ❌ Cancelled (YYYY-MM-DD; reason)}
 **Source:** {who asked, when — the user's words quoted once, verbatim, then translated}
 **Risk:** {🟢 / 🟡 / 🔴} — {what could break, one line}
@@ -34,4 +35,7 @@ description: The format of a standalone task under Tasks/backlog/ or an epic chi
 {Map each acceptance criterion to a test or a manual check with its expected result. Name the tier (`ci-rule.md` §6); for documentation-only work, name the required document guards. Record checks not yet run explicitly.}
 
 ## Implementation notes (written when done)
-{The real bugs met, decisions taken, verification commands and results, and the gate's `LOG_FILE:` path when applicable. Link durable evidence; record any unverified criteria without claiming Done. Follow ONBOARDING §6 for standalone tasks and §12.3 for epic children.}
+{The real bugs met, decisions taken, verification commands and results tied to the checked revision/snapshot, and the gate's `LOG_FILE:` path when applicable. Link evidence for each acceptance criterion and state the actual delivery state. Follow ONBOARDING §6 for standalone tasks and §12.3 for epic children.}
+
+## Resume (optional; while unfinished)
+{The last verified result, unchecked criteria, any blocker and what releases it, and the next executable action. Record partial verification here without claiming Done; update or remove this section once resolved.}
