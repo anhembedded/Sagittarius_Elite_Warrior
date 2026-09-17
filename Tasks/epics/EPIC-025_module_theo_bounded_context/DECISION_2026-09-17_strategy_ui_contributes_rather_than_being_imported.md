@@ -135,8 +135,107 @@ ask, in data, with the class-handling kept inside the module that owns the class
 finding stands untouched, which is why this needed no user decision to reverse it (P2 — checked
 what the earlier decision protected before assuming it was in the way).
 
-## 5. Still open
+## 5. O5 answered — the ports, declared, and O2 corrected a second time
+
+Measured every call site of all **three** consumers before naming anything, because that is the
+mistake PR 2.1c made in the other direction: `IStrategyCatalog` was declared from the plan, and
+deleted once the consumers were read.
+
+### The finding that shrank the redesign: `strategy_params/` is not strategy's UI
+
+Read by imports rather than by location: `param_field.py`, `param_stepper.py` and
+`strategy_params_dialog.py` import **only** `support/ui_kit` (`Palette`, `kit`,
+`form_field_style`, `kit.widget_value`) plus their own siblings. Not one of them touches
+`BaseStrategy`, a strategy contract, or anything else under `modules/strategy`. Only
+`bot_params_form.py` does (`strategy_cls().inputs`).
+
+So three of that package's four files are **generic UI-kit furniture** parked in
+`modules/strategy/ui/` by PR 2.1e because their *data* comes from a strategy — a different thing
+from ownership, and the shape `architecture-rule.md` §5 rules 1–2 forbid (a declared-field editor
+and a strategy-schema reader are two abstraction levels sharing one directory).
+
+**This corrects O2 again: no `Place.MODAL` contribution is needed.** The dialog moves to the UI
+kit, where both screens may already import it (`_module_may_import`: a module's `ui/` may import
+`support/ui_kit` whole). `Place.MODAL` stays available for a real case; this was not one (P7 — do
+not build the variant when the case turns out not to exist).
+
+### Every crossing, and where it lands
+
+| Crossing today | Lands | Mechanism | Principle |
+| :--- | :--- | :--- | :--- |
+| `strategy_params.strategy_params_dialog`, `param_field`, `param_stepper` | `support/ui_kit/param_form/` | already-legal `ui/ → support/ui_kit` | P5, §5 r1 |
+| `bot_params_form.build_bot_params_schema` | `IStrategyCatalog.params_form()` | published port | P6 |
+| `bot_params_form.parse_bot_params` | `IStrategyCatalog.validate_params()` | published port | P6 |
+| `bot_params_form.build_bot_params_rows` | **deleted** — it flattened groups into `rowType: header/field` dicts for QML's `Repeater`, and PR 4.3 deleted the QML; QtWidgets renders groups directly | — | P6 |
+| `bot_params_form.step_numeric_param_value` | `support/ui_kit/param_form/` (pure arithmetic over one field; needs no strategy) | with the widget | P3 |
+| `strategy_overlay.compute_*`, `assign_strategy_line_colors`, `strategy.chart_line_{colors,widths}()` | `IStrategyChartOverlay.overlay_for()` — computed inside `strategy` | published port | P6 |
+| `strategy_registry.available()` → `type[BaseStrategy]` | **stops crossing**: the throwaway instance is built inside `strategy` | — | P6 |
+| `strategy_display.humanize_strategy_key` | **stops crossing**: `options()` already returns the label | — | P3 |
+| `Arm`/`DisarmStrategyCommand` + handler + result + reason | `modules/strategy/contracts/` | `ICommandDispatcher`'s documented lookup-key pattern | P5 |
+| `SignalFeed` | `modules/trading/ui/` (12 lines; its only strategy tie is the published `SignalGeneratedEvent`) | `architecture-rule.md` §6 — a subscriber is owned by what it drives | P6 |
+| `StrategyCardViewModel` | **deleted** — each screen keeps its own card state (§4 O3) | — | — |
+| `StrategyArmingCoordinator` | each screen's own `coordinators/`, reading the port + dispatching the published commands | `async-ui-action-rule.md` §2 | P6 |
+
+### The two ports (ISP: two consumer roles, two ports)
+
+```python
+# modules/strategy/contracts/i_strategy_catalog.py   — the strategy card + backtest config
+class IStrategyCatalog(ABC):
+    def options(self) -> tuple[StrategyOption, ...]: ...           # key + display label, sorted
+    def params_form(self, key: str,
+                    values: Mapping[str, object]) -> tuple[ParamGroup, ...]: ...
+    def validate_params(self, key: str,
+                        raw: Mapping[str, object]) -> ParamValidation: ...
+
+# modules/strategy/contracts/i_strategy_chart_overlay.py — the two chart coordinators
+class IStrategyChartOverlay(ABC):
+    def overlay_for(self, config: LiveStrategyConfig,
+                    candles: Sequence[MarketData]) -> StrategyOverlay: ...
+```
+
+`IStrategyCatalog` is HLD §3.4's own planned name, revived deliberately: PR 2.1c deleted it as a
+**keys-only** port that served nobody. It comes back with the three methods its consumers were
+measured to actually call, and still carries no `BaseStrategy` — so 2.1c's second finding holds
+(§4's closing note).
+
+`overlay_for()` runs on a worker thread on the backtest side (`indicator_coordinator` computes
+under an `action_id`), so the implementation must be thread-safe — it is pure computation over its
+arguments, which is how (SDD "Threading contract").
+
+### The DTOs, and why two of them live in `core/contracts/`
+
+```python
+# core/contracts/param_field.py — strategy fills them in, support/ui_kit renders them
+class ParamKind(Enum): INT, FLOAT, BOOL, STRING, CHOICE
+@dataclass(frozen=True, slots=True)
+class ParamField:  name, label, kind, default, value, minval, maxval, options, suffix, step
+@dataclass(frozen=True, slots=True)
+class ParamGroup:  label: str; fields: tuple[ParamField, ...]
+
+# modules/strategy/contracts/ — strategy → its consumers only
+StrategyOption(key, label)
+ParamValidation(values: Mapping[str, object], error: str)       # error "" means accepted
+StrategyOverlay(lines: tuple[OverlayLine, ...], zones: tuple[TrendZone, ...])
+OverlayLine(name, x: tuple[float, ...], y: tuple[float, ...], colour: str, width: float)
+TrendZone(start: float, end: float, colour: str, opacity: float)
+```
+
+`ParamField`/`ParamGroup`/`ParamKind` must sit in **`core/contracts/`**, not in either side, and the
+import table is what decides it: `support/ui_kit` may import `core` but **no** module (not even a
+`contracts/` package), and a `modules/*/contracts/` file may not import `support/ui_kit` (the UI-kit
+exemption covers a module's `ui/` only). `core/contracts` is where both sides can meet — the same
+reason `nav_metadata.py` gives for living there, in this same epic (P5: follow the precedent rather
+than invent a third arrangement).
+
+`ParamKind` is a translation of `support/indicators/scripting.InputKind`, not an alias: `core`
+imports nothing but `core`, so the mapping happens once, inside `strategy`'s adapter, at the
+publishing edge. Both terms go in `Docs/VOCABULARY/README.md` in the same commit.
+
+Loose `list[dict]` does not cross: `code-quality-rule.md` §1 forbids it, and publishing the
+QML-era dict shape into the Published Language would outlive the toolkit that asked for it.
+
+## 6. Still open
 
 | # | Question | Blocks | Asked on |
 | :-- | :--- | :--- | :--- |
-| O5 | The port's name and exact method set, written as an ABC with its verified fake and contract suite before any screen moves onto it (HLD §10) — `options`/`params_schema`/`validate_params`/`chart_overlay` above is the measured shape, not yet the declared one | PR 4.3m | 2026-09-17 |
+| O6 | `LiveStrategyConfigStore` (an `application/` service the arming coordinator calls to persist a successful arming) also stops being reachable once the coordinator is a screen's. Publish it as two port methods, or move the persistence into `ArmStrategyCommandHandler` where the validation and the lease already are? The second is cleaner and is a **behaviour move**, which ADR D12 keeps out of a structural change — so it is a decision, not a detail | PR 4.3m's last commit | 2026-09-17 |
