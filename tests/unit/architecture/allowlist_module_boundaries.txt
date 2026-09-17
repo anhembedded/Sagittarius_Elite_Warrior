@@ -30,7 +30,7 @@
 # read out of `Tasks/epics/README.md` (which said 36 - a number this file has
 # never held) and copied into six tracking rows and a decision record on
 # 2026-09-16, each time as "unchanged at 36". A count in prose is a claim about
-# state, and `.agents/Skills/README.md` section 1 bans writing one without a
+# state, and `.claude/ONBOARDING.md` §13 bans writing one without a
 # way to check it; this is the way. Add or retire an entry, edit this line in
 # the same commit -- and keep `N after PR <id>` on ONE line, because the guard
 # reads the phrase and a `#` wrapped into the middle of it hides the figure.

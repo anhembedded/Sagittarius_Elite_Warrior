@@ -1,7 +1,5 @@
 ---
-name: Local CI Execution Rule
 description: The one gate, its two-tier cadence, the diagnostic modes, the four test levels, failure handling, and the mandatory log scan.
-trigger: always_on
 ---
 
 # The gate
@@ -22,7 +20,7 @@ trigger: always_on
 - A **move** pull request adds one check: import every module in the moved tree and assert none raises (three defects in PRs 1.6d–1.6f were an import that stopped resolving, invisible to lint, mypy and tests). `[eye]`
 - `-Full` runs, from the bot root: `ruff check` and `ruff format --check` over `src tests tools scripts`; `mypy` over `src` **and** `scripts` in one invocation, gated at the `EPIC-002A` baseline (`[tool.mypy]` excludes `src/presentation/` and a frozen dirty-file list that may only shrink); `scripts/check_skill_prompt_references.py`; every test under `tests/` except `tests/sanity/` (parallel) and `tests/testnet/`; `tests/sanity/` sequentially; coverage of `src/` at ≥80 %; the run-log scan (§8). Full CI must exit 0 — a passing test count while lint, format, coverage, Sanity or the scan fails is a failed verification. `[gate]`
 
-**Exception — documentation-only.** A diff touching only the paths `ONBOARDING.md` §7 defines as documentation needs no gate run. One file able to affect build, lint, types, runtime or tests brings the whole gate back. `[review: triage]`
+**Exception — documentation-only.** A diff touching only the paths `ONBOARDING.md` §7 defines as documentation needs no gate run beyond the document guards and the reference checker §7 names (seconds). One file able to affect build, lint, types, runtime or tests brings the whole gate back. `[review: triage]`
 
 ## 2. Diagnostic modes — never sufficient
 `-UnitOnly`, `-SanityOnly`, `-SkipLint`, `-SkipTests`, `-Workers N`, `-TestnetOnly`. They MUST NOT be used to bypass a failing required gate, justify a commit, or mark a task complete.

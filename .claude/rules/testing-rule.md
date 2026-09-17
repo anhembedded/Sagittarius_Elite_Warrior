@@ -1,9 +1,7 @@
 ---
-name: Testing Rule
 description: How to write a test that can fail — what each level proves, no sleeps, invariants, boundary analysis with mutation checks, doubles from the interface, wiring asserted against the real graph.
-trigger: on_file_change
-patterns:
-  - tests/**/*.py
+paths:
+  - "tests/**/*.py"
 ---
 
 # Writing tests

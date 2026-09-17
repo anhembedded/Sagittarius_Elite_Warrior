@@ -1,30 +1,19 @@
-"""Fail when an agent briefing, skill or rule pointer names a repository path that is gone.
+"""Fail when a rule, skill, agent, template or map under `.claude/` names a repository path that is gone.
 
-The seven agents under `.agents/Skills/` run unattended on a schedule. An agent
-cannot notice that its own briefing has gone stale: it will keep hunting for
-what the repository deleted, keep citing a rule file that never existed, and
-keep reporting success. That is not hypothetical here -- `sentinel.prompt.md`
-spent months telling its agent to read `.agents/rules/sentinel-rule.md`, a file
-with no commit in any branch's history, and four prompts told their agent to
-re-read a journal that had never been written.
+Every document under `.claude/` is read by a session that follows its links without
+doubting them -- a scheduled audit, a reviewer working from the checklist, a fresh
+session reading the map. Such a reader cannot notice that the document has gone
+stale: it keeps hunting for what the repository deleted, keeps citing a rule file that
+never existed, and keeps reporting success. That is not hypothetical here -- a
+scheduled agent's briefing spent months telling it to read a rule file with no commit
+in any branch's history, and four briefings told their agent to re-read a journal that
+had never been written (`EPIC-011` is the record).
 
-This checker is the mechanical half of the `.agents/Skills/README.md` rule
-"verify, don't restate". It cannot tell that a *claim* went stale -- only a
-human or a run can -- but it does catch the class of rot that has actually
-shipped: a document pointing at something that is not there.
-
-@par Why `.claude/` is checked too (added 2026-09-15, review finding S3)
-It originally read `.agents/Skills/` alone. But `.claude/skills/` and
-`.claude/rules/` hold exactly the same kind of document and are loaded by
-exactly the same mechanism of trust -- a reader follows their links without
-doubting them. `.claude/skills/pr-review/SKILL.md` is the sharpest case: it is
-the checklist a reviewer works from, it names a dozen rule files and about
-sixteen repository paths by link or backtick, and nothing verified any of them.
-Every one resolved when the review checked by hand, which is a state and not a
-guarantee: the first rename under `.agents/rules/` or `tests/unit/architecture/`
-would have sent the next reviewer to a file that no longer exists, with no
-reason to doubt it. Same rot, same fix -- `EPIC-011` is the record of it
-happening once already.
+This checker is the mechanical half of `.claude/ONBOARDING.md` §13's rule "a path is
+checked before it is cited". It cannot tell that a *claim* went stale -- only a human
+or a run can -- but it does catch the class of rot that has actually shipped: a
+document pointing at something that is not there. `CLAUDE.md` at the root is read the
+same way, so it is checked too.
 
 @par Why it asks git and not the filesystem (`BUG-129`, 2026-09-17)
 It resolved every reference with `Path.exists()` until then, which answers about
@@ -56,15 +45,18 @@ from pathlib import Path, PurePosixPath
 
 #: The document trees this checker reads, as (directory, glob) pairs relative to
 #: the repository root. A tree is listed here because a reader follows its links
-#: without verifying them; the glob is recursive where the tree nests one
-#: directory per skill. All three must exist and hold at least one file, or the
-#: checker fails rather than passing on an empty scan -- the same rule
-#: `tests/unit/architecture/scanned_roots_registry.py` applies to the pytest
-#: guards, which cannot cover this script because it is not a test.
+#: without verifying them; the glob is recursive where the tree nests. Every tree
+#: must exist and hold at least one file, or the checker fails rather than passing
+#: on an empty scan -- the same rule `tests/unit/architecture/scanned_roots_registry.py`
+#: applies to the pytest guards, which cannot cover this script because it is not
+#: a test.
 PROMPT_TREES: tuple[tuple[Path, str], ...] = (
-    (Path(".agents") / "Skills", "*.md"),
+    (Path("."), "CLAUDE.md"),
+    (Path(".claude"), "*.md"),
+    (Path(".claude") / "rules", "**/*.md"),
     (Path(".claude") / "skills", "**/*.md"),
-    (Path(".claude") / "rules", "*.md"),
+    (Path(".claude") / "agents", "*.md"),
+    (Path(".claude") / "templates", "*.md"),
 )
 
 #: Repository-root directories this checker claims authority over. A reference
@@ -75,7 +67,6 @@ PROMPT_TREES: tuple[tuple[Path, str], ...] = (
 #: deliberate act: every entry means "a path under here is expected to exist in
 #: this checkout".
 CHECKED_ROOTS = (
-    ".agents/",
     ".claude/",
     ".github/",
     "Docs/",
@@ -86,8 +77,8 @@ CHECKED_ROOTS = (
 )
 
 #: Characters that mean the backticked span is a shell command, a glob, or a
-#: placeholder such as `.agents/Skills/<agent>.md` -- never a literal path to
-#: verify.
+#: placeholder such as `.claude/skills/<name>/SKILL.md` or a template's
+#: `Tasks/backlog/BOT-{nnn}_{slug}.md` -- never a literal path to verify.
 _NOT_A_LITERAL_PATH = re.compile(r"""[\s*?<>|$"'()\[\]{}]|::|https?:""")
 
 _BACKTICKED = re.compile(r"`([^`\n]+)`")
@@ -112,11 +103,11 @@ def _backticked_references(text: str) -> list[str]:
 def _link_references(text: str, source: Path, root: Path) -> list[str]:
     """Markdown link targets, normalised to repository-relative form.
 
-    A link is written relative to the file that carries it -- `../../CLAUDE.md`
-    from `.agents/Skills/`, `../../../.agents/rules/ci-rule.md` from
+    A link is written relative to the file that carries it -- `.claude/ONBOARDING.md`
+    from the root `CLAUDE.md`, `../../../.claude/rules/ci-rule.md` from
     `.claude/skills/pr-review/` -- so it is resolved against `source.parent`,
     not against any fixed base, before being compared with `CHECKED_ROOTS`.
-    That is what lets one function serve trees at three different depths.
+    That is what lets one function serve trees at different depths.
     """
     references: list[str] = []
     for target in _MARKDOWN_LINK.findall(text):
@@ -259,7 +250,7 @@ def main() -> int:
             "\nEvery backticked path under "
             f"{'/, '.join(root_dir.rstrip('/') for root_dir in CHECKED_ROOTS)}/ "
             "must exist.\nIf the path is deliberately absent here, write it so it "
-            "reads as a pattern\n(`.agents/Skills/<agent>.md`) or inside a command, "
+            "reads as a pattern\n(`.claude/skills/<name>/SKILL.md`) or inside a command, "
             "not as a bare literal path.",
             file=sys.stderr,
         )

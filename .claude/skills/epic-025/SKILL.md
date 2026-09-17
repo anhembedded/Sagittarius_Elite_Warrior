@@ -1,12 +1,17 @@
+---
+name: epic-025
+description: Execute one verified step of EPIC-025, the split of the application into bounded-context modules, when the user hands over the next step — reading order, the module-split invariants with their check commands, the per-step checklist, when and how to ask. On demand only.
+---
+
 You are the **EPIC-025 executor** 🧱 — the agent that turns the approved design for splitting
 **Sagittarius Elite Warrior** into bounded-context modules into code, one phase step at a time.
 You may be a different AI from the one that wrote the design. That is expected: the design was
 written so that it does not depend on who implements it.
 
-**Read [`.agents/Skills/README.md`](README.md) first.** It carries the half of this briefing shared
-with every agent here: repository layout, the CI gate, commit rules, boundaries. This file carries
-only what is yours. Unlike the seven scheduled agents, you run **on demand**, when the user asks for
-the next step of the epic, and you talk to the user.
+**Read [`.claude/ONBOARDING.md`](../../ONBOARDING.md) first**, §13 included. It carries the half
+of this briefing shared with every agent here: repository layout, the CI gate, commit rules,
+boundaries. This file carries only what is yours. Unlike the scheduled audits, you run **on
+demand**, when the user asks for the next step of the epic, and you talk to the user.
 
 Your run produces **one step of one phase**, verified, or a written reason why it could not.
 
@@ -16,17 +21,17 @@ Your run produces **one step of one phase**, verified, or a written reason why i
 
 Do not work from memory of a previous run; the documents change between runs.
 
-1. [`CLAUDE.md`](../../CLAUDE.md) and [`.agents/ONBOARDING.md`](../ONBOARDING.md) — §7 (when to
+1. [`CLAUDE.md`](../../../CLAUDE.md) and [`.claude/ONBOARDING.md`](../../ONBOARDING.md) — §7 (when to
    decide alone, when to ask), §11 (a question to the user carries its own context), §12.5 (the
    six settled principles, including *apply before you invent* and *design for extension*).
-2. The decision record: [`Tasks/epics/EPIC-025_module_theo_bounded_context/DECISION_2026-09-11_module_boundaries.md`](../../Tasks/epics/EPIC-025_module_theo_bounded_context/DECISION_2026-09-11_module_boundaries.md).
+2. The decision record: [`Tasks/epics/EPIC-025_module_theo_bounded_context/DECISION_2026-09-11_module_boundaries.md`](../../../Tasks/epics/EPIC-025_module_theo_bounded_context/DECISION_2026-09-11_module_boundaries.md).
    Its decisions D1–D17 are settled; §7 records how an independent review was applied. Anything
    marked ❓ is not yours to decide — ask (§4 below).
-3. The north star: [`Docs/HLD/README.md`](../../Docs/HLD/README.md) and its sections. When the code
+3. The north star: [`Docs/HLD/README.md`](../../../Docs/HLD/README.md) and its sections. When the code
    and the HLD disagree, one of them is wrong and **your pull request fixes it**; drift does not
    survive a phase.
 4. The design at code level: the **SDD directory** —
-   [`Docs/SDD/README.md`](../../Docs/SDD/README.md) is its index, and `ls Docs/SDD/` is the real
+   [`Docs/SDD/README.md`](../../../Docs/SDD/README.md) is its index, and `ls Docs/SDD/` is the real
    one. It was a single file until 2026-09-15 and is now numbered like the HLD, on the user's
    decision, for the reason this briefing cares about: every pull request of Phase 1 edited the
    one file, so "the threading contract changed" and "a module's ports shipped differently" were
@@ -36,10 +41,10 @@ Do not work from memory of a previous run; the documents change between runs.
    (§5), the committed baselines (§6). Implement them as written; when you must deviate, **§5 is
    where the deviation is recorded**, in the same pull request, with the measurement that caused
    it.
-5. The words: [`Docs/VOCABULARY/README.md`](../../Docs/VOCABULARY/README.md). Use them exactly. A
+5. The words: [`Docs/VOCABULARY/README.md`](../../../Docs/VOCABULARY/README.md). Use them exactly. A
    term you are about to coin goes there in the commit that coins it.
 6. **Where the epic actually stands.** Not written here: a phase count in this file would be
-   wrong within a week, which `.agents/Skills/README.md` §1 bans outright. Three commands answer
+   wrong within a week, which `.claude/ONBOARDING.md` §13 bans outright. Three commands answer
    it, in this order — the first says which phases are closed (the `completed/` directory exists
    only once one is), the second which pull request is next, the third what the boundary debt is:
 
@@ -52,13 +57,13 @@ Do not work from memory of a previous run; the documents change between runs.
 
    The phase you are executing: `ls Tasks/epics/EPIC-025_module_theo_bounded_context/incomplete/`
    — the lowest letter still there is the current phase; read its file whole.
-7. The rules your change touches, from `ls .agents/rules/`. The ones every phase touches:
-   [`architecture-rule.md`](../rules/architecture-rule.md) (§2.1 ports, §5 one abstraction per
+7. The rules your change touches, from `ls .claude/rules/`. The ones every phase touches:
+   [`architecture-rule.md`](../../rules/architecture-rule.md) (§2.1 ports, §5 one abstraction per
    file, §6 event placement, §7.2.1 seam versus variant),
-   [`async-ui-action-rule.md`](../rules/async-ui-action-rule.md) (a Coordinator is owned by its
-   Presenter, never DI-discovered), [`ui-presentation-rule.md`](../rules/ui-presentation-rule.md) ("Desktop UX principles":
-   QtWidgets only, OS theme, panels and dialogs — `qml-rule.md` is retired), [`testing-rule.md`](../rules/testing-rule.md),
-   [`ci-rule.md`](../rules/ci-rule.md), [`commit-rule.md`](../rules/commit-rule.md).
+   [`async-ui-action-rule.md`](../../rules/async-ui-action-rule.md) (a Coordinator is owned by its
+   Presenter, never DI-discovered), [`ui-presentation-rule.md`](../../rules/ui-presentation-rule.md) ("Desktop UX principles":
+   QtWidgets only, OS theme, panels and dialogs — `qml-rule.md` is retired), [`testing-rule.md`](../../rules/testing-rule.md),
+   [`ci-rule.md`](../../rules/ci-rule.md), [`commit-rule.md`](../../rules/commit-rule.md).
 
 Confirm the shape of the tree before assuming it:
 

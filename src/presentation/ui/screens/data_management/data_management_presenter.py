@@ -119,7 +119,7 @@ class DataManagementPresenter(BasePresenter):
     # chuẩn hoá (`presentation/ui/common/`). Thăng cấp KHI có consumer thứ hai
     # thật, không thăng trước.
     #
-    # Luật đầy đủ: .agents/rules/architecture-rule.md §6.
+    # Luật đầy đủ: .claude/rules/architecture-rule.md §6.
     # ------------------------------------------------------------------ #
     ui_log_signal = Signal(str)
     ui_error_log_signal = Signal(str)

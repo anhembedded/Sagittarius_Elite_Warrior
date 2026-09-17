@@ -242,11 +242,16 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     # --- repository bookkeeping guards -------------------------------------
     (
         "tests/unit/test_rule_navigation_is_complete.py",
-        ((".agents/rules", "*-rule.md"),),
+        ((".claude/rules", "*.md"),),
     ),
     (
-        "tests/unit/architecture/test_claude_rule_pointers_match_agents_rules.py",
-        ((".agents/rules", "*-rule.md"), (".claude/rules", "*.md")),
+        "tests/unit/architecture/test_claude_tree_is_wired.py",
+        (
+            (".claude/rules", "*.md"),
+            (".claude/skills", "SKILL.md"),
+            (".claude/agents", "*.md"),
+            (".claude/templates", "*.md"),
+        ),
     ),
     ("tests/unit/test_task_board_is_consistent.py", (("Tasks", "*.md"),)),
     (

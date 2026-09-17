@@ -6,9 +6,9 @@ param(
     # Strictly more verbose than -Dev, not a separate mode — implies
     # everything -Dev does, plus drops the log threshold to TRACE (one
     # level below DEBUG) and writes to logs/debug-<timestamp>.log instead.
-    # See .agents/rules/logging-rule.md §6-7. Usage: run-ui.ps1 -Debug
+    # See .claude/rules/logging-rule.md §6-7. Usage: run-ui.ps1 -Debug
     [switch]$Debug,
-    # Option 2 per .agents/rules/install-rule.md: opt-in to develop/debug
+    # Option 2 per .claude/rules/install-rule.md: opt-in to develop/debug
     # Sagittarius Engine locally from sibling checkout instead of official GitHub.
     # Usage: run-ui.ps1 -LocalEngine
     [switch]$LocalEngine
@@ -34,7 +34,7 @@ $ProjectRoot = Split-Path -Parent $BotRoot
 $isWindowsPlatform = ($env:OS -eq "Windows_NT") -or ($PSVersionTable.PSEdition -eq "Desktop") -or ($IsWindows -eq $true)
 $PathSeparator = if ($isWindowsPlatform) { ";" } else { ":" }
 
-# Sibling engine checkout handling per .agents/rules/install-rule.md:
+# Sibling engine checkout handling per .claude/rules/install-rule.md:
 # Default (Option 1): Engine is loaded from the virtual environment (installed from GitHub).
 # Option 2 (Development & Debugging): Sibling checkout is only added to PYTHONPATH if -LocalEngine is specified.
 $PythonPathEntries = @($ProjectRoot)

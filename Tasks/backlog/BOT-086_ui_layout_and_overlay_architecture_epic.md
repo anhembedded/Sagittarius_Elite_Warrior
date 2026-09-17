@@ -9,7 +9,7 @@
 >
 > 🤝 **HANDOFF (15/08)**: Track B (`BOT-089`/`BOT-090`) đã xong. **Track A
 > (`BOT-087`/`BOT-088`) chưa bắt đầu** — chuyển cho một AI session khác vì phiên trước hết
-> hạn mức. Đọc [`.agents/ONBOARDING.md`](../../.agents/ONBOARDING.md) §12 trước (Handover.md đã bị xoá 2026-09-07 — xem §12.2), rồi bắt đầu từ
+> hạn mức. Đọc [`.claude/ONBOARDING.md`](../../.claude/ONBOARDING.md) §12 trước (Handover.md đã bị xoá 2026-09-07 — xem §12.2), rồi bắt đầu từ
 > `BOT-087` §2 (đã có probe khả thi thật, không phải lý thuyết).
 
 ## 1. Hai vấn đề **trực giao** — cần cả hai, không thay thế nhau

@@ -11,7 +11,7 @@ Tận dụng `IEventBus` đã có sẵn (dùng để phát `MarketTickEvent`, `B
 - [ ] `INotificationChannel` (port) với 2 implementation ban đầu: `UiToastNotificationChannel` (banner trong `MainWindow`/`DashboardView`) và `TelegramNotificationChannel` (dùng Bot Token từ config, chỉ kích hoạt nếu được cấu hình).
 - [ ] `NotificationEventHandler` đăng ký qua `IEventBus`, map event → message, gọi channel(s) tương ứng.
 - [ ] Cấu hình bật/tắt kênh Telegram qua `user_config.json` (`notifications.telegram.bot_token`, `notifications.telegram.chat_id`) — đọc qua `IConfig`, không hard-code.
-- [ ] Unit test cho `NotificationEventHandler` (mock channel, assert đúng message cho từng loại event) theo `.agents/rules/testing.md`.
+- [ ] Unit test cho `NotificationEventHandler` (mock channel, assert đúng message cho từng loại event) theo `.claude/rules/testing-rule.md`.
 
 ## 4. Rủi ro / Lưu ý (Constraints & Risks)
 - Không log/lưu Bot Token ra ngoài `user_config.json`.

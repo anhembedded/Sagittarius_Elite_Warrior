@@ -73,7 +73,7 @@ Planned, and numbered here so the ids are reserved rather than invented twice:
   `EPIC-025`'s epic README ends every phase with the app running, not with a green gate.
 - **Reviewing.** A change that alters a flow updates its SPEC in the same pull request, the way
   `Docs/SDD/05_module_contracts.md` takes a contract deviation
-  (`.agents/Skills/epic-025.prompt.md` §3 step 10).
+  (`.claude/skills/epic-025/SKILL.md` §3 step 10).
 - **Writing a new feature.** Write the SPEC first at 🔵, build, then move it to ✅ with the test
   paths filled in. A 🔵 SPEC with no "Proven by" is a plan; a ✅ one without it is a lie, and the
   guard treats it as one.

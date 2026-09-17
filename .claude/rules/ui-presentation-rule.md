@@ -1,12 +1,10 @@
 ---
-name: UI Presentation Layer Rule
 description: QtWidgets only, the OS theme, the seven desktop UX principles, MVP layout, preview.py, sizing, tables, icons, terminology.
-trigger: on_file_change
-patterns:
-  - src/presentation/**/*.py
-  - src/modules/*/ui/**/*.py
-  - src/support/ui_kit/**/*.py
-  - src/support/charting/**/*.py
+paths:
+  - "src/presentation/**/*.py"
+  - "src/modules/*/ui/**/*.py"
+  - "src/support/ui_kit/**/*.py"
+  - "src/support/charting/**/*.py"
 ---
 
 # UI and presentation

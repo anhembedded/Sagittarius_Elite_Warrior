@@ -30,12 +30,11 @@ sys.path.insert(0, str(_REPO_ROOT / "scripts"))
 
 from check_skill_prompt_references import check
 
-#: The three trees the checker requires to be non-empty; a fixture repository
-#: has to satisfy that before it can be asked anything else.
+#: Three of the trees the checker reads; the first is the one the tests cite from.
 _TREES = (
-    Path(".agents") / "Skills" / "probe.md",
-    Path(".claude") / "skills" / "probe" / "SKILL.md",
     Path(".claude") / "rules" / "probe.md",
+    Path(".claude") / "skills" / "probe" / "SKILL.md",
+    Path(".claude") / "agents" / "probe.md",
 )
 
 
@@ -55,7 +54,7 @@ def _git(root: Path, *args: str) -> None:
 
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
-    """A repository holding the three document trees and one tracked source
+    """A repository holding three document trees and one tracked source
     file, all committed — so anything added afterwards is untracked."""
     for relative in _TREES:
         path = tmp_path / relative

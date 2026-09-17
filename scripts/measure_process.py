@@ -1,7 +1,7 @@
 """Measure the process, not only the app — the baseline the strategic review of 2026-09-16 set.
 
 Prints one row per measure with the value read from the tree right now. Used by the
-process-drift audit (`.agents/Skills/process-drift.prompt.md`) and at each epic
+process-drift audit (`.claude/skills/process-drift/SKILL.md`) and at each epic
 retrospective. Everything here is a filesystem count; the git-derived measures (share of
 commits by one session, commits that only record other commits) are one `git log` each and
 are left to the audit prompt so this script needs nothing but the tree.
@@ -12,19 +12,37 @@ Usage:
 
 from __future__ import annotations
 
+import sys
 from pathlib import Path
+
+# Run bare (`python3 scripts/measure_process.py`) nothing puts the checkout's parent on
+# the path, and the sibling module is imported by its package name below — the name the
+# guards and mypy resolve it by — so the parent of the repository root (the directory
+# holding `pyproject.toml`) is added here, found by landmark rather than by hop count.
+sys.path.insert(
+    0,
+    str(
+        next(
+            p
+            for p in Path(__file__).resolve().parents
+            if (p / "pyproject.toml").is_file()
+        ).parent
+    ),
+)
+
+from Sagittarius_Elite_Warrior.scripts.render_claude_manifest import front_matter
 
 #: The text an agent reads before a change to `src/`: the entry point, the map, and the
 #: rules that load for a source file or before a commit.
 MUST_READ_FOR_SRC: tuple[str, ...] = (
     "CLAUDE.md",
-    ".agents/ONBOARDING.md",
-    ".agents/rules/architecture-rule.md",
-    ".agents/rules/code-quality-rule.md",
-    ".agents/rules/ci-rule.md",
-    ".agents/rules/commit-rule.md",
-    ".agents/rules/testing-rule.md",
-    ".agents/rules/logging-rule.md",
+    ".claude/ONBOARDING.md",
+    ".claude/rules/architecture-rule.md",
+    ".claude/rules/code-quality-rule.md",
+    ".claude/rules/ci-rule.md",
+    ".claude/rules/commit-rule.md",
+    ".claude/rules/testing-rule.md",
+    ".claude/rules/logging-rule.md",
 )
 
 
@@ -42,14 +60,19 @@ def line_count(paths: list[Path]) -> int:
 
 def measures(root: Path) -> list[tuple[str, int]]:
     """(measure, value) pairs, in the order the report prints them."""
-    rules = sorted((root / ".agents" / "rules").glob("*-rule.md"))
+    claude = root / ".claude"
+    rules = sorted((claude / "rules").rglob("*.md"))
+    scoped = [rule for rule in rules if front_matter(rule).get("paths")]
+    always = [root / "CLAUDE.md", claude / "ONBOARDING.md"] + [
+        rule for rule in rules if rule not in scoped
+    ]
     process_text = (
         [root / "CLAUDE.md"]
-        + sorted((root / ".agents").glob("*.md"))
+        + sorted(claude.glob("*.md"))
         + rules
-        + sorted((root / ".agents" / "Skills").glob("*.md"))
-        + sorted((root / ".claude" / "rules").glob("*.md"))
-        + sorted((root / ".claude" / "skills").glob("*/SKILL.md"))
+        + sorted((claude / "skills").glob("*/SKILL.md"))
+        + sorted((claude / "agents").glob("*.md"))
+        + sorted((claude / "templates").glob("*.md"))
     )
     architecture = root / "tests" / "unit" / "architecture"
     allowlist = architecture / "allowlist_module_boundaries.txt"
@@ -66,11 +89,9 @@ def measures(root: Path) -> list[tuple[str, int]]:
             "lines read before a src/ change",
             line_count([root / p for p in MUST_READ_FOR_SRC]),
         ),
-        ("process text lines (.agents, CLAUDE.md, .claude)", line_count(process_text)),
-        (
-            "path-scoped rule pointers",
-            len(list((root / ".claude" / "rules").glob("*.md"))),
-        ),
+        ("process text lines (CLAUDE.md, .claude)", line_count(process_text)),
+        ("lines loaded every session", line_count(always)),
+        ("rules loading by path", len(scoped)),
         (
             "guard files under tests/unit/architecture",
             len(list(architecture.glob("test_*.py"))),
@@ -98,10 +119,9 @@ def measures(root: Path) -> list[tuple[str, int]]:
         ),
         ("tasks completed", len(list((tasks / "completed").glob("*.md")))),
         ("tasks in backlog", len(list((tasks / "backlog").glob("*.md")))),
-        (
-            "scheduled-audit prompts",
-            len(list((root / ".agents" / "Skills").glob("*.prompt.md"))),
-        ),
+        ("skills", len(list((claude / "skills").glob("*/SKILL.md")))),
+        ("subagents", len(list((claude / "agents").glob("*.md")))),
+        ("templates", len(list((claude / "templates").glob("*.md")))),
     ]
 
 

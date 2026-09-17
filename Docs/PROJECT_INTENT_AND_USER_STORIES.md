@@ -73,7 +73,7 @@
 2. **Không phá Headless Mode** khi nâng cấp UI — đây là bài học đã từng mắc và được note thẳng trong README.
 3. **Không block main thread** bằng I/O đồng bộ (`input()`) — mọi thứ chạy vòng lặp dài phải là `IHostedService` trên thread riêng hoặc async, để Ctrl+C/graceful shutdown luôn hoạt động.
 4. **Backtest dùng Paper Exchange giả lập nội bộ**, KHÔNG phụ thuộc vào `BinanceExchangeClient` thật của BOT-008 — hai luồng (backtest vs live trading) độc lập nhưng dùng chung Indicator/Strategy Engine (BOT-020).
-5. **Mọi thay đổi phải có unit test** theo `.agents/rules/testing.md`, coverage tối thiểu 80% (`--cov-fail-under=80`).
+5. **Mọi thay đổi phải có unit test** theo `.claude/rules/testing-rule.md`, coverage tối thiểu 80% (`--cov-fail-under=80`).
 6. **Không tự thêm cơ chế cấu hình song song** — vd Watchlist phải tái dùng `DEFAULT_SYMBOLS` từ config hiện có, không tạo danh sách symbol thứ hai.
 
 ---
