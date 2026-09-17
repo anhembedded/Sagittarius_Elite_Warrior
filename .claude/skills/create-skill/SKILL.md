@@ -35,7 +35,7 @@ When authoring or auditing a skill, verify:
 Execute the automated validation suite:
 ```bash
 python scripts/validate_skill.py <name>                   # mechanical syntax & invariant audit
-python scripts/check_skill_prompt_references.py          # verify all cited paths resolve
+python scripts/check_skill_prompt_references.py          # verify all cited paths and sections resolve
 python scripts/render_claude_manifest.py                 # update .claude/README.md table
 $env:PYTHONPATH=".."; python -m pytest tests/unit/architecture/test_claude_tree_is_wired.py -q
 ```

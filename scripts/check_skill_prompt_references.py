@@ -28,11 +28,22 @@ that step green. A checker whose answer depends on who runs it is worse than no
 checker, because it is believed. It reads `git ls-files` now, so local and CI
 answer the same question: is this path in the repository?
 
+@par Why it also checks section anchors (2026-09-17)
+A cited *section* rots the same way a cited path does, and faster: the rule
+rewrite of 2026-09-17 renumbered `ci-rule.md` and `report-rule.md`, and five
+documents kept pointing at `ci-rule.md` §3a, `ci-rule.md` §6, `report-rule.md`
+§7 and `ONBOARDING.md` §12.5 -- sections that no longer exist. Every one passed
+this checker, because the *file* was still there. A reader following
+`ONBOARDING.md` §12.5 finds four items and invents the fifth. So a `§N`
+citation naming a document under `.claude/` is resolved to a real heading, or to
+a real numbered item inside the heading it subdivides (`ONBOARDING.md` §12.3 is
+item 3 of section 12), and fails here otherwise.
+
 Run it before committing any edit under any of `PROMPT_TREES` below:
 
     python3 scripts/check_skill_prompt_references.py
 
-Exit code 0 = every referenced path resolves; 1 = at least one does not.
+Exit code 0 = every referenced path and section resolves; 1 = at least one does not.
 """
 
 from __future__ import annotations
@@ -84,6 +95,33 @@ _NOT_A_LITERAL_PATH = re.compile(r"""[\s*?<>|$"'()\[\]{}]|::|https?:""")
 _BACKTICKED = re.compile(r"`([^`\n]+)`")
 _MARKDOWN_LINK = re.compile(r"\[[^\]\n]*\]\(([^)\n]+)\)")
 
+#: A section citation is written as a document followed by `§N` on the same
+#: line -- ``\`ci-rule.md\` §2a``, ``\`.claude/ONBOARDING.md\` §7``,
+#: ``ONBOARDING §12.3``. The two alternatives are matched by one pattern so a
+#: single left-to-right pass can bind each anchor to the document last named on
+#: its line, which is how the prompts are actually written ("Follow ONBOARDING
+#: §6 for standalone tasks and §12.3 for epic children").
+_SECTION_CITATION = re.compile(
+    r"`([^`\n]*?\.md)`|\b(CLAUDE|ONBOARDING|CONSTITUTION)\b|§\s?(\d+(?:\.\d+)*[a-z]?)"
+)
+
+#: A numbered heading, as every checked document writes them: `## 7. Authority`,
+#: `### 2.1 Contracts are explicit`, `### 2a. tests/testnet/`, `## 6.5 Case study`.
+_NUMBERED_HEADING = re.compile(
+    r"^(#{2,6})\s+(\d+(?:\.\d+)*[a-z]?)[.)]?\s", re.MULTILINE
+)
+
+#: An ordered-list item inside a section body: `ONBOARDING.md` §12.3 names item
+#: 3 of section 12, not a heading of its own.
+_ORDERED_ITEM = re.compile(r"^\s*(\d+)\.\s", re.MULTILINE)
+
+#: Bare document names the prompts use without their extension.
+_BARE_DOCUMENTS = {
+    "CLAUDE": "CLAUDE.md",
+    "ONBOARDING": ".claude/ONBOARDING.md",
+    "CONSTITUTION": ".claude/CONSTITUTION.md",
+}
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
@@ -123,6 +161,87 @@ def _link_references(text: str, source: Path, root: Path) -> list[str]:
         if relative.startswith(CHECKED_ROOTS):
             references.append(relative)
     return references
+
+
+def _resolve_document(name: str, source: Path, root: Path) -> Path | None:
+    """The checked document `name` refers to, or `None` when it is not one.
+
+    Only documents inside `PROMPT_TREES` are resolved: their section numbering
+    is what a session navigates. A name carrying a slash is repository-relative;
+    a bare `ci-rule.md` is looked for beside the citing file first, then in the
+    trees that hold the rules and the map.
+    """
+    if "/" in name:
+        candidates = [root / name.lstrip("./")]
+    else:
+        candidates = [
+            source.parent / name,
+            root / ".claude" / "rules" / name,
+            root / ".claude" / name,
+            root / name,
+        ]
+    for candidate in candidates:
+        resolved = candidate.resolve()
+        if not resolved.is_file():
+            continue
+        try:
+            relative = resolved.relative_to(root).as_posix()
+        except ValueError:
+            return None
+        if relative == "CLAUDE.md" or relative.startswith(".claude/"):
+            return resolved
+    return None
+
+
+def _sections(document: Path) -> tuple[set[str], dict[str, set[str]]]:
+    """Every numbered heading in `document`, and the ordered items under each.
+
+    @return (heading numbers, {heading number: item numbers directly beneath it}).
+    """
+    text = document.read_text(encoding="utf-8")
+    headings = [
+        (match.group(2), match.start(), len(match.group(1)))
+        for match in _NUMBERED_HEADING.finditer(text)
+    ]
+    numbers = {number for number, _, _ in headings}
+    items: dict[str, set[str]] = {}
+    for index, (number, start, depth) in enumerate(headings):
+        end = len(text)
+        for later_number, later_start, later_depth in headings[index + 1 :]:
+            del later_number
+            if later_depth <= depth:
+                end = later_start
+                break
+        items[number] = set(_ORDERED_ITEM.findall(text[start:end]))
+    return numbers, items
+
+
+def _anchor_resolves(anchor: str, document: Path) -> bool:
+    """Whether `document` holds the section `anchor` names."""
+    numbers, items = _sections(document)
+    if anchor in numbers:
+        return True
+    parent, _, item = anchor.rpartition(".")
+    return bool(parent) and parent in numbers and item in items.get(parent, set())
+
+
+def _dangling_anchors(source: Path, text: str, root: Path) -> list[str]:
+    """Every `§N` in `source` whose document has no such section."""
+    dangling: list[str] = []
+    for line in text.splitlines():
+        document: Path | None = None
+        for match in _SECTION_CITATION.finditer(line):
+            backticked, bare, anchor = match.groups()
+            if backticked or bare:
+                name = backticked or _BARE_DOCUMENTS[bare]
+                document = _resolve_document(name, source, root)
+            elif (
+                anchor
+                and document is not None
+                and not _anchor_resolves(anchor, document)
+            ):
+                dangling.append(f"{document.relative_to(root).as_posix()} §{anchor}")
+    return dangling
 
 
 def _prompt_files(root: Path) -> list[Path]:
@@ -186,6 +305,16 @@ def _resolves(reference: str, tracked: set[str] | None, root: Path) -> bool:
     if tracked is None:
         return (root / reference).exists()
     return reference.rstrip("/") in tracked
+
+
+def check_anchors(root: Path) -> list[tuple[Path, str]]:
+    """Return every (source file, dangling `document §N`) pair across `PROMPT_TREES`."""
+    dangling: list[tuple[Path, str]] = []
+    for source in _prompt_files(root):
+        text = source.read_text(encoding="utf-8")
+        for citation in dict.fromkeys(_dangling_anchors(source, text, root)):
+            dangling.append((source.relative_to(root), citation))
+    return dangling
 
 
 def check(root: Path) -> list[tuple[Path, str]]:
@@ -256,9 +385,22 @@ def main() -> int:
         )
         return 1
 
+    dangling = check_anchors(root)
+    if dangling:
+        print("Dangling section citations:\n", file=sys.stderr)
+        for source, citation in dangling:
+            print(f"  {source}: {citation}", file=sys.stderr)
+        print(
+            "\nA cited section must exist as a numbered heading, or as a numbered "
+            "item directly\nunder the heading it subdivides. Renumbering a rule "
+            "means repointing what cites it.",
+            file=sys.stderr,
+        )
+        return 1
+
     trees = ", ".join(d.as_posix() + "/" for d, _ in PROMPT_TREES)
     print(
-        f"OK: every repository path referenced by {len(_prompt_files(root))} "
+        f"OK: every repository path and section referenced by {len(_prompt_files(root))} "
         f"document(s) under {trees} resolves."
     )
     return 0
