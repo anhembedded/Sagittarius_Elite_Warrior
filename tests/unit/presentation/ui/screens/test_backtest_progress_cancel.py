@@ -1,3 +1,15 @@
+"""The Backtest run/sync progress banner and its Cancel button.
+
+Was `test_backtest_progress_cancel_qml.py` until `EPIC-025` PR 4.3l: the
+Cancel button lived inside `ProgressBanner.qml` and had to be reached through
+`qml_item(widget.root_object, ...)` and clicked at scene coordinates. It is a
+`QPushButton` inside `kit.ProgressBanner` now (ADR D21), so the same three
+promises are asserted against widgets — and the click is
+`QPushButton.click()`, which is what a test of a *wiring* should use anyway:
+the scene-coordinate `QTest.mouseClick` passed whether or not the banner was
+laid out where it was aimed.
+"""
+
 from __future__ import annotations
 
 import os
@@ -76,35 +88,27 @@ def backtest_screen(qapp, request):
     return view, presenter
 
 
-def test_progress_banner_cancel_button_in_running_and_syncing_modes(
-    qapp, backtest_screen, qml_item
-):
-    """`ProgressBannerWidget` (QML, `EPIC-015` Phase 4) replaced
-    `AppProgressBar` + a standalone Cancel `QPushButton` — the Cancel button
-    now lives inside the QML scene (`kit/Button.qml`, `objectName:
-    "progressBannerCancelButton"`), reached via `qml_item`
-    (`tests/conftest.py`) rather than a direct widget attribute, same as
-    every other `Repeater`/QML-scene lookup in this rollout."""
-    from PySide6.QtCore import QPoint, Qt
-    from PySide6.QtTest import QTest
+def _cancel_button(banner):
+    """The `QPushButton` inside the banner, by `objectName` rather than by
+    the private attribute, so this test sees what a screenshot would."""
+    from PySide6.QtWidgets import QPushButton
 
+    button = banner.findChild(QPushButton, "progressBannerCancel")
+    assert button is not None
+    return button
+
+
+def test_progress_banner_cancel_button_in_running_and_syncing_modes(
+    qapp, backtest_screen
+):
+    """`CANCELLING` disables the button; `kit.ProgressBanner` deliberately
+    does not relabel it, so the word the user reads is the panel's own
+    (`_sync_banners()` puts "Cancelling safely..." in the caption instead of
+    on the button, which is what it already did through the `.qml`)."""
     view, presenter = backtest_screen
     banner = view.top_widget._progress_banner
-    progress_widget = view.top_widget._progress_banner_widget
+    widget = view.top_widget._progress_banner_widget
     view_model = presenter._view_model
-
-    def cancel_button():
-        button = qml_item(progress_widget.root_object, "progressBannerCancelButton")
-        assert button is not None
-        return button
-
-    def click(button):
-        centre = button.mapToScene(button.boundingRect().center())
-        QTest.mouseClick(
-            progress_widget.quick_widget,
-            Qt.MouseButton.LeftButton,
-            pos=QPoint(int(centre.x()), int(centre.y())),
-        )
 
     # 1. In IDLE mode, progress banner is hidden
     assert banner.isVisible() is False
@@ -114,10 +118,9 @@ def test_progress_banner_cancel_button_in_running_and_syncing_modes(
     qapp.processEvents()
 
     assert banner.isVisible() is True
-    button = cancel_button()
-    assert button.property("enabled") is True
-    label = qml_item(button, "buttonLabel")
-    assert label.property("text") == "Cancel"
+    button = _cancel_button(widget)
+    assert button.isEnabled() is True
+    assert button.text() == "Cancel"
 
     # Click Cancel on progress banner
     cancel_signal_called = False
@@ -127,86 +130,74 @@ def test_progress_banner_cancel_button_in_running_and_syncing_modes(
         cancel_signal_called = True
 
     view_model.cancelBacktestRequested.connect(on_cancel)
-    click(button)
+    button.click()
     qapp.processEvents()
 
     assert cancel_signal_called is True
 
-    # 3. In CANCELLING mode, button is disabled and text is "Cancelling..."
+    # 3. In CANCELLING mode the button is disabled, and the caption — not the
+    #    button — carries the word.
     view_model.set_ui_mode("CANCELLING")
     qapp.processEvents()
 
     assert banner.isVisible() is True
-    button = cancel_button()
-    assert button.property("enabled") is False
-    label = qml_item(button, "buttonLabel")
-    assert label.property("text") == "Cancelling..."
+    assert _cancel_button(widget).isEnabled() is False
+    assert widget._status.text() == "Cancelling safely..."
 
     # 4. In RUNNING mode, button is enabled and text is "Cancel"
     view_model.set_ui_mode("RUNNING")
     qapp.processEvents()
 
     assert banner.isVisible() is True
-    button = cancel_button()
-    assert button.property("enabled") is True
-    label = qml_item(button, "buttonLabel")
-    assert label.property("text") == "Cancel"
+    button = _cancel_button(widget)
+    assert button.isEnabled() is True
+    assert button.text() == "Cancel"
 
 
-def test_progress_banner_status_text_and_percent_are_wired(
-    qapp, backtest_screen, qml_item
-):
+def test_progress_banner_status_text_and_percent_are_wired(qapp, backtest_screen):
     """Both progress sources (`syncProgressText`/`Percent` and
-    `backtestProgressText`/`Percent`) reach `ProgressBannerWidget` through
-    the same two setters — `_sync_banners()` picks the source, the widget
-    itself is source-agnostic."""
+    `backtestProgressText`/`Percent`) reach the banner through the same two
+    setters — `_sync_banners()` picks the source, the widget itself is
+    source-agnostic."""
     view, presenter = backtest_screen
-    progress_widget = view.top_widget._progress_banner_widget
+    widget = view.top_widget._progress_banner_widget
     view_model = presenter._view_model
 
     view_model.run_progress.set_sync_progress(45.0, "Syncing candles: 45/100 (45%)")
     view_model.set_ui_mode("SYNCING")
     qapp.processEvents()
 
-    status = qml_item(progress_widget.root_object, "progressBannerStatusText")
-    percent = qml_item(progress_widget.root_object, "progressBannerPercentText")
-    assert status.property("text") == "Syncing candles: 45/100 (45%)"
-    assert percent.property("text") == "45%"
+    assert widget._status.text() == "Syncing candles: 45/100 (45%)"
+    assert widget.percent_text() == "45%"
 
     view_model.set_ui_mode("IDLE")
     view_model.run_progress.set_backtest_progress(80.0, "Running full dataset: 80%")
     view_model.set_ui_mode("RUNNING")
     qapp.processEvents()
 
-    status = qml_item(progress_widget.root_object, "progressBannerStatusText")
-    percent = qml_item(progress_widget.root_object, "progressBannerPercentText")
-    assert status.property("text") == "Running full dataset: 80%"
-    assert percent.property("text") == "80%"
+    assert widget._status.text() == "Running full dataset: 80%"
+    assert widget.percent_text() == "80%"
 
 
-def test_progress_banner_clamps_an_out_of_range_percent(
-    qapp, backtest_screen, qml_item
-):
+def test_progress_banner_clamps_an_out_of_range_percent(qapp, backtest_screen):
     """`BackTestViewModel.backtestProgressPercent`/`syncProgressPercent` are
     not clamped at the property getter the way
     `DataManagementViewModel.progressPercent` is — every real call site
     clamps before storing, but `_sync_banners()` still defends against a
     value that is not, so a future caller cannot silently show "150%"."""
     view, presenter = backtest_screen
-    progress_widget = view.top_widget._progress_banner_widget
+    widget = view.top_widget._progress_banner_widget
     view_model = presenter._view_model
 
     view_model.run_progress.set_backtest_progress(150.0, "over")
     view_model.set_ui_mode("RUNNING")
     qapp.processEvents()
 
-    percent = qml_item(progress_widget.root_object, "progressBannerPercentText")
-    assert percent.property("text") == "100%"
+    assert widget.percent_text() == "100%"
 
     view_model.set_ui_mode("IDLE")
     view_model.run_progress.set_backtest_progress(-10.0, "under")
     view_model.set_ui_mode("RUNNING")
     qapp.processEvents()
 
-    percent = qml_item(progress_widget.root_object, "progressBannerPercentText")
-    assert percent.property("text") == "0%"
+    assert widget.percent_text() == "0%"

@@ -7,7 +7,6 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import patch
 
 import pytest
-from PySide6.QtCore import Qt
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
@@ -226,9 +225,9 @@ def test_chart_toolbar_click_replaces_visible_candles_with_selected_timeframe(
 
 
 def test_progress_banner_cancel_button_cancels_active_backtest_flow(
-    backtest_screen, qtbot, qml_item
+    backtest_screen, qtbot
 ):
-    from PySide6.QtCore import QPoint
+    from PySide6.QtWidgets import QPushButton
 
     presenter, view = backtest_screen
     view_model = presenter._view_model
@@ -240,10 +239,10 @@ def test_progress_banner_cancel_button_cancels_active_backtest_flow(
     # Trigger backtest run via toolbar button
     view.top_widget._btn_run.click()
 
-    # `EPIC-015` Phase 4: the Cancel button lives inside
-    # `ProgressBannerWidget`'s QML scene (`kit/ProgressBanner.qml`), reached
-    # by `objectName` like every other `Repeater`/QML-scene lookup in this
-    # rollout — not a direct `QPushButton` attribute anymore.
+    # The Cancel button belongs to the banner, not to this panel: it was
+    # inside `ProgressBanner.qml`'s scene until `EPIC-025` PR 4.3l and is
+    # `kit.ProgressBanner`'s own `QPushButton` now, so it is reached by
+    # `objectName` rather than as an attribute of the screen.
     progress_widget = view.top_widget._progress_banner_widget
     assert progress_widget is not None
 
@@ -252,14 +251,9 @@ def test_progress_banner_cancel_button_cancels_active_backtest_flow(
         BacktestUiState.RUNNING,
         BacktestUiState.SYNCING,
     ):
-        cancel_btn = qml_item(progress_widget.root_object, "progressBannerCancelButton")
+        cancel_btn = progress_widget.findChild(QPushButton, "progressBannerCancel")
         assert cancel_btn is not None
-        centre = cancel_btn.mapToScene(cancel_btn.boundingRect().center())
-        qtbot.mouseClick(
-            progress_widget,
-            Qt.MouseButton.LeftButton,
-            pos=QPoint(int(centre.x()), int(centre.y())),
-        )
+        cancel_btn.click()
 
     qtbot.waitUntil(
         lambda: (

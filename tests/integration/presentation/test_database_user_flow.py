@@ -139,15 +139,14 @@ def database_app_context(qapp, qtbot, monkeypatch, request):
 def test_database_cancel_button_cancels_active_sync_flow(
     qapp, qtbot, database_app_context
 ):
-    """EPIC-015 Phase 2: the Cancel control is `ProgressBanner.qml`'s own
-    `Button`, embedded inline via `ProgressBannerWidget`
+    """EPIC-015 Phase 2: the Cancel control belongs to the progress banner
     (`view._progress_banner`) — there is no `view._btn_cancel_sync`
-    `QPushButton` any more (that was `EPIC-005E`'s QtWidgets-era shape).
-    Reached the same way `test_database_progress_cancel_widget.py`'s unit
-    tests do: `conftest.find_qml_item` + a real `QTest.mouseClick`."""
-    from PySide6.QtCore import QPoint, Qt
-    from PySide6.QtTest import QTest
-    from Sagittarius_Elite_Warrior.tests.conftest import find_qml_item
+    `QPushButton` of this screen's own any more (that was `EPIC-005E`'s
+    shape). It was a QML `Button` clicked at scene coordinates until
+    `EPIC-025` PR 4.3l; it is `kit.ProgressBanner`'s `QPushButton` now,
+    reached the same way `test_database_progress_cancel_widget.py`'s unit
+    tests reach it."""
+    from PySide6.QtWidgets import QPushButton
 
     view, presenter, _ = database_app_context
     view_model = presenter._view_model
@@ -161,18 +160,12 @@ def test_database_cancel_button_cancels_active_sync_flow(
     # Wait until in SYNCING state and progress is visible
     qtbot.waitUntil(lambda: presenter.fsm.current_state == UIMode.SYNCING, timeout=2000)
     assert view._progress_container.isVisible() is True
-    cancel_btn = find_qml_item(
-        view._progress_banner.root_object, "progressBannerCancelButton"
-    )
-    assert cancel_btn.property("enabled") is True
+    cancel_btn = view._progress_banner.findChild(QPushButton, "progressBannerCancel")
+    assert cancel_btn is not None
+    assert cancel_btn.isEnabled() is True
 
     # Click Cancel
-    centre = cancel_btn.mapToScene(cancel_btn.boundingRect().center())
-    QTest.mouseClick(
-        view._progress_banner.quick_widget,
-        Qt.MouseButton.LeftButton,
-        pos=QPoint(int(centre.x()), int(centre.y())),
-    )
+    cancel_btn.click()
     qapp.processEvents()
 
     # FSM transitions through CANCELLING then back to IDLE

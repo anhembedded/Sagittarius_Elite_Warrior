@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     PickerItem,
     PickerOverlay,
     PreferredHeightScrollArea,
+    ProgressBanner,
     RowAction,
     SectionLabel,
     SelectableCard,
@@ -207,6 +208,15 @@ class ShowcaseWindow(QWidget):  # base-exempt: the gallery shell, not a surface
             ),
             Banner("Something failed", icon="x", severity=Severity.DANGER),
         )
+        measured = ProgressBanner()
+        measured.set_status_text("Measured — 37.5% of the work reported done")
+        measured.set_percent(37.5)
+        sweeping = ProgressBanner()
+        sweeping.set_status_text("Indeterminate — no percentage to report yet")
+        sweeping.set_indeterminate(True)
+        sweeping.set_cancel_label("Stop")
+        sweeping.set_cancelling(True)
+        self._add(column, "Progress banner", measured, sweeping)
 
     def _overlays(self, column: QVBoxLayout) -> None:
         """Overlays are modal dialogs, so they are built and shown inline

@@ -1,11 +1,3 @@
 # .qml files AS FOUND at the start of EPIC-025 Phase 0 (2026-09-13). Read by
 # tests/unit/architecture/test_no_new_qml.py. Shrink-only: delete a line when the
 # file is deleted; never add one (ADR D20).
-src/presentation/ui/qml/kit/Button.qml
-src/presentation/ui/qml/kit/DialogShell.qml
-src/presentation/ui/qml/kit/LogPanel.qml
-src/presentation/ui/qml/kit/PanelHeader.qml
-src/presentation/ui/qml/kit/ProgressBanner.qml
-src/presentation/ui/qml/kit/StatCard.qml
-src/presentation/ui/qml/kit/StatusPill.qml
-src/presentation/ui/qml/kit/_StyleGuidePreview.qml

@@ -41,11 +41,14 @@ class Overlay(QDialog):
         # is a bare `QDialog`, and per Qt's own style sheet reference, a
         # plain `QWidget` subclass "needs to set the Qt::WA_StyledBackground
         # attribute for the style sheet to have an effect". Without it, this
-        # SURFACE background never actually paints, and a `QmlOverlay`
-        # subclass's `QQuickWidget` body (transparent clear colour by
-        # design — see `host.py` — relying on exactly this background
-        # showing through) had no opaque surface to show through TO: the
-        # whole dialog rendered see-through to whatever sat behind it.
+        # SURFACE background never actually paints. That was found through
+        # the QML-bodied subclass this class used to have (`QmlOverlay`,
+        # deleted with the last `.qml` in `EPIC-025` PR 4.3l): its
+        # `QQuickWidget` body had a transparent clear colour by design and
+        # relied on exactly this background showing through, so with nothing
+        # opaque to show through TO, the whole dialog rendered see-through to
+        # whatever sat behind it. The attribute stays: every `Overlay` paints
+        # its own surface, QML or not.
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         apply_role(self, StyleRole.SURFACE)
 

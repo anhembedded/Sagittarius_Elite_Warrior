@@ -9,12 +9,12 @@ carries over unchanged (tests/presenter both key off them).
 `EPIC-015` Phase 4 replaced two pieces of that QtWidgets port with QML
 embeds: `ProgressBannerWidget` (`qml/kit/`) for the run/sync progress banner,
 and `StatCardRowWidget` (`qml/StatCardRow/`) for the performance figures.
-`EPIC-025` PR 4.3g has taken the second one back (ADR D21) — the figures are
-`BacktestStatRow`, read-only tiles in this screen's own package, and their
-`cardMetric_N` names are `QWidget`s again, reachable by `findChild` rather than
-through a QML scene. The banner is still an embed and goes with `qml/kit/`, the
-last step of 4.3. `backtestProgressBanner` (the outer `QFrame`) and the four
-`_sync_*`/`_build_*` method names are unchanged throughout.
+`EPIC-025` PR 4.3g took the second one back and PR 4.3l the first (ADR D21):
+the figures are `BacktestStatRow` and the banner is `kit.ProgressBanner`, both
+QtWidgets, so `cardMetric_N` and the Cancel button are `QWidget`s reachable by
+`findChild` rather than through a QML scene. `backtestProgressBanner` (the
+outer `QFrame`) and the four `_sync_*`/`_build_*` method names are unchanged
+throughout.
 """
 
 from __future__ import annotations
@@ -32,15 +32,13 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.qml.kit.progress_banner_widget import (
-    ProgressBannerWidget,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Banner,
+    ProgressBanner,
     Severity,
     StyleRole,
     apply_role,
@@ -51,16 +49,10 @@ from .backtest_stat_row import BacktestStatRow
 if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
 
-#: Same fixed height Data Management's Phase 2 embed uses for the same
-#: `ProgressBanner.qml` content (`data_management_view.py`'s
-#: `_PROGRESS_BANNER_HEIGHT`) — a `QQuickWidget` with `SizeRootObjectToView`
-#: has no natural size of its own, unlike the `AppProgressBar` it replaces.
-_PROGRESS_BANNER_HEIGHT = 32
-
 
 def _clamp_percent(value: float) -> float:
     """@brief `BackTestViewModel.backtestProgressPercent`/`syncProgressPercent`
-    to the 0..100 range `ProgressBanner.qml` expects.
+    to the 0..100 range `kit.ProgressBanner` expects.
 
     @details Unlike `DataManagementViewModel.progressPercent` (clamped at
     the property getter itself), these two properties store whatever
@@ -69,10 +61,13 @@ def _clamp_percent(value: float) -> float:
     before calling (`backtest_presenter.py`'s
     `_on_backtest_progress_for_action`/`_on_sync_progress_for_action` both
     do `min(100.0, max(0.0, ...))`), so this is a defensive backstop, not a
-    fix for an observed bug: `ProgressBanner.qml`'s bar *width* already
-    clamps its own fraction (`Math.max(0, Math.min(1, root.percent / 100))`),
-    but its percent *text* (`Math.round(root.percent) + "%"`) does not — an
-    unclamped value would show e.g. "150%" text beside a visually full bar.
+    fix for an observed bug. `ProgressBanner` clamps in `set_percent()` as
+    well, since PR 4.3l — the `.qml` this replaced clamped its bar *width*
+    (`Math.max(0, Math.min(1, root.percent / 100))`) but not its percent
+    *text* (`Math.round(root.percent) + "%"`), so an unclamped value showed
+    "150%" beside a visually full bar. Kept here rather than deleted as
+    now-redundant: this is the panel saying what it will send, and the widget
+    defending itself is not the same promise.
     """
     return min(100.0, max(0.0, value))
 
@@ -368,10 +363,10 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
     def _build_progress_banner(self) -> QFrame:
         banner = QFrame()
         banner.setObjectName("backtestProgressBanner")
-        # EPIC-015 Phase 4: `ProgressBannerWidget` (QML) replaces
-        # `AppProgressBar` + a standalone Cancel `QPushButton` — the same
-        # swap Data Management's Phase 2 already made
-        # (`data_management_view.py`). This bordered `QFrame` is kept as-is,
+        # EPIC-015 Phase 4 replaced `AppProgressBar` + a standalone Cancel
+        # `QPushButton` with a QML embed; PR 4.3l replaces that with
+        # `kit.ProgressBanner`, the same swap Data Management and Dev Board
+        # make. This bordered `QFrame` is kept as-is,
         # unlike Data Management's own plain container: this banner sits
         # *inside* an already-SURFACE-styled `self._card`, so it still needs
         # its own nested background/border to read as a distinct strip, same
@@ -382,8 +377,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         )
         layout = QHBoxLayout(banner)
         layout.setContentsMargins(12, 4, 12, 4)
-        self._progress_banner_widget = ProgressBannerWidget()
-        self._progress_banner_widget.setFixedHeight(_PROGRESS_BANNER_HEIGHT)
+        self._progress_banner_widget = ProgressBanner()
         self._progress_banner_widget.cancelRequested.connect(
             self._vm.requestCancelBacktest
         )

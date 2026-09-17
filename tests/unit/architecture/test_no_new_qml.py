@@ -1,15 +1,22 @@
 """
 No new `.qml` file may appear anywhere under `src/` (ADR D20, HLD §11).
 
-**Why.** `EPIC-025` rebuilds every screen as QtWidgets and the QML runtime is
-retired with the last screen. A ratchet — not a ban — because the 35 files
-below stay alive while the strangler migration runs; each phase deletes some.
+**It is a ban now, and was a ratchet until `EPIC-025` PR 4.3l.** The 35 files
+this started with had to stay alive while the strangler migration ran, so the
+rule was "no file outside `baseline_qml_files.txt`, and the list only shrinks".
+PR 4.3l deleted the last of them: the baseline is **empty**, which turns the
+same two assertions into "no `.qml` under `src/`, anywhere".
 
-**How.** `baseline_qml_files.txt` next to this file lists every `.qml` path as
-found in Phase 0. The test fails when a file on disk is missing from the list
-(a new QML file) **and** when a listed file no longer exists (the deletion
-landed — remove the line in the same commit). The list only shrinks; it is
-empty when Phase 4 closes and this guard is retired together with `qml-rule.md`.
+**How.** `baseline_qml_files.txt` next to this file lists the `.qml` paths still
+tolerated — none. The test fails when a file on disk is missing from the list (a
+new QML file) and when a listed file no longer exists (a deletion landed —
+remove the line in the same commit).
+
+`test_scanned_roots_are_not_empty.py` would normally fail a guard whose scan
+matches nothing, because that is what a guard looks like after its tree moved
+under it. This one is registered in that registry's `EMPTY_BY_DESIGN`: an empty
+scan here is the ADR being satisfied, and the exemption names this exact
+(guard, root, pattern) so a second, genuinely-emptied root would still fail.
 """
 
 from __future__ import annotations
