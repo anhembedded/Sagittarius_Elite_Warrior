@@ -134,7 +134,7 @@ follows, and makes each phase's share visible as a number.
   is a menu action.
 - **No new `.qml` file** (a guard: `find src -name '*.qml'` must not grow, and reaches zero in
   Phase 4). **It reached zero at PR 4.3l**, so `test_no_new_qml.py` is a ban rather than a ratchet:
-  its baseline is empty and any `.qml` under `src/` fails it. `qml-rule.md` is historical.
+  its baseline is empty and any `.qml` under `src/` fails it. `qml-rule.md` was deleted on 2026-09-17 once `src/` held no `.qml`; git history keeps it.
 
 ## 11.6 What this changes in the plan
 

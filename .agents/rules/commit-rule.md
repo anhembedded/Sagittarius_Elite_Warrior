@@ -1,126 +1,39 @@
 ---
 name: Commit Rule
-description: How a commit is made once it is allowed — Conventional Commits, atomic changes, the AI trailer, what never gets committed. Whether a commit or push is allowed is decided in ONBOARDING.md §7, not here.
+description: How a commit is made — Conventional Commits, atomic changes, the AI trailer, what never gets committed. Whether a commit, push or merge is allowed is ONBOARDING.md §7.
 trigger: always_on
 ---
 
-# Git Commit Guidelines for AI Agents
+# Commits
 
-All AI assistants working on this repository MUST strictly follow these commit rules without exception.
+## 0. Authority
+`ONBOARDING.md` §7 decides what may be committed, pushed and merged. This file says how.
 
----
+## 1. Verification
+`ci-rule.md` §1 sets the cadence: the 1-second static checks, the architecture guards and the touched tests before every commit; the full gate on the final tree before a pull request. Never commit code a required check has shown red. Documentation-only commits (§7's set) need no run. `[gate]`
 
-## 0. Whether you may commit is decided in `ONBOARDING.md` §7 — this file says how
-
-- **Authority lives in one table, [`ONBOARDING.md`](../ONBOARDING.md) §7.** Commit is ask-by-default
-  and push is forbidden-by-default, and that same table holds the two standing exceptions the user
-  granted on 2026-09-13 (a documentation-only change; `EPIC-025` code committed locally after a
-  green gate). This file used to restate the default without the exceptions, so an agent reading
-  only this file refused commits the user had already authorised — the drifted-copy disease
-  `CLAUDE.md` describes, in the rule about commits.
-- Once a commit is allowed, follow the rest of this file in full: Conventional Commits (§2),
-  verification at the cadence `ci-rule.md` sets (§1), atomic changes (§4), and the mandatory
-  `Co-Authored-By` trailer (§3).
-
----
-
-## 1. Verification before a commit — at the cadence `ci-rule.md` §1 sets
-
-- **The cadence is two-tiered and is decided in [`ci-rule.md`](ci-rule.md) §1** (user decision
-  2026-09-16): every commit runs the one-second static checks, the architecture guards and the
-  tests its diff touches; the full gate runs **once per pull request, on the final tree**, with
-  the log file grepped. This file does not restate the commands, the tiers or the thresholds —
-  it once required the full four-minute gate before *every* commit while `ci-rule.md` no longer
-  did, and two files that disagree are worse than one.
-- Two things stay absolute whatever the cadence: **never commit code a required check has shown
-  red**, and a passing test count is not a green gate while lint, format, coverage, Sanity or the
-  run-log scan fails (`ci-rule.md` §1, §8).
-- **Exception:** a commit touching no code file (docs/task/`.agents/`-only —
-  see `.agents/rules/ci-rule.md` §1 "Exception — commits that touch no code
-  file" for the exact boundary) does not require this verification step.
-
----
-
-## 2. Commit Message Structure & Format (Conventional Commits)
-
-Commit messages must follow the **Conventional Commits** standard:
-
+## 2. Message
 ```
-<type>(<scope>): <concise subject in present/imperative tense>
+<type>(<scope>): <imperative subject>
 
-<optional detailed body explaining context, rationale, and specific changes>
+<body: the reasoning — what, why, what was measured; a fix: names the root cause>
 
-- <component/module>: details of change
-- <tests>: details of new tests / sanity coverage
-
-Co-Authored-By: <AI assistant name and identity that generated this commit>
+Co-Authored-By: <assistant that wrote it> <noreply@provider.example>
 ```
+Types: `feat`, `fix`, `refactor`, `perf`, `test`, `ci`, `docs`, `chore`. Scope: a name a reader can grep — a module (`market_data`, `trading`, `strategy`, `backtesting`), `shell`/`core`, a support package, `architecture`, `tasks`, `agents`, `ci`, or the epic/bug id (`epic-025`, `bug-127`). `git log --format=%s -40` shows current usage. `[review: L1]`
 
-### Allowed Types:
-- `feat`: New feature or user-facing capability
-- `fix`: Bug fix (must reference root cause or issue ID e.g., BOT-xxx)
-- `refactor`: Code change that neither fixes a bug nor adds a feature (improves structure/SRP)
-- `perf`: Performance improvement (optimizations, concurrency, batching)
-- `test`: Adding or correcting tests only (unit, integration, sanity)
-- `ci`: Changes to CI scripts, test runners, virtual environment setups
-- `docs`: Documentation updates only
-- `chore`: Maintenance tasks, config tweaks, dependency updates
+The body is the record: `ONBOARDING.md` §12.2 makes `git log` the source for "what happened and why", so a body that only restates the subject is a missing record. A gate result cites its `LOG_FILE:` path. `[review: L2]`
 
-### Common Scopes:
-A scope is a name a reader can `grep`, not a taxonomy. Since `EPIC-025` the usual ones are the
-bounded contexts (`market_data`, `trading`, `strategy`, `backtesting`), the kernel (`shell`,
-`core`), a support package (`ui_kit`, `charting`, `indicators`, `binance_gateway`), a guard tree
-(`architecture`), the boards (`tasks`, `agents`, `docs`), `ci`, or the epic or bug the change
-belongs to (`epic-025`, `bug-127`). `git log --format=%s -40` shows the scopes in current use;
-older commits carry the pre-split screen names (`backtest`, `dashboard`, `settings`).
+## 3. Trailer
+The assistant that actually wrote the commit, e.g. `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>` (the model the harness names; plain `Claude` when none). A harness trailer such as `Claude-Session: <url>` stays. Never a name copied from an older commit — that is how a wrong trailer spread here. `[review: L3]`
 
----
+## 4. Atomic and clean
+- One logical change per commit; `git commit` takes the whole index, so read `git status --short` before and `git show --stat HEAD` after (trap 14). `[review: L6]`
+- Never commit scratch files, leftover `print()`, commented-out code, temporary mocks, virtualenvs, `*.db`, `database/`, `logs/`, `state/`, secrets, or `.obsidian/`. `[review: L4]`
+- A dependency or tool-config change (`requirements.txt`, `pyproject.toml`, ruff/mypy settings) is asked first. `[review: L5]`
 
-## 3. Mandatory AI Signature
+## 5. Bug fixes
+`bug-fix-rule.md` in full: the regression test ships in the fixing commit; the body states the root cause; the id is in the subject or body.
 
-Every commit authored or generated by an AI assistant MUST end with a trailer naming the actual
-assistant that generated it — never a different tool's name, never a placeholder, even for
-consistency with older commit history:
-
-```
-Co-Authored-By: <Assistant Name> <noreply@assistant-provider.example>
-```
-
-E.g. a commit generated by Claude Code reads `Co-Authored-By: Claude Opus 5 <noreply@anthropic.com>`
-— the model the harness names, or plain `Claude <noreply@anthropic.com>` when it names none. A
-harness may append a second trailer of its own (`Claude-Session: <url>`); keep it, it is the
-session's record. *(Leave an empty line before the trailers.)* A commit written by another tool
-carries that tool's name — never a name copied from an older commit, which is how a wrong trailer
-once spread through this repository's history.
-
----
-
-## 4. Atomic Commits & Clean Code Integrity
-
-- **One Logical Change per Commit**: Do not bundle unrelated features, large refactors, and bug fixes into a single massive commit.
-- **Never Commit Temporary Files**:
-  - Do not stage or commit scratch files (`scratch/`, `.tempmediaStorage/`, temporary test scripts).
-  - Do not commit leftover `print()` debug logs, commented-out dead code, or temporary mocks.
-  - Do not commit virtual environments (`.venv`, `.venv_alias`) or database files (`*.db`, `database/`).
-- **Code quality is decided elsewhere**: lazy imports, magic numbers, typing and the rest are
-  [`code-quality-rule.md`](code-quality-rule.md)'s, and the gate's `ruff` rules enforce the
-  mechanical half. Two of those clauses used to be restated here and drifted from their source;
-  they are not repeated.
-
----
-
-## 5. Bug Fix Commits
-
-Full workflow (root cause first, regression test before the fix, kept
-permanently, commit content) moved to
-`.agents/rules/bug-fix-rule.md` — follow it in full for any `fix:` commit.
-
----
-
-## 6. Stale Branches & Merge Conflict Rule
-
-- Before resolving and merging PRs or branches an unattended agent opened (the scheduled agents
-  under `.agents/Skills/`, or a `testing-improvement-*` branch left over from the Jules era):
-  1. **Value Check**: Verify if the branch's proposed change is still relevant or has already been merged into `master-warrior`. Discard/skip stale, duplicate, or 0-value changes.
-  2. **Conflict Resolution**: Carefully resolve conflict markers without re-introducing outdated patterns or duplicate lines.
-  3. **Verification**: Always execute the full test suite (`.\scripts\ci-local.ps1 -Full`) on the resolved merge state before pushing to remote.
+## 6. Merging a branch an unattended agent opened
+Check it is still relevant and not already merged; resolve conflicts without reintroducing old patterns; run `-Full` on the merged tree before pushing.

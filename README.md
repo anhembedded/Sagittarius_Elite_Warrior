@@ -276,7 +276,7 @@ code hỏng** ở đây.
 | Thêm/sửa log | [`logging-rule.md`](.agents/rules/logging-rule.md) |
 | Viết test | [`testing-rule.md`](.agents/rules/testing-rule.md) |
 | Làm UI: bố cục màn hình, `preview.py`, icon, cột bảng | [`ui-presentation-rule.md`](.agents/rules/ui-presentation-rule.md) |
-| File `.qml` còn sót lại (chỉ để đọc — rule đã retired, code mới không dùng QML) | [`ui-presentation-rule.md`](.agents/rules/ui-presentation-rule.md) · [`qml-rule.md`](.agents/rules/qml-rule.md) |
+| Bất kỳ code UI nào (QtWidgets only, không còn QML từ ADR D20) | [`ui-presentation-rule.md`](.agents/rules/ui-presentation-rule.md) |
 | Tác vụ nền khởi động từ UI: sở hữu action, huỷ, tách Coordinator | [`async-ui-action-rule.md`](.agents/rules/async-ui-action-rule.md) |
 | Đụng `src/domain/**` hoặc `src/application/**`: dữ liệu trung thực | [`domain-truth-rule.md`](.agents/rules/domain-truth-rule.md) |
 | Dựng môi trường, thiếu công cụ | [`install-rule.md`](.agents/rules/install-rule.md) |

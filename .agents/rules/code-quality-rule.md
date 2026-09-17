@@ -1,61 +1,30 @@
 ---
 name: Python Code Quality Rule
-description: Typing, readability, immutability/pure functions, and the hard quality rules — no magic numbers, no nested loops, no God objects, no function-local imports, Single-Scope Cohesion.
+description: Typing, readability, immutability, and the hard rules — no magic numbers, no nested loops, no God objects, no lazy imports, Single-Scope Cohesion.
 trigger: on_file_change
 patterns:
   - src/**/*.py
   - scripts/**/*.py
 ---
 
-# PYTHON CODE QUALITY RULES
+# Python code quality
 
-Applies to every Python file in `src/` and `scripts/`.
+Applies to every Python file in `src/` and `scripts/`. Where things *live* is `architecture-rule.md`.
 
-**Architectural** decisions (where a Port lives, which layer a file belongs to,
-splitting files by abstraction level) are not here — see
-[`architecture-rule.md`](architecture-rule.md).
+## 1. Typing
+Explicit annotations on every signature, return and class attribute. No `Any` where `Union`, `Optional`, `TypeVar` or a generic fits — an `Any` at a seam switches type checking off past it (`CS-001`). Model data as frozen dataclasses, value objects or `Enum`, never loose dicts and tuples. `[gate: mypy over src+scripts, presentation excluded — there review D5 is the only check]`
 
----
+## 2. Readability
+PEP 8; explicit over clever; no nested comprehensions or multi-line lambdas where a loop or a named helper reads better; small single-purpose functions; descriptive names. `[gate: ruff N; eye]`
 
-## 1. Strong Typing & Type Safety
+## 3. Immutability and pure functions
+Depend on arguments, return new values, never mutate an argument in place, never a mutable default; side effects (I/O, DB, network) live in adapter classes. `[gate: ruff B006; review: D10]`
 
-1. **Strong Typing & Type Safety:**
-   - Always use explicit type annotations for all function signatures, parameters, return values, and class attributes.
-   - Strictly avoid using `Any`. Use `Union`, `Optional`, `Generics`, or `TypeVar` where flexibility is needed.
-   - Use `dataclasses` (with `frozen=True` where possible) or `Pydantic` models instead of raw dictionaries for complex data structures. Model data with proper structures (dataclasses, value objects, `Enum`) instead of loose primitives or tuples.
-
----
-
-## 2. Readability & Clean Code (Over Brevity)
-
-3. **Readability & Clean Code (Over Brevity):**
-   - Follow PEP 8 guidelines. Prioritize explicit and self-documenting code over short one-liners.
-   - Do NOT use complex, nested list comprehensions or multi-line `lambda` expressions when a clear `for` loop or named helper function is more readable. Do not use `lambda` for non-trivial callbacks.
-   - Keep functions small, focused, and single-purpose (Single Responsibility Principle). Use explicit, descriptive variable names.
-
----
-
-## 3. Immutability & Pure Functions (No Side Effects)
-
-4. **Immutability & Pure Functions (No Side Effects):**
-   - Strive for pure functions: functions should depend only on passed arguments and produce deterministic return values.
-   - Never mutate passed arguments in-place. Return new instances or modified copies instead.
-   - Strictly avoid mutable default arguments (e.g., NEVER use `def func(items=[]):`).
-   - Isolate side effects (I/O, DB calls, network requests) inside dedicated adapter/boundary classes.
-
----
-
-## 4. Strict Code Quality Rules
-
-7. **Strict Code Quality Rules:**
-   - **No Magic Numbers & Named Constants:** Strictly avoid using raw numbers or magic strings in code. Define them centrally as named constants or configuration keys (`config_keys.py`, `user_config.json`, `constants.py`). Strategy/indicator parameters must be declared dynamically via parameter schemas (`input_int`, `input_float`, etc.). Machine-enforced since `EPIC-004`: Ruff's `PLR2004` is part of the required `ci-local.ps1 -Full` gate (`ci-rule.md` §1) — this is no longer a rule that only a human review catches.
-   - **No Nested Loops:** Avoid deep nesting of loops (e.g. `for` inside `for` inside `while`). Extract nested logic into separate helper functions to reduce cyclomatic complexity and improve testability.
-   - **No God Objects:** Strictly avoid creating massive classes or modules that know too much or do too much. Delegate responsibilities (e.g. CLI parsing, bootstrapping, event handling) into dedicated modules.
-   - **Abstract Low-Level Logic:** Do not write verbose, low-level OS/File system operations (like deep `os.path` joins or byte-level manipulation) directly in application or composition root layers. Extract them into common utility classes.
-   - **No Function-Local / Lazy Imports (never use a local import):** All module, class, function, and type imports MUST be declared at the top of the file (top-level imports) adhering strictly to PEP 8. Never place `import ...` inside functions, methods, slots, test cases, or nested scopes (the only exception is `if TYPE_CHECKING:` guards at top level).
-   - **Single-Scope Cohesion & Colocation (keep related components together in a single scope / single source of truth):** Tightly coupled components that define the same domain lifecycle, state machine, or feature configuration MUST be co-located within the same single file or module scope (e.g., FSM State Enum + FSM Event Enum + Transition Matrix + UI Mode mappings in a single `*_fsm_matrix.py`). Do NOT fragment tightly coupled definitions across multiple scattered files where understanding or modifying a single feature lifecycle requires jumping across 4-5 distant modules. Related enums, schemas, transition tables, and constants belonging to a single concept must reside together as a single source of truth.
-
-> **The counterweight to Single-Scope Cohesion is Abstraction-Level Separation**
-> ("different abstraction levels never share a file or a directory", plus the
-> thresholds that force a split: >400 lines/file and >15 public methods/class) —
-> [`architecture-rule.md`](architecture-rule.md) §5. When in doubt, read both.
+## 4. Hard rules
+- **No magic numbers or strings.** Named constants or config keys (`config_keys.py`, `constants.py`); strategy/indicator parameters through parameter schemas. `[gate: ruff PLR2004]`
+- **No nested loops** — extract a helper. `[eye]`
+- **No God objects** — a class or module with a second reason to change is split. `[review: D9]`
+- **No low-level OS/file/byte work** inline in application or composition-root code — a utility class. `[review: D11]`
+- **No function-local imports.** All imports at the top of the file; the only exception is a top-level `if TYPE_CHECKING:` block. `[review: D4]`
+- **Single-Scope Cohesion.** Definitions describing one lifecycle (an FSM's state enum, event enum, transition matrix, UI-mode map) live in one file, e.g. `*_fsm_matrix.py`. Counterweight: `architecture-rule.md` §5 — different abstraction levels never share a file; the two collide only on "same lifecycle" vs "same feature", and lifecycle wins. `[review: D8]`
+- Ruff's `S` (Bandit), `B`, `SIM`, `ERA`, `N`, `PLR2004` rules are part of the gate; a per-file ignore lives in `pyproject.toml` with an inline reason, never a bare suppression. `[gate; review: D3]`

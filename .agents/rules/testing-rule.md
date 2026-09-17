@@ -1,102 +1,29 @@
 ---
 name: Testing Rule
-description: How to write tests correctly — what each level proves, async without sleeps, financial invariants, Boundary Value Analysis + mutation-verify, business acceptance for trading features.
+description: How to write a test that can fail — what each level proves, no sleeps, invariants, boundary analysis with mutation checks, doubles from the interface, wiring asserted against the real graph.
 trigger: on_file_change
 patterns:
   - tests/**/*.py
 ---
 
-# TESTING RULES — how to WRITE tests
+# Writing tests
 
-**Division of roles:** [`ci-rule.md`](ci-rule.md) holds the CI *run commands*,
-the four-level test contract, and what to do when the gate is red; this file
-holds *how to write* a test. For bug fixes, [`bug-fix-rule.md`](bug-fix-rule.md)
-is the authority — the regression test must be written **before** the fix and
-must be confirmed failing for the right reason.
+`ci-rule.md` holds the run commands, the four levels and red-gate handling; `bug-fix-rule.md` owns a regression test (written first, confirmed red). For the module architecture the layer-by-layer proof map is `Docs/HLD/10_test_strategy.md`.
 
----
+## 1. What each level proves
+- Every feature names its proof at each of the four levels, or names the existing test that already proves the exact behaviour. `[review: E1]`
+- **Sanity** (`Tasks/epics/EPIC-009_sanity_tier_redesign/DECISION_2026-08-25_sanity_model_and_execution.md`): one real boot per session (`booted_app`); every assertion scans a real source of truth (registered use cases, navigable routes, packages on disk) so **a new feature adds zero sanity tests**; `diagnostic_guard` fails on any Qt message, WARNING+ record or `warnings.warn` during boot/construct/shutdown; the only substitution is the network boundary at configuration (`binance_fake_server.py`), never a hand-written port substitute (`BUG-026`/`027`); no business facts; `--self-check` launches the real entry point as a subprocess. `[review: E5, E6; contract: .claude/skills/test-health/contract.json]`
+- **Integration**: deterministic journeys in `tests/integration/`, real input, wait on a terminal signal/state, seeded/fake boundaries, never a live exchange.
+- **Desktop E2E**: a reported GUI defect or native rendering change keeps an opt-in harness on a real display with real `QTest`/`qtbot` input and clean Qt messages.
+- **`tests/testnet/`**: real Futures Testnet, opt-in twice (`ci-rule.md` §3a); assert invariants (`FILLED`, a position back to zero), never figures; clean up in `finally`; wait on a named condition.
 
-## 1. What each test level proves
-
-> For the module architecture of `EPIC-025`, the map from **architecture layer** (domain,
-> contracts, application, adapters, card, surface, shell) to the proof each needs — including
-> contract suites and verified fakes for ports — is `Docs/HLD/10_test_strategy.md`. It refines this
-> section; it does not replace the four levels below.
-
-- **Four required test levels:** Every feature defines its proof across the
-  four levels in `.agents/rules/ci-rule.md` — Unit, Integration, Sanity and
-  Desktop E2E. A change may add no new test only when an existing test at the
-  relevant level already proves the exact new behavior; name that evidence in
-  the task/report.
-- **Sanity:** Proves the real composition root exists and assembles in
-  silence — model, decisions and full failure-mode catalogue in
-  [`Tasks/epics/EPIC-009_sanity_tier_redesign/DECISION_2026-08-25_sanity_model_and_execution.md`](../../Tasks/epics/EPIC-009_sanity_tier_redesign/DECISION_2026-08-25_sanity_model_and_execution.md).
-  Rules that follow from it:
-  - **Adding a feature/screen adds zero new tests to `tests/sanity/`.** Every
-    assertion scans a real source of truth (every registered use case, every
-    navigable route, every screen package on disk) — never a hand-written
-    per-feature test. If a new screen needs a new sanity test, the existing
-    ones were written wrong.
-  - One real app boot for the whole session (`tests/sanity/conftest.py`'s
-    `booted_app`), not one per test.
-  - `diagnostic_guard` (autouse) fails on any Qt message, Python log record
-    at WARNING+, or `warnings.warn(...)` during boot/construct/shutdown —
-    silence is the assertion, not just a green exit code. `quick_widget.
-    errors() == []` is retired: zero QML since `EPIC-006`.
-  - The only permitted substitution is the network boundary, drawn at
-    configuration, never at a code path: point the real client at a local
-    fake server (`tests/sanity/binance_fake_server.py`), never hand-write a
-    substitute for a port like `IExchangeClient` — that shape produced
-    `BUG-026`/`BUG-027`.
-  - No assertion may name a business fact (a strategy, a screen's content) —
-    that belongs to Integration.
-  - The OUT-of-process layer (`--self-check`,
-    `tests/sanity/test_self_check_process.py`) launches the real entry point
-    as a real subprocess — the only tier that proves the process actually
-    exits, not just that `teardown()` returned inside pytest's own process.
-- **Integration:** Put deterministic user/application journeys in
-  `tests/integration/`: drive named QML/Qt input, wait on terminal
-  signal/state, assert the observable result using local seeded/fake
-  boundaries. Never depend on a public exchange or live account.
-- **Desktop E2E:** A reported GUI/runtime defect or native rendering change
-  requires a retained opt-in Windows desktop E2E harness: start the actual app,
-  seed deterministic local data, use real `QTest`/`qtbot` input, wait for the
-  visible terminal state, capture clean Qt messages/stderr. Local/nightly when
-  necessary, but not optional evidence for native interaction work.
-- **External service smoke:** An explicitly requested, credential-free smoke
-  check is operational evidence, not a fifth test level and never a normal CI
-  gate or replacement for deterministic coverage.
-- **`tests/testnet/` (`EPIC-021J`) is operational evidence, not a fifth test level.** It touches
-  the real Futures Testnet with real credentials, and its whole value is proving the app can
-  **actually** place and cancel an order on Binance's own infrastructure — something none of the
-  four levels above proves, since Sanity and Integration both talk to `binance_fake_server.py`,
-  never the exchange. That is also exactly why it can replace none of them: testnet price drift,
-  network latency and rate limits make it inherently non-deterministic, the opposite of what the
-  four levels exist to guarantee. Rules:
-  - **Opt-in twice, not once.** `ci-rule.md` §3a: `-Full` excludes it via `--ignore` regardless of
-    any environment variable, and the tier gates itself again on `SEW_TESTNET_TESTS=1` **and**
-    real credentials.
-  - **Assert invariants, never figures.** Testnet prices and balances move in real time — assert
-    `FILLED`, or a position closing back to zero; never a specific number.
-  - **Clean up in `finally`, always.** An order or position left behind corrupts the next run;
-    there is no "re-run and tidy by hand".
-  - **Wait on a named condition** (order/position state read back from the exchange), never a
-    fixed `sleep` — the same rule as §2 below, and it applies to this real-network tier too.
-
----
-
-## 2. Writing tests correctly
-
-- **Deterministic Async & UI Testing:** Never use timing sleeps to synchronize a test. Wait for a named completion signal, FSM state, terminal event, or bounded `qtbot.waitUntil(...)` condition. Give every QML control that is a critical user action a stable `objectName` so integration/E2E tests can target it.
-- **Financial & Backtest Invariants:** Add deterministic property/invariant tests for financial code: reject `NaN`/infinite values, keep fees non-negative, keep equity/trade/metrics internally consistent, and require identical outputs for identical input data/configuration. Every new execution mode, fee model or simulation pass must extend these invariants.
-- **Domain Logic Edge Cases — Boundary Value Analysis, not exhaustive enumeration:** "Test every edge case" is an unbounded, unverifiable target — pick cases using Equivalence Partitioning (one representative input per class the logic is meant to treat identically) plus Boundary Value Analysis (the values right at and around a class boundary, where real bugs concentrate), not a manual grab-bag. For any consequential domain calculation or decision, mutation-verify it: deliberately break the logic under test (flip a comparison operator, shift a boundary by one, invert a sign) and confirm the existing test actually fails — a test that still passes against broken logic proves nothing about correctness, no matter how many lines it executes (`BOT-106A`: a mathematically-constant return sequence still made `statistics.stdev()` compute ~1e-16 instead of exactly `0.0`, silently passing a test that assumed float equality). Do not add exception-handling tests for a domain state an existing invariant — FSM transition matrix, frozen dataclass, DI-enforced construction — already makes unreachable; that is padding coverage, not proving correctness.
-- **Business Acceptance for Trading Features:** A backtest UI test MUST assert the business composition of the result, not merely that a run completed. For example, a long-only result may contain long entries and long exits but MUST contain no short trade; a future short-enabled strategy must prove a downtrend produces an actual SHORT fill, its SHORT table filter shows it, its PnL moves correctly as price falls, and its chart marker represents the fill rather than merely the strategy signal.
-- **Use repo's QML test helpers:** Use `qml_item` / `find_qml_item` fixtures from `tests/conftest.py`, `qtbot.waitUntil(...)`, and `item.mapToItem(root, 0, 0)`.
-- **Do not move click handling off the Button itself** when tests emit `.clicked`.
-- **A double's shape comes from the interface, never from the calls your code makes** (`BUG-124`, [`CS-001`](../../Docs/CASE_STUDIES/CS-001_a_double_that_could_not_disagree.md)): subclass the real collaborator, or derive the double from its ABC — and where the real thing is cheap and in-memory (the engine's `MemoryEventBus`, a fake repository), just use the real thing. A hand-written double answering whatever the code under test happens to ask **always passes**: the Welcome screen's `_Bus` defined `publish`, `on` and `subscribe` — the union of two different interfaces plus an invented verb — so it recorded a `publish()` the production bus does not have, and the Start button on the app's only entry screen shipped dead with the test file green. If you cannot name the interface your double implements, you are writing a mirror of your own code.
-- **A test constructs its subject, so it can never prove the subject is constructed** (`BUG-126`, [`CS-002`](../../Docs/CASE_STUDIES/CS-002_the_subscriber_nobody_built.md)). Where the behaviour under test *is* a wiring — something subscribes, something is registered, something is started at boot — assert it against the graph the composition root builds, not against an object the test wired itself. `SystemErrorFeed` subscribed to the two failure events correctly, its own test file passed, and no code path ever constructed it: the events reached nobody for two epics while the test that was supposed to prove otherwise supplied the missing step itself. The tell is a test whose setup contains the line production is missing. This is the sibling of the rule above — one asks where your double's shape came from, this one asks where your subject came from.
-- **Fixing a bug:** follow `.agents/rules/bug-fix-rule.md` in full — root
-  cause first, regression test before the fix (confirmed failing for the
-  right reason, at the correct test tier), kept permanently after. When the
-  gate was green while the defect was live, §6.5 of that rule also asks for a
-  case study.
+## 2. Writing a test that can fail
+- **No timing sleeps.** Wait on a named signal, FSM state, terminal event or bounded `qtbot.waitUntil`. Give every critical control a stable `objectName`. `[review: E3]`
+- **Financial invariants**: reject `NaN`/inf, non-negative fees, equity/trade/metrics consistent, identical output for identical input; every new execution mode or fee model extends them.
+- **Boundary Value Analysis, not enumeration**: one representative per equivalence class plus the values at and around each boundary. **Mutation-verify** any consequential calculation: flip the operator, shift the boundary, invert the sign — the test must go red (`BOT-106A`: `stdev()` of a constant series is 1e-16, not 0.0; compare floats with `math.isclose`). Do not test states an invariant already makes unreachable. `[review: E7]`
+- **Business acceptance for trading features**: assert the composition of the result (a long-only run has no short trade; a short-enabled strategy shows the SHORT fill, its filter, PnL direction and the fill marker), not that a run completed.
+- **A double's shape comes from the interface, never from the calls your code makes** (`CS-001`). Subclass the real collaborator or derive from the ABC; where the real thing is cheap and in-memory (`MemoryEventBus`, a fake repository), use it. A double answering whatever the code asks always passes. `[guard: test_no_foreign_port_is_mocked.py, test_engine_port_calls_are_real.py; review: E13]`
+- **A test constructs its subject, so it proves nothing about wiring** (`CS-002`, `CS-003`). Where the behaviour *is* a wiring — subscribes, registers, binds, starts at boot — assert it against the graph `create_app()` builds. The tell: a setup line that production is missing. `[guard: test_a_bus_subscriber_is_constructed.py, test_every_resolved_type_is_bound.py; review: E15]`
+- **A wiring test must fail when the line is removed.** Break the line, run the file, restore (`pr-review` E12): 22 green tests once covered two deletable `textEdited` connections. `[review: E12]`
+- No hard-coded counts (`len(cards) == 9`), no full-dict equality on `to_dict()`, no float `== 0`; assert what is meaningful. A new field on a frozen dataclass has a default. `[review: E7, E8]`
+- Every path-scanning guard has a row in `tests/unit/architecture/scanned_roots_registry.py` and fails on an empty scan; a new guard's docstring states **`Retire when:`** — the condition under which it is deleted. `[guard: test_scanned_roots_are_not_empty.py]`
