@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ra
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
     FakeSymbolCatalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
+    LiveStrategyConfigStore,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
@@ -290,6 +293,7 @@ def app_engine(
             handler = ArmStrategyCommandHandler(
                 engine.context.container.resolve(LiveStrategySession),
                 engine.context.container.resolve(ITradingSession),
+                engine.context.container.resolve(LiveStrategyConfigStore),
             )
             return handler.execute(command_obj)
         if command_type is DisarmStrategyCommandHandler:

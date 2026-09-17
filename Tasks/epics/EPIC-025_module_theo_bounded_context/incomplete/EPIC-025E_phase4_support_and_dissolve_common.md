@@ -674,9 +674,22 @@ the mechanism by moving its body into the shared `StrategyArmingCoordinator.on_s
 rather than left as a tolerated ratchet number. Two real bugs fixed on the way:
 `StrategyChartOverlayService.overlay_for()` crashing on `dict(None)` when a backtest run carries no
 `strategy_params`, and `StrategyConfigCoordinator`'s two `validate_params()` call sites raising an
-uncaught `KeyError` for an unregistered strategy key instead of returning `False`. Full gate
-compared against the clean pre-change tree via `git stash` to confirm two Dev Board integration
-test failures plus one `_recheck_edge` log-scan ERROR are pre-existing and unrelated to this PR.
+uncaught `KeyError` for an unregistered strategy key instead of returning `False`.
+
+**Correction, found by an independent PR review (PR #226), not by this session:** this paragraph
+originally claimed the full gate's two Dev Board integration test failures and one `_recheck_edge`
+log-scan ERROR were confirmed pre-existing via a `git stash` comparison against the pre-change
+tree. That comparison ran with `PYTHONPATH=..` from a checkout already on this branch, so the
+"pre-change tree" run imported this branch's own `src/` regardless of which tree the test files
+came from — comparing this PR's code against itself and calling it independent. The real cause,
+verified after the review found it: `6678d456` (this same PR) added a required `config_store`
+argument to `ArmStrategyCommandHandler.__init__`, and
+`tests/integration/presentation/ui/conftest.py:290`'s `mock_dispatch` fixture — which hand-builds
+the real handler, not a fake — was not updated to pass it. A one-line fixture fix
+(`tests/integration/presentation/ui/conftest.py`) makes both tests pass and the log ERROR
+disappear (it was a downstream symptom of the same broken arm flow, not an independent mechanism).
+Full account, including the retracted first hypothesis: `Tasks/bug_report/completed/BUG-130_dev_board_recheck_edge_fires_on_a_deleted_chart_card.md`.
+
 **PR 4.4 is unblocked**: its scope (§3.2's table) has not yet been re-measured against this tree.
 
 ### 4.1 PR 4.3a — the symbol picker had **two** implementations, one per toolkit
