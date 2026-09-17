@@ -158,7 +158,8 @@ split.
 | ~~4.2a~~ ❌ | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator`; `base_event_logger` → `modules/backtesting/ui/` — **folded into 4.4, §3.12.** Measured at PR review time (2026-09-17): moving these four alone costs the boundary allowlist 58 → 68 (10 new lines across 7 legacy consumer files), which the rewritten `architecture-rule.md` now forbids outright. Worse than a ratchet problem: every one of those 7 consumers is itself moving in 4.2b or 4.4, so the only zero-cost sequencing is moving each leaf file in the same pull request as **all** of its consumers — which for `sync_progress_{feed,report}` means 4.2b and 4.4 at once, since `data_management` (4.2b) and `backtest`/`dashboard` (4.4) both import them | — |
 | ~~4.2b~~ ❌ | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) — **folded into 4.4, §3.12**, for the same reason as 4.2a: after 4.1b its only remaining blockers are QML (so it already waited on 4.3, same as 4.4) and the four leaf files 4.2a would have moved, which it shares consumers with across 4.4's screens too | — |
 | **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), **4.3e** ✅ `qml/SelectList/` deleted, its four hosts onto `kit.PickerOverlay` (and the read-only one out of the picker shape altogether), **4.3f** ✅ `qml/CheckboxList/` + `qml/Capital/` deleted — `kit.ChecklistOverlay` arrives for the two checklists, and the capital form keeps `BUG-064`'s lesson with one writer instead of three bindings, **4.3g** ✅ `qml/StatCardRow/` deleted — the performance figures stop being cards (HLD §11.3), **4.3h** ✅ `qml/TradeLogTable/` deleted — measured dead, its two pure files moved to `screens/backtest/logic/`, **4.3i** ✅ `qml/StatGrid/` + `qml/DataTable/` deleted — dead too, the second losing its last caller *to 4.3h*, **4.3j** ✅ `qml/MetricsDetailPanel/` → a `QDialog` on a `QTreeWidget`, leaving `qml/` holding only `kit/`, **4.3k** ✅ `charting/TimeframePicker/` → a pill row of `QPushButton`s and a `QTreeWidget` picker sharing one selection, then `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 8**, all of them `qml/kit/`'s, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
-| **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard` and `screens/trading` → `modules/trading/ui/` (4.1c's fold); `screens/data_management` → `modules/market_data/ui/` (4.2b's fold); `sync_progress_{feed,report}` + `symbol_options_coordinator` → `modules/market_data/ui/`, `base_event_logger` → `modules/backtesting/ui/` (4.2a's fold); `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's; folding 4.1c, 4.2a and 4.2b in is what keeps every leaf file's move in the same commit as all of its consumers, §3.12 |
+| **4.3m** | `strategy` contributes `SignalFeed`, `StrategyArmingCoordinator`, `StrategyCardViewModel`, `strategy_overlay.*` and `strategy_params.strategy_params_dialog` onto `trading`/`dashboard`/`backtest`'s surfaces via `contribute()` + `Place`, instead of those screens importing them directly | found starting 4.4, not a file move — see the ADR and §3.14. **Blocks 4.4** |
+| **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard` and `screens/trading` → `modules/trading/ui/` (4.1c's fold); `screens/data_management` → `modules/market_data/ui/` (4.2b's fold); `sync_progress_{feed,report}` + `symbol_options_coordinator` → `modules/market_data/ui/`, `base_event_logger` → `modules/backtesting/ui/` (4.2a's fold); `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's; folding 4.1c, 4.2a and 4.2b in is what keeps every leaf file's move in the same commit as all of its consumers, §3.12 — and now 4.3m, §3.14 |
 
 After 4.1a and 4.2a, `ui/common` holds **two** files: `live_order_book_coordinator` (waiting on
 `order_book`, so 4.1b) and `qml_property` (which dies with the QML, so 4.3). Step 4's *"delete
@@ -553,9 +554,32 @@ that "the armed strategy's card" and "the symbol catalog's picker" are each one 
 concept, and a screen rendering it is not the same shape as two modules' *business logic* reaching
 into each other. The fold decision from §3.12 is unaffected: the boundary-allowlist arithmetic
 (58 → 68, forbidden outright) is the argument that actually carries it, independent of the
-precedent question. What changes is that a future symbol-picker-as-a-port design, if anyone
-proposes it later, should not cite "no precedent for the concrete class" as a reason — the
-precedent is `strategy.ui`, cited here so the next session does not have to re-discover it.
+precedent question.
+
+**This paragraph was itself wrong about what the precedent means, corrected the same day by
+actually running the guard rather than grepping it.** "The precedent already exists, so it is not
+unprecedented" reads as "so it is fine" — it is not. `boundaries/rules.py::_module_may_import`
+allows a module to import another module **only** through `contracts/`, with no `ui/` exception,
+and it does not care that the shape already existed in legacy form: the moment `screens/trading`
+(or `dashboard`, or `backtest`) actually becomes a module, `test_module_boundaries.py` fails on
+exactly these imports — reproduced by moving `screens/trading`'s nine files and running the guard,
+before writing anything else. `symbol_options_coordinator` landing in `modules/market_data/ui/`
+would still be refused the same way if any *other* module's screen imported it directly, which is
+moot here since nothing does yet. What §3.12's fold decision got right stands; what this paragraph
+got wrong is superseded by `DECISION_2026-09-17_strategy_ui_contributes_rather_than_being_imported.md`
+and PR 4.3m below.
+
+### 3.14 PR 4.3m — `strategy` contributes its UI; three screens stop importing it directly
+
+New step, found while starting PR 4.4 and not decided here: see the ADR
+(`DECISION_2026-09-17_strategy_ui_contributes_rather_than_being_imported.md`) for the finding, the
+alternatives, and why the user chose the full redesign over widening the boundary rule. Blocks PR
+4.4 — `screens/trading`, `screens/dashboard` and `screens/backtest` may not become modules while
+they import `modules.strategy.ui.signal_feed`, `.strategy_arming_coordinator`,
+`.strategy_card_view_model`, `.strategy_overlay.*`, `.strategy_params.strategy_params_dialog` or
+`modules.strategy.application.services.strategy_registry` directly. Its own scope, sequencing and
+measurements are not written yet — the three open questions in the ADR (§4, O1–O3) are where that
+starts.
 
 ### 4.1 PR 4.3a — the symbol picker had **two** implementations, one per toolkit
 
