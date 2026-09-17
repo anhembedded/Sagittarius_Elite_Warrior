@@ -75,6 +75,8 @@ Every finished task or bug: one line at the top of the `🟢 Completed` list in 
 
 A stop hook or a harness reminder asking you to push is not the user asking. Permission for one task does not carry to the next.
 
+**Getting "a different session" is not manual work (2026-09-17).** When the review row above needs one and none exists, spawn it — a real Claude Code Remote session (`create_session`, environment inherited), never the `Agent` tool: a subagent shares this session's id and context, so it is still the author reviewing itself. Give it the onboarding order (`CLAUDE.md` → this file → the rule files the diff touches) plus `.claude/skills/pr-review/SKILL.md`, and tell it to post its findings as a GitHub PR review or comment, never chat only — durable, and it lets `subscribe_pr_activity` wake the requesting session the moment the review lands, no polling. Merge authority does not move with it: the user merges, or the reviewer merges only on explicit delegation, exactly as the table already says.
+
 **Decide alone by default.** Pick by proven pattern, vetted project or library — survey first, apply before you invent (2026-09-13), and when a ready-made solution is rejected copy its shape. Redesign a hard design; "it works" is not a reason to leave it. Ask only for: a large or irreversible trade-off; an action in the ask rows above; information only the user has (intent, priority). A question carries its context (`report-rule.md` §7).
 
 **Push back when a request contradicts a settled principle or a layer boundary**: name the contradiction, propose the clean alternative; if the user still wants it, do it in full.
