@@ -46,7 +46,7 @@ port. `FakeMarketDataSync` declared two such members
 and neither `IMarketDataSync` nor the contract suite has any opinion about
 them, because neither knows they exist.
 
-The mechanism, not the one helper, is the defect (`bug-fix-rule.md` §2). Three
+The mechanism, not the one helper, is the defect (`fix-bug-rule.md` §2). Three
 consumers called `was_asked_for` and none verified it — that is not an
 accident of where those tests live. A consumer calls a helper to say something
 about *itself*; whether the helper answers truthfully is the provider's
@@ -96,7 +96,7 @@ when somebody reviews; a guard catches it every time the gate runs.
 
 ## Regression test
 
-Three pieces, and the order matters (`bug-fix-rule.md` §4). This defect is
+Three pieces, and the order matters (`fix-bug-rule.md` §4). This defect is
 "nothing would notice if the code stopped working", so the reproduction is
 inverted: the failing evidence is the suite staying **green** while the code
 is broken.
@@ -134,6 +134,6 @@ is broken.
    cause — a dropped interval filter would otherwise let "a sync ran for
    BTCUSDT at 1m" pass for a sync of the daily candles.
 
-Nothing temporary was added, so `bug-fix-rule.md` §3's keep-or-discard
+Nothing temporary was added, so `fix-bug-rule.md` §3's keep-or-discard
 decision has nothing to weigh: the evidence here is a test suite's own
 pass/fail counts, not log output.

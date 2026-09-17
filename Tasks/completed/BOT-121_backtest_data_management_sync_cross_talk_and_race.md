@@ -110,7 +110,7 @@ raise — một lệnh nhiều symbol không nên hỏng cả lô vì 1 symbol �
 
 ## 5. Ghi chú Triển khai — 2026-08-31
 
-**Thứ tự đã làm, đúng `bug-fix-rule.md`:** viết test trước (2 test cross-talk mới + 3 test
+**Thứ tự đã làm, đúng `fix-bug-rule.md`:** viết test trước (2 test cross-talk mới + 3 test
 `InFlightSyncGuard`/handler mới), xác nhận **đỏ đúng lý do** bằng `git stash` chỉ các file
 `src/` đã sửa rồi chạy lại — `2 failed` (2 test cross-talk, đúng chỗ) + `13 errors` (constructor
 `SyncMarketDataCommandHandler` thiếu tham số mới, đúng chỗ) — rồi `git stash pop` khôi phục fix,

@@ -26,7 +26,7 @@ Sentinel đi tìm hardcoded secret và SQL injection bằng tay là làm lại v
 1. Thay authority ma bằng 4 file **có thật**: `domain-truth-rule.md` (chuẩn an
    toàn tài chính gần nhất repo có), `logging-rule.md` (cái gì được phép lọt vào
    log user gửi kèm bug report), `architecture-rule.md` (adapter bảo mật ở tầng
-   nào), `bug-fix-rule.md` (**ràng buộc**: fix bảo mật là bug fix — root cause
+   nào), `fix-bug-rule.md` (**ràng buộc**: fix bảo mật là bug fix — root cause
    trước, regression test **trước** khi sửa).
 2. Thêm mục *"What is already machine-enforced"* — nói rõ cổng `EPIC-004` phủ
    gì, kèm lệnh tự kiểm `pyproject.toml`, và kết luận: làm lại nó không đáng một

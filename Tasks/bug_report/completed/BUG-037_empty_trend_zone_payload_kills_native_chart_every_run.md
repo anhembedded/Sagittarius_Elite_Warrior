@@ -208,7 +208,7 @@ tin của người viết test:
 **Cố ý không dùng `Mock` card với `side_effect`** như test `BOT-113` sẵn có: một
 mock như vậy chỉ khẳng định lại đúng cái niềm tin "adapter raise khi nào" của
 người viết — mà chính niềm tin đó mới là thứ sai. Đây là bẫy `Mock` mà
-`bug-fix-rule.md` §3 và `BUG-013` đã cảnh báo.
+`fix-bug-rule.md` §3 và `BUG-013` đã cảnh báo.
 
 **Xác nhận đỏ đúng lý do** (`git checkout HEAD~1 -- <file adapter>`):
 
@@ -225,7 +225,7 @@ zone thật) vẫn xanh — fix không hề nới lỏng giới hạn thật. Kh
 > sau khi đã commit fix — không có thay đổi chưa commit nên **không stash gì
 > cả**, test "pass" và suýt bị đọc nhầm thành "test không tái hiện được bug".
 > Phải dùng `git checkout HEAD~1 -- <file>` mới revert thật. Đây đúng là kiểu
-> bẫy `bug-fix-rule.md` §3 nói tới: một test pass trước khi sửa **không chứng
+> bẫy `fix-bug-rule.md` §3 nói tới: một test pass trước khi sửa **không chứng
 > minh điều gì**, và lý do nó pass có thể chỉ là thao tác revert đã thất bại.
 
 ---

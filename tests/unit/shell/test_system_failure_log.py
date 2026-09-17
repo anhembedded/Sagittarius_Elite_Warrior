@@ -9,7 +9,7 @@ later.
 That is why the first test here boots the **real object graph**. A test that
 constructs the subscriber itself cannot fail for this bug, however carefully it
 asserts afterwards: it supplies the very step production was missing
-(`bug-fix-rule.md` §4 on picking the tier the failure actually lives at). The
+(`fix-bug-rule.md` §4 on picking the tier the failure actually lives at). The
 second and third tests then cover what the subscriber does once it exists.
 
 All **five** assertions of the deleted `test_system_error_feed.py` are

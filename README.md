@@ -272,7 +272,7 @@ code hỏng** ở đây.
 | Chất lượng code: typing, magic number, cohesion, lazy import | [`code-quality-rule.md`](.claude/rules/code-quality-rule.md) |
 | Trước khi tuyên bố "xong" | [`ci-rule.md`](.claude/rules/ci-rule.md) |
 | Trước mỗi commit | [`commit-rule.md`](.claude/rules/commit-rule.md) |
-| Khi có bug được báo (**bắt buộc**) | [`bug-fix-rule.md`](.claude/rules/bug-fix-rule.md) |
+| Khi có bug được báo (**bắt buộc**) | [`fix-bug-rule.md`](.claude/rules/fix-bug-rule.md) |
 | Thêm/sửa log | [`logging-rule.md`](.claude/rules/logging-rule.md) |
 | Viết test | [`testing-rule.md`](.claude/rules/testing-rule.md) |
 | Làm UI: bố cục màn hình, `preview.py`, icon, cột bảng | [`ui-presentation-rule.md`](.claude/rules/ui-presentation-rule.md) |

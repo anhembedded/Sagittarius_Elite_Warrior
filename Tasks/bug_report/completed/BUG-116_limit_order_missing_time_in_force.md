@@ -76,7 +76,7 @@ chọn time-in-force khác (không có IOC/FOK nào được thẻ đặt lệnh
 Không đoán field/giá trị thay thế khi chưa rõ nguyên nhân — kiểm tra toàn bộ
 pipeline (`Order`, `PreviewOrderQuery`, `TimeInForce`, mapper, CLI) trước khi kết
 luận đây là thiếu gán ở `PreviewOrderQueryHandler`, không phải lỗi ở guard hay
-thiếu exception handling như user đoán ban đầu — đúng theo `bug-fix-rule.md` §1
+thiếu exception handling như user đoán ban đầu — đúng theo `fix-bug-rule.md` §1
 (root cause trước, không đoán).
 
 Đánh số **116** (không phải 115) — `BUG-115` đã bị lấy trước lúc merge bởi một

@@ -164,7 +164,7 @@ built that verification; it has never verified anything.
 
 Filed as `BUG-127` and **fixed** on the user's decision of 2026-09-16, in its own commit rather than
 folded in here: fixing it is a **behaviour change** (the screen starts really checking, and may now
-refuse a capital/symbol combination it used to pass over in silence), and `bug-fix-rule.md` wants
+refuse a capital/symbol combination it used to pass over in silence), and `fix-bug-rule.md` wants
 the report and a regression test written first. Item 2 fell out of it exactly as predicted — a bound
 port is what removed the presenter's reason to name the adapter at all.
 

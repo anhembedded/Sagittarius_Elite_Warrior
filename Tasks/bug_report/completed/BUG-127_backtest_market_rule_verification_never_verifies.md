@@ -80,7 +80,7 @@ and the parser that reads them sits in the same package. The fetch is already pa
 
 ## 3. Positive proof the fix runs
 
-`bug-fix-rule.md` §3: absence of the old symptom is weak evidence, so this is the new mechanism
+`fix-bug-rule.md` §3: absence of the old symptom is weak evidence, so this is the new mechanism
 firing, with the branch that had never executed in production producing a real answer either way.
 
 The review of this fix corrected how the first take was captured: it used `logging.basicConfig`,

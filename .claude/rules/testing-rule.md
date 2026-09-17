@@ -6,7 +6,7 @@ paths:
 
 # Writing tests
 
-`ci-rule.md` holds the run commands, the four levels and red-gate handling; `bug-fix-rule.md` owns a regression test (written first, confirmed red). For the module architecture the layer-by-layer proof map is `Docs/HLD/10_test_strategy.md`.
+`ci-rule.md` holds the run commands, the four levels and red-gate handling; `fix-bug-rule.md` owns a regression test (written first, confirmed red). For the module architecture the layer-by-layer proof map is `Docs/HLD/10_test_strategy.md`.
 
 ## 1. What each level proves
 - Every feature names its proof at each of the four levels, or names the existing test that already proves the exact behaviour. `[review: E1]`

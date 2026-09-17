@@ -24,7 +24,7 @@ shape for this job:
 1. **One owner, at boot.** The composition root constructs this once, so no
    screen wires it and a second or third screen costs nothing. A feed is
    constructed *by a screen*, which is how the previous answer ended up
-   constructed by none of them. `bug-fix-rule.md` §2 names "add the same wiring
+   constructed by none of them. `fix-bug-rule.md` §2 names "add the same wiring
    to every Presenter" as the tell of a hotfix.
 2. **No Qt, so it also works headless.** `BaseFeed` wraps the bus in
    `QtEventBridge` because touching a Qt object off the main thread is

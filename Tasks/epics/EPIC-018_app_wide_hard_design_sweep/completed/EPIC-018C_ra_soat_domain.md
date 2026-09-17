@@ -73,7 +73,7 @@ nguyên quyết định từ chối tách**.
   (`i_strategy.py`/`base_strategy.py`/`i_indicator.py`/
   `order_matching_policy.py`/`paper_exchange.py`/`strategy_engine.py`).
 - **Bug không liên quan, phát hiện khi chạy full suite để đối chiếu trước/
-  sau (`bug-fix-rule.md`):** `scripts/shutdown_database_sync_probe.py` và
+  sau (`fix-bug-rule.md`):** `scripts/shutdown_database_sync_probe.py` và
   `scripts/shutdown_sync_probe.py` vẫn gọi `MainWindow(engine)` — chữ ký
   cũ trước `EPIC-016` (Screen Registry Pattern). `EPIC-016` đã đổi
   `MainWindow.__init__` sang bắt buộc `screen_registry`/`sidebar_factory`

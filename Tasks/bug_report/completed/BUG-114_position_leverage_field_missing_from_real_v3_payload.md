@@ -79,7 +79,7 @@ xác nhận xanh lại. 2 test cũ (`test_maps_a_long_position`/
 ## 6. Ghi chú quy trình
 
 Không đoán field/giá trị thay thế khi chưa có bằng chứng thật — đúng theo
-`bug-fix-rule.md` §2 (thêm log chẩn đoán tạm trước, PR riêng đã push/merge để
+`fix-bug-rule.md` §2 (thêm log chẩn đoán tạm trước, PR riêng đã push/merge để
 lấy payload thật) và `domain-truth-rule.md` (không hiển thị sai đòn bẩy thật).
 Payload thật do user tự gửi qua log — không cần chạm tới API key/secret nào cả
 (user có đề nghị đưa key, đã từ chối: sandbox này bị chặn egress `*.binance.*`

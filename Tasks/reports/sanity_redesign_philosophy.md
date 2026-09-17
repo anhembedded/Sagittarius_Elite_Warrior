@@ -265,10 +265,10 @@ Each step is independently revertible and leaves the tier green.
    audit grades against a rule nobody holds.
 3. **Add the scanning tests alongside the allowlist tests.** Both run. Confirm
    each new test fails for the right reason when a registration is deliberately
-   removed, per `bug-fix-rule.md`. Only then delete the allowlist version.
+   removed, per `fix-bug-rule.md`. Only then delete the allowlist version.
 4. **Add `diagnostic_guard` last** (P4), because it is the one step expected to
    turn the tier red. Every message it surfaces is triaged as either a real
-   defect — which then follows `bug-fix-rule.md` in full — or an explicitly
+   defect — which then follows `fix-bug-rule.md` in full — or an explicitly
    justified allowlist entry with a written reason. **Do not start this step
    while the tier is already red for another reason.**
 5. **Delete** everything in §5, in its own commit, so the diff is legible.

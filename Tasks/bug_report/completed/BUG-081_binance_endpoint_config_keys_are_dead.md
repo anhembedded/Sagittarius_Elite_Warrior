@@ -93,7 +93,7 @@ qua đúng chuỗi hàm, không phải chỉ có mặt trong file. Lý do đầy
 test file.
 
 **Regression test thật** (viết trước fix, xác nhận fail đúng lý do — 2 key cũ vẫn còn — trước
-khi sửa, theo `bug-fix-rule.md`):
+khi sửa, theo `fix-bug-rule.md`):
 `tests/unit/config/test_binance_endpoint_config_keys_are_dead.py` — 3 test, khẳng định (1) 2 key
 chết không còn trong `ConfigKeys` enum, (2) không còn trong `app_config.json`, (3)
 `resolve_market_data_venue`/`ConfigKeys.EXCHANGE_MARKET_DATA_VENUE` thật sự được gọi từ

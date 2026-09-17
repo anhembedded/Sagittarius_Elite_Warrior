@@ -17,4 +17,4 @@ description: The format of a case study under Docs/CASE_STUDIES/ — why the gat
 - {the code change, one line}
 
 ## Where else this is still open
-- {the same blind spot elsewhere, with a path}
+- {the same blind spot elsewhere, with a path and a linked task or bug tracking its closure}

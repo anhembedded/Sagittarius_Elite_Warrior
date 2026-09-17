@@ -94,7 +94,7 @@ dải giá — quá lớn so với padding mặc định pyqtgraph (~2-10%). Ngh
 
 ## 4. Suggested next steps
 
-Không đoán fix khi chưa xác nhận — theo đúng tinh thần `bug-fix-rule.md` §1 và tiền lệ `BUG-034`.
+Không đoán fix khi chưa xác nhận — theo đúng tinh thần `fix-bug-rule.md` §1 và tiền lệ `BUG-034`.
 
 1. Viết test unit ép `vb.updateAutoRange()` chạy thật sau `render_historical_data()` với **>500
    nến thật** (nhánh `setXRange` của `_set_initial_view_range`, khác nhánh `autoRange()` mà
@@ -128,7 +128,7 @@ Không đoán fix khi chưa xác nhận — theo đúng tinh thần `bug-fix-rul
 
 **Trạng thái: vẫn Open.** Không có máy Windows/GUI thật hay Binance thật trong môi trường phiên
 này — cùng giới hạn đã chặn 4/5 lượt điều tra `BUG-034`. Không đoán fix khi chưa có bằng chứng
-(`bug-fix-rule.md` §1).
+(`fix-bug-rule.md` §1).
 
 ### 6.1. Loại trừ bằng toán học: padding của pyqtgraph không thể tạo ra dải rộng như log
 
@@ -170,7 +170,7 @@ phải rộng theo, nhưng nó không rộng. Loại trừ giả thuyết "1 n�
 Cùng bài học `BUG-034` §6/§8.5 đã ghi: dữ liệu tổng hợp (random walk tự do, random walk có biên,
 uniform ngẫu nhiên trong dải cố định, flat/gần-flat) đều **không** tái hiện được `childRange` bị
 kéo rộng gấp 4.4 lần dải giá thật khi ép `vb.updateAutoRange()` chạy thật (kỹ thuật đã học từ
-`BUG-034` §10.1). Không giữ lại các test này (`bug-fix-rule.md` §2 — chỉ chứng minh/loại trừ đúng
+`BUG-034` §10.1). Không giữ lại các test này (`fix-bug-rule.md` §2 — chỉ chứng minh/loại trừ đúng
 1 giả thuyết cho đúng 1 lần chạy, không có giá trị chẩn đoán lâu dài một khi đã ghi lại kết luận ở
 đây).
 

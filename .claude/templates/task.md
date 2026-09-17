@@ -1,29 +1,37 @@
 ---
-description: The format of a task file under Tasks/backlog/ (ONBOARDING §3). Copy it, fill every brace, delete this front matter.
+description: The format of a standalone task under Tasks/backlog/ or an epic child under its incomplete/ directory (ONBOARDING §3). Copy it, fill every brace, delete this front matter and instructional comments.
 ---
 
-# BOT-{nnn} — {the outcome, not the activity}
+# {task id} — {the outcome, not the activity}
 
-**Status:** 🔵 Backlog · 🟡 In progress · ✅ Done {YYYY-MM-DD}
+<!-- Use BOT-nnn for a standalone task or EPIC-nnnA for an epic child. Choose one value for status, risk and complexity. Remove optional fields that do not apply. -->
+**Status:** {🔵 Backlog / 🟡 In progress / ✅ Done (YYYY-MM-DD) / ❌ Cancelled (YYYY-MM-DD; reason)}
 **Source:** {who asked, when — the user's words quoted once, verbatim, then translated}
-**Risk:** 🟢 · 🟡 · 🔴 — {what could break, one line}
-**Complexity:** `S` · `M` · `L` — {why, one line}
+**Risk:** {🟢 / 🟡 / 🔴} — {what could break, one line}
+**Complexity:** {S / M / L} — {why, one line}
+**Epic (optional):** {link to the parent epic README}
+**SPEC (optional):** {link to the use case this task implements or changes}
+**Depends on:** {task links and what must be ready, or None}
 
 ---
 
 ## 1. Context and problem
 {The real situation with evidence: `file:line`, a measured number, the symptom. Why now.}
 
-## 2. Design
+## 2. Acceptance criteria
+- [ ] {An observable outcome, including the conditions under which it must hold.}
+- [ ] {A relevant failure or boundary outcome; omit if not applicable.}
+
+## 3. Design
 {The choice made and the reason for each non-obvious one; the named pattern or vetted project it applies (ONBOARDING §7: apply before you invent). A restructuring shows as-is and to-be.}
 
-## 3. Changes, per file
+## 4. Changes, per file
 | File | Change |
 | :--- | :--- |
 | {path} | {what, and why} |
 
-## 4. Testing
-{Which tier proves it (`ci-rule.md` §6) and the test names; what the gate must show.}
+## 5. Testing
+{Map each acceptance criterion to a test or a manual check with its expected result. Name the tier (`ci-rule.md` §6); for documentation-only work, name the required document guards. Record checks not yet run explicitly.}
 
 ## Implementation notes (written when done)
-{The real bugs met, decisions taken, test counts before → after, the gate's `LOG_FILE:` path. Then ONBOARDING §6: the `ROADMAP.md` line and the recomputed count table.}
+{The real bugs met, decisions taken, verification commands and results, and the gate's `LOG_FILE:` path when applicable. Link durable evidence; record any unverified criteria without claiming Done. Follow ONBOARDING §6 for standalone tasks and §12.3 for epic children.}

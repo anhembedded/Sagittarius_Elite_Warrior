@@ -219,7 +219,7 @@ screen. A question made of labels ("approve D-something") will be sent back.
 ## 5. Never
 
 - Never hotfix around a guard, an allowlist or a failing test to get green
-  (`bug-fix-rule.md` §2; `ci-rule.md`). Never skip, quarantine or delete a test to pass.
+  (`fix-bug-rule.md` §2; `ci-rule.md`). Never skip, quarantine or delete a test to pass.
 - Never introduce a library where the design builds a mechanism (ADR §5). Never rename an event,
   a port or a module id "while you are there" — a rename is not a pure refactor (HLD §2.4).
 - Never put a business rule in `support/` or in `core/` (HLD §1 C6, §2.4).

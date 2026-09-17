@@ -104,7 +104,7 @@ tier, so no test opts in and none can forget. Scoped to this directory: the inte
 engine and thread lifetimes too and must not have a second mechanism pumping underneath it
 (`BUG-056`).
 
-Why this is the mechanism fix and not a hotfix (`bug-fix-rule.md` §2): the alternative was to make
+Why this is the mechanism fix and not a hotfix (`fix-bug-rule.md` §2): the alternative was to make
 each of ~2100 UI tests tear down its own view, which is N copies of one concern and would be missed
 by the next test written. One autouse fixture at the tier boundary serves every current and future
 test in it for free.
@@ -119,7 +119,7 @@ test in it for free.
 | `test_release_qt_objects_collects_that_cycle` | the fix — one call frees what the test above proves is otherwise kept |
 | `test_release_qt_objects_is_safe_to_call_twice` | the autouse fixture may run after a test that created nothing, or that already called it |
 
-**Confirmed red before the fix**, as `bug-fix-rule.md` §4 requires — by removing `gc.collect()`
+**Confirmed red before the fix**, as `fix-bug-rule.md` §4 requires — by removing `gc.collect()`
 from the helper and re-running:
 
 ```

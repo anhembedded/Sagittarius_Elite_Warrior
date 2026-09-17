@@ -15,7 +15,7 @@ This file navigates and copies no rule: a copy drifts, and this repository has p
 | Before calling anything done: the gate, its cadence, the test levels | [`ci-rule.md`](.claude/rules/ci-rule.md) |
 | Before every commit | [`commit-rule.md`](.claude/rules/commit-rule.md) |
 | Reviewing a pull request, branch or diff | [`.claude/skills/pr-review/SKILL.md`](.claude/skills/pr-review/SKILL.md); a first independent read before asking for review: the `reviewer` subagent ([`.claude/agents/reviewer.md`](.claude/agents/reviewer.md)) |
-| The user reports a bug | [`bug-fix-rule.md`](.claude/rules/bug-fix-rule.md) |
+| The user reports a bug | [`fix-bug-rule.md`](.claude/rules/fix-bug-rule.md) |
 | A defect got through a green gate | [`Docs/CASE_STUDIES/README.md`](Docs/CASE_STUDIES/README.md) |
 | Adding or changing logs | [`logging-rule.md`](.claude/rules/logging-rule.md) |
 | Reporting to the user, or asking a question | [`report-rule.md`](.claude/rules/report-rule.md) |
@@ -25,7 +25,7 @@ This file navigates and copies no rule: a copy drifts, and this repository has p
 | Domain and application code | [`domain-truth-rule.md`](.claude/rules/domain-truth-rule.md) |
 | Environment setup; a missing tool | [`install-rule.md`](.claude/rules/install-rule.md) |
 | The traps that produced broken code here, loading with the files they concern | [`pitfalls/tests.md`](.claude/rules/pitfalls/tests.md) · [`pitfalls/ui.md`](.claude/rules/pitfalls/ui.md) · [`pitfalls/source.md`](.claude/rules/pitfalls/source.md) |
-| The format of a task, bug report, case study, epic or decision record | [`.claude/templates/`](.claude/templates/) |
+| The format of a task, bug report, case study, epic, proposal or decision record | [`.claude/templates/`](.claude/templates/) |
 | The body of a pull request | [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) |
 | A word you do not know or are about to coin | [`Docs/VOCABULARY/README.md`](Docs/VOCABULARY/README.md) |
 | Executing `EPIC-025` | [`.claude/skills/epic-025/SKILL.md`](.claude/skills/epic-025/SKILL.md) |

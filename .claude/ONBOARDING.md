@@ -17,7 +17,7 @@ Every rule under `.claude/rules/` loads by itself: a rule with a `paths:` list i
 | 3 | `.claude/rules/code-quality-rule.md` | opening a `src/` or `scripts/` file |
 | 4 | `.claude/rules/ci-rule.md` | every session — before calling anything done |
 | 5 | `.claude/rules/commit-rule.md` | every session — before every commit |
-| 6 | `.claude/rules/bug-fix-rule.md` | every session — the user reports a bug (mandatory) |
+| 6 | `.claude/rules/fix-bug-rule.md` | every session — the user reports a bug (mandatory) |
 | 7 | `.claude/rules/logging-rule.md` | opening a `src/` or `scripts/` file; every bug fix |
 | 8 | `.claude/rules/testing-rule.md` | opening a `tests/` file |
 | 9 | `.claude/rules/async-ui-action-rule.md` | opening a presenter or coordinator |
@@ -37,14 +37,14 @@ Every rule under `.claude/rules/` loads by itself: a rule with a `paths:` list i
 `Sagittarius_Engine` (framework) and `Sagittarius_Elite_Warrior` (this app) each have their own remote, rule tree and board. No submodule, no pointer bump. Engine work is a separate commit and push, only when a foundational mechanism is genuinely missing; §12.4 lists the mechanisms that already exist.
 
 ## 3. A task
-1. `Tasks/backlog/BOT-{nnn}_{slug}.md` from `.claude/templates/task.md`; the next number comes from the files on disk, not from a board (four collisions, `tests/unit/test_task_board_is_consistent.py` fails on the next). No task file → create it first. Epics get `Tasks/epics/EPIC-{nnn}_{slug}/` from `.claude/templates/epic.md` with `README.md` + `incomplete/` + `completed/` (`Tasks/epics/README.md`); a decision taken inside an epic is a `DECISION_{date}_{slug}.md` from `.claude/templates/decision.md`; proposals not yet accepted are `Tasks/proposal/PRO-{nnn}.md`.
+1. `Tasks/backlog/BOT-{nnn}_{slug}.md` from `.claude/templates/task.md`; the next number comes from the files on disk, not from a board (four collisions, `tests/unit/test_task_board_is_consistent.py` fails on the next). No task file → create it first. Epics get `Tasks/epics/EPIC-{nnn}_{slug}/` from `.claude/templates/epic.md` with `README.md` + `incomplete/` + `completed/` (`Tasks/epics/README.md`); a decision taken inside an epic is a `DECISION_{date}_{slug}.md` from `.claude/templates/decision.md`; proposals not yet accepted are `Tasks/proposal/PRO-{nnn}.md` from `.claude/templates/proposal.md`.
 2. Content: real context and problem, design with the reason for each non-obvious choice, per-file changes, testing. English (§10).
 3. Code and tests (`ci-rule.md` §6 for the tier).
 4. Done: `git mv` to `completed/`, status `✅ Done (YYYY-MM-DD)`, an "Implementation notes" section with the real bugs met, decisions and test counts.
 5. Bookkeeping §6.
 
 ## 4. A bug
-`bug-fix-rule.md` is the authority. The three most violated points: the regression test is written **before** the fix and confirmed red for the right reason; the tier reaches the crash (a `Mock` cannot); the report `Tasks/bug_report/incomplete/BUG-{nnn}_{slug}.md` from `.claude/templates/bug-report.md` with real evidence, moved to `completed/` and its row moved on the Bug Board when fixed. Read pasted logs and screenshots with tools before hypothesising.
+`fix-bug-rule.md` is the authority. The three most violated points: the regression test is written **before** the fix and confirmed red for the right reason; the tier reaches the crash (a `Mock` cannot); the report `Tasks/bug_report/incomplete/BUG-{nnn}_{slug}.md` from `.claude/templates/bug-report.md` with real evidence, moved to `completed/` and its row moved on the Bug Board when fixed. Read pasted logs and screenshots with tools before hypothesising.
 
 ## 5. Real verification
 ```bash

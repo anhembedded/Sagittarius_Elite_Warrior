@@ -28,7 +28,7 @@ tìm ra chỗ lệch thật.
    `README.md` của epic trước khi kết luận là bug (một cấu hình quên đồng bộ
    không phải là bug thật). Nếu vẫn lệch sau khi đã loại hết nguyên nhân cấu
    hình — mở `Tasks/bug_report/incomplete/BUG-XXX_....md` mới, tuân theo
-   `.claude/rules/bug-fix-rule.md` (root cause trước, regression test fail
+   `.claude/rules/fix-bug-rule.md` (root cause trước, regression test fail
    đúng lý do trước khi sửa).
 5. Ghi kết quả cuối (khớp hoàn toàn / khớp với N lệch đã giải thích được /
    N bug thật đã mở) vào chính file này khi đóng task, dời sang

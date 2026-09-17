@@ -26,7 +26,7 @@ mà chính `EPIC-009` được lập ra để diệt.
   các sự kiện domain khác nhau, và trong engine long-only `SELL` là *thoát lệnh*,
   không phải mở short. Một test xanh trên nhãn sai vẫn là bug thật.
 - Thêm nguồn việc tự làm mới: `Tasks/bug_report/` là danh sách thứ **đã hỏng một
-  lần**; `bug-fix-rule.md` bắt mỗi cái phải có regression test vĩnh viễn — tìm
+  lần**; `fix-bug-rule.md` bắt mỗi cái phải có regression test vĩnh viễn — tìm
   cái nào chưa có.
 - Bắt buộc **chứng minh test có thể fail**: phá code, thấy đỏ, trả code về.
 

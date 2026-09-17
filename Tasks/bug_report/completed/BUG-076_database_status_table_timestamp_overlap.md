@@ -28,7 +28,7 @@ loại trừ**: viết regression test dùng đúng chiều rộng thật (292px
 `_PROGRESS_BANNER_HEIGHT`'s comment) và đúng nội dung thật (caption dài +
 `_CANCEL_LABEL = "Hủy Tiến Trình (Cancel)"`), test **pass ngay cả khi chưa
 sửa gì** — chứng minh giả thuyết "thiếu `Layout.minimumWidth: 0`" sai, nên
-không sửa phần đó theo `bug-fix-rule.md` §1 (không đoán root cause). Nếu bug
+không sửa phần đó theo `fix-bug-rule.md` §1 (không đoán root cause). Nếu bug
 này vẫn còn xảy ra ở progress bar, cần ảnh chụp riêng để điều tra tiếp.
 
 ## Root cause

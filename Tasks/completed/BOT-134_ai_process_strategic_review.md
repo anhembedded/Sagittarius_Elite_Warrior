@@ -31,7 +31,7 @@ machine or a later decision already says, or a one-parameter extension of a guar
 - `commit-rule.md` now defers to `ONBOARDING` §7 for authority and to `ci-rule` §1 for the gate's
   cadence instead of restating both (it disagreed with both).
 - `.agents/Skills/README.md` quotes the sentence `ci-rule` §2 actually contains.
-- `bug-fix-rule.md` §6.5 no longer names the case-study length cap (it said 60; the guard holds 35).
+- `fix-bug-rule.md` §6.5 no longer names the case-study length cap (it said 60; the guard holds 35).
 - `ONBOARDING.md`: `report-rule`, `install-rule` and `code-rule` join the reading order; the
   QML row says retired; the "always carries a few `I001`" sentence is corrected; the traps heading
   drops its count and gains trap 14; §12.1 says what a single-repository checkout means.

@@ -3,7 +3,7 @@ price/unrealized PnL from going stale between exchange-driven
 `ACCOUNT_UPDATE` events, by re-fetching the real snapshot and republishing
 it through the same `PositionChangedEvent`/`PositionClosedEvent` every
 screen already listens to via `OrderFeed` — one service, not one per
-screen (see the class's own docstring, and `bug-fix-rule.md` §2 for why the
+screen (see the class's own docstring, and `fix-bug-rule.md` §2 for why the
 first, per-screen `QTimer` version of this fix was rejected)."""
 
 from __future__ import annotations

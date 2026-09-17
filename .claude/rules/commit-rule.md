@@ -31,7 +31,7 @@ The assistant that actually wrote the commit, e.g. `Co-Authored-By: Claude Opus 
 - A dependency or tool-config change (`requirements.txt`, `pyproject.toml`, ruff/mypy settings, `.claude/settings.json`) is asked first. `[review: L5]`
 
 ## 5. Bug fixes
-`bug-fix-rule.md` in full: the regression test ships in the fixing commit; the body states the root cause; the id is in the subject or body.
+`fix-bug-rule.md` in full: the regression test ships in the fixing commit; the body states the root cause; the id is in the subject or body.
 
 ## 6. Pull request
 The body follows `.github/PULL_REQUEST_TEMPLATE.md` — what, why, verification with the gate's `LOG_FILE:` path; GitHub fills it in. `[review: L2]`
