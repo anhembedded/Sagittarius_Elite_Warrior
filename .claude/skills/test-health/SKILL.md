@@ -23,9 +23,9 @@ ago; this audit is the replacement instrument.
 
 ## Run it
 
-Whether this audit is actually *scheduled* is answered by `list_triggers`, and whether it has
-run by `ls Tasks/reports/test_health/` — never by this paragraph. (On 2026-09-16 the answer was:
-seven scheduled agents, none of them this audit, and one run on disk.)
+Scheduled as a Routine since 2026-09-17 (every three days; `list_triggers` confirms, and
+`ls Tasks/reports/test_health/` shows the runs). Every run leaves its dated file even when the
+verdict is one line — `.agents/Skills/README.md` rule 4.
 
 ```bash
 python3 .claude/skills/test-health/scan.py            # human summary
