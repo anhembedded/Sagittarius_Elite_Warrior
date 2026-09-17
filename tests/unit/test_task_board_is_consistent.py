@@ -29,6 +29,11 @@ import collections
 import re
 from pathlib import Path
 
+from Sagittarius_Elite_Warrior.scripts.render_task_counts import (
+    count_tasks,
+    render_rows,
+)
+
 _REPO_ROOT = Path(__file__).resolve().parents[2]
 _TASKS = _REPO_ROOT / "Tasks"
 
@@ -145,6 +150,20 @@ def test_every_epic_sub_task_is_mentioned_in_its_epic_readme() -> None:
 
     assert invisible == [], (
         f"epic sub-task files not mentioned by id in their epic's README.md: {invisible}"
+    )
+
+
+def test_the_count_table_is_the_directories() -> None:
+    """`ONBOARDING.md` §6 says the count table is recomputed from disk, never by
+    hand. `scripts/render_task_counts.py` is the one implementation of that
+    computation; this test holds `ROADMAP.md` to its output, so a task moved
+    without the recount is caught at merge instead of by the next reader."""
+    roadmap = (_TASKS / "ROADMAP.md").read_text("utf-8")
+    missing = [row for row in render_rows(count_tasks(_TASKS)) if row not in roadmap]
+
+    assert missing == [], (
+        "ROADMAP.md's count table disagrees with the directories; paste the output of "
+        f"`python3 scripts/render_task_counts.py`. Rows not found: {missing}"
     )
 
 
