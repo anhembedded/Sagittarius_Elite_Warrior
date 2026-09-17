@@ -73,14 +73,8 @@ def run(ref: str, node_ids: list[str], repo_root: Path = _REPO_ROOT) -> int:
             env = dict(os.environ)
             env["PYTHONPATH"] = str(worktree.parent)
             env["QT_QPA_PLATFORM"] = "offscreen"
-            result = subprocess.run(  # noqa: S603 -- the repo's own venv python, absolute path
-                [
-                    str(repo_root / ".venv" / "bin" / "python"),
-                    "-m",
-                    "pytest",
-                    "-q",
-                    *node_ids,
-                ],
+            result = subprocess.run(  # noqa: S603 -- `sys.executable` is an absolute path
+                [sys.executable, "-m", "pytest", "-q", *node_ids],
                 cwd=worktree,
                 env=env,
                 check=False,
