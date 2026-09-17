@@ -159,11 +159,66 @@ split.
 | ~~4.2b~~ ❌ | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) — **folded into 4.4, §3.12**, for the same reason as 4.2a: after 4.1b its only remaining blockers are QML (so it already waited on 4.3, same as 4.4) and the four leaf files 4.2a would have moved, which it shares consumers with across 4.4's screens too | — |
 | **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), **4.3e** ✅ `qml/SelectList/` deleted, its four hosts onto `kit.PickerOverlay` (and the read-only one out of the picker shape altogether), **4.3f** ✅ `qml/CheckboxList/` + `qml/Capital/` deleted — `kit.ChecklistOverlay` arrives for the two checklists, and the capital form keeps `BUG-064`'s lesson with one writer instead of three bindings, **4.3g** ✅ `qml/StatCardRow/` deleted — the performance figures stop being cards (HLD §11.3), **4.3h** ✅ `qml/TradeLogTable/` deleted — measured dead, its two pure files moved to `screens/backtest/logic/`, **4.3i** ✅ `qml/StatGrid/` + `qml/DataTable/` deleted — dead too, the second losing its last caller *to 4.3h*, **4.3j** ✅ `qml/MetricsDetailPanel/` → a `QDialog` on a `QTreeWidget`, leaving `qml/` holding only `kit/`, **4.3k** ✅ `charting/TimeframePicker/` → a pill row of `QPushButton`s and a `QTreeWidget` picker sharing one selection, then `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 8**, all of them `qml/kit/`'s, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
 | **4.3m** | `IStrategyCatalog`/`IStrategyChartOverlay`/`IStrategyArming` published and bound; `modules/strategy/ui/` deleted, its three shared classes relocated (not duplicated) to `presentation/ui/common/`, `strategy_params/`'s widgets to `support/ui_kit/param_form/`; `trading`/`dashboard`/`backtest` rewired onto the ports | ✅ **Done 2026-09-17** (`6678d456`/`f76d5ced`/`67a36405`) — found starting 4.4, not a file move; the ADR's original "duplicate per screen" plan was corrected mid-course (§3.14, ADR §7) after the duplication ratchet measured it worse than the shared-class fix it replaced |
-| **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard` and `screens/trading` → `modules/trading/ui/` (4.1c's fold); `screens/data_management` → `modules/market_data/ui/` (4.2b's fold); `sync_progress_{feed,report}` + `symbol_options_coordinator` → `modules/market_data/ui/`, `base_event_logger` → `modules/backtesting/ui/` (4.2a's fold); `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | **unblocked as of 4.3m** — every blocker 4.3 and 4.3m named is resolved; folding 4.1c, 4.2a and 4.2b in is what keeps every leaf file's move in the same commit as all of its consumers, §3.12; scope not yet re-measured against the post-4.3m tree |
+| **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard` and `screens/trading` → `modules/trading/ui/` (4.1c's fold); `screens/data_management` → `modules/market_data/ui/` (4.2b's fold); `sync_progress_{feed,report}` + `symbol_options_coordinator` → `modules/market_data/ui/`, `base_event_logger` → `modules/backtesting/ui/` (4.2a's fold); `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | **measured 2026-09-17, §3.15: 133 files / 27,480 lines, plus a new port `symbol_options_coordinator`/`sync_progress_*` need that did not exist when this row was written.** Splitting into (a)–(f) is §3.15's recommendation, not yet decided or started |
 
-After 4.1a and 4.2a, `ui/common` holds **two** files: `live_order_book_coordinator` (waiting on
-`order_book`, so 4.1b) and `qml_property` (which dies with the QML, so 4.3). Step 4's *"delete
-`ui/common/`"* is therefore 4.3's consequence rather than a task of its own.
+This paragraph's own prediction is now superseded — corrected in §3.15 rather than deleted, so the
+record shows the prediction was wrong rather than erasing it. `live_order_book_coordinator` did
+move with `order_book` in 4.1b as predicted, but `qml_property` never died with the QML: its one
+consumer (`data_management_view_model.py`) was never QML, and PR 4.3m then added three **new**
+files to `ui/common` — `strategy_card_view_model.py`, `strategy_arming_coordinator.py`,
+`signal_feed.py` — that this paragraph could not have anticipated, since they did not exist here
+yet. `ui/common` holds **eight** files today, not two; §3.15 has the real count.
+
+### 3.15 PR 4.4's scope, measured on the post-4.3m tree (2026-09-17)
+
+`epic-025`'s own checklist step 4 ("measure before") applied to the tree PR 4.3m left, before
+writing any code. **The four screens**, by line count (`find … -name '*.py' | xargs wc -l`,
+excluding `__pycache__`):
+
+| Screen | Files | Lines | Destination |
+| :--- | :-: | :-: | :--- |
+| `screens/backtest` | 79 | 13,714 | `modules/backtesting/ui/` |
+| `screens/dashboard` | 16 | 5,167 | `modules/trading/ui/` (with `trading`, `DECISION_2026-09-16`) |
+| `screens/data_management` | 23 | 4,951 | `modules/market_data/ui/` |
+| `screens/trading` | 9 | 2,307 | `modules/trading/ui/` |
+| `screens/settings` | 6 | 1,341 | `shell/settings/` — a **surface**, not a module (HLD §4 table: *"surfaces about the application itself belong to the shell, exactly as `welcome` does"*), so it is not one more row folded into a module and needs its own step |
+
+Legality of the four screens' move is **already proven**: every one of the 40 current
+`allowlist_module_boundaries.txt` entries is `presentation.ui.screens.<x> → modules.<x>.…` for the
+*same* `<x>` each screen is scheduled to land in, so `zone_of(src) == zone_of(dst)` the moment the
+move lands and all **40** retire in the same commit, with zero new lines — exactly §3.12's
+zero-cost-sequencing rule, this time satisfied by construction rather than by folding.
+
+**`ui/common`'s eight files (1,084 lines) do not all travel the same way, and two of them repeat
+§3.12's cross-module problem with a module PR 4.3m had not yet published a port for:**
+
+| File | Lines | Consumer(s) | Resolution |
+| :--- | :-: | :--- | :--- |
+| `strategy_card_view_model.py`, `strategy_arming_coordinator.py`, `signal_feed.py` | 723 | `trading`, `dashboard` only | both consumers land in `modules/trading/ui/` — travel there **as one module's own files**, not shared any more; `presentation/ui/common/` is a legacy zone `modules/*` may never import (`boundaries/rules.py::import_is_allowed`), so this is not optional |
+| `qml_property.py` | 64 | `data_management` only | travels to `modules/market_data/ui/` |
+| `base_event_logger.py` | 96 | `backtest` only | travels to `modules/backtesting/ui/` |
+| `symbol_options_coordinator.py` | 77 | `backtest_presenter.py` (→ `backtesting`) **and** `dashboard_presenter.py` (→ `trading`) — two different destination modules | **open question.** It already imports `modules.market_data.contracts.i_symbol_catalog` directly, so `modules/market_data/ui/` is its only legal home (§3.12) — but landing it there leaves `backtesting.ui` and `trading.ui` importing `market_data.ui` directly, which `boundaries/rules.py::_module_may_import` refuses (a module reaches another module only through `contracts/`, no `ui/` exception). §3.13 called this precedented by `modules.strategy.ui`'s pre-4.3m concrete imports and was itself corrected the same day: PR 4.3m's actual answer was to **publish a port** (`IStrategyCatalog`/`IStrategyChartOverlay`/`IStrategyArming`), not to leave the cross-module `ui/` import standing. The same treatment — a port on `modules/market_data/contracts/` — is what this file needs before it can move |
+| `sync_progress_feed.py`, `sync_progress_report.py` | 109 | `backtest` (→ `backtesting`), `dashboard` (→ `trading`), `data_management` (→ `market_data`) — **three** different destination modules | same open question, one module wider: PR 1.6c already found *"a feed normalising one module's events belongs in that module's `ui/`"* (§6.1 gives `support/*` no `modules/*` exception), so the feed's home is `modules/market_data/ui/`; the other two modules then need the port, not the concrete class |
+
+**Scale.** Screens + `ui/common`'s two clean pieces + settings: **133 files / 27,480 lines**, before
+counting whatever `symbol_options_coordinator`/`sync_progress_*`'s port costs. Every prior "big"
+move in this epic was split the moment it measured this large — PR 1.3a alone cost 80 allowlist
+lines before its own split, PR 1.3c became five pull requests at 72 test failures for trying to be
+one. **Recommendation, not yet decided: split PR 4.4 rather than land it as one.** A natural cut,
+each independently gate-able: (a) publish the market_data port `symbol_options_coordinator` and
+`sync_progress_*` need — the one piece every other slice depends on, same shape as PR 4.3m; (b)
+`data_management` + `qml_property`, the smallest screen with no cross-module UI dependency once
+(a) lands; (c) `trading` + `dashboard` + the three relocated shared classes together, since
+`DECISION_2026-09-16` ties them; (d) `backtest` + `base_event_logger`, the largest slice, last so
+its size does not block the smaller three; (e) `settings` → `shell/settings/`, its own step because
+it is a surface, not a module cut, and HLD §4's `settings_section` contribution point
+(`core/contracts/place.py`) has **zero** real publishers today — every module still hard-codes its
+own config fields on the current monolithic screen, so this is a design step, not a file move; (f)
+`binance_bot_module.py` deleted, last, once nothing imports it — **36** files in `src/`, `scripts/`
+and `tests/` still name it today, and most of those are historical docstring mentions this
+measurement did not classify one by one, so its real remaining scope needs its own pass before (f)
+starts. Sequencing (a)–(f) is what the next session decides and executes; this paragraph only
+measures.
 
 ### 3.3 `sync_progress_*`: the open question is closed by a rule, not by a preference
 
