@@ -18,10 +18,10 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view import (
     DataManagementView,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view_model import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view_model import (
     DataManagementViewModel,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.time_range_picker import (
@@ -99,7 +99,7 @@ def test_applying_writes_both_fields_and_the_view_model(qapp, view, view_model):
 def test_a_bare_widget_with_no_view_model_falls_back_to_a_1m_summary(qapp):
     """No `DataManagementView` around it — the fallback this widget ships
     with before `set_timeframe_source()` is ever called."""
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
+    from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_widgets import (
         TimeRangeCardWidget,
     )
 

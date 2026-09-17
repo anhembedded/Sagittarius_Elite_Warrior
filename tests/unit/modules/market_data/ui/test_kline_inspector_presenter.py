@@ -16,10 +16,10 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_kl
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_presenter import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_presenter import (
     DataManagementPresenter,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view import (
     DataManagementView,
 )
 

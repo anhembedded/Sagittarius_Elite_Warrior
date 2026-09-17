@@ -21,7 +21,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.sync_progress_r
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators import (
     DataManagementActionKind,
     SyncCoordinator,
 )

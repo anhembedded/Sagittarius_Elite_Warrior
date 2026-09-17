@@ -14,11 +14,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators import (
     DataManagementActionKind,
     KLineInspectorCoordinator,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators.kline_inspector_coordinator import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.kline_inspector_coordinator import (
     _INSPECTOR_ROW_LIMIT,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (

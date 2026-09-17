@@ -10,10 +10,10 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_d
     GetDatabaseGapsQuery,
     GetDatabaseGapsResult,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators.action_kinds import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators.action_kinds import (
     DataManagementActionKind,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_signal_payloads import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_signal_payloads import (
     GapInspectorPayload,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (

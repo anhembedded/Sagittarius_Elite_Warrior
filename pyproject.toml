@@ -233,6 +233,64 @@ exclude = [
     # about `pyqtgraph` stubs that belongs on `EPIC-002D`, not here.
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]support[\\/]charting[\\/]",
 
+    # `EPIC-025` PR 4.4b, fourth re-key on PR 0.4a's precedent: `screens/
+    # data_management` (23 files) + `qml_property.py` left `presentation/`
+    # for `modules/market_data/ui/` and arrived with **115** pre-existing
+    # errors in 11 files. Listed by file rather than as one directory
+    # pattern: `symbol_options_coordinator.py`/`sync_progress_feed.py`/
+    # `qml_property.py` (PR 4.4a) and the rest of this directory (`preview.py`
+    # excepted, one line below) were already `mypy`-clean before this move,
+    # and a directory-wide exclude would have dropped that real coverage
+    # rather than only freezing what was actually measured. Measured before
+    # deciding, same discipline as PR 1.6f's own table:
+    #
+    #   68  arg-type/union-attr/assignment/attr-defined/etc.  the PySide6
+    #                        `@Property`/`Property(...)` false-positive class
+    #                        the wholesale `presentation/` exclusion exists
+    #                        for (EPIC-002A §2) — `notifying_property()`'s own
+    #                        factory return type has the identical gap.
+    #   21  union-attr       `DataManagementView._view_model` is typed
+    #                        `DataManagementViewModel | None`, and every
+    #                        property read on it (`selectedSymbol`, `uiMode`,
+    #                        …) additionally trips the `Property` class above
+    #                        — real Optional-narrowing debt, but inseparable
+    #                        from the same properties without fixing both at
+    #                        once.
+    #    9  arg-type         `IDispatcher.dispatch()` typed against
+    #                        `IDispatchable`; every coordinator's own command/
+    #                        query classes ran through it before without this
+    #                        module ever seeing `mypy` — frozen debt, not
+    #                        introduced by the move.
+    #   17  var-annotated/union-attr/arg-type  `gap_inspector_dialog.py`'s
+    #                        own pre-existing gaps (an unannotated dict
+    #                        comprehension, `QLayout | None` accessed without
+    #                        a None check), same shape as the ordinary
+    #                        per-file baseline debt below, just never
+    #                        reachable by `mypy` until now.
+    #
+    # Fixing 115 typing errors inside a 24-file move makes the move
+    # unreviewable, which is the reason PR 0.4a's comment above gives for
+    # re-keying rather than either fixing or dropping — the same call PR
+    # 1.6f made at 43. `scripts/shutdown_database_sync_probe.py`'s two
+    # `import-untyped` hits were **not** re-keyed: they were this pull
+    # request's own doing (an import path left unfixed after the move) and
+    # are fixed in it instead. The exit is the same design step that already
+    # owns the rest of this file's `@Property` debt: a stub or plugin
+    # decision for `PySide6.QtCore.Property`, `EPIC-002D`'s to make, not a
+    # side effect of whichever pull request happens to move the next
+    # `presentation/` file out.
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]data_management_view\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]data_management_presenter\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]data_management_view_model\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]data_management_widgets[\\/]gap_inspector_dialog\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]coordinators[\\/]gap_coordinator\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]coordinators[\\/]scan_coordinator\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]coordinators[\\/]sync_coordinator\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]coordinators[\\/]kline_inspector_coordinator\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]signal_log_handler\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]module\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]preview\\.py$",
+
     # Everything below: real per-file baseline debt (not Property noise),
     # frozen at EPIC-002A's measurement.
     # `scripts/backtest_timeframe_toolbar_e2e.py` was here too — the LIVE
