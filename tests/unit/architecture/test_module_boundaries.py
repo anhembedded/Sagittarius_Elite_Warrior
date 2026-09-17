@@ -54,7 +54,22 @@ _ALLOWLIST_FILE = Path(__file__).with_name("allowlist_module_boundaries.txt")
 _SHELL_LEGACY_FILE = Path(__file__).with_name("baseline_shell_legacy_imports.txt")
 
 #: Zones that must exist for this guard to be scanning the tree it thinks it is.
-_ZONES_THAT_MUST_EXIST = ("domain", "application", "presentation", "infrastructure")
+#:
+#: **`application` was retired from this list on 2026-09-17, not loosened out of
+#: it.** `EPIC-025` emptied `src/application/` — PR 2.1c-2 took the last event
+#: handler and PR 3.1c the last use case — so the directory is gone from the
+#: repository by design, and a list that demands it would fail every fresh
+#: clone. It did not fail *anyone* for a month, which is `BUG-129`: every
+#: working tree kept the directory alive as a `__pycache__` shell, and GitHub
+#: CI never reached pytest because the reference checker ahead of it was
+#: already red. The rule below is untouched — it scans `src` whole, and
+#: `_MINIMUM_SCANNED_FILES` is what catches a wrong tree.
+#:
+#: `domain` is next: it holds exactly one file (`value_objects/market_type.py`),
+#: and the pull request that moves it must drop this entry in the same commit.
+#: `LEGACY_ZONES` keeps both names on purpose — a zone with no files classifies
+#: nothing, while the rule table still has to know what a legacy zone *is*.
+_ZONES_THAT_MUST_EXIST = ("domain", "presentation", "infrastructure")
 #: Well below the real count (about 600); a scan that finds fewer is scanning
 #: the wrong directory.
 _MINIMUM_SCANNED_FILES = 100
