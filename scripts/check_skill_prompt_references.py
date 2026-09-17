@@ -98,9 +98,10 @@ _MARKDOWN_LINK = re.compile(r"\[[^\]\n]*\]\(([^)\n]+)\)")
 #: A section citation is written as a document followed by `§N` on the same
 #: line -- ``\`ci-rule.md\` §2a``, ``\`.claude/ONBOARDING.md\` §7``,
 #: ``ONBOARDING §12.3``. The two alternatives are matched by one pattern so a
-#: single left-to-right pass can bind each anchor to the document last named on
-#: its line, which is how the prompts are actually written ("Follow ONBOARDING
-#: §6 for standalone tasks and §12.3 for epic children").
+#: single left-to-right pass can bind each anchor to the document named just
+#: before it (within `_ANCHOR_REACH`), which is how the prompts are actually
+#: written ("Follow ONBOARDING §6 for standalone tasks and §12.3 for epic
+#: children").
 _SECTION_CITATION = re.compile(
     r"`([^`\n]*?\.md)`|\b(CLAUDE|ONBOARDING|CONSTITUTION)\b|§\s?(\d+(?:\.\d+)*[a-z]?)"
 )
@@ -114,6 +115,13 @@ _NUMBERED_HEADING = re.compile(
 #: An ordered-list item inside a section body: `ONBOARDING.md` §12.3 names item
 #: 3 of section 12, not a heading of its own.
 _ORDERED_ITEM = re.compile(r"^\s*(\d+)\.\s", re.MULTILINE)
+
+#: How far after a document's name a `§N` may still name that document's
+#: section. A citation is written tight -- ``\`ci-rule.md\` §2a`` -- while a
+#: line that names a rule and then says `§4` of a *task* (`Tasks/ROADMAP.md`
+#: does exactly that about `BOT-087`) means something else entirely. Binding by
+#: proximity keeps that out: a guard that cries wolf gets switched off.
+_ANCHOR_REACH = 30
 
 #: Bare document names the prompts use without their extension.
 _BARE_DOCUMENTS = {
@@ -230,17 +238,22 @@ def _dangling_anchors(source: Path, text: str, root: Path) -> list[str]:
     dangling: list[str] = []
     for line in text.splitlines():
         document: Path | None = None
+        named_at = 0
         for match in _SECTION_CITATION.finditer(line):
             backticked, bare, anchor = match.groups()
             if backticked or bare:
                 name = backticked or _BARE_DOCUMENTS[bare]
                 document = _resolve_document(name, source, root)
-            elif (
-                anchor
-                and document is not None
-                and not _anchor_resolves(anchor, document)
-            ):
+                named_at = match.end()
+                continue
+            if anchor is None or document is None:
+                continue
+            if match.start() - named_at > _ANCHOR_REACH:
+                document = None  # Too far away to be that document's section.
+                continue
+            if not _anchor_resolves(anchor, document):
                 dangling.append(f"{document.relative_to(root).as_posix()} §{anchor}")
+            named_at = match.end()
     return dangling
 
 
