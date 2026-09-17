@@ -333,6 +333,22 @@ if (-not $SkipLint) {
         Write-Host $_.Exception.Message -ForegroundColor Yellow
     } finally { Pop-Location }
 
+    # The skill validator shipped on 2026-09-17 callable only from the prose of
+    # `.claude/skills/create-skill/SKILL.md`, which is the failure mode
+    # CONSTITUTION P1 names: an invariant left to whoever remembers to type it.
+    # It reads .claude/skills/ and git, needs neither Qt nor the engine, and is
+    # green on every skill today, so it belongs beside the reference check.
+    Write-Step "Skill Definition Validation (.claude/skills/**/SKILL.md)"
+    Push-Location $botRoot
+    try {
+        & $pythonExe (Join-Path $botRoot "scripts/validate_skill.py")
+        if ($LASTEXITCODE -ne 0) { $failed += "Skill Definitions"; Write-Failure "Skill Definitions" }
+        else { Write-Success "Skill Definitions" }
+    } catch {
+        $failed += "Skill Definitions"; Write-Failure "Skill Definitions"
+        Write-Host $_.Exception.Message -ForegroundColor Yellow
+    } finally { Pop-Location }
+
 }
 
 # ---------------------------------------------------------------------------

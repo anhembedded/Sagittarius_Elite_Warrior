@@ -39,7 +39,7 @@ python scripts/check_skill_prompt_references.py          # verify all cited path
 python scripts/render_claude_manifest.py                 # update .claude/README.md table
 $env:PYTHONPATH=".."; python -m pytest tests/unit/architecture/test_claude_tree_is_wired.py -q
 ```
-All checks must exit 0 before a skill is considered valid.
+All checks must exit 0 before a skill is considered valid. The first two also run as static steps of `scripts/ci-local.ps1`, so a skill that fails them fails the gate. `[gate]`
 
 ## 5. Manifest Registration & Handoff
 - Update `.claude/README.md` manifest table with output from `python scripts/render_claude_manifest.py`.
