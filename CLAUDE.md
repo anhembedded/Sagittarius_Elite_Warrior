@@ -9,16 +9,19 @@ This file navigates and copies no rule: a copy drifts, and this repository has p
 | Task | File |
 | :--- | :--- |
 | Starting; picking up work; authority; deciding alone; the settled principles | [`.claude/ONBOARDING.md`](.claude/ONBOARDING.md) |
+| Implementing or resuming a task | [`.claude/skills/execute-task/SKILL.md`](.claude/skills/execute-task/SKILL.md); completion contract: [`task-execution-rule.md`](.claude/rules/task-execution-rule.md) |
 | What the app must do, one use case per file | [`Docs/SPEC/README.md`](Docs/SPEC/README.md) |
 | Architecture: layers, ports, explicit contracts, events, seams | [`architecture-rule.md`](.claude/rules/architecture-rule.md) |
 | Code quality | [`code-quality-rule.md`](.claude/rules/code-quality-rule.md) |
 | Before calling anything done: the gate, its cadence, the test levels | [`ci-rule.md`](.claude/rules/ci-rule.md) |
 | Before every commit | [`commit-rule.md`](.claude/rules/commit-rule.md) |
 | Reviewing a pull request, branch or diff | [`.claude/skills/pr-review/SKILL.md`](.claude/skills/pr-review/SKILL.md); a first independent read before asking for review: the `reviewer` subagent ([`.claude/agents/reviewer.md`](.claude/agents/reviewer.md)) |
-| The user reports a bug | [`fix-bug-rule.md`](.claude/rules/fix-bug-rule.md) |
+| Creating or maintaining a bug report | [`create-bug-report-rule.md`](.claude/rules/create-bug-report-rule.md) |
+| Diagnosing or fixing a bug | [`fix-bug-rule.md`](.claude/rules/fix-bug-rule.md) |
 | A defect got through a green gate | [`Docs/CASE_STUDIES/README.md`](Docs/CASE_STUDIES/README.md) |
 | Adding or changing logs | [`logging-rule.md`](.claude/rules/logging-rule.md) |
 | Reporting to the user, or asking a question | [`report-rule.md`](.claude/rules/report-rule.md) |
+| Task progress, blockers and final handoff | [`report-task-rule.md`](.claude/rules/report-task-rule.md) |
 | Writing tests | [`testing-rule.md`](.claude/rules/testing-rule.md) |
 | UI: QtWidgets only, desktop UX principles, layout, preview | [`ui-presentation-rule.md`](.claude/rules/ui-presentation-rule.md) · [`Docs/HLD/11_desktop_workbench.md`](Docs/HLD/11_desktop_workbench.md) |
 | Background work started from the UI | [`async-ui-action-rule.md`](.claude/rules/async-ui-action-rule.md) |

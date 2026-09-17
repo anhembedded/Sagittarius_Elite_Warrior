@@ -1,5 +1,5 @@
 ---
-description: The format of a bug report under Tasks/bug_report/incomplete/ (fix-bug-rule.md §7). Copy it, fill every brace, delete this front matter.
+description: The format of a bug report under Tasks/bug_report/incomplete/ (create-bug-report-rule.md). Copy it, fill every brace, delete this front matter.
 ---
 
 # BUG-{nnn} — {the symptom as the user met it, one line}
@@ -9,7 +9,7 @@ description: The format of a bug report under Tasks/bug_report/incomplete/ (fix-
 - **Status:** {Open / ✅ Fixed (YYYY-MM-DD)}
 - **Environment:** {OS, app and engine commit/version, relevant configuration; Unknown if not captured. Never include credentials.}
 
-<!-- Choose one severity and status. An open report may say Not yet established or Not run; never invent a root cause or a passing check to fill the form. Delete instructional comments. -->
+<!-- Follow .claude/rules/create-bug-report-rule.md for filing and closure; fix-bug-rule.md governs the fix. Choose one severity and status. An open report may say Not yet established or Not run; never invent a root cause or a passing check to fill the form. Delete instructional comments. -->
 
 ## Reproduction
 {Preconditions and the minimum numbered steps, with expected and actual results. State frequency, or Not yet reproduced and the missing evidence.}

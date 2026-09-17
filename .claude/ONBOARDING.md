@@ -17,7 +17,7 @@ Every rule under `.claude/rules/` loads by itself: a rule with a `paths:` list i
 | 3 | `.claude/rules/code-quality-rule.md` | opening a `src/` or `scripts/` file |
 | 4 | `.claude/rules/ci-rule.md` | every session — before calling anything done |
 | 5 | `.claude/rules/commit-rule.md` | every session — before every commit |
-| 6 | `.claude/rules/fix-bug-rule.md` | every session — the user reports a bug (mandatory) |
+| 6 | `.claude/rules/fix-bug-rule.md` | every session — applies when diagnosing or fixing a bug |
 | 7 | `.claude/rules/logging-rule.md` | opening a `src/` or `scripts/` file; every bug fix |
 | 8 | `.claude/rules/testing-rule.md` | opening a `tests/` file |
 | 9 | `.claude/rules/async-ui-action-rule.md` | opening a presenter or coordinator |
@@ -26,17 +26,20 @@ Every rule under `.claude/rules/` loads by itself: a rule with a `paths:` list i
 | 12 | `.claude/rules/report-rule.md` | every session — before any report or question to the user |
 | 13 | `.claude/rules/install-rule.md` | opening `requirements.txt`, `pyproject.toml`, `scripts/` or the workflow; this file's §5 for a missing tool |
 | 14 | `.claude/rules/pitfalls/tests.md` · `pitfalls/ui.md` · `pitfalls/source.md` | with the files each trap concerns (§8) |
+| 15 | `.claude/rules/task-execution-rule.md` · `.claude/rules/report-task-rule.md` | opening task documents or their template; explicitly read by `execute-task` |
+| 16 | `.claude/rules/create-bug-report-rule.md` | opening a bug report, Bug Board or bug-report template; read before filing |
 | — | `Docs/VOCABULARY/README.md` | any term you do not know or are about to coin (add it in the same commit) |
 | — | `Docs/SPEC/README.md` | what the app must do; a changed flow updates its SPEC in the same PR |
 | — | `Tasks/epics/README.md` · `Tasks/ROADMAP.md` · `Tasks/bug_report/README.md` | where the system stands |
 | — | §12 | picking up work in progress |
 
-`ls -R .claude/rules/` is the real index. `tests/unit/test_rule_navigation_is_complete.py` fails when a rule is missing from this table or from `CLAUDE.md`; `tests/unit/architecture/test_claude_tree_is_wired.py` fails when a rule's `paths:` match no tracked file, when the text loaded every session exceeds its ceiling, or when the manifest `.claude/README.md` disagrees with the tree. `.claude/skills/` holds the workflows (`pr-review`, the two scheduled audits, the `EPIC-025` executor), `.claude/agents/` the subagents, `.claude/templates/` the formats. Security rules are `ruff`'s `S` set plus `domain-truth-rule.md`.
+`ls -R .claude/rules/` is the real index. `tests/unit/test_rule_navigation_is_complete.py` fails when a rule is missing from this table or from `CLAUDE.md`; `tests/unit/architecture/test_claude_tree_is_wired.py` fails when a rule's `paths:` match no tracked file, when the text loaded every session exceeds its ceiling, or when the manifest `.claude/README.md` disagrees with the tree. `.claude/skills/` holds the workflows (`execute-task`, `pr-review`, the scheduled audits, the `EPIC-025` executor), `.claude/agents/` the subagents, `.claude/templates/` the formats. Security rules are `ruff`'s `S` set plus `domain-truth-rule.md`.
 
 ## 2. Two independent repositories
 `Sagittarius_Engine` (framework) and `Sagittarius_Elite_Warrior` (this app) each have their own remote, rule tree and board. No submodule, no pointer bump. Engine work is a separate commit and push, only when a foundational mechanism is genuinely missing; §12.4 lists the mechanisms that already exist.
 
 ## 3. A task
+The implementation workflow is `.claude/skills/execute-task/SKILL.md`; it composes this lifecycle and the applicable rules. The template remains the task's durable record.
 1. `Tasks/backlog/BOT-{nnn}_{slug}.md` from `.claude/templates/task.md`; the next number comes from the files on disk, not from a board (four collisions, `tests/unit/test_task_board_is_consistent.py` fails on the next). No task file → create it first. Epics get `Tasks/epics/EPIC-{nnn}_{slug}/` from `.claude/templates/epic.md` with `README.md` + `incomplete/` + `completed/` (`Tasks/epics/README.md`); a decision taken inside an epic is a `DECISION_{date}_{slug}.md` from `.claude/templates/decision.md`; proposals not yet accepted are `Tasks/proposal/PRO-{nnn}.md` from `.claude/templates/proposal.md`.
 2. Content: real context and problem, design with the reason for each non-obvious choice, per-file changes, testing. English (§10).
 3. Code and tests (`ci-rule.md` §6 for the tier).
@@ -44,7 +47,7 @@ Every rule under `.claude/rules/` loads by itself: a rule with a `paths:` list i
 5. Bookkeeping §6.
 
 ## 4. A bug
-`fix-bug-rule.md` is the authority. The three most violated points: the regression test is written **before** the fix and confirmed red for the right reason; the tier reaches the crash (a `Mock` cannot); the report `Tasks/bug_report/incomplete/BUG-{nnn}_{slug}.md` from `.claude/templates/bug-report.md` with real evidence, moved to `completed/` and its row moved on the Bug Board when fixed. Read pasted logs and screenshots with tools before hypothesising.
+`create-bug-report-rule.md` owns filing, evidence, unique IDs and report/board closure; it permits an Open report before the cause is known. `fix-bug-rule.md` owns diagnosis and repair: regression proof before the fix at the tier that reaches the failure, mechanism repair and verification. Read the report rule before filing and both rules when fixing; creating a report alone does not require implementation.
 
 ## 5. Real verification
 ```bash
@@ -97,7 +100,7 @@ The engine's `.agents/` (`PLAYBOOK.md`, `manifest.yml`, board `../Sagittarius_En
 Rules, code, identifiers, docstrings, comments, commit subjects, UI strings, log messages: English. Conversation: Vietnamese, or the user's language. Every `.md` (tasks, bug reports, boards, ADRs, `Docs/`): English since 2026-09-12; older documents stay as written, new sections are English. Register: a self-study technical book — why before what; a term defined once in `Docs/VOCABULARY/README.md` and linked; one worked example with real paths and numbers over adjectives; full sentences; tables for inventories, prose for reasoning; no chat shorthand, no emoji in prose; a user decision quoted verbatim once, then translated.
 
 ## 11. Reporting
-Project-lead altitude in chat: conclusion, state, decisions needed, risks — implementation detail only when it drives the next action. Long-lived documents keep full evidence. Shape and length: `report-rule.md`.
+Speak to the user as a solution architect and delivery leader: outcomes, system impact, trade-offs, risks and recommendations. Implementation detail appears only on request or when essential to a decision; existing records keep full evidence. Communication authority: `report-rule.md`; task updates and handoff: `report-task-rule.md`.
 
 ## 12. Picking up work
 
