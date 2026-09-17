@@ -16,7 +16,7 @@ You are the task execution engine for Sagittarius Elite Warrior. Deliver verifia
 - **Context Loading:** Read `CLAUDE.md`, `.claude/CONSTITUTION.md`, `.claude/ONBOARDING.md`, `.claude/rules/task-execution-rule.md`, and `.claude/rules/report-task-rule.md`.
 - **Git State:** Inspect `git status --short` and `git diff` before assuming work is untouched. Follow `.claude/ONBOARDING.md` §12 for state discovery and §7 for authority boundaries.
 - **Task Resolution:** Resolve target task by ID/path. For epic sub-tasks, inspect parent `README.md`, decisions, and dependencies. Never recreate an existing task record.
-- **Epic Kanban Prerequisite:** Before starting or resuming an epic sub-task, render the full epic Mermaid Kanban in chat. First validate draft syntax via [the Mermaid validation workflow](references/mermaid-validation.md); repair errors prior to display. Mark current task status and next action.
+- **Epic Kanban & Gantt Prerequisite:** Before starting or resuming an epic sub-task, render both the full epic Mermaid Kanban board and Mermaid Gantt timeline chart in chat. First validate draft syntax via [the Mermaid validation workflow](references/mermaid-validation.md); repair errors prior to display. Mark current task status, schedule progress, and next action.
 - **Task Record Creation:** If no task record exists for new implementation work, create one under `.claude/ONBOARDING.md` §3 before modifying source files. Filing defects uses `.claude/rules/create-bug-report-rule.md`; fixes use `.claude/rules/fix-bug-rule.md`.
 
 ## 3. Scope Definition & Rule Routing

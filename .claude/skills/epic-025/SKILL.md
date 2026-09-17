@@ -27,7 +27,7 @@ Load specifications in strict order:
 5. Active Phase Task: Lowest alphabetical file in `Tasks/epics/EPIC-025_module_theo_bounded_context/incomplete/`.
 6. Touch rules: [`architecture-rule.md`](../../rules/architecture-rule.md), [`async-ui-action-rule.md`](../../rules/async-ui-action-rule.md), [`ui-presentation-rule.md`](../../rules/ui-presentation-rule.md), [`testing-rule.md`](../../rules/testing-rule.md), [`ci-rule.md`](../../rules/ci-rule.md), [`commit-rule.md`](../../rules/commit-rule.md).
 
-**Kanban Prerequisite:** Before starting or resuming an epic sub-task, render the full epic Mermaid Kanban in chat. Validate draft syntax via [the Mermaid validation workflow](../execute-task/references/mermaid-validation.md); repair errors prior to display. Mark current task status and next action.
+**Kanban & Gantt Prerequisite:** Before starting or resuming an epic sub-task, render both the full epic Mermaid Kanban board and Mermaid Gantt timeline chart in chat. Validate draft syntax via [the Mermaid validation workflow](../execute-task/references/mermaid-validation.md); repair errors prior to display. Mark current task status, timeline tracking, and next action.
 
 ## 2. Invariants & Verification Matrix
 Every architectural invariant must be mechanically proven:
