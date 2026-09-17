@@ -155,10 +155,10 @@ split.
 | **4.1a** | the six `trading`-owned `ui/common` feeds → `modules/trading/ui/` — `equity_chart_adapter`, `equity_feed`, `execute_order_block_reason`, `market_tick_feed`, `order_feed`, `order_fill_marker` | each has **0** legacy imports. The seventh, `live_order_book_coordinator`, reads `order_book` and travels with it in 4.1b |
 | **4.1b** | `components/order_book` (7 files) → `modules/trading/ui/` **together with** `screens/data_management`'s table models → `modules/market_data/ui/`, extracting the shared `RowTableModel` into `support/ui_kit` in the same pull request; `live_order_book_coordinator` comes too | §3.5: `order_book` is a clean leaf on its own, but moving it alone raises the duplication ratchet, and the user's decision of 2026-09-16 is to do the extraction **once**, when both packages move, rather than churning these files twice |
 | ~~4.1c~~ ❌ | `screens/trading` → `modules/trading/ui/` — **folded into 4.4, §3.11.** Its legacy-import count did reach **0**, and that turned out not to be the binding constraint: merging it into the existing `trading.ui` package deduplicates nothing (the total stays at 112) while making `phase_1_count` read a false **0**, and re-keying the metric honestly would raise its ratchet 32 → 39, which `ci-rule` §5.5 forbids. The two live screens travel together after the deletions, as the user's `DECISION_2026-09-16` said | — |
-| **4.2a** | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator`; `base_event_logger` → `modules/backtesting/ui/` | §3.3: the destination this file left open is **forced**, not chosen. All four have 0 legacy imports except `sync_progress_feed`, whose only one is the sibling travelling with it |
-| **4.2b** | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) | after 4.1b and 4.2a its remaining blockers are QML, so it waits on 4.3 |
+| ~~4.2a~~ ❌ | `sync_progress_{feed,report}` → `modules/market_data/ui/`, with `symbol_options_coordinator`; `base_event_logger` → `modules/backtesting/ui/` — **folded into 4.4, §3.12.** Measured at PR review time (2026-09-17): moving these four alone costs the boundary allowlist 58 → 68 (10 new lines across 7 legacy consumer files), which the rewritten `architecture-rule.md` now forbids outright. Worse than a ratchet problem: every one of those 7 consumers is itself moving in 4.2b or 4.4, so the only zero-cost sequencing is moving each leaf file in the same pull request as **all** of its consumers — which for `sync_progress_{feed,report}` means 4.2b and 4.4 at once, since `data_management` (4.2b) and `backtest`/`dashboard` (4.4) both import them | — |
+| ~~4.2b~~ ❌ | `screens/data_management` → `modules/market_data/ui/` (step 6, inherited from Phase 0) — **folded into 4.4, §3.12**, for the same reason as 4.2a: after 4.1b its only remaining blockers are QML (so it already waited on 4.3, same as 4.4) and the four leaf files 4.2a would have moved, which it shares consumers with across 4.4's screens too | — |
 | **4.3** | the QML deletions (ADR D20–D21), in sub-steps — §4 measures them: **4.3a** ✅ the shared symbol picker becomes virtualised, **4.3b** ✅ `qml/SymbolPicker/` deleted, **4.3c** ✅ `DateRangeOverlay` deleted (dead), **4.3d** ✅ `qml/TimeRangePicker/` → `support/ui_kit/time_range_picker` on `QCalendarWidget` (`BUG-128`, `CS-004`), **4.3e** ✅ `qml/SelectList/` deleted, its four hosts onto `kit.PickerOverlay` (and the read-only one out of the picker shape altogether), **4.3f** ✅ `qml/CheckboxList/` + `qml/Capital/` deleted — `kit.ChecklistOverlay` arrives for the two checklists, and the capital form keeps `BUG-064`'s lesson with one writer instead of three bindings, **4.3g** ✅ `qml/StatCardRow/` deleted — the performance figures stop being cards (HLD §11.3), **4.3h** ✅ `qml/TradeLogTable/` deleted — measured dead, its two pure files moved to `screens/backtest/logic/`, **4.3i** ✅ `qml/StatGrid/` + `qml/DataTable/` deleted — dead too, the second losing its last caller *to 4.3h*, **4.3j** ✅ `qml/MetricsDetailPanel/` → a `QDialog` on a `QTreeWidget`, leaving `qml/` holding only `kit/`, **4.3k** ✅ `charting/TimeframePicker/` → a pill row of `QPushButton`s and a `QTreeWidget` picker sharing one selection, then `MetricsDetailPanel`/`StatCardRow`/`TradeLogTable`, `DataTable`/`StatGrid`, `charting/TimeframePicker`, and `qml/kit/` last. `find src -name '*.qml'` **24 → 8**, all of them `qml/kit/`'s, and → 0 when they are all gone | the one step with real UI work in it, and the only one the user sees |
-| **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard`; `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's |
+| **4.4** | `screens/backtest` → `modules/backtesting/ui/`; `screens/dashboard` and `screens/trading` → `modules/trading/ui/` (4.1c's fold); `screens/data_management` → `modules/market_data/ui/` (4.2b's fold); `sync_progress_{feed,report}` + `symbol_options_coordinator` → `modules/market_data/ui/`, `base_event_logger` → `modules/backtesting/ui/` (4.2a's fold); `ui/common` deleted; `binance_bot_module.py` deleted; settings becomes a surface | every remaining blocker is 4.3's; folding 4.1c, 4.2a and 4.2b in is what keeps every leaf file's move in the same commit as all of its consumers, §3.12 |
 
 After 4.1a and 4.2a, `ui/common` holds **two** files: `live_order_book_coordinator` (waiting on
 `order_book`, so 4.1b) and `qml_property` (which dies with the QML, so 4.3). Step 4's *"delete
@@ -176,7 +176,8 @@ also what the code says it is, a feed whose whole job is to normalise one module
 
 Recorded here as a decision taken rather than a question deferred (`ONBOARDING` §7: a choice with
 one legal answer is not the user's to make), and it changes what the epic promised, so it is written
-down in the place that promised it: HLD §3.5's row is corrected with 4.2a.
+down in the place that promised it: HLD §3.5's row is corrected with 4.4 (§3.12 folds the pull
+request that was going to carry this move, 4.2a, into 4.4).
 
 ### 3.4 What `ui/components/strategy_overlay/` and `strategy_params/` were
 
@@ -480,6 +481,56 @@ the user's own judgement (*"các card cũ cũng rất là tệ"*) and gives the 
 things as *"a table (`QTableView` on a model)"*; §11.4's ratchet counts what styling is left and
 deletes `Palette` and `kit/style.py` in this phase, *"together with the last `.qml` file and the
 last `kit/` widget"*.
+
+### 3.12 4.2a folds into 4.4, and the reason is a rule plus a precedent neither of us had checked
+
+Raised as an open question in PR #223 (the `BUG-129` fix), rather than decided there: PR 4.2a as
+planned — `sync_progress_{feed,report}` + `symbol_options_coordinator` → `modules/market_data/ui/`,
+`base_event_logger` → `modules/backtesting/ui/`, moved on their own ahead of the screens that use
+them — was never re-checked against `BOT-134`'s rewritten `architecture-rule.md` (*"the allowlist
+only shrinks"*) or against what those four files' callers actually are.
+
+**Measured, not assumed.** Grepping the real import lines (not just filenames) finds seven legacy
+files importing the four movers, ten import lines total: `screens/backtest/signal_wiring.py` (1),
+`screens/backtest/backtest_presenter.py` (2), `screens/backtest/logic/backtest_event_logger.py` (1),
+`screens/data_management/data_management_presenter.py` (2),
+`screens/data_management/coordinators/sync_coordinator.py` (1),
+`screens/dashboard/dashboard_presenter.py` (2), `screens/dashboard/stream_lifecycle_controller.py`
+(1). Moving the four alone means all ten become new cross-boundary imports needing an allowlist
+line apiece: 58 → 68, exactly the number PR #223 cited and exactly what the rewritten rule now
+forbids outright, with no shrink to offset it in the same pull request.
+
+**Sequencing does not fix it, because every one of those seven files is itself already scheduled to
+move — into 4.2b or 4.4.** The allowlist cost is not a property of the four leaf files; it is a
+property of the *gap in time* between a leaf file's move and its last consumer's move. Moving the
+leaf files with 4.2b (whose only consumers are two of the seven) still leaves the other five —
+`backtest` and `dashboard`'s — as new cross-boundary imports until 4.4 lands; moving them with 4.4
+leaves 4.2b's two the same way if 4.2b goes first. The only sequencing with **zero** new lines at
+any point is moving each leaf file in the same pull request as every one of its consumers — which
+for `sync_progress_{feed,report}` means 4.2b and 4.4 at once, since both `data_management` and
+`backtest`/`dashboard` import them.
+
+**A second problem, worse than the ratchet: `symbol_options_coordinator` would set a precedent this
+codebase has never had.** It already imports `modules/market_data/contracts/i_symbol_catalog`
+directly (line 20), so `support/ui_kit` is not a legal destination either — §6.1 forbids a support
+package importing a module at all, contracts included. `modules/market_data/ui/` is its only legal
+home. But its callers are `screens/backtest/backtest_presenter.py` and
+`screens/dashboard/dashboard_presenter.py`, which are moving into `modules/backtesting/ui/` and
+`modules/trading/ui/` — two *different* modules. Grepping every `modules/*/ui/**` import in the
+tree today (`strategy` and `trading`, the only two with a UI package so far) finds every one of them
+reaching into its **own** module's `domain/`, `application/` or `ui/` — never another module's `ui/`
+package. Landing 4.2a as planned would have made `backtesting.ui` and `trading.ui` import
+`market_data.ui` directly, the first case of one module's UI depending on a concrete class in
+another module's UI rather than through `contracts/` — a hole neither this file nor
+`architecture-rule.md` §2 currently guards against, because nothing had done it yet.
+
+**Put to the user with both findings and the fold measured at zero cost: fold 4.2a into 4.2b and
+4.4, merged into one pull request** (2026-09-17). The alternative — publishing a new port so
+`symbol_options_coordinator` need not be a concrete class two other modules' UIs import — was
+offered and declined in favour of the smaller-design-surface option: the three screens and the four
+leaf files move together, so the cross-module UI import never has to exist even transiently. `4.4`'s
+row in §3.2 carries the merged scope; 4.2a and 4.2b are struck there rather than deleted, so the
+measurement above stays attached to the decision it produced.
 
 ### 4.1 PR 4.3a — the symbol picker had **two** implementations, one per toolkit
 
@@ -1210,7 +1261,7 @@ these five numbers are why this one is a deletion of duplicated coverage rather 
 **PR 4.3 is complete.** Eleven steps: seven live widgets rebuilt, five packages measured dead and
 deleted, one bug found (`BUG-128`) and one case study written (`CS-004`, closed here), `.qml` **27 →
 0**, `setStyleSheet` 149 → 145, `qml_theme_refs` 229 → 0, and `CS-004`'s under-`src/` test ratchet 22
-→ 0. Next: **4.2a**, **4.2b**, then **4.4**.
+→ 0. Next: **4.4** — §3.12 folds 4.2a and 4.2b into it.
 
 ### 4.13 The review of 4.3l, and the one screen that lost a word
 
