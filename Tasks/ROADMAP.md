@@ -127,6 +127,8 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **`BOT-141`**: [Rule integrity after the system-prompt rewrite — the compression dropped decisions no other file held, renumbered sections nineteen live documents cited, and left "documentation-only" undefined; restored, repointed, and now guarded by a section check inside the reference checker](completed/BOT-141_rule_integrity_after_the_system_prompt_rewrite.md)
+
 - [x] **`BOT-140`**: [Separate bug reporting from fixing — report creation and closure have their own rule; repair retains root-cause and regression proof](completed/BOT-140_separate_bug_reporting_from_fixing.md)
 
 - [x] **`BOT-139`**: [Architecture-level communication — outcomes, system impact and recommendations by default; implementation details on request and full evidence retained](completed/BOT-139_architecture_level_communication.md)
