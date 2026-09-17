@@ -16,26 +16,40 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-import warnings
 from pathlib import Path, PurePosixPath
 
 
-def tracked_paths(root: Path) -> set[str] | None:
+class GitUnavailableError(RuntimeError):
+    """Raised instead of returning a fallback answer, because a path-scanning
+    guard that degraded to the filesystem here would be silently reproducing
+    `BUG-129` — and a `warnings.warn()` that only shows up in a pytest
+    warnings summary is invisible to both mechanisms this repository actually
+    uses to fail a run (`CLAUDE.md`'s mandated grep for
+    `FAILED|ERROR|Traceback|ResourceWarning`, and `ci-local.ps1`'s
+    `Invoke-RunLogScan`, which greps the structured app-log format). A round-2
+    review of the pull request that first tried the warning found it fired
+    but proved nothing failed. Raising is the fix that cannot go quiet."""
+
+
+def tracked_paths(root: Path) -> set[str]:
     """Every path `root`'s repository holds — files and every ancestor
-    directory of a tracked file — or `None` when git cannot answer.
+    directory of a tracked file. Raises `GitUnavailableError` rather than
+    degrading to the filesystem when git cannot answer.
 
     @details Reads the **index**, not `HEAD`: a move that has been `git
     add`ed but not yet committed is real work, and a guard runs before that
-    commit. `None` rather than an empty set when git is unavailable or `root`
-    is not a repository — an empty set would read as "the repository holds
-    nothing" and fail every caller — and a warning names `BUG-129`, because
-    silently trusting the filesystem here is the exact bug this function
-    exists to close.
+    commit. Every environment this test suite runs in — a developer's
+    checkout, CI — is a git checkout by construction (`install-rule.md`), so
+    there is no legitimate case where a caller should keep going without an
+    answer; `BUG-129`'s whole lesson is that a guard which cannot tell a real
+    file from a stale `__pycache__` shell must not report success.
     """
     git = shutil.which("git")
     if git is None:
-        _warn_falling_back("git is not on PATH")
-        return None
+        raise GitUnavailableError(
+            "git is not on PATH, so this guard cannot tell a real file from "
+            "a stale __pycache__-only leftover (`BUG-129`, `CS-005`)"
+        )
     try:
         # `S603` is suppressed, not worked around: the argument vector is this
         # literal list plus `root`, there is no shell, and `git` is the
@@ -48,8 +62,10 @@ def tracked_paths(root: Path) -> set[str] | None:
             text=True,
         )
     except (OSError, subprocess.CalledProcessError) as exc:
-        _warn_falling_back(f"`git ls-files` failed ({exc})")
-        return None
+        raise GitUnavailableError(
+            f"`git ls-files` failed ({exc}), so this guard cannot tell a real "
+            "file from a stale __pycache__-only leftover (`BUG-129`, `CS-005`)"
+        ) from exc
 
     tracked: set[str] = set()
     for entry in completed.stdout.split("\0"):
@@ -61,13 +77,3 @@ def tracked_paths(root: Path) -> set[str] | None:
             tracked.add(parent.as_posix())
             parent = parent.parent
     return tracked
-
-
-def _warn_falling_back(reason: str) -> None:
-    warnings.warn(
-        f"{reason}, so a path-scanning guard cannot tell a real file from a "
-        "stale __pycache__-only leftover and is falling back to the "
-        "filesystem — the exact false green `BUG-129` exists to close "
-        "(`CS-005`).",
-        stacklevel=3,
-    )

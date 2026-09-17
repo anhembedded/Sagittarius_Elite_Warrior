@@ -104,14 +104,14 @@ def test_src_root_is_where_we_think_it_is() -> None:
     (`BUG-129`, `CS-005`): a directory a move emptied survives on disk as a
     `__pycache__` shell, which `is_dir()` cannot tell from a real zone — the
     exact reason `application` sat in `_ZONES_THAT_MUST_EXIST` for 14 hours
-    after the repository had nothing left under it."""
+    after the repository had nothing left under it. `tracked_paths()` raises
+    rather than degrading to `is_dir()` when git cannot answer, so this test
+    fails loudly instead of silently trusting the filesystem again."""
     assert _SRC_ROOT.is_dir(), f"no src tree at {_SRC_ROOT}"
     tracked = tracked_paths(_REPO_ROOT)
     for zone in _ZONES_THAT_MUST_EXIST:
         zone_dir = _SRC_ROOT / zone
         assert zone_dir.is_dir(), f"zone `{zone}` missing under {_SRC_ROOT}"
-        if tracked is None:
-            continue
         # `tracked_paths()` adds every ancestor directory of every tracked
         # file, so the zone's own path is in the set the moment any file
         # under it is tracked — no need to walk the set per zone.

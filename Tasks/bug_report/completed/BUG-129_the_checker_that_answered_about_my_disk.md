@@ -108,6 +108,18 @@ which also gained the warning the registry's own copy had silently dropped when 
 answer — a second finding from the same review. `CS-005` records both as the case study's own
 "closed" line being wrong, corrected by the review process this bug's fix relied on working.
 
+## Addendum — the warning itself was silent, found by a third review
+
+A third independent-session review reproduced the second addendum's own fix as still silent, in a
+way the first two reviews' checks did not surface: `warnings.warn()` fires when git is unavailable,
+but neither of this repository's two failure-detection mechanisms sees a pytest warnings-summary
+line — `grep -nE "FAILED|ERROR|Traceback|ResourceWarning"` (`CLAUDE.md`) and `ci-local.ps1`'s
+`Invoke-RunLogScan`, which greps the structured `- (WARNING|ERROR|CRITICAL) -` app-log format.
+Reproduced directly: `git` removed from `PATH`, both guards finished `130 passed, 81 warnings`,
+exit 0. `git_tracked_paths.tracked_paths()` now raises `GitUnavailableError` instead of returning
+`None` with a warning, so a caller's own test fails outright — pinned by `test_git_tracked_paths.py`
+(5 tests, two of them E12 breaks on the real guards, not just on the shared function in isolation).
+
 ## Case study
 
 [`CS-005`](../../../Docs/CASE_STUDIES/CS-005_the_check_that_asked_the_wrong_question.md) — the

@@ -1468,6 +1468,31 @@ as the list for whoever next touches the H4 clause, rather than fixed as a side 
 **N2 — `BUG-129` had no line in `Tasks/ROADMAP.md`.** Added, at the top of `🟢 Completed`, per
 `ONBOARDING.md` §6.
 
+### 4.17 A third session's review, and the S2 fix it found still silent
+
+A third independently-spawned session re-verified §4.16's fixes rather than trust the commit
+messages, and reproduced every break-the-line probe itself. No blocking findings; one should-fix,
+worth recording for the same reason S1 was: it is the same *class* of defect one level over again.
+
+**S2's own fix — `warnings.warn()` naming `BUG-129` when git cannot answer — fires, but is
+invisible to both mechanisms this repository actually uses to detect a failure.** `CLAUDE.md`'s
+mandated `grep -nE "FAILED|ERROR|Traceback|ResourceWarning"` does not match a pytest
+warnings-summary line, and `ci-local.ps1`'s `Invoke-RunLogScan` greps the structured
+`- (WARNING|ERROR|CRITICAL) -` app-log format, not pytest's own output. Reproduced: `git` removed
+from `PATH`, both guard files finished `130 passed, 81 warnings`, exit 0 — the exact silent green
+`BUG-129` exists to close, wearing a warning as a costume. Fixed by removing the warning entirely:
+`git_tracked_paths.tracked_paths()` now raises `GitUnavailableError` instead of returning `None`,
+so a caller's own test fails rather than skipping its filter — pinned by the new
+`tests/unit/architecture/test_git_tracked_paths.py` (5 tests, two of them E12 breaks against the
+real guards, not just against `tracked_paths()` in isolation). `CS-005` and `BUG-129`'s own report
+carry the addendum.
+
+This makes three independent sessions finding a live instance of the identical shape — the
+filesystem-vs-repository disagreement, or its silence — at three different points in the same
+mechanism (a script, then two test guards, then the warning meant to cover both). The pattern
+itself is now the lesson worth naming: a fix for a *silent* failure mode should be verified by
+trying to make it fail silently again, not by confirming the new code path runs.
+
 **What the reviewer confirmed, independently, in a fresh container:** installed the toolchain
 itself rather than trusting the PR's claim that one existed; ran the full gate and got the same
 pass/fail shape; ran the registry's own break-the-line probes and the two new ones above, all

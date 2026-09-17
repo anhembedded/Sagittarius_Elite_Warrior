@@ -75,12 +75,12 @@ def test_scanned_root_exists_and_is_not_empty(
     directory = _REPO_ROOT / root
     assert directory.is_dir(), f"{guard} scans {root}, which does not exist"
     matches = [p for p in directory.rglob(pattern) if "__pycache__" not in p.parts]
+    # The repository's answer, not this disk's — see `git_tracked_paths`.
+    # Raises rather than falling back to `rglob()` alone when git cannot
+    # answer, so this guard fails loudly instead of silently trusting the
+    # filesystem again (`BUG-129`, `CS-005`).
     tracked = tracked_paths(_REPO_ROOT)
-    if tracked is not None:
-        # The repository's answer, not this disk's — see `git_tracked_paths`.
-        matches = [
-            p for p in matches if p.relative_to(_REPO_ROOT).as_posix() in tracked
-        ]
+    matches = [p for p in matches if p.relative_to(_REPO_ROOT).as_posix() in tracked]
     if (guard, root, pattern) in EMPTY_BY_DESIGN:
         # The one inverted case: a ban, whose scan finding nothing is it
         # holding. See `EMPTY_BY_DESIGN`'s own docstring.
