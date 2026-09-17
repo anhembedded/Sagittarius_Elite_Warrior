@@ -41,6 +41,8 @@ Mutation-proved, not assumed: reintroducing the four repointed citations turns `
 
 The first `pwsh -NoProfile -File scripts/ci-local.ps1 -SkipTests` on this tree failed on `scripts/validate_skill.py` (three `PLR2004`, `S603`/`S607`, `BLE001`) — the file had been committed without that run, and wiring it into the gate turned its own lint failure into a gate failure. Fixed at the mechanism, not with suppressions.
 
-Full gate green on the final tree: `logs/ci-local-20260917-181500.log` — Ruff, Ruff Format, Mypy, Repository Reference Check, Skill Definition Validation, 4995 passed / 4 skipped, Sanity, coverage 95.67 % ≥ 80 %, run-log scan clean, `RESULT: PASS`.
+`test_task_board_is_consistent` then caught the board: `scripts/render_task_counts.py` prints its table for pasting rather than writing it, so recording this task left ROADMAP claiming 195 tasks against 196 directories.
+
+Full gate green on the final tree: `logs/ci-local-20260917-182545.log` — Ruff, Ruff Format, Mypy, Repository Reference Check, Skill Definition Validation, 4995 passed / 4 skipped, Sanity, coverage 95.67 % ≥ 80 %, run-log scan clean, `RESULT: PASS`.
 
 Deliberately not touched: dated records (`completed/`, `cancelled/`, `Tasks/reports/`, `Docs/CASE_STUDIES/`, `EPIC-025/TRACKING.md`) keep the section numbers they were written against — they record what a past reader was told, and the anchor check does not scan them. Open for the user: the Mermaid **Gantt** mandate of `a0a3aa7` has no date source in an epic child, so a timeline can only be invented.
