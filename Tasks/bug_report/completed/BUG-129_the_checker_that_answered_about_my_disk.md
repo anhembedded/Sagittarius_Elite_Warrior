@@ -1,4 +1,4 @@
-# BUG-129 — the reference checker answered about the developer's disk, and CI was red for three merges
+# BUG-129 — the reference checker answered about the developer's disk, and CI was red for 20 runs
 
 - **Reported:** 2026-09-17 (found while reviewing `EPIC-025` PR 4.3l, from another session's
   commit `9a4a65d2` on `master-warrior`)
@@ -91,6 +91,22 @@ tracked under it with or without its trailing slash, and a staged rename resolve
 Verified positively, not just by absence: re-creating the exact condition — `mkdir -p
 src/application/use_cases/__pycache__` plus a rule file citing that path — now exits **1** and
 names the reference, where before the fix it exited 0.
+
+## Addendum — a second live instance, found by a second review
+
+The claim above — "the class lives in the registry" — closed the registry and treated the class
+as closed. It was not: `ONBOARDING.md` §7's required second-session review of the pull request
+carrying this fix (PR #223) reproduced the exact shape on `test_module_boundaries.py`'s own zone
+check, one function above the retired `application` entry. `git rm --cached` the file `domain`
+tracks, leave the `__pycache__` shell on disk, and `test_src_root_is_where_we_think_it_is` kept
+passing: `is_dir()` cannot tell a zone still holding real files from one surviving only as a
+stale shell.
+
+Fixed the same way, and the three now-duplicated copies of "read `git ls-files`" (the script's,
+the registry's, and this one) collapsed into one shared `tests/unit/architecture/git_tracked_paths.py`,
+which also gained the warning the registry's own copy had silently dropped when git could not
+answer — a second finding from the same review. `CS-005` records both as the case study's own
+"closed" line being wrong, corrected by the review process this bug's fix relied on working.
 
 ## Case study
 

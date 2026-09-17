@@ -1366,3 +1366,60 @@ still there, and each now carries the `[review: …]` row it was found under, `B
 included. The reference checker `BUG-129` had just taught to read `git ls-files` is what confirmed
 the rewrite left no dangling path behind it: **11 documents, every path resolving**, on the merged
 tree.
+
+### 4.16 A second session's review of §4.15 (PR #223), and what it found still open
+
+`ONBOARDING.md` §7 requires a different session to review before code reaches `master-warrior`;
+PR #223 got one. No blocking findings — the code was sound — but four should-fix and two nits,
+and two of the four are worth recording here because they are not typos: they are the same class
+this whole review cycle exists to close, caught a level up.
+
+**S1 — `CS-005` struck through a class that was still open, and the strikethrough was wrong on a
+live instance, not just on a hypothetical one.** The reviewer reproduced `BUG-129`'s exact shape
+on `test_module_boundaries.py`'s zone check: `git rm --cached` the one file `domain` tracks, leave
+the directory (and its `__pycache__`) on disk, and `test_src_root_is_where_we_think_it_is` kept
+passing — `is_dir()` cannot tell a zone still holding real files from one surviving only as a
+stale shell, exactly the shape that let `application` sit in `_ZONES_THAT_MUST_EXIST` for 14
+hours after the repository had nothing left under it. Fixed the same way: the check now asks
+`git_tracked_paths.tracked_paths()` for at least one file under each zone. That helper is new too
+— it did not exist when §4.15 was written; there were **two** independent copies of the same
+`git ls-files` logic (the script's, the registry's), and writing a third for this check would have
+been the exact drift `CLAUDE.md`'s opening warning names. All three guards (the script keeps its
+own, since it must not import `tests/`; the registry; the zone check) now read from one place.
+`CS-005`'s strikethrough is un-struck, with a new row for the mistake itself: closing the *class*
+after fixing one instance, when a second lived in the same shape, is the failure a case study
+exists to catch, and it caught its own.
+
+**S2 — the registry's `_tracked_paths()` returned `None` and skipped the filter with no warning,
+unlike the script's own `check()`, which prints one naming `BUG-129`.** `git_tracked_paths.py`
+carries that warning now, in the one place both callers reach it.
+
+**S3 — "Architecture tier: 386 passed" in the PR body was a number this disk produced, not one the
+repository does.** The reviewer reproduced 380 on the same head; the discrepancy is
+`test_claude_rule_pointers_match_agents_rules.py`, which parametrizes from `.agents/rules/` and
+`.claude/rules/` **on disk** — and `BOT-134`'s merge, landing mid-review, had deleted `qml-rule.md`
+and `code-rule.md` from the repository while an earlier `ruff`/pytest run of mine had left them on
+this container's disk. The number in the PR body is corrected to the reproducible one.
+
+**S4 — the cited gate log did not run on the head commit.** `cdfdffd3` is documentation-only, so
+`ci-rule.md`'s exception covers it, and GitHub CI ran the full gate on that exact head and passed
+(run 397) — but the PR body should have cited that run for the head commit and the local log only
+for its parent, not one log for both. Corrected in the PR body.
+
+**N1 — the fix was scoped to the one regression, and the deferral was not written down.**
+`src/` carries eleven more `setFixedWidth`/`setFixedSize` calls the reviewer listed by file and
+line, several on text-holding widgets (`backtest_trade_logs_panel.py`'s search field,
+`settings_view.py`'s save button and sync-days spinner, `gap_inspector_dialog.py`'s close button).
+Left alone deliberately: fixing eleven call sites nobody asked about, while reviewing a fix for
+one, is the scope creep `pr-review` row A1 exists to catch from the other direction. Recorded here
+as the list for whoever next touches the H4 clause, rather than fixed as a side effect of this PR.
+
+**N2 — `BUG-129` had no line in `Tasks/ROADMAP.md`.** Added, at the top of `🟢 Completed`, per
+`ONBOARDING.md` §6.
+
+**What the reviewer confirmed, independently, in a fresh container:** installed the toolchain
+itself rather than trusting the PR's claim that one existed; ran the full gate and got the same
+pass/fail shape; ran the registry's own break-the-line probes and the two new ones above, all
+producing exactly the failure named; read the GitHub CI run for the head commit rather than taking
+the PR body's word for it; and restored every probe, leaving `git status` and `git diff HEAD`
+both empty when done — the housekeeping this whole review chain has been asking every step to do.
