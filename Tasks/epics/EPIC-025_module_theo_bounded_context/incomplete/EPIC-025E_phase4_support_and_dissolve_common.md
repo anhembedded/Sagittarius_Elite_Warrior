@@ -1221,9 +1221,11 @@ is `ls .agents/rules/`"*). Run properly against `569842d7..800d14d4`, over all *
 rather than the 7 the `CLAUDE.md` table happens to list, it found three real things. They are
 recorded here rather than quietly fixed, because two of them are mistakes in what §4.12 *claims*.
 
-**1. The gate that merged this pull request was not evidence for it (`ci` §1).** That clause is
-explicit: *"A gate run before the last commit is not evidence … If you commit after the gate, the
-gate runs again."* The PASS quoted in §4.12 ran at 01:47; five documentation files were then edited
+**1. The gate that merged this pull request was not evidence for it.** The clause is explicit:
+*"A gate run before the last commit is not evidence … Commit after the gate → run the gate
+again."* `BOT-134` rewrote the rules as tagged norms while this review was running, and that clause
+came through carrying `[review: B6]` — the very row it was found under, which is now the canonical
+way to cite it. The PASS quoted in §4.12 ran at 01:47; five documentation files were then edited
 to write that very paragraph, and the commits landed at 01:54. What had been re-run after the edits
 was the static tier plus `pytest tests/unit/architecture` and the board guards — the **every commit**
 row of §1's table, not the **before the pull request is offered** row. Re-run on the merged tree:
@@ -1321,10 +1323,10 @@ than from the rule files. This is that review, run properly over `3444cee0^..226
 commits — and it found two things plus one measurement error of its own.
 
 **1. A fixed pixel width on something that holds text** (`capital_dialog.py`, PR 4.3f).
-`ui-presentation-rule.md` allows a fixed size only for a true leaf glyph — icon, badge, divider —
-and names the consequence for anything else: it trades an overlap that is not there for a clip at
-another DPI or in another locale, because a localized string can run longer than its English
-source. The currency `QComboBox` carries codes, and it was `setFixedWidth(90)`. The row is the
+`ui-presentation-rule.md` allows a fixed size only for a true leaf glyph — *"never a fixed pixel
+size on a container holding text or widgets (a leaf glyph may)"*, now tagged `[review: H4]` — and
+the consequence for anything else is a clip at another DPI or in another locale, because a
+localized string can run longer than its English source. The currency `QComboBox` carries codes, and it was `setFixedWidth(90)`. The row is the
 amount field at stretch 1 beside a combo with no stretch, so a **floor** gives the same layout
 today and grows instead of clipping: `_CURRENCY_MIN_WIDTH` and `setMinimumWidth`. Pinned by a test
 that reads `maximumWidth()` — a `setFixedWidth` sets minimum and maximum to the same number, so
@@ -1355,3 +1357,12 @@ presenter); no `hasattr`/`getattr` probing added, no `logger.info` in a hot loop
 `@safe_ui_action` slot; and the four files still over the 400-line ceiling
 (`backtest_presenter.py` 1819, `dev_board_panel.py` 1070, `backtest_top_panel.py` 726,
 `data_management_view.py` 691) all predate the range and are already on PR 4.4's split list.
+
+**Footnote, written after the fact.** `BOT-134` merged into `master-warrior` between this review's
+last check and its merge: the twelve rules rewritten as norms, 1 976 → 453 lines, `qml-rule.md` and
+`code-rule.md` deleted, and an enforcer tag on every clause. Both findings above were re-checked
+against the rewritten files rather than assumed to survive — every clause this review cited is
+still there, and each now carries the `[review: …]` row it was found under, `B6` and `H4`
+included. The reference checker `BUG-129` had just taught to read `git ls-files` is what confirmed
+the rewrite left no dangling path behind it: **11 documents, every path resolving**, on the merged
+tree.
