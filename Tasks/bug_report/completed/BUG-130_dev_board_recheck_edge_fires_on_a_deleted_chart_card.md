@@ -9,6 +9,8 @@ The original filing claimed both tests fail identically on a clean worktree of `
 
 Real reproduction, done properly by the independent reviewer session (a fresh checkout with its own environment) and confirmed here after the fix: on real `origin/master-warrior`, both tests **pass**. The failure only exists on the PR branch, and only until the fix below landed.
 
+Written up as [`CS-006`](../../../Docs/CASE_STUDIES/CS-006_the_comparison_that_compared_itself.md), whose check — `scripts/verify_against_base.py` — replaces the broken recipe so a future "compare against a clean tree" attempt cannot repeat this exact mistake.
+
 ## Real root cause (found by the review, verified here)
 `6678d456` (PR 4.3m, this same PR) added a new required constructor parameter to `ArmStrategyCommandHandler.__init__` — `config_store: LiveStrategyConfigStore` (`src/modules/strategy/application/use_cases/arm_strategy/handler.py:56-60`, the "the handler persists the arming itself" change). Every production and unit-test call site was updated; `tests/integration/presentation/ui/conftest.py:290`'s `mock_dispatch` fixture — which hand-constructs the real handler rather than a fake, deliberately, per its own docstring — was not:
 
