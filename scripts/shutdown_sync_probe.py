@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_clie
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
     SymbolMarketMetadata,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.module import (
+    DatabaseScreenModule,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
@@ -36,9 +39,6 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module impor
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.module import (
     DashboardScreenModule,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.module import (
-    DatabaseScreenModule,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
     SettingsScreenModule,
