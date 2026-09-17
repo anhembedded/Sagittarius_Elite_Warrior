@@ -278,7 +278,7 @@ code hỏng** ở đây.
 | Làm UI: bố cục màn hình, `preview.py`, icon, cột bảng | [`ui-presentation-rule.md`](.claude/rules/ui-presentation-rule.md) |
 | Bất kỳ code UI nào (QtWidgets only, không còn QML từ ADR D20) | [`ui-presentation-rule.md`](.claude/rules/ui-presentation-rule.md) |
 | Tác vụ nền khởi động từ UI: sở hữu action, huỷ, tách Coordinator | [`async-ui-action-rule.md`](.claude/rules/async-ui-action-rule.md) |
-| Đụng `src/domain/**` hoặc `src/application/**`: dữ liệu trung thực | [`domain-truth-rule.md`](.claude/rules/domain-truth-rule.md) |
+| Đụng `src/modules/*/domain/**` hoặc `src/modules/*/application/**`: dữ liệu trung thực | [`domain-truth-rule.md`](.claude/rules/domain-truth-rule.md) |
 | Dựng môi trường, thiếu công cụ | [`install-rule.md`](.claude/rules/install-rule.md) |
 
 Bốn điều dễ mất nửa ngày nếu làm sai:
@@ -293,9 +293,9 @@ Bốn điều dễ mất nửa ngày nếu làm sai:
 
 ### Ngôn ngữ
 
-Tài liệu trong `.claude/`: **tiếng Anh**. Code, định danh, docstring, comment, commit subject:
-**tiếng Anh**. Hội thoại với user, file task, bug report, tài liệu trong `Tasks/`, và chuỗi hiển thị
-trên UI: **tiếng Việt**.
+Tài liệu trong `.claude/`, `Docs/` và `Tasks/` (task, bug report, board — mọi `.md` từ 2026-09-12,
+`ONBOARDING.md` §10; tài liệu cũ giữ nguyên), code, định danh, docstring, comment, commit subject,
+chuỗi hiển thị trên UI và log: **tiếng Anh**. Hội thoại với user: **tiếng Việt**.
 
 ---
 

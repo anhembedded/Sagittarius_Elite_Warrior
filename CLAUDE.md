@@ -25,7 +25,7 @@ This file navigates and copies no rule: a copy drifts, and this repository has p
 | Domain and application code | [`domain-truth-rule.md`](.claude/rules/domain-truth-rule.md) |
 | Environment setup; a missing tool | [`install-rule.md`](.claude/rules/install-rule.md) |
 | The traps that produced broken code here, loading with the files they concern | [`pitfalls/tests.md`](.claude/rules/pitfalls/tests.md) · [`pitfalls/ui.md`](.claude/rules/pitfalls/ui.md) · [`pitfalls/source.md`](.claude/rules/pitfalls/source.md) |
-| The format of a task, bug report, case study, epic or decision record | [`.claude/templates/`](.claude/README.md) |
+| The format of a task, bug report, case study, epic or decision record | [`.claude/templates/`](.claude/templates/) |
 | The body of a pull request | [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) |
 | A word you do not know or are about to coin | [`Docs/VOCABULARY/README.md`](Docs/VOCABULARY/README.md) |
 | Executing `EPIC-025` | [`.claude/skills/epic-025/SKILL.md`](.claude/skills/epic-025/SKILL.md) |

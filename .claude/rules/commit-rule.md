@@ -8,7 +8,7 @@ description: How a commit is made — Conventional Commits, atomic changes, the 
 `ONBOARDING.md` §7 decides what may be committed, pushed and merged. This file says how.
 
 ## 1. Verification
-`ci-rule.md` §1 sets the cadence: the 1-second static checks, the architecture guards and the touched tests before every commit; the full gate on the final tree before a pull request. Never commit code a required check has shown red. Documentation-only commits (§7's set) need no run. `[gate]`
+`ci-rule.md` §1 sets the cadence: the 1-second static checks, the architecture guards and the touched tests before every commit; the full gate on the final tree before a pull request. Never commit code a required check has shown red. Documentation-only commits (§7's set) need only the document guards §7 names. `[gate]`
 
 ## 2. Message
 ```

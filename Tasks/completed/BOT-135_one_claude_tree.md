@@ -3,7 +3,7 @@
 **Status:** ✅ Done 2026-09-17
 **Source:** the user, 2026-09-17 — *"tui đánh giá cấu trúc thư mục của AI vẫn chưa tốt, cần có rule, format, skill v.v... 1 vấn đề khác là có 2 dir cho AI .agents và .claude hãy gôm lại, tối ưu cho nền tảng claude"* ("the AI directory structure is still not good; it needs rules, formats, skills and so on. Another problem: there are two AI directories, `.agents` and `.claude` — merge them, optimised for the Claude platform"), then: *"ý tưởng của tui là kiểu sẽ có các file như là manifest, skills/ rules/ pitfalls/ case_studies/ templates/ v.v... hãy cân nhắc các dự án lớn và best practice"* ("my idea is files like a manifest, skills/, rules/, pitfalls/, case_studies/, templates/ and so on — weigh it against large projects and best practice").
 **Risk:** 🟢 — documents move and one guard is replaced by another; no application behaviour changes. The one runtime effect is what Claude Code now loads by itself.
-**Complexity:** 🟡 `M` — sixty files touched, most of them one path each; the design is in §2.
+**Complexity:** 🟡 `M` — eighty files touched (`git diff --stat -M HEAD~1..HEAD`), most of them one path each; the design is in §2.
 
 ---
 
@@ -48,10 +48,12 @@ The user's idea, weighed against what the platform documents and what large repo
 
 ## 4. Testing
 
-The document guards and the architecture tier (`tests/unit/architecture`, the board guard, the navigation guard, the new tree guard, the reference checker's own tests): 209 passed before the full gate; then `scripts/ci-local.ps1 -Full` on the final tree, log path in the commit body.
+The architecture tier plus the board and navigation guards (`python -m pytest tests/unit/architecture tests/unit/test_task_board_is_consistent.py tests/unit/test_rule_navigation_is_complete.py -q`): 405 passed before the full gate; then `scripts/ci-local.ps1 -Full` on the final tree, log path in the commit body.
 
 ## Implementation notes
 
-- The reference checker, once pointed at the map and the rules, found what a reader would not: four placeholder paths written as literals (`BOT-XXX_slug.md`), two engine-repository paths cited as if local, and six links in the moved `EPIC-025` executor that still pointed one directory up. The gate's reach grew by 28 documents.
+- The reference checker, once pointed at the map and the rules, found what a reader would not: four placeholder paths written as literals (`BOT-XXX_slug.md`), two engine-repository paths cited as if local, and six links in the moved `EPIC-025` executor that still pointed one directory up. The checker read 11 documents before this change and reads 28 now.
 - The board guard found one more: `ROADMAP.md` linked `../.agents/ONBOARDING.md` in a 2026-08 note.
+- `.claude/settings.json` is tool configuration, which `ONBOARDING.md` §7 says to ask about: it is in the pull request for that reason, and the report to the user names it as the one decision in the diff.
+- The `reviewer` subagent read the commit before the pull request was opened (its first run): one blocking finding — `measure_process.py` imported by package path and crashed when run bare, as every document says to run it — and five stale citations, all fixed in the follow-up commit.
 - Not moved: the engine repository's own `.agents/` (a separate repository, `ONBOARDING.md` §9). The two Routines' prompts cite the new paths with the old ones as a fallback until this lands on `master-warrior`.

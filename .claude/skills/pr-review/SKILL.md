@@ -106,7 +106,7 @@ git status --short          # anything here was never in the verified tree
 ### C. Architecture (`arch`) — almost all `eye`
 1. Layer crossed the wrong way? §3 — `grep -rn "sagittarius_engine" src/domain src/application --include=*.py`; only the two Shared Kernel symbols named there are allowed.
 2. A new-tree package importing the legacy tree? Boundary guards in `tests/unit/architecture/`; read `tests/unit/architecture/allowlist_module_boundaries.txt` and J1.
-3. A Port gained an `@abstractmethod` with implementers left behind? §2, `onb` trap 11 — grep implementers in **`src/`, `scripts/` and `tests/`**.
+3. A Port gained an `@abstractmethod` with implementers left behind? §2, `pit` `source.md` 3 — grep implementers in **`src/`, `scripts/` and `tests/`**.
 4. Every boundary contract a named type? §2.1 — `hasattr`/`getattr` probing and unannotated `view` are the forbidden shape; `typing.Protocol` is **not**.
 5. `Protocol` chosen over ABC — does the docstring name which of the three reasons applies? §2.1.
 6. Two abstraction levels sharing a file or a directory? §5 rules 1–2.
@@ -159,15 +159,15 @@ for path in sys.argv[1:]:
 4. A test weakened, skipped, `xfail`ed or deleted to get green? `git diff --stat -M "$BASE...$HEAD" -- tests/`. Blocking wherever it appears.
 5. A **new** test added under `tests/sanity/`? (`test` §1 — a feature adds zero; a new one means the existing ones were written wrong)
 6. A port hand-substituted instead of drawing the boundary at configuration? (same section)
-7. Counts, full-dict equality, or float `== 0` in a new assertion? (`onb` §8 traps 1–4)
-8. A new field on a frozen dataclass without a default? (trap 5)
+7. Counts, full-dict equality, or float `== 0` in a new assertion? (`pit` `tests.md` 1–4)
+8. A new field on a frozen dataclass without a default? (`pit` `source.md` 1)
 9. Bug fix: regression test written **first**, confirmed failing for the right reason, at a tier that actually reaches the failure? (`bug` §4 — a `Mock` standing in for the crashing method cannot reproduce it)
 10. Bug fix: does it fix the mechanism or patch the one reported call site? (`bug` §2, `onb` §12.5 principle 1 — the general solution is required; cost is not a reason to prefer local)
 11. A widget or module **rewritten together with its tests**? Then E4's file-level check is not enough: the new tests can be more numerous and still cover less. List what the deleted tests asserted, say where each guarantee now lives, and name the ones deliberately dropped with the reason (a framework now does it; the feature is gone).
 12. Where a new test pins a **wiring or a rule** — a signal connection, an enable/disable gate, a guard's threshold, a confirmation before a destructive act — **would it fail if that line were removed?** Do not reason about it; break the line and run. (Not every test needs this: one that feeds a pure function its own inputs already shows it can fail. It is the tests whose subject is *that two things are connected* which pass just as happily when they are not.) `EPIC-025` PR 0.4b shipped a search box whose two `textEdited` connections could be deleted with all 22 tests in the file still green — every test drove the setter method, and typing is a different code path. Three commands, and the answer is evidence rather than opinion:
 
 ```bash
-# E12 — the test that cannot fail is not a test (`onb` §8 traps 1-4 are the
+# E12 — the test that cannot fail is not a test (`pit` `tests.md` 1–4 are the
 # same disease). Break the one line the test names, run only that file,
 # restore. Copy first: an interrupted review must not leave the break behind.
 cp src/<path>.py /tmp/keep.py
@@ -191,7 +191,7 @@ cp /tmp/keep.py src/<path>.py && git diff --stat -- src/<path>.py   # empty
 2. Cancellation cooperative and idempotent — no success/failure published after a cancel, no blind force to `IDLE`?
 3. A Coordinator owning FSM state or its own action-id bookkeeping? (It must not — one owner.)
 4. A Coordinator DI-registered or self-resolving instead of constructor-injected and Presenter-owned?
-5. Important work placed *after* a call that can throw inside a `@safe_ui_action` slot? (`onb` traps 7–8)
+5. Important work placed *after* a call that can throw inside a `@safe_ui_action` slot? (`pit` `ui.md` 1–2)
 
 ### H. UI presentation (`ui`)
 1. A new `.qml` file, global stylesheet, palette or theme library? Run the guards in `tests/unit/architecture/`.
@@ -204,7 +204,7 @@ cp /tmp/keep.py src/<path>.py && git diff --stat -- src/<path>.py   # empty
 
 ### I. Logging (`log`)
 1. Every new logger under `"App."`? `grep -rn 'getLogger(' src --include=*.py`, read each non-`"App"` hit; `tests/unit/test_logging_namespace_guard.py` is the mechanical half.
-2. A new `logger.info()` inside a hot loop (per trade/candle/tick/frame)? (`onb` trap 9)
+2. A new `logger.info()` inside a hot loop (per trade/candle/tick/frame)? (`pit` `ui.md` 3)
 3. Does it log the **decision** — which backend, which fallback, why — not just the outcome? (§2–§3)
 4. Narrowest level that fits, and a stable bracketed tag? (§6, §8)
 5. Has the new diagnostic been seen to emit through the **real** logging config? (§9)

@@ -1,9 +1,10 @@
 ---
-description: Traps that produced broken UI code here — one line each, with the bug id. Loads with every presentation, module UI and ui_kit file.
+description: Traps that produced broken UI code here — one line each, with the bug id. Loads with every presentation, module UI, ui_kit and charting file.
 paths:
   - "src/presentation/**/*.py"
   - "src/modules/*/ui/**/*.py"
   - "src/support/ui_kit/**/*.py"
+  - "src/support/charting/**/*.py"
 ---
 
 # Pitfalls — UI

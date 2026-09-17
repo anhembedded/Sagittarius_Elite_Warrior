@@ -24,7 +24,7 @@ Every rule under `.claude/rules/` loads by itself: a rule with a `paths:` list i
 | 10 | `.claude/rules/domain-truth-rule.md` | opening domain or application code |
 | 11 | `.claude/rules/ui-presentation-rule.md` | opening UI code |
 | 12 | `.claude/rules/report-rule.md` | every session — before any report or question to the user |
-| 13 | `.claude/rules/install-rule.md` | opening `requirements.txt`, `pyproject.toml`, `scripts/` or the workflow; §5 for a missing tool |
+| 13 | `.claude/rules/install-rule.md` | opening `requirements.txt`, `pyproject.toml`, `scripts/` or the workflow; this file's §5 for a missing tool |
 | 14 | `.claude/rules/pitfalls/tests.md` · `pitfalls/ui.md` · `pitfalls/source.md` | with the files each trap concerns (§8) |
 | — | `Docs/VOCABULARY/README.md` | any term you do not know or are about to coin (add it in the same commit) |
 | — | `Docs/SPEC/README.md` | what the app must do; a changed flow updates its SPEC in the same PR |
@@ -69,7 +69,7 @@ Every finished task or bug: one line at the top of the `🟢 Completed` list in 
 | `git commit` | free once `ci-rule.md` §1's per-commit checks are green; one logical change per commit |
 | `git push` to your own session or feature branch | free |
 | Open a pull request | free; body from `.github/PULL_REQUEST_TEMPLATE.md` |
-| Merge a **documentation-only** change into `master-warrior` | free. Documentation-only means every changed path is under `Docs/` or `Tasks/`, or is a `.md` file under `.claude/` or `.github/`, or is `CLAUDE.md` or `README.md`; any other path makes it a code change. This is the only definition — `CLAUDE.md` and `ci-rule.md` point here |
+| Merge a **documentation-only** change into `master-warrior` | free once `python3 scripts/check_skill_prompt_references.py` and the document guards are green — `tests/unit/test_task_board_is_consistent.py`, `tests/unit/test_rule_navigation_is_complete.py`, `tests/unit/architecture/test_claude_tree_is_wired.py`, `test_case_study_index_is_consistent.py`, `test_spec_index_is_consistent.py`, seconds in all; the checker is a gate step, so a documentation-only merge that skipped it has reddened CI before (`BUG-129`). Documentation-only means every changed path is under `Docs/` or `Tasks/`, or is a `.md` file under `.claude/` or `.github/`, or is `CLAUDE.md` or `README.md`; any other path makes it a code change. This is the only definition — `CLAUDE.md` and `ci-rule.md` point here |
 | Merge a **code** change into `master-warrior` | only after (1) the full gate is green on the final tree with the log grepped, (2) a **different** session has run `.claude/skills/pr-review/SKILL.md` on the pull request and every blocking finding is resolved, and (3) the user merges, or the reviewer merges when the user delegated that in the reviewing session. The author session never merges its own code; the `reviewer` subagent is the author's own pre-check, not that review |
 | Push to `master-warrior` directly | a documentation-only commit only (it is its own merge); code never |
 | Engine repository | its own confirmation, its own commit and push |

@@ -62,7 +62,7 @@ chọn hướng — (a) có thể đã đủ nếu UI chỉ giật nhẹ, không
 
 ## 4. Test bắt buộc
 
-Theo `.claude/rules/code-rule.md`. Một test tái tạo được sự đơ là khó (không
+Theo `.claude/rules/testing-rule.md`. Một test tái tạo được sự đơ là khó (không
 đo UI responsiveness qua unit test dễ dàng) — tối thiểu cần 1 benchmark script
 đo tổng thời gian giữ GIL liên tục (ví dụ đo khoảng cách tối đa giữa 2 lần
 main thread có thể acquire GIL trong lúc `_simulate()` chạy) để chứng minh

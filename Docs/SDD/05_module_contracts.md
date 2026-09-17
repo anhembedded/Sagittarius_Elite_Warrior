@@ -9,7 +9,7 @@
 specified here before it is built and corrected here after, with the
 measurement that moved it. That is the traceability this split was asked for:
 a reader comparing the code to the spec reads one file, and a pull request
-that discovers a divergence edits one file (`epic-025.prompt.md` §3 step 10
+that discovers a divergence edits one file (`.claude/skills/epic-025/SKILL.md` §3 step 10
 makes that a step rather than a courtesy).
 
 ### The symbol lease (SDD-04) — `ITradingSession`

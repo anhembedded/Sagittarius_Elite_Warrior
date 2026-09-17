@@ -47,7 +47,8 @@ _RULES = _CLAUDE / "rules"
 
 #: Lines Claude Code puts in context at the start of every session: `CLAUDE.md`, the map it
 #: imports, and every rule without a `paths:` list. Measured at 363 on 2026-09-17, when the
-#: tree was consolidated; the ceiling is the next round number up and only ever moves down.
+#: tree was consolidated; the ceiling leaves the map a few lines of headroom and only ever
+#: moves down.
 _ALWAYS_LOADED_MAX_LINES = 380
 
 #: What `CLAUDE.md` must import for the map to be in context without being remembered.
