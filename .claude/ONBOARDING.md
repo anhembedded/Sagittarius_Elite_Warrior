@@ -76,6 +76,8 @@ Upon finishing any task or defect fix:
 | Push directly to `master-warrior` | **Restricted** | Documentation-only commits only; code pushes strictly prohibited |
 | Modify dependencies (`requirements.txt`, `pyproject.toml`, settings) | **Requires Approval** | Must consult user first |
 
+**Documentation-Only — the only definition (`CLAUDE.md` and `ci-rule.md` §1 point here):** every changed path is under `Docs/` or `Tasks/`, or is a `.md` file under `.claude/` or `.github/`, or is `CLAUDE.md` or `README.md`. Any other path makes the change a code change. The document guards are `tests/unit/test_task_board_is_consistent.py`, `tests/unit/test_rule_navigation_is_complete.py`, `tests/unit/architecture/test_claude_tree_is_wired.py`, `tests/unit/architecture/test_case_study_index_is_consistent.py`, `tests/unit/architecture/test_spec_index_is_consistent.py` — seconds in all. The reference checker is itself a gate step: a documentation-only merge that skipped it has reddened `master-warrior` before (`BUG-129`). `[gate]`
+
 **Reviewer Protocol:** The author session must never review its own code. Spawn a dedicated session via `create_session` with inherited environment (never local `Agent` tool). Provide review briefing: `CLAUDE.md` → this file → modified files → `.claude/skills/pr-review/SKILL.md`. Post findings as a durable PR review/comment using direct GitHub tools.
 
 ## 8. Anti-Pattern Traps
