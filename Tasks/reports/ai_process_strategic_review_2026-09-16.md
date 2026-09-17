@@ -1,24 +1,31 @@
 # The AI process as a system — a strategic review
 
-**Date:** 2026-09-16 · **Task:** `BOT-134` · **Asked for:** strategy, a systems view, the
-philosophy — not a defect list (the user's words: *"tui ko yêu cầu bạn kiểm tra lỗi, tôi muốn tính
-chiến lược, góc nhìn hệ thống, triết lý"*). Defects found on the way are evidence for the systems
-view and were fixed in the same branch; they are listed in §5 and nowhere else.
+**Dates:** 2026-09-16 (review), 2026-09-17 (recommendations applied; arguments re-anchored to
+published sources on the user's instruction) · **Task:** `BOT-134`.
 
-**How this was made.** Every process document was read whole (`CLAUDE.md`, `ONBOARDING.md`, the
-fourteen rule files, the scheduled-agent briefings, both `.claude/` skills, the three case
-studies, the boards); the full git history was unshallowed and measured; the seven Routines, the
-last sixty pull requests, the CI runs and the session records were read through their APIs; and a
-fresh container was bootstrapped to the point where the local gate runs, so that every claim
-about the environment below was tried rather than assumed. Numbers are in Appendix A with the
-command that produced each.
+**What was asked.** Strategy, a systems view and the philosophy of the repository's AI-run
+process — not a defect list (*"tui ko yêu cầu bạn kiểm tra lỗi, tôi muốn tính chiến lược, góc nhìn
+hệ thống, triết lý"*). Then: make the rules short and token-cheap and apply the recommendations
+(*"sửa luôn những gì bạn đề xuất"*). Then: ground every argument in established human knowledge
+rather than in this review's own reasoning (*"báo cáo lấy lập luận từ kiến thức nhân loại chứ
+không phải logic bạn tự nghĩ ra"*).
+
+**How to read the arguments.** Each principle, each case study and each recommendation names the
+published idea it rests on — an author, a work and a year, listed in the References at the end.
+Where a sentence is this review's own inference from the repository's data, it says *"measured
+here"* and gives the number; nothing else is asserted on the review's own authority.
+
+**How this was made.** Every process document was read whole; the git history was unshallowed
+and measured; the Routines, the last sixty pull requests, the CI runs and the session records were
+read through their APIs; a fresh container was bootstrapped to the point where the local gate
+runs, so every claim about the environment was tried rather than assumed. Numbers are in
+Appendix A with the command that produced each.
 
 ---
 
 ## 1. The system as it is
 
-The process is a loop, and it is worth drawing once, because most of what follows is about which
-arrows exist and which do not.
+The process is a loop; most of what follows is about which arrows exist and which do not.
 
 ```text
                      ┌──────────────────────────────────────────────────────────┐
@@ -29,9 +36,9 @@ arrows exist and which do not.
                                      ▼                              │ questions (ONBOARDING §11)
    ┌──────────────── the constitution ────────────────┐             │
    │ CLAUDE.md (auto-loaded, navigates only)          │             │
-   │  → ONBOARDING.md (the map, 520 lines)            │             │
-   │  → .agents/rules/*.md (14 files, 1 976 lines)    │             │
-   │  → .claude/rules/*.md (6 pointers, load by path) │             │
+   │  → ONBOARDING.md (the map)                       │             │
+   │  → .agents/rules/*.md                            │             │
+   │  → .claude/rules/*.md (pointers, load by path)   │             │
    └───────────────┬──────────────────────────────────┘             │
                    │ read (by choice, in order, from memory)         │
                    ▼                                                 │
@@ -44,379 +51,241 @@ arrows exist and which do not.
                    ▼
    ┌──────────────── the immune system ───────────────┐
    │ scripts/ci-local.ps1 -Full  (ruff, mypy, refs,   │   ┌──────────────────────┐
-   │   4 900 tests, 80 % coverage, run-log scan)      │──▶│ PR opened and merged │
-   │ 35 guards + 5 ratchets that may only fall        │   │ by the same session, │
+   │   ~4 900 tests, 80 % coverage, run-log scan)     │──▶│ PR opened and merged │
+   │ 35 guards + ratchets that may only fall          │   │ by the same session, │
    │ a registry of guards, a guard for the registry   │   │ median 6 s later     │
    └───────────────┬──────────────────────────────────┘   └──────────┬───────────┘
                    │                                                 ▼
                    │                                      ┌──────────────────────┐
                    │                                      │ GitHub CI, after the │
-                   │                                      │ merge (second gate,  │
-                   │                                      │ not the same gate)   │
-                   ▼                                      └──────────────────────┘
-   ┌──────────────── the memory ──────────────────────┐
-   │ bug reports (133) → case studies (3) → a new     │   ┌──────────────────────┐
-   │ guard each → a trap in ONBOARDING §8 → a rule    │   │ 7 scheduled agents,  │
+                   │                                      │ merge (a second gate │
+                   ▼                                      │ until 2026-09-17)    │
+   ┌──────────────── the memory ──────────────────────┐   └──────────────────────┘
+   │ bug reports → case studies → a new guard each    │   ┌──────────────────────┐
+   │ → a trap in ONBOARDING §8 → a rule               │   │ 7 scheduled agents,  │
    │ boards: ROADMAP, epics README, per-epic README + │   │ every 2 days, output │
    │ TRACKING + Gantt, bug board — copied by hand     │   │ observed: none since │
    │ (17 of the last 100 commits only record)         │   │ 2026-08-27           │
    └──────────────────────────────────────────────────┘   └──────────────────────┘
 ```
 
-Three things about this picture are the subject of this review. The left column is strong and
-unusual: a repository that turns every incident into a machine check, and writes its reasoning
-into commit bodies good enough to be the primary record. The right column is where the arrows are
-weak: review is the author reading itself, the merge is a formality, and the one component built
-for independent eyes (the scheduled agents) has produced nothing observable for twenty days. And
-the memory at the bottom is written five times by hand, in a repository whose own onboarding says
-that hand-maintained copies of state *"drift, always"*.
+The left column is strong and unusual: a repository that turns every incident into a machine
+check and writes its reasoning into commit bodies good enough to be the primary record. The
+right column is where the arrows are weak: review is the author reading itself, the merge is a
+formality, and the one component built for independent eyes had produced nothing observable for
+twenty days. The memory at the bottom is written five times by hand, in a repository whose own
+onboarding says that hand-maintained copies of state *"drift, always"*.
 
 ---
 
-## 2. The philosophy, stated once
+## 2. The philosophy, stated once — and where each idea comes from
 
-The principles below are not new. Every one of them is already in force here — argued in chat,
-dated, quoted verbatim into a rule file. What has never existed is one page that names them and
-says what enforces each. That last column is the point of the table: it is the same question the
-repository asks of every feature (*what constructs it?*), asked of the process.
+Every principle below is already in force here, argued in chat and quoted into a rule. None of
+them is original to this repository; each is a named idea with a literature, and the fourth
+column says which. The last column asks the question the repository asks of every feature —
+*what constructs it?* — of the process itself.
 
-| # | Principle | Where it came from | What enforces it today |
+| # | Principle as practised here | Its established source | Enforced today by |
 | :-- | :--- | :--- | :--- |
-| P1 | **Mechanism over memory.** *"Chỗ nào còn phải nhớ thì chỗ đó sẽ hỏng"* — wherever remembering is required, it will break. | `BOT-133`, the user, 2026-09-10 | 35 guards, 5 ratchets, a registry of guards; `bug-fix-rule` §6.5 (a case study ships its check in the same commit) |
-| P2 | **Verify, don't restate.** A fact that can change is written as the command that answers it; counts and dates as current state are banned. | `EPIC-011`, `.agents/Skills/README.md` §1 | `check_skill_prompt_references.py` — for *paths* only; a stale claim has no checker |
-| P3 | **One source of truth; a copy drifts.** `CLAUDE.md` navigates and copies nothing; `Handover.md` was deleted rather than rewritten. | `CLAUDE.md`; `ONBOARDING` §12.2 | the pointer-size guard, the navigation guard; nothing for a rule restating another rule (four found today) |
-| P4 | **The gate is the only evidence, and green describes only what the gate checks.** Redirect to a file, grep the file; never `\| tail`. | `BUG-029`/`030`; `CS-001`'s *take* | `ci-local.ps1`'s run-log scan; review row B; the gate's log path cited in every commit body |
-| P5 | **Apply before you invent.** Survey named patterns and vetted projects first; adopt, or copy the shape. | the user, 2026-09-13 | review row A5 — an eye check |
-| P6 | **Fix the mechanism; general over local.** Cost is never the reason to prefer the local fix. | the user, 2026-09-08 (`BOT-128`) | `bug-fix-rule` §2; review row E10 — eye checks |
-| P7 | **Seam now, variant later.** Open/Closed for the seam, YAGNI for the variant; write the extension cases into the docstring. | the user, 2026-09-13 (`architecture-rule` §7.2.1) | eye; `EPIC-025` ADR D15's "second host is one line" tests, per seam |
-| P8 | **Ratchets only fall.** An allowlist or baseline may shrink; raising a ceiling to admit new code is forbidden. | `EPIC-025` D11; `ci-rule` §5.5 | the ratchet tests themselves — fully mechanical |
-| P9 | **Decide alone; ask with context.** Three categories of question, and every question carries what the code does today and what "yes" commits the user to. | `ONBOARDING` §7, §11 (2026-08-30, 09-13) | nothing mechanical; `report-rule` shapes the answer |
-| P10 | **A number has a unit and a target.** Evidence is `file:line` and a measured count; a report ends on the reader's next action. | `report-rule` §4; `ONBOARDING` §10 | eye; the commit-body convention |
+| P1 | **Mechanism over memory** — *"wherever remembering is required, it will break"* (`BOT-133`). | Poka-yoke, mistake-proofing: Shingo (1986) — build the check into the process so the error cannot be made, rather than asking the worker to remember. | 35 guards, ratchets, the guard registry; the case-study rule (the check ships with the write-up) |
+| P2 | **Verify, don't restate** — a fact that can change is written as the command that answers it. | Single source of truth / DRY: Hunt & Thomas (1999) — every piece of knowledge has one authoritative representation. | the reference checker (paths only); a stale *claim* has no checker |
+| P3 | **A copy drifts** — rules point, never restate; hand-written summaries were deleted. | DRY (Hunt & Thomas 1999); ADRs (Nygard 2011) separate the decision record from the current rule. | the navigation and pointer guards; nothing for a rule restating another rule |
+| P4 | **Green describes only what the gate checks.** Read the log file, never the console. | Dijkstra (1970): testing shows the presence of bugs, never their absence. | the run-log scan; review row B |
+| P5 | **Apply before you invent** — survey named patterns and vetted projects first. | Design patterns as shared vocabulary (Gamma et al. 1994); "Choose Boring Technology" (McKinley 2015). | review row A5 |
+| P6 | **Fix the mechanism, general over local** — cost is never the reason to prefer the local fix. | Deming (1986): most defects come from the system, not the individual act; root-cause analysis (Ohno's "five whys", Toyota). | `bug-fix-rule` §2; review row E10 |
+| P7 | **Seam now, variant later.** | Open/Closed Principle (Meyer 1988); YAGNI (Beck 1999); seams (Feathers 2004). | review row C9; per-seam locking tests |
+| P8 | **Ratchets only fall** — an allowlist may shrink, never grow. | The "strangler fig" migration (Fowler 2004): the old tree may only shrink; Lehman's law of increasing complexity (1980): complexity grows unless work is done to reduce it. | the ratchet tests |
+| P9 | **Decide alone; ask with context.** | "Disagree and commit" (Grove 1983; an Amazon leadership principle); the narrative memo — context before the ask. | `report-rule` §7 |
+| P10 | **A number has a unit and a target**; answer first. | The Pyramid Principle (Minto 1987); the four key metrics as measured, not narrated, outcomes (Forsgren, Humble & Kim 2018). | review row K6; the commit-body convention |
 
-Four of the ten have a machine behind them. Six rest on an agent having read the rule and
-remembered it — which is exactly the condition P1 says will fail. **That is the central tension of
-this process: it applies "mechanism over memory" to the application with rigour, and to itself
-only partly.** The strategy in §4 is mostly about closing that gap without adding to the reading
-burden that already exists.
+Four of the ten have a machine behind them; six rest on the agent having read and remembered the
+rule — the condition Shingo's poka-yoke exists to remove. That is the central tension: the
+process applies mistake-proofing to the application with rigour and to itself only partly.
 
 ---
 
 ## 3. Dynamics — seven process case studies
 
-These follow the form of `Docs/CASE_STUDIES/` (what happened · which net was silent and why ·
-still open?) but they are about the *process*, so the "check that now exists" is sometimes a
-decision rather than a test. They are numbered PCS to keep them out of the CS sequence, whose
-guard requires a test to ship with each entry.
+The form follows the blameless postmortem (Allspaw 2012; Beyer et al. 2016, "Postmortem
+Culture"): what happened, which safeguard was silent and why, what is still open. They are
+numbered PCS to keep them out of the CS sequence, whose guard requires a test per entry.
 
 ### PCS-1 The super-session monoculture
 
-One interactive session, opened 2026-09-08 and still running at the time of writing, authored
-164 of the last 216 commits on `master-warrior` and every pull request from #193 to #220. Of the
-twenty pull requests #201–#220, fourteen were merged within thirty seconds of being opened, all by
-the session that wrote them; the pull request is a ceremony, and the real gate is the local run
-the session reports. Review exists — the `pr-review` skill is thorough — but the commit bodies
-say who ran it: *"The review's own finding on PR 2.1c-2"*, *"The review of PR 3.1b, on its own
-work"*. The three case studies (`CS-001`, `CS-002`, `CS-003`) were all found *after* merge, by the
-same lineage, while measuring something else.
+One interactive session, opened 2026-09-08, authored 164 of the last 216 commits on
+`master-warrior` and every pull request from #193 to #220; fourteen of the twenty #201–#220 were
+merged within thirty seconds of being opened, by the session that wrote them (measured here). The
+`pr-review` skill is thorough and the commit bodies say who ran it: *"The review's own finding on
+PR 2.1c-2."* The three case studies (`CS-001`–`003`) were all found after merge.
 
 | Net | Why silent | Still open? |
 | :--- | :--- | :--- |
-| `pr-review` skill | written for a reviewer; run by the author, in the author's context | yes |
-| the PR itself | nothing requires a second session before merge; the user merges what is proposed | yes |
-| independent review sessions | happen ad hoc (PR #211, the `EPIC-025` design review, the hang audit) and found real things each time — but are not policy | yes |
+| `pr-review` skill | written for a reviewer; run by the author, in the author's context | closed 2026-09-17 (S5) |
+| the PR itself | nothing required a second session before merge | closed 2026-09-17 (S5) |
 
-A single line of reasoning, however good, has no adversary. Everything the session knows is also
-everything it cannot see. The self-review's own E12 probe ("break the line, run the test") found an
-unpinned wiring in four of the last five pull requests — evidence that the process *needs* a second
-reading and is currently getting it from the first reader.
+**In the literature.** Fagan's inspections (1976) found a large share of defects before test
+precisely because the inspector was not the author; Raymond's "Linus's law" (1999) — *given enough
+eyeballs, all bugs are shallow* — is the same claim for open source; IEEE 1012's independent
+verification and validation requires that the verifier be organisationally separate from the
+developer; Google's code-review practice requires an approver other than the author. The self-
+review's own E12 probe found unpinned wiring in four of five pull requests (measured here) — the
+process needed a second reading and was getting it from the first reader.
 
 ### PCS-2 Boards copied by hand, five times per pull request
 
-`ONBOARDING` §6 calls bookkeeping *"the most commonly botched part"* and lists "all three places";
-`Tasks/epics/README.md` lists three more for an epic; a pull request of `EPIC-025` is recorded in
-`TRACKING.md`, the epic's own `README.md` (status header, §3.4 table and a Gantt), `Tasks/epics/README.md`
-and `Tasks/ROADMAP.md`. Seventeen of the last hundred commits exist only to record other commits.
-Measured today: eight task files had no row on any board (`BOT-092`, `BOT-119`, `BOT-131`;
-`BOT-118`, `BOT-130`, `BOLT-001`, `DOCTOR-001`, `DOCTOR-002`), three epic sub-tasks were not named
-in their epic's README, and the `EPIC-025` row on the epics board says of itself that it *"said 36
-until 2026-09-16; the file has held 23 entries since PR 1.3c-5"*.
+A pull request of `EPIC-025` was recorded in `TRACKING.md`, the epic README (header, table,
+Gantt), `Tasks/epics/README.md` and `ROADMAP.md`; seventeen of the last hundred commits existed
+only to record other commits; eight task files had no row anywhere and three sub-tasks were
+unnamed in their epic README (measured here).
 
 | Net | Why silent | Still open? |
 | :--- | :--- | :--- |
-| `test_task_board_is_consistent.py` | checked dangling links (a row with no file), never the reverse (a file with no row) | closed today — the reverse check is in the same file |
-| `ONBOARDING` §12.2 | says hand-copied state always drifts, and deleted `Handover.md` for it — then the boards multiplied anyway | yes, structurally |
+| `test_task_board_is_consistent.py` | checked dangling links, never the reverse | closed 2026-09-16 |
+| `ONBOARDING` §12.2 | stated the principle and deleted `Handover.md` for it; the boards multiplied anyway | count table derived 2026-09-17 (S4) |
 
-The count table, the epic status column and the per-PR log are all *derivable* — from `ls` of the
-`completed/` directories and from `git log`. They are copied instead. §4 S4.
+**In the literature.** DRY (Hunt & Thomas 1999): duplicated knowledge is knowledge that will
+disagree with itself; derive what can be derived. Humble & Farley (2010) apply the same rule to
+builds — build once, derive everything downstream.
 
 ### PCS-3 Seven scheduled agents that succeed at nothing
 
-Seven Routines (Bolt, Doctor, Janitor, Palette, Scout, Scribe, Sentinel) have fired every two days
-since 2026-08-27. Every `last_run` reads `SUCCEEDED`. In the same period: zero pull requests from
-any of them (every PR from #161 to #220 came from an interactive session), zero journal entries
-(`bolt.md` is the only journal, last entry 2026-08-26), and the two sampled runs ended in a state
-the platform labels "review ready" with nothing to review. Their briefing says an empty run is a
-correct outcome — so from the outside, *found nothing*, *could not build the environment*, and
-*found something and lost it* are the same signal. Meanwhile the one scheduled audit with a defined
-output (`test-health`, "every 3 days") has no Routine at all and ran once, on 2026-09-07.
+Seven Routines fired every two days from 2026-08-27; every run reported `SUCCEEDED`; zero pull
+requests and zero journal entries came from them, and their brief called an empty run correct
+(measured here). The one audit with a defined output (`test-health`) was never scheduled.
 
 | Net | Why silent | Still open? |
 | :--- | :--- | :--- |
-| the Routine's status | measures that the wake was delivered, not what the run did | yes |
-| `.agents/Skills/README.md` §7 | asks an agent with nothing to find to say so in its journal — none has | yes |
-| the boards | the two agent tasks that *were* done (`BOLT-001`, `DOCTOR-001`/`002`) never reached them | closed today |
+| the Routine's status | measures that the wake was delivered, not what the run did | retired 2026-09-17 (S6) |
+| the brief's "empty run is correct" | made *found nothing*, *could not build* and *lost it* one signal | replaced by a dated file per run |
 
-Order of magnitude: about seventy runs at a few dollars each, for no observable change. §4 S6.
+**In the literature.** The SRE monitoring literature (Beyer et al. 2016) alerts on the
+*absence* of expected work — a heartbeat, a "dead man's switch" — because a job that reports
+success regardless of outcome is indistinguishable from one that never ran.
 
 ### PCS-4 The immune system that closes the last hole
 
-`CS-001` produced a guard for calls on the engine's ports. `CS-002` produced a guard for bus
-subscribers nobody constructs. `CS-003` produced a guard for resolved types nobody binds — and says
-of `CS-002`'s guard that it *"was written for this disease and scoped to bus subscribers"*. There
-are now 29 guard files under `tests/unit/architecture/`, 6 more at the top of `tests/unit/`, a
-registry of what each scans, a guard that the registry is complete, and a guard that every root a
-guard computes is really the root. `ci-rule` §5.5 had to add a four-step procedure for the case
-where a guard fails *correct* code because a later decision (ADR D20–D22) reversed the doctrine
-the guard encodes. Each guard is right. The sum is an organism that grows one antibody per
-infection, never retires one, and has no measure of its own weight.
+`CS-001` produced a guard for engine-port calls, `CS-002` for unconstructed subscribers,
+`CS-003` for unbound resolved types — and `CS-003` says of `CS-002`'s guard that it was *written
+for this disease and scoped to bus subscribers*. Thirty-five guard files, a registry, a guard for
+the registry; `ci-rule` §5.5 had to add a procedure for guards that fail correct code after a
+design reversal (measured here).
 
 | Net | Why silent | Still open? |
 | :--- | :--- | :--- |
-| the case-study rule ("the check ships in the same commit") | correct, and one-directional: it adds guards, and nothing removes or budgets them | yes |
-| the registry | knows what each guard scans, not why it exists or when it may go | yes |
+| the case-study rule | adds a check per incident; nothing removes or budgets one | retirement rule 2026-09-17 (S9) |
 
-This review deliberately adds **no** new guard file (two existing guards were extended by one
-parameter each), because the finding is that the marginal guard now costs more reading than it
-saves. §4 S9.
+**In the literature.** Reason's Swiss-cheese model (1990): each layer of defence has holes and
+accidents pass through aligned holes — so adding one layer per accident, each shaped like the last
+hole, is expected to leave the next alignment open. Lehman (1980): a system's complexity grows
+unless work is spent reducing it; a test suite is a system. Beck (1999): test what could break,
+which implies deleting tests for what no longer can.
 
 ### PCS-5 Rules that quote themselves
 
-Found today, all in the constitution: `commit-rule` §1 required the full gate before *every*
-commit while `ci-rule` §1 had moved to once per pull request (user decision 2026-09-16);
-`commit-rule` §0 said "never commit unless asked" without the two standing exceptions `ONBOARDING`
-§7 grants; `bug-fix-rule` §6.5 said a case study over 60 lines fails the guard, and the guard holds
-35; `.agents/Skills/README.md` quoted, in quotation marks, a sentence `ci-rule.md` has never
-contained; `ONBOARDING` §5 said the repository *always* carries a few `I001` errors, which licenses
-ignoring them, and it is lint-clean at every merge; `install-rule` §1's Option 1 was the exact
-command that `ci.yml`'s own comment records as having failed every CI run in the repository's
-history; `README.md` said "QML embedded per widget" three days after ADR D20 retired QML.
+Seven contradictions inside the constitution — a cadence stated two ways, a number the guard
+did not hold, a quotation the cited file never contained, a claim of current state a command
+disproved, an install command the CI file itself recorded as failing (measured here).
 
 | Net | Why silent | Still open? |
 | :--- | :--- | :--- |
-| `check_skill_prompt_references.py` | verifies that a cited *path* exists; a cited *claim* or *quotation* has no checker | yes |
-| the navigation guard | verifies a rule is *listed*; two rules can be listed and contradict each other | yes |
-| the reader | rules are written as norm plus history in one file (`ci-rule` 410 lines, `ONBOARDING` 520), so a correction is one more paragraph and the older paragraphs are never re-read | yes, structurally |
+| the reference checker | verifies paths, not claims or quotations | yes |
+| the navigation guard | verifies listing, not consistency | yes |
+| the form of a rule file | norm and history in one file, so a correction is one more paragraph nobody re-reads | closed 2026-09-17 (S1) |
 
-The instances are fixed (§5). The cause is a form: a rule file that is also its own changelog.
-§4 S1.
+**In the literature.** Diátaxis (Procida): reference material and explanation serve different
+readers and rot when mixed; ADRs (Nygard 2011): the *decision and its context* live in an
+immutable dated record, the *current rule* elsewhere. A rule file that is also its changelog fails
+both.
 
 ### PCS-6 Two definitions of green
 
-`ci-rule` §7 keeps a table of how the local gate and GitHub CI differ and says the difference is
-*"deliberately not reconciled"*. Its row for the static checks said "all 3" on both sides while
-GitHub's `ruff` ran on one directory fewer than the local gate for two days (`scripts/` was added
-locally on 2026-09-14 after four errors surfaced; the workflow did not follow), and the
-real-exchange tier was excluded twice locally and once on GitHub. Nothing compared the two.
+The GitHub workflow re-listed the local gate's steps by hand and drifted twice; then, from
+2026-09-16 14:49 UTC, `master-warrior` was red for twenty consecutive runs (`BUG-129`, measured by
+the `EPIC-025` session from the runs themselves) while every local gate was green — the local
+checker asked the developer's disk, which still held directories git no longer tracked, and three
+merges landed on top of the red runs.
 
 | Net | Why silent | Still open? |
 | :--- | :--- | :--- |
-| the table in `ci-rule` §7 | a hand-written comparison of two files, which is P3's failure applied to the gate | the two rows are fixed; the table remains a copy |
+| `ci-rule` §7's comparison table | a hand-written copy of two files | removed 2026-09-17 (S3) |
+| the merge step | nothing looked at CI after merging | S5 puts a second reader before the merge |
 
-One gate — GitHub Actions running `scripts/ci-local.ps1 -Full` — removes the table. §4 S3.
+**In the literature.** Fowler (2006), "Continuous Integration": *fix broken builds immediately*
+and *everyone can see what's happening*; Humble & Farley (2010): one pipeline, one definition of
+done; the twelve-factor "dev/prod parity" rule. Merging three times onto a red build is what
+Vaughan (1996) called the normalization of deviance in the Challenger launch decision: a signal
+that is red often enough stops being read as red.
 
 ### PCS-7 Nobody owns the root
 
-Three scratch files (`pr_body.txt` with a `Co-Authored-By: Antigravity` trailer, `message_for_reviewer.txt`,
-`get_file_content.py`) were committed at the repository root on 2026-08-12 and 2026-08-16 by
-automated pull requests and stayed for a month: through roughly 370 commits, twenty reviewed pull
-requests, the `AGENTS.md` correction that purged that very trailer from the rules, and one
-`test-health` audit. Every check in the repository scans a named tree — `src/`, `tests/`,
-`scripts/`, `tools/`, `Docs/`, `Tasks/`, `.agents/`, `.claude/` — and the root itself is in none of
-them; `ruff` never saw `get_file_content.py` because the gate lints four directories, not the
-package they sit in.
+Three scratch files sat at the repository root for a month, through roughly 370 commits and
+twenty reviewed pull requests, one carrying a trailer the rules recorded as purged; every scan is
+scoped to a named tree and the root is in none (measured here).
 
 | Net | Why silent | Still open? |
 | :--- | :--- | :--- |
-| `commit-rule` §4 ("never commit temporary files") | prose | yes — an eye check by design |
-| `pr-review` L4/L6 | reads what the diff adds; the files predate every review that used the skill | closed for these three; the blind spot is P4's "green describes what the gate checks" |
+| `commit-rule` §4 | prose | an eye check, by design |
+| `pr-review` L4/L6 | reads what a diff adds; the files predated every review | the files are gone; trap 14 |
 
-Deleted today, recorded as trap 14 in `ONBOARDING` §8. Not guarded, on purpose (PCS-4).
-
----
-
-## 4. Strategy — where to take the process
-
-Ranked by leverage. Each says what changes, why it is the general form of the problem rather than
-a patch (P6), what it costs, and what a "yes" commits the user to. Items S1–S4 change the
-process's own structure; S5–S6 change who does the work; S7–S10 are policy.
-
-### S1 Make the process obey P1: every rule clause names its enforcer, and history leaves the rule
-
-Split each rule file into a short **norm** — the current clauses, each tagged with what enforces
-it (`gate`, `guard:<test file>`, `review:<row>`, or `eye`) — and let the **history** live where it
-already lives: git log, bug reports, case studies. The `pr-review` skill already holds this mapping
-in the other direction (row → rule); invert it into the rules. Then every `eye` tag is a visible
-decision: build the check, or accept that the clause is culture.
-
-- **Why general:** PCS-5's seven contradictions all came from history and norm sharing a file; a
-  norm-only file is short enough to be re-read whole at every edit, which is what stops drift.
-- **Target:** the text an agent must read before a `src/` change, from 1 567 lines today to under
-  ~700; every clause with a named enforcer.
-- **Cost:** one documentation epic, two to three sessions, documentation-only commits throughout.
-- **Commits the user to:** a period during which rule files move and the running session rebases;
-  and to deciding, for each `eye` clause, whether it earns a check.
-
-### S2 Load rules by path, not by memory
-
-`.claude/rules/*.md` pointers are the one mechanism that puts a rule in front of an agent without
-the agent choosing to read it. Four rules used it; `testing-rule` and `async-ui-action-rule` now
-do too (the three case studies are all test-writing failures, and the rule that names them never
-loaded when a test was being written). Extend it to every rule with a file scope
-(`logging-rule` has none; `bug-fix-rule` is triggered by a report, not a file).
-
-- **Cost:** done for two; the rest is minutes. **Commits the user to:** nothing.
-
-### S3 One gate
-
-Make GitHub Actions run `scripts/ci-local.ps1 -Full` (Ubuntu runners ship `pwsh`) instead of a
-hand-copied sequence of its steps. `ci-rule` §7's comparison table then has nothing to compare.
-
-- **Why general:** PCS-6 is P3 applied to the gate; a copy of the gate drifts like any copy.
-- **Cost:** one pull request and one twelve-minute CI run to validate; the worker count already
-  derives from the runner's core count.
-- **Commits the user to:** CI duration may change; a runner-specific failure becomes a gate-script
-  fix rather than a workflow fix.
-
-### S4 Derive the boards; stop copying them
-
-A script renders what is derivable — the count table from `ls`, each epic's status column from its
-`completed/` directory, the per-PR log from `git log --grep` — and a guard fails when the committed
-board differs from the render. Prose stays hand-written; numbers and rows do not.
-
-- **Why general:** PCS-2's eight orphans, three unnamed sub-tasks and one self-confessed wrong
-  count are one disease; the orphan check added today catches the next instance, not the cause.
-- **Cost:** one to two sessions. **Commits the user to:** the boards becoming generated
-  artefacts in their tabular parts; `ONBOARDING` §6 shrinking to one command.
-
-### S5 Independent review before a code merge
-
-The session that wrote a pull request touching `src/` never merges it. A fresh session runs the
-`pr-review` skill against the pull request and posts its findings; the author addresses them; the
-user (or the reviewer, if the user delegates) merges. Pure moves and documentation stay as they are.
-
-- **Why general:** PCS-1. The ad hoc independent sessions (PR #211, the `EPIC-025` design review,
-  the hang audit) each found something the author had not; the policy makes that the rule.
-- **Cost:** one reviewer session per code pull request — tens of dollars and an hour of latency,
-  against merges that today take six seconds.
-- **Commits the user to:** slower merges, and to deciding whether the reviewer may merge on green.
-
-### S6 Retire the seven personas; keep two audits with durable output
-
-Replace Bolt, Doctor, Janitor, Palette, Scout, Scribe and Sentinel with two scheduled audits whose
-every run leaves one line in a log file even when it finds nothing: `test-health` (designed,
-never scheduled) and a `process-drift` audit (what this review did by hand — rule contradictions,
-board orphans, reference rot, stale claims). The personas' concerns are already in the gate
-(`ruff`'s `S` rules are Sentinel; `ERA` is Janitor; `mypy` is Scribe) or in `EPIC-025`'s own
-measurements (Doctor). Keep the prompt files as on-demand skills if wanted.
-
-- **Why general:** PCS-3; an agent whose silence is indistinguishable from success is not an
-  agent, it is a cost.
-- **Cost:** deleting seven Routines and creating two; a run log convention.
-- **Commits the user to:** the order-of-magnitude saving in Appendix A, and to reading two short
-  delta reports a week.
-
-### S7 Measure the process, not only the app
-
-A script computes, and each epic retrospective reports: rule lines an agent must read, guard
-count, allowlist entries, escapes (bugs found after merge, per week), the share of commits that
-only record other commits, and cost per merged code pull request. Appendix A is the baseline.
-
-- **Cost:** a script. **Commits the user to:** nothing; it makes S1, S4, S6 and S9 checkable.
-
-### S8 Write down the autonomy policy that is actually practised
-
-The rule says commit ask-by-default and push forbidden-by-default; the practice, for the epic that
-is all of the current work, is trunk-based: the session pushes after its gate, opens a pull
-request, and merges it in seconds. The exceptions have grown to cover the common case. Choose one
-of two honest policies and write it once, in `ONBOARDING` §7, with `CLAUDE.md` item 1 and `ci-rule`
-§1's exception pointing at it: (a) trunk plus gate plus S5 for code, documentation free; or (b) a
-real pull-request review with a human merge. This review recommends (a), because it is what works
-now, with S5 as the missing half.
-
-- **Commits the user to:** one rewrite of §7, and to deciding whether `.claude/` and `README.md`
-  are in the documentation-only set (today three files define that set and disagree on those two).
-
-### S9 A guard budget and a retirement rule
-
-Every guard's docstring gains a `Retire when:` sentence (for the QML guards: when Phase 4 deletes
-the last `.qml`; for the legacy-tree guards: when the tree is gone), and the registry reports the
-count. A guard whose condition has arrived is deleted in the pull request that makes it true.
-
-- **Why general:** PCS-4. **Cost:** a sentence per guard. **Commits the user to:** guards being
-  allowed to leave.
-
-### S10 One definition of "documentation-only"
-
-`CLAUDE.md` item 1, `ONBOARDING` §7 and `ci-rule` §1 each define the set of paths a
-documentation-only change may touch, and they disagree on `README.md` and say nothing about
-`.claude/`, which did not exist when the decision was made. Define it once in §7; the other two
-point. This is a user decision (it is an authority boundary), so it is proposed, not done.
+**In the literature.** Diffusion of responsibility (Darley & Latané 1968): a duty that belongs
+to everyone is discharged by no one; Google's `OWNERS` files exist to give every path a named
+owner.
 
 ---
 
-## 5. Applied — what this branch changed
+## 4. Strategy — where to take the process, and the practice each item applies
 
-Everything here is in the branch `claude/cool-gauss-dy2n2z`, verified with the static gate, the
-architecture and document guards, and the full gate on the final tree (log path in `BOT-134`'s
-task file). Nothing was merged.
+Ranked by leverage. Each names the established practice it applies, the cost, and what "yes"
+commits the user to. **All ten were applied on 2026-09-17** (§5).
 
-**2026-09-17 — the user applied the recommendations** (*"fix rule cho tui, làm tui nó ngắn gọn,
-xúc tích hơn… sửa luôn những gì bạn đề xuất"*). The second table is that round.
+| # | Recommendation | Practice applied |
+| :-- | :--- | :--- |
+| S1 | Split each rule into a short **norm** (current clauses, each tagged with its enforcer) and let **history** live in ADRs, bug reports, case studies and `git log`. | Diátaxis (Procida): reference separate from explanation; ADRs (Nygard 2011). |
+| S2 | Load rules by **path** — a pointer per rule with a file scope — instead of by memory. | Progressive disclosure (Nielsen 2006 lists it as a usability heuristic): show what is relevant when it is relevant; cognitive-load theory (Sweller 1988). |
+| S3 | **One gate**: GitHub Actions runs `ci-local.ps1 -Full` itself. | Humble & Farley (2010): one deployment pipeline; Fowler (2006): the build is the shared truth. |
+| S4 | **Derive the boards**: compute the count table, guard the board against the computation. | DRY (Hunt & Thomas 1999); "derive, don't duplicate". |
+| S5 | **Independent review before a code merge**: a different session runs `pr-review`; the author never merges its own code. | Fagan (1976); Google code review; IEEE 1012 IV&V independence. |
+| S6 | **Retire the personas; keep two audits** whose every run leaves a dated file. | SRE heartbeat monitoring (Beyer et al. 2016): alert on absence. |
+| S7 | **Measure the process** — rule lines, guard count, allowlist size, escapes, share of bookkeeping commits. | Forsgren, Humble & Kim (2018): outcomes measured, not narrated; Goodhart's law (Strathern 1997) as the warning — measures inform, they are not targets. |
+| S8 | **Write down the autonomy policy actually practised**: trunk-based with a gate; docs free; code reviewed before merge. | "Ship / Show / Ask" (Wilsenach 2021): documentation ships, code asks. |
+| S9 | **A retirement rule for guards** — `Retire when:` in every guard's docstring. | Lehman (1980); Beck (1999): tests are a cost as well as an asset. |
+| S10 | **One definition of "documentation-only"**, in `ONBOARDING.md` §7, pointed at by the other two files. | DRY (Hunt & Thomas 1999). |
 
-| Recommendation | Done on 2026-09-17 |
+---
+
+## 5. Applied — what changed, measured
+
+Everything below is on `master-warrior` (pull request #221, merged 2026-09-17 05:14 UTC after
+the new workflow's first green run) except the `ruff` pin, which follows in its own pull request.
+
+| Recommendation | What it became |
 | :--- | :--- |
-| S1 norm/history split, every clause tagged | the twelve rules rewritten as norms with `[gate]`/`[guard]`/`[review]`/`[eye]` tags; `qml-rule.md` (retired, 323 lines) and `code-rule.md` (stub) deleted; section numbers kept so every `§` citation still resolves |
-| S2 load by path | six pointers: `architecture` (new, every `src/` file), `code-quality`, `domain-truth` (now also `modules/*/domain|application`), `testing`, `async-ui-action`, `ui-presentation` (now also `modules/*/ui`, `support/ui_kit`, `support/charting`) |
-| S3 one gate | `.github/workflows/ci.yml` prepares the runner and runs `scripts/ci-local.ps1 -Full`, uploads `logs/` on every outcome, and accepts `workflow_dispatch`; `ci-rule` §7's comparison table is gone because there is nothing to compare |
-| S4 derive the boards | `scripts/render_task_counts.py` is the one computation of the count table and `test_task_board_is_consistent.py` holds `ROADMAP.md` to it; the orphan and sub-task checks from 09-16 stay. Epic status prose stays hand-written |
-| S5 independent review | `ONBOARDING.md` §7: a code change merges only after a *different* session has run `pr-review` and the user (or a delegated reviewer) merges; the author never merges its own code |
-| S6 personas retired | seven prompts and the Bolt journal deleted (its lesson is trap 15); the seven Routines deleted; two audit Routines created — `test-health` and `process-drift` (`.agents/Skills/process-drift.prompt.md`), every three days, each run leaving a dated file even when empty |
-| S7 measure the process | `scripts/measure_process.py` prints the baseline rows; the drift audit records them each run |
-| S8 autonomy policy written | §7 is the one table: commit and branch push free after the per-commit checks, docs-only merges free, code merges gated by S5, direct pushes to `master-warrior` never |
-| S9 guard retirement | `testing-rule.md` §2 and principle 12: a new guard's docstring states `Retire when:`; existing guards gain it when next touched |
-| S10 one definition of documentation-only | §7: `Docs/`, `Tasks/`, `.agents/`, `.claude/**/*.md`, `CLAUDE.md`, `README.md`; `CLAUDE.md` and `ci-rule.md` point there |
+| S1 | twelve rules rewritten as tagged norms; `qml-rule.md` and `code-rule.md` deleted; section numbers kept so every `§` citation resolves |
+| S2 | six pointers under `.claude/rules/`; `architecture` loads for every `src/` file; the domain and UI pointers cover the `modules/` and `support/` trees |
+| S3 | `.github/workflows/ci.yml` runs `scripts/ci-local.ps1 -Full`, uploads `logs/`, accepts `workflow_dispatch`; first runner run green in five minutes |
+| S4 | `scripts/render_task_counts.py` is the one computation; the board guard holds `ROADMAP.md` to it and fails on a task file with no row |
+| S5 | `ONBOARDING.md` §7: a code change merges only after a different session has run `pr-review`; the author never merges its own code |
+| S6 | seven prompts, the Bolt journal and seven Routines retired; `test-health` and `process-drift` scheduled every three days, each run committing a dated file |
+| S7 | `scripts/measure_process.py` prints the baseline; the drift audit records it each run |
+| S8 | §7 is the one authority table: commit and branch push free after the per-commit checks; docs-only merges free; code merges gated |
+| S9 | `testing-rule.md` §2 and principle 12: a new guard states `Retire when:` |
+| S10 | §7 defines the documentation-only set; `CLAUDE.md` and `ci-rule.md` point there |
+| `ruff` | pinned to the version the green gate ran (`requirements.txt`, and `required-version` in `pyproject.toml` so a mismatched local `ruff` refuses to run rather than report a different answer) |
 
-| Measure | Before | After S1 | Target |
+| Measure | Before | After | Target |
 | :--- | :-: | :-: | :-: |
 | rule lines, all rule files | 1 976 (14 files) | 453 (12 files) | — |
 | lines an agent reads before a `src/` change | 1 567 | 440 | under ~700 |
 | all process text (`.agents/`, `CLAUDE.md`, `.claude/`) | 4 263 | 1 409 | — |
 | rules loading by path | 6 of 14 | 6 of 12, `architecture` included | every rule with a file scope |
 | scheduled Routines / with a durable output | 7 / 0 | 2 / 2 | — |
+| task files with no board row | 8 | 0 | 0, guarded |
+| definitions of "green" | 2 | 1 | 1 |
+| consecutive red runs on `master-warrior` before anyone acted | 20 | — | 0: S5 puts a reader before the merge |
 
-The first-round table follows.
-
-| Measure | Before | Now | Target |
-| :--- | :-: | :-: | :-: |
-| rule files that contradict another rule or a guard (found by reading) | 7 places | 0 | 0, kept by S1 |
-| rules that load by path when a matching file is opened | 4 of 14 | 6 of 14 | every rule with a file scope (S2) |
-| task files with no row on any board | 8 | 0 | 0, kept by the extended guard |
-| epic sub-task files unnamed in their epic README | 3 | 0 | 0 |
-| navigation files the rule-listing guard covers | 2 | 3 | 3 |
-| `ruff` targets, GitHub CI vs local gate | 3 vs 4 | 4 vs 4 | one gate (S3) |
-| real-exchange tier excluded on GitHub | once | twice, as locally | one gate (S3) |
-| scratch files at the repository root | 3 | 0 | 0 |
-| new guard files added by this review | — | 0 | (PCS-4) |
-| `install-rule` Option 1 installs the engine | no | yes | — |
-
-Still **not** changed after the second round, because it is a dependency decision: the unpinned `ruff` in
-`requirements.txt` (the fresh environment installed 0.16.7 and the gate was green; an installed
-0.15.8 reported 92 `E402` errors on the same tree — the linter's version decides what green means,
-and pinning it is a dependency change, which `install-rule` §3 puts in ask-first).
-
-**What the user must decide next:** whether to pin `ruff` (S-dependency, ask-first); and, now that
-S5 is policy, the running `EPIC-025` session must stop merging its own pull requests — its next
-read of `ONBOARDING.md` §7 says so, and the first pull request it opens after that is the test.
+**What the user must still decide:** nothing from this review. The running `EPIC-025` session
+reads `ONBOARDING.md` §7 on its next run; the first code pull request it opens after that is the
+test of S5.
 
 ---
 
@@ -424,25 +293,53 @@ read of `ONBOARDING.md` §7 says so, and the first pull request it opens after t
 
 | Measure | Value | Command |
 | :--- | :-: | :--- |
-| rule text, all fourteen files | 1 976 lines | `cat .agents/rules/*.md \| wc -l` |
-| text an agent reads before a `src/` change (`CLAUDE.md`, `ONBOARDING.md`, six rules) | 1 567 lines | `cat CLAUDE.md .agents/ONBOARDING.md .agents/rules/{code-quality,architecture,ci,commit,testing,logging}-rule.md \| wc -l` |
-| all process text (`.agents/`, `CLAUDE.md`, `.claude/`) | 4 263 lines | `cat CLAUDE.md .agents/*.md .agents/rules/*.md .agents/Skills/*.md .claude/rules/*.md .claude/skills/*/SKILL.md \| wc -l` |
-| guard files, `tests/unit/architecture/` + top of `tests/unit/` | 29 + 6 | `ls tests/unit/architecture/test_*.py tests/unit/test_*.py \| wc -l` |
-| ratchet / baseline files | 5 | `ls tests/unit/architecture \| grep -cE '^(baseline_\|allowlist_)'` |
-| boundary allowlist entries | 29 | `grep -c '^[a-z]' tests/unit/architecture/allowlist_module_boundaries.txt` |
+| rule text, all rule files | 1 976 lines | `cat .agents/rules/*.md \| wc -l` |
+| text an agent reads before a `src/` change | 1 567 lines | `cat CLAUDE.md .agents/ONBOARDING.md .agents/rules/{code-quality,architecture,ci,commit,testing,logging}-rule.md \| wc -l` |
+| all process text | 4 263 lines | `cat CLAUDE.md .agents/*.md .agents/rules/*.md .agents/Skills/*.md .claude/rules/*.md .claude/skills/*/SKILL.md \| wc -l` |
+| guard files | 29 + 6 | `ls tests/unit/architecture/test_*.py tests/unit/test_*.py \| wc -l` |
 | commits since 2026-09-08 / by the one session | 216 / 164 | `git log --since=2026-09-08 --format=%b \| grep -c session_013VgDR1` |
-| commits in the last 100 whose only purpose is to record others on the boards | 17 | `git log -100 --format=%s \| grep -c 'record\|boards'` |
+| commits in the last 100 that only record others | 17 | `git log -100 --format=%s \| grep -c 'record\|boards'` |
 | pull requests #201–#220 merged within 30 s of opening | 14 of 20 | GitHub API, `created_at` vs `merged_at` |
-| scheduled Routines / pull requests from them since 2026-08-27 / journal entries | 7 / 0 / 0 | `list_triggers`; `list_pull_requests`; `ls .agents/Skills/*.md` |
-| sampled scheduled-run cost | US$1–5 per run | session records (`get_session`) |
-| the one long session's output | 6.5 M output tokens, ~US$2 000 | session record |
-| case studies / bug reports closed / open | 3 / 133 / 2 | `ls Docs/CASE_STUDIES Tasks/bug_report/*` |
-| tests / source files | 456 test files, 4 958 tests / 749 files | gate log `logs/ci-local-20260916-145211.log`; `find` |
+| scheduled Routines / pull requests from them / journal entries | 7 / 0 / 0 | `list_triggers`; `list_pull_requests`; `ls .agents/Skills/*.md` |
+| consecutive red CI runs on `master-warrior` (runs 371–390) | 20 | GitHub Actions API (`BUG-129`) |
+| tests / source files | 456 files, 4 958 tests / 749 | gate log; `find` |
 
-## Appendix B — what a fresh remote container needs before the gate runs
+`python3 scripts/measure_process.py` reproduces the tree-derived rows on any checkout.
 
-Recorded because every scheduled agent and every remote session starts here, and the briefing says
-the environment is not persisted: Python 3.11 on the image (below the 3.12 floor), no virtualenv,
-no engine, no Qt libraries, no `pwsh`. The sequence that got the static gate to `PASS` in this
-container is now in `install-rule.md` §2b, each line as it was run. The full gate then ran on the
-final tree of this branch; its log is cited in `BOT-134`.
+## Appendix B — a fresh remote container
+
+Python 3.11 on the image, no virtualenv, no engine, no Qt libraries, no `pwsh`. The sequence that
+got the gate to `PASS` is in `install-rule.md` §2b, each line as it was run.
+
+## References
+
+- Allspaw, J. (2012). *Blameless PostMortems and a Just Culture.* Etsy engineering blog.
+- Beck, K. (1999). *Extreme Programming Explained.* Addison-Wesley. (YAGNI; "test what could break".)
+- Beyer, B., Jones, C., Petoff, J. & Murphy, N. R., eds. (2016). *Site Reliability Engineering.* O'Reilly. (Monitoring; postmortem culture.)
+- Darley, J. M. & Latané, B. (1968). "Bystander intervention in emergencies: diffusion of responsibility." *Journal of Personality and Social Psychology* 8(4).
+- Deming, W. E. (1986). *Out of the Crisis.* MIT Press. (Common-cause variation; the system, not the worker.)
+- Dijkstra, E. W. (1970). *Notes on Structured Programming* (EWD249). "Program testing can be used to show the presence of bugs, but never to show their absence."
+- Fagan, M. E. (1976). "Design and code inspections to reduce errors in program development." *IBM Systems Journal* 15(3).
+- Feathers, M. (2004). *Working Effectively with Legacy Code.* Prentice Hall. (Seams.)
+- Forsgren, N., Humble, J. & Kim, G. (2018). *Accelerate.* IT Revolution. (The four key metrics.)
+- Fowler, M. (2004). "StranglerFigApplication"; (2006) "Continuous Integration." martinfowler.com.
+- Gamma, E., Helm, R., Johnson, R. & Vlissides, J. (1994). *Design Patterns.* Addison-Wesley.
+- Grove, A. S. (1983). *High Output Management.* Random House. ("Disagree and commit.")
+- Humble, J. & Farley, D. (2010). *Continuous Delivery.* Addison-Wesley.
+- Hunt, A. & Thomas, D. (1999). *The Pragmatic Programmer.* Addison-Wesley. (DRY.)
+- IEEE Std 1012, *Standard for System, Software, and Hardware Verification and Validation.* (Independence of the verifier.)
+- Lehman, M. M. (1980). "Programs, life cycles, and laws of software evolution." *Proceedings of the IEEE* 68(9).
+- McKinley, D. (2015). "Choose Boring Technology." mcfunley.com.
+- Meyer, B. (1988). *Object-Oriented Software Construction.* Prentice Hall. (Open/Closed Principle.)
+- Minto, B. (1987). *The Pyramid Principle.* Pitman.
+- Nielsen, J. (2006). "Progressive Disclosure." Nielsen Norman Group.
+- Nygard, M. (2011). "Documenting Architecture Decisions." cognitect.com.
+- Procida, D. *Diátaxis: a systematic approach to technical documentation authoring.* diataxis.fr.
+- Raymond, E. S. (1999). *The Cathedral and the Bazaar.* O'Reilly. (Linus's law.)
+- Reason, J. (1990). *Human Error.* Cambridge University Press. (The Swiss-cheese model.)
+- Shingo, S. (1986). *Zero Quality Control: Source Inspection and the Poka-yoke System.* Productivity Press.
+- Strathern, M. (1997). "'Improving ratings': audit in the British University system." *European Review* 5(3). (The usual statement of Goodhart's law.)
+- Sweller, J. (1988). "Cognitive load during problem solving." *Cognitive Science* 12(2).
+- Vaughan, D. (1996). *The Challenger Launch Decision.* University of Chicago Press. (Normalization of deviance.)
+- Wilsenach, R. (2021). "Ship / Show / Ask." martinfowler.com.
+- Google, *Engineering Practices — Code Review Developer Guide.* google.github.io/eng-practices.
