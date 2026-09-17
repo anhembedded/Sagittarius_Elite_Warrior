@@ -4,7 +4,7 @@ description: The process map for any AI agent on Sagittarius Elite Warrior — l
 
 # ONBOARDING — the map
 
-A map, not a copy of the rules: it says *when* each rule applies and holds what is written nowhere else. **Every number in documentation drifts** — recount with a command. Tags used in every rule: `[gate]` a machine decides · `[guard: file]` a test under `tests/unit/` · `[review: row]` a `pr-review` checklist row · `[eye]` only the reader.
+A map, not a copy of the rules: it says *when* each rule applies and holds what is written nowhere else; supreme invariants and authority hierarchy are codified in [`.claude/CONSTITUTION.md`](CONSTITUTION.md). **Every number in documentation drifts** — recount with a command. Tags used in every rule: `[gate]` a machine decides · `[guard: file]` a test under `tests/unit/` · `[review: row]` a `pr-review` checklist row · `[eye]` only the reader.
 
 ## 1. What loads when
 

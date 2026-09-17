@@ -1,6 +1,6 @@
 # CLAUDE.md — entry point
 
-The map is imported here, so it is already in your context: @.claude/ONBOARDING.md
+The map is imported here: @.claude/ONBOARDING.md — Supreme law: [`.claude/CONSTITUTION.md`](.claude/CONSTITUTION.md)
 
 This file navigates and copies no rule: a copy drifts, and this repository has paid for that twice. Every rule under `.claude/rules/` loads by itself — every session, or when you open a file its `paths:` front matter names — and has a row below (`tests/unit/test_rule_navigation_is_complete.py` fails otherwise). [`.claude/README.md`](.claude/README.md) is the manifest of everything under `.claude/` and what loads it.
 
@@ -8,7 +8,7 @@ This file navigates and copies no rule: a copy drifts, and this repository has p
 
 | Task | File |
 | :--- | :--- |
-| Starting; picking up work; authority; deciding alone; the settled principles | [`.claude/ONBOARDING.md`](.claude/ONBOARDING.md) |
+| Supreme law; starting; authority; principles | [`.claude/CONSTITUTION.md`](.claude/CONSTITUTION.md) · [`.claude/ONBOARDING.md`](.claude/ONBOARDING.md) |
 | Implementing or resuming a task | [`.claude/skills/execute-task/SKILL.md`](.claude/skills/execute-task/SKILL.md); completion contract: [`task-execution-rule.md`](.claude/rules/task-execution-rule.md) |
 | What the app must do, one use case per file | [`Docs/SPEC/README.md`](Docs/SPEC/README.md) |
 | Architecture: layers, ports, explicit contracts, events, seams | [`architecture-rule.md`](.claude/rules/architecture-rule.md) |

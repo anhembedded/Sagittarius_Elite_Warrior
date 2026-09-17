@@ -7,6 +7,7 @@ Everything an AI session on this repository is given, and what loads it. This is
 | Path | What it is | Loaded by |
 | :--- | :--- | :--- |
 | `CLAUDE.md` (root) | entry point: routes by task, copies no rule | Claude Code, every session; imports `ONBOARDING.md` |
+| `CONSTITUTION.md` | supreme law: immutable axioms, authority bounds, non-negotiable principles | referenced by `CLAUDE.md` and `ONBOARDING.md` |
 | `ONBOARDING.md` | the map: what loads when, lifecycles, authority, principles | the import above, every session |
 | `rules/` | norms, one topic per file, every clause tagged with its enforcer; `rules/pitfalls/` holds the traps that produced broken code here | every session when the front matter has no `paths:`; on opening a matching file when it does (Claude Code discovers the directory recursively) |
 | `skills/<name>/SKILL.md` | workflows: task execution, review, scheduled audits and the `EPIC-025` executor; a skill keeps its scripts and data beside it | the user with `/<name>`, or Claude from the `description` |
