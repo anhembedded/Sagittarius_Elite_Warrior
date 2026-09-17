@@ -11,12 +11,20 @@ Everything an AI session on this repository is given, and what loads it. This is
 | `rules/` | norms, one topic per file, every clause tagged with its enforcer; `rules/pitfalls/` holds the traps that produced broken code here | every session when the front matter has no `paths:`; on opening a matching file when it does (Claude Code discovers the directory recursively) |
 | `skills/<name>/SKILL.md` | workflows: the review checklist, the two scheduled audits, the `EPIC-025` executor; a skill keeps its scripts and data beside it | the user with `/<name>`, or Claude from the `description` |
 | `agents/<name>.md` | subagents that run in their own context, with their own tools and a preloaded skill | delegation, or `@<name> (agent)` |
-| `templates/` | the formats: task, bug report, case study, epic, decision record | nothing loads them; a writer copies one and deletes its front matter |
+| `templates/` | the formats: task (including epic children), bug report, case study, epic, proposal, decision record | nothing loads them; a writer copies one and deletes its front matter |
 | `settings.json` | project settings shared by every session: permission rules for the gate commands, a `SessionStart` hook printing `git status` | Claude Code |
 
 Not here, on purpose: `Docs/CASE_STUDIES/` (knowledge for people and agents alike, indexed and guarded where the other design documents live; the one-line form of each study is a pitfall under `rules/pitfalls/`), and `.github/PULL_REQUEST_TEMPLATE.md` (GitHub fills it in). The engine repository keeps its own tree under `.agents/`; `ONBOARDING.md` §9 says which wins.
 
 The platform's own description of these mechanisms: [memory and rules](https://code.claude.com/docs/en/memory), [skills](https://code.claude.com/docs/en/skills), [subagents](https://code.claude.com/docs/en/sub-agents), [settings](https://code.claude.com/docs/en/settings), [hooks](https://code.claude.com/docs/en/hooks-guide).
+
+## Using a template
+
+Choose the format named by the workflow, copy it to that workflow's destination, and remove its YAML front matter and instructional comments. Replace every brace placeholder. Where a field offers alternatives separated by `/`, retain exactly one; those alternatives are instructions, not a preselected state. Fields and sections are required unless marked optional or conditional. Write `None`, `Pending`, `Not yet established` or `Not run` when that is the truth; an empty placeholder is not evidence.
+
+Use `templates/task.md` for both standalone `BOT-nnn` tasks and `EPIC-nnnA` children. The latter live in the epic's `incomplete/` directory and link their parent README; follow `ONBOARDING.md` §12.3 when completing them. Proposals use `templates/proposal.md`; an accepted proposal links its delivery work rather than claiming that work is done. Decision acceptance and implementation evidence are separate fields.
+
+Keep the existing specialised formats at their owning locations: `Docs/SPEC/SPEC-000_template.md`, `.github/PULL_REQUEST_TEMPLATE.md`, and the output sections of the scheduled audit skills. Do not duplicate them here.
 
 ## Inventory
 
@@ -51,7 +59,8 @@ Derived from the tree: `python3 scripts/render_claude_manifest.py` prints it fro
 | `templates/case-study.md` | template | on demand, copied | The format of a case study under Docs/CASE_STUDIES/ — why the gate was green while it was broken. Three required sections, 35 lines at most, the check ships in the same commit. Copy it, fill every brace, delete this front matter, add the index row. |
 | `templates/decision.md` | template | on demand, copied | The format of a decision record (ADR, Nygard 2011) inside an epic — DECISION_{date}_{slug}.md. Copy it, fill every brace, delete this front matter. |
 | `templates/epic.md` | template | on demand, copied | The format of an epic's README.md under Tasks/epics/EPIC-nnn_slug/ (Tasks/epics/README.md). Copy it, fill every brace, delete this front matter. |
-| `templates/task.md` | template | on demand, copied | The format of a task file under Tasks/backlog/ (ONBOARDING §3). Copy it, fill every brace, delete this front matter. |
+| `templates/proposal.md` | template | on demand, copied | The format of an unaccepted proposal under Tasks/proposal/PRO-nnn.md (ONBOARDING §3). Copy it, fill every brace, delete this front matter and instructional comments. |
+| `templates/task.md` | template | on demand, copied | The format of a standalone task under Tasks/backlog/ or an epic child under its incomplete/ directory (ONBOARDING §3). Copy it, fill every brace, delete this front matter and instructional comments. |
 <!-- manifest:end -->
 
 ## Adding one

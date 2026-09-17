@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 132 | 69.5% |
+| 🟢 **Completed** | 133 | 69.6% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 52 | 27.4% |
-| ❌ **Cancelled** | 6 | 3.2% |
-| 📈 **Tổng số Task** | **190** | **100%** |
+| 🔴 **Backlog** | 52 | 27.2% |
+| ❌ **Cancelled** | 6 | 3.1% |
+| 📈 **Tổng số Task** | **191** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -126,6 +126,8 @@ Sagittarius_Elite_Warrior/Tasks/
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
+
+- [x] **`BOT-136`**: [Complete workflow templates — add proposals; separate decision acceptance from implementation; add task acceptance criteria, bug evidence and epic dependencies](completed/BOT-136_complete_workflow_templates.md)
 
 - [x] **`BOT-135`**: [One tree for the AI process — `.agents/` folded into `.claude/` and wired to the platform: the twelve rules load themselves (`paths:` front matter, or every session), the fifteen traps became path-scoped `rules/pitfalls/`, the audit briefs became skills, five templates and a pull-request template hold the formats, a read-only `reviewer` subagent pre-checks a diff, `settings.json` prints `git status` at session start, and `.claude/README.md` is a manifest derived from the tree and guarded. `CLAUDE.md` imports the map. Always-loaded text: 363 lines, under a ceiling that only falls](completed/BOT-135_one_claude_tree.md)
 - [x] **`BUG-129`**: [`scripts/check_skill_prompt_references.py` and a path-scanning guard resolved cited/registered paths with `Path.exists()`/`is_dir()` — the disk, not the repository. A directory a move emptied survives as a `__pycache__` shell, so `master-warrior` was red for 20 runs (~11½h from run 371) while every local gate reported green. Fixed as a shared `git_tracked_paths.py`: every guard answers against `git ls-files` now and warns by name when git cannot. A second session's review (`ONBOARDING.md` §7) found and closed a second live instance (the `domain` zone check) a first pass had mistaken for retired. `CS-005`](bug_report/completed/BUG-129_the_checker_that_answered_about_my_disk.md)
@@ -280,6 +282,7 @@ Sagittarius_Elite_Warrior/Tasks/
 > ở đây giờ nằm trong chính các file task/bug đã huỷ, không lặp lại ở đây.
 
 ### 🔴 Backlog (Danh sách Ưu tiên & Phụ thuộc)
+
 
 | Priority | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :---: | :--- |
