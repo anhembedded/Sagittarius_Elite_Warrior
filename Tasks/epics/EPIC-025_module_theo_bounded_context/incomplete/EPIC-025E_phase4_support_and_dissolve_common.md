@@ -1276,3 +1276,40 @@ skill-reference checker clean.
 verified only through the QSS (`style.py`'s `PROGRESS` role already sets `color: textPrimary` and
 `text-align: center`, so the role was written for a bar that shows its text) and through offscreen
 tests. It wants one look on a real desktop, which is the user's run, not the gate's.
+
+### 4.14 `BUG-129` — and GitHub CI had been red since PR 3.1c, not since 4.3j
+
+Reviewing 4.3l was what surfaced it, but the defect belongs to this phase's whole run of merges,
+so it is recorded here. Another session's commit (`9a4a65d2`) reported that
+`scripts/check_skill_prompt_references.py` had been failing in CI since 2026-09-16 20:26 across
+three runs, and deleted the two agent briefings whose cited paths `EPIC-025`'s moves had removed.
+Two things about that turned out to be worth measuring rather than accepting.
+
+**The local gate had been calling that same step green** — on this machine it printed *"OK: every
+repository path ... resolves"* while CI failed it. The reason is the whole bug: `check()` resolved
+every reference with `Path.exists()`, which answers about the disk it runs on. `EPIC-025`'s moves
+left the two directories those briefings cite behind as shells holding nothing but `__pycache__`,
+and nothing deletes those. Gone from the repository, present in every working tree. So the
+briefings were the symptom, and the mechanism is a check whose answer depends on who runs it —
+worse than no check, because it is believed. It reads `git ls-files` now.
+
+**And the red is older and longer than the commit says.** Read from the runs themselves rather
+than inherited: the last green is run **370** (14:21 UTC), and red starts at **371**, 14:49 —
+the merge of PR 3.1c's own documentation, the pull request whose message states *"`src/application/`
+is empty and gone from disk"*. Every completed run from 371 to 390 failed: **20 runs, about 11½
+hours**, the four that closed PR 4.3 among them. Runs 371, 386 and 390 were read directly.
+
+**The two halves were queued behind each other.** Once the briefings were deleted, run 390's
+reference check passed, pytest ran for the first time in 20 runs, and it failed on
+`test_module_boundaries.py::test_src_root_is_where_we_think_it_is` — *zone `application` missing* —
+the second instance of the identical disease, found here twenty minutes earlier by cleaning the
+stale directories off this disk. That guard's `_ZONES_THAT_MUST_EXIST` required a directory the
+epic had deleted, so it had been passing everywhere for the same wrong reason, and the first
+failure hid it by failing before pytest could run. Retired with the reason in place; `domain`, now
+one file, is flagged as the next.
+
+Written up as [`CS-005`](../../../Docs/CASE_STUDIES/CS-005_the_check_that_asked_the_wrong_question.md)
+with `BUG-129`'s report. What it does **not** close is the habit underneath: nothing in the local
+workflow reads CI's verdict for the branch it just pushed, which is why a green local gate and a
+red remote could coexist for half a day. Reading it is a step, not a tool, and this phase is the
+evidence for taking it.
