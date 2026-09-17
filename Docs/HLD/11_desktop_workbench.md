@@ -107,7 +107,7 @@ theme is a later decision, explicitly deferred by the user (*"sau này design m�
 | :--- | :-: | :--- |
 | The global sheet goes | **0** (PR 0.2) | `qdarktheme` is removed from `requirements.txt` and from the dependency preflight; `app_bootstrapper._apply_theme()` is deleted with the two `ui.theme.*` config keys it read. Standard controls — menus, dialogs, scrollbars, combo popups, tooltips — render in the platform's theme from this point on. `test_no_global_stylesheet.py` forbids any theme distribution and any `setStyleSheet` on the application, for good |
 | Per-widget styling shrinks | 0 → 4 | every phase rebuilds its screens as plain QtWidgets panels and takes its styling with it. `tools/measure_app_styling.py` counts what is left and `test_app_styling_only_shrinks.py` holds the ground: the four numbers may only fall, and a phase that lowers one must lower the baseline in the same commit |
-| The colour source goes | **4** | `Palette`, `kit/style.py`, `seed_app_theme()` and the palette guard are deleted together with the last `.qml` file and the last `kit/` widget, when nothing reads them |
+| The colour source goes | **4** | `Palette`, `kit/style.py`, `seed_app_theme()` and the palette guard are deleted together with the last `.qml` file and the last `kit/` widget, when nothing reads them. **Half of that condition is met:** `EPIC-025` PR 4.3l deleted the last `.qml` under `src/` (`qml_files` and `qml_theme_refs` are both **0**), so what still holds the colour source up is the `kit/` widgets — PR 4.4's |
 
 **Why the middle row exists.** Two facts measured on the tree in PR 0.2 make a Phase 0 deletion
 impossible rather than merely expensive. First, the Engine's `create_quick_widget()` **raises**
@@ -133,7 +133,8 @@ follows, and makes each phase's share visible as a number.
 - **Perspectives persist per mode** (`saveState` keyed by mode id and app version); "Reset layout"
   is a menu action.
 - **No new `.qml` file** (a guard: `find src -name '*.qml'` must not grow, and reaches zero in
-  Phase 4). `qml-rule.md` is historical.
+  Phase 4). **It reached zero at PR 4.3l**, so `test_no_new_qml.py` is a ban rather than a ratchet:
+  its baseline is empty and any `.qml` under `src/` fails it. `qml-rule.md` is historical.
 
 ## 11.6 What this changes in the plan
 

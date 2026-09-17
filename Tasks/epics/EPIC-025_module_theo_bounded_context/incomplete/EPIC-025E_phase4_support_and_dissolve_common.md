@@ -1084,3 +1084,130 @@ price of a change that reaches widgets four screens deep.
 WARNING or above; mypy clean on 499 source files. Test count **4920 → 4934**: **+14** the selection
 suite, **+12** the dialog and pill row's, **−7** the deleted QML host's file, and **−5** in the
 guards. `test_chart_toolbar.py` is 12 → 11, its broken-`.qml` test gone with the `.qml`.
+
+### 4.12 PR 4.3l — `qml/kit/` is deleted, `.qml` reaches **0**, and five of its eight components were already dead
+
+`src/presentation/ui/qml/` was the last QML in the application: eight `.qml` files, two Python
+hosts, a `preview.py`, a `NOTES.md` and a test suite living under `src/`. All of it is gone — **`.qml`
+8 → 0**, which is ADR D21 satisfied rather than merely progressed, and the point at which
+`test_no_new_qml.py` stops being a ratchet and becomes a ban.
+
+**Two widgets had to be written; the other six components had nothing left to replace.** Measuring
+first (the habit §4.8 and §4.9 turned into a rule) found that `Button.qml`, `DialogShell.qml`,
+`LogPanel.qml`, `PanelHeader.qml`, `StatCard.qml` and `_StyleGuidePreview.qml` had no consumer at
+all: each was the shared furniture of a QML screen that an earlier 4.3 pull request had already
+rebuilt, and `StatCard.qml` lost its last one to 4.3g. The kit outlived its screens by six pull
+requests because `preview.py` kept every import alive — the same mechanism §4.9 named. Only the two
+components a *live* QtWidgets screen was still embedding needed a replacement:
+
+- **`kit.ProgressBanner`** (`support/ui_kit/kit/surfaces/progress_banner.py`) — a caption, a bar and
+  a Cancel button, with the five setters and one signal `ProgressBanner.qml` had as properties, name
+  for name, so Backtest, Data Management and Dev Board did not change a call. Built in `kit/` rather
+  than in a screen because `StyledProgressBar`'s own docstring had already reasoned this out and
+  declined it: *"the composite is recorded in `EPIC-007C` as a candidate; it has one instance"*.
+  There are three, and the third made it shared. The percentage moves onto the bar instead of a
+  label beside it — `QProgressBar` renders its own text, which is what ADR D20 asks for, with the
+  format written literally so it reads 38 where Qt's own `%p` would truncate to 37.
+- **`WsStatusPill`** (`presentation/ui/screens/dashboard/ws_status_pill.py`) — a dot and a label, in
+  the screen's package because there is exactly one consumer. The previous version's docstring made
+  the same call and named what would change it (*"revisit if a third inline `kit/` embed appears"*);
+  the banner became that, this did not. Its tone vocabulary stays four words wide (idle / active /
+  success / danger) rather than collapsing onto `Tone`'s three, because `Tone` has no word for
+  "active" and `dashboard_presenter.py`'s `_WS_STATUS_BY_MODE` needs one.
+
+**Two constants died with the embeds, and they were both lies about layout.** All three banner hosts
+pinned the widget to a fixed 32px and the pill to 22px, because a `QQuickWidget` has no size of its
+own — Data Management's constant carried nine lines explaining how the 32 had been measured
+empirically. A `QWidget` measures itself, so the fixed heights are gone rather than ported;
+`ui-presentation-rule.md`'s own rule against a fixed pixel height on a container holding text says
+the same thing from the other direction.
+
+**A third deletion the measurement forced: `support/ui_kit/qml_overlay.py`.** `QmlOverlay` is a
+modal whose *body* is a `.qml`, so with no `.qml` under `src/` it can never have a consumer again —
+and its last one, `src/presentation/ui/qml/__init__.py`, went in this pull request. Its single
+guarantee (a `.qml` that fails to load raises instead of rendering a blank box) is not lost: it is
+`QuickSurface`'s, asserted by the identically-named test in
+`tests/unit/support/ui_kit/embed/test_quick_surface.py`, which is where the behaviour is actually
+implemented.
+
+**What is left standing, deliberately, and whose it is.** `support/ui_kit/embed/` (`QuickSurface`,
+`size_policy`) now has **no `src/` consumer**: the only thing that constructs one is
+`scripts/quick_surface_desktop_probe.py`, `BUG-115`'s manual probe. The theme layer
+(`theme_bootstrap`, `configure_app_qml`, `Palette`, `kit/style.py`) is a different case — it still
+has many live consumers — and HLD §11.4 already assigns both to PR 4.4, which retires `Palette` and
+`kit/style.py` with the last `kit/` widget. Recorded here rather than removed, so 4.4 inherits a
+measurement instead of a search. `tests/` keeps its own probe `.qml` files, which the ban does not
+touch and should not: it scans `src/`.
+
+**And the ceilings, measured on the files this step touched, since 4.4 moves all four.**
+`architecture-rule.md` §5 rule 4 is over on `dashboard_presenter.py` (**1991** lines),
+`dev_board_panel.py` (**1070**), `backtest_top_panel.py` (**723**, down from 746 here) and
+`data_management_view.py` (**677**); `DashboardQmlViewModel` carries **27** public methods against a
+ceiling of 15. None of it is this step's — every file it edited got shorter or stayed the same — and
+the two already on 4.4's list are `dev_board_panel.py` and `backtest_top_panel.py`. The Dashboard
+pair is **new to that list** and recorded here so 4.4 does not rediscover it: moving
+`screens/dashboard` into `modules/*/ui` is the moment to split them, not after.
+
+**Restated (E11), 44 deleted test functions.** The 32 under `src/` were `CS-004`'s fifth and last
+such suite, and the 12 under `tests/unit/presentation/ui/qml/` went with their subjects:
+
+| Deleted | Where its guarantee lives now |
+| :--- | :--- |
+| `test_progress_banner_qml.py` (5) + `test_progress_banner_widget.py` (4) | `surfaces/test_progress_banner.py` (6) — status/percent, clamping, the reversible sweep, the click, and "no stylesheet of its own". The one sentence **dropped**: the `.qml` relabelled its own Cancel button, which `kit.ProgressBanner` deliberately does not do; two of its three callers have their own wording, and the test that asserted the rename is replaced by one asserting the label survives `set_cancelling(True)` |
+| `test_status_pill_qml.py` (3) + `test_status_pill_widget.py` (4) | `screens/dashboard/test_ws_status_pill.py` (7) — text, four tones, three distinct colours, the hideable dot. "Loads with a real QML root object" has no subject and its place is taken by the one thing the `.qml` could not be asked: an unknown tone renders as idle rather than raising |
+| `test_button_qml.py` (3) | `kit/test_controls.py` — `StyledButton` is a real `QPushButton` that accepts every button role and restyles on `setEnabled`; "a disabled button ignores clicks" is Qt's, not ours to re-test |
+| `test_dialog_shell_qml.py` (6) | `kit/test_overlay.py` (title, subtitle, footer wiring, body layout) and `overlays/test_confirm_overlay.py` (confirm vs cancel) — the chrome those six described has been QtWidgets since `EPIC-007`, which is why `QmlOverlay` only ever replaced the *body* |
+| `test_log_panel_qml.py` (5) | `surfaces/test_log_panel.py` (10) — badge tracking, copy and clear calling through, action labels |
+| `test_panel_header_qml.py` (3) | `kit/test_style.py`/`test_surface.py` for the header's roles, `surfaces/test_log_panel.py` for a badge that hides when empty |
+| `test_stat_card_qml.py` (7) | `screens/backtest/test_backtest_stat_row.py`, written in 4.3g when the figures stopped being cards (HLD §11.3) |
+| `test_qml_style_discipline.py` (3) | `test_no_new_qml.py`, which is now strictly stronger: "no hex literal in a `.qml`" is implied by "no `.qml`". Its `test_there_are_qml_files_to_check` asserted a premise that is now false on purpose; what stands in for it is the `EMPTY_BY_DESIGN` row and its verifying test, which pin the emptiness as registered and intended rather than accidental |
+| `test_qml_overlay_load_failure.py` (1) | `embed/test_quick_surface.py`, same test name, same `match=` string |
+
+**Four guards needed work, and two of them are the lesson of this step.** A guard whose subject
+vanishes passes faster rather than failing (PR 3.1c's finding), and emptying a scan is exactly that
+shape:
+
+- `test_no_new_qml.py` — baseline empty, docstring rewritten to say it is a ban and was a ratchet.
+- `scanned_roots_registry.py` gains **`EMPTY_BY_DESIGN`**, the first exemption to "a registered scan
+  must find something", because here an empty scan *is* the ADR being met. It names the exact
+  (guard, root, pattern) triple, and `test_scanned_roots_are_not_empty.py` gained
+  `test_an_empty_by_design_row_is_a_real_registered_scan` so the exemption cannot outlive its scan.
+- `test_qml_library_does_not_import_screens.py` — its subject was `presentation/ui/qml/`. Retargeted
+  to `support/ui_kit` + `support/charting` (the shared UI libraries the rule was always about) with a
+  `test_the_guard_has_a_subject` of its own, and measured clean at the retarget. Same remedy PR 3.1c
+  used for a rescued rule.
+- `baseline_tests_under_src.txt` is **empty**: `CS-004`'s ratchet started at 22 and this is the last
+  of them. `baseline_app_styling.json` goes `qml_files 8 → 0`, `qml_theme_refs 62 → 0`; the other
+  five keys are untouched, as every Phase-4 step has left them.
+
+**The first gate run failed, and this time not in a test tier.** `CS-004`'s own 35-line cap: this
+pull request is what closes that case study's open count (22 unrunnable files under `src/` → **0**),
+and writing that closure pushed the file to 39 lines. The rule that caught it is the case-study
+directory's own — *short is the form, not a preference* — and the honest reading is the same as the
+three earlier first-run failures in this phase: the pre-gate routine covers what I edited *before* I
+run it, and a document edited afterwards is as unverified as code would be. Trimmed to 35, the
+architecture suite back to 363 green, gate re-run on the final tree.
+
+**Verified by breaking the line, four times (E12).** Each of the new wirings was cut and the file
+run: `ProgressBanner`'s `clicked → cancelRequested` (1 failure), Dev Board's
+`cancelRequested → requestStopStream` (1), Backtest's `cancelRequested → requestCancelBacktest` (1),
+and Dev Board's `wsStatusChanged → _sync_ws_status` (4 — every mode row but `IDLE`, which the pill
+is already in at construction). The pill's tone assertions compare renderings against a second pill
+told the tone directly, rather than against a hex literal: a hardcoded expectation there would be
+asserting `semantic_colour()`'s output instead of the wiring, and would pass whichever tone the
+screen actually sent.
+
+**Gate:** `RESULT: PASS`, **4922 passed, 4 skipped** in 177s, log `logs/ci-local-20260917-014700.log`
+grepped — 4 hits for the known benign set (a parametrized `[ERROR]` test id twice, the log-scan
+step's own two headings), **0** records at WARNING or above; mypy clean on **499** source files, one
+fewer than 4.3k because `qml_overlay.py` is gone. Test count **4934 → 4922**, and the whole of the
+**−12** is accounted for: **−13** in `test_logging_namespace_guard.py`, which parametrizes once per
+`.py` under `src/` (15 deleted here, 2 added), **−15** the deleted `tests/unit/presentation/ui/qml/`,
+**+9** `test_ws_status_pill.py`, **+6** `surfaces/test_progress_banner.py`, **+1** the registry's new
+exemption test. A count that falls is worth reading twice on a pull request that deletes tests;
+these five numbers are why this one is a deletion of duplicated coverage rather than a loss of it.
+
+**PR 4.3 is complete.** Eleven steps: seven live widgets rebuilt, five packages measured dead and
+deleted, one bug found (`BUG-128`) and one case study written (`CS-004`, closed here), `.qml` **27 →
+0**, `setStyleSheet` 149 → 145, `qml_theme_refs` 229 → 0, and `CS-004`'s under-`src/` test ratchet 22
+→ 0. Next: **4.2a**, **4.2b**, then **4.4**.
