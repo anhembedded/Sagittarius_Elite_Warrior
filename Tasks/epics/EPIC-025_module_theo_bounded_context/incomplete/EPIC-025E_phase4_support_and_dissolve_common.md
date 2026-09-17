@@ -263,7 +263,7 @@ and `refresh`, shared with `screens/data_management` — and they are a **sortab
 panel** written twice: PR 0.4b wrote the pair for Database Status, PR 1.4b-2 wrote it again for
 positions and open orders, and neither could see the other because `presentation/ui/components/` was
 never in `UI_PACKAGE_GLOBS`. That is the same hole PR 2.1e found for `common/` and `components/`,
-and `ci-rule.md` §5.5 forbids raising a ratchet to get past it.
+and `ci-rule.md` §3 forbids raising a ratchet to get past it.
 
 **Put to the user with both scopes measured, and they chose to reorder** rather than widen 4.1a: the
 extraction happens **once**, when `order_book` and `data_management`'s models move into their
@@ -478,7 +478,7 @@ Three things in that table, in order of how badly they matter:
    **total** and wrong about this key, because `PHASE_1_PAIR` is two literal package names.
    `test_the_baseline_was_lowered_when_duplication_went` would then lock the false 0 into the
    baseline, and the criterion would be permanently unfalsifiable.
-3. **Re-keying it honestly makes the ratchet rise**, 32 → 39, which `ci-rule.md` §5.5 forbids
+3. **Re-keying it honestly makes the ratchet rise**, 32 → 39, which `ci-rule.md` §3 forbids
    outright. The 39 is not new duplication; it is the same duplication the pair was always carrying,
    re-counted now that `trading`'s two halves are one package. But a ratchet that goes up is a
    ratchet nobody can trust afterwards.
@@ -1552,7 +1552,7 @@ rename now is churn against a file that is about to move anyway. Recorded so tha
 
 **3. The review's own first measurement was wrong, and the way it was wrong is worth keeping.**
 `baseline_tests_under_src.txt` compared across the range read **0 → 8**, which would be a ratchet
-growing — `ci-rule.md` §5.5's blocking case. It is not: `git show <before>:<path>` on a file that
+growing — `ci-rule.md` §3's blocking case. It is not: `git show <before>:<path>` on a file that
 did not exist yet prints nothing, and `wc -l` of nothing is 0. The file was *created* by 4.3d at
 22 entries and shrank 22 → 19 → 16 → 14 → 11 → 8 across the range. Reading it per commit is what
 said so. A diff against a commit where the file was absent cannot be read as a count.

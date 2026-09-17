@@ -52,7 +52,7 @@ A piece moves from the app to the Engine when:
 1. the guard confirms it imports nothing outside the Engine, the standard library and the named
    `core/contracts` ABCs (§8.2 rule 1);
 2. it is used by **at least two modules** of this application — one consumer is not evidence that
-   the API is general (`architecture-rule.md` §6.3's spirit, applied to the Engine boundary).
+   the API is general (`architecture-rule.md` §6's spirit, applied to the Engine boundary).
    "Two surfaces" does **not** count: the mirror rule makes every rail card appear on two surfaces
    by default, so that would be evidence of the mirror rule, not of generality;
 3. its public API has been **stable for one whole phase**, measured as: no change to the signatures

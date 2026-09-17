@@ -601,7 +601,7 @@ and `on_strategy_selection_changed`, defined by both `StrategyArmingCoordinator`
 screen's `StrategyConfigCoordinator`, were invisible to the tool while one of the two sat in an
 unscanned tree. Moving it into a scanned one did not create that duplication; it revealed it.
 
-Neither can be answered by editing a number. `ci-rule.md` §5.5 rule 2 is explicit — *"Never raise
+Neither can be answered by editing a number. `ci-rule.md` §3 rule 2 is explicit — *"Never raise
 the ceiling instead. A ratchet raised to admit new code admits the old shape too, and the number
 stops meaning anything. A ratchet may only fall."* And the two revealed names cannot be honestly
 deleted here: `_selected_strategy_class` is `dict.get` in both places (extracting that into a shared

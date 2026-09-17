@@ -105,7 +105,7 @@ src/presentation/ui/qml/
 ```
 
 `.qml` và `_vm.py` **nằm cạnh nhau**, không tách hai cây — Single-Scope Cohesion
-(`code-quality-rule.md` §7). Một widget là một thứ; tách shell và state ra hai thư mục xa nhau
+(`code-quality-rule.md` §4). Một widget là một thứ; tách shell và state ra hai thư mục xa nhau
 là cách chúng trôi khỏi nhau.
 
 ### 3.2 Widget ViewModel giữ **toàn bộ** state và luật

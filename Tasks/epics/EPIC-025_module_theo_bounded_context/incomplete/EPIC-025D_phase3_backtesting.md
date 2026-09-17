@@ -291,7 +291,7 @@ of `ISymbolCatalog`:
 | ~~item 2~~ ✅ | the presenter's adapter import, fixed as `BUG-127`; see §3.4 | **36 → 35** |
 | 3.1b | publish `IStrategyEngine` + `IStrategyEngineFactory` with a verified fake and a contract suite, and move the two backtest handlers plus `paper_exchange` onto them. No files move yet — the 0.5 shape, a port with its consumers | shrinks by the 6 strategy-service lines |
 | ~~3.1c~~ ✅ | move **Half A** into `modules/backtesting/`, with its tests, tier unchanged. Done — §6. The estimate was 26 files and *~15 counted entries*; it shipped as **26 files / 2,676 lines** and **three** entries, because putting the boundary-crossing types in `contracts/` *with* the move absorbed 30 of the 33 inbound imports | **29 → 32** |
-| ~~3.1c-2~~ ✅ | split `paper_exchange.py`, which was **472 lines** against §5 rule 4's 400-line ceiling. §5.5 committed this to 3.1c and it is deliberately a second commit rather than a larger first one: a pure move and a class split are two logical changes (`commit-rule.md` §4), and PR 2.1c/2.1c-2 set that shape in Phase 2. The seam §5.5 named is the file's own: a broker's **books** (cash, positions, trades, the signal → fill dispatch) on top of the **arithmetic against `BrokerSimulationConfig`** that the three policies do. Done — §7, and the file held **three** things rather than two | unchanged |
+| ~~3.1c-2~~ ✅ | split `paper_exchange.py`, which was **472 lines** against §5 rule 4's 400-line ceiling. §5.5 committed this to 3.1c and it is deliberately a second commit rather than a larger first one: a pure move and a class split are two logical changes (`commit-rule.md` §3), and PR 2.1c/2.1c-2 set that shape in Phase 2. The seam §5.5 named is the file's own: a broker's **books** (cash, positions, trades, the signal → fill dispatch) on top of the **arithmetic against `BrokerSimulationConfig`** that the three policies do. Done — §7, and the file held **three** things rather than two | unchanged |
 | ~~3.1d~~ ❌ | item 3's Anticorruption Layer — **measured out, §8.** Not deferred and not descoped: the boundary it was to protect is already clean (`backtesting` reads four `strategy.contracts` modules and nothing else, zero allowlist lines in that direction), and the layer would need `StrategyContext` published, which PR 2.1c's rule forbids. `IStrategyCatalog`'s outcome, a second time | unchanged |
 | → Phase 4 | **Half B, the screen.** Its eleven QML modals become `QDialog`s and its panels docks *as they move*, because ADR D21 deletes the QML rather than porting it — one piece of work, not two | shrinks |
 
@@ -475,7 +475,7 @@ under `application/`, full stop*.
 Which left a third rule with no subject anywhere: *a file declaring an interface is named
 `i_*.py`*, checked only under `application/ports/`. Dropping it with the directory would have been
 the quiet half of a retarget — **a rule that stopped being checked reads exactly like a rule that
-was obeyed** (`ci-rule.md` §5.5; the reviewer's question J2). It was rescued to the address its
+was obeyed** (`ci-rule.md` §3; the reviewer's question J2). It was rescued to the address its
 subject moved to, as `test_contract_file_naming.py` over every `contracts/` tree in `src/` —
 `support/*` packages publish ports too, so the scope is the repository's rather than one tree's.
 Measured before writing: 143 contract files, 36 declaring an interface, **zero** offenders, which is
@@ -558,7 +558,7 @@ Three constructor parameters nobody has ever passed are a seam that exists in
 code and is used nowhere, which is the shape `BUG-120` and PR 2.1d's
 "binding nothing resolves differently" both warn about. They are kept in this
 pull request on purpose: removing them is a **signature change**, this pull
-request is a split, and `commit-rule.md` §4 wants one logical change. The honest
+request is a split, and `commit-rule.md` §3 wants one logical change. The honest
 replacement is one `pricing: FillPricing | None = None` parameter — strictly more
 capable than the four it replaces, at the abstraction level the split just
 created — and it is recorded here rather than done quietly, so whoever next

@@ -12,7 +12,7 @@ evidence rather than taste.
 | **C2** | **Owns its own data or state** | Is there an entity, a piece of state, or a table that **only** this module is allowed to write? | DDD: the Aggregate is the unit of transactional consistency |
 | **C3** | **A different lifecycle and a different reason to change** | What makes this change, who changes it, how often — and is that different from the piece next to it? | The Single Responsibility Principle at module scale (Martin: "one reason to change") |
 | **C4** | **Testable on its own** | Do `domain/` and `application/` run their tests with **no** Qt and **no** other module present (only the other module's `contracts/`, which can be mocked)? | Clean Architecture: independent testability |
-| **C5** | **A real consumer outside, or a screen the user actually uses** | Does at least one other module use this module's `contracts/`, **or** does it own a screen or CLI command that a user really runs? | `architecture-rule.md` §6.3: promote when a second consumer **actually** appears |
+| **C5** | **A real consumer outside, or a screen the user actually uses** | Does at least one other module use this module's `contracts/`, **or** does it own a screen or CLI command that a user really runs? | `architecture-rule.md` §6: promote when a second consumer **actually** appears |
 | **C6** | **Not purely technical** | Take away all the business meaning: is there still a reason for this piece to exist? If yes, it is **support**, not a bounded context | Distillation: Generic subdomain |
 
 **The merge/split threshold.** Split when C1 **and** C2 both hold. If only C3 holds (the pieces change

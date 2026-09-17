@@ -20,7 +20,7 @@ Yêu cầu gốc mơ hồ ở hai điểm có thể gây hại thật nếu đo�
    (`.claude/agents/`), một thư mục mới, hay một thứ khác hẳn.
 2. **Xoá `.jules/` có phá gì không** — `CLAUDE.md` (trước khi sửa) nói thẳng
    7 file `.jules/*.prompt.md` là *"quy ước của bộ công cụ khác trong repo —
-   không phải của Claude Code"*, và `commit-rule.md` §6 nhắc tới nhánh
+   không phải của Claude Code"*, và `commit-rule.md` §5 nhắc tới nhánh
    `jules-*` như bằng chứng một cơ chế tự động thật đang tồn tại. Xoá nhầm một
    thư mục mà dịch vụ ngoài đang đọc là hành động khó hoàn tác theo đúng nghĩa
    "ảnh hưởng hệ thống ngoài phiên này".
@@ -174,7 +174,7 @@ cho cả hai chiều của giả thuyết này.
 lộ ra **16 nhánh cũ** mang đúng tên các persona này (`bolt-*`, `doctor-*`,
 `sentinel-*`, `jules-*`), từ 2026-08-10 đến 2026-08-21, **không nhánh nào được
 merge** — bằng chứng một fleet tự động thật đã từng chạy trên chính repo này,
-push được nhưng không ai review/merge, đúng thứ `commit-rule.md` §6 ("Stale
+push được nhưng không ai review/merge, đúng thứ `commit-rule.md` §5 ("Stale
 Branches... `jules-*`") được viết ra để xử lý hậu quả. Không dọn các nhánh đó
 trong task này — ngoài phạm vi, không ai yêu cầu — nhưng đáng ghi lại vì nó
 xác nhận: "chạy mà không mở PR được" là chuyện đã thật sự xảy ra và lãng phí

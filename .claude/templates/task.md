@@ -24,7 +24,7 @@ description: The format of a standalone task under Tasks/backlog/ or an epic chi
 - [ ] {A relevant failure or boundary outcome; omit if not applicable.}
 
 ## 3. Design
-{The choice made and the reason for each non-obvious one; the named pattern or vetted project it applies (ONBOARDING §7: apply before you invent). A restructuring shows as-is and to-be.}
+{The choice made and the reason for each non-obvious one; the named pattern or vetted project it applies (`CONSTITUTION.md` P5: apply before you invent). A restructuring shows as-is and to-be.}
 
 ## 4. Changes, per file
 | File | Change |
