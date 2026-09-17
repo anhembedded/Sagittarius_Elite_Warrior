@@ -303,3 +303,61 @@ before this PR), and the total *fell* (107 → 99) because consolidating `Signal
 (`presentation/ui/common/strategy_arming_coordinator.py` now owns that handler as
 `on_signal_generated()`, connected to the signal directly — neither Presenter defines it any more).
 `tests/unit/architecture/baseline_presenter_duplication.json` is lowered to 99 in the same commit.
+
+## 8. What this ADR did not yet reach: the Engine's dependency DAG (found starting PR 4.4c, 2026-09-17)
+
+§7's fix answered the **boundary** question (which import statements are legal) correctly, and it
+still stands — `trading`/`dashboard`/`backtest` reading `IStrategyCatalog`/`IStrategyArming`/
+`IStrategyChartOverlay`/`IArmedStrategy` through `modules/strategy/contracts/` passes
+`test_module_boundaries.py` with **zero** allowlist entries, exactly as designed. What this section
+found is one level deeper, and could not have been found before now: at ADR-writing time
+`trading`/`dashboard` were still legacy screens, so the question "what happens once the *importer*
+is a real module too" had no subject yet.
+
+**The finding.** `test_module_declarations.py::test_declared_dependencies_are_exactly_the_contracts_imported`
+requires a module's `dependencies` to name every module whose `contracts/` it imports anywhere in
+its tree — that is what makes the coupling "visible where the module list is read" (§1's own
+phrase). The moment `screens/trading` and `screens/dashboard` move into `modules/trading/ui/`, every
+file that reads `modules.strategy.contracts.*` (four ports, `SignalGeneratedEvent`, `LiveStrategyConfig`,
+`ArmStrategyBlockReason`, four bound/interval constants — measured across `dashboard_presenter.py`,
+`dev_board_panel.py`, `trading_presenter.py`, `strategy_overlay_coordinator.py`,
+`strategy_arming_coordinator.py`, `signal_feed.py`) makes `trading.dependencies` need `"strategy"`.
+But `strategy.dependencies` already names `"trading"` — real, not decorative: `strategy.boot()`
+resolves a live `ITradingSession`/order-submission port, genuinely after trading has registered — so
+declaring the reverse edge closes an actual cycle. The Engine's `ExtensionManager` refuses it
+(`ExtensionCircularDependencyError`) at real app boot, not a guard I can tune: this is discovered by
+running `tests/sanity/`, which `test_module_boundaries.py`/`test_module_declarations.py` alone do not
+reach (they do not construct the Engine's dependency graph).
+
+**Why no amount of moving these six files *within* `modules/trading` fixes it.** The guard counts an
+import wherever it sits in the module's tree; §7's own placement trick (parking the shared classes in
+`presentation/ui/common/`, outside any module) is exactly what stops working once `trading`/`dashboard`
+themselves become modules — moving the six files to a different subdirectory of `modules/trading/ui/`
+still leaves them inside `modules/trading`, so the shortfall persists regardless of the subdirectory.
+
+**The design accepted, not yet implemented:** invert who owns the interface, the same Dependency
+Inversion this ADR already uses everywhere else, applied to the one direction that has not tried it
+yet.
+
+| Piece | Lands | Why not the other options |
+| :--- | :--- | :--- |
+| Four new ports (`IArmedStrategyReader`, `IStrategyCatalogReader`, `IStrategyArmingControl`, `IStrategyChartOverlayReader`) plus their own DTOs (`ArmedStrategyConfig`, `ArmedStrategySnapshot`, `StrategyOption`, `StrategyParamValidation`, `StrategyArmResult`/`StrategyArmBlockReason`, `StrategyDisarmResult`, `StrategyChartOverlay`/`OverlayLine`/`TrendZone`) and its own bounds constants (`MIN`/`MAX_LEVERAGE`, `MIN`/`MAX_SIZING_PERCENT`, `SUPPORTED_LIVE_INTERVALS`) | `modules/trading/contracts/` | Not `core/contracts/`: these are behavioural ports (`arm()`, `disarm()`) plus trading-specific UI bounds, not neutral vocabulary two equal sides share (`ParamField`/`ParamGroup`/`ParamKind`'s reason for living in `core`) — `IOrderSubmission`/`ITradingSession` already live in `modules/trading/contracts/` for the identical reason |
+| One adapter (or a small family, one per port — `architecture-rule.md` §5) implementing all four, inside `modules/strategy/` | `modules/strategy/adapters/` or `modules/strategy/ui/`, bound in `StrategyModule.register()` | Zero new dependency edges: `strategy` already declares `"trading"`, so importing `modules/trading/contracts/` to implement its ports is the existing edge, not a new one. The adapter wraps strategy's own existing `IStrategyCatalog`/`IStrategyArming`/`IStrategyChartOverlay`/`IArmedStrategy` implementations (same-module, already constructed by `port_bindings.py`) and translates each DTO field-by-field at the call boundary — the same "translation at the publishing edge" shape §5 already uses for `ParamKind`, just on the consuming side instead |
+| `strategy.contracts` — `IStrategyCatalog`, `IStrategyArming`, `IStrategyChartOverlay`, `IArmedStrategy`, and every existing DTO/event (`LiveStrategyConfig`, `ArmStrategyResult`, `SignalGeneratedEvent`, …) | **unchanged** | `backtest` (PR 4.4d, `modules/backtesting.dependencies` already lists `"strategy"`) reads these same four ports directly and has no reverse edge — moving them would cost `backtest`'s clean, cycle-free path to fix a problem that is `trading`'s alone |
+| `trading.dependencies` | stays `["market_data"]`, unchanged | the whole point — zero new edges on trading's side |
+
+**Consumers to rewire when this lands:** `dashboard_presenter.py`, `dev_board_panel.py`,
+`trading_presenter.py`, `strategy_overlay_coordinator.py`, `strategy_arming_coordinator.py`,
+`signal_feed.py` switch their `modules.strategy.contracts` imports to `modules.trading.contracts`
+(the new ports/DTOs); their existing fakes/tests (`test_dashboard_presenter.py`,
+`test_strategy_arming_coordinator.py`, `tests/unit/modules/trading/ui/trading/conftest.py`,
+`test_trading_presenter_equity.py`, `test_trading_strategy_overlay.py`) fake the new trading-owned
+ports instead of strategy's.
+
+**Status: 🟡 accepted design, not yet implemented — its own pull request**, for the same reason §2
+gave PR 4.3m its own number rather than folding it into PR 4.4: a two-module contract redesign found
+mid-move is not a file move, and cramming it into the tail of one risks exactly what P10 warns
+against — a restructuring landed without its own design being checked first. PR 4.4c's `git mv` of
+`screens/trading`/`screens/dashboard`/the three shared classes was reverted (uncommitted, so nothing
+to undo on the remote) rather than kept half-done; `EPIC-025E`'s task file records the next session's
+entry point.
