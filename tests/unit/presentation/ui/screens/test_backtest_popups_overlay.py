@@ -16,8 +16,20 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtWidgets import QLabel
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
+    StrategyCatalogService,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
+    StrategyChartOverlayService,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+    IStrategyCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+    IStrategyChartOverlay,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
     BaseStrategy,
@@ -82,6 +94,10 @@ def backtest_screen(qapp, request):
             return cfg
         if interface == StrategyRegistry:
             return registry
+        if interface == IStrategyCatalog:
+            return StrategyCatalogService(registry)
+        if interface == IStrategyChartOverlay:
+            return StrategyChartOverlayService(registry)
         if interface == IndicatorScriptRegistry:
             return IndicatorScriptRegistry()
         if interface == BacktestChartHostFactory:

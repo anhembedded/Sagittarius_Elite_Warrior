@@ -41,11 +41,29 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_st
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
+    StrategyCatalogService,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
+    StrategyChartOverlayService,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
     IArmedStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
+    IStrategyArming,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+    IStrategyCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+    IStrategyChartOverlay,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing import (
+    FakeStrategyArming,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
@@ -154,6 +172,30 @@ def mock_dispatcher() -> MagicMock:
     return MagicMock()
 
 
+@pytest.fixture
+def strategy_catalog(strategy_registry: StrategyRegistry) -> StrategyCatalogService:
+    """`EPIC-025` PR 4.3m — the real, cheap service over the same
+    `strategy_registry` every other strategy fixture here shares, not a
+    `Mock`: `testing-rule.md` §2 prefers the real thing when it costs
+    nothing, and this one is a pure in-memory read."""
+    return StrategyCatalogService(strategy_registry)
+
+
+@pytest.fixture
+def chart_overlay(strategy_registry: StrategyRegistry) -> StrategyChartOverlayService:
+    return StrategyChartOverlayService(strategy_registry)
+
+
+@pytest.fixture
+def strategy_arming() -> FakeStrategyArming:
+    """`EPIC-025` PR 4.3m — the arm/disarm port's verified fake, same
+    reasoning as `trading_session`/`order_submission`/`equity_curve` below:
+    a screen-level Presenter test does not need the real command-dispatch
+    machinery behind arming, only a collaborator whose shape agrees with
+    `IStrategyArming`."""
+    return FakeStrategyArming()
+
+
 # --------------------------------------------------------------------- #
 # `mock_config`/`container`/`view`/`presenter` — the same construction of
 # a full `TradingPresenter` was hand-rolled identically in
@@ -207,6 +249,9 @@ def container(
     equity_curve,
     strategy_session,
     strategy_registry,
+    strategy_catalog,
+    chart_overlay,
+    strategy_arming,
     market_stream,
     historical_klines,
     market_data_sync,
@@ -231,6 +276,9 @@ def container(
             LiveStrategySession: strategy_session,
             IArmedStrategy: strategy_session,
             StrategyRegistry: strategy_registry,
+            IStrategyCatalog: strategy_catalog,
+            IStrategyChartOverlay: chart_overlay,
+            IStrategyArming: strategy_arming,
             IMarketStream: market_stream,
             IHistoricalKlines: historical_klines,
             IMarketDataSync: market_data_sync,

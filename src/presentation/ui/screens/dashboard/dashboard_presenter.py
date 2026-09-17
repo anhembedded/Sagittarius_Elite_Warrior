@@ -23,18 +23,17 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
-    StrategyRegistry,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
     IArmedStrategy,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
+    IStrategyArming,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+    IStrategyCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     SUPPORTED_LIVE_INTERVALS,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.signal_feed import SignalFeed
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_arming_coordinator import (
-    StrategyArmingCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
@@ -94,6 +93,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market_tick_feed import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
     order_filled_marker,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.signal_feed import SignalFeed
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_arming_coordinator import (
+    StrategyArmingCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
     SymbolOptionsCoordinator,
@@ -631,16 +634,12 @@ class DashboardPresenter(BasePresenter):
             ActionOwnershipTracker()
         )
         self._arming_coordinator = StrategyArmingCoordinator(
-            # PR 2.1e — the card's own view model, not the screen's. This is
-            # what `_StrategyCardView`'s Protocol has always described; until
-            # now the screen's view model satisfied it by carrying the card's
-            # nineteen members itself.
+            # PR 2.1e gave the card one shared owner; PR 4.3m keeps it that
+            # way, just relocated out of `modules/strategy/ui/` — the
+            # card's own view model, not the screen's.
             view_model=self._view_model.strategy,
-            config=self.config,
-            dispatcher=self.dispatcher,
-            available_strategies=lambda: container.resolve(
-                StrategyRegistry
-            ).available(),
+            catalog=container.resolve(IStrategyCatalog),
+            arming=container.resolve(IStrategyArming),
             get_active_symbol=lambda: self._active_symbol,
             get_armed_config=lambda: self._armed_strategy.armed().config,
             tracker=self._arm_tracker,
@@ -1138,7 +1137,9 @@ class DashboardPresenter(BasePresenter):
         # `EPIC-023C` — same shared bus `TradingPresenter` reads
         # `SignalGeneratedEvent` from (`EPIC-022E`); a second consumer.
         self._signal_feed = SignalFeed(self.event_bus, parent=self)
-        self._signal_feed.signalGenerated.connect(self._on_signal_generated)
+        self._signal_feed.signalGenerated.connect(
+            self._arming_coordinator.on_signal_generated
+        )
 
     def _trigger_initial_health_check(self) -> None:
         self._health_check_coordinator.request_initial_check()
@@ -1638,25 +1639,6 @@ class DashboardPresenter(BasePresenter):
 
     def _refresh_armed_summary(self, *, busy: bool) -> None:
         self._on_armed_config_changed(self._armed_strategy.armed().config, busy)
-
-    def _on_signal_generated(self, event) -> None:
-        """`SignalFeed.signalGenerated` handler — already on the main
-        thread. Filtered to the armed symbol, same reasoning
-        `TradingPresenter._on_signal_generated` documents: this event also
-        carries signals from a *backtest* `StrategyEngine` on the same
-        shared bus, and an unfiltered card would show a backtest's output
-        as if it were live."""
-        signal = getattr(event, "signal", None)
-        if signal is None:
-            return
-        config = self._armed_strategy.armed().config
-        if config is None or signal.symbol != config.symbol:
-            return
-        action = getattr(signal.action, "value", str(signal.action))
-        when = signal.time.strftime("%H:%M:%S")
-        self._view_model.strategy.set_last_signal_text(
-            f"{when} · {action} @ {signal.price:g} — {signal.reason}"
-        )
 
     # ================================================================== #
     # FSM Hooks

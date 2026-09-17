@@ -23,6 +23,7 @@
 # -> 32 after PR 3.1c.
 # -> 44 after PR 4.1a.
 # -> 58 after PR 4.1b.
+# -> 40 after PR 4.3m.
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -410,37 +411,25 @@ presentation.ui.screens.dashboard.dev_board_panel -> modules.trading.domain.poli
 # one `ArmedStrategySnapshot`, so the pair can no longer be observed
 # disagreeing with itself, and neither screen names the session any more.
 #
-# The FOUR `strategy_registry` entries did not retire, and the reason is a
-# measurement 2.1c made and then acted on: **an `IStrategyCatalog` returning
-# keys would have had no consumer it could serve alone.** Every caller that
-# reads the keys also needs the strategy *classes* —
+# CLOSED by PR 4.3m: the three `strategy_registry` entries this section used
+# to carry (backtest/dashboard/trading Presenters passing `.available()` into
+# their arming/overlay Coordinators). The measurement below is why an
+# `IStrategyCatalog` returning bare keys could not have served them in 2.1c —
+# every caller that read the keys also needed the strategy *classes* — and
+# why the fix was not "publish that port sooner" but the wider redesign
+# `DECISION_2026-09-17_strategy_ui_contributes_rather_than_being_imported.md`
+# records: `IStrategyCatalog.options()`/`params_form()`/`validate_params()`
+# and `IStrategyChartOverlay.overlay_for()` answer in data (labels, param
+# forms, computed overlay lines) instead of handing out the registry, so a
+# consumer never needs `BaseStrategy` at all. `trade_once_cmd`'s own registry
+# use retired earlier, into `IStrategyEngineFactory` (Phase 3).
 #
-#   · both Presenters pass `available()` into `StrategyArmingCoordinator` and
-#     `StrategyOverlayCoordinator`, which call `.get(key)` and construct the
-#     strategy for `chart_line_colors()` / `chart_line_widths()`;
-#   · `backtest_presenter` passes it to `StrategyConfigCoordinator` and
-#     `IndicatorCoordinator`, which do the same;
-#   · `trade_once_cmd` hands the registry to `build_engine()`.
-#
-# — and a published contract must not carry `BaseStrategy`. The port was
-# written, measured against its would-be consumers, and deleted rather than
-# shipped with nothing to serve (`Docs/SDD/05` §3's `claim_symbol` lesson, and
-# PR 1.2's `list_symbols(quote_asset)`). All four callers' class-reads become
-# intra-module in PR 2.1e for the UI ones and Phase 3's
-# `IStrategyEngineFactory` for the CLI, which is where each entry now exits.
-#
-# PR 2.1e moved the coordinators but **not** the Presenters that hand them
-# the registry, so these four are still here: the class-read became
-# intra-module, the `available()` call that feeds it did not.
-# `IStrategyCatalog` becomes writable when the screens move (Phase 4), one
-# phase later than the note above expected.
-
-# -> the widgets move in (PR 2.1e), continued. See the note above for why a
-# keys port cannot serve a consumer that constructs the strategy.
-presentation.ui.screens.backtest.backtest_presenter -> modules.strategy.application.services.strategy_registry
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.strategy.application.services.strategy_registry
-presentation.ui.screens.trading.trading_presenter -> modules.strategy.application.services.strategy_registry
-
+#   · both Presenters used to pass `available()` into `StrategyArmingCoordinator`
+#     and `StrategyOverlayCoordinator`/`IndicatorCoordinator`, which called
+#     `.get(key)` and constructed the strategy for `chart_line_colors()` /
+#     `chart_line_widths()` — now `IStrategyChartOverlay.overlay_for()`;
+#   · `backtest_presenter` passed it to `StrategyConfigCoordinator` and
+#     `IndicatorCoordinator` for the same reason — now the same two ports.
 # -> IStrategyEngineFactory (Phase 3, EPIC-025D). EPIC-025C section 1 item 2
 # publishes this port *for* backtesting, so its consumers retire when that
 # context moves -- not earlier, and saying "2.1c" here would be a date nobody
@@ -469,28 +458,27 @@ presentation.ui.screens.trading.trading_presenter -> modules.strategy.applicatio
 #     screens themselves moving into `modules/*/ui` -- ADR D21's QML deletions
 #     and Phase 4 -- not a contract, because a screen and the card it hangs
 #     will then be in the same module.
-#   * SIX are the **backtest** screen, a different bounded context reading this
-#     one's parameter form, its chart overlays and its strategy-name display.
-#     `EPIC-025D` repays them: either that screen shares this card's view model
-#     (its own `StrategyParamsViewModel` is already the same shape, which is
-#     what `backtest+strategy.ui: 7` in the duplication tool now measures) or
-#     it reads them through a published widget contract.
-#   * TWO are the view models themselves, retiring with their screens.
-presentation.ui.screens.backtest.backtest_modals.strategy_properties_dialog -> modules.strategy.ui.strategy_params.param_field
-presentation.ui.screens.backtest.backtest_presenter -> modules.strategy.ui.strategy_display
-presentation.ui.screens.backtest.coordinators.indicator_coordinator -> modules.strategy.ui.strategy_overlay.strategy_indicator_lines
-presentation.ui.screens.backtest.coordinators.indicator_coordinator -> modules.strategy.ui.strategy_overlay.strategy_trend_zones
-presentation.ui.screens.backtest.coordinators.strategy_config_coordinator -> modules.strategy.ui.strategy_params.bot_params_form
-presentation.ui.screens.backtest.view_models.strategy_params_view_model -> modules.strategy.ui.strategy_params
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.strategy.ui.signal_feed
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.strategy.ui.strategy_arming_coordinator
-presentation.ui.screens.dashboard.dashboard_view_model -> modules.strategy.ui.strategy_card_view_model
-presentation.ui.screens.dashboard.dev_board_panel -> modules.strategy.ui.strategy_params.strategy_params_dialog
-presentation.ui.screens.trading.coordinators.strategy_overlay_coordinator -> modules.strategy.ui.strategy_overlay
-presentation.ui.screens.trading.trading_presenter -> modules.strategy.ui.signal_feed
-presentation.ui.screens.trading.trading_presenter -> modules.strategy.ui.strategy_arming_coordinator
-presentation.ui.screens.trading.trading_view -> modules.strategy.ui.strategy_params.strategy_params_dialog
-presentation.ui.screens.trading.trading_view_model -> modules.strategy.ui.strategy_card_view_model
+#   * SIX were the **backtest** screen, a different bounded context reading
+#     this one's parameter form, its chart overlays and its strategy-name
+#     display.
+#   * TWO were the view models themselves, retiring with their screens.
+#
+# CLOSED by PR 4.3m: all fifteen. `EPIC-025D`'s two choices for the SIX —
+# share this card's view model, or read it through a published widget
+# contract — turned out to be the wrong pair once the inbound direction was
+# looked at again: neither shares data across a module boundary. The ADR
+# (`DECISION_2026-09-17_strategy_ui_contributes_rather_than_being_imported.md`)
+# instead deleted `modules/strategy/ui/strategy_params/`, `strategy_display.py`,
+# `strategy_card_view_model.py`, `strategy_arming_coordinator.py` and
+# `signal_feed.py` outright: the three pure-UI-kit widgets moved to
+# `support/ui_kit/param_form/` (no strategy knowledge in them at all), the
+# key→label lookup and the class-handling both moved onto
+# `IStrategyCatalog`/`IStrategyChartOverlay`, and what stayed screen-specific
+# (the card's own arm/disarm orchestration, its own signal feed) became each
+# screen's own `coordinators/`/`signal_feed.py` — deliberately NOT shared,
+# so Trading and Dev Board carry a second copy of orchestration glue with
+# nothing behavioural left in it to duplicate wrongly. Nothing here crosses
+# a module boundary any more, so there is nothing left to allowlist.
 
 # CLOSED by PR 3.1b: the two backtest handlers and `paper_exchange` stopped
 # reaching into this module. SIX lines, and each one was a consumer holding

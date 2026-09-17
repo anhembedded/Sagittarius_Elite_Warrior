@@ -17,17 +17,20 @@ trade one cohesion for a worse one. Same for the save-request signals
 `Slot`s on the facade and carry user intent, not state.
 
 @par Same shape as the Trading screen's card
-`EPIC-022C` moved `build_bot_params_schema`/`build_bot_params_rows`/
-`parse_bot_params` into `components/strategy_params/` so both screens
-compute the form identically. This class is the Backtest side of that
-symmetry; whoever eventually shares a single strategy-params ViewModel
-between the two screens needs both halves to look like each other first.
+`EPIC-022C` moved the form's compute functions into a shared package so
+every screen builds the form identically; `EPIC-025` PR 4.3m moved that
+computation behind `IStrategyCatalog.params_form()`/`validate_params()`
+(`strategy` owns `BaseStrategy`, this screen may not import it directly
+once it becomes `modules/backtesting/ui/`), and the widgets that render
+`ParamGroup`/`ParamField` into `support/ui_kit/param_form/`. This class is
+the Backtest side of the same symmetry Trading's own card keeps.
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_params import (
+from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
+from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
     step_numeric_param_value,
 )
 
@@ -37,10 +40,9 @@ class StrategyParamsViewModel(QObject):
 
     strategyOptionsChanged = Signal()
     selectedStrategyKeyChanged = Signal()
-    #: Fires whenever `botParamsSchema` changes (selected strategy changed,
+    #: Fires whenever `botParamsGroups` changes (selected strategy changed,
     #: or a save just refreshed the shown "value"s) — BOT-047.
-    botParamsSchemaChanged = Signal()
-    botParamsRowsChanged = Signal()
+    botParamsGroupsChanged = Signal()
     #: Empty string means "no error". Set by the Presenter after a save
     #: attempt; the modal shows this inline rather than closing.
     botParamsErrorChanged = Signal()
@@ -49,8 +51,7 @@ class StrategyParamsViewModel(QObject):
         super().__init__(parent)
         self._strategy_options: list[dict[str, str]] = []
         self._selected_strategy_key = ""
-        self._bot_params_schema: list[dict] = []
-        self._bot_params_rows: list[dict[str, object]] = []
+        self._bot_params_groups: tuple[ParamGroup, ...] = ()
         self._bot_params_error = ""
 
     # ------------------------------------------------------------------ #
@@ -102,49 +103,37 @@ class StrategyParamsViewModel(QObject):
     # "Thông số Chiến lược"
     # ------------------------------------------------------------------ #
 
-    def _get_bot_params_schema(self) -> list[dict]:
-        return self._bot_params_schema
+    def _get_bot_params_groups(self) -> tuple[ParamGroup, ...]:
+        return self._bot_params_groups
 
     #: The strategy's own declared inputs, grouped
-    #: (`bot_params_form.build_bot_params_schema`). Read-only from the
-    #: dialog: the form renders `botParamsRows`, this is what
-    #: `step_bot_param_value()` clamps against.
-    botParamsSchema = Property(
-        "QVariantList", _get_bot_params_schema, notify=botParamsSchemaChanged
-    )
-
-    def _get_bot_params_rows(self) -> list[dict[str, object]]:
-        return self._bot_params_rows
-
-    #: Flat, ready-to-render presentation rows.
-    botParamsRows = Property(
-        "QVariantList", _get_bot_params_rows, notify=botParamsRowsChanged
+    #: (`IStrategyCatalog.params_form()`). Read-only from the dialog: this
+    #: is also what `step_bot_param_value()` clamps against — one shape for
+    #: both, since `build_bot_params_rows`'s QML-era flattening into a
+    #: second `rowType: header/field` shape is dead (PR 4.3 deleted the
+    #: QML that needed it).
+    botParamsGroups = Property(
+        "QVariantList", _get_bot_params_groups, notify=botParamsGroupsChanged
     )
 
     @Slot(list)
-    def set_bot_params_schema(self, schema: list[dict]) -> None:
-        self._bot_params_schema = schema
-        self.botParamsSchemaChanged.emit()
-
-    @Slot(list)
-    def set_bot_params_rows(self, rows: list[dict[str, object]]) -> None:
-        self._bot_params_rows = rows
-        self.botParamsRowsChanged.emit()
+    def set_bot_params_groups(self, groups: tuple[ParamGroup, ...]) -> None:
+        self._bot_params_groups = groups
+        self.botParamsGroupsChanged.emit()
 
     @Slot(str, str, int, result=str)
     def step_bot_param_value(
         self, field_name: str, raw_value: str, direction: int
     ) -> str:
-        """Normalise a numeric step against the current schema in Python.
+        """Normalise a numeric step against the current groups in Python.
 
-        @details Lives with `_bot_params_schema` rather than on the facade:
+        @details Lives with `_bot_params_groups` rather than on the facade:
         it reads nothing else, and splitting the two would give the clamp
         rule a second place to disagree with the schema it clamps against.
         """
-        for group in self._bot_params_schema:
-            fields = group.get("fields", [])
-            for field in fields:
-                if field.get("name") == field_name:
+        for group in self._bot_params_groups:
+            for field in group.fields:
+                if field.name == field_name:
                     return step_numeric_param_value(field, raw_value, direction)
         return raw_value
 

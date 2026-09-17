@@ -21,11 +21,29 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_st
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
+    StrategyCatalogService,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
+    StrategyChartOverlayService,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
     IArmedStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
+    IStrategyArming,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+    IStrategyCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+    IStrategyChartOverlay,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing import (
+    FakeStrategyArming,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
@@ -110,6 +128,9 @@ def container(dispatcher):
         StrategyRegistry: strategy_registry,
         LiveStrategySession: strategy_session,
         IArmedStrategy: strategy_session,
+        IStrategyCatalog: StrategyCatalogService(strategy_registry),
+        IStrategyChartOverlay: StrategyChartOverlayService(strategy_registry),
+        IStrategyArming: FakeStrategyArming(),
         IEquityCurve: FakeEquityCurve(),
         IAccountSnapshot: FakeAccountSnapshot(),
     }

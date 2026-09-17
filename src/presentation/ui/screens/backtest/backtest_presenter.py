@@ -46,14 +46,14 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_metadata_provider import (
     ISymbolMetadataProvider,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
-    StrategyRegistry,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_display import (
-    humanize_strategy_key,
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+    IStrategyCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+    IStrategyChartOverlay,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.symbol_options_coordinator import (
     SymbolOptionsCoordinator,
@@ -351,7 +351,10 @@ class BackTestPresenter(BasePresenter):
         # raise "param nobody declares").
         self._strategy_params: dict[str, Any] | None = None
 
-        self._strategy_registry: StrategyRegistry = container.resolve(StrategyRegistry)
+        self._strategy_catalog: IStrategyCatalog = container.resolve(IStrategyCatalog)
+        self._chart_overlay: IStrategyChartOverlay = container.resolve(
+            IStrategyChartOverlay
+        )
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
         # `EPIC-025` PR 0.5: Backtest asks market_data for a sync through its
         # published port. Resolved here, once, because `build_coordinators`
@@ -474,12 +477,12 @@ class BackTestPresenter(BasePresenter):
                 # actually carries them (BOT-046/BOT-047) — StrategyComboBox
                 # (built for the fuller BOT-040 mockup) expects both roles.
                 {
-                    "key": key,
-                    "name": humanize_strategy_key(key),
+                    "key": option.key,
+                    "name": option.label,
                     "category": "",
                     "description": "",
                 }
-                for key in sorted(self._strategy_registry.available())
+                for option in self._strategy_catalog.options()
             ]
         )
         self._refresh_bot_params_schema()

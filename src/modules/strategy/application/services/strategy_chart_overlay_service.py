@@ -62,7 +62,7 @@ class StrategyChartOverlayService(IStrategyChartOverlay):
         if strategy_cls is None or not candles:
             return StrategyOverlay(lines=(), zones=())
 
-        strategy = strategy_cls(dict(config.strategy_params))
+        strategy = strategy_cls(config.strategy_params)
         raw_lines = compute_strategy_indicator_lines(strategy, candles)
         colours = assign_strategy_line_colors(
             list(raw_lines), strategy.chart_line_colors()

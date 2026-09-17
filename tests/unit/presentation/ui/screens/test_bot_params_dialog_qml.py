@@ -15,8 +15,20 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
+    StrategyCatalogService,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
+    StrategyChartOverlayService,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+    IStrategyCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+    IStrategyChartOverlay,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
     BaseStrategy,
@@ -68,6 +80,10 @@ def bot_params_presenter(qapp, request):
             return cfg
         if interface == StrategyRegistry:
             return registry
+        if interface == IStrategyCatalog:
+            return StrategyCatalogService(registry)
+        if interface == IStrategyChartOverlay:
+            return StrategyChartOverlayService(registry)
         if interface == IndicatorScriptRegistry:
             return IndicatorScriptRegistry()
         if interface == BacktestChartHostFactory:
@@ -106,13 +122,13 @@ def test_opening_bot_params_dialog_keeps_strategy_schema_live(
 
     dialog = view._modals_host._strategy_properties
     assert dialog is not None
-    assert bot_params_presenter._view_model.strategy_params.botParamsSchema != []
+    assert bot_params_presenter._view_model.strategy_params.botParamsGroups != []
 
 
 def test_bot_params_dialog_materializes_schema_rows_for_the_open_modal(
     qapp, bot_params_presenter
 ):
-    assert bot_params_presenter._view_model.strategy_params.botParamsSchema
+    assert bot_params_presenter._view_model.strategy_params.botParamsGroups
     view = bot_params_presenter.view
     view.top_widget._btn_bot_params.click()
     qapp.processEvents()

@@ -3,7 +3,14 @@
 Together, not separately: `_NumericStepLineEdit` is constructed in
 exactly one place, inside `BotParamFieldWidget`, and nothing else
 builds either. They are a single scope in the sense `code-rule.md`
-means, so splitting them further would break that rule, not follow it."""
+means, so splitting them further would break that rule, not follow it.
+
+`EPIC-025` PR 4.3m: moved here from `modules/strategy/ui/strategy_params/`
+and retyped from the QML-era `dict` row to the published `ParamField`
+dataclass — this widget touches no strategy, only the field's own
+declared shape, so `core/contracts` is the only thing it needs to know
+about `strategy` at all.
+"""
 
 from __future__ import annotations
 
@@ -17,6 +24,10 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.param_field import (
+    ParamField,
+    ParamKind,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.form_field_style import (
     FIELD_STYLE,
@@ -29,7 +40,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.widget_value import (
 from .param_stepper import ParamStepper
 
 
-def _schema_value(kind: str, raw: object) -> object:
+def _schema_value(kind: ParamKind, raw: object) -> object:
     """A schema-declared value in the form the widget's USER property takes.
 
     Only `bool` needs real coercion: the schema may carry `True` or the
@@ -37,7 +48,7 @@ def _schema_value(kind: str, raw: object) -> object:
     actual bool — `"false"` is a non-empty string, so passing it through
     would tick the box. Every other kind is edited as text.
     """
-    if kind == "bool":
+    if kind is ParamKind.BOOL:
         return raw is True or raw == "true"
     return str(raw)
 
@@ -89,7 +100,7 @@ class _NumericStepLineEdit(QLineEdit):
 
 class BotParamFieldWidget(QWidget):  # base-exempt: a label stacked over a field
     """Port of `BotParamField.qml`: picks a widget purely from
-    `field_data["kind"]`, mirroring exactly what the QML `Loader` did.
+    `field.kind`, mirroring exactly what the QML `Loader` did.
 
     **Not a `Surface`**: it is a caption stacked over one input, with zero
     margins and no chrome — the same shape as `components/app_progress_bar.py`,
@@ -97,51 +108,50 @@ class BotParamFieldWidget(QWidget):  # base-exempt: a label stacked over a field
 
     def __init__(
         self,
-        field_data: dict,
+        field: ParamField,
         view_model: ParamStepper,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
-        self.field_name = field_data.get("name", "")
-        self._field_data = field_data
+        self.field_name = field.name
+        self._field = field
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(4)
 
-        suffix = field_data.get("suffix", "")
-        label_text = field_data.get("label", "") + (f" ({suffix})" if suffix else "")
+        label_text = field.label + (f" ({field.suffix})" if field.suffix else "")
         label = QLabel(label_text)
         label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 10px;")
         layout.addWidget(label)
 
-        kind = field_data.get("kind", "string")
+        kind = field.kind
         self._input: QWidget
-        if kind == "bool":
+        if kind is ParamKind.BOOL:
             self._input = QCheckBox()
-        elif field_data.get("options"):
+        elif field.options:
             combo = QComboBox()
-            combo.addItems([str(option) for option in field_data["options"]])
+            combo.addItems([str(option) for option in field.options])
             self._input = combo
-        elif kind in ("int", "float"):
-            field = _NumericStepLineEdit("", self.field_name, view_model)
-            minval = field_data.get("minval")
-            maxval = field_data.get("maxval")
-            if kind == "int":
-                field.setValidator(
+        elif kind in (ParamKind.INT, ParamKind.FLOAT):
+            numeric_field = _NumericStepLineEdit("", self.field_name, view_model)
+            minval = field.minval
+            maxval = field.maxval
+            if kind is ParamKind.INT:
+                numeric_field.setValidator(
                     QIntValidator(
                         int(minval) if minval is not None else -999_999_999,
                         int(maxval) if maxval is not None else 999_999_999,
                     )
                 )
             else:
-                field.setValidator(
+                numeric_field.setValidator(
                     QDoubleValidator(
                         float(minval) if minval is not None else -999_999_999.0,
                         float(maxval) if maxval is not None else 999_999_999.0,
                         8,
                     )
                 )
-            self._input = field
+            self._input = numeric_field
         else:
             self._input = QLineEdit()
 
@@ -149,9 +159,7 @@ class BotParamFieldWidget(QWidget):  # base-exempt: a label stacked over a field
         # setCurrentIndex / constructor-argument per branch above (BUG-064).
         # The branches now only choose WHICH widget to build; what goes in it
         # is Qt's own USER property, resolved by `kit.widget_value`.
-        write_widget_value(
-            self._input, _schema_value(kind, field_data.get("value", ""))
-        )
+        write_widget_value(self._input, _schema_value(kind, field.value))
 
         self._input.setObjectName(f"fldBotParam_{self.field_name}")
         self._input.setFixedHeight(32)
@@ -174,8 +182,5 @@ class BotParamFieldWidget(QWidget):  # base-exempt: a label stacked over a field
 
     def reset_to_default(self) -> None:
         write_widget_value(
-            self._input,
-            _schema_value(
-                self._field_data.get("kind", "string"), self._field_data.get("default")
-            ),
+            self._input, _schema_value(self._field.kind, self._field.default)
         )

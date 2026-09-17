@@ -13,8 +13,14 @@ from unittest.mock import MagicMock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
+    StrategyChartOverlayService,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+    IStrategyChartOverlay,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     LiveStrategyConfig,
@@ -64,15 +70,20 @@ def registry() -> StrategyRegistry:
 
 
 @pytest.fixture
+def chart_overlay(registry) -> IStrategyChartOverlay:
+    return StrategyChartOverlayService(registry)
+
+
+@pytest.fixture
 def chart() -> MagicMock:
     return MagicMock()
 
 
 @pytest.fixture
-def coordinator(chart, registry) -> StrategyOverlayCoordinator:
+def coordinator(chart, chart_overlay) -> StrategyOverlayCoordinator:
     return StrategyOverlayCoordinator(
         get_chart=lambda: chart,
-        available_strategies=registry.available,
+        chart_overlay=chart_overlay,
     )
 
 
@@ -172,10 +183,12 @@ def test_re_arming_the_identical_config_does_not_redraw(coordinator, chart):
     chart.add_overlay_indicator.assert_not_called()
 
 
-def test_a_strategy_key_that_vanished_draws_nothing_instead_of_raising(chart, registry):
+def test_a_strategy_key_that_vanished_draws_nothing_instead_of_raising(
+    chart, chart_overlay
+):
     coordinator = StrategyOverlayCoordinator(
         get_chart=lambda: chart,
-        available_strategies=registry.available,
+        chart_overlay=chart_overlay,
     )
     coordinator.set_history(_candles())
 

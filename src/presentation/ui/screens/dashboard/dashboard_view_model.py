@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_card_view_model import (
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_card_view_model import (
     StrategyCardViewModel,
 )
 from Sagittarius_Elite_Warrior.src.support.indicators.ui.list_model import (
@@ -134,14 +134,10 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         )
         self._end_date = now.strftime(DATETIME_FORMAT)
 
-        #: `EPIC-025` PR 2.1e — the strategy card, once, owned by
-        #: `modules/strategy`. The block this replaces carried a note saying
-        #: it was *"duplicated here, not shared, because Shiboken does not
-        #: support one QObject inheriting Qt Property/Signal members from two
-        #: independent QObject bases"*. True, and only about **inheritance**:
-        #: composition — a nested `QObject` reached through a `constant=True`
-        #: Property — is what `BackTestViewModel.strategy_params` has been
-        #: doing since `EPIC-003F2`, one screen over.
+        #: The strategy card's own state, one shared owner
+        #: (`presentation/ui/common/strategy_card_view_model.py`) rather
+        #: than nineteen members carried here a second time — see that
+        #: file's docstring.
         self._strategy = StrategyCardViewModel(self)
 
         # `EPIC-023D` — Enable/Disable toggle + session stats, same fields
@@ -181,6 +177,15 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     def script_model(self) -> IndicatorScriptListModel:
         """Pythonic accessor for the Presenter (mirrors log_model)."""
         return self._script_model
+
+    # ------------------------------------------------------------------ #
+    # The strategy card (`EPIC-023C`, one owner since PR 2.1e)
+    # ------------------------------------------------------------------ #
+    @Property(QObject, constant=True)
+    def strategy(self) -> StrategyCardViewModel:
+        """@brief The card's own state — see `TradingViewModel.strategy`'s
+        docstring for the full reasoning behind one shared owner."""
+        return self._strategy
 
     # ------------------------------------------------------------------ #
     # Price ticker — set by the Presenter on every market tick.
@@ -361,23 +366,6 @@ class DashboardQmlViewModel(BaseQmlViewModel):
             self.endDateChanged.emit()
 
     endDate = Property(str, _get_end_date, _set_end_date, notify=endDateChanged)
-
-    # ------------------------------------------------------------------ #
-    # The strategy card (`EPIC-023C`, one owner since PR 2.1e)
-    # ------------------------------------------------------------------ #
-
-    @Property(QObject, constant=True)
-    def strategy(self) -> StrategyCardViewModel:
-        """@brief The same object `TradingViewModel.strategy` returns — the
-        card's state, owned by `modules/strategy/ui/`.
-
-        @details One instance per screen, not one shared between them: each
-        surface has its own selection and its own parameter form, and two
-        screens writing one card's state would make "what did I pick here"
-        unanswerable. What is shared is the **class**, which is what
-        `tools/measure_duplicate_members.py` was counting.
-        """
-        return self._strategy
 
     # ------------------------------------------------------------------ #
     # Enable/Disable trading toggle + session stats (`EPIC-023D`) — same

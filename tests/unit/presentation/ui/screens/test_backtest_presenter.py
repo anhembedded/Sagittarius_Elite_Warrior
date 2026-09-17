@@ -97,8 +97,20 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_sy
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_metadata_provider import (
     FakeSymbolMetadataProvider,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
+    StrategyCatalogService,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
+    StrategyChartOverlayService,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+    IStrategyCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+    IStrategyChartOverlay,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
     TREND_ZONE_DOWN,
@@ -278,6 +290,10 @@ def _build_presenter_with_registry(
             return mock_config
         if interface == StrategyRegistry:
             return registry
+        if interface == IStrategyCatalog:
+            return StrategyCatalogService(registry)
+        if interface == IStrategyChartOverlay:
+            return StrategyChartOverlayService(registry)
         if interface == IndicatorScriptRegistry:
             return resolved_script_registry
         if interface == BacktestChartHostFactory:
@@ -528,6 +544,10 @@ def mock_container(
             return mock_config
         if interface == StrategyRegistry:
             return strategy_registry
+        if interface == IStrategyCatalog:
+            return StrategyCatalogService(strategy_registry)
+        if interface == IStrategyChartOverlay:
+            return StrategyChartOverlayService(strategy_registry)
         if interface == IndicatorScriptRegistry:
             return indicator_script_registry
         if interface == BacktestChartHostFactory:
@@ -616,6 +636,10 @@ def test_boot_wires_the_container_registered_store_into_the_view(
             return mock_config
         if interface == StrategyRegistry:
             return strategy_registry
+        if interface == IStrategyCatalog:
+            return StrategyCatalogService(strategy_registry)
+        if interface == IStrategyChartOverlay:
+            return StrategyChartOverlayService(strategy_registry)
         if interface == IndicatorScriptRegistry:
             return indicator_script_registry
         if interface == BacktestChartHostFactory:
@@ -2139,7 +2163,7 @@ def test_bot_params_schema_is_empty_for_a_strategy_with_no_declared_params(
     """`fake_strategy` (the shared fixture's registered strategy) declares
     nothing — the modal must show "no params" rather than crash on an empty
     schema."""
-    assert view_model.strategy_params.botParamsSchema == []
+    assert view_model.strategy_params.botParamsGroups == ()
 
 
 def test_bot_params_schema_reflects_a_strategy_with_declared_params(
@@ -2152,12 +2176,12 @@ def test_bot_params_schema_reflects_a_strategy_with_declared_params(
     )
     view_model = presenter._view_model
 
-    schema = view_model.strategy_params.botParamsSchema
-    assert len(schema) == 1
-    fields = {f["name"]: f for f in schema[0]["fields"]}
-    assert fields["period"]["default"] == 20
-    assert fields["period"]["value"] == 20
-    assert fields["threshold"]["default"] == 1.5
+    groups = view_model.strategy_params.botParamsGroups
+    assert len(groups) == 1
+    fields = {f.name: f for f in groups[0].fields}
+    assert fields["period"].default == 20
+    assert fields["period"].value == 20
+    assert fields["threshold"].default == 1.5
 
 
 def test_selecting_a_different_strategy_rebuilds_the_schema(
@@ -2171,11 +2195,11 @@ def test_selecting_a_different_strategy_rebuilds_the_schema(
     )
     view_model = presenter._view_model
     assert view_model.strategy_params.selectedStrategyKey == "fake_strategy"
-    assert view_model.strategy_params.botParamsSchema == []
+    assert view_model.strategy_params.botParamsGroups == ()
 
     view_model.strategy_params.selectedStrategyKey = "rich_strategy"
 
-    assert len(view_model.strategy_params.botParamsSchema) == 1
+    assert len(view_model.strategy_params.botParamsGroups) == 1
 
 
 def test_valid_bot_params_save_updates_params_clears_error_and_reruns(
@@ -2196,10 +2220,8 @@ def test_valid_bot_params_save_updates_params_clears_error_and_reruns(
     assert view_model.strategy_params.botParamsError == ""
     assert saved_signal_calls == [1]
     # Values shown by the (now-refreshed) schema reflect what was just saved.
-    fields = {
-        f["name"]: f for f in view_model.strategy_params.botParamsSchema[0]["fields"]
-    }
-    assert fields["period"]["value"] == 50
+    fields = {f.name: f for f in view_model.strategy_params.botParamsGroups[0].fields}
+    assert fields["period"].value == 50
     mock_thread_mgr.submit.assert_called_once()
     config = mock_thread_mgr.submit.call_args[0][1]
     assert config.strategy_params == {"period": 50, "threshold": 2.5}
@@ -2508,13 +2530,13 @@ def test_active_strategy_lines_are_cleared_before_each_new_run_not_after(
 
 
 def test_successful_run_draws_the_strategys_own_indicator_lines_on_the_chart(
-    presenter, view_model, mock_dispatcher, fake_historical_klines
+    presenter, view_model, mock_dispatcher, fake_historical_klines, strategy_registry
 ):
     """BOT-060: the chart must draw whatever the BACKTESTED strategy itself
     declares via build_indicators() — not a fixed, unrelated indicator
     script (the bug the user reported: Buy/Sell markers not lining up with
     anything drawn)."""
-    presenter._strategy_registry.register("ema_strategy", _EmaIndicatorStrategy)
+    strategy_registry.register("ema_strategy", _EmaIndicatorStrategy)
     view_model.strategy_params.selectedStrategyKey = "ema_strategy"
     config = _lock_and_get_config(presenter, view_model)
     assert config.strategy_key == "ema_strategy"
@@ -2542,7 +2564,7 @@ def test_successful_run_draws_the_strategys_own_indicator_lines_on_the_chart(
 
 
 def test_successful_run_honors_a_strategys_own_chart_line_widths(
-    presenter, view_model, mock_dispatcher, fake_historical_klines
+    presenter, view_model, mock_dispatcher, fake_historical_klines, strategy_registry
 ):
     """BOT-111: EmaTrendPullbackStrategy-style strategies can request a
     different pen width per line (e.g. a thinner entry EMA) — proven here
@@ -2552,7 +2574,7 @@ def test_successful_run_honors_a_strategys_own_chart_line_widths(
         def chart_line_widths(self) -> dict[str, int]:
             return {"ema_fast": 1}  # ema_slow deliberately left at the default
 
-    presenter._strategy_registry.register("width_strategy", _WidthOverridingStrategy)
+    strategy_registry.register("width_strategy", _WidthOverridingStrategy)
     view_model.strategy_params.selectedStrategyKey = "width_strategy"
     config = _lock_and_get_config(presenter, view_model)
     card = presenter.view.chart_cards[0]
@@ -2603,13 +2625,13 @@ def _make_trend_zone_klines(closes: list[float]) -> list[MarketData]:
 
 
 def test_successful_run_draws_the_strategys_own_trend_zone_on_the_chart(
-    presenter, view_model, mock_dispatcher, fake_historical_klines
+    presenter, view_model, mock_dispatcher, fake_historical_klines, strategy_registry
 ):
     """BOT-113: a strategy that overrides classify_trend_zone() must have
     its background zones drawn on the chart via the same set_script_regions()
     API BOT-032's custom scripts already use — under the fixed
     "strategy_trend_zone" key."""
-    presenter._strategy_registry.register("trend_zone_strategy", _TrendZoneStrategy)
+    strategy_registry.register("trend_zone_strategy", _TrendZoneStrategy)
     view_model.strategy_params.selectedStrategyKey = "trend_zone_strategy"
     config = _lock_and_get_config(presenter, view_model)
     card = presenter.view.chart_cards[0]
@@ -2700,13 +2722,13 @@ def test_static_run_still_queries_klines_when_no_committed_bars(
 
 
 def test_strategy_with_no_trend_zone_override_draws_no_zones(
-    presenter, view_model, mock_dispatcher, fake_historical_klines
+    presenter, view_model, mock_dispatcher, fake_historical_klines, strategy_registry
 ):
     """A strategy predating BOT-113 (never overrides classify_trend_zone())
     must still call set_script_regions() — with an empty span list, not skip
     the call — so a stale zone from a previous strategy's run never lingers
     on the chart after switching to one with no zone opinion."""
-    presenter._strategy_registry.register("ema_strategy", _EmaIndicatorStrategy)
+    strategy_registry.register("ema_strategy", _EmaIndicatorStrategy)
     view_model.strategy_params.selectedStrategyKey = "ema_strategy"
     config = _lock_and_get_config(presenter, view_model)
     card = presenter.view.chart_cards[0]
@@ -2735,9 +2757,9 @@ def test_strategy_trend_zone_is_cleared_before_each_new_run(presenter, view_mode
 
 
 def test_ema_toggle_shows_and_hides_the_strategys_own_indicator_lines(
-    presenter, view_model, mock_dispatcher, fake_historical_klines
+    presenter, view_model, mock_dispatcher, fake_historical_klines, strategy_registry
 ):
-    presenter._strategy_registry.register("ema_strategy", _EmaIndicatorStrategy)
+    strategy_registry.register("ema_strategy", _EmaIndicatorStrategy)
     view_model.strategy_params.selectedStrategyKey = "ema_strategy"
     config = _lock_and_get_config(presenter, view_model)
     card = presenter.view.chart_cards[0]

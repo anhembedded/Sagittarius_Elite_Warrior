@@ -58,7 +58,8 @@ class StrategyCatalogService(IStrategyCatalog):
         )
 
     def validate_params(self, key: str, raw: Mapping[str, object]) -> ParamValidation:
-        schema = self._require(key)().inputs
+        strategy_cls = self._require(key)
+        schema = strategy_cls().inputs
         parsed: dict[str, object] = {}
         for spec in schema:
             if spec.name not in raw:
@@ -69,6 +70,17 @@ class StrategyCatalogService(IStrategyCatalog):
                 return ParamValidation(
                     error=f"{spec.label}: invalid value ({raw[spec.name]!r})"
                 )
+        try:
+            # Construct-and-discard: `BaseStrategy.__init__`'s own
+            # `input_int()`/`input_float()` enforce each field's declared
+            # `minval`/`maxval`, which type coercion alone does not — the
+            # strategy itself is the validator, one check, not two that
+            # could disagree (matches what `StrategyConfigCoordinator.
+            # apply_bot_params()` did at the call site before this port
+            # existed).
+            strategy_cls(parsed)
+        except ValueError as exc:
+            return ParamValidation(error=str(exc))
         return ParamValidation(values=parsed)
 
     def _require(self, key: str) -> type:

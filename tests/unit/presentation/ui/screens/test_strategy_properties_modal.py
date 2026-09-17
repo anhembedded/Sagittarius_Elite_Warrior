@@ -15,8 +15,20 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.currency import (
     Currency,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
+    StrategyCatalogService,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
+    StrategyChartOverlayService,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+    IStrategyCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+    IStrategyChartOverlay,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
     BaseStrategy,
@@ -76,6 +88,10 @@ def modal_presenter(qapp, request):
             return cfg
         if interface == StrategyRegistry:
             return registry
+        if interface == IStrategyCatalog:
+            return StrategyCatalogService(registry)
+        if interface == IStrategyChartOverlay:
+            return StrategyChartOverlayService(registry)
         if interface == IndicatorScriptRegistry:
             return IndicatorScriptRegistry()
         if interface == BacktestChartHostFactory:
@@ -475,7 +491,7 @@ def test_editing_a_strategy_input_field_and_losing_focus_also_commits_it(
         "losing focus must not dispatch RUN_REQUESTED"
     )
     # The widget the user was typing in must survive the commit: refreshing
-    # the schema fires botParamsRowsChanged, and rebuilding the tab there
+    # the schema fires botParamsGroupsChanged, and rebuilding the tab there
     # would deleteLater() this very field mid-edit.
     assert dialog.findChild(object, "fldBotParam_fast") is fast_field
 

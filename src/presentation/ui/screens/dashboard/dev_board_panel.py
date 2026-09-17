@@ -736,7 +736,7 @@ class DevBoardPanel(QObject):
         method documents. Imported lazily for the same reason: the dialog
         pulls in `QScrollArea`/`Overlay` chrome no user who never opens it
         should pay for at panel construction."""
-        from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_params.strategy_params_dialog import (
+        from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
             StrategyParamsDialog,
         )
 
@@ -767,29 +767,29 @@ class DevBoardPanel(QObject):
         self._cbo_live_interval.blockSignals(False)
 
     def _sync_strategy_selection(self) -> None:
-        vm = self._view_model
+        vm = self._view_model.strategy
         self._cbo_live_strategy.blockSignals(True)
-        index = self._cbo_live_strategy.findData(vm.strategy.selectedStrategyKey)
+        index = self._cbo_live_strategy.findData(vm.selectedStrategyKey)
         if index >= 0:
             self._cbo_live_strategy.setCurrentIndex(index)
         self._cbo_live_strategy.blockSignals(False)
 
         self._cbo_live_interval.blockSignals(True)
-        if vm.strategy.liveInterval:
-            self._cbo_live_interval.setCurrentText(vm.strategy.liveInterval)
+        if vm.liveInterval:
+            self._cbo_live_interval.setCurrentText(vm.liveInterval)
         self._cbo_live_interval.blockSignals(False)
 
         for spin, value in (
-            (self._spn_sizing_percent, vm.strategy.sizingPercent),
-            (self._spn_leverage, vm.strategy.leverage),
+            (self._spn_sizing_percent, vm.sizingPercent),
+            (self._spn_leverage, vm.leverage),
         ):
             spin.blockSignals(True)
             spin.setValue(value)
             spin.blockSignals(False)
 
     def _sync_armed_summary(self) -> None:
-        vm = self._view_model
-        summary = vm.strategy.armedSummary
+        vm = self._view_model.strategy
+        summary = vm.armedSummary
         self._lbl_armed_strategy.setText(summary or _NOT_ARMED_TEXT)
         self._lbl_armed_strategy.setStyleSheet(
             f"color: {Palette.SUCCESS if summary else Palette.MUTED}; font-size: 11px;"
@@ -798,7 +798,7 @@ class DevBoardPanel(QObject):
         # refused by the command handler too; this is the same rule made
         # visible before the click rather than after it (`TradingView`'s
         # own `_apply_armed_summary` docstring).
-        editable = not vm.strategy.strategyBusy and not vm.enabled
+        editable = not vm.strategyBusy and not self._view_model.enabled
         for widget in self._strategy_controls:
             widget.setEnabled(editable)
 

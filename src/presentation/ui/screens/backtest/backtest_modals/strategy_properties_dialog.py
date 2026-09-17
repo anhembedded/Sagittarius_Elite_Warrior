@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Iterable, Sequence
 from typing import TYPE_CHECKING, Any
 
 from PySide6.QtWidgets import (
@@ -19,9 +19,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_params.param_field import (
-    BotParamFieldWidget,
-)
+from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Overlay,
@@ -32,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.widget_value import (
     mark_uses_item_data,
     read_widget_value,
     write_widget_value,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
+    BotParamFieldWidget,
 )
 
 from ..logic.broker_properties_schema import BROKER_PROPERTY_FIELDS, owner_of
@@ -63,15 +64,11 @@ _BROKER_PROPERTY_DEFAULTS: dict[str, Any] = {
 }
 
 
-def _field_names(rows: Sequence[Mapping[str, Any]]) -> list[str]:
-    """The declared field names in `botParamsRows`, in order — the part of the
-    schema that decides whether the Inputs tab's widgets must be rebuilt
-    (BUG-064). Values are deliberately not part of this."""
-    return [
-        str(row.get("field", {}).get("name", ""))
-        for row in rows
-        if row.get("rowType") == "field"
-    ]
+def _field_names(groups: Sequence[ParamGroup]) -> list[str]:
+    """The declared field names in `botParamsGroups`, in order — the part of
+    the schema that decides whether the Inputs tab's widgets must be
+    rebuilt (BUG-064). Values are deliberately not part of this."""
+    return [field.name for group in groups for field in group.fields]
 
 
 class StrategyPropertiesDialog(Overlay):
@@ -124,7 +121,7 @@ class StrategyPropertiesDialog(Overlay):
         )
         self._tabs.addTab(visibility_tab, "Visibility")
 
-        view_model.strategy_params.botParamsRowsChanged.connect(self._sync_inputs)
+        view_model.strategy_params.botParamsGroupsChanged.connect(self._sync_inputs)
         view_model.botParamsSaved.connect(self.accept)
 
     # -- Tab 2: Properties ------------------------------------------------
@@ -335,7 +332,7 @@ class StrategyPropertiesDialog(Overlay):
         Skips the rebuild entirely when the schema still describes the SAME
         set of fields (BUG-064). Reason: committing an edit refreshes the
         schema so the stored values are current, which fires
-        `botParamsRowsChanged` — and blindly rebuilding there would
+        `botParamsGroupsChanged` — and blindly rebuilding there would
         `deleteLater()` the very widget the user is typing in, mid-edit,
         every time they tab to the next field. Only the field *set* matters
         for whether widgets must be recreated; values are already correct in
@@ -343,8 +340,8 @@ class StrategyPropertiesDialog(Overlay):
         nothing to rebuild. Switching strategies does change the field set,
         and still rebuilds.
         """
-        rows = self._vm.strategy_params.botParamsRows
-        if self._field_widgets and _field_names(rows) == [
+        groups = self._vm.strategy_params.botParamsGroups
+        if self._field_widgets and _field_names(groups) == [
             fw.field_name for fw in self._field_widgets
         ]:
             return
@@ -356,22 +353,16 @@ class StrategyPropertiesDialog(Overlay):
                 widget.deleteLater()
         self._field_widgets = []
 
-        if not rows:
+        if not groups:
             empty = QLabel("This strategy has no input parameters to configure.")
             empty.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
             self._inputs_layout.addWidget(empty)
             return
 
-        for row in rows:
-            row_type = row.get("rowType", "")
-            if row_type == "header":
-                self._inputs_layout.addLayout(
-                    _section_header("~", row.get("groupLabel", ""))
-                )
-            elif row_type == "field":
-                field_widget = BotParamFieldWidget(
-                    row.get("field", {}), self._vm.strategy_params
-                )
+        for group in groups:
+            self._inputs_layout.addLayout(_section_header("~", group.label))
+            for field in group.fields:
+                field_widget = BotParamFieldWidget(field, self._vm.strategy_params)
                 self._inputs_layout.addWidget(field_widget)
                 self._field_widgets.append(field_widget)
         self._wire_commit_on_edit(fw.input_widget for fw in self._field_widgets)

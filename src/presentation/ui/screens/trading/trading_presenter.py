@@ -15,18 +15,20 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
-    StrategyRegistry,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
     IArmedStrategy,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
+    IStrategyArming,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
+    IStrategyCatalog,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
+    IStrategyChartOverlay,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     SUPPORTED_LIVE_INTERVALS,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.signal_feed import SignalFeed
-from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_arming_coordinator import (
-    StrategyArmingCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
@@ -75,6 +77,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market_tick_feed import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
     order_filled_marker,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.signal_feed import SignalFeed
+from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_arming_coordinator import (
+    StrategyArmingCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -316,21 +322,17 @@ class TradingPresenter(BasePresenter):
         )
         self._overlay_coordinator = StrategyOverlayCoordinator(
             get_chart=lambda: self.view.chart,
-            available_strategies=lambda: container.resolve(
-                StrategyRegistry
-            ).available(),
+            chart_overlay=container.resolve(IStrategyChartOverlay),
         )
         self._arming_coordinator = StrategyArmingCoordinator(
-            # PR 2.1e — the card's own view model, not the screen's. This is
-            # what `_StrategyCardView`'s Protocol has always described; until
-            # now the screen's view model satisfied it by carrying the card's
-            # nineteen members itself.
+            # PR 2.1e gave the card one shared owner; PR 4.3m keeps it that
+            # way, just relocated out of `modules/strategy/ui/` (see
+            # `TradingViewModel`'s docstring) — the card's own view model,
+            # not the screen's, satisfying the Coordinator's narrower
+            # Protocol.
             view_model=self._view_model.strategy,
-            config=self.config,
-            dispatcher=self.dispatcher,
-            available_strategies=lambda: container.resolve(
-                StrategyRegistry
-            ).available(),
+            catalog=container.resolve(IStrategyCatalog),
+            arming=container.resolve(IStrategyArming),
             get_active_symbol=lambda: self._active_symbol,
             get_armed_config=lambda: self._armed_strategy.armed().config,
             tracker=self._arm_tracker,
@@ -340,6 +342,7 @@ class TradingPresenter(BasePresenter):
             on_armed_changed=self._on_armed_config_changed,
         )
         self._arming_coordinator.restore_into_view_model(list(SUPPORTED_LIVE_INTERVALS))
+
         self._refresh_armed_summary(busy=False)
         # Boot may already have armed a strategy from config
         # (`_arm_from_config`), so the overlay starts from the session's
@@ -456,7 +459,9 @@ class TradingPresenter(BasePresenter):
         # `EPIC-022E` — `SignalGeneratedEvent` has been published since
         # `BOT-020` with nothing in the UI listening.
         self._signal_feed = SignalFeed(self.event_bus, parent=self)
-        self._signal_feed.signalGenerated.connect(self._on_signal_generated)
+        self._signal_feed.signalGenerated.connect(
+            self._arming_coordinator.on_signal_generated
+        )
         self._equity_feed.equitySampled.connect(self._on_equity_sampled)
 
     @Slot(str)
@@ -755,28 +760,6 @@ class TradingPresenter(BasePresenter):
 
     def _refresh_armed_summary(self, *, busy: bool) -> None:
         self._on_armed_config_changed(self._armed_strategy.armed().config, busy)
-
-    def _on_signal_generated(self, event) -> None:
-        """Shows the strategy's latest decision, in its own words.
-
-        @details Filtered to the armed symbol on purpose: this event also
-        carries signals from a *backtest* `StrategyEngine` running on the
-        same shared bus (see `SignalFeed`'s docstring), and a card
-        labelled "TÍN HIỆU GẦN NHẤT" on the live trading screen showing a
-        backtest's output would be exactly the kind of half-true UI this
-        epic set out to remove.
-        """
-        signal = getattr(event, "signal", None)
-        if signal is None:
-            return
-        config = self._armed_strategy.armed().config
-        if config is None or signal.symbol != config.symbol:
-            return
-        action = getattr(signal.action, "value", str(signal.action))
-        when = signal.time.strftime("%H:%M:%S")
-        self._view_model.strategy.set_last_signal_text(
-            f"{when} · {action} @ {signal.price:g} — {signal.reason}"
-        )
 
     # ================================================================== #
     # Emergency Stop (`EPIC-021K` §2.2) — deliberately NOT `@safe_ui_action`
