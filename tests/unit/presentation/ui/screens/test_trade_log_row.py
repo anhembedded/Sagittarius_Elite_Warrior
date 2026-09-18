@@ -4,14 +4,14 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason imp
     ExitReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
-    PositionSide,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_row import (
     TradeLogRow,
     build_trade_log_rows,
     trade_log_row_to_qml,
     trade_log_rows_to_qml,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
+    PositionSide,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,

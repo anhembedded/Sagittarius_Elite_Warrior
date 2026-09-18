@@ -21,6 +21,9 @@ context — and merging them would hide which is which.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.module import (
+    BacktestScreenModule,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.module import (
     DatabaseScreenModule,
 )
@@ -29,9 +32,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.module import (
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.module import (
     TradingScreenModule,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module import (
-    BacktestScreenModule,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
     SettingsScreenModule,

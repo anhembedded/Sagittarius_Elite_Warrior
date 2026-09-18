@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_ba
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason import (
     ExitReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.chart_canvas_view import (
+    trade_flag_markers,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_engine_factory import (
     StrategyEngineFactory,
 )
@@ -36,9 +39,6 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.ui.strategy_overlay.strategy
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
-    trade_flag_markers,
 )
 
 _STRATEGY_KEY = "ema_trend_confirm_pullback"

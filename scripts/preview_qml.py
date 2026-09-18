@@ -55,13 +55,16 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
 #: nothing had asked for it by name yet. `modules/strategy/ui` still has no
 #: `preview.py` of its own, so it stays off this list until it does — adding
 #: an empty root now would be solving a case that does not exist yet
-#: (`architecture-rule.md` §7.2.1). This list shrinks back to one entry when
-#: Phase 4 deletes the legacy tree.
+#: (`architecture-rule.md` §7.2.1). PR 4.4d added `modules/backtesting/ui`
+#: for the same reason as 4.4b/4.4c: `screens/backtest`'s own `preview.py`
+#: moved there. This list shrinks back to one entry when Phase 4 deletes the
+#: legacy tree.
 _UI_ROOTS = (
     _REPO_ROOT / "src" / "presentation" / "ui",
     _REPO_ROOT / "src" / "support" / "ui_kit",
     _REPO_ROOT / "src" / "modules" / "market_data" / "ui",
     _REPO_ROOT / "src" / "modules" / "trading" / "ui",
+    _REPO_ROOT / "src" / "modules" / "backtesting" / "ui",
 )
 
 

@@ -180,8 +180,8 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         (*UI_TREE_ROWS, ("scripts", "*.py"), ("tests", "*.py")),
     ),
     (
-        "tests/unit/presentation/ui/screens/backtest/test_backtest_view_contract.py",
-        (("src/presentation/ui/screens/backtest", "*.py"),),
+        "tests/unit/modules/backtesting/ui/test_backtest_view_contract.py",
+        (("src/modules/backtesting/ui", "*.py"),),
     ),
     (
         "tests/unit/modules/trading/ui/trading/test_trading_view_contract.py",

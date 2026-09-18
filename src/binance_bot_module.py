@@ -34,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_ba
     RunStaticBacktestCommand,
     RunStaticBacktestCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_chart_host import (
+    BacktestChartHostFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
     MarketDataSessionFactory,
 )
@@ -164,9 +167,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits impo
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitPolicy,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
-    BacktestChartHostFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
     EnvFirstCredentialsProvider,

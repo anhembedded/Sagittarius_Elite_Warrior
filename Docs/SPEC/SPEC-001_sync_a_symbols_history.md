@@ -106,7 +106,7 @@ the module and deliberately not published.
 | The second concurrent sync of a pair is skipped | `tests/unit/modules/market_data/application/sync/test_in_flight_sync_guard.py` | unit |
 | Both implementations of the port answer the same way | `tests/unit/modules/market_data/contracts/test_market_data_sync_contract.py` | contract |
 | Progress events reach the screen, with cancellation | `tests/unit/modules/market_data/ui/test_sync_coordinator.py` | unit |
-| The Backtest screen's own sync path | `tests/unit/presentation/ui/screens/backtest/coordinators/test_data_sync_coordinator.py` | unit |
+| The Backtest screen's own sync path | `tests/unit/modules/backtesting/ui/coordinators/test_data_sync_coordinator.py` | unit |
 | `sync` on the command line, and at the prompt | `tests/unit/modules/market_data/cli/test_sync_cmd.py` · `tests/unit/modules/market_data/cli/test_sync_cli_handler.py` | unit |
 | Coverage answered by the store, not by row count | `tests/integration/modules/market_data/adapters/persistence/test_bug010_sync_range_coverage_regression.py` | integration |
 | A real fetch against the real venue | **the user runs it**: `sync --symbols BTCUSDT --interval 1m --days 2`, then re-run it and see the second run finish at once | human |

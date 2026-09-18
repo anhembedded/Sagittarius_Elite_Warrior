@@ -38,7 +38,9 @@
 #       as PR 4.4b's data_management line below
 #   legacy_screens -> screens.data_management     RETIRED, PR 4.4b -- moved, not deleted;
 #       the import now lives in allowlist_module_boundaries.txt, retiring at Phase 5
-#   legacy_screens -> screens.backtest           Phase 3 (modules/backtesting)
+#   legacy_screens -> screens.backtest            RETIRED, PR 4.4d -- moved, not deleted;
+#       the import now lives in allowlist_module_boundaries.txt (shell.legacy_screens ->
+#       modules.backtesting.ui.module), retiring at Phase 5, same shape as the two rows above
 #   legacy_screens -> screens.settings           Phase 4 (settings becomes a surface)
 #   *_adapter/wiring/legacy_screens -> registry   RETIRED, `EPIC-025` PR 1.6d, four
 #       phases early and not the way this line expected. The plan was Phase 5 replacing
@@ -46,5 +48,4 @@
 #       is the registry moving to `support/ui_kit`, after which `shell -> support/**` is
 #       permitted outright by the rule table and needs no recorded permission at all.
 #       9 lines -> 5.
-shell.legacy_screens -> presentation.ui.screens.backtest.module
 shell.legacy_screens -> presentation.ui.screens.settings.module

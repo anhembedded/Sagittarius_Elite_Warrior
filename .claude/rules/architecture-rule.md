@@ -23,7 +23,7 @@ You are the architectural integrity controller for Sagittarius Elite Warrior. En
 ### 2.1 Contracts are explicit
 - A contract that crosses a boundary (Presenter ↔ View, consumer ↔ port, module ↔ module) is a named type. Unannotated `view`, `hasattr`/`getattr` probing, "call it and see" are forbidden. `[review: C4]`
 - **ABC is the default.** `Protocol` (with `@runtime_checkable`) only when inheritance is impossible, and the docstring names which reason: (a) the implementer is a `QObject` (Shiboken forbids two `QObject` bases and `ABCMeta` conflicts); (b) §2 already forbids a second base; (c) the implementer is third-party. Convenience is not a reason. `[review: C5]`
-- A Protocol must declare exactly what the consumer uses; in `src/presentation/` (excluded from `mypy`) a contract test locks both directions and the count — model: `tests/unit/presentation/ui/screens/backtest/test_backtest_view_contract.py`. `[guard: that test, per contract]`
+- A Protocol must declare exactly what the consumer uses; where the implementer is excluded from `mypy`, a contract test locks both directions and the count — model: `tests/unit/modules/backtesting/ui/test_backtest_view_contract.py`. `[guard: that test, per contract]`
 - The View is chosen at bootstrap, injected into `__init__`, never swapped at runtime; never cache child widgets of the View (`BUG-013`). `[eye]`
 
 ## 3. Layers

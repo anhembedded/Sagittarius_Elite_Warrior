@@ -13,14 +13,14 @@ from __future__ import annotations
 
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.module import (
+    BacktestScreenModule,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.module import (
     DatabaseScreenModule,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.module import (
     DashboardScreenModule,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module import (
-    BacktestScreenModule,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
     SettingsScreenModule,

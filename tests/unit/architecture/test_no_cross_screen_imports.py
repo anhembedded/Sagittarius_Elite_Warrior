@@ -87,9 +87,11 @@ def test_screens_root_is_where_we_think_it_is() -> None:
 
     Ngưỡng giảm dần theo `EPIC-025` Phase 4: 4 (`trading`, `dashboard`,
     `backtest`, `settings`) → 2 sau PR 4.4c (`trading`/`dashboard` rời sang
-    `modules/trading/ui/`) → 0 khi Phase 4 xoá hẳn cây legacy này."""
+    `modules/trading/ui/`) → 1 sau PR 4.4d (`backtest` rời sang
+    `modules/backtesting/ui/`) → 0 khi Phase 4 xoá hẳn cây legacy này
+    (`settings` rời sang `shell/settings/` ở 4.4e)."""
     assert _SCREENS_ROOT.is_dir(), f"không thấy cây screens ở {_SCREENS_ROOT}"
-    assert len([p for p in _SCREENS_ROOT.iterdir() if p.is_dir()]) >= 2
+    assert len([p for p in _SCREENS_ROOT.iterdir() if p.is_dir()]) >= 1
 
 
 def test_no_widget_import_crosses_a_screen_boundary() -> None:

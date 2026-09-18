@@ -150,6 +150,12 @@ extend-select = ["S", "PLR2004", "B", "SIM", "ERA", "N"]
 # choice this repository made, and renaming it would be a behaviour change
 # dressed as a move (ADR D12), the same reason line 137 and line 145 exist.
 "src/modules/market_data/ui/**" = ["N802", "N803", "N815"]
+# Seventh tree, same reason: `EPIC-025E` PR 4.4d moved `screens/backtest` out
+# of `presentation/ui/screens/` (line 110's pattern) into
+# `modules/backtesting/ui/`. Its Presenter/View/view-models declare PySide6
+# `Signal`/`Property` members in that library's own camelCase convention
+# (`currentPage`, `searchText`, …), the same reason lines 137/145/152 exist.
+"src/modules/backtesting/ui/**" = ["N802", "N803", "N815"]
 # `TimeframePicker/` is a **QML module directory**, and QML requires its module
 # names to be PascalCase — the `.qml` files inside are addressed by that name.
 # It was invisible before 1.6f only by accident: under
@@ -348,6 +354,92 @@ exclude = [
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]trading[\\/]trading_view_model\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]trading[\\/]module\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]trading[\\/]preview\\.py$",
+
+    # `EPIC-025` PR 4.4d, sixth re-key on PR 0.4a's precedent: `screens/backtest`
+    # (79 files) + `base_event_logger.py` left `presentation/` for
+    # `modules/backtesting/ui/` and arrived with **190** pre-existing errors in
+    # 26 of its 80 files. Listed by file, not by directory, for the same
+    # reason as PR 4.4b/4.4c: the other 54 files were already `mypy`-clean
+    # before this move and stay under real coverage. Measured before
+    # deciding, same discipline as those two tables:
+    #
+    #   73  arg-type/assignment/attr-defined  the PySide6
+    #                        `@Property`/`notifying_property()` false-positive
+    #                        class the wholesale `presentation/` exclusion
+    #                        exists for (EPIC-002A §2) — `backtest_presenter.py`
+    #                        reads its View's properties through this
+    #                        descriptor throughout.
+    #   64  union-attr       `BackTestPresenter`'s own `BaseStateMachine[Any]
+    #                        | None` FSM field dispatched/queried without a
+    #                        `None` check first — real Optional-narrowing
+    #                        debt, frozen rather than fixed inside this move,
+    #                        the same shape as PR 4.4c's 10 (this screen's FSM
+    #                        simply has far more call sites).
+    #   22  arg-type/assignment  `execution_coordinator.py` unpacks a
+    #                        `**dict[str, object]` into
+    #                        `RunHistoricalTickBacktestCommand`/
+    #                        `RunStaticBacktestCommand`'s typed constructors —
+    #                        real narrowing debt (the dict's value type is
+    #                        `object`, losing every field's real type at the
+    #                        call site), frozen with the rest.
+    #    9  union-attr/arg-type  `QLayoutItem | None`/`IBacktestChartControls
+    #                        | None` accessed post-`takeAt()`/lookup without a
+    #                        `None` check — the same family as PR 4.4c's 9.
+    #    2  return-value/arg-type  `module.py` constructs `BackTestPresenter`
+    #                        with a `BaseView`-typed View where the Presenter
+    #                        wants the concrete `BackTestView` — the exact
+    #                        debt PR 4.4c's own comment above named as
+    #                        "the same shape as `screens/backtest/module.py`'s
+    #                        own frozen debt," now moving with the file it was
+    #                        always describing.
+    #   20  dict-item/attr-defined/arg-type/assignment  Everything else
+    #                        measured: `preview.py`'s fixture dict typed
+    #                        `dict[str, str]` fed a `bool` value and a renamed
+    #                        `strategyName` property; `view_factory.py`'s
+    #                        registry keyed to a concrete `type[BackTestView]`
+    #                        where a `Callable[[], IBacktestView]` factory is
+    #                        declared; `RunResultViewModel.set_stat_cards()`
+    #                        fed a `Tone`-typed value where `str` is declared;
+    #                        `data_sync_coordinator.py`'s `IRangeCoverage`
+    #                        call and `chart_controls.py`'s `Qt.
+    #                        PointingHandCursor` stub gap; one private
+    #                        `_health_check_coordinator` attribute read in a
+    #                        test-support file; `BasePresenter`'s own `None`-
+    #                        typed FSM fields narrowed by this Presenter's
+    #                        subclass without widening the base declaration.
+    #
+    # Fixing 190 typing errors inside a 79-file move makes the move
+    # unreviewable, the same call PR 4.4b/4.4c made at 115/141. The exit is
+    # the same design step that already owns the rest of this exclude list's
+    # `@Property` debt (`EPIC-002D`); the FSM/dict-unpacking narrowing gaps
+    # exit when a future pass adds the `None`/type-guard checks their call
+    # sites are missing, not as a side effect of this move.
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_modals[\\/]backtest_metrics_detail_source\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_modals[\\/]backtest_symbol_picker_source\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_modals[\\/]backtest_time_range_source\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_modals[\\/]capital_dialog\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_modals[\\/]limitations_dialog\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_modals[\\/]modals_host\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_modals[\\/]order_execution_dialog\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_modals[\\/]strategy_picker_dialog\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_modals[\\/]strategy_properties_dialog\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_modals[\\/]symbol_picker_dialog\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_modals[\\/]timezone_picker_dialog\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_presenter\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_top_panel\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_trade_logs_panel\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_view\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]backtest_view_model\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]coordinators[\\/]chart_render_coordinator\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]coordinators[\\/]data_sync_coordinator\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]coordinators[\\/]execution_coordinator\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]logic[\\/]chart_controls\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]module\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]preview\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]view_factory\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]view_models[\\/]run_result_view_model\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]view_models[\\/]strategy_params_view_model\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]view_models[\\/]time_range_view_model\\.py$",
 
     # Everything below: real per-file baseline debt (not Property noise),
     # frozen at EPIC-002A's measurement.

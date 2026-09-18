@@ -1,15 +1,15 @@
 from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
-    PositionSide,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_filter import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_filter import (
     TradeLogFilter,
     filter_trade_log_rows,
     search_trade_log_rows,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_row import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_row import (
     TradeLogRow,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
+    PositionSide,
 )
 
 _T0 = datetime(2026, 1, 1, 6, 0, tzinfo=UTC)

@@ -6,11 +6,11 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason imp
     ExitReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_export import (
+    export_trades_to_csv,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.trade_log_export import (
-    export_trades_to_csv,
 )
 
 _T0 = datetime(2026, 1, 1, 6, 0, tzinfo=UTC)

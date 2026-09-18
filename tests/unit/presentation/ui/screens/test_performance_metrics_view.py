@@ -11,7 +11,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.out_of_sample_v
     OutOfSampleValidation,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.performance_metrics_view import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metrics_view import (
     build_extended_stat_cards,
     build_primary_stat_cards,
     build_result_warning_text,
