@@ -251,7 +251,7 @@ regardless. This is not a new architectural question, it is Phase 2/3's own stra
 (live order submission) never blocks landing the smallest:
 - **4.4f-1 — backtesting's own two commands.** ✅ Done 2026-09-18. Smallest, zero live-trading risk.
 - **4.4f-2 — strategy's own state (`LiveStrategyFactory`/`LiveStrategySession`, arm/disarm commands,
-  the strategy registry, `boot()`'s `_arm_from_config`).**
+  the strategy registry, `boot()`'s `_arm_from_config`).** ✅ Done 2026-09-18.
 - **4.4f-3 — trading's own infrastructure, commands and queries** (session/credentials/client
   adapters, `TradingLimitPolicy`, `EquityCurveRecorder`, `IUserDataStream`, the seven trading
   commands, three queries, `PositionRefreshService`'s scheduling, `shutdown()`'s stream stop) —
@@ -281,6 +281,23 @@ was already redundant with the view's default before this move, just never measu
 `tests/unit/architecture` (420), full `tests/unit` (4875), `tests/sanity` (29, real boot unaffected),
 `tests/integration` (161 + 4 pre-existing skips) all green; `ruff`/`mypy` (627 files) clean; zero
 allowlist change (no cross-module import — `backtesting` already owned this application code).
+
+**4.4f-2, done.** `modules/strategy/composition/state_bindings.py` (new) registers the six strategy
+classes into a `StrategyRegistry` singleton, then binds `LiveStrategyFactory`/`LiveStrategySession`
+— the same shape `binance_bot_module.py` used, just relocated; `composition/command_bindings.py`
+(new) binds `ArmStrategyCommand`/`DisarmStrategyCommand`. `StrategyModule.register()` calls both,
+before `bind_published_ports()`'s own lazy lambdas ever resolve what they close over.
+`boot()`'s arm-from-config seeding (`_arm_from_config`, moved verbatim with its own logger,
+`"App.StrategyModule"`) now runs before the tick subscription, using the `LiveStrategySession` the
+same `boot()` call resolves — order preserved exactly from `binance_bot_module.boot()`'s own shape.
+One test fixed, not found wrong: `test_module_tick_subscription.py`'s fake context bound only
+`LiveStrategySession`, and `boot()` now also resolves `IConfig` for the seeding step — bound to an
+empty `DictConfig()` (the engine's own cheap real `IConfig`, not a Mock), which answers "nothing
+saved" and lets `_arm_from_config()` return before ever calling `.arm()` on the file's
+`_RecordingSession` double, which does not have one. Zero allowlist change, same reason as 4.4f-1.
+`tests/unit/architecture` (420), full `tests/unit` (4877), `tests/sanity` (29, real boot unaffected,
+including the tick path itself), `tests/integration` (161 + 4 pre-existing skips) all green;
+`ruff`/`mypy` (629 files) clean.
 
 ### 3.3 `sync_progress_*`: the open question is closed by a rule, not by a preference
 

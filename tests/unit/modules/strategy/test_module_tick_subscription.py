@@ -42,8 +42,10 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_st
     LiveStrategySession,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.module import StrategyModule
+from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
+from sagittarius_engine.interfaces.i_config import IConfig
 
 
 class _RecordingSession:
@@ -84,9 +86,20 @@ def _market_data(symbol: str = "BTCUSDT") -> MarketData:
 
 
 def _booted(session: _RecordingSession) -> tuple[StrategyModule, MemoryEventBus]:
-    """The two things `boot()` reads, as the real context gives them to it."""
+    """The three things `boot()` reads, as the real context gives them to it.
+
+    `IConfig` is bound to an empty `DictConfig` (the engine's own cheap
+    real implementation, `test_no_foreign_port_is_mocked.py`'s allowed
+    substitute for a Mock) since `EPIC-025E` PR 4.4f-2: `boot()` now also
+    seeds the live strategy from config before subscribing the tick path,
+    and an empty config answers "nothing saved" — `is_complete` is `False`,
+    so `_arm_from_config()` returns before ever calling `.arm()` on
+    `_RecordingSession`, which does not have one. What this file tests is
+    still only the subscription, untouched by that seeding.
+    """
     container = StdLibContainer()
     container.singleton(LiveStrategySession, session)
+    container.singleton(IConfig, DictConfig())
     event_bus = MemoryEventBus()
 
     module = StrategyModule()

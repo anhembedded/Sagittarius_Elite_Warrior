@@ -32,44 +32,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_d
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_session_factory import (
     IExchangeSessionFactory,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
-    LiveStrategyConfigStore,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_factory import (
-    LiveStrategyFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
-    LiveStrategySession,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
-    StrategyRegistry,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.arm_strategy import (
-    ArmStrategyCommand,
-    ArmStrategyCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.disarm_strategy import (
-    DisarmStrategyCommand,
-    DisarmStrategyCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
-    EmaCrossoverStrategy,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_trend_pullback_strategy import (
-    EmaTrendPullbackStrategy,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.long_term_trend_zone_strategy import (
-    LongTermTrendZoneStrategy,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.multi_ema_trend_follower_strategy import (
-    MultiEmaTrendFollowerStrategy,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.support_resistance_strategy import (
-    SupportResistanceStrategy,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.volume_spike_flow_strategy import (
-    VolumeSpikeFlowStrategy,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,
 )
@@ -135,9 +97,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_symbol_me
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
-    IOrderSubmission,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
@@ -258,7 +217,6 @@ class BinanceBotModule(BaseModule):
         self._register_use_cases(app)
         self._register_queries(app)
         self._register_indicator_scripts(app)
-        self._register_strategies(app)
 
     def _register_infrastructure(self, app: App) -> None:
         """Binds engine context and infrastructure services/repositories."""
@@ -402,30 +360,15 @@ class BinanceBotModule(BaseModule):
         )
 
     def _register_state_singletons(self, app: App) -> None:
-        """Registers long-lived application state singletons."""
+        """Registers long-lived application state singletons.
+
+        `EPIC-025E` PR 4.4f-2: `LiveStrategyFactory`/`LiveStrategySession`
+        moved to `modules/strategy/composition/state_bindings.py`, the
+        second of this module's remaining bindings to leave.
+        """
         # EPIC-021G: one per app process — never persisted, never seeded
         # from config on boot (see the class's own docstring for why).
         app.container.singleton(TradingSessionState, TradingSessionState)
-        # EPIC-022A: unlike `TradingSessionState`, this one IS seeded from
-        # config at boot (`_arm_from_config`) — remembering which strategy
-        # to run is not the same risk as remembering that trading was on.
-        # Singleton because the tick path and the Arm/Disarm command
-        # handlers must all see one instance (`EnableTradingCommand`
-        # itself no longer reads this at all — `BUG-112`).
-        app.container.singleton(
-            LiveStrategyFactory,
-            lambda c: LiveStrategyFactory(
-                c.resolve(StrategyRegistry),
-                c.resolve(IEventPublisher),
-                c.resolve(IOrderSubmission),
-                c.resolve(ITradingAccountReader),
-                c.resolve(IMarketMetadataProvider),
-            ),
-        )
-        app.container.singleton(
-            LiveStrategySession,
-            lambda c: LiveStrategySession(c.resolve(LiveStrategyFactory)),
-        )
         # `BUG-117` — keeps every open position's mark price/unrealized PnL
         # from going stale between `ACCOUNT_UPDATE` events (a fill, a
         # funding settlement); nothing else ever refreshed it. One instance,
@@ -445,13 +388,11 @@ class BinanceBotModule(BaseModule):
     def _register_use_cases(self, app: App) -> None:
         """Binds CQRS commands to their respective use case command handlers.
 
-        `EPIC-025E` PR 4.4f-1: the two backtesting commands moved to
-        `modules/backtesting/composition/command_bindings.py`, the first of
-        this module's remaining bindings to leave.
+        `EPIC-025E` PR 4.4f-1 moved the two backtesting commands to
+        `modules/backtesting/composition/command_bindings.py`; PR 4.4f-2
+        moved arm/disarm to `modules/strategy/composition/command_bindings.py`.
         """
         app.container.bind(SubmitOrderCommand, SubmitOrderCommandHandler)
-        app.container.bind(ArmStrategyCommand, ArmStrategyCommandHandler)
-        app.container.bind(DisarmStrategyCommand, DisarmStrategyCommandHandler)
         app.container.bind(EnableTradingCommand, EnableTradingCommandHandler)
         app.container.bind(DisableTradingCommand, DisableTradingCommandHandler)
         app.container.bind(ExecuteOrderCommand, ExecuteOrderCommandHandler)
@@ -480,31 +421,11 @@ class BinanceBotModule(BaseModule):
         script_registry.register("dev_showcase", DevIndicatorScript)
         app.container.singleton(IndicatorScriptRegistry, script_registry)
 
-    def _register_strategies(self, app: App) -> None:
-        """Registers all domain trading strategies into StrategyRegistry."""
-        strategy_registry = StrategyRegistry()
-        strategy_registry.register("ema_crossover", EmaCrossoverStrategy)
-        strategy_registry.register(
-            "multi_ema_trend_follower", MultiEmaTrendFollowerStrategy
-        )
-        strategy_registry.register("support_resistance", SupportResistanceStrategy)
-        strategy_registry.register(
-            "ema_trend_confirm_pullback", EmaTrendPullbackStrategy
-        )
-        strategy_registry.register("long_term_trend_zone", LongTermTrendZoneStrategy)
-        strategy_registry.register("volume_spike_flow", VolumeSpikeFlowStrategy)
-        app.container.singleton(StrategyRegistry, strategy_registry)
-
     def boot(self, app: App) -> None:
-
-        # `EPIC-022A`: which strategy runs live is no longer decided here
-        # once and frozen — `LiveStrategySession` holds it, and the Trading
-        # screen's strategy card re-arms it through `ArmStrategyCommand`.
-        # Boot only seeds it from config, so an install that was
-        # configured by file keeps working exactly as before.
+        # `EPIC-025E` PR 4.4f-2: the live-strategy arm-from-config seeding
+        # that used to happen here moved to `StrategyModule.boot()`,
+        # alongside the `LiveStrategySession` it seeds.
         config = app.container.resolve(IConfig)
-        session = app.container.resolve(LiveStrategySession)
-        self._arm_from_config(config, session)
 
         # `BUG-117` — one recurring job, registered once, for the lifetime
         # of the process; `PositionRefreshService.refresh_once()` is a
@@ -541,43 +462,6 @@ class BinanceBotModule(BaseModule):
             )
             return _MIN_POSITION_REFRESH_INTERVAL_SECONDS
         return configured
-
-    @staticmethod
-    def _arm_from_config(config: IConfig, session: LiveStrategySession) -> None:
-        """Seeds the live strategy from `trading.live_*` at startup.
-
-        @details The gate is the same three-way check `EPIC-021G` used —
-        a live symbol, a live strategy AND a live interval (`BUG-085`) —
-        now asked of `LiveStrategyConfig.is_complete`. An empty
-        `TRADING_LIVE_STRATEGY_KEY`/`TRADING_LIVE_INTERVAL` (the shipped
-        default) still means "nothing armed", and every tick is ignored
-        until the user arms one from the screen. A missing interval must
-        never default to a guessed one — a wrong guess is a wrong strategy.
-
-        A bad saved config (a strategy key that no longer exists, a
-        parameter a strategy stopped declaring) is logged and left
-        disarmed rather than crashing the whole app boot: the user can
-        pick a working one on the Trading screen, which is exactly the
-        recovery path that did not exist before `EPIC-022`.
-        """
-        try:
-            live_config = LiveStrategyConfigStore(config).load()
-        except ValueError as exc:
-            logger.warning(
-                "The saved strategy config is invalid (%s) — starting unarmed.",
-                exc,
-            )
-            return
-
-        if not live_config.is_complete:
-            return
-        try:
-            session.arm(live_config)
-        except ValueError as exc:
-            logger.warning(
-                "Could not arm the strategy saved in config (%s) — starting disarmed.",
-                exc,
-            )
 
     def shutdown(self, app: App) -> None:
         """Release the external connections this module still owns.
