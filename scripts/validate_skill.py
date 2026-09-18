@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import argparse
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -18,6 +19,14 @@ from pathlib import Path
 _FRONT_MATTER_RE = re.compile(r"\A---\n(.*?)\n---\n", re.DOTALL)
 _SYSTEM_PROMPT_RE = re.compile(r"^# SYSTEM PROMPT:\s+(.+)$", re.MULTILINE)
 _CONSTITUTION_REF = ".claude/CONSTITUTION.md"
+
+#: `frontmatter.description` below this many characters reads as a stub, not
+#: a real one-line summary.
+_MIN_DESCRIPTION_LENGTH = 20
+#: A `SKILL.md` under this many lines has not said enough to be a skill.
+_MIN_SKILL_LINES = 15
+#: Past this many lines a skill should modularize into `references/`.
+_MAX_SKILL_LINES = 150
 
 
 def repo_root() -> Path:
@@ -66,17 +75,16 @@ def validate_skill(skill_dir: Path, tracked_files: set[str]) -> list[str]:
                 f"{name}/SKILL.md: frontmatter name '{declared_name}' does not match directory '{name}'"
             )
         desc = fields.get("description", "")
-        if not desc or len(desc) < 20:
+        if not desc or len(desc) < _MIN_DESCRIPTION_LENGTH:
             findings.append(
-                f"{name}/SKILL.md: description is missing or too short (minimum 20 chars)"
+                f"{name}/SKILL.md: description is missing or too short "
+                f"(minimum {_MIN_DESCRIPTION_LENGTH} chars)"
             )
 
     # 2. System Prompt Heading
     sp_match = _SYSTEM_PROMPT_RE.search(text)
     if not sp_match:
-        findings.append(
-            f"{name}/SKILL.md: missing '# SYSTEM PROMPT: <ROLE>' heading"
-        )
+        findings.append(f"{name}/SKILL.md: missing '# SYSTEM PROMPT: <ROLE>' heading")
 
     # 3. Constitutional Anchor
     if _CONSTITUTION_REF not in text:
@@ -87,9 +95,7 @@ def validate_skill(skill_dir: Path, tracked_files: set[str]) -> list[str]:
         term in text.lower()
         for term in ("subordinated", "constitutional invariant", "constitution")
     ):
-        findings.append(
-            f"{name}/SKILL.md: missing Constitutional subordination clause"
-        )
+        findings.append(f"{name}/SKILL.md: missing Constitutional subordination clause")
 
     # 4. Modularity & Non-Redundancy
     # Flag if the skill attempts to re-explain the 5-step loop definitions instead of referencing
@@ -99,11 +105,14 @@ def validate_skill(skill_dir: Path, tracked_files: set[str]) -> list[str]:
         )
 
     # 5. Density & Length Sanity
-    if len(lines) < 15:
-        findings.append(f"{name}/SKILL.md: vacuous skill file (<15 lines)")
-    if len(lines) > 150:
+    if len(lines) < _MIN_SKILL_LINES:
         findings.append(
-            f"{name}/SKILL.md: excessive length ({len(lines)} lines, max 150). Modularize into references/"
+            f"{name}/SKILL.md: vacuous skill file (<{_MIN_SKILL_LINES} lines)"
+        )
+    if len(lines) > _MAX_SKILL_LINES:
+        findings.append(
+            f"{name}/SKILL.md: excessive length ({len(lines)} lines, "
+            f"max {_MAX_SKILL_LINES}). Modularize into references/"
         )
 
     return findings
@@ -111,15 +120,22 @@ def validate_skill(skill_dir: Path, tracked_files: set[str]) -> list[str]:
 
 def get_tracked_files(root: Path) -> set[str]:
     """Retrieve git tracked files to verify references."""
+    git = shutil.which("git")
+    if git is None:
+        return set()
     try:
-        res = subprocess.run(
-            ["git", "-C", str(root), "ls-files"],
+        # `S603` is suppressed, not worked around: the argument vector is this
+        # literal list plus `root`, which is this checkout's own path, there
+        # is no shell, and `git` is an absolute path resolved above rather
+        # than a name looked up at spawn time.
+        res = subprocess.run(  # noqa: S603
+            [git, "-C", str(root), "ls-files"],
             capture_output=True,
             text=True,
             check=True,
         )
         return set(res.stdout.splitlines())
-    except Exception:
+    except (OSError, subprocess.CalledProcessError):
         return set()
 
 
@@ -151,7 +167,9 @@ def main() -> int:
         all_findings.extend(findings)
 
     if all_findings:
-        print(f"FAILED: {len(all_findings)} skill validation finding(s):", file=sys.stderr)
+        print(
+            f"FAILED: {len(all_findings)} skill validation finding(s):", file=sys.stderr
+        )
         for f in all_findings:
             print(f"  - {f}", file=sys.stderr)
         return 1
