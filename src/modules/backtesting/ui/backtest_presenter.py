@@ -538,7 +538,14 @@ class BackTestPresenter(BasePresenter):
         view.set_timeframe_pin_preferences(
             find_timeframe_pin_preferences(container) or TimeframePinPreferences()
         )
-        view.set_chart_host_factory(self.container.resolve(BacktestChartHostFactory))
+        # `EPIC-025E` PR 4.4f-1: constructed directly, not resolved — the
+        # container binding was `bind()` (transient), so `resolve()` here
+        # built exactly the same instance `BackTestView.__init__`'s own
+        # default already does; a DI indirection nothing behaves differently
+        # through is the dead wiring `BUG-120` was, so it left with
+        # `binance_bot_module.py`'s registration rather than following it
+        # to `modules/backtesting/composition/`.
+        view.set_chart_host_factory(BacktestChartHostFactory())
         view.render_symbol_cards([self._symbol])
         connect_chart_controls(self)
 

@@ -228,6 +228,60 @@ measurement did not classify one by one, so its real remaining scope needs its o
 starts. Sequencing (a)–(f) is what the next session decides and executes; this paragraph only
 measures.
 
+### 3.16 4.4f's own classification pass, and why it split further (2026-09-18)
+
+4.4a–4.4e all merged (4.4e as PR #234); 4.4f is the phase's last step. Classifying the 36 files
+§3.15(f) deferred: only **one** was a real import — `shell/composition_root.py`'s
+`from ...binance_bot_module import BinanceBotModule` + `app.use(BinanceBotModule())`. The other 35
+are docstring/comment citations, exactly as predicted. But `binance_bot_module.py` itself is not
+empty — 612 lines, a real `BaseModule.register()`/`boot()`/`shutdown()` spanning infrastructure
+adapters, state singletons, ten command bindings, three query bindings, indicator-script and
+strategy registration, and the live-strategy boot-time arm — and reading `modules/backtesting/
+module.py`'s and `modules/strategy/module.py`'s own docstrings found they had **already** recorded
+this: both explicitly say their remaining bindings stay in `binance_bot_module.py` on purpose,
+"the composition root the strangler is replacing" (`strategy/module.py`), because moving a
+registration while the dispatcher and the screen both stayed put would buy nothing but a second
+place to look — the accidental complexity ADR D2 exists to avoid. Phase 4 changes that condition:
+the destination is deleting the composition root itself, so every remaining binding needs a home
+regardless. This is not a new architectural question, it is Phase 2/3's own strangler pattern
+(PR 2.1c/2.1d/3.1b: publish or bind one piece at a time) finishing the file it started on.
+
+**Decided: 4.4f splits by destination module, safest/smallest first, same shape as 4.4's own
+(a)–(f)** — each independently gate-able, so a mistake in the largest, most safety-critical slice
+(live order submission) never blocks landing the smallest:
+- **4.4f-1 — backtesting's own two commands.** ✅ Done 2026-09-18. Smallest, zero live-trading risk.
+- **4.4f-2 — strategy's own state (`LiveStrategyFactory`/`LiveStrategySession`, arm/disarm commands,
+  the strategy registry, `boot()`'s `_arm_from_config`).**
+- **4.4f-3 — trading's own infrastructure, commands and queries** (session/credentials/client
+  adapters, `TradingLimitPolicy`, `EquityCurveRecorder`, `IUserDataStream`, the seven trading
+  commands, three queries, `PositionRefreshService`'s scheduling, `shutdown()`'s stream stop) —
+  largest and the one that actually touches order submission, so it goes last of the three.
+- **4.4f-4 — indicator scripts + deletion.** `IndicatorScriptRegistry`'s nine script registrations
+  belong to no module (`support/indicators` imports no module per `architecture-rule.md` §3), so
+  they move to a direct call from `shell/composition_root.py` rather than any module's `register()`;
+  `binance_bot_module.py` and its one call site are deleted once every other slice has landed and
+  `grep` confirms nothing imports it.
+
+**4.4f-1, done.** `modules/backtesting/composition/command_bindings.py` (new) binds
+`RunStaticBacktestCommand`/`RunHistoricalTickBacktestCommand`; `BacktestingModule.register()` calls
+it. A third binding this slice's own first draft tried to move —
+`container.bind(BacktestChartHostFactory, BacktestChartHostFactory)` — turned out to be dead
+wiring in the `BUG-120` sense: `BackTestView.__init__` already constructs its own default
+`BacktestChartHostFactory()`, so `BackTestPresenter`'s `container.resolve(BacktestChartHostFactory)`
+built the exact same thing through a container indirection nothing behaved differently through.
+Found because moving that bind's import into `modules/backtesting/module.py`'s top level (needed
+for `register()` to call `bind_commands()`) made `test_module_contribution_laziness.py`'s subprocess
+guard fail — merely importing `BacktestingModule` (one of `shell/modules.py`'s `MODULES`, imported
+unconditionally by every boot including a headless `sync`) pulled `PySide6` in, because
+`backtest_chart_host.py` is a `.ui.` file `command_bindings.py` had no business importing. Fixed by
+deleting the resolve+bind pair entirely rather than finding it a home: `backtest_presenter.py` now
+constructs `BacktestChartHostFactory()` directly, matching the view's own default, and nothing
+resolves the type any more. `binance_bot_module.py`'s own copy of this same bind is also gone — it
+was already redundant with the view's default before this move, just never measured.
+`tests/unit/architecture` (420), full `tests/unit` (4875), `tests/sanity` (29, real boot unaffected),
+`tests/integration` (161 + 4 pre-existing skips) all green; `ruff`/`mypy` (627 files) clean; zero
+allowlist change (no cross-module import — `backtesting` already owned this application code).
+
 ### 3.3 `sync_progress_*`: the open question is closed by a rule, not by a preference
 
 Step 3 left the destination open for the user because HLD §3.5 assigns the pair to

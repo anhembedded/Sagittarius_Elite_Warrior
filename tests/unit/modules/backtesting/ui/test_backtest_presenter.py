@@ -61,9 +61,6 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_signal_payloa
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
     BackTestView,
 )
-from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_chart_host import (
-    BacktestChartHostFactory,
-)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
     BacktestActionKind,
     BacktestActionOutcome,
@@ -296,8 +293,6 @@ def _build_presenter_with_registry(
             return StrategyChartOverlayService(registry)
         if interface == IndicatorScriptRegistry:
             return resolved_script_registry
-        if interface == BacktestChartHostFactory:
-            return BacktestChartHostFactory()
         if interface == IHistoricalKlines:
             return resolved_history
         if interface == IRangeCoverage:
@@ -550,8 +545,6 @@ def mock_container(
             return StrategyChartOverlayService(strategy_registry)
         if interface == IndicatorScriptRegistry:
             return indicator_script_registry
-        if interface == BacktestChartHostFactory:
-            return BacktestChartHostFactory()
         if interface == IHistoricalKlines:
             return fake_historical_klines
         if interface == IRangeCoverage:
@@ -642,8 +635,6 @@ def test_boot_wires_the_container_registered_store_into_the_view(
             return StrategyChartOverlayService(strategy_registry)
         if interface == IndicatorScriptRegistry:
             return indicator_script_registry
-        if interface == BacktestChartHostFactory:
-            return BacktestChartHostFactory()
         if interface == TimeframePinPreferences:
             return shared_store
         return Mock()
