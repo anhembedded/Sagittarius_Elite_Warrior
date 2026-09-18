@@ -84,6 +84,14 @@ _NOT_A_LITERAL_PATH = re.compile(r"""[\s*?<>|$"'()\[\]{}]|::|https?:""")
 _BACKTICKED = re.compile(r"`([^`\n]+)`")
 _MARKDOWN_LINK = re.compile(r"\[[^\]\n]*\]\(([^)\n]+)\)")
 
+#: Path to the inspection rubric defining all valid review IDs (A1-M6).
+RUBRIC_PATH = Path(".claude") / "skills" / "pr-review" / "references" / "rubric.md"
+
+_BRACKETED_CLAUSE = re.compile(r"\[([^\]\n]+)\]")
+_REVIEW_TAG = re.compile(r"\breview:\s*([^;\]\n]+)")
+_RUBRIC_ID_PATTERN = re.compile(r"^\|\s*\*\*([A-M]\d+)\*\*", re.MULTILINE)
+_IGNORED_REVIEW_TAGS = {"row"}
+
 
 def _repo_root() -> Path:
     return Path(__file__).resolve().parent.parent
@@ -209,6 +217,51 @@ def check(root: Path) -> list[tuple[Path, str]]:
     return missing
 
 
+def load_rubric_ids(root: Path) -> set[str]:
+    """Extract valid checklist IDs (e.g. A1, M6) from the pr-review rubric."""
+    rubric_file = root / RUBRIC_PATH
+    if not rubric_file.is_file():
+        return set()
+    return set(_RUBRIC_ID_PATTERN.findall(rubric_file.read_text(encoding="utf-8")))
+
+
+def _extract_review_tags(text: str) -> list[str]:
+    """Extract all [review: ...] tag targets from markdown text."""
+    tags: list[str] = []
+    for clause in _BRACKETED_CLAUSE.findall(text):
+        for match in _REVIEW_TAG.finditer(clause):
+            for raw_tag in match.group(1).split(","):
+                tag = raw_tag.strip().strip("`").strip()
+                if tag:
+                    tags.append(tag)
+    return tags
+
+
+def check_review_tags(root: Path) -> list[tuple[Path, str]]:
+    """Return every (source file, invalid review tag) pair across PROMPT_TREES.
+
+    Validates that every [review: ID] tag resolves to a defined ID in the
+    pr-review rubric, preventing tag rot or drift between rules and inspection.
+    """
+    rubric_file = root / RUBRIC_PATH
+    if not rubric_file.is_file():
+        # Minimal test fixture without pr-review skill tree.
+        return []
+    valid_ids = load_rubric_ids(root)
+    if not valid_ids:
+        return [(RUBRIC_PATH, "holds no valid rubric IDs")]
+
+    missing: list[tuple[Path, str]] = []
+    for source in _prompt_files(root):
+        if source.resolve() == rubric_file.resolve():
+            continue
+        text = source.read_text(encoding="utf-8")
+        for tag in _extract_review_tags(text):
+            if tag not in _IGNORED_REVIEW_TAGS and tag not in valid_ids:
+                missing.append((source.relative_to(root), tag))
+    return missing
+
+
 def _empty_trees(root: Path) -> list[str]:
     """Trees that are missing, or present but holding nothing to check.
 
@@ -241,9 +294,14 @@ def main() -> int:
         return 1
 
     missing = check(root)
+    missing_tags = check_review_tags(root)
+
+    failed = False
+    trees = ", ".join(d.as_posix() + "/" for d, _ in PROMPT_TREES)
+
     if missing:
-        trees = ", ".join(d.as_posix() + "/" for d, _ in PROMPT_TREES)
-        print(f"Broken references in {trees}:\n", file=sys.stderr)
+        failed = True
+        print(f"Broken path references in {trees}:\n", file=sys.stderr)
         for source, reference in missing:
             print(f"  {source}: {reference}", file=sys.stderr)
         print(
@@ -251,14 +309,25 @@ def main() -> int:
             f"{'/, '.join(root_dir.rstrip('/') for root_dir in CHECKED_ROOTS)}/ "
             "must exist.\nIf the path is deliberately absent here, write it so it "
             "reads as a pattern\n(`.claude/skills/<name>/SKILL.md`) or inside a command, "
-            "not as a bare literal path.",
+            "not as a bare literal path.\n",
             file=sys.stderr,
         )
+
+    if missing_tags:
+        failed = True
+        print(f"Broken review tags in {trees}:\n", file=sys.stderr)
+        for source, tag in missing_tags:
+            print(f"  {source}: [review: {tag}]", file=sys.stderr)
+        print(
+            f"\nEvery [review: <ID>] tag must match a defined ID in {RUBRIC_PATH.as_posix()}.\n",
+            file=sys.stderr,
+        )
+
+    if failed:
         return 1
 
-    trees = ", ".join(d.as_posix() + "/" for d, _ in PROMPT_TREES)
     print(
-        f"OK: every repository path referenced by {len(_prompt_files(root))} "
+        f"OK: every repository path and review tag referenced by {len(_prompt_files(root))} "
         f"document(s) under {trees} resolves."
     )
     return 0
