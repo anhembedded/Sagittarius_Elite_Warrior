@@ -169,3 +169,7 @@ src/config/secrets.local.json
 # Documentation site builds (MkDocs)
 site/
 Tasks/dashboard.html
+
+# Personal, per-session Claude Code permission overrides -- never shared
+# team policy (that stays in .claude/settings.json).
+.claude/settings.local.json
