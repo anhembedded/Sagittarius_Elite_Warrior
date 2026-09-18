@@ -15,12 +15,20 @@ Load `CLAUDE.md`, `.claude/CONSTITUTION.md`, `.claude/ONBOARDING.md` §7, and `.
 | Uncommitted Working Tree | `git status --short`, `git diff -M HEAD`, and `git ls-files --others --exclude-standard` |
 | Staged Changes Only | `git diff --cached` |
 
-Read the entire diff and surrounding production code. Execute verification in an isolated environment; never mutate or switch the active working tree.
+Read the entire diff and surrounding production code. Execute verification in an isolated environment; never mutate or switch the active working tree. To run gate verification safely without mutating the working tree:
+```bash
+git worktree add ../review-worktree <COMMIT_SHA>
+# Run gate inside worktree using repo venv:
+cd ../review-worktree && PYTHONPATH=. .venv/bin/pytest <TARGET_TESTS>
+# Clean up when done:
+cd - && git worktree remove ../review-worktree
+```
 
 ## 2. Rule Scope Routing
 | Scope | Applicable Review Groups & Rules |
 | :--- | :--- |
 | All changes | Groups A, K; `.claude/ONBOARDING.md`, `.claude/rules/report-rule.md`. Group L for commits. |
+| System Prompts & Rules (`.claude/**`, `CLAUDE.md`) | Groups A, M; `.claude/CONSTITUTION.md`, `.claude/ONBOARDING.md`, `scripts/check_skill_prompt_references.py`, `tests/unit/architecture/test_claude_tree_is_wired.py`. |
 | Code & Configuration | Group B; `.claude/rules/ci-rule.md`. Groups C, D; `.claude/rules/architecture-rule.md`, `.claude/rules/code-quality-rule.md`. |
 | Behavior & Tests | Group E; `.claude/rules/testing-rule.md`. Defects also read `.claude/rules/fix-bug-rule.md`. |
 | Bug Report Lifecycle | Group K2; `.claude/rules/create-bug-report-rule.md`. |
@@ -28,59 +36,27 @@ Read the entire diff and surrounding production code. Execute verification in an
 | UI & Async Presentation | Group H, C4, D5; `.claude/rules/ui-presentation-rule.md`. Group G; `.claude/rules/async-ui-action-rule.md`. |
 | Logging & Failure Paths | Group I; `.claude/rules/logging-rule.md`. |
 | Guards, Baselines, Moves | Group J; `.claude/rules/ci-rule.md`, affected guard files. |
-| Documentation Only | Groups A, K, L; `.claude/ONBOARDING.md` §7 guards (`scripts/check_skill_prompt_references.py`). |
+| Documentation Only (`Docs/**`, `*.md` outside `.claude/`) | Groups A, K, L; `.claude/ONBOARDING.md` §7 guards (`scripts/check_skill_prompt_references.py`). |
 
 Consult `.claude/rules/pitfalls/` for area-specific traps, `Docs/CASE_STUDIES/README.md` for green-gate escapes, and `Docs/VOCABULARY/README.md` for domain terms.
 
 ## 3. Inspection Rubric (Stable Check IDs)
-
-| IDs | Inspection Directive |
-| :--- | :--- |
-| **A1/A2** | Verify change satisfies stated outcome, maintains bounded scope, and represents one logical change. |
-| **A3** | Inspect rename similarity and verify no unintended behavioral hunks exist in claimed file moves. |
-| **A4/A5** | Ensure decisions remain within `.claude/ONBOARDING.md` §7 authority. Enforce P5 Technical Choice Hierarchy: reject duplicating brittle repo patterns; reject bespoke inventions when stdlib or vetted standards exist. |
-| **A6** | Verify deferred work is recorded in task plans with technical rationale. |
-| **B1/B2/B3** | Confirm gate execution log exists and explain warning/error occurrences. Apply documentation exception when applicable. |
-| **B4/B5** | Verify failures are diagnosed at mechanism layer (P6: redesign hard designs; cost is never an excuse for a local hotfix). Install missing tools automatically per `.claude/rules/install-rule.md`. |
-| **B6** | Ensure verification evidence matches the reviewed revision SHA. |
-| **C1/C2** | Verify strict layer and module boundaries; prohibit illegal inward imports into legacy trees. |
-| **C3** | After port modification, inspect all implementers across `src/`, `scripts/`, and `tests/`. |
-| **C4/C5** | Verify boundary contracts are explicit; justify Protocol usage under `.claude/rules/architecture-rule.md`. |
-| **C6/C7** | Enforce abstraction separation; enforce size thresholds (>400 lines or >15 public methods triggers split). |
-| **C8/C9** | Check event placement and ensure agreed extension points (seams) contain no speculative variants. |
-| **C10** | Verify composition, injection, and inheritance maintain loose coupling. |
-| **D1/D2** | Confirm machine lint and security passes; do not audit formatting by eye. |
-| **D3/D4/D5** | Inspect type-ignore suppressions, local lazy imports, and type erasure. |
-| **D6/D7** | Measure classes and files against architectural size limits. |
-| **D8/D9** | Ensure files group cohesive single lifecycles and responsibilities. |
-| **D10/D11**| Check argument mutation, nested loops, and unauthorized I/O outside adapters. |
-| **E1/E2** | Ensure test coverage reaches changed behavior at required tier and asserts business outcomes. |
-| **E3/E5/E6**| Check deterministic waits (no arbitrary sleeps) and sanity tier real-boot contracts. |
-| **E4/E11**| Prohibit deleting, skipping, or weakening tests to pass CI. Verify documented retirement conditions. |
-| **E7/E8** | Verify boundary/mutation evidence for calculations and dataclass immutability. |
-| **E9/E10**| For bug fixes, verify confirmed red-before failure and green-after mechanism fix. |
-| **E12** | Verify wiring tests fail for intended reason when connection is removed. |
-| **E13** | Compare doubles to real interfaces; prefer lightweight real collaborators over invented mocks. |
-| **E14** | Enforce case-study criteria in `.claude/rules/fix-bug-rule.md` §6.5 when a green gate missed a defect. |
-| **E15** | Assert composition graph wiring and event subscriptions against production graph. |
-| **F1/F2** | Verify real market data coverage and distinct order fill / position semantics. |
-| **F3/F4/F5**| Enforce truthful UI state promises, immutable snapshots with provenance, and reproducible metrics. |
-| **G1/G2** | Trace async action identity, stale-callback fencing, and cooperative cancellation in UI. |
-| **G3/G4/G5**| Check single state ownership, Presenter-owned injection, and exception resilience in UI callbacks. |
-| **H1/H2** | Verify UI styling guards and shrink-only styling baselines. |
-| **H3/H4** | Verify standard desktop navigation, shortcut bindings, and content overflow behavior. |
-| **H5/H6/H7**| Verify `preview.py` coverage, table column autosizing, progress feedback, and actionable errors. |
-| **I1/I2** | Confirm structured logger namespace coverage; flag noisy logging in hot paths. |
-| **I3/I4/I5**| Check log levels and tags; ensure diagnostic output routes through real logging config. |
-| **J1/J2** | Verify baselines and allowlists only shrink; reject any baseline growth. |
-| **J3/J4/J5**| Verify test scan roots and path constants; reject vacuous empty scans. |
-| **J6** | Confirm ADR documentation for any guard retirement or exemption. |
-| **K1/K2** | Verify task, epic, and bug status consistency against code state. |
-| **K3/K4** | Verify specifications (`Docs/SPEC/`) and HLDs update atomically with behavior changes. |
-| **K5/K6** | Enforce vocabulary updates in `Docs/VOCABULARY/` and English technical register. |
-| **K7/K8/K9**| Verify navigation links, manifest table synchronization, and path validity under `.claude/ONBOARDING.md` §13. |
-| **L1/L2/L3**| Inspect commit messages, reasoning bodies, bug IDs, and co-author trailers per `.claude/rules/commit-rule.md`. |
-| **L4/L5/L6**| Ensure no scratch files, secrets, or unapproved dependency edits are committed. |
+Detailed 1-ID-per-row checklist is defined in [references/rubric.md](references/rubric.md) (97 IDs). Review applicable groups per Section 2:
+| Group | Focus Area | IDs | Key Verification Invariant |
+| :--- | :--- | :--- | :--- |
+| **Group A** | Scope & Authority | A1–A6 | Bounded outcome, P5 technical hierarchy, authority limits. |
+| **Group B** | Gate & Verification | B1–B6 | Gate execution log, positive proof, matching commit SHA. |
+| **Group C** | Architecture & Contracts | C1–C10 | Module boundaries, CQRS, seams (P7), size thresholds. |
+| **Group D** | Code Quality & Hygiene | D1–D11 | Top-level imports only, no bare `# noqa`, FSM matrix cohesion. |
+| **Group E** | Tests & Regressions | E1–E15 | Tier contracts, deterministic waits, red-before proof, ratchets (P8). |
+| **Group F** | Domain Truth | F1–F5 | Real market data, truthful UI promises, immutable snapshots. |
+| **Group G** | Async UI & Actions | G1–G5 | Action identity, stale-callback fencing, single state ownership. |
+| **Group H** | Presentation & Styling | H1–H7 | Design tokens, desktop UX, preview.py, progress feedback. |
+| **Group I** | Logging & Diagnostics | I1–I5 | Structured namespaces, log levels, TRACE hygiene. |
+| **Group J** | Guards & Baselines | J1–J6 | Monotonic ratchets (P8), allowlist shrinkage, scan integrity. |
+| **Group K** | Docs & Consistency | K1–K9 | Spec/HLD atomicity, vocabulary, link resolution. |
+| **Group L** | Commits & Cleanliness | L1–L6 | Conventional commits, rationale body, no secret leaks. |
+| **Group M** | Rules & System Prompts | M1–M6 | Citation resolution, tag validation, manifest sync, line budget. |
 
 ## 4. Evidence Verification & Mutation Checks
 - Run focused checks via `.claude/rules/ci-rule.md` to confirm evidence.
@@ -93,10 +69,11 @@ Consult `.claude/rules/pitfalls/` for area-specific traps, `Docs/CASE_STUDIES/RE
 - **Question:** Ambiguity preventing evaluation; identify the exact evidence needed to resolve.
 
 ## 6. Structured Reporting
-Report using the Pyramid Principle (`.claude/rules/report-rule.md`):
-1. **Summary Verdict:** Overall readiness, scope, and highest-impact risks.
-2. **Itemized Findings:** Format: `[Severity] file:line — Trigger & Consequence — Governing Rule Clause`.
-3. **Verification State:** Exact commands executed, log paths verified, and remaining unverified gaps.
+Post findings as a durable PR review comment using direct GitHub tools (or structured report to author). Lead with the Pyramid Principle (`.claude/rules/report-rule.md`):
+1. **Summary Verdict:** Overall readiness (`PASS` / `BLOCKING` / `NEEDS_REVISION`), scope, and highest-impact risks.
+2. **Coverage Disclosure:** Explicitly declare which IDs were inspected vs skipped with technical rationale (e.g. `Inspected: Groups A, C, D; Skipped: Group F (no domain logic in diff)`).
+3. **Itemized Findings:** Format: `[Severity] file:line — Trigger & Consequence — Governing Rule Clause (Check ID)`.
+4. **Verification State:** Exact commands executed, log paths verified, and remaining unverified gaps.
 
 ## 7. Role Boundaries
 Reviewers operate strictly read-only and execute autonomously upon invocation without prompting the user for intermediate confirmations. A review does not authorize modifying, staging, committing, or merging code. Merging code into `master-warrior` follows `.claude/ONBOARDING.md` §7.
