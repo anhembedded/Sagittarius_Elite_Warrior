@@ -41,12 +41,22 @@ trading's venue carries a live-session lock market_data's never had, and
 each loads/saves entirely different config keys — so naming them alike
 without sharing an implementation would be the disguised-not-removed
 duplication this guard's own docstring rejects performing on `_role_data`.
-The baseline was corrected to **66** (60 true pre-PR measurement + 6), not
-the 64 previously on file: that figure had already drifted stale before
-this PR (`market_data.ui+trading.ui` last measured 16, now 22 net of PR
-4.4e's own delta) with nothing catching it, since this guard has no
-counterpart to `test_the_baseline_was_lowered_when_styling_was_removed`
-forcing a downward correction — worth adding if this drifts again.
+**Correction (independent review, PR #234):** an earlier draft of this
+docstring claimed the baseline had "already drifted stale" to a true
+pre-PR value of 60. That was wrong, and the wrongness was caught by
+re-measuring the actual merge-base commit rather than trusting the
+claim — the recorded **64** matches the merge-base exactly; there was
+no staleness. The "60" was this PR's own intermediate arithmetic: 64
+minus the 4 names (`_apply_status`/`_get_status_is_error`/
+`_get_status_message`/`set_status`) the now-deleted `settings` package
+itself contributed to the `settings+trading.ui` pair — a step in *this
+PR's* delta, not a fact about `master-warrior` before this PR touched
+anything. The end-to-end arithmetic is: 64 (merge-base) − 4 (pair
+removed by deleting `settings`) + 9 (raw new names in the two new
+settings triads) − 3 (folded into `StatusMessageViewModel`) = **66**,
+which is what both the merge-base and the head commit independently
+measure. The corrected baseline value itself was always right; only
+the story of *why* was wrong.
 """
 
 from __future__ import annotations
