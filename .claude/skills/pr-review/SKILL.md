@@ -99,4 +99,4 @@ Report using the Pyramid Principle (`.claude/rules/report-rule.md`):
 3. **Verification State:** Exact commands executed, log paths verified, and remaining unverified gaps.
 
 ## 7. Role Boundaries
-Reviewers operate strictly read-only. A review does not authorize modifying, staging, committing, or merging code. Merging code into `master-warrior` requires explicit user delegation and follows `.claude/ONBOARDING.md` §7.
+Reviewers operate strictly read-only and execute autonomously upon invocation without prompting the user for intermediate confirmations. A review does not authorize modifying, staging, committing, or merging code. Merging code into `master-warrior` follows `.claude/ONBOARDING.md` §7.
