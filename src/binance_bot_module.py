@@ -26,12 +26,6 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publishe
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
-    MarketDataSessionFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_session_factory import (
-    IExchangeSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,
 )
@@ -123,7 +117,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file
     SecretsFileSource,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
-    resolve_market_data_venue,
     resolve_trading_venue,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
@@ -131,9 +124,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
     ITradingSessionFactory,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
-    MarketDataVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -226,21 +216,9 @@ class BinanceBotModule(BaseModule):
         # `EPIC-025` PR 0.4a: the database, the repositories, the live stream
         # and `IExchangeClient` moved to `MarketDataModule` — that context owns
         # them, and `shell/modules.py` registers it right after this module.
-        # EPIC-021A: market_data_venue is registered as its own singleton so
-        # BinanceWebsocketService's constructor (which needs it for the
-        # testnet flag) picks up the real configured value via auto-wiring —
-        # not its own default fallback, which would silently pin every
-        # install to MAINNET_PUBLIC regardless of config.
-        market_data_venue = resolve_market_data_venue(config)
-        app.container.singleton(MarketDataVenue, market_data_venue)
-        # `EPIC-025` PR 1.3c-4 — one factory per bounded context, where there
-        # used to be one instance answering both. Each is its own module's
-        # adapter; the SDK session behind both comes from
-        # `support/binance_gateway`, still the only place allowed to construct
-        # a `python-binance` `Client`.
-        app.container.singleton(
-            IExchangeSessionFactory, MarketDataSessionFactory(market_data_venue)
-        )
+        # `EPIC-025E` PR 4.4f-3 moved this module's remaining `MarketDataVenue`/
+        # `IExchangeSessionFactory` registrations to
+        # `modules/market_data/composition/adapter_bindings.py`.
         session_factory = FuturesSessionFactory()
         # EPIC-024A: ExecuteOrderCommandHandler/EnableTradingCommandHandler/
         # EmergencyStopCommandHandler depend on this port, not the concrete
