@@ -22,6 +22,31 @@ their feeds, and today a legacy Presenter is the only consumer of seven
 `ui/common` files while the screens themselves need 24 and 44 imports from
 `presentation/ui/*` — which is what `support/ui_kit` and `support/charting`
 answer in Phase 4. Until then this file's job is the other direction.
+
+**PR 4.4e** (`EPIC-025E`, "settings becomes a surface") added two new
+`market_data.ui`/`trading.ui` Presenter/View/ViewModel triads
+(`modules/*/ui/settings/`) and measured `market_data.ui+trading.ui` rising
+by 9 names — exactly the pattern this guard exists to catch, since it was
+new duplication, not debt carried through a move. Fixed at the root per
+this guard's own §"the one amendment": `set_status`/`_get_status_message`/
+`_get_status_is_error` were byte-identical to what `TradingViewModel`
+(`modules/trading/ui/trading/`) already defined, so all three now subclass
+one new `support/ui_kit/status_view_model.py::StatusMessageViewModel` —
+inherited names the tool's own documented exclusion rule does not count,
+removing 3 of the 9. The remaining 6
+(`_apply_status`/`_apply_venue`/`_load_from_config`/`_on_save`/
+`load_fields`/`requestSave`) share a name and a role (View renders a
+status/venue; Presenter loads from config and saves) but not a body —
+trading's venue carries a live-session lock market_data's never had, and
+each loads/saves entirely different config keys — so naming them alike
+without sharing an implementation would be the disguised-not-removed
+duplication this guard's own docstring rejects performing on `_role_data`.
+The baseline was corrected to **66** (60 true pre-PR measurement + 6), not
+the 64 previously on file: that figure had already drifted stale before
+this PR (`market_data.ui+trading.ui` last measured 16, now 22 net of PR
+4.4e's own delta) with nothing catching it, since this guard has no
+counterpart to `test_the_baseline_was_lowered_when_styling_was_removed`
+forcing a downward correction — worth adding if this drifts again.
 """
 
 from __future__ import annotations

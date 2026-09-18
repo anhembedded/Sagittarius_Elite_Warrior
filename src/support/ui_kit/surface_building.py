@@ -43,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_table import (
     IContributionTable,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
+from Sagittarius_Elite_Warrior.src.support.ui_kit.settings_surface import (
+    SettingsSurface,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
 )
@@ -115,6 +118,57 @@ def fill_surface(
     logger.info(
         "Surface %r filled with %d contributed widget(s).",
         surface,
+        placed,
+    )
+    return placed
+
+
+def build_settings_surface(
+    surface_id: str,
+    contributions: IContributionTable,
+    container: IContainer,
+    *,
+    parent: object | None = None,
+) -> SettingsSurface:
+    """Builds the `SETTINGS_SECTION`-only surface named `surface_id`, filled.
+
+    A separate function from `build_surface` rather than one more branch in
+    it: `SettingsSurface` is not a `WorkbenchSurface`, and `_FILL_ORDER`'s
+    walk only ever asks a `WorkbenchSurface` to place a widget — reusing that
+    loop for a host it was never typed against would be a `type: ignore` away
+    from `fill_surface`'s own comment about a factory that raises: the
+    traceback would name the wrong host.
+    """
+    host = SettingsSurface(contributions.surface(surface_id), parent)  # type: ignore[arg-type]
+    fill_settings_surface(host, surface_id, contributions, container)
+    return host
+
+
+def fill_settings_surface(
+    host: SettingsSurface,
+    surface_id: str,
+    contributions: IContributionTable,
+    container: IContainer,
+) -> int:
+    """Fills a `SettingsSurface` that already exists, and answers how many
+    sections it placed.
+
+    Split from `build_settings_surface` the same way `fill_surface` is split
+    from `build_surface`: the View builds the (empty) host at `view_factory()`
+    time, which takes no `container`, and the Presenter — the one place that
+    has one — fills it once constructed.
+    """
+    placed = 0
+    for descriptor in contributions.panels(surface_id, Place.SETTINGS_SECTION):
+        host.place_widget(
+            Place.SETTINGS_SECTION,
+            descriptor.factory(container),
+            title=descriptor.title,
+        )
+        placed += 1
+    logger.info(
+        "Settings surface %r filled with %d contributed section(s).",
+        surface_id,
         placed,
     )
     return placed

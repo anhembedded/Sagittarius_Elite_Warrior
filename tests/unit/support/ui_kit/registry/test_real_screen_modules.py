@@ -1,4 +1,4 @@
-"""`EPIC-016` — the 4 real `*ScreenModule`s reproduce `MainWindow`'s old
+"""`EPIC-016` — the real `*ScreenModule`s reproduce `MainWindow`'s old
 hard-coded nav exactly.
 
 @details Written as explicit expected values, not by importing
@@ -7,6 +7,16 @@ deletes those constants once `MainWindow` consumes the registry instead, and
 a test that imported them would lose its meaning at that point rather than
 fail loudly. The values here were verified equal to the pre-`016C`
 `_NAV_SECTIONS`/`_BOTTOM_ACTIONS` by hand before that deletion.
+
+`EPIC-025E` PR 4.4e retired `SettingsScreenModule` — Settings left this
+legacy `AbstractScreenModule`/`ScreenRegistry` mechanism entirely for a
+`ScreenContribution` (`shell/settings/settings_screen.py`), the same
+mechanism `shell/contribution_assembly.py` already wires Welcome through.
+This file's `_built_registry()` never included Welcome either (it is built
+straight from the four legacy modules, not `create_app()`'s real
+composition), so "4 real ScreenModules" became 3 rather than 4 losing its
+Settings row and gaining a contribution row — there is nothing here that
+constructs a `ScreenContribution`.
 """
 
 from __future__ import annotations
@@ -22,9 +32,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.ui.module import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.module import (
     DashboardScreenModule,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
-    SettingsScreenModule,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import ScreenRegistry
 
 
@@ -34,7 +41,6 @@ def _built_registry() -> ScreenRegistry:
     for module_cls in (
         DashboardScreenModule,
         DatabaseScreenModule,
-        SettingsScreenModule,
         BacktestScreenModule,
     ):
         registry.register_module(module_cls(), container)
@@ -65,9 +71,11 @@ def test_sidebar_navigation_matches_the_pre_registry_hardcoded_layout() -> None:
     assert [(i.label, i.route, i.icon) for i in sections[1].items] == [
         ("Backtest Engine", "backtest", "bar-chart-2"),
     ]
-    assert [(i.label, i.route, i.icon) for i in bottom] == [
-        ("API & Credentials", "settings", "settings"),
-    ]
+    # Settings' bottom action retired with `SettingsScreenModule` — it is a
+    # `ScreenContribution` now, and `_built_registry()` above builds from
+    # the legacy modules alone (see this file's own docstring), the same
+    # reason it never included Welcome's contribution either.
+    assert tuple(bottom) == ()
 
 
 def test_every_nav_item_is_navigable() -> None:
@@ -82,6 +90,6 @@ def test_every_nav_item_is_navigable() -> None:
         assert item.enabled is True
 
 
-def test_all_four_routes_are_registered() -> None:
+def test_all_legacy_routes_are_registered() -> None:
     routes = {d.route for d in _built_registry().get_all()}
-    assert routes == {"dashboard", "data_management", "settings", "backtest"}
+    assert routes == {"dashboard", "data_management", "backtest"}

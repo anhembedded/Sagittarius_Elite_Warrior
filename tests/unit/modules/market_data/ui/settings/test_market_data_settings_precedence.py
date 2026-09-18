@@ -1,4 +1,11 @@
-"""`EPIC-010H` — saving Settings actually takes effect.
+"""`EPIC-010H` — saving the Market Data settings section actually takes
+effect.
+
+Moved wholesale off
+`tests/unit/presentation/ui/screens/test_settings_presenter_precedence.py`
+(`EPIC-025E` PR 4.4e) — this coverage used only `DEFAULT_SYMBOLS`/
+`DEFAULT_INTERVAL`, both `market_data`'s own config keys; only the class
+names and import paths changed.
 
 @details The three-tier order this settles:
 
@@ -20,32 +27,11 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
-    IAccountSnapshot,
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.settings.market_data_settings_presenter import (
+    MarketDataSettingsPresenter,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
-    ITradingSession,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
-    FakeAccountSnapshot,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
-    FakeTradingSession,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
-    SettingsPresenter,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view import (
-    SettingsView,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
-    EnvFirstCredentialsProvider,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
-    SecretsFileSource,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
-    IExchangeCredentialsProvider,
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.settings.market_data_settings_view import (
+    MarketDataSettingsView,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.in_memory_state_store import (
     InMemoryStateStore,
@@ -69,12 +55,6 @@ _REMEMBERED = {
 }
 
 
-@pytest.fixture(autouse=True)
-def _no_env_credentials(monkeypatch):
-    monkeypatch.delenv("BINANCE_FUTURES_TESTNET_API_KEY", raising=False)
-    monkeypatch.delenv("BINANCE_FUTURES_TESTNET_API_SECRET", raising=False)
-
-
 @pytest.fixture
 def config():
     c = Mock()
@@ -90,16 +70,6 @@ def config():
 
 
 @pytest.fixture
-def credentials_provider(tmp_path):
-    """Not this file's concern (that's `env_first_credentials_provider`'s own
-    unit tests) — just present, real, and harmless, so `SettingsPresenter`'s
-    constructor has something valid to resolve."""
-    return EnvFirstCredentialsProvider(
-        SecretsFileSource(str(tmp_path / "secrets.local.json"))
-    )
-
-
-@pytest.fixture
 def store():
     s = InMemoryStateStore()
     s.write(_BACKTEST, _REMEMBERED)
@@ -110,28 +80,22 @@ def store():
 def coordinator(store):
     c = UiStateCoordinator(store, debounce_ms=50_000)
     # `EPIC-017A` — production registers this eagerly in app_bootstrapper.py
-    # (composition root), not inside SettingsPresenter or BackTestPresenter
-    # anymore; this fixture stands in for that registration so the test still
-    # exercises the real discard path SettingsPresenter._on_save() drives.
+    # (composition root), not inside a settings Presenter anymore; this
+    # fixture stands in for that registration so the test still exercises
+    # the real discard path `MarketDataSettingsPresenter._on_save()` drives.
     c.register_config_binding(_BACKTEST, "DEFAULT_SYMBOLS", ("symbol",))
     c.register_config_binding(_BACKTEST, "DEFAULT_INTERVAL", ("timeframe",))
     return c
 
 
 @pytest.fixture
-def container(config, coordinator, credentials_provider):
+def container(config, coordinator):
     c = Mock()
     c.resolve.side_effect = lambda interface: (
         config
         if interface is IConfig
         else coordinator
         if interface is UiStateCoordinator
-        else credentials_provider
-        if interface is IExchangeCredentialsProvider
-        else FakeTradingSession()
-        if interface is ITradingSession
-        else FakeAccountSnapshot()
-        if interface is IAccountSnapshot
         else Mock()
     )
     c.registrations.return_value = {UiStateCoordinator: object()}
@@ -140,10 +104,10 @@ def container(config, coordinator, credentials_provider):
 
 @pytest.fixture
 def presenter(qapp, container, request):
-    view = SettingsView()
+    view = MarketDataSettingsView()
     view.resize(1200, 800)
     request.addfinalizer(view.deleteLater)
-    return SettingsPresenter(view, container)
+    return MarketDataSettingsPresenter(view, container)
 
 
 def test_saving_drops_the_remembered_values_settings_now_outranks(presenter, store):
@@ -155,9 +119,9 @@ def test_saving_drops_the_remembered_values_settings_now_outranks(presenter, sto
 
 
 def test_saving_keeps_every_remembered_value_settings_does_not_own(presenter, store):
-    """The reason `discard_keys()` had to exist. Dropping the whole slice to
-    invalidate a symbol would take leverage, commission and the timezone with
-    it — worse than the problem it solves."""
+    """The reason `discard_for_config_key()` had to exist. Dropping the
+    whole slice to invalidate a symbol would take leverage, commission and
+    the timezone with it — worse than the problem it solves."""
     presenter._on_save()
 
     remaining = store.read(_BACKTEST)
@@ -171,10 +135,10 @@ def test_saving_keeps_every_remembered_value_settings_does_not_own(presenter, st
 def test_a_rejected_save_changes_nothing(qapp, container, store, request):
     """`_on_save()` bails out early on an empty symbol list. Nothing was
     written to config, so nothing may be discarded either."""
-    view = SettingsView()
+    view = MarketDataSettingsView()
     view.resize(1200, 800)
     request.addfinalizer(view.deleteLater)
-    presenter = SettingsPresenter(view, container)
+    presenter = MarketDataSettingsPresenter(view, container)
     presenter._settings_view_model.defaultSymbols = "   "
 
     presenter._on_save()
@@ -182,29 +146,19 @@ def test_a_rejected_save_changes_nothing(qapp, container, store, request):
     assert store.read(_BACKTEST) == _REMEMBERED
 
 
-def test_saving_without_a_coordinator_still_works(
-    qapp, config, credentials_provider, request
-):
+def test_saving_without_a_coordinator_still_works(qapp, config, request):
     """Every existing test builds this presenter against a container that
     knows nothing about persistence, and production did too before the
     coordinator was wired."""
     container = Mock()
     container.resolve.side_effect = lambda interface: (
-        config
-        if interface is IConfig
-        else credentials_provider
-        if interface is IExchangeCredentialsProvider
-        else FakeTradingSession()
-        if interface is ITradingSession
-        else FakeAccountSnapshot()
-        if interface is IAccountSnapshot
-        else Mock()
+        config if interface is IConfig else Mock()
     )
     container.registrations.return_value = {}
-    view = SettingsView()
+    view = MarketDataSettingsView()
     view.resize(1200, 800)
     request.addfinalizer(view.deleteLater)
-    presenter = SettingsPresenter(view, container)
+    presenter = MarketDataSettingsPresenter(view, container)
 
     presenter._on_save()  # must not raise
 

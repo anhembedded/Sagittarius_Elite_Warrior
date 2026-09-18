@@ -249,9 +249,17 @@ def _navigable_routes() -> list[str]:
 
 
 def _screen_packages() -> list[str]:
+    """Dormant, not deleted — `EPIC-025` Phase 4 moved every screen out of
+    this tree (settings, the last one, in PR 4.4e), so it no longer exists
+    on disk and this always returns `[]` now.
+    `Tasks/backlog/BOT-141_retarget_event_flow_guard_3_to_module_ui.md` is
+    the follow-up that retargets this check to `modules/*/ui/`/`shell/`."""
+    screens_root = _SRC / "presentation" / "ui" / "screens"
+    if not screens_root.is_dir():
+        return []
     return sorted(
         d.name
-        for d in (_SRC / "presentation" / "ui" / "screens").iterdir()
+        for d in screens_root.iterdir()
         if d.is_dir() and not d.name.startswith(("_", "."))
     )
 

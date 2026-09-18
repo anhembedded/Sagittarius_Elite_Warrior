@@ -60,7 +60,28 @@ def real_screen_registry(container):
     `IContainer` or a `Mock` — nothing here resolves anything from it until
     a screen module's own `create_view()`/`create_presenter()` runs, which
     stays lazy exactly like `PresenterManager` itself.
+
+    `EPIC-025E` PR 4.4e — the shell's `settings_screen()` is the first
+    contribution consumer that resolves `IContributionTable` inside its own
+    `create_presenter()` (`SettingsPresenter.__init__`), and this helper
+    never bound it: `app_bootstrapper.py` calls `assemble_contributions()`
+    *after* `app_engine.boot()` and before building `MainWindow`
+    (`shell/contribution_assembly.py`'s own docstring — "why here and not
+    in create_app()"), a step this helper skipped entirely. A real
+    `IContainer` gets that same call now, for the same reason the helper's
+    docstring already promises; a `Mock()` is left alone; `assemble_
+    contributions()`'s own `container.singleton(...)` makes a repeat call
+    against the same container harmless.
     """
+    from unittest.mock import Mock
+
+    if not isinstance(container, Mock):
+        from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
+            assemble_contributions,
+        )
+
+        assemble_contributions(container, dev_mode=False)
+
     from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.module import (
         BacktestScreenModule,
     )
@@ -73,11 +94,11 @@ def real_screen_registry(container):
     from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.module import (
         TradingScreenModule,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
-        SettingsScreenModule,
-    )
     from Sagittarius_Elite_Warrior.src.shell.legacy_screen_adapter import (
         as_screen_descriptor,
+    )
+    from Sagittarius_Elite_Warrior.src.shell.settings.settings_screen import (
+        settings_screen,
     )
     from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import (
         welcome_screen,
@@ -86,11 +107,14 @@ def real_screen_registry(container):
 
     registry = ScreenRegistry()
     registry.register(as_screen_descriptor(welcome_screen()))
+    # `EPIC-025E` PR 4.4e — settings left the legacy `AbstractScreenModule`
+    # mechanism for a `ScreenContribution`, registered the same way Welcome
+    # is rather than through the `module_cls` loop below.
+    registry.register(as_screen_descriptor(settings_screen()))
     for module_cls in (
         DashboardScreenModule,
         TradingScreenModule,
         DatabaseScreenModule,
-        SettingsScreenModule,
         BacktestScreenModule,
     ):
         registry.register_module(module_cls(), container)

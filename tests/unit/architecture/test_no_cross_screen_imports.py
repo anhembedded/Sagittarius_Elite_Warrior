@@ -52,7 +52,18 @@ _ALLOWED: frozenset[tuple[str, str]] = frozenset()
 
 
 def _cross_screen_imports() -> list[tuple[str, int, str, str, str]]:
-    """Mọi import từ gói màn này sang gói màn khác, kể cả cái được miễn trừ."""
+    """Mọi import từ gói màn này sang gói màn khác, kể cả cái được miễn trừ.
+
+    `EPIC-025` Phase 4 đã xoá hẳn `_SCREENS_ROOT` (settings, màn cuối cùng,
+    rời đi ở PR 4.4e) — đúng như dự đoán trong
+    `test_screens_root_is_where_we_think_it_is`. Từ đây guard này là một lệnh
+    cấm vĩnh viễn giống `test_no_new_qml.py`, không phải một ratchet cần dời
+    chỗ quét: quy tắc "gói màn A không import nội bộ gói màn B" chỉ có nghĩa
+    khi các màn còn sống chung một thư mục `screens/`, và dưới `modules/*/ui/`
+    quan hệ import giữa hai bounded context đã có luật riêng
+    (`test_module_boundaries.py`)."""
+    if not _SCREENS_ROOT.is_dir():
+        return []
     found = []
     for package_dir in sorted(p for p in _SCREENS_ROOT.iterdir() if p.is_dir()):
         if package_dir.name.startswith("_"):
@@ -88,10 +99,14 @@ def test_screens_root_is_where_we_think_it_is() -> None:
     Ngưỡng giảm dần theo `EPIC-025` Phase 4: 4 (`trading`, `dashboard`,
     `backtest`, `settings`) → 2 sau PR 4.4c (`trading`/`dashboard` rời sang
     `modules/trading/ui/`) → 1 sau PR 4.4d (`backtest` rời sang
-    `modules/backtesting/ui/`) → 0 khi Phase 4 xoá hẳn cây legacy này
-    (`settings` rời sang `shell/settings/` ở 4.4e)."""
-    assert _SCREENS_ROOT.is_dir(), f"không thấy cây screens ở {_SCREENS_ROOT}"
-    assert len([p for p in _SCREENS_ROOT.iterdir() if p.is_dir()]) >= 1
+    `modules/backtesting/ui/`) → 0 ở PR 4.4e (`settings` rời sang
+    `shell/settings/`), đúng như dự đoán: cây `screens/` không còn tồn tại
+    trên đĩa nữa. Từ đây guard này là một lệnh cấm — 0 là trạng thái thành
+    công vĩnh viễn, không phải một con số cần cập nhật tiếp."""
+    assert not _SCREENS_ROOT.exists(), (
+        f"cây screens legacy đã sống lại ở {_SCREENS_ROOT} — Phase 4 xoá nó "
+        "vĩnh viễn, một màn mới không được tạo lại thư mục này"
+    )
 
 
 def test_no_widget_import_crosses_a_screen_boundary() -> None:

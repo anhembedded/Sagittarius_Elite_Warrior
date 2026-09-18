@@ -1,15 +1,22 @@
 """Every screen the app has arrives as a contribution (SDD boot steps 6–7).
 
 Phase 0 does not migrate a single screen, and that is exactly what these tests
-pin: the same five routes, the same sidebar, the same lazy construction — but
+pin: the same routes, the same sidebar, the same lazy construction — but
 reached through `ScreenContribution`, so a bounded context's screen in Phase 1
 travels the identical path.
+
+`EPIC-025E` PR 4.4e retired `settings` from `LEGACY_SCREEN_MODULES` — it
+left the legacy `AbstractScreenModule`/`ScreenRegistry` mechanism entirely
+for its own `ScreenContribution` (`shell/settings/settings_screen.py`,
+wired by `shell/contribution_assembly.py` the same way Welcome already
+is), rather than becoming a sixth `_EXPECTED_ROUTES` entry here. This file
+is about the legacy tree specifically (`contribute_legacy_screens`), so a
+screen that left it drops out rather than moving row.
 """
 
 from __future__ import annotations
 
 import pytest
-from Sagittarius_Elite_Warrior.src.core.contracts import NavLocation
 from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
     ContributionRegistry,
 )
@@ -24,7 +31,7 @@ from Sagittarius_Elite_Warrior.src.shell.screen_wiring import (
 from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import welcome_screen
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 
-_EXPECTED_ROUTES = ("dashboard", "trading", "data_management", "settings", "backtest")
+_EXPECTED_ROUTES = ("dashboard", "trading", "data_management", "backtest")
 
 
 @pytest.fixture
@@ -45,8 +52,8 @@ def wired_with_the_shells_own() -> ContributionRegistry:
     return registry
 
 
-def test_the_shell_carries_exactly_the_five_screens_that_have_no_module_yet() -> None:
-    assert len(LEGACY_SCREEN_MODULES) == 5
+def test_the_shell_carries_exactly_the_screens_that_have_no_module_yet() -> None:
+    assert len(LEGACY_SCREEN_MODULES) == 4
 
 
 def test_every_legacy_screen_is_contributed(wired: ContributionRegistry) -> None:
@@ -105,13 +112,10 @@ def test_the_sidebar_is_what_it_was_before(wired: ContributionRegistry) -> None:
     navigation_routes = [item.route for item in sections[0].items]
     assert navigation_routes == ["dashboard", "trading", "data_management"]
     assert [item.route for item in sections[1].items] == ["backtest"]
-    assert [item.route for item in bottom] == ["settings"]
-
-
-def test_settings_stays_a_bottom_action(wired: ContributionRegistry) -> None:
-    settings = next(screen for screen in wired.screens() if screen.route == "settings")
-    assert settings.nav is not None
-    assert settings.nav.location is NavLocation.BOTTOM_ACTION
+    # Settings' bottom action retired with the legacy `settings` module —
+    # it is a `ScreenContribution` now, and this fixture is the legacy
+    # tree alone (see this file's own docstring).
+    assert list(bottom) == []
 
 
 def test_the_registry_holds_one_descriptor_per_route(

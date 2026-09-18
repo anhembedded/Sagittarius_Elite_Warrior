@@ -1,11 +1,13 @@
 """Everything that was contributed to this run, collected once (SDD boot 6–7).
 
 Three kinds of contributor exist during the strangler period and this is the
-one place that knows all three: the five legacy screens the shell still carries
-(`legacy_screen_adapter.py`), the bounded contexts, which contribute panels,
-dialogs and probes through `BoundedContextModule.contribute()`, and the shell's
-own Welcome screen (PR 1.5a) — a surface about the *application*, which is what
-HLD §4.6 says belongs to the shell rather than to any context.
+one place that knows all three: the four legacy screens the shell still
+carries (`legacy_screen_adapter.py`; `EPIC-025E` PR 4.4e moved Settings off
+this list), the bounded contexts, which contribute panels, dialogs, probes
+and — since PR 4.4e — settings sections through
+`BoundedContextModule.contribute()`, and the shell's own Welcome and Settings
+screens — surfaces about the *application*, which is what HLD §4.6 says
+belongs to the shell rather than to any context.
 
 **Why here and not in `create_app()`.** `contribute()` runs *after* `boot()`
 (SDD's hook table), and `boot()` is the entry point's call, not the composition
@@ -31,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
 )
 from Sagittarius_Elite_Warrior.src.shell.modules import RegisteredModules
 from Sagittarius_Elite_Warrior.src.shell.screen_wiring import contribute_legacy_screens
+from Sagittarius_Elite_Warrior.src.shell.settings.settings_screen import (
+    settings_screen,
+)
 from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import welcome_screen
 from sagittarius_engine.interfaces.i_container import IContainer
 
@@ -49,6 +54,7 @@ def assemble_contributions(
     """
     contributions = ContributionRegistry(dev_mode=dev_mode)
     contributions.contribute_screen(welcome_screen())
+    contributions.contribute_screen(settings_screen())
     contribute_legacy_screens(contributions, container)
     for module in container.resolve(RegisteredModules).modules:
         module.contribute(contributions)

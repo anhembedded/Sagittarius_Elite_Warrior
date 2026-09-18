@@ -1,12 +1,15 @@
-"""`BOT-125` — the two exchange-environment controls in Settings.
+"""`BOT-125` — the Order Venue control on the Trading settings section.
 
-Before this, `exchange.market_data_venue` and `exchange.trading_venue` were
-file-edit-and-restart config with no UI anywhere — a user who had just
-configured a strategy still could not turn trading on without editing
-`app_config.json` by hand. These tests hold the new controls to the two
-things that make them honest: they refuse rather than half-apply while a
-live session is running, and a broken saved value shows what the app is
-really running on rather than the unusable string that produced it.
+Split off `tests/unit/presentation/ui/screens/test_settings_venue_controls.py`,
+keeping only what this module owns: the trading venue, backed by this
+module's own `ITradingSession`. `market_data`'s venue moved to
+`tests/unit/modules/market_data/ui/settings/test_market_data_settings_venue.py`
+and dropped the lock entirely (see that module's presenter docstring for why).
+
+These tests hold the control to the two things that make it honest: it
+refuses rather than half-applies while a live session is running, and a
+broken saved value shows what the app is really running on rather than the
+unusable string that produced it.
 """
 
 from __future__ import annotations
@@ -27,23 +30,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_accoun
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
-    SettingsPresenter,
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_presenter import (
+    TradingSettingsPresenter,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view import (
-    SettingsView,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.venue_labels import (
-    MARKET_DATA_VENUE_LABELS,
-    TRADING_VENUE_LABELS,
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_view import (
+    TradingSettingsView,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
     IExchangeCredentialsProvider,
     ResolvedCredentials,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
-    MarketDataVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -56,11 +52,7 @@ class _FakeConfig:
     rather than about `set` having been called with something."""
 
     def __init__(self, initial: dict | None = None) -> None:
-        self.values = {
-            "DEFAULT_SYMBOLS": ["BTCUSDT"],
-            "DEFAULT_INTERVAL": "1m",
-            "DEFAULT_SYNC_DAYS": 1,
-        }
+        self.values: dict = {}
         self.values.update(initial or {})
         self.save_count = 0
 
@@ -84,7 +76,7 @@ def credentials_provider() -> Mock:
     return provider
 
 
-def _presenter(qapp, request, config, session_state, credentials_provider):
+def _presenter(request, config, session_state, credentials_provider):
     container = Mock()
 
     def resolve(interface):
@@ -99,36 +91,35 @@ def _presenter(qapp, request, config, session_state, credentials_provider):
         return Mock()
 
     container.resolve.side_effect = resolve
-    view = SettingsView()
+    view = TradingSettingsView()
     request.addfinalizer(view.deleteLater)
-    return SettingsPresenter(view, container), view
+    return TradingSettingsPresenter(view, container), view
 
 
-def test_every_enum_member_has_a_vietnamese_label():
+def test_every_trading_venue_has_a_combo_label(qapp, request, credentials_provider):
     """A member added without a label would render as an empty combo row —
     the guard exists because `TradingVenue` is explicitly designed to gain
     a `MAINNET` member one day (`EPIC-021` ADR §3)."""
-    assert set(MARKET_DATA_VENUE_LABELS) == set(MarketDataVenue)
-    assert set(TRADING_VENUE_LABELS) == set(TradingVenue)
-    assert all(label.strip() for label in MARKET_DATA_VENUE_LABELS.values())
-    assert all(label.strip() for label in TRADING_VENUE_LABELS.values())
-
-
-def test_the_saved_venues_are_shown_on_load(qapp, request, credentials_provider):
-    config = _FakeConfig(
-        {
-            ConfigKeys.EXCHANGE_MARKET_DATA_VENUE.value: "futures_testnet",
-            ConfigKeys.EXCHANGE_TRADING_VENUE.value: "futures_testnet",
-        }
+    _presenter_obj, view = _presenter(
+        request, _FakeConfig(), FakeTradingSession(), credentials_provider
     )
+
+    labels = {
+        view._trading_venue_combo.itemText(index)
+        for index in range(view._trading_venue_combo.count())
+    }
+
+    assert len(labels) == len(TradingVenue)
+    assert all(label.strip() for label in labels)
+
+
+def test_the_saved_venue_is_shown_on_load(qapp, request, credentials_provider):
+    config = _FakeConfig({ConfigKeys.EXCHANGE_TRADING_VENUE.value: "futures_testnet"})
     presenter, _view = _presenter(
-        qapp, request, config, FakeTradingSession(), credentials_provider
+        request, config, FakeTradingSession(), credentials_provider
     )
 
-    view_model = presenter._settings_view_model
-
-    assert view_model.marketDataVenue == "futures_testnet"
-    assert view_model.tradingVenue == "futures_testnet"
+    assert presenter._settings_view_model.tradingVenue == "futures_testnet"
 
 
 def test_an_unreadable_saved_value_shows_what_is_actually_running(
@@ -138,54 +129,36 @@ def test_an_unreadable_saved_value_shows_what_is_actually_running(
     parse — and never to the tradeable one. The screen must show that
     fallback, since that is what the app booted with; echoing the broken
     string would tell the user trading is configured when it is not."""
-    config = _FakeConfig(
-        {
-            ConfigKeys.EXCHANGE_MARKET_DATA_VENUE.value: "typo_venue",
-            ConfigKeys.EXCHANGE_TRADING_VENUE.value: "mainnet_please",
-        }
-    )
+    config = _FakeConfig({ConfigKeys.EXCHANGE_TRADING_VENUE.value: "mainnet_please"})
     presenter, _view = _presenter(
-        qapp, request, config, FakeTradingSession(), credentials_provider
+        request, config, FakeTradingSession(), credentials_provider
     )
 
     assert presenter._settings_view_model.tradingVenue == TradingVenue.DISABLED.value
-    assert presenter._settings_view_model.marketDataVenue in {
-        venue.value for venue in MarketDataVenue
-    }
 
 
-def test_saving_writes_both_venue_keys(qapp, request, credentials_provider):
+def test_saving_writes_the_venue_key(qapp, request, credentials_provider):
     config = _FakeConfig()
     presenter, _view = _presenter(
-        qapp, request, config, FakeTradingSession(), credentials_provider
+        request, config, FakeTradingSession(), credentials_provider
     )
     view_model = presenter._settings_view_model
     view_model.requestTradingVenue("futures_testnet")
-    view_model.requestMarketDataVenue("mainnet_public")
 
     view_model.requestSave()
 
     assert config.values[ConfigKeys.EXCHANGE_TRADING_VENUE.value] == "futures_testnet"
-    assert (
-        config.values[ConfigKeys.EXCHANGE_MARKET_DATA_VENUE.value] == "mainnet_public"
-    )
-    # No `save_count` assertion: `SettingsPresenter` only calls `save()` on a
-    # real `ConfigManager` (its own docstring says a substituted `IConfig`
-    # "simply won't persist, which is the correct behaviour for those"), so
-    # asserting it here would be asserting against a fake, not the app.
 
 
 def test_saving_is_refused_outright_while_trading_is_on(
     qapp, request, credentials_provider
 ):
     """Refused, not partially applied: a Save that wrote the other fields
-    and silently dropped these two is the "button appears to work" failure
-    `EPIC-022` was opened to remove."""
+    and silently dropped this one would be the "button appears to work"
+    failure `EPIC-022` was opened to remove."""
     config = _FakeConfig({ConfigKeys.EXCHANGE_TRADING_VENUE.value: "disabled"})
     session_state = FakeTradingSession()
-    presenter, _view = _presenter(
-        qapp, request, config, session_state, credentials_provider
-    )
+    presenter, _view = _presenter(request, config, session_state, credentials_provider)
     session_state.set_enabled(enabled=True)
     view_model = presenter._settings_view_model
     view_model.requestTradingVenue("futures_testnet")
@@ -197,31 +170,28 @@ def test_saving_is_refused_outright_while_trading_is_on(
     assert "Trading is active" in view_model.statusMessage
 
 
-def test_the_combos_are_disabled_while_trading_is_on(
-    qapp, request, credentials_provider
-):
+def test_the_combo_is_disabled_while_trading_is_on(qapp, request, credentials_provider):
     session_state = FakeTradingSession()
     session_state.set_enabled(enabled=True)
 
     _presenter_obj, view = _presenter(
-        qapp, request, _FakeConfig(), session_state, credentials_provider
+        request, _FakeConfig(), session_state, credentials_provider
     )
 
     assert view._trading_venue_combo.isEnabled() is False
-    assert view._market_data_venue_combo.isEnabled() is False
     # `isVisible()` is False for any widget whose window was never shown,
     # so the meaningful assertion is that the explanation was set at all.
     assert view._venue_lock_label.text() != ""
 
 
-def test_the_combos_carry_the_config_value_not_the_label(
+def test_the_combo_carries_the_config_value_not_the_label(
     qapp, request, credentials_provider
 ):
-    """The visible text is a Vietnamese sentence; the value written to
+    """The visible text is a human-readable sentence; the value written to
     config must be the enum's own string. Deriving one from the other by
     parsing the label would break the moment the wording changes."""
     _presenter_obj, view = _presenter(
-        qapp, request, _FakeConfig(), FakeTradingSession(), credentials_provider
+        request, _FakeConfig(), FakeTradingSession(), credentials_provider
     )
 
     values = {

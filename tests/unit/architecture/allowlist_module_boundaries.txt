@@ -32,6 +32,9 @@
 # -> 8 after PR 4.4d (10 - 5 stale retired + 3 new entries: 2 market_data.ui
 #    reads under their new modules.backtesting.ui address, 1 shell entry for
 #    module.py, same shape as PR 4.4b/4.4c's).
+# -> 9 after PR 4.4e (8 - 0 stale retired + 1 new entry: the old monolithic
+#    settings screen carried no allowlist entries of its own, so nothing
+#    retires; splitting it adds one new cross-boundary read).
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -720,3 +723,22 @@ modules.backtesting.ui.signal_wiring -> modules.market_data.ui.sync_progress_fee
 # module's own root. `EPIC-025F` (Phase 5) retires it when `NavigationService`
 # replaces `AbstractScreenModule`/`ScreenRegistry`, not before.
 shell.legacy_screens -> modules.backtesting.ui.module
+
+# ---------------------------------------------------------------------------
+# PR 4.4e -- "Settings becomes a surface": the monolithic
+# `presentation/ui/screens/settings/` splits into `modules/trading/ui/
+# settings/` (credentials, connection check, order venue) and `modules/
+# market_data/ui/settings/` (default symbols/interval/sync days, data
+# venue). A design step, not a file move -- unlike PR 4.4a/c/d, the deleted
+# monolith carried zero allowlist entries of its own (it read only within
+# `presentation/`), so nothing here retires.
+#
+# 1 new entry: `TradingSettingsPresenter` renders the same
+# `ExchangeConnectionStatus` the Trading screen's Check Connection button
+# always has, through the one formatter both the CLI and the UI already
+# shared (`format_exchange_connection_status`). That formatter still lives
+# under `presentation/cli/` -- migrating trading's CLI formatting into
+# `modules/trading/cli/`, the way `modules/market_data/cli/` already did in
+# PR 0.4a-2, is real work of its own and out of this PR's bounded scope
+# (`task-execution-rule.md`). It exits when that migration lands.
+modules.trading.ui.settings.trading_settings_presenter -> presentation.cli.exchange_status_formatter

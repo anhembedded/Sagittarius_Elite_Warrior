@@ -40,13 +40,10 @@ root the strangler is replacing. `composition/port_bindings.py` explains which
 ports could move early and why.
 
 **`contribute()` since PR 1.4c-4, and what it contributes.** One
-`DEV_PROBE`: the live trading session's own state, on the Dev Board. It is the
-first widget any bounded context owns, and the first thing rendered through the
-mechanism in a real run rather than in a test. Trading and the Dev Board are
-*still* legacy screens carried by `shell/legacy_screen_adapter.py` — the two
-that would move into this module need 24 and 44 imports from
-`presentation/ui/*`, which is what `support/ui_kit` and `support/charting`
-(Phase 4) exist to answer, measured in PR 1.4b-2's own log entry.
+`DEV_PROBE`: the live trading session's own state, on the Dev Board — the
+first widget any bounded context owns. `EPIC-025E` PR 4.4e adds a second: one
+`SETTINGS_SECTION` for this module's own credentials, order venue and
+connection check, split off the old monolithic Settings screen.
 
 **`subscribe()` not implemented, and why:** this context's Qt-side
 subscriptions still live in the two legacy Presenters, and they move with those
@@ -75,6 +72,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.port_bindings imp
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.probes import (
     build_trading_session_probe,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings_contribution import (
+    build_trading_settings_section,
 )
 
 logger = logging.getLogger("App.TradingModule")
@@ -136,6 +136,17 @@ class TradingModule(BoundedContextModule):
                 size_hint=SizeHint.REGULAR,
                 factory=build_trading_session_probe,
                 title="Trading session",
+            )
+        )
+        registry.contribute(
+            ContributionDescriptor(
+                contributor_id=self.module_id,
+                surface_id="settings",
+                place=Place.SETTINGS_SECTION,
+                order=10,
+                size_hint=SizeHint.REGULAR,
+                factory=build_trading_settings_section,
+                title="Trading",
             )
         )
 

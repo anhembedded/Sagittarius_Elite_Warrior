@@ -36,11 +36,15 @@ def test_every_screen_and_sidebar_has_preview_file():
     Asserts every screen directory and the sidebar directory has a `preview.py`
     declaring a `build_preview` function.
     """
-    targets: list[Path] = [
-        d
-        for d in _SCREENS_DIR.iterdir()
-        if d.is_dir() and not d.name.startswith(("_", "."))
-    ]
+    targets: list[Path] = (
+        [
+            d
+            for d in _SCREENS_DIR.iterdir()
+            if d.is_dir() and not d.name.startswith(("_", "."))
+        ]
+        if _SCREENS_DIR.is_dir()
+        else []
+    )
     if _SIDEBAR_DIR.is_dir():
         targets.append(_SIDEBAR_DIR)
 
@@ -81,7 +85,7 @@ def test_discover_previews_finds_all_targets():
     Asserts discover_previews() auto-discovers all screen keys.
     """
     previews = discover_previews()
-    expected_keys = {"sidebar", "settings", "data_management", "dashboard", "backtest"}
+    expected_keys = {"sidebar", "data_management", "dashboard", "backtest"}
     assert expected_keys.issubset(set(previews.keys())), (
         f"discover_previews() missing expected keys. Found: {list(previews.keys())}"
     )

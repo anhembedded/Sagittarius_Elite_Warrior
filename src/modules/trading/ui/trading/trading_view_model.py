@@ -4,10 +4,13 @@ from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.strategy_card_view_model import (
     StrategyCardViewModel,
 )
-from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel, LogListModel
+from Sagittarius_Elite_Warrior.src.support.ui_kit.status_view_model import (
+    StatusMessageViewModel,
+)
+from sagittarius_engine.extensions.pyside_mvc import LogListModel
 
 
-class TradingViewModel(BaseQmlViewModel):
+class TradingViewModel(StatusMessageViewModel):
     """
     @brief State behind the Trading screen (`EPIC-021I`) — the same
     Presenter/ViewModel split `SettingsViewModel` uses: this class carries
@@ -38,7 +41,6 @@ class TradingViewModel(BaseQmlViewModel):
     symbolOptionsChanged = Signal()
     symbolChanged = Signal()
     tradingStateChanged = Signal()
-    statusChanged = Signal()
     sessionStatsChanged = Signal()
     #: Emitted when the user picks a different symbol for the chart.
     symbolChangeRequested = Signal(str)
@@ -53,8 +55,6 @@ class TradingViewModel(BaseQmlViewModel):
         self._symbol = ""
         self._enabled = False
         self._toggle_busy = False
-        self._status_message = ""
-        self._status_is_error = False
         self._orders_sent_this_session = 0
         self._open_symbols_count = 0
         self._log_model = LogListModel(self)
@@ -124,22 +124,6 @@ class TradingViewModel(BaseQmlViewModel):
     def requestEmergencyStop(self) -> None:
         """Called from the View's "DỪNG KHẨN CẤP" button (`EPIC-021K`)."""
         self.emergencyStopRequested.emit()
-
-    def _get_status_message(self) -> str:
-        return self._status_message
-
-    statusMessage = Property(str, _get_status_message, notify=statusChanged)
-
-    def _get_status_is_error(self) -> bool:
-        return self._status_is_error
-
-    statusIsError = Property(bool, _get_status_is_error, notify=statusChanged)
-
-    @Slot(str, bool)
-    def set_status(self, message: str, is_error: bool) -> None:
-        self._status_message = message
-        self._status_is_error = is_error
-        self.statusChanged.emit()
 
     # ------------------------------------------------------------------ #
     # Session stats (`TradingSessionState`, written from Python only)

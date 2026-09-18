@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 137 | 70.3% |
+| 🟢 **Completed** | 137 | 69.9% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 52 | 26.7% |
+| 🔴 **Backlog** | 53 | 27.0% |
 | ❌ **Cancelled** | 6 | 3.1% |
-| 📈 **Tổng số Task** | **195** | **100%** |
+| 📈 **Tổng số Task** | **196** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -311,6 +311,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **P3** | **[BOT-116](backlog/BOT-116_native_chart_bridge_module_grouping.md)** | **Gom 7 module cầu nối native chart vào thư mục `native_chart/` riêng** | 🟢 **`S (Fast)`** | — | User phát hiện: 7 file (`native_chart_indicator_snapshot.py`, ..., `native_chart_viewport_gestures.py`) nằm phẳng ở `src/presentation/ui/` lẫn với 3 file app-wide thật (`app_bootstrapper.py`/`main_window.py`/`constants.py`) dù không cùng tầng ý nghĩa — 17 file cần sửa import (đã đo thật, không phải 34 như ước lượng ban đầu). Thuần tổ chức thư mục, không đổi hành vi — 2 câu hỏi thiết kế cần chốt trước khi code (đổi tên bỏ tiền tố hay không, dời test theo hay không). |
 | **P2** | **[BOT-092](backlog/BOT-092_dev_mode_terminal_ui_event_logger.md)** | **UI event logger to the terminal in dev mode** | 🟡 **`M`** | — | *(row added 2026-09-16 — the file had no row anywhere.)* Written when the screens were QML: `--dev` button-click auto-logging reached only the old monitor card, never stdout, so a crash took the trail with it. Re-scope before starting: the QML premise is gone (ADR D20) and `--dev`/`--debug` logging changed since (`logging-rule.md` §7, `BOT-133`). Touches both repositories. |
 | **P2** | **[BOT-119](backlog/BOT-119_boot_order_relies_on_app_use_sequence.md)** | **Boot order held only by the order of `app.use()` lines** | 🟡 **`M`** | — | *(row added 2026-09-16 — the file had no row anywhere.)* Found 2026-08-23 in the same cross-audit as `BOT-118`: six extensions boot in the order they are written, with a comment as the only guard. `EPIC-025`'s `register()`/`boot()` contract (`Docs/SDD/04`) now orders the modules; re-measure what is left of this before doing it. |
+| **P2** | **[BOT-141](backlog/BOT-141_retarget_event_flow_guard_3_to_module_ui.md)** | **`test_event_flow_guards.py` Guard 3 checks a deleted tree, not the current screen locations** | 🟡 **`M`** | — | Found while landing `EPIC-025E` PR 4.4e: the guard's hardcoded root (`src/presentation/ui/screens`) has been empty since PR 4.4d and settings (the last screen there) leaving made it permanent. The rule it enforces (`EPIC-008G`'s "one event, one Feed, not two presenters guessing separately") is still real and needs retargeting to `modules/*/ui/`/`shell/`. |
 | **P1** | **[BOT-131](backlog/BOT-131_backtest_fsm_and_stale_data_lifecycle.md)** | **Backtest FSM & stale-data lifecycle (dirty tracking) — the unbuilt half, renumbered from `BOT-095B` on 2026-09-08** | 🔴 **`L`** | `BOT-095A` ✅ | *(row added 2026-09-16 — the file had no row anywhere.)* The completed `BOT-095B` kept the number and its row in the Epic `BOT-095` detail table below; this file carries the dirty-tracking scope that is still open. |
 | **P2** | **[BOT-019](backlog/BOT-019_watchlist_market_overview.md)** | **Watchlist / Market Overview** | 🟡 **`M (Standard)`** | `BOT-005` ✅ | Bảng theo dõi nhiều symbol cùng lúc (giá, %change, volume) realtime. Tận dụng hạ tầng Live Stream đã hoàn thiện. |
 | **P2** | **[Epic BOT-006](backlog/BOT-006_backtest_engine_execution.md)** | **Backtest Engine — Màn hình Backtest Thực thụ (TradingView Strategy Tester)** | 🔴 **`L (Thinking)`** | `BOT-001` ✅ | Epic, chia theo Phase — xem bảng chi tiết bên dưới. Không còn phụ thuộc `BOT-008` (backtest dùng Paper Exchange giả lập, không cần order thật). |

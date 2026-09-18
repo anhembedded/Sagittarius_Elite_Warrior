@@ -187,15 +187,21 @@ def test_sanity_dev_mode_off_by_default_no_click_logging(qtbot, main_window, nav
 
 def test_sanity_settings_screen_save(qtbot, main_window, navigate, qapp):
     """
-    API & Credentials screen (QtWidgets, EPIC-005D). Proves the screen loads
-    through the router, its fields populate from IConfig, and a real Save
-    click reaches the presenter — all while the other screens keep working
-    alongside it.
+    Settings surface (`EPIC-025E` PR 4.4e — "settings becomes a surface").
+    Proves the screen loads through the router with both modules' own
+    contributed sections present, each section's fields populate from
+    `IConfig`/`IExchangeCredentialsProvider`, and a real Save click on
+    each section reaches its own Presenter — all while the other screens
+    keep working alongside it.
+
+    `nav_button.display_text` reads "Settings" now, not "API & Credentials"
+    — the monolithic screen's old title undersold what the surface holds
+    once market_data's own section joined trading's.
     """
     qtbot.addWidget(main_window)
 
     nav_button = main_window._sidebar._nav_buttons["settings"]
-    assert nav_button.display_text == "API & Credentials"
+    assert nav_button.display_text == "Settings"
 
     settings_cfg = navigate("settings")
     assert settings_cfg is not None
@@ -208,12 +214,19 @@ def test_sanity_settings_screen_save(qtbot, main_window, navigate, qapp):
     # Fields populated from IConfig (user_config.json) on load. EPIC-014 made
     # Default Interval a picker button rather than a free-text field — its
     # only legal values are the sixteen the domain declares, and a typo in it
-    # used to be ignored silently.
+    # used to be ignored silently. Lives in market_data's own section now.
     assert view.findChild(QPushButton, "btnDefaultInterval").text() != ""
 
+    # Trading's section: its own Save button, its own status label.
     view.findChild(QPushButton, "btnSaveCredentials").click()
     qapp.processEvents()
-    assert view.findChild(QLabel, "lblStatus").text() != ""
+    assert view.findChild(QLabel, "lblTradingSettingsStatus").text() != ""
+
+    # market_data's section: a separate Save button and status label — two
+    # sections, two Presenters, not one screen that knew both.
+    view.findChild(QPushButton, "btnSaveMarketDataSettings").click()
+    qapp.processEvents()
+    assert view.findChild(QLabel, "lblMarketDataSettingsStatus").text() != ""
 
     # Navigating away and back to the other screens must still work —
     # coexistence, not a one-way trip.
