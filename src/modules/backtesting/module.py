@@ -20,15 +20,20 @@ except the screen that shows its answers. `EPIC-025D` §4 measured that: of the
 reads of `strategy`'s internals — which PR 3.1b retired by publishing
 `IStrategyEngine` and binding `ISizingPolicy`.
 
-@par `register()` binds nothing yet, and that is a measurement
-Its two command handlers are still bound in `binance_bot_module.py`, the
-strangler root the boundary scan skips by name, because they are dispatched
-through `ICommandDispatcher` by the Backtest screen — and moving a
-*registration* while the dispatcher and the screen both stay put buys nothing
-but a second place to look. HLD §3.4 records what closes this properly: *"if a
-CLI `backtest` command appears, `IBacktestRunner` is added then"*, which is the
-`IMarketDataSync` arc (PR 0.4a moved the code, PR 0.5 published the port and
-four consumers stopped building the command).
+@par `register()` binds its own two commands — PR 4.4f-1
+The two command handlers moved out of `binance_bot_module.py`,
+`composition/command_bindings.py` now the one place that answers "what handles
+`RunStaticBacktestCommand`/`RunHistoricalTickBacktestCommand`". Earlier
+phases deliberately left them there — moving a *registration* while the
+dispatcher and the screen both stayed put would have bought nothing but a
+second place to look, the accidental complexity ADR D2 exists to avoid. What
+changed by Phase 4's 4.4f: the destination is deleting that composition root
+entirely, so the binding needs a home regardless, and this module is that
+home. HLD §3.4's own note on what closes this *properly* — a CLI `backtest`
+subcommand bringing `IBacktestRunner`, the `IMarketDataSync` arc's shape (PR
+0.4a moved the code, PR 0.5 published the port) — is unrelated and still
+open; nothing about that arc changed here. This is a registration moving to
+where it is used, not the port HLD §3.4 describes.
 
 `ISizingPolicy` is **resolved** here rather than bound — `strategy` owns that
 binding (ADR D17), and this module is the consumer PR 3.1b's binding was waiting
@@ -62,6 +67,9 @@ from typing import Any
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.composition.command_bindings import (
+    bind_commands,
+)
 
 
 class BacktestingModule(BoundedContextModule):
@@ -83,12 +91,6 @@ class BacktestingModule(BoundedContextModule):
     dependencies: list[str] = ["market_data", "strategy", "trading"]  # noqa: RUF012 — the Engine reads a plain attribute
 
     def register(self, context: Any) -> None:
-        """Nothing yet, deliberately — see this module's docstring.
-
-        The two command handlers stay registered in `binance_bot_module.py`
-        until something asks this context a question through a port rather than
-        by building its command. A registration moved here while the dispatcher
-        and the screen both stay put would be a second place to look for one
-        fact, which is the accidental complexity ADR D2 exists to avoid — and a
-        binding nothing resolves differently is the dead wiring `BUG-120` was.
-        """
+        """Binds this module's own two commands — see this module's docstring
+        for why this moved now (4.4f-1) rather than earlier."""
+        bind_commands(context.container)

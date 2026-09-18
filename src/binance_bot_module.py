@@ -26,17 +26,6 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publishe
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
 )
-from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_historical_tick_backtest import (
-    RunHistoricalTickBacktestCommand,
-    RunHistoricalTickBacktestCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest import (
-    RunStaticBacktestCommand,
-    RunStaticBacktestCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_chart_host import (
-    BacktestChartHostFactory,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
     MarketDataSessionFactory,
 )
@@ -411,11 +400,6 @@ class BinanceBotModule(BaseModule):
         app.container.singleton(
             ICommandDispatcher, EngineCommandDispatcher(app.context.dispatcher)
         )
-        # BOT-098F6D: transient — BackTestView has no container access itself,
-        # so BackTestPresenter resolves this and pushes it in; never a
-        # singleton, since every BackTestView construction needs its own
-        # factory instance producing its own (never shared) chart widgets.
-        app.container.bind(BacktestChartHostFactory, BacktestChartHostFactory)
 
     def _register_state_singletons(self, app: App) -> None:
         """Registers long-lived application state singletons."""
@@ -459,11 +443,12 @@ class BinanceBotModule(BaseModule):
         )
 
     def _register_use_cases(self, app: App) -> None:
-        """Binds CQRS commands to their respective use case command handlers."""
-        app.container.bind(RunStaticBacktestCommand, RunStaticBacktestCommandHandler)
-        app.container.bind(
-            RunHistoricalTickBacktestCommand, RunHistoricalTickBacktestCommandHandler
-        )
+        """Binds CQRS commands to their respective use case command handlers.
+
+        `EPIC-025E` PR 4.4f-1: the two backtesting commands moved to
+        `modules/backtesting/composition/command_bindings.py`, the first of
+        this module's remaining bindings to leave.
+        """
         app.container.bind(SubmitOrderCommand, SubmitOrderCommandHandler)
         app.container.bind(ArmStrategyCommand, ArmStrategyCommandHandler)
         app.container.bind(DisarmStrategyCommand, DisarmStrategyCommandHandler)
