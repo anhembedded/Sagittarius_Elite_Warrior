@@ -151,7 +151,7 @@ def test_the_modules_that_contribute_are_the_ones_that_say_they_do() -> None:
         module_cls().contribute(registry)
 
     contributors = {descriptor.contributor_id for descriptor in registry.descriptors}
-    assert contributors == {"trading"}, (
+    assert contributors == {"trading", "market_data"}, (
         "The set of contributing modules changed. That is allowed — update "
         "this assertion in the same commit, so the guard keeps a subject."
     )

@@ -87,5 +87,5 @@ resolution and the error translation.
 | Both implementations of the port answer the same way | `tests/unit/modules/trading/contracts/test_account_snapshot_contract.py` | contract |
 | The account reads behind it | `tests/unit/modules/trading/contracts/test_trading_account_reader_contract.py` | contract |
 | The command line's report for each outcome | `tests/unit/presentation/cli/test_exchange_status_formatter.py` | unit |
-| Settings renders the right label, and asks the port exactly once | `tests/unit/presentation/ui/screens/test_settings_presenter_connection_check.py` | unit |
+| Settings renders the right label, and asks the port exactly once | `tests/unit/modules/trading/ui/settings/test_trading_settings_connection_check.py` | unit |
 | A real check against the real Futures Testnet | `tests/testnet/test_connection.py` — **the user runs it**: `SEW_TESTNET_TESTS=1` plus real credentials, via `ci-local.ps1 -TestnetOnly`; the ordinary gate never invokes this tier | human |

@@ -24,18 +24,16 @@ uses — which is exactly what a reader opens this file to find.
 
 **Hooks not implemented, and why:**
 
-- `contribute()` — Data Management is still a legacy screen carried by
-  `shell/legacy_screen_adapter.py`. PR 0.4b rebuilt it on QtWidgets (its last
-  `.qml` is gone) but left it in the legacy tree: a module's `ui/` may import
-  `support/ui_kit` and `support/charting` whole, and neither exists before
-  Phase 4, so moving the screen now would need 35 imports pointing from this
-  module back at `presentation.ui.*`. `EPIC-025A` §1.8 measures it;
-  `EPIC-025E` step 6 carries the move.
 - `subscribe()` — the market-tick handler still lives in the legacy tree
   (`application/event_handlers/market_data/`) and moves in Phase 1.
 
-Both are defaults inherited from `BoundedContextModule`, so the absence is a
-statement, not an omission.
+That is a default inherited from `BoundedContextModule`, so the absence is a
+statement, not an omission. `contribute()` **is** implemented, since
+`EPIC-025E` PR 4.4e: one `SETTINGS_SECTION`, this module's own venue and sync
+defaults — Data Management itself is still a legacy screen carried by
+`shell/legacy_screen_adapter.py` (`EPIC-025A` §1.8, `EPIC-025E` step 6 still
+carries that move), a different question from whether this module's own
+settings fields have a home yet.
 """
 
 from __future__ import annotations
@@ -46,10 +44,18 @@ from typing import Any
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import (
+    ContributionDescriptor,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
     CliCommandDescriptor,
     ICliRegistry,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
+    IContributionRegistry,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
+from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.live_stream_adapter import (
     LiveStreamEngineAdapter,
 )
@@ -77,6 +83,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.composition.query_binding
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.settings_contribution import (
+    build_market_data_settings_section,
+)
 
 logger = logging.getLogger("App.MarketDataModule")
 
@@ -100,6 +109,28 @@ class MarketDataModule(BoundedContextModule):
         bind_commands(container)
         bind_queries(container)
         bind_published_ports(container)
+
+    def contribute(self, registry: IContributionRegistry) -> None:
+        """This context's own venue and sync defaults, on the Settings surface.
+
+        `EPIC-025E` PR 4.4e: the old monolithic Settings screen knew every
+        module's config keys; this section knows only this module's four
+        (`EXCHANGE_MARKET_DATA_VENUE`, `DEFAULT_SYMBOLS`, `DEFAULT_INTERVAL`,
+        `DEFAULT_SYNC_DAYS`). `settings_contribution.py`'s factory imports no
+        widget module until it is called, the same rule `trading/ui/probes.py`
+        already follows for its own `DEV_PROBE`.
+        """
+        registry.contribute(
+            ContributionDescriptor(
+                contributor_id=self.module_id,
+                surface_id="settings",
+                place=Place.SETTINGS_SECTION,
+                order=20,
+                size_hint=SizeHint.REGULAR,
+                factory=build_market_data_settings_section,
+                title="Market Data",
+            )
+        )
 
     def declare_cli(self, registry: ICliRegistry) -> None:
         """`sync` and `stream` are this context's commands, so this context

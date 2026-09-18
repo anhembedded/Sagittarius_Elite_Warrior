@@ -73,6 +73,13 @@ def test_scanned_root_exists_and_is_not_empty(
     guard: str, root: str, pattern: str
 ) -> None:
     directory = _REPO_ROOT / root
+    if (guard, root, pattern) in EMPTY_BY_DESIGN:
+        # The one inverted case: a ban, whose scan finding nothing is it
+        # holding. See `EMPTY_BY_DESIGN`'s own docstring. A directory that
+        # was deleted outright (not merely emptied) still counts — git
+        # tracks no empty directories, so a permanently-banned root with
+        # zero files never survives a fresh clone as a directory at all.
+        return
     assert directory.is_dir(), f"{guard} scans {root}, which does not exist"
     matches = [p for p in directory.rglob(pattern) if "__pycache__" not in p.parts]
     # The repository's answer, not this disk's — see `git_tracked_paths`.
@@ -81,10 +88,6 @@ def test_scanned_root_exists_and_is_not_empty(
     # filesystem again (`BUG-129`, `CS-005`).
     tracked = tracked_paths(_REPO_ROOT)
     matches = [p for p in matches if p.relative_to(_REPO_ROOT).as_posix() in tracked]
-    if (guard, root, pattern) in EMPTY_BY_DESIGN:
-        # The one inverted case: a ban, whose scan finding nothing is it
-        # holding. See `EMPTY_BY_DESIGN`'s own docstring.
-        return
     assert matches, (
         f"{guard} scans {root} for {pattern} and would find nothing in a fresh "
         f"clone — retarget the guard (a leftover `__pycache__` shell on your "

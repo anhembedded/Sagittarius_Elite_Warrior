@@ -1,18 +1,25 @@
 """Which screens the strangler period still carries (SDD boot step 6).
 
 This tuple replaces the hard-coded list the GUI bootstrapper used to hold
-(`app_bootstrapper.py`, five class names in a `for` loop). It is the same five
-classes, but now the **shell** owns the fact that they exist — which is the
-whole point of `EPIC-025`: an entry point that boots the app, and a shell that
-knows what the app is made of.
+(`app_bootstrapper.py`, five class names in a `for` loop). It started as
+those same five classes, and now the **shell** owns the fact that they
+exist — which is the whole point of `EPIC-025`: an entry point that boots
+the app, and a shell that knows what the app is made of.
 
-Each entry leaves as its bounded context claims it: `dashboard` and `trading`
-moved in `EPIC-025E` PR 4.4c, `data_management` in PR 4.4b, both later than
-Phase 0/1 first planned — a screen's move waits on the support packages and
-port work its own `ui/` needs, not on the phase number that first named it.
-`backtest` and `settings` are Phase 4's own remaining moves. The tuple is
-empty when the migration is done, and this file goes with
-`legacy_screen_adapter.py`.
+`dashboard`/`trading` moved (unchanged mechanism, new address) in `EPIC-025E`
+PR 4.4c, `data_management` in PR 4.4b, `backtest` in PR 4.4d — a screen's
+*file* move waits on the support packages and port work its own `ui/`
+needs, not on the phase number that first named it, and none of the three
+retires a line here: `AbstractScreenModule` is still every one's real
+registration mechanism, and stays so until Phase 5's `NavigationService`
+replaces it for all four at once.
+
+`settings` is the one entry that retires **early**, in PR 4.4e, because its
+whole move was a mechanism change rather than a file move: it left
+`AbstractScreenModule` entirely for a `ScreenContribution`
+(`shell/settings/settings_screen.py`), the same shape `welcome_screen()`
+already uses — so this tuple drops to four, not because settings is gone,
+but because it no longer speaks this file's dialect.
 
 `shell/modules.py` is the equivalent list for real modules. Two lists, because
 they are two different things — a class that wraps a legacy screen and a bounded
@@ -33,15 +40,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.module import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.module import (
     TradingScreenModule,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
-    SettingsScreenModule,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import AbstractScreenModule
 
 LEGACY_SCREEN_MODULES: tuple[type[AbstractScreenModule], ...] = (
     DashboardScreenModule,
     TradingScreenModule,
     DatabaseScreenModule,
-    SettingsScreenModule,
     BacktestScreenModule,
 )

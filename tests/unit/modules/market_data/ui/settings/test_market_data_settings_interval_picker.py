@@ -1,4 +1,9 @@
-"""`DEFAULT_INTERVAL` on Settings, after `EPIC-014`.
+"""`DEFAULT_INTERVAL` on the Market Data settings section, after `EPIC-014`.
+
+Moved wholesale off
+`tests/unit/presentation/ui/screens/test_settings_view_interval_picker.py`
+(`EPIC-025E` PR 4.4e) — `DEFAULT_INTERVAL` is `market_data`'s own config
+key; only the class names and import paths changed.
 
 It was a free-text field, and a wrong value in it failed *silently*:
 `BackTestPresenter` checked the config value against a list and simply ignored
@@ -15,24 +20,24 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view import (
-    SettingsView,
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.settings.market_data_settings_view import (
+    MarketDataSettingsView,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view_model import (
-    SettingsViewModel,
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.settings.market_data_settings_view_model import (
+    MarketDataSettingsViewModel,
 )
 
 
 @pytest.fixture
 def view_model():
-    vm = SettingsViewModel()
+    vm = MarketDataSettingsViewModel()
     vm.defaultInterval = "1m"
     return vm
 
 
 @pytest.fixture
 def view(qapp, view_model):
-    widget = SettingsView()
+    widget = MarketDataSettingsView()
     widget.set_view_model(view_model)
     qapp.processEvents()
     return widget

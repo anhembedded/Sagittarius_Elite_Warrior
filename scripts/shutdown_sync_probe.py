@@ -40,11 +40,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.module import (
     DashboardScreenModule,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
-    SettingsScreenModule,
-)
 from Sagittarius_Elite_Warrior.src.shell.legacy_screen_adapter import (
     as_screen_descriptor,
+)
+from Sagittarius_Elite_Warrior.src.shell.settings.settings_screen import (
+    settings_screen,
 )
 from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import welcome_screen
 from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import ScreenRegistry
@@ -151,12 +151,14 @@ def main() -> None:
         # The shell's Welcome screen carries `is_default` since `EPIC-025`
         # PR 1.5a, and `MainWindow` refuses to open without a default — so a
         # probe that hand-lists the legacy screens has to include it, the same
-        # way `tests/conftest.py`'s `real_screen_registry` does.
+        # way `tests/conftest.py`'s `real_screen_registry` does. Settings left
+        # the legacy `AbstractScreenModule` mechanism in `EPIC-025E` PR 4.4e —
+        # it is a `ScreenContribution` now, registered the same way Welcome is.
         screen_registry.register(as_screen_descriptor(welcome_screen()))
+        screen_registry.register(as_screen_descriptor(settings_screen()))
         for module_cls in (
             DashboardScreenModule,
             DatabaseScreenModule,
-            SettingsScreenModule,
             BacktestScreenModule,
         ):
             screen_registry.register_module(module_cls(), engine.context.container)

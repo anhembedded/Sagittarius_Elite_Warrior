@@ -506,6 +506,54 @@ exclude = [
     # keeps four real files outside the gate. Measured by stripping every
     # per-file entry and re-running the gate's own invocation: 16 of the 25
     # still had errors, these 9 did not.
+
+    # `EPIC-025E` PR 4.4e, seventh re-key on PR 0.4a's precedent, but on NEW
+    # files rather than a moved one: the old `screens/settings/*` was
+    # wholesale-covered by the `presentation/` exclusion above and never
+    # measured on its own. Splitting it into `modules/trading/ui/settings/`
+    # and `modules/market_data/ui/settings/` (a design step, not a file
+    # move — this epic's own tracking) carries the same
+    # `TradingSettingsViewModel`/`MarketDataSettingsViewModel` `Property`
+    # fields the deleted monolith always had, now checked for the first
+    # time. Measured with the gate's own env (`MYPYPATH`/`PYTHONPATH` set to
+    # the engine checkout, same as `ci-local.ps1`'s mypy step) before
+    # deciding, same discipline as PR 4.4b/c/d's own tables — an earlier
+    # measurement without those two variables set produced hundreds of
+    # unrelated phantom errors across the whole tree from mypy resolving a
+    # stub-less engine copy, and was discarded rather than acted on:
+    #
+    #   39  arg-type/attr-defined  the PySide6 `@Property` false-positive
+    #                        class the wholesale `presentation/` exclusion
+    #                        exists for (EPIC-002A §2) — both new Views read
+    #                        their own ViewModel's fields through this
+    #                        descriptor (`setText`/`setValue`/the two
+    #                        Presenters' own credential/symbol fields), the
+    #                        identical shape PR 4.4b/c/d already froze for
+    #                        every other split-off screen.
+    #    5  union-attr       `TradingSettingsView._view_model`/
+    #                        `MarketDataSettingsView._view_model` typed
+    #                        `... | None` (set once via `set_view_model()`,
+    #                        never at construction) — the same inseparable
+    #                        Optional-narrowing companion PR 4.4b's own
+    #                        comment named for `DataManagementView`.
+    #    1  return-value     `MarketDataSettingsView`'s interval-picker
+    #                        `get_current` callback returns the ViewModel's
+    #                        `Property`-typed field directly — same `Property`
+    #                        class, one level removed through a callback
+    #                        signature instead of a widget setter.
+    #
+    # Fixing 45 typing errors under a stub gap this repository does not own
+    # would make this design step unreviewable, the same call every prior
+    # re-key made. The exit is unchanged: `EPIC-002D`'s stub/plugin decision
+    # for `PySide6.QtCore.Property`, not a side effect of whichever PR next
+    # touches a `Property`-based ViewModel. `trading_settings_view_model.py`,
+    # `market_data_settings_view_model.py`, both `settings_contribution.py`
+    # factories and everything under `shell/settings/` measured `mypy`-clean
+    # and are not listed here.
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]settings[\\/]trading_settings_view\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]settings[\\/]trading_settings_presenter\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]settings[\\/]market_data_settings_view\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]settings[\\/]market_data_settings_presenter\\.py$",
 ]
 
 [[tool.mypy.overrides]]

@@ -39,6 +39,23 @@ UI_TREE_ROWS: tuple[tuple[str, str], ...] = tuple(
 #: registered row, so a stale exemption cannot sit unnoticed.
 EMPTY_BY_DESIGN: tuple[tuple[str, str, str], ...] = (
     ("tests/unit/architecture/test_no_new_qml.py", "src", "*.qml"),
+    # `EPIC-025` PR 4.4e — `src/presentation/ui/screens/` deleted for good;
+    # see the row's own comment above.
+    (
+        "tests/unit/architecture/test_no_cross_screen_imports.py",
+        "src/presentation/ui/screens",
+        "*.py",
+    ),
+    # `tests/sanity/test_composition_root.py`'s "Mode 12" check
+    # (`test_every_screen_package_has_a_navigable_route`) reads
+    # `_screen_packages()`, which walks this same now-deleted tree. Unlike
+    # the row above, this one is a genuinely *temporary* exemption, not a
+    # permanent design decision: the rule it enforces (a screen package on
+    # disk that nothing routes to) still applies under `modules/*/ui/`, and
+    # `Tasks/backlog/BOT-141_retarget_event_flow_guard_3_to_module_ui.md` is
+    # the follow-up that retargets it there. It belongs here rather than
+    # failing silently in the meantime.
+    ("tests/sanity/test_composition_root.py", "src/presentation/ui/screens", "*.py"),
 )
 
 #: (guard file, ((scanned root, file glob), ...)) — paths relative to the repo root.
@@ -140,16 +157,20 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/presentation/ui/test_widget_guards_hold.py",
         UI_TREE_ROWS,
     ),
+    # Permanent ban, not a ratchet, since PR 4.4e: `EPIC-025` Phase 4 deleted
+    # `src/presentation/ui/screens/` for good (settings was the last screen),
+    # exactly as this guard's own `test_screens_root_is_where_we_think_it_is`
+    # predicted. Registered here (not simply dropped) so check (3) below
+    # still confirms this file's own scan is accounted for; `EMPTY_BY_DESIGN`
+    # is what tells check (2) that finding nothing is the guard succeeding,
+    # the same shape as `test_no_new_qml.py`'s zero.
     (
         "tests/unit/architecture/test_no_cross_screen_imports.py",
         (("src/presentation/ui/screens", "*.py"),),
     ),
     (
         "tests/unit/presentation/ui/test_preview_fixtures_exist.py",
-        (
-            ("src/presentation/ui/screens", "*.py"),
-            ("src/support/ui_kit/sidebar", "*.py"),
-        ),
+        (("src/support/ui_kit/sidebar", "*.py"),),
     ),
     # Two roots since `EPIC-025` PR 1.6a: `Palette` itself now lives under
     # `support/ui_kit/assets/`, while most of its consumers are still in the
@@ -227,10 +248,12 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ),
     # --- whole-tree guards --------------------------------------------------
     ("tests/unit/test_logging_namespace_guard.py", (("src", "*.py"),)),
-    (
-        "tests/unit/test_event_flow_guards.py",
-        (("src", "*.py"), ("src/presentation/ui/screens", "*.py")),
-    ),
+    # Guard 3 used to register a second root here (`src/presentation/ui/
+    # screens`) for its own cross-screen check. `EPIC-025` Phase 4 emptied
+    # that tree for good (settings was the last screen, PR 4.4e) — the row
+    # is retired, not retargeted; Guard 3's own docstring records the
+    # dormancy and `BOT-141` is the follow-up that retargets it.
+    ("tests/unit/test_event_flow_guards.py", (("src", "*.py"),)),
     (
         "tests/unit/config/test_binance_endpoint_config_keys_are_dead.py",
         (("src/config", "*.json"),),

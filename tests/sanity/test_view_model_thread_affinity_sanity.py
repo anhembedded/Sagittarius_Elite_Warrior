@@ -22,14 +22,20 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model im
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view_model import (
     DataManagementViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.settings.market_data_settings_view_model import (
+    MarketDataSettingsViewModel,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_view_model import (
     DashboardQmlViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_view_model import (
+    TradingSettingsViewModel,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_view_model import (
     TradingViewModel,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view_model import (
-    SettingsViewModel,
+from Sagittarius_Elite_Warrior.src.support.ui_kit.status_view_model import (
+    StatusMessageViewModel,
 )
 from sagittarius_engine.extensions.pyside_mvc import unprotected_mutators
 
@@ -37,11 +43,21 @@ from sagittarius_engine.extensions.pyside_mvc import unprotected_mutators
 #: this list would silently escape the guard, so
 #: `test_every_view_model_subclass_in_this_app_is_covered_by_this_list`
 #: below pins the count against a live scan, not just this hand-written list.
+#:
+#: `EPIC-025E` PR 4.4e retired `SettingsViewModel` (split into
+#: `TradingSettingsViewModel`/`MarketDataSettingsViewModel`) and added
+#: `StatusMessageViewModel` — the shared base both of those and
+#: `TradingViewModel` now subclass for their status-message trio,
+#: extracted per `test_presenter_duplication_only_shrinks.py`'s own ratchet.
+#: It ships its own `@Slot`-protected `set_status()`, so it belongs in this
+#: list like any other `BaseQmlViewModel` subclass this app defines.
 _ALL_VIEW_MODELS = [
     BackTestViewModel,
     DashboardQmlViewModel,
     DataManagementViewModel,
-    SettingsViewModel,
+    MarketDataSettingsViewModel,
+    StatusMessageViewModel,
+    TradingSettingsViewModel,
     TradingViewModel,
 ]
 

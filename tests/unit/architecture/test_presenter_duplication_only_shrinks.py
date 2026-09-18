@@ -22,6 +22,41 @@ their feeds, and today a legacy Presenter is the only consumer of seven
 `ui/common` files while the screens themselves need 24 and 44 imports from
 `presentation/ui/*` — which is what `support/ui_kit` and `support/charting`
 answer in Phase 4. Until then this file's job is the other direction.
+
+**PR 4.4e** (`EPIC-025E`, "settings becomes a surface") added two new
+`market_data.ui`/`trading.ui` Presenter/View/ViewModel triads
+(`modules/*/ui/settings/`) and measured `market_data.ui+trading.ui` rising
+by 9 names — exactly the pattern this guard exists to catch, since it was
+new duplication, not debt carried through a move. Fixed at the root per
+this guard's own §"the one amendment": `set_status`/`_get_status_message`/
+`_get_status_is_error` were byte-identical to what `TradingViewModel`
+(`modules/trading/ui/trading/`) already defined, so all three now subclass
+one new `support/ui_kit/status_view_model.py::StatusMessageViewModel` —
+inherited names the tool's own documented exclusion rule does not count,
+removing 3 of the 9. The remaining 6
+(`_apply_status`/`_apply_venue`/`_load_from_config`/`_on_save`/
+`load_fields`/`requestSave`) share a name and a role (View renders a
+status/venue; Presenter loads from config and saves) but not a body —
+trading's venue carries a live-session lock market_data's never had, and
+each loads/saves entirely different config keys — so naming them alike
+without sharing an implementation would be the disguised-not-removed
+duplication this guard's own docstring rejects performing on `_role_data`.
+**Correction (independent review, PR #234):** an earlier draft of this
+docstring claimed the baseline had "already drifted stale" to a true
+pre-PR value of 60. That was wrong, and the wrongness was caught by
+re-measuring the actual merge-base commit rather than trusting the
+claim — the recorded **64** matches the merge-base exactly; there was
+no staleness. The "60" was this PR's own intermediate arithmetic: 64
+minus the 4 names (`_apply_status`/`_get_status_is_error`/
+`_get_status_message`/`set_status`) the now-deleted `settings` package
+itself contributed to the `settings+trading.ui` pair — a step in *this
+PR's* delta, not a fact about `master-warrior` before this PR touched
+anything. The end-to-end arithmetic is: 64 (merge-base) − 4 (pair
+removed by deleting `settings`) + 9 (raw new names in the two new
+settings triads) − 3 (folded into `StatusMessageViewModel`) = **66**,
+which is what both the merge-base and the head commit independently
+measure. The corrected baseline value itself was always right; only
+the story of *why* was wrong.
 """
 
 from __future__ import annotations

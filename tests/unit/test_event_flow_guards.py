@@ -100,7 +100,18 @@ def test_one_event_is_not_subscribed_by_two_presenters() -> None:
 
     Chỉ tính `src/presentation/ui/screens/` — Feed sống ở `common/` và **được
     phép** là nơi duy nhất đăng ký.
-    """
+
+    **Tạm ngưng hoạt động, không phải đã xoá.** `EPIC-025` Phase 4 đã chuyển
+    hết mọi màn ra khỏi cây này (`trading`/`dashboard` ở PR 4.4c, `backtest` ở
+    PR 4.4d, `settings` ở PR 4.4e) — thư mục này giờ không còn tồn tại, nên
+    `screens.rglob(...)` dưới đây luôn trả về rỗng và guard này không còn phát
+    hiện được gì. Đây là nợ có thật, không phải một lựa chọn: quy tắc "một sự
+    kiện không được hai màn cùng nghe" vẫn đúng ở địa chỉ mới
+    (`modules/*/ui/`, `shell/`), nhưng việc quét lại đúng chỗ đó là thiết kế
+    riêng (những màn nào là "hàng xóm" của nhau không còn rõ như khi tất cả ở
+    một thư mục) và nằm ngoài phạm vi PR đã đưa thư mục này tới rỗng —
+    `Tasks/backlog/BOT-141_retarget_event_flow_guard_3_to_module_ui.md` là
+    việc theo sau đó."""
     screens = _SRC / "presentation" / "ui" / "screens"
     by_event: dict[str, list[str]] = {}
 

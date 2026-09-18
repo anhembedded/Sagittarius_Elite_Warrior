@@ -1,6 +1,12 @@
-"""`EPIC-021D` — Settings screen's "Kiểm tra kết nối" button.
+"""`EPIC-021D` — Trading settings section's "Check Connection" button.
 
-Calls `SettingsPresenter._run_check_connection()` directly rather than
+Moved wholesale off
+`tests/unit/presentation/ui/screens/test_settings_presenter_connection_check.py`
+(`EPIC-025E` PR 4.4e) — this coverage was entirely trading's own concern
+(`IAccountSnapshot`/`ITradingSession`); only the class names and import
+paths changed.
+
+Calls `TradingSettingsPresenter._run_check_connection()` directly rather than
 going through the real `IThreadManager` pool — same pattern
 `test_gap_coordinator.py` uses for its own background actions: the worker
 method is plain, synchronous, testable code; only its *submission* onto a
@@ -36,11 +42,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_accoun
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_presenter import (
-    SettingsPresenter,
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_presenter import (
+    TradingSettingsPresenter,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view import (
-    SettingsView,
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_view import (
+    TradingSettingsView,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
     EnvFirstCredentialsProvider,
@@ -72,20 +78,10 @@ _SUCCESS_STATUS = ExchangeConnectionStatus(
 @pytest.fixture
 def mock_config():
     config = Mock()
-    config.get_all.return_value = {
-        "DEFAULT_SYMBOLS": ["BTCUSDT"],
-        "DEFAULT_INTERVAL": "1m",
-        "DEFAULT_SYNC_DAYS": 30,
-    }
     config.get.side_effect = lambda key, default=None: (
         True if key == DEV_MODE_CONFIG_KEY else default
     )
     return config
-
-
-@pytest.fixture
-def mock_dispatcher():
-    return Mock()
 
 
 @pytest.fixture
@@ -115,32 +111,29 @@ def credentials_provider(tmp_path):
 
 @pytest.fixture
 def session_state() -> FakeTradingSession:
-    """`BOT-125` — a real answer so `_venues_locked()` reads a real bool.
+    """`BOT-125` — a real answer so `_venue_locked()` reads a real bool.
 
     `EPIC-025` PR 1.3b: the port's verified fake. Starts disabled, which is
     what a fresh session guarantees (`EPIC-021G` §2.3); a `Mock` would hand
-    back a truthy attribute and lock the venue combos in every test."""
+    back a truthy attribute and lock the venue combo in every test."""
     return FakeTradingSession()
 
 
 @pytest.fixture
 def container(
     mock_config,
-    mock_dispatcher,
     account,
     mock_thread_manager,
     credentials_provider,
     session_state,
 ):
-    from sagittarius_engine.interfaces import IConfig, IDispatcher
+    from sagittarius_engine.interfaces import IConfig
 
     c = Mock()
 
     def resolve(interface):
         if interface is IConfig:
             return mock_config
-        if interface is IDispatcher:
-            return mock_dispatcher
         if interface is IThreadManager:
             return mock_thread_manager
         if interface is IExchangeCredentialsProvider:
@@ -157,10 +150,10 @@ def container(
 
 @pytest.fixture
 def presenter(qapp, container, request):
-    view = SettingsView()
+    view = TradingSettingsView()
     view.resize(1200, 800)
     request.addfinalizer(view.deleteLater)
-    return SettingsPresenter(view, container)
+    return TradingSettingsPresenter(view, container)
 
 
 def test_clicking_check_connection_submits_a_background_task_and_locks_the_button(
