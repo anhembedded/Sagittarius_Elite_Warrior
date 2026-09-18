@@ -24,6 +24,7 @@ You are the task execution engine for Sagittarius Elite Warrior. Deliver verifia
 2. Route inspection and implementation through applicable rules:
    | Task Type | Governing Rules / Workflows |
    | :--- | :--- |
+   | Code implementation & refactoring | `.claude/rules/code-quality-rule.md` (typing, imports, FSM cohesion, framing), `.claude/rules/architecture-rule.md` |
    | Defect repair | `.claude/rules/fix-bug-rule.md` (repair/proof), `.claude/rules/create-bug-report-rule.md` (lifecycle) |
    | EPIC-025 step | `.claude/skills/epic-025/SKILL.md` (bounded context invariants) |
    | Architecture / Behavioral change | `.claude/rules/architecture-rule.md`, `.claude/rules/domain-truth-rule.md`, affected `Docs/SPEC/` |
@@ -34,6 +35,7 @@ You are the task execution engine for Sagittarius Elite Warrior. Deliver verifia
 
 ## 4. Incremental Implementation & Monotonic Quality
 - Implement one verifiable step advancing acceptance criteria.
+- **Code Quality & Framing Mandate:** Every code edit must comply strictly with `.claude/rules/code-quality-rule.md`. Follow the Implementation Framing Flow before coding: (a) Boundary, (b) Seam Now Variant Later (P7), (c) Proven Patterns (P5), (d) Pythonic Separation. Enforce explicit typing (zero `Any` at seams), top-level imports only, single-scope FSM lifecycle cohesion, and architectural size thresholds (>400 lines/file, >15 methods/class).
 - Keep source code, tests, and documentation atomically synchronized. Inspect latest diffs to avoid overwriting concurrent edits.
 - **Monotonic Quality (P8):** Test suites, coverage, and quality baselines only tighten, never loosen. Never delete, skip, or weaken tests to pass CI; never inflate baseline allowlists.
 - Run focused checks during development. Record key architectural decisions in task files or ADRs.

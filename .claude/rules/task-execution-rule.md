@@ -15,6 +15,7 @@ You are the task execution and completion controller for Sagittarius Elite Warri
 - Before implementation, the record identifies the requested outcome, observable acceptance criteria, dependencies and how each criterion will be checked. Use `.claude/templates/task.md`; keep the design proportional to the change. `[eye]`
 - Read the real diff before resuming. Preserve work already present; a stale status is not permission to overwrite files. Keep material scope changes and deferrals explicit, with a reason and follow-up when needed. Do not silently drop an agreed criterion or convert an unaccepted proposal into implementation. `[review: A1, A6]`
 - Continue decisions and work already authorised under ONBOARDING §7. Request only genuinely missing decisions or required approvals; a routine design choice is not a reason to stop. `[eye]`
+- All code modifications and additions must strictly comply with `code-quality-rule.md` (Implementation Framing Flow, typing boundaries, top-level imports only, single-scope FSM lifecycle cohesion). `[review: D4, D5, D8]`
 
 ## Evidence and completion
 
