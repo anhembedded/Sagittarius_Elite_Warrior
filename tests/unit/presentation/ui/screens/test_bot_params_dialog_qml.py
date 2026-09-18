@@ -15,6 +15,15 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtTest import QTest
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
+    BackTestPresenter,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
+    BackTestView,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_chart_host import (
+    BacktestChartHostFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
     StrategyCatalogService,
 )
@@ -32,15 +41,6 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_o
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
     BaseStrategy,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
-    BackTestPresenter,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
-    BackTestView,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
-    BacktestChartHostFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,

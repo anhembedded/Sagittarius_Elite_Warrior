@@ -29,6 +29,9 @@
 # -> 10 after PR 4.4c (36 - 30 stale retired + 4 new entries: 2 market_data.ui
 #    reads under their new modules.trading.ui.dashboard address, 2 shell
 #    entries for the two screens' module.py, same shape as PR 4.4b's one).
+# -> 8 after PR 4.4d (10 - 5 stale retired + 3 new entries: 2 market_data.ui
+#    reads under their new modules.backtesting.ui address, 1 shell entry for
+#    module.py, same shape as PR 4.4b/4.4c's).
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -551,9 +554,6 @@
 # 0.4a moved the code, PR 0.5 published the port and four screens stopped
 # building the command), so these three retire with the port, at the latest
 # when the screen itself moves in Phase 4.
-presentation.ui.screens.backtest.backtest_presenter -> modules.backtesting.application.run_static_backtest
-presentation.ui.screens.backtest.coordinators.execution_coordinator -> modules.backtesting.application.run_historical_tick_backtest
-presentation.ui.screens.backtest.coordinators.execution_coordinator -> modules.backtesting.application.run_static_backtest
 
 
 # ---------------------------------------------------------------------------
@@ -628,8 +628,6 @@ presentation.ui.screens.backtest.coordinators.execution_coordinator -> modules.b
 # `dashboard_presenter` at 4.4c (`modules/trading/ui/`), and
 # `data_management_presenter` at 4.4b (`modules/market_data/ui/` -- at which
 # point the import is same-module and needs no entry at all).
-presentation.ui.screens.backtest.backtest_presenter -> modules.market_data.ui.symbol_options_coordinator
-presentation.ui.screens.backtest.signal_wiring -> modules.market_data.ui.sync_progress_feed
 
 
 # ---------------------------------------------------------------------------
@@ -695,3 +693,30 @@ modules.trading.ui.dashboard.dashboard_presenter -> modules.market_data.ui.sync_
 # replaces `AbstractScreenModule`/`ScreenRegistry`, not before.
 shell.legacy_screens -> modules.trading.ui.dashboard.module
 shell.legacy_screens -> modules.trading.ui.trading.module
+
+
+# ---------------------------------------------------------------------------
+# PR 4.4d -- `screens/backtest` (79 files, the largest slice) +
+# `base_event_logger.py` move into `modules/backtesting/ui/`, flattened to
+# its root (no per-screen subdirectory needed, unlike 4.4c -- `backtesting`
+# has only one screen, so there is no `module.py`/`preview.py` collision to
+# avoid). All 5 of the zero-cost entries this screen carried retire in this
+# same commit (3 same-module -> `modules.backtesting.application.*`, now
+# same-address; the other 2 below move rather than retire).
+#
+# 2 lines are new rather than retiring, same shape as PR 4.4a/4.4c's:
+# `backtest_presenter`/`signal_wiring` still read
+# `market_data.ui.symbol_options_coordinator`/`sync_progress_feed` (§3.3's
+# open question, resolved to `market_data/ui/` in PR 4.4a) under their new
+# `modules.backtesting.ui` address.
+modules.backtesting.ui.backtest_presenter -> modules.market_data.ui.symbol_options_coordinator
+modules.backtesting.ui.signal_wiring -> modules.market_data.ui.sync_progress_feed
+
+# 1 more is new for the same reason PR 4.4b/4.4c's shell entries were:
+# `shell/legacy_screens.py` still imports `BacktestScreenModule`, one level
+# deeper than `is_module_entry_point`'s `modules.<name>.module` shape
+# recognises, because the registration class lives beside its own
+# Presenter/View under `modules/backtesting/ui/module.py` rather than at the
+# module's own root. `EPIC-025F` (Phase 5) retires it when `NavigationService`
+# replaces `AbstractScreenModule`/`ScreenRegistry`, not before.
+shell.legacy_screens -> modules.backtesting.ui.module

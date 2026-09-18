@@ -28,10 +28,10 @@ from Sagittarius_Elite_Warrior.scripts.benchmarking.backtest_hybrid_opengl_probe
     _process_for,
     _sampled_color_count,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
     BackTestView,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.marker_lod import (

@@ -10,10 +10,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason imp
     ExitReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
-    PositionSide,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_canvas_view import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.chart_canvas_view import (
     _LONG_ENTRY_LABEL,
     _LONG_EXIT_LABEL,
     _LONG_EXIT_TP_LABEL,
@@ -25,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.chart_
     equity_curve_to_candles,
     equity_curve_to_line_data,
     trade_flag_markers,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
+    PositionSide,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,

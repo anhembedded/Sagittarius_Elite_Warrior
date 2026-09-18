@@ -15,6 +15,18 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.currency import (
     Currency,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
+    BackTestPresenter,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
+    BackTestView,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
+    BackTestViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_chart_host import (
+    BacktestChartHostFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
     StrategyCatalogService,
 )
@@ -35,18 +47,6 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strat
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.volume_spike_flow_strategy import (
     VolumeSpikeFlowStrategy,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
-    BackTestPresenter,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
-    BackTestView,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
-    BackTestViewModel,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
-    BacktestChartHostFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,

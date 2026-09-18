@@ -87,7 +87,7 @@ def test_guard_actually_detects_a_violation() -> None:
     """Mutation-verify (`testing-rule.md` §2): prove the scanner fires on a
     real usage shape, and correctly ignores a docstring merely naming it."""
     assert _imports_screens(
-        "from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic"
+        "from Sagittarius_Elite_Warrior.src.presentation.ui.screens.x"
         ".trade_log_row import TradeLogRow\n",
         "<violation-fixture>",
     )

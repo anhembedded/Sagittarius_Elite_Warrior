@@ -61,6 +61,9 @@ def real_screen_registry(container):
     a screen module's own `create_view()`/`create_presenter()` runs, which
     stays lazy exactly like `PresenterManager` itself.
     """
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.module import (
+        BacktestScreenModule,
+    )
     from Sagittarius_Elite_Warrior.src.modules.market_data.ui.module import (
         DatabaseScreenModule,
     )
@@ -69,9 +72,6 @@ def real_screen_registry(container):
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.module import (
         TradingScreenModule,
-    )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module import (
-        BacktestScreenModule,
     )
     from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
         SettingsScreenModule,

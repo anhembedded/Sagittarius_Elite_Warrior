@@ -25,10 +25,10 @@ from Sagittarius_Elite_Warrior.scripts.benchmarking.backtest_chart_interaction i
     _markers,
     _volume,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
     BackTestView,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (

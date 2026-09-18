@@ -16,6 +16,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from unittest.mock import MagicMock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_chart_host import (
+    BacktestChartHostFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.armed_strategy_reader_adapter import (
     ArmedStrategyReaderAdapter,
 )
@@ -84,9 +87,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_presen
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_view import (
     DashboardView,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.backtest_chart_host import (
-    BacktestChartHostFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
@@ -276,14 +276,14 @@ def test_backtest_initializes_and_handles_health_updated_event(
     qapp, health_mock_container
 ):
     """Verify BackTestPresenter initializes and handles health events directly into log."""
-    from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
-        BaseStrategy,
-    )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
         BackTestPresenter,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view import (
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
         BackTestView,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.base_strategy import (
+        BaseStrategy,
     )
 
     class _FakeStrategy(BaseStrategy):

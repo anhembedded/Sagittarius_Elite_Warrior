@@ -30,10 +30,10 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import QDate
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_modals import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_modals import (
     TimeRangePickerDialogWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.time_range_picker import (

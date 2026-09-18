@@ -22,7 +22,7 @@ Furthermore, BackTestViewModel.set_ui_mode was overriding the base class without
 the `@Slot(str)` decorator.
 """
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
 from sagittarius_engine.extensions.pyside_mvc import unprotected_mutators

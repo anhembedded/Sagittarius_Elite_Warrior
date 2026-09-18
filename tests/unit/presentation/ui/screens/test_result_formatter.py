@@ -7,7 +7,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result
     BacktestResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.logic.result_formatter import (
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.result_formatter import (
     format_result_summary,
 )
 
