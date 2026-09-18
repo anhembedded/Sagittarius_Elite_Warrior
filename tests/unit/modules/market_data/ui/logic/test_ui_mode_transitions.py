@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.logic.ui_mode_transitions import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.logic.ui_mode_transitions import (
     ALLOWED_TRANSITIONS,
     install_transitions,
 )

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.qml_property import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.qml_property import (
     notifying_property,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (

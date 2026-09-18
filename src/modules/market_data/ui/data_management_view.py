@@ -16,7 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_widgets import (
     DatabaseStatusPanel,
     GapInspectorDialog,
     KlineInspectorDialog,

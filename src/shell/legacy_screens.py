@@ -18,14 +18,14 @@ context — and merging them would hide which is which.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.module import (
+    DatabaseScreenModule,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module import (
     BacktestScreenModule,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.module import (
     DashboardScreenModule,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.module import (
-    DatabaseScreenModule,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
     SettingsScreenModule,

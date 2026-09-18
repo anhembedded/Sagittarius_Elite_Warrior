@@ -13,7 +13,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_d
     GetDatabaseGapsQuery,
     GetDatabaseGapsResult,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators import (
     DataManagementActionKind,
     GapCoordinator,
 )

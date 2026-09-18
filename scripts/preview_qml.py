@@ -34,22 +34,30 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
     seed_app_theme,
 )
 
-#: Both UI trees. `EPIC-025` is moving the UI into `support/ui_kit` package by
-#: package, and a preview that crosses over must stay runnable: PR 1.6d moved
-#: `sidebar/` and the discovery — which read the legacy tree only — stopped
-#: finding it, which is what `test_discover_previews_finds_all_targets` said.
-#: The list shrinks back to one entry when Phase 4 deletes the legacy tree.
+#: Every tree that holds UI code today. `EPIC-025` is moving the UI out of
+#: `src/presentation/ui/` package by package, and a preview that crosses over
+#: must stay runnable: PR 1.6d moved `sidebar/` and the discovery — which read
+#: the legacy tree only — stopped finding it, which is what
+#: `test_discover_previews_finds_all_targets` said. `tests/unit/architecture/
+#: ui_trees.py` is the canonical list other guards read for this same
+#: question ("the fourth occasion" its own docstring names); this file keeps
+#: its own copy rather than importing it, since `scripts/` importing from
+#: `tests/` would be a new backward dependency direction, but the *set* is
+#: meant to track that file's, not drift from it again — `EPIC-025` PR 4.4b
+#: added `modules/market_data/ui` here after `data_management`'s move made
+#: this file's own drift (missing `support/charting`, `modules/trading/ui`,
+#: `modules/strategy/ui` already) visible for the first time. This list
+#: shrinks back to one entry when Phase 4 deletes the legacy tree.
 _UI_ROOTS = (
     _REPO_ROOT / "src" / "presentation" / "ui",
     _REPO_ROOT / "src" / "support" / "ui_kit",
+    _REPO_ROOT / "src" / "modules" / "market_data" / "ui",
 )
 
 
-def _load_build_preview(
-    preview_path: Path, module_name: str
-) -> Callable[[], QWidget] | None:
-    """Imports one `preview.py` by path (not by package) and returns its
-    `build_preview`, or `None` if the file has no such callable.
+def _load_preview_module(preview_path: Path, module_name: str) -> object | None:
+    """Imports one `preview.py` by path (not by package) and returns the
+    loaded module, or `None` if it could not be imported.
 
     @details `importlib.util.spec_from_file_location` gives the module no
     parent package, so a `preview.py` reaching for a sibling with a relative
@@ -66,8 +74,7 @@ def _load_build_preview(
     module = importlib.util.module_from_spec(spec)
     sys.modules[module_name] = module
     spec.loader.exec_module(module)
-    build_fn = getattr(module, "build_preview", None)
-    return build_fn if callable(build_fn) else None
+    return module
 
 
 def discover_previews() -> dict[str, Callable[[], QWidget]]:
@@ -82,9 +89,23 @@ def discover_previews() -> dict[str, Callable[[], QWidget]]:
         if not root.exists():
             continue
         for preview_path in sorted(root.rglob("preview.py")):
+            module = _load_preview_module(
+                preview_path, f"_preview_{preview_path.parent.name}"
+            )
+            if module is None:
+                continue
+            build_fn = getattr(module, "build_preview", None)
+            if not callable(build_fn):
+                continue
             # Key is the parent directory name (e.g. 'sidebar', 'dashboard',
-            # 'settings', 'backtest').
-            key = preview_path.parent.name
+            # 'settings', 'backtest') — unless the module sets its own
+            # `PREVIEW_KEY`, which every `modules/<name>/ui/preview.py` at a
+            # module's own root must: that parent directory is named `ui` for
+            # every module, so the fallback would collide the moment a second
+            # module put a `preview.py` directly there (`EPIC-025` PR 4.4b —
+            # `data_management` moved to `modules/market_data/ui/preview.py`,
+            # whose parent is `ui`, not `data_management`).
+            key = getattr(module, "PREVIEW_KEY", None) or preview_path.parent.name
             if key in sources:
                 # Two roots make this reachable, and the docstring below has
                 # always warned that a colliding basename "would silently
@@ -98,10 +119,8 @@ def discover_previews() -> dict[str, Callable[[], QWidget]]:
                     f"{sources[key]} and {preview_path}. Rename one directory, "
                     "or address it with --dir."
                 )
-            build_fn = _load_build_preview(preview_path, f"_preview_{key}")
-            if build_fn is not None:
-                previews[key] = build_fn
-                sources[key] = preview_path
+            previews[key] = build_fn
+            sources[key] = preview_path
 
     return previews
 
@@ -140,8 +159,9 @@ def _build_preview_for_dir(raw_dir: str) -> QWidget:
         )
         sys.exit(1)
 
-    build_fn = _load_build_preview(preview_path, f"_preview_dir_{target_dir.name}")
-    if build_fn is None:
+    module = _load_preview_module(preview_path, f"_preview_dir_{target_dir.name}")
+    build_fn = getattr(module, "build_preview", None) if module is not None else None
+    if not callable(build_fn):
         print(
             f"Error: {preview_path} does not declare build_preview().",
             file=sys.stderr,

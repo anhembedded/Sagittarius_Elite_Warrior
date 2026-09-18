@@ -12,12 +12,12 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.broker_simulati
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.paper_exchange import (
     PaperExchange,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.signal_log_handler import (
+    SignalLogHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.signal_log_handler import (
-    SignalLogHandler,
 )
 
 _T1 = datetime(2026, 1, 1, 10, 0, tzinfo=UTC)

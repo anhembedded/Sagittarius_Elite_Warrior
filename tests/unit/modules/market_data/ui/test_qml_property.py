@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QObject, Signal
-from Sagittarius_Elite_Warrior.src.presentation.ui.common.qml_property import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.qml_property import (
     notifying_property,
 )
 

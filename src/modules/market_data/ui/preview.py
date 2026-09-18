@@ -1,12 +1,20 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view import (
     DataManagementView,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_view_model import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view_model import (
     DataManagementViewModel,
 )
+
+#: `scripts/preview_qml.py::discover_previews()` keys a preview by its parent
+#: directory name, which is `ui` for every `modules/<name>/ui/preview.py` at
+#: a module's own root — this override is what keeps the screen addressable
+#: as `data_management` (its route, `module.py`'s own `route = "data_management"`)
+#: rather than colliding on `ui` the moment a second module puts a
+#: `preview.py` there. `EPIC-025` PR 4.4b, moved from `screens/data_management/`.
+PREVIEW_KEY = "data_management"
 
 
 def build_preview() -> QWidget:

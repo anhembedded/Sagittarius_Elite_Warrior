@@ -20,11 +20,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.scan_
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_symbol_catalog import (
     FakeSymbolCatalog,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.coordinators import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators import (
     DataManagementActionKind,
     ScanCoordinator,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_signal_payloads import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_signal_payloads import (
     StatusRowUpdate,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (

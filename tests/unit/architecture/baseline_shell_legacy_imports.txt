@@ -6,7 +6,26 @@
 # screens it carries as contributions until their bounded context claims them.
 # Recorded here so the permission is visible and finite. Shrink-only in both
 # directions: a new line fails, and a line whose import is gone must be deleted
-# in the same commit. The file is empty when Phase 4 deletes the legacy tree.
+# in the same commit.
+#
+# **Correction, PR 4.4b.** This file's own line used to say "the file is empty
+# when Phase 4 deletes the legacy tree." Measured rather than assumed: moving
+# `screens/data_management` into `modules/market_data/ui/` in PR 4.4b did not
+# make this file shrink to nothing for that screen -- `AbstractScreenModule`
+# and `shell/legacy_screens.py` are the *permanent* screen-registration
+# mechanism (Trading and Dev Board keep the identical shape after PR 1.4's
+# "become a surface"), not legacy debt Phase 4 dissolves. What Phase 4 deletes
+# is the *presentation/* tree the registration class used to live in; the
+# import itself survives, now pointing at `modules.<name>.ui.module`, which
+# `boundaries/rules.py::is_module_entry_point` does not recognise (it only
+# allows the shell's exact `modules.<name>.module`, three parts, the
+# `BoundedContextModule` shape -- not a screen's registration class one level
+# deeper). That import moved to `allowlist_module_boundaries.txt` instead
+# (PR 4.4b's own entry), because *this* file is scanned only for imports into
+# `LEGACY_ZONES`, and `modules.market_data.ui.module` is not one. This file is
+# genuinely empty only when Phase 5 replaces `AbstractScreenModule`/
+# `ScreenRegistry` with the Engine's `NavigationService` -- which was always
+# this file's *other* row's own prediction, just not this one's.
 #
 # shell/composition_root.py is not listed: it is a composition-root file and the
 # boundary scan skips it entirely, beside main.py, app_bootstrapper.py and
@@ -14,7 +33,8 @@
 #
 # Which phase removes which line:
 #   legacy_screens -> screens.dashboard/trading   Phase 1 (modules/trading)
-#   legacy_screens -> screens.data_management     Phase 0 PR 0.4 (modules/market_data)
+#   legacy_screens -> screens.data_management     RETIRED, PR 4.4b -- moved, not deleted;
+#       the import now lives in allowlist_module_boundaries.txt, retiring at Phase 5
 #   legacy_screens -> screens.backtest           Phase 3 (modules/backtesting)
 #   legacy_screens -> screens.settings           Phase 4 (settings becomes a surface)
 #   *_adapter/wiring/legacy_screens -> registry   RETIRED, `EPIC-025` PR 1.6d, four
@@ -25,6 +45,5 @@
 #       9 lines -> 5.
 shell.legacy_screens -> presentation.ui.screens.backtest.module
 shell.legacy_screens -> presentation.ui.screens.dashboard.module
-shell.legacy_screens -> presentation.ui.screens.data_management.module
 shell.legacy_screens -> presentation.ui.screens.settings.module
 shell.legacy_screens -> presentation.ui.screens.trading.module

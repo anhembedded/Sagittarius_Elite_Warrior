@@ -16,14 +16,14 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import Qt
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.data_management_widgets.database_status_panel import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_widgets.database_status_panel import (
     CLEAR_SHARD,
     INSPECT_GAPS,
     INSPECT_KLINES,
     SYNC_SHARD,
     DatabaseStatusPanel,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.database_status_table_model import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.database_status_table_model import (
     DatabaseStatusTableModel,
 )
 

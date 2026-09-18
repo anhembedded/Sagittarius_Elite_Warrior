@@ -17,7 +17,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QModelIndex, Qt
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.data_management.kline_inspector_table_model import (
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.kline_inspector_table_model import (
     BEARISH_COLOR,
     BULLISH_COLOR,
     KLineInspectorTableModel,

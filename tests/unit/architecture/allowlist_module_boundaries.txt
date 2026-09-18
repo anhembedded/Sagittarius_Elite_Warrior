@@ -25,6 +25,7 @@
 # -> 58 after PR 4.1b.
 # -> 40 after PR 4.3m.
 # -> 45 after PR 4.4a.
+# -> 36 after PR 4.4b (45 - 10 stale retired + 1 new shell entry).
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -209,15 +210,6 @@
 #              rather than by three contracts written at once
 #   PR 0.4a-2 - DONE: the sync/stream CLI lines left when those commands moved
 #              into `modules/market_data/cli/`
-presentation.ui.screens.data_management.coordinators.gap_coordinator -> modules.market_data.application.database.repair_data_gap
-presentation.ui.screens.data_management.coordinators.gap_coordinator -> modules.market_data.application.queries.get_database_gaps
-presentation.ui.screens.data_management.coordinators.kline_inspector_coordinator -> modules.market_data.application.queries.audit_database_integrity
-presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.database.clear_market_data
-presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.database.prune_empty_shards
-presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.queries.get_database_status.query
-presentation.ui.screens.data_management.coordinators.scan_coordinator -> modules.market_data.application.queries.scan_all_databases
-presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules.market_data.application.sync.bulk_sync_market_data.command
-presentation.ui.screens.data_management.coordinators.sync_coordinator -> modules.market_data.application.sync.bulk_sync_market_data.sync_target
 
 
 # ===========================================================================
@@ -665,4 +657,31 @@ presentation.ui.screens.backtest.backtest_presenter -> modules.market_data.ui.sy
 presentation.ui.screens.backtest.signal_wiring -> modules.market_data.ui.sync_progress_feed
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.market_data.ui.symbol_options_coordinator
 presentation.ui.screens.dashboard.dashboard_presenter -> modules.market_data.ui.sync_progress_feed
-presentation.ui.screens.data_management.data_management_presenter -> modules.market_data.ui.sync_progress_feed
+
+
+# ---------------------------------------------------------------------------
+# PR 4.4b -- `screens/data_management` + `qml_property` move into
+# `modules/market_data/ui/`. All ten of §3.15's predicted zero-cost entries
+# retired in this same commit (nine `coordinators/* -> application/*` plus
+# the one `sync_progress_feed` entry 4.4a left behind), since the presenter
+# and its coordinators now live in the module they import from.
+#
+# ONE entry is new rather than retiring, and it is not `screens/data_management`
+# debt at all: `shell/legacy_screens.py` still imports this screen's
+# `AbstractScreenModule` (`DatabaseScreenModule`) the same way it always has --
+# Trading and Dev Board keep the identical shape after PR 1.4's "become a
+# surface" (`presentation/ui/screens/{trading,dashboard}/module.py` still
+# subclass `AbstractScreenModule`, still wired from `legacy_screens.py`).
+# `boundaries/rules.py::is_module_entry_point` only recognises the exact shape
+# `modules.<name>.module` (three dotted parts) as the shell's legal entry
+# point into a module, so `modules.market_data.ui.module` -- one level
+# deeper, because a screen's registration class lives beside its
+# Presenter/View rather than at the module's own root -- is not covered by
+# that rule and needed a line here instead of a rule change: `EPIC-025F`
+# (Phase 5) is what replaces `AbstractScreenModule`/`ScreenRegistry` with the
+# Engine's `NavigationService`, not Phase 4, so widening `rules.py` now would
+# legalise a shape the epic already plans to delete outright. Every other
+# screen's `module.py` hits this identical wall the moment it moves in
+# 4.4c/4.4d, so this entry's retirement (like the nine above it) is Phase 5's,
+# not Phase 4's -- recorded here rather than left to surprise that phase.
+shell.legacy_screens -> modules.market_data.ui.module
