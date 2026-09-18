@@ -51,11 +51,7 @@ Follow these 12 steps in exact order:
 4. **Baseline Measurement:** Record pre-step metrics defined in HLD §6.2.
 5. **Code Modification:** Modify only files scoped to this step. Log out-of-scope necessities as separate findings.
 6. **Test Migration:** Move tests alongside code (ADR D7); sanity tier gains zero tests. Prohibit `skip` or `xfail`.
-7. **Gate Execution:** Run fast static checks per commit; run full gate on final PR tree:
-   ```bash
-   pwsh -NoProfile -File scripts/ci-local.ps1 -Full > /tmp/ci.log 2>&1
-   grep -nE "FAILED|ERROR|Traceback|ResourceWarning" "$(grep -m1 LOG_FILE: /tmp/ci.log | sed 's/.*LOG_FILE: *//')"
-   ```
+7. **Gate Execution:** Run fast static checks per commit (`.claude/rules/ci-rule.md` §1); push and let GitHub Actions' `ci-local.ps1 -Full` check run be the full-gate authority — no local full-gate run before pushing (`ci-rule.md` §1, user decision 2026-09-18). Diagnose from its job log if it comes back red.
 8. **Architecture Guard Validation:** Run `pytest tests/unit/architecture -q`.
 9. **Post-Step Measurement:** Re-run metrics from step 4 and document delta in task file.
 10. **Diagram & Specification Sync:**

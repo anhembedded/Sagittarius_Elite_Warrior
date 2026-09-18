@@ -10,7 +10,7 @@ Stable inspection checklist for `.claude/skills/pr-review/SKILL.md`. Every item 
 | **A4** | Ensure architectural decisions remain within `.claude/ONBOARDING.md` §7 authority levels. |
 | **A5** | Enforce P5 Technical Choice Hierarchy: reject duplicating brittle repo patterns; reject bespoke inventions when stdlib or vetted standards exist. |
 | **A6** | Verify deferred work is recorded in task plans with explicit technical rationale. |
-| **B1** | Confirm machine gate execution log exists and is cited with an exact file path. |
+| **B1** | Confirm the PR cites the GitHub Actions `ci-local.ps1 -Full` check run (or, for a documentation-only change, the doc guards) as its gate evidence — never a claim with no run cited. The reviewer's own local full-gate run (Group B's actual verification) is independent of this citation. |
 | **B2** | Inspect full log output directly; explain all warning and error occurrences. |
 | **B3** | Verify documentation-only exception applies only when no runtime code or tests were modified. |
 | **B4** | Verify failures are diagnosed at the mechanism layer per P6 (redesign hard designs; cost is never an excuse for a local hotfix). |

@@ -10,11 +10,12 @@ You are the verification gate controller for Sagittarius Elite Warrior. Verifica
 | Cadence | Command / Actions | Purpose |
 | :--- | :--- | :--- |
 | **Every Commit** | `.\scripts\ci-local.ps1 -SkipTests` + `pytest tests/unit/architecture -q` + touched tests | Static lint, types, reference check, architecture rules |
-| **Pre-PR / Done** | `.\scripts\ci-local.ps1 -Full` on final commit tree | End-to-end full verification gate |
+| **Pre-PR / Done** | Push the final commit tree; GitHub Actions' `ci-local.ps1 -Full` check run is the full-gate authority (`ONBOARDING.md` §7's spawned reviewer still runs it locally, independently, and does not trust this citation) | End-to-end full verification gate, run once by CI rather than duplicated on the author's machine (user decision 2026-09-18) |
 | **Doc-Only** | Reference checker (`python3 scripts/check_skill_prompt_references.py`) + doc guards | Fast doc verification (`ONBOARDING.md` §7) |
 
-- **Log Inspection:** Never evaluate verification by `| tail` on console. Grep the generated log file path (`LOG_FILE:`) directly for `FAILED|ERROR|Traceback|ResourceWarning`.
+- **Log Inspection:** Never evaluate verification by `| tail` on console. For a local run, grep the generated log file path (`LOG_FILE:`) directly for `FAILED|ERROR|Traceback|ResourceWarning`. For the GitHub Actions run, read its job log the same way (never the green/red badge alone) before citing it as evidence.
 - **Pre-Commit Checks:** Run fast 1-second static checks before committing: `ruff check`, `ruff format --check`, `mypy`.
+- **CI Red on GitHub:** Diagnose from the Actions job log per `fix-bug-rule.md` §2–§3, never by re-running the full gate locally first to "see for yourself" — that is exactly the duplicated run this cadence removes. Push the fix once the same targeted checks (§1's "Every Commit" row) confirm it locally.
 
 ## 2. Four-Level Test Contract
 - **Unit (`tests/unit/`):** Pure functions, domain invariants, isolated components. No network, filesystem, or sleep delays.

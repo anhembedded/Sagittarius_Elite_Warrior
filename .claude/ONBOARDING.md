@@ -47,14 +47,14 @@ Execute tasks via `.claude/skills/execute-task/SKILL.md`:
 - **Repairing:** Executed via `.claude/skills/fix-bug/SKILL.md` under `.claude/rules/fix-bug-rule.md` (reproduce first, regression test confirmed red before fix, mechanism-level repair, log proof). Case studies: `Docs/CASE_STUDIES/` when gate missed a live defect.
 
 ## 5. Machine Gate Verification
-Verification requires running the machine gate and inspecting log files directly:
+The author's own pre-PR check is the fast tier only (§ci-rule.md §1 "Every Commit"); the full local gate below is run by the independent reviewer, and by the author only when reproducing a red GitHub Actions run (`ci-rule.md` §1, user decision 2026-09-18):
 ```bash
 pwsh -NoProfile -File scripts/ci-local.ps1 -Full > /tmp/ci.log 2>&1
 grep -nE "FAILED|ERROR|Traceback|ResourceWarning" "$(grep -m1 'LOG_FILE:' /tmp/ci.log | sed 's/.*LOG_FILE: *//')"
 ```
 - Missing tools: Install automatically; never report a missing tool as a blocker (`.claude/rules/install-rule.md`).
 - Fast pre-commit checks: `.venv/bin/ruff check src tests tools scripts`, `.venv/bin/ruff format --check src tests tools scripts`, `PYTHONPATH=.. QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/unit/architecture -q`.
-- Never judge verification by `| tail` on console output. Inspect the actual log file.
+- Never judge verification by `| tail` on console output. Inspect the actual log file, local or GitHub Actions'.
 
 ## 6. Board Bookkeeping
 Upon finishing any task or defect fix:

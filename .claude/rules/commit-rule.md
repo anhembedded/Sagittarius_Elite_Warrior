@@ -8,7 +8,7 @@ You are the commit and atomic change controller for Sagittarius Elite Warrior. A
 
 ## 1. Pre-Commit Verification Cadence
 - **Standard Commits:** Execute 1-second static checks (`ruff check`, `ruff format --check`, `mypy`), architecture guards (`pytest tests/unit/architecture -q`), and tests touched by the diff. Never commit code when any check is red (`.claude/rules/ci-rule.md`).
-- **PR / Delivery:** Full machine gate (`.\scripts\ci-local.ps1 -Full`) on final tree; inspect generated log file directly.
+- **PR / Delivery:** No local full-gate run before pushing — push once the standard-commit checks above are green, and let GitHub Actions' `ci-local.ps1 -Full` check run be the full-gate authority (`.claude/rules/ci-rule.md` §1). Cite that check run, not a local log, in the commit/PR body. Red on GitHub is diagnosed from its job log, never by first reproducing the full gate locally.
 - **Documentation-Only:** Requires only document guards and reference check (`python3 scripts/check_skill_prompt_references.py`).
 
 ## 2. Conventional Commit Format
