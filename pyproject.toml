@@ -291,6 +291,64 @@ exclude = [
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]module\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]preview\\.py$",
 
+    # `EPIC-025` PR 4.4c, fifth re-key on PR 0.4a's precedent: `screens/trading`
+    # (9 files) + `screens/dashboard` (16 files) + the three shared classes
+    # left `presentation/` for `modules/trading/ui/` and arrived with **141**
+    # pre-existing errors in 14 files (measured before deciding, same
+    # discipline as PR 4.4b's own table):
+    #
+    #  112  arg-type/attr-defined/assignment/call-overload  the PySide6
+    #                       `@Property`/`notifying_property()` false-positive
+    #                       class the wholesale `presentation/` exclusion
+    #                       exists for (EPIC-002A §2) — both screens read the
+    #                       properties their own View/ViewModel declare with
+    #                       this descriptor.
+    #   10  union-attr      `TradingPresenter`/`DashboardPresenter`'s own
+    #                       `BaseStateMachine[Any] | None` FSM field accessed
+    #                       without a `None` check first — real
+    #                       Optional-narrowing debt, frozen rather than fixed
+    #                       inside this move, same shape as PR 4.4b's 21.
+    #   10  union-attr      A `JsonValue` union (persisted preferences) read
+    #                       with `.strip()`/passed to `restore_selection()`
+    #                       without narrowing first — same family, a
+    #                       different field.
+    #    9  arg-type/attr-defined/assignment  Everything else measured: two
+    #                       `module.py` files construct their Presenter with
+    #                       a `BaseView`-typed View where the Presenter wants
+    #                       the concrete subclass (the same shape as
+    #                       `screens/backtest/module.py`'s own frozen debt,
+    #                       not this move's doing); `QLayoutItem | None`/
+    #                       `QWidget | Any | None` accessed post-`takeAt()`
+    #                       without a None check; a private `QTimer._slot`/
+    #                       `QWidget._dev_board_panel` attribute read in a
+    #                       test-support file; one `UIMode`/`Decimal | None`
+    #                       assignment each narrower than its declared type.
+    #
+    # Fixing 141 typing errors inside a 28-file move makes the move
+    # unreviewable, the same call PR 4.4b made at 115. Listed by file, not by
+    # directory, for the same reason: `strategy_card_view_model.py`,
+    # `strategy_arming_coordinator.py` and `signal_feed.py` were already
+    # `mypy`-clean before this move (unchanged since PR 4.3m) and stay under
+    # real coverage rather than being swept out with the 14 genuinely dirty
+    # files. The exit is the same design step that already owns the rest of
+    # this exclude list's `@Property` debt (`EPIC-002D`); the FSM/`JsonValue`
+    # narrowing gaps exit when a future pass adds the `None`/type-guard checks
+    # their call sites are missing, not as a side effect of this move.
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dev_board_panel\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_presenter\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_view\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_view_model\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_symbol_picker_dialog\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_symbol_picker_source\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]history_pagination_controller\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]module\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]preview\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]trading[\\/]trading_view\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]trading[\\/]trading_presenter\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]trading[\\/]trading_view_model\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]trading[\\/]module\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]trading[\\/]preview\\.py$",
+
     # Everything below: real per-file baseline debt (not Property noise),
     # frozen at EPIC-002A's measurement.
     # `scripts/backtest_timeframe_toolbar_e2e.py` was here too — the LIVE

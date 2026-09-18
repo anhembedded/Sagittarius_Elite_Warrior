@@ -46,12 +46,22 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
 #: meant to track that file's, not drift from it again — `EPIC-025` PR 4.4b
 #: added `modules/market_data/ui` here after `data_management`'s move made
 #: this file's own drift (missing `support/charting`, `modules/trading/ui`,
-#: `modules/strategy/ui` already) visible for the first time. This list
-#: shrinks back to one entry when Phase 4 deletes the legacy tree.
+#: `modules/strategy/ui` already) visible for the first time. PR 4.4c added
+#: `modules/trading/ui` for the same reason: `screens/trading`/`dashboard`
+#: brought real `preview.py` files there (`trading/`, `dashboard/`), and
+#: without this row `discover_previews()` silently dropped both — the
+#: `order_book/preview.py` PR 4.1b already left there was the same drift,
+#: just never a `test_discover_previews_finds_all_targets` failure because
+#: nothing had asked for it by name yet. `modules/strategy/ui` still has no
+#: `preview.py` of its own, so it stays off this list until it does — adding
+#: an empty root now would be solving a case that does not exist yet
+#: (`architecture-rule.md` §7.2.1). This list shrinks back to one entry when
+#: Phase 4 deletes the legacy tree.
 _UI_ROOTS = (
     _REPO_ROOT / "src" / "presentation" / "ui",
     _REPO_ROOT / "src" / "support" / "ui_kit",
     _REPO_ROOT / "src" / "modules" / "market_data" / "ui",
+    _REPO_ROOT / "src" / "modules" / "trading" / "ui",
 )
 
 

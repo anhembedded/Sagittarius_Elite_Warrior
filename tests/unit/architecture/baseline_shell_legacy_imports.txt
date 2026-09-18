@@ -32,7 +32,10 @@
 # binance_bot_module.py.
 #
 # Which phase removes which line:
-#   legacy_screens -> screens.dashboard/trading   Phase 1 (modules/trading)
+#   legacy_screens -> screens.dashboard/trading   RETIRED, PR 4.4c -- moved, not deleted;
+#       the import now lives in allowlist_module_boundaries.txt (shell.legacy_screens ->
+#       modules.trading.ui.{dashboard,trading}.module), retiring at Phase 5, same shape
+#       as PR 4.4b's data_management line below
 #   legacy_screens -> screens.data_management     RETIRED, PR 4.4b -- moved, not deleted;
 #       the import now lives in allowlist_module_boundaries.txt, retiring at Phase 5
 #   legacy_screens -> screens.backtest           Phase 3 (modules/backtesting)
@@ -44,6 +47,4 @@
 #       permitted outright by the rule table and needs no recorded permission at all.
 #       9 lines -> 5.
 shell.legacy_screens -> presentation.ui.screens.backtest.module
-shell.legacy_screens -> presentation.ui.screens.dashboard.module
 shell.legacy_screens -> presentation.ui.screens.settings.module
-shell.legacy_screens -> presentation.ui.screens.trading.module

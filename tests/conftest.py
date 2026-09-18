@@ -64,17 +64,17 @@ def real_screen_registry(container):
     from Sagittarius_Elite_Warrior.src.modules.market_data.ui.module import (
         DatabaseScreenModule,
     )
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.module import (
+        DashboardScreenModule,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.module import (
+        TradingScreenModule,
+    )
     from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module import (
         BacktestScreenModule,
     )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.module import (
-        DashboardScreenModule,
-    )
     from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
         SettingsScreenModule,
-    )
-    from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.module import (
-        TradingScreenModule,
     )
     from Sagittarius_Elite_Warrior.src.shell.legacy_screen_adapter import (
         as_screen_descriptor,

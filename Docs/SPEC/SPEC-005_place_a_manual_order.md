@@ -133,6 +133,6 @@ open order is SPEC-006 (planned) and is the same port's `cancel()`.
 | `order-preview` reaches the venue by neither route, and `order-dry-run` validates the order it previewed and submits nothing | `tests/unit/presentation/cli/test_order_cmds.py` | unit |
 | Preview → dry run → submit against a fake Binance server | `tests/integration/application/test_manual_order_pipeline_against_fake_server.py` | integration |
 | The Dev Board's order form, driven by real Qt clicks | `tests/integration/presentation/ui/test_dev_board_manual_order_qt_click.py` | integration |
-| The form is a dialog `F9` opens, not a panel in the layout | `tests/unit/presentation/ui/screens/test_dashboard_view.py` | unit |
+| The form is a dialog `F9` opens, not a panel in the layout | `tests/unit/modules/trading/ui/dashboard/test_dashboard_view.py` | unit |
 | One order's real life cycle on the real Futures Testnet | `tests/testnet/test_order_lifecycle.py` — **the user runs it**: `SEW_TESTNET_TESTS=1` plus real credentials, via `ci-local.ps1 -TestnetOnly`; the ordinary gate never invokes this tier | human |
 | Submitting one order by hand | **the user runs it**: enable trading, press `F9` on the Dev Board, submit a small order, and confirm it appears in the Testnet web UI with the quantity the preview showed | human |

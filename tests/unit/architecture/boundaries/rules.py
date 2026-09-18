@@ -18,7 +18,34 @@ from .zones import (
 
 #: Support packages a module's `ui/` sub-package may import whole, not only
 #: through their `contracts/` (HLD §6.1: charting and the UI kit are UI).
-_UI_SUPPORT_ZONES = frozenset({"support/ui_kit", "support/charting"})
+#:
+#: `support/indicators` joined this set in `EPIC-025E` PR 4.4c: its `ui/`
+#: (`list_model.py`, `runner.py`, `region_tracker.py`) is Qt widget/model code,
+#: not mathematics, and moving `dashboard` into `modules/trading/ui/` measured
+#: two real consumers of it — `dashboard`'s own `indicator_coordinator.py`/
+#: `dashboard_presenter.py`/`dashboard_view_model.py` today, `backtest`'s
+#: matching trio once `4.4d` moves it too. Two independent modules needing the
+#: same Qt display code through their `ui/` is exactly `_UI_SUPPORT_ZONES`'s own
+#: shape, not `_COMPUTATION_SUB_PACKAGES`'s (that set stays `ui`-less: a
+#: module's `domain`/`application` layer still may not reach for a `QAbstractListModel`).
+#:
+#: This is the **destination** side only. `support/indicators` is not wholly
+#: UI the way `ui_kit`/`charting` are — it has Qt-free math sub-packages this
+#: set must not vouch for — so the *source*-side "these two trust each other
+#: whole" shortcut in `_support_may_import` stays on `_WHOLLY_UI_SUPPORT_ZONES`
+#: below, never on this set.
+_UI_SUPPORT_ZONES = frozenset(
+    {"support/ui_kit", "support/charting", "support/indicators"}
+)
+
+#: The subset of `_UI_SUPPORT_ZONES` that is UI **in its entirety**, so any of
+#: its sub-packages (not only a `ui/` one) may reach the other one whole
+#: (`_support_may_import`'s first disjunct). `support/indicators` is
+#: deliberately excluded: its `indicator_scripts`/`indicators`/`scripting`
+#: math sub-packages must stay Qt-free, so only its own `ui/` sub-package gets
+#: the door — the second disjunct (`sub_package_of(importing_module) == "ui"`)
+#: already covers that case without this set's help.
+_WHOLLY_UI_SUPPORT_ZONES = frozenset({"support/ui_kit", "support/charting"})
 
 #: `support/indicators` minus its `ui/`: the indicator **mathematics**, which any
 #: module may read directly rather than through a `contracts/` package.
@@ -154,7 +181,9 @@ def _support_may_import(
     # legacy tree at all.
     if dst_zone not in _UI_SUPPORT_ZONES:
         return False
-    return src_zone in _UI_SUPPORT_ZONES or sub_package_of(importing_module) == "ui"
+    return (
+        src_zone in _WHOLLY_UI_SUPPORT_ZONES or sub_package_of(importing_module) == "ui"
+    )
 
 
 def _module_may_import(
@@ -183,9 +212,12 @@ def _is_computation_library(dst_zone: str, imported_module: str) -> bool:
     Deliberately not restricted to `domain`: `strategy_engine` reads
     `IIndicator` from `application/services/`, and a rule that let the
     strategies read the library while refusing the engine that runs them would
-    be arbitrary. What it does refuse is this package's `ui/` — a module
-    reaching for another package's `QAbstractListModel` is the edge
-    `test_boundary_rules.py` pins as a failure.
+    be arbitrary. What it does refuse is this package's `ui/` for a **non-`ui/`**
+    importer — `strategy`'s own `domain`/`application` code reaching for a
+    `QAbstractListModel` is the edge `test_boundary_rules.py` pins as a
+    failure. A module's own `ui/` reaches `support/indicators/ui/` through
+    `_UI_SUPPORT_ZONES` instead (`EPIC-025E` PR 4.4c), the same door
+    `ui_kit`/`charting` already use.
     """
     return (
         dst_zone in _COMPUTATION_SUPPORT_ZONES

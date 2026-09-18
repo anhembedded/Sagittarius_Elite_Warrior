@@ -83,9 +83,13 @@ def _cross_screen_imports() -> list[tuple[str, int, str, str, str]]:
 
 def test_screens_root_is_where_we_think_it_is() -> None:
     """`parents[3]` là đường dẫn tính tay. Sai một bậc thì test dưới quét thư
-    mục rỗng và xanh vì không tìm thấy gì — đúng kiểu cổng giả."""
+    mục rỗng và xanh vì không tìm thấy gì — đúng kiểu cổng giả.
+
+    Ngưỡng giảm dần theo `EPIC-025` Phase 4: 4 (`trading`, `dashboard`,
+    `backtest`, `settings`) → 2 sau PR 4.4c (`trading`/`dashboard` rời sang
+    `modules/trading/ui/`) → 0 khi Phase 4 xoá hẳn cây legacy này."""
     assert _SCREENS_ROOT.is_dir(), f"không thấy cây screens ở {_SCREENS_ROOT}"
-    assert len([p for p in _SCREENS_ROOT.iterdir() if p.is_dir()]) >= 4
+    assert len([p for p in _SCREENS_ROOT.iterdir() if p.is_dir()]) >= 2
 
 
 def test_no_widget_import_crosses_a_screen_boundary() -> None:

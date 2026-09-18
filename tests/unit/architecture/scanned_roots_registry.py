@@ -184,8 +184,8 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         (("src/presentation/ui/screens/backtest", "*.py"),),
     ),
     (
-        "tests/unit/presentation/ui/screens/trading/test_trading_view_contract.py",
-        (("src/presentation/ui/screens/trading", "*.py"),),
+        "tests/unit/modules/trading/ui/trading/test_trading_view_contract.py",
+        (("src/modules/trading/ui/trading", "*.py"),),
     ),
     ("tests/unit/presentation/test_enum_labels.py", (("src/presentation", "*.py"),)),
     # --- application / domain / infrastructure ------------------------------

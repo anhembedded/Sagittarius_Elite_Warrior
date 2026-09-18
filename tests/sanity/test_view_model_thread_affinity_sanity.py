@@ -19,17 +19,17 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view_model import (
     DataManagementViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_view_model import (
+    DashboardQmlViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_view_model import (
+    TradingViewModel,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_view_model import (
     BackTestViewModel,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.dashboard_view_model import (
-    DashboardQmlViewModel,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.settings_view_model import (
     SettingsViewModel,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.trading_view_model import (
-    TradingViewModel,
 )
 from sagittarius_engine.extensions.pyside_mvc import unprotected_mutators
 

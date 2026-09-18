@@ -90,10 +90,10 @@ consumer-facing port.
 | :--- | :--- | :--- |
 | Both implementations start, stop and answer alike | `tests/unit/modules/market_data/contracts/test_market_stream_contract.py` | contract |
 | `stream start` / `stream stop`, including the bare-`stream` usage line | `tests/unit/modules/market_data/cli/test_stream_cmd.py` | unit |
-| A stop or a second start cancels the in-flight one, and its result is fenced | `tests/unit/presentation/ui/screens/dashboard/test_stream_lifecycle_cancellation.py` | unit |
+| A stop or a second start cancels the in-flight one, and its result is fenced | `tests/unit/modules/trading/ui/dashboard/test_stream_lifecycle_cancellation.py` | unit |
 | A transport error mid-stream reconnects, and the next candle still arrives | `tests/unit/modules/market_data/adapters/binance/test_binance_websocket_service.py` | unit |
-| The stream's state reaches the actor as a status pill, every UI mode | `tests/unit/presentation/ui/screens/test_dev_board_panel.py` | unit |
-| The Dev Board actually streams end to end | `tests/integration/presentation/ui/test_dashboard_live_stream.py` | integration |
-| The Trading chart goes live on its own when the screen opens | `tests/unit/presentation/ui/screens/trading/test_trading_presenter_chart_autostart.py` | unit |
-| Live candles reach the chart and rewrite the forming one | `tests/unit/presentation/ui/screens/trading/test_trading_presenter_chart_ticks.py` | unit |
+| The stream's state reaches the actor as a status pill, every UI mode | `tests/unit/modules/trading/ui/dashboard/test_dev_board_panel.py` | unit |
+| The Dev Board actually streams end to end | `tests/integration/modules/trading/ui/test_dashboard_live_stream.py` | integration |
+| The Trading chart goes live on its own when the screen opens | `tests/unit/modules/trading/ui/trading/test_trading_presenter_chart_autostart.py` | unit |
+| Live candles reach the chart and rewrite the forming one | `tests/unit/modules/trading/ui/trading/test_trading_presenter_chart_ticks.py` | unit |
 | A real socket against the real venue | **the user runs it**: `stream start --symbols BTCUSDT --interval 1m`, watch the chart advance for a minute, then `stream stop` and see it settle | human |
