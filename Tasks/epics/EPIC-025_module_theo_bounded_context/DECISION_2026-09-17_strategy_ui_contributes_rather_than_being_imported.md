@@ -368,5 +368,7 @@ landed in `modules/trading/contracts/` and `modules/strategy/adapters/`, bound i
 `["market_data"]`, zero new allowlist entries. See `TRACKING.md` for the commit and verification
 evidence. PR 4.4c's `git mv` of `screens/trading`/`screens/dashboard`/the three shared classes was
 reverted (uncommitted, so nothing to undo on the remote) rather than kept half-done when this gap
-was found; 4.4c itself has not yet been re-attempted — this section's fix was the blocking
-prerequisite, not the move.
+was found; **4.4c has since been re-attempted and lands as its own pull request (PR #232,
+`TRACKING.md` `p4-4.4c`)** — `tests/sanity/` is green this time, with no
+`ExtensionCircularDependencyError`, confirming this section's fix is what closed the cycle rather
+than only satisfying the import-graph guard.

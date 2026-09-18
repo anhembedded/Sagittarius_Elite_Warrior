@@ -77,7 +77,7 @@ get on with it."*
 
   That asymmetry is a promise, not an oversight. The screen still carries manual order entry and
   the strategy controls, and **nothing on the Trading surface carries them** — measured rather
-  than assumed: `grep -rn "manual_order" src/presentation/ui/screens/trading/` is empty, while
+  than assumed: `grep -rn "manual_order" src/modules/trading/ui/trading/` is empty, while
   `dashboard_presenter.py` holds the manual-order action, its ownership tracker and the
   armed-symbol block reason. Gating the screen before they move would take a capability away from
   the actor, which ADR D12 forbids as an undeclared behaviour change. So the blocker is a **home

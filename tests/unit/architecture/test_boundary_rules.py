@@ -92,6 +92,13 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.rules import (
         ("modules.strategy.domain.x", "support.indicators.indicator_scripts.rsi", True),
         # ...and the edges it must not open:
         ("modules.strategy.domain.x", "support.indicators.ui.list_model", False),
+        # PR 4.4c — `support/indicators/ui/` joins `_UI_SUPPORT_ZONES`: two
+        # modules' own `ui/` (`trading`'s `dashboard`, `backtesting`'s
+        # `backtest`) both need its Qt widgets, the same shape `ui_kit`/
+        # `charting` already have. The refusal above is unchanged — it is
+        # `domain` reaching for a `QAbstractListModel` that stays illegal, not
+        # a module's `ui/` doing so.
+        ("modules.trading.ui.dashboard.x", "support.indicators.ui.runner", True),
         ("modules.trading.application.x", "support.binance_gateway.session", False),
         ("support.charting.chart_card", "support.binance_gateway.session", False),
         ("support.charting.chart_card", "modules.trading.contracts.order", False),
@@ -109,7 +116,7 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.rules import (
         # --- only an entry point may call into the shell ---------------------
         ("presentation.ui.app_bootstrapper", "shell.app_config", True),
         (
-            "presentation.ui.screens.trading.trading_presenter",
+            "presentation.ui.screens.x.presenter",
             "shell.app_config",
             False,
         ),

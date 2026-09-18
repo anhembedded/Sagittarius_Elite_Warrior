@@ -94,6 +94,6 @@ reads through `ITradingAccountReader`; the connection gate is SPEC-003's `IAccou
 | Every block reason, including the concurrent-change generation check | `tests/unit/modules/trading/application/session/test_enable_trading.py` | unit |
 | Disable always succeeds and needs no network | `tests/unit/modules/trading/application/session/test_disable_trading.py` | unit |
 | Both implementations of the port answer the same way | `tests/unit/modules/trading/contracts/test_trading_session_contract.py` | contract |
-| The toggle's async ownership: one action at a time, stale results fenced | `tests/unit/presentation/ui/screens/trading/test_trading_presenter_toggle.py` | unit |
+| The toggle's async ownership: one action at a time, stale results fenced | `tests/unit/modules/trading/ui/trading/test_trading_presenter_toggle.py` | unit |
 | Settings refuses a venue change while trading is on | `tests/unit/presentation/ui/screens/test_settings_venue_controls.py` | unit |
 | Turning it on against a real account | **the user runs it**: with Futures Testnet credentials, click Enable on the Trading screen and confirm the reconciled positions shown match the Testnet web UI | human |

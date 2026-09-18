@@ -26,6 +26,9 @@
 # -> 40 after PR 4.3m.
 # -> 45 after PR 4.4a.
 # -> 36 after PR 4.4b (45 - 10 stale retired + 1 new shell entry).
+# -> 10 after PR 4.4c (36 - 30 stale retired + 4 new entries: 2 market_data.ui
+#    reads under their new modules.trading.ui.dashboard address, 2 shell
+#    entries for the two screens' module.py, same shape as PR 4.4b's one).
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -363,8 +366,6 @@
 # one attribute is what `ExecuteOrderResult.limits` now answers instead -- the
 # same promise `limit_context` already made, that what gets shown is what
 # decided.
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.domain.policies.manual_order_intent
-presentation.ui.screens.dashboard.dev_board_panel -> modules.trading.domain.policies.manual_order_intent
 
 # ---------------------------------------------------------------------------
 # PR 2.1b -- `modules/strategy` arrives. 23 entries in, 4 retired out, and the
@@ -586,18 +587,6 @@ presentation.ui.screens.backtest.coordinators.execution_coordinator -> modules.b
 # (`screens/trading` itself into `modules/trading/ui/`) retire all twelve of
 # these in one go, along with the six `dashboard` ones once that screen's four
 # QML imports are gone in 4.3.
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.equity_chart_adapter
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.equity_feed
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.execute_order_block_reason
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.market_tick_feed
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.order_feed
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.order_fill_marker
-presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.equity_chart_adapter
-presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.equity_feed
-presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.execute_order_block_reason
-presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.market_tick_feed
-presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.order_feed
-presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.order_fill_marker
 
 
 # ---------------------------------------------------------------------------
@@ -619,20 +608,6 @@ presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.order_fi
 # were the same class written twice (section 3.5). `support/ui_kit/table_model.py`
 # is that class now, so the move costs the ratchet nothing -- the Phase 1 pair
 # goes 34 -> 32 and the total across every pair stays at 112.
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.trading.ui.live_order_book_coordinator
-presentation.ui.screens.dashboard.dashboard_view -> modules.trading.ui.order_book.open_order_row
-presentation.ui.screens.dashboard.dashboard_view -> modules.trading.ui.order_book.open_orders_panel
-presentation.ui.screens.dashboard.dashboard_view -> modules.trading.ui.order_book.position_row
-presentation.ui.screens.dashboard.dashboard_view -> modules.trading.ui.order_book.positions_panel
-presentation.ui.screens.trading.i_trading_view -> modules.trading.ui.order_book.open_order_row
-presentation.ui.screens.trading.i_trading_view -> modules.trading.ui.order_book.position_row
-presentation.ui.screens.trading.preview -> modules.trading.ui.order_book.open_order_row
-presentation.ui.screens.trading.preview -> modules.trading.ui.order_book.position_row
-presentation.ui.screens.trading.trading_presenter -> modules.trading.ui.live_order_book_coordinator
-presentation.ui.screens.trading.trading_view -> modules.trading.ui.order_book.open_order_row
-presentation.ui.screens.trading.trading_view -> modules.trading.ui.order_book.open_orders_panel
-presentation.ui.screens.trading.trading_view -> modules.trading.ui.order_book.position_row
-presentation.ui.screens.trading.trading_view -> modules.trading.ui.order_book.positions_panel
 
 
 # ---------------------------------------------------------------------------
@@ -655,8 +630,6 @@ presentation.ui.screens.trading.trading_view -> modules.trading.ui.order_book.po
 # point the import is same-module and needs no entry at all).
 presentation.ui.screens.backtest.backtest_presenter -> modules.market_data.ui.symbol_options_coordinator
 presentation.ui.screens.backtest.signal_wiring -> modules.market_data.ui.sync_progress_feed
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.market_data.ui.symbol_options_coordinator
-presentation.ui.screens.dashboard.dashboard_presenter -> modules.market_data.ui.sync_progress_feed
 
 
 # ---------------------------------------------------------------------------
@@ -685,3 +658,40 @@ presentation.ui.screens.dashboard.dashboard_presenter -> modules.market_data.ui.
 # 4.4c/4.4d, so this entry's retirement (like the nine above it) is Phase 5's,
 # not Phase 4's -- recorded here rather than left to surprise that phase.
 shell.legacy_screens -> modules.market_data.ui.module
+
+
+# ---------------------------------------------------------------------------
+# PR 4.4c -- `screens/trading` (9 files) + `screens/dashboard` (16 files) +
+# the three shared classes (`strategy_card_view_model.py`,
+# `strategy_arming_coordinator.py`, `signal_feed.py`) move into
+# `modules/trading/ui/` as two screen packages (`trading/`, `dashboard/`),
+# unblocked by the port-inversion (ADR `DECISION_2026-09-17...md` §8) that
+# landed the day before. All 30 of `EPIC-025E` §3.15's predicted zero-cost
+# entries retired in this same commit (six `dashboard_presenter ->
+# modules.trading.ui.*` feeds, six `trading_presenter -> modules.trading.ui.*`
+# feeds, fourteen `order_book`-reading lines across both screens, two
+# `manual_order_intent` lines, two `market_data.ui` lines that move to a new
+# source below) -- same-module the instant both presenters and their
+# `order_book` neighbours share an address.
+#
+# Two lines are new rather than retiring, same shape and reason as PR 4.4b's
+# one: `dashboard_presenter` still reads `market_data.ui.symbol_options_coordinator`/
+# `sync_progress_feed` (§3.3's open question, resolved to `market_data/ui/` in
+# PR 4.4a) under its new `modules.trading.ui.dashboard` address -- retires
+# when `data_management`/`backtest`'s own copies of this cross-module read are
+# gone, i.e. never fully (the feed genuinely lives in a different module),
+# unless a future per-module `SyncProgressFeed` variant (§3.15's seam) removes
+# the direct read.
+modules.trading.ui.dashboard.dashboard_presenter -> modules.market_data.ui.symbol_options_coordinator
+modules.trading.ui.dashboard.dashboard_presenter -> modules.market_data.ui.sync_progress_feed
+
+# Two more are new for the same reason PR 4.4b's `shell.legacy_screens ->
+# modules.market_data.ui.module` line was: `shell/legacy_screens.py` still
+# imports `TradingScreenModule`/`DashboardScreenModule`, one level deeper than
+# `is_module_entry_point`'s `modules.<name>.module` shape recognises, because
+# each screen's `AbstractScreenModule` now lives beside its own Presenter/View
+# under `modules/trading/ui/{trading,dashboard}/module.py` rather than at the
+# module's own root. `EPIC-025F` (Phase 5) retires both when `NavigationService`
+# replaces `AbstractScreenModule`/`ScreenRegistry`, not before.
+shell.legacy_screens -> modules.trading.ui.dashboard.module
+shell.legacy_screens -> modules.trading.ui.trading.module

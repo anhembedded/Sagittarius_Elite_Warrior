@@ -30,15 +30,15 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_m
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.module import (
     DatabaseScreenModule,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.module import (
+    DashboardScreenModule,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_presenter import (
     BackTestPresenter,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.module import (
     BacktestScreenModule,
-)
-from Sagittarius_Elite_Warrior.src.presentation.ui.screens.dashboard.module import (
-    DashboardScreenModule,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.settings.module import (
     SettingsScreenModule,
