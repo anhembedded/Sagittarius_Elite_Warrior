@@ -320,8 +320,12 @@ its tree — that is what makes the coupling "visible where the module list is r
 phrase). The moment `screens/trading` and `screens/dashboard` move into `modules/trading/ui/`, every
 file that reads `modules.strategy.contracts.*` (four ports, `SignalGeneratedEvent`, `LiveStrategyConfig`,
 `ArmStrategyBlockReason`, four bound/interval constants — measured across `dashboard_presenter.py`,
-`dev_board_panel.py`, `trading_presenter.py`, `strategy_overlay_coordinator.py`,
+`dev_board_panel.py`, `trading_presenter.py`, `trading_view.py`, `strategy_overlay_coordinator.py`,
 `strategy_arming_coordinator.py`, `signal_feed.py`) makes `trading.dependencies` need `"strategy"`.
+**Corrected count: seven files, not six** — the first pass through this ADR missed `trading_view.py`'s
+own read of the four bound constants (`MAX_LEVERAGE`/`MAX_SIZING_PERCENT`/`MIN_LEVERAGE`/
+`MIN_SIZING_PERCENT`, for its two `QSpinBox.setRange()` calls), found on a fresh re-verification
+immediately before implementation started (P2, Verify Don't Restate).
 But `strategy.dependencies` already names `"trading"` — real, not decorative: `strategy.boot()`
 resolves a live `ITradingSession`/order-submission port, genuinely after trading has registered — so
 declaring the reverse edge closes an actual cycle. The Engine's `ExtensionManager` refuses it
@@ -329,10 +333,10 @@ declaring the reverse edge closes an actual cycle. The Engine's `ExtensionManage
 running `tests/sanity/`, which `test_module_boundaries.py`/`test_module_declarations.py` alone do not
 reach (they do not construct the Engine's dependency graph).
 
-**Why no amount of moving these six files *within* `modules/trading` fixes it.** The guard counts an
+**Why no amount of moving these seven files *within* `modules/trading` fixes it.** The guard counts an
 import wherever it sits in the module's tree; §7's own placement trick (parking the shared classes in
 `presentation/ui/common/`, outside any module) is exactly what stops working once `trading`/`dashboard`
-themselves become modules — moving the six files to a different subdirectory of `modules/trading/ui/`
+themselves become modules — moving the seven files to a different subdirectory of `modules/trading/ui/`
 still leaves them inside `modules/trading`, so the shortfall persists regardless of the subdirectory.
 
 **The design accepted, not yet implemented:** invert who owns the interface, the same Dependency
@@ -346,18 +350,23 @@ yet.
 | `strategy.contracts` — `IStrategyCatalog`, `IStrategyArming`, `IStrategyChartOverlay`, `IArmedStrategy`, and every existing DTO/event (`LiveStrategyConfig`, `ArmStrategyResult`, `SignalGeneratedEvent`, …) | **unchanged** | `backtest` (PR 4.4d, `modules/backtesting.dependencies` already lists `"strategy"`) reads these same four ports directly and has no reverse edge — moving them would cost `backtest`'s clean, cycle-free path to fix a problem that is `trading`'s alone |
 | `trading.dependencies` | stays `["market_data"]`, unchanged | the whole point — zero new edges on trading's side |
 
-**Consumers to rewire when this lands:** `dashboard_presenter.py`, `dev_board_panel.py`,
-`trading_presenter.py`, `strategy_overlay_coordinator.py`, `strategy_arming_coordinator.py`,
-`signal_feed.py` switch their `modules.strategy.contracts` imports to `modules.trading.contracts`
-(the new ports/DTOs); their existing fakes/tests (`test_dashboard_presenter.py`,
-`test_strategy_arming_coordinator.py`, `tests/unit/modules/trading/ui/trading/conftest.py`,
-`test_trading_presenter_equity.py`, `test_trading_strategy_overlay.py`) fake the new trading-owned
-ports instead of strategy's.
+**Consumers rewired:** `dashboard_presenter.py`, `dev_board_panel.py`, `trading_presenter.py`,
+`trading_view.py`, `strategy_overlay_coordinator.py`, `strategy_arming_coordinator.py`,
+`signal_feed.py` switched their `modules.strategy.contracts` imports to `modules.trading.contracts`
+(the new ports/DTOs); the `SignalGeneratedEvent` publisher (`strategy_engine.py`) and its other real
+subscribers (`backtest_presenter.py`, `signal_wiring.py`) followed the event's relocation to
+`modules/trading/contracts/events/`. Their fakes/tests (`test_dashboard_presenter.py`,
+`test_dashboard_presenter_state.py`, `test_strategy_arming_coordinator.py`,
+`tests/unit/presentation/ui/screens/trading/conftest.py`, `test_trading_presenter_equity.py`,
+`test_trading_strategy_overlay.py`, `test_system_health_logging.py`, the two dashboard integration
+tests) fake the new trading-owned ports through the same adapters production binds, over the
+existing strategy-owned fakes.
 
-**Status: 🟡 accepted design, not yet implemented — its own pull request**, for the same reason §2
-gave PR 4.3m its own number rather than folding it into PR 4.4: a two-module contract redesign found
-mid-move is not a file move, and cramming it into the tail of one risks exactly what P10 warns
-against — a restructuring landed without its own design being checked first. PR 4.4c's `git mv` of
-`screens/trading`/`screens/dashboard`/the three shared classes was reverted (uncommitted, so nothing
-to undo on the remote) rather than kept half-done; `EPIC-025E`'s task file records the next session's
-entry point.
+**Status: ✅ implemented** (`EPIC-025E`) — the four ports, their DTOs and the translating adapters
+landed in `modules/trading/contracts/` and `modules/strategy/adapters/`, bound in
+`StrategyModule.register()`/`composition/port_bindings.py`; `trading.dependencies` verified still
+`["market_data"]`, zero new allowlist entries. See `TRACKING.md` for the commit and verification
+evidence. PR 4.4c's `git mv` of `screens/trading`/`screens/dashboard`/the three shared classes was
+reverted (uncommitted, so nothing to undo on the remote) rather than kept half-done when this gap
+was found; 4.4c itself has not yet been re-attempted — this section's fix was the blocking
+prerequisite, not the move.

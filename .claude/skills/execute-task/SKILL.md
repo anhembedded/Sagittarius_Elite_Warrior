@@ -49,5 +49,5 @@ You are the task execution engine for Sagittarius Elite Warrior. Deliver verifia
 - Comply with completion contract in `.claude/rules/task-execution-rule.md`.
 - Move completed task to `completed/`, set status to `✅ Done (YYYY-MM-DD)`, and document implementation notes.
 - Update `Tasks/ROADMAP.md` and recompute board counts via `python3 scripts/render_task_counts.py`.
-- Commit under `.claude/rules/commit-rule.md`. If merging code to `master-warrior`, obtain independent review via `.claude/skills/pr-review/SKILL.md`; author sessions must never self-review or self-merge.
+- Commit under `.claude/rules/commit-rule.md`. If merging code to `master-warrior`, spawn an independent reviewer session per `.claude/ONBOARDING.md` §7's Reviewer Protocol (never the local `Agent` tool, never a self-review) and have it run `.claude/skills/pr-review/SKILL.md`; author sessions must never self-review or self-merge.
 - For interrupted sessions, record current evidence and the exact resumption point in the task's `Resume` section.

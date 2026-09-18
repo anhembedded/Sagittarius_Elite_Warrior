@@ -29,16 +29,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.ui.symbol_options_coordin
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.sync_progress_feed import (
     SyncProgressFeed,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
-    IArmedStrategy,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
-    IStrategyArming,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
-    IStrategyCatalog,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
     SUPPORTED_LIVE_INTERVALS,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
@@ -65,11 +56,20 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_clo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
     IAccountSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_armed_strategy_reader import (
+    IArmedStrategyReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
     IEquityCurve,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_arming_control import (
+    IStrategyArmingControl,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
+    IStrategyCatalogReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
@@ -629,7 +629,9 @@ class DashboardPresenter(BasePresenter):
         # construction. `_active_symbol` is not read until the user actually
         # arms (the lambda below), well after it is assigned further down
         # this constructor.
-        self._armed_strategy: IArmedStrategy = container.resolve(IArmedStrategy)
+        self._armed_strategy: IArmedStrategyReader = container.resolve(
+            IArmedStrategyReader
+        )
         self._arm_tracker: ActionOwnershipTracker[str, None, None] = (
             ActionOwnershipTracker()
         )
@@ -638,8 +640,8 @@ class DashboardPresenter(BasePresenter):
             # way, just relocated out of `modules/strategy/ui/` — the
             # card's own view model, not the screen's.
             view_model=self._view_model.strategy,
-            catalog=container.resolve(IStrategyCatalog),
-            arming=container.resolve(IStrategyArming),
+            catalog=container.resolve(IStrategyCatalogReader),
+            arming=container.resolve(IStrategyArmingControl),
             get_active_symbol=lambda: self._active_symbol,
             get_armed_config=lambda: self._armed_strategy.armed().config,
             tracker=self._arm_tracker,

@@ -8,7 +8,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest_failed_event import (
     BacktestFailedEvent,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_trade_logs_panel import (

@@ -13,20 +13,23 @@ from unittest.mock import MagicMock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_chart_overlay_reader_adapter import (
+    StrategyChartOverlayReaderAdapter,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
     StrategyChartOverlayService,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
-    IStrategyChartOverlay,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
-    LiveStrategyConfig,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
+    ArmedStrategyConfig,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_overlay_reader import (
+    IStrategyChartOverlayReader,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.trading.coordinators.strategy_overlay_coordinator import (
     TREND_ZONE_KEY,
@@ -70,8 +73,8 @@ def registry() -> StrategyRegistry:
 
 
 @pytest.fixture
-def chart_overlay(registry) -> IStrategyChartOverlay:
-    return StrategyChartOverlayService(registry)
+def chart_overlay(registry) -> IStrategyChartOverlayReader:
+    return StrategyChartOverlayReaderAdapter(StrategyChartOverlayService(registry))
 
 
 @pytest.fixture
@@ -87,10 +90,10 @@ def coordinator(chart, chart_overlay) -> StrategyOverlayCoordinator:
     )
 
 
-def _config(**overrides) -> LiveStrategyConfig:
+def _config(**overrides) -> ArmedStrategyConfig:
     values = {"strategy_key": _KEY, "symbol": "BTCUSDT", "interval": "1m"}
     values.update(overrides)
-    return LiveStrategyConfig(**values)
+    return ArmedStrategyConfig(**values)
 
 
 def test_nothing_is_drawn_while_no_strategy_is_armed(coordinator, chart):

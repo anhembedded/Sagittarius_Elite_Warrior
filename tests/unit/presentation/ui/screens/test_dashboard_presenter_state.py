@@ -15,6 +15,15 @@ from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.armed_strategy_reader_adapter import (
+    ArmedStrategyReaderAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_arming_control_adapter import (
+    StrategyArmingControlAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_catalog_reader_adapter import (
+    StrategyCatalogReaderAdapter,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_factory import (
     LiveStrategyFactory,
 )
@@ -51,8 +60,17 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crosso
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
     IAccountSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_armed_strategy_reader import (
+    IArmedStrategyReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
     IEquityCurve,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_arming_control import (
+    IStrategyArmingControl,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
+    IStrategyCatalogReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
     FakeAccountSnapshot,
@@ -131,6 +149,11 @@ def container(dispatcher):
         IStrategyCatalog: StrategyCatalogService(strategy_registry),
         IStrategyChartOverlay: StrategyChartOverlayService(strategy_registry),
         IStrategyArming: FakeStrategyArming(),
+        IArmedStrategyReader: ArmedStrategyReaderAdapter(strategy_session),
+        IStrategyCatalogReader: StrategyCatalogReaderAdapter(
+            StrategyCatalogService(strategy_registry)
+        ),
+        IStrategyArmingControl: StrategyArmingControlAdapter(FakeStrategyArming()),
         IEquityCurve: FakeEquityCurve(),
         IAccountSnapshot: FakeAccountSnapshot(),
     }

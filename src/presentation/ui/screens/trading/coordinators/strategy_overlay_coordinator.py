@@ -24,6 +24,14 @@ the three compute calls all moved inside `modules/strategy`
 port's `StrategyOverlay` data into the calls `ChartCard` already
 understood.
 
+**PR 4.4c (§8) rewires the port itself onto `trading`'s own
+`IStrategyChartOverlayReader`/`ArmedStrategyConfig`/`StrategyOverlay`**
+(`modules/trading/contracts/`), so this file — bound for
+`modules/trading/ui/` alongside the rest of the screen — never has to
+import `modules.strategy.contracts` at all; `strategy`'s adapter
+(`modules/strategy/adapters/strategy_chart_overlay_reader_adapter.py`)
+does the field-for-field translation at the boundary instead.
+
 @par Never reads the running engine
 The armed `StrategyEngine` holds the indicator state that decides real
 orders. Everything drawn here comes from a separate, throwaway strategy
@@ -37,11 +45,11 @@ from collections.abc import Callable, Sequence
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
-    IStrategyChartOverlay,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
+    ArmedStrategyConfig,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
-    LiveStrategyConfig,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_overlay_reader import (
+    IStrategyChartOverlayReader,
 )
 
 #: `ChartCard.set_script_regions()` key for this screen's trend shading.
@@ -57,7 +65,7 @@ class StrategyOverlayCoordinator:
     def __init__(
         self,
         get_chart: Callable[[], Any],
-        chart_overlay: IStrategyChartOverlay,
+        chart_overlay: IStrategyChartOverlayReader,
     ) -> None:
         self._get_chart = get_chart
         self._chart_overlay = chart_overlay
@@ -66,7 +74,7 @@ class StrategyOverlayCoordinator:
         #: removes exactly what the previous one added — clearing "all
         #: indicators" would also wipe anything another feature drew.
         self._drawn_line_names: list[str] = []
-        self._config: LiveStrategyConfig | None = None
+        self._config: ArmedStrategyConfig | None = None
 
     # ------------------------------------------------------------------ #
     # Data in
@@ -96,7 +104,7 @@ class StrategyOverlayCoordinator:
     # Arming
     # ------------------------------------------------------------------ #
 
-    def set_armed_config(self, config: LiveStrategyConfig | None) -> None:
+    def set_armed_config(self, config: ArmedStrategyConfig | None) -> None:
         """Switches to (or clears) the strategy whose lines are drawn."""
         if config == self._config:
             return

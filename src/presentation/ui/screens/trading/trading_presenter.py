@@ -15,19 +15,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
-    IArmedStrategy,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
-    IStrategyArming,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
-    IStrategyCatalog,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
-    IStrategyChartOverlay,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
     SUPPORTED_LIVE_INTERVALS,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
@@ -51,11 +39,23 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_armed_strategy_reader import (
+    IArmedStrategyReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
     IEquityCurve,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_arming_control import (
+    IStrategyArmingControl,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
+    IStrategyCatalogReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_overlay_reader import (
+    IStrategyChartOverlayReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
@@ -316,23 +316,26 @@ class TradingPresenter(BasePresenter):
         # and restored (`EPIC-022F`) before the chart starts, so the card
         # is never briefly blank on a screen that already knows what the
         # user picked last session.
-        self._armed_strategy: IArmedStrategy = container.resolve(IArmedStrategy)
+        self._armed_strategy: IArmedStrategyReader = container.resolve(
+            IArmedStrategyReader
+        )
         self._arm_tracker: ActionOwnershipTracker[str, None, None] = (
             ActionOwnershipTracker()
         )
         self._overlay_coordinator = StrategyOverlayCoordinator(
             get_chart=lambda: self.view.chart,
-            chart_overlay=container.resolve(IStrategyChartOverlay),
+            chart_overlay=container.resolve(IStrategyChartOverlayReader),
         )
         self._arming_coordinator = StrategyArmingCoordinator(
-            # PR 2.1e gave the card one shared owner; PR 4.3m keeps it that
-            # way, just relocated out of `modules/strategy/ui/` (see
+            # PR 2.1e gave the card one shared owner; PR 4.3m kept it that
+            # way, just relocated out of `modules/strategy/ui/`; PR 4.4c
+            # (§8) rewires it onto trading's own reader/control ports (see
             # `TradingViewModel`'s docstring) — the card's own view model,
             # not the screen's, satisfying the Coordinator's narrower
             # Protocol.
             view_model=self._view_model.strategy,
-            catalog=container.resolve(IStrategyCatalog),
-            arming=container.resolve(IStrategyArming),
+            catalog=container.resolve(IStrategyCatalogReader),
+            arming=container.resolve(IStrategyArmingControl),
             get_active_symbol=lambda: self._active_symbol,
             get_armed_config=lambda: self._armed_strategy.armed().config,
             tracker=self._arm_tracker,

@@ -52,14 +52,14 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.sync_progress_r
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.symbol_options_coordinator import (
     SymbolOptionsCoordinator,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
-    SignalGeneratedEvent,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
     IStrategyCatalog,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_chart_overlay import (
     IStrategyChartOverlay,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_generated_event import (
+    SignalGeneratedEvent,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.screens.backtest.backtest_signal_payloads import (
     BacktestProgress,

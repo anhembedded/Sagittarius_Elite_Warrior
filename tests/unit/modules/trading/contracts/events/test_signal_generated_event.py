@@ -1,11 +1,11 @@
 from datetime import UTC, datetime
 
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
-    SignalGeneratedEvent,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_generated_event import (
+    SignalGeneratedEvent,
 )
 
 

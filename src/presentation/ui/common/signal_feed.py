@@ -10,10 +10,15 @@ half of that by surfacing the refusals (`LiveOrderBlockedEvent` reaching
 the Trading log); this Feed closes the other half by surfacing the
 signals themselves.
 
-`EPIC-025` PR 4.3m: its only tie to `strategy` is the published
-`SignalGeneratedEvent`, so this stays presentation's own file rather than
+`EPIC-025` PR 4.3m: its only tie to `strategy` was the published
+`SignalGeneratedEvent`, so this stayed presentation's own file rather than
 an import of `modules.strategy.ui.signal_feed` (`architecture-rule.md`
-§3, §6: a subscriber is owned by what it drives). Trading and Dev Board
+§3, §6: a subscriber is owned by what it drives). **PR 4.4c (§8) relocates
+that event's own home to `modules/trading/contracts/events/`** — the
+strategy-side publisher (`StrategyEngine`) keeps writing it, but the type
+itself is now trading's, so this file (bound for `modules/trading/ui/`
+alongside the screens once they move) never has to import
+`modules.strategy.contracts` for it either. Trading and Dev Board
 both want it — that is `architecture-rule.md` §6's "reasonable, not
 absurd" case for one shared Feed rather than a private signal per screen,
 and `tests/unit/architecture/test_presenter_duplication_only_shrinks.py`
@@ -41,7 +46,7 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import Signal
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.base_feed import BaseFeed

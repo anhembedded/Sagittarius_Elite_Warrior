@@ -169,3 +169,8 @@ src/config/secrets.local.json
 # Documentation site builds (MkDocs)
 site/
 Tasks/dashboard.html
+
+# Claude Code's own convention: settings.local.json is always the personal,
+# machine-local override file (see Claude Code's Settings File Locations),
+# never team policy. .claude/settings.json stays the committed, shared file.
+.claude/settings.local.json

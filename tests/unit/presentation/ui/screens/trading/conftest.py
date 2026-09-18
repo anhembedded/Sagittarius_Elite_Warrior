@@ -35,6 +35,18 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.armed_strategy_reader_adapter import (
+    ArmedStrategyReaderAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_arming_control_adapter import (
+    StrategyArmingControlAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_catalog_reader_adapter import (
+    StrategyCatalogReaderAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_chart_overlay_reader_adapter import (
+    StrategyChartOverlayReaderAdapter,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_factory import (
     LiveStrategyFactory,
 )
@@ -68,11 +80,23 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing import (
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_armed_strategy_reader import (
+    IArmedStrategyReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
     IEquityCurve,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_arming_control import (
+    IStrategyArmingControl,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
+    IStrategyCatalogReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_overlay_reader import (
+    IStrategyChartOverlayReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
@@ -279,6 +303,16 @@ def container(
             IStrategyCatalog: strategy_catalog,
             IStrategyChartOverlay: chart_overlay,
             IStrategyArming: strategy_arming,
+            # `EPIC-025` PR 4.4c (§8): `TradingPresenter` resolves these
+            # trading-owned ports, never the strategy-owned ones directly —
+            # wrapped with the same adapters `StrategyModule.register()`
+            # binds in production, over the same fakes above.
+            IArmedStrategyReader: ArmedStrategyReaderAdapter(strategy_session),
+            IStrategyCatalogReader: StrategyCatalogReaderAdapter(strategy_catalog),
+            IStrategyArmingControl: StrategyArmingControlAdapter(strategy_arming),
+            IStrategyChartOverlayReader: StrategyChartOverlayReaderAdapter(
+                chart_overlay
+            ),
             IMarketStream: market_stream,
             IHistoricalKlines: historical_klines,
             IMarketDataSync: market_data_sync,

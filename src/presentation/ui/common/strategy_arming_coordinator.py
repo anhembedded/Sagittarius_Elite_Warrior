@@ -2,9 +2,9 @@
 widgets.
 
 @details Holds the parameter values the user is editing, turns the card's
-two buttons into an arm/disarm request through `IStrategyArming`, and
+two buttons into an arm/disarm request through `IStrategyArmingControl`, and
 reads what strategies exist and their parameter forms through
-`IStrategyCatalog`.
+`IStrategyCatalogReader`.
 
 `EPIC-025` PR 4.3m: neither `trading` nor `dashboard` imports
 `modules.strategy.ui.*` or `modules.strategy.application.services.
@@ -18,6 +18,16 @@ the moment `strategy` becomes a module in PR 4.4). What crossed as
 persistence both kept inside `modules/strategy`
 (`DECISION_2026-09-17_strategy_ui_contributes_rather_than_being_imported.md`
 §5).
+
+**PR 4.4c (§8) inverts those two ports again**, this time so `trading` (this
+file's own future home once it moves with the screens) never has to import
+`modules.strategy.contracts` at all: `trading` now declares its own
+`IStrategyCatalogReader`/`IStrategyArmingControl` (`modules/trading/
+contracts/`), and `strategy`'s adapter implements them by wrapping the
+original `IStrategyCatalog`/`IStrategyArming` and translating field for
+field at the boundary. This file talks to the trading-owned ports only —
+`ArmedStrategyConfig` in, `ArmedStrategyConfig` out — never the strategy-owned
+ones underneath.
 
 **This file stays shared rather than becoming two per-screen copies.** An
 earlier PR 4.3m draft gave Trading and Dev Board a byte-identical copy
@@ -45,21 +55,21 @@ from collections.abc import Callable, Mapping
 from typing import Any, Protocol
 
 from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.arm_strategy_result import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
+    ArmedStrategyConfig,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_arming_control import (
+    IStrategyArmingControl,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
+    IStrategyCatalogReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.strategy_arm_result import (
     ArmStrategyBlockReason,
     ArmStrategyResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.disarm_strategy_result import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.strategy_disarm_result import (
     DisarmStrategyResult,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
-    IStrategyArming,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_catalog import (
-    IStrategyCatalog,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
-    LiveStrategyConfig,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -140,15 +150,15 @@ class StrategyArmingCoordinator:
     def __init__(
         self,
         view_model: StrategyCardViewModel,
-        catalog: IStrategyCatalog,
-        arming: IStrategyArming,
+        catalog: IStrategyCatalogReader,
+        arming: IStrategyArmingControl,
         get_active_symbol: Callable[[], str],
-        get_armed_config: Callable[[], LiveStrategyConfig | None],
+        get_armed_config: Callable[[], ArmedStrategyConfig | None],
         tracker: ActionOwnershipTracker,
         arm_action_kind: str,
         set_status: Callable[[str, bool], None],
         append_log: Callable[[str], None],
-        on_armed_changed: Callable[[LiveStrategyConfig | None, bool], None],
+        on_armed_changed: Callable[[ArmedStrategyConfig | None, bool], None],
     ) -> None:
         self._view_model = view_model
         self._catalog = catalog
@@ -183,8 +193,8 @@ class StrategyArmingCoordinator:
         nothing is armed, so the user still has to press "Nạp chiến lược"
         themselves.
 
-        `IStrategyArming.saved_selection()` never raises — an invalid saved
-        config restores as "nothing selected" inside the port itself.
+        `IStrategyArmingControl.saved_selection()` never raises — an invalid
+        saved config restores as "nothing selected" inside the port itself.
         """
         options = self._catalog.options()
         self._view_model.set_strategy_options(
@@ -229,7 +239,7 @@ class StrategyArmingCoordinator:
     def apply_params(self, raw_values: Mapping[str, Any]) -> bool:
         """@returns Whether the values were accepted.
 
-        @details Validation is `IStrategyCatalog.validate_params()` against
+        @details Validation is `IStrategyCatalogReader.validate_params()` against
         the strategy's own declared inputs — the same call the Backtest
         screen makes, so a value accepted on one screen cannot be rejected
         on the other.
@@ -250,8 +260,8 @@ class StrategyArmingCoordinator:
     # Arm / disarm
     # ------------------------------------------------------------------ #
 
-    def build_config(self) -> LiveStrategyConfig:
-        return LiveStrategyConfig(
+    def build_config(self) -> ArmedStrategyConfig:
+        return ArmedStrategyConfig(
             strategy_key=self._view_model.selectedStrategyKey,
             symbol=self._get_active_symbol(),
             interval=self._view_model.liveInterval,
@@ -344,15 +354,15 @@ class StrategyArmingCoordinator:
         self._on_armed_changed(self._get_armed_config(), busy)
 
     def arm(self) -> ArmStrategyResult:
-        """Runs the arm request through `IStrategyArming`; persistence on a
-        successful arm now happens inside the port's own implementation
+        """Runs the arm request through `IStrategyArmingControl`; persistence
+        on a successful arm now happens inside the port's own implementation
         (`EPIC-025` PR 4.3m O6) rather than here."""
         return self._arming.arm(self.build_config())
 
     def disarm(self) -> DisarmStrategyResult:
         return self._arming.disarm()
 
-    def armed_summary(self, config: LiveStrategyConfig | None) -> str:
+    def armed_summary(self, config: ArmedStrategyConfig | None) -> str:
         """One line describing what is actually running, or "" for nothing.
 
         @details Includes the parameters, not just the strategy name: two
