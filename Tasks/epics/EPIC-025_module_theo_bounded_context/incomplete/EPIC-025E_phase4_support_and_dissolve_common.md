@@ -5,6 +5,14 @@
 - **Blocked by:** D · **Blocks:** F
 - **Read first:** HLD §2.3 (a support package is not a bounded context: no business language, no
   business rules allowed), §3.4; ADR D6 (the per-module QML question is reopened here).
+- **User decision 2026-09-18 (PR #232's own review, `commit-rule.md` §3):** an independent reviewer
+  flagged that PR #232's `pyproject.toml` `[tool.mypy] exclude` re-key (14 lines, pure path move —
+  same mechanical shape as PR 1.6f/4.4a/4.4b) went in without the prior confirmation §3 requires for
+  any `pyproject.toml` edit. Retroactively confirmed for #232, and pre-authorized for the same class
+  of change — a mechanical exclude-path re-key with zero net coverage change — for the rest of this
+  phase (PRs 4.4d–4.4f), so it does not need asking again at each step. Anything that adds or drops
+  real coverage, rather than only relocating an existing exclusion, is outside this pre-authorization
+  and still needs asking.
 
 ## 1. What to do
 
