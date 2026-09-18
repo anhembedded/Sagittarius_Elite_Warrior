@@ -26,10 +26,10 @@ nothing in that module called it, so it came here with its two callers and
 @par `register()` binds the published ports, and only those
 PR 2.1b brought the code with no bindings at all; **PR 2.1c binds the one port
 it publishes** — `IArmedStrategy`, what is armed right now — onto the single
-`LiveStrategySession` that `binance_bot_module.py` already registers.
-`composition/port_bindings.py` explains why that is a lambda rather than
-construction: a second session built here would give the screens an armed state
-the tick path never drives, which is the class of bug the
+`LiveStrategySession` (`composition/state_bindings.py`, since PR 4.4f-2 —
+see below). `composition/port_bindings.py` explains why that is a lambda
+rather than construction: a second session built here would give the screens
+an armed state the tick path never drives, which is the class of bug the
 `ExchangeSessionFactory` split took four pull requests to leave behind.
 
 `IStrategyCatalog` was **not** here at 2.1c, and that was a measurement rather
@@ -54,14 +54,15 @@ collaborator with a lifecycle. A container binding nothing resolves is the dead
 wiring `BUG-120` was; it arrives in Phase 3 with `backtesting`, which will
 resolve it (`EPIC-025D`).
 
-Everything else is still that strangler root's: the registry itself, the live
-session, the factory, the config store and the two command handlers. It costs no
-boundary violation because the boundary scan skips that file by name
-(`tests/unit/architecture/boundaries/scan.py`) — it *is* the composition root
-the strangler is replacing. They were scheduled to move in PR 2.1d, on the
-expectation that `ISizingPolicy` would pass through `LiveStrategyFactory`'s
-arguments; measured, it does not touch them at all, so the move travels with
-PR 2.1e, where the strategy card and the chart overlay give it a reason.
+**`EPIC-025E` PR 4.4f-2 moved the rest** — the registry, the live session, the
+factory, the config store and the two command handlers — out of
+`binance_bot_module.py`, the last of this module's own state left there.
+They were scheduled to move in PR 2.1d, on the expectation that
+`ISizingPolicy` would pass through `LiveStrategyFactory`'s arguments;
+measured, it does not touch them at all, so that move travelled with PR
+2.1e instead (the strategy card and the chart overlay), and this state
+itself waited until 4.4f, once deleting the composition root was the actual
+reason to move it rather than a move with no reason of its own.
 
 @par `ui/` — arrived at PR 2.1e, gone again by PR 4.3m
 Eleven files arrived at PR 2.1e: `strategy_arming_coordinator` (the arm/disarm
@@ -133,6 +134,7 @@ Each absence is a measurement, not an omission:
 
 from __future__ import annotations
 
+import logging
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
@@ -144,12 +146,24 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.event_handlers.market_tick_event_handler import (
     MarketTickEventHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
+    LiveStrategyConfigStore,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.composition.command_bindings import (
+    bind_commands,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.composition.port_bindings import (
     bind_published_ports,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.composition.state_bindings import (
+    bind_state,
+)
+from sagittarius_engine.interfaces.i_config import IConfig
+
+logger = logging.getLogger("App.StrategyModule")
 
 
 class StrategyModule(BoundedContextModule):
@@ -188,25 +202,32 @@ class StrategyModule(BoundedContextModule):
     _tick_handler: MarketTickEventHandler | None = None
 
     def register(self, context: Any) -> None:
-        """The one published port, and only that (PR 2.1c).
+        """Binds this module's own state, commands and published ports.
 
-        The adapter and handler registrations still live in
-        `binance_bot_module.py` — see this module's docstring for why, and for
-        the pull request that moves them. This one needs nothing but the
-        container, and the lambda behind it resolves lazily, so the published
-        surface can be bound from inside the module while its internals wait.
+        `EPIC-025E` PR 4.4f-2 moved the registry, the factory/session pair
+        and the two arm/disarm commands out of `binance_bot_module.py` — see
+        this module's docstring for why now rather than earlier. Order
+        matters only in that `bind_state()` must run before anything resolves
+        `StrategyRegistry`/`LiveStrategyFactory`/`LiveStrategySession`, which
+        `bind_published_ports()`'s own lambdas do lazily, never during
+        `register()` itself.
         """
+        bind_state(context.container)
+        bind_commands(context.container)
         bind_published_ports(context.container)
 
     def boot(self, context: Any) -> None:
-        """Subscribe the live tick path — this context's own since PR 2.1c-2.
+        """Seeds the live strategy from config, then subscribes the tick path
+        — both this context's own since PR 2.1c-2 and PR 4.4f-2 respectively.
 
         `MarketTickEventHandler` used to live in
         `src/application/event_handlers/market_data/` and be subscribed by
         `binance_bot_module.boot()`. It reads one thing from `market_data`
         (the published `MarketTickEvent`) and drives one thing, this module's
         `LiveStrategySession` — so it is this module's subscriber, and its own
-        docstring carries the measurement.
+        docstring carries the measurement. `_arm_from_config()` (PR 4.4f-2,
+        moved unchanged from `binance_bot_module.boot()`) runs first, so the
+        session the tick handler is built from is already seeded.
 
         @par Why `boot()` and the raw bus, not the `subscribe(bridge)` hook
         `BoundedContextModule` declares `subscribe(bridge: QtEventBridge)`
@@ -237,7 +258,38 @@ class StrategyModule(BoundedContextModule):
         when it is, so an `off()` here would release nothing that outlives the
         process.
         """
-        self._tick_handler = MarketTickEventHandler(
-            context.container.resolve(LiveStrategySession)
-        )
+        session = context.container.resolve(LiveStrategySession)
+        self._arm_from_config(context.container.resolve(IConfig), session)
+
+        self._tick_handler = MarketTickEventHandler(session)
         context.event_bus.on(MarketTickEvent, self._tick_handler.handle)
+
+    @staticmethod
+    def _arm_from_config(config: IConfig, session: LiveStrategySession) -> None:
+        """Seeds the live strategy from `trading.live_*` at startup.
+
+        `EPIC-025E` PR 4.4f-2 — moved out of `binance_bot_module.boot()`
+        unchanged; see that file's own prior docstring (now removed) for the
+        `EPIC-021G`/`BUG-085` history behind the three-way completeness gate
+        `LiveStrategyConfig.is_complete` asks. A bad saved config (an unknown
+        strategy key, a parameter a strategy stopped declaring) is logged and
+        left disarmed rather than crashing the whole app boot.
+        """
+        try:
+            live_config = LiveStrategyConfigStore(config).load()
+        except ValueError as exc:
+            logger.warning(
+                "The saved strategy config is invalid (%s) — starting unarmed.",
+                exc,
+            )
+            return
+
+        if not live_config.is_complete:
+            return
+        try:
+            session.arm(live_config)
+        except ValueError as exc:
+            logger.warning(
+                "Could not arm the strategy saved in config (%s) — starting disarmed.",
+                exc,
+            )

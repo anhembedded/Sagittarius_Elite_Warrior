@@ -28,9 +28,10 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.volume_spi
 
 
 def _registry() -> StrategyRegistry:
-    """Mirrors how `binance_bot_module.py` populates a StrategyRegistry —
-    kept local rather than imported so this test doesn't depend on the DI
-    module (and its PySide6/engine imports) just to enumerate strategies."""
+    """Mirrors how `modules/strategy/composition/state_bindings.py` populates
+    a StrategyRegistry (`EPIC-025E` PR 4.4f-2, moved from `binance_bot_module.
+    py`) — kept local rather than imported so this test doesn't depend on the
+    DI module (and its PySide6/engine imports) just to enumerate strategies."""
     registry = StrategyRegistry()
     registry.register("ema_crossover", EmaCrossoverStrategy)
     registry.register("multi_ema_trend_follower", MultiEmaTrendFollowerStrategy)
