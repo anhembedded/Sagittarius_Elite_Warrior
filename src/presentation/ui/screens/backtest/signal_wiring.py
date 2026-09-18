@@ -21,7 +21,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.sync_progress_feed import (
     SyncProgressFeed,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.health_check_coordinator import (

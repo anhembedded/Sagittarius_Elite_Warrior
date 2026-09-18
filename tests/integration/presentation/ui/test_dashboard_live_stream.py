@@ -14,6 +14,15 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_hi
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.armed_strategy_reader_adapter import (
+    ArmedStrategyReaderAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_arming_control_adapter import (
+    StrategyArmingControlAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_catalog_reader_adapter import (
+    StrategyCatalogReaderAdapter,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_factory import (
     LiveStrategyFactory,
 )
@@ -50,8 +59,17 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crosso
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
     IAccountSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_armed_strategy_reader import (
+    IArmedStrategyReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
     IEquityCurve,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_arming_control import (
+    IStrategyArmingControl,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
+    IStrategyCatalogReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
     FakeAccountSnapshot,
@@ -154,6 +172,14 @@ def mock_app():
             return StrategyChartOverlayService(strategy_registry)
         if interface == IStrategyArming:
             return FakeStrategyArming()
+        if interface == IArmedStrategyReader:
+            return ArmedStrategyReaderAdapter(strategy_session)
+        if interface == IStrategyCatalogReader:
+            return StrategyCatalogReaderAdapter(
+                StrategyCatalogService(strategy_registry)
+            )
+        if interface == IStrategyArmingControl:
+            return StrategyArmingControlAdapter(FakeStrategyArming())
         if interface == IAccountSnapshot:
             return FakeAccountSnapshot()
         if interface == IEquityCurve:

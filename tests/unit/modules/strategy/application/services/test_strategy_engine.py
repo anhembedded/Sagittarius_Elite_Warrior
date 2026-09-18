@@ -8,15 +8,15 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_engine import (
     StrategyEngine,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
-    SignalGeneratedEvent,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.strategy_context import (
     StrategyContext,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_generated_event import (
+    SignalGeneratedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,

@@ -233,6 +233,15 @@ def mock_container(
 ):
     container = MagicMock()
 
+    from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.armed_strategy_reader_adapter import (
+        ArmedStrategyReaderAdapter,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_arming_control_adapter import (
+        StrategyArmingControlAdapter,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_catalog_reader_adapter import (
+        StrategyCatalogReaderAdapter,
+    )
     from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
         LiveStrategySession,
     )
@@ -260,11 +269,20 @@ def mock_container(
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
         IAccountSnapshot,
     )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_armed_strategy_reader import (
+        IArmedStrategyReader,
+    )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
         IEquityCurve,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
         IOrderSubmission,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_arming_control import (
+        IStrategyArmingControl,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
+        IStrategyCatalogReader,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
         ITradingSession,
@@ -311,6 +329,12 @@ def mock_container(
             return _chart_overlay
         if interface == IStrategyArming:
             return _strategy_arming
+        if interface == IArmedStrategyReader:
+            return ArmedStrategyReaderAdapter(strategy_session)
+        if interface == IStrategyCatalogReader:
+            return StrategyCatalogReaderAdapter(_strategy_catalog)
+        if interface == IStrategyArmingControl:
+            return StrategyArmingControlAdapter(_strategy_arming)
         if interface == IndicatorScriptRegistry:
             return script_registry
         if interface == IEquityCurve:
@@ -402,6 +426,15 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     `app_bootstrapper.py` shape — construction must hand the View that
     exact instance, so a Dev Board symbol-list rebuild reads/writes the
     same persisted, per-symbol pins as any other screen."""
+    from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.armed_strategy_reader_adapter import (
+        ArmedStrategyReaderAdapter,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_arming_control_adapter import (
+        StrategyArmingControlAdapter,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_catalog_reader_adapter import (
+        StrategyCatalogReaderAdapter,
+    )
     from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
         LiveStrategySession,
     )
@@ -429,11 +462,20 @@ def test_boot_wires_the_container_registered_store_into_the_view(
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
         IAccountSnapshot,
     )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_armed_strategy_reader import (
+        IArmedStrategyReader,
+    )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
         IEquityCurve,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
         IOrderSubmission,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_arming_control import (
+        IStrategyArmingControl,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
+        IStrategyCatalogReader,
     )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
         ITradingSession,
@@ -467,6 +509,12 @@ def test_boot_wires_the_container_registered_store_into_the_view(
             return _chart_overlay
         if interface == IStrategyArming:
             return _strategy_arming
+        if interface == IArmedStrategyReader:
+            return ArmedStrategyReaderAdapter(strategy_session)
+        if interface == IStrategyCatalogReader:
+            return StrategyCatalogReaderAdapter(_strategy_catalog)
+        if interface == IStrategyArmingControl:
+            return StrategyArmingControlAdapter(_strategy_arming)
         if interface == IThreadManager:
             return mock_thread_mgr
         if interface == IndicatorScriptRegistry:
@@ -2204,12 +2252,12 @@ def test_disarm_requested_delegates_to_the_coordinator(presenter, monkeypatch):
 def _signal_event(symbol="BTCUSDT"):
     from datetime import UTC, datetime
 
-    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
-        SignalGeneratedEvent,
-    )
     from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
     from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
         SignalAction,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_generated_event import (
+        SignalGeneratedEvent,
     )
 
     signal = Signal(

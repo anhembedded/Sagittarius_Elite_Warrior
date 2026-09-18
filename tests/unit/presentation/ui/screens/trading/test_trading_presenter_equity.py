@@ -19,6 +19,18 @@ from unittest.mock import MagicMock
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.armed_strategy_reader_adapter import (
+    ArmedStrategyReaderAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_arming_control_adapter import (
+    StrategyArmingControlAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_catalog_reader_adapter import (
+    StrategyCatalogReaderAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_chart_overlay_reader_adapter import (
+    StrategyChartOverlayReaderAdapter,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
@@ -43,8 +55,20 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_armed_strategy_reader import (
+    IArmedStrategyReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
     IEquityCurve,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_arming_control import (
+    IStrategyArmingControl,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
+    IStrategyCatalogReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_overlay_reader import (
+    IStrategyChartOverlayReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
@@ -120,6 +144,12 @@ def container(
             IStrategyCatalog: strategy_catalog,
             IStrategyChartOverlay: chart_overlay,
             IStrategyArming: strategy_arming,
+            IArmedStrategyReader: ArmedStrategyReaderAdapter(strategy_session),
+            IStrategyCatalogReader: StrategyCatalogReaderAdapter(strategy_catalog),
+            IStrategyArmingControl: StrategyArmingControlAdapter(strategy_arming),
+            IStrategyChartOverlayReader: StrategyChartOverlayReaderAdapter(
+                chart_overlay
+            ),
         }
     )
 

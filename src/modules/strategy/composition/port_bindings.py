@@ -45,6 +45,18 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.armed_strategy_reader_adapter import (
+    ArmedStrategyReaderAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_arming_control_adapter import (
+    StrategyArmingControlAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_catalog_reader_adapter import (
+    StrategyCatalogReaderAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_chart_overlay_reader_adapter import (
+    StrategyChartOverlayReaderAdapter,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
@@ -84,20 +96,40 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_engine 
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.margin_sizing_policy import (
     MarginSizingPolicy,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_armed_strategy_reader import (
+    IArmedStrategyReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_arming_control import (
+    IStrategyArmingControl,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
+    IStrategyCatalogReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_overlay_reader import (
+    IStrategyChartOverlayReader,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
 def bind_published_ports(container: IContainer) -> None:
-    """`IArmedStrategy` (PR 2.1c), PR 3.1b's two for `backtesting`, and PR
-    4.3m's three — `trading`/`dashboard`/`backtest` stop importing this
-    module's `ui/`/`application/` directly and read/write through these
-    instead (`DECISION_2026-09-17_strategy_ui_contributes_rather_than_being_imported.md`)."""
+    """`IArmedStrategy` (PR 2.1c), PR 3.1b's two for `backtesting`, PR
+    4.3m's three, and PR 4.4c's four trading-owned reader/control ports
+    (`DECISION_2026-09-17_strategy_ui_contributes_rather_than_being_imported.md`
+    §8) — `trading`/`dashboard`/`backtest` stop importing this module's
+    `ui/`/`application/`/`contracts/` directly and read/write through
+    these instead. The four §8 ports bind adapters, never the services
+    themselves: `trading`'s own contract, implemented on this side of the
+    boundary, is what keeps `trading.dependencies` free of `"strategy"`."""
     container.singleton(IArmedStrategy, _the_live_session)
     container.singleton(IStrategyEngineFactory, _the_engine_factory)
     container.singleton(ISizingPolicy, MarginSizingPolicy)
     container.singleton(IStrategyCatalog, _the_catalog)
     container.singleton(IStrategyChartOverlay, _the_chart_overlay)
     container.singleton(IStrategyArming, StrategyArmingService)
+    container.singleton(IArmedStrategyReader, _the_armed_strategy_reader)
+    container.singleton(IStrategyCatalogReader, _the_strategy_catalog_reader)
+    container.singleton(IStrategyArmingControl, _the_strategy_arming_control)
+    container.singleton(IStrategyChartOverlayReader, _the_strategy_chart_overlay_reader)
 
 
 def _the_live_session(container: IContainer) -> IArmedStrategy:
@@ -128,3 +160,23 @@ def _the_catalog(container: IContainer) -> IStrategyCatalog:
 
 def _the_chart_overlay(container: IContainer) -> IStrategyChartOverlay:
     return StrategyChartOverlayService(container.resolve(StrategyRegistry))
+
+
+def _the_armed_strategy_reader(container: IContainer) -> IArmedStrategyReader:
+    """Wraps the already-bound `IArmedStrategy`, never a fresh
+    `LiveStrategySession` — one armed session for the whole app, as above."""
+    return ArmedStrategyReaderAdapter(container.resolve(IArmedStrategy))
+
+
+def _the_strategy_catalog_reader(container: IContainer) -> IStrategyCatalogReader:
+    return StrategyCatalogReaderAdapter(container.resolve(IStrategyCatalog))
+
+
+def _the_strategy_arming_control(container: IContainer) -> IStrategyArmingControl:
+    return StrategyArmingControlAdapter(container.resolve(IStrategyArming))
+
+
+def _the_strategy_chart_overlay_reader(
+    container: IContainer,
+) -> IStrategyChartOverlayReader:
+    return StrategyChartOverlayReaderAdapter(container.resolve(IStrategyChartOverlay))

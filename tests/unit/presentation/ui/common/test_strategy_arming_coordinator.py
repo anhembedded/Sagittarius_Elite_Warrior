@@ -23,6 +23,12 @@ from __future__ import annotations
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_arming_control_adapter import (
+    StrategyArmingControlAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_catalog_reader_adapter import (
+    StrategyCatalogReaderAdapter,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
     StrategyCatalogService,
 )
@@ -45,6 +51,15 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.testing import (
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
+    ArmedStrategyConfig,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.strategy_arm_result import (
+    ArmStrategyBlockReason as TradingArmStrategyBlockReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.strategy_disarm_result import (
+    DisarmStrategyBlockReason as TradingDisarmStrategyBlockReason,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.common.strategy_arming_coordinator import (
     StrategyArmingCoordinator,
@@ -123,10 +138,17 @@ def view_model() -> _FakeCardViewModel:
 
 
 def _coordinator(view_model, catalog, arming, armed=None):
+    """Wraps the raw strategy-owned `catalog`/`arming` fakes with the same
+    adapters `StrategyModule.register()` binds in production
+    (`EPIC-025` PR 4.4c §8) — the coordinator now talks to trading's own
+    `IStrategyCatalogReader`/`IStrategyArmingControl`, never the
+    strategy-owned ports directly. Tests still script and introspect the
+    RAW fake (`arming.armed_with`, `arming.script_arm()`, …), on the other
+    side of that same adapter."""
     return StrategyArmingCoordinator(
         view_model=view_model,
-        catalog=catalog,
-        arming=arming,
+        catalog=StrategyCatalogReaderAdapter(catalog),
+        arming=StrategyArmingControlAdapter(arming),
         get_active_symbol=lambda: "BTCUSDT",
         get_armed_config=lambda: armed,
         tracker=ActionOwnershipTracker(),
@@ -269,7 +291,7 @@ def test_a_refused_arm_is_reported_by_the_ports_own_result(view_model, catalog, 
     result = coordinator.arm()
 
     assert result.armed is False
-    assert result.block_reason is ArmStrategyBlockReason.TRADING_IS_ENABLED
+    assert result.block_reason is TradingArmStrategyBlockReason.TRADING_IS_ENABLED
 
 
 def test_disarm_calls_the_port(view_model, catalog, arming):
@@ -294,7 +316,7 @@ def test_a_blocked_disarm_is_reported_not_swallowed(view_model, catalog, arming)
     result = coordinator.disarm()
 
     assert result.disarmed is False
-    assert result.block_reason is DisarmStrategyBlockReason.TRADING_IS_ENABLED
+    assert result.block_reason is TradingDisarmStrategyBlockReason.TRADING_IS_ENABLED
 
 
 def test_the_armed_summary_distinguishes_two_armings_of_one_strategy(
@@ -304,13 +326,13 @@ def test_the_armed_summary_distinguishes_two_armings_of_one_strategy(
     bots; a summary that could not tell them apart would be the same kind
     of half-truth this epic removed from the toggle."""
     coordinator = _coordinator(view_model, catalog, arming)
-    fast = LiveStrategyConfig(
+    fast = ArmedStrategyConfig(
         strategy_key=TEST_STRATEGY_KEY,
         symbol="BTCUSDT",
         interval="1m",
         strategy_params={"fast_period": 5},
     )
-    slow = LiveStrategyConfig(
+    slow = ArmedStrategyConfig(
         strategy_key=TEST_STRATEGY_KEY,
         symbol="BTCUSDT",
         interval="1m",
@@ -333,7 +355,7 @@ def test_humanized_labels_never_replace_the_catalog_key(view_model, catalog, arm
     assert options[0]["key"] == TEST_STRATEGY_KEY
     assert options[0]["label"] != options[0]["key"]
     assert coordinator.armed_summary(
-        LiveStrategyConfig(
+        ArmedStrategyConfig(
             strategy_key=TEST_STRATEGY_KEY, symbol="BTCUSDT", interval="1m"
         )
     ).startswith(options[0]["label"])
@@ -342,12 +364,12 @@ def test_humanized_labels_never_replace_the_catalog_key(view_model, catalog, arm
 def _signal_event(symbol: str):
     from datetime import UTC, datetime
 
-    from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
-        SignalGeneratedEvent,
-    )
     from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
     from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
         SignalAction,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_generated_event import (
+        SignalGeneratedEvent,
     )
 
     signal = Signal(
@@ -366,7 +388,7 @@ def test_on_signal_generated_updates_the_card_for_the_armed_symbol(
     """`SignalFeed.signalGenerated` connects straight to this method now
     (`EPIC-025` PR 4.3m) — no per-screen `_on_signal_generated` wrapper
     left to duplicate."""
-    armed = LiveStrategyConfig(
+    armed = ArmedStrategyConfig(
         strategy_key=TEST_STRATEGY_KEY, symbol="BTCUSDT", interval="1m"
     )
     coordinator = _coordinator(view_model, catalog, arming, armed=armed)
@@ -382,7 +404,7 @@ def test_on_signal_generated_for_a_different_symbol_is_ignored(
 ):
     """A backtest run's own `StrategyEngine` publishes on the same bus —
     this is the filter that keeps its output off a live card."""
-    armed = LiveStrategyConfig(
+    armed = ArmedStrategyConfig(
         strategy_key=TEST_STRATEGY_KEY, symbol="BTCUSDT", interval="1m"
     )
     coordinator = _coordinator(view_model, catalog, arming, armed=armed)

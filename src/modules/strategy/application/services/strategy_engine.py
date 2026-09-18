@@ -4,9 +4,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.events.signal_generated_event import (
-    SignalGeneratedEvent,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_engine import (
     IStrategyEngine,
 )
@@ -20,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.i_strategy
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.strategy_context import (
     IndicatorValue,
     StrategyContext,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_generated_event import (
+    SignalGeneratedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
