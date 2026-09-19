@@ -23,6 +23,25 @@
    docstring already commits to, is part of this step's own scope, not a separate follow-up.
 2. The application's `IContributionRegistry` is rebuilt on the Engine's slot registry (the
    application keeps the **kinds** — that is policy).
+
+   **The one blocking gap this needed is closed, 2026-09-19.** The Engine's `TASK-043` E1 harvest
+   step needs this app's `place`/`surface_id` identities to already be opaque-string-typed before
+   `ContributionDescriptor`/`ContributionRegistry`'s shape can move — verified by reading both
+   sides: `surface_id: str` already was; `place: Place` was not, because `Place`
+   (`core/contracts/place.py`) was a bare `Enum`, `isinstance(place, str)` was `False`. Fixed by
+   the one-line, fully backward-compatible change this codebase already uses ~40 times elsewhere
+   (`support/binance_gateway/contracts/trading_venue.py` and its siblings): `class Place(Enum)` →
+   `class Place(str, Enum)`. Verified on this repo's own Python 3.12 that the mixin changes nothing
+   observable — `str(Place.X)` still prints `"Place.X"` (this Python version's `(str, Enum)` does
+   not adopt `StrEnum`'s different `__str__`), member-to-member equality/hash unaffected, and
+   `grep` confirmed no existing call site compares a `Place` member against a bare string literal
+   — only `isinstance(Place.X, str)` and `Place.X == "x"`, both newly `True`, changed at all. Full
+   local ladder green: `ruff`/`mypy` clean (632 files), `tests/unit/architecture` 420, the 106
+   tests across every file touching `Place`/`ContributionRegistry`/`ContributionDescriptor`, full
+   `tests/unit`/`tests/sanity`/`tests/integration` all green. `Place` itself is unchanged as this
+   app's own closed, HLD-governed vocabulary — only its runtime type gained the `str` mixin the
+   Engine's own future mechanism needs to treat it as opaque. Documented on the Engine side too:
+   `Sagittarius_Engine` `Tasks/in_progress/TASK-043_...md`'s E1 row.
 3. Every new Engine API is declared in `engine_capabilities.py` (`BOT-133`).
 4. The Engine's screen conformance suite runs against **every** surface of this application.
 
