@@ -164,6 +164,19 @@ watchdog that actually fires. Verified the marker is scoped correctly, not just 
 tests; the same query against `tests/unit/architecture/` collects 0. Full tier re-run after
 the rescope: 43 passed, 4 skipped, no regression; `tests/unit/architecture -q`: 419 passed.
 
+**2026-09-19, reproduction attempts under the gate's actual shape.** Three more runs,
+`pytest tests/integration/presentation/ui -q -n 4` (xdist, default worker count on this
+4-core box — matches `ci-local.ps1`'s `min(nproc, 6)`; `pytest-randomly` left enabled,
+unlike the earlier sequential runs): **3/3 clean**, 43 passed / 4 skipped, ~28s each. Plus
+two full-gate GitHub Actions runs on this same branch (`39ce8ad2`, `ddedd341`), both of
+which exercise this tier under xdist+randomly as part of the 5052-test unit+integration
+run: both green, log-scanned, no hang.
+
+**Running total: 15/15 clean** across sequential (10) and parallel/randomized (5) shapes,
+on the current tree with both hardening changes in place. No reproduction since picking
+this back up. Recommendation and disposition options handed to the user rather than
+decided here — see chat.
+
 **Status:** left Open. The diagnostic improvements are real, standalone value on their own
 (a future hang in this tier now fails loudly and names itself instead of silently eating the
 CI timeout budget) and are not being held back by non-reproduction — but they are not a fix
