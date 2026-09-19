@@ -39,6 +39,8 @@ if str(_SUPERPROJECT) not in sys.path:
 
 from PySide6.QtGui import QColor, QGuiApplication
 from PySide6.QtWidgets import QApplication
+from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
+
 from Sagittarius_Elite_Warrior.src.support.ui_kit.embed import QuickSurface
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Panel,
@@ -48,7 +50,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
     seed_app_theme,
 )
-from sagittarius_engine.extensions.pyside_mvc import get_theme_bridge
 
 _WINDOW_SIZE = 300
 _MARGIN = 30

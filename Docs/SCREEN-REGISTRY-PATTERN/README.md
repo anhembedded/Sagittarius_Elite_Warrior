@@ -4,7 +4,7 @@
 - **Vị trí lưu trữ:** `Docs/SCREEN-REGISTRY-PATTERN/README.md`
 - **Phiên bản:** 2.1 (Bổ sung `ISidebar` Protocol, `Section Sequence`, `select_section()`, `AbstractScreenModule`, và ghi chú thiết kế sau review kiến trúc)
 - **Mục tiêu:** Xoá bỏ hoàn toàn thiết kế cứng nhắc (Hard Design) trong `MainWindow`, chuẩn hoá hợp đồng trừu tượng cho Sidebar (`ISidebar`), quản lý phân cấp Section đa tầng (Section Sequence & Item Sequence), và cung cấp `AbstractScreenModule` làm khung chuẩn cho mọi màn hình mới.
-- **Trạng thái:** Đề xuất (proposal) — chưa triển khai. Đây là tài liệu Ý TƯỞNG kiến trúc; chi tiết code trong tài liệu là minh hoạ cho ý tưởng, không phải bản implementation cuối cùng.
+- **Trạng thái:** Đề xuất (proposal) — đã triển khai một phần trong `EPIC-016`. Cơ chế `AbstractScreenModule` và `register_module()` sau đó đã chính thức nghỉ hưu tại `EPIC-025F PR 5.5` để chuyển hoàn toàn sang `ScreenContribution` và `ScreenDescriptor` kết hợp `NavigationService`. Chi tiết code trong tài liệu này được giữ lại dưới dạng minh hoạ lịch sử ý tưởng.
 
 ---
 

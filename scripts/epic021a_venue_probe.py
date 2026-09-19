@@ -26,6 +26,7 @@ Run from the superproject root with the venv Python:
 from __future__ import annotations
 
 from binance.client import BaseClient, Client
+
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
     MarketDataSessionFactory,
 )

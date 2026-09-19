@@ -175,18 +175,4 @@ session has started that prototype yet — not blocked on someone else's decisio
    with a clean `_make_descriptor()` builder, directly exercising `ScreenRegistry.register()` across all 12
    tests with zero mock module overhead.
    Advanced `NavigationService` integration: `MainWindow` now accepts optional constructor injection of
-   `navigation_service: INavigationService | None = None` and exposes `@property def navigation_service`.
-   `src/presentation/ui/app_bootstrapper.py` registers `window.navigation_service` as a container singleton
-   for `INavigationService`, enabling components and coordinators across the application to navigate decoupled
-   from `MainWindow`. Added dedicated unit coverage in `tests/unit/presentation/ui/test_main_window_navigation.py`.
-   Full verification: 27 unit tests passed (`test_navigation_service.py`, `test_screen_registry.py`,
-   `test_main_window_navigation.py`, `test_screen_wiring.py`), 5 integration tests passed in
-   `test_main_window_state.py`, 10 sanity tests passed in `test_composition_root.py`, 418 architecture tests
-   passed, ruff clean, CI-faithful mypy clean across 635 source files.
-3. Every new Engine API is declared in `engine_capabilities.py` (`BOT-133`). Both `ContributionRegistry`
-   and `RegionHost` capabilities are now declared.
-4. The Engine's screen conformance suite runs against **every** surface of this application (PR 5.6).
-
-## 2. Done when
-
 - `main_window.py` imports no screen; navigation is built entirely from self-description.

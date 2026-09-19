@@ -16,6 +16,8 @@ Run from the superproject root with the venv Python:
 
 from __future__ import annotations
 
+from sagittarius_engine.utils.path_utils import PathUtils
+
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
     ENV_API_KEY,
     EnvFirstCredentialsProvider,
@@ -26,7 +28,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
 )
-from sagittarius_engine.utils.path_utils import PathUtils
 
 _SOURCE_LABEL = {
     CredentialsSource.ENV: f"ENV ({ENV_API_KEY})",

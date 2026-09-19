@@ -26,6 +26,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from binance.client import Client
+
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
     InMemoryFuturesSymbolMetadataCache,
 )

@@ -14,6 +14,8 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from collections.abc import Iterator
 
 from PySide6.QtWidgets import QApplication
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
+
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -37,7 +39,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
     seed_app_theme,
 )
-from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 _START_TIMEOUT_SECONDS = 5.0
 _FINISH_TIMEOUT_SECONDS = 5.0

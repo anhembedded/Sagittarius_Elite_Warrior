@@ -37,6 +37,7 @@ import traceback
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QTimer
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.app_bootstrapper import (
     build,
     teardown,

@@ -79,6 +79,7 @@ from binance_fake_server import (  # type: ignore[import-not-found]
 )
 from PySide6.QtCore import QEventLoop, QTimer
 from PySide6.QtWidgets import QApplication
+
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import (
     MainWindow,
 )

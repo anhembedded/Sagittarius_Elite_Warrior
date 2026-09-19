@@ -31,6 +31,8 @@ from collections.abc import Callable
 from dataclasses import dataclass
 
 from PySide6 import QtCore
+from sagittarius_engine.infrastructure.thread_manager import ThreadManager
+
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
@@ -38,7 +40,6 @@ from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry 
 from Sagittarius_Elite_Warrior.src.support.indicators.ui.runner import (
     IndicatorScriptRunner,
 )
-from sagittarius_engine.infrastructure.thread_manager import ThreadManager
 
 
 class SignalBridge(QtCore.QObject):
