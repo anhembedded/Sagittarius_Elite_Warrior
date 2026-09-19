@@ -9,25 +9,83 @@ points now call it, and when Phase 1 starts moving contexts into `src/modules/`,
 This file is the one place in `src/shell/` allowed to import the legacy tree,
 because that is what a composition root does: it knows every component so that
 no component has to know another. `test_module_boundaries.py` records it in
-`COMPOSITION_ROOT_FILES`, beside `main.py` and `binance_bot_module.py`, and the
-imports leave with the legacy tree in Phase 4.
+`COMPOSITION_ROOT_FILES`, beside `main.py`, and (until `EPIC-025E` PR 4.4f-5
+deleted it) `binance_bot_module.py`.
+
+`EPIC-025E` PR 4.4f-5 inlined `binance_bot_module.py`'s last two
+responsibilities directly here, since neither is owned by any one bounded
+context: the shared core engine-adapter ports (`IEventPublisher`/
+`IConfigReader`/`ICommandDispatcher` — `EPIC-008F`) and the indicator-script
+registry. `_register_indicator_scripts()` below is that module's own
+`_register_indicator_scripts()` verbatim, and the three engine-adapter
+bindings sit inline in `create_app()` — they need no `register()`/`boot()`
+split of their own, since `event_bus`, `config_manager` and `app` are already
+resolved local variables here, not values a module would need to fetch from
+a `RegisteringContainer` (`Docs/SDD/04_boot_and_configuration.md` §4).
 """
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
     ICliCommandTable,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import (
+    IConfigReader,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_config_writer import IConfigWriter
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.command_dispatcher_adapter import (
+    EngineCommandDispatcher,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.config_reader_adapter import (
+    EngineConfigReader,
+)
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.engine_capability_validator_extension import (
     EngineCapabilityValidatorExtension,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
+    EngineEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
 from Sagittarius_Elite_Warrior.src.shell.config_writer import ConfigManagerWriter
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
 from Sagittarius_Elite_Warrior.src.shell.modules import MODULES, RegisteredModules
 from Sagittarius_Elite_Warrior.src.shell.system_failure_log import SystemFailureLog
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
+    IndicatorScriptRegistry,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.dev_indicator_script import (
+    DevIndicatorScript,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_20_script import (
+    Ema20Script,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_50_script import (
+    Ema50Script,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_100_script import (
+    Ema100Script,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_200_script import (
+    Ema200Script,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_cross_script import (
+    EmaCrossScript,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.ema_ribbon_script import (
+    EmaRibbonScript,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.macd_full_script import (
+    MacdFullScript,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_scripts.rsi_14_script import (
+    Rsi14Script,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     AssetValidatorExtension,
 )
@@ -47,9 +105,25 @@ from sagittarius_engine.infrastructure.logging.std_logger import StdLogger
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
+from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 from sagittarius_engine.middleware.pydantic_validation_middleware import (
     PydanticValidationMiddleware,
 )
+
+
+def _register_indicator_scripts(container: IContainer) -> None:
+    """Registers all domain indicator scripts into IndicatorScriptRegistry."""
+    script_registry = IndicatorScriptRegistry()
+    script_registry.register("rsi_14", Rsi14Script)
+    script_registry.register("ema_20", Ema20Script)
+    script_registry.register("ema_50", Ema50Script)
+    script_registry.register("ema_100", Ema100Script)
+    script_registry.register("ema_200", Ema200Script)
+    script_registry.register("macd_full", MacdFullScript)
+    script_registry.register("ema_ribbon", EmaRibbonScript)
+    script_registry.register("ema_cross", EmaCrossScript)
+    script_registry.register("dev_showcase", DevIndicatorScript)
+    container.singleton(IndicatorScriptRegistry, script_registry)
 
 
 def create_app(config_manager: ConfigManager) -> App:
@@ -97,6 +171,20 @@ def create_app(config_manager: ConfigManager) -> App:
 
     app = App(container, event_bus)
 
+    # `EPIC-008F` — the Application layer talks to the engine only through
+    # these three ports; the adapters are the only place naming `IEventBus`,
+    # `IConfig` or `IDispatcher`. Bound inline here (not in a module's
+    # `register()`) since no bounded context owns them, and `app.context`'s
+    # `tasks`/`dispatcher` are already available at this point — populated by
+    # `EngineContext.__init__` before any `register()`/`boot()` runs.
+    container.singleton(ITaskManager, app.context.tasks)
+    container.singleton(IEventPublisher, EngineEventPublisher(event_bus))
+    container.singleton(IConfigReader, EngineConfigReader(config_manager))
+    container.singleton(
+        ICommandDispatcher, EngineCommandDispatcher(app.context.dispatcher)
+    )
+    _register_indicator_scripts(container)
+
     # Load Framework Extensions
     app.use(DependencyValidatorExtension(["PySide6", "pyqtgraph", "sqlalchemy"]))
     # Presence first (above), then capability: the engine can be installed and
@@ -109,15 +197,10 @@ def create_app(config_manager: ConfigManager) -> App:
     app.use(LoggerExtension())
     app.use(ThreadManagerExtension())
 
-    # Load Domain Module (Registers Repositories & UseCases)
-    app.use(BinanceBotModule())
-
     # The bounded contexts, in the order `shell/modules.py` lists them — that
     # list is the mechanism, not the Engine's dependency sort (SDD boot step 3).
     # `register_modules` enforces both `register()` rules as each one goes in
-    # (no resolve, no second claim of one abstract type). Empty until PR 0.4
-    # brings `market_data`; `BinanceBotModule` above still carries every
-    # context during the strangler period.
+    # (no resolve, no second claim of one abstract type).
     modules, _ = register_modules(app, MODULES)
     # The instances, for the entry point that will call `contribute()` after
     # `boot()` — see `RegisteredModules`' own docstring for why a second

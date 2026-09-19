@@ -185,7 +185,8 @@ def test_every_use_case_resolves_to_a_handler(booted_app):
     )
     assert unresolved == [], (
         f"{len(unresolved)} of {checked} use cases do not resolve through the "
-        f"real container — check binance_bot_module.py:\n  " + "\n  ".join(unresolved)
+        f"real container — check its module's composition/ bindings or "
+        f"shell/composition_root.py:\n  " + "\n  ".join(unresolved)
     )
 
 
