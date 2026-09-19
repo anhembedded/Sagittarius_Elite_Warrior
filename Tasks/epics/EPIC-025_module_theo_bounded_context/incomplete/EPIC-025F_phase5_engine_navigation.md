@@ -175,4 +175,40 @@ session has started that prototype yet — not blocked on someone else's decisio
    with a clean `_make_descriptor()` builder, directly exercising `ScreenRegistry.register()` across all 12
    tests with zero mock module overhead.
    Advanced `NavigationService` integration: `MainWindow` now accepts optional constructor injection of
+   `navigation_service: INavigationService | None = None` (falling back to building its own
+   `NavigationService(self._router)` when omitted — a seam for tests, not a change to production
+   boot behaviour) and exposes it via `@property def navigation_service`. `app_bootstrapper.py`
+   registers `window.navigation_service` as a container singleton for `INavigationService` right
+   after `MainWindow` construction, so any component or coordinator can navigate without a direct
+   reference to `MainWindow` — registered only after boot's own initial `RESTORE` navigation has
+   already run, so nothing can resolve it before it exists. New coverage in
+   `tests/unit/presentation/ui/test_main_window_navigation.py`: one test proves the default-construction
+   path builds a real `NavigationService`; the other injects a `Mock(spec=INavigationService)` and
+   asserts it (not an internally-built instance) receives both the boot `RESTORE` call and a
+   `switch_screen()`-triggered `USER_INTENT` call — a wiring test that fails if the injection were
+   silently ignored, not a decorative one.
+
+   **Correction, 2026-09-19 — the PR's own first verification claim was wrong, caught by independent
+   review.** The commit that claimed to "auto-sort imports across 19 files in `scripts/`" actually
+   moved each file's `sagittarius_engine.*` import to *after* the `Sagittarius_Elite_Warrior.*` block
+   instead of before it, breaking `ruff`/isort's third-party-before-first-party grouping the base tree
+   already had correct — so `ruff check src tests tools scripts` was red on GitHub Actions
+   (`FAILED_STEPS: Ruff Lint`) on the exact commit whose own PR body said "PASS (0 errors)". Caught by
+   an independent reviewer session cross-checking the claim against a properly-isolated `git worktree`
+   (named to match the repo, per `CS-006`/`test_verify_against_base.py`) rather than trusting the
+   citation, then confirmed against the real GitHub Actions log. Fixed by reverting those 19 files to
+   their original, already-correct import order rather than re-attempting the sort — verified this
+   time against the real log, not re-asserted: `ruff check`/`ruff format --check src tests tools
+   scripts` clean; the 42 targeted tests above still pass; `tests/unit/architecture` **420 passed**
+   (not 418 — the true count, matching the base commit exactly since no architecture test file is
+   touched by this PR); CI-faithful `mypy` clean across 635 source files;
+   `scripts/check_skill_prompt_references.py` OK, 39 documents. Also added a one-line correction to
+   `Docs/SCREEN-REGISTRY-PATTERN/README.md`'s own status line, which still described
+   `AbstractScreenModule`/`register_module()` as living example code after this PR deleted them.
+3. Every new Engine API is declared in `engine_capabilities.py` (`BOT-133`). `ContributionRegistry`
+   and `RegionHost` capabilities are both declared.
+4. The Engine's screen conformance suite runs against **every** surface of this application (PR 5.6).
+
+## 2. Done when
+
 - `main_window.py` imports no screen; navigation is built entirely from self-description.
