@@ -54,6 +54,19 @@ _REPO_PARENT = Path(__file__).resolve().parents[4]
 _WIDGET_PACKAGE_MARKERS = (".ui.", ".ui_widgets.", "presentation.ui.")
 
 
+def _stash_container_if_needed(module: object) -> None:
+    """`EPIC-025F` PR 5.2: `TradingModule`/`BacktestingModule` need `boot()`
+    to have stashed a container before `contribute()` runs (their
+    `dashboard_screen(self._container)`/`backtest_screen(self._container)`
+    calls) — this file calls `contribute()` in isolation, the same way
+    `tests/unit/shell/test_screen_wiring.py` and `tests/conftest.py`'s fake
+    path do, so it stashes a sentinel the same way. Any object works: this
+    guard proves the factory is never *called*, only referenced, so the
+    container's own resolvability is never exercised."""
+    if hasattr(module, "_container"):
+        module._container = object()  # type: ignore[attr-defined]
+
+
 class _RecordingRegistry(IContributionRegistry):
     """Takes descriptors and gives nothing back — what a module sees."""
 
@@ -82,7 +95,9 @@ def test_contribute_imports_no_widget_module() -> None:
 
     registry = _RecordingRegistry()
     for module_cls in MODULES:
-        module_cls().contribute(registry)
+        module = module_cls()
+        _stash_container_if_needed(module)
+        module.contribute(registry)
 
     new_widget_modules = _widget_modules_in(set(sys.modules)) - before
     assert not new_widget_modules, (
@@ -120,7 +135,10 @@ def test_contribute_costs_a_headless_run_no_qt_import_at_all() -> None:
 
         registry = Registry()
         for module_cls in MODULES:
-            module_cls().contribute(registry)
+            module = module_cls()
+            if hasattr(module, "_container"):
+                module._container = object()
+            module.contribute(registry)
 
         qt = sorted(name for name in sys.modules if name.startswith("PySide6"))
         print(";".join(qt))
@@ -148,7 +166,9 @@ def test_the_modules_that_contribute_are_the_ones_that_say_they_do() -> None:
     contributing, which is exactly when it stops being able to fail."""
     registry = _RecordingRegistry()
     for module_cls in MODULES:
-        module_cls().contribute(registry)
+        module = module_cls()
+        _stash_container_if_needed(module)
+        module.contribute(registry)
 
     contributors = {descriptor.contributor_id for descriptor in registry.descriptors}
     assert contributors == {"trading", "market_data"}, (

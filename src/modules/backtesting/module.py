@@ -49,8 +49,24 @@ the user refused on 2026-09-16 for Phase 1's two screens
 travels the same way: it becomes `modules/backtesting/ui/` in Phase 4, as its
 eleven QML modals become `QDialog`s and its panels docks.
 
-@par `contribute()`, `declare_cli()`, `subscribe()`: none, and each is measured
-  · **no contribution** — nothing to contribute until the screen moves (above).
+@par `contribute()` since `EPIC-025F` PR 5.2 — the Backtest screen itself
+The screen moved into `modules/backtesting/ui/` in Phase 4 (`EPIC-025E` PR
+4.4d, above) but kept registering through the legacy `AbstractScreenModule`
+mechanism (`shell/legacy_screen_adapter.py`) until this pull request:
+`backtest_screen()` describes it the way `settings_screen()` describes the
+shell's own screen, and needs `container` at view-construction time (which
+concrete View this install uses is a named choice read from `IConfig`,
+`EPIC-013F`) — `boot()` (added in this pull request, previously this
+module's inherited no-op default) stashes it for exactly this call, the
+same pattern `trading`'s Dev Board screen uses in the same pull request.
+Not `register()`: the `context.container` `register()` receives is
+`RegisteringContainer`, a spy that refuses every `resolve()` call forever,
+not only during registration (`shell/registering_container.py`'s own
+docstring) — a reference captured there and used later, inside a screen's
+lazily-run view factory, would raise on a call that has nothing to do with
+registration any more.
+
+@par `declare_cli()`, `subscribe()`: still none, and each is still measured
   · **no `declare_cli()`** — `ICliRegistry` is the *interactive shell*'s, and
     this context has no shell command. A `backtest` argparse subcommand is the
     thing HLD §3.4 says would bring `IBacktestRunner`; it does not exist.
@@ -67,9 +83,16 @@ from typing import Any
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
+    IContributionRegistry,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.composition.command_bindings import (
     bind_commands,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_screen import (
+    backtest_screen,
+)
+from sagittarius_engine.interfaces.i_container import IContainer
 
 
 class BacktestingModule(BoundedContextModule):
@@ -90,7 +113,30 @@ class BacktestingModule(BoundedContextModule):
     #: it is the least entangled phase.
     dependencies: list[str] = ["market_data", "strategy", "trading"]  # noqa: RUF012 — the Engine reads a plain attribute
 
+    def __init__(self) -> None:
+        super().__init__()
+        #: Stashed by `boot()`, read by `contribute()`'s `backtest_
+        #: screen(self._container)` call (`EPIC-025F` PR 5.2) — see
+        #: `boot()`'s own docstring for why it must come from there and not
+        #: from `register()`.
+        self._container: IContainer | None = None
+
     def register(self, context: Any) -> None:
         """Binds this module's own two commands — see this module's docstring
         for why this moved now (4.4f-1) rather than earlier."""
         bind_commands(context.container)
+
+    def boot(self, context: Any) -> None:
+        """Stashes `container` for `contribute()` — see this module's own
+        docstring's `contribute()` section for the full reasoning. Nothing
+        else needed starting; this hook was this module's inherited no-op
+        default until `EPIC-025F` PR 5.2."""
+        self._container = context.container
+
+    def contribute(self, registry: IContributionRegistry) -> None:
+        """The Backtest screen — see this module's own docstring."""
+        if self._container is None:
+            raise RuntimeError(
+                "BacktestingModule.contribute() called before register()"
+            )
+        registry.contribute_screen(backtest_screen(self._container))

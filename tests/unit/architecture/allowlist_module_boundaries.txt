@@ -39,6 +39,10 @@
 #    composition root's own adapter-wiring imports, exposed for the first
 #    time once the module that owns the binding does the wiring instead of
 #    the exempt-by-filename strangler root -- see the entries' own comment).
+# -> 8 after PR 5.2 (`EPIC-025F`; 12 - 4 stale retired + 0 new: all four
+#    `shell.legacy_screens -> modules.*.module` entries retire together --
+#    the four legacy screens left `AbstractScreenModule` for their own
+#    `ScreenContribution`s, and `shell/legacy_screens.py` itself is deleted).
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -662,7 +666,11 @@
 # screen's `module.py` hits this identical wall the moment it moves in
 # 4.4c/4.4d, so this entry's retirement (like the nine above it) is Phase 5's,
 # not Phase 4's -- recorded here rather than left to surprise that phase.
-shell.legacy_screens -> modules.market_data.ui.module
+#
+# RETIRED, `EPIC-025F` PR 5.2 -- `DatabaseScreenModule` left
+# `AbstractScreenModule` for a `ScreenContribution` (`database_screen()`,
+# owned by `market_data` itself); `shell/legacy_screens.py` is deleted, so
+# this pair no longer exists.
 
 
 # ---------------------------------------------------------------------------
@@ -698,8 +706,11 @@ modules.trading.ui.dashboard.dashboard_presenter -> modules.market_data.ui.sync_
 # under `modules/trading/ui/{trading,dashboard}/module.py` rather than at the
 # module's own root. `EPIC-025F` (Phase 5) retires both when `NavigationService`
 # replaces `AbstractScreenModule`/`ScreenRegistry`, not before.
-shell.legacy_screens -> modules.trading.ui.dashboard.module
-shell.legacy_screens -> modules.trading.ui.trading.module
+#
+# RETIRED, `EPIC-025F` PR 5.2 -- both screens left `AbstractScreenModule` for
+# their own `ScreenContribution`s (`dashboard_screen()`/`trading_screen()`,
+# owned by `trading` itself); `shell/legacy_screens.py` is deleted, so
+# neither pair exists any more.
 
 
 # ---------------------------------------------------------------------------
@@ -726,7 +737,11 @@ modules.backtesting.ui.signal_wiring -> modules.market_data.ui.sync_progress_fee
 # Presenter/View under `modules/backtesting/ui/module.py` rather than at the
 # module's own root. `EPIC-025F` (Phase 5) retires it when `NavigationService`
 # replaces `AbstractScreenModule`/`ScreenRegistry`, not before.
-shell.legacy_screens -> modules.backtesting.ui.module
+#
+# RETIRED, `EPIC-025F` PR 5.2 -- the screen left `AbstractScreenModule` for
+# its own `ScreenContribution` (`backtest_screen()`, owned by `backtesting`
+# itself); `shell/legacy_screens.py` is deleted, so this pair no longer
+# exists.
 
 # ---------------------------------------------------------------------------
 # PR 4.4e -- "Settings becomes a surface": the monolithic

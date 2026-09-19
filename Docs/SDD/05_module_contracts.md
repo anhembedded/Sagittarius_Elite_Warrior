@@ -419,13 +419,15 @@ refuses duplicates.
 
 **4. The host and its builder are in `support/ui_kit`, not in the shell, and
 `Surface` is in `core`.** PR 1.4a wrote both in `shell/`; PR 1.4b moved them,
-and the reason is the strangler period rather than taste. Rendering a surface is
-something **two** kinds of caller have to do while the migration runs: a legacy
-screen still carried by `shell/legacy_screen_adapter.py`, and a module's own
-`ui/` package. Neither may import `shell/` — it is *Main*, so a dependency on it
-is a cycle by definition, and the boundary guard refuses both — while both may
-import `support/ui_kit` whole, which is the zone HLD §6.1 named for exactly
-this. So the host moved to where both callers can reach it, `Surface` moved to
+and the reason is the strangler period rather than taste. Rendering a surface
+was, while the migration ran, something two kinds of caller had to do: a
+legacy screen (carried by `shell/legacy_screen_adapter.py` until `EPIC-025F`
+PR 5.2 deleted it, once the last screen left `AbstractScreenModule` for its
+own `ScreenContribution`), and a module's own `ui/` package. Neither may
+import `shell/` — it is *Main*, so a dependency on it is a cycle by
+definition, and the boundary guard refuses both — while both may import
+`support/ui_kit` whole, which is the zone HLD §6.1 named for exactly this. So
+the host moved to where both callers can reach it, `Surface` moved to
 `core/contracts` because `support/*` may not import the shell either, and what
 stayed in `shell/` is the policy: which surfaces this application has
 (`SURFACES`), which key gates each one (`DEV_MODE_GATE`), and `surface_is_open()`,

@@ -52,3 +52,16 @@
 #       is the registry moving to `support/ui_kit`, after which `shell -> support/**` is
 #       permitted outright by the rule table and needs no recorded permission at all.
 #       9 lines -> 5.
+#
+# **Correction, `EPIC-025F` PR 5.2.** The three "moved, not deleted, retiring at
+# Phase 5" rows above predicted their `allowlist_module_boundaries.txt` replacement
+# lines would retire only once the Engine's `NavigationService` (`TASK-043` E3)
+# replaced `AbstractScreenModule`/`ScreenRegistry` outright. That has not happened
+# -- E3 is still unstarted on the Engine side. What actually retired all four
+# (`dashboard`/`trading`/`data_management`/`backtest`) is the same move `settings`
+# made in PR 4.4e: each left `AbstractScreenModule` for its own `ScreenContribution`,
+# owned by its own bounded context, the same shape this file's `settings` row
+# already described as needing no Engine change at all. `shell/legacy_screens.py`
+# and `shell/legacy_screen_adapter.py` are both deleted in this pull request;
+# `ScreenRegistry` itself is unchanged and still what every screen -- contributed
+# by a module or by the shell -- ultimately renders through.

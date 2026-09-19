@@ -100,11 +100,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_screen import (
+    dashboard_screen,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.probes import (
     build_trading_session_probe,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings_contribution import (
     build_trading_settings_section,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_screen import (
+    trading_screen,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
@@ -116,6 +122,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 from sagittarius_engine.interfaces.i_config import IConfig
+from sagittarius_engine.interfaces.i_container import IContainer
 from sagittarius_engine.runtime.scheduler.scheduler import Scheduler
 
 logger = logging.getLogger("App.TradingModule")
@@ -162,6 +169,16 @@ class TradingModule(BoundedContextModule):
     #: module list is read.
     dependencies: list[str] = ["market_data"]  # noqa: RUF012 — the Engine reads a plain attribute
 
+    def __init__(self) -> None:
+        super().__init__()
+        #: Stashed by `boot()`, read by `contribute()`'s `dashboard_
+        #: screen(self._container)` call (`EPIC-025F` PR 5.2). `boot()`
+        #: always runs before `contribute()` (`BoundedContextModule`'s own
+        #: hook table), and this is the same single container the app has
+        #: for its whole lifetime — see `boot()`'s own docstring for why it
+        #: must come from there and not from `register()`.
+        self._container: IContainer | None = None
+
     def register(self, context: Any) -> None:
         """This module's own adapters, state, commands, queries, and the
         published ports (PR 1.3b, plus `IEquityCurve` from PR 1.3c-3).
@@ -181,7 +198,8 @@ class TradingModule(BoundedContextModule):
         bind_published_ports(container)
 
     def contribute(self, registry: IContributionRegistry) -> None:
-        """The Dev Board probe for this context's own session state.
+        """The Dev Board probe for this context's own session state, its
+        Settings section, and — since `EPIC-025F` PR 5.2 — its two screens.
 
         `DEV_PROBE` is Dev Board's place and it is gated: with `dev.mode` off,
         the registry drops this contribution with one log line and the app
@@ -191,7 +209,13 @@ class TradingModule(BoundedContextModule):
         it is called. That is the rule and the reason: `contribute()` runs at
         boot for every run, a headless `sync` included, and a probe nobody
         opened must not cost a Qt import.
+
+        `dashboard_screen(self._container)` needs the container `register()`
+        stashed (see `__init__`'s docstring); `trading_screen()` does not —
+        `TradingView()` takes no constructor arguments.
         """
+        if self._container is None:
+            raise RuntimeError("TradingModule.contribute() called before register()")
         registry.contribute(
             ContributionDescriptor(
                 contributor_id=self.module_id,
@@ -214,6 +238,8 @@ class TradingModule(BoundedContextModule):
                 title="Trading",
             )
         )
+        registry.contribute_screen(dashboard_screen(self._container))
+        registry.contribute_screen(trading_screen())
 
     def boot(self, context: Any) -> None:
         """Two things `register()` could not decide or start.
@@ -238,8 +264,23 @@ class TradingModule(BoundedContextModule):
            `PositionRefreshService.refresh_once()` is a no-op while trading
            is disabled, so nothing else needs to start or stop this
            alongside Enable/Disable/Emergency-Stop.
+
+        `EPIC-025F` PR 5.2 added the third: stashing `container` for
+        `contribute()`'s `dashboard_screen(self._container)` call (see
+        `__init__`'s docstring). Stashed here, not in `register()` — the
+        `context.container` `register()` receives is `RegisteringContainer`,
+        a spy that raises on every `resolve()` call **forever**, not only
+        during registration (`shell/registering_container.py`'s own
+        docstring: "the shell wraps the real container for the duration of
+        one module's `register()`"); a reference to it captured there and
+        used later, inside a screen's lazily-run view factory, would raise
+        `ResolveDuringRegisterError` on a call that has nothing to do with
+        registration any more. `boot()`'s `container` is the real one —
+        every existing `container.resolve(...)` call below already depends
+        on that being true.
         """
         container = context.container
+        self._container = container
 
         self._bind_trading_client_if_enabled(container)
 

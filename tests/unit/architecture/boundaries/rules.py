@@ -233,10 +233,10 @@ def _shell_may_import(dst_zone: str, imported_module: str) -> bool:
         return is_contracts_package(imported_module) or is_module_entry_point(
             imported_module
         )
-    # Strangler period (Phases 0–4): the shell is *Main*, so it wires whatever
-    # exists — today that includes the five legacy screens it carries as
-    # contributions (`shell/legacy_screen_adapter.py`). Permitted, but not
-    # unwatched: `test_module_boundaries.py` records every such import in
-    # `baseline_shell_legacy_imports.txt`, shrink-only, and that file is empty
-    # once Phase 4 deletes the legacy tree.
+    # Strangler period: the shell is *Main*, so it wires whatever exists.
+    # `EPIC-025F` PR 5.2 retired the last screens `shell/legacy_screen_adapter.py`
+    # (deleted) used to carry through this permission; kept for whatever the
+    # legacy tree still holds. Permitted, but not unwatched:
+    # `test_module_boundaries.py` records every such import in
+    # `baseline_shell_legacy_imports.txt`, shrink-only.
     return dst_zone in LEGACY_ZONES

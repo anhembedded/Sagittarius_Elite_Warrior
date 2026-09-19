@@ -102,12 +102,26 @@ def test_a_gated_surface_drops_the_contribution_and_the_app_still_boots(
     assert contributions.dropped_count() == 1
 
 
-def test_the_legacy_screens_are_collected_too(qapp) -> None:
-    """Two kinds of contributor, one collection: the five screens the shell
-    still carries arrive as `ScreenContribution`s in the same registry, which
-    is what lets `build_screen_registry` stay indifferent to which kind a
-    screen is."""
-    container = _container()
+def test_a_modules_own_screen_is_collected_too(qapp) -> None:
+    """Two kinds of contributor, one collection: a bounded context's own
+    screen arrives as a `ScreenContribution` in the same registry as the
+    shell's Welcome/Settings, which is what lets `build_screen_registry`
+    stay indifferent to which kind a screen is.
+
+    `EPIC-025F` PR 5.2 retired the four screens `assemble_contributions()`
+    used to hand-carry through `contribute_legacy_screens()` regardless of
+    which modules were actually registered — this test used to lean on
+    that unconditional call, which is exactly the "legacy" mechanism this
+    pull request deletes. A real module instance is what makes a screen
+    appear now, `TradingModule` standing in for the four that converted."""
+    from Sagittarius_Elite_Warrior.src.modules.trading.module import TradingModule
+
+    trading_module = TradingModule()
+    container = _container(trading_module)
+    # `boot()` stashes this for real (see `TradingModule.__init__`'s
+    # docstring); skipped here the same way `tests/conftest.py`'s
+    # `real_screen_registry` skips it for a fake container.
+    trading_module._container = container
 
     contributions = assemble_contributions(container, dev_mode=True)
 
