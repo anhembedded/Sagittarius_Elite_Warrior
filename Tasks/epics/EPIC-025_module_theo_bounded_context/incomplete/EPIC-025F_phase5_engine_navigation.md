@@ -8,6 +8,17 @@
   the Engine's `examples/student_management/docs/ui_extension_lifecycle.md` (the ordering:
   `QApplication` before `boot()`).
 
+**Decided 2026-09-19 (Engine `TASK-043`'s own file, same decision recorded here since it
+determines this phase's own unblock path).** The Engine's E3 (`NavigationService`) is triggered by
+this phase landing a working `NavigationService`-shaped mechanism in this app's own tree first,
+against `ScreenRegistry`'s current shape — the same harvest-first pattern Phase 1's contribution
+mechanism already went through (Engine `TASK-043` E1, 2026-09-19) — not by the Engine building
+`NavigationService` ahead of any live consumer. So this phase's own next executable step, once
+picked up, is that in-app prototype (mirroring how the Engine's own
+`examples/student_management/docs/ui_extension_lifecycle.md` resolved a parallel ordering
+question), not waiting on the Engine to move first. Still blocked today only in the sense that no
+session has started that prototype yet — not blocked on someone else's decision any more.
+
 ## 1. What to do (application side)
 
 1. Replace `ScreenRegistry` (`EPIC-016`) with the Engine's `NavigationService`: routes come from
