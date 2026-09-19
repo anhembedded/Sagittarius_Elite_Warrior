@@ -19,7 +19,6 @@ from dataclasses import asdict, dataclass
 from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QColor, QPainter, QPen, QPixmap
 from PySide6.QtWidgets import QApplication
-
 from Sagittarius_Elite_Warrior.scripts.benchmarking.backtest_chart_interaction import (
     _candles,
     _markers,

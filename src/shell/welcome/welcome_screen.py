@@ -1,12 +1,10 @@
 """The Welcome screen as a contribution — the shell's own (ADR D13).
 
-Every other navigable screen is either a legacy `AbstractScreenModule` the
-shell carries or (later) a module's. This one belongs to the shell itself,
-because it is about the *application* rather than about any bounded context
-(HLD §4.6's own rule for what a shell surface is), and it arrives through the
-same `ScreenContribution` everything else does — so `ScreenRegistry`,
-`PresenterManager` and the sidebar never learn that a third kind of screen
-exists.
+Every other navigable screen belongs to a bounded context module. This one belongs
+to the shell itself, because it is about the *application* rather than about any
+bounded context (HLD §4.6's own rule for what a shell surface is), and it arrives
+through the same `ScreenContribution` everything else does — so `ScreenRegistry`,
+`PresenterManager` and the sidebar treat all screens uniformly.
 
 It is the **default route** (ADR D13): the app opens here rather than on a
 developer testbed that happened to be first in the sidebar.

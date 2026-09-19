@@ -5,9 +5,9 @@
 real engine (`sagittarius_engine.extensions.pyside_mvc.mvc.presenter_manager`,
 confirmed against the real source in `EPIC-016A`) calls
 `view_factory()` with zero arguments and `presenter_class(view, container)`
-with two; `AbstractScreenModule.build_descriptor()` supplies both as small
-lambdas, not classes, so a `type` annotation would be a lie about what this
-field actually holds.
+with two; `ScreenContribution` adapters supply both as small
+callables or lambdas, not classes, so a `type` annotation would be a lie about
+what this field actually holds.
 """
 
 from __future__ import annotations

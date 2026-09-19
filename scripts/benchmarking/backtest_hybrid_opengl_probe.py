@@ -15,7 +15,6 @@ import time
 
 from PySide6.QtCore import QPointF, qInstallMessageHandler
 from PySide6.QtWidgets import QApplication
-
 from Sagittarius_Elite_Warrior.scripts.benchmarking.backtest_chart_interaction import (
     _CANDLE_COUNT,
     _INDICATOR_COUNT,

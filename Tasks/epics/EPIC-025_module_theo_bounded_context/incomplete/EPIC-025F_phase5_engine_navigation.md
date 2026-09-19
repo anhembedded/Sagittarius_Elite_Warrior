@@ -5,10 +5,10 @@
   full gate green + independent review PASS. PR 5.2 (the 4 `LEGACY_SCREEN_MODULES` entries convert
   to `ScreenContribution`) landed the same day too, merged as PR #242. PR 5.3 (`IContributionRegistry`'s
   panel half rebuilt on the Engine's own `ContributionRegistry`, after the user approved bumping
-  Elite's installed Engine to its current `main`) landed the same day as well. Remaining: migrate
-  onto the Engine's `RegionHost`, declare it in `engine_capabilities.py`, run the conformance suite.
-  `AbstractScreenModule`/`register_module()` left in place, not deleted — see PR 5.2's own note
-  below.
+  Elite's installed Engine to its current `main`) landed the same day as well. PR 5.4 (`RegionHost`
+  migration + capability declaration) merged as PR #244 (`b56b3da6`). PR 5.5 (`AbstractScreenModule`
+  and dead `register_module()` seam retired, `INavigationService` DI integration landed).
+  Remaining: PR 5.6 (run Engine screen conformance suite across all application surfaces).
 - **Repositories:** Elite (the consumer) · Engine (the mechanism — `TASK-043`, referencing `EPIC-001D`)
 - **Blocked by:** E
 - **Read first:** HLD §5 (the Engine / application split); the Engine's
@@ -165,9 +165,27 @@ session has started that prototype yet — not blocked on someone else's decisio
    8 in `engine_adapters`, 29 in `test_composition_root.py` (all 10 navigable routes constructed clean),
    ruff/format clean, CI-faithful mypy clean across 635 source files, 418/419 architecture tests passed
    (single excluded worktree-path hyphen/underscore naming flake in `test_verify_against_base.py`).
+
+   **PR 5.5 — retire `AbstractScreenModule` and dead `register_module()` seam, promote `INavigationService` DI integration, landed 2026-09-19.**
+   Deleted `src/support/ui_kit/registry/abstract_screen_module.py`. Removed `register_module()` from
+   `IScreenRegistry` (`src/support/ui_kit/registry/ports/i_screen_registry.py`) and `ScreenRegistry`
+   (`src/support/ui_kit/registry/screen_registry.py`), removing the last traces of the legacy module
+   registration seam left over from PR 5.2. Cleaned exports in `src/support/ui_kit/registry/__init__.py`.
+   Refactored `tests/unit/support/ui_kit/registry/test_screen_registry.py` to replace `_FakeModule`
+   with a clean `_make_descriptor()` builder, directly exercising `ScreenRegistry.register()` across all 12
+   tests with zero mock module overhead.
+   Advanced `NavigationService` integration: `MainWindow` now accepts optional constructor injection of
+   `navigation_service: INavigationService | None = None` and exposes `@property def navigation_service`.
+   `src/presentation/ui/app_bootstrapper.py` registers `window.navigation_service` as a container singleton
+   for `INavigationService`, enabling components and coordinators across the application to navigate decoupled
+   from `MainWindow`. Added dedicated unit coverage in `tests/unit/presentation/ui/test_main_window_navigation.py`.
+   Full verification: 27 unit tests passed (`test_navigation_service.py`, `test_screen_registry.py`,
+   `test_main_window_navigation.py`, `test_screen_wiring.py`), 5 integration tests passed in
+   `test_main_window_state.py`, 10 sanity tests passed in `test_composition_root.py`, 418 architecture tests
+   passed, ruff clean, CI-faithful mypy clean across 635 source files.
 3. Every new Engine API is declared in `engine_capabilities.py` (`BOT-133`). Both `ContributionRegistry`
    and `RegionHost` capabilities are now declared.
-4. The Engine's screen conformance suite runs against **every** surface of this application.
+4. The Engine's screen conformance suite runs against **every** surface of this application (PR 5.6).
 
 ## 2. Done when
 

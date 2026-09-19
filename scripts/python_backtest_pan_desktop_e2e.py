@@ -28,7 +28,6 @@ from PySide6.QtCore import QPoint, Qt
 from PySide6.QtGui import QColor
 from PySide6.QtTest import QTest
 from PySide6.QtWidgets import QApplication
-
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
     ChartCard,
 )

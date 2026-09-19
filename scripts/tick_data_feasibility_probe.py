@@ -23,10 +23,6 @@ import time
 from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
-from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
-    MemoryEventBus,
-)
-
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
@@ -61,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crosso
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,
+)
+from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
+    MemoryEventBus,
 )
 
 SYMBOL = "BTCUSDT"
