@@ -1,14 +1,22 @@
 # EPIC-025F — Phase 5: build on the Engine's `EPIC-001D` (`NavigationService`, regions, screen lifecycle)
 
-- **Status:** 🟡 In progress — unblocked 2026-09-19 (see the sequencing decision below); PR 5.1 (the
-  in-app `NavigationService` prototype) landed the same day, merged as PR #241 (`370573b7`) after
-  full gate green + independent review PASS. PR 5.2 (the 4 `LEGACY_SCREEN_MODULES` entries convert
-  to `ScreenContribution`) landed the same day too, merged as PR #242. PR 5.3 (`IContributionRegistry`'s
-  panel half rebuilt on the Engine's own `ContributionRegistry`, after the user approved bumping
-  Elite's installed Engine to its current `main`) landed the same day as well. PR 5.4 (`RegionHost`
-  migration + capability declaration) merged as PR #244 (`b56b3da6`). PR 5.5 (`AbstractScreenModule`
-  and dead `register_module()` seam retired, `INavigationService` DI integration landed).
-  Remaining: PR 5.6 (run Engine screen conformance suite across all application surfaces).
+- **Status:** ✅ **Application-side scope done (2026-09-19), by user decision.** PR 5.1 (the in-app
+  `NavigationService` prototype) merged as PR #241 (`370573b7`). PR 5.2 (the 4 `LEGACY_SCREEN_MODULES`
+  entries convert to `ScreenContribution`) merged as PR #242. PR 5.3 (`IContributionRegistry`'s panel
+  half rebuilt on the Engine's own `ContributionRegistry`, after the user approved bumping Elite's
+  installed Engine to its current `main`) merged as PR #243. PR 5.4 (`RegionHost` migration +
+  capability declaration) merged as PR #244 (`b56b3da6`). PR 5.5 (`AbstractScreenModule` and dead
+  `register_module()` seam retired, `INavigationService` DI integration) merged as PR #245.
+  §2's "Done when" criterion re-verified directly (`main_window.py` imports zero screen modules).
+  **Item 4 (PR 5.6, the Engine's screen conformance suite) is deliberately not folded into this
+  closure — it is deferred, blocked on `Sagittarius_Engine`'s own `TASK-043` E3, which has not
+  started on the Engine side** (verified by reading that repository's checkout directly, not
+  assumed: E3 bundles "`NavigationService`, screen lifecycle + conformance suite", and its own row
+  still reads "Consumer's Phase 5 has not started" — stale wording now that Elite's Phase 5 has
+  fully landed, but the code confirms the substance: no conformance-suite mechanism exists anywhere
+  in the Engine tree yet). Per `ONBOARDING.md` §9, this is not duplicated as a fake Elite-side task
+  — `TASK-043` E3 already owns it; a future session picks this file back up once the Engine side
+  lands, rather than leaving Phase 5 open indefinitely for work that belongs to a different repo.
 - **Repositories:** Elite (the consumer) · Engine (the mechanism — `TASK-043`, referencing `EPIC-001D`)
 - **Blocked by:** E
 - **Read first:** HLD §5 (the Engine / application split); the Engine's
@@ -208,7 +216,13 @@ session has started that prototype yet — not blocked on someone else's decisio
 3. Every new Engine API is declared in `engine_capabilities.py` (`BOT-133`). `ContributionRegistry`
    and `RegionHost` capabilities are both declared.
 4. The Engine's screen conformance suite runs against **every** surface of this application (PR 5.6).
+   **Deferred, 2026-09-19 — closed out of this phase's scope by user decision.** Not achievable from
+   Elite alone: the suite is bundled into `Sagittarius_Engine`'s own `TASK-043` E3, which has not
+   started on the Engine side (verified in that repository's checkout, not assumed). Tracked there,
+   not duplicated here (`ONBOARDING.md` §9) — a future session revisits this item once E3 lands.
 
 ## 2. Done when
 
-- `main_window.py` imports no screen; navigation is built entirely from self-description.
+- `main_window.py` imports no screen; navigation is built entirely from self-description. **Verified
+  2026-09-19**, not narrated: `grep -n "^from\|^import" src/presentation/ui/main_window.py` names no
+  screen module, matching the file's own docstring ("this shell knows no concrete screen").
