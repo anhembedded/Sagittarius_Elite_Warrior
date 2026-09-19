@@ -130,7 +130,7 @@ the guard ignores `TYPE_CHECKING` blocks. That also restores the napari property
   `src/presentation/ui/kit/page_shell.py:62`, whose five bands are exactly the geometry
   `VOCABULARY` §2 attributes to the places — `set_header:175`, `set_context_bar:210`,
   `set_workspace:221`, `set_console:278`, with `kit/overlay.py` for `MODAL`.
-- [`EPIC-025E`](../epics/EPIC-025_module_theo_bounded_context/incomplete/EPIC-025E_phase4_support_and_dissolve_common.md)
+- [`EPIC-025E`](../epics/EPIC-025_module_theo_bounded_context/completed/EPIC-025E_phase4_support_and_dissolve_common.md)
   item 3 moves `PageShell` into `support/ui_kit` — in **Phase 4**, three phases after `Surface` is
   written.
 

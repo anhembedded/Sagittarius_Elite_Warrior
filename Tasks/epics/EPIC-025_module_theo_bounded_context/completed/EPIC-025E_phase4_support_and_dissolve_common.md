@@ -1,6 +1,8 @@
 # EPIC-025E — Phase 4: `support/{charting, indicators, ui_kit}`; dissolve `presentation/ui/common/`
 
-- **Status:** 🟡 In progress — §3 is the measured cut, taken 2026-09-16 after Phase 3 closed its coded work
+- **Status:** ✅ Done (2026-09-19) — every step below either shipped or was correctly absorbed into
+  Phase 5 (§2 explains which, and why that is not scope creep). Closure checked against real state,
+  not narrated: see §2's re-verification.
 - **Repository:** Elite
 - **Blocked by:** D · **Blocks:** F
 - **Read first:** HLD §2.3 (a support package is not a bounded context: no business language, no
@@ -116,10 +118,58 @@
    `_UI_SUPPORT_ZONES` (a module's `ui/` may import `support/ui_kit` and `support/charting` whole)
    is enough — if a 36th import has no home in `support/`, that is the finding.
 
+   **The `git mv` half shipped (PR 4.4b); the `ScreenContribution`/`LEGACY_SCREEN_MODULES` half is
+   not this phase's to finish, and `legacy_screens.py`'s own docstring already says so.** Re-checked
+   2026-09-19 against real code, not the plan: `src/modules/market_data/ui/module.py` still defines
+   `DatabaseScreenModule(AbstractScreenModule)`, and `shell/legacy_screens.py` still lists it in
+   `LEGACY_SCREEN_MODULES` alongside `DashboardScreenModule`/`TradingScreenModule`/
+   `BacktestScreenModule` — the four screens PRs 4.4b/4.4c/4.4d moved. That file's own docstring
+   states the reason directly: *"none of the three retires a line here: `AbstractScreenModule` is
+   still every one's real registration mechanism, and stays so until Phase 5's `NavigationService`
+   replaces it for all four at once."* `MarketDataModule`'s own docstring says the matching half:
+   *"Data Management itself is still a legacy screen carried by `shell/legacy_screen_adapter.py`
+   ... `EPIC-025E` step 6 still carries that move."* Both were written mid-phase, by the sessions
+   that did the file moves, and never backported into this step's own text — that omission is
+   fixed here. This is not scope creep discovered late: converting a screen to a real
+   `ScreenContribution` needs the Engine's `NavigationService`/region mechanism to contribute
+   *into*, and that mechanism is exactly `EPIC-025F`'s (Phase 5's) own step 1, which is blocked on
+   the Engine-side `TASK-043`/`EPIC-001D` (still 🔵 Backlog in `Sagittarius_Engine` as of
+   2026-09-19 — verified in that repository, not assumed). So this step's remaining half is
+   **absorbed into `EPIC-025F` step 1**, for all four `LEGACY_SCREEN_MODULES` entries at once
+   (the same "all four together" shape `legacy_screens.py` already commits to), the same way this
+   phase's own step 5 was superseded by ADR D20 rather than left as a phantom open item.
+
 ## 2. Done when
 
 - `ls src/presentation/ui/common` → does not exist; the guard allowlist is **empty**; the two
   layer violations (screens importing `infrastructure/`) are gone.
+
+**Re-verified against real state 2026-09-19, not narrated — one clause corrected, two confirmed,
+one added that this criterion's own text omitted:**
+
+- `ls src/presentation/ui/common` → confirmed: `No such file or directory`.
+- `grep -rln` for an `infrastructure` import under `src/presentation` or any module's `ui/` →
+  confirmed empty: no screen imports `infrastructure/` directly.
+- **"The guard allowlist is empty" does not hold literally, and never could once this phase started
+  measuring rather than assuming.** `allowlist_module_boundaries.txt` carries **12** entries, not
+  0 — every one of them added by this phase's own slices (4.4a–4.4f-5), each individually
+  justified in its own commit with a named future exit condition, matching `ci-rule.md` §5.5's
+  shrink-only-with-justification contract rather than the zero this line originally imagined
+  before any code moved. The real invariant this phase protects — and the one every prior slice's
+  write-up in `TRACKING.md` actually argued for — is *narrow and named*, not *empty*: a composition
+  file wiring a port to its adapter is not a boundary violation, it is what a composition root is
+  for, and pretending otherwise would have meant inventing a wider rule instead of twelve honest
+  lines. Corrected here rather than left for the next reader to reconcile by hand.
+- **A criterion this line never named, but a `2026-09-16` user decision made this phase's own**
+  (§1 step 4, `DECISION_2026-09-16_the_duplication_criterion_waits.md`): Phase 1's exit gate, the
+  trading/dashboard duplicated-member pair, at **0**. Measured, not assumed:
+  `.venv/bin/python tools/measure_duplicate_members.py` → `Phase 1 metric (dashboard+trading
+  only): 0`.
+- **What this phase does *not* close, and why that is the right boundary, not a miss**: §1 step 6's
+  `ScreenContribution`/`LEGACY_SCREEN_MODULES` retirement for all four legacy screens
+  (`dashboard`/`trading`/`data_management`/`backtest`) needs the Engine's `NavigationService`,
+  which does not exist yet (`TASK-043`/`EPIC-001D`, 🔵 Backlog in `Sagittarius_Engine`) — see step
+  6's own addendum. That work is `EPIC-025F` (Phase 5) step 1, not a debt this phase leaves behind.
 
 ---
 

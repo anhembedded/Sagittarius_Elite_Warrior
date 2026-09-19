@@ -13,6 +13,14 @@
 1. Replace `ScreenRegistry` (`EPIC-016`) with the Engine's `NavigationService`: routes come from
    `screen` contributions; `RESTORE` is distinguished from `USER_INTENT` (`BUG-104` / `BUG-107`); a
    `can_leave()` guard protects an action in flight (`async-ui-action-rule` §1).
+
+   **Inherits Phase 4's own unfinished half of `EPIC-025E` §1 step 6** (`EPIC-025E`'s own §1 step 6
+   addendum, 2026-09-19): all four `LEGACY_SCREEN_MODULES` entries (`DashboardScreenModule`/
+   `TradingScreenModule`/`DatabaseScreenModule`/`BacktestScreenModule`, `shell/legacy_screens.py`)
+   still register through `AbstractScreenModule`, not a `ScreenContribution` — Phase 4 could move
+   each screen's *files* (PRs 4.4b/4.4c/4.4d) but could not retire the mechanism itself, because
+   that mechanism is this step. Converting all four at once, the shape `legacy_screens.py`'s own
+   docstring already commits to, is part of this step's own scope, not a separate follow-up.
 2. The application's `IContributionRegistry` is rebuilt on the Engine's slot registry (the
    application keeps the **kinds** — that is policy).
 3. Every new Engine API is declared in `engine_capabilities.py` (`BOT-133`).
