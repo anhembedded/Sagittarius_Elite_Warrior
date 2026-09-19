@@ -1,12 +1,26 @@
 # EPIC-025F — Phase 5: build on the Engine's `EPIC-001D` (`NavigationService`, regions, screen lifecycle)
 
-- **Status:** 🔴 Backlog — **blocked by ❓ O2** (ADR §3) and by the Engine-side task
+- **Status:** 🔴 Backlog — **blocked by ❓ O2** (ADR §3). No longer blocked on the Engine-side task
+  itself as of 2026-09-19 — see the sequencing decision below: this phase's own in-app
+  `NavigationService` prototype is the next executable step, not something to wait on the Engine
+  for.
 - **Repositories:** Elite (the consumer) · Engine (the mechanism — `TASK-043`, referencing `EPIC-001D`)
 - **Blocked by:** E
 - **Read first:** HLD §5 (the Engine / application split); the Engine's
   `Tasks/epics/EPIC-001_ui_engine_foundation/incomplete/EPIC-001D_runtime_slot_registry.md`;
   the Engine's `examples/student_management/docs/ui_extension_lifecycle.md` (the ordering:
   `QApplication` before `boot()`).
+
+**Decided 2026-09-19 (Engine `TASK-043`'s own file, same decision recorded here since it
+determines this phase's own unblock path).** The Engine's E3 (`NavigationService`) is triggered by
+this phase landing a working `NavigationService`-shaped mechanism in this app's own tree first,
+against `ScreenRegistry`'s current shape — the same harvest-first pattern Phase 1's contribution
+mechanism already went through (Engine `TASK-043` E1, 2026-09-19) — not by the Engine building
+`NavigationService` ahead of any live consumer. So this phase's own next executable step, once
+picked up, is that in-app prototype (mirroring how the Engine's own
+`examples/student_management/docs/ui_extension_lifecycle.md` resolved a parallel ordering
+question), not waiting on the Engine to move first. Still blocked today only in the sense that no
+session has started that prototype yet — not blocked on someone else's decision any more.
 
 ## 1. What to do (application side)
 
@@ -23,6 +37,36 @@
    docstring already commits to, is part of this step's own scope, not a separate follow-up.
 2. The application's `IContributionRegistry` is rebuilt on the Engine's slot registry (the
    application keeps the **kinds** — that is policy).
+
+   **The one blocking gap this needed is closed, 2026-09-19.** The Engine's `TASK-043` E1 harvest
+   step needs this app's `place`/`surface_id` identities to already be opaque-string-typed before
+   `ContributionDescriptor`/`ContributionRegistry`'s shape can move — verified by reading both
+   sides: `surface_id: str` already was; `place: Place` was not, because `Place`
+   (`core/contracts/place.py`) was a bare `Enum`, `isinstance(place, str)` was `False`. Fixed by
+   the one-line, fully backward-compatible change this codebase already uses ~40 times elsewhere
+   (`support/binance_gateway/contracts/trading_venue.py` and its siblings): `class Place(Enum)` →
+   `class Place(str, Enum)`. Verified on this repo's own Python 3.12 that the mixin changes nothing
+   observable — `str(Place.X)` still prints `"Place.X"` (this Python version's `(str, Enum)` does
+   not adopt `StrEnum`'s different `__str__`), member-to-member equality/hash unaffected, and
+   `grep` confirmed no existing call site compares a `Place` member against a bare string literal
+   — only `isinstance(Place.X, str)` and `Place.X == "x"`, both newly `True`, changed at all. Full
+   local ladder green: `ruff`/`mypy` clean (632 files), `tests/unit/architecture` 420, the 106
+   tests across every file touching `Place`/`ContributionRegistry`/`ContributionDescriptor`, full
+   `tests/unit`/`tests/sanity`/`tests/integration` all green. `Place` itself is unchanged as this
+   app's own closed, HLD-governed vocabulary — only its runtime type gained the `str` mixin the
+   Engine's own future mechanism needs to treat it as opaque. Documented on the Engine side too:
+   `Sagittarius_Engine` `Tasks/in_progress/TASK-043_...md`'s E1 row.
+
+   **The rendering half — this app's `IPlaceHost`/`WorkbenchSurface` — has now landed on the
+   Engine side too, 2026-09-19 (`TASK-043` E2)**: `RegionKind` (the engine-owned, closed
+   `QMainWindow` anatomy this app's own `Place`→dock/toolbar dispatch already encoded informally),
+   `IRegionHost`, and `RegionHost`, harvested from this app's own `WorkbenchSurface`
+   (`support/ui_kit/workbench_surface.py`) with `place` made opaque and the place→region mapping
+   supplied by the caller at construction instead of hard-coded. **Not yet consumed here** — this
+   app's own `WorkbenchSurface`/`IPlaceHost` are unchanged and still what every surface actually
+   renders against; migrating onto the Engine's `RegionHost` is this step's own remaining work, not
+   something today's harvest did on this app's behalf. Documented on the Engine side:
+   `Sagittarius_Engine` `Tasks/in_progress/TASK-043_...md`'s E2 row.
 3. Every new Engine API is declared in `engine_capabilities.py` (`BOT-133`).
 4. The Engine's screen conformance suite runs against **every** surface of this application.
 
