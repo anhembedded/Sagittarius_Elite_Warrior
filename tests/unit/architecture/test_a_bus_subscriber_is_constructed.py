@@ -33,10 +33,11 @@ events it claims to handle reach nobody.
 
 ## Why the check is "named", not "called"
 
-`ClassName(...)` is the obvious test and it is too strict here: a screen class
-is handed to a registry as a bare reference and constructed by the registry
-later (`shell/legacy_screens.py`, `presentation/ui/screens/*/module.py`), which
-is a construction this file cannot see. Being *named* somewhere else is the
+`ClassName(...)` is the obvious test and it is too strict here: a screen's
+view/presenter factories are handed to a registry as bare references and
+constructed by the router later (every `*_screen()` in `modules/*/ui/` and
+`shell/{welcome,settings}/`), which is a construction this file cannot see.
+Being *named* somewhere else is the
 weakest claim that still excludes the defect, and measured against this tree it
 separates cleanly — eight subscribers reachable, one orphan, no false positives.
 

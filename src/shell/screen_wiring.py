@@ -1,46 +1,50 @@
 """From contributions to a populated `ScreenRegistry` (SDD boot steps 6–7).
 
-One function, so there is exactly one path from "something contributed a screen"
-to "the sidebar has an entry for it" — whether that something is a bounded
-context or the adapter carrying a legacy screen. `MainWindow` and
+One function, so there is exactly one path from "something contributed a
+screen" to "the sidebar has an entry for it" — whether that something is a
+bounded context or the shell's own Welcome/Settings. `MainWindow` and
 `PresenterManager` are untouched: they still receive an `IScreenRegistry` and
 still build each view lazily on first navigation.
 
-The order screens are registered in does not matter (`ScreenRegistry` sorts by
-each screen's declared section and item sequence), but the order they are
-*contributed* in does, so this function preserves it: a future module's rail
-panels appear in `MODULES` order, and a reader can predict the sidebar from two
-lists in `src/shell/`.
+`EPIC-025F` PR 5.2 retired the last of the strangler-period screens this file
+used to carry through an adapter (`shell/legacy_screen_adapter.py`, deleted in
+the same pull request): every navigable screen now describes itself as a
+`ScreenContribution` at its own address, the way `settings_screen()` and
+`welcome_screen()` already did — `dashboard`/`trading` (`modules/trading`),
+`data_management` (`modules/market_data`), `backtest` (`modules/backtesting`).
+This file's one remaining job is the one direction `ContributionRegistry`
+does not do on its own: turning a `ScreenContribution` into the
+`ScreenDescriptor` `ScreenRegistry` stores.
 """
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
-    IContributionRegistry,
+from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
+    ScreenContribution,
 )
 from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
     ContributionRegistry,
 )
-from Sagittarius_Elite_Warrior.src.shell.legacy_screen_adapter import (
-    as_screen_descriptor,
-    legacy_screen_contributions,
-)
-from Sagittarius_Elite_Warrior.src.shell.legacy_screens import LEGACY_SCREEN_MODULES
 from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import (
     IScreenRegistry,
     ScreenRegistry,
 )
-from sagittarius_engine.interfaces.i_container import IContainer
+from Sagittarius_Elite_Warrior.src.support.ui_kit.registry.models import (
+    ScreenDescriptor,
+)
 
 
-def contribute_legacy_screens(
-    registry: IContributionRegistry, container: IContainer
-) -> None:
-    """Hand every screen the strangler period still carries to the registry."""
-    for contribution in legacy_screen_contributions(
-        (module_cls() for module_cls in LEGACY_SCREEN_MODULES), container
-    ):
-        registry.contribute_screen(contribution)
+def as_screen_descriptor(contribution: ScreenContribution) -> ScreenDescriptor:
+    """Every screen — shell-owned or module-contributed — goes through this
+    one function, so the registry never learns that a screen came from
+    anywhere in particular."""
+    return ScreenDescriptor(
+        route=contribution.route,
+        presenter_class=contribution.presenter_factory,
+        view_factory=contribution.view_factory,
+        nav=contribution.nav,
+        is_default=contribution.is_default,
+    )
 
 
 def build_screen_registry(contributions: ContributionRegistry) -> IScreenRegistry:

@@ -23,9 +23,6 @@ from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
     BackTestPresenter,
 )
-from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.module import (
-    BacktestScreenModule,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     ExchangeRequestCancelledError,
     IExchangeClient,
@@ -33,21 +30,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_clie
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
     SymbolMarketMetadata,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.ui.module import (
-    DatabaseScreenModule,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.module import (
-    DashboardScreenModule,
-)
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-from Sagittarius_Elite_Warrior.src.shell.legacy_screen_adapter import (
-    as_screen_descriptor,
+from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
+    assemble_contributions,
 )
-from Sagittarius_Elite_Warrior.src.shell.settings.settings_screen import (
-    settings_screen,
-)
-from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import welcome_screen
-from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import ScreenRegistry
+from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
 from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
     seed_app_theme,
@@ -147,21 +134,13 @@ def main() -> None:
         # here (bridge only, no `configure_app_qml()`), which the QML
         # embedding rework turned from silently-wrong into a hard failure.
         seed_app_theme()
-        screen_registry = ScreenRegistry()
-        # The shell's Welcome screen carries `is_default` since `EPIC-025`
-        # PR 1.5a, and `MainWindow` refuses to open without a default — so a
-        # probe that hand-lists the legacy screens has to include it, the same
-        # way `tests/conftest.py`'s `real_screen_registry` does. Settings left
-        # the legacy `AbstractScreenModule` mechanism in `EPIC-025E` PR 4.4e —
-        # it is a `ScreenContribution` now, registered the same way Welcome is.
-        screen_registry.register(as_screen_descriptor(welcome_screen()))
-        screen_registry.register(as_screen_descriptor(settings_screen()))
-        for module_cls in (
-            DashboardScreenModule,
-            DatabaseScreenModule,
-            BacktestScreenModule,
-        ):
-            screen_registry.register_module(module_cls(), engine.context.container)
+        # `EPIC-025F` PR 5.2: every screen (the shell's own Welcome/Settings,
+        # and every module's, Backtest included) now arrives through the
+        # same `assemble_contributions()` the real GUI entry point calls —
+        # nothing here hand-lists a screen any more, the same way
+        # `tests/conftest.py`'s `real_screen_registry` no longer does either.
+        contributions = assemble_contributions(engine.context.container, dev_mode=False)
+        screen_registry = build_screen_registry(contributions)
         window = MainWindow(engine, screen_registry, sidebar_factory=Sidebar)
         window.switch_screen("backtest")
         presenter = window._router.get_current_presenter()

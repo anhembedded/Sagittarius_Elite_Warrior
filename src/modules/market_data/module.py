@@ -28,12 +28,11 @@ uses — which is exactly what a reader opens this file to find.
   (`application/event_handlers/market_data/`) and moves in Phase 1.
 
 That is a default inherited from `BoundedContextModule`, so the absence is a
-statement, not an omission. `contribute()` **is** implemented, since
-`EPIC-025E` PR 4.4e: one `SETTINGS_SECTION`, this module's own venue and sync
-defaults — Data Management itself is still a legacy screen carried by
-`shell/legacy_screen_adapter.py` (`EPIC-025A` §1.8, `EPIC-025E` step 6 still
-carries that move), a different question from whether this module's own
-settings fields have a home yet.
+statement, not an omission. `contribute()` **is** implemented: one
+`SETTINGS_SECTION` (`EPIC-025E` PR 4.4e) and, since `EPIC-025F` PR 5.2, the
+Database screen itself — `database_screen()` describes it the way
+`settings_screen()` describes the shell's own screen, retiring the last of
+this module's tenancy in `shell/legacy_screen_adapter.py`.
 """
 
 from __future__ import annotations
@@ -83,6 +82,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.composition.query_binding
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.database_screen import (
+    database_screen,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.settings_contribution import (
     build_market_data_settings_section,
 )
@@ -111,7 +113,8 @@ class MarketDataModule(BoundedContextModule):
         bind_published_ports(container)
 
     def contribute(self, registry: IContributionRegistry) -> None:
-        """This context's own venue and sync defaults, on the Settings surface.
+        """This context's own venue and sync defaults, on the Settings
+        surface, and the Database screen itself.
 
         `EPIC-025E` PR 4.4e: the old monolithic Settings screen knew every
         module's config keys; this section knows only this module's four
@@ -119,6 +122,10 @@ class MarketDataModule(BoundedContextModule):
         `DEFAULT_SYNC_DAYS`). `settings_contribution.py`'s factory imports no
         widget module until it is called, the same rule `trading/ui/probes.py`
         already follows for its own `DEV_PROBE`.
+
+        `EPIC-025F` PR 5.2: `database_screen()` needs no `container` at
+        contribute time — `DataManagementView()` takes none — unlike
+        `trading`'s two screens in the same pull request.
         """
         registry.contribute(
             ContributionDescriptor(
@@ -131,6 +138,7 @@ class MarketDataModule(BoundedContextModule):
                 title="Market Data",
             )
         )
+        registry.contribute_screen(database_screen())
 
     def declare_cli(self, registry: ICliRegistry) -> None:
         """`sync` and `stream` are this context's commands, so this context

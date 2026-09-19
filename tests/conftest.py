@@ -58,44 +58,42 @@ def real_screen_registry(container):
     collection time (inside `@pytest.mark.parametrize`'s argument list),
     before pytest fixtures are available to call. `container` may be a real
     `IContainer` or a `Mock` — nothing here resolves anything from it until
-    a screen module's own `create_view()`/`create_presenter()` runs, which
-    stays lazy exactly like `PresenterManager` itself.
+    a screen's own `view_factory`/`presenter_factory` runs, which stays lazy
+    exactly like `PresenterManager` itself.
 
-    `EPIC-025E` PR 4.4e — the shell's `settings_screen()` is the first
-    contribution consumer that resolves `IContributionTable` inside its own
-    `create_presenter()` (`SettingsPresenter.__init__`), and this helper
-    never bound it: `app_bootstrapper.py` calls `assemble_contributions()`
-    *after* `app_engine.boot()` and before building `MainWindow`
-    (`shell/contribution_assembly.py`'s own docstring — "why here and not
-    in create_app()"), a step this helper skipped entirely. A real
-    `IContainer` gets that same call now, for the same reason the helper's
-    docstring already promises; a `Mock()` is left alone; `assemble_
-    contributions()`'s own `container.singleton(...)` makes a repeat call
-    against the same container harmless.
+    `EPIC-025F` PR 5.2 — every screen (the shell's Welcome/Settings, and
+    every module's own, the last four converting in this pull request) now
+    arrives through `assemble_contributions()`, the same single function
+    `app_bootstrapper.py`'s composition root calls. A real `IContainer` gets
+    that call, for the same "why here and not in create_app()" reason
+    `shell/contribution_assembly.py`'s own docstring gives; a `Mock()`
+    cannot — `assemble_contributions()` reads `RegisteredModules` off the
+    container, which a bare `Mock()` cannot answer meaningfully — so it
+    builds the same contributions by calling each real module's own
+    `contribute()` directly, skipping only the `register()`/`boot()` steps a
+    `Mock()` has no real graph to run.
     """
     from unittest.mock import Mock
+
+    from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
 
     if not isinstance(container, Mock):
         from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
             assemble_contributions,
         )
 
-        assemble_contributions(container, dev_mode=False)
+        contributions = assemble_contributions(container, dev_mode=False)
+        return build_screen_registry(contributions)
 
-    from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.module import (
-        BacktestScreenModule,
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.module import (
+        BacktestingModule,
     )
-    from Sagittarius_Elite_Warrior.src.modules.market_data.ui.module import (
-        DatabaseScreenModule,
+    from Sagittarius_Elite_Warrior.src.modules.market_data.module import (
+        MarketDataModule,
     )
-    from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.module import (
-        DashboardScreenModule,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.module import (
-        TradingScreenModule,
-    )
-    from Sagittarius_Elite_Warrior.src.shell.legacy_screen_adapter import (
-        as_screen_descriptor,
+    from Sagittarius_Elite_Warrior.src.modules.trading.module import TradingModule
+    from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
+        ContributionRegistry,
     )
     from Sagittarius_Elite_Warrior.src.shell.settings.settings_screen import (
         settings_screen,
@@ -103,22 +101,17 @@ def real_screen_registry(container):
     from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import (
         welcome_screen,
     )
-    from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import ScreenRegistry
 
-    registry = ScreenRegistry()
-    registry.register(as_screen_descriptor(welcome_screen()))
-    # `EPIC-025E` PR 4.4e — settings left the legacy `AbstractScreenModule`
-    # mechanism for a `ScreenContribution`, registered the same way Welcome
-    # is rather than through the `module_cls` loop below.
-    registry.register(as_screen_descriptor(settings_screen()))
-    for module_cls in (
-        DashboardScreenModule,
-        TradingScreenModule,
-        DatabaseScreenModule,
-        BacktestScreenModule,
-    ):
-        registry.register_module(module_cls(), container)
-    return registry
+    contributions = ContributionRegistry(dev_mode=False)
+    contributions.contribute_screen(welcome_screen())
+    contributions.contribute_screen(settings_screen())
+    trading_module = TradingModule()
+    trading_module._container = container
+    backtesting_module = BacktestingModule()
+    backtesting_module._container = container
+    for module in (MarketDataModule(), trading_module, backtesting_module):
+        module.contribute(contributions)
+    return build_screen_registry(contributions)
 
 
 @pytest.fixture(scope="session")

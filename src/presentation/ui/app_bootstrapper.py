@@ -302,11 +302,11 @@ def build() -> AppRuntime:
     # `EPIC-016` — every screen registers itself, once, instead of MainWindow
     # importing each concrete View/Presenter. `EPIC-025` PR 0.2 takes the list
     # of screens out of this entry point: the shell owns what the app is made
-    # of (`shell/legacy_screens.py` today, `shell/modules.py` for real
-    # modules), every screen arrives as a `ScreenContribution`, and the same
-    # registry will carry a bounded context's screens unchanged. Order still
-    # does not matter here: ScreenRegistry sorts sections and items by their
-    # own declared sequence.
+    # of (`shell/modules.py`), every screen arrives as a `ScreenContribution`
+    # from its own bounded context (`EPIC-025F` PR 5.2, the last of the
+    # strangler-period screens `shell/legacy_screens.py` used to carry). Order
+    # still does not matter here: ScreenRegistry sorts sections and items by
+    # their own declared sequence.
     #
     # `EPIC-025` PR 1.4c-4: and the bounded contexts contribute here too, which
     # is why this call replaced the two lines that only knew about the legacy

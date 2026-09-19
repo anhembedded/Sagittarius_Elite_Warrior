@@ -2,9 +2,12 @@
 
 - **Status:** 🟡 In progress — unblocked 2026-09-19 (see the sequencing decision below); PR 5.1 (the
   in-app `NavigationService` prototype) landed the same day, merged as PR #241 (`370573b7`) after
-  full gate green + independent review PASS. Remaining: retire `ScreenRegistry` and the 4
-  `LEGACY_SCREEN_MODULES` entries, rebuild `IContributionRegistry` on the Engine's slot registry,
-  migrate onto the Engine's `RegionHost`, declare new Engine APIs, run the conformance suite.
+  full gate green + independent review PASS. PR 5.2 (the 4 `LEGACY_SCREEN_MODULES` entries convert
+  to `ScreenContribution`) landed the same day too. Remaining: rebuild `IContributionRegistry` on
+  the Engine's slot registry (blocked on bumping Elite's pinned Engine install — a dependency
+  change, `ONBOARDING.md` §7 requires user approval first), migrate onto the Engine's `RegionHost`,
+  declare new Engine APIs, run the conformance suite. `AbstractScreenModule`/`register_module()`
+  left in place, not deleted — see PR 5.2's own note below.
 - **Repositories:** Elite (the consumer) · Engine (the mechanism — `TASK-043`, referencing `EPIC-001D`)
 - **Blocked by:** E
 - **Read first:** HLD §5 (the Engine / application split); the Engine's
@@ -58,6 +61,40 @@ session has started that prototype yet — not blocked on someone else's decisio
    each screen's *files* (PRs 4.4b/4.4c/4.4d) but could not retire the mechanism itself, because
    that mechanism is this step. Converting all four at once, the shape `legacy_screens.py`'s own
    docstring already commits to, is part of this step's own scope, not a separate follow-up.
+
+   **PR 5.2 — all four `LEGACY_SCREEN_MODULES` entries convert, landed 2026-09-19.** Each becomes a
+   `*_screen()` factory (`database_screen()`, `dashboard_screen()`, `trading_screen()`,
+   `backtest_screen()`) owned by the module the screen actually belongs to, mirroring the exact
+   shape `settings_screen()` established in `EPIC-025E` PR 4.4e — no longer carried by the shell
+   through `shell/legacy_screen_adapter.py`, both it and `shell/legacy_screens.py` deleted in this
+   pull request. `TradingModule`/`BacktestingModule` own two/one of the four respectively
+   (`market_data` the other one) and call `registry.contribute_screen(...)` from their own
+   `contribute()`.
+
+   **A real bug found and fixed, not a file move.** `DashboardView`/`BackTestView`'s factories need
+   `container` at *view* construction (`_contribution_table(container)`; `container.resolve(IConfig)`
+   for the config-driven View choice) — `ScreenContribution.view_factory` takes zero arguments
+   (`PresenterManager.navigate_to()` calls it that way, an Engine constraint), so `container` has to
+   be closed over when the `ScreenContribution` itself is built. The first version stashed it in
+   `register()`; the real gate caught that it is wrong — `register()`'s `context.container` is
+   `RegisteringContainer`, a spy that refuses every `resolve()` call **permanently**, not only during
+   registration (`shell/registering_container.py`'s own docstring), so a reference to it captured
+   there and used later inside a screen's lazily-run view factory raised
+   `ResolveDuringRegisterError` on a call with nothing to do with registration any more — caught by
+   `tests/sanity/test_composition_root.py::test_every_navigable_route_constructs[dashboard]`/
+   `[backtest]` actually constructing the screens, not by any test that only checks `contribute()`
+   in isolation. Fixed by stashing `container` in `boot()` instead, whose `container` is the real
+   one (every pre-existing `container.resolve(...)` call in these modules' own `boot()` bodies
+   already depended on that being true).
+
+   **Deliberately left alone, and why:** `AbstractScreenModule`/`ScreenRegistry.register_module()`
+   themselves are not deleted, even though nothing in production calls them any more — `ScreenRegistry`
+   itself (`register()`/`build_sidebar_navigation()`/`bind_to_router()`) stays the mechanism every
+   screen, module-owned or shell-owned, ultimately renders through, and `register_module()`'s own
+   unit coverage in `test_screen_registry.py` (~15 cases against a `_FakeModule` double) is real,
+   passing coverage of a now-unused-in-production seam, not dead weight this step's own scope names.
+   Retiring it is a separate, cleanly bounded decision (rewriting those ~15 tests too) left as a
+   follow-up rather than folded into this PR.
 2. The application's `IContributionRegistry` is rebuilt on the Engine's slot registry (the
    application keeps the **kinds** — that is policy).
 
