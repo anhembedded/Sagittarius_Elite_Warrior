@@ -23,7 +23,12 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 
 _SRC_DIR = Path(__file__).resolve().parents[3] / "src"
 _CONFIG_DIR = _SRC_DIR / "config"
-_MODULE_SOURCE = (_SRC_DIR / "binance_bot_module.py").read_text(encoding="utf-8")
+#: `EPIC-025E` PR 4.4f-3 moved this call out of the legacy composition root
+#: (`binance_bot_module.py`) into `market_data`'s own composition, the module
+#: that owns `MarketDataVenue`.
+_MODULE_SOURCE = (
+    _SRC_DIR / "modules" / "market_data" / "composition" / "adapter_bindings.py"
+).read_text(encoding="utf-8")
 #: `EPIC-025` PR 0.3 moved this module out of `infrastructure/binance/` into
 #: the gateway's contracts, where every zone may import it.
 _ENDPOINTS_SOURCE = (
@@ -47,8 +52,10 @@ def test_market_data_venue_key_is_actually_read_by_composition_root() -> None:
     """The replacement must not repeat `BUG-081` — declared but unread.
 
     Checks the real call chain from the composition root rather than one
-    file's raw text: `binance_bot_module.py` calls `resolve_market_data_venue`,
-    and that function's own source is what actually reads the config key.
+    file's raw text: `modules/market_data/composition/adapter_bindings.py`
+    calls `resolve_market_data_venue` (`EPIC-025E` PR 4.4f-3 moved this call
+    out of the legacy `binance_bot_module.py`), and that function's own
+    source is what actually reads the config key.
     """
     assert "resolve_market_data_venue" in _MODULE_SOURCE
     assert "ConfigKeys.EXCHANGE_MARKET_DATA_VENUE" in _ENDPOINTS_SOURCE

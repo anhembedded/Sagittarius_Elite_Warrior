@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
+    MarketDataSessionFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.live_stream_adapter import (
     LiveStreamEngineAdapter,
 )
@@ -60,6 +63,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalo
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
     ISymbolMarketMetadataCache,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
+    resolve_market_data_venue,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
+    MarketDataVenue,
+)
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
 
@@ -71,6 +80,12 @@ _DEFAULT_DB_DIR_NAME = "database"
 
 def bind_adapters(container: IContainer) -> None:
     """Bind this context's ports to the adapters that implement them."""
+    # `EPIC-025E` PR 4.4f-3: the last two bindings the legacy composition root
+    # still held for this module — `MarketDataVenue` before `IExchangeSessionFactory`
+    # since the latter's factory needs the former resolved first.
+    container.singleton(MarketDataVenue, _build_market_data_venue)
+    container.singleton(IExchangeSessionFactory, _build_exchange_session_factory)
+
     container.singleton(DatabaseConfig, _build_database_config)
     container.singleton(DatabaseManager, DatabaseManager)
     container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
@@ -97,6 +112,22 @@ def bind_adapters(container: IContainer) -> None:
     container.bind(LiveStreamEngineAdapter, LiveStreamEngineAdapter)
 
 
+def _build_market_data_venue(container: IContainer) -> MarketDataVenue:
+    """`EPIC-021A`: registered as its own singleton so `BinanceWebsocketService`'s
+    constructor (which needs it for the testnet flag) picks up the real
+    configured value via auto-wiring — not its own default fallback, which
+    would silently pin every install to MAINNET_PUBLIC regardless of config."""
+    return resolve_market_data_venue(container.resolve(IConfig))
+
+
+def _build_exchange_session_factory(container: IContainer) -> IExchangeSessionFactory:
+    """`EPIC-025` PR 1.3c-4 — one factory per bounded context, where there
+    used to be one instance answering both. This module's own adapter; the
+    SDK session behind it still comes from `support/binance_gateway`, the
+    only place allowed to construct a `python-binance` `Client`."""
+    return MarketDataSessionFactory(container.resolve(MarketDataVenue))
+
+
 def _build_database_config(container: IContainer) -> DatabaseConfig:
     config = container.resolve(IConfig)
     db_dir = config.get(ConfigKeys.DATABASE_DIR.value) or os.path.join(
@@ -107,9 +138,7 @@ def _build_database_config(container: IContainer) -> DatabaseConfig:
 
 def _build_exchange_client(container: IContainer) -> IExchangeClient:
     """The session factory decides the venue; this module only asks for a
-    market-data client. `IExchangeSessionFactory` is still registered by the
-    legacy composition root (`binance_bot_module.py`), but no longer because of
-    a shared instance: PR 1.3c-4 split that in two, and
-    `MarketDataSessionFactory` is now this module's own adapter. What is left is
-    moving the registration itself, which waits with the rest of them."""
+    market-data client. Both `MarketDataVenue` and `IExchangeSessionFactory`
+    are bound above, in this same file (`EPIC-025E` PR 4.4f-3 moved them out
+    of the legacy composition root, `binance_bot_module.py`)."""
     return container.resolve(IExchangeSessionFactory).create_market_data_client()
