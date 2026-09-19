@@ -33,9 +33,10 @@ from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
 from Sagittarius_Elite_Warrior.src.support.indicators.ui.list_model import (
     IndicatorScriptListModel,
 )
-from sagittarius_engine.extensions.pyside_mvc import BaseQmlViewModel, from_qml
-from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (
+from sagittarius_engine.extensions.pyside_mvc import (
+    BaseQmlViewModel,
     LogListModel,
+    from_qml,
 )
 
 _DEFAULT_INITIAL_CAPITAL_TEXT = "10000"
