@@ -117,3 +117,42 @@ cleanup: the merged tree hangs too. Fixing it means root-causing cross-test stat
 a 47-test Qt tier, which is its own task and not a review follow-up — and `fix-bug-rule.md`
 §1 forbids the shortcut of fixing the symptom (a longer timeout, a re-run) that is the only
 thing that fits inside this one.
+
+## 6. 2026-09-19 — steps 2 and 3 applied; step 1 not yet reproducing
+
+Picked back up per user request to use `fix-bug-rule.md`/`fix-bug` skill going forward.
+User approved the `pyproject.toml` change (§4 item 3) explicitly, since `commit-rule.md`
+requires prior confirmation for any `pyproject.toml` edit.
+
+**Applied (both committed together, verified green):**
+- `pyproject.toml`: `timeout_method = "thread"` — pytest-timeout's watchdog now runs on its
+  own OS thread and can kill the process regardless of what the main thread is blocked in,
+  closing the exact gap this report's §2 names (`SIGALRM`, the `signal`-method default,
+  cannot be delivered while the main thread sits in Qt's C++ event loop or
+  `Executor.shutdown(wait=True)`).
+- `tests/integration/presentation/ui/conftest.py`: both `thread_manager.shutdown(wait=True)`
+  call sites (`app_engine` and `main_window` teardown) now assert
+  `thread_manager.stats().in_flight == 0` immediately after the drain returns — direct,
+  positive proof the drain actually covered every submitted task for that test, using the
+  engine's own `PoolStats` rather than name-sniffing live threads (asyncio's default executor
+  and other libraries also spawn `ThreadPoolExecutor`s with the same default naming, which
+  would have made a thread-enumeration check unreliable).
+
+**Step 1 (bisection) — not reproducing yet.** Ten consecutive sequential runs of the full
+directory (`pytest tests/integration/presentation/ui -q -p no:randomly`, single process, no
+xdist — the same shape as this report's original measurement), 2026-09-19, on
+`d9ceb768` + these two changes: **10/10 clean** — 43 passed, 4 skipped, ~85s each, every
+time. Neither new assertion fired; no hang, no abort. This report's original measurement
+(2026-09-15) saw the hang on roughly half of five runs on an earlier commit
+(`78e44971`) — worth naming honestly rather than guessing: either the race window
+narrowed or closed as a side effect of unrelated work since then (`EPIC-025` Phases 4-5's
+restructuring, or `BUG-014`'s fix, which added `app.stop()` teardown to 24 test files and
+could plausibly have quieted a related shutdown race), or it needs a condition these ten
+runs did not hit (xdist parallelism, `pytest-randomly`'s reordering, `dev_mode=True`).
+
+**Status:** left Open. The diagnostic improvements are real, standalone value on their own
+(a future hang in this tier now fails loudly and names itself instead of silently eating the
+CI timeout budget) and are not being held back by non-reproduction — but they are not a fix
+for the reported leak, since no leak has been reproduced to fix. Not closing this on ten
+clean runs of a bug that was already known to be intermittent; the honest state is
+"substantially hardened, still not reproduced, root cause still not established."

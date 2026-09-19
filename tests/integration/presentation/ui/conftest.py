@@ -403,6 +403,18 @@ def app_engine(
     thread_manager = engine.context.container.resolve(IThreadManager)
     if thread_manager is not None:
         thread_manager.shutdown(wait=True)
+        # `BUG-121` — `shutdown(wait=True)` is supposed to block until every
+        # submitted task has actually returned; a worker still alive right
+        # after it returns is exactly the leak that crashed the interpreter
+        # on a LATER test (the GC-on-worker-thread abort this fixture's own
+        # comment above describes), so name it here instead of letting it
+        # surface three tests later with no test at fault.
+        stats = thread_manager.stats()
+        assert stats.in_flight == 0, (
+            "a ThreadManager worker survived app_engine's shutdown(wait=True) "
+            f"(BUG-121): {stats.in_flight} still in flight "
+            f"(submitted={stats.submitted}, completed={stats.completed})"
+        )
 
     engine.stop()
 
@@ -470,6 +482,16 @@ def main_window(qapp, qtbot, app_engine):
     thread_manager = app_engine.context.container.resolve(IThreadManager)
     if thread_manager is not None:
         thread_manager.shutdown(wait=True)
+        # `BUG-121` — same reasoning as `app_engine`'s own drain above: prove
+        # the mechanism this docstring promises ("blocks until ... pool has
+        # actually drained") actually held for this test's worker, instead of
+        # trusting that it did.
+        stats = thread_manager.stats()
+        assert stats.in_flight == 0, (
+            "a ThreadManager worker survived main_window's shutdown(wait=True) "
+            f"(BUG-121): {stats.in_flight} still in flight "
+            f"(submitted={stats.submitted}, completed={stats.completed})"
+        )
 
     # ChartCard.viewport/zoom_controls/crosshair are plain QObjects
     # constructed with no C++ parent (see ViewportController.__init__) — an

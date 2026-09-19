@@ -75,12 +75,27 @@ asyncio_mode = "auto"
 # commit; a test that legitimately needs longer should carry its own
 # `@pytest.mark.timeout(...)` rather than push this global up for everyone.
 #
-# `method` is left at pytest-timeout's platform default (`signal` on Unix), which
-# interrupts only the offending test and gives a traceback at the line that hung
-# — verified against this exact hang, not assumed. Its known limit is code that
-# blocks without releasing the GIL, where `thread` would be needed; that trade
-# (killing the whole run) is not worth making until such a hang actually appears.
+# `method` was left at pytest-timeout's platform default (`signal` on Unix) here,
+# which interrupts only the offending test and gives a traceback at the line
+# that hung — verified against the `BUG-119` hang, not assumed. Its known limit
+# is code that blocks without releasing the GIL, where `thread` would be needed;
+# that trade (killing the whole run instead of one test) was deferred "until
+# such a hang actually appears".
+#
+# `BUG-121` (2026-09-15) is that hang: `signal` delivers `SIGALRM` to the main
+# thread, and the UI integration tier's hang sits the main thread inside Qt's
+# C++ event loop or `Executor.shutdown(wait=True)` — neither returns to the
+# interpreter to run the handler, so the 60s budget above was never actually
+# enforced there; only the CI runner's own outer kill (300s+) ever ended it,
+# with no test named as the cause. `method = "thread"` runs the watchdog on its
+# own OS thread, so it fires and kills the process regardless of what the main
+# thread is blocked in. Its own trade-off — it takes the whole test session
+# down with it rather than isolating the one offending test — is accepted
+# because a hang that names nothing is worse than a run that dies loudly; a
+# test needing more than 60s for a legitimate reason still gets its own
+# `@pytest.mark.timeout(...)`.
 timeout = 60
+timeout_method = "thread"
 
 [tool.ruff]
 # Pinned with requirements.txt (user decision 2026-09-17). Without a pin the gate's
