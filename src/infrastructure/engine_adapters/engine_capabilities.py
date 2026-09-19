@@ -91,6 +91,13 @@ REQUIRED_ENGINE_CAPABILITIES: tuple[RequiredEngineCapability, ...] = (
         parameter="background",
         since="TASK-042 (engine) / BOT-132 (app)",
     ),
+    # EPIC-025F PR 5.3: shell/contribution_registry.py's panel half is
+    # rebuilt on this class rather than a hand-rolled copy of its logic.
+    RequiredEngineCapability(
+        module="sagittarius_engine.extensions.pyside_mvc.runtime.contribution_registry",
+        attribute="ContributionRegistry",
+        since="TASK-043 E1 (engine) / EPIC-025F PR 5.3 (app)",
+    ),
 )
 
 
