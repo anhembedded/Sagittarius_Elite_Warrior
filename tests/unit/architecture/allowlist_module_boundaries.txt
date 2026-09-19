@@ -35,6 +35,10 @@
 # -> 9 after PR 4.4e (8 - 0 stale retired + 1 new entry: the old monolithic
 #    settings screen carried no allowlist entries of its own, so nothing
 #    retires; splitting it adds one new cross-boundary read).
+# -> 12 after PR 4.4f-4 (9 - 0 stale retired + 3 new entries: the legacy
+#    composition root's own adapter-wiring imports, exposed for the first
+#    time once the module that owns the binding does the wiring instead of
+#    the exempt-by-filename strangler root -- see the entries' own comment).
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -742,3 +746,44 @@ shell.legacy_screens -> modules.backtesting.ui.module
 # PR 0.4a-2, is real work of its own and out of this PR's bounded scope
 # (`task-execution-rule.md`). It exits when that migration lands.
 modules.trading.ui.settings.trading_settings_presenter -> presentation.cli.exchange_status_formatter
+
+# PR 4.4f-4 -- trading's own infrastructure/commands/queries move out of
+# `binance_bot_module.py` (`EPIC-025E_phase4_support_and_dissolve_common.md`
+# §3.16). The legacy composition root always wired these three adapters; the
+# boundary scan never saw it because that file is skipped by name
+# (`tests/unit/architecture/boundaries/scan.py`) -- it *is* the composition
+# root the strangler is replacing. Once `modules/trading/composition/
+# adapter_bindings.py` does the same wiring, the scan sees it for the first
+# time, and `_module_may_import`'s support-package branch only ever allowed
+# a `contracts/` package, a computation library, or a module's own `ui/`
+# reaching a UI support zone -- none of which fits "a composition root wires
+# a port to its concrete adapter", the one thing every composition file in
+# this epic exists to do.
+#
+# `InMemoryFuturesSymbolMetadataCache` implements `IFuturesSymbolMetadataCache`,
+# a port `modules/trading/contracts/` owns, but the class itself sits under
+# the generic `infrastructure/persistence/` rather than `modules/trading/
+# adapters/persistence/` -- pre-existing debt from before the module split,
+# not something this PR introduced. Relocating it touches nine other files
+# (tests under `tests/testnet/`, `tests/integration/infrastructure/binance/`,
+# `tests/unit/infrastructure/persistence/`, two probe scripts) that read
+# nothing about *this* move -- real work of its own, out of this PR's
+# bounded scope (`task-execution-rule.md`). It exits when that relocation
+# lands.
+modules.trading.composition.adapter_bindings -> infrastructure.persistence.futures_symbol_metadata_cache
+
+# `EnvFirstCredentialsProvider`/`SecretsFileSource` are `support/
+# binance_gateway`'s own concrete adapters behind `IExchangeCredentialsProvider`
+# (that package's own `contracts/`) -- the same shape `FuturesSessionFactory`/
+# `MarketDataSessionFactory` already have as each module's *own* adapter, but
+# credentials resolution has exactly one consumer (`trading`) and no module-
+# owned adapter class of its own to hide behind. `trading` is `support/
+# binance_gateway`'s only consumer of these two files today (`grep` across
+# `src/`), so there is no second module this entry's absence would protect.
+# It exits if/when `support/binance_gateway` grows its own composition-time
+# factory for this port, the way each module's own session factory already
+# hides its adapter's construction -- until then, the one module that
+# consumes it constructs it directly, exactly as the legacy composition root
+# always did.
+modules.trading.composition.adapter_bindings -> support.binance_gateway.adapters.env_first_credentials_provider
+modules.trading.composition.adapter_bindings -> support.binance_gateway.adapters.secrets_file_source

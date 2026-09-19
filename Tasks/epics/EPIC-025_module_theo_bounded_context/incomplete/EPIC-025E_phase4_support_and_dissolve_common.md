@@ -273,7 +273,7 @@ rather than mixing three modules' boundaries into one PR:
   commands, three queries, `PositionRefreshService`'s scheduling, `shutdown()`'s stream stop) into
   `modules/trading/composition/{adapter,state,command,query}_bindings.py`, mirroring
   `market_data`'s own four-file composition shape exactly. Largest and the one that actually
-  touches order submission, so it goes last of the three.
+  touches order submission, so it goes last of the three. ✅ Done 2026-09-19.
 - **4.4f-5 — the shared core ports + indicator scripts + deletion.** `IEventPublisher`/
   `IConfigReader`/`ICommandDispatcher`/`ITaskManager` and `IndicatorScriptRegistry`'s nine script
   registrations both belong to no module (`core/`/`support/indicators` import no module per
@@ -333,6 +333,69 @@ confirmed red before the fix and green after. Zero allowlist change (no cross-mo
 `market_data` already owned both types). `tests/unit/architecture` (420), `tests/unit/modules/
 market_data` (597), full `tests/unit` (4877), `tests/sanity` (29, real boot unaffected),
 `tests/integration` (161 + 4 pre-existing skips) all green; `ruff`/`mypy` (629 files) clean;
+`scripts/check_skill_prompt_references.py` OK.
+
+**4.4f-4, done — the largest slice, last of the three re-split from the original plan.**
+`modules/trading/composition/adapter_bindings.py` (new) binds the session factory, metadata
+cache/provider, credentials provider, account reader, equity recorder and user-data stream, plus
+`TradingVenue`/`TradingLimitPolicy` as lazy singletons; `composition/state_bindings.py` (new) binds
+`TradingSessionState`/`PositionRefreshService`; `composition/command_bindings.py`/`query_bindings.py`
+(new) bind the six commands and three queries. `TradingModule.register()` calls all four plus the
+pre-existing `bind_published_ports()`.
+
+**One binding could not be a pure move, and needed a real design decision.** The legacy root
+registered `ITradingClient` *conditionally* — only when `TradingVenue != DISABLED` — which needs
+`TradingVenue`'s actual resolved value at registration time. `register(context)` cannot supply
+that: `shell/registering_container.py`'s `RegisteringContainer` raises `ResolveDuringRegisterError`
+on **any** `resolve()` call, `IConfig` included, and the legacy `BaseModule.register(app)` never
+had to honour that wrapper. `Docs/SDD/04_boot_and_configuration.md`'s own register/boot table
+confirms the shape (`register`: "singleton/bind only"; `boot`: "resolve allowed"), and the
+`DoubleClaimCheck` step runs between them — so a binding added in `boot()` is invisible to that
+check. Decided: move the conditional into `TradingModule.boot()`, which already hosted
+`PositionRefreshService`'s scheduling — `ITradingClient`'s exclusive, single-module ownership makes
+the `DoubleClaimCheck` gap theoretical rather than a live risk, and the observable behaviour (an
+unbound-type error when `DISABLED`, matching `tests/sanity/test_composition_root.py`'s
+`_NOT_DISPATCHED` entry for `SubmitOrderCommand`) is preserved exactly. `TradingLimitPolicy` and
+`TradingVenue` themselves needed no such split — both became plain lazy factories, since only the
+*conditional bind of a second type* required eager evaluation.
+
+**A second real bug found and fixed, not merely moved: the credentials-file path.**
+`PathUtils.get_relative_path(__file__, "config", "secrets.local.json")` resolves relative to the
+*caller's* directory — correct from `binance_bot_module.py` (`src/`), silently wrong from
+`modules/trading/composition/` (three directories deeper) had the literal call moved unchanged.
+Fixed by walking up three `..` segments, matching the pattern `scripts/epic021b_credentials_probe.py`
+and `tests/testnet/conftest.py` already use from their own locations — verified by reading
+`PathUtils.get_relative_path`'s own implementation (`os.path.dirname(os.path.abspath(base_file))`
+joined with the given segments) rather than assuming the literal string would still resolve.
+
+**A third finding: three boundary-allowlist entries, exposed for the first time.** The legacy root's
+own adapter-wiring imports (`InMemoryFuturesSymbolMetadataCache` from `infrastructure/persistence/`;
+`EnvFirstCredentialsProvider`/`SecretsFileSource` from `support/binance_gateway/adapters/`) were
+never seen by the boundary scan because `binance_bot_module.py` is skipped by name. Once
+`modules/trading/composition/adapter_bindings.py` does the same wiring, the scan sees it for the
+first time — and `_module_may_import`'s support-package branch only ever allowed a `contracts/`
+package, a computation library, or a module's own `ui/` reaching a UI support zone, none of which
+fits "a composition root wires a port to its adapter". Three new, individually justified allowlist
+entries (`allowlist_module_boundaries.txt` 9 → 12) rather than a widened rule — matching every
+earlier slice's own precedent of a narrow, documented exception over a rule change. Each names its
+own exit: `InMemoryFuturesSymbolMetadataCache`'s when it relocates from `infrastructure/persistence/`
+into `modules/trading/adapters/persistence/` (real work of its own, touching nine unrelated files,
+deferred per `task-execution-rule.md`); the two `support/binance_gateway/adapters/` entries when
+that package grows its own composition-time factory for `IExchangeCredentialsProvider`, the way each
+module's own session factory already hides its adapter's construction.
+
+One test moved alongside its subject, not merely fixed: `_position_refresh_interval_seconds` and its
+two constants moved into `modules/trading/module.py`, so
+`tests/unit/test_binance_bot_module_position_refresh_interval.py` moved to
+`tests/unit/modules/trading/test_module_position_refresh_interval.py`, updated to import
+`TradingModule` and assert against logger `"App.TradingModule"`. Zero allowlist change beyond the
+three above (no NEW cross-module import — the boundary scan simply started counting bindings the
+composition root always made). `tests/unit/architecture` (420), `tests/unit/modules/trading` (755,
+including the moved test), `tests/sanity` (29, real boot unaffected — proves the register()/boot()
+split and the conditional bind both work against the real DI graph), full `tests/unit` (4881),
+`tests/integration` (161 + 4 pre-existing skips, including
+`test_live_trading_pipeline_against_fake_server.py::test_one_signal_puts_exactly_one_order_on_the_wire`
+— the order-submission path this slice moved) all green; `ruff`/`mypy` (633 files) clean;
 `scripts/check_skill_prompt_references.py` OK.
 
 ### 3.3 `sync_progress_*`: the open question is closed by a rule, not by a preference
