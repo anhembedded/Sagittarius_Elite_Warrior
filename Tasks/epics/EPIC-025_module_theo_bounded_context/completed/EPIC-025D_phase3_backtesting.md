@@ -1,16 +1,21 @@
 # EPIC-025D — Phase 3: `modules/backtesting`
 
-- **Status:** 🟡 In progress since 2026-09-16 — **items 2 and 4 done**. Item 4 is PR 3.1a: the three
-  dead use cases are gone, and re-measuring them first is what turned a cleanup into a finding (§3).
-  Item 2 fell out of **`BUG-127`**, the live defect §3.4 found underneath it: the presenter's import
-  of `market_data`'s adapter existed only to serve a path that binding the port removed, so fixing
-  the bug retired the allowlist entry (36 → 35) and the layering item together. Items 1 and 3 — the
-  12,309-line move and the Anticorruption Layer — were open at that point; item 1's Half A is done (§6, §7) and item 3 is
-  **measured out** (§8). **§4 is the measurement that says
-  how item 1 splits**: the screen's 74 files carry 29 imports of QML packages ADR D21 *deletes* in
-  Phase 4, so they travel with those deletions the way Phase 1's two screens did (the user's
-  `DECISION_2026-09-16`). What is left for this phase is the domain-and-use-case half — 26 files /
-  2,538 lines, six blocking imports, all of them what `IStrategyEngineFactory` was reserved for.
+- **Status:** ✅ Done (2026-09-19). All four items done — item 4's second half (fill/marker overlays)
+  re-checked against real code and closed with a finding, not assumed; see its own entry below and
+  §9. Item 4 is PR 3.1a: the three dead use cases are gone, and re-measuring them first is what
+  turned a cleanup into a finding (§3). Item 2 fell out of **`BUG-127`**, the live defect §3.4 found
+  underneath it: the presenter's import of `market_data`'s adapter existed only to serve a path that
+  binding the port removed, so fixing the bug retired the allowlist entry (36 → 35) and the layering
+  item together. Item 1's Half A shipped here (§6, §7) and Half B — the screen — shipped in Phase 4
+  as PR 4.4d (`screens/backtest`, 79 files, into `modules/backtesting/ui/`), exactly where §4's
+  measurement said it belonged; item 3 is **measured out** (§8, decided unnecessary rather than
+  built, the same call PR 2.1c made for `IStrategyCatalog`). §4 is the measurement that said how
+  item 1 splits: the screen's 74 files carry 29 imports of QML packages ADR D21 *deletes* in Phase
+  4, so they travelled with those deletions the way Phase 1's two screens did (the user's
+  `DECISION_2026-09-16`). §2's bit-identical criterion re-verified 2026-09-19: the golden-master and
+  hand-verified-trade tests this phase's own PRs (3.1b, 3.1c) ran against are part of the green full
+  `tests/unit`/`tests/integration` runs `TRACKING.md`'s `p4-4.4f5` row already recorded, and nothing
+  in Phase 4 touched `modules/backtesting`'s domain/application layers.
 - **Repository:** Elite
 - **Blocked by:** C · **Blocks:** E
 - **Read first:** HLD §3.4; ADR D12, and **§4 before touching any code** — it is the measured cut,
@@ -23,12 +28,15 @@
 
 ## 1. What to do
 
-1. 🟡 **Half A done — PR 3.1c** (§6). `modules/backtesting/`: `domain/backtesting`
+1. ✅ **Half A done — PR 3.1c** (§6). `modules/backtesting/`: `domain/backtesting`
    (`PaperExchange`, `_OpenPosition` — **not** merged with `LivePosition`, HLD §1 C3) and
    `use_cases/backtest` are in, as `contracts/` (11 files), `domain/` (6) and `application/` (8).
    **Half B — the backtest mode, its eleven QML modals rebuilt as `QDialog`s and its panels as
    docks (HLD §11) — is Phase 4's**, measured rather than deferred for room: §4.1 counted 74 files
-   whose 29 QML imports name packages ADR D21 **deletes** rather than moves.
+   whose 29 QML imports name packages ADR D21 **deletes** rather than moves. **Half B ✅ shipped as
+   `EPIC-025E` PR 4.4d** (2026-09-18, `screens/backtest` + `base_event_logger.py` into
+   `modules/backtesting/ui/`, flat) — confirmed 2026-09-19 by reading that phase's own `TRACKING.md`
+   row (`p4-4.4d`) and `git log`, not re-narrated from this line.
 2. ✅ **done by `BUG-127`'s fix** — fix the existing layer violation at `backtest_presenter.py:43`
    (an import of `infrastructure/persistence`) by going through `market_data.contracts`. The stated
    coordinates were stale (§3.3) and the real violation was the presenter naming `market_data`'s
@@ -48,14 +56,24 @@
    one number by construction.
 4. ✅ **PR 3.1a** — delete the dead use cases `RunBacktestCommand`, `StopBacktestCommand` and
    `BacktestState` (bound in the composition root, dispatched by nobody). Done, with the
-   measurement and the hazard in §3. The clause's second half — *"fill and marker overlays go
-   through `IChartHost`"* — is a separate, unrelated sentence about the chart and is **not** done;
-   it travels with item 1, the screen's move.
+   measurement and the hazard in §3. **The clause's second half — *"fill and marker overlays go
+   through `IChartHost`"* — closed 2026-09-19, and not the way this line originally expected. See
+   §9 for the finding: the shared `IChartHost` port never got built, and reading the code shows it
+   was never needed.**
 
 ## 2. Done when
 
 - A backtest runs end to end with **bit-identical** results on the same data (the trade log before
   and after is compared — this is a pure refactoring).
+
+**Re-verified 2026-09-19, not re-narrated**: §8.3 already recorded the golden-master and
+hand-verified per-trade tests passing unchanged through 3.1b/3.1c/3.1c-2; the full `tests/unit`
+(4883 passed) and `tests/integration` (161 passed, including the order-submission path) runs this
+epic's own `TRACKING.md` `p4-4.4f5` row recorded on 2026-09-19 are the same suites, run after every
+later phase's changes, still green — `modules/backtesting`'s domain/application layers were
+untouched by anything after PR 3.1c-2. Half B (the screen, `EPIC-025E` PR 4.4d) and item 4's
+`IChartHost` question (§9) are the two items this phase's status line had left unclosed; both are
+closed above.
 
 ---
 
@@ -668,5 +686,42 @@ Phase 3's coded work is **done**: 3.1a (the deletion), `BUG-127`, 3.1b (`IStrate
 move), 3.1c-2 (the split). §2's bit-identical criterion holds — the golden master and the
 hand-verified per-trade tests have passed unchanged through every one of them. Half B, the Backtest
 screen, is Phase 4's by §4.1's measurement, and §4.4 already said so.
+
+No gate: this step changes no code file (`ci-rule.md` §1's documentation exception).
+
+## 9. Item 4's second half, closed 2026-09-19 — `IChartHost` was never built, and reading the code shows why that is correct
+
+Item 4's original text read *"fill and marker overlays go through `IChartHost`"* — a shared,
+published port under `support/charting/contracts/` that `EPIC-025E` step 1's own docstring once
+listed as "not published yet" alongside `MarkerPoint`/`RegionSpan` (`info_field.py`'s docstring
+still names all three). Phase 3 closed without it existing, and this phase's own status line called
+that undone. Re-reading the shipped code rather than the plan says otherwise.
+
+**What actually draws fills and markers**: `modules/backtesting/ui/coordinators/
+chart_render_coordinator.py`'s `apply_after_native_fallback()` reads `self._view.chart_cards[0]` —
+a real `support/charting` `ChartCard` widget the view already holds — and calls draw methods
+(`set_script_regions()` etc.) on it directly. No port mediates this call at all, named `IChartHost`
+or otherwise.
+
+**Why that is not a hole**: `modules/backtesting/ui/` is exactly the kind of consumer `support/
+ui_kit`/`support/charting`'s `_UI_SUPPORT_ZONES` exception exists for — a module's own `ui/`
+package may import `support/charting` whole (`architecture-rule.md` §3, the same rule 4.4c's
+review confirmed for `support/indicators/ui/`). A shared `IChartHost` port would only earn its
+keep if drawing on the chart had to cross a *module* boundary; it does not; `ChartCard` is a
+support-package widget the backtest screen constructs and owns, the identical shape every other
+module's `ui/` already uses its support packages through. Building the port anyway would have been
+the same mistake item 3's Anticorruption Layer and `IStrategyCatalog` both were before they were
+measured out: a seam for a need that direct, already-legal construction already satisfies.
+
+**What `IBacktestChartHost` is instead, so it is not confused for the missing port**:
+`modules/backtesting/ui/ports/i_backtest_chart_host.py` — pre-existing this epic (`BOT-098F6A`) —
+is a narrower thing entirely: `widget`/`symbol`/`add_to_header()`, for embedding the chart into the
+view's layout and swapping hosts on a mode change. It never carried fill/marker drawing and was
+never meant to.
+
+**Item 4 is fully done.** The shared port item 4 named is correctly unbuilt; the capability it was
+meant to protect (fills and markers render on the backtest chart) is real and verified by reading
+the coordinator that draws them, not by trusting a docstring that only ever said "not published
+yet" without saying whether it ever would be needed.
 
 No gate: this step changes no code file (`ci-rule.md` §1's documentation exception).
