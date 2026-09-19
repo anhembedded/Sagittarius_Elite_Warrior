@@ -75,11 +75,29 @@ asyncio_mode = "auto"
 # commit; a test that legitimately needs longer should carry its own
 # `@pytest.mark.timeout(...)` rather than push this global up for everyone.
 #
-# `method` is left at pytest-timeout's platform default (`signal` on Unix), which
-# interrupts only the offending test and gives a traceback at the line that hung
-# — verified against this exact hang, not assumed. Its known limit is code that
-# blocks without releasing the GIL, where `thread` would be needed; that trade
-# (killing the whole run) is not worth making until such a hang actually appears.
+# `method` was left at pytest-timeout's platform default (`signal` on Unix) here,
+# which interrupts only the offending test and gives a traceback at the line
+# that hung — verified against the `BUG-119` hang, not assumed. Its known limit
+# is code that blocks without releasing the GIL, where `thread` would be needed;
+# that trade (killing the whole run instead of one test) was deferred "until
+# such a hang actually appears".
+#
+# `BUG-121` (2026-09-15) is that hang: `signal` delivers `SIGALRM` to the main
+# thread, and the UI integration tier's hang sits the main thread inside Qt's
+# C++ event loop or `Executor.shutdown(wait=True)` — neither returns to the
+# interpreter to run the handler, so the 60s budget above was never actually
+# enforced there; only the CI runner's own outer kill (300s+) ever ended it,
+# with no test named as the cause.
+#
+# The fix is scoped, not global: `tests/integration/presentation/ui/conftest.py`
+# marks every test it collects `@pytest.mark.timeout(60, method="thread")` via
+# `pytest_collection_modifyitems`, so only that tier trades per-test isolation
+# for a watchdog that fires regardless of what the main thread is blocked in.
+# An earlier version of this fix set `timeout_method = "thread"` globally here
+# — an independent PR review (`BUG-131`'s PR #246, 2026-09-19) correctly found
+# that takes the diagnostic property this comment chose `signal` for away from
+# every OTHER tier too, for a hang that only reproduces in one. `method` stays
+# at pytest-timeout's platform default (`signal`) everywhere else.
 timeout = 60
 
 [tool.ruff]

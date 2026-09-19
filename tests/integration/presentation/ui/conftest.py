@@ -9,6 +9,22 @@ from PySide6.QtWidgets import QApplication
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """`BUG-121` — this tier's hang sits the main thread inside Qt's C++ event
+    loop or `Executor.shutdown(wait=True)`, neither of which ever returns to
+    the interpreter to run pytest-timeout's `signal`-method handler
+    (`pyproject.toml`'s own `timeout` comment). `method="thread"` runs the
+    watchdog on its own OS thread, so it fires regardless of what the main
+    thread is blocked in — scoped to this tier alone (an independent review
+    on `BUG-131`'s PR #246 found an earlier version of this fix set it
+    globally, taking every OTHER tier's per-test signal-isolation traceback
+    away for a hang that only reproduces here)."""
+    marker = pytest.mark.timeout(60, method="thread")
+    for item in items:
+        item.add_marker(marker)
+
+
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
@@ -403,6 +419,18 @@ def app_engine(
     thread_manager = engine.context.container.resolve(IThreadManager)
     if thread_manager is not None:
         thread_manager.shutdown(wait=True)
+        # `BUG-121` — `shutdown(wait=True)` is supposed to block until every
+        # submitted task has actually returned; a worker still alive right
+        # after it returns is exactly the leak that crashed the interpreter
+        # on a LATER test (the GC-on-worker-thread abort this fixture's own
+        # comment above describes), so name it here instead of letting it
+        # surface three tests later with no test at fault.
+        stats = thread_manager.stats()
+        assert stats.in_flight == 0, (
+            "a ThreadManager worker survived app_engine's shutdown(wait=True) "
+            f"(BUG-121): {stats.in_flight} still in flight "
+            f"(submitted={stats.submitted}, completed={stats.completed})"
+        )
 
     engine.stop()
 
@@ -470,6 +498,16 @@ def main_window(qapp, qtbot, app_engine):
     thread_manager = app_engine.context.container.resolve(IThreadManager)
     if thread_manager is not None:
         thread_manager.shutdown(wait=True)
+        # `BUG-121` — same reasoning as `app_engine`'s own drain above: prove
+        # the mechanism this docstring promises ("blocks until ... pool has
+        # actually drained") actually held for this test's worker, instead of
+        # trusting that it did.
+        stats = thread_manager.stats()
+        assert stats.in_flight == 0, (
+            "a ThreadManager worker survived main_window's shutdown(wait=True) "
+            f"(BUG-121): {stats.in_flight} still in flight "
+            f"(submitted={stats.submitted}, completed={stats.completed})"
+        )
 
     # ChartCard.viewport/zoom_controls/crosshair are plain QObjects
     # constructed with no C++ parent (see ViewportController.__init__) — an

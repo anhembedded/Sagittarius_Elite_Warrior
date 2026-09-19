@@ -1,9 +1,9 @@
 # BUG-110 — Cảnh báo `[chart-range]` (nến bị ép dẹp) tái xuất hiện, sau khi `BUG-034` đã sửa
 
 **Reported date:** 2026-09-09
-**Severity:** 🟡 P3 (nhẹ hơn `BUG-034` — nến vẫn còn nhìn thấy được, chỉ chiếm ít diện tích hơn
-mức mong đợi; không phải "biến mất hoàn toàn")
-**Status:** 🔴 Open — chưa root-cause sau lượt điều tra 2, xem §6
+**Severity:** ⚪ **Đóng — không tái hiện được từ môi trường hiện có** (trước: 🟡 P3)
+**Status:** ⚪ **Đóng 2026-09-19 (user quyết định).** 3 lượt điều tra, root cause **chưa** xác nhận
+được — xem §8 để biết đóng hồ sơ này nghĩa là gì và không nghĩa là gì.
 
 ---
 
@@ -203,3 +203,132 @@ triệu chứng tái xuất là có đủ 2 dữ kiện còn thiếu ở lượt
    đọc code này) cần xem lại với đúng số liệu thật, không suy đoán.
 3. Vẫn cần môi trường Windows/GUI thật hoặc Binance thật để tái hiện sống — headless không tái hiện
    được sau 4 bộ dữ liệu tổng hợp khác nhau (§6.3), khớp đúng kết luận `BUG-034` §6/§8.5.
+
+## 7. Lượt điều tra 3 (2026-09-19) — môi trường mới (Xvfb thật, không phải offscreen), 2 giả
+thuyết còn lại của §3/§6 bị loại trừ sống, **vẫn chưa root-cause**
+
+**Trạng thái: vẫn Open.** Không đoán fix khi chưa có bằng chứng (`fix-bug-rule.md` §1).
+
+### 7.1. Phát hiện quy trình: `Xvfb` có sẵn trong phiên này — không còn là "headless hoàn toàn"
+
+`BUG-034` (4/5 lượt) và `BUG-110` (2 lượt trước) đều bị chặn bởi cùng một câu: "không có máy
+Windows/GUI thật... môi trường phiên này cũng không có". Câu đó **không còn đúng nguyên vẹn**:
+`Xvfb`/`xvfb-run` có sẵn trong container này, và `QT_QPA_PLATFORM=xcb` (khác hẳn `offscreen` —
+`scripts/quick_surface_desktop_probe.py`/`python_backtest_pan_desktop_e2e.py` đã dùng đúng cách
+này cho `BUG-115`/`BUG-009`) mở ra một **compositor X11 thật** — vòng paint/auto-range thật mà
+`offscreen` bỏ qua, đúng thứ round 1 (§3) nghi ngờ là mấu chốt. Giới hạn còn lại, nói thẳng:
+đây là **X11** (`xcb`), không phải **Wayland** — log gốc của bug này ghi `Qt platform=wayland`,
+và không có compositor Wayland (`weston`/`Xwayland`) trong container để thử đúng nền tảng đó.
+Bất cứ cơ chế nào đặc thù riêng cho mô hình frame-callback của Wayland (khác X11) vẫn nằm ngoài
+tầm với của round này.
+
+### 7.2. Giả thuyết §3 mục 2 / §6.5 mục 1 (Y auto-range tính theo TOÀN BỘ lịch sử, không phải
+cửa sổ X đang hiển thị) — **loại trừ sống, đã tự sửa một lần nhầm ở giữa chừng**
+
+Phương pháp: dựng `ChartCard` thật dưới `Xvfb`+`xcb` (không phải offscreen), nạp 500 nến qua
+đúng `render_historical_data()` (đúng nhánh `setXRange` của `_set_initial_view_range`, >150
+nến), 350 nến "cũ" dao động cực rộng (1000..5000) rồi 150 nến "cửa sổ" dải hẹp (~2485-2495,
+khớp đúng số liệu log gốc), bơm event loop thật 3 giây (30 lần `QTest.qWait(100)`).
+
+**Lần chạy đầu tiên "tái hiện" — nhưng sai vì lỗi ở chính dữ liệu tổng hợp, không phải app**:
+`y-range` settle ở `[742, 5258]`, gấp 451x dải cửa sổ. Trace trực tiếp `dataBounds(ax=1,
+orthoRange=...)` (monkeypatch, không suy đoán) cho thấy: `orthoRange` truyền vào **đúng** là
+cửa sổ X hẹp thật (`[1788820642.4, 1788829940.0]`, khớp `setXRange`'s `first_t/last_t`) —
+không phải toàn bộ lịch sử như giả thuyết ban đầu nghi — nhưng bisect-với-padding
+(`visible_slice_indices`, `candle_width * DEFAULT_VISIBLE_PADDING_WIDTHS`) trả về `lo=344`,
+tức **6 nến TRƯỚC** ranh giới cửa sổ (index 350) cũng bị kéo vào slice — và 6 nến đó, do cách
+dựng dữ liệu tổng hợp (bước nhảy giá đột ngột đúng tại ranh giới), lại nằm trong vùng dao động
+1000..5000. Đây là **lỗi của chính script chẩn đoán**, không phải bug thật — sửa lại bằng cách
+chèn **50 nến đệm** dải hẹp giữa vùng dao động rộng và cửa sổ được test (thừa gấp ~8 lần mức
+padding cần), chạy lại: `y-range` settle đúng `[2484.49, 2495.51]`, khớp sát dải giá cửa sổ
+thật. **Kết luận: dưới compositor thật, `enableAutoRange(y=True)` + `setXRange()` tính Y đúng
+theo cửa sổ X đang hiển thị, không lấy toàn bộ lịch sử** — giả thuyết này bị loại trừ sống,
+không chỉ bằng toán học (§6.1) như trước.
+
+### 7.3. Giả thuyết §6.2 (nến live glitch bị "đóng băng" vào Y-range) — loại trừ sống, đúng cách
+gọi production
+
+Phương pháp: 500 nến dải hẹp (không có gì rộng trong toàn bộ lịch sử), rồi gọi
+`ChartCard.update_last_candle()` (method cấp `ChartCard`, không gọi thẳng
+`candlestick.update_live_candle()` — lần thử đầu dùng nhầm cách gọi thấp hơn, khiến timestamp
+của nến live nằm NGOÀI cửa sổ X hiện tại và bị `dataBounds()`'s `orthoRange` guard loại bỏ tầm
+thường, không chứng minh được gì — `viewport.notify_new_data()` phải chạy cùng để view theo
+kịp nến mới, đúng luồng thật) với high/low glitch cực đoan (`9000.0`/`100.0`). Kết quả: `y-range`
+**đúng theo dự kiến** mở rộng để chứa glitch trong lúc nến đang live (`[-351, 9451]`) — không
+phải bug, đó là hành vi TradingView-style auto-scale-theo-cửa-sổ đang làm đúng việc của nó. Sau
+đó gọi `ChartCard.append_closed_candle()` với giá đóng BÌNH THƯỜNG (không glitch, đúng như dữ
+liệu Binance thật gửi khi nến đóng): `y-range` **phục hồi ngay lập tức** về `[2481.24, 2497.76]`
+và giữ nguyên qua 500ms bơm event loop thật tiếp theo — không bị "đóng băng" ở giá glitch. Khớp
+với phân tích code ở §6.2 (đã loại trừ bằng đọc code), giờ có thêm bằng chứng sống.
+
+### 7.4. Việc đã làm để loại trừ (không cần lặp lại)
+
+- Cả 2 giả thuyết còn "sống" (chưa loại trừ hoàn toàn) tính đến hết lượt điều tra 2 — §3 mục 2
+  (windowed vs full-history) và §6.2 (live-candle sticking) — giờ đã loại trừ bằng phản chứng
+  **sống**, dưới compositor X11 thật (`Xvfb`+`xcb`), không chỉ headless synthetic (§6.3) hay
+  toán học thuần (§6.1) như trước.
+- Script chẩn đoán không giữ lại trong repo (`fix-bug-rule.md` §2 — chỉ chứng minh/loại trừ 1
+  giả thuyết cho 1 lần chạy, không có giá trị chẩn đoán lâu dài một khi đã ghi kết luận ở đây,
+  đúng tiền lệ §6.3). Phương pháp đủ chi tiết ở §7.2/§7.3 để dựng lại nếu cần.
+
+### 7.5. Suggested next steps
+
+1. **Không còn giả thuyết cụ thể nào chưa loại trừ** từ 3 lượt điều tra (§2, §6.1, §6.2, §6.3,
+   §7.2, §7.3 đã loại hết những gì round 1-2 nêu ra). Lượt tới cần **bằng chứng mới**, không
+   phải kiểm lại giả thuyết cũ.
+2. Chờ log `[chart-range]` tái xuất hiện thật với 2 trường đã tăng cường ở §6.4
+   (`windowed price band`, `live candle forming`) — đây vẫn là con đường nhiều thông tin nhất,
+   và giờ **hai điểm dữ liệu đó đã tự loại trừ 2 trong 3 giả thuyết cụ thể mà round 1-2 nêu ra**
+   nếu log tới cho thấy chúng khớp hành vi đúng — nghĩa là log tới, nếu vẫn squash, gần như chắc
+   chắn chỉ đến việc log ĐÓ mới có ý nghĩa, không phải một trong hai điều đã loại ở đây.
+3. **Manh mối mới, chưa thử**: log gốc ghi `Qt platform=wayland`, còn mọi lượt tái hiện (kể cả
+   round 3 này) đều chỉ chạy được trên `xcb`/`offscreen`. Nếu có máy Linux có Wayland compositor
+   thật (hoặc Windows — nền tảng gốc `BUG-034` cuối cùng tái hiện được), thử lại đúng §7.2/§7.3's
+   kịch bản trên nền tảng đó trước khi nghĩ tới giả thuyết hoàn toàn mới.
+
+## 8. Đóng hồ sơ 2026-09-19 — user quyết định dừng điều tra khi không tái hiện được
+
+**Đóng vì không tái hiện được, không phải vì đã sửa.** Không có dòng code sản xuất nào đổi cho
+bug này qua cả 3 lượt điều tra. Cùng tiền lệ `BUG-068`/`BUG-121` đã dùng trong repo này: đóng là
+**tạm dừng**, không phải **kết luận** rằng bug không tồn tại.
+
+### 8.1. Vì sao đóng hợp lý ở điểm này
+
+Ba lượt điều tra, ba cách tiếp cận khác nhau, không lượt nào tái hiện được triệu chứng gốc:
+- **Round 1** (§1-§5): đọc code + git blame loại trừ đúng cơ chế `BUG-034` (mọi overlay đã có
+  `ignoreBounds=True`); nêu 2 giả thuyết cụ thể, chưa kiểm.
+- **Round 2** (§6): loại trừ bằng toán học rằng padding của pyqtgraph không thể tạo dải rộng như
+  log ghi (childRange bản thân đã sai, không phải do padding); loại trừ giả thuyết "1 nến đóng có
+  wick bất thường thật" bằng đọc code; thử 4 bộ dữ liệu tổng hợp headless, không tái hiện; tăng
+  cường log vĩnh viễn (`windowed price band`, `live candle forming`) để lượt log thật tiếp theo
+  tự đủ bằng chứng.
+- **Round 3** (§7): phát hiện `Xvfb`+`xcb` có sẵn trong container — compositor **thật**, không
+  phải `offscreen` — và dùng nó để **loại trừ sống** (không chỉ bằng đọc code/toán học) cả 2 giả
+  thuyết cụ thể còn lại của round 1-2.
+
+Sau 3 lượt, **không còn giả thuyết cụ thể nào từ báo cáo gốc chưa bị loại trừ**. Giả thuyết cuối
+cùng chưa thử — hành vi đặc thù riêng của Wayland (nền tảng log gốc ghi lại) khác X11 — không thể
+thử tiếp trong container này (không có compositor Wayland). Tiếp tục điều tra từ đây cần **bằng
+chứng mới** (log thật tái xuất hiện, hoặc một máy có Wayland/Windows thật), không phải kiểm lại
+giả thuyết cũ bằng phương pháp khác.
+
+### 8.2. Mức độ nguy hiểm thật, để cân nhắc đúng khi/nếu quay lại
+
+🟡 P3 từ đầu: nến vẫn nhìn thấy được (18.77% trục, không phải ~0.88% gần-biến-mất như `BUG-034`),
+không có báo cáo mất dữ liệu hay crash kèm theo — chỉ là trải nghiệm đọc chart kém hơn mong đợi
+trong một khoảng thời gian ngắn (log không cho biết triệu chứng có tự hết hay không).
+
+### 8.3. Việc đã làm, không cần lặp lại nếu mở lại
+
+Log chẩn đoán tăng cường ở round 2 (§6.4: `windowed price band`, `live candle forming`) **vẫn còn
+trong code** — không bị rút lại khi đóng hồ sơ này. Nếu triệu chứng tái xuất hiện, log tới sẽ có
+đủ 2 trường đó ngay lập tức, không cần chờ thêm một lượt điều tra chỉ để thêm log.
+
+### 8.4. Nếu quay lại
+
+Mở **hồ sơ mới**, tham chiếu ngược file này và `BUG-034`. Bắt đầu từ:
+1. Log `[chart-range]` thật tái xuất hiện — đọc `windowed price band` vs `price_bounds` đầu dòng
+   theo đúng §6.5 mục 1 đã hướng dẫn, KHÔNG lặp lại §2/§6.1/§6.2/§6.3/§7.2/§7.3 đã loại trừ.
+2. Nếu có máy Wayland thật hoặc Windows thật: thử lại đúng kịch bản §7.2 (windowed-vs-full-history)
+   và §7.3 (live-candle glitch) trên nền tảng đó trước — đây là giả thuyết duy nhất còn chưa bị
+   loại trừ trực tiếp.
