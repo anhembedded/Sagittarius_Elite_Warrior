@@ -29,13 +29,19 @@ def _bot_root() -> Path:
 
 
 _BOT_ROOT = _bot_root()
-_SCRIPTS_DIR = _BOT_ROOT / "src" / "domain" / "indicator_scripts"
-_DOMAIN_DIR = _BOT_ROOT / "src" / "domain"
+# `EPIC-025` PR 1.6g (2026-09-16) moved the indicator scripts themselves from
+# `src/domain/indicator_scripts` to here, but left these two constants
+# pointing at the tree it deleted — `_SCRIPTS_DIR.glob()` and
+# `_DOMAIN_DIR.rglob()` both silently scanned nothing for three days, so
+# neither test below checked anything a script did (`BUG-131`).
+_SCRIPTS_DIR = _BOT_ROOT / "src" / "support" / "indicators" / "indicator_scripts"
+# Same tree as `_SCRIPTS_DIR`: the Shared Kernel allow-list this guard
+# enforces (`architecture-rule.md` §2) is a property of the indicator
+# scripts, not of a "domain" package — there is no such package left here.
+_DOMAIN_DIR = _SCRIPTS_DIR
 # `EPIC-025E` PR 4.4f-5 deleted `src/binance_bot_module.py` and moved
 # indicator-script registration into `shell/composition_root.py`'s own
-# `_register_indicator_scripts()` — see `BUG-131` for the pre-existing,
-# separately-tracked staleness of `_SCRIPTS_DIR`/`_DOMAIN_DIR` above, which
-# this PR does not touch.
+# `_register_indicator_scripts()`.
 _MODULE_FILE = _BOT_ROOT / "src" / "shell" / "composition_root.py"
 
 #: A domain script must never reach for a UI toolkit or the engine — that is
@@ -92,6 +98,16 @@ def _registered_class_names() -> set[str]:
         ):
             names.add(node.args[1].id)
     return names
+
+
+def test_there_are_scripts_and_a_domain_tree_to_check():
+    """A scan that finds nothing passes vacuously — `_SCRIPTS_DIR` pointed at
+    a directory `EPIC-025` PR 1.6g deleted for three days and both tests below
+    kept passing regardless of what any script imported or registered
+    (`BUG-131`). This fails loudly the moment either constant loses its
+    subject again."""
+    assert list(_SCRIPTS_DIR.glob("*.py")), f"no scripts found under {_SCRIPTS_DIR}"
+    assert list(_DOMAIN_DIR.rglob("*.py")), f"no files found under {_DOMAIN_DIR}"
 
 
 def test_every_script_is_registered_in_the_module():

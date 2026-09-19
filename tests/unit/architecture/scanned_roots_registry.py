@@ -229,13 +229,14 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     (
         "tests/unit/support/indicators/test_indicator_script_conventions.py",
         (
-            # `support/indicators/indicator_scripts` since PR 1.6g; the second
-            # root is still the legacy domain tree, because the convention this
-            # guard checks (a script declares its indicators, never computes
-            # them inline) is about *scripts*, and the guard also proves none
-            # has been left behind under `domain/`.
+            # `src/support/indicators/indicator_scripts` since PR 1.6g. This
+            # row named the right path from the start, but the guard's own
+            # `_SCRIPTS_DIR`/`_DOMAIN_DIR` kept pointing at the deleted
+            # `src/domain` tree for three days regardless — this registry
+            # never checks that a guard's source actually reads the path
+            # registered for it (`BUG-131`), only that the registered path
+            # itself exists.
             ("src/support/indicators/indicator_scripts", "*.py"),
-            ("src/domain", "*.py"),
         ),
     ),
     (
