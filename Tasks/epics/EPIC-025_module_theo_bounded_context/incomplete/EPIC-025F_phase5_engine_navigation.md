@@ -145,9 +145,28 @@ session has started that prototype yet — not blocked on someone else's decisio
    explicitly before it ran. Zero behaviour change: all pre-existing tests pass unedited (45
    targeted + 420 architecture + 29 sanity + 4890 full `tests/unit`), `mypy` clean on 635 files via
    the CI-faithful invocation. `contribute_screen()`/`screens()`/`default_route()` are untouched —
-   no Engine equivalent, that is `NavigationService`'s concern (PR 5.1). `RegionHost` migration
-   remains open (next paragraph's own scope, unstarted).
-3. Every new Engine API is declared in `engine_capabilities.py` (`BOT-133`).
+   no Engine equivalent, that is `NavigationService`'s concern (PR 5.1).
+
+   **PR 5.4 — the rendering side migrated onto the Engine's `RegionHost`, landed 2026-09-19.**
+   `support/ui_kit/workbench_surface.py` (`WorkbenchSurface`) now inherits directly from the Engine's
+   `sagittarius_engine.extensions.pyside_mvc.runtime.RegionHost`. The application `Place` vocabulary
+   maps 1:1 to the Engine's closed `QMainWindow` physical layout anatomy (`RegionKind`). `accepts()`
+   returns `frozenset[Place]`, satisfying both application `IPlaceHost` and Engine `IRegionHost`
+   structurally because `Place(str, Enum)` members are `str` instances. `_environment_banner_factory`
+   and `_add_environment_banner()` slot (`EPIC-021K`) are preserved intact. Overrides `_toolbar_top()`
+   and `_toolbar_secondary()` set `::header` and `::context_bar` Qt object names to maintain full
+   backwards compatibility with existing presenter `findChild` lookups. Method forwarders
+   `place_widget()` and `show_modal()` catch and translate `EngineContributionError` to application
+   `ContributionError`.
+   Declared `RegionHost` in `src/infrastructure/engine_adapters/engine_capabilities.py` (`BOT-133`).
+   Fixed deprecated import shim warning in `src/modules/backtesting/ui` (`LogListModel` imported
+   directly from `sagittarius_engine.extensions.pyside_mvc`).
+   Full verification: 24 tests passed in `test_workbench_surface.py`, 13 in `test_surface_building.py`,
+   8 in `engine_adapters`, 29 in `test_composition_root.py` (all 10 navigable routes constructed clean),
+   ruff/format clean, CI-faithful mypy clean across 635 source files, 418/419 architecture tests passed
+   (single excluded worktree-path hyphen/underscore naming flake in `test_verify_against_base.py`).
+3. Every new Engine API is declared in `engine_capabilities.py` (`BOT-133`). Both `ContributionRegistry`
+   and `RegionHost` capabilities are now declared.
 4. The Engine's screen conformance suite runs against **every** surface of this application.
 
 ## 2. Done when

@@ -98,6 +98,13 @@ REQUIRED_ENGINE_CAPABILITIES: tuple[RequiredEngineCapability, ...] = (
         attribute="ContributionRegistry",
         since="TASK-043 E1 (engine) / EPIC-025F PR 5.3 (app)",
     ),
+    # EPIC-025F PR 5.4: support/ui_kit/workbench_surface.py and surface rendering
+    # are migrated onto the Engine's RegionHost.
+    RequiredEngineCapability(
+        module="sagittarius_engine.extensions.pyside_mvc.runtime.region_host",
+        attribute="RegionHost",
+        since="TASK-043 E2 (engine) / EPIC-025F PR 5.4 (app)",
+    ),
 )
 
 

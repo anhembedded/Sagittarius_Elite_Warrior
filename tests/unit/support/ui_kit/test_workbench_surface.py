@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.shell.surfaces import surfaces_by_id
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
 )
+from sagittarius_engine.extensions.pyside_mvc.runtime.i_region_host import (
+    IRegionHost,
+)
 
 
 @pytest.fixture
@@ -66,8 +69,12 @@ class TestIdentity:
         it — `architecture-rule.md` §2.1 reason (a): `ABCMeta` conflicts with
         Shiboken's metaclass, so `class WorkbenchSurface(QMainWindow,
         IPlaceHost)` raises `TypeError` on import. A structural contract with
-        nothing checking it is documentation, so this is the check."""
+        nothing checking it is documentation, so this is the check.
+
+        In addition, `WorkbenchSurface` satisfies the Engine's `IRegionHost`
+        structurally (`EPIC-025F` PR 5.4, `TASK-043` E2)."""
         assert isinstance(trading, IPlaceHost)
+        assert isinstance(trading, IRegionHost)
 
 
 class TestTheParts:

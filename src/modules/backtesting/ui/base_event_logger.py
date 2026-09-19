@@ -9,7 +9,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
 )
 
 if TYPE_CHECKING:
-    from sagittarius_engine.extensions.pyside_mvc.QmlShared.log_list_model import (
+    from sagittarius_engine.extensions.pyside_mvc import (
         LogListModel,
     )
 
