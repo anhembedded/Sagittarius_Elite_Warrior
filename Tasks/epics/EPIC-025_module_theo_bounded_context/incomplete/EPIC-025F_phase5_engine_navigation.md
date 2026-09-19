@@ -1,10 +1,10 @@
 # EPIC-025F — Phase 5: build on the Engine's `EPIC-001D` (`NavigationService`, regions, screen lifecycle)
 
 - **Status:** 🟡 In progress — unblocked 2026-09-19 (see the sequencing decision below); PR 5.1 (the
-  in-app `NavigationService` prototype) landed the same day. Remaining: retire `ScreenRegistry` and
-  the 4 `LEGACY_SCREEN_MODULES` entries, rebuild `IContributionRegistry` on the Engine's slot
-  registry, migrate onto the Engine's `RegionHost`, declare new Engine APIs, run the conformance
-  suite.
+  in-app `NavigationService` prototype) landed the same day, merged as PR #241 (`370573b7`) after
+  full gate green + independent review PASS. Remaining: retire `ScreenRegistry` and the 4
+  `LEGACY_SCREEN_MODULES` entries, rebuild `IContributionRegistry` on the Engine's slot registry,
+  migrate onto the Engine's `RegionHost`, declare new Engine APIs, run the conformance suite.
 - **Repositories:** Elite (the consumer) · Engine (the mechanism — `TASK-043`, referencing `EPIC-001D`)
 - **Blocked by:** E
 - **Read first:** HLD §5 (the Engine / application split); the Engine's
