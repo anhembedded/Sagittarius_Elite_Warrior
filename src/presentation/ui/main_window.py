@@ -28,6 +28,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import (
+    INavigationService,
     IScreenRegistry,
     NavigationService,
 )
@@ -116,6 +117,7 @@ class MainWindow(QMainWindow):
         sidebar_factory: Callable[[Sequence[NavSection], Sequence[NavItem]], ISidebar],
         *,
         state_coordinator: UiStateCoordinator | None = None,
+        navigation_service: INavigationService | None = None,
     ) -> None:
         super().__init__()
         self._app = app_engine
@@ -153,7 +155,11 @@ class MainWindow(QMainWindow):
         screen_registry.bind_to_router(self._router)
         # `EPIC-025F` — `can_leave` left at its permissive default: no screen
         # today needs to block navigation (`architecture-rule.md` §7.2.1).
-        self._navigation_service = NavigationService(self._router)
+        self._navigation_service = (
+            navigation_service
+            if navigation_service is not None
+            else NavigationService(self._router)
+        )
 
         # ---- Restore remembered state, then navigate ----------------------
         # `restore_state()` (below) applies geometry/sidebar only — never the
@@ -167,6 +173,11 @@ class MainWindow(QMainWindow):
         if self._state_coordinator is not None:
             self._state_coordinator.restore_into(self)
         self._navigate(self._current_route, source=NavigationSource.RESTORE)
+
+    @property
+    def navigation_service(self) -> INavigationService:
+        """The `INavigationService` governing screen transitions in this window."""
+        return self._navigation_service
 
     def shutdown(self) -> None:
         """Requests cooperative presenter shutdown before engine teardown."""

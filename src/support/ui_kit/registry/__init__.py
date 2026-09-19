@@ -2,14 +2,12 @@
 concrete screen. See `Docs/SCREEN-REGISTRY-PATTERN/README.md` for the design
 and this package's `DECISION_*.md` ADR for what was ratified."""
 
-from .abstract_screen_module import AbstractScreenModule
 from .models import NavLocation, NavMetadata, ScreenDescriptor, SectionDescriptor
 from .navigation_service import NavigationService
 from .ports import INavigationService, IScreenRegistry
 from .screen_registry import ScreenRegistry
 
 __all__ = [
-    "AbstractScreenModule",
     "INavigationService",
     "IScreenRegistry",
     "NavLocation",

@@ -14,9 +14,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import (
     NavSection,
 )
 from sagittarius_engine.extensions.pyside_mvc import PresenterManager
-from sagittarius_engine.interfaces.i_container import IContainer
 
-from .abstract_screen_module import AbstractScreenModule
 from .models.screen_descriptor import ScreenDescriptor
 from .models.section_descriptor import SectionDescriptor
 from .ports.i_screen_registry import IScreenRegistry
@@ -31,12 +29,8 @@ class ScreenRegistry(IScreenRegistry):
         self._default_route: str | None = None
 
     def register(self, descriptor: ScreenDescriptor) -> None:
-        """`EPIC-025`: section reconciliation happens here, not in
-        `register_module()`. A screen that arrives as a **contribution**
-        (`shell/screen_wiring.py`) comes in as a descriptor with no module
-        behind it, and it needs its sidebar section exactly as much as a legacy
-        `AbstractScreenModule` does — leaving the reconciliation one level up
-        meant the sidebar silently lost every section for such a screen."""
+        """`EPIC-025`: registers a screen descriptor and reconciles its
+        sidebar section sequence."""
         if descriptor.route in self._descriptors:
             raise ValueError(
                 f"Route '{descriptor.route}' already exists in ScreenRegistry!"
@@ -53,14 +47,9 @@ class ScreenRegistry(IScreenRegistry):
         if nav is not None and nav.location == NavLocation.TOP_SECTION:
             self._reconcile_section(nav.section_key, nav.section_sequence)
 
-    def register_module(
-        self, module: AbstractScreenModule, container: IContainer
-    ) -> None:
-        self.register(module.build_descriptor(container))
-
     def register_section(self, section: SectionDescriptor) -> None:
         """Explicit call — the single source of truth for this section's
-        `sequence` from now on, whether called before or after the modules
+        `sequence` from now on, whether called before or after the screens
         that belong to it."""
         self._sections[section.key] = section
 
@@ -89,7 +78,7 @@ class ScreenRegistry(IScreenRegistry):
 
     def get_default_route(self) -> str:
         if self._default_route is None:
-            raise RuntimeError("no ScreenModule declared is_default=True")
+            raise RuntimeError("no screen declared is_default=True")
         return self._default_route
 
     def build_sidebar_navigation(

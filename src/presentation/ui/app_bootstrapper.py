@@ -80,6 +80,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import PageShell
 from Sagittarius_Elite_Warrior.src.support.ui_kit.qt_platform import (
     is_headless_qt_platform,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import INavigationService
 from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.config_manager_state_store import (
     ConfigManagerStateStore,
@@ -322,6 +323,11 @@ def build() -> AppRuntime:
         screen_registry,
         sidebar_factory=Sidebar,
         state_coordinator=state_coordinator,
+    )
+    # `EPIC-025F` — promote INavigationService to the application container so
+    # any component or coordinator can navigate decoupled from MainWindow.
+    app_engine.context.container.singleton(
+        INavigationService, window.navigation_service
     )
     window.show()
 
