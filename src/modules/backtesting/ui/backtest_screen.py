@@ -6,8 +6,20 @@ Same real difference from `settings_screen()`'s shape as `dashboard_screen.py`
 concrete View this install uses is a named choice read from `IConfig`
 (`EPIC-013F`), so the view factory needs `container` at construction time,
 and `PresenterManager.navigate_to()` calls `view_factory()` with zero
-arguments. `BacktestingModule.register()` stashes `context.container` for
-this call.
+arguments. `BacktestingModule.boot()` stashes `context.container` for this
+call.
+
+Both factories below check the concrete type they get, the same real check
+`dashboard_screen()`/`settings_screen()`/`welcome_screen()` all make and the
+legacy `BacktestScreenModule.create_view()`/`create_presenter()` this
+replaces never did: `build_backtest_view()` returns `IBacktestView` (a
+`Protocol`, unrelated to `BaseView` by inheritance) and `BackTestPresenter`
+needs `BackTestView` specifically, not the generic `BaseView` every
+`ScreenContribution` factory is typed over. The legacy module's own
+`create_view()`/`create_presenter()` carried the identical mismatch, silent
+only because `module.py` sat in `pyproject.toml`'s per-file `mypy` exclude
+list; this file is not excluded, so the check that was always missing here
+now runs for real.
 """
 
 from __future__ import annotations
@@ -39,7 +51,15 @@ def _build_backtest_presenter(view: BaseView, container: IContainer) -> BasePres
     from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
         BackTestPresenter,
     )
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
+        BackTestView,
+    )
 
+    if not isinstance(view, BackTestView):
+        raise TypeError(
+            f"the Backtest screen's presenter was handed a {type(view).__name__}, "
+            "not a BackTestView"
+        )
     return BackTestPresenter(view, container)
 
 
@@ -51,12 +71,21 @@ def backtest_screen(container: IContainer) -> ScreenContribution:
         # `build_backtest_view`, not `BackTestView()` (`EPIC-013F`): a View
         # is never swapped while the app runs, so the config-driven choice
         # is read once, here.
+        from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
+            BackTestView,
+        )
         from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.view_factory import (
             build_backtest_view,
         )
 
         config = container.resolve(IConfig)
-        return build_backtest_view(config)
+        view = build_backtest_view(config)
+        if not isinstance(view, BackTestView):
+            raise TypeError(
+                f"build_backtest_view() returned a {type(view).__name__}, "
+                "not a BackTestView"
+            )
+        return view
 
     return ScreenContribution(
         contributor_id="backtesting",
