@@ -1,6 +1,9 @@
 # EPIC-025F — Phase 5: build on the Engine's `EPIC-001D` (`NavigationService`, regions, screen lifecycle)
 
-- **Status:** 🔴 Backlog — **blocked by ❓ O2** (ADR §3) and by the Engine-side task
+- **Status:** 🔴 Backlog — **blocked by ❓ O2** (ADR §3). No longer blocked on the Engine-side task
+  itself as of 2026-09-19 — see the sequencing decision below: this phase's own in-app
+  `NavigationService` prototype is the next executable step, not something to wait on the Engine
+  for.
 - **Repositories:** Elite (the consumer) · Engine (the mechanism — `TASK-043`, referencing `EPIC-001D`)
 - **Blocked by:** E
 - **Read first:** HLD §5 (the Engine / application split); the Engine's
