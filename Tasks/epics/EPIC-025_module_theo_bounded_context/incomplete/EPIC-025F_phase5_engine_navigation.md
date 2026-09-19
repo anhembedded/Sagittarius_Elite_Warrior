@@ -53,6 +53,17 @@ session has started that prototype yet — not blocked on someone else's decisio
    app's own closed, HLD-governed vocabulary — only its runtime type gained the `str` mixin the
    Engine's own future mechanism needs to treat it as opaque. Documented on the Engine side too:
    `Sagittarius_Engine` `Tasks/in_progress/TASK-043_...md`'s E1 row.
+
+   **The rendering half — this app's `IPlaceHost`/`WorkbenchSurface` — has now landed on the
+   Engine side too, 2026-09-19 (`TASK-043` E2)**: `RegionKind` (the engine-owned, closed
+   `QMainWindow` anatomy this app's own `Place`→dock/toolbar dispatch already encoded informally),
+   `IRegionHost`, and `RegionHost`, harvested from this app's own `WorkbenchSurface`
+   (`support/ui_kit/workbench_surface.py`) with `place` made opaque and the place→region mapping
+   supplied by the caller at construction instead of hard-coded. **Not yet consumed here** — this
+   app's own `WorkbenchSurface`/`IPlaceHost` are unchanged and still what every surface actually
+   renders against; migrating onto the Engine's `RegionHost` is this step's own remaining work, not
+   something today's harvest did on this app's behalf. Documented on the Engine side:
+   `Sagittarius_Engine` `Tasks/in_progress/TASK-043_...md`'s E2 row.
 3. Every new Engine API is declared in `engine_capabilities.py` (`BOT-133`).
 4. The Engine's screen conformance suite runs against **every** surface of this application.
 
