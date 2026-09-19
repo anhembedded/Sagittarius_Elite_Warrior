@@ -4,14 +4,17 @@ and this package's `DECISION_*.md` ADR for what was ratified."""
 
 from .abstract_screen_module import AbstractScreenModule
 from .models import NavLocation, NavMetadata, ScreenDescriptor, SectionDescriptor
-from .ports import IScreenRegistry
+from .navigation_service import NavigationService
+from .ports import INavigationService, IScreenRegistry
 from .screen_registry import ScreenRegistry
 
 __all__ = [
     "AbstractScreenModule",
+    "INavigationService",
     "IScreenRegistry",
     "NavLocation",
     "NavMetadata",
+    "NavigationService",
     "ScreenDescriptor",
     "ScreenRegistry",
     "SectionDescriptor",
