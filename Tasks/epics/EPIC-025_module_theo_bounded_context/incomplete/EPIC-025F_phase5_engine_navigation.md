@@ -1,9 +1,10 @@
 # EPIC-025F — Phase 5: build on the Engine's `EPIC-001D` (`NavigationService`, regions, screen lifecycle)
 
-- **Status:** 🔴 Backlog — **blocked by ❓ O2** (ADR §3). No longer blocked on the Engine-side task
-  itself as of 2026-09-19 — see the sequencing decision below: this phase's own in-app
-  `NavigationService` prototype is the next executable step, not something to wait on the Engine
-  for.
+- **Status:** 🟡 In progress — unblocked 2026-09-19 (see the sequencing decision below); PR 5.1 (the
+  in-app `NavigationService` prototype) landed the same day. Remaining: retire `ScreenRegistry` and
+  the 4 `LEGACY_SCREEN_MODULES` entries, rebuild `IContributionRegistry` on the Engine's slot
+  registry, migrate onto the Engine's `RegionHost`, declare new Engine APIs, run the conformance
+  suite.
 - **Repositories:** Elite (the consumer) · Engine (the mechanism — `TASK-043`, referencing `EPIC-001D`)
 - **Blocked by:** E
 - **Read first:** HLD §5 (the Engine / application split); the Engine's
@@ -27,6 +28,28 @@ session has started that prototype yet — not blocked on someone else's decisio
 1. Replace `ScreenRegistry` (`EPIC-016`) with the Engine's `NavigationService`: routes come from
    `screen` contributions; `RESTORE` is distinguished from `USER_INTENT` (`BUG-104` / `BUG-107`); a
    `can_leave()` guard protects an action in flight (`async-ui-action-rule` §1).
+
+   **PR 5.1 — the in-app `NavigationService` prototype, landed 2026-09-19.** The first slice of
+   this step, following the epic's own harvest-first pattern (Phase 1's contribution mechanism,
+   Phase 4's trading ports): the mechanism this app's `TASK-043` E3 decision calls for, built
+   against `ScreenRegistry`'s current shape rather than waiting on the Engine to propose it first.
+   `NavigationSource(str, Enum)` (`USER_INTENT`/`RESTORE`) in `src/core/contracts/`, mirroring
+   `NavLocation`'s own placement/pattern; `INavigationService`/`NavigationService`
+   (`src/support/ui_kit/registry/`) wrapping the existing `PresenterManager` router, with an
+   optional constructor-injected `can_leave: Callable[[], bool] | None = None` — permissive by
+   default (`architecture-rule.md` §7.2.1, "seam now, variant later": no screen today needs to
+   block navigation, so the seam exists without a variant). `MainWindow.switch_screen()` (a real
+   user click, always `USER_INTENT`) and boot's one initial navigation (now tagged `RESTORE`) both
+   route through a shared private `_navigate()` helper calling `NavigationService.navigate()`,
+   preserving `switch_screen()`'s exact external behaviour — all 5 existing
+   `test_main_window_state.py` tests pass unchanged, since `can_leave` is permissive today.
+   6 new unit tests in `tests/unit/support/ui_kit/registry/test_navigation_service.py`, including a
+   mutation-style check (`pr-review` E12) that the `can_leave` guard is genuinely consulted, not
+   decorative. **Deliberately does not yet**: retire `ScreenRegistry`, touch the 4
+   `LEGACY_SCREEN_MODULES` entries, or make any screen (e.g. `TradingPresenter`) actually consume
+   `source` to change behaviour (`BUG-104`'s class of bug stays fixed the current blunt way — route
+   memory deleted entirely — until a screen has a real reason to read `source`). Those remain this
+   step's own later slices, per this section's own scope.
 
    **Inherits Phase 4's own unfinished half of `EPIC-025E` §1 step 6** (`EPIC-025E`'s own §1 step 6
    addendum, 2026-09-19): all four `LEGACY_SCREEN_MODULES` entries (`DashboardScreenModule`/

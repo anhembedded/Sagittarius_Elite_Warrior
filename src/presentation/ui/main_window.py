@@ -23,8 +23,14 @@ from collections.abc import Callable, Sequence
 from PySide6.QtCore import QByteArray
 from PySide6.QtGui import QCloseEvent, QMoveEvent, QResizeEvent
 from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
+from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
+    NavigationSource,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
-from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import IScreenRegistry
+from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import (
+    IScreenRegistry,
+    NavigationService,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import (
     ISidebar,
     NavItem,
@@ -145,16 +151,22 @@ class MainWindow(QMainWindow):
         # ---- Router setup -----------------------------------------------
         self._router = PresenterManager(self._app.context.container, self._stacked)
         screen_registry.bind_to_router(self._router)
+        # `EPIC-025F` — `can_leave` left at its permissive default: no screen
+        # today needs to block navigation (`architecture-rule.md` §7.2.1).
+        self._navigation_service = NavigationService(self._router)
 
         # ---- Restore remembered state, then navigate ----------------------
         # `restore_state()` (below) applies geometry/sidebar only — never the
         # route (`BUG-104`) — so `self._current_route` is still exactly
         # `get_default_route()` set above, and this is always the one and
-        # only `switch_screen()` call on boot, always into the default
-        # screen, regardless of what the previous session had open.
+        # only navigation call on boot, always into the default screen,
+        # regardless of what the previous session had open. Tagged
+        # `RESTORE` rather than `USER_INTENT` (no click happened) so a
+        # screen whose own design is "being open means live" can tell the
+        # two apart (`BUG-104`, `BUG-107`).
         if self._state_coordinator is not None:
             self._state_coordinator.restore_into(self)
-        self.switch_screen(self._current_route)
+        self._navigate(self._current_route, source=NavigationSource.RESTORE)
 
     def shutdown(self) -> None:
         """Requests cooperative presenter shutdown before engine teardown."""
@@ -218,11 +230,25 @@ class MainWindow(QMainWindow):
         """
         @brief Navigate to a registered screen and sync the sidebar active state.
         @param route_name The route key registered with the PresenterManager.
+
+        @details Always a real user action (a sidebar click) — the one other
+        caller, boot's initial navigation, goes through `_navigate()`
+        directly so it can tag itself `RESTORE` instead.
         """
-        self._router.navigate_to(route_name)
-        self._sidebar.set_active(route_name)
-        self._current_route = route_name
-        self._mark_dirty()
+        self._navigate(route_name, source=NavigationSource.USER_INTENT)
+
+    def _navigate(self, route_name: str, *, source: NavigationSource) -> bool:
+        """Shared mechanism behind `switch_screen()` and boot's initial
+        navigation. Returns `False`, leaving the sidebar/route/persisted
+        state untouched, if `INavigationService.navigate()` refused the move
+        (no screen installs a `can_leave` guard yet, so this is currently
+        always `True`)."""
+        moved = self._navigation_service.navigate(route_name, source=source)
+        if moved:
+            self._sidebar.set_active(route_name)
+            self._current_route = route_name
+            self._mark_dirty()
+        return moved
 
 
 # ---------------------------------------------------------------------------
