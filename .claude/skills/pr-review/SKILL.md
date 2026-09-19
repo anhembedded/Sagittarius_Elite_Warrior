@@ -15,6 +15,8 @@ Load `CLAUDE.md`, `.claude/CONSTITUTION.md`, `.claude/ONBOARDING.md` §7, and `.
 | Uncommitted Working Tree | `git status --short`, `git diff -M HEAD`, and `git ls-files --others --exclude-standard` |
 | Staged Changes Only | `git diff --cached` |
 
+- **Mandatory Rubric Ingestion:** You MUST explicitly load and read [references/rubric.md](references/rubric.md) (all 97 Check IDs) into context before evaluating any diff. Reviewing without reading [references/rubric.md](references/rubric.md) is strictly forbidden; a review conducted from memory or without loading the active rubric is counterfeit, invalid, and void.
+
 Read the entire diff and surrounding production code. Execute verification in an isolated environment; never mutate or switch the active working tree. To run gate verification safely without mutating the working tree:
 ```bash
 git worktree add ../review-worktree <COMMIT_SHA>
@@ -71,7 +73,7 @@ Detailed 1-ID-per-row checklist is defined in [references/rubric.md](references/
 ## 6. Structured Reporting
 Post findings as a durable PR review comment using direct GitHub tools (or structured report to author). Lead with the Pyramid Principle (`.claude/rules/report-rule.md`):
 1. **Summary Verdict:** Overall readiness (`PASS` / `BLOCKING` / `NEEDS_REVISION`), scope, and highest-impact risks.
-2. **Coverage Disclosure:** Explicitly declare which IDs were inspected vs skipped with technical rationale (e.g. `Inspected: Groups A, C, D; Skipped: Group F (no domain logic in diff)`).
+2. **Mandatory Coverage Disclosure:** Every review report MUST include an explicit Coverage Disclosure table accounting for EVERY applicable Check ID from [references/rubric.md](references/rubric.md) (e.g. `Inspected: A1–A6, B1–B6, C1–C10, D1–D11, E1–E15, J1–J6, K1–K9, L1–L6; Skipped with rationale: F1–F5 (no trading domain logic in diff)`). Any review lacking this explicit Check ID accounting is strictly NON-COMPLIANT and rejected.
 3. **Itemized Findings:** Format: `[Severity] file:line — Trigger & Consequence — Governing Rule Clause (Check ID)`.
 4. **Verification State:** Exact commands executed, log paths verified, and remaining unverified gaps.
 
