@@ -1,12 +1,11 @@
 # BUG-121 — the UI integration tier hangs or aborts when its 47 tests run in one process
 
 - **Reported:** 2026-09-15
-- **Severity:** 🟠 P2 — it does not fail the gate, and that is the problem: the gate is the
-  only way this tier is ever run, so a developer who runs the directory by hand (which is
-  what a person does while writing one of these tests) hits a hang roughly half the time
-  and has nothing to read.
-- **Status:** Open — reproduced on both trees, root cause **not** established. Filed with
-  the evidence rather than a guess, per `fix-bug-rule.md` §7.
+- **Severity:** ⚪ **Closed — not reproducible from the current environment** (was 🟠 P2)
+- **Status:** ⚪ **Closed 2026-09-19 (user decision).** Investigated 2026-09-19: 15/15
+  reproduction attempts clean (10 sequential, 3 xdist+randomized, 2 full-gate CI runs on
+  the hardened tree), root cause **not** confirmed. See §7 for what closing this record
+  means and does not mean.
 
 ## 1. Symptom
 
@@ -183,3 +182,47 @@ CI timeout budget) and are not being held back by non-reproduction — but they 
 for the reported leak, since no leak has been reproduced to fix. Not closing this on ten
 clean runs of a bug that was already known to be intermittent; the honest state is
 "substantially hardened, still not reproduced, root cause still not established."
+
+## 7. Closed 2026-09-19 — user decision to stop investigating without a live reproduction
+
+**Closed because it stopped reproducing, not because a mechanism was found and fixed.** No
+line of production code changed for this defect. §6 already lists 15/15 clean attempts
+across every shape this report's own evidence pointed at (sequential single-process, xdist,
+`pytest-randomly` enabled, and two green full-gate CI runs on the hardened tree) — asked
+whether to keep chasing it further (more repetitions, `dev_mode=True`) or stop, the user
+chose to close.
+
+### 7.1 What stays, regardless of closure
+
+The two 2026-09-19 hardening changes are permanent, independent of this record's status:
+- `tests/integration/presentation/ui/conftest.py` asserts `thread_manager.stats().in_flight
+  == 0` right after both `shutdown(wait=True)` drains — if the leak this report describes
+  (or one shaped like it) ever recurs, it now fails naming the exact count in flight instead
+  of silently surviving into the next test.
+- The same file's `pytest_collection_modifyitems` hook marks every test in this tier
+  `@pytest.mark.timeout(60, method="thread")` — a hang here now kills the run within 60s
+  with a full thread dump, instead of running past `signal`-method's blind spot (the main
+  thread stuck in Qt's C++ event loop never returns to run the handler) until the CI
+  runner's own outer kill, naming nothing.
+
+So this closure is not a return to the original silent-hang state `BUG-119` and this report
+both describe — a live recurrence of the underlying leak would now be caught, just under a
+different (new) bug number rather than this one staying open on zero live evidence.
+
+### 7.2 Why this is a defensible "closed", not a guess dressed up as one
+
+Fifteen attempts is not exhaustive, but it spans every axis this report's own evidence
+named as possibly relevant: process topology (1 process vs. 4 xdist workers), test order
+(fixed vs. `pytest-randomly`), and the actual CI harness (two real GitHub Actions runs, not
+just a local approximation). None reproduced. The honest remaining hypotheses (§6): the race
+window narrowed or closed as a side effect of unrelated work since 2026-09-15 (`EPIC-025`
+Phases 4-5, or `BUG-014`'s `app.stop()` teardown fix), or it needs a condition none of the
+fifteen runs hit (`dev_mode=True` is the one named in §6 that was not tried).
+
+### 7.3 If it comes back
+
+Open a **new** bug report, reference this one and `BUG-119`, and start from whichever of the
+15 runs' conditions is now producing the hang (the `dev_mode=True` gap in particular).
+Re-read §1-§3's evidence here first — the worker-thread and widget-survival stack traces are
+still the two most concrete leads this investigation ever had, and nothing in this closure
+invalidates them.
