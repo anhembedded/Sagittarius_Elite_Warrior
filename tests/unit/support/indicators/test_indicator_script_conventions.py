@@ -31,7 +31,12 @@ def _bot_root() -> Path:
 _BOT_ROOT = _bot_root()
 _SCRIPTS_DIR = _BOT_ROOT / "src" / "domain" / "indicator_scripts"
 _DOMAIN_DIR = _BOT_ROOT / "src" / "domain"
-_MODULE_FILE = _BOT_ROOT / "src" / "binance_bot_module.py"
+# `EPIC-025E` PR 4.4f-5 deleted `src/binance_bot_module.py` and moved
+# indicator-script registration into `shell/composition_root.py`'s own
+# `_register_indicator_scripts()` — see `BUG-131` for the pre-existing,
+# separately-tracked staleness of `_SCRIPTS_DIR`/`_DOMAIN_DIR` above, which
+# this PR does not touch.
+_MODULE_FILE = _BOT_ROOT / "src" / "shell" / "composition_root.py"
 
 #: A domain script must never reach for a UI toolkit or the engine — that is
 #: what keeps PlottedLine.color a plain hex string instead of a QColor.
@@ -100,7 +105,7 @@ def test_every_script_is_registered_in_the_module():
 
     assert unregistered == [], (
         "indicator script(s) defined but never registered in "
-        f"binance_bot_module.py: {unregistered}"
+        f"shell/composition_root.py: {unregistered}"
     )
 
 

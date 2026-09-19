@@ -2,7 +2,6 @@ import logging
 from unittest.mock import patch
 
 import pytest
-from Sagittarius_Elite_Warrior.src.binance_bot_module import BinanceBotModule
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream import (
     StartLiveStreamCommand,
@@ -16,14 +15,8 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.event_handlers.market_tick_event_handler import (
     MarketTickEventHandler,
 )
-from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
-from Sagittarius_Elite_Warrior.src.shell.modules import MODULES
-from sagittarius_engine import App
+from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
-from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
-from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
-from sagittarius_engine.interfaces.i_config import IConfig
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 
 @pytest.fixture
@@ -37,22 +30,15 @@ def app_instance():
     an unbound command and failing with `Any cannot be instantiated`. It failed
     for the right reason: the app it built was not the app that ships.
 
-    So it now calls `register_modules(app, MODULES)`, the same function the
-    composition root calls, rather than naming modules itself. The next context
-    to move out of `binance_bot_module.py` needs no edit here, and if one is
-    ever missing from `MODULES` this test fails instead of passing against a
-    smaller app than the user runs.
+    It then moved to calling `register_modules(app, MODULES)` itself, the same
+    function the composition root called. `EPIC-025E` PR 4.4f-5 dissolved
+    `binance_bot_module.py` and inlined its last bindings directly into
+    `create_app()`, so a hand-assembled container here would silently drift
+    from the shipping graph again the next time that function changes. This
+    fixture now calls `create_app()` itself — the exact object the app's own
+    entry points build — so no assembly logic is duplicated here at all.
     """
-    container = StdLibContainer()
-    event_bus = MemoryEventBus()
-    config_manager = ConfigManager()
-
-    container.singleton(IEventBus, event_bus)
-    container.singleton(IConfig, config_manager)
-
-    app = App(container, event_bus)
-    app.use(BinanceBotModule())
-    register_modules(app, MODULES)
+    app = create_app(ConfigManager())
 
     yield app
     try:

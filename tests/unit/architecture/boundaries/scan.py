@@ -11,10 +11,11 @@ from .rules import import_is_allowed
 #: A composition root may import anything; that is what makes it one (Clean
 #: Architecture's *Main*: it knows every component so no component has to know
 #: another). Paths are relative to `src/`. `shell/composition_root.py` is the
-#: real one; `main.py` is the headless entry point still doing its own wiring;
-#: `binance_bot_module.py` is the single module the strangler is replacing, and
-#: leaves in Phase 4. `tests/sanity/test_composition_root.py` uses the same word
-#: for the same files.
+#: real one; `main.py` is the headless entry point still doing its own wiring.
+#: `binance_bot_module.py` — the strangler module this pair used to sit
+#: beside — was dissolved into `shell/composition_root.py` in `EPIC-025E` PR
+#: 4.4f-5 and no longer exists, so its entry is retired here too. `tests/
+#: sanity/test_composition_root.py` uses the same word for the same files.
 #:
 #: `presentation/ui/app_bootstrapper.py` is deliberately **not** here even
 #: though it is the GUI's entry point: it still imports `binance_endpoints`
@@ -24,7 +25,6 @@ from .rules import import_is_allowed
 #: `rules.py`.
 COMPOSITION_ROOT_FILES = frozenset(
     {
-        "binance_bot_module.py",
         "main.py",
         "shell/composition_root.py",
     }
