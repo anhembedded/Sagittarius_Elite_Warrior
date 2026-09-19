@@ -136,7 +136,5 @@ class BacktestingModule(BoundedContextModule):
     def contribute(self, registry: IContributionRegistry) -> None:
         """The Backtest screen — see this module's own docstring."""
         if self._container is None:
-            raise RuntimeError(
-                "BacktestingModule.contribute() called before register()"
-            )
+            raise RuntimeError("BacktestingModule.contribute() called before boot()")
         registry.contribute_screen(backtest_screen(self._container))

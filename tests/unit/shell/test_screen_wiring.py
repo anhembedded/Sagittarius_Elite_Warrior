@@ -31,7 +31,7 @@ _EXPECTED_ROUTES = ("dashboard", "trading", "data_management", "backtest")
 
 def _real_modules(container: object) -> tuple[object, object, object]:
     """The three module instances that own these four screens, each with
-    `_container` stashed the way `register()` would (`TradingModule.__init__`
+    `_container` stashed the way `boot()` would (`TradingModule.__init__`
     and `BacktestingModule.__init__`'s own docstrings explain why this is
     safe to skip straight to). Ordered to match `_EXPECTED_ROUTES` — the
     order these were contributed in under the legacy mechanism this file

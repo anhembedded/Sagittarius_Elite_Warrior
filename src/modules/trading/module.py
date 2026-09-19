@@ -210,12 +210,12 @@ class TradingModule(BoundedContextModule):
         boot for every run, a headless `sync` included, and a probe nobody
         opened must not cost a Qt import.
 
-        `dashboard_screen(self._container)` needs the container `register()`
+        `dashboard_screen(self._container)` needs the container `boot()`
         stashed (see `__init__`'s docstring); `trading_screen()` does not —
         `TradingView()` takes no constructor arguments.
         """
         if self._container is None:
-            raise RuntimeError("TradingModule.contribute() called before register()")
+            raise RuntimeError("TradingModule.contribute() called before boot()")
         registry.contribute(
             ContributionDescriptor(
                 contributor_id=self.module_id,

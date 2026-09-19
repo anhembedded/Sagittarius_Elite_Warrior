@@ -10,8 +10,10 @@ it. `PresenterManager.navigate_to()` calls `view_factory()` with zero
 arguments — a hard constraint from the Engine, not negotiable here — so the
 container has to be closed over at the point the `ScreenContribution` itself
 is built, i.e. inside `dashboard_screen(container)` rather than inside a
-module-level `_build_dashboard_view()`. `TradingModule.register()` stashes
-`context.container` for exactly this call, the same single container
+module-level `_build_dashboard_view()`. `TradingModule.boot()` stashes
+`context.container` for exactly this call — not `register()`, whose own
+`context.container` is a permanently resolve-refusing spy (`TradingModule.
+boot()`'s own docstring has the full reasoning) — the same single container
 instance every screen ultimately runs against (the app has exactly one for
 its whole lifetime — `AbstractScreenModule.build_descriptor()`'s own former
 docstring said so, and this is the same fact, reached one hook earlier).
