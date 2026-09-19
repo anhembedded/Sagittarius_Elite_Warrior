@@ -225,16 +225,14 @@ class TradingModule(BoundedContextModule):
 
         `EPIC-025E` PR 4.4f-4 added the other two:
 
-        1. **`ITradingClient`'s conditional bind.** `EPIC-021F` — unlike
-           `ITradingAccountReader` (read-only, always safe), `ITradingClient`
-           can place/cancel a real order, so it is registered only when
-           trading is explicitly turned on; resolving this port anywhere
-           trading is `DISABLED` fails loudly (an unbound-type error)
-           instead of silently handing back a client nobody asked to enable.
-           `register()` cannot make this call — see `composition/
-           adapter_bindings.py`'s own docstring for why — so `boot()` makes
-           it instead, once every module has registered and `resolve()` is
-           allowed again.
+        1. **`ITradingClient`'s conditional bind** (`_bind_trading_client_
+           if_enabled`, below — its own method so `tests/unit/modules/
+           trading/test_module_trading_client_binding.py` can drive both
+           branches against a real container without also needing this
+           method's scheduler half). `register()` cannot make this call —
+           see `composition/adapter_bindings.py`'s own docstring for why —
+           so `boot()` makes it instead, once every module has registered
+           and `resolve()` is allowed again.
         2. **`PositionRefreshService`'s scheduling** (`BUG-117`) — one
            recurring job, registered once, for the lifetime of the process;
            `PositionRefreshService.refresh_once()` is a no-op while trading
@@ -243,6 +241,33 @@ class TradingModule(BoundedContextModule):
         """
         container = context.container
 
+        self._bind_trading_client_if_enabled(container)
+
+        config = container.resolve(IConfig)
+        position_refresh = container.resolve(PositionRefreshService)
+        container.resolve(Scheduler).every(
+            seconds=self._position_refresh_interval_seconds(config)
+        ).do(position_refresh.refresh_once)
+
+    @staticmethod
+    def _bind_trading_client_if_enabled(container: Any) -> None:
+        """`EPIC-021F` — unlike `ITradingAccountReader` (read-only, always
+        safe), `ITradingClient` can place/cancel a real order, so it is
+        registered only when trading is explicitly turned on; resolving
+        this port anywhere trading is `DISABLED` fails loudly (an
+        unbound-type error) instead of silently handing back a client
+        nobody asked to enable.
+
+        `tests/sanity/test_composition_root.py`'s `_NOT_DISPATCHED` entry
+        for `SubmitOrderCommand` only *skips* asserting a resolve under the
+        default (disabled) boot — it does not positively prove either
+        branch. `test_module_trading_client_binding.py` does: it resolves
+        `ITradingClient` against a real container in both states and
+        asserts the unbound-type error in one, a real `FuturesTradingClient`
+        in the other — the type-and-test pair `architecture-rule.md` §7.3
+        asks for wherever a docstring alone would otherwise be the only
+        thing saying this still holds.
+        """
         trading_venue = container.resolve(TradingVenue)
         if trading_venue is not TradingVenue.DISABLED:
             container.singleton(
@@ -254,12 +279,6 @@ class TradingModule(BoundedContextModule):
                     OrderSubmissionMode.VALIDATE_ONLY,
                 ),
             )
-
-        config = container.resolve(IConfig)
-        position_refresh = container.resolve(PositionRefreshService)
-        container.resolve(Scheduler).every(
-            seconds=self._position_refresh_interval_seconds(config)
-        ).do(position_refresh.refresh_once)
 
     @staticmethod
     def _position_refresh_interval_seconds(config: IConfig) -> float:

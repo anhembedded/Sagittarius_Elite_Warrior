@@ -398,6 +398,22 @@ split and the conditional bind both work against the real DI graph), full `tests
 — the order-submission path this slice moved) all green; `ruff`/`mypy` (633 files) clean;
 `scripts/check_skill_prompt_references.py` OK.
 
+**PR #238's independent review found two real gaps, both fixed before merge.** First: the
+`ITradingClient` conditional bind, once moved into `boot()`, sits entirely outside `DoubleClaimCheck`'s
+reach — a `container.singleton()` call inside any module's `boot()` was a first for this codebase
+(`market_data`/`strategy`'s own `boot()` methods only `resolve()`), and the "theoretical gap" framing
+above was exactly the docstring-only decision `architecture-rule.md` §7.3 warns has nothing to detect
+it stopped being true. Second: this task file's own claim that the disabled-by-default behaviour was
+"verified directly by sanity's own green run" did not hold up — `tests/sanity/test_composition_root.py`'s
+`_NOT_DISPATCHED` entry for `SubmitOrderCommand` **skips** asserting a resolve, it never positively
+proves either branch; a regression flipping the bind to unconditional (the dangerous direction) would
+leave that exact test green. Fixed by extracting `TradingModule._bind_trading_client_if_enabled()` as
+its own static method and adding `tests/unit/modules/trading/test_module_trading_client_binding.py` —
+three tests against a real `StdLibContainer`/`DictConfig`/`bind_adapters()` (no mocks), asserting
+`ITradingClient` raises `DependencyResolutionError` when `TradingVenue` is unset or `DISABLED`, and
+resolves to a real `FuturesTradingClient` when enabled. Mutation-verified (`pr-review` E12): forcing
+the bind unconditional made both "stays unbound" tests fail for the right reason, then cleanly reverted.
+
 ### 3.3 `sync_progress_*`: the open question is closed by a rule, not by a preference
 
 Step 3 left the destination open for the user because HLD §3.5 assigns the pair to
