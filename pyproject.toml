@@ -87,15 +87,18 @@ asyncio_mode = "auto"
 # C++ event loop or `Executor.shutdown(wait=True)` — neither returns to the
 # interpreter to run the handler, so the 60s budget above was never actually
 # enforced there; only the CI runner's own outer kill (300s+) ever ended it,
-# with no test named as the cause. `method = "thread"` runs the watchdog on its
-# own OS thread, so it fires and kills the process regardless of what the main
-# thread is blocked in. Its own trade-off — it takes the whole test session
-# down with it rather than isolating the one offending test — is accepted
-# because a hang that names nothing is worse than a run that dies loudly; a
-# test needing more than 60s for a legitimate reason still gets its own
-# `@pytest.mark.timeout(...)`.
+# with no test named as the cause.
+#
+# The fix is scoped, not global: `tests/integration/presentation/ui/conftest.py`
+# marks every test it collects `@pytest.mark.timeout(60, method="thread")` via
+# `pytest_collection_modifyitems`, so only that tier trades per-test isolation
+# for a watchdog that fires regardless of what the main thread is blocked in.
+# An earlier version of this fix set `timeout_method = "thread"` globally here
+# — an independent PR review (`BUG-131`'s PR #246, 2026-09-19) correctly found
+# that takes the diagnostic property this comment chose `signal` for away from
+# every OTHER tier too, for a hang that only reproduces in one. `method` stays
+# at pytest-timeout's platform default (`signal`) everywhere else.
 timeout = 60
-timeout_method = "thread"
 
 [tool.ruff]
 # Pinned with requirements.txt (user decision 2026-09-17). Without a pin the gate's

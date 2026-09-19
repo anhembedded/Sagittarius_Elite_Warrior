@@ -150,6 +150,20 @@ restructuring, or `BUG-014`'s fix, which added `app.stop()` teardown to 24 test 
 could plausibly have quieted a related shutdown race), or it needs a condition these ten
 runs did not hit (xdist parallelism, `pytest-randomly`'s reordering, `dev_mode=True`).
 
+**2026-09-19, later the same day — the `timeout_method` fix rescoped per independent review.**
+This report's `pyproject.toml` change above originally set `timeout_method = "thread"`
+globally. An independent reviewer on `BUG-131`'s PR #246 (which this commit rode on, see
+that PR's thread) correctly found that takes `signal`-method's per-test traceback isolation
+away from the other ~5000 tests in the suite for a hang that only reproduces in this one
+47-test tier. Rescoped: `pyproject.toml` reverted to the platform-default `signal` method
+globally; `tests/integration/presentation/ui/conftest.py` gained a
+`pytest_collection_modifyitems` hook that marks every test it collects
+`@pytest.mark.timeout(60, method="thread")`, so only this tier trades isolation for a
+watchdog that actually fires. Verified the marker is scoped correctly, not just present:
+`pytest ... -m timeout --collect-only` on a file in this directory collects all 7 of its
+tests; the same query against `tests/unit/architecture/` collects 0. Full tier re-run after
+the rescope: 43 passed, 4 skipped, no regression; `tests/unit/architecture -q`: 419 passed.
+
 **Status:** left Open. The diagnostic improvements are real, standalone value on their own
 (a future hang in this tier now fails loudly and names itself instead of silently eating the
 CI timeout budget) and are not being held back by non-reproduction — but they are not a fix

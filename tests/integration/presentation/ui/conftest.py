@@ -9,6 +9,22 @@ from PySide6.QtWidgets import QApplication
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
+
+def pytest_collection_modifyitems(items: list[pytest.Item]) -> None:
+    """`BUG-121` — this tier's hang sits the main thread inside Qt's C++ event
+    loop or `Executor.shutdown(wait=True)`, neither of which ever returns to
+    the interpreter to run pytest-timeout's `signal`-method handler
+    (`pyproject.toml`'s own `timeout` comment). `method="thread"` runs the
+    watchdog on its own OS thread, so it fires regardless of what the main
+    thread is blocked in — scoped to this tier alone (an independent review
+    on `BUG-131`'s PR #246 found an earlier version of this fix set it
+    globally, taking every OTHER tier's per-test signal-isolation traceback
+    away for a hang that only reproduces here)."""
+    marker = pytest.mark.timeout(60, method="thread")
+    for item in items:
+        item.add_marker(marker)
+
+
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
