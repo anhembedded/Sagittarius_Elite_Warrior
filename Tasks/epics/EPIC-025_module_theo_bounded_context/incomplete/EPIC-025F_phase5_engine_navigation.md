@@ -3,11 +3,12 @@
 - **Status:** 🟡 In progress — unblocked 2026-09-19 (see the sequencing decision below); PR 5.1 (the
   in-app `NavigationService` prototype) landed the same day, merged as PR #241 (`370573b7`) after
   full gate green + independent review PASS. PR 5.2 (the 4 `LEGACY_SCREEN_MODULES` entries convert
-  to `ScreenContribution`) landed the same day too. Remaining: rebuild `IContributionRegistry` on
-  the Engine's slot registry (blocked on bumping Elite's pinned Engine install — a dependency
-  change, `ONBOARDING.md` §7 requires user approval first), migrate onto the Engine's `RegionHost`,
-  declare new Engine APIs, run the conformance suite. `AbstractScreenModule`/`register_module()`
-  left in place, not deleted — see PR 5.2's own note below.
+  to `ScreenContribution`) landed the same day too, merged as PR #242. PR 5.3 (`IContributionRegistry`'s
+  panel half rebuilt on the Engine's own `ContributionRegistry`, after the user approved bumping
+  Elite's installed Engine to its current `main`) landed the same day as well. Remaining: migrate
+  onto the Engine's `RegionHost`, declare it in `engine_capabilities.py`, run the conformance suite.
+  `AbstractScreenModule`/`register_module()` left in place, not deleted — see PR 5.2's own note
+  below.
 - **Repositories:** Elite (the consumer) · Engine (the mechanism — `TASK-043`, referencing `EPIC-001D`)
 - **Blocked by:** E
 - **Read first:** HLD §5 (the Engine / application split); the Engine's
@@ -127,6 +128,25 @@ session has started that prototype yet — not blocked on someone else's decisio
    renders against; migrating onto the Engine's `RegionHost` is this step's own remaining work, not
    something today's harvest did on this app's behalf. Documented on the Engine side:
    `Sagittarius_Engine` `Tasks/in_progress/TASK-043_...md`'s E2 row.
+
+   **PR 5.3 — the panel-contribution half itself rebuilt on the Engine's `ContributionRegistry`,
+   landed 2026-09-19.** `shell/contribution_registry.py`'s `contribute()`/`panels()` now delegate
+   identity/duplicate-checking, storage and render ordering to an internal
+   `sagittarius_engine.extensions.pyside_mvc.runtime.ContributionRegistry`, retiring the hand-rolled
+   copy of the same logic. What stayed app-side, and could not move: unknown-surface/place-not-accepted
+   validation and the dev-mode gating check, both needing this app's own richer `Surface` (`owner`,
+   `gated_by`) — the Engine's `SurfaceDeclaration` is deliberately narrower, by that file's own
+   documented design (an app that needs gating keeps its own richer type and derives the narrower
+   one, "not a reason to widen this type"). `Place`/`SizeHint` stay this app's own closed
+   vocabularies; `_to_engine_descriptor`/`_from_engine_descriptor` translate at the boundary.
+   Required bumping Elite's installed Engine to its current `main` (commit `72e4042`, carrying
+   `TASK-043` E1/E2) first — done as a plain reinstall (`install-rule.md` §1 Option 1) since neither
+   `requirements.txt` nor `pyproject.toml` pins an Engine version to edit; the user approved this
+   explicitly before it ran. Zero behaviour change: all pre-existing tests pass unedited (45
+   targeted + 420 architecture + 29 sanity + 4890 full `tests/unit`), `mypy` clean on 635 files via
+   the CI-faithful invocation. `contribute_screen()`/`screens()`/`default_route()` are untouched —
+   no Engine equivalent, that is `NavigationService`'s concern (PR 5.1). `RegionHost` migration
+   remains open (next paragraph's own scope, unstarted).
 3. Every new Engine API is declared in `engine_capabilities.py` (`BOT-133`).
 4. The Engine's screen conformance suite runs against **every** surface of this application.
 

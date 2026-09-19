@@ -8,10 +8,27 @@ made it — the same write-port / read-port split `CliRegistry` has (PR 1.3c-5),
 and what let the surface host move to `support/ui_kit` without it importing the
 shell (PR 1.4b).
 
-**Order is a sort key, not an identity.** Rendering order is the stable sort by
-`(order, contributor_id, factory qualname)`, so two independently written modules
-that both pick `order = 10` render in a fixed order rather than refusing to
-boot. What may not repeat is `(surface_id, place, contributor_id, factory)`.
+**The panel half is rebuilt on the Engine's own registry (`EPIC-025F` PR 5.3,
+`TASK-043` E1).** Identity/duplicate checking, storage and render ordering
+(`(order, contributor_id, factory qualname)`) used to be a hand-rolled copy of
+logic the Engine has since harvested and published as
+`sagittarius_engine.extensions.pyside_mvc.runtime.ContributionRegistry` — this
+class now delegates to one internally rather than keeping a second copy of the
+same correctness code. What stays here, and could not move, is this app's own
+**policy**: which surfaces exist and what each `gated_by` key means
+(`shell/surfaces.py`), and the unknown-surface/place-not-accepted error
+messages, both of which need this app's own richer `Surface` (`owner`,
+`gated_by`) that the Engine's deliberately narrower `SurfaceDeclaration` does
+not carry (that file's own docstring names this as the intended split: app
+policy stays app-side, a one-line adapter crosses the boundary). `Place` and
+`SizeHint` stay this app's own closed vocabularies too — `_to_engine_descriptor`/
+`_from_engine_descriptor` are that one-line adapter, translating at the
+boundary rather than widening either side's contract.
+
+**Screens are untouched.** `contribute_screen()`/`screens()`/`default_route()`
+have no Engine equivalent yet — routing is `NavigationService`'s concern
+(`EPIC-025F` PR 5.1's in-app prototype), a separate mechanism from panel
+placement.
 
 **A gated-off surface drops its contributions.** `dev_board` when developer mode
 is off is the normal user run, not an error: every panel and probe aimed at it is
@@ -36,10 +53,68 @@ from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
 from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 from Sagittarius_Elite_Warrior.src.shell.surfaces import surface_is_open, surfaces_by_id
+from sagittarius_engine.extensions.pyside_mvc.runtime.contribution_descriptor import (
+    ContributionDescriptor as EngineContributionDescriptor,
+)
+from sagittarius_engine.extensions.pyside_mvc.runtime.contribution_error import (
+    ContributionError as EngineContributionError,
+)
+from sagittarius_engine.extensions.pyside_mvc.runtime.contribution_registry import (
+    ContributionRegistry as EngineContributionRegistry,
+)
+from sagittarius_engine.extensions.pyside_mvc.runtime.size_hint import (
+    SizeHint as EngineSizeHint,
+)
+from sagittarius_engine.extensions.pyside_mvc.runtime.surface_declaration import (
+    SurfaceDeclaration,
+)
 
 logger = logging.getLogger("App.Shell.ContributionRegistry")
+
+#: This app's three buckets, mapped onto the Engine's own copy of them
+#: (`TASK-043` E1 harvested `SizeHint` unchanged, but as its own class — the
+#: runtime does not import this app's types). An explicit, exhaustive dict
+#: rather than a by-name lookup: a member added to one side without the other
+#: fails here, at import time, not with a `KeyError` mid-render.
+_TO_ENGINE_SIZE_HINT: dict[SizeHint, EngineSizeHint] = {
+    SizeHint.COMPACT: EngineSizeHint.COMPACT,
+    SizeHint.REGULAR: EngineSizeHint.REGULAR,
+    SizeHint.TALL: EngineSizeHint.TALL,
+}
+_FROM_ENGINE_SIZE_HINT: dict[EngineSizeHint, SizeHint] = {
+    engine: app for app, engine in _TO_ENGINE_SIZE_HINT.items()
+}
+
+
+def _to_engine_descriptor(
+    descriptor: ContributionDescriptor,
+) -> EngineContributionDescriptor:
+    return EngineContributionDescriptor(
+        contributor_id=descriptor.contributor_id,
+        surface_id=descriptor.surface_id,
+        place=descriptor.place.value,
+        order=descriptor.order,
+        size_hint=_TO_ENGINE_SIZE_HINT[descriptor.size_hint],
+        factory=descriptor.factory,
+        title=descriptor.title,
+    )
+
+
+def _from_engine_descriptor(
+    descriptor: EngineContributionDescriptor,
+) -> ContributionDescriptor:
+    return ContributionDescriptor(
+        contributor_id=descriptor.contributor_id,
+        surface_id=descriptor.surface_id,
+        place=Place(descriptor.place),
+        order=descriptor.order,
+        size_hint=_FROM_ENGINE_SIZE_HINT[descriptor.size_hint],
+        factory=descriptor.factory,
+        title=descriptor.title,
+    )
 
 
 class ContributionRegistry(IContributionRegistry, IContributionTable):
@@ -48,8 +123,15 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
     ) -> None:
         self._surfaces = surfaces_by_id() if surfaces is None else dict(surfaces)
         self._dev_mode = dev_mode
-        self._panels: list[ContributionDescriptor] = []
-        self._identities: set[tuple[str, Place, str, str]] = set()
+        self._engine_registry = EngineContributionRegistry(
+            surfaces=(
+                SurfaceDeclaration(
+                    surface_id=surface.surface_id,
+                    accepts=frozenset(place.value for place in surface.accepts),
+                )
+                for surface in self._surfaces.values()
+            )
+        )
         self._screens: dict[str, ScreenContribution] = {}
         self._default_route: str | None = None
         self._dropped = 0
@@ -81,14 +163,10 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
             )
             return
 
-        identity = descriptor.identity()
-        if identity in self._identities:
-            raise ContributionError(
-                f"{descriptor.contributor_id!r} contributed the same factory to "
-                f"{descriptor.surface_id!r}/{descriptor.place.value} twice."
-            )
-        self._identities.add(identity)
-        self._panels.append(descriptor)
+        try:
+            self._engine_registry.contribute(_to_engine_descriptor(descriptor))
+        except EngineContributionError as exc:
+            raise ContributionError(str(exc)) from exc
 
     def contribute_screen(self, contribution: ScreenContribution) -> None:
         if contribution.route in self._screens:
@@ -126,12 +204,10 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
         self, surface_id: str, place: Place
     ) -> tuple[ContributionDescriptor, ...]:
         """Everything contributed to one place, in render order."""
-        matching = [
-            descriptor
-            for descriptor in self._panels
-            if descriptor.surface_id == surface_id and descriptor.place is place
-        ]
-        return tuple(sorted(matching, key=_render_key))
+        return tuple(
+            _from_engine_descriptor(descriptor)
+            for descriptor in self._engine_registry.panels(surface_id, place.value)
+        )
 
     # -- what only the shell reads -----------------------------------------
 
@@ -144,8 +220,3 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
     def dropped_count(self) -> int:
         """How many contributions a gated-off surface swallowed this run."""
         return self._dropped
-
-
-def _render_key(descriptor: ContributionDescriptor) -> tuple[int, str, str]:
-    factory_name = getattr(descriptor.factory, "__qualname__", repr(descriptor.factory))
-    return (descriptor.order, descriptor.contributor_id, factory_name)
