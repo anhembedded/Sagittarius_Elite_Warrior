@@ -40,7 +40,7 @@ def test_as_default_strips_identity_and_forces_persistent():
 
 
 def test_scope_is_frozen_and_hashable():
-    """Frozen per `code-quality-rule.md` §1, and hashable is the point: it is a
+    """Frozen per `code/quality.md` §1, and hashable is the point: it is a
     dict key inside `UiStateCoordinator`'s dirty-tracking (`010B`)."""
     a = StateScope(key="dashboard")
     b = StateScope(key="dashboard")

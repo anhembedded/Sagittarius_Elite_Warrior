@@ -269,7 +269,7 @@ code hỏng** ở đây.
 | :--- | :--- |
 | Quyết một mình hay phải hỏi | [`ONBOARDING.md`](.claude/ONBOARDING.md) §7 |
 | Kiến trúc: lớp, Port/ABC, Shared Kernel, đặt event ở đâu | [`architecture-rule.md`](.claude/rules/architecture-rule.md) |
-| Chất lượng code: typing, magic number, cohesion, lazy import | [`code-quality-rule.md`](.claude/rules/code-quality-rule.md) |
+| Chất lượng code: typing, naming, error handling, cohesion | [`code/quality.md`](.claude/rules/code/quality.md) · [`code/naming.md`](.claude/rules/code/naming.md) · [`code/errors.md`](.claude/rules/code/errors.md) |
 | Trước khi tuyên bố "xong" | [`ci-rule.md`](.claude/rules/ci-rule.md) |
 | Trước mỗi commit | [`commit-rule.md`](.claude/rules/commit-rule.md) |
 | Khi có bug được báo (**bắt buộc**) | [`fix-bug-rule.md`](.claude/rules/fix-bug-rule.md) |

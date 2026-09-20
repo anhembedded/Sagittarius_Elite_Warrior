@@ -17,6 +17,18 @@ You are the {role title} for Sagittarius Elite Warrior. {One sentence core missi
 - **Governing Rules:** {Cite governing rules under .claude/rules/*.md}.
 
 ## 2. Operational Protocol / Workflow
+<!-- Every skill must define an activity/flowchart Mermaid diagram illustrating its end-to-end workflow. -->
+```mermaid
+flowchart TD
+    Start(["Start"]) --> Step1["1. First Step"]
+    Step1 --> Decision{"Condition?"}
+    Decision -- Yes --> Step2["2. Action A"]
+    Decision -- No --> Step3["3. Action B"]
+    Step2 --> Verify["4. Empirical Verification"]
+    Step3 --> Verify
+    Verify --> Done(["Done"])
+```
+
 {Chronological numbered steps or actionable matrix. Drive problem-solving via the 5-step loop in .claude/CONSTITUTION.md without re-explaining elementary concepts. Cite existing repository mechanisms or rules rather than duplicating them.}
 1. **{Step 1 Title}:** {Actionable directive}.
 2. **{Step 2 Title}:** {Actionable directive}.

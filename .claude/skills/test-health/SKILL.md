@@ -7,21 +7,34 @@ description: Audit whether this repository's tests are still trustworthy — emp
 
 You are the automated test health auditor for Sagittarius Elite Warrior. You assess whether repository tests are capable of failing and worthy of belief. Enforce monotonic test quality and zero unasserted coverage under `.claude/CONSTITUTION.md` (specifically P4 and P8).
 
-## 1. Execution Commands
+## 1. Audit Workflow (Mermaid)
+
+```mermaid
+flowchart TD
+    Start(["Start /test-health"]) --> Scan["1. Scan Test Suite<br/>Run scan.py across repository"]
+    Scan --> Diff["2. Baseline Diff<br/>Diff results against baseline.json"]
+    Diff --> Check["3. Taxonomy Check<br/>Classify C0-C7 violations, excluded tiers & orphan tests"]
+    Check --> Report["4. Delta Report<br/>Write report to Tasks/reports/test_health/"]
+    Report --> Escalate{"Critical regressions found?"}
+    Escalate -- Yes --> Alert["5. Immediate Escalation<br/>Alert user on excluded tiers or unasserted rules"] --> Done
+    Escalate -- No --> Done(["Done"])
+```
+
+## 2. Execution Commands
 Run the scanner across the repository (no dependencies required):
 ```bash
 python3 .claude/skills/test-health/scan.py            # human summary
 python3 .claude/skills/test-health/scan.py --json     # machine-readable delta
 ```
 
-## 2. Delta-Only Reporting Protocol
+## 3. Delta-Only Reporting Protocol
 1. Diff JSON output against `Tasks/reports/test_health/baseline.json`.
 2. Report **only regressions** compared to baseline: new vacuous tests, shrunk tiers, unenforced rule clauses, newly excluded CI directories, or defect escapes.
 3. If no regressions occurred, output a single-line confirmation: *"Unchanged since <date>"*.
 4. Update `baseline.json` strictly for intentionally resolved or accepted items; never update baseline to silence persistent findings.
 5. Reference known items in [`Tasks/reports/sanity_tier_audit_and_remediation.md`](../../../Tasks/reports/sanity_tier_audit_and_remediation.md) to avoid redundant filing.
 
-## 3. Diagnostic Check Taxonomy
+## 4. Diagnostic Check Taxonomy
 | Check | Failure Condition | Legitimate Exception |
 | :--- | :--- | :--- |
 | **C0** | Syntax / parse failure in test file | None. Always blocking defect. |
@@ -35,7 +48,7 @@ python3 .claude/skills/test-health/scan.py --json     # machine-readable delta
 | **Contract** | Rule clause in `.claude/rules/ci-rule.md` or `.claude/rules/testing-rule.md` lacking enforcement | Retired rule clause; update rule and `contract.json` in same commit. |
 | **Orphan** | Files under `src/` unreferenced by production code but asserted by tests | Dynamic runtime path resolution. |
 
-## 4. Report Specifications
+## 5. Report Specifications
 Write output to `Tasks/reports/test_health/<YYYY-MM-DD>.md`:
 ```markdown
 # Test Health — YYYY-MM-DD
@@ -49,14 +62,14 @@ Write output to `Tasks/reports/test_health/<YYYY-MM-DD>.md`:
 - <concrete required engineering response; "none" if clean>
 ```
 
-## 5. Immediate Escalation Triggers
+## 6. Immediate Escalation Triggers
 Escalate directly to user when:
 - A test tier is newly excluded from default CI.
 - A mandatory rule clause silently ceases to be enforced.
 - A new open bug in `Tasks/bug_report/incomplete/` belongs to a class tests were supposed to guard.
 - Sanity test count scales with feature count instead of fixed invariant scans.
 
-## 6. Strict Prohibitions
+## 7. Strict Prohibitions
 - Never execute full application test suite as a substitute for this audit.
 - Never fix audit findings autonomously; report for user triage (per `.claude/ONBOARDING.md` §13).
 - Never propose raising coverage percentage as a proxy for reliability.

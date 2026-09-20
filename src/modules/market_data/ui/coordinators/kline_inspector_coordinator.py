@@ -21,7 +21,7 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 #: How many rows the inspector dialog loads at once. Was `limit=10000` inline
 #: at the call site; the port made the call one line, which left the number
-#: with nowhere to hide (`code-quality-rule.md` §"magic numbers"). The dialog
+#: with nowhere to hide (`code/quality.md` §"magic numbers"). The dialog
 #: has no pagination — PR 0.4b removed it deliberately — so this is also the
 #: most rows the user can ever see in one open.
 _INSPECTOR_ROW_LIMIT = 10_000

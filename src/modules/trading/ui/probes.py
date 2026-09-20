@@ -9,7 +9,7 @@ where it runs only when a surface actually renders the probe
 declaration rule (e) is the rule).
 
 It is the same shape `presentation/ui/screens/*/module.py` already uses for
-`create_view()`, which is why `code-quality-rule.md` §4's ban on function-local
+`create_view()`, which is why `code/quality.md` §2's ban on function-local
 imports does not bite here: the lazy import *is* the mechanism, not a shortcut
 around a cycle.
 """

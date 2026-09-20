@@ -12,7 +12,7 @@ This file navigates and copies no rule: a copy drifts, and this repository has p
 | Implementing or resuming a task | [`.claude/skills/execute-task/SKILL.md`](.claude/skills/execute-task/SKILL.md); completion contract: [`task-execution-rule.md`](.claude/rules/task-execution-rule.md) |
 | What the app must do, one use case per file | [`Docs/SPEC/README.md`](Docs/SPEC/README.md) |
 | Architecture: layers, ports, explicit contracts, events, seams | [`architecture-rule.md`](.claude/rules/architecture-rule.md) |
-| Code quality | [`code-quality-rule.md`](.claude/rules/code-quality-rule.md) |
+| Code quality, naming & error handling | [`code/quality.md`](.claude/rules/code/quality.md) · [`code/naming.md`](.claude/rules/code/naming.md) · [`code/errors.md`](.claude/rules/code/errors.md) |
 | Before calling anything done: the gate, its cadence, the test levels | [`ci-rule.md`](.claude/rules/ci-rule.md) |
 | Before every commit | [`commit-rule.md`](.claude/rules/commit-rule.md) |
 | Reviewing a pull request, branch or diff | [`.claude/skills/pr-review/SKILL.md`](.claude/skills/pr-review/SKILL.md); a first independent read before asking for review: the `reviewer` subagent ([`.claude/agents/reviewer.md`](.claude/agents/reviewer.md)) |
@@ -32,6 +32,7 @@ This file navigates and copies no rule: a copy drifts, and this repository has p
 | The body of a pull request | [`.github/PULL_REQUEST_TEMPLATE.md`](.github/PULL_REQUEST_TEMPLATE.md) |
 | A word you do not know or are about to coin | [`Docs/VOCABULARY/README.md`](Docs/VOCABULARY/README.md) |
 | Executing `EPIC-025` | [`.claude/skills/epic-025/SKILL.md`](.claude/skills/epic-025/SKILL.md) |
+| Scaffolding and tracking an epic | [`.claude/skills/create-epic/SKILL.md`](.claude/skills/create-epic/SKILL.md) |
 | The scheduled audits | [`.claude/skills/test-health/SKILL.md`](.claude/skills/test-health/SKILL.md) · [`.claude/skills/process-drift/SKILL.md`](.claude/skills/process-drift/SKILL.md) |
 | Where the system stands | [`Tasks/ROADMAP.md`](Tasks/ROADMAP.md) · [`Tasks/bug_report/README.md`](Tasks/bug_report/README.md) · [`Tasks/epics/README.md`](Tasks/epics/README.md) |
 | What is under `.claude/`, what loads it and when | [`.claude/README.md`](.claude/README.md) |

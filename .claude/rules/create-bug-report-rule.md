@@ -16,7 +16,7 @@ Check existing reports and the Bug Board for the same defect before creating a d
 
 ## 2. Capture what is known
 
-Record when and where it was reported, severity with user impact, status Open, environment, expected versus actual behavior, reproduction steps and the available log/traceback/screenshot evidence. Read supplied evidence before describing it; exclude credentials and secrets. Distinguish an observed fact from a suspected cause. `[eye]`
+Record when and where it was reported, severity with user impact, status Open, context hierarchy (affected Use Case in `Docs/SPEC/` or user journey → Module → Sub-module / Layer), environment, expected versus actual behavior, reproduction steps and the available log/traceback/screenshot evidence. Read supplied evidence before describing it; exclude credentials and secrets. Distinguish an observed fact from a suspected cause. `[eye]`
 
 A new report may say Unknown, Not yet reproduced, Not yet established or Not run. Root cause, Fix, Regression test and Verification can remain explicitly pending. Do not invent a cause or successful check to fill the template, and do not require a fix before recording a real symptom. Suggested next steps apply while Open. `[eye]`
 

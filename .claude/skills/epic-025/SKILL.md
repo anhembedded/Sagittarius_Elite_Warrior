@@ -9,7 +9,20 @@ You are the bounded-context modularization engine for Sagittarius Elite Warrior 
 
 Read [`.claude/CONSTITUTION.md`](../../CONSTITUTION.md) and [`.claude/ONBOARDING.md`](../../ONBOARDING.md) for supreme invariants, gate commands, and authority constraints.
 
-## 1. Sequence of Truth & State Discovery
+## 1. Step Execution Workflow (Mermaid)
+
+```mermaid
+flowchart TD
+    Start(["Start /epic-025"]) --> State["1. State Discovery<br/>Check allowlist, git status & active task in incomplete/"]
+    State --> Board["2. Render Kanban & Gantt<br/>Display validated Mermaid Kanban & timeline"]
+    Board --> Seam["3. Architectural Seam & Pattern<br/>Define interface seam (P7) & apply vetted pattern"]
+    Seam --> Migrate["4. Code & Test Migration<br/>Move code, migrate tests, keep sanity tier zero"]
+    Migrate --> Gate["5. Boundary & Fast Gate<br/>Run architecture guards & verify allowlist shrinks"]
+    Gate --> Sync["6. Bookkeeping & Sync<br/>Update task file, TRACKING.md, ROADMAP.md & report"]
+    Sync --> Done(["Done"])
+```
+
+## 2. Sequence of Truth & State Discovery
 Execute state inspection commands before modifying any files:
 ```bash
 git status --short
@@ -29,7 +42,7 @@ Load specifications in strict order:
 
 **Kanban & Gantt Prerequisite:** Before starting or resuming an epic sub-task, render both the full epic Mermaid Kanban board and Mermaid Gantt timeline chart in chat. Validate draft syntax via [the Mermaid validation workflow](../execute-task/references/mermaid-validation.md); repair errors prior to display. Mark current task status, timeline tracking, and next action.
 
-## 2. Invariants & Verification Matrix
+## 3. Invariants & Verification Matrix
 Every architectural invariant must be mechanically proven:
 | Invariant | Specification | Verification Command / Check |
 | :--- | :--- | :--- |
@@ -43,7 +56,7 @@ Every architectural invariant must be mechanically proven:
 | No unplanned third-party libraries | ADR §5; HLD §7 | `git diff requirements.txt pyproject.toml` returns empty |
 | Engine capability declared | `BOT-133` | `src/infrastructure/engine_adapters/engine_capabilities.py` has registered capability |
 
-## 3. Step Execution Checklist
+## 4. Step Execution Checklist
 Follow these 12 steps in exact order:
 1. **Identify Step:** Name exact numbered item from the active phase task file (1 PR = 1 step).
 2. **Apply Existing Pattern:** State which vetted architectural pattern from HLD §7 is implemented.
@@ -59,15 +72,15 @@ Follow these 12 steps in exact order:
     - If port signature diverged from draft, update `Docs/SDD/05_module_contracts.md` in same commit.
     - If use case flow changed, update corresponding spec under `Docs/SPEC/`.
 11. **Bookkeeping:** Update task file status, `Tasks/ROADMAP.md`, `Tasks/epics/README.md`, and Gantt tracking in `Tasks/epics/EPIC-025_module_theo_bounded_context/TRACKING.md`.
-12. **Structured Report:** Report execution results per Section 5.
+12. **Structured Report:** Report execution results per Section 6.
 
-## 4. Escalation & Stop Triggers
+## 5. Escalation & Stop Triggers
 Decide routine implementation details autonomously. Stop and ask user only when:
 - An open **❓** item in the ADR is encountered.
 - User-visible behavior diverges from ADR D13, D14, D17 or SDD declarations.
 - An essential change requires touching files outside the phase step scope.
 - Code commit or code push is required (`.claude/ONBOARDING.md` §7).
 
-## 5. Prohibitions & Reporting
+## 6. Prohibitions & Reporting
 - **Never:** Apply localized hotfixes; bypass allowlists; mute/skip tests; add undeclared libraries; add business logic to `core/` or `support/`.
 - **User Report Format:** High-level project lead register (`.claude/rules/report-rule.md`): step executed, outcome summary, metric changes, gate log path, and the single next decision required from user.

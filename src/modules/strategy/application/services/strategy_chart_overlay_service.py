@@ -7,7 +7,7 @@ owns `BaseStrategy`, so a caller across the module boundary receives
 `OverlayLine`/`TrendZone` instead of building the strategy itself.
 
 @par Why the `ui.strategy_overlay` import is inside `overlay_for()`
-Not a stand-in for a missing seam (`code-quality-rule.md` §4's ban is about
+Not a stand-in for a missing seam (`code/quality.md` §2's ban is about
 that) — this class is bound eagerly in `composition/port_bindings.py`, so a
 module-level import here would run the instant `strategy`'s `module.py` is
 imported, in every run including a headless `sync`.

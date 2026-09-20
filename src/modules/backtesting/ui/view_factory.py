@@ -47,7 +47,7 @@ class BacktestViewKey(str, Enum):
 
 
 #: The choice when config says nothing, which is the normal case. Named
-#: rather than repeated as a literal, per `code-quality-rule.md`.
+#: rather than repeated as a literal, per `code/quality.md`.
 DEFAULT_BACKTEST_VIEW_KEY = BacktestViewKey.QT_WIDGETS
 
 #: Every key maps to a zero-argument builder returning something that
