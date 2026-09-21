@@ -34,6 +34,8 @@ OhlcCandle = tuple[float, float, float, float, float]
 # MACD) span the ENTIRE history instead of a readable recent window.
 _DEFAULT_INITIAL_VISIBLE_CANDLES = 150
 _MINIMUM_CANDLES_FOR_SPACING = 2
+_MIN_VISIBLE_CANDLES = 5
+_DEFAULT_MAX_ZOOM_OUT_CANDLES = 2000
 
 #: Empty space allowed beyond the oldest/newest candle before the viewport is
 #: clamped. Enough to keep the newest bar off the right edge, far too little to
@@ -544,33 +546,46 @@ class ChartCard(Card):
         self._apply_view_bounds()
 
     def _apply_view_bounds(self) -> None:
-        """Stops the viewport being dragged off the data into empty time.
+        """Stops the viewport being dragged off the data into empty time,
+        and enforces zoom-in / zoom-out limits across all plots.
 
-        `maxXRange` alone caps how WIDE the view may get but says nothing
-        about WHERE it may sit, so the user could pan arbitrarily far from
-        the loaded candles and be left looking at a blank plot — observed in
-        a real session as `0/5000 candles visible | view extends 1210361s
-        BEFORE first candle`. Bounding xMin/xMax keeps at least part of the
-        data reachable at all times.
-
-        A margin of `_VIEW_EDGE_MARGIN_BARS` is deliberately allowed on each
-        side: clamping to the data's exact extent would glue the newest
-        candle to the right edge, and traders expect some breathing room
-        ahead of it.
+        `maxXRange` caps how WIDE the view may get, `minXRange` caps how
+        NARROW the view may get (minimum zoom-in), while xMin/xMax keep the
+        view bounded to the loaded data with a margin.
+        Applied to all plots (main plot and subplots) so they never diverge.
         """
-        plot = self.plot_layout.main_plot
+        plots = self.plot_layout.plots
         if not self._raw_history:
             # No data yet: a bound here would fight `autoRange()` on first load.
-            plot.setLimits(xMin=None, xMax=None, maxXRange=self._max_visible_seconds)
+            for plot in plots:
+                plot.setLimits(
+                    xMin=None,
+                    xMax=None,
+                    minXRange=None,
+                    maxXRange=self._max_visible_seconds,
+                )
             return
         first_timestamp = self._raw_history[0][0]
         last_timestamp = self._raw_history[-1][0]
-        margin = _VIEW_EDGE_MARGIN_BARS * self._bar_seconds()
-        plot.setLimits(
-            xMin=first_timestamp - margin,
-            xMax=last_timestamp + margin,
-            maxXRange=self._max_visible_seconds,
-        )
+        bar_seconds = self._bar_seconds()
+        margin = _VIEW_EDGE_MARGIN_BARS * bar_seconds
+        min_x_range = _MIN_VISIBLE_CANDLES * bar_seconds
+
+        max_x_range = self._max_visible_seconds
+        if max_x_range is None:
+            history_span = (last_timestamp - first_timestamp) + 2 * margin
+            default_max = _DEFAULT_MAX_ZOOM_OUT_CANDLES * bar_seconds
+            max_x_range = max(history_span, default_max)
+
+        x_min = first_timestamp - margin
+        x_max = last_timestamp + margin
+        for plot in plots:
+            plot.setLimits(
+                xMin=x_min,
+                xMax=x_max,
+                minXRange=min_x_range,
+                maxXRange=max_x_range,
+            )
 
     def _report_squashed_price_band(self) -> None:
         """Names the item that stole the Y axis, the first time it happens.
@@ -694,6 +709,7 @@ class ChartCard(Card):
         group: str | None = None,
     ) -> None:
         self.indicators.add_subplot(name, color, height_ratio, group=group)
+        self._apply_view_bounds()
         self._sync_indicator_window()
 
     def update_indicator_data(

@@ -178,6 +178,29 @@ class ChartPlotLayout:
         sub_plot.vb.setAutoVisible(y=True)
         sub_plot.vb.enableAutoRange(axis="y", enable=True)
 
+        # Inherit X limits from main_plot so subplots never zoom out of sync
+        main_limits = self.main_plot.vb.state.get("limits", {})
+        x_limits = main_limits.get("xLimits", [None, None])
+        x_range = main_limits.get("xRange", [None, None])
+        x_min = (
+            x_limits[0]
+            if x_limits and x_limits[0] is not None and x_limits[0] > -1e300
+            else None
+        )
+        x_max = (
+            x_limits[1]
+            if x_limits and len(x_limits) > 1 and x_limits[1] is not None and x_limits[1] < 1e300
+            else None
+        )
+        min_x_range = x_range[0] if x_range and x_range[0] is not None else None
+        max_x_range = x_range[1] if x_range and len(x_range) > 1 and x_range[1] is not None else None
+        sub_plot.setLimits(
+            xMin=x_min,
+            xMax=x_max,
+            minXRange=min_x_range,
+            maxXRange=max_x_range,
+        )
+
         self.widget.ci.layout.setRowStretchFactor(self._next_row, height_ratio)
 
         self.sub_plots.append(sub_plot)

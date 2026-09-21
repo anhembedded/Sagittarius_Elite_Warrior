@@ -404,21 +404,36 @@ class CachedFrameInteractionController(QObject):
         self._finish_preview(final_range)
 
     def begin_zoom(self, viewport_position: QPointF) -> bool:
-        if not self._position_is_in_main_plot(viewport_position):
+        target_plot = self._plot_at_position(viewport_position)
+        if target_plot is None:
             return False
         self._begin_preview("zoom", viewport_position)
         scene_position = self._canvas.mapToScene(viewport_position.toPoint())
-        view_rect = self._main_plot.vb.sceneBoundingRect()
-        self._anchor_ratio = (scene_position.x() - view_rect.left()) / view_rect.width()
-        self._anchor_ratio = max(0.0, min(1.0, self._anchor_ratio))
+        view_rect = target_plot.vb.sceneBoundingRect()
+        if view_rect.width() > 0:
+            self._anchor_ratio = (scene_position.x() - view_rect.left()) / view_rect.width()
+            self._anchor_ratio = max(0.0, min(1.0, self._anchor_ratio))
+        else:
+            self._anchor_ratio = 0.5
         return True
 
     def update_zoom(self, *, preview_scale: float) -> None:
         if self._mode != "zoom":
             return
+        min_scale = _MIN_PREVIEW_SCALE
+        max_scale = _MAX_PREVIEW_SCALE
+        initial_width = self._initial_range[1] - self._initial_range[0]
+        limits = self._main_plot.vb.state.get("limits", {})
+        x_range_limits = limits.get("xRange", [None, None])
+        if initial_width > 0 and x_range_limits and len(x_range_limits) >= 2:
+            min_x_range, max_x_range = x_range_limits[0], x_range_limits[1]
+            if min_x_range is not None and min_x_range > 0:
+                max_scale = min(max_scale, initial_width / min_x_range)
+            if max_x_range is not None and max_x_range > 0:
+                min_scale = max(min_scale, initial_width / max_x_range)
         self._preview_scale = max(
-            _MIN_PREVIEW_SCALE,
-            min(_MAX_PREVIEW_SCALE, preview_scale),
+            min_scale,
+            min(max_scale, preview_scale),
         )
         self._overlay.set_zoom(self._preview_scale, self._start_position)
 
@@ -623,6 +638,13 @@ class CachedFrameInteractionController(QObject):
     def _position_is_in_main_plot(self, viewport_position: QPointF) -> bool:
         scene_position = self._canvas.mapToScene(viewport_position.toPoint())
         return self._main_plot.vb.sceneBoundingRect().contains(scene_position)
+
+    def _plot_at_position(self, viewport_position: QPointF) -> pg.PlotItem | None:
+        scene_position = self._canvas.mapToScene(viewport_position.toPoint())
+        for plot in self._plots_provider():
+            if plot.vb.sceneBoundingRect().contains(scene_position):
+                return plot
+        return None
 
     def dispose(self) -> None:
         self._wheel_timer.stop()

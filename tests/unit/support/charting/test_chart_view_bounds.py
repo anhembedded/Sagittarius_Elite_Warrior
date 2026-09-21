@@ -101,3 +101,68 @@ def test_a_reasonable_margin_past_the_newest_candle_is_still_allowed(qapp):
         "space just ahead of the newest candle"
     )
     card.cleanup()
+
+
+def test_subplots_have_identical_x_limits_to_main_plot(qapp):
+    """BUG-132: Subplots (volume, indicators) must share the exact same X limits
+    as the main plot so they cannot zoom in/out independently or diverge.
+    """
+    card = _card_with_history(qapp)
+    card.add_subplot_indicator("RSI", "#ff00ff")
+    qapp.processEvents()
+
+    main_limits = card.plot_layout.main_plot.vb.state["limits"]
+    for sub_plot in card.plot_layout.sub_plots:
+        sub_limits = sub_plot.vb.state["limits"]
+        assert sub_limits["xLimits"] == main_limits["xLimits"], (
+            f"subplot xLimits {sub_limits['xLimits']} do not match main {main_limits['xLimits']}"
+        )
+        assert sub_limits["xRange"] == main_limits["xRange"], (
+            f"subplot xRange {sub_limits['xRange']} does not match main {main_limits['xRange']}"
+        )
+    card.cleanup()
+
+
+def test_chart_has_minimum_zoom_in_limit(qapp):
+    """BUG-132: The chart must have a minXRange preventing zoom in to empty space/glitch."""
+    card = _card_with_history(qapp)
+    min_x_range = card.plot_layout.main_plot.vb.state["limits"]["xRange"][0]
+    assert min_x_range is not None and min_x_range > 0, (
+        "chart has no minimum zoom-in limit (minXRange)"
+    )
+    card.cleanup()
+
+
+def test_volume_subplot_zoom_stays_synchronized_with_main_plot(qapp):
+    """BUG-132: Zooming on volume subplot must not zoom wider or narrower than main_plot."""
+    card = _card_with_history(qapp)
+    volume_vb = card._volume_plot.vb
+
+    # Try zooming OUT on volume plot
+    volume_vb.scaleBy(x=10.0)
+    qapp.processEvents()
+
+    (main_min, main_max), _ = card.plot_layout.main_plot.vb.viewRange()
+    (vol_min, vol_max), _ = volume_vb.viewRange()
+    main_w = main_max - main_min
+    vol_w = vol_max - vol_min
+
+    assert abs(main_w - vol_w) < 1e-3, (
+        f"volume zoomed wider than main plot: vol={vol_w} vs main={main_w}"
+    )
+
+    # Try zooming IN on volume plot to extreme level
+    volume_vb.scaleBy(x=0.00001)
+    qapp.processEvents()
+
+    (main_min, main_max), _ = card.plot_layout.main_plot.vb.viewRange()
+    (vol_min, vol_max), _ = volume_vb.viewRange()
+    main_w = main_max - main_min
+    vol_w = vol_max - vol_min
+
+    assert abs(main_w - vol_w) < 1e-3, (
+        f"volume zoomed narrower than main plot: vol={vol_w} vs main={main_w}"
+    )
+    assert vol_w >= _BAR_SECONDS * 2, f"volume zoomed in beyond minimum candle bounds: {vol_w}"
+    card.cleanup()
+
