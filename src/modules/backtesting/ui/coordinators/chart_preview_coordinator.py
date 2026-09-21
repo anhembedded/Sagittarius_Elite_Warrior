@@ -107,6 +107,7 @@ class ChartPreviewCoordinator:
             # the Run button; this fires automatically on every toolbar
             # change (including a transient state before the time-range
             # preset has resolved to a bounded value) and was never covered.
+            self._log_dev_trace("preview_ignored", reason="tick_mode_unbounded_range")
             return
         if tick_mode_range_too_wide(is_tick_mode, config.start_time, config.end_time):
             # `BUG-109` — a *bounded* range (the "365 ngày qua" preset, or
@@ -118,6 +119,7 @@ class ChartPreviewCoordinator:
             # either. Same threshold the Run button's own rule enforces —
             # `tick_mode_range_too_wide()` is the one place that number
             # lives, shared rather than re-derived here.
+            self._log_dev_trace("preview_ignored", reason="tick_mode_range_too_wide")
             return
         preview_id = self._next_preview_id()
         self._thread_manager.submit(self._run_preview_worker, config, preview_id)

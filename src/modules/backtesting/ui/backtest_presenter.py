@@ -1725,6 +1725,10 @@ class BackTestPresenter(BasePresenter):
         for trace in outcome.traces:
             self._log_dev_trace(trace.event, **trace.fields)
         if outcome.config is None:
+            logger.error(
+                "Backtest run configuration rejected: %s", outcome.error_message
+            )
+            self._logger.log_backtest_failed(outcome.error_message)
             self._view_model.run_result.set_result(outcome.error_message, is_error=True)
             return None
         return outcome.config

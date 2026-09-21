@@ -4032,3 +4032,30 @@ def test_build_run_config_ignores_malformed_take_profit_pct_text(presenter, view
     config = presenter._build_run_config()
     assert config is not None
     assert config.broker_config.take_profit_pct is None
+
+
+def test_build_run_config_rejection_logs_error_message(presenter, view_model, caplog):
+    """When a run configuration is rejected (e.g. tick mode with All History),
+    the error message must be printed to the log (at ERROR level) and to the
+    event logger, not merely written to the ViewModel run_result."""
+    import logging
+
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_state import (
+        BacktestExecutionMode,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.time_range_preset import (
+        TimeRangePreset,
+    )
+
+    view_model.strategy_params.selectedStrategyKey = "fake_strategy"
+    view_model.initialCapitalText = "10000"
+    view_model.executionMode = BacktestExecutionMode.HISTORICAL_TICK.value
+    view_model.time_range.preset = TimeRangePreset.ALL_HISTORY.value
+
+    with caplog.at_level(logging.ERROR, logger="App.BackTestPresenter"):
+        config = presenter._build_run_config()
+
+    assert config is None
+    assert 'Realtime mode (tick-based) does not support "All History"' in caplog.text
+    assert view_model.run_result.resultIsError is True
+    assert view_model.run_result.resultText != ""
