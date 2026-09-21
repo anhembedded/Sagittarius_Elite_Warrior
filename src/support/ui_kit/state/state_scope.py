@@ -2,7 +2,7 @@
 
 `Lifetime` and `StateScope` live in the same file deliberately: a scope cannot
 be described without its lifetime, and neither is meaningful alone. That is
-Single-Scope Cohesion (`code-quality-rule.md` §7), not a violation of
+Single-Scope Cohesion (`code/quality.md` §3), not a violation of
 Abstraction-Level Separation — they are one concept with two fields.
 
 @par Why this is a value object and not a plain string key

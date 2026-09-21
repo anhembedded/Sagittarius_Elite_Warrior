@@ -138,7 +138,7 @@ def default_sizing_policy() -> ISizingPolicy:
         MarginSizingPolicy,
     )
 
-    # Imported inside the function on purpose (`code-quality-rule.md` §4 asks
+    # Imported inside the function on purpose (`code/quality.md` §2 asks
     # for the reason): at module scope this would make every consumer of this
     # port — and `contracts/__init__.py` imports them all — load a domain policy
     # it may never use, and it would make the import cycle real, because that

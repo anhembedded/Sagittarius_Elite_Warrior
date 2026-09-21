@@ -11,7 +11,7 @@ second answer.
 
 **Both models are here, in one file, on purpose.** They are the same
 abstraction level with the same one reason to change — the shape of a row of
-the account's order book (`code-quality-rule.md` §4's Single-Scope Cohesion,
+the account's order book (`code/quality.md` §3's Single-Scope Cohesion,
 against `architecture-rule.md` §5's rule about abstraction *levels*, which is
 not about count).
 

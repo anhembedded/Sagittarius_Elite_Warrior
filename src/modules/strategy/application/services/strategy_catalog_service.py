@@ -4,7 +4,7 @@
 this module, now done here instead of exported: the throwaway-instance
 build, the `.inputs` read, the group-by-`spec.group` fold. Callers get
 `core/contracts`' `ParamGroup`/`ParamField`, not the QML-era `list[dict]`
-shape (`code-quality-rule.md` §1 forbids the loose dict crossing at all).
+shape (`code/quality.md` §1 forbids the loose dict crossing at all).
 """
 
 from __future__ import annotations

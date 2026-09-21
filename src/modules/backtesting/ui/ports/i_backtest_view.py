@@ -27,7 +27,7 @@ from .i_backtest_chart_host_factory import IBacktestChartHostFactory
 
 #: `set_view_model`'s second argument, a QML-era leftover kept because
 #: `BaseView.set_view_model` still accepts it. Named rather than repeated as
-#: a literal default, per `code-quality-rule.md` "No Magic Numbers".
+#: a literal default, per `code/quality.md` "No Magic Numbers".
 DEFAULT_VIEW_MODEL_CONTEXT_NAME = "viewModel"
 
 

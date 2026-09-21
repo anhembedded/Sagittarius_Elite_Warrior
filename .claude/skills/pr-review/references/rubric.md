@@ -37,6 +37,9 @@ Stable inspection checklist for `.claude/skills/pr-review/SKILL.md`. Every item 
 | **D9** | Prohibit God objects: split any class or module with more than one reason to change. |
 | **D10** | Verify immutability: pure functions, frozen dataclasses, no argument mutation, no mutable default arguments (`ruff B006`). |
 | **D11** | Prohibit low-level OS/file/byte operations inline in application or composition-root code; extract to utility adapters. |
+| **D12** | Enforce function focus and argument limits: functions do one thing; max 4 arguments; 4+ parameters must encapsulate into a frozen parameter object; reject boolean flag arguments controlling branching. |
+| **D13** | Enforce Command-Query Separation (CQS) and side-effect discipline: methods mutate state or return data, never both with surprising internal mutations; prohibit output arguments. |
+| **D14** | Prohibit temporal coupling: APIs and classes must be constructed in a fully valid state (via Factory, Builder, or Composition Root); reject unmanaged multi-step initialization sequences lacking type-state or FSM guards. |
 | **E1** | Ensure test coverage exercises changed behavior at required tier and asserts business outcomes. |
 | **E2** | Verify test asserts meaningful domain/application invariants, not trivial mock echoes. |
 | **E3** | Check deterministic waits: reject arbitrary sleeps (`time.sleep`) in all test tiers. |

@@ -221,7 +221,7 @@ This repository has mandatory workflows applying to both humans and AI agents. S
 | :--- | :--- |
 | Decision authority vs asking | [`ONBOARDING.md`](.claude/ONBOARDING.md) §7 |
 | Architecture: layers, Port/ABC, Shared Kernel, event placement | [`architecture-rule.md`](.claude/rules/architecture-rule.md) |
-| Code quality: typing, magic number, cohesion, lazy import | [`code-quality-rule.md`](.claude/rules/code-quality-rule.md) |
+| Code quality: typing, naming, error handling, cohesion | [`code/quality.md`](.claude/rules/code/quality.md) · [`code/naming.md`](.claude/rules/code/naming.md) · [`code/errors.md`](.claude/rules/code/errors.md) |
 | Before declaring "done" | [`ci-rule.md`](.claude/rules/ci-rule.md) |
 | Before each commit | [`commit-rule.md`](.claude/rules/commit-rule.md) |
 | When a bug is reported (**mandatory**) | [`fix-bug-rule.md`](.claude/rules/fix-bug-rule.md) |

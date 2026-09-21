@@ -83,7 +83,7 @@ class MainWindow(QMainWindow):
     `MainWindow` itself implements `IStateContributor` (structurally — it is a
     `typing.Protocol`, so no base class or import-time coupling is needed) rather
     than delegating to a helper object: window geometry and the sidebar's
-    collapsed flag are `MainWindow`'s own fields, and `code-quality-rule.md`'s
+    collapsed flag are `MainWindow`'s own fields, and `code/quality.md`'s
     Single-Scope Cohesion says a state that is this tightly coupled to one
     object's own lifecycle belongs in that object, not split across a second
     file. Window geometry is persisted as the real `QByteArray`

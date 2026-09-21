@@ -18,7 +18,7 @@ plainly:
   · **The books.** Cash, open positions, the trade log, and the dispatch from a
     `Signal` to an entry or an exit. It *records*; it does not compute.
 
-`code-quality-rule.md` §4's Single-Scope Cohesion is what a reader will reach
+`code/quality.md` §3's Single-Scope Cohesion is what a reader will reach
 for to argue they belong together, and §5 rule 3 is the clause that wins here:
 the two have the same *feature* but not the same *abstraction level*, and one of
 them changes for a reason the other does not. A second sizing rule (ADR D17

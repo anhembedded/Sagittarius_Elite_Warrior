@@ -38,7 +38,7 @@ One directory per use case; `command.py`/`query.py` separate from `handler.py`, 
 Splitting is the default; merging needs a reason.
 1. Two abstraction levels never share a file (port and implementation, base and subclass, policy and its disk reader). `[review: C6]`
 2. Two abstraction levels never share a directory: `interfaces/` holds no implementation, a shared `widgets/` holds no screen-specific widget. `[review: C6]`
-3. The only counterweight is Single-Scope Cohesion (`code-quality-rule.md` §4), and it wins only for **the same lifecycle** (an FSM's enum + matrix). "Same feature/screen" is not enough. `[review: D8]`
+3. The only counterweight is Single-Scope Cohesion (`code/quality.md` §3), and it wins only for **the same lifecycle** (an FSM's enum + matrix). "Same feature/screen" is not enough. `[review: D8]`
 4. Thresholds that force a split: **>400 lines per file, >15 public methods per class** — in `src/`, `tests/` and `tools/` alike. `[review: C7, D6, D7]`
 5. Arbitration: *does changing A force changing B?* Yes → one file; no → split. `[eye]`
 

@@ -3,7 +3,7 @@
 @details One line of arithmetic, but it was written out twice inside
 `DashboardPresenter` (`_ensure_chart_cards` and `_on_timeframe_changed`),
 each copy carrying its own function-local import of `ConfigKeys` and
-`TimeFrame` — which `code-quality-rule.md` forbids outright — and its own
+`TimeFrame` — which `code/quality.md` forbids outright — and its own
 inline `2000`.
 
 Two copies of "what the cap is" is how one of them ends up not being
