@@ -101,3 +101,46 @@ def test_top_panel_with_cards_shows_header_cards_and_expand_button(
 
     panel.close()
     panel.deleteLater()
+
+
+def test_top_panel_save_report_button_enables_only_once_cards_exist(
+    qapp: QApplication,
+) -> None:
+    """`BOT-115B` — "Save report" starts disabled (no run yet) and enables
+    the moment stat cards appear, mirroring the header/warning visibility
+    `_sync_metrics_header` already drives from the same `has_cards` flag."""
+    _ensure_theme_bridge(qapp)
+    vm = BackTestViewModel()
+    panel = BackTestTopPanel(vm)
+    panel.resize(1200, 350)
+    panel.show()
+    qapp.processEvents()
+
+    assert not panel._btn_save_report.isEnabled()
+
+    mock_export = MagicMock()
+    vm.exportReportRequested.connect(mock_export)
+
+    vm.run_result.set_stat_cards(
+        primary=[
+            {
+                "title": "WIN RATE",
+                "value": "10.33%",
+                "valueTone": Tone.NEUTRAL,
+                "suffix": "",
+                "badgeText": "92/891 trades",
+                "badgeTone": Tone.NEUTRAL,
+            }
+        ],
+        extended=[],
+    )
+    panel._sync_all()
+    qapp.processEvents()
+
+    assert panel._btn_save_report.isEnabled()
+
+    panel._btn_save_report.click()
+    mock_export.assert_called_once()
+
+    panel.close()
+    panel.deleteLater()

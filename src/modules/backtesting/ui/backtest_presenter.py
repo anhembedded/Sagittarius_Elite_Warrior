@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING, Any
 
 from PySide6.QtCore import QModelIndex, Signal, Slot
 from PySide6.QtWidgets import QFileDialog
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest import (
@@ -128,6 +129,13 @@ from .logic.backtest_fsm_matrix import (
 from .logic.backtest_limitations_view import build_backtest_limitations
 from .logic.backtest_screen_config import BacktestScreenConfig
 from .logic.extended_metrics_snapshot import ExtendedMetricsSnapshot
+from .logic.report_export import (
+    build_backtest_report,
+    resolve_default_reports_dir,
+    resolve_engine_version,
+    suggest_report_filename,
+    write_backtest_report,
+)
 from .logic.result_formatter import format_result_summary
 from .logic.run_config_builder import (
     build_run_config,
@@ -182,6 +190,11 @@ _ZERO_TRADES_MESSAGE = (
 _EXPORT_DIALOG_TITLE = "Export Trade Logs"
 _EXPORT_DEFAULT_FILENAME = "trade_logs.csv"
 _EXPORT_FILE_FILTER = "CSV Files (*.csv)"
+_REPORT_EXPORT_DIALOG_TITLE = "Save Backtest Report"
+_REPORT_EXPORT_FILE_FILTER = (
+    "Sagittarius Report (*.sagi-report.json *.sagi-report.json.gz)"
+)
+_UNKNOWN_APP_VERSION = "unknown"
 
 
 class BackTestPresenter(BasePresenter):
@@ -309,6 +322,11 @@ class BackTestPresenter(BasePresenter):
         # BOT-095B: Snapshot of the last executed backtest run configuration.
         # Used for Dirty Tracking to compare against active toolbar inputs.
         self._last_run_config: BacktestRunConfig | None = None
+        # BOT-115B: the full BacktestResult behind that same snapshot — kept
+        # in lockstep with _last_run_config (set at the same line, in
+        # _on_backtest_succeeded) so "Save report" always exports the run
+        # that produced what's currently on screen, never a stale one.
+        self._last_result: BacktestResult | None = None
 
         # BOT-095H & EPIC-003A: shared action ownership tracker
         self._action_tracker = ActionOwnershipTracker[
@@ -1160,6 +1178,7 @@ class BackTestPresenter(BasePresenter):
             currency=self._view_model.selectedCurrency,
         )
         self._last_run_config = run_config
+        self._last_result = result
         self._view_model.lastRunSummary = self._last_run_config.to_summary_label()
         self._view_model.configDiffSummary = ""
         if self.fsm.can_dispatch(BacktestUiEvent.BACKTEST_SUCCEEDED):
@@ -1692,6 +1711,53 @@ class BackTestPresenter(BasePresenter):
     @safe_ui_action
     def _on_display_timezone_changed(self) -> None:
         self._trade_log.on_display_timezone_changed()
+
+    @Slot()
+    @safe_ui_action
+    def _ask_report_export_path(self) -> str:
+        """Where to write the report, or "" if the user cancelled — same
+        reasoning as `_ask_trade_log_export_path` for staying on the
+        presenter (the dialog needs `self.view` as its parent)."""
+        reports_dir = resolve_default_reports_dir(
+            self.config.get(ConfigKeys.BACKTEST_REPORTS_DIR.value)
+        )
+        suggested_name = suggest_report_filename(
+            self._last_run_config, datetime.now(UTC)
+        )
+        path, _selected_filter = QFileDialog.getSaveFileName(
+            self.view,
+            _REPORT_EXPORT_DIALOG_TITLE,
+            f"{reports_dir}/{suggested_name}",
+            _REPORT_EXPORT_FILE_FILTER,
+        )
+        return path
+
+    @Slot()
+    @safe_ui_action
+    def _on_report_export_requested(self) -> None:
+        """BOT-115B — exports the run behind what's currently on screen,
+        never the toolbar's current (possibly dirty) values: `_last_result`/
+        `_last_run_config` are only ever set together, in
+        `_on_backtest_succeeded`, so they always describe the same run."""
+        if self._last_result is None or self._last_run_config is None:
+            return
+        path = self._ask_report_export_path()
+        if not path:
+            return
+        report = build_backtest_report(
+            self._last_run_config,
+            self._last_result,
+            app_version=str(
+                self.config.get(ConfigKeys.APP_VERSION.value, _UNKNOWN_APP_VERSION)
+            ),
+            engine_version=resolve_engine_version(),
+            created_at=datetime.now(UTC),
+        )
+        size_bytes = write_backtest_report(report, path)
+        logger.info(
+            f"[report-export] Wrote {path} "
+            f"({len(report.result.trades)} trades, {size_bytes:,} bytes)"
+        )
 
     # ================================================================== #
     # Main-thread helpers

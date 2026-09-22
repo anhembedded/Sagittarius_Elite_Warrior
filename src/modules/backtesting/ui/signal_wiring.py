@@ -35,6 +35,9 @@ def connect_ui_signals(presenter) -> None:
     presenter._view_model.runBacktestRequested.connect(presenter._on_run_backtest)
     presenter._view_model.cancelBacktestRequested.connect(presenter._on_cancel_backtest)
     presenter._view_model.syncRequested.connect(presenter._on_request_sync)
+    presenter._view_model.exportReportRequested.connect(
+        presenter._on_report_export_requested
+    )
     presenter._view_model.strategy_params.selectedStrategyKeyChanged.connect(
         presenter._on_strategy_selection_changed
     )

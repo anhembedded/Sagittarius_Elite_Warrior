@@ -120,6 +120,11 @@ class BackTestViewModel(BaseQmlViewModel):
     #: visible in QML while `needsDataSync` is true.
     syncRequested = Signal()
 
+    #: Emitted when the user clicks "Save report" (BOT-115B) — only ever
+    #: enabled once `run_result.primaryStatCards` is non-empty, i.e. a real
+    #: `BacktestResult` exists to export.
+    exportReportRequested = Signal()
+
     #: Empty string means "no error". Set by the Presenter after a save
     #: attempt; the modal shows this inline rather than closing.
 
@@ -526,6 +531,11 @@ class BackTestViewModel(BaseQmlViewModel):
     def requestSync(self) -> None:
         """Called from QML's "Đồng bộ ngay" button."""
         self.syncRequested.emit()
+
+    @Slot()
+    def requestExportReport(self) -> None:
+        """Called from the top panel's "Save report" button (`BOT-115B`)."""
+        self.exportReportRequested.emit()
 
     @Slot("QVariant")
     def requestBotParamsSave(self, values) -> None:
