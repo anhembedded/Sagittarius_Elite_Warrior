@@ -1,9 +1,32 @@
-# Nhiệm vụ: Gom 7 module cầu nối native chart đang nằm phẳng ở `src/presentation/ui/` vào 1 thư mục riêng
+# ❌ ĐÃ HUỶ — Nhiệm vụ: Gom 7 module cầu nối native chart đang nằm phẳng ở `src/presentation/ui/` vào 1 thư mục riêng
 
-**Trạng thái:** 🔴 Backlog
-**Không thuộc epic nào** — dọn tổ chức thư mục, không phải decomposition file
-quá tải (khác `EPIC-003`), không phải bug.
-**Nguồn:** User phát hiện trực tiếp khi mở `native_chart_marker_snapshot.py`.
+> **Trạng thái: HUỶ (2026-09-22)** — chủ thể của task không còn tồn tại.
+> Nội dung gốc giữ nguyên bên dưới **chỉ để tham khảo lịch sử** — đừng thực hiện nó.
+
+## Vì sao huỷ
+
+Cả 7 file mục tiêu của task này (`native_chart_indicator_snapshot.py`,
+`native_chart_interaction.py`, `native_chart_lod.py`,
+`native_chart_marker_snapshot.py`, `native_chart_runtime.py`,
+`native_chart_snapshot.py`, `native_chart_timezone_bridge.py`,
+`native_chart_viewport_gestures.py`) đã bị xoá hoàn toàn từ trước — xác nhận
+bằng `git log --diff-filter=D`, commit `36f3a9f9`
+("`refactor(backtest): delete native C++/QML chart backend entirely (unblocks
+EPIC-006F)`", 2026-08-24): "*Native chart was off by default since 2026-08-24
+(`BUG-039`) and never rendered a production frame; pyqtgraph is fast enough.
+Removes the `native/` CMake/C++ tree, `NativeBacktestChart.qml`, all Python
+bridge modules, benchmark scripts/probes, and 17 tests.*" Cùng commit đó đã
+huỷ 4 task con liên quan trực tiếp (`BOT-098F4`/`F5`/`F6C`/`F6D`, đều nằm
+trong `Tasks/cancelled/`) — task này (`BOT-116`) chỉ đơn thuần sót lại trong
+backlog, không ai đối chiếu lại trước khi thực hiện.
+
+Đo lại bằng chính bước "đo trước khi code" mà task này tự yêu cầu ở mục 3:
+`grep -rlE "ui\.native_chart_(...)" src tests scripts` trên `master-warrior`
+hiện tại (`f29a0d3`) → **0 kết quả**. `src/presentation/ui/` hiện chỉ còn
+`app_bootstrapper.py`, `main_window.py`, `components/` — không còn 7 file lẫn
+`constants.py` mà task mô tả. Không có gì để gom nhóm; thực hiện task này
+theo đúng nội dung gốc sẽ chỉ tạo ra thư mục rỗng và sửa import trỏ tới file
+không tồn tại.
 
 ---
 
