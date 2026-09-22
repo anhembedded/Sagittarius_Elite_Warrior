@@ -34,6 +34,9 @@ _WHEEL_DELTA_UNIT = 120.0
 _WHEEL_ZOOM_FACTOR = 1.2
 _MIN_PREVIEW_SCALE = 0.2
 _MAX_PREVIEW_SCALE = 5.0
+#: A `[min, max]` limits pair read back from pyqtgraph's `ViewBox` state has
+#: exactly two elements; anything shorter means no real limit was set.
+_RANGE_PAIR_LENGTH = 2
 #: How far a drag may travel before the real chart is re-rendered and the
 #: cached frame re-grabbed. This is also the upper bound on the blank band a
 #: pan can expose, since the frame holds no pixels beyond what it captured.
@@ -411,7 +414,9 @@ class CachedFrameInteractionController(QObject):
         scene_position = self._canvas.mapToScene(viewport_position.toPoint())
         view_rect = target_plot.vb.sceneBoundingRect()
         if view_rect.width() > 0:
-            self._anchor_ratio = (scene_position.x() - view_rect.left()) / view_rect.width()
+            self._anchor_ratio = (
+                scene_position.x() - view_rect.left()
+            ) / view_rect.width()
             self._anchor_ratio = max(0.0, min(1.0, self._anchor_ratio))
         else:
             self._anchor_ratio = 0.5
@@ -425,7 +430,11 @@ class CachedFrameInteractionController(QObject):
         initial_width = self._initial_range[1] - self._initial_range[0]
         limits = self._main_plot.vb.state.get("limits", {})
         x_range_limits = limits.get("xRange", [None, None])
-        if initial_width > 0 and x_range_limits and len(x_range_limits) >= 2:
+        if (
+            initial_width > 0
+            and x_range_limits
+            and len(x_range_limits) >= _RANGE_PAIR_LENGTH
+        ):
             min_x_range, max_x_range = x_range_limits[0], x_range_limits[1]
             if min_x_range is not None and min_x_range > 0:
                 max_scale = min(max_scale, initial_width / min_x_range)

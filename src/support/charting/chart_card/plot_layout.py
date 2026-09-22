@@ -16,6 +16,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_serv
 # Under "App" so StdLogger's handlers apply — see cached_frame_interaction.
 logger = logging.getLogger("App.ChartPlotLayout")
 
+#: pyqtgraph's own convention for "no limit set" on a ViewBox axis: an
+#: unset `xLimits` bound reads back as ±1e300 rather than `None`.
+_PYQTGRAPH_UNBOUNDED_LIMIT = 1e300
+
 
 class ChartAntialiasMode(str, Enum):
     """Controls whether smoothing is paid globally or only by line layers."""
@@ -184,16 +188,25 @@ class ChartPlotLayout:
         x_range = main_limits.get("xRange", [None, None])
         x_min = (
             x_limits[0]
-            if x_limits and x_limits[0] is not None and x_limits[0] > -1e300
+            if x_limits
+            and x_limits[0] is not None
+            and x_limits[0] > -_PYQTGRAPH_UNBOUNDED_LIMIT
             else None
         )
         x_max = (
             x_limits[1]
-            if x_limits and len(x_limits) > 1 and x_limits[1] is not None and x_limits[1] < 1e300
+            if x_limits
+            and len(x_limits) > 1
+            and x_limits[1] is not None
+            and x_limits[1] < _PYQTGRAPH_UNBOUNDED_LIMIT
             else None
         )
         min_x_range = x_range[0] if x_range and x_range[0] is not None else None
-        max_x_range = x_range[1] if x_range and len(x_range) > 1 and x_range[1] is not None else None
+        max_x_range = (
+            x_range[1]
+            if x_range and len(x_range) > 1 and x_range[1] is not None
+            else None
+        )
         sub_plot.setLimits(
             xMin=x_min,
             xMax=x_max,
