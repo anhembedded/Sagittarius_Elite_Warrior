@@ -163,6 +163,7 @@ def test_volume_subplot_zoom_stays_synchronized_with_main_plot(qapp):
     assert abs(main_w - vol_w) < 1e-3, (
         f"volume zoomed narrower than main plot: vol={vol_w} vs main={main_w}"
     )
-    assert vol_w >= _BAR_SECONDS * 2, f"volume zoomed in beyond minimum candle bounds: {vol_w}"
+    assert vol_w >= _BAR_SECONDS * 2, (
+        f"volume zoomed in beyond minimum candle bounds: {vol_w}"
+    )
     card.cleanup()
-

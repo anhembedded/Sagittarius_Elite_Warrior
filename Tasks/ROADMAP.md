@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 137 | 69.5% |
+| 🟢 **Completed** | 138 | 69.7% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 54 | 27.4% |
+| 🔴 **Backlog** | 54 | 27.3% |
 | ❌ **Cancelled** | 6 | 3.0% |
-| 📈 **Tổng số Task** | **197** | **100%** |
+| 📈 **Tổng số Task** | **198** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -131,6 +131,8 @@ Sagittarius_Elite_Warrior/Tasks/
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
+
+- [x] **`BOT-143`**: [`master-warrior` failed Ruff Lint/Format on every PR — 2 named constants replace magic-value comparisons in `chart_card/`, 3 files reformatted; also traced why three independent reproductions of this same debt disagreed on error count (checkout directory name affects ruff's isort first-party detection)](completed/BOT-143_chart_card_ruff_debt.md)
 
 - [x] **`BOT-140`**: [Separate bug reporting from fixing — report creation and closure have their own rule; repair retains root-cause and regression proof](completed/BOT-140_separate_bug_reporting_from_fixing.md)
 
