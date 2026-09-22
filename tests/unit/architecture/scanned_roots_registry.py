@@ -84,6 +84,13 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_scanned_roots_are_not_empty.py",
         (("tests", "test_*.py"),),
     ),
+    # `BOT-142` — the other half of HLD §9.3 rule 4: this guard reads every
+    # registered guard file's own source, so its subject is the same `tests/`
+    # tree the check above scans, for the same reason.
+    (
+        "tests/unit/architecture/test_guard_scans_its_registered_root.py",
+        (("tests", "test_*.py"),),
+    ),
     # `EPIC-025` PR 0.4a-3 — HLD §10.3 rule 4's guard. It scans `tests/`, not
     # `src/`: the thing it forbids is a *test* substituting another module's
     # port with a `Mock` instead of that module's verified fake.
