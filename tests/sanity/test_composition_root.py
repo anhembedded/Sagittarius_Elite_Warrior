@@ -249,19 +249,27 @@ def _navigable_routes() -> list[str]:
     return [d.route for d in registry.get_all() if d.has_nav()]
 
 
-def _screen_packages() -> list[str]:
-    """Dormant, not deleted — `EPIC-025` Phase 4 moved every screen out of
-    this tree (settings, the last one, in PR 4.4e), so it no longer exists
-    on disk and this always returns `[]` now.
-    `Tasks/backlog/BOT-141_retarget_event_flow_guard_3_to_module_ui.md` is
-    the follow-up that retargets this check to `modules/*/ui/`/`shell/`."""
-    screens_root = _SRC / "presentation" / "ui" / "screens"
-    if not screens_root.is_dir():
-        return []
+def _screen_packages() -> list[tuple[str, str | None]]:
+    """Retargeted (`BOT-141`): `EPIC-025` Phase 4 moved every screen out of
+    `src/presentation/ui/screens/` (settings, the last one, in PR 4.4e), so
+    this walked an empty tree from then until now.
+
+    Every screen still is exactly one `<name>_screen.py` building a
+    `ScreenContribution(..., route=<ROUTE>, ...)`, wherever the module (or
+    `shell/`) that owns it puts it — `screen_files.py` is the one place that
+    finds them, shared with Guard 3's own retarget.
+
+    Returns `(screen file, its declared route or None)` rather than a
+    directory name: a screen's directory does not spell its route
+    (`database_screen.py`'s own route is `"data_management"`), so comparing
+    names would either miss a real gap or invent one.
+    """
+    from Sagittarius_Elite_Warrior.tests.unit.architecture.screen_files import (
+        screen_files,
+    )
+
     return sorted(
-        d.name
-        for d in screens_root.iterdir()
-        if d.is_dir() and not d.name.startswith(("_", "."))
+        (sf.path.relative_to(_SRC.parent).as_posix(), sf.route) for sf in screen_files()
     )
 
 
@@ -315,9 +323,24 @@ def test_every_screen_package_has_a_navigable_route():
     directory to enforce the `preview.py` convention. It was simply never applied
     to routes.
 
+    **Retargeted (`BOT-141`).** `EPIC-025` Phase 4 deleted `src/presentation/
+    ui/screens/`, and `_screen_packages()` walked its old address rather than
+    failing, so this passed on an empty scan since PR 4.4e. `screen_files.py`
+    now finds each `<name>_screen.py` under the module (or `shell/`) that
+    owns it and reads its declared `ScreenContribution(route=...)` directly,
+    rather than guessing a route from a directory name — the two do not
+    agree (`database_screen.py`'s own route is `"data_management"`). A route
+    `ast` cannot resolve statically counts as unrouted too: a check that
+    cannot verify a screen's route is not proof that screen is reachable.
+
     Needs no app boot, so it stays cheap.
     """
-    unrouted = sorted(set(_screen_packages()) - set(_navigable_routes()))
+    routes = set(_navigable_routes())
+    unrouted = sorted(
+        path
+        for path, route in _screen_packages()
+        if route is None or route not in routes
+    )
 
     assert unrouted == [], (
         f"Screen package(s) on disk that no navigation entry points at, so no "
