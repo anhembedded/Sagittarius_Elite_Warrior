@@ -45,10 +45,13 @@ _TRACE_PREFIX = "REALTIME_BACKTEST_TRACE"
 _PHASE = "realtime"
 #: BOT-077 — hard cap on extra same-tick re-evaluations `calc_on_order_fills`
 #: can trigger. A strategy that always signals on its own fill (entry ->
-#: fill -> re-eval -> entry -> ...) would otherwise recurse forever; Pine
-#: Script itself imposes an equivalent limit. Reaching it is a strategy bug,
-#: not this feature's normal path, so it is logged loudly rather than
-#: silently truncated.
+#: fill -> re-eval -> entry -> ...) would otherwise recurse forever. 10 is
+#: this implementation's own chosen limit, not a measured or documented
+#: Pine Script number — that claim was asserted without a citation in an
+#: earlier draft and is corrected here (Constitution P2, Verify Don't
+#: Restate). Reaching it is a strategy bug, not this feature's normal path,
+#: so it is logged loudly (see the warning below) rather than silently
+#: truncated.
 _MAX_ORDER_FILL_REEVALUATIONS = 10
 
 

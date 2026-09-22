@@ -382,3 +382,22 @@ def test_load_never_raises_on_arbitrary_garbage_bytes():
         loaded = load_backtest_report(garbage, valid_strategy_keys=set())
         assert not loaded.is_valid
         assert loaded.error is not None
+
+
+def test_known_execution_modes_stays_in_sync_with_the_real_enum():
+    """`_KNOWN_EXECUTION_MODES` (`backtest_report_loader.py`) is a hand-kept
+    mirror of `BacktestExecutionMode`'s real values — the loader can't import
+    that enum directly without pointing `contracts/` at the UI layer (see
+    `backtest_report.py`'s own module docstring). That mirror has nothing
+    forcing it to track the enum as new modes are added — and the enum's own
+    docstring already names two coming: "on order filled" and "real-time bar
+    tick". This test is the seam that catches the drift: it fails the moment
+    either side changes without the other, in either direction."""
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report_loader import (
+        _KNOWN_EXECUTION_MODES,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
+        BacktestExecutionMode,
+    )
+
+    assert {mode.value for mode in BacktestExecutionMode} == _KNOWN_EXECUTION_MODES
