@@ -2,7 +2,7 @@
 
 **Mã Epic:** `BOT-115`  
 **Độ phức tạp:** 🔴 **L (Thinking)**  
-**Trạng thái:** 🔴 **Backlog**  
+**Trạng thái:** 🟡 **1/4 task con xong (22/09)** — `BOT-115A` xong; `BOT-115B`/`115C`/`115D` còn ở backlog  
 **Ưu tiên:** 📈 **P2 — Phân tích Hiệu suất & Đo lường Rủi ro**  
 **Liên quan:** [`BOT-095G`](BOT-095G_backtest_session_run_history_cache.md) (cache trong phiên), [`BOT-078`](BOT-078_backtest_trustworthiness_epic.md) (độ tin cậy kết quả), [`BOT-112D`](BOT-112D_market_data_import_export_csv_parquet.md) (import/export dữ liệu nến — **khác** epic này)
 
@@ -48,7 +48,7 @@ Ba nguyên tắc chốt trước khi code:
 
 | Task ID | Tên Nhiệm vụ | Độ phức tạp | Mô tả tóm tắt |
 | :--- | :--- | :---: | :--- |
-| **[`BOT-115A`](BOT-115A_backtest_report_schema_and_serializer.md)** | **Schema `BacktestReport` & Serializer JSON** | 🟡 `M` | Dataclass + `to_json`/`from_json` + `schema_version` + provenance + validate nghiêm ngặt. Thuần domain, zero UI. |
+| ✅ **[`BOT-115A`](../completed/BOT-115A_backtest_report_schema_and_serializer.md)** | **Schema `BacktestReport` & Serializer JSON** | 🟡 `M` | **Xong (22/09).** Dataclass + `serialize`/`load` + `schema_version` + provenance + validate nghiêm ngặt (whitelist enum/strategy_key, cross-check `BacktestMetrics`). Thuần domain, zero UI. |
 | **[`BOT-115B`](BOT-115B_backtest_report_export_ui.md)** | **Xuất báo cáo từ màn Backtest** | 🟢 `S` | Nút "Lưu báo cáo" trên toolbar + file dialog + thư mục `reports/` mặc định. |
 | **[`BOT-115C`](BOT-115C_backtest_report_import_and_readonly_state.md)** | **Nạp báo cáo & Chế độ xem chỉ đọc** | 🔴 `L` | Import, state FSM riêng, banner nguồn gốc, cảnh báo provenance lệch, fallback thiếu nến. |
 | **[`BOT-115D`](BOT-115D_backtest_report_side_by_side_comparison.md)** | **So sánh 2 báo cáo cạnh nhau** | 🟡 `M` | Bảng diff config + metrics side-by-side. Đây là chỗ giá trị thật sự của epic đọng lại. |

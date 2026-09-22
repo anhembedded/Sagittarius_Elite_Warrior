@@ -3,7 +3,7 @@
 **Mã Task:** `BOT-115A`  
 **Thuộc Epic:** [`BOT-115`](BOT-115_backtest_report_persistence_epic.md)  
 **Độ phức tạp:** 🟡 **M (Standard Agent)**  
-**Trạng thái:** 🔴 **Backlog**  
+**Trạng thái:** ✅ Done (2026-09-22)  
 **Dependencies:** [`BOT-021`](../completed/BOT-021_static_backtest_execution_engine.md) ✅, [`BOT-104`](../completed/BOT-104_backtest_properties_and_broker_simulator_modal.md) ✅
 
 ---
@@ -69,3 +69,34 @@ File report là **input không tin cậy**: user tải về từ đâu đó, đ�
 - `metrics` bị sửa tay lệch khỏi `trades` → cờ cảnh báo bật đúng.
 - Equity curve rỗng / 1 điểm / 100k điểm (kiểm tra dung lượng dạng cột và thời gian parse).
 - Gzip và không gzip đọc lại đều đúng.
+
+## Implementation notes (2026-09-22)
+
+- **File**: `src/modules/backtesting/contracts/backtest_report.py` (thuần Python, không đụng UI/presenter, đúng §1).
+  `BacktestReport` (`schema_version`, `provenance`, `config`, `result`) + `serialize_backtest_report`/`load_backtest_report`
+  (không raise — luôn trả `BacktestReportLoadResult` có cấu trúc, đúng §3 mục 5) + `dump_backtest_report` (gzip tuỳ chọn,
+  `load_backtest_report` tự nhận diện gzip qua magic byte, không cần biết trước).
+- **`config` là dataclass riêng (`BacktestReportConfig`), không tái dùng `BacktestRunConfig`.** `BacktestRunConfig` nằm ở
+  `ui/logic/backtest_fsm_matrix.py` — tầng UI. `contracts/` import ngược lên UI vi phạm `architecture-rule.md` §3
+  (dependency phải hướng vào trong). Cùng lý do, `execution_mode` lưu dạng chuỗi thuần (giá trị thật của
+  `BacktestExecutionMode`) thay vì import chính enum đó — enum này cũng đang ở tầng UI, dời nó sang `contracts/` là cải
+  tiến thật nhưng là việc khác, ngoài phạm vi task này (nhiều call site khác đang dùng). `_KNOWN_EXECUTION_MODES` bắt lỗi
+  giá trị lạ tường minh thay vì âm thầm chấp nhận.
+- **An toàn khi nạp (§3), làm đủ cả 4 mục**: JSON thuần (`json.loads`, không `pickle`/`eval`/yaml) + dựng dataclass thủ
+  công theo tên field đã biết; mọi enum là `str, Enum` nên `EnumClass(value)` tự whitelist, giá trị lạ raise `ValueError`
+  → bắt thành lỗi nạp tường minh; `strategy_key` nhận whitelist qua tham số `valid_strategy_keys: Collection[str]` (gọi
+  từ ngoài lấy từ `StrategyRegistry.available()` thật đang chạy — **không import `StrategyRegistry` trực tiếp vào
+  `contracts/`**, cùng lý do inward-only ở trên) — key lạ vẫn nạp được `result` để xem, chỉ bật cờ
+  `strategy_key_unknown`; `BacktestMetrics.compute()` được tính lại và so với `metrics` đã lưu bằng `math.isclose` (dung
+  sai nổi để chịu được nhiễu làm tròn round-trip, đủ chặt để bắt số bị sửa tay) → cờ `metrics_mismatch`.
+- **Klines không nhúng (Epic §3.1)**: `committed_bars` bị bỏ qua khi serialize, luôn dựng lại `None` khi deserialize —
+  đúng giá trị `BacktestResult` đã dùng cho "đọc nến từ storage".
+- **14 test mới** (`tests/unit/modules/backtesting/contracts/test_backtest_report.py`), gồm test xương sống round-trip
+  đầy đủ trường (short, đòn bẩy 5x, metadata, `out_of_sample` lồng nhau), gzip/không-gzip cho cùng kết quả, equity curve
+  0/1/2000 điểm, 7 test cho các đường an toàn khi nạp (JSON hỏng, mảng JSON ở gốc, `schema_version` tương lai, thiếu
+  field, enum lạ, cột equity lệch độ dài, key lạ vẫn xem được, số liệu sửa tay bị bắt) + 1 fuzz nhẹ 7 chuỗi byte rác xác
+  nhận không bao giờ raise. Mutation-verify: tắt `metrics_mismatch` (gán cứng `False`) → đúng 1 test đỏ đúng lý do, phục
+  hồi lại xanh. `ruff`/`mypy` sạch trên toàn `src/` (639 file, gate thật).
+- **Không làm trong task này** (đúng §1, chuyển cho các task con sau của Epic `BOT-115`): ghi/đọc file thật trên đĩa với
+  đuôi `.sagi-report.json[.gz]` và ngưỡng tự động gzip theo dung lượng (`BOT-115B`), map `BacktestRunConfig` thật của
+  UI sang `BacktestReportConfig`, và state FSM riêng cho chế độ xem báo cáo đã nhập (`BOT-115C`).
