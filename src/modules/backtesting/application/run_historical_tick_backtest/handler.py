@@ -252,6 +252,21 @@ class RunHistoricalTickBacktestCommandHandler(
                     )
                 forming = FormingBar.start(bar_start, bar_end, tick)
 
+            # BUG-133: must run every tick, signal or not — mirrors
+            # RunStaticBacktestCommandHandler's own "must run every bar"
+            # call (BOT-041), just at this handler's finer unit. Uses the
+            # tick's own high/low rather than the whole (forming or just-
+            # committed) bar's aggregated range: this handler's entire
+            # reason to exist is catching a stop the instant a real tick
+            # crosses it, not waiting for a whole `interval` bar to close
+            # the way Static must. Checked before this tick's own signal
+            # eval/fill below, same as Static checks before evaluating the
+            # next signal — an existing position gets a chance to close on
+            # this tick's range before anything this same tick decides.
+            exchange.check_intrabar_stops(
+                tick.high_price, tick.low_price, tick.close_time
+            )
+
             # A tick whose own close reaches the bar boundary IS the bar
             # closing — evaluating it as "provisional" too would re-run the
             # exact same (candle, indicator, Series) state through

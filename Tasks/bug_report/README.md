@@ -58,8 +58,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :--- |
-| 🔴 **Đang mở** | 1 |
-| ✅ **Đã sửa / đã đóng** | 130 |
+| 🔴 **Đang mở** | 0 |
+| ✅ **Đã sửa / đã đóng** | 131 |
 | 📈 **Tổng** | **131** |
 
 ---
@@ -68,7 +68,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo |
 | :--- | :--- | :---: | :---: |
-| **[BUG-133](incomplete/BUG-133_tick_backtest_never_checks_intrabar_stops.md)** | Historical Tick Backtest (`BOT-076`) không bao giờ gọi `PaperExchange.check_intrabar_stops()` — Stop Loss, Take Profit, thanh lý (`BOT-049`) và MAE/MFE (`BOT-106B`) đều bị vô hiệu hoá âm thầm ở chế độ này, dù `BOT-041`/`BOT-049`/`BOT-077` §2 đều giả định các cơ chế này áp dụng cho mọi chế độ backtest. Phát hiện khi triển khai `BOT-106B` | 🟡 P2 | 2026-09-22 |
+| _(không có bug đang mở)_ | | | |
 
 > Hai hồ sơ cuối đóng cùng ngày theo hai đường khác hẳn nhau, và cặp đó đáng nhớ:
 > `BUG-068` đóng dạng **không tái hiện được từ môi trường hiện có** (cảnh báo Qt chỉ tồn tại trên
@@ -86,6 +86,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-133](completed/BUG-133_tick_backtest_never_checks_intrabar_stops.md)** | Historical Tick Backtest (`BOT-076`) không bao giờ gọi `PaperExchange.check_intrabar_stops()` — Stop Loss, Take Profit, thanh lý (`BOT-049`) và MAE/MFE (`BOT-106B`) đều bị vô hiệu hoá âm thầm ở chế độ này. Đã sửa: gọi `check_intrabar_stops()` mỗi tick (dùng high/low của chính tick đó, không phải bar đã gộp) ngay trước khi tick đó được đánh giá — giữ đúng độ phân giải tick, khác với Static (mỗi bar). MAE/MFE ở chế độ tick cũng tự động hoạt động lại theo đó, không cần sửa gì thêm | 🟡 P2 | 2026-09-22 | ✅ 2026-09-22 |
 | **[BUG-132](completed/BUG-132_chart_subplots_zoom_divergence_and_missing_zoom_limits.md)** | Khi lăn chuột zoom ở chart volume / equity / subplots, chart con zoom quá mức hoặc lệch hoàn toàn khỏi chart nến và không có giới hạn zoom tối thiểu (`minXRange`). Đã sửa: áp dụng giới hạn `xMin`/`xMax`/`minXRange`/`maxXRange` đồng nhất cho toàn bộ subplots trong `plot_layout`, kế thừa ngay khi khởi tạo subplot, và mở rộng `CachedFrameInteractionController.begin_zoom` + scale clamping để hỗ trợ zoom trên mọi plot | 🟡 P2 | 2026-09-21 | ✅ 2026-09-21 |
 | **[BUG-110](completed/BUG-110_chart_range_warning_tai_xuat_hien_sau_khi_BUG-034_da_sua.md)** | **Đóng không tái hiện được, cùng tiền lệ `BUG-068`/`BUG-121` — không sửa dòng code nào.** Cảnh báo `[chart-range]` (nến bị ép dẹp còn 18.77% trục Y) tái xuất hiện trên Trading (ETHUSDT) sau khi `BUG-034` đã sửa; log không nêu tên item thủ phạm nào ngoài nến, nên chắc chắn là cơ chế khác. 3 lượt điều tra: round 1 loại trừ cơ chế `BUG-034` bằng đọc code; round 2 loại trừ bằng toán học rằng padding của pyqtgraph không thể tạo dải rộng như log, thử 4 bộ dữ liệu tổng hợp headless không tái hiện, tăng cường log vĩnh viễn (`windowed price band`, `live candle forming`); round 3 phát hiện `Xvfb`+`xcb` (compositor X11 thật) có sẵn trong container, dùng nó **loại trừ sống** cả 2 giả thuyết cụ thể còn lại (Y auto-range theo toàn bộ lịch sử thay vì cửa sổ hiển thị; nến live glitch bị đóng băng vào trục) — cả hai đều hoạt động đúng. Giả thuyết cuối cùng chưa thử (hành vi đặc thù Wayland — nền tảng log gốc, khác X11 đã thử) không có compositor Wayland trong container để kiểm. Log chẩn đoán tăng cường vẫn còn trong code, sẵn sàng bắt đủ bằng chứng nếu triệu chứng tái xuất | 🟡 P3 | 2026-09-09 | ✅ 2026-09-19 |
 | **[BUG-121](completed/BUG-121_the_ui_integration_tier_hangs_or_aborts_when_run_serially.md)** | **Closed not-reproducible, same precedent as `BUG-068`/`BUG-034` — no code fix, not a conclusion.** The 47 tests in `tests/integration/presentation/ui/` intermittently hung or aborted when run together (~50% on 2026-09-15); root cause (a `ThreadManager` worker or a `QWidget` surviving into the next test) was never confirmed. Hardened 2026-09-19 regardless of reproduction: `pytest_collection_modifyitems` marks this tier `@pytest.mark.timeout(60, method="thread")` so a future hang fails loudly with a full thread dump instead of silently eating the CI timeout budget (`pytest-timeout`'s `signal` method never fires while the main thread is stuck in Qt's C++ event loop — the gap `BUG-119` left); both `thread_manager.shutdown(wait=True)` call sites now assert `stats().in_flight == 0` right after the drain, positive proof it actually covered every submitted task. **15/15 reproduction attempts clean** (10 sequential, 3 xdist+`pytest-randomly`, 2 full-gate CI runs) — user decided to stop chasing it further and close. If it recurs, the hardening now catches it under a new bug number rather than silently again | ⚪ (was 🟠 P2) | 2026-09-15 | ✅ 2026-09-19 |

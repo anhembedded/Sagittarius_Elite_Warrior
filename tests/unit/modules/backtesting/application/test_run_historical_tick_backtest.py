@@ -22,11 +22,17 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_ba
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.broker_simulation_config import (
+    BrokerSimulationConfig,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest_completed_event import (
     BacktestCompletedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest_failed_event import (
     BacktestFailedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason import (
+    ExitReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_engine_factory import (
     StrategyEngineFactory,
@@ -304,6 +310,48 @@ def test_one_tick_per_bar_matches_static_exactly():
     assert isinstance(static_result, BacktestResult)
     assert realtime_result.trades == static_result.trades
     assert realtime_result.equity_curve == static_result.equity_curve
+
+
+# ---------------------------------------------------------------------------
+# BUG-133 — check_intrabar_stops() must run every tick, signal or not
+# ---------------------------------------------------------------------------
+
+
+def test_stop_loss_closes_the_position_with_no_strategy_exit_signal():
+    """Regression for BUG-133: `check_intrabar_stops()` was never called
+    anywhere in this handler, so a position could only ever close via a
+    strategy signal or the final `force_close()` — SL/TP/liquidation were
+    completely disabled. Mirrors
+    `test_stop_loss_closes_the_position_on_a_bar_with_no_strategy_signal`
+    (`test_run_static_backtest.py`): `_BuyThenHoldStrategy` only ever emits
+    one BUY and then HOLDs forever, so a closed trade with `exit_reason
+    is ExitReason.STOP_LOSS` can only come from `check_intrabar_stops()`,
+    never from the strategy."""
+    # Bar 0: BUY fills at this tick's own close (100.0) — tick mode fills
+    # same-tick, unlike Static's next-bar-open. SL 5% below entry = 95.0.
+    # Bar 1: price drops to 90.0, breaching 95.0, with the strategy never
+    # emitting another signal (HOLD every time it already has a position).
+    ticks = _build_bar_ticks(0, [100.0], bar_seconds=60) + _build_bar_ticks(
+        1, [90.0], bar_seconds=60
+    )
+    handler, _ = _build_handler(
+        ticks, strategy_key="buy_then_hold", strategy_cls=_BuyThenHoldStrategy
+    )
+    command = _build_command(
+        strategy_key="buy_then_hold",
+        initial_balance=1_000.0,
+        fee_percent=0.0,
+        broker_config=BrokerSimulationConfig(commission_value=0.0, stop_loss_pct=5.0),
+    )
+
+    result = handler.execute(command)
+
+    assert isinstance(result, BacktestResult)
+    assert len(result.trades) >= 1
+    trade = result.trades[0]
+    assert trade.entry_price == pytest.approx(100.0)
+    assert trade.exit_reason is ExitReason.STOP_LOSS
+    assert trade.exit_price == pytest.approx(95.0)
 
 
 # ---------------------------------------------------------------------------
