@@ -256,6 +256,10 @@ class PaperExchange:
         effective_price = self._pricing.entry_effective_price(side, price)
         stop_loss_price = self._pricing.stop_loss_price(side, effective_price)
         take_profit_price = self._pricing.take_profit_price(side, effective_price)
+        leverage = self._pricing.leverage_for(side)
+        liquidation_price = self._pricing.liquidation_price(
+            side, leverage, effective_price
+        )
 
         self._balance -= capital_deployed
         position = OpenPosition(
@@ -269,7 +273,8 @@ class PaperExchange:
             take_profit_price=take_profit_price,
             entry_metadata=metadata,
             side=side,
-            leverage=self._pricing.leverage_for(side),
+            leverage=leverage,
+            liquidation_price=liquidation_price,
         )
         self._positions.append(position)
         slippage_delta = self._pricing.slippage_delta()
@@ -303,6 +308,12 @@ class PaperExchange:
             pos.entry_fee,
             exit_fee,
         )
+        if exit_reason is ExitReason.LIQUIDATION:
+            pnl, pnl_percent, balance_release = (
+                self._pricing.clamp_liquidation_settlement(
+                    pnl, pnl_percent, balance_release, pos.balance_before_entry
+                )
+            )
         self._balance += balance_release
 
         trade = Trade(
@@ -319,6 +330,7 @@ class PaperExchange:
             exit_reason=exit_reason,
             metadata=pos.entry_metadata,
             side=pos.side,
+            leverage=pos.leverage,
         )
         self._trades.append(trade)
         exit_label = _EXIT_LOG_LABEL[pos.side]
@@ -378,20 +390,32 @@ class PaperExchange:
         self, high: float, low: float, time: datetime
     ) -> Sequence[Trade]:
         """
-        @brief Checks every open position's stop-loss/take-profit against bar high/low boundaries.
+        @brief Checks every open position's liquidation/stop-loss/take-profit
+        against bar high/low boundaries.
+        @details Liquidation is checked **first** and its trades removed from
+        `self._positions` before stop-loss/take-profit ever sees them
+        (`BOT-049` §2) — a real exchange liquidates before a user's own SL/TP
+        order could fill, so a position that would hit both in one bar must
+        close as `LIQUIDATION`, never `STOP_LOSS`/`TAKE_PROFIT`.
         """
         if not self._positions:
             return []
 
+        liquidated, still_open = self._pricing.evaluate_liquidations(
+            self._positions, high, low
+        )
+        self._positions = still_open
+
         triggered, still_open = self._pricing.evaluate_intrabar_stops(
             self._positions, high, low
         )
+        self._positions = still_open
 
-        if not triggered:
+        all_triggered = liquidated + triggered
+        if not all_triggered:
             return []
 
-        self._positions = still_open
         return [
             self._close_one_position(pos, exit_price, time, reason)
-            for pos, exit_price, reason in triggered
+            for pos, exit_price, reason in all_triggered
         ]

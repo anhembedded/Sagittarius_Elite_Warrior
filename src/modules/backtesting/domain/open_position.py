@@ -16,6 +16,9 @@ keeps them apart deliberately. `Docs/VOCABULARY` carries both rows.
 
 `IStoppablePosition` is the contract that lets `OrderMatchingPolicy` evaluate
 stops without knowing what a paper position is; this is its sole implementer.
+`BOT-049` adds a second, structural one the same way: `MarginRiskPolicy`'s
+`ILiquidatablePosition` (a `Protocol` — `§2` already forbids a second ABC base
+on a class that already has one).
 """
 
 from __future__ import annotations
@@ -46,3 +49,7 @@ class OpenPosition(IStoppablePosition):
     take_profit_price: float | None = None
     side: PositionSide = PositionSide.LONG
     leverage: float = 1.0
+    #: BOT-049 — `None` for an unleveraged (1.0x) LONG (modeled as spot, see
+    #: `MarginRiskPolicy.liquidation_price`'s own docstring); always set
+    #: otherwise. Implements `MarginRiskPolicy.ILiquidatablePosition`.
+    liquidation_price: float | None = None

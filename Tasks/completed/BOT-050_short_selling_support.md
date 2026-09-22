@@ -5,7 +5,7 @@
 > Thuộc [Epic BOT-040](../backlog/BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
 > **Task 3/3** nhóm "PaperExchange nâng cao":
 > [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md) ✅ →
-> [`BOT-049`](../backlog/BOT-049_leverage_and_liquidation.md) → `BOT-050` (file này).
+> [`BOT-049`](../completed/BOT-049_leverage_and_liquidation.md) → `BOT-050` (file này).
 
 ## 1. Mục tiêu
 
@@ -81,5 +81,5 @@ Full suite (trừ `tests/integration/presentation/ui/` theo quy ước có sẵn
 
 ## 5. Ngoài phạm vi (cố ý chưa làm)
 
-- **Liquidation cho Short** — chờ [`BOT-049`](../backlog/BOT-049_leverage_and_liquidation.md), chưa xong, không bắt buộc làm trước theo đúng file gốc.
-- **Đòn bẩy (leverage) thật** — `BrokerSimulationConfig.short_leverage` đã tồn tại (từ `BOT-104`) nhưng chưa được `PaperExchange` sử dụng ở đâu cả cho cả Long lẫn Short; nằm ngoài phạm vi task này.
+- **Liquidation cho Short** — chờ [`BOT-049`](../completed/BOT-049_leverage_and_liquidation.md), chưa xong tại thời điểm viết, không bắt buộc làm trước theo đúng file gốc. *(Cập nhật 22/09: `BOT-049` đã xong, liquidation áp dụng cho cả Long lẫn Short.)*
+- **Đòn bẩy (leverage) thật** — `BrokerSimulationConfig.short_leverage` đã tồn tại (từ `BOT-104`) nhưng chưa được `PaperExchange` sử dụng ở đâu cả cho cả Long lẫn Short; nằm ngoài phạm vi task này. *(Cập nhật 22/09: đã dùng thật, xem `MarginRiskPolicy`/`FillPricing.leverage_for()` — công đoạn cụ thể nào thêm việc này nằm ngoài phạm vi đo lại của `BOT-049`, `BOT-049` chỉ thêm liquidation lên trên cơ chế leverage đã có sẵn.)*

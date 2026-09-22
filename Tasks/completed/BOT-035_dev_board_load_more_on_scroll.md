@@ -1,5 +1,20 @@
 # Nhiệm vụ: Dev Board — Tự tải thêm dữ liệu cũ khi kéo/scroll ra rìa trái chart (US-04)  *(ĐÃ XONG — Phase 1)*
 
+**Status:** ✅ Done (2026-09-22)
+
+> Board bookkeeping only. The file's own title and §9 already record Phase 1
+> as built; verified against real code before moving: `prepend_historical_data`/
+> `prepend_historical_volume` (`ChartCard`), `EdgeScrollDetector`,
+> `HistoryPaginationController` all exist in `src/` with real callers
+> (`dashboard_presenter.py`) and covered tests
+> (`tests/unit/modules/trading/ui/dashboard/test_dashboard_presenter.py`,
+> `tests/unit/support/charting/test_chart_card.py`). It had simply never been
+> moved out of `backlog/` or given a row in `ROADMAP.md`. Phase 2
+> (auto-sync-from-Binance when history is missing, explicitly out of scope
+> here per this file's own header) stays unfiled — nobody has asked for it
+> yet, and filing a speculative task for it would be exactly the "seam before
+> a real case" this repo's `architecture-rule.md` §7.2.1 warns against.
+
 > **Đọc file này trước khi code.** 3 câu hỏi mở ở §2.1 **đã được user chốt** — sẵn sàng implement,
 > Phase 1 KHÔNG bao gồm auto-sync-from-Binance khi DB thiếu dữ liệu (để Phase 2, task riêng).
 > Nguồn gốc: `Tasks/UserStory_Propose.md` US-04, đã đánh giá sơ bộ trong phiên tư vấn ban đầu (xem

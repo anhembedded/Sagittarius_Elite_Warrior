@@ -1,6 +1,17 @@
 # Nhiệm vụ: Spike — khả thi & chi phí của dữ liệu tick (đo, không đoán)
 
-> Thuộc Epic [`BOT-073`](BOT-073_realtime_tick_backtest_epic.md).
+**Status:** ✅ Done (2026-09-22)
+
+> Board bookkeeping only — this file's own §3.4 already records "✅ **Kết luận
+> spike (19/08)**: ... **Không còn chặn `BOT-076`.**" and the deliverable
+> report exists at `Tasks/reports/tick_data_feasibility.md`. `BOT-076` (the
+> task this spike gated) is itself already in `Tasks/completed/`. The spike
+> was done and its blocking role over — it had simply never been moved out
+> of `backlog/` or given a row in `ROADMAP.md`. Moved here, relative links
+> to sibling `backlog/` files fixed for the new directory, no content
+> changed otherwise.
+
+> Thuộc Epic [`BOT-073`](../backlog/BOT-073_realtime_tick_backtest_epic.md).
 > **Phải xong trước [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md)** — kết quả spike
 > này có thể đổi cả thiết kế engine, làm ngược thứ tự thì rủi ro phải viết lại.
 >
@@ -98,7 +109,7 @@ buộc đã biết thay vì phát hiện giữa chừng:
 
 - **Cám dỗ**: bắt đầu code engine luôn vì "thấy cũng dễ". Đừng. Toàn bộ giá trị của
   task này là ràng buộc phát hiện **trước**, không phải sau.
-- Không sửa `IIndicator`/`Series` ở đây — đó là [`BOT-042`](BOT-042_tick_level_strategy_engine_support.md).
+- Không sửa `IIndicator`/`Series` ở đây — đó là [`BOT-042`](../backlog/BOT-042_tick_level_strategy_engine_support.md).
 - Sync 7 ngày dữ liệu 1s có thể mất khá lâu và tốn rate limit — chạy 1 lần, giữ lại
   file `.db` để `BOT-076` dùng lại làm fixture, đừng sync đi sync lại.
 - Cẩn thận không commit file `.db` đo được vào repo.

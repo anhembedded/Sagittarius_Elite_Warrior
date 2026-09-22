@@ -56,6 +56,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.fee_calcu
     FeeCalculatorPolicy,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.margin_risk_policy import (
+    ILiquidatablePosition,
     MarginRiskPolicy,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.order_matching_policy import (
@@ -148,6 +149,16 @@ class FillPricing:
             self._broker_config.short_leverage,
         )
 
+    def liquidation_price(
+        self, side: PositionSide, leverage: float, entry_price: float
+    ) -> float | None:
+        return self._margin_policy.liquidation_price(side, leverage, entry_price)
+
+    def evaluate_liquidations[TPosition: ILiquidatablePosition](
+        self, positions: Sequence[TPosition], high: float, low: float
+    ) -> tuple[list[tuple[TPosition, float, ExitReason]], list[TPosition]]:
+        return self._margin_policy.evaluate_liquidations(positions, high, low)
+
     def entry_capital(
         self,
         side: PositionSide,
@@ -233,4 +244,15 @@ class FillPricing:
             balance_before_entry,
             entry_fee,
             exit_fee,
+        )
+
+    def clamp_liquidation_settlement(
+        self,
+        pnl: float,
+        pnl_percent: float,
+        balance_release: float,
+        balance_before_entry: float,
+    ) -> tuple[float, float, float]:
+        return self._margin_policy.clamp_liquidation_settlement(
+            pnl, pnl_percent, balance_release, balance_before_entry
         )

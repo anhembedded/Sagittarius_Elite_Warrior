@@ -9,7 +9,7 @@ dù kiến trúc đã đúng chạy nền) được tách ra thành task riêng
 > Thuộc Epic [`BOT-073`](../backlog/BOT-073_realtime_tick_backtest_epic.md).
 > ✅ **2026-08-19 — hết chặn.** [`BOT-042`](../backlog/BOT-042_tick_level_strategy_engine_support.md)
 > (contract provisional/commit — cả 4 task con A/B/C/D) và
-> [`BOT-075`](../backlog/BOT-075_tick_data_feasibility_spike.md) (spike chi phí dữ liệu, kết luận
+> [`BOT-075`](../completed/BOT-075_tick_data_feasibility_spike.md) (spike chi phí dữ liệu, kết luận
 > khả thi có điều kiện) đều đã xong. Task này giờ sẵn sàng bắt đầu.
 >
 > 🟡 **Tiến độ 2026-08-19**: §3.1 (use case & command), §3.2 (vòng lặp replay)
@@ -286,7 +286,7 @@ Ghi rõ để người sau không đi tìm "bug" không tồn tại:
 
 - [`BOT-042`](../backlog/BOT-042_tick_level_strategy_engine_support.md) ✅ — provisional/commit
   đầy đủ cho `IIndicator`/`Series`/`StrategyEngine`.
-- [`BOT-075`](../backlog/BOT-075_tick_data_feasibility_spike.md) ✅ — spike xong, khả thi có
+- [`BOT-075`](../completed/BOT-075_tick_data_feasibility_spike.md) ✅ — spike xong, khả thi có
   điều kiện (chạy nền + progress/cancel, nên cho chọn độ phân giải).
 - [`BOT-021`](../completed/BOT-021_static_backtest_execution_engine.md) ✅ —
   `PaperExchange`/`BacktestResult` dùng chung.

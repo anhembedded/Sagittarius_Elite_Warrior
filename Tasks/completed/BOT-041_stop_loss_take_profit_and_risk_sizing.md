@@ -4,7 +4,7 @@
 
 > Thuộc [Epic BOT-040](../backlog/BOT-040_backtest_screen_full_feature_epic.md), Phase 0.
 > **Task 1/3** nhóm "PaperExchange nâng cao" (đã chia nhỏ theo yêu cầu user):
-> `BOT-041` (file này) → [`BOT-049`](../backlog/BOT-049_leverage_and_liquidation.md) →
+> `BOT-041` (file này) → [`BOT-049`](../completed/BOT-049_leverage_and_liquidation.md) →
 > [`BOT-050`](BOT-050_short_selling_support.md).
 > Phụ thuộc `BOT-021` ✅, nên làm sau [`BOT-045`](BOT-045_trade_journal_detail_and_metadata.md).
 
