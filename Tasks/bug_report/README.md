@@ -58,15 +58,17 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :--- |
-| 🔴 **Đang mở** | 0 |
+| 🔴 **Đang mở** | 1 |
 | ✅ **Đã sửa / đã đóng** | 130 |
-| 📈 **Tổng** | **130** |
+| 📈 **Tổng** | **131** |
 
 ---
 
 ## 🔴 Đang mở (Open)
 
-*(không có — xem `BUG-110` dưới, đóng 2026-09-19 dạng không tái hiện được, không phải đã sửa)*
+| ID | Tiêu đề | Mức độ | Ngày báo |
+| :--- | :--- | :---: | :---: |
+| **[BUG-133](incomplete/BUG-133_tick_backtest_never_checks_intrabar_stops.md)** | Historical Tick Backtest (`BOT-076`) không bao giờ gọi `PaperExchange.check_intrabar_stops()` — Stop Loss, Take Profit, thanh lý (`BOT-049`) và MAE/MFE (`BOT-106B`) đều bị vô hiệu hoá âm thầm ở chế độ này, dù `BOT-041`/`BOT-049`/`BOT-077` §2 đều giả định các cơ chế này áp dụng cho mọi chế độ backtest. Phát hiện khi triển khai `BOT-106B` | 🟡 P2 | 2026-09-22 |
 
 > Hai hồ sơ cuối đóng cùng ngày theo hai đường khác hẳn nhau, và cặp đó đáng nhớ:
 > `BUG-068` đóng dạng **không tái hiện được từ môi trường hiện có** (cảnh báo Qt chỉ tồn tại trên
