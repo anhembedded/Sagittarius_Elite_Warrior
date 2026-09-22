@@ -50,6 +50,8 @@ class RunResultViewModel(QObject):
     limitationsChanged = Signal()
     dataCoverageChanged = Signal()
     needsDataSyncChanged = Signal()
+    drawdownPointsChanged = Signal()
+    yearlyReturnsChanged = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -67,6 +69,11 @@ class RunResultViewModel(QObject):
         self._is_data_fully_covered = False
         self._data_coverage_message = ""
         self._needs_data_sync = False
+        #: `BOT-106D` — drawdown underwater chart points and yearly returns
+        #: heatmap rows, same "empty means no result yet" convention as
+        #: `_primary_stat_cards` above.
+        self._drawdown_points: list[dict[str, float]] = []
+        self._yearly_returns: list[dict[str, object]] = []
 
     # ------------------------------------------------------------------ #
     # Result line
@@ -211,3 +218,36 @@ class RunResultViewModel(QObject):
         if value != self._needs_data_sync:
             self._needs_data_sync = value
             self.needsDataSyncChanged.emit()
+
+    # ------------------------------------------------------------------ #
+    # Drawdown chart + monthly/yearly returns heatmap (BOT-106D)
+    # ------------------------------------------------------------------ #
+
+    def _get_drawdown_points(self) -> list[dict[str, float]]:
+        return self._drawdown_points
+
+    drawdownPoints = Property(
+        "QVariantList", _get_drawdown_points, notify=drawdownPointsChanged
+    )
+
+    @Slot("QVariantList")
+    def set_drawdown_points(self, points: list[dict[str, float]]) -> None:
+        """Empty list means "no result yet" — same convention as
+        `set_stat_cards([], [])`. `points` is `logic/performance_charts.py`'s
+        `build_drawdown_chart_points()` output."""
+        self._drawdown_points = points
+        self.drawdownPointsChanged.emit()
+
+    def _get_yearly_returns(self) -> list[dict[str, object]]:
+        return self._yearly_returns
+
+    yearlyReturns = Property(
+        "QVariantList", _get_yearly_returns, notify=yearlyReturnsChanged
+    )
+
+    @Slot("QVariantList")
+    def set_yearly_returns(self, rows: list[dict[str, object]]) -> None:
+        """`rows` is `logic/performance_charts.py`'s
+        `build_yearly_returns_rows()` output."""
+        self._yearly_returns = rows
+        self.yearlyReturnsChanged.emit()

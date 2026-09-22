@@ -3681,6 +3681,8 @@ def test_empty_backtest_transitions_to_idle_with_sync_affordance(presenter):
     assert vm.uiMode == BacktestUiState.EMPTY_DATA.value
     assert vm.run_result.needsDataSync is True
     assert presenter._last_no_data_config == cfg
+    assert vm.run_result.drawdownPoints == []
+    assert vm.run_result.yearlyReturns == []
 
 
 def test_failed_backtest_transitions_to_idle_with_error(presenter):
@@ -3696,6 +3698,29 @@ def test_failed_backtest_transitions_to_idle_with_error(presenter):
     assert presenter.fsm.current_state == BacktestUiState.ERROR
     assert vm.uiMode == BacktestUiState.ERROR.value
     assert "Connection timed out" in vm.run_result.resultText
+    assert vm.run_result.drawdownPoints == []
+    assert vm.run_result.yearlyReturns == []
+
+
+def test_backtest_succeeded_populates_drawdown_and_yearly_returns(presenter):
+    """`BOT-106D` — `_on_backtest_succeeded` feeds the drawdown chart and
+    returns heatmap from the same `BacktestResult` the stat cards read,
+    then a later empty/failed run clears both again."""
+    vm = presenter._view_model
+    vm.strategy_params.selectedStrategyKey = "fake_strategy"
+
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+
+    assert vm.run_result.drawdownPoints != []
+    assert vm.run_result.yearlyReturns != []
+
+    presenter._on_run_backtest()
+    presenter._on_backtest_failed("Connection timed out")
+
+    assert vm.run_result.drawdownPoints == []
+    assert vm.run_result.yearlyReturns == []
 
 
 def test_qml_stale_warning_banner_and_button_dirty_rendering(presenter, qapp):

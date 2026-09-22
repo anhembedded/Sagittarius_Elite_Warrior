@@ -129,6 +129,10 @@ from .logic.backtest_fsm_matrix import (
 from .logic.backtest_limitations_view import build_backtest_limitations
 from .logic.backtest_screen_config import BacktestScreenConfig
 from .logic.extended_metrics_snapshot import ExtendedMetricsSnapshot
+from .logic.performance_charts import (
+    build_drawdown_chart_points,
+    build_yearly_returns_rows,
+)
 from .logic.report_export import (
     build_backtest_report,
     resolve_default_reports_dir,
@@ -1157,6 +1161,12 @@ class BackTestPresenter(BasePresenter):
             build_result_warning_text(result)
         )
         self._view_model.run_result.set_limitations(build_backtest_limitations(result))
+        self._view_model.run_result.set_drawdown_points(
+            build_drawdown_chart_points(result)
+        )
+        self._view_model.run_result.set_yearly_returns(
+            build_yearly_returns_rows(result)
+        )
         run_config = self._get_current_config()
         message = (
             format_result_summary(result)
@@ -1234,6 +1244,8 @@ class BackTestPresenter(BasePresenter):
         self._view_model.run_result.set_extended_metrics_snapshot(None)
         self._view_model.run_result.set_result_warning_text("")
         self._view_model.run_result.set_limitations([])
+        self._view_model.run_result.set_drawdown_points([])
+        self._view_model.run_result.set_yearly_returns([])
         self._view_model.run_result.set_result(message, is_error=False)
         self._all_trades = []
         self._refresh_trade_log()
@@ -1250,6 +1262,8 @@ class BackTestPresenter(BasePresenter):
         self._view_model.run_result.set_extended_metrics_snapshot(None)
         self._view_model.run_result.set_result_warning_text("")
         self._view_model.run_result.set_limitations([])
+        self._view_model.run_result.set_drawdown_points([])
+        self._view_model.run_result.set_yearly_returns([])
         self._view_model.run_result.set_result(f"Error: {message}", is_error=True)
         self._all_trades = []
         self._refresh_trade_log()

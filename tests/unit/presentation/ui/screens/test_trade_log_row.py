@@ -283,6 +283,50 @@ def test_trade_log_row_to_qml_formats_timestamps_with_display_timezone():
     assert vn_row["exitTimeText"] == "2026-01-02 01:00"
 
 
+# ================= BOT-106D: MAE/MFE =================
+
+
+def test_build_trade_log_rows_carries_mae_and_mfe_through():
+    trade = Trade(
+        symbol="ETHUSDT",
+        entry_time=_T0,
+        entry_price=1939.5,
+        exit_time=_T1,
+        exit_price=1908.5,
+        quantity=0.5,
+        pnl=10.0,
+        pnl_percent=1.0,
+        fees_paid=0.5,
+        mae_percent=-3.21,
+        mfe_percent=5.67,
+    )
+
+    rows = build_trade_log_rows([trade])
+
+    assert rows[0].mae_percent == -3.21
+    assert rows[0].mfe_percent == 5.67
+
+
+def test_build_trade_log_rows_defaults_mae_mfe_to_zero():
+    """0.0 is `Trade`'s own "no excursion observed" convention, not a bug —
+    every pre-`BOT-106B` construction site still gets a row."""
+    rows = build_trade_log_rows([_make_trade(10.0)])
+
+    assert rows[0].mae_percent == 0.0
+    assert rows[0].mfe_percent == 0.0
+
+
+def test_trade_log_row_to_qml_signs_mae_and_mfe_text():
+    row = TradeLogRow(
+        1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0, mae_percent=-3.21, mfe_percent=5.67
+    )
+
+    qml_row = trade_log_row_to_qml(row)
+
+    assert qml_row["maeText"] == "-3.21%"
+    assert qml_row["mfeText"] == "+5.67%"
+
+
 def test_trade_log_rows_to_qml_formats_all_rows_with_display_timezone():
     row1 = TradeLogRow(1, _T0, 100.0, _T1, 110.0, 1.0, 10.0, 10.0)
     row2 = TradeLogRow(2, _T1, 110.0, _T1, 120.0, 1.0, 10.0, 10.0)
