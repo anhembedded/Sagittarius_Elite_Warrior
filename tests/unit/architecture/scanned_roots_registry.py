@@ -46,16 +46,6 @@ EMPTY_BY_DESIGN: tuple[tuple[str, str, str], ...] = (
         "src/presentation/ui/screens",
         "*.py",
     ),
-    # `tests/sanity/test_composition_root.py`'s "Mode 12" check
-    # (`test_every_screen_package_has_a_navigable_route`) reads
-    # `_screen_packages()`, which walks this same now-deleted tree. Unlike
-    # the row above, this one is a genuinely *temporary* exemption, not a
-    # permanent design decision: the rule it enforces (a screen package on
-    # disk that nothing routes to) still applies under `modules/*/ui/`, and
-    # `Tasks/backlog/BOT-141_retarget_event_flow_guard_3_to_module_ui.md` is
-    # the follow-up that retargets it there. It belongs here rather than
-    # failing silently in the meantime.
-    ("tests/sanity/test_composition_root.py", "src/presentation/ui/screens", "*.py"),
 )
 
 #: (guard file, ((scanned root, file glob), ...)) — paths relative to the repo root.
@@ -249,12 +239,26 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     ),
     # --- whole-tree guards --------------------------------------------------
     ("tests/unit/test_logging_namespace_guard.py", (("src", "*.py"),)),
-    # Guard 3 used to register a second root here (`src/presentation/ui/
-    # screens`) for its own cross-screen check. `EPIC-025` Phase 4 emptied
-    # that tree for good (settings was the last screen, PR 4.4e) — the row
-    # is retired, not retargeted; Guard 3's own docstring records the
-    # dormancy and `BOT-141` is the follow-up that retargets it.
-    ("tests/unit/test_event_flow_guards.py", (("src", "*.py"),)),
+    # Guard 3's cross-screen check used to register a second root here
+    # (`src/presentation/ui/screens`). `EPIC-025` Phase 4 emptied that tree
+    # for good (settings was the last screen, PR 4.4e), and the guard went
+    # dormant rather than failing — `BOT-141` retargeted it to where screens
+    # actually live now: every module's `ui/` (`screen_files.screen_roots()`
+    # discovers them from disk) plus `shell/`. One row per root that exists
+    # today, same shape as `UI_TREE_ROWS` above — a glob cannot sit in this
+    # tuple, so a module added later needs its own row here too, in the same
+    # commit that gives it a screen.
+    (
+        "tests/unit/test_event_flow_guards.py",
+        (
+            ("src", "*.py"),
+            ("src/modules/backtesting/ui", "*.py"),
+            ("src/modules/market_data/ui", "*.py"),
+            ("src/modules/strategy/ui", "*.py"),
+            ("src/modules/trading/ui", "*.py"),
+            ("src/shell", "*.py"),
+        ),
+    ),
     (
         "tests/unit/config/test_binance_endpoint_config_keys_are_dead.py",
         (("src/config", "*.json"),),
@@ -287,7 +291,6 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/sanity/test_composition_root.py",
         (
             ("src", "*.py"),
-            ("src/presentation/ui/screens", "*.py"),
             # PR 2.1b — the two roots this file scans by name, both of which it
             # had wrong until the gate said so. `modules/*/application` is
             # derived from disk by `_use_case_roots()` and so cannot go stale;
@@ -298,6 +301,18 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             # than the scan quietly reading nothing.
             ("src/modules/backtesting/application", "*.py"),
             ("src/modules/strategy/domain/strategies", "*.py"),
+            # Mode 12 (`test_every_screen_package_has_a_navigable_route`),
+            # retargeted by `BOT-141` off the now-deleted
+            # `src/presentation/ui/screens`: every root `screen_files.py`
+            # walks to find `*_screen.py` files, one row per module that
+            # exists today — same caveat as the row above `screen_files.py`'s
+            # own glob discovers a new module's `ui/` without an edit here,
+            # but this literal registry cannot express a glob.
+            ("src/modules/backtesting/ui", "*.py"),
+            ("src/modules/market_data/ui", "*.py"),
+            ("src/modules/strategy/ui", "*.py"),
+            ("src/modules/trading/ui", "*.py"),
+            ("src/shell", "*.py"),
         ),
     ),
     ("tests/sanity/test_self_check_process.py", (("src", "main.py"),)),

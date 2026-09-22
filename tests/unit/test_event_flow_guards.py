@@ -14,6 +14,11 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from Sagittarius_Elite_Warrior.tests.unit.architecture.screen_files import (
+    screen_owner,
+    screen_roots,
+)
+
 _SRC = Path(__file__).resolve().parents[2] / "src"
 
 
@@ -95,44 +100,48 @@ def test_one_event_is_not_subscribed_by_two_presenters() -> None:
     Đây là lỗi `EPIC-008G` vừa phải đi sửa: `HealthUpdatedEvent` bị hai
     presenter cùng `event_bus.on(...)`, mỗi màn tự chuẩn hoá, và hai bản trôi xa
     tới mức bản của Backtest **bỏ mất `Container`** mà không ai biết trong bao
-    lâu. Nhiều màn cần cùng một sự thật thì đó là việc của một Feed
-    (`presentation/ui/common/`), không phải của mỗi màn.
+    lâu. Nhiều màn cần cùng một sự thật thì đó là việc của một Feed, không
+    phải của mỗi màn.
 
-    Chỉ tính `src/presentation/ui/screens/` — Feed sống ở `common/` và **được
-    phép** là nơi duy nhất đăng ký.
+    **Retargeted (`BOT-141`).** `EPIC-025` Phase 4 xoá hẳn
+    `src/presentation/ui/screens/` (`trading`/`dashboard` ở PR 4.4c,
+    `backtest` ở PR 4.4d, `settings` ở PR 4.4e), nên guard này đã "tạm ngưng
+    hoạt động" từ đó — `.rglob()` trên một cây không còn tồn tại luôn trả về
+    rỗng, guard xanh mà không kiểm tra gì. Nay quét lại đúng chỗ màn hình
+    thật sự sống: mỗi `ui/` mà một module sở hữu, và `shell/`
+    (`screen_files.screen_roots()`). "Màn hình" được suy ra từ chính quy ước
+    `<tên>_screen.py` xây `ScreenContribution(...)` — không đoán theo tên thư
+    mục, vì tên thư mục và route không khớp nhau (`database_screen.py`'s
+    route là `"data_management"`).
 
-    **Tạm ngưng hoạt động, không phải đã xoá.** `EPIC-025` Phase 4 đã chuyển
-    hết mọi màn ra khỏi cây này (`trading`/`dashboard` ở PR 4.4c, `backtest` ở
-    PR 4.4d, `settings` ở PR 4.4e) — thư mục này giờ không còn tồn tại, nên
-    `screens.rglob(...)` dưới đây luôn trả về rỗng và guard này không còn phát
-    hiện được gì. Đây là nợ có thật, không phải một lựa chọn: quy tắc "một sự
-    kiện không được hai màn cùng nghe" vẫn đúng ở địa chỉ mới
-    (`modules/*/ui/`, `shell/`), nhưng việc quét lại đúng chỗ đó là thiết kế
-    riêng (những màn nào là "hàng xóm" của nhau không còn rõ như khi tất cả ở
-    một thư mục) và nằm ngoài phạm vi PR đã đưa thư mục này tới rỗng —
-    `Tasks/backlog/BOT-141_retarget_event_flow_guard_3_to_module_ui.md` là
-    việc theo sau đó."""
-    screens = _SRC / "presentation" / "ui" / "screens"
+    Một file nằm ngoài mọi màn trong `ui/` của module nó (`screen_owner()`
+    trả `None`) là Feed dùng chung — địa chỉ mới của `presentation/ui/
+    common/` cũ (`support/ui_kit/health_feed.py` cho `HealthUpdatedEvent`, hay
+    một Feed cấp module như `modules/trading/ui/equity_feed.py` phục vụ cả
+    `trading/` lẫn `dashboard/`) — **được phép** là nơi duy nhất đăng ký nên bị
+    loại khỏi nhóm so sánh."""
     by_event: dict[str, list[str]] = {}
 
-    for path in screens.rglob("*.py"):
-        if "__pycache__" in path.parts:
-            continue
-        tree = ast.parse(path.read_text(encoding="utf-8"))
-        for call in _subscription_calls(tree):
-            first = call.args[0]
-            name = getattr(first, "id", None) or getattr(first, "attr", None)
-            if name is None:
+    for root in screen_roots():
+        for path in root.rglob("*.py"):
+            if "__pycache__" in path.parts:
                 continue
-            screen = path.relative_to(screens).parts[0]
-            by_event.setdefault(name, [])
-            if screen not in by_event[name]:
-                by_event[name].append(screen)
+            owner = screen_owner(path)
+            if owner is None:
+                continue
+            tree = ast.parse(path.read_text(encoding="utf-8"))
+            for call in _subscription_calls(tree):
+                first = call.args[0]
+                name = getattr(first, "id", None) or getattr(first, "attr", None)
+                if name is None:
+                    continue
+                owner_id = owner.relative_to(_SRC.parent).as_posix()
+                owners = by_event.setdefault(name, [])
+                if owner_id not in owners:
+                    owners.append(owner_id)
 
-    shared = {
-        event: screens_ for event, screens_ in by_event.items() if len(screens_) > 1
-    }
+    shared = {event: owners for event, owners in by_event.items() if len(owners) > 1}
     assert shared == {}, (
-        "sự kiện bị nhiều màn cùng nghe — hãy dựng một Feed ở "
-        f"presentation/ui/common/ thay vì nhân bản logic: {shared}"
+        "sự kiện bị nhiều màn cùng nghe — hãy dựng một Feed thay vì nhân bản "
+        f"logic: {shared}"
     )
