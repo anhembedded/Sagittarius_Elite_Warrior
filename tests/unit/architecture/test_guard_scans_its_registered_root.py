@@ -124,16 +124,35 @@ _UNRESOLVABLE_GUARDS: dict[str, str] = {
 }
 
 #: (guard, root, pattern) rows registered for a real reason this check's
-#: resolver cannot see: proven by a single named file's `.read_text()`, not a
-#: directory glob. Named individually, like `EMPTY_BY_DESIGN`, because an
+#: resolver cannot see. Named individually, like `EMPTY_BY_DESIGN`, because an
 #: exemption has to name the exact row it excuses.
 _ROW_EXCEPTIONS: frozenset[tuple[str, str, str]] = frozenset(
     {
+        # Proven by a single named file's `.read_text()`, not a directory glob.
         (
             "tests/unit/config/test_credentials_never_reach_a_git_tracked_file.py",
             "src/config",
             "*.json",
         ),
+        # `BOT-141`'s Guard 3 scans via `screen_roots()`, imported from
+        # `screen_files.py` — an "imported root table" shape, the same one
+        # `UI_TREE_ROWS` already puts out of scope for other guards, just
+        # returned by a function call here rather than a tuple. This file's
+        # only *resolvable* literal call is Guard 1's own `_SRC.rglob(...)`,
+        # registered separately as `("src", "*.py")` and confirmed for real.
+        (
+            "tests/unit/test_event_flow_guards.py",
+            "src/modules/backtesting/ui",
+            "*.py",
+        ),
+        (
+            "tests/unit/test_event_flow_guards.py",
+            "src/modules/market_data/ui",
+            "*.py",
+        ),
+        ("tests/unit/test_event_flow_guards.py", "src/modules/strategy/ui", "*.py"),
+        ("tests/unit/test_event_flow_guards.py", "src/modules/trading/ui", "*.py"),
+        ("tests/unit/test_event_flow_guards.py", "src/shell", "*.py"),
     }
 )
 
