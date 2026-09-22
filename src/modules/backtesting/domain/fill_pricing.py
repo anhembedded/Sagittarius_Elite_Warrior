@@ -245,3 +245,14 @@ class FillPricing:
             entry_fee,
             exit_fee,
         )
+
+    def clamp_liquidation_settlement(
+        self,
+        pnl: float,
+        pnl_percent: float,
+        balance_release: float,
+        balance_before_entry: float,
+    ) -> tuple[float, float, float]:
+        return self._margin_policy.clamp_liquidation_settlement(
+            pnl, pnl_percent, balance_release, balance_before_entry
+        )

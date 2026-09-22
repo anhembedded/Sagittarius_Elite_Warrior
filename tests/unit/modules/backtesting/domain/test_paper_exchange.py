@@ -1061,3 +1061,48 @@ def test_check_intrabar_stops_never_liquidates_an_unleveraged_long():
 
     assert trades == []
     assert exchange.is_in_position is True
+
+
+def test_liquidation_never_drives_balance_negative_at_a_real_commission():
+    """BOT-049 review finding: `liquidation_price()` is derived ignoring fees
+    (a threshold price, not a settlement — see its own docstring), so the
+    fee-inclusive `calculate_realized_pnl()` settlement lands a hair past
+    100% margin loss whenever commission is non-zero — the shipped default
+    is `commission_value=0.1`, not the `0.0` every other liquidation test in
+    this file uses. Isolated margin's defining property is that a loss can
+    never exceed the position's own margin (BOT-049 §1's reason for choosing
+    isolated over cross), so this must clamp at exactly 100% lost, never more.
+
+    Uses FIXED_CASH sizing with balance left over after margin so a real
+    negative `PaperExchange.balance` (rather than this clamp) would be
+    directly observable: `entry_capital()` treats negative balance as
+    insufficient funds and silently rejects every later fill (only a
+    `logger.debug` line, nothing surfaced) — this test proves that dead-end
+    cannot happen by having a second position actually open afterward.
+    """
+    sizing = PositionSizing(type=PositionSizingType.FIXED_CASH, value=1_000.0)
+    broker_cfg = BrokerSimulationConfig(
+        long_leverage=5.0
+    )  # default commission_value=0.1
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=2_000.0,
+        position_sizing=sizing,
+        broker_config=broker_cfg,
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    assert exchange.balance == pytest.approx(1_000.0)
+
+    trades = exchange.check_intrabar_stops(high=101.0, low=79.0, time=_T2)
+
+    assert len(trades) == 1
+    trade = trades[0]
+    assert trade.exit_reason is ExitReason.LIQUIDATION
+    assert trade.pnl == pytest.approx(-1_000.0)  # exactly 100% of margin, not more
+    assert trade.pnl_percent == pytest.approx(-100.0)
+    assert exchange.balance == pytest.approx(1_000.0)  # never went negative
+
+    # The real-world consequence of the bug this guards: a subsequent signal
+    # must still be able to open, using the untouched remaining balance.
+    exchange.fill(_signal(SignalAction.BUY), price=50.0, time=_T2)
+    assert exchange.is_in_position is True

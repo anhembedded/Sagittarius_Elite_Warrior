@@ -125,9 +125,59 @@ computation before assuming a change was needed.
 **Pre-existing, unrelated debt noted, not fixed**:
 `tests/unit/modules/backtesting/domain/test_paper_exchange.py` was already
 992 lines before this change (`architecture-rule.md` §5 rule 4's 400-line
-guideline), several times over. This task added ~70 lines to it rather than
+guideline), several times over. This task added ~100 lines to it rather than
 opening an unrelated file-split refactor; flagging here for a future,
 dedicated pass rather than silently growing the debt unremarked.
+
+**Independent review found one real, fixed bug** (`ONBOARDING.md` §7 review
+on PR #254, commit-by-commit with the domain math verified by direct
+execution, not just reading): `liquidation_price()` is derived ignoring fees
+by construction (its own docstring: "fees aside — a threshold price, not a
+settlement"), but `_close_one_position` always charges `exit_fee` on top —
+so at the computed price, `calculate_realized_pnl()`'s fee-inclusive
+settlement landed a hair past 100% margin loss whenever commission was
+non-zero. The shipped `BrokerSimulationConfig` default is
+`commission_value=0.1`, not the `0.0` every original liquidation test used,
+so this default-path case had zero coverage. Consequence, reproduced by the
+reviewer: `PaperExchange.balance` went negative
+(measured: `-7.996` at 5x leverage, entry 100, default 0.1% commission),
+and `FillPricing.entry_capital()` then silently rejects every later fill
+for the rest of the run (`quantity<=0` on a negative balance, only a
+`logger.debug` line, nothing surfaced).
+
+**Fix**: `MarginRiskPolicy.clamp_liquidation_settlement()` (new) caps a
+liquidation's realized loss at exactly the position's margin — isolated
+margin's defining property (this task's own §2 item 1 reason for choosing
+isolated over cross: a loss can never exceed the allocated margin).
+`PaperExchange._close_one_position` calls it only for
+`exit_reason is ExitReason.LIQUIDATION`. Placed in `MarginRiskPolicy` (via a
+`FillPricing` passthrough) rather than inline in `PaperExchange`, both
+because it is fee/margin arithmetic (`fill_pricing.py`'s own documented
+abstraction-level split: "arithmetic against the configuration" vs. "the
+books") and because it measurably shrank `paper_exchange.py` back down
+(430 → 421 lines) — reviewer's second finding, `paper_exchange.py`
+crossing the 400-line guideline; not fully resolved (421 still exceeds it)
+but genuinely reduced by moving logic to its more correct home, not by
+line-shuffling to dodge the threshold. A full split is deferred as debt,
+same as the pre-existing test-file overage above — this PR is not the
+place for an unrelated architectural refactor.
+
+Two new tests added: `test_clamp_liquidation_settlement_*` (policy-level,
+both the no-op and the capping case, using the reviewer's own measured
+numbers) and `test_liquidation_never_drives_balance_negative_at_a_real_commission`
+(`PaperExchange`-level, default non-zero commission, proves a position can
+still open afterward — the exact "silently poisons the rest of the run"
+failure mode). Mutation-verified: disabled the clamp → both new tests
+failed reproducing the reviewer's exact `-1007.996`/`-7.996` numbers;
+restored.
+
+Reviewer's third finding (commit `b390aef4`'s undisclosed BOT-049 file
+rename, landed as a side effect of staging order rather than mentioned in
+that commit's message) is accurate but not re-fixed: rewriting already-
+pushed history for a nit about commit-message completeness — where the
+final merged tree is already correct, per the reviewer's own note — was
+judged not worth the history-rewrite risk on a branch already carrying a
+posted review. Noted here for the record instead.
 
 **Verification:**
 - New tests: `tests/unit/modules/backtesting/domain/policies/test_margin_risk_policy.py`

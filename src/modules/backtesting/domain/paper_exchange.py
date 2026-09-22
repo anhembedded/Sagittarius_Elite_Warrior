@@ -308,6 +308,12 @@ class PaperExchange:
             pos.entry_fee,
             exit_fee,
         )
+        if exit_reason is ExitReason.LIQUIDATION:
+            pnl, pnl_percent, balance_release = (
+                self._pricing.clamp_liquidation_settlement(
+                    pnl, pnl_percent, balance_release, pos.balance_before_entry
+                )
+            )
         self._balance += balance_release
 
         trade = Trade(

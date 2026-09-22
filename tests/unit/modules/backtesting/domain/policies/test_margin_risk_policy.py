@@ -216,6 +216,34 @@ def test_evaluate_liquidations_never_triggers_a_position_with_no_liquidation_pri
     assert still_open == [pos]
 
 
+def test_clamp_liquidation_settlement_is_a_no_op_when_release_is_non_negative(
+    policy: MarginRiskPolicy,
+):
+    assert policy.clamp_liquidation_settlement(
+        pnl=50.0, pnl_percent=5.0, balance_release=1_050.0, balance_before_entry=1_000.0
+    ) == (50.0, 5.0, 1_050.0)
+    assert policy.clamp_liquidation_settlement(
+        pnl=0.0, pnl_percent=0.0, balance_release=0.0, balance_before_entry=1_000.0
+    ) == (0.0, 0.0, 0.0)
+
+
+def test_clamp_liquidation_settlement_caps_a_negative_release_at_exactly_the_margin(
+    policy: MarginRiskPolicy,
+):
+    """BOT-049 review finding: fees on top of the fee-blind `liquidation_price`
+    can push `balance_release` slightly negative — isolated margin's defining
+    property is that the loss stops at the position's own margin, never more."""
+    pnl, pnl_percent, balance_release = policy.clamp_liquidation_settlement(
+        pnl=-1_007.996,
+        pnl_percent=-100.7996,
+        balance_release=-7.996,
+        balance_before_entry=1_000.0,
+    )
+    assert pnl == pytest.approx(-1_000.0)
+    assert pnl_percent == pytest.approx(-100.0)
+    assert balance_release == pytest.approx(0.0)
+
+
 def test_calculate_realized_pnl_leveraged_and_short(policy: MarginRiskPolicy):
     # Leveraged LONG (2x): margin $500, 10 qty at $100, exit at $110.
     # Price gain = (110 - 100) * 10 = $100. Entry fee $1.0, Exit fee $1.1.

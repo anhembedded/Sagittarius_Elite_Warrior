@@ -195,3 +195,34 @@ class MarginRiskPolicy:
         )
 
         return pnl, pnl_percent, balance_release
+
+    def clamp_liquidation_settlement(
+        self,
+        pnl: float,
+        pnl_percent: float,
+        balance_release: float,
+        balance_before_entry: float,
+    ) -> tuple[float, float, float]:
+        """
+        @brief Caps a liquidation's realized loss at exactly the position's margin.
+
+        @details Isolated margin's defining property (`BOT-049` §1's own reason
+        for choosing isolated over cross): a loss on this position can never
+        exceed the margin allocated to it. `liquidation_price()` solves for
+        `balance_release == 0` ignoring fees by construction (its own
+        docstring: "fees aside — a threshold price, not a settlement"), so
+        `calculate_realized_pnl()`'s fee-inclusive settlement lands slightly
+        past 100% margin loss whenever commission is non-zero — the shipped
+        `BrokerSimulationConfig` default is `commission_value=0.1`, not `0.0`.
+        Uncapped, this drives the caller's cash balance negative, which then
+        silently rejects every later fill for the rest of the run (found in
+        review: `FillPricing.entry_capital()` treats a negative balance as
+        insufficient funds with only a debug log, no visible error).
+
+        @return `(pnl, pnl_percent, balance_release)` unchanged when
+        `balance_release >= 0`; otherwise `(-balance_before_entry, -100.0,
+        0.0)`.
+        """
+        if balance_release >= 0.0:
+            return pnl, pnl_percent, balance_release
+        return -balance_before_entry, -100.0, 0.0
