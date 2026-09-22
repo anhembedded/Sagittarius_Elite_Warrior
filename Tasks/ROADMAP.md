@@ -22,13 +22,21 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 148 | 74.4% |
+| 🟢 **Completed** | 151 | 75.9% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 44 | 22.1% |
+| 🔴 **Backlog** | 41 | 20.6% |
 | ❌ **Cancelled** | 7 | 3.5% |
 | 📈 **Tổng số Task** | **199** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
+
+> **Cập nhật 2026-09-22 (2):** 4 việc hoàn thành trong một PR tiếp theo — `BOT-115B` (nút "Lưu báo cáo" xuất
+> `.sagi-report.json` từ màn Backtest), `BOT-106D` (trình bày PySide6 thật cho `BOT-106B`/`106C`: cột MAE/MFE trong
+> Trade Logs, 2 tab mới "DRAWDOWN"/"RETURNS"), `BOT-025` (re-scoped — task gốc giả định 6 event/1 module chưa từng
+> tồn tại; tài liệu hoá 2 event thật đang có, tại đúng vị trí thật `contracts/events/`), và **`BUG-133` đã đóng**
+> (`check_intrabar_stops()` nay chạy mỗi tick ở Historical Tick Backtest — SL/TP/thanh lý/MAE-MFE hoạt động đúng ở
+> cả 2 chế độ). Epic `BOT-106` giờ **4/4 xong trọn**, Epic `BOT-115` **2/4**. Đối soát lại theo thư mục thật:
+> `python3 scripts/render_task_counts.py` → completed 151, backlog 41, cancelled 7.
 
 > **Cập nhật 2026-09-22:** 4 task hoàn thành trong một PR — `BOT-106B` (MAE/MFE excursion, phần domain), `BOT-106C`
 > (drawdown series + monthly/yearly returns, phần domain), `BOT-077` (`calc_on_order_fills`, đủ cả domain lẫn UI thật),
