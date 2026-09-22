@@ -211,7 +211,7 @@ class FakeCancellationToken:
         return self._cancelled
 
 
-def run_config(mode=BacktestExecutionMode.BAR_CLOSE):
+def run_config(mode=BacktestExecutionMode.BAR_CLOSE, calc_on_order_fills=False):
     """The real `BacktestRunConfig`, not a stand-in: both run commands are
     pydantic models that validate `position_sizing` and `broker_config`
     against their real types, so a `SimpleNamespace` turned every test into a
@@ -223,6 +223,7 @@ def run_config(mode=BacktestExecutionMode.BAR_CLOSE):
         start_time=None,
         end_time=None,
         execution_mode=mode,
+        calc_on_order_fills=calc_on_order_fills,
     )
 
 

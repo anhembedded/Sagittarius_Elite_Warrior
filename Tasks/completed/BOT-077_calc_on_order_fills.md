@@ -1,5 +1,7 @@
 # Nhiệm vụ: `calc_on_order_fills` — chạy lại strategy ngay khoảnh khắc lệnh khớp
 
+**Trạng thái:** ✅ Done (2026-09-22)
+
 > Thuộc Epic [`BOT-073`](BOT-073_realtime_tick_backtest_epic.md).
 > **Chặn bởi** [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md).
 >
@@ -77,19 +79,22 @@ cảnh backtest"* — nhận định đó **đúng** với hoàn cảnh lúc b�
 
 ## 5. Các bước thực hiện
 
-- [ ] Thêm cờ vào `RunRealtimeBacktestCommand` (mặc định **tắt** — giữ nguyên hành vi
-      `BOT-076` ship ra).
-- [ ] Trong vòng lặp tick: sau khi `PaperExchange` khớp một lệnh, chạy thêm **đúng
+- [x] Thêm cờ vào `RunHistoricalTickBacktestCommand` (mặc định **tắt** — giữ nguyên
+      hành vi `BOT-076` ship ra). (`RunRealtimeBacktestCommand` trong task gốc đã đổi
+      tên thành `RunHistoricalTickBacktestCommand` từ trước — xác nhận lại trước khi
+      sửa, đúng thói quen "đo lại trước khi làm" của repo này.)
+- [x] Trong vòng lặp tick: sau khi `PaperExchange` khớp một lệnh, chạy thêm **đúng
       một** lượt đánh giá strategy tại chính tick đó, **trước** khi sang tick kế tiếp.
-- [ ] **Chặn đệ quy vô hạn**: lượt chạy thêm này có thể lại sinh Signal → lại khớp →
+- [x] **Chặn đệ quy vô hạn**: lượt chạy thêm này có thể lại sinh Signal → lại khớp →
       lại chạy thêm. Phải có giới hạn cứng số lần lặp trong 1 tick (Pine cũng giới
       hạn) + test cho kịch bản strategy luôn sinh Signal.
-- [ ] `Series`/indicator **không được chốt** trong lượt chạy thêm — vẫn là cùng một
+- [x] `Series`/indicator **không được chốt** trong lượt chạy thêm — vẫn là cùng một
       bar, chốt ở đây sẽ đẩy sai lịch sử (đúng lớp lỗi `BOT-042` §3 câu 2 đã cảnh
       báo).
-- [ ] Mở khoá + nối dây lựa chọn "Khi lệnh được khớp" trong
-      `OrderExecutionMenu.qml`.
-- [ ] Test: bật cờ → strategy được gọi thêm đúng 1 lần ngay sau fill, tại đúng giá
+- [x] Mở khoá + nối dây lựa chọn "Khi lệnh được khớp" — `OrderExecutionMenu.qml`
+      không còn tồn tại (QML đã gỡ trước `EPIC-025`); nối dây thật trong
+      `order_execution_dialog.py` (QtWidgets, `ChecklistOverlay`) thay vào đó.
+- [x] Test: bật cờ → strategy được gọi thêm đúng 1 lần ngay sau fill, tại đúng giá
       tick đó; tắt cờ → số lần gọi không đổi so với `BOT-076`.
 
 ## 6. Rủi ro / Lưu ý
@@ -108,3 +113,25 @@ cảnh backtest"* — nhận định đó **đúng** với hoàn cảnh lúc b�
   nhưng **ưu tiên cao hơn hẳn** (xem §2).
 - [`BOT-040`](BOT-040_backtest_screen_full_feature_epic.md) §2.1 — dòng "On order
   filled", nay đã rõ nghĩa.
+
+## Implementation notes (2026-09-22)
+
+- **Domain/Application**: `RunHistoricalTickBacktestCommand.calc_on_order_fills: bool = False`
+  (`application/run_historical_tick_backtest/command.py`). `RunHistoricalTickBacktestCommandHandler._reevaluate_on_order_fill()`
+  (`handler.py`) chạy thêm strategy tại đúng tick vừa khớp lệnh, dùng `on_forming_bar_tick(..., is_closed=False)` nên
+  Series/indicator không bị chốt sai. Giới hạn cứng `_MAX_ORDER_FILL_REEVALUATIONS = 10` — vượt giới hạn thì dừng và ghi
+  `logger.warning(...calc_on_order_fills_cap_reached...)`, không âm thầm cắt.
+- **UI thật (không phải QML)**: `OrderExecutionMenu.qml` không còn tồn tại — QML đã gỡ khỏi codebase trước `EPIC-025`.
+  Mở khoá dòng "On order fill" (index 1) trong `order_execution_dialog.py` (`ChecklistOverlay`, QtWidgets thật), nối qua
+  `BackTestViewModel.calcOnOrderFills` (Property mới) → `BacktestRunConfig.calc_on_order_fills` (qua
+  `run_config_builder.py`, cả `build_run_config` lẫn `snapshot_current_config`) → `RunHistoricalTickBacktestCommand`
+  (qua `execution_coordinator.py`). `compute_diff_summary()` báo thay đổi cờ này khi và chỉ khi đang ở chế độ
+  Historical Tick — vô nghĩa ở Static/Bar Close nên không báo nhầm.
+- **9 test mới**: 3 ở tầng handler (tắt cờ giữ nguyên số lần gọi `BOT-076`; bật cờ chạy thêm đúng 1 lần; strategy luôn
+  sinh Signal thì dừng đúng ở giới hạn cứng, mutation-verify bằng cách hạ giới hạn xuống 3 và xác nhận test đỏ đúng lý
+  do), 2 ở `run_config_builder`, 2 ở `backtest_fsm_matrix` (báo/không báo diff tuỳ chế độ), 1 ở `execution_coordinator`
+  (cờ được chuyển đúng cả hai chiều vào command), và cập nhật `test_order_execution_modal.py` — file này tự dự đoán
+  trước "nếu unlock dòng 1, test này phải đỏ lại 'by design'", và đúng như vậy khi chạy trước khi sửa; đã cập nhật
+  `_EXPECTED_LOCK_STATE` + thêm 2 test tương tác mới cho dòng này. Toàn bộ 690 test của module `backtesting` xanh;
+  `ruff`/`mypy` sạch (3 file UI đã nằm sẵn trong danh sách "frozen debt" `@Property` false-positive của
+  `pyproject.toml`, không phải nợ mới).

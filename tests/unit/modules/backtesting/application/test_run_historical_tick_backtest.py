@@ -71,6 +71,47 @@ class _CountingHoldStrategy(BaseStrategy):
         return self.hold()
 
 
+class _BuyThenHoldStrategy(BaseStrategy):
+    """BUY the instant it is flat, then HOLD forever once in a LONG position
+    — never emits a second signal off its own fill, so `calc_on_order_fills`
+    triggers exactly one extra evaluation per entry, not a chain."""
+
+    call_count = 0
+
+    def setup(self) -> None:
+        type(self).call_count = 0
+
+    def build_indicators(self) -> dict:
+        return {}
+
+    def decide(self, context: StrategyContext) -> tuple[SignalAction, str]:
+        type(self).call_count += 1
+        if context.current_position_side is None:
+            return self.buy("enter")
+        return self.hold()
+
+
+class _AlwaysToggleStrategy(BaseStrategy):
+    """Flips BUY/SELL every single evaluation — flat always signals BUY, LONG
+    always signals SELL. Used to drive `calc_on_order_fills`'s recursion cap:
+    every re-evaluation this produces a new fill, so it never stops on its
+    own."""
+
+    call_count = 0
+
+    def setup(self) -> None:
+        type(self).call_count = 0
+
+    def build_indicators(self) -> dict:
+        return {}
+
+    def decide(self, context: StrategyContext) -> tuple[SignalAction, str]:
+        type(self).call_count += 1
+        if context.current_position_side is None:
+            return self.buy("enter")
+        return self.sell("exit")
+
+
 def _build_bar_ticks(
     bar_index: int, closes: list[float], bar_seconds: int = 60
 ) -> list[MarketData]:
@@ -456,3 +497,69 @@ def test_a_tick_at_exactly_bar_end_starts_a_new_bar_rather_than_joining_the_old(
         "a tick at exactly bar_end must close the stale bar and open a new one, "
         "not be absorbed into it"
     )
+
+
+# ---------------------------------------------------------------------------
+# BOT-077 — calc_on_order_fills
+# ---------------------------------------------------------------------------
+
+
+def test_calc_on_order_fills_off_by_default_matches_bot_076_call_count():
+    """Default (flag unset) must reproduce BOT-076's shipped behavior
+    exactly: one strategy evaluation per tick, never an extra one off a
+    fill."""
+    ticks = _build_bar_ticks(0, [100.0, 100.0, 100.0]) + _build_bar_ticks(
+        1, [100.0, 100.0]
+    )
+    handler, _ = _build_handler(
+        ticks, strategy_key="buy-then-hold", strategy_cls=_BuyThenHoldStrategy
+    )
+
+    result = handler.execute(_build_command(strategy_key="buy-then-hold"))
+
+    assert isinstance(result, BacktestResult)
+    assert _BuyThenHoldStrategy.call_count == len(ticks) == 5
+
+
+def test_calc_on_order_fills_on_runs_exactly_one_extra_evaluation_at_the_fill_tick():
+    """The flag's core contract: right after a fill, the strategy is asked
+    again, at the same tick — but only once, since this strategy's second
+    answer (HOLD) produces no further signal."""
+    ticks = _build_bar_ticks(0, [100.0, 100.0, 100.0]) + _build_bar_ticks(
+        1, [100.0, 100.0]
+    )
+    handler, _ = _build_handler(
+        ticks, strategy_key="buy-then-hold", strategy_cls=_BuyThenHoldStrategy
+    )
+
+    result = handler.execute(
+        _build_command(strategy_key="buy-then-hold", calc_on_order_fills=True)
+    )
+
+    assert isinstance(result, BacktestResult)
+    assert _BuyThenHoldStrategy.call_count == len(ticks) + 1 == 6
+
+
+def test_calc_on_order_fills_stops_at_the_hard_cap_and_logs_a_warning(caplog):
+    """A strategy that keeps signaling on its own fill (entry -> fill ->
+    re-eval -> exit -> fill -> re-eval -> ...) must be stopped at
+    `_MAX_ORDER_FILL_REEVALUATIONS`, not recurse forever, and the cap being
+    hit must be visible in the log rather than silently truncated."""
+    ticks = _build_bar_ticks(0, [100.0, 100.0])  # 1 forming tick, 1 bar-close
+    handler, _ = _build_handler(
+        ticks, strategy_key="always-toggle", strategy_cls=_AlwaysToggleStrategy
+    )
+
+    with caplog.at_level(logging.WARNING, logger="App.RunHistoricalTickBacktest"):
+        result = handler.execute(
+            _build_command(strategy_key="always-toggle", calc_on_order_fills=True)
+        )
+
+    assert isinstance(result, BacktestResult)
+    # tick0 (forming): 1 initial call + 10 capped re-evaluations = 11.
+    # tick1 (bar-close, via _commit_bar, untouched by this feature): 1 more.
+    assert _AlwaysToggleStrategy.call_count == 12
+    cap_warnings = [
+        r for r in caplog.records if "calc_on_order_fills_cap_reached" in r.message
+    ]
+    assert len(cap_warnings) == 1

@@ -84,6 +84,7 @@ class FakeInputs:
     selectedTimeframe: str = TimeFrame.ONE_HOUR.value
     selectedCurrency: str = Currency.USD.value
     initialCapitalText: str = "10000"
+    calcOnOrderFills: bool = False
     strategy_params: FakeStrategy = field(default_factory=FakeStrategy)
     time_range: FakeTimeRange = field(default_factory=FakeTimeRange)
     broker_sim: FakeBroker = field(default_factory=FakeBroker)
@@ -116,6 +117,28 @@ def test_a_valid_toolbar_produces_a_config_and_one_trace() -> None:
     assert config.timeframe is TimeFrame.ONE_HOUR
     assert config.initial_balance == 10000.0
     assert config.strategy_params == {"fast": 9}
+
+
+def test_calc_on_order_fills_passes_through_from_the_view_model() -> None:
+    """BOT-077 — the builder must read the toggle rather than always
+    defaulting it, in both directions."""
+    off = _build(FakeInputs(calcOnOrderFills=False))
+    on = _build(FakeInputs(calcOnOrderFills=True))
+
+    assert off.config.calc_on_order_fills is False
+    assert on.config.calc_on_order_fills is True
+
+
+def test_snapshot_current_config_also_carries_calc_on_order_fills() -> None:
+    snapshot = snapshot_current_config(
+        FakeInputs(calcOnOrderFills=True),
+        symbol="BTCUSDT",
+        strategy_params={},
+        execution_mode=BacktestExecutionMode.HISTORICAL_TICK,
+        now=FIXED_NOW,
+    )
+
+    assert snapshot.calc_on_order_fills is True
 
 
 def test_an_empty_strategy_is_refused_rather_than_defaulted() -> None:

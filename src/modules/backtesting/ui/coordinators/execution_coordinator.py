@@ -232,7 +232,9 @@ class ExecutionCoordinator:
         }
         if config.execution_mode == BacktestExecutionMode.HISTORICAL_TICK:
             command = RunHistoricalTickBacktestCommand(
-                tick_resolution=config.tick_resolution, **shared
+                tick_resolution=config.tick_resolution,
+                calc_on_order_fills=config.calc_on_order_fills,
+                **shared,
             )
             self._log_dev_trace(
                 "worker_dispatch_run_historical_tick_backtest",

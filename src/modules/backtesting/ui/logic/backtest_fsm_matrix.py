@@ -221,6 +221,10 @@ class BacktestRunConfig:
     #: follow-up, not required for this mode to work correctly.
     execution_mode: BacktestExecutionMode = BacktestExecutionMode.BAR_CLOSE
     tick_resolution: TimeFrame = TimeFrame.ONE_SECOND
+    #: BOT-077 — only meaningful when `execution_mode == HISTORICAL_TICK`,
+    #: same reasoning as `tick_resolution` above. Default `False` preserves
+    #: `BOT-076`'s shipped behavior for every run that never opts in.
+    calc_on_order_fills: bool = False
     position_sizing: PositionSizing = field(
         default_factory=lambda: PositionSizing(
             type=PositionSizingType.PERCENT_OF_EQUITY, value=100.0
@@ -323,14 +327,17 @@ class BacktestRunConfig:
                 f"Execution mode ({self.execution_mode.value} → "
                 f"{other.execution_mode.value})"
             )
-        elif (
-            self.execution_mode == BacktestExecutionMode.HISTORICAL_TICK
-            and self.tick_resolution != other.tick_resolution
-        ):
-            diffs.append(
-                f"Tick resolution ({self.tick_resolution.value} → "
-                f"{other.tick_resolution.value})"
-            )
+        elif self.execution_mode == BacktestExecutionMode.HISTORICAL_TICK:
+            if self.tick_resolution != other.tick_resolution:
+                diffs.append(
+                    f"Tick resolution ({self.tick_resolution.value} → "
+                    f"{other.tick_resolution.value})"
+                )
+            if self.calc_on_order_fills != other.calc_on_order_fills:
+                diffs.append(
+                    f"Calc on order fills ({self.calc_on_order_fills} → "
+                    f"{other.calc_on_order_fills})"
+                )
 
         if not diffs:
             return "Configuration changed"

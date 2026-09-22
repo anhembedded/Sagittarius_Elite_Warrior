@@ -93,6 +93,22 @@ def test_each_mode_dispatches_its_own_command_type() -> None:
     assert dispatcher.commands[0].tick_resolution == TimeFrame.ONE_SECOND
 
 
+def test_calc_on_order_fills_is_forwarded_from_the_config_to_the_command() -> None:
+    """BOT-077 — the coordinator must read the config's own flag, never a
+    hard-coded default, in both directions."""
+    coordinator, dispatcher, _events = _build()
+    coordinator.run(
+        run_config(BacktestExecutionMode.HISTORICAL_TICK, calc_on_order_fills=True)
+    )
+    assert dispatcher.commands[0].calc_on_order_fills is True
+
+    coordinator, dispatcher, _events = _build()
+    coordinator.run(
+        run_config(BacktestExecutionMode.HISTORICAL_TICK, calc_on_order_fills=False)
+    )
+    assert dispatcher.commands[0].calc_on_order_fills is False
+
+
 def test_both_commands_carry_the_same_shared_fields() -> None:
     """They are built from one dict now; before, a field added to one and not
     the other would have been silently missing from that engine."""

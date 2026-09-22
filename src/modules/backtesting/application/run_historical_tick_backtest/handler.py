@@ -43,6 +43,13 @@ from .forming_bar import CLOSE_TIME_IS_INCLUSIVE_BY, FormingBar, bar_bounds
 logger = logging.getLogger("App.RunHistoricalTickBacktest")
 _TRACE_PREFIX = "REALTIME_BACKTEST_TRACE"
 _PHASE = "realtime"
+#: BOT-077 — hard cap on extra same-tick re-evaluations `calc_on_order_fills`
+#: can trigger. A strategy that always signals on its own fill (entry ->
+#: fill -> re-eval -> entry -> ...) would otherwise recurse forever; Pine
+#: Script itself imposes an equivalent limit. Reaching it is a strategy bug,
+#: not this feature's normal path, so it is logged loudly rather than
+#: silently truncated.
+_MAX_ORDER_FILL_REEVALUATIONS = 10
 
 
 class RunHistoricalTickBacktestCommandHandler(
@@ -265,6 +272,10 @@ class RunHistoricalTickBacktestCommandHandler(
                 )
                 if signal is not None:
                     exchange.fill(signal, tick.close_price, tick.close_time)
+                    if command.calc_on_order_fills:
+                        self._reevaluate_on_order_fill(
+                            engine, exchange, forming_candle, tick
+                        )
 
             if command.progress_callback and progress_throttle.should_emit(
                 index, total_ticks
@@ -306,6 +317,39 @@ class RunHistoricalTickBacktestCommandHandler(
             trades=exchange.trades,
             equity_curve=equity_curve,
             committed_bars=committed_bars,
+        )
+
+    def _reevaluate_on_order_fill(
+        self,
+        engine: IStrategyEngine,
+        exchange: PaperExchange,
+        forming_candle: MarketData,
+        tick: MarketData,
+    ) -> None:
+        """
+        @brief BOT-077 `calc_on_order_fills` — re-evaluates the strategy
+        again at this exact tick right after one of its own signals filled,
+        so it can react to the position/side that fill just produced before
+        the next tick arrives.
+        @details Always passes `is_closed=False` on the same still-forming
+        `forming_candle`: this must never commit the bar's Series/indicator
+        state a second time (BOT-042 §3) — it is the same bar, evaluated
+        again, not a new one. Capped at `_MAX_ORDER_FILL_REEVALUATIONS` to
+        guard the entry -> fill -> re-eval -> entry recursion a strategy
+        that always signals on its own fill would otherwise cause forever.
+        """
+        for _ in range(_MAX_ORDER_FILL_REEVALUATIONS):
+            signal = engine.on_forming_bar_tick(
+                forming_candle, current_position_side=exchange.current_side
+            )
+            if signal is None:
+                return
+            exchange.fill(signal, tick.close_price, tick.close_time)
+        logger.warning(
+            f"{_TRACE_PREFIX} action=calc_on_order_fills_cap_reached "
+            f"tick_time={tick.close_time!r} cap={_MAX_ORDER_FILL_REEVALUATIONS} — "
+            "strategy kept signaling on its own fill; further signals this "
+            "tick are ignored"
         )
 
     def _commit_bar(

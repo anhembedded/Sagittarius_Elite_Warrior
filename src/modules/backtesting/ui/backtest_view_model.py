@@ -96,6 +96,7 @@ class BackTestViewModel(BaseQmlViewModel):
     selectedCurrencyChanged = Signal()
     selectedTimeframeChanged = Signal()
     executionModeChanged = Signal()
+    calcOnOrderFillsChanged = Signal()
     #: BOT-079 follow-up — separate from `statCardsChanged` on purpose: the
     #: warning is a full sentence, not something that fits a `MetricCard`
     #: pill (an earlier version tried squeezing it into the Net PnL badge
@@ -174,6 +175,10 @@ class BackTestViewModel(BaseQmlViewModel):
         self._selected_currency = Currency.USD.value
         self._selected_timeframe = _DEFAULT_TIMEFRAME
         self._execution_mode = BacktestExecutionMode.BAR_CLOSE.value
+        #: BOT-077 — only meaningful when executionMode is HISTORICAL_TICK,
+        #: same reasoning as executionMode itself. Default off preserves
+        #: BOT-076's shipped behavior for every run that never opts in.
+        self._calc_on_order_fills = False
         # `EPIC-003F4` — sizing + broker-cost state lives in
         # `BrokerSimViewModel` (defaults and clamps with it). `EPIC-003F6`
         # Phase 5 deleted the forwarding: call sites read `vm.broker_sim.*`.
@@ -429,6 +434,23 @@ class BackTestViewModel(BaseQmlViewModel):
         _get_execution_mode,
         _set_execution_mode,
         notify=executionModeChanged,
+    )
+
+    def _get_calc_on_order_fills(self) -> bool:
+        return self._calc_on_order_fills
+
+    def _set_calc_on_order_fills(self, value: bool) -> None:
+        if value != self._calc_on_order_fills:
+            self._calc_on_order_fills = value
+            self.calcOnOrderFillsChanged.emit()
+
+    #: BOT-077 — only takes effect when executionMode is HISTORICAL_TICK;
+    #: `OrderExecutionDialog`'s "On order fill" row is the only writer.
+    calcOnOrderFills = Property(
+        bool,
+        _get_calc_on_order_fills,
+        _set_calc_on_order_fills,
+        notify=calcOnOrderFillsChanged,
     )
 
     # ------------------------------------------------------------------ #

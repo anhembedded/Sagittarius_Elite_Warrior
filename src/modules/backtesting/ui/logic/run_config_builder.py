@@ -146,6 +146,8 @@ class RunConfigInputs(Protocol):
     @property
     def selectedCurrency(self) -> str: ...
     @property
+    def calcOnOrderFills(self) -> bool: ...
+    @property
     def initialCapitalText(self) -> str: ...
     @property
     def strategy_params(self) -> StrategyInputs: ...
@@ -272,6 +274,7 @@ def build_run_config(
         currency=Currency(view_model.selectedCurrency),
         symbol=symbol,
         execution_mode=execution_mode,
+        calc_on_order_fills=view_model.calcOnOrderFills,
         position_sizing=_position_sizing(view_model.broker_sim),
         broker_config=_broker_config(view_model.broker_sim),
     )
@@ -338,6 +341,7 @@ def snapshot_current_config(
         currency=currency,
         symbol=symbol,
         execution_mode=execution_mode,
+        calc_on_order_fills=view_model.calcOnOrderFills,
     )
 
 
