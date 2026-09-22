@@ -22,9 +22,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 143 | 72.2% |
+| 🟢 **Completed** | 144 | 72.7% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 48 | 24.2% |
+| 🔴 **Backlog** | 47 | 23.7% |
 | ❌ **Cancelled** | 7 | 3.5% |
 | 📈 **Tổng số Task** | **198** | **100%** |
 
@@ -131,6 +131,8 @@ Sagittarius_Elite_Warrior/Tasks/
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
+
+- [x] **`BOT-049`**: [Leverage & liquidation for `PaperExchange` — liquidation price derived algebraically from the existing `calculate_realized_pnl` formula (the zero-maintenance-margin case of Binance's own published isolated-margin formula, fetched live and cross-checked), checked every bar before stop-loss/take-profit so a same-bar hit always closes as `LIQUIDATION`, `Trade.leverage` added, `BacktestMetrics` needed no change since it already aggregates generically from `Trade.pnl`](completed/BOT-049_leverage_and_liquidation.md)
 
 - [x] **`BOT-075`**: [Board bookkeeping — the tick-data feasibility spike was already concluded and its report already existed; the file had simply never moved out of `backlog/` even though `ROADMAP.md`'s own priority table already marked it ✅](completed/BOT-075_tick_data_feasibility_spike.md)
 
@@ -491,7 +493,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | :--- | :--- | :---: | :---: | :--- |
 | ✅ **[BOT-045](completed/BOT-045_trade_journal_detail_and_metadata.md)** | **Trade Journal Detail — lý do vào/thoát & metadata** | 🟡 **`M (Standard)`** | `BOT-021` ✅, `BOT-026` ✅ | `Signal.metadata` + `ExitReason` enum (5 member, 3 chừa sẵn cho `BOT-041`/`BOT-049`) + `Trade.entry_reason`/`exit_reason`/`metadata`. Đóng luôn dòng mở rộng chi tiết của `BOT-057` §2.2. 15 test mới, `ruff` sạch. |
 | ✅ | **[BOT-041](completed/BOT-041_stop_loss_take_profit_and_risk_sizing.md)** | **Stop Loss / Take Profit + Position Sizing theo rủi ro** | 🔴 **`L (Thinking)`** | `BOT-021` ✅, `BOT-045` ✅ | **Hoàn thành (19/08)**, bước 0 của Epic `BOT-109`. `PaperExchange.check_intrabar_stops()` mới (gọi mỗi bar dù không signal, khớp tại giá mục tiêu, SL thắng khi chạm cả hai — quyết định đã ghi trong docstring); `PositionSizingType.RISK_PERCENT`. Additive 100% — 19 test cũ `BOT-021`/`BOT-104` không sửa vẫn pass. 14 test mới + mutation-check 2 chỗ. |
-| **[BOT-049](backlog/BOT-049_leverage_and_liquidation.md)** | **Đòn bẩy & Thanh lý** | 🔴 **`L (Thinking)`** | `BOT-041` ✅ | Isolated margin + liquidation price. ⚠️ **Rủi ro sai số cao nhất Epic** — bắt buộc đối chiếu nguồn ngoài (Binance Futures docs), không tự suy diễn công thức. |
+| ✅ | **[BOT-049](completed/BOT-049_leverage_and_liquidation.md)** | **Đòn bẩy & Thanh lý** | 🔴 **`L (Thinking)`** | `BOT-041` ✅ | **Đã hoàn thành (22/09).** Isolated margin + liquidation price, suy ra đại số từ chính `calculate_realized_pnl()` sẵn có, đối chiếu với công thức Binance Isolated Margin thật (trường hợp maintenance-margin-rate=0). `check_intrabar_stops()` kiểm liquidation trước SL/TP trong cùng nến. `Trade.leverage` mới; `gross_loss`/`largest_losing_trade` đã tự đúng (tính chung từ `Trade.pnl`, không cần sửa). 13 test mới, mutation-verified cả công thức lẫn thứ tự ưu tiên. |
 | ✅ | **[BOT-050](completed/BOT-050_short_selling_support.md)** | **Short-selling** | 🔴 **`L (Thinking)`** | `BOT-041` ✅ | **Hoàn thành (20/08)**, bước 1 Epic `BOT-109`. `SignalAction` thêm `SHORT`/`COVER` riêng (không overload `BUY`/`SELL`, quyết định user chốt). `PaperExchange` mở rộng side-aware: PnL/slippage/SL-TP đảo chiều cho Short, `equity()` mark-to-market Short (gap tự phát hiện, không có trong task gốc), từ chối mix Long+Short cùng lúc. Tab/nhãn SHORT trong Trade Logs hoạt động thật. 45 test `PaperExchange` cũ pass không sửa, 18 test mới + mutation-check 3 chỗ (2 lần bắt được "false pass" do cấu hình mặc định che lỗi thật). |
 
 **Nhóm C — Chiến lược** *(chỉ mục: [BOT-043](backlog/BOT-043_named_strategy_library.md))*

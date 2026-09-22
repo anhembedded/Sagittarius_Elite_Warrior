@@ -3,7 +3,7 @@
 **Mã Task:** `BOT-104`  
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  
 **Trạng thái:** 🔴 **Backlog (Chờ triển khai)**  
-**Liên quan:** [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md), [`BOT-049`](../backlog/BOT-049_leverage_and_liquidation.md), [`BOT-050`](BOT-050_short_selling_support.md), [`BOT-074`](../completed/BOT-074_execution_trigger_rule_inverted_lock.md), [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md), [`BOT-077`](../backlog/BOT-077_calc_on_order_fills.md), [`BOT-095B`](../completed/BOT-095B_backtest_fsm_dirty_tracking.md)
+**Liên quan:** [`BOT-041`](BOT-041_stop_loss_take_profit_and_risk_sizing.md), [`BOT-049`](../completed/BOT-049_leverage_and_liquidation.md), [`BOT-050`](BOT-050_short_selling_support.md), [`BOT-074`](../completed/BOT-074_execution_trigger_rule_inverted_lock.md), [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md), [`BOT-077`](../backlog/BOT-077_calc_on_order_fills.md), [`BOT-095B`](../completed/BOT-095B_backtest_fsm_dirty_tracking.md)
 
 ---
 

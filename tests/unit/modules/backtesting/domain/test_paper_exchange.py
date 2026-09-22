@@ -990,3 +990,74 @@ def test_leverage_margin_is_clamped_to_available_balance_preserving_the_ratio():
     trade = exchange.fill(_signal(SignalAction.SELL), price=100.0, time=_T2)
     # margin=1000, notional capped at 1000*5x=5000 (not the requested 10000).
     assert trade.quantity == pytest.approx(50.0)
+
+
+def test_check_intrabar_stops_closes_a_leveraged_long_at_liquidation_price():
+    # entry 100, 5x -> margin 1000, qty 50, liquidation at 100*(1-1/5)=80.
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, long_leverage=5.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    assert exchange.balance == pytest.approx(0.0)
+
+    trades = exchange.check_intrabar_stops(high=101.0, low=79.0, time=_T2)
+
+    assert len(trades) == 1
+    trade = trades[0]
+    assert trade.exit_price == pytest.approx(80.0)
+    assert trade.exit_reason is ExitReason.LIQUIDATION
+    assert trade.leverage == pytest.approx(5.0)
+    # (80 - 100) * 50 qty = -1000 -> the entire margin, no fees configured.
+    assert trade.pnl == pytest.approx(-1000.0)
+    assert exchange.balance == pytest.approx(0.0)  # margin fully lost, none returned
+    assert exchange.is_in_position is False
+
+
+def test_check_intrabar_stops_liquidation_wins_over_stop_loss_in_the_same_bar():
+    # entry 100, 5x -> liquidation at 80. stop_loss_pct=10 -> SL price = 90,
+    # ABOVE the liquidation price, so a real exchange's forced liquidation
+    # would have already closed the position before this SL could fill
+    # (BOT-049 §2). Bar low=79 touches both.
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, long_leverage=5.0, stop_loss_pct=10.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trades = exchange.check_intrabar_stops(high=101.0, low=79.0, time=_T2)
+
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.LIQUIDATION
+    assert trades[0].exit_price == pytest.approx(80.0)
+
+
+def test_check_intrabar_stops_closes_a_leveraged_short_at_liquidation_price():
+    # entry 100, 5x SHORT -> liquidation at 100*(1+1/5)=120.
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, short_leverage=5.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+
+    trades = exchange.check_intrabar_stops(high=121.0, low=99.0, time=_T2)
+
+    assert len(trades) == 1
+    trade = trades[0]
+    assert trade.exit_price == pytest.approx(120.0)
+    assert trade.exit_reason is ExitReason.LIQUIDATION
+    assert trade.leverage == pytest.approx(5.0)
+
+
+def test_check_intrabar_stops_never_liquidates_an_unleveraged_long():
+    """BOT-049 — 1.0x LONG is spot (no margin), so no low, however extreme,
+    may ever close it as LIQUIDATION."""
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1_000.0)
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trades = exchange.check_intrabar_stops(high=101.0, low=0.01, time=_T2)
+
+    assert trades == []
+    assert exchange.is_in_position is True

@@ -44,3 +44,8 @@ class Trade:
     #: BOT-050 — LONG for every trade before this field existed (default),
     #: so no pre-existing `Trade(...)` construction call site needs updating.
     side: PositionSide = PositionSide.LONG
+    #: BOT-049 — the leverage this position was opened with (1.0 for every
+    #: trade before leverage existed, same reasoning as `side` above). A
+    #: `liquidated: bool` was considered and rejected as redundant: whether
+    #: this trade was one is always `exit_reason is ExitReason.LIQUIDATION`.
+    leverage: float = 1.0

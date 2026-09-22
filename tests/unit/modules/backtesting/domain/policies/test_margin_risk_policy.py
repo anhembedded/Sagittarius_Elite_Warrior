@@ -10,7 +10,12 @@ with their numbers unchanged. Nothing was dropped.
 
 from __future__ import annotations
 
+from dataclasses import dataclass
+
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason import (
+    ExitReason,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.margin_risk_policy import (
     MarginRiskPolicy,
 )
@@ -22,6 +27,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side impor
 @pytest.fixture
 def policy() -> MarginRiskPolicy:
     return MarginRiskPolicy()
+
+
+@dataclass(frozen=True)
+class _FakePosition:
+    """Shaped from `ILiquidatablePosition` exactly — the 3 properties
+    `evaluate_liquidations` reads, nothing else."""
+
+    side: PositionSide
+    leverage: float
+    liquidation_price: float | None
 
 
 def test_get_leverage(policy: MarginRiskPolicy):
@@ -86,6 +101,119 @@ def test_calculate_realized_pnl_long_unleveraged(policy: MarginRiskPolicy):
     assert pnl == pytest.approx(198.8)
     assert pnl_pct == pytest.approx(19.88)
     assert balance_release == pytest.approx(1198.8)
+
+
+def test_liquidation_price_long_unleveraged_is_none(policy: MarginRiskPolicy):
+    """BOT-049 — an unleveraged (1.0x) LONG is modeled as spot (same special
+    case as `mark_to_market`) and so has no margin to lose."""
+    assert policy.liquidation_price(PositionSide.LONG, 1.0, 100.0) is None
+
+
+def test_liquidation_price_long_leveraged(policy: MarginRiskPolicy):
+    # entry 100, 5x -> margin covers a 20% adverse move: 100 * (1 - 1/5) = 80.
+    assert policy.liquidation_price(PositionSide.LONG, 5.0, 100.0) == pytest.approx(
+        80.0
+    )
+
+
+def test_liquidation_price_short_including_at_1x(policy: MarginRiskPolicy):
+    # SHORT is always margined, even at "1x" (BOT-050: no such thing as spot
+    # short) -> entry 100, 1x liquidates at a 100% adverse move: 200.
+    assert policy.liquidation_price(PositionSide.SHORT, 1.0, 100.0) == pytest.approx(
+        200.0
+    )
+    # 5x -> 100 * (1 + 1/5) = 120.
+    assert policy.liquidation_price(PositionSide.SHORT, 5.0, 100.0) == pytest.approx(
+        120.0
+    )
+
+
+def test_liquidation_price_matches_the_zero_boundary_of_realized_pnl(
+    policy: MarginRiskPolicy,
+):
+    """The formula's whole justification: exiting exactly at the computed
+    liquidation price must realize a balance_release of (approximately) zero
+    — the position lost its entire margin, no more, no less. Proves the
+    formula is a real algebraic consequence of `calculate_realized_pnl`
+    rather than an independently-invented number that happens to look
+    plausible (`BOT-049` §3's own stated risk)."""
+    entry_price, leverage, quantity = 100.0, 4.0, 40.0
+    margin = entry_price * quantity / leverage  # 1_000.0, this policy's own formula
+
+    liq_price = policy.liquidation_price(PositionSide.LONG, leverage, entry_price)
+    assert liq_price is not None
+    _, _, balance_release = policy.calculate_realized_pnl(
+        PositionSide.LONG,
+        leverage,
+        quantity,
+        entry_price,
+        liq_price,
+        margin,
+        entry_fee=0.0,
+        exit_fee=0.0,
+    )
+    assert balance_release == pytest.approx(0.0, abs=1e-9)
+
+    liq_price = policy.liquidation_price(PositionSide.SHORT, leverage, entry_price)
+    assert liq_price is not None
+    _, _, balance_release = policy.calculate_realized_pnl(
+        PositionSide.SHORT,
+        leverage,
+        quantity,
+        entry_price,
+        liq_price,
+        margin,
+        entry_fee=0.0,
+        exit_fee=0.0,
+    )
+    assert balance_release == pytest.approx(0.0, abs=1e-9)
+
+
+def test_evaluate_liquidations_triggers_long_when_low_reaches_it(
+    policy: MarginRiskPolicy,
+):
+    pos = _FakePosition(side=PositionSide.LONG, leverage=5.0, liquidation_price=80.0)
+
+    triggered, still_open = policy.evaluate_liquidations([pos], high=101.0, low=79.0)
+
+    assert still_open == []
+    assert len(triggered) == 1
+    assert triggered[0] == (pos, 80.0, ExitReason.LIQUIDATION)
+
+
+def test_evaluate_liquidations_leaves_position_open_when_not_reached(
+    policy: MarginRiskPolicy,
+):
+    pos = _FakePosition(side=PositionSide.LONG, leverage=5.0, liquidation_price=80.0)
+
+    triggered, still_open = policy.evaluate_liquidations([pos], high=101.0, low=81.0)
+
+    assert triggered == []
+    assert still_open == [pos]
+
+
+def test_evaluate_liquidations_triggers_short_when_high_reaches_it(
+    policy: MarginRiskPolicy,
+):
+    pos = _FakePosition(side=PositionSide.SHORT, leverage=5.0, liquidation_price=120.0)
+
+    triggered, still_open = policy.evaluate_liquidations([pos], high=121.0, low=99.0)
+
+    assert still_open == []
+    assert triggered == [(pos, 120.0, ExitReason.LIQUIDATION)]
+
+
+def test_evaluate_liquidations_never_triggers_a_position_with_no_liquidation_price(
+    policy: MarginRiskPolicy,
+):
+    """An unleveraged LONG (spot) has `liquidation_price is None` and must
+    never trigger, no matter how far price moves."""
+    pos = _FakePosition(side=PositionSide.LONG, leverage=1.0, liquidation_price=None)
+
+    triggered, still_open = policy.evaluate_liquidations([pos], high=1_000.0, low=0.01)
+
+    assert triggered == []
+    assert still_open == [pos]
 
 
 def test_calculate_realized_pnl_leveraged_and_short(policy: MarginRiskPolicy):
