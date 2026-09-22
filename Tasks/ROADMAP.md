@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 138 | 70.1% |
+| 🟢 **Completed** | 139 | 70.2% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 53 | 26.9% |
+| 🔴 **Backlog** | 53 | 26.8% |
 | ❌ **Cancelled** | 6 | 3.0% |
-| 📈 **Tổng số Task** | **197** | **100%** |
+| 📈 **Tổng số Task** | **198** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -131,6 +131,8 @@ Sagittarius_Elite_Warrior/Tasks/
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
+
+- [x] **`BOT-143`**: [`master-warrior` failed Ruff Lint/Format on every PR — 2 named constants replace magic-value comparisons in `chart_card/`, 3 files reformatted; also traced why three independent reproductions of this same debt disagreed on error count (checkout directory name affects ruff's isort first-party detection)](completed/BOT-143_chart_card_ruff_debt.md)
 
 - [x] **`BOT-141`**: [Retarget Guard 3 and sanity Mode 12 to module-owned UI — both scanned the deleted `src/presentation/ui/screens/` and passed vacuously since `EPIC-025` Phase 4; a shared `screen_files.py` now derives "screen" from each `<name>_screen.py`'s own `ScreenContribution(route=...)`, not a guessed directory name (`database_screen.py`'s route is `data_management`, which no name match would find)](completed/BOT-141_retarget_event_flow_guard_3_to_module_ui.md)
 
