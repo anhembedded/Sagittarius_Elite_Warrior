@@ -13,6 +13,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
     BACKTEST_STATE_TRANSITIONS,
+    BacktestExecutionMode,
     BacktestRunConfig,
     BacktestUiEvent,
     BacktestUiState,
@@ -110,3 +111,44 @@ def test_compute_diff_summary_does_not_flag_leverage_when_unchanged():
 
     diff = cfg1.compute_diff_summary(cfg2)
     assert "Leverage" not in diff
+
+
+def test_compute_diff_summary_detects_calc_on_order_fills_change_in_tick_mode():
+    cfg1 = BacktestRunConfig(
+        strategy_key="ema_crossover",
+        timeframe=TimeFrame.FIVE_MINUTES,
+        initial_balance=10_000.0,
+        start_time=None,
+        end_time=None,
+        execution_mode=BacktestExecutionMode.HISTORICAL_TICK,
+        calc_on_order_fills=False,
+    )
+    cfg2 = BacktestRunConfig(
+        strategy_key=cfg1.strategy_key,
+        timeframe=cfg1.timeframe,
+        initial_balance=cfg1.initial_balance,
+        start_time=cfg1.start_time,
+        end_time=cfg1.end_time,
+        execution_mode=BacktestExecutionMode.HISTORICAL_TICK,
+        calc_on_order_fills=True,
+    )
+
+    diff = cfg1.compute_diff_summary(cfg2)
+    assert "Calc on order fills (False → True)" in diff
+
+
+def test_compute_diff_summary_ignores_calc_on_order_fills_outside_tick_mode():
+    """BOT-077 §2/§6 — the flag is meaningless in `BAR_CLOSE` mode; flagging
+    it there would read as a change that has no actual effect on the run."""
+    cfg1 = _base_config()
+    cfg2 = BacktestRunConfig(
+        strategy_key=cfg1.strategy_key,
+        timeframe=cfg1.timeframe,
+        initial_balance=cfg1.initial_balance,
+        start_time=cfg1.start_time,
+        end_time=cfg1.end_time,
+        calc_on_order_fills=True,
+    )
+
+    diff = cfg1.compute_diff_summary(cfg2)
+    assert "Calc on order fills" not in diff

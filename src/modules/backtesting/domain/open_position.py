@@ -53,3 +53,12 @@ class OpenPosition(IStoppablePosition):
     #: `MarginRiskPolicy.liquidation_price`'s own docstring); always set
     #: otherwise. Implements `MarginRiskPolicy.ILiquidatablePosition`.
     liquidation_price: float | None = None
+    #: BOT-106B — worst/best unrealized `pnl_percent` (same sign and same
+    #: percent-of-margin convention as `Trade.pnl_percent`) seen at any point
+    #: while this position was open, updated every bar by
+    #: `PaperExchange.check_intrabar_stops()` from that bar's `high`/`low`.
+    #: `0.0` until the first bar after entry updates them — a position closed
+    #: without ever seeing a subsequent bar (rare: same-bar entry and exit)
+    #: keeps both at `0.0`, which is correct: no excursion was ever observed.
+    mae_percent: float = 0.0
+    mfe_percent: float = 0.0

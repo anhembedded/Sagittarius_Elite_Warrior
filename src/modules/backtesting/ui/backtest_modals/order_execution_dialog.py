@@ -25,7 +25,17 @@ _TITLE = "ORDER EXECUTION"
 
 _EXECUTION_TRIGGERS = (
     ("On bar close", True, ""),
-    ("On order fill", True, ""),
+    (
+        "On order fill",
+        False,
+        (
+            "BOT-077 — re-evaluates the strategy once more at the exact "
+            "tick an order just filled, before the next tick, so it can "
+            "react to its own fill immediately. Only takes effect in "
+            "Historical Tick mode; NOT a Stop Loss fix (BOT-041 already "
+            "checks every bar regardless of this toggle)."
+        ),
+    ),
     (
         "On every tick of the historical bar",
         False,
@@ -38,9 +48,11 @@ _EXECUTION_TRIGGERS = (
     ("On every tick of the real-time bar", True, ""),
 )
 
-#: The one row a user can actually toggle. Its key is this index as a string —
-#: `ChecklistOverlay` does not know these are execution triggers, only that
-#: rows have string keys.
+#: The two rows a user can actually toggle. Their keys are these indices as
+#: strings — `ChecklistOverlay` does not know these are execution triggers,
+#: only that rows have string keys.
+_ORDER_FILL_INDEX = 1
+_ORDER_FILL_KEY = str(_ORDER_FILL_INDEX)
 _HISTORICAL_TICK_INDEX = 2
 _HISTORICAL_TICK_KEY = str(_HISTORICAL_TICK_INDEX)
 _BAR_CLOSE_KEY = "0"
@@ -60,6 +72,7 @@ class OrderExecutionDialog(ChecklistOverlay):
         self.resize(400, 250)
         self.toggled.connect(self._on_toggled)
         view_model.executionModeChanged.connect(self.refresh)
+        view_model.calcOnOrderFillsChanged.connect(self.refresh)
         self.refresh()
 
     def showEvent(self, event) -> None:
@@ -69,11 +82,12 @@ class OrderExecutionDialog(ChecklistOverlay):
     def refresh(self) -> None:
         """Renders the four triggers against the screen's execution mode."""
         is_realtime = self._vm.executionMode == _HISTORICAL_TICK_MODE
-        # Only these two rows are ever driven by executionMode — the other two
-        # have no live source and stay unchecked, matching the shape every
-        # version of this dialog has had.
+        # Only these three rows are ever driven by live state — the other
+        # one has no live source and stays unchecked, matching the shape
+        # every earlier version of this dialog had.
         checked_by_key = {
             _BAR_CLOSE_KEY: not is_realtime,
+            _ORDER_FILL_KEY: self._vm.calcOnOrderFills,
             _HISTORICAL_TICK_KEY: is_realtime,
         }
         self.set_items(
@@ -90,6 +104,9 @@ class OrderExecutionDialog(ChecklistOverlay):
         )
 
     def _on_toggled(self, key: str, checked: bool) -> None:
+        if key == _ORDER_FILL_KEY:
+            self._vm.calcOnOrderFills = checked
+            return
         if key != _HISTORICAL_TICK_KEY:
             return
         self._vm.executionMode = _HISTORICAL_TICK_MODE if checked else _BAR_CLOSE_MODE

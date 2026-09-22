@@ -1,5 +1,15 @@
 # Nhiệm vụ: Realtime Backtest (BOT-076) làm UI đơ khi chạy — GIL contention, không phải chạy trên UI thread
 
+> **Cập nhật 2026-09-22 — vẫn ở backlog, chưa xong.** Trước khi chọn hướng,
+> đã đo thật option (a) (`time.sleep(0)` định kỳ, kể cả N=256 task này đề
+> xuất) bằng benchmark synthetic: **không** giảm được `max_gap_ms` (worst-case
+> GIL-acquisition gap) ở bất kỳ N nào thử, và làm chậm vòng lặp tới +456% ở
+> N=256. Đã revert, không ship. Chi tiết + số đo đầy đủ + khuyến nghị hướng
+> tiếp theo (option c: profile `_simulate()` thật trước khi chọn) ở
+> [`Tasks/reports/BOT-103_gil_yield_benchmark_investigation.md`](../reports/BOT-103_gil_yield_benchmark_investigation.md).
+> Module thật đã đổi tên: `run_realtime_backtest/handler.py` bên dưới giờ là
+> `run_historical_tick_backtest/handler.py`.
+
 > Không thuộc epic nào. Người dùng báo cáo trong lúc dùng thật: "làm cơ chế
 > chạy realtime tính toán trên 1 thread khác được không, đang chạy trên UI
 > thread kìa" — đã verify code trước khi ghi task này, xem §1.

@@ -89,6 +89,18 @@ class RunHistoricalTickBacktestCommand(BaseModel):
         exclude=True,
         description="Optional callback: phase, completed ticks, total ticks, elapsed seconds.",
     )
+    calc_on_order_fills: bool = Field(
+        default=False,
+        description=(
+            "BOT-077 — Pine Script's `calc_on_order_fills`: re-evaluate the "
+            "strategy once more at the exact tick an order just filled, "
+            "before moving to the next tick, so it can react to its own "
+            "fill immediately rather than waiting for the bar to close. "
+            "Default off preserves BOT-076's shipped behavior exactly — "
+            "this is NOT the fix for Stop Loss delay (see the task's own "
+            "§2: that is `BOT-041`, already unconditional every bar)."
+        ),
+    )
 
     @model_validator(mode="after")
     def _tick_resolution_must_not_be_coarser_than_interval(

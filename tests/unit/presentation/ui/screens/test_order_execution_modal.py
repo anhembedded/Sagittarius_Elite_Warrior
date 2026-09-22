@@ -1,25 +1,29 @@
 """
-Unit test for OrderExecutionModal (BOT-074, updated by BOT-076, ported to
-QML by EPIC-015 §4c).
+Unit test for OrderExecutionModal (BOT-074, updated by BOT-076/BOT-077,
+ported to QML by EPIC-015 §4c).
 
 BOT-074 deliberately left all 4 modes locked and predicted this test would
 break "by design" once a real engine existed to unlock one — that happened
-here: BOT-076 unlocks index 2 ("Trên mỗi tick của thanh lịch sử", the
-Realtime/tick-driven engine) and wires it to real Python plumbing
-(`BackTestViewModel.executionMode` -> `BacktestRunConfig.execution_mode` ->
-`RunHistoricalTickBacktestCommand` dispatch in `backtest_presenter.py`).
+twice since: BOT-076 unlocked index 2 ("Trên mỗi tick của thanh lịch sử",
+the Realtime/tick-driven engine), wired to
+`BackTestViewModel.executionMode` -> `BacktestRunConfig.execution_mode` ->
+`RunHistoricalTickBacktestCommand` dispatch; BOT-077 unlocks index 1 ("Khi
+lệnh được khớp"), wired the same way through
+`BackTestViewModel.calcOnOrderFills` -> `BacktestRunConfig.calc_on_order_fills`
+-> `RunHistoricalTickBacktestCommand.calc_on_order_fills`.
 
 Truthful lock states now:
 - Index 0 ("On bar close", BOT-021 static engine) — checked by default,
   locked (mandatory; the user leaves it by picking index 2 instead, not by
   unchecking it directly, same as any 2-option radio group).
+- Index 1 ("Khi lệnh được khớp", BOT-077) — unlocked, real; only takes
+  effect while index 2 is also active (`calc_on_order_fills` is meaningless
+  in `BAR_CLOSE` mode — see the command's own docstring).
 - Index 2 ("Trên mỗi tick của thanh lịch sử", BOT-076) — unlocked, real.
-- Index 1 ("Khi lệnh được khớp") and index 3 ("Trên mỗi tick của thanh thời
-  gian thực") stay locked — index 1 is `BOT-077`'s scope (calc_on_order_fills,
-  a different re-run trigger, not this engine), index 3 means a live/real-time
-  bar (Dev Board), and this modal only ever opens from the Backtest screen.
-  If a later task unlocks either of those, THIS test should fail again "by
-  design" the same way BOT-074's did — do not weaken the loop below to
+- Index 3 ("Trên mỗi tick của thanh thời gian thực") stays locked — it means
+  a live/real-time bar (Dev Board), and this modal only ever opens from the
+  Backtest screen. If a later task unlocks it, THIS test should fail again
+  "by design" the same way BOT-074's did — do not weaken the loop below to
   silently accept it.
 
 `EPIC-015` §4c moved the body to `CheckboxList.qml` and this file grew two
@@ -134,7 +138,7 @@ def backtest_screen(qapp, request):
 #: mode; everything else is exactly BOT-074's original truthful lock state.
 _EXPECTED_LOCK_STATE = {
     0: (True, True),  # On bar close — locked, mandatory default
-    1: (True, False),  # Khi lệnh được khớp — BOT-077, not this task
+    1: (False, False),  # Khi lệnh được khớp — BOT-077, real
     2: (False, False),  # Trên mỗi tick của thanh lịch sử — BOT-076, real
     3: (True, False),  # Trên mỗi tick của thanh thời gian thực — live, not backtest
 }
@@ -207,3 +211,32 @@ def test_setting_execution_mode_from_python_updates_the_modal_checkboxes(
 
     assert _checkbox(dialog, 0).isChecked() is False
     assert _checkbox(dialog, 2).isChecked() is True
+
+
+def test_checking_calc_on_order_fills_sets_the_view_model_flag(qapp, backtest_screen):
+    """BOT-077: the second real interactive row must also reach Python."""
+    view = backtest_screen
+    dialog = _open_order_execution_modal(qapp, view)
+
+    view_model = view._view_model
+    assert view_model.calcOnOrderFills is False
+
+    _checkbox(dialog, 1).click()
+    qapp.processEvents()
+    assert view_model.calcOnOrderFills is True
+
+    _checkbox(dialog, 1).click()
+    qapp.processEvents()
+    assert view_model.calcOnOrderFills is False
+
+
+def test_setting_calc_on_order_fills_from_python_updates_the_modal_checkbox(
+    qapp, backtest_screen
+):
+    view = backtest_screen
+    dialog = _open_order_execution_modal(qapp, view)
+
+    view._view_model.calcOnOrderFills = True
+    qapp.processEvents()
+
+    assert _checkbox(dialog, 1).isChecked() is True
