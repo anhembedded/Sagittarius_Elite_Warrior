@@ -26,6 +26,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report
     DataWindow,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report_loader import (
+    _KNOWN_EXECUTION_MODES,
     deserialize_backtest_result,
     load_backtest_report,
 )
@@ -53,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.out_of_sample_v
     OutOfSampleValidation,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
+    BacktestExecutionMode,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
@@ -393,11 +397,4 @@ def test_known_execution_modes_stays_in_sync_with_the_real_enum():
     docstring already names two coming: "on order filled" and "real-time bar
     tick". This test is the seam that catches the drift: it fails the moment
     either side changes without the other, in either direction."""
-    from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report_loader import (
-        _KNOWN_EXECUTION_MODES,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
-        BacktestExecutionMode,
-    )
-
     assert {mode.value for mode in BacktestExecutionMode} == _KNOWN_EXECUTION_MODES
