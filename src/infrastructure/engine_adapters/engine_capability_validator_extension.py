@@ -7,16 +7,20 @@ step further: the package can be installed and still be **too old**, which is
 the case neither of the others can see and the one that has actually bitten
 this project four times (`engine_capabilities.py` names them).
 
-Ordering matters and is set in `main.py`: presence is checked before
-capability, so a completely missing engine reports "not installed" rather
-than a confusing list of missing attributes.
+Ordering matters: presence must be checked before capability, so a completely
+missing engine reports "not installed" rather than a confusing list of missing
+attributes. `BOT-119` found this encoded only as `app.use()` call order plus an
+English comment in `composition_root.py` — swapping the two calls broke nothing
+that told you. `dependencies` below is what the engine's own topological sort
+(`ExtensionManager._build_and_sort`) now enforces instead, by name, against the
+engine's own `DependencyValidatorExtension`.
 """
 
 from __future__ import annotations
 
 import logging
 import sys
-from typing import Any
+from typing import Any, ClassVar
 
 from sagittarius_engine.interfaces.i_extension import IExtension
 
@@ -48,6 +52,11 @@ class EngineCapabilityValidatorExtension(IExtension[Any]):
     constructor, which is precisely the misleading signature this exists to
     replace. Nothing downstream can recover from a stale engine anyway.
     """
+
+    #: By name, since `DependencyValidatorExtension` lives in
+    #: `sagittarius_engine`, not this app — `descriptor.name` for an
+    #: undeclared-name extension defaults to its class name.
+    dependencies: ClassVar[list[str]] = ["DependencyValidatorExtension"]
 
     def __init__(
         self,

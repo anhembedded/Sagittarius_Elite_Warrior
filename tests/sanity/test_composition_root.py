@@ -228,6 +228,73 @@ def test_every_strategy_on_disk_is_registered(booted_app):
     )
 
 
+def test_health_check_depends_on_every_bounded_context_module(booted_app):
+    """BOT-119 — `HealthCheckQuery`'s container sweep (engine's own
+    `health_check_query.py`) only finds what a bounded context's own
+    `register()` already bound, so `HealthExtension` must run after every one
+    of them. `composition_root.py` used to guarantee this only by writing
+    `app.use(HealthExtension())` last, with a comment saying so; swapping it
+    with an earlier call broke nothing that told you. It now sets
+    `HealthExtension.dependencies` from the real `modules` list instead —
+    this test reads both sides from the real graph `create_app()` built, so a
+    module added without that assignment following it fails here rather than
+    shipping a health check that silently skips the new module.
+    """
+    from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
+        BoundedContextModule,
+    )
+    from sagittarius_engine.extensions.health.health_module import HealthExtension
+
+    registered = booted_app.context.modules
+    module_ids = {
+        ext.module_id for ext in registered if isinstance(ext, BoundedContextModule)
+    }
+    health_extensions = [ext for ext in registered if isinstance(ext, HealthExtension)]
+
+    assert module_ids, "no BoundedContextModule found among the registered extensions"
+    assert len(health_extensions) == 1, (
+        f"expected exactly one HealthExtension registered, found {len(health_extensions)}"
+    )
+    assert set(health_extensions[0].dependencies) == module_ids, (
+        "HealthExtension.dependencies must list every bounded-context module_id "
+        f"so the engine boots it after all of them — got "
+        f"{sorted(health_extensions[0].dependencies)}, modules are {sorted(module_ids)}"
+    )
+
+
+def test_capability_check_depends_on_the_presence_check(booted_app):
+    """BOT-119 — the other boot-order constraint this task made mechanical:
+    the engine can be installed and still predate an API this app's source
+    calls, and that check produces a confusing attribute error rather than a
+    clear "not installed" unless the presence check already ran. Reads the
+    real graph so a class rename on either side fails here instead of only
+    on the next accidental reorder.
+    """
+    from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.engine_capability_validator_extension import (
+        EngineCapabilityValidatorExtension,
+    )
+    from sagittarius_engine.extensions.dependency_validator import (
+        DependencyValidatorExtension,
+    )
+
+    registered = booted_app.context.modules
+    presence = [
+        ext for ext in registered if isinstance(ext, DependencyValidatorExtension)
+    ]
+    capability = [
+        ext for ext in registered if isinstance(ext, EngineCapabilityValidatorExtension)
+    ]
+
+    assert len(presence) == 1 and len(capability) == 1, (
+        f"expected exactly one of each validator, found "
+        f"{len(presence)} presence and {len(capability)} capability"
+    )
+    assert presence[0].descriptor.name in capability[0].dependencies, (
+        "EngineCapabilityValidatorExtension.dependencies must name the real "
+        f"registered DependencyValidatorExtension — got {capability[0].dependencies}"
+    )
+
+
 # ---------------------------------------------------------------------------
 # Entry points — modes 11 and 12
 # ---------------------------------------------------------------------------

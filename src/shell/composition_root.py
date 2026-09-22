@@ -51,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.engine_capabil
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.ordered_health_extension import (
+    OrderedHealthExtension,
+)
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
 from Sagittarius_Elite_Warrior.src.shell.config_writer import ConfigManagerWriter
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
@@ -93,7 +96,6 @@ from sagittarius_engine import App
 from sagittarius_engine.extensions.dependency_validator import (
     DependencyValidatorExtension,
 )
-from sagittarius_engine.extensions.health.health_module import HealthExtension
 from sagittarius_engine.extensions.logger.logger_module import LoggerExtension
 from sagittarius_engine.extensions.thread_manager.thread_manager_module import (
     ThreadManagerExtension,
@@ -187,10 +189,13 @@ def create_app(config_manager: ConfigManager) -> App:
 
     # Load Framework Extensions
     app.use(DependencyValidatorExtension(["PySide6", "pyqtgraph", "sqlalchemy"]))
-    # Presence first (above), then capability: the engine can be installed and
+    # Capability must run after presence: the engine can be installed and
     # still predate an API this app's source calls, which is the failure
-    # `pip show` cannot see and that has misled this project four times —
-    # see `engine_capabilities.py` for the list and BOT-133.
+    # `pip show` cannot see and that has misled this project four times — see
+    # `engine_capabilities.py` for the list and BOT-133. That ordering is now
+    # `EngineCapabilityValidatorExtension.dependencies` (BOT-119), which the
+    # engine's own topological sort enforces — these two `app.use()` calls
+    # could be swapped without breaking the check.
     app.use(EngineCapabilityValidatorExtension())
     app.use(AssetValidatorExtension())
 
@@ -216,8 +221,13 @@ def create_app(config_manager: ConfigManager) -> App:
         module.declare_cli(cli_registry)
     container.singleton(ICliCommandTable, cli_registry)
 
-    # Load Health Check Diagnostic Extension after domain modules
-    app.use(HealthExtension())
+    # `HealthCheckQuery`'s container sweep (engine `health_check_query.py`)
+    # only finds what each bounded context's own `register()` already bound —
+    # a real ordering constraint, not just a comment (BOT-119). This is what
+    # keeps the health check correct regardless of where `app.use(health)`
+    # ends up relative to the modules above; see `OrderedHealthExtension` for
+    # why it is a typed subclass rather than a bare instance attribute.
+    app.use(OrderedHealthExtension([module.module_id for module in modules]))
 
     # Register Global Validation Middleware
     app.use_middleware(PydanticValidationMiddleware(container))
