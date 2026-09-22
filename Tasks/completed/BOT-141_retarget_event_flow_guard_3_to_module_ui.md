@@ -98,3 +98,15 @@ tests/sanity -q` — 433 + 3 (already inside the architecture count via the
 registry's own parametrization) + 29, all green; full `tests/unit -q` — 4909
 passed. `ruff check`/`ruff format --check` clean on all touched and new files.
 No production code (`src/`) touched — this is test-infrastructure only.
+
+**Review.** Code change, so `ONBOARDING.md` §7 applies — the author never
+merges its own code. PR: https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/249
+(draft, head `b1094d61`). Independent reviewer spawned per §7's Reviewer
+Protocol (`create_session`, not the local `Agent` tool): session
+`session_016vMQX3hmZHS8pVXUdgRtLG`, briefed to read `CLAUDE.md` →
+`ONBOARDING.md` → the PR diff → `.claude/skills/pr-review/SKILL.md` +
+`references/rubric.md`, and to post its findings as a durable PR comment
+(a formal Approve/Request-changes review is blocked from the author's own
+GitHub account). Its comment on the PR is the review record — not
+duplicated here, so this file never carries a copy that can drift from it.
+Merge is pending: PR CI + that review.
