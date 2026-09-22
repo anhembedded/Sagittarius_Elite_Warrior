@@ -24,9 +24,13 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report
     BacktestReportLoadErrorKind,
     BacktestReportProvenance,
     DataWindow,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report_loader import (
     deserialize_backtest_result,
-    dump_backtest_report,
     load_backtest_report,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report_serializer import (
+    dump_backtest_report,
     serialize_backtest_report,
     serialize_backtest_result,
 )

@@ -72,10 +72,12 @@ File report là **input không tin cậy**: user tải về từ đâu đó, đ�
 
 ## Implementation notes (2026-09-22)
 
-- **File**: `src/modules/backtesting/contracts/backtest_report.py` (thuần Python, không đụng UI/presenter, đúng §1).
-  `BacktestReport` (`schema_version`, `provenance`, `config`, `result`) + `serialize_backtest_report`/`load_backtest_report`
-  (không raise — luôn trả `BacktestReportLoadResult` có cấu trúc, đúng §3 mục 5) + `dump_backtest_report` (gzip tuỳ chọn,
-  `load_backtest_report` tự nhận diện gzip qua magic byte, không cần biết trước).
+- **3 file** (thuần Python, không đụng UI/presenter, đúng §1), tách theo góp ý review độc lập (PR #255) vì gộp 1 file
+  vượt ngưỡng 400 dòng của `architecture-rule.md` §5.4 (dataclass thuần, encode, decode là 3 mức trừu tượng khác nhau):
+  `contracts/backtest_report.py` (`BacktestReport`: `schema_version`, `provenance`, `config`, `result` — thuần schema),
+  `contracts/backtest_report_serializer.py` (`serialize_backtest_report`/`dump_backtest_report`, gzip tuỳ chọn),
+  `contracts/backtest_report_loader.py` (`load_backtest_report` — không raise, luôn trả `BacktestReportLoadResult` có
+  cấu trúc, đúng §3 mục 5; tự nhận diện gzip qua magic byte, không cần biết trước).
 - **`config` là dataclass riêng (`BacktestReportConfig`), không tái dùng `BacktestRunConfig`.** `BacktestRunConfig` nằm ở
   `ui/logic/backtest_fsm_matrix.py` — tầng UI. `contracts/` import ngược lên UI vi phạm `architecture-rule.md` §3
   (dependency phải hướng vào trong). Cùng lý do, `execution_mode` lưu dạng chuỗi thuần (giá trị thật của
