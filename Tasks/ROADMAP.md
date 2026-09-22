@@ -22,9 +22,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 139 | 70.2% |
+| 🟢 **Completed** | 140 | 70.7% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 53 | 26.8% |
+| 🔴 **Backlog** | 52 | 26.3% |
 | ❌ **Cancelled** | 6 | 3.0% |
 | 📈 **Tổng số Task** | **198** | **100%** |
 
@@ -131,6 +131,8 @@ Sagittarius_Elite_Warrior/Tasks/
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
+
+- [x] **`BOT-142`**: [`test_scanned_roots_are_not_empty.py` proved a registered root exists but never that the guard actually reads it — the exact gap `BUG-131` fell through; a new AST-based check compares each guard's real `.glob`/`.rglob` calls against its registered row by directory containment, covers 22 of 41 guards, and names the other 19's shapes individually rather than skipping silently](completed/BOT-142_scanned_roots_registry_does_not_verify_a_guards_own_constants.md)
 
 - [x] **`BOT-143`**: [`master-warrior` failed Ruff Lint/Format on every PR — 2 named constants replace magic-value comparisons in `chart_card/`, 3 files reformatted; also traced why three independent reproductions of this same debt disagreed on error count (checkout directory name affects ruff's isort first-party detection)](completed/BOT-143_chart_card_ruff_debt.md)
 
@@ -321,7 +323,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **P2** | **[BOT-092](backlog/BOT-092_dev_mode_terminal_ui_event_logger.md)** | **UI event logger to the terminal in dev mode** | 🟡 **`M`** | — | *(row added 2026-09-16 — the file had no row anywhere.)* Written when the screens were QML: `--dev` button-click auto-logging reached only the old monitor card, never stdout, so a crash took the trail with it. Re-scope before starting: the QML premise is gone (ADR D20) and `--dev`/`--debug` logging changed since (`logging-rule.md` §7, `BOT-133`). Touches both repositories. |
 | **P2** | **[BOT-119](backlog/BOT-119_boot_order_relies_on_app_use_sequence.md)** | **Boot order held only by the order of `app.use()` lines** | 🟡 **`M`** | — | *(row added 2026-09-16 — the file had no row anywhere.)* Found 2026-08-23 in the same cross-audit as `BOT-118`: six extensions boot in the order they are written, with a comment as the only guard. `EPIC-025`'s `register()`/`boot()` contract (`Docs/SDD/04`) now orders the modules; re-measure what is left of this before doing it. |
 | ✅ | **[BOT-141](completed/BOT-141_retarget_event_flow_guard_3_to_module_ui.md)** | **`test_event_flow_guards.py` Guard 3 checks a deleted tree, not the current screen locations** | 🟡 **`M`** | — | **Đã hoàn thành (22/09).** Guard 3 and sanity Mode 12 both scanned the deleted `src/presentation/ui/screens/` and passed vacuously since `EPIC-025` Phase 4. A shared `tests/unit/architecture/screen_files.py` now derives "screen" from each `<name>_screen.py`'s own `ScreenContribution(route=...)` rather than a guessed directory name — measured: `database_screen.py`'s own route is `data_management`, which no name match would find. Mutation-verified both directions (a planted cross-screen duplicate, a planted unrouted screen), both reverted. |
-| **P3** | **[BOT-142](backlog/BOT-142_scanned_roots_registry_does_not_verify_a_guards_own_constants.md)** | **`test_scanned_roots_are_not_empty.py` verifies a registered path exists, never that the guard it describes actually reads it** | 🟡 **`M`** | — | Found by the independent reviewer on `BUG-131`'s PR #246: `scanned_roots_registry.py` already held the *correct* path for `test_indicator_script_conventions.py` while that guard's own `_SCRIPTS_DIR`/`_DOMAIN_DIR` still read the deleted `src/domain` tree for three days — the meta-guard built to catch exactly this class of bug never checks that a guard's source actually reads its registered path. Same blind spot can recur on any of the ~30 other registered guards. |
+| ✅ | **[BOT-142](completed/BOT-142_scanned_roots_registry_does_not_verify_a_guards_own_constants.md)** | **`test_scanned_roots_are_not_empty.py` verifies a registered path exists, never that the guard it describes actually reads it** | 🟡 **`M`** | — | **Đã hoàn thành (22/09).** New `test_guard_scans_its_registered_root.py` parses each registered guard's AST and compares its real `.glob`/`.rglob` calls against its registered row by directory containment — measured against all 41 guards: 22 resolve and are checked for real, the other 19 named individually with their real shape (imported root table, root behind a function parameter, bare-string tuple, pattern-not-root variable, runtime-discovered subdirectory, or no glob call at all) rather than silently skipped. Mutation-verified against `BUG-131`'s real defect (reverted, caught, restored) plus a permanent synthetic regression test. |
 | **P1** | **[BOT-131](backlog/BOT-131_backtest_fsm_and_stale_data_lifecycle.md)** | **Backtest FSM & stale-data lifecycle (dirty tracking) — the unbuilt half, renumbered from `BOT-095B` on 2026-09-08** | 🔴 **`L`** | `BOT-095A` ✅ | *(row added 2026-09-16 — the file had no row anywhere.)* The completed `BOT-095B` kept the number and its row in the Epic `BOT-095` detail table below; this file carries the dirty-tracking scope that is still open. |
 | **P2** | **[BOT-019](backlog/BOT-019_watchlist_market_overview.md)** | **Watchlist / Market Overview** | 🟡 **`M (Standard)`** | `BOT-005` ✅ | Bảng theo dõi nhiều symbol cùng lúc (giá, %change, volume) realtime. Tận dụng hạ tầng Live Stream đã hoàn thiện. |
 | **P2** | **[Epic BOT-006](backlog/BOT-006_backtest_engine_execution.md)** | **Backtest Engine — Màn hình Backtest Thực thụ (TradingView Strategy Tester)** | 🔴 **`L (Thinking)`** | `BOT-001` ✅ | Epic, chia theo Phase — xem bảng chi tiết bên dưới. Không còn phụ thuộc `BOT-008` (backtest dùng Paper Exchange giả lập, không cần order thật). |
