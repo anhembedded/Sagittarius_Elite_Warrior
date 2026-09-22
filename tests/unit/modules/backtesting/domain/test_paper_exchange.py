@@ -1106,3 +1106,120 @@ def test_liquidation_never_drives_balance_negative_at_a_real_commission():
     # must still be able to open, using the untouched remaining balance.
     exchange.fill(_signal(SignalAction.BUY), price=50.0, time=_T2)
     assert exchange.is_in_position is True
+
+
+# ---------------------------------------------------------------------------
+# BOT-106B — MAE/MFE excursion tracking
+# ---------------------------------------------------------------------------
+
+
+def test_mae_and_mfe_default_to_zero_when_closed_without_ever_seeing_a_bar():
+    """A position opened and closed without `check_intrabar_stops()` ever
+    running against it (e.g. same-bar entry+exit) saw no excursion at all —
+    `0.0`, not an unset/`None` sentinel, is the correct answer."""
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1_000.0)
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    exchange.fill(_signal(SignalAction.SELL), price=100.0, time=_T2)
+
+    trade = exchange.trades[-1]
+    assert trade.mae_percent == 0.0
+    assert trade.mfe_percent == 0.0
+
+
+def test_mae_and_mfe_widen_across_bars_instead_of_tracking_only_the_latest_one():
+    """The invariant the min/max reducers exist for: a later bar may only
+    make MAE more negative / MFE more positive, never erase a more extreme
+    reading an earlier bar already recorded."""
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=1_000.0,
+        broker_config=BrokerSimulationConfig(commission_value=0.0),
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    # qty = 1000/100 = 10. Bar 1: high=105 -> value=1050 (+5%), low=98 ->
+    # value=980 (-2%).
+    assert exchange.check_intrabar_stops(high=105.0, low=98.0, time=_T2) == []
+    # Bar 2: high=103 -> value=1030 (+3%, worse than bar 1's +5% -> MFE must
+    # stay +5%); low=90 -> value=900 (-10%, worse than bar 1's -2% -> MAE
+    # must widen to -10%).
+    assert exchange.check_intrabar_stops(high=103.0, low=90.0, time=_T2) == []
+
+    exchange.fill(_signal(SignalAction.SELL), price=100.0, time=_T2)
+
+    trade = exchange.trades[-1]
+    assert trade.mae_percent == pytest.approx(-10.0)
+    assert trade.mfe_percent == pytest.approx(5.0)
+
+
+def test_mae_and_mfe_are_symmetric_for_a_short_position():
+    """For a SHORT, the adverse direction is the bar's high (price rising
+    against the position) and the favorable direction is the low — the
+    mirror image of the LONG case above."""
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=1_000.0,
+        broker_config=BrokerSimulationConfig(commission_value=0.0),
+    )
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+    # qty = 10. high=110 -> value = 1000 + (100-110)*10 = 900 (-10%, adverse).
+    # low=90 -> value = 1000 + (100-90)*10 = 1100 (+10%, favorable).
+    exchange.check_intrabar_stops(high=110.0, low=90.0, time=_T2)
+
+    exchange.fill(_signal(SignalAction.COVER), price=100.0, time=_T2)
+
+    trade = exchange.trades[-1]
+    assert trade.mae_percent == pytest.approx(-10.0)
+    assert trade.mfe_percent == pytest.approx(10.0)
+
+
+def test_mae_is_recorded_even_on_the_same_bar_a_position_is_liquidated():
+    """`_update_excursion_tracking` runs before `evaluate_liquidations` inside
+    `check_intrabar_stops` specifically so a position's final, worst bar still
+    widens its MAE before the position is removed from `self._positions` —
+    this is the "a position's final bar still counts" case its own docstring
+    names."""
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, long_leverage=5.0)
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    # 5x leverage -> liquidation at 80. qty=50. low=79 -> the position is
+    # liquidated this same bar, but MAE must reflect the bar's low first.
+
+    trades = exchange.check_intrabar_stops(high=101.0, low=79.0, time=_T2)
+
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.LIQUIDATION
+    assert trades[0].mae_percent < 0.0
+
+
+def test_check_intrabar_stops_does_not_widen_mae_mfe_of_an_unrelated_position():
+    """Two pyramided positions must track their own excursion independently —
+    a bar that is adverse for one may be favorable for the other."""
+    sizing = PositionSizing(type=PositionSizingType.FIXED_CASH, value=1_000.0)
+    broker_cfg = BrokerSimulationConfig(commission_value=0.0, pyramiding=2)
+    exchange = PaperExchange(
+        symbol="BTCUSDT",
+        initial_balance=3_000.0,
+        position_sizing=sizing,
+        broker_config=broker_cfg,
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)  # qty 10
+    exchange.fill(_signal(SignalAction.BUY), price=200.0, time=_T1)  # qty 5
+
+    exchange.check_intrabar_stops(high=210.0, low=90.0, time=_T2)
+
+    exchange.fill(_signal(SignalAction.SELL), price=100.0, time=_T2)
+
+    assert len(exchange.trades) == 2
+    first, second = exchange.trades
+    # Entry 100, qty 10, balance_before_entry 1000: low=90 -> value=900
+    # (-10%); high=210 -> value=2100 (+110%, dwarfed by the low move for
+    # this position but still recorded).
+    assert first.mae_percent == pytest.approx(-10.0)
+    assert first.mfe_percent == pytest.approx(110.0)
+    # Entry 200, qty 5, balance_before_entry 1000: low=90 -> value=450
+    # (-55%); high=210 -> value=1050 (+5%).
+    assert second.mae_percent == pytest.approx(-55.0)
+    assert second.mfe_percent == pytest.approx(5.0)

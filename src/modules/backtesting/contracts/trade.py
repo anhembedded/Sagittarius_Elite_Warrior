@@ -49,3 +49,9 @@ class Trade:
     #: `liquidated: bool` was considered and rejected as redundant: whether
     #: this trade was one is always `exit_reason is ExitReason.LIQUIDATION`.
     leverage: float = 1.0
+    #: BOT-106B — Maximum Adverse/Favorable Excursion: the worst/best
+    #: unrealized `pnl_percent` this position ever reached while open, from
+    #: `OpenPosition.mae_percent`/`.mfe_percent`. `0.0` for every trade before
+    #: this field existed, same reasoning as `leverage` above.
+    mae_percent: float = 0.0
+    mfe_percent: float = 0.0

@@ -331,6 +331,8 @@ class PaperExchange:
             metadata=pos.entry_metadata,
             side=pos.side,
             leverage=pos.leverage,
+            mae_percent=pos.mae_percent,
+            mfe_percent=pos.mfe_percent,
         )
         self._trades.append(trade)
         exit_label = _EXIT_LOG_LABEL[pos.side]
@@ -386,12 +388,51 @@ class PaperExchange:
         )
         return closed_trades
 
+    def _update_excursion_tracking(self, high: float, low: float) -> None:
+        """
+        @brief BOT-106B — widens every open position's MAE/MFE from this
+        bar's high/low, before any close this same bar removes it from
+        `self._positions` — a position's final bar still counts.
+        """
+        for pos in self._positions:
+            if pos.balance_before_entry <= 0:
+                continue
+            worst_price, best_price = (
+                (low, high) if pos.side is PositionSide.LONG else (high, low)
+            )
+            worst_value = self._pricing.mark_to_market(
+                pos.side,
+                pos.leverage,
+                pos.quantity,
+                pos.entry_price,
+                pos.balance_before_entry,
+                worst_price,
+            )
+            best_value = self._pricing.mark_to_market(
+                pos.side,
+                pos.leverage,
+                pos.quantity,
+                pos.entry_price,
+                pos.balance_before_entry,
+                best_price,
+            )
+            worst_pnl_percent = (
+                (worst_value - pos.balance_before_entry)
+                / pos.balance_before_entry
+                * 100
+            )
+            best_pnl_percent = (
+                (best_value - pos.balance_before_entry) / pos.balance_before_entry * 100
+            )
+            pos.mae_percent = min(pos.mae_percent, worst_pnl_percent)
+            pos.mfe_percent = max(pos.mfe_percent, best_pnl_percent)
+
     def check_intrabar_stops(
         self, high: float, low: float, time: datetime
     ) -> Sequence[Trade]:
         """
-        @brief Checks every open position's liquidation/stop-loss/take-profit
-        against bar high/low boundaries.
+        @brief Widens every open position's MAE/MFE from this bar, then
+        checks liquidation/stop-loss/take-profit against the same high/low.
         @details Liquidation is checked **first** and its trades removed from
         `self._positions` before stop-loss/take-profit ever sees them
         (`BOT-049` §2) — a real exchange liquidates before a user's own SL/TP
@@ -400,6 +441,8 @@ class PaperExchange:
         """
         if not self._positions:
             return []
+
+        self._update_excursion_tracking(high, low)
 
         liquidated, still_open = self._pricing.evaluate_liquidations(
             self._positions, high, low
