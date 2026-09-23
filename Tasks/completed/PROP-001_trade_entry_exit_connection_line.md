@@ -61,10 +61,29 @@ deleted by `EPIC-025`/`EPIC-006` well before this task was picked up; the
 screen is QtWidgets + pyqtgraph now, with no native C++ chart host left at
 all. Re-scoped from real code, same as every other stale-task closure this
 session: **AC-4** (select a Trade Logs row → chart shows the link) ships;
-**AC-1**/**AC-3** (hover a chart marker → instant show/hide) do not — no
-per-marker mouse hit-testing exists on `FastCandlestickItem`'s trade-flag
-markers today, and building it is a materially larger, separate piece of
-work than reusing an existing click signal. **AC-2** (win/loss colour)
+**AC-1**/**AC-3** (hover a chart marker → instant show/hide) do not.
+
+**Correction (PR #259 review):** the reasoning first recorded here —
+"no per-marker mouse hit-testing exists... building it is a materially
+larger, separate piece of work" — does not hold up against the actual
+code and was wrong to state as the deferral's justification.
+`TriangleMarkerItem.configure()` (`marker_layer.py`) already calls
+`self.setToolTip(...)` per marker, which only works because Qt's own
+`QGraphicsScene` hit-testing already resolves which marker is under the
+cursor; `crosshair_controller.py` in the same package already does the
+generic mouse-tracking half via `pg.SignalProxy(scene.sigMouseMoved, ...)`
++ `mapSceneToView`. A hover-driven link is a `setAcceptHoverEvents(True)`
++ `hoverEnterEvent`/`hoverLeaveEvent` addition to `TriangleMarkerItem`
+reusing hit-testing that already exists — a modest, local addition, not
+separate infrastructure work. The decision to ship click-only in this PR
+still stands (three unrelated features in one PR is enough scope without
+also adding hover-state management and its own tests), but the record
+should not claim a harder technical barrier than the one that was
+actually there: it was a scope call, not a feasibility one, and whoever
+picks up the hover half next should not be misled into re-deriving
+hit-testing infrastructure that is already in place.
+
+**AC-2** (win/loss colour)
 ships, using `theme.BULL_COLOR`/`BEAR_COLOR` (`#26a69a`/`#ef5350`) rather
 than the proposal's literal `#0ECB81`/`#F6465D` — the trade-flag markers
 this line connects already use `theme`'s pair, and drawing the link in a
