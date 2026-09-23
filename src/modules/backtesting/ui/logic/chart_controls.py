@@ -1,7 +1,7 @@
 from PySide6 import QtCore, QtWidgets
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
-from .chart_canvas_view import ChartDisplayMode
+from .chart_canvas_view import ChartDisplayMode, MarkerOutcomeFilter, MarkerSideFilter
 
 _MODE_LABELS = EnumLabels(
     ChartDisplayMode,
@@ -11,6 +11,29 @@ _MODE_LABELS = EnumLabels(
         ChartDisplayMode.BOTH: "Side by Side",
     },
 )
+
+_OUTCOME_LABELS = EnumLabels(
+    MarkerOutcomeFilter,
+    {
+        MarkerOutcomeFilter.ALL: "All",
+        MarkerOutcomeFilter.WINS_ONLY: "Wins Only",
+        MarkerOutcomeFilter.LOSSES_ONLY: "Losses Only",
+    },
+)
+
+_SIDE_LABELS = EnumLabels(
+    MarkerSideFilter,
+    {
+        MarkerSideFilter.ALL: "All",
+        MarkerSideFilter.LONG_ONLY: "Long Only",
+        MarkerSideFilter.SHORT_ONLY: "Short Only",
+    },
+)
+
+#: PROP-004's own AC-3 caps how much a marker filter's own% threshold can
+#: hide — 100% would let one control blank the chart along with the
+#: trade-flags checkbox already doing that job, which is no longer "filter".
+_MAX_MIN_PNL_PERCENT = 99.0
 
 
 class BacktestChartControls(QtWidgets.QWidget):
@@ -30,6 +53,12 @@ class BacktestChartControls(QtWidgets.QWidget):
     sig_ema_toggled = QtCore.Signal(bool)
     sig_volume_toggled = QtCore.Signal(bool)
     sig_trade_flags_toggled = QtCore.Signal(bool)
+    #: PROP-004 — one signal for all 3 marker-filter controls (outcome/side/
+    #: min-PnL), the same "no config to validate or dispatch" reasoning this
+    #: class's own docstring gives for the toggles above: a listener just
+    #: re-reads the 3 getters below and redraws, so 3 separately-typed
+    #: signals would buy nothing a single no-payload one doesn't already do.
+    sig_marker_filter_changed = QtCore.Signal()
 
     def __init__(self, parent: QtWidgets.QWidget | None = None) -> None:
         super().__init__(parent)
@@ -72,6 +101,30 @@ class BacktestChartControls(QtWidgets.QWidget):
         self._trade_flags_check.setChecked(True)
         self._trade_flags_check.toggled.connect(self.sig_trade_flags_toggled.emit)
 
+        layout.addSpacing(12)
+
+        self._marker_outcome_combo = self._add_enum_combo(
+            layout, "cboMarkerOutcomeFilter", _OUTCOME_LABELS
+        )
+        self._marker_outcome_combo.currentIndexChanged.connect(
+            self._emit_marker_filter_changed
+        )
+
+        self._marker_side_combo = self._add_enum_combo(
+            layout, "cboMarkerSideFilter", _SIDE_LABELS
+        )
+        self._marker_side_combo.currentIndexChanged.connect(
+            self._emit_marker_filter_changed
+        )
+
+        self._marker_min_pnl_spin = QtWidgets.QDoubleSpinBox()
+        self._marker_min_pnl_spin.setObjectName("spinMarkerMinPnl")
+        self._marker_min_pnl_spin.setRange(0.0, _MAX_MIN_PNL_PERCENT)
+        self._marker_min_pnl_spin.setSuffix("% min |PnL|")
+        self._marker_min_pnl_spin.setSingleStep(0.5)
+        self._marker_min_pnl_spin.valueChanged.connect(self._emit_marker_filter_changed)
+        layout.addWidget(self._marker_min_pnl_spin)
+
         layout.addStretch(1)
 
     @staticmethod
@@ -83,6 +136,24 @@ class BacktestChartControls(QtWidgets.QWidget):
         layout.addWidget(check)
         return check
 
+    @staticmethod
+    def _add_enum_combo(
+        layout: QtWidgets.QHBoxLayout, object_name: str, labels: EnumLabels
+    ) -> QtWidgets.QComboBox:
+        combo = QtWidgets.QComboBox()
+        combo.setObjectName(object_name)
+        for member, text in labels.items():
+            combo.addItem(text, member)
+        layout.addWidget(combo)
+        return combo
+
+    def _emit_marker_filter_changed(self, *_args: object) -> None:
+        """Bridges `currentIndexChanged(int)`/`valueChanged(float)` into the
+        no-payload `sig_marker_filter_changed` — connecting either signal
+        straight to `.emit` raises `TypeError` (a real bug this class's own
+        test suite caught), since `Signal()` takes zero arguments."""
+        self.sig_marker_filter_changed.emit()
+
     def _on_mode_button_clicked(self, button: QtWidgets.QAbstractButton) -> None:
         for mode, mode_button in self._mode_buttons.items():
             if mode_button is button:
@@ -93,11 +164,29 @@ class BacktestChartControls(QtWidgets.QWidget):
         """Buy/Sell flags are price-scale markers — meaningless once the
         main plot is showing Equity instead of price (see BackTestView's
         mode-render logic), so Equity-solo mode disables this control rather
-        than silently drawing markers nobody asked to see."""
+        than silently drawing markers nobody asked to see. The 3 marker
+        filters (PROP-004) only ever narrow that same marker set, so they
+        follow the checkbox's own enabled state."""
         self._trade_flags_check.setEnabled(enabled)
+        self._marker_outcome_combo.setEnabled(enabled)
+        self._marker_side_combo.setEnabled(enabled)
+        self._marker_min_pnl_spin.setEnabled(enabled)
 
     def is_trade_flags_checked(self) -> bool:
         return self._trade_flags_check.isChecked()
+
+    def outcome_filter(self) -> MarkerOutcomeFilter:
+        # `QComboBox.addItem(text, userData=...)` round-trips a `str`-based
+        # Enum member through `QVariant` as a plain `str` (its own value),
+        # not the enum instance — `currentData() is MarkerOutcomeFilter.X`
+        # would silently always be `False` without re-wrapping it here.
+        return MarkerOutcomeFilter(self._marker_outcome_combo.currentData())
+
+    def side_filter(self) -> MarkerSideFilter:
+        return MarkerSideFilter(self._marker_side_combo.currentData())
+
+    def min_pnl_threshold(self) -> float:
+        return self._marker_min_pnl_spin.value()
 
     def set_ema_enabled(self, enabled: bool) -> None:
         """The strategy indicator overlay is price-scale too — left plotted through an

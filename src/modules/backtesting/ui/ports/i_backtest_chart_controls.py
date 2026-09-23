@@ -1,11 +1,11 @@
 """The chart-toolbar contract the Presenter side programs against.
 
 @details `EPIC-013B`. `BacktestChartControls` is a dumb component — it
-emits signals and decides nothing — so the Presenter needs exactly four
-signals and three methods from it. Declaring those seven keeps
-`IBacktestView.chart_controls` from having to be typed `object | None`,
-which would have re-introduced the implicit contract this epic exists to
-remove.
+emits signals and decides nothing — so the Presenter needs exactly five
+signals and three methods from it (`PROP-004` added the fifth signal).
+Declaring those eight keeps `IBacktestView.chart_controls` from having to
+be typed `object | None`, which would have re-introduced the implicit
+contract this epic exists to remove.
 """
 
 from __future__ import annotations
@@ -36,6 +36,9 @@ class IBacktestChartControls(Protocol):
     sig_ema_toggled: SignalInstance
     sig_volume_toggled: SignalInstance
     sig_trade_flags_toggled: SignalInstance
+    #: `PROP-004` — any of the 3 marker-filter controls changed; no payload,
+    #: same reasoning `BacktestChartControls`'s own declaration gives.
+    sig_marker_filter_changed: SignalInstance
 
     def set_trade_flags_enabled(self, enabled: bool) -> None:
         """Greys the toggle out when the current mode has no price scale."""

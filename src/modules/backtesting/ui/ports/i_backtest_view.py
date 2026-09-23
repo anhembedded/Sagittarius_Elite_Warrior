@@ -34,7 +34,7 @@ DEFAULT_VIEW_MODEL_CONTEXT_NAME = "viewModel"
 @runtime_checkable
 class IBacktestView(Protocol):
     """
-    @brief The Backtest screen's Presenter↔View contract — all 17 members
+    @brief The Backtest screen's Presenter↔View contract — all 18 members
     the Presenter side actually uses, and nothing else.
 
     @details **`Protocol`, not an ABC**, under `architecture-rule.md` §2.1
@@ -149,6 +149,12 @@ class IBacktestView(Protocol):
     def set_volume_visible(self, visible: bool) -> None: ...
 
     def set_trade_flags_visible(self, visible: bool) -> None: ...
+
+    def refresh_trade_flag_filters(self) -> None:
+        """PROP-004 — a `chart_controls` marker filter changed; redraw the
+        trade-flag markers under it without touching the checkbox's own
+        show/hide state."""
+        ...
 
     # -- Data arriving ----------------------------------------------- #
 
