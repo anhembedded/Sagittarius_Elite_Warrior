@@ -80,6 +80,10 @@ class BackTestViewModel(BaseQmlViewModel):
     isConfigDirtyChanged = Signal()
     configDiffSummaryChanged = Signal()
     lastRunSummaryChanged = Signal()
+    #: `BOT-095G` — the session history dropdown's entries. Refreshed by the
+    #: Presenter every time a run completes or a history slot is evicted, so
+    #: it always mirrors `SessionRunHistoryCache.get_all()`.
+    sessionRunHistoryChanged = Signal()
 
     #: BOT-102 — symbolOptions starts empty and is populated on demand (the
     #: Presenter fetches it from the exchange the first time the picker is
@@ -124,6 +128,13 @@ class BackTestViewModel(BaseQmlViewModel):
     #: enabled once `run_result.primaryStatCards` is non-empty, i.e. a real
     #: `BacktestResult` exists to export.
     exportReportRequested = Signal()
+
+    #: Emitted with a `run_id` when the user picks an older run from the
+    #: session history dropdown (`BOT-095G`) — carries the id rather than
+    #: the snapshot itself so the ViewModel never needs to know about
+    #: `BacktestRunSnapshot`, matching every other request signal's pattern
+    #: of "an id/value out, the Presenter resolves what it means".
+    restoreRunRequested = Signal(str)
 
     #: Empty string means "no error". Set by the Presenter after a save
     #: attempt; the modal shows this inline rather than closing.
@@ -172,6 +183,7 @@ class BackTestViewModel(BaseQmlViewModel):
         # here either.
         self._strategy_params = StrategyParamsViewModel(parent=self)
         self._symbol_options: list[str] = []
+        self._session_run_history: list[dict[str, str]] = []
         self._selected_symbol = ""
         self._initial_capital_text = _DEFAULT_INITIAL_CAPITAL_TEXT
         self._capital_validation_message = ""
@@ -283,6 +295,25 @@ class BackTestViewModel(BaseQmlViewModel):
     def set_symbol_options(self, options: list[str]) -> None:
         self._symbol_options = options
         self.symbolOptionsChanged.emit()
+
+    # ------------------------------------------------------------------ #
+    # Session run history (BOT-095G)
+    # ------------------------------------------------------------------ #
+
+    def _get_session_run_history(self) -> list[dict[str, str]]:
+        return self._session_run_history
+
+    #: One `{"run_id": ..., "label": ...}` dict per cached run, newest
+    #: first — the dropdown needs nothing else. Set by the Presenter after
+    #: every push/evict on `SessionRunHistoryCache`.
+    sessionRunHistory = Property(
+        "QVariantList", _get_session_run_history, notify=sessionRunHistoryChanged
+    )
+
+    @Slot("QVariantList")
+    def set_session_run_history(self, entries: list[dict[str, str]]) -> None:
+        self._session_run_history = entries
+        self.sessionRunHistoryChanged.emit()
 
     def _get_selected_symbol(self) -> str:
         return self._selected_symbol
@@ -536,6 +567,12 @@ class BackTestViewModel(BaseQmlViewModel):
     def requestExportReport(self) -> None:
         """Called from the top panel's "Save report" button (`BOT-115B`)."""
         self.exportReportRequested.emit()
+
+    @Slot(str)
+    def requestRestoreRun(self, run_id: str) -> None:
+        """Called from the top panel's session history dropdown with the
+        selected entry's `run_id` (`BOT-095G`)."""
+        self.restoreRunRequested.emit(run_id)
 
     @Slot("QVariant")
     def requestBotParamsSave(self, values) -> None:

@@ -38,6 +38,9 @@ def connect_ui_signals(presenter) -> None:
     presenter._view_model.exportReportRequested.connect(
         presenter._on_report_export_requested
     )
+    presenter._view_model.restoreRunRequested.connect(
+        presenter._on_restore_run_requested
+    )
     presenter._view_model.strategy_params.selectedStrategyKeyChanged.connect(
         presenter._on_strategy_selection_changed
     )

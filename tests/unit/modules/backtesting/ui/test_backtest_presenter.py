@@ -3486,6 +3486,133 @@ def test_backtest_succeeded_transitions_to_completed_and_snapshots_last_run_conf
     assert "1m" in vm.lastRunSummary
 
 
+def test_chart_data_ready_pushes_a_session_run_history_snapshot(presenter, view_model):
+    """`BOT-095G` — the one point a complete snapshot (config, result and
+    the exact candles drawn) exists at once is `_on_chart_data_ready`, after
+    `_on_backtest_succeeded` has already set `_last_run_config`/
+    `_last_result`."""
+    view_model.strategy_params.selectedStrategyKey = "fake_strategy"
+    view_model.selectedTimeframe = "1m"
+    view_model.initialCapitalText = "10000"
+    view_model.selectedCurrency = Currency.USD
+
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+    klines = [(1.0, 1.0, 2.0, 0.5, 1.5)]
+    volume = [(1.0, 100.0, True)]
+    presenter._on_chart_data_ready(result, klines, volume)
+
+    history = presenter._run_history.get_all()
+    assert len(history) == 1
+    assert history[0].run_config.strategy_key == "fake_strategy"
+    assert history[0].klines == klines
+    assert history[0].volume == volume
+
+    ui_entries = view_model.sessionRunHistory
+    assert len(ui_entries) == 1
+    assert ui_entries[0]["run_id"] == history[0].run_id
+    assert "fake_strategy" in ui_entries[0]["label"]
+
+
+def test_restore_run_requested_redisplays_without_dispatching_a_command(
+    presenter, view_model, mock_dispatcher
+):
+    """A restore must be free — no engine call, no network fetch, matching
+    `state_persistence`'s own "opening the screen still runs nothing"
+    contract."""
+    view_model.strategy_params.selectedStrategyKey = "fake_strategy"
+    view_model.selectedTimeframe = "1m"
+    view_model.initialCapitalText = "10000"
+    view_model.selectedCurrency = Currency.USD
+
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+    presenter._on_chart_data_ready(
+        result, [(1.0, 1.0, 2.0, 0.5, 1.5)], [(1.0, 100.0, True)]
+    )
+
+    run_id = presenter._run_history.get_all()[0].run_id
+    mock_dispatcher.dispatch.reset_mock()
+
+    presenter._on_restore_run_requested(run_id)
+
+    mock_dispatcher.dispatch.assert_not_called()
+    assert presenter.fsm.current_state == BacktestUiState.COMPLETED
+    assert "fake_strategy" in view_model.lastRunSummary
+
+
+def test_restore_run_requested_does_not_mark_the_restored_run_dirty(
+    presenter, view_model
+):
+    """`BOT-095G` — restoring applies the remembered form through the same
+    ViewModel setters a user typing would, which fire the same `xChanged`
+    signals `_on_config_input_changed` listens to. Without the
+    `_restoring_state` guard this would immediately flip `isConfigDirty`
+    back on against the very run just redisplayed."""
+    view_model.strategy_params.selectedStrategyKey = "fake_strategy"
+    view_model.selectedTimeframe = "1m"
+    view_model.initialCapitalText = "10000"
+    view_model.selectedCurrency = Currency.USD
+
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+    presenter._on_chart_data_ready(
+        result, [(1.0, 1.0, 2.0, 0.5, 1.5)], [(1.0, 100.0, True)]
+    )
+
+    view_model.selectedTimeframe = "5m"
+    assert view_model.isConfigDirty is True
+
+    run_id = presenter._run_history.get_all()[0].run_id
+    presenter._on_restore_run_requested(run_id)
+
+    assert view_model.isConfigDirty is False
+    assert presenter.fsm.current_state == BacktestUiState.COMPLETED
+
+
+def test_restore_run_requested_with_unknown_id_does_nothing(presenter, view_model):
+    before_state = presenter.fsm.current_state
+    before_summary = view_model.lastRunSummary
+
+    presenter._on_restore_run_requested("not-a-real-run-id")
+
+    assert presenter.fsm.current_state == before_state
+    assert view_model.lastRunSummary == before_summary
+
+
+def test_restore_run_requested_is_ignored_while_a_run_is_active(presenter, view_model):
+    """`BOT-095G` acceptance criterion 4: restoring a snapshot while a new
+    run is active must not clobber the in-flight action's state — the FSM
+    has no `RUN_RESTORED_FROM_HISTORY` transition from `RUNNING`, and the
+    handler must actually check that, not just rely on the toolbar being
+    disabled."""
+    view_model.strategy_params.selectedStrategyKey = "fake_strategy"
+    view_model.selectedTimeframe = "1m"
+    view_model.initialCapitalText = "10000"
+    view_model.selectedCurrency = Currency.USD
+
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+    presenter._on_chart_data_ready(
+        result, [(1.0, 1.0, 2.0, 0.5, 1.5)], [(1.0, 100.0, True)]
+    )
+    run_id = presenter._run_history.get_all()[0].run_id
+
+    # Start a second run without letting it finish — the FSM is now RUNNING.
+    presenter._on_run_backtest()
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+    summary_before = view_model.lastRunSummary
+
+    presenter._on_restore_run_requested(run_id)
+
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+    assert view_model.lastRunSummary == summary_before
+
+
 def test_report_export_does_nothing_when_there_is_no_result_yet(presenter):
     """`BOT-115B` — mirrors `test_export_does_nothing_when_there_are_no_trades_yet`:
     the button is disabled until a run completes, but the handler itself must

@@ -68,6 +68,13 @@ class BacktestUiEvent(str, Enum):
     SYNC_SUCCEEDED = "SYNC_SUCCEEDED"
     SYNC_FAILED = "SYNC_FAILED"
     ERROR_DISMISSED = "ERROR_DISMISSED"
+    #: `BOT-095G` — the user picked an older run from the session history
+    #: dropdown. Lands on `COMPLETED` from any non-busy state: it is a real
+    #: previously-completed run being redisplayed, not a config edit or an
+    #: external file import (`BOT-115C`'s own `VIEWING_IMPORTED_REPORT` is
+    #: the right state for that different case — provenance can drift from
+    #: the current environment; a same-session run never has that problem).
+    RUN_RESTORED_FROM_HISTORY = "RUN_RESTORED_FROM_HISTORY"
 
 
 class BacktestActionKind(str, Enum):
@@ -103,6 +110,10 @@ BACKTEST_STATE_TRANSITIONS: dict[
     (BacktestUiState.IDLE, BacktestUiEvent.CONFIG_CHANGED): BacktestUiState.IDLE,
     (BacktestUiState.IDLE, BacktestUiEvent.RUN_REQUESTED): BacktestUiState.RUNNING,
     (BacktestUiState.IDLE, BacktestUiEvent.SYNC_REQUESTED): BacktestUiState.SYNCING,
+    (
+        BacktestUiState.IDLE,
+        BacktestUiEvent.RUN_RESTORED_FROM_HISTORY,
+    ): BacktestUiState.COMPLETED,
     # --- COMPLETED ---
     (
         BacktestUiState.COMPLETED,
@@ -113,6 +124,10 @@ BACKTEST_STATE_TRANSITIONS: dict[
         BacktestUiState.COMPLETED,
         BacktestUiEvent.SYNC_REQUESTED,
     ): BacktestUiState.SYNCING,
+    (
+        BacktestUiState.COMPLETED,
+        BacktestUiEvent.RUN_RESTORED_FROM_HISTORY,
+    ): BacktestUiState.COMPLETED,
     # --- CONFIG_DIRTY (Stale Data) ---
     (
         BacktestUiState.CONFIG_DIRTY,
@@ -130,6 +145,10 @@ BACKTEST_STATE_TRANSITIONS: dict[
         BacktestUiState.CONFIG_DIRTY,
         BacktestUiEvent.SYNC_REQUESTED,
     ): BacktestUiState.SYNCING,
+    (
+        BacktestUiState.CONFIG_DIRTY,
+        BacktestUiEvent.RUN_RESTORED_FROM_HISTORY,
+    ): BacktestUiState.COMPLETED,
     # --- RUNNING ---
     (
         BacktestUiState.RUNNING,
@@ -180,11 +199,19 @@ BACKTEST_STATE_TRANSITIONS: dict[
         BacktestUiState.EMPTY_DATA,
         BacktestUiEvent.RUN_REQUESTED,
     ): BacktestUiState.RUNNING,
+    (
+        BacktestUiState.EMPTY_DATA,
+        BacktestUiEvent.RUN_RESTORED_FROM_HISTORY,
+    ): BacktestUiState.COMPLETED,
     # --- ERROR ---
     (BacktestUiState.ERROR, BacktestUiEvent.ERROR_DISMISSED): BacktestUiState.IDLE,
     (BacktestUiState.ERROR, BacktestUiEvent.CONFIG_CHANGED): BacktestUiState.IDLE,
     (BacktestUiState.ERROR, BacktestUiEvent.RUN_REQUESTED): BacktestUiState.RUNNING,
     (BacktestUiState.ERROR, BacktestUiEvent.SYNC_REQUESTED): BacktestUiState.SYNCING,
+    (
+        BacktestUiState.ERROR,
+        BacktestUiEvent.RUN_RESTORED_FROM_HISTORY,
+    ): BacktestUiState.COMPLETED,
 }
 
 #: UI Modes in which controls must be disabled

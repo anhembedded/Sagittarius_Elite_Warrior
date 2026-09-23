@@ -144,3 +144,94 @@ def test_top_panel_save_report_button_enables_only_once_cards_exist(
 
     panel.close()
     panel.deleteLater()
+
+
+def test_session_run_history_combo_starts_disabled_with_only_the_placeholder(
+    qapp: QApplication,
+) -> None:
+    """`BOT-095G` — nothing has run yet, so there is nothing to redisplay."""
+    _ensure_theme_bridge(qapp)
+    vm = BackTestViewModel()
+    panel = BackTestTopPanel(vm)
+    panel.resize(1200, 350)
+    panel.show()
+    qapp.processEvents()
+
+    assert not panel._combo_run_history.isEnabled()
+    assert panel._combo_run_history.count() == 1
+
+    panel.close()
+    panel.deleteLater()
+
+
+def test_session_run_history_combo_populates_and_selecting_an_entry_requests_restore(
+    qapp: QApplication,
+) -> None:
+    """`BOT-095G` — the dropdown mirrors `vm.sessionRunHistory` and picking
+    a real entry asks the Presenter (via `requestRestoreRun`) to redisplay
+    that run's `run_id`. A real Qt signal connection, not a mock standing
+    in for it: breaking the `currentIndexChanged.connect(...)` line in
+    `backtest_top_panel.py` makes this test fail."""
+    _ensure_theme_bridge(qapp)
+    vm = BackTestViewModel()
+    panel = BackTestTopPanel(vm)
+    panel.resize(1200, 350)
+    panel.show()
+    qapp.processEvents()
+
+    mock_restore = MagicMock()
+    vm.restoreRunRequested.connect(mock_restore)
+
+    vm.set_session_run_history(
+        [
+            {"run_id": "run-2", "label": "15:20:05 — ETHUSDT | 5m — +28.4%"},
+            {"run_id": "run-1", "label": "15:19:00 — ETHUSDT | 1m — -3.2%"},
+        ]
+    )
+    panel._sync_all()
+    qapp.processEvents()
+
+    combo = panel._combo_run_history
+    assert combo.isEnabled()
+    assert combo.count() == 3
+    assert combo.currentIndex() == 0
+
+    combo.setCurrentIndex(1)
+
+    mock_restore.assert_called_once_with("run-2")
+
+    panel.close()
+    panel.deleteLater()
+
+
+def test_session_run_history_combo_resets_to_placeholder_on_refresh(
+    qapp: QApplication,
+) -> None:
+    """A refresh (a new run pushed, or the oldest slot evicted) must not
+    leave a stale selection highlighted — `vm.sessionRunHistory` no longer
+    describes "the run picked last time" as the thing currently on screen."""
+    _ensure_theme_bridge(qapp)
+    vm = BackTestViewModel()
+    panel = BackTestTopPanel(vm)
+    panel.resize(1200, 350)
+    panel.show()
+    qapp.processEvents()
+
+    vm.set_session_run_history([{"run_id": "run-1", "label": "run one"}])
+    panel._sync_all()
+    panel._combo_run_history.setCurrentIndex(1)
+    assert panel._combo_run_history.currentIndex() == 1
+
+    vm.set_session_run_history(
+        [
+            {"run_id": "run-2", "label": "run two"},
+            {"run_id": "run-1", "label": "run one"},
+        ]
+    )
+    panel._sync_all()
+    qapp.processEvents()
+
+    assert panel._combo_run_history.currentIndex() == 0
+
+    panel.close()
+    panel.deleteLater()
