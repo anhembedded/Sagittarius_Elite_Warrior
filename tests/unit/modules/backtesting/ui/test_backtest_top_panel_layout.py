@@ -146,6 +146,68 @@ def test_top_panel_save_report_button_enables_only_once_cards_exist(
     panel.deleteLater()
 
 
+def test_top_panel_import_report_button_emits_the_request_signal(
+    qapp: QApplication,
+) -> None:
+    """`BOT-115C` — "Import report" is always available (no result needs to
+    exist first, unlike "Save report")."""
+    _ensure_theme_bridge(qapp)
+    vm = BackTestViewModel()
+    panel = BackTestTopPanel(vm)
+    panel.resize(1200, 350)
+    panel.show()
+    qapp.processEvents()
+
+    assert panel._btn_import_report.isEnabled()
+
+    mock_import = MagicMock()
+    vm.importReportRequested.connect(mock_import)
+
+    panel._btn_import_report.click()
+
+    mock_import.assert_called_once()
+
+    panel.close()
+    panel.deleteLater()
+
+
+def test_top_panel_imported_report_banner_shows_only_while_viewing(
+    qapp: QApplication,
+) -> None:
+    """`BOT-115C` — the banner is visible only in `VIEWING_IMPORTED_REPORT`
+    with real text, and its action emits the exit-view request."""
+    _ensure_theme_bridge(qapp)
+    vm = BackTestViewModel()
+    panel = BackTestTopPanel(vm)
+    panel.resize(1200, 350)
+    panel.show()
+    qapp.processEvents()
+
+    assert not panel._imported_report_banner.isVisible()
+
+    vm.importedReportBannerText = "Viewing imported report — run.sagi-report.json"
+    vm.set_ui_mode("VIEWING_IMPORTED_REPORT")
+    qapp.processEvents()
+
+    assert panel._imported_report_banner.isVisible()
+    assert panel._imported_report_banner.message == (
+        "Viewing imported report — run.sagi-report.json"
+    )
+
+    mock_exit = MagicMock()
+    vm.exitImportedReportViewRequested.connect(mock_exit)
+    panel._imported_report_banner.action_button.click()
+    mock_exit.assert_called_once()
+
+    vm.set_ui_mode("IDLE")
+    qapp.processEvents()
+
+    assert not panel._imported_report_banner.isVisible()
+
+    panel.close()
+    panel.deleteLater()
+
+
 def test_session_run_history_combo_starts_disabled_with_only_the_placeholder(
     qapp: QApplication,
 ) -> None:

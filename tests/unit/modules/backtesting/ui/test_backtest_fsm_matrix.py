@@ -183,3 +183,63 @@ def test_fsm_run_restored_from_history_lands_on_completed_from_every_non_busy_st
         assert (state, BacktestUiEvent.RUN_RESTORED_FROM_HISTORY) not in (
             BACKTEST_STATE_TRANSITIONS
         )
+
+
+def test_fsm_report_imported_lands_on_viewing_imported_report_from_every_non_busy_state():
+    """`BOT-115C` — importing a `.sagi-report.json` is allowed from the same
+    non-busy states `RUN_RESTORED_FROM_HISTORY` is, but lands on the
+    distinct `VIEWING_IMPORTED_REPORT` state, never `COMPLETED` (that state's
+    own docstring: provenance can drift from the current environment)."""
+    non_busy_states = (
+        BacktestUiState.IDLE,
+        BacktestUiState.COMPLETED,
+        BacktestUiState.CONFIG_DIRTY,
+        BacktestUiState.EMPTY_DATA,
+        BacktestUiState.ERROR,
+    )
+    for state in non_busy_states:
+        assert (
+            BACKTEST_STATE_TRANSITIONS[(state, BacktestUiEvent.REPORT_IMPORTED)]
+            == BacktestUiState.VIEWING_IMPORTED_REPORT
+        )
+
+    busy_states = (
+        BacktestUiState.RUNNING,
+        BacktestUiState.CANCELLING,
+        BacktestUiState.SYNCING,
+    )
+    for state in busy_states:
+        assert (
+            state,
+            BacktestUiEvent.REPORT_IMPORTED,
+        ) not in BACKTEST_STATE_TRANSITIONS
+
+
+def test_fsm_viewing_imported_report_exits_on_run_config_change_or_dismiss():
+    """`BOT-115C` §2 — the three ways out: Run (starts a real run), editing
+    the toolbar (same "stale now" treatment `COMPLETED` gets), or the
+    banner's own dismiss action."""
+    assert (
+        BACKTEST_STATE_TRANSITIONS[
+            (BacktestUiState.VIEWING_IMPORTED_REPORT, BacktestUiEvent.RUN_REQUESTED)
+        ]
+        == BacktestUiState.RUNNING
+    )
+    assert (
+        BACKTEST_STATE_TRANSITIONS[
+            (
+                BacktestUiState.VIEWING_IMPORTED_REPORT,
+                BacktestUiEvent.CONFIG_CHANGED,
+            )
+        ]
+        == BacktestUiState.CONFIG_DIRTY
+    )
+    assert (
+        BACKTEST_STATE_TRANSITIONS[
+            (
+                BacktestUiState.VIEWING_IMPORTED_REPORT,
+                BacktestUiEvent.IMPORTED_REPORT_VIEW_EXITED,
+            )
+        ]
+        == BacktestUiState.IDLE
+    )

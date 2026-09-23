@@ -136,6 +136,8 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         card_layout.addWidget(self._stale_banner)
         self._coverage_banner = self._build_coverage_banner()
         card_layout.addWidget(self._coverage_banner)
+        self._imported_report_banner = self._build_imported_report_banner()
+        card_layout.addWidget(self._imported_report_banner)
         card_layout.addWidget(self._build_metrics_header())
 
         self._stat_cards_row = self._build_stat_cards_row()
@@ -422,6 +424,17 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         banner.setVisible(False)
         return self._tighten(banner)
 
+    def _build_imported_report_banner(self) -> Banner:
+        """`BOT-115C` — visible only in `VIEWING_IMPORTED_REPORT`, naming
+        the source file and offering a way back to a clean slate without
+        running or editing anything."""
+        banner = Banner(severity=Severity.INFO, action_text="Exit view")
+        banner.setObjectName("backtestImportedReportBanner")
+        self._set_banner_icon(banner, "clock", Palette.ACCENT)
+        banner.action_button.clicked.connect(self._vm.requestExitImportedReportView)
+        banner.setVisible(False)
+        return self._tighten(banner)
+
     @staticmethod
     def _tighten(banner: Banner) -> Banner:
         """`Banner` is a `Panel`, so it inherits Qt's default layout margins.
@@ -535,6 +548,20 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         self._btn_save_report.clicked.connect(self._vm.requestExportReport)
         row.addWidget(self._btn_save_report)
 
+        # `BOT-115C` — always available while the screen isn't busy
+        # (`_sync_controls_enabled()`), mirroring `_combo_run_history`'s own
+        # enablement rather than `_btn_save_report`'s (importing needs no
+        # existing result on screen).
+        self._btn_import_report = QPushButton("Import report")
+        self._btn_import_report.setObjectName("btnImportReport")
+        self._btn_import_report.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_import_report.setFixedHeight(26)
+        self._btn_import_report.setToolTip(
+            "Load a .sagi-report.json file and view its results read-only"
+        )
+        self._btn_import_report.clicked.connect(self._vm.requestImportReport)
+        row.addWidget(self._btn_import_report)
+
         return row_widget
 
     def _build_result_warning_label(self) -> QLabel:
@@ -604,6 +631,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         vm.run_result.dataCoverageChanged.connect(self._sync_banners)
         vm.run_result.needsDataSyncChanged.connect(self._sync_banners)
         vm.configDiffSummaryChanged.connect(self._sync_banners)
+        vm.importedReportBannerTextChanged.connect(self._sync_banners)
         vm.run_result.statCardsChanged.connect(self._sync_stat_cards)
         vm.run_result.statCardsChanged.connect(self._sync_metrics_header)
         vm.run_result.resultWarningTextChanged.connect(self._sync_metrics_header)
@@ -641,6 +669,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
             self._btn_timezone,
             self._btn_capital,
             self._btn_bot_params,
+            self._btn_import_report,
         ):
             btn.setEnabled(enabled)
         # `BOT-095G` — a busy run/sync owns the screen the same way it owns
@@ -739,6 +768,13 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         self._coverage_banner.setVisible(coverage_visible)
         if coverage_visible:
             self._coverage_banner.message = vm.run_result.dataCoverageMessage
+
+        imported_report_visible = mode == "VIEWING_IMPORTED_REPORT" and bool(
+            vm.importedReportBannerText
+        )
+        self._imported_report_banner.setVisible(imported_report_visible)
+        if imported_report_visible:
+            self._imported_report_banner.message = vm.importedReportBannerText
 
     def _sync_stat_cards(self) -> None:
         has_cards = bool(self._vm.run_result.primaryStatCards)

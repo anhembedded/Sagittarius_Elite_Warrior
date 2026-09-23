@@ -80,6 +80,9 @@ class BackTestViewModel(BaseQmlViewModel):
     isConfigDirtyChanged = Signal()
     configDiffSummaryChanged = Signal()
     lastRunSummaryChanged = Signal()
+    #: `BOT-115C` — set by the Presenter on a successful import, cleared on
+    #: exiting the view; empty means "hide the imported-report banner".
+    importedReportBannerTextChanged = Signal()
     #: `BOT-095G` — the session history dropdown's entries. Refreshed by the
     #: Presenter every time a run completes or a history slot is evicted, so
     #: it always mirrors `SessionRunHistoryCache.get_all()`.
@@ -135,6 +138,14 @@ class BackTestViewModel(BaseQmlViewModel):
     #: `BacktestRunSnapshot`, matching every other request signal's pattern
     #: of "an id/value out, the Presenter resolves what it means".
     restoreRunRequested = Signal(str)
+
+    #: Emitted when the user clicks "Import report" (`BOT-115C`) — the
+    #: Presenter owns the file dialog itself (needs `self.view` as its
+    #: parent), mirroring `exportReportRequested`'s own split.
+    importReportRequested = Signal()
+    #: Emitted when the user dismisses the imported-report banner
+    #: (`BOT-115C`) without running or editing anything.
+    exitImportedReportViewRequested = Signal()
 
     #: Empty string means "no error". Set by the Presenter after a save
     #: attempt; the modal shows this inline rather than closing.
@@ -219,6 +230,7 @@ class BackTestViewModel(BaseQmlViewModel):
         # `vm.trade_log.*` directly, so no signal is re-exported here.
         self._trade_log = TradeLogViewModel(parent=self)
         self._config_diff_summary = ""
+        self._imported_report_banner_text = ""
         self._last_run_summary = ""
         self._script_model = IndicatorScriptListModel(self)
 
@@ -727,6 +739,33 @@ class BackTestViewModel(BaseQmlViewModel):
     @property
     def config_diff_summary(self) -> str:
         return self._config_diff_summary
+
+    def _get_imported_report_banner_text(self) -> str:
+        return self._imported_report_banner_text
+
+    def _set_imported_report_banner_text(self, value: str) -> None:
+        val = str(value)
+        if self._imported_report_banner_text != val:
+            self._imported_report_banner_text = val
+            self.importedReportBannerTextChanged.emit()
+
+    importedReportBannerText = Property(
+        str,
+        _get_imported_report_banner_text,
+        _set_imported_report_banner_text,
+        notify=importedReportBannerTextChanged,
+    )
+
+    @Slot()
+    def requestImportReport(self) -> None:
+        """Called from the top panel's "Import report" button (`BOT-115C`)."""
+        self.importReportRequested.emit()
+
+    @Slot()
+    def requestExitImportedReportView(self) -> None:
+        """Called from the imported-report banner's dismiss action
+        (`BOT-115C`)."""
+        self.exitImportedReportViewRequested.emit()
 
     @config_diff_summary.setter
     def config_diff_summary(self, value: str) -> None:
