@@ -1,3 +1,5 @@
+**Status: ✅ Done (2026-09-23) — already fully implemented before this closure; see §5 below.**
+
 # Nhiệm vụ: BOT-131 — Màn hình Backtest FSM & Quản lý Trạng thái Stale Data (Dirty Tracking)
 
 > **Đổi số từ `BOT-095B` sang `BOT-131` (2026-09-08).** Số cũ đã bị
@@ -164,3 +166,65 @@ DISABLED_UI_MODES: FrozenSet[BacktestUiState] = frozenset({
    - Bấm "Chạy Backtest" tính toán thành công $\rightarrow$ FSM = `COMPLETED`, banner biến mất, kết quả hiển thị sáng rõ (`opacity: 1.0`).
 4. **Local CI Verification**:
    - Chạy `.\scripts\ci-local.ps1 -UnitOnly` pass 100% xanh không có cảnh báo.
+
+---
+
+## 5. Implementation Notes (found already done, 2026-09-23)
+
+Verified against the current codebase before starting any new work (this
+repo's own established pattern for stale-looking backlog files, per
+`BOT-039`/`BOT-063` earlier). Every acceptance criterion in §4 is already
+met by code already on `master-warrior` — likely landed as part of
+`EPIC-025`'s move of the Backtest screen off QML, which carried this
+mechanism over without anyone updating this file's status.
+
+**§2.1 (declarative matrix)** — `src/modules/backtesting/ui/logic/
+backtest_fsm_matrix.py` declares `BacktestUiState`, `BacktestUiEvent`,
+`BACKTEST_STATE_TRANSITIONS` (a superset of this file's own §2.1 table,
+with two additional resolution events, `BACKTEST_CANCELLED_TO_CONFIG_DIRTY`/
+`BACKTEST_CANCELLED_TO_COMPLETED`, for landing a cancelled run back in the
+right resting state) and `DISABLED_UI_MODES`, built on the engine's
+`DeclarativeStateMachine` from `BOT-095A` exactly as specified. `BacktestRunConfig`
+in the same file carries `compute_diff_summary()`, covering every field this
+task's §2.1 lists (symbol, timeframe, strategy, capital, currency, time
+range, position sizing, broker config, execution mode) and more added since
+(tick resolution, calc-on-order-fills).
+
+**§2.2 (dirty tracking)** — `BackTestPresenter._on_config_input_changed()`
+(`backtest_presenter.py`) is exactly this section's algorithm: compares
+`_get_current_config()` against `_last_run_config`, dispatches
+`CONFIG_CHANGED`/`CONFIG_RESTORED` accordingly, and updates
+`view_model.configDiffSummary`. `BackTestViewModel.isConfigDirty`/
+`configDiffSummary` are real Qt properties with their own notify signals.
+
+**§2.3 (visual UX)** — QtWidgets, not QML (the screen left QML entirely
+under `EPIC-025`/`EPIC-006`): `backtest_top_panel.py` connects
+`isConfigDirtyChanged`/`configDiffSummaryChanged` to `_sync_run_button`/
+`_sync_banners`, shows a stale banner reading
+`"Configuration changed ({diff}). ..."`, and dims the result area.
+`backtest_trade_logs_panel.py` dims the trade log the same way
+(`_sync_dirty_opacity`). The CSV export guard is simpler than this file's
+own popup-with-two-buttons design: `TradeLogCoordinator.on_export_requested()`
+logs a one-line notice naming the stale run instead of blocking with a
+modal — a smaller UI than specified, but it satisfies the same underlying
+intent (never silently export stale data as if it were current) without an
+extra dialog class, and was left as-is per this repo's own precedent of
+preferring the simpler shipped design over changing something already working.
+
+**§4 (acceptance)** — all four criteria hold under the *current* invocation
+(`ci-rule.md`'s replacement for `-UnitOnly`, the original mid-EPIC-002
+command this file predates):
+```
+cd /tmp/batch7-work/Sagittarius_Elite_Warrior && PYTHONPATH=.. QT_QPA_PLATFORM=offscreen .venv/bin/python -m pytest tests/unit/modules/backtesting/ui/test_backtest_presenter.py -k dirty -v
+```
+8 passed: `test_dirty_tracking_detects_timeframe_change_after_completed`,
+`test_dirty_tracking_restores_to_completed_when_input_reverted`,
+`test_dirty_tracking_detects_capital_and_strategy_changes`,
+`test_running_from_dirty_state_clears_dirty_state_on_completion`,
+`test_qml_stale_warning_banner_and_button_dirty_rendering`,
+`test_cancel_restores_config_dirty_and_late_success_cannot_render`,
+`test_selecting_a_symbol_marks_the_config_dirty_with_a_truthful_diff`,
+`test_report_export_uses_the_run_that_produced_the_result_not_a_dirty_toolbar`
+— each one exercises exactly the scenario its name states, not a
+stand-in. No code changed for this closure; only this file moves and its
+board rows update.
