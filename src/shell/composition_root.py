@@ -54,10 +54,16 @@ from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publishe
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.ordered_health_extension import (
     OrderedHealthExtension,
 )
+from Sagittarius_Elite_Warrior.src.infrastructure.notifications.telegram_notification_channel import (
+    TelegramNotificationChannel,
+)
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
 from Sagittarius_Elite_Warrior.src.shell.config_writer import ConfigManagerWriter
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
 from Sagittarius_Elite_Warrior.src.shell.modules import MODULES, RegisteredModules
+from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
+    NotificationEventHandler,
+)
 from Sagittarius_Elite_Warrior.src.shell.system_failure_log import SystemFailureLog
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
@@ -185,6 +191,21 @@ def create_app(config_manager: ConfigManager) -> App:
     container.singleton(
         ICommandDispatcher, EngineCommandDispatcher(app.context.dispatcher)
     )
+
+    # `BOT-018` — the same "one place both entry points pass through" reasoning
+    # as `SystemFailureLog` above, but after `boot()` would still be started:
+    # unlike that subscriber, nothing here needs to see a boot-time failure,
+    # and constructing it needs `IConfigReader` bound just above. The GUI
+    # channel is added later, once a `MainWindow` exists to own it
+    # (`app_bootstrapper.py`); the headless entry point never adds one, so it
+    # gets Telegram delivery only, exactly as the task's own risk note expects
+    # ("hỗ trợ gửi qua kênh ngoài khi app chạy headless/CLI").
+    notification_handler = NotificationEventHandler(event_bus, app_logger)
+    notification_handler.add_channel(
+        TelegramNotificationChannel(container.resolve(IConfigReader), app_logger)
+    )
+    container.singleton(NotificationEventHandler, notification_handler)
+
     _register_indicator_scripts(container)
 
     # Load Framework Extensions
