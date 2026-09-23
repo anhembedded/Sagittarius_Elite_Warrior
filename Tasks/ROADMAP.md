@@ -22,9 +22,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 158 | 79.0% |
+| 🟢 **Completed** | 159 | 79.5% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 34 | 17.0% |
+| 🔴 **Backlog** | 33 | 16.5% |
 | ❌ **Cancelled** | 8 | 4.0% |
 | 📈 **Tổng số Task** | **200** | **100%** |
 
@@ -166,6 +166,8 @@ Sagittarius_Elite_Warrior/Tasks/
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
+
+- [x] **`PROP-002`**: [Bidirectional Trade Logs <-> Chart interaction — Table→Chart half only. Extends `PROP-001`'s already-wired `_on_trade_row_selected` with `chart_card.set_view_range(min_ts, max_ts)` (new `IBacktestChartHost` port method) rather than a parallel `focusTrade` slot; `build_trade_view_range()` pads by 50% of the trade's own duration, floored at 60s for a same-candle scalp. No new pulse/ring-highlight animation — `PROP-001`'s persistent link line already serves as the highlight, and this codebase has no existing animation precedent to build on. Chart→Table (marker click → jump to page + highlight row) deferred: verified against the real code that no per-marker click handling, trade-identity-on-marker, or page-jump-and-highlight method exists yet — a comparably-sized separate unit of work, not bundled into a PR alongside `BOT-019`](completed/PROP-002_bidirectional_table_chart_interaction.md).
 
 - [x] **`PROP-001`**: [Trade entry-exit connecting line — click half only, hover deferred (the proposal's own C++/QML/`NativeChartItem` design was deleted well before this pickup; re-scoped from real code). Reuses the Trade Logs row's existing `toggled(index)` click (`index` = the trade's stable position) rather than adding a new selection gesture; `build_trade_link()` hands the chart plain floats/strings, never a `Trade`, since `support/charting` may not import a `modules/*` type; `IBacktestChartHost.set_trade_link`/`clear_trade_link` mirror the existing `set_script_markers` shape](completed/PROP-001_trade_entry_exit_connection_line.md).
 
@@ -606,8 +608,8 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :--- | :--- | :---: | :---: | :--- |
-| ✅ **[PROP-001](completed/PROP-001_trade_entry_exit_connection_line.md)** | **Đường Nối Lệnh Vào - Ra (Trade Entry-Exit Connection Line on Hover & Selection)** | 🟡 **`M (Standard)`** | `BOT-056` ✅ | **Hoàn thành một nửa (23/09) — chỉ phần click.** Chọn dòng Trade Logs vẽ đường nét đứt Entry→Exit (xanh/đỏ theo Win/Loss); phần hover marker vẫn mở, cần hit-testing marker chưa có. |
-| **[PROP-002](backlog/PROP-002_bidirectional_table_chart_interaction.md)** | **Tương Tác Hai Chiều Bảng Trade Logs & Biểu Đồ (Bi-directional Table & Chart)** | 🟡 **`M (Standard)`** | `BOT-056` ✅, `BOT-057` ✅ | Click hàng trong Trade Logs $\rightarrow$ chart tự động smooth pan & highlight marker; Click marker trên chart $\rightarrow$ Trade Logs tự lật đến đúng trang & chọn hàng. |
+| ✅ **[PROP-001](completed/PROP-001_trade_entry_exit_connection_line.md)** | **Đường Nối Lệnh Vào - Ra (Trade Entry-Exit Connection Line on Hover & Selection)** | 🟡 **`M (Standard)`** | `BOT-056` ✅ | **Hoàn thành một nửa (23/09) — chỉ phần click.** Chọn dòng Trade Logs vẽ đường nét đứt Entry→Exit (xanh/đỏ theo Win/Loss); phần hover marker vẫn mở — **sửa (23/09, review `PR #259`)**: hit-testing per-marker *đã có sẵn* (`TriangleMarkerItem.setToolTip()`/`crosshair_controller.py`'s `SignalProxy`), lý do hoãn thật là phạm vi (đã dồn 3 tính năng vào 1 PR), không phải thiếu hạ tầng. |
+| ✅ **[PROP-002](completed/PROP-002_bidirectional_table_chart_interaction.md)** | **Tương Tác Hai Chiều Bảng Trade Logs & Biểu Đồ (Bi-directional Table & Chart)** | 🟡 **`M (Standard)`** | `BOT-056` ✅, `BOT-057` ✅ | **Hoàn thành một nửa (23/09) — chỉ phần Table→Chart.** Chọn dòng Trade Logs giờ pan/zoom chart tới đúng cửa sổ thời gian của lệnh (`IBacktestChartHost.set_view_range`), đệm 50% theo thời lượng lệnh, sàn 60s cho lệnh gần như tức thời; đường link đã có từ `PROP-001` đóng vai trò highlight, không thêm pulse animation mới. Chart→Table (click marker → nhảy trang + chọn hàng) hoãn — cần cơ chế click-per-marker + khớp marker về lại Trade hoàn toàn mới, chưa tồn tại. |
 | **[PROP-003](backlog/PROP-003_zoom_adaptive_trade_marker_details.md)** | **Chi Tiết Marker Thích Ứng Mức Phóng To (Zoom-Adaptive Trade Marker PnL Details)** | 🟡 **`M (Standard)`** | `BOT-098A` ✅ | Zoom xa: Giữ tam giác tối giản; Zoom cực gần (< 30 nến): Tự động hiển thị mini-badge % PnL và nhãn lệnh (TP, SL, Sig) bên cạnh tam giác. |
 | ✅ | **[PROP-004](completed/PROP-004_advanced_chart_marker_filters.md)** | **Bộ Lọc Marker Nâng Cao Trên Biểu Đồ Backtest (Advanced Chart Marker Filter Controls)** | 🟢 **`S (Fast)`** | `BOT-056` ✅ | **Đã hoàn thành (23/09).** 3 control (outcome/side/min-\|PnL\|%) trên `BacktestChartControls` (QtWidgets, không phải QML/ViewModel như thiết kế gốc — theo đúng quy ước "dumb component" class này đã có). Bắt được 2 bug thật ngay bằng test suite của chính task: `QComboBox.currentData()` làm mất identity enum, và nối `currentIndexChanged(int)` thẳng vào signal 0-tham-số gây `TypeError`. Xem §5 hồ sơ. |
 
