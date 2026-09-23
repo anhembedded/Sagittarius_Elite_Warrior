@@ -3613,6 +3613,85 @@ def test_restore_run_requested_is_ignored_while_a_run_is_active(presenter, view_
     assert view_model.lastRunSummary == summary_before
 
 
+def test_trade_logs_panel_selection_signal_is_wired_to_the_presenter(
+    presenter, view_model
+):
+    """`PROP-001` wiring test (`testing-rule.md` §E12): emits the real
+    `bottom_widget.selectedTradeChanged` signal rather than calling
+    `_on_trade_row_selected` directly, so removing the `.connect(...)` line
+    in `signal_wiring.py` makes this fail."""
+    view_model.strategy_params.selectedStrategyKey = "fake_strategy"
+    presenter._on_run_backtest()
+    result = _make_result(with_trades=True)
+    presenter._on_backtest_succeeded(result)
+    presenter._on_chart_data_ready(
+        result, [(1.0, 1.0, 2.0, 0.5, 1.5)], [(1.0, 100.0, True)]
+    )
+    trade = result.trades[0]
+
+    presenter.view.bottom_widget.selectedTradeChanged.emit(1)
+
+    trade_link = presenter.view.chart_cards[0].chart_card.trade_link
+    assert trade_link._curve.isVisible()
+    x_data, _y_data = trade_link._curve.getData()
+    assert list(x_data) == [trade.entry_time.timestamp(), trade.exit_time.timestamp()]
+
+
+def test_trade_row_selected_draws_the_trade_link_on_the_chart(presenter, view_model):
+    """`PROP-001` — picking a Trade Logs row draws a dashed line between
+    that trade's entry and exit points."""
+    view_model.strategy_params.selectedStrategyKey = "fake_strategy"
+    presenter._on_run_backtest()
+    result = _make_result(with_trades=True)
+    presenter._on_backtest_succeeded(result)
+    presenter._on_chart_data_ready(
+        result, [(1.0, 1.0, 2.0, 0.5, 1.5)], [(1.0, 100.0, True)]
+    )
+    trade = result.trades[0]
+
+    presenter._on_trade_row_selected(1)
+
+    trade_link = presenter.view.chart_cards[0].chart_card.trade_link
+    assert trade_link._curve.isVisible()
+    x_data, y_data = trade_link._curve.getData()
+    assert list(x_data) == [trade.entry_time.timestamp(), trade.exit_time.timestamp()]
+    assert list(y_data) == [trade.entry_price, trade.exit_price]
+
+
+def test_trade_row_deselected_clears_the_trade_link(presenter, view_model):
+    view_model.strategy_params.selectedStrategyKey = "fake_strategy"
+    presenter._on_run_backtest()
+    result = _make_result(with_trades=True)
+    presenter._on_backtest_succeeded(result)
+    presenter._on_chart_data_ready(
+        result, [(1.0, 1.0, 2.0, 0.5, 1.5)], [(1.0, 100.0, True)]
+    )
+    presenter._on_trade_row_selected(1)
+
+    presenter._on_trade_row_selected(-1)
+
+    trade_link = presenter.view.chart_cards[0].chart_card.trade_link
+    assert not trade_link._curve.isVisible()
+
+
+def test_trade_row_selected_with_an_out_of_range_index_clears_the_link(
+    presenter, view_model
+):
+    view_model.strategy_params.selectedStrategyKey = "fake_strategy"
+    presenter._on_run_backtest()
+    result = _make_result(with_trades=True)
+    presenter._on_backtest_succeeded(result)
+    presenter._on_chart_data_ready(
+        result, [(1.0, 1.0, 2.0, 0.5, 1.5)], [(1.0, 100.0, True)]
+    )
+    presenter._on_trade_row_selected(1)
+
+    presenter._on_trade_row_selected(99)
+
+    trade_link = presenter.view.chart_cards[0].chart_card.trade_link
+    assert not trade_link._curve.isVisible()
+
+
 def test_report_export_does_nothing_when_there_is_no_result_yet(presenter):
     """`BOT-115B` — mirrors `test_export_does_nothing_when_there_are_no_trades_yet`:
     the button is disabled until a run completes, but the handler itself must

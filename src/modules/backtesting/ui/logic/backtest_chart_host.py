@@ -117,6 +117,18 @@ class PythonBacktestChartHost:
     def clear_script_markers(self, key: str) -> None:
         self._chart_card.clear_script_markers(key)
 
+    def set_trade_link(
+        self,
+        entry_point: tuple[float, float],
+        exit_point: tuple[float, float],
+        color: str,
+        label: str,
+    ) -> None:
+        self._chart_card.set_trade_link(entry_point, exit_point, color, label)
+
+    def clear_trade_link(self) -> None:
+        self._chart_card.clear_trade_link()
+
     def connect_timeframe_changed(self, slot: Callable[[str], None]) -> None:
         self._chart_card.toolbar.sig_timeframe_changed.connect(slot)
 

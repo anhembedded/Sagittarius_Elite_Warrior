@@ -132,6 +132,13 @@ def connect_ui_signals(presenter) -> None:
     presenter._view_model.trade_log.exportRequested.connect(
         presenter._on_trade_log_export_requested
     )
+    # `PROP-001` — `bottom_widget` is built once in `BackTestView.__init__`
+    # (never rebuilt per symbol like the chart cards are), so this needs no
+    # re-wiring elsewhere the way `connect_chart_controls()` does.
+    if presenter.view.bottom_widget is not None:
+        presenter.view.bottom_widget.selectedTradeChanged.connect(
+            presenter._on_trade_row_selected
+        )
 
 
 def connect_engine_events(presenter) -> None:

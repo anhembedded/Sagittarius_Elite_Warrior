@@ -19,6 +19,7 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_pre
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import SymbolPreferences
 
+from ..backtest_trade_logs_panel import BackTestTradeLogsPanel
 from ..backtest_view_model import BackTestViewModel
 from ..logic.chart_canvas_view import ChartDisplayMode
 from .i_backtest_chart_controls import IBacktestChartControls
@@ -34,7 +35,7 @@ DEFAULT_VIEW_MODEL_CONTEXT_NAME = "viewModel"
 @runtime_checkable
 class IBacktestView(Protocol):
     """
-    @brief The Backtest screen's Presenter↔View contract — all 18 members
+    @brief The Backtest screen's Presenter↔View contract — all 19 members
     the Presenter side actually uses, and nothing else.
 
     @details **`Protocol`, not an ABC**, under `architecture-rule.md` §2.1
@@ -87,6 +88,12 @@ class IBacktestView(Protocol):
     #: no AST walk over attribute access can see. Declared here so it is a
     #: contract rather than a guess; the fallback default is gone with it.
     chart_mode: ChartDisplayMode
+
+    #: `PROP-001` — the trade logs table, or `None` before it is built. Same
+    #: "`None` is load-bearing" reasoning as `chart_controls`: it is built
+    #: once, in `BackTestView.__init__`, unlike the chart cards which are
+    #: rebuilt per symbol.
+    bottom_widget: BackTestTradeLogsPanel | None
 
     # -- Lifecycle --------------------------------------------------- #
 
