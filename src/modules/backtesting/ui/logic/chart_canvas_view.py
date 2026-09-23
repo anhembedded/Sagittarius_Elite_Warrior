@@ -185,6 +185,32 @@ def build_trade_link(
     return entry_point, exit_point, color, label
 
 
+#: How far past a trade's entry/exit the chart pans, as a fraction of the
+#: trade's own duration — a longer-held trade gets more breathing room.
+_TRADE_VIEW_PADDING_RATIO = 0.5
+
+#: Floor for the padding above, in seconds. Without it a same-candle scalp
+#: (duration close to zero) would pan to a view a few pixels wide.
+_TRADE_VIEW_MIN_PADDING_SECONDS = 60.0
+
+
+def build_trade_view_range(trade: Trade) -> tuple[float, float]:
+    """`PROP-002` — the `(min_ts, max_ts)` window the chart pans/zooms to
+    when a trade is selected in the Trade Logs table, so the user does not
+    have to manually scroll to find it. Padding scales with the trade's own
+    duration (a multi-day swing trade needs more surrounding context than a
+    5-minute scalp), floored so a near-instant trade still gets a readable
+    window rather than a sliver."""
+    entry_timestamp = trade.entry_time.timestamp()
+    exit_timestamp = trade.exit_time.timestamp()
+    duration_seconds = exit_timestamp - entry_timestamp
+    padding = max(
+        duration_seconds * _TRADE_VIEW_PADDING_RATIO,
+        _TRADE_VIEW_MIN_PADDING_SECONDS,
+    )
+    return entry_timestamp - padding, exit_timestamp + padding
+
+
 def _entry_marker(trade: Trade, is_short: bool) -> MarkerPoint:
     label = _SHORT_ENTRY_LABEL if is_short else _LONG_ENTRY_LABEL
     color = BEAR_COLOR if is_short else BULL_COLOR

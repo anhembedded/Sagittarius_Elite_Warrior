@@ -109,6 +109,10 @@ class IBacktestChartHost(Protocol):
 
     def clear_trade_link(self) -> None: ...
 
+    def set_view_range(self, min_ts: float, max_ts: float) -> None:
+        """`PROP-002` — pans/zooms the chart's X axis to `[min_ts, max_ts]`."""
+        ...
+
     def connect_timeframe_changed(self, slot: Callable[[str], None]) -> None:
         """Wire a callback to the chart header's timeframe toolbar clicks."""
         ...

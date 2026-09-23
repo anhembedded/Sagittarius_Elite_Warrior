@@ -1797,3 +1797,17 @@ def test_chart_card_set_trade_link_replaces_a_still_visible_earlier_link(qapp):
     assert list(x_data) == [5.0, 6.0]
     assert list(y_data) == [50.0, 40.0]
     assert card.trade_link._label.textItem.toPlainText() == "-20.00%"
+
+
+def test_chart_card_set_view_range_pans_the_main_plot_to_the_given_window(qapp):
+    """`PROP-002` — `ChartCard.set_view_range()` is the port operation
+    `PythonBacktestChartHost` delegates to; this is what it actually does
+    to the plot's X axis."""
+    card = ChartCard("BTCUSDT")
+    card.plot_layout.main_plot.setXRange(0.0, 10.0, padding=0)
+
+    card.set_view_range(1000.0, 1010.0)
+
+    (min_x, max_x), _ = card.plot_layout.main_plot.vb.viewRange()
+    assert min_x <= 1000.0
+    assert max_x >= 1010.0

@@ -26,11 +26,18 @@ from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
 from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
 from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import welcome_screen
 
-_EXPECTED_ROUTES = ("dashboard", "trading", "data_management", "backtest")
+_EXPECTED_ROUTES = (
+    "dashboard",
+    "trading",
+    "data_management",
+    "watchlist",
+    "backtest",
+)
 
 
 def _real_modules(container: object) -> tuple[object, object, object]:
-    """The three module instances that own these four screens, each with
+    """The three module instances that own these five screens (`BOT-019`
+    added `watchlist` as `market_data`'s second screen), each with
     `_container` stashed the way `boot()` would (`TradingModule.__init__`
     and `BacktestingModule.__init__`'s own docstrings explain why this is
     safe to skip straight to). Ordered to match `_EXPECTED_ROUTES` — the
@@ -57,7 +64,7 @@ def test_every_module_screen_is_contributed() -> None:
 
 
 def test_each_screen_is_contributed_by_its_own_module_not_the_shell() -> None:
-    """`contributor_id` is what a log line shows — each of these four is
+    """`contributor_id` is what a log line shows — each of these five is
     its module's own now, unlike the legacy mechanism's shared
     `LEGACY_CONTRIBUTOR_ID`."""
     registry = ContributionRegistry(dev_mode=False)
@@ -68,12 +75,13 @@ def test_each_screen_is_contributed_by_its_own_module_not_the_shell() -> None:
         "dashboard": "trading",
         "trading": "trading",
         "data_management": "market_data",
+        "watchlist": "market_data",
         "backtest": "backtesting",
     }
 
 
 def test_the_default_route_survives_the_round_trip() -> None:
-    """`welcome` (ADR D13), not any of the four module screens — none of
+    """`welcome` (ADR D13), not any of the five module screens — none of
     them declares `is_default`. The round trip is the point: a default
     declared on a contribution has to still be the default after
     `ScreenRegistry` has it."""
@@ -117,7 +125,12 @@ def test_the_sidebar_matches_the_legacy_layout() -> None:
     assert section_titles == ["NAVIGATION", "QUANT ENGINE"]
 
     navigation_routes = [item.route for item in sections[0].items]
-    assert navigation_routes == ["dashboard", "trading", "data_management"]
+    assert navigation_routes == [
+        "dashboard",
+        "trading",
+        "data_management",
+        "watchlist",
+    ]
     assert [item.route for item in sections[1].items] == ["backtest"]
     assert list(bottom) == []
 

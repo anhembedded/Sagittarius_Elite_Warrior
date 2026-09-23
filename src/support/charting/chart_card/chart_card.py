@@ -767,6 +767,13 @@ class ChartCard(Card):
     def clear_trade_link(self) -> None:
         self.trade_link.hide()
 
+    def set_view_range(self, min_ts: float, max_ts: float) -> None:
+        """`PROP-002` — pans/zooms the main plot's X axis to `[min_ts,
+        max_ts]`, e.g. to bring a selected trade's entry/exit window into
+        view. `_apply_view_bounds()`'s existing `setLimits()` clamps this to
+        the loaded history the same way it clamps any other pan/zoom."""
+        self.plot_layout.main_plot.setXRange(min_ts, max_ts, padding=0.02)
+
     def set_display_timezone(self, tz_name: str) -> None:
         """Sets the active display timezone for crosshair, tooltips and date axes."""
         self.crosshair.set_display_timezone(tz_name)

@@ -57,6 +57,23 @@ settings triads) − 3 (folded into `StatusMessageViewModel`) = **66**,
 which is what both the merge-base and the head commit independently
 measure. The corrected baseline value itself was always right; only
 the story of *why* was wrong.
+
+**`BOT-019`** (the Watchlist screen, `modules/market_data/ui/watchlist/`)
+raised the total 66 → **67**: `WatchlistPresenter._handle_market_tick`
+joins `dashboard_presenter`/`trading_presenter`'s own methods of the same
+name, moving `_handle_market_tick` from a `trading.ui`-internal pair (not
+counted — same package) into the `market_data.ui+trading.ui` pair this
+guard does count. All three share a name and a role ("the slot
+`MarketTickFeed.marketTick` connects to") but not a body — Dashboard/
+Trading filter by `_active_interval` and forward to chart-update signals;
+Watchlist computes a percent change and updates a table row. Renaming
+Watchlist's method to dodge the counter would violate `code/naming.md`
+§4's own "one word per concept" rule for the one name this codebase
+already uses for exactly this slot; extracting a shared base would have
+nothing real to share, since the three bodies do genuinely different
+things — the same call this guard's own docstring already made for
+`_apply_status`/`_load_from_config` above. Accepted as debt with no
+extraction target, not something to disguise by renaming.
 """
 
 from __future__ import annotations

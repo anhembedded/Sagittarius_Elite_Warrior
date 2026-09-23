@@ -29,10 +29,13 @@ uses — which is exactly what a reader opens this file to find.
 
 That is a default inherited from `BoundedContextModule`, so the absence is a
 statement, not an omission. `contribute()` **is** implemented: one
-`SETTINGS_SECTION` (`EPIC-025E` PR 4.4e) and, since `EPIC-025F` PR 5.2, the
-Database screen itself — `database_screen()` describes it the way
+`SETTINGS_SECTION` (`EPIC-025E` PR 4.4e), the Database screen itself since
+`EPIC-025F` PR 5.2 (`database_screen()` describes it the way
 `settings_screen()` describes the shell's own screen, retiring the last of
-this module's tenancy in `shell/legacy_screen_adapter.py`.
+this module's tenancy in `shell/legacy_screen_adapter.py`), and the
+Watchlist screen (`BOT-019`) — a second, independent screen this module
+contributes, describing multiple tracked symbols at once rather than the
+one `ChartCard` Dashboard/Trading each focus on.
 """
 
 from __future__ import annotations
@@ -88,6 +91,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.ui.database_screen import
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.settings_contribution import (
     build_market_data_settings_section,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.watchlist.watchlist_screen import (
+    watchlist_screen,
+)
 
 logger = logging.getLogger("App.MarketDataModule")
 
@@ -139,6 +145,7 @@ class MarketDataModule(BoundedContextModule):
             )
         )
         registry.contribute_screen(database_screen())
+        registry.contribute_screen(watchlist_screen())
 
     def declare_cli(self, registry: ICliRegistry) -> None:
         """`sync` and `stream` are this context's commands, so this context
