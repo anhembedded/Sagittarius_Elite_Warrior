@@ -735,12 +735,18 @@ class DevBoardPanel(QObject):
         """Built fresh per opening — same reasoning `TradingView`'s own
         method documents. Imported lazily for the same reason: the dialog
         pulls in `QScrollArea`/`Overlay` chrome no user who never opens it
-        should pay for at panel construction."""
+        should pay for at panel construction.
+
+        `BUG-134` — parents to `self._dialog_parent()`, never `self`:
+        `DevBoardPanel` is a `QObject`, not a `QWidget` (`EPIC-025` PR
+        1.4c-3), and a `QDialog` parented to one raises `TypeError` — see
+        `_dialog_parent()`'s own docstring, which this call had not
+        actually followed."""
         from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
             StrategyParamsDialog,
         )
 
-        dialog = StrategyParamsDialog(self._view_model.strategy, self)
+        dialog = StrategyParamsDialog(self._view_model.strategy, self._dialog_parent())
         dialog.exec()
 
     def _on_strategy_config_changed(self) -> None:
