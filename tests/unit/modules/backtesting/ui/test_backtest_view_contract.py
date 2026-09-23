@@ -170,7 +170,7 @@ def test_no_view_member_is_reached_by_string() -> None:
     )
 
 
-def test_the_contract_is_exactly_eighteen_members() -> None:
+def test_the_contract_is_exactly_nineteen_members() -> None:
     """A count, so a two-sided drift cannot cancel itself out.
 
     @details Both tests above compare *sets*, so simultaneously deleting one
@@ -179,10 +179,12 @@ def test_the_contract_is_exactly_eighteen_members() -> None:
     which had been reached by string; `EPIC-014` added
     `set_symbol_preferences`; the `EPIC-015` Phase 4 follow-up (persisted,
     per-symbol pinned timeframes) added `set_timeframe_pin_preferences`;
-    `PROP-004` added `refresh_trade_flag_filters` (chart marker filters).
+    `PROP-004` added `refresh_trade_flag_filters` (chart marker filters);
+    `PROP-001` added `bottom_widget` (the trade logs panel, reached to wire
+    its row-selection signal to the chart's entry-exit link).
     Changing this number is a deliberate act that should show up in a diff.
     """
-    assert len(_declared_members(IBacktestView)) == 18
+    assert len(_declared_members(IBacktestView)) == 19
 
 
 @pytest.mark.usefixtures("qapp")

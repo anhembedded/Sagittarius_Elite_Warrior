@@ -20,6 +20,7 @@ from .plot_layout import ChartAntialiasMode, ChartPlotLayout
 from .price_line import LastPriceLine
 from .range_update_scheduler import RangeUpdateScheduler
 from .timeframe_pin_preferences import TimeframePinPreferences
+from .trade_link_line import TradeLinkLine
 from .viewport_controller import ViewportController
 from .volume_renderer import VolumeItem
 from .zoom_controls import ZoomControls
@@ -62,11 +63,11 @@ class ChartCard(Card):
     """
     @brief The Chart component for visualizing Candlestick data & Extensible Technical Indicators.
     @details Facade Pattern — composes ChartPlotLayout, CrosshairController, IndicatorManager,
-    VolumeItem, LastPriceLine, ViewportController, ZoomControls, ChartTypeRenderer, ChartToolbar
-    and FastCandlestickItem, and exposes one stable API surface to the Presenter. Each collaborator
-    owns exactly one concern (layout, crosshair, indicators, volume, last-price, viewport-follow,
-    zoom, chart-type rendering, timeframe UI), keeping this class a thin orchestrator instead of
-    a God Object.
+    VolumeItem, LastPriceLine, TradeLinkLine, ViewportController, ZoomControls, ChartTypeRenderer,
+    ChartToolbar and FastCandlestickItem, and exposes one stable API surface to the Presenter. Each
+    collaborator owns exactly one concern (layout, crosshair, indicators, volume, last-price,
+    trade-link, viewport-follow, zoom, chart-type rendering, timeframe UI), keeping this class a
+    thin orchestrator instead of a God Object.
     """
 
     #: BOT-035 — the user panned within EdgeScrollDetector's threshold of the
@@ -177,6 +178,7 @@ class ChartCard(Card):
         )
 
         self.price_line = LastPriceLine(self.plot_layout.main_plot)
+        self.trade_link = TradeLinkLine(self.plot_layout.main_plot)
 
         self.crosshair = CrosshairController(
             scene=self.plot_layout.widget.scene(),
@@ -748,6 +750,22 @@ class ChartCard(Card):
 
     def clear_script_markers(self, key: str) -> None:
         self.indicators.clear_script_markers(key)
+
+    # ------------------------------------------------------------------ #
+    # PROP-001 — Trade Logs row selection -> chart entry/exit link
+    # ------------------------------------------------------------------ #
+
+    def set_trade_link(
+        self,
+        entry_point: tuple[float, float],
+        exit_point: tuple[float, float],
+        color: str,
+        label: str,
+    ) -> None:
+        self.trade_link.show_link(entry_point, exit_point, color, label)
+
+    def clear_trade_link(self) -> None:
+        self.trade_link.hide()
 
     def set_display_timezone(self, tz_name: str) -> None:
         """Sets the active display timezone for crosshair, tooltips and date axes."""

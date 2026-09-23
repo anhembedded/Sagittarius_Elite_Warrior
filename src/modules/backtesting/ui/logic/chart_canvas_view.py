@@ -163,6 +163,28 @@ def filter_trades_for_markers(
     return list(filtered)
 
 
+def build_trade_link(
+    trade: Trade,
+) -> tuple[tuple[float, float], tuple[float, float], str, str]:
+    """`PROP-001` — the `(entry_point, exit_point, color, label)` the
+    chart's dashed entry-exit connecting line needs for one trade picked
+    from the Trade Logs table. Plain floats/strings, not a `Trade`, because
+    the line is drawn by `support/charting/chart_card.py`, which may not
+    import a `modules/*` type (`architecture-rule.md` §3) — the same reason
+    `trade_flag_markers_for_trades()` below hands `ChartCard` plain marker
+    tuples rather than `Trade` objects.
+
+    Same win/loss sign convention as `filter_trades_for_markers()`
+    (`pnl > 0` is a win) — this and the marker filters must never disagree
+    about which side of zero a trade falls on."""
+    entry_point = (trade.entry_time.timestamp(), trade.entry_price)
+    exit_point = (trade.exit_time.timestamp(), trade.exit_price)
+    color = BULL_COLOR if trade.pnl > 0 else BEAR_COLOR
+    sign = "+" if trade.pnl_percent >= 0 else ""
+    label = f"{sign}{trade.pnl_percent:.2f}% ({sign}{trade.pnl:,.2f})"
+    return entry_point, exit_point, color, label
+
+
 def _entry_marker(trade: Trade, is_short: bool) -> MarkerPoint:
     label = _SHORT_ENTRY_LABEL if is_short else _LONG_ENTRY_LABEL
     color = BEAR_COLOR if is_short else BULL_COLOR

@@ -51,12 +51,18 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+from Sagittarius_Elite_Warrior.src.presentation.ui.ui_toast_notification_channel import (
+    UiToastNotificationChannel,
+)
 from Sagittarius_Elite_Warrior.src.shell.app_config import (
     dev_mode_banner,
     load_app_config,
 )
 from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
     assemble_contributions,
+)
+from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
+    NotificationEventHandler,
 )
 from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
 from Sagittarius_Elite_Warrior.src.shell.welcome.start_requested_event import (
@@ -329,6 +335,16 @@ def build() -> AppRuntime:
     app_engine.context.container.singleton(
         INavigationService, window.navigation_service
     )
+
+    # `BOT-018` — the UI toast channel needs a real window to show a status
+    # bar message on, which does not exist until `window` above is built;
+    # `NotificationEventHandler` itself was already constructed in
+    # `composition_root.py`'s `create_app()`, the one place both entry
+    # points pass through, with only its headless-safe Telegram channel.
+    app_engine.context.container.resolve(NotificationEventHandler).add_channel(
+        UiToastNotificationChannel(window)
+    )
+
     window.show()
 
     # `EPIC-025` PR 1.5a — what **Start** on the Welcome screen means. The

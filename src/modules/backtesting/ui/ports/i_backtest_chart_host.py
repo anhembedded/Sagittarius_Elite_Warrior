@@ -96,6 +96,19 @@ class IBacktestChartHost(Protocol):
 
     def clear_script_markers(self, key: str) -> None: ...
 
+    def set_trade_link(
+        self,
+        entry_point: tuple[float, float],
+        exit_point: tuple[float, float],
+        color: str,
+        label: str,
+    ) -> None:
+        """`PROP-001` — draws a dashed line between one trade's entry and
+        exit points, with a PnL label at its midpoint."""
+        ...
+
+    def clear_trade_link(self) -> None: ...
+
     def connect_timeframe_changed(self, slot: Callable[[str], None]) -> None:
         """Wire a callback to the chart header's timeframe toolbar clicks."""
         ...

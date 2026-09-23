@@ -21,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.chart_canvas_vie
     MarkerOutcomeFilter,
     MarkerSideFilter,
     TradeMarkerType,
+    build_trade_link,
     equity_curve_to_candles,
     equity_curve_to_line_data,
     filter_trades_for_markers,
@@ -354,3 +355,54 @@ def test_all_three_filters_combine_rather_than_override_each_other():
     )
 
     assert filtered == [matches]
+
+
+def test_build_trade_link_uses_entry_and_exit_points():
+    trade = _trade(pnl=10.0, pnl_percent=10.0)
+
+    entry_point, exit_point, _color, _label = build_trade_link(trade)
+
+    assert entry_point == (_T0.timestamp(), trade.entry_price)
+    assert exit_point == (_T1.timestamp(), trade.exit_price)
+
+
+def test_build_trade_link_colors_a_win_bull_and_a_loss_bear():
+    win = _trade(pnl=10.0, pnl_percent=10.0)
+    loss = _trade(pnl=-10.0, pnl_percent=-10.0)
+
+    _, _, win_color, _ = build_trade_link(win)
+    _, _, loss_color, _ = build_trade_link(loss)
+
+    assert win_color == BULL_COLOR
+    assert loss_color == BEAR_COLOR
+
+
+def test_build_trade_link_matches_the_trade_log_filters_win_loss_convention():
+    """A breakeven trade (`pnl == 0`) is a loss here — same sign convention
+    `filter_trades_for_markers()` and `trade_log_filter.py` both use
+    (`pnl > 0` is the only win case), so this and the Trade Logs table never
+    disagree about which side of zero a trade falls on."""
+    breakeven = _trade(pnl=0.0, pnl_percent=0.0)
+
+    _, _, color, _ = build_trade_link(breakeven)
+
+    assert color == BEAR_COLOR
+
+
+def test_build_trade_link_label_shows_signed_percent_and_value():
+    win = _trade(pnl=420.0, pnl_percent=2.35)
+
+    _, _, _, label = build_trade_link(win)
+
+    assert "+2.35%" in label
+    assert "+420.00" in label
+
+
+def test_build_trade_link_label_omits_leading_plus_for_a_loss():
+    loss = _trade(pnl=-50.0, pnl_percent=-1.2)
+
+    _, _, _, label = build_trade_link(loss)
+
+    assert "-1.20%" in label
+    assert "-50.00" in label
+    assert "+-" not in label

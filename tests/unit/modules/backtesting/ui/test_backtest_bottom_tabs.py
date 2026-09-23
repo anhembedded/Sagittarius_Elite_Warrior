@@ -231,3 +231,42 @@ def test_backtest_presenter_event_bus_handlers(qapp) -> None:
     assert "100,000" in presenter._view_model.log_model.data(
         idx, LogListModel.MessageRole
     )
+
+
+def test_expanding_a_trade_row_emits_its_stable_index(qapp) -> None:
+    """`PROP-001` — expanding a row (the existing expand/collapse click)
+    also selects it for the chart's entry-exit link."""
+    vm = BackTestViewModel()
+    panel = BackTestTradeLogsPanel(vm)
+    spy = MagicMock()
+    panel.selectedTradeChanged.connect(spy)
+
+    panel._on_row_toggled(3)
+
+    spy.assert_called_once_with(3)
+    assert panel._expanded_rows[3] is True
+
+
+def test_collapsing_the_same_row_emits_deselection(qapp) -> None:
+    vm = BackTestViewModel()
+    panel = BackTestTradeLogsPanel(vm)
+    panel._on_row_toggled(3)
+    spy = MagicMock()
+    panel.selectedTradeChanged.connect(spy)
+
+    panel._on_row_toggled(3)
+
+    spy.assert_called_once_with(-1)
+    assert panel._expanded_rows[3] is False
+
+
+def test_expanding_a_different_row_selects_that_one(qapp) -> None:
+    vm = BackTestViewModel()
+    panel = BackTestTradeLogsPanel(vm)
+    panel._on_row_toggled(1)
+    spy = MagicMock()
+    panel.selectedTradeChanged.connect(spy)
+
+    panel._on_row_toggled(2)
+
+    spy.assert_called_once_with(2)

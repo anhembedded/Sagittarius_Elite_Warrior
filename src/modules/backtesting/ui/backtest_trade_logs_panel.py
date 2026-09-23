@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QFrame,
     QGraphicsOpacityEffect,
@@ -70,6 +70,15 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
     #: used, so the floor is unchanged.
     ROW_HEIGHT = 44
     MIN_VISIBLE_ROWS = 5
+
+    #: `PROP-001` — emitted with the trade's stable `TradeLogRow.index`
+    #: (1-based position in the full, unfiltered trades list) whenever a
+    #: row becomes expanded, and with `-1` when that same row collapses
+    #: again. The Presenter uses this to draw/clear the chart's
+    #: entry-exit connecting line — expand/collapse already means "the
+    #: user is looking at this trade", so this reuses that click rather
+    #: than adding a second, separate selection gesture.
+    selectedTradeChanged = Signal(int)
 
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
@@ -400,6 +409,7 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
             if isinstance(widget, _TradeLogRowWidget) and widget._index == index:
                 widget.set_expanded(self._expanded_rows[index])
                 break
+        self.selectedTradeChanged.emit(index if self._expanded_rows[index] else -1)
 
     def _sync_pagination(self) -> None:
         vm = self._vm

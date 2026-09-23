@@ -1759,3 +1759,41 @@ def test_an_off_scale_overlay_cannot_evict_the_candles(qapp):
         "the oscillator took the axis with it"
     )
     assert (high - low) / (max_y - min_y) >= _PRICE_BAND_MIN_VIEW_FRACTION
+
+
+def test_chart_card_set_trade_link_draws_a_visible_dashed_segment(qapp):
+    """`PROP-001` — `ChartCard.set_trade_link()` is the port operation
+    `PythonBacktestChartHost` delegates to; this is what it actually does
+    to the plot."""
+    card = ChartCard("BTCUSDT")
+
+    card.set_trade_link((1.0, 100.0), (2.0, 110.0), "#26a69a", "+10.00%")
+
+    assert card.trade_link._curve.isVisible()
+    x_data, y_data = card.trade_link._curve.getData()
+    assert list(x_data) == [1.0, 2.0]
+    assert list(y_data) == [100.0, 110.0]
+    assert card.trade_link._label.isVisible()
+    assert card.trade_link._label.textItem.toPlainText() == "+10.00%"
+
+
+def test_chart_card_clear_trade_link_hides_the_segment(qapp):
+    card = ChartCard("BTCUSDT")
+    card.set_trade_link((1.0, 100.0), (2.0, 110.0), "#26a69a", "+10.00%")
+
+    card.clear_trade_link()
+
+    assert not card.trade_link._curve.isVisible()
+    assert not card.trade_link._label.isVisible()
+
+
+def test_chart_card_set_trade_link_replaces_a_still_visible_earlier_link(qapp):
+    card = ChartCard("BTCUSDT")
+    card.set_trade_link((1.0, 100.0), (2.0, 110.0), "#26a69a", "+10.00%")
+
+    card.set_trade_link((5.0, 50.0), (6.0, 40.0), "#ef5350", "-20.00%")
+
+    x_data, y_data = card.trade_link._curve.getData()
+    assert list(x_data) == [5.0, 6.0]
+    assert list(y_data) == [50.0, 40.0]
+    assert card.trade_link._label.textItem.toPlainText() == "-20.00%"

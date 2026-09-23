@@ -152,3 +152,34 @@ def test_compute_diff_summary_ignores_calc_on_order_fills_outside_tick_mode():
 
     diff = cfg1.compute_diff_summary(cfg2)
     assert "Calc on order fills" not in diff
+
+
+def test_fsm_run_restored_from_history_lands_on_completed_from_every_non_busy_state():
+    """`BOT-095G` — picking an older run off the session history dropdown
+    is a real previously-completed run being redisplayed, allowed from any
+    state the screen can be idling in, but never from a busy one (a
+    background action already owns the screen)."""
+    non_busy_states = (
+        BacktestUiState.IDLE,
+        BacktestUiState.COMPLETED,
+        BacktestUiState.CONFIG_DIRTY,
+        BacktestUiState.EMPTY_DATA,
+        BacktestUiState.ERROR,
+    )
+    for state in non_busy_states:
+        assert (
+            BACKTEST_STATE_TRANSITIONS[
+                (state, BacktestUiEvent.RUN_RESTORED_FROM_HISTORY)
+            ]
+            == BacktestUiState.COMPLETED
+        )
+
+    busy_states = (
+        BacktestUiState.RUNNING,
+        BacktestUiState.CANCELLING,
+        BacktestUiState.SYNCING,
+    )
+    for state in busy_states:
+        assert (state, BacktestUiEvent.RUN_RESTORED_FROM_HISTORY) not in (
+            BACKTEST_STATE_TRANSITIONS
+        )

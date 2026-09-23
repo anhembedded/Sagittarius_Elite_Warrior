@@ -23,6 +23,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QComboBox,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -73,6 +74,11 @@ def _clamp_percent(value: float) -> float:
     defending itself is not the same promise.
     """
     return min(100.0, max(0.0, value))
+
+
+#: `BOT-095G` — always index 0, never a real run; `itemData(0)` is `""`,
+#: which `_on_run_history_selected` reads as "nothing to restore".
+_RUN_HISTORY_PLACEHOLDER = "Previous runs…"
 
 
 def _pill_button(object_name: str, min_width: int = 0) -> QPushButton:
@@ -497,6 +503,22 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         self._btn_expand_metrics.clicked.connect(self._vm.requestOpenExtendedMetrics)
         row.addWidget(self._btn_expand_metrics)
 
+        # BOT-095G — no `setStyleSheet()` here either, same ratchet as
+        # `_btn_save_report` below.
+        self._combo_run_history = QComboBox()
+        self._combo_run_history.setObjectName("comboSessionRunHistory")
+        self._combo_run_history.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._combo_run_history.setFixedHeight(26)
+        self._combo_run_history.setToolTip(
+            "Redisplay an earlier run from this session, without re-running it"
+        )
+        self._combo_run_history.addItem(_RUN_HISTORY_PLACEHOLDER, "")
+        self._combo_run_history.setEnabled(False)
+        self._combo_run_history.currentIndexChanged.connect(
+            self._on_run_history_selected
+        )
+        row.addWidget(self._combo_run_history)
+
         # BOT-115B — no `setStyleSheet()` here: `test_app_styling_only_shrinks.py`
         # (ADR D21) ratchets that count down, not up, so a new button renders
         # in the platform's own theme rather than copying `_btn_expand_metrics`'s
@@ -587,6 +609,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         vm.run_result.resultWarningTextChanged.connect(self._sync_metrics_header)
         vm.run_result.resultChanged.connect(self._sync_result_box)
         vm.run_result.needsDataSyncChanged.connect(self._sync_result_box)
+        vm.sessionRunHistoryChanged.connect(self._sync_session_run_history)
 
     def _sync_all(self) -> None:
         self._sync_toolbar_labels()
@@ -596,6 +619,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         self._sync_stat_cards()
         self._sync_metrics_header()
         self._sync_result_box()
+        self._sync_session_run_history()
 
     def _sync_toolbar_labels(self) -> None:
         vm = self._vm
@@ -619,6 +643,14 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
             self._btn_bot_params,
         ):
             btn.setEnabled(enabled)
+        # `BOT-095G` — a busy run/sync owns the screen the same way it owns
+        # every other toolbar control; `and` rather than an outright
+        # `setEnabled(enabled)` so an empty history still shows disabled
+        # once a run finishes, instead of springing back on with only the
+        # placeholder to pick.
+        self._combo_run_history.setEnabled(
+            enabled and self._combo_run_history.count() > 1
+        )
 
     def _sync_run_button(self) -> None:
         vm = self._vm
@@ -727,6 +759,34 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         # signal `_on_backtest_succeeded` populates stat cards from, so it
         # already means exactly "there is something to save".
         self._btn_save_report.setEnabled(has_cards)
+
+    def _sync_session_run_history(self) -> None:
+        """`BOT-095G` — repopulates the dropdown from
+        `vm.sessionRunHistory`, always resetting the selection to the
+        placeholder: after a push (a new run finished) or an eviction (the
+        oldest slot fell off `MAX_HISTORY`), whatever was previously picked
+        no longer represents "the current on-screen run" — leaving an old
+        selection highlighted would be misleading in either case."""
+        combo = self._combo_run_history
+        entries = self._vm.sessionRunHistory
+        combo.blockSignals(True)
+        try:
+            combo.clear()
+            combo.addItem(_RUN_HISTORY_PLACEHOLDER, "")
+            for entry in entries:
+                combo.addItem(entry["label"], entry["run_id"])
+            combo.setCurrentIndex(0)
+        finally:
+            combo.blockSignals(False)
+        # `controlsEnabled` (a busy run/sync) still wins even with entries
+        # present — `_sync_controls_enabled` is the one place that combines
+        # both conditions.
+        self._sync_controls_enabled()
+
+    def _on_run_history_selected(self, index: int) -> None:
+        run_id = self._combo_run_history.itemData(index)
+        if run_id:
+            self._vm.requestRestoreRun(run_id)
 
     def _sync_result_box(self) -> None:
         vm = self._vm

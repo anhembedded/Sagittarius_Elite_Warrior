@@ -16,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_ba
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.broker_simulation_config import (
+    BrokerSimulationConfig,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type import (
     CommissionType,
 )
@@ -128,6 +131,7 @@ from .logic.backtest_fsm_matrix import (
 )
 from .logic.backtest_limitations_view import build_backtest_limitations
 from .logic.backtest_screen_config import BacktestScreenConfig
+from .logic.chart_canvas_view import build_trade_link
 from .logic.extended_metrics_snapshot import ExtendedMetricsSnapshot
 from .logic.performance_charts import (
     build_drawdown_chart_points,
@@ -145,6 +149,11 @@ from .logic.run_config_builder import (
     build_run_config,
     published_candle_cutoff,
     snapshot_current_config,
+)
+from .logic.session_run_history import (
+    BacktestRunSnapshot,
+    SessionRunHistoryCache,
+    make_run_snapshot,
 )
 from .logic.time_range_preset import TimeRangePreset
 from .ports.i_backtest_view import IBacktestView
@@ -331,6 +340,10 @@ class BackTestPresenter(BasePresenter):
         # _on_backtest_succeeded) so "Save report" always exports the run
         # that produced what's currently on screen, never a stale one.
         self._last_result: BacktestResult | None = None
+        # BOT-095G: last few completed runs, kept for the session history
+        # dropdown so comparing two runs never needs a full re-run.
+        self._run_history = SessionRunHistoryCache()
+        self._pending_history_form_data: StateData | None = None
 
         # BOT-095H & EPIC-003A: shared action ownership tracker
         self._action_tracker = ActionOwnershipTracker[
@@ -730,6 +743,16 @@ class BackTestPresenter(BasePresenter):
         """Dirty Tracking (BOT-095B): Compares active toolbar inputs against
         the last executed run snapshot (_last_run_config) to detect stale state."""
         if self.fsm is None:
+            return
+
+        # `BOT-095G`: restoring an older run from the session history
+        # dropdown applies its remembered form through these same ViewModel
+        # setters (`restore_backtest_state`), which fire the exact
+        # `xChanged` signals a user editing the toolbar would. Without this
+        # guard that would immediately mark the just-restored run
+        # CONFIG_DIRTY against itself — the same reasoning that already
+        # protects `_request_chart_preview()` during boot-time restore.
+        if self._restoring_state:
             return
 
         if self.fsm.current_state in (
@@ -1142,41 +1165,13 @@ class BackTestPresenter(BasePresenter):
         self._last_no_data_config = None
         self._last_no_data_coverage = None
         self._view_model.run_result.set_needs_data_sync(False)
-        extended_cards = build_extended_stat_cards(result)
-        self._view_model.run_result.set_stat_cards(
-            stat_cards_to_qml(build_primary_stat_cards(result)),
-            stat_cards_to_qml(extended_cards),
-        )
-        self._view_model.run_result.set_extended_metrics_snapshot(
-            ExtendedMetricsSnapshot(
-                cards=extended_cards,
-                gross_profit=result.metrics.gross_profit,
-                gross_loss=result.metrics.gross_loss,
-                profit_factor=result.metrics.profit_factor,
-                total_closed_trades=result.metrics.total_closed_trades,
-                fee_rate_percent=self._fee_rate_percent_for_last_run(),
-            )
-        )
-        self._view_model.run_result.set_result_warning_text(
-            build_result_warning_text(result)
-        )
-        self._view_model.run_result.set_limitations(build_backtest_limitations(result))
-        self._view_model.run_result.set_drawdown_points(
-            build_drawdown_chart_points(result)
-        )
-        self._view_model.run_result.set_yearly_returns(
-            build_yearly_returns_rows(result)
-        )
         run_config = self._get_current_config()
-        message = (
-            format_result_summary(result)
-            if result.trades
-            else f"{_ZERO_TRADES_MESSAGE}\n\n{format_result_summary(result)}"
+        active_broker_config = (
+            self._active_action.config.broker_config
+            if self._active_action is not None
+            else run_config.broker_config
         )
-        message = f"{self._execution_mode_label(run_config)}\n{message}"
-        self._view_model.run_result.set_result(message, is_error=False)
-        self._all_trades = result.trades
-        self._refresh_trade_log()
+        self._present_result(result, run_config, active_broker_config)
         duration_sec = getattr(result, "duration", 0.0)
         net_profit = result.metrics.net_profit if result.metrics else 0.0
         win_rate = result.metrics.percent_profitable if result.metrics else 0.0
@@ -1189,40 +1184,74 @@ class BackTestPresenter(BasePresenter):
         )
         self._last_run_config = run_config
         self._last_result = result
+        # BOT-095G: captured here, not in `_on_chart_data_ready`, because
+        # the toolbar unlocks the moment `BACKTEST_SUCCEEDED` dispatches
+        # below, and `ChartFeedCoordinator`'s own async klines fetch can
+        # still be in flight when that happens — capturing later would risk
+        # snapshotting a form the user has since edited, mismatched against
+        # the `result`/klines this same snapshot must carry.
+        self._pending_history_form_data = self.capture_state()
         self._view_model.lastRunSummary = self._last_run_config.to_summary_label()
         self._view_model.configDiffSummary = ""
         if self.fsm.can_dispatch(BacktestUiEvent.BACKTEST_SUCCEEDED):
             self.fsm.dispatch(BacktestUiEvent.BACKTEST_SUCCEEDED)
 
-    def _fee_rate_percent_for_last_run(self) -> float:
-        """The commission actually applied to the run that just finished —
-        not `_get_current_config()` (used a few lines up only for the dirty-
-        tracking summary label, and its `broker_config` is always the
-        untouched `BrokerSimulationConfig()` default, never the toolbar's
-        real Order Execution values).
+    def _present_result(
+        self,
+        result: BacktestResult,
+        run_config: BacktestRunConfig,
+        broker_config: BrokerSimulationConfig,
+    ) -> None:
+        """Renders `result`'s stat cards, warnings and result box onto the
+        ViewModel — shared by a real run finishing (`_on_backtest_succeeded`)
+        and an older run being redisplayed from the session history dropdown
+        (`_on_restore_run_requested`, `BOT-095G`). FSM dispatch and the
+        `_last_run_config`/`_last_result` bookkeeping differ between the two
+        callers and stay with each of them, not here."""
+        extended_cards = build_extended_stat_cards(result)
+        self._view_model.run_result.set_stat_cards(
+            stat_cards_to_qml(build_primary_stat_cards(result)),
+            stat_cards_to_qml(extended_cards),
+        )
+        self._view_model.run_result.set_extended_metrics_snapshot(
+            ExtendedMetricsSnapshot(
+                cards=extended_cards,
+                gross_profit=result.metrics.gross_profit,
+                gross_loss=result.metrics.gross_loss,
+                profit_factor=result.metrics.profit_factor,
+                total_closed_trades=result.metrics.total_closed_trades,
+                fee_rate_percent=self._fee_rate_percent_for(broker_config),
+            )
+        )
+        self._view_model.run_result.set_result_warning_text(
+            build_result_warning_text(result)
+        )
+        self._view_model.run_result.set_limitations(build_backtest_limitations(result))
+        self._view_model.run_result.set_drawdown_points(
+            build_drawdown_chart_points(result)
+        )
+        self._view_model.run_result.set_yearly_returns(
+            build_yearly_returns_rows(result)
+        )
+        message = (
+            format_result_summary(result)
+            if result.trades
+            else f"{_ZERO_TRADES_MESSAGE}\n\n{format_result_summary(result)}"
+        )
+        message = f"{self._execution_mode_label(run_config)}\n{message}"
+        self._view_model.run_result.set_result(message, is_error=False)
+        self._all_trades = result.trades
+        self._refresh_trade_log()
 
-        `self._active_action.config` is `_build_run_config()`'s own output
-        (see `_on_run_backtest`/`_start_backtest_run`) — the exact
-        `BacktestRunConfig`, real `broker_config` included, that was
-        submitted for this action. `_finish_action` (called by
-        `_on_backtest_succeeded_for_action` right after this method returns)
-        only records an outcome; it does not clear `_active_action`, so it is
-        still the current action's context here.
-
-        Same `commission_value if PERCENT else 0.0` `execution_coordinator.py`
-        already computes for the run's own `fee_percent` — no field on
-        `BacktestMetrics`/`BacktestRunConfig` is named "fee rate percent"
-        directly (grepped `src/domain`, `src/application`, `src/presentation`
-        — nothing), so this mirrors the one place that already turns a
-        `BrokerSimulationConfig` into that shape rather than inventing a new
-        one. Falls back to `0.0` only if no action was ever tracked (should
-        not happen on a real succeeded-run path, but a Backtest tested via
-        `_on_backtest_succeeded` alone with no prior `_start_backtest_run`
-        call — e.g. a unit test calling it directly — must not raise)."""
-        action = self._active_action
-        if action is None:
-            return 0.0
-        broker_config = action.config.broker_config
+    @staticmethod
+    def _fee_rate_percent_for(broker_config: BrokerSimulationConfig) -> float:
+        """The commission actually applied to a run, in the same shape
+        `execution_coordinator.py` already computes for its own
+        `fee_percent` — no field on `BacktestMetrics`/`BacktestRunConfig` is
+        named "fee rate percent" directly (grepped `src/domain`,
+        `src/application`, `src/presentation` — nothing), so this mirrors
+        the one place that already turns a `BrokerSimulationConfig` into
+        that shape rather than inventing a new one."""
         if broker_config.commission_type != CommissionType.PERCENT:
             return 0.0
         return broker_config.commission_value
@@ -1281,6 +1310,72 @@ class BackTestPresenter(BasePresenter):
         raw_klines: list | None = None,
     ) -> None:
         self._chart_render.on_data_ready(result, klines, volume, raw_klines)
+        # BOT-095G: this is the one point a complete snapshot (config,
+        # result, and the exact candles it was drawn against) exists at
+        # once — `_on_backtest_succeeded` fires first and has no klines/
+        # volume yet, `ChartFeedCoordinator`'s own async fetch resolves
+        # separately and lands here.
+        if (
+            self._last_run_config is not None
+            and self._last_result is not None
+            and self._pending_history_form_data is not None
+        ):
+            self._run_history.push(
+                make_run_snapshot(
+                    form_data=self._pending_history_form_data,
+                    run_config=self._last_run_config,
+                    result=self._last_result,
+                    klines=klines,
+                    volume=volume,
+                    now=datetime.now(UTC),
+                )
+            )
+            self._pending_history_form_data = None
+            self._refresh_session_run_history_view_model()
+
+    def _refresh_session_run_history_view_model(self) -> None:
+        self._view_model.set_session_run_history(
+            [
+                {"run_id": snapshot.run_id, "label": snapshot.label}
+                for snapshot in self._run_history.get_all()
+            ]
+        )
+
+    @Slot(str)
+    @safe_ui_action
+    def _on_restore_run_requested(self, run_id: str) -> None:
+        """A user picked an older run off the session history dropdown
+        (`BOT-095G`). Redisplays it exactly as it looked when it finished —
+        no engine call, no network fetch, matching `state_persistence`'s own
+        "opening the screen still runs nothing" contract."""
+        if self.fsm is None or not self.fsm.can_dispatch(
+            BacktestUiEvent.RUN_RESTORED_FROM_HISTORY
+        ):
+            # A busy run/sync owns the screen — the toolbar's dropdown is
+            # disabled for exactly this reason, but the FSM (not UI
+            # enablement) is the real guard against a stray call clobbering
+            # an in-flight action's state.
+            return
+        snapshot: BacktestRunSnapshot | None = self._run_history.get_by_id(run_id)
+        if snapshot is None:
+            return
+        self._restoring_state = True
+        try:
+            self.restore_state(snapshot.form_data)
+        finally:
+            self._restoring_state = False
+        self._last_run_config = snapshot.run_config
+        self._last_result = snapshot.result
+        self._view_model.lastRunSummary = snapshot.run_config.to_summary_label()
+        self._view_model.configDiffSummary = ""
+        self._present_result(
+            snapshot.result, snapshot.run_config, snapshot.run_config.broker_config
+        )
+        self._chart_render.on_data_ready(
+            snapshot.result, snapshot.klines, snapshot.volume
+        )
+        if self.fsm.can_dispatch(BacktestUiEvent.RUN_RESTORED_FROM_HISTORY):
+            self.fsm.dispatch(BacktestUiEvent.RUN_RESTORED_FROM_HISTORY)
 
     @Slot(str, str, list, list)
     @safe_ui_action
@@ -1325,6 +1420,23 @@ class BackTestPresenter(BasePresenter):
     @safe_ui_action
     def _on_chart_script_marker(self, key: str, markers: list) -> None:
         self._indicators.on_script_marker(key, markers)
+
+    @Slot(int)
+    @safe_ui_action
+    def _on_trade_row_selected(self, index: int) -> None:
+        """`PROP-001` — a Trade Logs row expanded or collapsed. `index` is
+        the trade's stable 1-based position in `self._all_trades`; `-1`
+        means "no row selected"."""
+        chart_card = self._first_chart_card()
+        if chart_card is None:
+            return
+        if index < 1 or index > len(self._all_trades):
+            chart_card.clear_trade_link()
+            return
+        entry_point, exit_point, color, label = build_trade_link(
+            self._all_trades[index - 1]
+        )
+        chart_card.set_trade_link(entry_point, exit_point, color, label)
 
     def _reset_indicator_bookkeeping_after_host_rebuild(self) -> None:
         self._indicators.reset_bookkeeping_after_host_rebuild()
