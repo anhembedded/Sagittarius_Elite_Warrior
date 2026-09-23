@@ -30,7 +30,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     apply_role,
 )
 
+from ._drawdown_chart_widget import DrawdownChartWidget
 from ._filter_tab_button import _FilterTabButton
+from ._monthly_returns_heatmap_widget import MonthlyReturnsHeatmapWidget
 from ._trade_log_columns import _COLUMNS
 from ._trade_log_row import _TradeLogRowWidget
 
@@ -90,6 +92,12 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
 
         self._trades_tab = self._build_trades_tab()
         outer.addWidget(self._trades_tab, 1)
+
+        self._drawdown_tab = self._build_drawdown_tab()
+        outer.addWidget(self._drawdown_tab, 1)
+
+        self._returns_tab = self._build_returns_tab()
+        outer.addWidget(self._returns_tab, 1)
 
         self._log_panel = AppLogPanel("BACKTEST LOG")
         self._log_panel.setObjectName("backtestLogPanel")
@@ -192,6 +200,28 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
         layout.addWidget(table_container, 1)
         return tab
 
+    # ------------------------------------------------------------------ #
+    # Drawdown + returns tabs (BOT-106D)
+    # ------------------------------------------------------------------ #
+
+    def _build_drawdown_tab(self) -> QWidget:
+        tab = QWidget()
+        tab.setObjectName("drawdownTabContent")
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self._drawdown_chart = DrawdownChartWidget()
+        layout.addWidget(self._drawdown_chart, 1)
+        return tab
+
+    def _build_returns_tab(self) -> QWidget:
+        tab = QWidget()
+        tab.setObjectName("returnsTabContent")
+        layout = QVBoxLayout(tab)
+        layout.setContentsMargins(0, 0, 0, 0)
+        self._returns_heatmap = MonthlyReturnsHeatmapWidget()
+        layout.addWidget(self._returns_heatmap, 1)
+        return tab
+
     def _build_table_header(self) -> QWidget:
         header = QFrame()
         header.setFixedHeight(34)
@@ -277,6 +307,8 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
         vm.trade_log.currentPageChanged.connect(self._sync_pagination)
         vm.logModel.countChanged.connect(self._sync_tab_badges)
         vm.isConfigDirtyChanged.connect(self._sync_dirty_opacity)
+        vm.run_result.drawdownPointsChanged.connect(self._sync_drawdown)
+        vm.run_result.yearlyReturnsChanged.connect(self._sync_returns)
 
     def _sync_all(self) -> None:
         self._sync_active_tab()
@@ -286,12 +318,23 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
         self._sync_tab_badges()
         self._sync_pagination()
         self._sync_dirty_opacity()
+        self._sync_drawdown()
+        self._sync_returns()
+
+    #: `activeBottomTab` values this panel understands — kept in one place so
+    #: an unrecognized value (should never happen; defensive default only)
+    #: falls back to "trades" instead of hiding every tab.
+    _BOTTOM_TAB_IDS = ("trades", "drawdown", "returns", "logs")
 
     def _sync_active_tab(self) -> None:
-        is_logs = self._vm.activeBottomTab == "logs"
-        self._trades_tab.setVisible(not is_logs)
-        self._log_panel.setVisible(is_logs)
-        self._tab_bar.set_current_id("logs" if is_logs else "trades")
+        active = self._vm.activeBottomTab
+        if active not in self._BOTTOM_TAB_IDS:
+            active = "trades"
+        self._trades_tab.setVisible(active == "trades")
+        self._drawdown_tab.setVisible(active == "drawdown")
+        self._returns_tab.setVisible(active == "returns")
+        self._log_panel.setVisible(active == "logs")
+        self._tab_bar.set_current_id(active)
 
     def _on_tab_selected(self, index: int, tab_id: str) -> None:
         self._vm.setActiveBottomTab(tab_id)
@@ -302,10 +345,18 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
         self._tab_bar.set_tabs(
             [
                 Tab("trades", "TRADE LIST", f"{total} TRADES"),
+                Tab("drawdown", "DRAWDOWN"),
+                Tab("returns", "RETURNS"),
                 Tab("logs", "BACKTEST LOG", f"{log_count} EVENTS"),
             ]
         )
         self._sync_active_tab()
+
+    def _sync_drawdown(self) -> None:
+        self._drawdown_chart.set_points(self._vm.run_result.drawdownPoints)
+
+    def _sync_returns(self) -> None:
+        self._returns_heatmap.set_rows(self._vm.run_result.yearlyReturns)
 
     def _sync_filters(self) -> None:
         current = self._vm.trade_log.filter

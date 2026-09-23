@@ -73,6 +73,47 @@ def test_backtest_bottom_tabs_switch_between_trades_and_logs(qapp) -> None:
     assert not panel._log_panel.isVisibleTo(panel)
 
 
+def test_backtest_bottom_tabs_include_drawdown_and_returns(qapp) -> None:
+    """`BOT-106D` — two more tabs, mutually exclusive with the other two."""
+    vm = BackTestViewModel()
+    panel = BackTestTradeLogsPanel(vm)
+
+    assert not panel._drawdown_tab.isVisibleTo(panel)
+    assert not panel._returns_tab.isVisibleTo(panel)
+
+    vm.setActiveBottomTab("drawdown")
+    qapp.processEvents()
+    assert panel._drawdown_tab.isVisibleTo(panel)
+    assert not panel._trades_tab.isVisibleTo(panel)
+    assert not panel._returns_tab.isVisibleTo(panel)
+    assert not panel._log_panel.isVisibleTo(panel)
+
+    vm.setActiveBottomTab("returns")
+    qapp.processEvents()
+    assert panel._returns_tab.isVisibleTo(panel)
+    assert not panel._drawdown_tab.isVisibleTo(panel)
+
+
+def test_backtest_bottom_tabs_forward_drawdown_and_returns_data(qapp) -> None:
+    """`BOT-106D` — the panel reads `run_result.drawdownPoints`/
+    `.yearlyReturns` reactively, the same wiring `_sync_rows`/`trade_log`
+    already uses for the trades tab."""
+    vm = BackTestViewModel()
+    panel = BackTestTradeLogsPanel(vm)
+
+    vm.run_result.set_drawdown_points([{"t": 0.0, "v": -5.0}])
+    qapp.processEvents()
+    assert panel._drawdown_chart._plot_widget.isVisibleTo(panel._drawdown_chart)
+    assert not panel._drawdown_chart._empty_label.isVisibleTo(panel._drawdown_chart)
+
+    rows = [
+        {"year": 2024, "months": [None] * 12, "ytdText": "+0.00%", "ytdColor": "#000"}
+    ]
+    vm.run_result.set_yearly_returns(rows)
+    qapp.processEvents()
+    assert panel._returns_heatmap._grid_container.isVisibleTo(panel._returns_heatmap)
+
+
 def test_backtest_presenter_event_bus_handlers(qapp) -> None:
     from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
         BackTestPresenter,

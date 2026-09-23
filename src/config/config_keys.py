@@ -66,6 +66,9 @@ class ConfigKeys(str, Enum):
     #: once, when the router registers the screen. Values are the members of
     #: `screens.backtest.view_factory.BacktestViewKey`.
     BACKTEST_VIEW = "backtest.view"
+    #: `BOT-115B` — where "Save report" writes by default, mirroring
+    #: `DATABASE_DIR`'s own `config.get(...) or <cwd>/<name>` fallback shape.
+    BACKTEST_REPORTS_DIR = "backtest.reports_dir"
 
     # Market Data Hub / KLine Inspector
 

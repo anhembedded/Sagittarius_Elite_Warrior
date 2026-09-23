@@ -237,7 +237,13 @@ class _TradeLogRowWidget(QFrame):  # base-exempt: excluded from DataRow by desig
 
         self._entry_reason_label.setText(row.get("entryReasonText", ""))
         self._exit_reason_label.setText(row.get("exitReasonText", ""))
-        duration_text = f"Duration: {row.get('durationText', '')}"
+        # BOT-106D — MAE/MFE (worst/best unrealized return while open, BOT-106B)
+        # lead the column: a less familiar metric than Duration, so it reads
+        # first rather than getting lost after metadata of unbounded length.
+        duration_text = (
+            f"MAE: {row.get('maeText', '')}   MFE: {row.get('mfeText', '')}\n"
+            f"Duration: {row.get('durationText', '')}"
+        )
         for item in row.get("metadataItems", []) or []:
             duration_text += f"\n{item.get('label', '')}: {item.get('value', '')}"
         self._metrics_label.setText(duration_text)

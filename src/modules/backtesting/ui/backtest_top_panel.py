@@ -497,6 +497,22 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         self._btn_expand_metrics.clicked.connect(self._vm.requestOpenExtendedMetrics)
         row.addWidget(self._btn_expand_metrics)
 
+        # BOT-115B — no `setStyleSheet()` here: `test_app_styling_only_shrinks.py`
+        # (ADR D21) ratchets that count down, not up, so a new button renders
+        # in the platform's own theme rather than copying `_btn_expand_metrics`'s
+        # pre-existing (grandfathered) styling.
+        self._btn_save_report = QPushButton("Save report")
+        self._btn_save_report.setObjectName("btnSaveReport")
+        self._btn_save_report.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_save_report.setFixedHeight(26)
+        self._btn_save_report.setToolTip(
+            "Save this run's full trades, config and metrics as a "
+            ".sagi-report.json file"
+        )
+        self._btn_save_report.setEnabled(False)
+        self._btn_save_report.clicked.connect(self._vm.requestExportReport)
+        row.addWidget(self._btn_save_report)
+
         return row_widget
 
     def _build_result_warning_label(self) -> QLabel:
@@ -707,6 +723,10 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         text = self._vm.run_result.resultWarningText
         self._result_warning_label.setText(text)
         self._result_warning_label.setVisible(has_cards and bool(text))
+        # BOT-115B — `has_cards` is the same "a real BacktestResult exists"
+        # signal `_on_backtest_succeeded` populates stat cards from, so it
+        # already means exactly "there is something to save".
+        self._btn_save_report.setEnabled(has_cards)
 
     def _sync_result_box(self) -> None:
         vm = self._vm

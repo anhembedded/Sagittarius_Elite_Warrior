@@ -42,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_ba
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_metrics import (
     BacktestMetrics,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report_loader import (
+    load_backtest_report,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
@@ -3456,6 +3459,114 @@ def test_backtest_succeeded_transitions_to_completed_and_snapshots_last_run_conf
     assert "1m" in vm.lastRunSummary
 
 
+def test_report_export_does_nothing_when_there_is_no_result_yet(presenter):
+    """`BOT-115B` — mirrors `test_export_does_nothing_when_there_are_no_trades_yet`:
+    the button is disabled until a run completes, but the handler itself must
+    also refuse to open the dialog if it somehow fires early."""
+    assert presenter._last_result is None
+
+    with patch(
+        "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
+        "backtest_presenter.QFileDialog.getSaveFileName"
+    ) as mock_dialog:
+        presenter._on_report_export_requested()
+
+    mock_dialog.assert_not_called()
+
+
+def test_report_export_writes_the_completed_run_to_the_chosen_path(presenter, tmp_path):
+    """`BOT-115B` — "Save report" exports the exact run behind what's on
+    screen (`_last_result`/`_last_run_config`, both set together in
+    `_on_backtest_succeeded`), not a dirty toolbar's values."""
+    vm = presenter._view_model
+    vm.strategy_params.selectedStrategyKey = "fake_strategy"
+    vm.selectedTimeframe = "1m"
+    vm.initialCapitalText = "10000"
+    vm.selectedCurrency = Currency.USD
+
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+
+    dest = tmp_path / "run.sagi-report.json"
+    with patch(
+        "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
+        "backtest_presenter.QFileDialog.getSaveFileName",
+        return_value=(str(dest), ""),
+    ):
+        presenter._on_report_export_requested()
+
+    assert dest.is_file()
+    with open(dest, "rb") as report_file:
+        loaded = load_backtest_report(
+            report_file.read(), valid_strategy_keys={"fake_strategy"}
+        )
+    assert loaded.is_valid
+    assert loaded.report.provenance.strategy_key == "fake_strategy"
+    assert loaded.report.result.trades == result.trades
+
+
+def test_report_export_writes_nothing_when_the_dialog_is_cancelled(presenter):
+    """`BOT-115B` — an empty path (`QFileDialog.getSaveFileName`'s Cancel
+    return) must not attempt a write."""
+    vm = presenter._view_model
+    vm.strategy_params.selectedStrategyKey = "fake_strategy"
+    vm.selectedTimeframe = "1m"
+    vm.initialCapitalText = "10000"
+    vm.selectedCurrency = Currency.USD
+
+    presenter._on_run_backtest()
+    presenter._on_backtest_succeeded(_make_fake_result(trades=[]))
+
+    with (
+        patch(
+            "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
+            "backtest_presenter.QFileDialog.getSaveFileName",
+            return_value=("", ""),
+        ),
+        patch(
+            "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
+            "backtest_presenter.write_backtest_report"
+        ) as mock_write,
+    ):
+        presenter._on_report_export_requested()
+
+    mock_write.assert_not_called()
+
+
+def test_report_export_uses_the_run_that_produced_the_result_not_a_dirty_toolbar(
+    presenter, tmp_path
+):
+    """`BOT-115B` — after `isConfigDirty` goes true (toolbar edited post-run),
+    "Save report" must still export `_last_run_config`, the snapshot from the
+    run that produced the on-screen result, not the edited toolbar values."""
+    vm = presenter._view_model
+    vm.strategy_params.selectedStrategyKey = "fake_strategy"
+    vm.selectedTimeframe = "1m"
+    vm.initialCapitalText = "10000"
+    vm.selectedCurrency = Currency.USD
+
+    presenter._on_run_backtest()
+    presenter._on_backtest_succeeded(_make_fake_result(trades=[]))
+
+    vm.selectedTimeframe = "5m"
+    assert vm.isConfigDirty is True
+
+    dest = tmp_path / "run.sagi-report.json"
+    with patch(
+        "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
+        "backtest_presenter.QFileDialog.getSaveFileName",
+        return_value=(str(dest), ""),
+    ):
+        presenter._on_report_export_requested()
+
+    with open(dest, "rb") as report_file:
+        loaded = load_backtest_report(
+            report_file.read(), valid_strategy_keys={"fake_strategy"}
+        )
+    assert loaded.report.config.timeframe == TimeFrame.ONE_MINUTE
+
+
 def test_dirty_tracking_detects_timeframe_change_after_completed(presenter):
     """Verify changing timeframe when COMPLETED transitions to CONFIG_DIRTY with diff summary."""
     vm = presenter._view_model
@@ -3570,6 +3681,8 @@ def test_empty_backtest_transitions_to_idle_with_sync_affordance(presenter):
     assert vm.uiMode == BacktestUiState.EMPTY_DATA.value
     assert vm.run_result.needsDataSync is True
     assert presenter._last_no_data_config == cfg
+    assert vm.run_result.drawdownPoints == []
+    assert vm.run_result.yearlyReturns == []
 
 
 def test_failed_backtest_transitions_to_idle_with_error(presenter):
@@ -3585,6 +3698,29 @@ def test_failed_backtest_transitions_to_idle_with_error(presenter):
     assert presenter.fsm.current_state == BacktestUiState.ERROR
     assert vm.uiMode == BacktestUiState.ERROR.value
     assert "Connection timed out" in vm.run_result.resultText
+    assert vm.run_result.drawdownPoints == []
+    assert vm.run_result.yearlyReturns == []
+
+
+def test_backtest_succeeded_populates_drawdown_and_yearly_returns(presenter):
+    """`BOT-106D` — `_on_backtest_succeeded` feeds the drawdown chart and
+    returns heatmap from the same `BacktestResult` the stat cards read,
+    then a later empty/failed run clears both again."""
+    vm = presenter._view_model
+    vm.strategy_params.selectedStrategyKey = "fake_strategy"
+
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+
+    assert vm.run_result.drawdownPoints != []
+    assert vm.run_result.yearlyReturns != []
+
+    presenter._on_run_backtest()
+    presenter._on_backtest_failed("Connection timed out")
+
+    assert vm.run_result.drawdownPoints == []
+    assert vm.run_result.yearlyReturns == []
 
 
 def test_qml_stale_warning_banner_and_button_dirty_rendering(presenter, qapp):

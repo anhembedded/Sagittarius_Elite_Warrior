@@ -22,21 +22,29 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 148 | 74.4% |
+| 🟢 **Completed** | 151 | 75.9% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 44 | 22.1% |
+| 🔴 **Backlog** | 41 | 20.6% |
 | ❌ **Cancelled** | 7 | 3.5% |
 | 📈 **Tổng số Task** | **199** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
+> **Cập nhật 2026-09-22 (2):** 4 việc hoàn thành trong một PR tiếp theo — `BOT-115B` (nút "Lưu báo cáo" xuất
+> `.sagi-report.json` từ màn Backtest), `BOT-106D` (trình bày PySide6 thật cho `BOT-106B`/`106C`: cột MAE/MFE trong
+> Trade Logs, 2 tab mới "DRAWDOWN"/"RETURNS"), `BOT-025` (re-scoped — task gốc giả định 6 event/1 module chưa từng
+> tồn tại; tài liệu hoá 2 event thật đang có, tại đúng vị trí thật `contracts/events/`), và **`BUG-133` đã đóng**
+> (`check_intrabar_stops()` nay chạy mỗi tick ở Historical Tick Backtest — SL/TP/thanh lý/MAE-MFE hoạt động đúng ở
+> cả 2 chế độ). Epic `BOT-106` giờ **4/4 xong trọn**, Epic `BOT-115` **2/4**. Đối soát lại theo thư mục thật:
+> `python3 scripts/render_task_counts.py` → completed 151, backlog 41, cancelled 7.
+
 > **Cập nhật 2026-09-22:** 4 task hoàn thành trong một PR — `BOT-106B` (MAE/MFE excursion, phần domain), `BOT-106C`
 > (drawdown series + monthly/yearly returns, phần domain), `BOT-077` (`calc_on_order_fills`, đủ cả domain lẫn UI thật),
 > `BOT-115A` (schema `BacktestReport` + serializer JSON, nền móng Epic `BOT-115`). Epic `BOT-106` giờ 3/3 xong phần
 > domain (trình bày UI còn nợ, xem hồ sơ `BOT-106B`/`BOT-106C`). Phát sinh và ghi hồ sơ riêng
-> [`BUG-133`](bug_report/incomplete/BUG-133_tick_backtest_never_checks_intrabar_stops.md) khi làm `BOT-106B`: Historical
+> [`BUG-133`](bug_report/completed/BUG-133_tick_backtest_never_checks_intrabar_stops.md) khi làm `BOT-106B`: Historical
 > Tick Backtest chưa bao giờ gọi `check_intrabar_stops()`, nên SL/TP/thanh lý/MAE-MFE đều vô hiệu ở chế độ này —
-> chưa sửa trong PR này, đúng phạm vi. `BOT-103` (task thứ 5 dự kiến) **không** tính vào 4 task trên: đã đo thật hướng
+> chưa sửa trong PR này, đúng phạm vi (đã sửa trong batch kế tiếp, 22/09 — xem ghi chú bên dưới). `BOT-103` (task thứ 5 dự kiến) **không** tính vào 4 task trên: đã đo thật hướng
 > giải pháp task tự đề xuất (`time.sleep(0)` định kỳ) và phát hiện **không** giảm được GIL-acquisition gap ở bất kỳ N
 > nào, có nơi làm chậm +456% — revert, không ship, task vẫn ở backlog (hồ sơ đo đạc đầy đủ ở
 > `Tasks/reports/BOT-103_gil_yield_benchmark_investigation.md`). Đối soát lại theo thư mục thật:
@@ -479,7 +487,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **1** | ✅ **[BOT-022](completed/BOT-022_backtest_screen_static_ui.md)** | **Backtest Screen — Khung màn hình + Top Toolbar** | 🟡 **`M (Standard)`** | `BOT-021` ✅ | Màn hình Backtest thực thụ đầu tiên, chạy được thật end-to-end. 4 panel đẹp (Properties/Performance Summary/Trade Logs/Overview) tiếp theo ở `BOT-055`/`BOT-056`/`BOT-057`. |
 | ❌ | **[BOT-023](cancelled/BOT-023_dynamic_backtest_engine.md)** | **~~Dynamic Backtest Engine~~ — ĐÃ HUỶ** | — | — | **Huỷ 2026-08-18 (user chốt).** Vẫn bar-by-bar nên không đáp ứng yêu cầu Realtime; giá trị riêng (play/pause/tốc độ) là lớp **trình bày**, đã chuyển vào [`BOT-076`](completed/BOT-076_realtime_backtest_engine.md) §3.5. Không dựng engine replay thứ hai. |
 | ❌ | **[BOT-024](cancelled/BOT-024_backtest_screen_dynamic_ui.md)** | **~~Backtest Screen — Replay UI~~ — ĐÃ HUỶ** | — | — | **Huỷ 2026-08-19 (user chốt).** Cùng tính năng play/pause/replay speed đã bị từ chối ở `BOT-076` §3.5 dưới mã task khác — giữ cả hai sẽ để backlog treo một việc đã bị từ chối. |
-| **X** | **[BOT-025](backlog/BOT-025_backtest_domain_events_completeness.md)** | **Backtest Domain Events — Completeness Pass** | 🟢 **`S (Fast)`** | `BOT-021` ✅, `BOT-076` ✅ | Chuẩn hoá toàn bộ event Backtest (Static + Realtime) vào 1 module, tài liệu hoá rõ khi nào phát/ai lắng nghe. |
+| **X** | ✅ **[BOT-025](completed/BOT-025_backtest_domain_events_completeness.md)** | **Backtest Domain Events — Completeness Pass** | 🟢 **`S (Fast)`** | `BOT-021` ✅, `BOT-076` ✅ | **Xong (22/09), re-scoped.** Task gốc giả định 6 event (`Progress`/`TradeSimulated`/`Stopped`/`Paused`/`Resumed`/`RunRequested`) trong `domain/events/backtest_events.py` — cả module lẫn 6 event đó chưa từng tồn tại. Thực tế: đúng 2 event (`BacktestCompletedEvent`/`BacktestFailedEvent`, `contracts/events/`), cả Static lẫn Realtime phát y hệt nhau; progress/cancel đi qua callback/Qt signal cục bộ, không qua event bus (đúng vì tần suất cao, không bên nào khác cần biết); pause/resume chưa từng làm (chỉ dành cho "Dynamic", đã huỷ ở `BOT-023`). Tài liệu hoá đầy đủ trong `contracts/events/__init__.py`, khoá bằng `test_events_catalog.py`. |
 | **3** | **[BOT-039](backlog/BOT-039_dev_board_strategy_toggle_and_markers.md)** | **Dev Board — Strategy toggle + markers** | 🟡 **`M (Standard)`** | `BOT-026` ✅ | Nửa UI Dev Board tách khỏi BOT-026 gốc — làm sau khi màn Backtest (Phase 1) ổn định, không phải điều kiện chặn Phase 1/2. |
 
 > Thứ tự khuyến nghị: `BOT-020` ✅ → `BOT-026` ✅ → `BOT-021` ✅ → `BOT-022` ✅ → `BOT-055`/`BOT-056`/`BOT-057` → *(đánh giá lại, xác nhận Static ổn định)* → `BOT-075` ✅ → `BOT-042` ✅ → **`BOT-076`** ✅ → `BOT-024` → `BOT-025` (`BOT-023` đã huỷ, xem Epic `BOT-073`). `BOT-039` làm song song hoặc sau, không chặn đường chính. Đối chiếu kết quả với TradingView thật (báo cáo lưu ở `reports/backtest_tradingview_crosscheck.md`) là bước bắt buộc trước khi coi Phase 1 "xong".
@@ -549,12 +557,12 @@ Sagittarius_Elite_Warrior/Tasks/
 | 🟡 | **[Epic EPIC-003](epics/EPIC-003_presenter_and_god_file_decomposition/README.md)** | **Phân rã Presenter/File quá tải (Coordinator Pattern, Domain Policy, QML component split)** | 🔴 **`L (Thinking)`** | `EPIC-002` (mypy gate bảo vệ trong lúc refactor) | 4/6 task con xong, 1 huỷ — chi tiết ở file riêng của epic (`Tasks/epics/README.md`). |
 | ✅ | **[Epic EPIC-004](epics/EPIC-004_static_security_and_quality_analysis/README.md)** | **Static security & quality analysis gate (Bandit + magic-number + code-smell qua Ruff)** | 🟢 **`S (Fast)`** | — | 4/4 task con xong (02/09) — gate `S/PLR2004/B/SIM/ERA/N` đã fail-cứng, ~48 finding thật đã sửa, false positive được ignore theo phạm vi, cổng ghi vào `ci-rule.md`/`code-quality-rule.md`. Chi tiết ở file riêng của epic (`Tasks/epics/README.md`). |
 | **[Epic BOT-105](backlog/BOT-105_advanced_order_execution_and_risk_epic.md)** | **Quản trị Lệnh Nâng cao & Kiểm soát Rủi ro (SL/TP, Trailing, Magnifier)** | 🔴 **`L (Thinking)`** | `BOT-041` ✅, `BOT-076` ✅ | Quản trị lệnh chuyên nghiệp: Trailing Stop, Break-Even Stop, Partial TP (`BOT-105A`), Bar Magnifier phân xử râu nến chạm cả SL/TP bằng tick 1s (`BOT-105B`). |
-| 🟡 | **[Epic BOT-106](backlog/BOT-106_advanced_financial_analytics_and_reports_epic.md)** | **Báo cáo & Phân tích Chỉ số Tài chính Nâng cao (Sharpe, Sortino, MAE/MFE)** | 🟡 **`M (Standard)`** | `BOT-055` ✅, `BOT-057` ✅ | **3/3 xong phần domain (22/09)**: `BOT-106A` ✅, `BOT-106B` ✅ (MAE/MFE — vô hiệu ở Historical Tick Backtest cho tới khi `BUG-133` đóng), `BOT-106C` ✅ (drawdown series + monthly/yearly returns). Trình bày (Trade Logs, Underwater Chart, Monthly Heatmap) tách thành task riêng [`BOT-106D`](backlog/BOT-106D_present_mae_mfe_drawdown_and_monthly_returns.md) (backlog) — QML đích đã bị gỡ trước `EPIC-025`, cần PySide6 thật. |
+| ✅ | **[Epic BOT-106](backlog/BOT-106_advanced_financial_analytics_and_reports_epic.md)** | **Báo cáo & Phân tích Chỉ số Tài chính Nâng cao (Sharpe, Sortino, MAE/MFE)** | 🟡 **`M (Standard)`** | `BOT-055` ✅, `BOT-057` ✅ | **4/4 xong (22/09)**: `BOT-106A` ✅, `BOT-106B` ✅ (MAE/MFE — nay hoạt động ở cả Static lẫn Historical Tick Backtest, `BUG-133` đã đóng), `BOT-106C` ✅ (drawdown series + monthly/yearly returns), `BOT-106D` ✅ (trình bày PySide6 thật: cột MAE/MFE, tab Drawdown, tab Returns). |
 | **[Epic BOT-107](backlog/BOT-107_strategy_robustness_and_monte_carlo_epic.md)** | **Kiểm định Độ tin cậy Chiến lược & Mô phỏng Monte Carlo (Anti-Overfitting)** | 🔴 **`L (Thinking)`** | `BOT-021` ✅, `BOT-078` ✅ | Phân tách In-Sample / Out-of-Sample đối sánh mù (`BOT-107A`), mô phỏng ngẫu nhiên 10,000 kịch bản Monte Carlo đánh giá xác suất phá sản (Risk of Ruin %) (`BOT-107B`). |
 | **[Epic BOT-108](backlog/BOT-108_strategy_parameter_optimization_epic.md)** | **Tối ưu hóa Tham số Chiến lược Tự động (Grid Search & Heatmap)** | 🔴 **`L (Thinking)`** | `BOT-044` ✅, `BOT-095C` ✅ | Quét lưới tham số đa tiến trình ProcessPool (`BOT-108A`), bảng xếp hạng Leaderboard + Bản đồ nhiệt tham số 2D tìm vùng bình nguyên ổn định (`BOT-108B`). |
-| 🟡 | **[Epic BOT-115](backlog/BOT-115_backtest_report_persistence_epic.md)** | **Lưu trữ & Nạp lại Báo cáo Backtest (Report Persistence & Portability)** | 🔴 **`L (Thinking)`** | `BOT-021` ✅, `BOT-095B` | **1/4 xong (22/09)**: `BOT-115A` ✅. Xuất một lần chạy ra file `.sagi-report.json` độc lập (kết quả + cấu hình + provenance), nạp lại sau nhiều ngày trên máy khác mà không chạy lại engine, và so sánh 2 báo cáo cạnh nhau. JSON có `schema_version`, **không bao giờ `pickle`** (file report là input không tin cậy). |
+| 🟡 | **[Epic BOT-115](backlog/BOT-115_backtest_report_persistence_epic.md)** | **Lưu trữ & Nạp lại Báo cáo Backtest (Report Persistence & Portability)** | 🔴 **`L (Thinking)`** | `BOT-021` ✅, `BOT-095B` | **2/4 xong (22/09)**: `BOT-115A` ✅, `BOT-115B` ✅. Xuất một lần chạy ra file `.sagi-report.json` độc lập (kết quả + cấu hình + provenance), nạp lại sau nhiều ngày trên máy khác mà không chạy lại engine, và so sánh 2 báo cáo cạnh nhau. JSON có `schema_version`, **không bao giờ `pickle`** (file report là input không tin cậy). |
 | ✅ **[BOT-115A](completed/BOT-115A_backtest_report_schema_and_serializer.md)** | **Schema `BacktestReport` & Serializer JSON** | 🟡 **`M (Standard)`** | `BOT-021` ✅, `BOT-104` ✅ | **Xong (22/09).** Thuần domain, zero UI: dataclass + `serialize`/`load` + provenance + validate nghiêm ngặt (whitelist `strategy_key`/enum, tính lại metrics để phát hiện file bị sửa tay). Equity curve lưu dạng cột cho gọn. |
-| **[BOT-115B](backlog/BOT-115B_backtest_report_export_ui.md)** | **Xuất báo cáo từ màn Backtest** | 🟢 **`S (Fast)`** | `BOT-115A` | Nút "Lưu báo cáo" + `QFileDialog` theo đúng khuôn `_on_trade_log_export_requested()` đã có, thư mục `reports/` mặc định. Ghi config của **lần chạy đã sinh ra kết quả**, không phải toolbar đang gõ dở. |
+| ✅ **[BOT-115B](completed/BOT-115B_backtest_report_export_ui.md)** | **Xuất báo cáo từ màn Backtest** | 🟢 **`S (Fast)`** | `BOT-115A` ✅ | **Xong (22/09).** Nút "Lưu báo cáo" + `QFileDialog` theo đúng khuôn `_on_trade_log_export_requested()` đã có, thư mục `reports/` mặc định. Ghi config của **lần chạy đã sinh ra kết quả**, không phải toolbar đang gõ dở. |
 | **[BOT-115C](backlog/BOT-115C_backtest_report_import_and_readonly_state.md)** | **Nạp báo cáo & Chế độ xem chỉ đọc** | 🔴 **`L (Thinking)`** | `BOT-115A`, `BOT-095B` | State `VIEWING_IMPORTED_REPORT` để dirty-tracking của `BOT-095B` không bắn banner vô nghĩa; badge cảnh báo khi provenance lệch; thiếu nến trong vault thì hạ cấp có giải thích + nút sync (`BOT-059`) thay vì chart rỗng. |
 | **[BOT-115D](backlog/BOT-115D_backtest_report_side_by_side_comparison.md)** | **So sánh 2 báo cáo cạnh nhau** | 🟡 **`M (Standard)`** | `BOT-115C` | Modal 2 cột: diff cấu hình (tái dùng `compute_diff_summary()`), metrics side-by-side có tô màu đúng chiều (`max_drawdown` nhỏ hơn là tốt hơn), 2 đường vốn chồng nhau đã chuẩn hoá cùng mốc. |
 

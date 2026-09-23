@@ -12,6 +12,14 @@ vặt") đã kết luận **không tách** — xem [`EPIC-003F5`](completed/EPIC
 2 đề xuất do một phiên làm việc khác viết, được đối chiếu lại với quy tắc đã
 có sẵn của dự án trước khi chấp nhận (xem §2).
 
+> **Ghi chú 2026-09-22 (review độc lập PR #256):** `backtest_presenter.py` (1.833→1.913 dòng,
+> +80 từ 2 slot `_ask_report_export_path`/`_on_report_export_requested` của `BOT-115B`) và
+> `backtest_top_panel.py` (726→746 dòng, +20 cho nút "Save report") tiếp tục phình sau khi
+> `003E`/`003F` đã xong — không có guard test nào chặn, gate vẫn xanh, nhưng mỗi tính năng mới
+> trên màn Backtest lại trả thêm dòng cho đúng 2 file epic này đang tìm cách rút gọn. Chưa mở
+> task con mới cho việc này — chỉ ghi lại để `003` không lặng lẽ mất đất đã lấy lại được trong
+> lúc tạm dừng.
+
 ---
 
 ## 1. Bối Cảnh

@@ -94,6 +94,11 @@ class TradeLogRow:
     metadata: Mapping[str, Any] = field(default_factory=dict)
     #: BOT-050 — LONG for every row before this field existed.
     side: PositionSide = PositionSide.LONG
+    #: BOT-106D — straight from `Trade.mae_percent`/`.mfe_percent`
+    #: (BOT-106B). `0.0` means "no excursion observed" (the trade's own
+    #: convention, e.g. entry and exit on the same bar), not "missing".
+    mae_percent: float = 0.0
+    mfe_percent: float = 0.0
 
 
 def build_trade_log_rows(trades: list[Trade]) -> list[TradeLogRow]:
@@ -113,6 +118,8 @@ def build_trade_log_rows(trades: list[Trade]) -> list[TradeLogRow]:
             exit_reason=trade.exit_reason,
             metadata=trade.metadata,
             side=trade.side,
+            mae_percent=trade.mae_percent,
+            mfe_percent=trade.mfe_percent,
         )
         for position, trade in enumerate(trades, start=1)
     ]
@@ -197,6 +204,8 @@ def trade_log_row_to_qml(
         "entryReasonText": row.entry_reason or "—",
         "exitReasonText": _EXIT_REASON_LABELS[row.exit_reason],
         "durationText": _format_duration(row.entry_time, row.exit_time),
+        "maeText": _signed_pnl(row.mae_percent, "%"),
+        "mfeText": _signed_pnl(row.mfe_percent, "%"),
         "metadataItems": _format_metadata_items(row.metadata),
     }
 

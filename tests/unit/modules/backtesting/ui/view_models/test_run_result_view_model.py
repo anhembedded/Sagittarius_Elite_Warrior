@@ -20,6 +20,8 @@ def test_a_fresh_view_model_reports_no_result_rather_than_a_blank_one(qapp) -> N
     assert vm.resultWarningText == ""
     assert vm.limitations == []
     assert vm.needsDataSync is False
+    assert vm.drawdownPoints == []
+    assert vm.yearlyReturns == []
 
 
 def test_result_text_and_error_flag_change_on_one_emit(qapp) -> None:
@@ -77,3 +79,37 @@ def test_the_coverage_banner_reads_both_of_its_halves_from_here(qapp) -> None:
 
     assert vm.isDataFullyCovered is False
     assert bool(vm.needsDataSync) and vm.dataCoverageMessage != ""
+
+
+def test_drawdown_points_change_on_set_and_clear(qapp) -> None:
+    vm = RunResultViewModel()
+    seen: list[int] = []
+    vm.drawdownPointsChanged.connect(lambda: seen.append(1))
+    points = [{"t": 0.0, "v": -1.5}]
+
+    vm.set_drawdown_points(points)
+
+    assert vm.drawdownPoints == points
+    assert len(seen) == 1
+
+    vm.set_drawdown_points([])
+
+    assert vm.drawdownPoints == []
+    assert len(seen) == 2
+
+
+def test_yearly_returns_change_on_set_and_clear(qapp) -> None:
+    vm = RunResultViewModel()
+    seen: list[int] = []
+    vm.yearlyReturnsChanged.connect(lambda: seen.append(1))
+    rows = [{"year": 2024, "months": [None] * 12, "ytdText": "+0.00%"}]
+
+    vm.set_yearly_returns(rows)
+
+    assert vm.yearlyReturns == rows
+    assert len(seen) == 1
+
+    vm.set_yearly_returns([])
+
+    assert vm.yearlyReturns == []
+    assert len(seen) == 2
