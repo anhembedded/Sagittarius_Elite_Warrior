@@ -22,9 +22,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 155 | 77.5% |
+| 🟢 **Completed** | 156 | 78.0% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 37 | 18.5% |
+| 🔴 **Backlog** | 36 | 18.0% |
 | ❌ **Cancelled** | 8 | 4.0% |
 | 📈 **Tổng số Task** | **200** | **100%** |
 
@@ -166,6 +166,8 @@ Sagittarius_Elite_Warrior/Tasks/
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
+
+- [x] **`BOT-095G`**: [Session Run History & Quick Comparison Cache — `SessionRunHistoryCache` (in-memory, `MAX_HISTORY=5`) pushes a snapshot at `_on_chart_data_ready` (the one point config+result+klines/volume all exist together), reuses the existing `EPIC-010F` restore-transaction mechanism (`state_persistence.capture/restore` + `_restoring_state`) rather than building a second one, new FSM event `RUN_RESTORED_FROM_HISTORY` landing on `COMPLETED` from every non-busy state; a dropdown on `BackTestTopPanel` lets a trader redisplay an older run with no engine call and no dirty re-trigger; found and closed its own gap where the busy-state guard lived only in the FSM, not yet in the toolbar's `_sync_controls_enabled()`](completed/BOT-095G_backtest_session_run_history_cache.md).
 
 - [x] **`BOT-063`**: [Modal "Thông số Chỉ báo" cho Dev Board — tái dùng nguyên `StrategyParamsDialog` (đã tổng quát hoá với `title` tuỳ chọn + nút "Restore Defaults" mới) thay vì QML đã bị xoá từ `EPIC-025`; `_field`/`_coerce` tách thành `support/indicators/scripting/param_form.py` dùng chung cho cả `StrategyCatalogService` lẫn `IndicatorScriptCatalog` mới; `min_warmup_bars` của 6 script mặc định (`ema_20/50/100/200`, `rsi_14`, `macd_full`) nay per-instance thật thay vì class attribute; lưu params đã chỉnh qua `IConfig` (`ConfigKeys.DASHBOARD_INDICATOR_SCRIPT_PARAMS`, mirror `TRADING_LIVE_STRATEGY_PARAMS`); phát hiện và sửa `BUG-134` (nút "Strategy Parameters…" crash `TypeError` mỗi lần bấm) giữa chừng](completed/BOT-063_indicator_settings_modal.md).
 
