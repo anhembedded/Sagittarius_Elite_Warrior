@@ -98,12 +98,24 @@ code rather than the proposal's own (partly stale) technical sketch:
   `_EXIT_REASON_SHORT_CODES` in `chart_canvas_view.py`, covering all 5
   `ExitReason` members (`TP`, `SL`, `Sig`, `EOB`, `Liq`) — a superset of
   the proposal's own 3-code example.
+- **MEDIUM-tier execution-price dot (2026-09-23, follow-up commit
+  `c2b23fa2`)**: §2's Medium tier ("triangle + execution-price dot") had
+  initially shipped with `MarkerDensityMode.MEDIUM` computed by
+  `classify_marker_density()` but never consumed — an undisclosed gap an
+  independent PR #261 review caught. Fixed by giving `TriangleMarkerItem`
+  a real `QGraphicsEllipseItem` price dot at its local origin (the exact
+  execution point, per the triangle's own offset convention), shown
+  exactly when `_density_mode()` resolves to `MarkerDensityMode.MEDIUM`,
+  for both per-trade and aggregated markers.
 
 **Files**: `support/charting/chart_card/marker_lod.py` (`MarkerDensityMode`,
 `classify_marker_density`, `visible_candle_count`),
 `support/charting/chart_card/marker_layer.py` (`TriangleMarkerItem` badge
 child item, `MarkerLayer.set_bar_seconds`/badge storage/density-aware
-materialization), `support/charting/chart_card/indicator_manager.py`
+materialization; `TriangleMarkerItem._price_dot_item`
+(`QGraphicsEllipseItem`), `configure()`'s `show_price_dot` param, and
+`_materialize_visible_slice()`'s MEDIUM-mode dot wiring — added in
+`c2b23fa2`), `support/charting/chart_card/indicator_manager.py`
 (`set_marker_bar_seconds` passthrough, `set_script_markers` badges param),
 `support/charting/chart_card/chart_card.py` (`_apply_x_range` refreshes bar
 seconds every pan/zoom), `modules/backtesting/ui/ports/i_backtest_chart_host.py`
@@ -113,20 +125,29 @@ seconds every pan/zoom), `modules/backtesting/ui/ports/i_backtest_chart_host.py`
 (`_filtered_trades`/`_filtered_trade_flag_badges`, both call sites).
 
 **Tests**: `test_marker_lod.py` (+8 — `visible_candle_count`/
-`classify_marker_density` boundary cases, AC-4), new
-`test_marker_layer.py` (7 — badge visibility per density mode, hidden
-before `set_bar_seconds()` is ever called, hidden for an aggregated
-marker, re-evaluated on a threshold crossing with no marker-set change),
-`test_chart_canvas_view.py` (+5 — badge alignment/short-code coverage),
-`test_backtest_view_layout.py` (+1 — wiring, mutation-verified: removing
-the badges argument from `_render_chart()`'s `set_script_markers()` call
-was confirmed to turn it red, then restored),
-`test_backtest_chart_host.py` (delegation tuple updated for the new
-explicit-forwarding convention).
+`classify_marker_density` boundary cases, AC-4), `test_marker_layer.py`
+(7 initially — badge visibility per density mode, hidden before
+`set_bar_seconds()` is ever called, hidden for an aggregated marker,
+re-evaluated on a threshold crossing with no marker-set change; +5 in
+`c2b23fa2` for the MEDIUM-tier price dot — hidden in DENSE, appears in
+MEDIUM, hidden in DETAILED, shown for an aggregated marker, hidden again
+when crossing MEDIUM → DENSE; 12 total, mutation-verified by stubbing the
+density check to always return `False`), `test_chart_canvas_view.py` (+5 —
+badge alignment/short-code coverage), `test_backtest_view_layout.py` (+1 —
+wiring, mutation-verified: removing the badges argument from
+`_render_chart()`'s `set_script_markers()` call was confirmed to turn it
+red, then restored), `test_backtest_chart_host.py` (delegation tuple
+updated for the new explicit-forwarding convention).
 
 **Verification**: `ruff check`/`ruff format --check` clean on every touched
 file; mypy (`--config-file pyproject.toml --namespace-packages
 --explicit-package-bases`) introduces zero new errors on any touched file.
 `tests/unit/modules/backtesting/` (808), `tests/unit/support/charting/` +
 `tests/unit/architecture` (656), `tests/unit/modules/trading/` +
-`tests/unit/support/indicators/` (1051): all green.
+`tests/unit/support/indicators/` (1051): all green (initial commit);
+`tests/unit/modules/backtesting/ tests/unit/support/charting/
+tests/unit/architecture` (1497) green after the `c2b23fa2` follow-up.
+Independently re-verified by a second review pass against the `c2b23fa2`
+head (PR #261 comment, 2026-09-23): CI green (5430 passed), the price dot
+confirmed to genuinely consume `MarkerDensityMode.MEDIUM` rather than a
+comment-only fix.
