@@ -22,9 +22,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 156 | 78.0% |
+| 🟢 **Completed** | 157 | 78.5% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 36 | 18.0% |
+| 🔴 **Backlog** | 35 | 17.5% |
 | ❌ **Cancelled** | 8 | 4.0% |
 | 📈 **Tổng số Task** | **200** | **100%** |
 
@@ -166,6 +166,8 @@ Sagittarius_Elite_Warrior/Tasks/
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
+
+- [x] **`BOT-018`**: [Notifications/Alerting — `NotificationEventHandler` fans 3 real existing events (`BulkSyncProgressEvent.has_error`, `UiActionFailedEvent`, `TaskFailed`; the task's own suggested `StreamDisconnectedEvent`/`DataGapDetectedEvent` don't exist anywhere and were not invented) out to `INotificationChannel`s — `UiToastNotificationChannel` (`QMainWindow.statusBar()`, no new hand-drawn toast) and `TelegramNotificationChannel` (stdlib `urllib.request`, no new dependency); constructed once in `composition_root.py` so the headless entry point gets Telegram delivery too, UI channel added post-`MainWindow` the same way `INavigationService` already is; minimal same-message debounce for a reconnect loop](completed/BOT-018_notifications_alerting.md).
 
 - [x] **`BOT-095G`**: [Session Run History & Quick Comparison Cache — `SessionRunHistoryCache` (in-memory, `MAX_HISTORY=5`) pushes a snapshot at `_on_chart_data_ready` (the one point config+result+klines/volume all exist together), reuses the existing `EPIC-010F` restore-transaction mechanism (`state_persistence.capture/restore` + `_restoring_state`) rather than building a second one, new FSM event `RUN_RESTORED_FROM_HISTORY` landing on `COMPLETED` from every non-busy state; a dropdown on `BackTestTopPanel` lets a trader redisplay an older run with no engine call and no dirty re-trigger; found and closed its own gap where the busy-state guard lived only in the FSM, not yet in the toolbar's `_sync_controls_enabled()`](completed/BOT-095G_backtest_session_run_history_cache.md).
 
