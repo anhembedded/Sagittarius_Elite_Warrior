@@ -269,24 +269,53 @@ def test_marker_filters_narrow_the_trade_flag_markers_drawn(qapp, request):
     """PROP-004 end-to-end: `chart_controls`'s outcome filter actually
     changes what `_filtered_trade_flag_markers()` returns, not just what
     `filter_trades_for_markers()` returns in isolation (see
-    test_chart_canvas_view.py for that pure-function coverage)."""
+    test_chart_canvas_view.py for that pure-function coverage). Asserts
+    presence of each trade's own exit marker rather than a bare count
+    (`pitfalls/tests.md` §3) — the win/loss entry markers are identical
+    (same entry time/price), so the exit marker is what actually proves
+    which trade survived the filter."""
     from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.chart_canvas_view import (
+        _LONG_EXIT_LABEL,
         MarkerOutcomeFilter,
+    )
+    from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
+        BEAR_COLOR,
     )
 
     v = BackTestView()
     request.addfinalizer(v.deleteLater)
     v.render_symbol_cards(["ETHUSDT"])
-    v.on_backtest_data_ready(_win_loss_result(), [], [])
+    result = _win_loss_result()
+    win_trade, loss_trade = result.trades
+    v.on_backtest_data_ready(result, [], [])
 
-    assert len(v._filtered_trade_flag_markers()) == 4  # 2 trades x entry+exit
+    win_exit_marker = (
+        win_trade.exit_time.timestamp(),
+        win_trade.exit_price,
+        _LONG_EXIT_LABEL,
+        BEAR_COLOR,
+        "down",
+    )
+    loss_exit_marker = (
+        loss_trade.exit_time.timestamp(),
+        loss_trade.exit_price,
+        _LONG_EXIT_LABEL,
+        BEAR_COLOR,
+        "down",
+    )
+
+    unfiltered_markers = v._filtered_trade_flag_markers()
+    assert win_exit_marker in unfiltered_markers
+    assert loss_exit_marker in unfiltered_markers
 
     wins_only_index = v.chart_controls._marker_outcome_combo.findData(
         MarkerOutcomeFilter.WINS_ONLY
     )
     v.chart_controls._marker_outcome_combo.setCurrentIndex(wins_only_index)
 
-    assert len(v._filtered_trade_flag_markers()) == 2  # only the winning trade
+    wins_only_markers = v._filtered_trade_flag_markers()
+    assert win_exit_marker in wins_only_markers
+    assert loss_exit_marker not in wins_only_markers
 
 
 def test_refresh_trade_flag_filters_reapplies_the_checkboxs_own_state(qapp, request):

@@ -170,7 +170,7 @@ def test_no_view_member_is_reached_by_string() -> None:
     )
 
 
-def test_the_contract_is_exactly_seventeen_members() -> None:
+def test_the_contract_is_exactly_eighteen_members() -> None:
     """A count, so a two-sided drift cannot cancel itself out.
 
     @details Both tests above compare *sets*, so simultaneously deleting one

@@ -2494,6 +2494,33 @@ def test_ema_toggle_is_a_no_op_when_the_strategy_declares_no_indicators(
     presenter.view.chart_controls.sig_ema_toggled.emit(False)  # must not raise
 
 
+def test_connect_chart_controls_wires_marker_filter_changed_to_view_refresh(
+    qapp, mock_container, request
+):
+    """`connect_chart_controls()` (`signal_wiring.py`, PROP-004) must connect
+    `chart_controls.sig_marker_filter_changed` to
+    `view.refresh_trade_flag_filters()` — asserted against the real
+    construction-time wiring, not a hand-called method (`testing-rule.md`'s
+    wiring-test requirement / rubric E12). `refresh_trade_flag_filters` is
+    patched at the *class*, before `BackTestPresenter.__init__()` runs
+    `connect_chart_controls()`: Qt binds a signal-to-bound-method connection
+    at `.connect()` time, so patching the *instance* afterward is silently
+    ignored by the already-connected slot — verified empirically before
+    writing this test. Deleting the `.connect(...)` line in
+    `signal_wiring.py` leaves this red."""
+    with patch.object(BackTestView, "refresh_trade_flag_filters") as refresh_spy:
+        view = BackTestView()
+        view.resize(1400, 800)
+        view.show()
+        qapp.processEvents()
+        request.addfinalizer(view.deleteLater)
+        BackTestPresenter(view, mock_container)
+
+        view.chart_controls.sig_marker_filter_changed.emit()
+
+    refresh_spy.assert_called_once()
+
+
 def test_active_strategy_lines_are_cleared_before_each_new_run_not_after(
     presenter, view_model
 ):
