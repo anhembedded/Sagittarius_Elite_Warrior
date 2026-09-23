@@ -22,7 +22,7 @@ Mở rộng năng lực khớp lệnh của `PaperExchange` từ mức cơ bản
 | Task ID | Tên Nhiệm vụ | Độ phức tạp | Mô tả tóm tắt |
 | :--- | :--- | :---: | :--- |
 | **`BOT-041`** | **Stop Loss / Take Profit Cơ bản & Risk Sizing** | 🔴 `L` | SL/TP cố định theo %, theo Giá hoặc theo ATR; kiểm tra High/Low từng bar. |
-| **`BOT-105A`** | **Trailing Stop, Break-Even Stop & Chốt lời từng phần** | 🔴 `L` | Tự động dời SL về Entry khi đạt $+1R$; Trailing Stop bám đỉnh giá; Thoát 50% ở TP1, 50% ở TP2. |
+| ✅ **[`BOT-105A`](../completed/BOT-105A_trailing_stop_and_partial_tp.md)** | **Trailing Stop, Break-Even Stop & Chốt lời từng phần** | 🔴 `L` | **Break-Even xong (23/09)** — tự động dời SL về Entry khi MFE đạt ngưỡng. Trailing Stop (bám đỉnh giá) và Partial TP (thoát 50%/50%) hoãn — xem file task §3. |
 | **`BOT-105B`** | **Intra-bar Bar Magnifier & SL/TP Conflict Resolution** | 🔴 `L` | Dùng klines 1s giải quyết xung đột khi râu nến chạm cả SL và TP trên cùng 1 thanh nến. |
 | **`BOT-049`** | **Đòn bẩy (Leverage), Ký quỹ Isolated & Giá thanh lý** | 🔴 `L` | Mô phỏng đòn bẩy 1x..50x, tính Liquidation Price chính xác theo chuẩn Binance Futures. |
 | **`BOT-050`** | **Bán khống (Short Selling) & Đảo chiều Vị thế** | 🔴 `L` | Hỗ trợ mở vị thế SHORT, quản lý PnL khi giá giảm, và lệnh đảo chiều (Reverse). |

@@ -62,3 +62,9 @@ class OpenPosition(IStoppablePosition):
     #: keeps both at `0.0`, which is correct: no excursion was ever observed.
     mae_percent: float = 0.0
     mfe_percent: float = 0.0
+    #: BOT-105A — `True` once `PaperExchange` has moved this position's
+    #: `stop_loss_price` to break-even; guards the move as one-time, since
+    #: a not-yet-triggered `stop_loss_price` always sits on the losing
+    #: side of `entry_price` (`OrderMatchingPolicy.calculate_stop_loss_price`),
+    #: so re-arming would never move it anywhere new.
+    break_even_armed: bool = False

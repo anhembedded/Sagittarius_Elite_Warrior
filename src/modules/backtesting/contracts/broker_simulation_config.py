@@ -32,6 +32,13 @@ class BrokerSimulationConfig:
     #: BOT-041 — % distance from entry to the auto-close target, e.g. `3.2`
     #: means 3.2%. `None` (default) disables take-profit entirely.
     take_profit_pct: float | None = None
+    #: BOT-105A — % profit-of-margin (`OpenPosition.mfe_percent`'s own
+    #: convention, same as `Trade.pnl_percent`) at which `PaperExchange`
+    #: moves `stop_loss_price` to break-even (`entry_price`, ignoring
+    #: fees) exactly once, locking in a zero-loss floor. `None` (default)
+    #: disables it entirely — every position behaves exactly as it did
+    #: before this field existed.
+    break_even_trigger_pct: float | None = None
 
     def __post_init__(self) -> None:
         if self.slippage_ticks < 0:
@@ -57,4 +64,9 @@ class BrokerSimulationConfig:
         if self.take_profit_pct is not None and self.take_profit_pct <= 0:
             raise ValueError(
                 f"take_profit_pct must be positive, got {self.take_profit_pct}"
+            )
+        if self.break_even_trigger_pct is not None and self.break_even_trigger_pct <= 0:
+            raise ValueError(
+                "break_even_trigger_pct must be positive, got "
+                f"{self.break_even_trigger_pct}"
             )
