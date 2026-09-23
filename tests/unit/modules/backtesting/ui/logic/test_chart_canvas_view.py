@@ -18,10 +18,14 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.chart_canvas_vie
     _SHORT_EXIT_LABEL,
     _SHORT_EXIT_TP_LABEL,
     ChartDisplayMode,
+    MarkerOutcomeFilter,
+    MarkerSideFilter,
     TradeMarkerType,
     equity_curve_to_candles,
     equity_curve_to_line_data,
+    filter_trades_for_markers,
     trade_flag_markers,
+    trade_flag_markers_for_trades,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
@@ -220,3 +224,133 @@ def test_trade_flag_markers_of_a_result_with_no_trades_is_empty():
     )
 
     assert trade_flag_markers(empty) == []
+
+
+# ---------------------------------------------------------------------------
+# PROP-004 — chart marker filters
+# ---------------------------------------------------------------------------
+
+
+def _trade(
+    *,
+    pnl: float,
+    pnl_percent: float,
+    side: PositionSide = PositionSide.LONG,
+) -> Trade:
+    return Trade(
+        symbol="ETHUSDT",
+        entry_time=_T0,
+        entry_price=100.0,
+        exit_time=_T1,
+        exit_price=100.0 + pnl,
+        quantity=1.0,
+        pnl=pnl,
+        pnl_percent=pnl_percent,
+        fees_paid=0.0,
+        side=side,
+    )
+
+
+def test_trade_flag_markers_for_trades_matches_trade_flag_markers_of_the_result():
+    result = _result_with_one_trade()
+
+    assert trade_flag_markers_for_trades(result.trades) == trade_flag_markers(result)
+
+
+def test_filter_all_outcome_and_side_keeps_every_trade():
+    trades = [
+        _trade(pnl=10.0, pnl_percent=1.0, side=PositionSide.LONG),
+        _trade(pnl=-5.0, pnl_percent=-0.5, side=PositionSide.SHORT),
+    ]
+
+    filtered = filter_trades_for_markers(
+        trades,
+        outcome=MarkerOutcomeFilter.ALL,
+        side=MarkerSideFilter.ALL,
+        min_abs_pnl_percent=0.0,
+    )
+
+    assert filtered == trades
+
+
+def test_wins_only_drops_a_break_even_or_losing_trade():
+    win = _trade(pnl=10.0, pnl_percent=1.0)
+    break_even = _trade(pnl=0.0, pnl_percent=0.0)
+    loss = _trade(pnl=-10.0, pnl_percent=-1.0)
+
+    filtered = filter_trades_for_markers(
+        [win, break_even, loss],
+        outcome=MarkerOutcomeFilter.WINS_ONLY,
+        side=MarkerSideFilter.ALL,
+        min_abs_pnl_percent=0.0,
+    )
+
+    assert filtered == [win]
+
+
+def test_losses_only_keeps_a_break_even_trade_too():
+    # Same sign convention as trade_log_filter.filter_trade_log_rows(): a
+    # loss is `pnl <= 0`, so break-even (exactly 0) counts as a loss, not
+    # neither — the two screens must never disagree about which bucket a
+    # zero-PnL trade falls into.
+    win = _trade(pnl=10.0, pnl_percent=1.0)
+    break_even = _trade(pnl=0.0, pnl_percent=0.0)
+    loss = _trade(pnl=-10.0, pnl_percent=-1.0)
+
+    filtered = filter_trades_for_markers(
+        [win, break_even, loss],
+        outcome=MarkerOutcomeFilter.LOSSES_ONLY,
+        side=MarkerSideFilter.ALL,
+        min_abs_pnl_percent=0.0,
+    )
+
+    assert filtered == [break_even, loss]
+
+
+def test_side_filter_keeps_only_the_requested_side():
+    long_trade = _trade(pnl=1.0, pnl_percent=1.0, side=PositionSide.LONG)
+    short_trade = _trade(pnl=1.0, pnl_percent=1.0, side=PositionSide.SHORT)
+
+    assert filter_trades_for_markers(
+        [long_trade, short_trade],
+        outcome=MarkerOutcomeFilter.ALL,
+        side=MarkerSideFilter.LONG_ONLY,
+        min_abs_pnl_percent=0.0,
+    ) == [long_trade]
+    assert filter_trades_for_markers(
+        [long_trade, short_trade],
+        outcome=MarkerOutcomeFilter.ALL,
+        side=MarkerSideFilter.SHORT_ONLY,
+        min_abs_pnl_percent=0.0,
+    ) == [short_trade]
+
+
+def test_min_pnl_threshold_drops_trades_below_it_regardless_of_sign():
+    small_win = _trade(pnl=1.0, pnl_percent=1.0)
+    big_win = _trade(pnl=10.0, pnl_percent=6.0)
+    big_loss = _trade(pnl=-10.0, pnl_percent=-6.0)
+
+    filtered = filter_trades_for_markers(
+        [small_win, big_win, big_loss],
+        outcome=MarkerOutcomeFilter.ALL,
+        side=MarkerSideFilter.ALL,
+        min_abs_pnl_percent=5.0,
+    )
+
+    assert filtered == [big_win, big_loss]
+
+
+def test_all_three_filters_combine_rather_than_override_each_other():
+    matches = _trade(pnl=8.0, pnl_percent=8.0, side=PositionSide.SHORT)
+    wrong_side = _trade(pnl=8.0, pnl_percent=8.0, side=PositionSide.LONG)
+    wrong_outcome = _trade(pnl=-8.0, pnl_percent=-8.0, side=PositionSide.SHORT)
+    below_threshold = _trade(pnl=1.0, pnl_percent=1.0, side=PositionSide.SHORT)
+
+    filtered = filter_trades_for_markers(
+        [matches, wrong_side, wrong_outcome, below_threshold],
+        outcome=MarkerOutcomeFilter.WINS_ONLY,
+        side=MarkerSideFilter.SHORT_ONLY,
+        min_abs_pnl_percent=5.0,
+    )
+
+    assert filtered == [matches]

@@ -170,6 +170,9 @@ def connect_chart_controls(presenter) -> None:
     controls.sig_ema_toggled.connect(presenter._on_ema_toggled)
     controls.sig_volume_toggled.connect(presenter.view.set_volume_visible)
     controls.sig_trade_flags_toggled.connect(presenter.view.set_trade_flags_visible)
+    controls.sig_marker_filter_changed.connect(
+        presenter.view.refresh_trade_flag_filters
+    )
 
     chart_cards = presenter.view.chart_cards
     if chart_cards:

@@ -20,7 +20,8 @@ from .logic.chart_canvas_view import (
     ChartDisplayMode,
     equity_curve_to_candles,
     equity_curve_to_line_data,
-    trade_flag_markers,
+    filter_trades_for_markers,
+    trade_flag_markers_for_trades,
 )
 from .logic.chart_controls import BacktestChartControls
 from .ports.i_backtest_chart_host import IBacktestChartHost
@@ -300,10 +301,34 @@ class BackTestView(BaseView):
             return
         if visible and self._chart_mode is not ChartDisplayMode.EQUITY:
             card.set_script_markers(
-                _TRADE_FLAGS_KEY, trade_flag_markers(self._last_result)
+                _TRADE_FLAGS_KEY, self._filtered_trade_flag_markers()
             )
         else:
             card.clear_script_markers(_TRADE_FLAGS_KEY)
+
+    def refresh_trade_flag_filters(self) -> None:
+        """PROP-004 — a marker filter control changed; re-apply
+        `set_trade_flags_visible()` with the checkbox's own current state so
+        this never overrides the user's separate show/hide toggle."""
+        if self.chart_controls is not None:
+            self.set_trade_flags_visible(self.chart_controls.is_trade_flags_checked())
+
+    def _filtered_trade_flag_markers(self):
+        """`_last_result.trades` narrowed by `chart_controls`'s marker
+        filters (PROP-004) before being turned into marker points — a
+        `chart_controls is None` host (never happens once a run has
+        results, but the type is `| None`) falls back to every trade.
+        Only called once `set_trade_flags_visible()`'s own guard has
+        already confirmed `_last_result is not None`."""
+        trades = self._last_result.trades
+        if self.chart_controls is not None:
+            trades = filter_trades_for_markers(
+                trades,
+                outcome=self.chart_controls.outcome_filter(),
+                side=self.chart_controls.side_filter(),
+                min_abs_pnl_percent=self.chart_controls.min_pnl_threshold(),
+            )
+        return trade_flag_markers_for_trades(trades)
 
     def _current_card(self):
         return self.chart_cards[0] if self.chart_cards else None
@@ -332,7 +357,7 @@ class BackTestView(BaseView):
             and self.chart_controls.is_trade_flags_checked()
         ):
             card.set_script_markers(
-                _TRADE_FLAGS_KEY, trade_flag_markers(self._last_result)
+                _TRADE_FLAGS_KEY, self._filtered_trade_flag_markers()
             )
         else:
             card.clear_script_markers(_TRADE_FLAGS_KEY)

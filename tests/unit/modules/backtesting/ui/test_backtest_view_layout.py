@@ -217,3 +217,88 @@ def test_backtest_enables_cached_interaction_for_future_chart_cards(qapp, reques
     cards = v.render_symbol_cards(["BTCUSDT"])
 
     assert cards[0].chart_card.cached_interaction is not None
+
+
+def _win_loss_result():
+    from datetime import UTC, datetime
+
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_metrics import (
+        BacktestMetrics,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
+        BacktestResult,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
+
+    t0 = datetime(2026, 1, 1, tzinfo=UTC)
+    t1 = datetime(2026, 1, 2, tzinfo=UTC)
+    win = Trade(
+        symbol="ETHUSDT",
+        entry_time=t0,
+        entry_price=100.0,
+        exit_time=t1,
+        exit_price=110.0,
+        quantity=1.0,
+        pnl=10.0,
+        pnl_percent=10.0,
+        fees_paid=0.0,
+    )
+    loss = Trade(
+        symbol="ETHUSDT",
+        entry_time=t0,
+        entry_price=100.0,
+        exit_time=t1,
+        exit_price=90.0,
+        quantity=1.0,
+        pnl=-10.0,
+        pnl_percent=-10.0,
+        fees_paid=0.0,
+    )
+    equity_curve = [(t0, 1000.0), (t1, 1000.0)]
+    return BacktestResult(
+        symbol="ETHUSDT",
+        initial_balance=1000.0,
+        final_balance=1000.0,
+        trades=[win, loss],
+        equity_curve=equity_curve,
+        metrics=BacktestMetrics.compute([win, loss], equity_curve, 1000.0),
+    )
+
+
+def test_marker_filters_narrow_the_trade_flag_markers_drawn(qapp, request):
+    """PROP-004 end-to-end: `chart_controls`'s outcome filter actually
+    changes what `_filtered_trade_flag_markers()` returns, not just what
+    `filter_trades_for_markers()` returns in isolation (see
+    test_chart_canvas_view.py for that pure-function coverage)."""
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.chart_canvas_view import (
+        MarkerOutcomeFilter,
+    )
+
+    v = BackTestView()
+    request.addfinalizer(v.deleteLater)
+    v.render_symbol_cards(["ETHUSDT"])
+    v.on_backtest_data_ready(_win_loss_result(), [], [])
+
+    assert len(v._filtered_trade_flag_markers()) == 4  # 2 trades x entry+exit
+
+    wins_only_index = v.chart_controls._marker_outcome_combo.findData(
+        MarkerOutcomeFilter.WINS_ONLY
+    )
+    v.chart_controls._marker_outcome_combo.setCurrentIndex(wins_only_index)
+
+    assert len(v._filtered_trade_flag_markers()) == 2  # only the winning trade
+
+
+def test_refresh_trade_flag_filters_reapplies_the_checkboxs_own_state(qapp, request):
+    """A filter changing must never override the separate Buy/Sell Flags
+    show/hide toggle — it only re-applies whatever that toggle already
+    says (`set_trade_flags_visible`'s own contract)."""
+    v = BackTestView()
+    request.addfinalizer(v.deleteLater)
+    v.render_symbol_cards(["ETHUSDT"])
+    v.chart_controls._trade_flags_check.setChecked(False)
+
+    with patch.object(v, "set_trade_flags_visible") as spy:
+        v.refresh_trade_flag_filters()
+
+    spy.assert_called_once_with(False)

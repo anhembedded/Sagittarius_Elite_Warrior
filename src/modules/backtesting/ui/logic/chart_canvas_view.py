@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Sequence
 from datetime import datetime
 from enum import Enum
 
@@ -54,6 +55,26 @@ class ChartDisplayMode(str, Enum):
     BOTH = "both"
 
 
+class MarkerOutcomeFilter(str, Enum):
+    """PROP-004 — which trade outcomes get an entry/exit marker pair drawn.
+    A separate axis from `MarkerSideFilter` (combinable), unlike
+    `trade_log_filter.TradeLogFilter`'s 5 mutually-exclusive tabs — the
+    proposal's own acceptance bar wants outcome and side picked
+    independently."""
+
+    ALL = "ALL"
+    WINS_ONLY = "WINS_ONLY"
+    LOSSES_ONLY = "LOSSES_ONLY"
+
+
+class MarkerSideFilter(str, Enum):
+    """PROP-004 — which position side gets an entry/exit marker pair drawn."""
+
+    ALL = "ALL"
+    LONG_ONLY = "LONG_ONLY"
+    SHORT_ONLY = "SHORT_ONLY"
+
+
 def equity_curve_to_candles(
     equity_curve: list[tuple[datetime, float]],
 ) -> list[OhlcCandle]:
@@ -100,12 +121,46 @@ def trade_flag_markers(result: BacktestResult) -> list[MarkerPoint]:
     "reason" this shared rendering code can name truthfully for every
     strategy).
     """
+    return trade_flag_markers_for_trades(result.trades)
+
+
+def trade_flag_markers_for_trades(trades: Sequence[Trade]) -> list[MarkerPoint]:
+    """The part of `trade_flag_markers()` that doesn't need a whole
+    `BacktestResult` — split out so PROP-004's marker filters can build
+    markers from an already-filtered trade list without faking one up."""
     markers: list[MarkerPoint] = []
-    for trade in result.trades:
+    for trade in trades:
         is_short = trade.side is PositionSide.SHORT
         markers.append(_entry_marker(trade, is_short))
         markers.append(_exit_marker(trade, is_short))
     return markers
+
+
+def filter_trades_for_markers(
+    trades: Sequence[Trade],
+    *,
+    outcome: MarkerOutcomeFilter,
+    side: MarkerSideFilter,
+    min_abs_pnl_percent: float,
+) -> list[Trade]:
+    """PROP-004 — narrows which trades get a marker pair drawn. Win/loss
+    matches `trade_log_filter.filter_trade_log_rows()`'s own sign
+    convention (`pnl > 0` is a win) so the two screens never disagree
+    about which side of zero a trade falls on."""
+    filtered: Sequence[Trade] = trades
+    if outcome is MarkerOutcomeFilter.WINS_ONLY:
+        filtered = [trade for trade in filtered if trade.pnl > 0]
+    elif outcome is MarkerOutcomeFilter.LOSSES_ONLY:
+        filtered = [trade for trade in filtered if trade.pnl <= 0]
+    if side is MarkerSideFilter.LONG_ONLY:
+        filtered = [trade for trade in filtered if trade.side is PositionSide.LONG]
+    elif side is MarkerSideFilter.SHORT_ONLY:
+        filtered = [trade for trade in filtered if trade.side is PositionSide.SHORT]
+    if min_abs_pnl_percent > 0.0:
+        filtered = [
+            trade for trade in filtered if abs(trade.pnl_percent) >= min_abs_pnl_percent
+        ]
+    return list(filtered)
 
 
 def _entry_marker(trade: Trade, is_short: bool) -> MarkerPoint:
