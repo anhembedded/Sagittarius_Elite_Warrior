@@ -58,6 +58,36 @@ def test_metatrader_style_header_uses_date_alias_and_iso_timestamp():
     assert kline.open_time == datetime(2026, 9, 1, 0, 0, 0, tzinfo=UTC)
 
 
+def test_real_metatrader_export_joins_dotted_date_with_separate_time_column():
+    """Real MT4/5 exports write `Date`/`Time` as two separate columns, `Date`
+    dot-separated (`2024.01.15`) rather than ISO — neither was actually
+    handled before: the two columns were never joined (`open_time`'s alias
+    match picked `Date` alone, dropping every row's time-of-day), and
+    `datetime.fromisoformat()` cannot parse a dot-separated date at all."""
+    csv_text = (
+        "Date,Time,Open,High,Low,Close,Volume\n2024.01.15,13:45,100,105,95,102,1000\n"
+    )
+
+    result = parse_csv_klines(csv_text, "EURUSD", TimeFrame.ONE_HOUR)
+
+    assert result.warnings == []
+    kline = result.klines[0]
+    assert kline.open_time == datetime(2024, 1, 15, 13, 45, tzinfo=UTC)
+
+
+def test_metatrader_export_with_only_a_date_column_still_reads_full_timestamp():
+    """A single `Date` column with no companion `Time` column keeps behaving
+    like `test_metatrader_style_header_uses_date_alias_and_iso_timestamp`
+    above — the two-column join only engages when both columns exist."""
+    csv_text = "Date,Open,High,Low,Close,Volume\n2024-01-15 13:45:00,1,2,0.5,1.5,10\n"
+
+    result = parse_csv_klines(csv_text, "EURUSD", TimeFrame.ONE_HOUR)
+
+    assert result.warnings == []
+    kline = result.klines[0]
+    assert kline.open_time == datetime(2024, 1, 15, 13, 45, tzinfo=UTC)
+
+
 def test_missing_required_column_fails_whole_file():
     csv_text = "open,high,low,close\n1,2,0.5,1.5\n"
 

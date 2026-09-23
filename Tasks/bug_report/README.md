@@ -59,8 +59,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 0 |
-| ✅ **Đã sửa / đã đóng** | 132 |
-| 📈 **Tổng** | **132** |
+| ✅ **Đã sửa / đã đóng** | 133 |
+| 📈 **Tổng** | **133** |
 
 ---
 
@@ -86,6 +86,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-135](completed/BUG-135_metatrader_csv_import_drops_time_and_rejects_dotted_dates.md)** | Import CSV MetaTrader (`BOT-112D`) không hoạt động thật: cột `Date`+`Time` tách riêng chưa bao giờ được ghép — `_ALIASES["open_time"]` khớp `date` trước rồi bỏ qua `time`, xoá sạch giờ trong ngày mỗi dòng; ngày kiểu MT4/5 thật (`2024.01.15`, chấm phân cách) khiến `datetime.fromisoformat()` raise `ValueError` mọi dòng. Phát hiện bởi phiên review độc lập của `PR #257`. Đã sửa: ghép `Date`+`Time` khi cả hai cột cùng tồn tại, chuẩn hoá dấu chấm sang gạch ngang chỉ ở phần ngày (không đụng phần giây lẻ) | 🟡 P2 | 2026-09-23 | ✅ 2026-09-23 |
 | **[BUG-134](completed/BUG-134_dev_board_strategy_params_dialog_crashes_on_open.md)** | Nút "Strategy Parameters…" trên Dev Board crash `TypeError` ngay khi bấm — `_open_strategy_params_dialog()` truyền `self` (một `QObject` từ `EPIC-025` PR 1.4c-3, không còn là `QWidget`) làm Qt parent cho `StrategyParamsDialog`, trong khi `_dialog_parent()` (đã có sẵn trên đúng class này cho 2 dialog khác) mới là cách đúng. Phát hiện khi xây `BOT-063`'s dialog thông số indicator script, tái dùng đúng class này. Đã sửa: đổi sang `self._dialog_parent()` | 🔴 P1 | 2026-09-23 | ✅ 2026-09-23 |
 | **[BUG-133](completed/BUG-133_tick_backtest_never_checks_intrabar_stops.md)** | Historical Tick Backtest (`BOT-076`) không bao giờ gọi `PaperExchange.check_intrabar_stops()` — Stop Loss, Take Profit, thanh lý (`BOT-049`) và MAE/MFE (`BOT-106B`) đều bị vô hiệu hoá âm thầm ở chế độ này. Đã sửa: gọi `check_intrabar_stops()` mỗi tick (dùng high/low của chính tick đó, không phải bar đã gộp) ngay trước khi tick đó được đánh giá — giữ đúng độ phân giải tick, khác với Static (mỗi bar). MAE/MFE ở chế độ tick cũng tự động hoạt động lại theo đó, không cần sửa gì thêm | 🟡 P2 | 2026-09-22 | ✅ 2026-09-22 |
 | **[BUG-132](completed/BUG-132_chart_subplots_zoom_divergence_and_missing_zoom_limits.md)** | Khi lăn chuột zoom ở chart volume / equity / subplots, chart con zoom quá mức hoặc lệch hoàn toàn khỏi chart nến và không có giới hạn zoom tối thiểu (`minXRange`). Đã sửa: áp dụng giới hạn `xMin`/`xMax`/`minXRange`/`maxXRange` đồng nhất cho toàn bộ subplots trong `plot_layout`, kế thừa ngay khi khởi tạo subplot, và mở rộng `CachedFrameInteractionController.begin_zoom` + scale clamping để hỗ trợ zoom trên mọi plot | 🟡 P2 | 2026-09-21 | ✅ 2026-09-21 |

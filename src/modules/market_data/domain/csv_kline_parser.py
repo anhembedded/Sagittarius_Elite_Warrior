@@ -13,11 +13,14 @@ agree on one: Binance writes `open_time,open,high,low,close,volume,close_time,
 quote_asset_volume,number_of_trades,taker_buy_base_asset_volume,
 taker_buy_quote_asset_volume`, TradingView writes `time,open,high,low,close,
 Volume` (unix seconds), MetaTrader writes `Date,Time,Open,High,Low,Close,
-Volume` (or `Date` alone, space-joined with `Time`). Rather than one parser
-per named tool — three near-duplicates that drift out of sync the moment a
-tool changes its export format — this reads the header once, maps each
-column by a case-insensitive alias table, and requires only what no kline
-can be built without: an open time and OHLC. Everything Binance-specific
+Volume` — dot-separated `Date` (`2024.01.15`), joined with the separate
+`Time` column when both are present — or `Date` alone already carrying a
+full timestamp (a bare single-column export some tools produce instead).
+Rather than one parser per named tool — three near-duplicates that drift
+out of sync the moment a tool changes its export format — this reads the
+header once, maps each column by a case-insensitive alias table, and
+requires only what no kline can be built without: an open time and OHLC.
+Everything Binance-specific
 (`quote_asset_volume`, `number_of_trades`, the two taker-buy columns)
 defaults to `0`/`0.0` when the file does not carry it — the same "not every
 source has this" convention `Trade.leverage`/`.mae_percent` already use.
@@ -67,6 +70,11 @@ _REQUIRED_FIELDS = (
 #: `open_time`, never the next bar's own open instant.
 _CLOSE_TIME_IS_INCLUSIVE_BY = 1e-3
 
+#: A `YYYY.MM.DD` date has exactly two separators — the count `_normalize_
+#: timestamp_text()` checks before treating a dotted date part as
+#: MetaTrader's format rather than a time portion's fractional seconds.
+_DOTTED_DATE_SEPARATOR_COUNT = 2
+
 
 @dataclass(frozen=True)
 class CsvKlineParseResult:
@@ -86,6 +94,25 @@ def _find_column(header: list[str], field: str) -> int | None:
     return None
 
 
+def _find_column_by_alias(header: list[str], alias: str) -> int | None:
+    lowered = [name.strip().lower() for name in header]
+    return lowered.index(alias) if alias in lowered else None
+
+
+def _normalize_timestamp_text(text: str) -> str:
+    """MetaTrader's `Date` column is dot-separated (`2024.01.15`), which
+    `datetime.fromisoformat()` cannot parse; some spreadsheet exports use
+    `/` instead of `-`. Only the date portion is touched — a `.` in the
+    time portion's fractional seconds (`00:00:00.123456`) must survive
+    untouched, so `.` is only normalized when the date part itself has
+    exactly the two separators a `YYYY.MM.DD` date has."""
+    text = text.replace("/", "-")
+    date_part, sep, rest = text.partition(" ")
+    if date_part.count(".") == _DOTTED_DATE_SEPARATOR_COUNT and "-" not in date_part:
+        date_part = date_part.replace(".", "-")
+    return date_part + sep + rest
+
+
 def _parse_timestamp(raw: str) -> datetime:
     """A bare numeric string is a unix timestamp (seconds, or milliseconds
     when large enough that seconds would land past year 5000) — the
@@ -99,7 +126,7 @@ def _parse_timestamp(raw: str) -> datetime:
         if abs(value) >= 10**12:
             value //= 1000
         return datetime.fromtimestamp(value, UTC)
-    return datetime.fromisoformat(text.replace("/", "-")).replace(tzinfo=UTC)
+    return datetime.fromisoformat(_normalize_timestamp_text(text)).replace(tzinfo=UTC)
 
 
 def parse_csv_klines(
@@ -122,6 +149,22 @@ def parse_csv_klines(
             warnings=[f"Missing required column(s): {', '.join(missing)}."],
         )
 
+    # MetaTrader's own two-column export (`Date,Time,...`) has never actually
+    # been joined here — `open_time`'s alias table matches `date` alone
+    # first, so the separate `Time` column was silently ignored, dropping
+    # every row's time-of-day. Detected independently of `_ALIASES
+    # ["open_time"]`'s own match: a bare `date` column has no fixed meaning
+    # (it may already carry a full timestamp, as MetaTrader's single-column
+    # export does), but a `date` column *and* a separate `time` column next
+    # to it is unambiguous.
+    date_col = _find_column_by_alias(header, "date")
+    time_col = _find_column_by_alias(header, "time")
+    has_separate_date_and_time = date_col is not None and time_col is not None
+    # `has_separate_date_and_time` above already guarantees both are `int`
+    # when true; these are only read from inside that branch below.
+    date_col_index = cast(int, date_col)
+    time_col_index = cast(int, time_col)
+
     interval_seconds = interval.to_seconds()
     klines: list[MarketData] = []
     warnings: list[str] = []
@@ -136,7 +179,12 @@ def parse_csv_klines(
 
     for row_number, row in enumerate(reader, start=2):
         try:
-            open_time = _parse_timestamp(row[open_time_col])
+            open_time_text = (
+                f"{row[date_col_index]} {row[time_col_index]}"
+                if has_separate_date_and_time
+                else row[open_time_col]
+            )
+            open_time = _parse_timestamp(open_time_text)
             close_time_index = columns["close_time"]
             if close_time_index is not None:
                 close_time = _parse_timestamp(row[close_time_index])
