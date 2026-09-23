@@ -21,8 +21,9 @@
   [`EPIC-025B`](../EPIC-025_module_theo_bounded_context/incomplete/EPIC-025B_phase1_trading_and_surfaces.md)
   and [`EPIC-025C`](../EPIC-025_module_theo_bounded_context/incomplete/EPIC-025C_phase2_strategy.md)
   (arm / disarm / tick → order); [`EPIC-001B`](../EPIC-001_ema_trend_pullback_tradingview_cross_reference/incomplete/EPIC-001B_run_and_diff_tradingview_vs_app_trade_lists.md)
-  for stage 1; [`BOT-018`](../../backlog/BOT-018_notifications_alerting.md) is delivered by
-  `EPIC-026M` rather than separately.
+  for stage 1; [`BOT-018`](../../completed/BOT-018_notifications_alerting.md) shipped
+  separately on 2026-09-23 (sync/UI failures, not this epic's trading events) — see
+  `EPIC-026M`'s own note on what that does and does not settle for this epic.
 
 ---
 

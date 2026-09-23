@@ -2,8 +2,24 @@
 
 **Status:** 🔵 Backlog
 **Source:** [`PRO-005`](../../../proposal/PRO-005.md) §1.2 row 6; ADR `❓ O4`;
-[`BOT-018`](../../../backlog/BOT-018_notifications_alerting.md) (2026-08, the user's own item);
+[`BOT-018`](../../../completed/BOT-018_notifications_alerting.md) (2026-08, the user's own item);
 the user (2026-09-20): *"hãy cho lô trình để có thể giao dịch thật"*.
+
+> **2026-09-23 — `BOT-018` closed separately, not by this task.** Picked up as a standalone
+> backlog item without cross-checking this epic first — a process gap this note exists to flag,
+> not to paper over. What shipped: `NotificationEventHandler` (`src/shell/`) on
+> `BulkSyncProgressEvent`/`UiActionFailedEvent`/`TaskFailed` — sync and UI/background failures,
+> the events that exist *today* — fanning out to `UiToastNotificationChannel`
+> (`src/presentation/ui/`) and `TelegramNotificationChannel` (`src/infrastructure/notifications/`,
+> config-file token/chat-id via `IConfigReader`, "last message repeated" debounce). None of §2-§4
+> below is satisfied by it: no `support/notifications/contracts/` port, no `TradingAlertSubscriber`,
+> no env-first credential resolution, no 60 s count-collapsing debounce, no `alert-test` CLI — this
+> epic's own trading events (`OrderFilledEvent`/`CircuitBreakerTrippedEvent`/Emergency Stop/stream
+> watchdog) don't exist yet regardless. This task is **not** narrowed or closed by the above; when
+> it starts, decide explicitly whether `TradingAlertSubscriber` fans into the existing
+> `NotificationEventHandler`/`INotificationChannel` (extend) or a separate
+> `support/notifications/` port is still right for this epic's stricter secrets/debounce/CLI
+> requirements (rebuild) — don't assume either without re-reading both.
 **Risk:** 🟡 — a new outbound channel; a token in a log or a crash in the sender are the failure
 modes, both named in `BOT-018` §4.
 **Complexity:** M — port, one channel, one subscriber, debounce, secrets handling.
@@ -62,7 +78,7 @@ intended). `BOT-018` stays in `Tasks/backlog/` until this task closes, then move
 | `tests/unit/support/notifications/…` | Channels from the interface; masking; timeout |
 | `tests/unit/modules/trading/application/alerts/test_trading_alert_subscriber.py` | One message per event; debounce; no secrets in text |
 | `Docs/VOCABULARY/README.md` | Row: **Alert channel** |
-| `Tasks/backlog/BOT-018_notifications_alerting.md` | Moves to `completed/` on close |
+| ~~`Tasks/backlog/BOT-018_notifications_alerting.md` | Moves to `completed/` on close~~ — already moved 2026-09-23, separately (see the note above) |
 
 ## 5. Testing
 
