@@ -22,9 +22,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 157 | 78.5% |
+| 🟢 **Completed** | 158 | 79.0% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 35 | 17.5% |
+| 🔴 **Backlog** | 34 | 17.0% |
 | ❌ **Cancelled** | 8 | 4.0% |
 | 📈 **Tổng số Task** | **200** | **100%** |
 
@@ -166,6 +166,8 @@ Sagittarius_Elite_Warrior/Tasks/
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
+
+- [x] **`PROP-001`**: [Trade entry-exit connecting line — click half only, hover deferred (the proposal's own C++/QML/`NativeChartItem` design was deleted well before this pickup; re-scoped from real code). Reuses the Trade Logs row's existing `toggled(index)` click (`index` = the trade's stable position) rather than adding a new selection gesture; `build_trade_link()` hands the chart plain floats/strings, never a `Trade`, since `support/charting` may not import a `modules/*` type; `IBacktestChartHost.set_trade_link`/`clear_trade_link` mirror the existing `set_script_markers` shape](completed/PROP-001_trade_entry_exit_connection_line.md).
 
 - [x] **`BOT-018`**: [Notifications/Alerting — `NotificationEventHandler` fans 3 real existing events (`BulkSyncProgressEvent.has_error`, `UiActionFailedEvent`, `TaskFailed`; the task's own suggested `StreamDisconnectedEvent`/`DataGapDetectedEvent` don't exist anywhere and were not invented) out to `INotificationChannel`s — `UiToastNotificationChannel` (`QMainWindow.statusBar()`, no new hand-drawn toast) and `TelegramNotificationChannel` (stdlib `urllib.request`, no new dependency); constructed once in `composition_root.py` so the headless entry point gets Telegram delivery too, UI channel added post-`MainWindow` the same way `INavigationService` already is; minimal same-message debounce for a reconnect loop](completed/BOT-018_notifications_alerting.md).
 

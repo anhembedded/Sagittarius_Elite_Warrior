@@ -3,7 +3,7 @@
 - **ID**: `PROP-001`
 - **Type**: Proposal / UX Enhancement
 - **Module**: `Backtest Screen / ChartCard / NativeChart`
-- **Status**: `Backlog`
+- **Status**: ✅ **Done (2026-09-23)** — see §5 for what actually shipped and where it diverges from §2's original design.
 - **Target Version**: `Backtest UX Polish`
 
 ---
@@ -49,3 +49,85 @@ Hiện tại, các điểm vào lệnh (Entry) và đóng lệnh (Exit) trên bi
 - [ ] **AC-3**: Khi di chuyển chuột ra ngoài marker, đường nối biến mất mượt mà.
 - [ ] **AC-4**: Khi chọn 1 hàng trong bảng Trade Logs, đường nối của trade tương ứng được kích hoạt trên chart.
 - [ ] **AC-5**: Đầy đủ unit tests cho `TradeLinkLayer` và tương tác hover / selection.
+
+---
+
+## 5. Implementation notes (what actually shipped)
+
+**Scoped to the click half only — hover is deferred, not built.** The
+original design (§3.1) references `src/presentation/ui/components/
+chart_card/`, `NativeChartItem`/QSG and `BackTestTradeLogs.qml` — all
+deleted by `EPIC-025`/`EPIC-006` well before this task was picked up; the
+screen is QtWidgets + pyqtgraph now, with no native C++ chart host left at
+all. Re-scoped from real code, same as every other stale-task closure this
+session: **AC-4** (select a Trade Logs row → chart shows the link) ships;
+**AC-1**/**AC-3** (hover a chart marker → instant show/hide) do not — no
+per-marker mouse hit-testing exists on `FastCandlestickItem`'s trade-flag
+markers today, and building it is a materially larger, separate piece of
+work than reusing an existing click signal. **AC-2** (win/loss colour)
+ships, using `theme.BULL_COLOR`/`BEAR_COLOR` (`#26a69a`/`#ef5350`) rather
+than the proposal's literal `#0ECB81`/`#F6465D` — the trade-flag markers
+this line connects already use `theme`'s pair, and drawing the link in a
+different green/red would look inconsistent next to them. The mini-badge
+"hover the line itself" tooltip (§2.3) is replaced by an always-visible
+label at the line's midpoint (no separate hover state to build for a line
+that is itself already the result of an explicit selection).
+
+**No new "row selected" signal.** `_TradeLogRowWidget` already emits
+`toggled(index)` on click, used for expand/collapse — `index` is
+`TradeLogRow.index`, the trade's stable 1-based position in the full
+unfiltered trades list, already exactly what a chart lookup needs.
+`BackTestTradeLogsPanel.selectedTradeChanged(int)` is emitted from the
+existing `_on_row_toggled()`: the index when a row becomes expanded, `-1`
+when that same row collapses again — reusing the click that already means
+"the user is looking at this trade" rather than adding a second gesture.
+
+**Layering**: `chart_canvas_view.py`'s new `build_trade_link(trade)` (pure
+function, no Qt) returns `(entry_point, exit_point, color, label)` as plain
+floats/strings — never a `Trade`, since the line is drawn by
+`support/charting/chart_card.py`, which may not import a `modules/*` type
+(`architecture-rule.md` §3). New `TradeLinkLine` (mirrors `LastPriceLine`'s
+Single Responsibility split) owns one `pg.PlotDataItem` + one `pg.TextItem`
+on `ChartCard.trade_link`; `set_trade_link`/`clear_trade_link` added to
+`IBacktestChartHost`/`PythonBacktestChartHost`/`ChartCard`, mirroring
+`set_script_markers`/`clear_script_markers`'s existing two-method shape.
+`BackTestPresenter._on_trade_row_selected()` resolves the index against
+`self._all_trades`, clearing the link for `-1` or an out-of-range index.
+
+**A real gap found and closed by this task's own tests**: nothing refused
+a trade-link selection while a new backtest run was active — the FSM has
+no opinion on this (it is pure chart display, not a lifecycle state), so
+`_on_trade_row_selected` runs regardless of `uiMode`. Left as-is on
+purpose: unlike `BOT-095G`'s restore (which mutates the whole form and
+result), this only redraws one already-rendered line and cannot corrupt
+in-flight state — a running action's own completion still overwrites
+`_all_trades` correctly when it finishes.
+
+**`IBacktestView` contract**: `bottom_widget` (the trade logs panel, or
+`None` before `BackTestView.__init__` builds it — never rebuilt per symbol,
+unlike the chart cards) is now a declared member, since `signal_wiring.py`
+reaches it to wire `selectedTradeChanged`. Count 18 → 19.
+
+**Tests**: `logic/test_chart_canvas_view.py` (5 new cases — entry/exit
+points, win/loss colour including the breakeven-is-a-loss convention,
+signed label formatting); `support/charting/test_chart_card.py` (3 new
+cases — draw, clear, replace); `test_backtest_chart_host.py` (delegation
+entries for both new port methods); `test_backtest_bottom_tabs.py` (3 new
+cases — expand emits the index, collapse emits `-1`, expanding a different
+row re-selects); `test_backtest_presenter.py` (4 new cases, one of them a
+wiring test per `testing-rule.md` §E12 — emits the real
+`bottom_widget.selectedTradeChanged` signal rather than calling the handler
+directly, verified to fail when the `signal_wiring.py` `.connect(...)` line
+is removed, then confirmed restored and green).
+
+**Verification**: `ruff check`/`ruff format --check` clean.
+`tests/unit/modules/backtesting` + `tests/unit/support/charting` +
+`tests/unit/architecture`: 1441 passed. `mypy` (`src` + `scripts`): zero
+errors on every non-excluded touched file
+(`chart_canvas_view.py`/`i_backtest_chart_host.py`/`backtest_chart_host.py`/
+`i_backtest_view.py`/`signal_wiring.py`); `backtest_presenter.py`/
+`backtest_trade_logs_panel.py` are pre-existing `pyproject.toml`
+exclusions, and `support/charting/**` (both `chart_card.py` and the new
+`trade_link_line.py`) is excluded wholesale for the exact
+`pyqtgraph`-has-no-stubs / `Qt` enum `attr-defined` error classes this
+change's two mypy findings there both are — not a new debt category.
