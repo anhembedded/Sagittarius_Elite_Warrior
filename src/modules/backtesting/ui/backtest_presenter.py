@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import logging
-import os
 from dataclasses import replace
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
@@ -154,6 +153,7 @@ from .logic.report_export import (
 )
 from .logic.report_import import (
     backtest_report_to_run_config,
+    build_imported_report_banner_text,
     build_report_provenance_warning_text,
     read_backtest_report_bytes,
 )
@@ -1992,9 +1992,8 @@ class BackTestPresenter(BasePresenter):
         self._last_result = report.result
         self._view_model.lastRunSummary = run_config.to_summary_label()
         self._view_model.configDiffSummary = ""
-        self._view_model.importedReportBannerText = (
-            f"Viewing imported report — {os.path.basename(path)}, run on "
-            f"{report.provenance.created_at:%Y-%m-%d %H:%M}."
+        self._view_model.importedReportBannerText = build_imported_report_banner_text(
+            path, report
         )
         # Klines are never embedded in a report (`backtest_report.py`'s own
         # docstring) — the OHLC/candlestick view has nothing real to draw,

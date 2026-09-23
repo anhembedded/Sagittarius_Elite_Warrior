@@ -4,9 +4,10 @@ import math
 from collections.abc import Sequence
 
 import pyqtgraph as pg
-from PySide6.QtCore import QPointF
+from PySide6.QtCore import QPointF, Qt
 from PySide6.QtGui import QBrush, QColor, QFont, QPainterPath, QPen, QPolygonF
 from PySide6.QtWidgets import (
+    QGraphicsEllipseItem,
     QGraphicsItem,
     QGraphicsPathItem,
     QGraphicsSimpleTextItem,
@@ -31,6 +32,7 @@ _VIEWPORT_PADDING_RATIO = 0.1
 _FALLBACK_VIEWPORT_WIDTH_PIXELS = 1200.0
 _BADGE_HORIZONTAL_OFFSET_PIXELS = 8.0
 _BADGE_FONT_POINT_SIZE = 8
+_PRICE_DOT_RADIUS_PIXELS = 2.0
 
 
 class TriangleMarkerItem(QGraphicsPathItem):
@@ -54,6 +56,18 @@ class TriangleMarkerItem(QGraphicsPathItem):
         badge_font.setPointSize(_BADGE_FONT_POINT_SIZE)
         self._badge_item.setFont(badge_font)
         self._badge_item.setVisible(False)
+        # `PROP-003` §3.1 MEDIUM mode — a small dot at this item's own local
+        # origin, i.e. the exact (time, execution price) point the triangle
+        # itself is offset away from by `_MARKER_VERTICAL_OFFSET_PIXELS`.
+        self._price_dot_item = QGraphicsEllipseItem(
+            -_PRICE_DOT_RADIUS_PIXELS,
+            -_PRICE_DOT_RADIUS_PIXELS,
+            _PRICE_DOT_RADIUS_PIXELS * 2,
+            _PRICE_DOT_RADIUS_PIXELS * 2,
+            self,
+        )
+        self._price_dot_item.setPen(QPen(Qt.PenStyle.NoPen))
+        self._price_dot_item.setVisible(False)
 
     def configure(
         self,
@@ -66,6 +80,7 @@ class TriangleMarkerItem(QGraphicsPathItem):
         brush: QBrush,
         pen: QPen,
         badge_text: str | None = None,
+        show_price_dot: bool = False,
     ) -> None:
         if self._direction != direction:
             self._direction = direction
@@ -76,6 +91,7 @@ class TriangleMarkerItem(QGraphicsPathItem):
             self.setBrush(brush)
             self.setPen(pen)
             self._badge_item.setBrush(brush)
+            self._price_dot_item.setBrush(brush)
 
         self.setPos(x, y)
         if text:
@@ -84,6 +100,7 @@ class TriangleMarkerItem(QGraphicsPathItem):
             self.setToolTip(f"{y:,.2f}")
 
         self._configure_badge(badge_text, direction)
+        self._price_dot_item.setVisible(show_price_dot)
 
     def _configure_badge(self, badge_text: str | None, direction: str) -> None:
         """`PROP-003` §3.1 DETAILED mode — a persistent label next to the
@@ -232,6 +249,11 @@ class MarkerLayer(ViewportCulledLayer):
             return
 
         badges = self._badges.get(key, {})
+        # `PROP-003` §3.1 MEDIUM mode — every displayed item gets the dot,
+        # aggregated or not: unlike the badge, a dot only marks "a fill
+        # happened here", which stays true of an aggregate's own
+        # representative point.
+        show_price_dot = density_mode is MarkerDensityMode.MEDIUM
         active_items = self._active_items.setdefault(key, {})
         reusable_items = [active_items[index] for index in sorted(active_items)]
         next_items: dict[int, TriangleMarkerItem] = {}
@@ -247,9 +269,13 @@ class MarkerLayer(ViewportCulledLayer):
             )
             if display_index < len(reusable_items):
                 item = reusable_items[display_index]
-                self._configure_item(item, display_marker.source, badge_text)
+                self._configure_item(
+                    item, display_marker.source, badge_text, show_price_dot
+                )
             else:
-                item = self._create_item(display_marker.source, badge_text)
+                item = self._create_item(
+                    display_marker.source, badge_text, show_price_dot
+                )
                 self._plot.addItem(item)
             next_items[display_index] = item
 
@@ -306,10 +332,13 @@ class MarkerLayer(ViewportCulledLayer):
         return visible_slice_indices(timestamps, min_x, max_x, padding=padding)
 
     def _create_item(
-        self, marker: MarkerPoint, badge_text: str | None = None
+        self,
+        marker: MarkerPoint,
+        badge_text: str | None = None,
+        show_price_dot: bool = False,
     ) -> TriangleMarkerItem:
         item = TriangleMarkerItem()
-        self._configure_item(item, marker, badge_text)
+        self._configure_item(item, marker, badge_text, show_price_dot)
         return item
 
     def _configure_item(
@@ -317,6 +346,7 @@ class MarkerLayer(ViewportCulledLayer):
         item: TriangleMarkerItem,
         marker: MarkerPoint,
         badge_text: str | None = None,
+        show_price_dot: bool = False,
     ) -> None:
         x, y, text, color, direction = marker
         brush = self._brushes.get(color)
@@ -336,6 +366,7 @@ class MarkerLayer(ViewportCulledLayer):
             brush=brush,
             pen=pen,
             badge_text=badge_text,
+            show_price_dot=show_price_dot,
         )
 
     def clear(self, key: str) -> None:

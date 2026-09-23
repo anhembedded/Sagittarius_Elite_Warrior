@@ -9,6 +9,8 @@ screen: the read/convert half of "import and view read-only", matching
 
 from __future__ import annotations
 
+import os
+
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report import (
     BacktestReport,
 )
@@ -33,6 +35,18 @@ _METRICS_MISMATCH_NOTE = (
     "The stored metrics do not match what recomputing them from this "
     "report's own trades produces — the file may have been edited by hand."
 )
+
+
+def build_imported_report_banner_text(path: str, report: BacktestReport) -> str:
+    """The `VIEWING_IMPORTED_REPORT` banner's own text — naming the source
+    file (basename only, never the full path) and when the run behind it
+    happened. Kept alongside the other path/I-O helpers here rather than
+    inline in the Presenter, same split as `report_export.py`'s own
+    `suggest_report_filename()`."""
+    return (
+        f"Viewing imported report — {os.path.basename(path)}, run on "
+        f"{report.provenance.created_at:%Y-%m-%d %H:%M}."
+    )
 
 
 def read_backtest_report_bytes(path: str) -> bytes:

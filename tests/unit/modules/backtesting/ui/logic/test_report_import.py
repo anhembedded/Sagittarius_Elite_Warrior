@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_export im
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_import import (
     backtest_report_to_run_config,
+    build_imported_report_banner_text,
     build_report_provenance_warning_text,
     read_backtest_report_bytes,
 )
@@ -142,6 +143,32 @@ def test_backtest_report_to_run_config_round_trips_a_none_strategy_params(tmp_pa
 
     assert rebuilt.strategy_params is None
     assert rebuilt == original
+
+
+# ---------------------------------------------------------------------------
+# build_imported_report_banner_text — the VIEWING_IMPORTED_REPORT banner
+# ---------------------------------------------------------------------------
+
+
+def test_imported_report_banner_names_the_files_basename_not_the_full_path(tmp_path):
+    config = _run_config()
+    result = BacktestResult.compute(
+        symbol=config.symbol,
+        initial_balance=config.initial_balance,
+        final_balance=config.initial_balance,
+        trades=[],
+        equity_curve=[],
+    )
+    report = build_backtest_report(
+        config, result, app_version="1.0.0", engine_version="2.4.0", created_at=_T0
+    )
+    path = str(tmp_path / "some" / "nested" / "dir" / "run.sagi-report.json")
+
+    text = build_imported_report_banner_text(path, report)
+
+    assert "run.sagi-report.json" in text
+    assert str(tmp_path) not in text
+    assert "2024-01-01" in text
 
 
 # ---------------------------------------------------------------------------
