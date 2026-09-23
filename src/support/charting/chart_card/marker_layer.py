@@ -1,13 +1,25 @@
 from __future__ import annotations
 
 import math
+from collections.abc import Sequence
 
 import pyqtgraph as pg
 from PySide6.QtCore import QPointF
-from PySide6.QtGui import QBrush, QColor, QPainterPath, QPen, QPolygonF
-from PySide6.QtWidgets import QGraphicsItem, QGraphicsPathItem
+from PySide6.QtGui import QBrush, QColor, QFont, QPainterPath, QPen, QPolygonF
+from PySide6.QtWidgets import (
+    QGraphicsItem,
+    QGraphicsPathItem,
+    QGraphicsSimpleTextItem,
+)
 
-from .marker_lod import DisplayMarker, MarkerPoint, select_marker_display
+from .marker_lod import (
+    DisplayMarker,
+    MarkerDensityMode,
+    MarkerPoint,
+    classify_marker_density,
+    select_marker_display,
+    visible_candle_count,
+)
 from .viewport_culled_layer import ViewportCulledLayer
 from .viewport_windowing import visible_slice_indices
 
@@ -17,6 +29,8 @@ _MARKER_VERTICAL_OFFSET_PIXELS = 2.0
 _DEFAULT_BORDER_DARKEN_RATIO = 120
 _VIEWPORT_PADDING_RATIO = 0.1
 _FALLBACK_VIEWPORT_WIDTH_PIXELS = 1200.0
+_BADGE_HORIZONTAL_OFFSET_PIXELS = 8.0
+_BADGE_FONT_POINT_SIZE = 8
 
 
 class TriangleMarkerItem(QGraphicsPathItem):
@@ -35,6 +49,11 @@ class TriangleMarkerItem(QGraphicsPathItem):
         self.setFlag(QGraphicsItem.GraphicsItemFlag.ItemIgnoresTransformations, True)
         self._direction: str = ""
         self._color: str = ""
+        self._badge_item = QGraphicsSimpleTextItem(self)
+        badge_font = QFont()
+        badge_font.setPointSize(_BADGE_FONT_POINT_SIZE)
+        self._badge_item.setFont(badge_font)
+        self._badge_item.setVisible(False)
 
     def configure(
         self,
@@ -46,6 +65,7 @@ class TriangleMarkerItem(QGraphicsPathItem):
         direction: str,
         brush: QBrush,
         pen: QPen,
+        badge_text: str | None = None,
     ) -> None:
         if self._direction != direction:
             self._direction = direction
@@ -55,12 +75,32 @@ class TriangleMarkerItem(QGraphicsPathItem):
             self._color = color
             self.setBrush(brush)
             self.setPen(pen)
+            self._badge_item.setBrush(brush)
 
         self.setPos(x, y)
         if text:
             self.setToolTip(f"{text} @ {y:,.2f}" if y else text)
         else:
             self.setToolTip(f"{y:,.2f}")
+
+        self._configure_badge(badge_text, direction)
+
+    def _configure_badge(self, badge_text: str | None, direction: str) -> None:
+        """`PROP-003` §3.1 DETAILED mode — a persistent label next to the
+        triangle, so a zoomed-in user reads PnL/reason without hovering.
+        Only `MarkerLayer` decides when a viewport is detailed enough to
+        pass non-`None` text here; this item just draws or hides it."""
+        if not badge_text:
+            self._badge_item.setVisible(False)
+            return
+        self._badge_item.setText(badge_text)
+        offset_y = (
+            _MARKER_VERTICAL_OFFSET_PIXELS + _MARKER_HEIGHT_PIXELS
+            if direction == "up"
+            else -_MARKER_VERTICAL_OFFSET_PIXELS - _MARKER_HEIGHT_PIXELS
+        )
+        self._badge_item.setPos(_BADGE_HORIZONTAL_OFFSET_PIXELS, offset_y)
+        self._badge_item.setVisible(True)
 
     def _update_geometry(self, direction: str) -> None:
         path = QPainterPath()
@@ -111,21 +151,55 @@ class MarkerLayer(ViewportCulledLayer):
         self._brushes: dict[str, QBrush] = {}
         self._pens: dict[str, QPen] = {}
         self._visible_range: tuple[float, float] | None = None
+        #: `PROP-003` — per-marker badge text (e.g. "+2.10%"), keyed by the
+        #: exact `MarkerPoint` tuple it belongs to. A marker absent here (a
+        #: script marker with no badge, or an entry marker) never shows one.
+        self._badges: dict[str, dict[MarkerPoint, str]] = {}
+        #: `None` until the first `set_bar_seconds()` call — `_density_mode()`
+        #: reads this as "spacing unknown" and stays DENSE (no badges) rather
+        #: than guessing a candle count.
+        self._bar_seconds: float | None = None
+        self._last_density_mode: dict[str, MarkerDensityMode] = {}
 
-    def set_markers(self, key: str, markers: list[MarkerPoint]) -> None:
+    def set_markers(
+        self,
+        key: str,
+        markers: list[MarkerPoint],
+        badges: Sequence[str | None] | None = None,
+    ) -> None:
         """
         @brief Replaces every marker belonging to one script with the given set.
         @details The full semantic history is retained, but only the visible
         timestamp slice is materialized as QGraphics scene items. This keeps
         pan/zoom cost proportional to visible markers rather than the entire
         Backtest history.
+
+        `badges`, when given, is positional with `markers` (`badges[i]` is
+        `markers[i]`'s own badge text, or `None` for no badge) — optional so
+        every existing caller (custom indicator scripts via
+        `IndicatorManager.set_script_markers`) keeps working unchanged.
         """
         self.clear(key)
-        ordered = tuple(sorted(markers, key=lambda marker: marker[0]))
-        self._markers[key] = ordered
-        self._timestamps[key] = tuple(marker[0] for marker in ordered)
+        pairs = sorted(
+            zip(markers, badges or [None] * len(markers), strict=True),
+            key=lambda pair: pair[0][0],
+        )
+        self._markers[key] = tuple(marker for marker, _ in pairs)
+        self._timestamps[key] = tuple(marker[0] for marker, _ in pairs)
+        self._badges[key] = {
+            marker: badge for marker, badge in pairs if badge is not None
+        }
         self._active_items[key] = {}
         self._materialize_visible_slice(key)
+
+    def set_bar_seconds(self, bar_seconds: float) -> None:
+        """`PROP-003` — the chart's own candle spacing, used to translate
+        the visible timestamp range into a visible-candle count for
+        `MarkerDensityMode`. Called by `IndicatorManager` whenever
+        `ChartCard` recomputes it (on data load and on every pan/zoom, both
+        cheap: `ChartCard._bar_seconds()` is O(1)), never by this layer
+        itself — a layer has no candle data of its own to derive it from."""
+        self._bar_seconds = bar_seconds
 
     def refresh_window(self, min_x: float, max_x: float) -> None:
         """Updates active scene items for the latest pan/zoom viewport."""
@@ -150,18 +224,32 @@ class MarkerLayer(ViewportCulledLayer):
         lo, hi = self._visible_slice(key)
         target_slice = (lo, hi)
         display_markers = self._select_display_markers(markers[lo:hi])
-        if self._display_markers.get(key) == display_markers:
+        density_mode = self._density_mode()
+        if (
+            self._display_markers.get(key) == display_markers
+            and self._last_density_mode.get(key) is density_mode
+        ):
             return
 
+        badges = self._badges.get(key, {})
         active_items = self._active_items.setdefault(key, {})
         reusable_items = [active_items[index] for index in sorted(active_items)]
         next_items: dict[int, TriangleMarkerItem] = {}
         for display_index, display_marker in enumerate(display_markers):
+            # A badge only ever shows for an exact (non-aggregated) marker —
+            # an aggregate item already speaks for several trades, so a
+            # single one's PnL badge would misrepresent the group.
+            badge_text = (
+                badges.get(display_marker.source)
+                if density_mode is MarkerDensityMode.DETAILED
+                and display_marker.represented_count == 1
+                else None
+            )
             if display_index < len(reusable_items):
                 item = reusable_items[display_index]
-                self._configure_item(item, display_marker.source)
+                self._configure_item(item, display_marker.source, badge_text)
             else:
-                item = self._create_item(display_marker.source)
+                item = self._create_item(display_marker.source, badge_text)
                 self._plot.addItem(item)
             next_items[display_index] = item
 
@@ -171,7 +259,18 @@ class MarkerLayer(ViewportCulledLayer):
         self._active_items[key] = next_items
         self._active_slices[key] = target_slice
         self._display_markers[key] = display_markers
+        self._last_density_mode[key] = density_mode
         self._items[key] = [next_items[index] for index in sorted(next_items)]
+
+    def _density_mode(self) -> MarkerDensityMode:
+        """`PROP-003` — `DENSE` (no badges) until both a viewport and a
+        real `set_bar_seconds()` value are known, matching today's
+        behaviour exactly for every caller that never calls it."""
+        if self._visible_range is None or self._bar_seconds is None:
+            return MarkerDensityMode.DENSE
+        min_x, max_x = self._visible_range
+        candles = visible_candle_count(min_x, max_x, self._bar_seconds)
+        return classify_marker_density(candles)
 
     def _select_display_markers(
         self, markers: tuple[MarkerPoint, ...]
@@ -206,12 +305,19 @@ class MarkerLayer(ViewportCulledLayer):
         padding = (max_x - min_x) * _VIEWPORT_PADDING_RATIO
         return visible_slice_indices(timestamps, min_x, max_x, padding=padding)
 
-    def _create_item(self, marker: MarkerPoint) -> TriangleMarkerItem:
+    def _create_item(
+        self, marker: MarkerPoint, badge_text: str | None = None
+    ) -> TriangleMarkerItem:
         item = TriangleMarkerItem()
-        self._configure_item(item, marker)
+        self._configure_item(item, marker, badge_text)
         return item
 
-    def _configure_item(self, item: TriangleMarkerItem, marker: MarkerPoint) -> None:
+    def _configure_item(
+        self,
+        item: TriangleMarkerItem,
+        marker: MarkerPoint,
+        badge_text: str | None = None,
+    ) -> None:
         x, y, text, color, direction = marker
         brush = self._brushes.get(color)
         if brush is None:
@@ -229,6 +335,7 @@ class MarkerLayer(ViewportCulledLayer):
             direction=direction,
             brush=brush,
             pen=pen,
+            badge_text=badge_text,
         )
 
     def clear(self, key: str) -> None:
@@ -240,6 +347,8 @@ class MarkerLayer(ViewportCulledLayer):
         self._active_slices.pop(key, None)
         self._display_markers.pop(key, None)
         self._items.pop(key, None)
+        self._badges.pop(key, None)
+        self._last_density_mode.pop(key, None)
 
     def clear_all(self) -> None:
         for key in list(self._markers):

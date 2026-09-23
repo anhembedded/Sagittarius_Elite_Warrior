@@ -743,10 +743,12 @@ class ChartCard(Card):
     def clear_script_info(self, key: str) -> None:
         self.indicators.clear_script_info(key)
 
-    def set_script_markers(self, key: str, markers: list) -> None:
+    def set_script_markers(
+        self, key: str, markers: list, badges: list | None = None
+    ) -> None:
         if self._raw_history:
             self._sync_indicator_window()
-        self.indicators.set_script_markers(key, markers)
+        self.indicators.set_script_markers(key, markers, badges)
 
     def clear_script_markers(self, key: str) -> None:
         self.indicators.clear_script_markers(key)
@@ -793,6 +795,11 @@ class ChartCard(Card):
     def _apply_x_range(self, min_x: float, max_x: float) -> None:
         """Applies the final coalesced viewport to expensive renderers."""
         self.volume.refresh_window(min_x, max_x)
+        # `PROP-003` — refreshed every pan/zoom, not only at data load: a
+        # live chart's candle spacing is unknown until the first history
+        # arrives, and `_bar_seconds()` is O(1) so paying for it here has
+        # no measurable cost.
+        self.indicators.set_marker_bar_seconds(self._bar_seconds())
         self.indicators.refresh_window(min_x, max_x)
         self._log_applied_x_range(min_x, max_x)
 

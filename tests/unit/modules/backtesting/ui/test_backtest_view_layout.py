@@ -318,6 +318,30 @@ def test_marker_filters_narrow_the_trade_flag_markers_drawn(qapp, request):
     assert loss_exit_marker not in wins_only_markers
 
 
+def test_render_chart_passes_pnl_badges_alongside_trade_markers(qapp, request):
+    """`PROP-003` wiring: `_render_chart()` must forward
+    `_filtered_trade_flag_badges()` to `set_script_markers()` alongside
+    the markers, positionally aligned."""
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.chart_canvas_view import (
+        trade_marker_badges_for_trades,
+    )
+
+    v = BackTestView()
+    request.addfinalizer(v.deleteLater)
+    v.render_symbol_cards(["ETHUSDT"])
+    result = _win_loss_result()
+    card = v._current_card()
+
+    with patch.object(card, "set_script_markers") as spy:
+        v.on_backtest_data_ready(result, [], [])
+
+    spy.assert_called_once()
+    _, call_args, call_kwargs = spy.mock_calls[0]
+    badges = call_args[2] if len(call_args) > 2 else call_kwargs.get("badges")
+    assert badges == trade_marker_badges_for_trades(result.trades)
+    assert any(badge is not None for badge in badges)
+
+
 def test_refresh_trade_flag_filters_reapplies_the_checkboxs_own_state(qapp, request):
     """A filter changing must never override the separate Buy/Sell Flags
     show/hide toggle — it only re-applies whatever that toggle already

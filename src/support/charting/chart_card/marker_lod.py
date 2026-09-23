@@ -4,12 +4,52 @@ import math
 from collections import defaultdict
 from collections.abc import Sequence
 from dataclasses import dataclass
+from enum import Enum
 
 MarkerPoint = tuple[float, float, str, str, str]
 MarkerIdentity = tuple[str, str, str]
 
 _MIN_LABEL_SPACING_PIXELS = 120.0
 _FALLBACK_VIEWPORT_WIDTH_PIXELS = 1200.0
+
+#: `PROP-003` thresholds (Vietnamese proposal text, §3.1): >80 visible
+#: candles is DENSE (triangle only), 30-80 is MEDIUM (+ execution-price
+#: dot, drawn by `MarkerLayer` itself), <30 is DETAILED (+ a persistent
+#: PnL/reason badge next to the triangle instead of hover-only).
+_DETAILED_MAX_VISIBLE_CANDLES = 30.0
+_MEDIUM_MAX_VISIBLE_CANDLES = 80.0
+
+
+class MarkerDensityMode(Enum):
+    """How much per-marker detail the current viewport has room for,
+    independent of `select_marker_display()`'s own pixel-collision LOD
+    axis above: that axis decides whether *nearby* markers merge into one
+    aggregate item; this one decides how much detail *each* displayed
+    item — merged or not — is allowed to carry."""
+
+    DENSE = "dense"
+    MEDIUM = "medium"
+    DETAILED = "detailed"
+
+
+def visible_candle_count(min_x: float, max_x: float, bar_seconds: float) -> float:
+    """How many candles fit between `min_x` and `max_x` at `bar_seconds`
+    spacing. `bar_seconds <= 0` (spacing not known yet, e.g. before any
+    history is loaded) answers `math.inf` — treated as maximally dense
+    rather than raising `ZeroDivisionError` or guessing a count."""
+    if bar_seconds <= 0.0 or not math.isfinite(bar_seconds):
+        return math.inf
+    return abs(max_x - min_x) / bar_seconds
+
+
+def classify_marker_density(visible_candles: float) -> MarkerDensityMode:
+    """Maps a visible-candle count to the `MarkerDensityMode` band it
+    falls in, per this module's own threshold constants."""
+    if visible_candles < _DETAILED_MAX_VISIBLE_CANDLES:
+        return MarkerDensityMode.DETAILED
+    if visible_candles <= _MEDIUM_MAX_VISIBLE_CANDLES:
+        return MarkerDensityMode.MEDIUM
+    return MarkerDensityMode.DENSE
 
 
 @dataclass(frozen=True, slots=True)

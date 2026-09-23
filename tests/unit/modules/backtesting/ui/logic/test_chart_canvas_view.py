@@ -28,6 +28,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.chart_canvas_vie
     filter_trades_for_markers,
     trade_flag_markers,
     trade_flag_markers_for_trades,
+    trade_marker_badges_for_trades,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
@@ -443,3 +444,70 @@ def test_build_trade_view_range_floors_padding_for_a_near_instant_trade():
 
     assert min_ts == _T0.timestamp() - 60.0
     assert max_ts == _T0.timestamp() + 60.0
+
+
+# ---------------------------------------------------------------------------
+# `PROP-003` — per-marker badges, positionally aligned with
+# `trade_flag_markers_for_trades()`'s own markers.
+# ---------------------------------------------------------------------------
+
+
+def test_trade_marker_badges_has_no_badge_for_the_entry_marker():
+    trades = _result_with_one_trade().trades
+
+    badges = trade_marker_badges_for_trades(trades)
+
+    assert badges[0] is None
+
+
+def test_trade_marker_badges_shows_a_signed_percent_for_a_winning_exit():
+    trades = _result_with_one_trade().trades  # pnl_percent=10.0
+
+    badges = trade_marker_badges_for_trades(trades)
+
+    assert badges[1] == "Sig +10.00%"
+
+
+def test_trade_marker_badges_shows_a_signed_percent_for_a_losing_exit():
+    losing_trade = Trade(
+        symbol="ETHUSDT",
+        entry_time=_T0,
+        entry_price=100.0,
+        exit_time=_T1,
+        exit_price=95.0,
+        quantity=1.0,
+        pnl=-50.0,
+        pnl_percent=-5.0,
+        fees_paid=0.0,
+        side=PositionSide.LONG,
+    )
+
+    badges = trade_marker_badges_for_trades([losing_trade])
+
+    assert badges == [None, "Sig -5.00%"]
+
+
+def test_trade_marker_badges_uses_the_exit_reasons_own_short_code():
+    for reason, code in (
+        (ExitReason.TAKE_PROFIT, "TP"),
+        (ExitReason.STOP_LOSS, "SL"),
+        (ExitReason.STRATEGY_SIGNAL, "Sig"),
+        (ExitReason.END_OF_BACKTEST, "EOB"),
+        (ExitReason.LIQUIDATION, "Liq"),
+    ):
+        trades = _result_with_one_trade(exit_reason=reason).trades
+
+        badges = trade_marker_badges_for_trades(trades)
+
+        assert badges[1].startswith(code), (reason, badges[1])
+
+
+def test_trade_marker_badges_stays_positionally_aligned_with_markers():
+    result = _result_with_one_trade()
+    markers = trade_flag_markers_for_trades(result.trades)
+    badges = trade_marker_badges_for_trades(result.trades)
+
+    assert len(markers) == len(badges)
+    # Entry marker (index 0) has no badge; exit marker (index 1) does.
+    assert badges[0] is None
+    assert badges[1] is not None
