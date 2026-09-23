@@ -148,6 +148,15 @@ class IndicatorScriptRunner:
                 # take the whole Load History down.
                 self._on_error(f"Unknown indicator script: {key}")
                 continue
+            except ValueError as exc:
+                # `BOT-063` — saved params are validated at Save time
+                # (`IndicatorScriptParamsSink`), never re-validated on load;
+                # a script's declared bounds tightening in a later release
+                # can strand an old value on disk. Falls back to every
+                # declared default rather than taking Load History/Start
+                # Live down over one script's stale config.
+                self._on_error(f"Ignoring saved params for {key}: {exc}")
+                script = self._registry.create(key)
             active[key] = ActiveScript(
                 script=script,
                 overlay=script.overlay,
@@ -164,6 +173,10 @@ class IndicatorScriptRunner:
         except KeyError:
             self._on_error(f"Unknown indicator script: {key}")
             return
+        except ValueError as exc:
+            # Same fallback as `rebuild()` above — see its comment.
+            self._on_error(f"Ignoring saved params for {key}: {exc}")
+            script = self._registry.create(key)
         active = ActiveScript(
             script=script,
             overlay=script.overlay,

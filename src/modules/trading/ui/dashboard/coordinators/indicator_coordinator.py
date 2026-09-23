@@ -84,16 +84,23 @@ class IndicatorCoordinator:
         figure once it is actually built with that period.
         """
         available = self._script_registry.available()
-        slowest = max(
-            (
-                self._script_registry.create(
-                    key, self._get_script_params(key)
-                ).min_warmup_bars
-                for key in self._get_enabled_script_keys()
-                if key in available
-            ),
-            default=0,
-        )
+        warmups: list[int] = []
+        for key in self._get_enabled_script_keys():
+            if key not in available:
+                continue
+            try:
+                script = self._script_registry.create(key, self._get_script_params(key))
+            except ValueError:
+                # Saved params are validated at Save time
+                # (`IndicatorScriptParamsSink`), never re-validated on load;
+                # a script's declared bounds tightening in a later release
+                # can strand an old value on disk. Falls back to every
+                # declared default rather than taking Load History/Start
+                # Live down over one script's stale config — the same
+                # fallback `IndicatorScriptRunner.rebuild()` uses.
+                script = self._script_registry.create(key)
+            warmups.append(script.min_warmup_bars)
+        slowest = max(warmups, default=0)
         floor = self._config.get(
             _MIN_FETCH_CANDLES_CONFIG_KEY, _DEFAULT_MIN_FETCH_CANDLES, cast=int
         )
