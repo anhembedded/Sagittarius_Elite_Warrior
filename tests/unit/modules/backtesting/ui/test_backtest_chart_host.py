@@ -69,6 +69,8 @@ def test_host_delegates_every_port_operation_to_the_chart_card(qapp, request):
         # `PROP-001` — the entry-exit connecting line for a selected trade.
         ("set_trade_link", ((1.0, 100.0), (2.0, 110.0), "#26a69a", "+10%"), {}),
         ("clear_trade_link", (), {}),
+        # `PROP-002` — pan/zoom to a selected trade's window.
+        ("set_view_range", (1.0, 2.0), {}),
         ("cleanup", (), {}),
     ]
     for method_name, args, kwargs in calls:

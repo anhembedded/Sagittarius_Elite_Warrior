@@ -22,6 +22,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.chart_canvas_vie
     MarkerSideFilter,
     TradeMarkerType,
     build_trade_link,
+    build_trade_view_range,
     equity_curve_to_candles,
     equity_curve_to_line_data,
     filter_trades_for_markers,
@@ -406,3 +407,39 @@ def test_build_trade_link_label_omits_leading_plus_for_a_loss():
     assert "-1.20%" in label
     assert "-50.00" in label
     assert "+-" not in label
+
+
+def test_build_trade_view_range_pads_by_a_fraction_of_the_trade_duration():
+    """`PROP-002` — `_T0`->`_T1` is a 1-day (86400s) trade; padding is 50% of
+    that on each side, well above the near-instant-trade floor."""
+    trade = _trade(pnl=10.0, pnl_percent=10.0)
+    duration_seconds = _T1.timestamp() - _T0.timestamp()
+    expected_padding = duration_seconds * 0.5
+
+    min_ts, max_ts = build_trade_view_range(trade)
+
+    assert min_ts == _T0.timestamp() - expected_padding
+    assert max_ts == _T1.timestamp() + expected_padding
+
+
+def test_build_trade_view_range_floors_padding_for_a_near_instant_trade():
+    """A same-candle scalp (entry == exit timestamp) has zero duration —
+    50% of zero is zero, which would pan to an unreadably narrow window
+    without the floor."""
+    instant_trade = Trade(
+        symbol="ETHUSDT",
+        entry_time=_T0,
+        entry_price=100.0,
+        exit_time=_T0,
+        exit_price=105.0,
+        quantity=1.0,
+        pnl=5.0,
+        pnl_percent=5.0,
+        fees_paid=0.0,
+        side=PositionSide.LONG,
+    )
+
+    min_ts, max_ts = build_trade_view_range(instant_trade)
+
+    assert min_ts == _T0.timestamp() - 60.0
+    assert max_ts == _T0.timestamp() + 60.0

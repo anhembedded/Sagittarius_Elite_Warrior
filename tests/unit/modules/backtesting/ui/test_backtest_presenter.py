@@ -3658,6 +3658,31 @@ def test_trade_row_selected_draws_the_trade_link_on_the_chart(presenter, view_mo
     assert list(y_data) == [trade.entry_price, trade.exit_price]
 
 
+def test_trade_row_selected_pans_the_chart_to_the_trade_window(presenter, view_model):
+    """`PROP-002` — picking a Trade Logs row also pans/zooms the chart so
+    the trade's entry/exit window is visible without manual scrolling.
+    Klines span the trade's own entry/exit timestamps (`_T0`..`_T1`) so
+    `ChartCard._apply_view_bounds()`'s history-derived `setLimits()` does not
+    clamp the pan target away — a real chart's loaded history always covers
+    every trade drawn on it."""
+    view_model.strategy_params.selectedStrategyKey = "fake_strategy"
+    presenter._on_run_backtest()
+    result = _make_result(with_trades=True)
+    presenter._on_backtest_succeeded(result)
+    entry_ts, exit_ts = _T0.timestamp(), _T1.timestamp()
+    klines = [(entry_ts, 1.0, 2.0, 0.5, 1.5), (exit_ts, 1.0, 2.0, 0.5, 1.5)]
+    presenter._on_chart_data_ready(result, klines, [(entry_ts, 100.0, True)])
+    trade = result.trades[0]
+    chart_card = presenter.view.chart_cards[0].chart_card
+    chart_card.plot_layout.main_plot.setXRange(entry_ts, entry_ts + 1.0, padding=0)
+
+    presenter._on_trade_row_selected(1)
+
+    (min_x, max_x), _ = chart_card.plot_layout.main_plot.vb.viewRange()
+    assert min_x <= trade.entry_time.timestamp()
+    assert max_x >= trade.exit_time.timestamp()
+
+
 def test_trade_row_deselected_clears_the_trade_link(presenter, view_model):
     view_model.strategy_params.selectedStrategyKey = "fake_strategy"
     presenter._on_run_backtest()

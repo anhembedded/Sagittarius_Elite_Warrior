@@ -129,6 +129,9 @@ class PythonBacktestChartHost:
     def clear_trade_link(self) -> None:
         self._chart_card.clear_trade_link()
 
+    def set_view_range(self, min_ts: float, max_ts: float) -> None:
+        self._chart_card.set_view_range(min_ts, max_ts)
+
     def connect_timeframe_changed(self, slot: Callable[[str], None]) -> None:
         self._chart_card.toolbar.sig_timeframe_changed.connect(slot)
 

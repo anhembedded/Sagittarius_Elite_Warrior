@@ -131,7 +131,7 @@ from .logic.backtest_fsm_matrix import (
 )
 from .logic.backtest_limitations_view import build_backtest_limitations
 from .logic.backtest_screen_config import BacktestScreenConfig
-from .logic.chart_canvas_view import build_trade_link
+from .logic.chart_canvas_view import build_trade_link, build_trade_view_range
 from .logic.extended_metrics_snapshot import ExtendedMetricsSnapshot
 from .logic.performance_charts import (
     build_drawdown_chart_points,
@@ -1424,19 +1424,24 @@ class BackTestPresenter(BasePresenter):
     @Slot(int)
     @safe_ui_action
     def _on_trade_row_selected(self, index: int) -> None:
-        """`PROP-001` — a Trade Logs row expanded or collapsed. `index` is
-        the trade's stable 1-based position in `self._all_trades`; `-1`
-        means "no row selected"."""
+        """`PROP-001`/`PROP-002` — a Trade Logs row expanded or collapsed.
+        `index` is the trade's stable 1-based position in
+        `self._all_trades`; `-1` means "no row selected". Selecting a row
+        both draws the entry-exit link and pans/zooms the chart to that
+        trade's window (`PROP-002`), so the user never has to manually
+        scroll to find it; deselecting only clears the link — panning back
+        on deselect would fight the user's own subsequent navigation."""
         chart_card = self._first_chart_card()
         if chart_card is None:
             return
         if index < 1 or index > len(self._all_trades):
             chart_card.clear_trade_link()
             return
-        entry_point, exit_point, color, label = build_trade_link(
-            self._all_trades[index - 1]
-        )
+        trade = self._all_trades[index - 1]
+        entry_point, exit_point, color, label = build_trade_link(trade)
         chart_card.set_trade_link(entry_point, exit_point, color, label)
+        min_ts, max_ts = build_trade_view_range(trade)
+        chart_card.set_view_range(min_ts, max_ts)
 
     def _reset_indicator_bookkeeping_after_host_rebuild(self) -> None:
         self._indicators.reset_bookkeeping_after_host_rebuild()
