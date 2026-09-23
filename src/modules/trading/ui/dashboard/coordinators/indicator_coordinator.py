@@ -10,7 +10,8 @@ a late-bound callback, never copied in at construction time.
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
+from typing import Any
 
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
@@ -44,6 +45,7 @@ class IndicatorCoordinator:
         get_active_charts: Callable[[], dict],
         get_active_symbol: Callable[[], str],
         get_enabled_script_keys: Callable[[], list[str]],
+        get_script_params: Callable[[str], Mapping[str, Any] | None] | None = None,
     ) -> None:
         self._script_registry = script_registry
         self._script_runner = script_runner
@@ -51,6 +53,11 @@ class IndicatorCoordinator:
         self._get_active_charts = get_active_charts
         self._get_active_symbol = get_active_symbol
         self._get_enabled_script_keys = get_enabled_script_keys
+        #: `BOT-063` — optional: Backtest's own coordinator has no saved
+        #: per-script params to look up, so it never passes this and every
+        #: script's warm-up requirement is still read off the class,
+        #: exactly as before this parameter existed.
+        self._get_script_params = get_script_params or (lambda _key: None)
 
     def _active_card(self):
         return self._get_active_charts().get(self._get_active_symbol())
@@ -66,14 +73,22 @@ class IndicatorCoordinator:
         @details `max(render window, the slowest enabled script's declared
         warm-up requirement, a user-configurable floor)`. Reads
         `get_enabled_script_keys()` fresh on every call (the same "no
-        retroactive effect" contract `rebuild_scripts()` has) and looks up
-        each key's class in the registry without instantiating it —
-        `min_warmup_bars` is a class attribute.
+        retroactive effect" contract `rebuild_scripts()` has).
+
+        `BOT-063` — instantiates each enabled script with its saved params
+        (falling back to every declared default when none are saved,
+        exactly like `IndicatorScriptRunner.rebuild()`) rather than reading
+        `min_warmup_bars` off the class: a script that overrides
+        `self.min_warmup_bars` in `setup()` from a longer-than-default
+        period (`ema_20_script.py` et al.) only reports the true, larger
+        figure once it is actually built with that period.
         """
         available = self._script_registry.available()
         slowest = max(
             (
-                available[key].min_warmup_bars
+                self._script_registry.create(
+                    key, self._get_script_params(key)
+                ).min_warmup_bars
                 for key in self._get_enabled_script_keys()
                 if key in available
             ),

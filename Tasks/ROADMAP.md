@@ -22,9 +22,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 152 | 76.4% |
+| 🟢 **Completed** | 153 | 76.9% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 39 | 19.6% |
+| 🔴 **Backlog** | 38 | 19.1% |
 | ❌ **Cancelled** | 8 | 4.0% |
 | 📈 **Tổng số Task** | **199** | **100%** |
 
@@ -151,6 +151,8 @@ Sagittarius_Elite_Warrior/Tasks/
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
+
+- [x] **`BOT-063`**: [Modal "Thông số Chỉ báo" cho Dev Board — tái dùng nguyên `StrategyParamsDialog` (đã tổng quát hoá với `title` tuỳ chọn + nút "Restore Defaults" mới) thay vì QML đã bị xoá từ `EPIC-025`; `_field`/`_coerce` tách thành `support/indicators/scripting/param_form.py` dùng chung cho cả `StrategyCatalogService` lẫn `IndicatorScriptCatalog` mới; `min_warmup_bars` của 6 script mặc định (`ema_20/50/100/200`, `rsi_14`, `macd_full`) nay per-instance thật thay vì class attribute; lưu params đã chỉnh qua `IConfig` (`ConfigKeys.DASHBOARD_INDICATOR_SCRIPT_PARAMS`, mirror `TRADING_LIVE_STRATEGY_PARAMS`); phát hiện và sửa `BUG-134` (nút "Strategy Parameters…" crash `TypeError` mỗi lần bấm) giữa chừng](completed/BOT-063_indicator_settings_modal.md).
 
 - [x] **`BOT-112D`**: [Nhập/Xuất dữ liệu lịch sử (CSV/Parquet/JSON) và bảo trì ổ cứng — một parser CSV theo alias thay vì ba parser riêng cho Binance/TradingView/MetaTrader, export streaming (bounded-memory, `BUG-025`) qua `IMarketDataRepository.stream_klines()`, import qua `save_klines()`'s upsert sẵn có (không cần logic chống trùng riêng), `ExportImportCoordinator` mới tách khỏi `ScanCoordinator` (đã chạm trần 400 dòng), thêm phụ thuộc `pyarrow` sau khi người dùng phê duyệt](completed/BOT-112D_market_data_import_export_csv_parquet.md) — Epic `BOT-112` nay **5/5 xong trọn**.
 
@@ -506,8 +508,8 @@ Sagittarius_Elite_Warrior/Tasks/
 | ✅ **[BOT-044](completed/BOT-044_param_schema_core.md)** | **Param Schema Core** *(kiểu `input()` Pine Script)* | 🟡 **`M (Standard)`** | `BOT-032` ✅ | `ScriptInput`/`InputKind`/`InputDeclarations` ở `domain/scripting/` (dùng chung, `BOT-046` tái dùng nguyên) + `input_int/float/bool/string()` trên `BaseIndicatorScript` + property `inputs`. `IndicatorScriptRegistry.create(key, params)` giờ **truyền thật** thay vì bỏ qua. Validate ở domain, raise thay vì kẹp giá trị. ⚠️ **Đảo ngược `BOT-032` §9.1**. |
 | ✅ **[BOT-046](completed/BOT-046_strategy_param_plumbing.md)** | **Param Schema cho Strategy + nối registry/factory** | 🟡 **`M (Standard)`** | `BOT-044` ✅, `BOT-026` ✅ | `BaseStrategy` thêm hook `setup()` + `input_int/float/bool/string()`/`inputs` — tái dùng nguyên `InputDeclarations`/`ScriptInput` từ `domain/scripting/` (BOT-044), không chia sẻ qua kế thừa (2 base class vẫn tách biệt). `StrategyRegistry.create(key, params)`/`build_engine(..., params)` giờ truyền thật. `EmaCrossoverStrategy` chuyển từ constructor kwargs (`fast_period=`/`slow_period=`) sang khai báo trong `setup()` — default 12/26 giữ nguyên. Bất biến "diff = 0 dòng" (`i_strategy.py`/`strategy_context.py`/`strategy_engine.py`/`test_strategy_engine.py`) giữ nguyên. 12 test mới. 730 test pass, coverage 94.86%, `ruff` sạch. |
 | ✅ **[BOT-047](completed/BOT-047_dynamic_params_form_ui.md)** | **Modal "Cấu hình Thông số Bot" — form động** | 🟡 **`M (Standard)`** | `BOT-044` ✅, `BOT-046` ✅ | Dựng form từ schema (4 kiểu widget, nhóm field, "Khôi phục Mặc định", "Lưu & Re-Backtest"). Thêm chiến lược mới **không phải sửa UI**. |
-| ✅ **[BOT-048](completed/BOT-048_migrate_default_scripts_to_inputs.md)** | **Chuyển 6 script mặc định sang input** | 🟢 **`S (Fast)`** | `BOT-044` ✅, `BOT-047` ✅ | **Giữ nguyên cả 6**, chỉ đổi period/fast/slow/signal từ hardcode sang `input_int()` với default y hệt giá trị cũ. `min_warmup_bars` **vẫn là class attribute** (chưa động) — đúng vì chưa ai truyền `params` thật cho indicator script (xem `BOT-063`). |
-| **[BOT-063](backlog/BOT-063_indicator_settings_modal.md)** | **Modal "Thông số Chỉ báo" cho Dev Board** | 🟡 **`M (Standard)`** | `BOT-048` ✅ | Tái dùng pattern `BOT-047` (form động, Lưu/Khôi phục Mặc định) nhưng cho **indicator script** thay vì strategy — `indicator_script_runner.py` hiện gọi `create(key)` không truyền `params`, cần nối lại. Chưa bắt đầu. |
+| ✅ **[BOT-048](completed/BOT-048_migrate_default_scripts_to_inputs.md)** | **Chuyển 6 script mặc định sang input** | 🟢 **`S (Fast)`** | `BOT-044` ✅, `BOT-047` ✅ | **Giữ nguyên cả 6**, chỉ đổi period/fast/slow/signal từ hardcode sang `input_int()` với default y hệt giá trị cũ. `min_warmup_bars` từng là class attribute — nay per-instance thật, xem `BOT-063`. |
+| ✅ **[BOT-063](completed/BOT-063_indicator_settings_modal.md)** | **Modal "Thông số Chỉ báo" cho Dev Board** | 🟡 **`M (Standard)`** | `BOT-048` ✅ | Tái dùng nguyên `StrategyParamsDialog` (QtWidgets, không phải QML đã lỗi thời) cho indicator script; `min_warmup_bars` nay per-instance thật; lưu params qua `IConfig` (mirror `TRADING_LIVE_STRATEGY_PARAMS`); phát hiện và sửa `BUG-134` giữa chừng. |
 
 **Nhóm B — PaperExchange nâng cao**
 

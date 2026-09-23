@@ -115,6 +115,15 @@ class ConfigKeys(str, Enum):
     #: string (the default) means "every declared default", which is what
     #: `build_engine(params=None)` already does.
     TRADING_LIVE_STRATEGY_PARAMS = "trading.live_strategy_params"
+    #: `BOT-063` — every Dev Board indicator script's saved parameter
+    #: values, as one JSON object keyed by script key
+    #: (`{"ema_20": {"period": 25}, "macd_full": {"fast_period": 10}}`) —
+    #: same "one blob, not one key per field" reasoning as
+    #: `TRADING_LIVE_STRATEGY_PARAMS` just above, except keyed by script
+    #: since several scripts can be enabled and edited at once, unlike the
+    #: one live strategy. Empty string (the default) means "every script
+    #: uses its own declared defaults".
+    DASHBOARD_INDICATOR_SCRIPT_PARAMS = "dashboard.indicator_script_params"
     #: The one `TimeFrame` `MarketTickEventHandler`'s live strategy path
     #: reacts to — every tick for any other interval is ignored, the same
     #: reason `TRADING_LIVE_SYMBOL` filters by symbol (`BUG-085`: mixing

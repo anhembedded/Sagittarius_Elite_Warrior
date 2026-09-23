@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import functools
-from collections.abc import Callable, Iterable
+from collections.abc import Callable, Iterable, Mapping
 from dataclasses import dataclass, field
+from typing import Any
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
@@ -110,6 +111,7 @@ class IndicatorScriptRunner:
         emit_markers: Callable[[str, list[MarkerPoint]], None],
         on_error: Callable[[str], None],
         bar_width_seconds: float = _DEFAULT_BAR_WIDTH_SECONDS,
+        get_params: Callable[[str], Mapping[str, Any] | None] | None = None,
     ) -> None:
         self._registry = registry
         self._emit_line = emit_line
@@ -118,6 +120,11 @@ class IndicatorScriptRunner:
         self._emit_markers = emit_markers
         self._on_error = on_error
         self._bar_width_seconds = bar_width_seconds
+        #: `BOT-063` — a script's saved params, by key. Optional: Backtest's
+        #: own `IndicatorScriptRunner` has no per-script params UI, so it
+        #: never passes this and every script keeps building with every
+        #: declared default, exactly as before this parameter existed.
+        self._get_params = get_params or (lambda _key: None)
         self.active: dict[str, ActiveScript] = {}
 
     # ------------------------------------------------------------------ #
@@ -135,7 +142,7 @@ class IndicatorScriptRunner:
         active: dict[str, ActiveScript] = {}
         for key in enabled_keys:
             try:
-                script = self._registry.create(key)
+                script = self._registry.create(key, self._get_params(key))
             except KeyError:
                 # A stale key (script removed since it was enabled) must not
                 # take the whole Load History down.
@@ -153,7 +160,7 @@ class IndicatorScriptRunner:
         if key in self.active:
             return
         try:
-            script = self._registry.create(key)
+            script = self._registry.create(key, self._get_params(key))
         except KeyError:
             self._on_error(f"Unknown indicator script: {key}")
             return

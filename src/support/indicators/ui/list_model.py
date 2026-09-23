@@ -14,6 +14,21 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.model_indexes import (
 class _ScriptRow:
     key: str
     title: str
+    has_params: bool = False
+
+
+def _has_params(cls: type) -> bool:
+    """`BOT-063` — a throwaway instance, same technique
+    `StrategyCatalogService.params_form()` uses: `.inputs` is populated by
+    `setup()`, which only runs once constructed. Broad except rather than
+    `hasattr`-style duck-typing on `cls` alone: this model's own tests
+    register minimal fakes with no `.inputs` at all (this list's job is
+    "which scripts exist", never "is this a real `BaseIndicatorScript`"),
+    and those must simply report no params rather than fail to load."""
+    try:
+        return bool(cls().inputs)
+    except (TypeError, AttributeError):
+        return False
 
 
 class IndicatorScriptListModel(QAbstractListModel):
@@ -42,11 +57,16 @@ class IndicatorScriptListModel(QAbstractListModel):
     KeyRole = Qt.ItemDataRole.UserRole + 1
     TitleRole = Qt.ItemDataRole.UserRole + 2
     EnabledRole = Qt.ItemDataRole.UserRole + 3
+    #: `BOT-063` — whether this script declares any `input_*()` at all, so
+    #: a view only offers a params button for the ones that have something
+    #: to edit.
+    HasParamsRole = Qt.ItemDataRole.UserRole + 4
 
     _ROLE_NAMES: ClassVar[dict[int, bytes]] = {
         KeyRole: b"key",
         TitleRole: b"title",
         EnabledRole: b"enabled",
+        HasParamsRole: b"hasParams",
     }
 
     enabledKeysChanged = Signal()
@@ -79,6 +99,8 @@ class IndicatorScriptListModel(QAbstractListModel):
             return row.title
         if role == self.EnabledRole:
             return row.key in self._enabled
+        if role == self.HasParamsRole:
+            return row.has_params
         return None
 
     def set_available(self, scripts: Mapping[str, type]) -> None:
@@ -93,7 +115,11 @@ class IndicatorScriptListModel(QAbstractListModel):
         """
         self.beginResetModel()
         self._rows = [
-            _ScriptRow(key=key, title=getattr(cls, "title", key))
+            _ScriptRow(
+                key=key,
+                title=getattr(cls, "title", key),
+                has_params=_has_params(cls),
+            )
             for key, cls in scripts.items()
         ]
         self._enabled &= {row.key for row in self._rows}

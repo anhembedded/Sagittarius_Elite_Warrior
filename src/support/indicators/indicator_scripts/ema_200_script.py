@@ -10,11 +10,14 @@ class Ema200Script(BaseIndicatorScript):
 
     title = "EMA 200"
     overlay = True
-    min_warmup_bars = 200  # tied to input_int's default below — see ema_20_script.py
+    min_warmup_bars = (
+        200  # class-level fallback; setup() overrides per-instance (BOT-063)
+    )
     default_enabled = True
 
     def setup(self) -> None:
         period = self.input_int("period", 200, label="Period", minval=1)
+        self.min_warmup_bars = period
         self.a = self.ema(period)
 
     def execute(self, candle: MarketData) -> None:

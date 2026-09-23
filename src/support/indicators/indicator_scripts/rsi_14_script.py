@@ -17,10 +17,13 @@ class Rsi14Script(BaseIndicatorScript):
 
     title = "RSI (14)"
     overlay = False
-    min_warmup_bars = 14  # tied to input_int's default below — see ema_20_script.py
+    min_warmup_bars = (
+        14  # class-level fallback; setup() overrides per-instance (BOT-063)
+    )
 
     def setup(self) -> None:
         period = self.input_int("period", 14, label="Period", minval=2)
+        self.min_warmup_bars = period
         self.r = self.rsi(period)
 
     def execute(self, candle: MarketData) -> None:

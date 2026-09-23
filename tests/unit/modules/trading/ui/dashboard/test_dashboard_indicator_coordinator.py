@@ -30,10 +30,16 @@ def active_charts() -> dict:
 @pytest.fixture
 def script_registry() -> Mock:
     registry = Mock()
-    registry.available.return_value = {
+    scripts = {
         "ema_ribbon": _FakeScriptClass(min_warmup_bars=200),
         "rsi": _FakeScriptClass(min_warmup_bars=50),
     }
+    registry.available.return_value = scripts
+    # `BOT-063` — `compute_fetch_limit()` now instantiates via `create()`
+    # (a saved-params override only takes effect on a real instance, never
+    # on a bare class), so the fake registry must serve the exact same
+    # fakes through both `available()` and `create()`.
+    registry.create.side_effect = lambda key, params=None: scripts[key]
     return registry
 
 
