@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.market_tick_feed import (
+    MarketTickFeed,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.symbol_options_coordinator import (
     SymbolOptionsCoordinator,
 )
@@ -92,9 +95,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.live_order_book_coordinator import (
     LiveOrderBookCoordinator,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.market_tick_feed import (
-    MarketTickFeed,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (

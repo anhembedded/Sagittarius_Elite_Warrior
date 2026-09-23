@@ -43,6 +43,11 @@
 #    `shell.legacy_screens -> modules.*.module` entries retire together --
 #    the four legacy screens left `AbstractScreenModule` for their own
 #    `ScreenContribution`s, and `shell/legacy_screens.py` itself is deleted).
+# -> 10 after PR BOT-019 (8 - 0 stale retired + 2 new: `market_tick_feed.py`
+#    moved from `modules/trading/ui/` to `modules/market_data/ui/`, so its
+#    two pre-existing `trading` consumers now read it via an allowlisted
+#    cross-module line each, same shape as the two `symbol_options_
+#    coordinator`/`sync_progress_feed` lines this same file already carries).
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -802,3 +807,16 @@ modules.trading.composition.adapter_bindings -> infrastructure.persistence.futur
 # always did.
 modules.trading.composition.adapter_bindings -> support.binance_gateway.adapters.env_first_credentials_provider
 modules.trading.composition.adapter_bindings -> support.binance_gateway.adapters.secrets_file_source
+
+# `BOT-019` moved `market_tick_feed.py` from `modules/trading/ui/` to
+# `modules/market_data/ui/`: `MarketTickEvent` is `market_data`'s own
+# contract, and a Feed normalizing one module's own event belongs in that
+# module's `ui/` -- the exact call `EPIC-025` PR 4.4a already made for
+# `symbol_options_coordinator`/`sync_progress_feed`, two lines above this
+# same file's own precedent for it. `trading`'s two pre-existing consumers
+# now read it from its new address, same shape as those two lines. Exits
+# when/if a per-module `MarketTickFeed` variant removes the direct read --
+# not planned, since the whole point of one Feed is that a second copy is
+# the defect this exists to prevent.
+modules.trading.ui.dashboard.dashboard_presenter -> modules.market_data.ui.market_tick_feed
+modules.trading.ui.trading.trading_presenter -> modules.market_data.ui.market_tick_feed
