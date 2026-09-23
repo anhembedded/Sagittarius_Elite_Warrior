@@ -14,7 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from typing import ClassVar, Final
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QObject, Qt
 from PySide6.QtGui import QColor
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
@@ -70,7 +70,7 @@ class WatchlistTableModel(RowTableModel[WatchlistRow]):
         {LAST_PRICE_COLUMN, PERCENT_CHANGE_COLUMN, VOLUME_COLUMN}
     )
 
-    def __init__(self, parent=None) -> None:
+    def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self._row_index: dict[str, int] = {}
 

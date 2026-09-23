@@ -6,7 +6,9 @@
   counted) and `BOT-033`/`BOT-034` (which symbol and timeframe a click actually uses) are the
   reports that shaped it.
 - **Surfaces:** Dev Board's *Start Live* · the Trading screen's chart, which is live for as long
-  as the screen is open · `stream start` / `stream stop` at the interactive prompt.
+  as the screen is open · the Watchlist screen (`BOT-019`), live for as long as it is open,
+  tracking several symbols under one `IMarketStream` owner rather than one chart's single symbol ·
+  `stream start` / `stream stop` at the interactive prompt.
 
 ## 1. Trigger
 

@@ -68,11 +68,21 @@ class WatchlistPresenter(BasePresenter):
         outcome = self._market_stream.start(
             _STREAM_OWNER_ID, symbols, TimeFrame.ONE_MINUTE
         )
-        if not outcome.success:
+        if outcome.success:
+            self.view.set_status(f"Live for {', '.join(symbols)}.", is_error=False)
+        else:
+            # `SPEC-002` §4/§5 — a failed start must say so on screen, the
+            # same promise Dashboard's `stream_lifecycle_controller.py` and
+            # Trading's `chart_coordinator.py` already keep for their own
+            # `IMarketStream.start()` call; a silently-unstarted stream
+            # would otherwise be indistinguishable from "no tick yet".
             logger.warning(
                 "[watchlist] stream did not start for %s: %s",
                 symbols,
                 outcome.message,
+            )
+            self.view.set_status(
+                f"Failed to start stream: {outcome.message}", is_error=True
             )
 
     def _handle_market_tick(self, event: MarketTickEvent) -> None:

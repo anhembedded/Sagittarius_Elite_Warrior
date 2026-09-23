@@ -194,7 +194,7 @@ doubt, start on Dev Board.** A panel that is not yet proven goes to `dev_board.r
 
 | Module | Q1 own screen | Q2 trading panels | Q3 config / diagnostics | Matches today? |
 | :--- | :--- | :--- | :--- | :--- |
-| `market_data` | ✅ Data Management | context bar (symbol), Dev Board system controls (`HEADER`, order 20), the indicator checklist it wants on Dev Board (support packages never contribute — the needing module does) | settings section (venue, defaults); status tile (ticker) | ✅ |
+| `market_data` | ✅ Data Management, Watchlist (`BOT-019`) | context bar (symbol), Dev Board system controls (`HEADER`, order 20), the indicator checklist it wants on Dev Board (support packages never contribute — the needing module does) | settings section (venue, defaults); status tile (ticker) | ✅ |
 | `trading` | ❌ — Trading is a **surface**, not the module's screen | positions, orders, manual order, session, equity | settings section (venue, limits, credentials check); status tile (websocket); probe | ✅ once Trading is a surface (Phase 1) |
 | `strategy` | ❌ | strategy panel, last signal; modal (parameters) | — | ✅ |
 | `backtesting` | ✅ Backtest | ❌ (its run-progress tile goes on **its own** screen's header, not Trading's) | status tile on its own screen | ✅ |

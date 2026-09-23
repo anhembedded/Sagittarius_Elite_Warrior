@@ -19,6 +19,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
+    StreamOutcome,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
@@ -66,6 +67,20 @@ def _text(model: WatchlistTableModel, row: int, column: int) -> str:
     from PySide6.QtCore import Qt
 
     return str(model.data(model.index(row, column), Qt.ItemDataRole.DisplayRole))
+
+
+class _FailingMarketStream(IMarketStream):
+    """A real `IMarketStream` implementer whose `start()` always refuses —
+    `FakeMarketStream` (the shared verified fake) always succeeds for valid
+    input and has no toggle for this, so this test-only double is derived
+    directly from the ABC (`testing-rule.md`'s other sanctioned shape),
+    not a bare `Mock(spec=...)` of a foreign port."""
+
+    def start(self, owner_id, symbols, interval) -> StreamOutcome:
+        return StreamOutcome(success=False, message="Testnet unreachable.")
+
+    def stop(self, owner_id) -> StreamOutcome:
+        return StreamOutcome(success=False, message="Nothing was running.")
 
 
 @pytest.fixture
@@ -146,6 +161,34 @@ def test_construction_starts_the_stream_for_its_own_owner_id(presenter, market_s
 
     assert held is not None
     assert held.interval == TimeFrame.ONE_MINUTE
+
+
+def test_construction_shows_a_live_status_when_the_stream_starts(presenter, view):
+    assert view._status_label.text() != ""
+    assert "live" in view._status_label.text().lower()
+
+
+def test_construction_shows_an_error_status_when_the_stream_fails_to_start(
+    view, container, market_stream
+):
+    """`SPEC-002` §4/§5 — a failed start must say so on screen; a Watchlist
+    that only stays on its seeded rows is indistinguishable from "no tick
+    yet". Uses `_FailingMarketStream` since `FakeMarketStream` cannot
+    itself be made to refuse a valid start."""
+    failing_stream = _FailingMarketStream()
+    original_resolve = container.resolve.side_effect
+
+    def resolve_with_failing_stream(interface):
+        if interface is IMarketStream:
+            return failing_stream
+        return original_resolve(interface)
+
+    container.resolve.side_effect = resolve_with_failing_stream
+
+    WatchlistPresenter(view, container)
+
+    assert "failed" in view._status_label.text().lower()
+    assert "Testnet unreachable." in view._status_label.text()
 
 
 # ---------------------------------------------------------------------------
