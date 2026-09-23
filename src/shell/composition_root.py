@@ -200,7 +200,9 @@ def create_app(config_manager: ConfigManager) -> App:
     # (`app_bootstrapper.py`); the headless entry point never adds one, so it
     # gets Telegram delivery only, exactly as the task's own risk note expects
     # ("hỗ trợ gửi qua kênh ngoài khi app chạy headless/CLI").
-    notification_handler = NotificationEventHandler(event_bus, app_logger)
+    notification_handler = NotificationEventHandler(
+        event_bus, app_logger, app.context.tasks
+    )
     notification_handler.add_channel(
         TelegramNotificationChannel(container.resolve(IConfigReader), app_logger)
     )

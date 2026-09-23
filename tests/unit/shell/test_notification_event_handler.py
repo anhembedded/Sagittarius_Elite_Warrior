@@ -5,11 +5,25 @@ Mirrors `test_system_failure_log.py`'s structure: the first test boots the
 real object graph (`BUG-126`'s own lesson — a subscriber only a unit test
 constructs proves nothing about production), the rest exercise the
 handler directly against a real `MemoryEventBus`.
+
+`_SynchronousTaskManager` runs a submitted callable immediately, inline,
+rather than on a real thread pool: PR #259's review found that
+`NotificationEventHandler` must dispatch every channel's `send()` through
+`ITaskManager` rather than calling it inline (a Qt-touching channel must
+never run on whatever thread published the triggering event —
+`runtime.tasks.failed` is always a background thread). A real
+`ThreadPoolExecutor`-backed manager would make these tests race against a
+worker thread; a synchronous fake derived from the real `ITaskManager` ABC
+(`testing-rule.md` §2's sanctioned alternative to the real thing) keeps them
+deterministic while still proving the handler goes through the port rather
+than calling `channel.send()` itself.
 """
 
 from __future__ import annotations
 
 import os
+import threading
+from collections.abc import Callable
 from typing import Any
 
 import pytest
@@ -29,6 +43,7 @@ from sagittarius_engine.extensions.pyside_mvc.safety.ui_action_events import (
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 from sagittarius_engine.interfaces.i_logger import ILogger
+from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManager
 from sagittarius_engine.runtime.tasks.events import TaskFailed
 
 _CONFIG_DIR = os.path.join(
@@ -65,6 +80,82 @@ class _RecordingLogger(ILogger):
 
     def trace(self, message: str, extra: dict[str, Any] | None = None) -> None:
         self._record("trace", message)
+
+
+class _ImmediateTaskHandle(ITaskHandle):
+    def __init__(self, name: str) -> None:
+        self._name = name
+
+    @property
+    def id(self) -> str:
+        return self._name
+
+    @property
+    def name(self) -> str:
+        return self._name
+
+    @property
+    def token(self):
+        return None
+
+    @property
+    def future(self):
+        return None
+
+    @property
+    def status(self):
+        return None
+
+    @property
+    def progress(self) -> float:
+        return 100.0
+
+    def cancel(self) -> None:
+        pass
+
+
+class _SynchronousTaskManager(ITaskManager):
+    """Runs every `spawn()`ed callable inline, on the calling thread."""
+
+    def spawn(
+        self,
+        callable_or_coro: Callable[..., Any] | Any,
+        name: str | None = None,
+        token: Any = None,
+        critical: bool = False,
+    ) -> ITaskHandle:
+        callable_or_coro()
+        return _ImmediateTaskHandle(name or "")
+
+    def get_active_tasks(self) -> list[ITaskHandle]:
+        return []
+
+    def shutdown(self, timeout: float = 5.0) -> None:
+        pass
+
+
+class _RecordingTaskManager(ITaskManager):
+    """Records what was submitted without running it — proves the handler
+    defers to the task manager instead of calling `channel.send()` inline."""
+
+    def __init__(self) -> None:
+        self.submitted: list[Callable[[], Any]] = []
+
+    def spawn(
+        self,
+        callable_or_coro: Callable[..., Any] | Any,
+        name: str | None = None,
+        token: Any = None,
+        critical: bool = False,
+    ) -> ITaskHandle:
+        self.submitted.append(callable_or_coro)
+        return _ImmediateTaskHandle(name or "")
+
+    def get_active_tasks(self) -> list[ITaskHandle]:
+        return []
+
+    def shutdown(self, timeout: float = 5.0) -> None:
+        pass
 
 
 class _RecordingChannel(INotificationChannel):
@@ -113,7 +204,9 @@ def test_the_real_graph_subscribes_a_notification_handler(booted_app):
 
 def test_a_sync_error_notifies_every_channel():
     bus = MemoryEventBus()
-    handler = NotificationEventHandler(bus, _RecordingLogger())
+    handler = NotificationEventHandler(
+        bus, _RecordingLogger(), _SynchronousTaskManager()
+    )
     channel = _RecordingChannel()
     handler.add_channel(channel)
 
@@ -135,7 +228,9 @@ def test_a_sync_error_notifies_every_channel():
 
 def test_a_successful_sync_progress_step_notifies_nobody():
     bus = MemoryEventBus()
-    handler = NotificationEventHandler(bus, _RecordingLogger())
+    handler = NotificationEventHandler(
+        bus, _RecordingLogger(), _SynchronousTaskManager()
+    )
     channel = _RecordingChannel()
     handler.add_channel(channel)
 
@@ -155,7 +250,9 @@ def test_a_successful_sync_progress_step_notifies_nobody():
 
 def test_a_failing_ui_slot_notifies_with_the_same_summary_the_log_gets():
     bus = MemoryEventBus()
-    handler = NotificationEventHandler(bus, _RecordingLogger())
+    handler = NotificationEventHandler(
+        bus, _RecordingLogger(), _SynchronousTaskManager()
+    )
     channel = _RecordingChannel()
     handler.add_channel(channel)
 
@@ -177,7 +274,9 @@ def test_a_failing_ui_slot_notifies_with_the_same_summary_the_log_gets():
 
 def test_a_failed_background_task_notifies_every_channel():
     bus = MemoryEventBus()
-    handler = NotificationEventHandler(bus, _RecordingLogger())
+    handler = NotificationEventHandler(
+        bus, _RecordingLogger(), _SynchronousTaskManager()
+    )
     channel = _RecordingChannel()
     handler.add_channel(channel)
 
@@ -198,7 +297,9 @@ def test_an_identical_repeated_failure_is_debounced():
     """The task's own risk note: a reconnect loop must not spam the same
     failure over and over."""
     bus = MemoryEventBus()
-    handler = NotificationEventHandler(bus, _RecordingLogger())
+    handler = NotificationEventHandler(
+        bus, _RecordingLogger(), _SynchronousTaskManager()
+    )
     channel = _RecordingChannel()
     handler.add_channel(channel)
 
@@ -214,7 +315,9 @@ def test_an_identical_repeated_failure_is_debounced():
 
 def test_a_different_failure_after_a_repeat_still_notifies():
     bus = MemoryEventBus()
-    handler = NotificationEventHandler(bus, _RecordingLogger())
+    handler = NotificationEventHandler(
+        bus, _RecordingLogger(), _SynchronousTaskManager()
+    )
     channel = _RecordingChannel()
     handler.add_channel(channel)
 
@@ -228,7 +331,7 @@ def test_a_different_failure_after_a_repeat_still_notifies():
 def test_a_raising_channel_does_not_stop_the_other_channels_or_crash():
     bus = MemoryEventBus()
     logger = _RecordingLogger()
-    handler = NotificationEventHandler(bus, logger)
+    handler = NotificationEventHandler(bus, logger, _SynchronousTaskManager())
     good_channel = _RecordingChannel()
     handler.add_channel(_RaisingChannel())
     handler.add_channel(good_channel)
@@ -240,3 +343,53 @@ def test_a_raising_channel_does_not_stop_the_other_channels_or_crash():
     assert any("_RaisingChannel" in line for line in warnings), (
         f"the misbehaving channel's failure was never reported: {warnings}"
     )
+
+
+def test_delivery_goes_through_the_task_manager_not_inline():
+    """`PR #259` review finding: a Qt-touching channel (`UiToastNotification
+    Channel`) must never be called on whatever thread published the
+    triggering event — `TaskFailed` is always a background thread
+    (`runtime.tasks.failed`). Proven by *not* running the submitted
+    callable: if `_notify()` called `channel.send()` directly instead of
+    going through `ITaskManager.spawn()`, `channel.sent` would already be
+    populated here."""
+    bus = MemoryEventBus()
+    task_manager = _RecordingTaskManager()
+    handler = NotificationEventHandler(bus, _RecordingLogger(), task_manager)
+    channel = _RecordingChannel()
+    handler.add_channel(channel)
+
+    bus.emit(TaskFailed(task_id="t1", task_name="job-a", error=ValueError("boom")))
+
+    assert channel.sent == [], (
+        "the channel was called before the task manager ran anything — "
+        "delivery is not actually deferred"
+    )
+    assert len(task_manager.submitted) == 1
+
+    task_manager.submitted[0]()
+
+    assert channel.sent == ["Background task 'job-a' (id t1) failed: ValueError: boom"]
+
+
+def test_delivery_from_a_real_background_publisher_still_goes_through_the_task_manager():
+    """`TaskFailed` is published from a real worker thread in production
+    (`runtime/tasks/task_manager.py`); this reproduces that shape with a
+    real `threading.Thread` rather than assuming `MemoryEventBus.emit()`
+    behaves the same from any caller. The channel must still see nothing
+    until the recorded callable is actually run."""
+    bus = MemoryEventBus()
+    task_manager = _RecordingTaskManager()
+    handler = NotificationEventHandler(bus, _RecordingLogger(), task_manager)
+    channel = _RecordingChannel()
+    handler.add_channel(channel)
+
+    worker = threading.Thread(
+        target=bus.emit,
+        args=(TaskFailed(task_id="t1", task_name="job-a", error=ValueError("boom")),),
+    )
+    worker.start()
+    worker.join()
+
+    assert channel.sent == []
+    assert len(task_manager.submitted) == 1

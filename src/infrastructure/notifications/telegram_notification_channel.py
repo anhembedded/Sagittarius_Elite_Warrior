@@ -13,6 +13,11 @@ effect on the next notification): an empty bot token or chat id makes
 `requests`/`httpx` are not existing dependencies of this project, and
 `commit-rule.md` §3 requires prior user confirmation to add one — a single
 POST to one fixed endpoint does not need one.
+
+Conforms to `INotificationChannel` structurally, without declaring it as a
+base class — the same style `PythonBacktestChartHost` uses for
+`IBacktestChartHost` — since that port is now a `Protocol`
+(`i_notification_channel.py`'s own docstring says why).
 """
 
 from __future__ import annotations
@@ -25,9 +30,6 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import (
     IConfigReader,
 )
-from Sagittarius_Elite_Warrior.src.core.contracts.i_notification_channel import (
-    INotificationChannel,
-)
 from sagittarius_engine.interfaces.i_logger import ILogger
 
 #: The greppable subsystem tag `logging-rule.md` §8 requires.
@@ -36,7 +38,7 @@ _API_URL_TEMPLATE = "https://api.telegram.org/bot{token}/sendMessage"
 _REQUEST_TIMEOUT_SECONDS = 5.0
 
 
-class TelegramNotificationChannel(INotificationChannel):
+class TelegramNotificationChannel:
     """Posts `message` to one Telegram chat via the Bot API's `sendMessage`."""
 
     def __init__(self, config: IConfigReader, logger: ILogger) -> None:
