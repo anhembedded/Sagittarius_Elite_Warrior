@@ -30,10 +30,16 @@ def active_charts() -> dict:
 @pytest.fixture
 def script_registry() -> Mock:
     registry = Mock()
-    registry.available.return_value = {
+    scripts = {
         "ema_ribbon": _FakeScriptClass(min_warmup_bars=200),
         "rsi": _FakeScriptClass(min_warmup_bars=50),
     }
+    registry.available.return_value = scripts
+    # `BOT-063` — `compute_fetch_limit()` now instantiates via `create()`
+    # (a saved-params override only takes effect on a real instance, never
+    # on a bare class), so the fake registry must serve the exact same
+    # fakes through both `available()` and `create()`.
+    registry.create.side_effect = lambda key, params=None: scripts[key]
     return registry
 
 
@@ -132,6 +138,40 @@ def test_compute_fetch_limit_ignores_a_config_floor_lower_than_the_render_window
     )
 
     assert coordinator.compute_fetch_limit() == 75
+
+
+def test_compute_fetch_limit_falls_back_to_defaults_when_a_saved_param_is_now_invalid(
+    active_charts, script_runner
+):
+    """A script's declared bounds can tighten in a later release while an
+    old saved value is still on disk — `IndicatorScriptParamsSink` only
+    validates at Save time, never re-validated on load. `create()` with the
+    stale params must not take Load History/Start Live down; it falls back
+    to the script's own declared default, the same way `IndicatorScriptRunner
+    .rebuild()` does."""
+    # Above the 75-candle render-window floor, so the fallback value (not
+    # the floor) is what the assertion below actually exercises.
+    default_script = _FakeScriptClass(min_warmup_bars=200)
+
+    def create(key: str, params: object = None) -> _FakeScriptClass:
+        if params:
+            raise ValueError("period must be between 1 and 500")
+        return default_script
+
+    registry = Mock()
+    registry.available.return_value = {"ema_ribbon": default_script}
+    registry.create.side_effect = create
+    coordinator = IndicatorCoordinator(
+        script_registry=registry,
+        script_runner=script_runner,
+        config=Mock(get=lambda key, default=None, cast=None: default),
+        get_active_charts=lambda: active_charts,
+        get_active_symbol=lambda: "BTCUSDT",
+        get_enabled_script_keys=lambda: ["ema_ribbon"],
+        get_script_params=lambda _key: {"period": 99999},
+    )
+
+    assert coordinator.compute_fetch_limit() == 200
 
 
 def test_on_indicator_data_draws_on_the_active_symbols_card(

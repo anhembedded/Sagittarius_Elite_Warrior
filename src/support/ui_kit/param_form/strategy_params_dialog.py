@@ -61,6 +61,7 @@ _TITLE = "Strategy Parameters"
 _EMPTY_TEXT = "This strategy does not declare any parameters."
 _SAVE_TEXT = "Save"
 _CANCEL_TEXT = "Cancel"
+_RESTORE_TEXT = "Restore Defaults"
 
 
 class BotParamsSink(ParamStepper, Protocol):
@@ -86,9 +87,16 @@ class StrategyParamsDialog(Overlay):
     """@brief Edits the selected strategy's declared parameters."""
 
     def __init__(
-        self, view_model: BotParamsSink, parent: QWidget | None = None
+        self,
+        view_model: BotParamsSink,
+        parent: QWidget | None = None,
+        title: str = _TITLE,
     ) -> None:
-        super().__init__(_TITLE, parent=parent)
+        """@param title `BOT-063` — overridable so the Dev Board's
+        per-script params dialog can say "Indicator Parameters" rather
+        than "Strategy Parameters" while reusing this exact class; every
+        existing caller keeps the strategy wording by leaving it unset."""
+        super().__init__(title, parent=parent)
         self.setObjectName("strategyParamsDialog")
         self._vm = view_model
         self._field_widgets: list[BotParamFieldWidget] = []
@@ -119,6 +127,11 @@ class StrategyParamsDialog(Overlay):
         from PySide6.QtWidgets import QHBoxLayout as _QHBoxLayout
 
         row = _QHBoxLayout()
+        self._restore_button = StyledButton(
+            _RESTORE_TEXT, role=StyleRole.SECONDARY_BUTTON
+        )
+        self._restore_button.setObjectName("btnStrategyParamsRestore")
+        self._restore_button.clicked.connect(self._on_restore_clicked)
         self._cancel_button = StyledButton(
             _CANCEL_TEXT, role=StyleRole.SECONDARY_BUTTON
         )
@@ -127,10 +140,19 @@ class StrategyParamsDialog(Overlay):
         self._save_button = StyledButton(_SAVE_TEXT, role=StyleRole.PRIMARY_BUTTON)
         self._save_button.setObjectName("btnStrategyParamsSave")
         self._save_button.clicked.connect(self._on_save_clicked)
+        row.addWidget(self._restore_button)
         row.addStretch(1)
         row.addWidget(self._cancel_button)
         row.addWidget(self._save_button)
         return row
+
+    def _on_restore_clicked(self) -> None:
+        """`BOT-063` — resets every visible field to its own declared
+        default in place, without touching the ViewModel: nothing is saved
+        until Save is clicked, mirroring `strategy_properties_dialog.py`'s
+        own "Reset to Default" (that dialog's `reset_all_fields`)."""
+        for widget in self._field_widgets:
+            widget.reset_to_default()
 
     def collect_values(self) -> dict[str, Any]:
         """@brief What the user typed, keyed by parameter name."""

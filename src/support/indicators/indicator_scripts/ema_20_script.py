@@ -18,16 +18,16 @@ class Ema20Script(BaseIndicatorScript):
 
     title = "EMA 20"
     overlay = True
-    #: Tied to input_int's own default below (BOT-048) — stays accurate
-    #: because nothing today calls IndicatorScriptRegistry.create() with a
-    #: real params override for this script (see dashboard_presenter.py's
-    #: _compute_fetch_limit(), which reads this off the class, no instance).
-    #: Needs to become per-instance once BOT-063 wires a real params UI.
+    #: Class-level fallback for a script never instantiated with real
+    #: params (e.g. `IndicatorScriptListModel.set_available()`'s throwaway
+    #: `cls()`-free reads). `setup()` below overrides this per-instance
+    #: with the actual chosen period (`BOT-063`).
     min_warmup_bars = 20
     default_enabled = True
 
     def setup(self) -> None:
         period = self.input_int("period", 20, label="Period", minval=1)
+        self.min_warmup_bars = period
         self.a = self.ema(period)
 
     def execute(self, candle: MarketData) -> None:

@@ -2,6 +2,7 @@ python-binance
 requests
 sqlalchemy
 pydantic
+pyarrow
 pytest
 pytest-asyncio
 pytest-cov

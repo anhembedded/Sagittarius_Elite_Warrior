@@ -21,6 +21,12 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_catalog import (
+    IndicatorScriptCatalog,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_params_store import (
+    IndicatorScriptParamsStore,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     PreferredHeightScrollArea,
 )
@@ -299,6 +305,16 @@ class DashboardView(BaseView):
         no-op before `set_view_model()` has built one."""
         if self._panel is not None:
             self._panel.set_symbol_preferences(preferences)
+
+    def set_indicator_script_dependencies(
+        self,
+        catalog: IndicatorScriptCatalog,
+        store: IndicatorScriptParamsStore,
+    ) -> None:
+        """`BOT-063` — same forwarding shape as `set_symbol_preferences`:
+        this view has no container access either."""
+        if self._panel is not None:
+            self._panel.set_indicator_script_dependencies(catalog, store)
 
     def set_timeframe_pin_preferences(
         self, preferences: TimeframePinPreferences

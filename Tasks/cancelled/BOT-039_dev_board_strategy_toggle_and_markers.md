@@ -1,3 +1,68 @@
+# ❌ ĐÃ HUỶ — BOT-039: Dev Board — Strategy Toggle List + Buy/Sell Markers
+
+> **Trạng thái: HUỶ (2026-09-23), phát hiện qua rà soát backlog cho batch kế tiếp — không phải quyết định user có sẵn từ trước (khác tiền lệ `BOT-023`).**
+> Giá trị thật task này theo đuổi — thấy hoạt động chiến lược lúc Live streaming, là subscriber thật đầu tiên của `SignalGeneratedEvent`, mở seam cho `BOT-008` — **đã đạt được**, bằng một thiết kế hoàn toàn khác: `StrategyArmingCoordinator` + `SignalFeed` (`EPIC-022D`/`EPIC-022E`/`EPIC-023A`–`D`).
+> Nội dung gốc giữ nguyên bên dưới **chỉ để tham khảo lịch sử** — đừng thực hiện nó.
+
+## Vì sao huỷ
+
+Rà soát backlog cho batch tiếp theo (sau `BOT-115B`/`BOT-106D`/`BOT-025`/`BUG-133`)
+xác nhận **cả 2 tiền đề load-bearing của task này đều sai** khi đọc thẳng code
+hiện tại — không phải giả định mơ hồ:
+
+1. **Control cosmetic "đã bị xoá, không wire lại" — nhưng không phải theo cách
+   task này định làm.** `grep -rn "cboStrategy\|DevBoardPanel.qml" src/` ra
+   rỗng: không chỉ combo đó, mà **toàn bộ `DevBoardPanel.qml`** đã biến mất
+   cùng mọi file `.qml` khác (`EPIC-025` gỡ QML hoàn toàn, xác nhận lại lần
+   nữa trong `BOT-025`/batch trước). Task này viết cho một tầng trình bày
+   (QML) không còn tồn tại.
+2. **`SignalGeneratedEvent` "chưa ai lắng nghe" — nay có ít nhất 6 subscriber
+   thật:** `dashboard_presenter.py` (`_arming_coordinator.on_signal_generated`
+   qua `SignalFeed`), `strategy_card_view_model.py`, `trading_presenter.py`,
+   `strategy_arming_coordinator.py`, `live_trading_coordinator.py`,
+   `backtest_presenter.py`/`signal_wiring.py` (đường Backtest, khác mục
+   đích). Grep xác nhận trực tiếp, không suy đoán.
+
+Sâu hơn 2 điểm trên: **mục tiêu thật của task** ("thấy signal khi đang live
+streaming", "subscriber đầu tiên thật sự của `SignalGeneratedEvent`", "mở seam
+cho `BOT-008`") **đã đạt được — bằng một kiến trúc khác hẳn**, ra đời sau khi
+task này được viết:
+
+- `EPIC-023C` thay hẳn combo giả bằng thẻ "Nạp chiến lược" thật
+  (`dev_board_panel.py::_build_strategy_card`), nối `StrategyArmingCoordinator`
+  — **1 strategy được "arm" tại 1 thời điểm**, mirror y hệt `TradingView`, chứ
+  không phải danh sách checkbox bật/tắt nhiều strategy cùng lúc mà task này đề
+  xuất.
+- `SignalFeed` (`EPIC-023C`, cùng shared-bus pattern với `SyncProgressFeed`/
+  `OrderFeed`/`EquityFeed`) là subscriber `SignalGeneratedEvent` chuẩn hoá, nối
+  thẳng `_arming_coordinator.on_signal_generated`.
+- Marker trên chart lúc Live đã có, nhưng qua đường khác: `EPIC-021K`/`EPIC-023A`
+  vẽ marker khớp lệnh thật (`_on_order_filled` → `card.set_script_markers(_FILL_MARKERS_KEY, ...)`)
+  — tín hiệu **đã khớp lệnh**, không phải tín hiệu thô task này định vẽ (mà
+  chính task cũng tự ghi chú "không dùng `PaperExchange`, chỉ hiển thị tín
+  hiệu thô" — một lớp thông tin khác, thấp giá trị hơn khớp lệnh thật đã có).
+
+**Xây đúng như task này mô tả bây giờ sẽ là làm việc thừa và xung đột kiến
+trúc**, không phải hoàn thành nốt phần còn thiếu: mô hình "nhiều strategy bật
+đồng thời qua checkbox" ngược hẳn với mô hình "arm đúng 1 strategy" mà
+`EPIC-022`/`EPIC-023` đã chốt và app đang chạy thật theo đó.
+
+## Hệ quả cần biết
+
+- Không có code nào của task này từng được viết — không có gì phải dọn/xoá,
+  khác `BOT-023` (code Dynamic backtest cũ còn sống, phải dọn riêng).
+- `TC-GAP-04` (`Tasks/reports/dev_board_user_end_test_cases.md`) đã cập nhật:
+  đánh dấu FIXED bởi `EPIC-023C`, không phải bởi task này, và trỏ sang hồ sơ
+  huỷ này thay vì trỏ vào backlog `BOT-039` không còn ý nghĩa.
+- Nếu sau này thật sự cần "xem tín hiệu thô của nhiều strategy cùng lúc,
+  không qua PaperExchange" như một tính năng riêng (khác khớp lệnh thật) —
+  đó là một task mới, thiết kế lại từ đầu trên nền `SignalFeed`/
+  `StrategyArmingCoordinator` đã có, không phải khôi phục nội dung dưới đây.
+
+---
+
+## (Nội dung gốc, chỉ để tham khảo lịch sử — KHÔNG thực hiện)
+
 # Nhiệm vụ: Dev Board — Strategy Toggle List + Buy/Sell Markers
 
 > Thuộc Epic [BOT-006 — Backtest Engine](BOT-006_backtest_engine_execution.md), Phase 3. Phụ thuộc `BOT-026` ✅. Ưu tiên **P3** — làm sau khi màn Backtest (Epic BOT-006 Phase 1 / Epic BOT-040) đã ổn định, không nằm trên đường chặn của epic đó.

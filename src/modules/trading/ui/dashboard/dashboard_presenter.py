@@ -112,6 +112,12 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_pre
     TimeframePinPreferences,
     find_timeframe_pin_preferences,
 )
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_catalog import (
+    IndicatorScriptCatalog,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_params_store import (
+    IndicatorScriptParamsStore,
+)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -725,6 +731,14 @@ class DashboardPresenter(BasePresenter):
         self._script_registry: IndicatorScriptRegistry = container.resolve(
             IndicatorScriptRegistry
         )
+        # `BOT-063` — the Dev Board's per-script params dialog: a script's
+        # declared `.inputs` turned into a form, and where an edited value
+        # is saved. `get_script_params` below reads through this store on
+        # every call (never cached), the same "no retroactive effect until
+        # the next Load History/Start Live" contract enabling/disabling a
+        # script already has.
+        self._script_catalog = IndicatorScriptCatalog(self._script_registry)
+        self._script_params_store = IndicatorScriptParamsStore(self.config)
         self._script_runner = IndicatorScriptRunner(
             registry=self._script_registry,
             emit_line=self.ui_indicator_data_signal.emit,
@@ -732,6 +746,7 @@ class DashboardPresenter(BasePresenter):
             emit_info=self.ui_script_info_signal.emit,
             emit_markers=self.ui_script_marker_signal.emit,
             on_error=self.ui_log_signal.emit,
+            get_params=lambda key: self._script_params_store.load_all().get(key),
         )
         # ViewModel owns the enabled/disabled state (Phase 3) — the Presenter
         # only ever hands it what's available, once, same as logModel.
@@ -752,6 +767,10 @@ class DashboardPresenter(BasePresenter):
             get_active_charts=lambda: self.active_charts,
             get_active_symbol=lambda: self._active_symbol,
             get_enabled_script_keys=lambda: self._enabled_script_keys(),
+            get_script_params=lambda key: self._script_params_store.load_all().get(key),
+        )
+        self.view.set_indicator_script_dependencies(
+            self._script_catalog, self._script_params_store
         )
 
         def _get_cancellation_token():

@@ -51,6 +51,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
     ManualOrderDirection,
 )
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_catalog import (
+    IndicatorScriptCatalog,
+)
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_params_store import (
+    IndicatorScriptParamsStore,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import (
     AppLogPanel,
 )
@@ -183,6 +189,13 @@ class DevBoardPanel(QObject):
         self._view_model = view_model
         self._symbol_picker: DashboardSymbolPickerDialog | None = None
         self._time_range_dialog: TimeRangePickerDialog | None = None
+        # `BOT-063` — injected post-construction by `DashboardPresenter`
+        # (`set_indicator_script_dependencies`), same "no container access
+        # here" reasoning `set_symbol_preferences` gives; `None` until then
+        # so a bare `DevBoardPanel(vm)` still builds, just with no working
+        # params button.
+        self._script_catalog: IndicatorScriptCatalog | None = None
+        self._script_params_store: IndicatorScriptParamsStore | None = None
         # EPIC-014: replaced in production by the container-registered store
         # (`DashboardPresenter` injects it through `set_symbol_preferences`),
         # so a pair starred here is starred on Backtest too. Self-constructed
@@ -435,6 +448,8 @@ class DevBoardPanel(QObject):
         self._indicators_layout.addLayout(_section_row("Indicators"))
 
         self._script_checkboxes: dict[str, StyledCheckBox] = {}
+        #: `BOT-063` — only the scripts that declare `.inputs` get an entry.
+        self._script_param_buttons: dict[str, QPushButton] = {}
         self._rebuild_script_rows()
         self._view_model.script_model.modelReset.connect(self._rebuild_script_rows)
         return card
@@ -735,12 +750,18 @@ class DevBoardPanel(QObject):
         """Built fresh per opening — same reasoning `TradingView`'s own
         method documents. Imported lazily for the same reason: the dialog
         pulls in `QScrollArea`/`Overlay` chrome no user who never opens it
-        should pay for at panel construction."""
+        should pay for at panel construction.
+
+        `BUG-134` — parents to `self._dialog_parent()`, never `self`:
+        `DevBoardPanel` is a `QObject`, not a `QWidget` (`EPIC-025` PR
+        1.4c-3), and a `QDialog` parented to one raises `TypeError` — see
+        `_dialog_parent()`'s own docstring, which this call had not
+        actually followed."""
         from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
             StrategyParamsDialog,
         )
 
-        dialog = StrategyParamsDialog(self._view_model.strategy, self)
+        dialog = StrategyParamsDialog(self._view_model.strategy, self._dialog_parent())
         dialog.exec()
 
     def _on_strategy_config_changed(self) -> None:
@@ -849,6 +870,16 @@ class DevBoardPanel(QObject):
         self._btn_symbol.clicked.connect(self._open_symbol_picker)
         return self._btn_symbol
 
+    def set_indicator_script_dependencies(
+        self,
+        catalog: IndicatorScriptCatalog,
+        store: IndicatorScriptParamsStore,
+    ) -> None:
+        """`BOT-063` — injected by `DashboardPresenter` (this panel has no
+        container access), same reasoning `set_symbol_preferences` gives."""
+        self._script_catalog = catalog
+        self._script_params_store = store
+
     def set_symbol_preferences(self, preferences: SymbolPreferences) -> None:
         """Swaps in the shared, persisted favourites/recents store.
 
@@ -915,6 +946,7 @@ class DevBoardPanel(QObject):
             if item.widget():
                 item.widget().deleteLater()
         self._script_checkboxes.clear()
+        self._script_param_buttons.clear()
 
         model = self._view_model.script_model
         for row in range(model.rowCount()):
@@ -922,6 +954,7 @@ class DevBoardPanel(QObject):
             key = model.data(index, model.KeyRole)
             title = model.data(index, model.TitleRole)
             enabled = bool(model.data(index, model.EnabledRole))
+            has_params = bool(model.data(index, model.HasParamsRole))
 
             checkbox = StyledCheckBox(title)
             checkbox.setObjectName(f"chkScript_{key}")
@@ -945,7 +978,49 @@ class DevBoardPanel(QObject):
             row_layout.setContentsMargins(8, 0, 8, 0)
             row_layout.addWidget(checkbox)
             row_layout.addStretch(1)
+            if has_params:
+                # `BOT-063` — only a script that actually declares an
+                # `input_*()` gets a params button; one that declares none
+                # (`ema_cross`, `ema_ribbon`, the DEV showcase) has nothing
+                # to edit.
+                btn_params = QPushButton()
+                btn_params.setObjectName(f"btnScriptParams_{key}")
+                btn_params.setIcon(
+                    get_icon_loader().get_icon("sliders", Palette.MUTED, 14)
+                )
+                btn_params.setFixedSize(24, 24)
+                btn_params.setToolTip("Edit parameters")
+                btn_params.setCursor(Qt.CursorShape.PointingHandCursor)
+                btn_params.clicked.connect(
+                    lambda _checked=False, k=key: self._open_script_params_dialog(k)
+                )
+                self._script_param_buttons[key] = btn_params
+                row_layout.addWidget(btn_params)
             self._indicators_layout.addWidget(row_frame)
+
+    def _open_script_params_dialog(self, key: str) -> None:
+        """Built fresh per opening, one per script key — see
+        `IndicatorScriptParamsSink`'s own docstring for why this differs
+        from `_open_strategy_params_dialog`'s one-permanent-sink shape.
+        A no-op before the Presenter has injected the catalog/store
+        (`set_indicator_script_dependencies`), same guard
+        `_open_symbol_picker` gives for its own late-injected dependency."""
+        if self._script_catalog is None or self._script_params_store is None:
+            return
+        from Sagittarius_Elite_Warrior.src.support.indicators.ui.script_params_sink import (
+            IndicatorScriptParamsSink,
+        )
+        from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
+            StrategyParamsDialog,
+        )
+
+        sink = IndicatorScriptParamsSink(
+            self._script_catalog, self._script_params_store, key, parent=self
+        )
+        dialog = StrategyParamsDialog(
+            sink, self._dialog_parent(), title="Indicator Parameters"
+        )
+        dialog.exec()
 
     # ------------------------------------------------------------------ #
     # ViewModel wiring
