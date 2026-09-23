@@ -1,14 +1,19 @@
 from __future__ import annotations
 
 import logging
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
+from PySide6.QtWidgets import QFileDialog
+from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.bulk_sync_events import (
     BulkSyncProgressEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.export_file_format import (
+    ExportFileFormat,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
@@ -27,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.sync_progress_r
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators import (
     DataManagementActionKind,
+    ExportImportCoordinator,
     GapCoordinator,
     KLineInspectorCoordinator,
     ScanCoordinator,
@@ -69,6 +75,11 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 
 from .data_management_signal_payloads import GapInspectorPayload, StatusRowUpdate
 from .data_management_view_model import DataManagementViewModel
+from .logic.export_paths import (
+    export_file_filter,
+    resolve_default_exports_dir,
+    suggest_export_filename,
+)
 from .logic.ui_mode_transitions import install_transitions
 from .signal_log_handler import SignalLogHandler
 
@@ -257,6 +268,16 @@ class DataManagementPresenter(BasePresenter):
             get_current_fsm_state=self._get_fsm_state,
         )
 
+        self._export_import_coordinator = ExportImportCoordinator(
+            dispatcher=self.dispatcher,
+            tracker=self._tracker,
+            ui_log_signal=self.ui_log_signal.emit,
+            ui_error_log_signal=self.ui_error_log_signal.emit,
+            ui_unlock_signal=self.ui_unlock_signal.emit,
+            ui_stats_refresh_signal=self.ui_stats_refresh_signal.emit,
+            get_current_fsm_state=self._get_fsm_state,
+        )
+
         self._connect_ui_signals()
         self._connect_engine_events()
 
@@ -351,6 +372,8 @@ class DataManagementPresenter(BasePresenter):
         view_model.repairAllGapsRequested.connect(self._on_repair_all_gaps)
         view_model.inspectKlinesRequested.connect(self._on_inspect_klines)
         view_model.runAuditRequested.connect(self._on_run_audit)
+        view_model.exportRequested.connect(self._on_export_requested)
+        view_model.importRequested.connect(self._on_import_requested)
 
         # Internal signals -> main-thread model updates
         self.ui_log_signal.connect(self._append_log)
@@ -736,6 +759,72 @@ class DataManagementPresenter(BasePresenter):
     ) -> None:
         self._thread_manager.submit(self._run_audit, symbol, interval)
 
+    def _ask_export_path(self, file_format: ExportFileFormat) -> str:
+        """Where to write the export, or "" if the user cancelled.
+
+        Kept on the presenter rather than in `ExportImportCoordinator`: the
+        dialog needs `self.view` as its parent, and a coordinator that opens
+        Qt dialogs cannot be unit-tested without one (mirrors
+        `backtest_presenter._ask_report_export_path`).
+        """
+        exports_dir = resolve_default_exports_dir(
+            self.config.get(ConfigKeys.MARKET_DATA_EXPORTS_DIR.value)
+        )
+        suggested_name = suggest_export_filename(
+            self._view_model.selectedSymbol,
+            self._view_model.selectedInterval,
+            file_format,
+            datetime.now(UTC),
+        )
+        path, _selected_filter = QFileDialog.getSaveFileName(
+            self.view,
+            "Export Market Data",
+            f"{exports_dir}/{suggested_name}",
+            export_file_filter(file_format),
+        )
+        return path
+
+    def _ask_import_path(self) -> str:
+        """Where to read the import from, or "" if the user cancelled."""
+        path, _selected_filter = QFileDialog.getOpenFileName(
+            self.view,
+            "Import Market Data",
+            "",
+            "CSV Files (*.csv)",
+        )
+        return path
+
+    @Slot()
+    @safe_ui_action
+    def _on_export_requested(self) -> None:
+        if self._shutdown_requested:
+            return
+        file_format = ExportFileFormat(self._view_model.selectedExportFormat)
+        path = self._ask_export_path(file_format)
+        if not path:
+            return
+        symbol = self._view_model.selectedSymbol.strip()
+        interval = self._view_model.selectedInterval.strip()
+        self.ui_log_signal.emit(f"Exporting {symbol} ({interval}) to {path}...")
+        self._thread_manager.submit(
+            self._run_export, symbol, interval, path, file_format
+        )
+
+    @Slot()
+    @safe_ui_action
+    def _on_import_requested(self) -> None:
+        if self._shutdown_requested:
+            return
+        path = self._ask_import_path()
+        if not path:
+            return
+        symbol = self._view_model.selectedSymbol.strip()
+        interval = self._view_model.selectedInterval.strip()
+        self.ui_log_signal.emit(f"Importing {symbol} ({interval}) from {path}...")
+        if self.fsm:
+            self.fsm.transition_to(UIMode.CLEARING)
+        self._thread_manager.submit(self._run_import, symbol, interval, path)
+
     # ================================================================== #
     # Main-thread helpers
     # ================================================================== #
@@ -859,3 +948,17 @@ class DataManagementPresenter(BasePresenter):
 
     def _run_audit(self, symbol: str, interval: str) -> None:
         self._kline_inspector_coordinator.run_audit(symbol, interval)
+
+    def _run_export(
+        self,
+        symbol: str,
+        interval: str,
+        destination_path: str,
+        file_format: ExportFileFormat,
+    ) -> None:
+        self._export_import_coordinator.run_export(
+            symbol, interval, destination_path, file_format
+        )
+
+    def _run_import(self, symbol: str, interval: str, source_path: str) -> None:
+        self._export_import_coordinator.run_import(symbol, interval, source_path)

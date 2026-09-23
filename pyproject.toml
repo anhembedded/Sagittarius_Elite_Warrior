@@ -588,6 +588,12 @@ module = ["binance", "binance.*"]
 ignore_missing_imports = true
 
 [[tool.mypy.overrides]]
+# `BOT-112D` — pyarrow ships no `py.typed` marker either, same gap as
+# python-binance above: a third-party stub gap, not our code's debt.
+module = ["pyarrow", "pyarrow.*"]
+ignore_missing_imports = true
+
+[[tool.mypy.overrides]]
 # EPIC-002D — first module piloted on `--strict`, per that task's own §2:
 # Domain was the natural first candidate ("Strong Typing & Immutability"
 # already followed everywhere — frozen dataclasses, full annotations, no

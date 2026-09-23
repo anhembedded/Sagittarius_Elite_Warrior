@@ -2,7 +2,7 @@
 
 **Mã Epic:** `BOT-112`  
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  
-**Trạng thái:** 🔴 **Backlog (Chờ triển khai)**  
+**Trạng thái:** ✅ **5/5 task con xong (23/09)** — `BOT-112A`/`112B`/`112C`/`112D`/`112E` đều đã hoàn thành.  
 **Mục tiêu:** Nâng cấp toàn diện màn hình Quản lý Cơ sở Dữ liệu (`Data Management / Sagittarius Storage Vault`) từ một giao diện sơ khai mang tính hình thức thành một **Trung Tâm Dữ Liệu Thị Trường (Market Data Hub)** thực thụ — hỗ trợ đa khung thời gian, auto-discover shards, xóa/bảo trì database thật, kiểm tra & vá lỗ hổng (Gap Visualizer), tra cứu nến (KLine Inspector), và Nhập/Xuất CSV/Parquet.
 
 ---
@@ -65,7 +65,7 @@ graph TD
 
 ---
 
-### 📌 4. [`BOT-112D`](BOT-112D_market_data_import_export_csv_parquet.md): Nhập / Xuất Dữ Liệu & Bảo Trì Ổ Cứng (VACUUM)
+### 📌 4. [`BOT-112D`](../completed/BOT-112D_market_data_import_export_csv_parquet.md): Nhập / Xuất Dữ Liệu & Bảo Trì Ổ Cứng (VACUUM)
 - **Phạm vi**:
   - Xuất dữ liệu KLines ra định dạng `.csv`, `.parquet`, `.json` chuẩn cho Pandas/TradingView/Excel.
   - Nhập dữ liệu Offline: Nạp file CSV có sẵn vào SQLite shard.
@@ -86,5 +86,5 @@ graph TD
 1. 🏁 **Bước 1**: Triển khai [`BOT-112A`](../completed/BOT-112A_data_management_core_actions_and_timeframe_support.md) (Làm sạch UI, đa Timeframe, Xóa thật & Auto-discover).
 2. 🏁 **Bước 2**: Triển khai [`BOT-112B`](../completed/BOT-112B_kline_data_inspector_and_integrity_audit.md) (KLine Data Inspector).
 3. 🏁 **Bước 3**: Triển khai [`BOT-112C`](../completed/BOT-112C_gap_detection_visualizer_and_selective_repair.md) (Gap Visualizer & Vá lỗ hổng).
-4. 🏁 **Bước 4**: Triển khai [`BOT-112D`](BOT-112D_market_data_import_export_csv_parquet.md) (Import/Export & Vacuum).
+4. 🏁 **Bước 4**: Triển khai [`BOT-112D`](../completed/BOT-112D_market_data_import_export_csv_parquet.md) (Import/Export & Vacuum).
 5. 🏁 **Bước 5**: Triển khai [`BOT-112E`](../completed/BOT-112E_support_1s_kline_fetch_and_storage.md) (Nến 1 giây `1s`).

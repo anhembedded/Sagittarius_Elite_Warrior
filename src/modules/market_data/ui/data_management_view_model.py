@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.export_file_format import (
+    ExportFileFormat,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.qml_property import (
     notifying_property,
 )
@@ -22,6 +25,7 @@ from .kline_inspector_table_model import KLineInspectorTableModel
 #: fallback, written down in one place instead of two.
 _DEFAULT_SYMBOLS = list(FALLBACK_SYMBOL_OPTIONS)
 _SUPPORTED_INTERVALS = [tf.value for tf in TimeFrame]
+_EXPORT_FORMATS = [fmt.value for fmt in ExportFileFormat]
 
 
 class DataManagementViewModel(BaseQmlViewModel):
@@ -49,6 +53,7 @@ class DataManagementViewModel(BaseQmlViewModel):
     customRangeChanged = Signal()
     progressChanged = Signal()
     statsChanged = Signal()
+    selectedExportFormatChanged = Signal()
 
     gapInspectorChanged = Signal()
     gapListChanged = Signal()
@@ -82,6 +87,10 @@ class DataManagementViewModel(BaseQmlViewModel):
     #: symbol and interval for Run Data Integrity Audit.
     runAuditRequested = Signal(str, str)
     cancelRequested = Signal()
+    #: `BOT-112D` — no payload: the presenter reads symbol/interval and the
+    #: chosen format straight off the view model, same as `syncRequested`.
+    exportRequested = Signal()
+    importRequested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -97,6 +106,7 @@ class DataManagementViewModel(BaseQmlViewModel):
         self._use_custom_time = False
         self._from_datetime = ""
         self._to_datetime = ""
+        self._selected_export_format = _EXPORT_FORMATS[0]
         self._progress_value = 0
         self._progress_maximum = 0
         self._progress_visible = False
@@ -192,6 +202,21 @@ class DataManagementViewModel(BaseQmlViewModel):
     useCustomTime = notifying_property("_use_custom_time", bool, useCustomTimeChanged)
     fromDateTime = notifying_property("_from_datetime", str, customRangeChanged)
     toDateTime = notifying_property("_to_datetime", str, customRangeChanged)
+
+    # ------------------------------------------------------------------ #
+    # Export format (BOT-112D)
+    # ------------------------------------------------------------------ #
+
+    @Property("QStringList", constant=True)
+    def exportFormats(self) -> list[str]:
+        return list(_EXPORT_FORMATS)
+
+    selectedExportFormat = notifying_property(
+        "_selected_export_format",
+        str,
+        selectedExportFormatChanged,
+        normalize=lambda v: str(v or "").strip().lower(),
+    )
 
     # ------------------------------------------------------------------ #
     # Progress
@@ -442,6 +467,14 @@ class DataManagementViewModel(BaseQmlViewModel):
     @Slot()
     def requestCancel(self) -> None:
         self.cancelRequested.emit()
+
+    @Slot()
+    def requestExport(self) -> None:
+        self.exportRequested.emit()
+
+    @Slot()
+    def requestImport(self) -> None:
+        self.importRequested.emit()
 
     @Slot(str, str, list)
     def set_kline_inspector_data(

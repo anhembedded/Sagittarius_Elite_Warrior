@@ -71,6 +71,9 @@ class ConfigKeys(str, Enum):
     BACKTEST_REPORTS_DIR = "backtest.reports_dir"
 
     # Market Data Hub / KLine Inspector
+    #: `BOT-112D` — where "Export" writes by default, mirroring
+    #: `BACKTEST_REPORTS_DIR`'s own `config.get(...) or <cwd>/<name>` fallback shape.
+    MARKET_DATA_EXPORTS_DIR = "market_data.exports_dir"
 
     # Developer mode — enables extra UI instrumentation (e.g. click logging)
     DEV_MODE = "dev.mode"

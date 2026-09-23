@@ -8,6 +8,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QComboBox,
     QFrame,
     QGridLayout,
     QHBoxLayout,
@@ -75,6 +76,8 @@ _ACTION_BUTTONS = [
     ("btnSyncData", "Sync Current Timeframe", "play", "success", "requestSync"),
     ("btnSyncAllGaps", "Sync All Gaps", "clock", "success", "requestSyncAllGaps"),
     ("btnClearData", "Clear Selected Local Data", "trash-2", "danger", None),
+    ("btnExportData", "Export Selected Data", "download", "muted", "requestExport"),
+    ("btnImportData", "Import Data From File", "save", "muted", "requestImport"),
 ]
 
 _IDLE_MODE = "IDLE"
@@ -184,6 +187,13 @@ class DataManagementView(BaseView):
         self._btn_symbol.setText(view_model.selectedSymbol)
         self._btn_interval.setText(view_model.selectedInterval)
 
+        if self._cbo_export_format.count() == 0:
+            self._cbo_export_format.addItems(view_model.exportFormats)
+        self._cbo_export_format.setCurrentText(view_model.selectedExportFormat)
+        self._cbo_export_format.currentTextChanged.connect(
+            self._on_export_format_changed
+        )
+
         self._time_range.set_use_custom_time(view_model.useCustomTime)
         self._time_range.set_from_date_time(view_model.fromDateTime)
         self._time_range.set_to_date_time(view_model.toDateTime)
@@ -210,6 +220,7 @@ class DataManagementView(BaseView):
 
         view_model.selectedSymbolChanged.connect(self._sync_symbol_field)
         view_model.selectedIntervalChanged.connect(self._sync_interval_field)
+        view_model.selectedExportFormatChanged.connect(self._sync_export_format)
         view_model.symbolOptionsChanged.connect(self._refresh_symbol_picker)
         view_model.useCustomTimeChanged.connect(
             lambda: self._time_range.set_use_custom_time(view_model.useCustomTime)
@@ -230,6 +241,19 @@ class DataManagementView(BaseView):
     def _on_interval_changed(self, text: str) -> None:
         if self._view_model is not None and text.strip():
             self._view_model.selectedInterval = text
+
+    def _on_export_format_changed(self, text: str) -> None:
+        if self._view_model is not None and text.strip():
+            self._view_model.selectedExportFormat = text
+
+    def _sync_export_format(self) -> None:
+        if (
+            self._cbo_export_format.currentText()
+            != self._view_model.selectedExportFormat
+        ):
+            self._cbo_export_format.setCurrentText(
+                self._view_model.selectedExportFormat
+            )
 
     def _sync_symbol_field(self) -> None:
         if self._btn_symbol.text() != self._view_model.selectedSymbol:
@@ -366,6 +390,7 @@ class DataManagementView(BaseView):
         self._btn_purge.setEnabled(idle)
         self._btn_symbol.setEnabled(idle)
         self._btn_interval.setEnabled(idle)
+        self._cbo_export_format.setEnabled(idle)
         self._time_range.set_read_only(not idle)
         for object_name, *_rest in _ACTION_BUTTONS:
             self._action_buttons[object_name].setEnabled(idle)
@@ -561,6 +586,15 @@ class DataManagementView(BaseView):
         self._btn_interval.setStyleSheet(field_style())
         self._btn_interval.clicked.connect(self._open_timeframe_picker)
         grid.addWidget(self._btn_interval, 1, 1)
+
+        # `BOT-112D` — a plain, unstyled combo (no `setStyleSheet`, matching
+        # `trading_settings_view.py`'s venue combo): three known values, no
+        # picker warranted, and the shrink-only styling ratchet
+        # (`test_app_styling_only_shrinks.py`) forbids a new call anyway.
+        grid.addWidget(self._field_label("Export Format:"), 2, 0)
+        self._cbo_export_format = QComboBox()
+        self._cbo_export_format.setObjectName("cboExportFormat")
+        grid.addWidget(self._cbo_export_format, 2, 1)
 
         layout.addLayout(grid)
 

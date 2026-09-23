@@ -22,10 +22,10 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 151 | 75.9% |
+| 🟢 **Completed** | 152 | 76.4% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 41 | 20.6% |
-| ❌ **Cancelled** | 7 | 3.5% |
+| 🔴 **Backlog** | 39 | 19.6% |
+| ❌ **Cancelled** | 8 | 4.0% |
 | 📈 **Tổng số Task** | **199** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
@@ -151,6 +151,8 @@ Sagittarius_Elite_Warrior/Tasks/
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
+
+- [x] **`BOT-112D`**: [Nhập/Xuất dữ liệu lịch sử (CSV/Parquet/JSON) và bảo trì ổ cứng — một parser CSV theo alias thay vì ba parser riêng cho Binance/TradingView/MetaTrader, export streaming (bounded-memory, `BUG-025`) qua `IMarketDataRepository.stream_klines()`, import qua `save_klines()`'s upsert sẵn có (không cần logic chống trùng riêng), `ExportImportCoordinator` mới tách khỏi `ScanCoordinator` (đã chạm trần 400 dòng), thêm phụ thuộc `pyarrow` sau khi người dùng phê duyệt](completed/BOT-112D_market_data_import_export_csv_parquet.md) — Epic `BOT-112` nay **5/5 xong trọn**.
 
 - [x] **`BOT-049`**: [Leverage & liquidation for `PaperExchange` — liquidation price derived algebraically from the existing `calculate_realized_pnl` formula (the zero-maintenance-margin case of Binance's own published isolated-margin formula, fetched live and cross-checked), checked every bar before stop-loss/take-profit so a same-bar hit always closes as `LIQUIDATION`, `Trade.leverage` added, `BacktestMetrics` needed no change since it already aggregates generically from `Trade.pnl`](completed/BOT-049_leverage_and_liquidation.md)
 
@@ -570,11 +572,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :--- | :--- | :---: | :---: | :--- |
-| 🟡 **[Epic BOT-112](backlog/BOT-112_data_management_and_market_vault_overhaul_epic.md)** | **Đại tu Quản trị Cơ sở Dữ liệu Thị trường — Market Data Hub & Storage Vault Overhaul** | 🔴 **`L (Thinking)`** | `BOT-004` ✅, `BOT-030` ✅ | **4/5 xong (21/08)**: `BOT-112A` ✅ (đa timeframe + auto-discover), `BOT-112B` ✅ (KLine Inspector + kiểm định toàn vẹn), `BOT-112C` ✅ (gap visualizer + selective repair), `BOT-112E` ✅ (hỗ trợ `1s`). Còn `BOT-112D` (Import/Export CSV/Parquet & VACUUM). |
+| ✅ **[Epic BOT-112](backlog/BOT-112_data_management_and_market_vault_overhaul_epic.md)** | **Đại tu Quản trị Cơ sở Dữ liệu Thị trường — Market Data Hub & Storage Vault Overhaul** | 🔴 **`L (Thinking)`** | `BOT-004` ✅, `BOT-030` ✅ | **5/5 xong (23/09)**: `BOT-112A` ✅ (đa timeframe + auto-discover), `BOT-112B` ✅ (KLine Inspector + kiểm định toàn vẹn), `BOT-112C` ✅ (gap visualizer + selective repair), `BOT-112D` ✅ (Import/Export CSV/Parquet/JSON + VACUUM), `BOT-112E` ✅ (hỗ trợ `1s`). |
 | ✅ **[BOT-112A](completed/BOT-112A_data_management_core_actions_and_timeframe_support.md)** | **Hoàn thiện Tác vụ Cốt lõi & Hỗ trợ Đa Khung thời gian** | 🟡 **`M (Standard)`** | `BOT-004` ✅ | Gỡ bỏ placeholder header vô dụng, thêm selector Timeframe 1m-1d, Auto-discover shards on screen load, xóa dữ liệu thật & tích hợp Binance Symbol Picker. |
 | ✅ **[BOT-112B](completed/BOT-112B_kline_data_inspector_and_integrity_audit.md)** | **Bảng Tra cứu Nến KLine Inspector & Kiểm định Tính toàn vẹn** | 🟡 **`M (Standard)`** | `BOT-112A` | Xem chi tiết nến thô OHLCV phân trang, nhảy nhanh theo Timestamp, kiểm định nến bất thường (High < Low, Volume < 0, trùng lặp). |
 | ✅ **[BOT-112C](completed/BOT-112C_gap_detection_visualizer_and_selective_repair.md)** | **Trực quan hóa Lỗ hổng & Vá Từng Đoạn Dữ liệu (Selective Gap Repair)** | 🔴 **`L (Thinking)`** | `BOT-112A` | Thanh Timeline độ phủ dữ liệu trực quan, danh sách chi tiết các lỗ hổng thời gian và nút "Vá Lỗ Hổng Này" chỉ tải bù đúng đoạn thiếu. |
-| **[BOT-112D](backlog/BOT-112D_market_data_import_export_csv_parquet.md)** | **Nhập / Xuất Dữ liệu Lịch sử (CSV/Parquet) & Bảo trì Ổ cứng** | 🟡 **`M (Standard)`** | `BOT-112A` | Xuất dữ liệu KLines ra CSV/Parquet/JSON, nạp file CSV nến offline vào SQLite, nút bảo trì thu hồi dung lượng đĩa `VACUUM` & `WAL checkpoint`. |
+| ✅ **[BOT-112D](completed/BOT-112D_market_data_import_export_csv_parquet.md)** | **Nhập / Xuất Dữ liệu Lịch sử (CSV/Parquet) & Bảo trì Ổ cứng** | 🟡 **`M (Standard)`** | `BOT-112A` | Xuất dữ liệu KLines ra CSV/Parquet/JSON (streaming, bounded-memory), nạp file CSV nến offline vào SQLite qua một parser theo alias, nút bảo trì thu hồi dung lượng đĩa `VACUUM` & `WAL checkpoint` (đã có sẵn từ `BOT-112A`). |
 
 **Nhóm G — Đề xuất Cải tiến Giao diện & Trải nghiệm Người dùng (UI / UX Proposals — PROP Series)**
 

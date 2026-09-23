@@ -1,4 +1,4 @@
-"""market_data's write side: the seven commands and their handlers.
+"""market_data's write side: the nine commands and their handlers.
 
 The Engine's `ICommandDispatcher` routes a command *object* to the handler bound
 against its type, so this table is the routing table — a command with no entry
@@ -17,6 +17,14 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.clear_market_data import (
     ClearMarketDataCommand,
     ClearMarketDataCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.export_market_data import (
+    ExportMarketDataCommand,
+    ExportMarketDataCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.import_market_data import (
+    ImportMarketDataCommand,
+    ImportMarketDataCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.prune_empty_shards import (
     PruneEmptyShardsCommand,
@@ -54,3 +62,5 @@ def bind_commands(container: IContainer) -> None:
     container.bind(ClearMarketDataCommand, ClearMarketDataCommandHandler)
     container.bind(RepairDataGapCommand, RepairDataGapCommandHandler)
     container.bind(PruneEmptyShardsCommand, PruneEmptyShardsCommandHandler)
+    container.bind(ExportMarketDataCommand, ExportMarketDataCommandHandler)
+    container.bind(ImportMarketDataCommand, ImportMarketDataCommandHandler)
