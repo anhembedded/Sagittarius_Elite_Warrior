@@ -324,34 +324,4 @@ def build_extended_stat_cards(result: BacktestResult) -> list[StatCardData]:
         ),
     ]
 
-    # BOT-080 — only present when the range was long enough to split
-    # (BacktestResult.out_of_sample is None otherwise). Raw numbers live
-    # here (same precedent as "Total Fees Paid" backing the fee warning);
-    # the "is this concerning" signal is build_result_warning_text()'s job.
-    out_of_sample = result.out_of_sample
-    if out_of_sample is not None:
-        divergence_tone = (
-            Tone.NEGATIVE if out_of_sample.has_high_divergence else _NEUTRAL
-        )
-        cards.append(
-            StatCardData(
-                "In-Sample Net Profit",
-                f"{out_of_sample.in_sample.metrics.net_profit_percent:+.2f}",
-                _NEUTRAL,
-                "%",
-                "",
-                _NEUTRAL,
-            )
-        )
-        cards.append(
-            StatCardData(
-                "Out-of-Sample Net Profit",
-                f"{out_of_sample.out_of_sample.metrics.net_profit_percent:+.2f}",
-                divergence_tone,
-                "%",
-                "",
-                _NEUTRAL,
-            )
-        )
-
     return cards

@@ -1313,9 +1313,12 @@ def test_successful_run_with_a_diverging_out_of_sample_result_sets_the_warning_t
 
     assert view_model.run_result.resultWarningText != ""
     assert "overfit" in view_model.run_result.resultWarningText
+    # `BOT-107A`: the two flat-grid extended cards for these same numbers
+    # were removed once `OutOfSampleComparisonDialog` shipped a real
+    # side-by-side table — showing both would duplicate the figures.
     titles = {card["title"] for card in view_model.run_result.extendedStatCards}
-    assert "In-Sample Net Profit" in titles
-    assert "Out-of-Sample Net Profit" in titles
+    assert "In-Sample Net Profit" not in titles
+    assert "Out-of-Sample Net Profit" not in titles
 
 
 def test_successful_run_populates_limitations_from_the_real_result(
