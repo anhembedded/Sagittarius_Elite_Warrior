@@ -23,5 +23,5 @@ Bảo vệ người dùng khỏi bẫy **"Tối ưu quá mức / Học vẹt d�
 
 | Task ID | Tên Nhiệm vụ | Độ phức tạp | Mô tả tóm tắt |
 | :--- | :--- | :---: | :--- |
-| **`BOT-107A`** | **Phân tách Dữ liệu In-Sample vs Out-of-Sample (OOS)** | 🔴 `L` | Hỗ trợ chọn tỷ lệ chia (VD: 70% In-Sample / 30% Out-of-Sample); hiển thị đường phân cách và so sánh 2 bảng chỉ số riêng biệt. |
+| **[`BOT-107A`](../completed/BOT-107A_out_of_sample_blind_testing.md)** | **Phân tách Dữ liệu In-Sample vs Out-of-Sample (OOS)** | 🔴 `L` | ✅ **Done (2026-09-24)** — chart divider + bảng so sánh 2 cột (tái dùng `BOT-115D`); tỷ lệ chia đóng won't-do (giữ nguyên quyết định `BOT-080`), ngưỡng overfit tái dùng quy tắc 30 điểm tuyệt đối đã có thay vì thêm ngưỡng 40% tương đối mới. Xem Implementation Notes trong file task. |
 | **`BOT-107B`** | **Mô phỏng Monte Carlo & Đánh giá Nguy cơ Phá sản (Risk of Ruin)** | 🔴 `L` | Chạy 10,000 kịch bản ngẫu nhiên xáo trộn chuỗi trade, vẽ chùm đường Equity Curve (Spaghetti Chart) và tính xác suất sụt giảm vốn. |

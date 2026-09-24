@@ -35,8 +35,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
 from .performance_metrics_view import StatCardData
 
 #: Which section each extended-stat card title belongs to. A card whose title
-#: is not listed — Total Fees Paid, In-Sample/Out-of-Sample Net Profit — falls
-#: into `OTHER` rather than silently disappearing.
+#: is not listed — e.g. Total Fees Paid — falls into `OTHER` rather than
+#: silently disappearing.
 GROUP_ORDER: tuple[str, ...] = (
     "PROFIT & LOSS",
     "AVERAGE PER TRADE",

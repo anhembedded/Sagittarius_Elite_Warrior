@@ -198,6 +198,32 @@ def test_top_panel_compare_reports_button_emits_the_request_signal(
     panel.deleteLater()
 
 
+def test_top_panel_out_of_sample_comparison_button_emits_the_request_signal(
+    qapp: QApplication,
+) -> None:
+    """`BOT-107A` — same "always available" reasoning as "Compare reports":
+    the dialog itself shows a "not computed for this run" message until an
+    out-of-sample-validated result exists."""
+    _ensure_theme_bridge(qapp)
+    vm = BackTestViewModel()
+    panel = BackTestTopPanel(vm)
+    panel.resize(1200, 350)
+    panel.show()
+    qapp.processEvents()
+
+    assert panel._btn_out_of_sample_comparison.isEnabled()
+
+    mock_open = MagicMock()
+    vm.openOutOfSampleComparisonRequested.connect(mock_open)
+
+    panel._btn_out_of_sample_comparison.click()
+
+    mock_open.assert_called_once()
+
+    panel.close()
+    panel.deleteLater()
+
+
 def test_top_panel_imported_report_banner_shows_only_while_viewing(
     qapp: QApplication,
 ) -> None:

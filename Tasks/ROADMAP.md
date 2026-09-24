@@ -22,9 +22,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 165 | 82.5% |
+| 🟢 **Completed** | 166 | 83.0% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 27 | 13.5% |
+| 🔴 **Backlog** | 26 | 13.0% |
 | ❌ **Cancelled** | 8 | 4.0% |
 | 📈 **Tổng số Task** | **200** | **100%** |
 
@@ -166,6 +166,8 @@ Sagittarius_Elite_Warrior/Tasks/
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
+
+- [x] **`BOT-107A`**: [Out-of-Sample blind testing display — re-verified before implementing: `BOT-080` had already shipped both independent passes and `OutOfSampleValidation` (`in_sample`/`out_of_sample` metrics, `in_sample_ratio`), so only the task's display half was a real gap. Re-scoped two of its three asks rather than building them as written: a configurable split ratio conflicts with `BOT-080`'s own binding decision ("deliberately NOT meant to become user-configurable — letting someone dial the split until the numbers look good would defeat the point of this check"), closed as won't-do; a new "40% relative degradation" warning would duplicate the already-shipped, differently-formulated `OutOfSampleValidation.has_high_divergence` (30-point absolute drop), so the new UI reuses that one canonical rule instead of adding a second, contradicting one. Built the two genuinely missing pieces: a persistent dashed `OutOfSampleDividerLine` on the chart (mirrors `TradeLinkLine`'s shape, wired through `IBacktestChartHost` the same way, drawn/cleared by `BackTestPresenter._present_result()` at the in-sample half's own last equity-curve point) and a real side-by-side In-Sample/Out-of-Sample metrics dialog (`out_of_sample_comparison_rules.py` reusing `BOT-115D`'s `build_metric_comparison_rows()` directly rather than re-deriving its tone logic, `OutOfSampleComparisonDialog` mirroring `ReportComparisonDialog` simplified — no file loading, sourced from the existing retained `comparison_snapshot()`) replacing the previous "2 stray cards in a flat grid" approach](completed/BOT-107A_out_of_sample_blind_testing.md).
 
 - [x] **`BOT-105B`**: [Intra-bar Bar Magnifier & SL/TP conflict resolution — re-verified before implementing: §2.1's pessimistic SL-first rule was already fully done and mutation-tested by `BOT-041`; `BUG-133`'s tick-backtest fix also does not implement real first-touch resolution, it only re-runs the same pessimistic tie-break at `tick_resolution` granularity. The actual unbuilt work was §2.2's Bar Magnifier: `OrderMatchingPolicy.evaluate_intrabar_stops()` gained an optional, lazily-invoked `magnifier_lookup` closure (called at most once per bar, only when a position is genuinely ambiguous) that walks real finer sub-candles fetched via `IMarketDataRepository.get_klines()` — reusing `BOT-076`'s own repository/table, not separate infrastructure — to determine which of SL/TP was truly touched first, falling back to the pessimistic default when finer data was never synced. Threaded through `PaperExchange.check_intrabar_stops()` **after** `_apply_break_even_stops()` so the decision uses the position's real, current-bar stop price, verified by mutation. New `magnifier_resolution: TimeFrame | None = None` field on `BacktestRunConfig`/`RunStaticBacktestCommand`; no UI picker added yet, matching `tick_resolution`'s own established precedent (config field is the seam, picker is the deferred variant)](completed/BOT-105B_intrabar_magnifier_and_conflict_resolution.md).
 

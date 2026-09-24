@@ -317,35 +317,15 @@ def test_extended_fees_card_turns_bearish_only_when_fee_ratio_warning_fires():
 # ---------------------------------------------------------------------------
 
 
-def test_extended_cards_gain_two_cards_when_out_of_sample_is_present():
-    out_of_sample = OutOfSampleValidation(
-        in_sample=_result_with_net_profit_percent(20.0),
-        out_of_sample=_result_with_net_profit_percent(15.0),
-        in_sample_ratio=0.7,
-    )
+def test_extended_cards_never_carry_out_of_sample_net_profit_rows():
+    """`BOT-107A` — the two flat-grid "In-Sample/Out-of-Sample Net Profit"
+    cards were removed once `OutOfSampleComparisonDialog` shipped a real
+    side-by-side table for the same numbers; showing both would duplicate
+    the same figures (and the same overfit signal) in two places at once.
+    `build_result_warning_text()`'s own banner note is untouched — it is a
+    different, general-purpose mechanism (also used for fee/frequency
+    warnings), not one of the two removed cards."""
     result = _result(
-        trades=[_trade(50.0)],
-        equity_curve=[(_T0, 1000.0)],
-        out_of_sample=out_of_sample,
-    )
-
-    titles = {card.title for card in build_extended_stat_cards(result)}
-
-    assert "In-Sample Net Profit" in titles
-    assert "Out-of-Sample Net Profit" in titles
-
-
-def test_extended_cards_omit_out_of_sample_cards_when_the_range_was_too_short():
-    result = _result(trades=[_trade(50.0)], equity_curve=[(_T0, 1000.0)])
-
-    titles = {card.title for card in build_extended_stat_cards(result)}
-
-    assert "In-Sample Net Profit" not in titles
-    assert "Out-of-Sample Net Profit" not in titles
-
-
-def test_out_of_sample_card_turns_bearish_only_when_divergence_is_high():
-    healthy = _result(
         trades=[_trade(50.0)],
         equity_curve=[(_T0, 1000.0)],
         out_of_sample=OutOfSampleValidation(
@@ -354,29 +334,11 @@ def test_out_of_sample_card_turns_bearish_only_when_divergence_is_high():
             in_sample_ratio=0.7,
         ),
     )
-    overfit = _result(
-        trades=[_trade(50.0)],
-        equity_curve=[(_T0, 1000.0)],
-        out_of_sample=OutOfSampleValidation(
-            in_sample=_result_with_net_profit_percent(50.0),
-            out_of_sample=_result_with_net_profit_percent(-20.0),
-            in_sample_ratio=0.7,
-        ),
-    )
 
-    healthy_card = next(
-        c
-        for c in build_extended_stat_cards(healthy)
-        if c.title == "Out-of-Sample Net Profit"
-    )
-    overfit_card = next(
-        c
-        for c in build_extended_stat_cards(overfit)
-        if c.title == "Out-of-Sample Net Profit"
-    )
+    titles = {card.title for card in build_extended_stat_cards(result)}
 
-    assert healthy_card.value_tone is Tone.NEUTRAL
-    assert overfit_card.value_tone is Tone.NEGATIVE
+    assert "In-Sample Net Profit" not in titles
+    assert "Out-of-Sample Net Profit" not in titles
 
 
 def test_result_warning_text_includes_overfitting_note_when_divergence_is_high():

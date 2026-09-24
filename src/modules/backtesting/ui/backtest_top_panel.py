@@ -576,6 +576,21 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         self._btn_compare_reports.clicked.connect(self._vm.requestOpenCompareReports)
         row.addWidget(self._btn_compare_reports)
 
+        # `BOT-107A` — same "always available while not busy" enablement as
+        # `_btn_compare_reports`: the dialog itself shows a "not computed for
+        # this run" message until an out-of-sample-validated result exists.
+        self._btn_out_of_sample_comparison = QPushButton("In-Sample vs Out-of-Sample")
+        self._btn_out_of_sample_comparison.setObjectName("btnOutOfSampleComparison")
+        self._btn_out_of_sample_comparison.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_out_of_sample_comparison.setFixedHeight(26)
+        self._btn_out_of_sample_comparison.setToolTip(
+            "Compare this run's In-Sample and Out-of-Sample metrics side by side"
+        )
+        self._btn_out_of_sample_comparison.clicked.connect(
+            self._vm.requestOpenOutOfSampleComparison
+        )
+        row.addWidget(self._btn_out_of_sample_comparison)
+
         return row_widget
 
     def _build_result_warning_label(self) -> QLabel:
@@ -685,6 +700,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
             self._btn_bot_params,
             self._btn_import_report,
             self._btn_compare_reports,
+            self._btn_out_of_sample_comparison,
         ):
             btn.setEnabled(enabled)
         # `BOT-095G` — a busy run/sync owns the screen the same way it owns

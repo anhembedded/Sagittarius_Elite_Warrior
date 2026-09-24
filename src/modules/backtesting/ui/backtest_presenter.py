@@ -140,6 +140,7 @@ from .logic.chart_canvas_view import (
     build_trade_view_range,
 )
 from .logic.extended_metrics_snapshot import ExtendedMetricsSnapshot
+from .logic.out_of_sample_comparison_rules import split_timestamp
 from .logic.performance_charts import (
     build_drawdown_chart_points,
     build_yearly_returns_rows,
@@ -1260,6 +1261,28 @@ class BackTestPresenter(BasePresenter):
         self._view_model.run_result.set_result(message, is_error=False)
         self._all_trades = result.trades
         self._refresh_trade_log()
+        self._apply_out_of_sample_divider(result)
+
+    def _apply_out_of_sample_divider(self, result: BacktestResult) -> None:
+        """`BOT-107A` — draws or clears the chart's In-Sample/Out-of-Sample
+        split line for the newly presented result. Every `_present_result`
+        caller replaces whatever divider a previous result may have left."""
+        chart_card = self._first_chart_card()
+        if chart_card is None:
+            return
+        if result.out_of_sample is None:
+            chart_card.clear_out_of_sample_divider()
+            return
+        timestamp = split_timestamp(result.out_of_sample)
+        if timestamp is None:
+            chart_card.clear_out_of_sample_divider()
+            return
+        chart_card.set_out_of_sample_divider(timestamp)
+
+    def _clear_out_of_sample_divider(self) -> None:
+        chart_card = self._first_chart_card()
+        if chart_card is not None:
+            chart_card.clear_out_of_sample_divider()
 
     @staticmethod
     def _fee_rate_percent_for(broker_config: BrokerSimulationConfig) -> float:
@@ -1297,6 +1320,7 @@ class BackTestPresenter(BasePresenter):
         self._view_model.run_result.set_result(message, is_error=False)
         self._all_trades = []
         self._refresh_trade_log()
+        self._clear_out_of_sample_divider()
         self._logger.log_backtest_empty(message)
         if self.fsm.can_dispatch(BacktestUiEvent.BACKTEST_EMPTY):
             self.fsm.dispatch(BacktestUiEvent.BACKTEST_EMPTY)
@@ -1316,6 +1340,7 @@ class BackTestPresenter(BasePresenter):
         self._view_model.run_result.set_result(f"Error: {message}", is_error=True)
         self._all_trades = []
         self._refresh_trade_log()
+        self._clear_out_of_sample_divider()
         self._logger.log_backtest_failed(message)
         if self.fsm.can_dispatch(BacktestUiEvent.BACKTEST_FAILED):
             self.fsm.dispatch(BacktestUiEvent.BACKTEST_FAILED)

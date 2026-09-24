@@ -32,6 +32,7 @@ from .limitations_dialog import LimitationsDialog
 from .metrics_detail_dialog import MetricsDetailDialogWidget
 from .modals_host import BackTestModalsHost
 from .order_execution_dialog import OrderExecutionDialog
+from .out_of_sample_comparison_dialog import OutOfSampleComparisonDialog
 from .report_comparison_dialog import ReportComparisonDialog
 from .strategy_picker_dialog import StrategyPickerDialog
 from .strategy_properties_dialog import StrategyPropertiesDialog
@@ -46,6 +47,7 @@ __all__ = [
     "LimitationsDialog",
     "MetricsDetailDialogWidget",
     "OrderExecutionDialog",
+    "OutOfSampleComparisonDialog",
     "ReportComparisonDialog",
     "StrategyPickerDialog",
     "StrategyPropertiesDialog",

@@ -175,6 +175,8 @@ class BackTestViewModel(BaseQmlViewModel):
     openLimitationsRequested = Signal()
     #: `BOT-115D` — the "compare 2 reports" modal.
     openCompareReportsRequested = Signal()
+    #: `BOT-107A` — the "In-Sample vs Out-of-Sample" modal.
+    openOutOfSampleComparisonRequested = Signal()
     openCapitalRequested = Signal(float, float)
     openIndicatorPickerRequested = Signal(float, float)
     openOrderExecutionRequested = Signal(float, float)
@@ -635,6 +637,12 @@ class BackTestViewModel(BaseQmlViewModel):
         """Called from the top panel's "Compare reports" button
         (`BOT-115D`)."""
         self.openCompareReportsRequested.emit()
+
+    @Slot()
+    def requestOpenOutOfSampleComparison(self) -> None:
+        """Called from the top panel's "In-Sample vs Out-of-Sample" button
+        (`BOT-107A`)."""
+        self.openOutOfSampleComparisonRequested.emit()
 
     @Slot(float, float)
     def requestOpenCapital(self, x: float, y: float) -> None:

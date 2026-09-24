@@ -16,6 +16,7 @@ from .edge_scroll_detector import EdgeScrollDetector
 from .fps_overlay import ChartFpsOverlay
 from .heikin_ashi import to_heikin_ashi
 from .indicator_manager import IndicatorManager
+from .out_of_sample_divider_line import OutOfSampleDividerLine
 from .plot_layout import ChartAntialiasMode, ChartPlotLayout
 from .price_line import LastPriceLine
 from .range_update_scheduler import RangeUpdateScheduler
@@ -63,11 +64,12 @@ class ChartCard(Card):
     """
     @brief The Chart component for visualizing Candlestick data & Extensible Technical Indicators.
     @details Facade Pattern — composes ChartPlotLayout, CrosshairController, IndicatorManager,
-    VolumeItem, LastPriceLine, TradeLinkLine, ViewportController, ZoomControls, ChartTypeRenderer,
-    ChartToolbar and FastCandlestickItem, and exposes one stable API surface to the Presenter. Each
-    collaborator owns exactly one concern (layout, crosshair, indicators, volume, last-price,
-    trade-link, viewport-follow, zoom, chart-type rendering, timeframe UI), keeping this class a
-    thin orchestrator instead of a God Object.
+    VolumeItem, LastPriceLine, TradeLinkLine, OutOfSampleDividerLine, ViewportController,
+    ZoomControls, ChartTypeRenderer, ChartToolbar and FastCandlestickItem, and exposes one stable
+    API surface to the Presenter. Each collaborator owns exactly one concern (layout, crosshair,
+    indicators, volume, last-price, trade-link, in-sample/out-of-sample split, viewport-follow,
+    zoom, chart-type rendering, timeframe UI), keeping this class a thin orchestrator instead of a
+    God Object.
     """
 
     #: BOT-035 — the user panned within EdgeScrollDetector's threshold of the
@@ -179,6 +181,7 @@ class ChartCard(Card):
 
         self.price_line = LastPriceLine(self.plot_layout.main_plot)
         self.trade_link = TradeLinkLine(self.plot_layout.main_plot)
+        self.out_of_sample_divider = OutOfSampleDividerLine(self.plot_layout.main_plot)
 
         self.crosshair = CrosshairController(
             scene=self.plot_layout.widget.scene(),
@@ -768,6 +771,16 @@ class ChartCard(Card):
 
     def clear_trade_link(self) -> None:
         self.trade_link.hide()
+
+    # ------------------------------------------------------------------ #
+    # BOT-107A — In-Sample / Out-of-Sample split divider
+    # ------------------------------------------------------------------ #
+
+    def set_out_of_sample_divider(self, split_timestamp: float) -> None:
+        self.out_of_sample_divider.show_at(split_timestamp)
+
+    def clear_out_of_sample_divider(self) -> None:
+        self.out_of_sample_divider.hide()
 
     def set_view_range(self, min_ts: float, max_ts: float) -> None:
         """`PROP-002` — pans/zooms the main plot's X axis to `[min_ts,
