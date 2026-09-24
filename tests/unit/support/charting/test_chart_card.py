@@ -1799,6 +1799,37 @@ def test_chart_card_set_trade_link_replaces_a_still_visible_earlier_link(qapp):
     assert card.trade_link._label.textItem.toPlainText() == "-20.00%"
 
 
+def test_chart_card_set_out_of_sample_divider_draws_a_visible_vertical_line(qapp):
+    """`BOT-107A` — `ChartCard.set_out_of_sample_divider()` is the port
+    operation `PythonBacktestChartHost` delegates to; this is what it
+    actually does to the plot."""
+    card = ChartCard("BTCUSDT")
+
+    card.set_out_of_sample_divider(1_700_000_000.0)
+
+    assert card.out_of_sample_divider._line.isVisible()
+    assert card.out_of_sample_divider._line.value() == 1_700_000_000.0
+
+
+def test_chart_card_clear_out_of_sample_divider_hides_the_line(qapp):
+    card = ChartCard("BTCUSDT")
+    card.set_out_of_sample_divider(1_700_000_000.0)
+
+    card.clear_out_of_sample_divider()
+
+    assert not card.out_of_sample_divider._line.isVisible()
+
+
+def test_chart_card_set_out_of_sample_divider_moves_a_still_visible_earlier_line(qapp):
+    card = ChartCard("BTCUSDT")
+    card.set_out_of_sample_divider(1_700_000_000.0)
+
+    card.set_out_of_sample_divider(1_800_000_000.0)
+
+    assert card.out_of_sample_divider._line.isVisible()
+    assert card.out_of_sample_divider._line.value() == 1_800_000_000.0
+
+
 def test_chart_card_set_view_range_pans_the_main_plot_to_the_given_window(qapp):
     """`PROP-002` — `ChartCard.set_view_range()` is the port operation
     `PythonBacktestChartHost` delegates to; this is what it actually does

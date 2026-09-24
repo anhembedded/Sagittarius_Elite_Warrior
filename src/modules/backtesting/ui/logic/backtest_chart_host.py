@@ -131,6 +131,12 @@ class PythonBacktestChartHost:
     def clear_trade_link(self) -> None:
         self._chart_card.clear_trade_link()
 
+    def set_out_of_sample_divider(self, split_timestamp: float) -> None:
+        self._chart_card.set_out_of_sample_divider(split_timestamp)
+
+    def clear_out_of_sample_divider(self) -> None:
+        self._chart_card.clear_out_of_sample_divider()
+
     def set_view_range(self, min_ts: float, max_ts: float) -> None:
         self._chart_card.set_view_range(min_ts, max_ts)
 

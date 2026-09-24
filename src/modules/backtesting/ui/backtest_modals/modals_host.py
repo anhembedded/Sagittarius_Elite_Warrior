@@ -20,6 +20,7 @@ from .indicator_picker_dialog import IndicatorPickerDialog
 from .limitations_dialog import LimitationsDialog
 from .metrics_detail_dialog import MetricsDetailDialogWidget
 from .order_execution_dialog import OrderExecutionDialog
+from .out_of_sample_comparison_dialog import OutOfSampleComparisonDialog
 from .report_comparison_dialog import ReportComparisonDialog
 from .strategy_picker_dialog import StrategyPickerDialog
 from .strategy_properties_dialog import StrategyPropertiesDialog
@@ -32,7 +33,7 @@ if TYPE_CHECKING:
 
 
 class BackTestModalsHost:
-    """Owns all 11 modal `QDialog`s, built lazily on first open (matching
+    """Owns all 13 modal `QDialog`s, built lazily on first open (matching
     every other lazy-modal precedent in this app —
     `DataManagementView._kline_inspector`, EPIC-005E2/E3), and wires
     `BackTestViewModel`'s `openXRequested` signals to them. Replaces both
@@ -49,6 +50,7 @@ class BackTestModalsHost:
         self._indicator_picker: IndicatorPickerDialog | None = None
         self._order_execution: OrderExecutionDialog | None = None
         self._report_comparison: ReportComparisonDialog | None = None
+        self._out_of_sample_comparison: OutOfSampleComparisonDialog | None = None
         self._strategy_picker: StrategyPickerDialog | None = None
         self._timeframe_picker: TimeframePickerDialog | None = None
         # EPIC-015 bậc 1: private, non-persisted — this picker is its own
@@ -74,6 +76,9 @@ class BackTestModalsHost:
         view_model.openIndicatorPickerRequested.connect(self._open_indicator_picker)
         view_model.openOrderExecutionRequested.connect(self._open_order_execution)
         view_model.openCompareReportsRequested.connect(self._open_report_comparison)
+        view_model.openOutOfSampleComparisonRequested.connect(
+            self._open_out_of_sample_comparison
+        )
         view_model.openStrategyPickerRequested.connect(self._open_strategy_picker)
         view_model.openTimeframePickerRequested.connect(self._open_timeframe_picker)
         view_model.openSymbolPickerRequested.connect(self._open_symbol_picker)
@@ -113,6 +118,13 @@ class BackTestModalsHost:
         if self._report_comparison is None:
             self._report_comparison = ReportComparisonDialog(self._vm, self._parent)
         self._report_comparison.open_dialog()
+
+    def _open_out_of_sample_comparison(self) -> None:
+        if self._out_of_sample_comparison is None:
+            self._out_of_sample_comparison = OutOfSampleComparisonDialog(
+                self._vm, self._parent
+            )
+        self._out_of_sample_comparison.open_dialog()
 
     def _open_strategy_picker(self) -> None:
         if self._strategy_picker is None:

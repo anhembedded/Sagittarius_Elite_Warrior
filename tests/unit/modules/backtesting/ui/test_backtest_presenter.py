@@ -1357,6 +1357,98 @@ def test_successful_run_omits_the_out_of_sample_note_when_a_split_exists(
     )
 
 
+def test_successful_run_with_out_of_sample_validation_draws_the_divider_at_the_split(
+    presenter, view_model, mock_dispatcher
+):
+    """`BOT-107A` — the chart's In-Sample/Out-of-Sample split line is drawn
+    at the in-sample half's own last equity-curve point, exactly where the
+    out-of-sample half begins."""
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    result = replace(
+        result,
+        out_of_sample=OutOfSampleValidation(
+            in_sample=result, out_of_sample=result, in_sample_ratio=0.7
+        ),
+    )
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
+
+    presenter._run_backtest(config)
+
+    divider = presenter.view.chart_cards[0].chart_card.out_of_sample_divider
+    assert divider._line.isVisible()
+    assert divider._line.value() == result.equity_curve[-1][0].timestamp()
+
+
+def test_successful_run_without_out_of_sample_validation_clears_a_stale_divider(
+    presenter, view_model, mock_dispatcher
+):
+    """Mutation check: a run with no split must clear whatever divider an
+    earlier run in the same session drew — never leave a stale one showing
+    a boundary that has nothing to do with the result now on screen."""
+    config = _lock_and_get_config(presenter, view_model)
+    split_result = _make_result(with_trades=True)
+    split_result = replace(
+        split_result,
+        out_of_sample=OutOfSampleValidation(
+            in_sample=split_result, out_of_sample=split_result, in_sample_ratio=0.7
+        ),
+    )
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(split_result)
+    presenter._run_backtest(config)
+    divider = presenter.view.chart_cards[0].chart_card.out_of_sample_divider
+    assert divider._line.isVisible()
+
+    config = _lock_and_get_config(presenter, view_model)
+    unsplit_result = _make_result(with_trades=True)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(unsplit_result)
+    presenter._run_backtest(config)
+
+    assert not divider._line.isVisible()
+
+
+def test_backtest_empty_clears_the_out_of_sample_divider(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    split_result = _make_result(with_trades=True)
+    split_result = replace(
+        split_result,
+        out_of_sample=OutOfSampleValidation(
+            in_sample=split_result, out_of_sample=split_result, in_sample_ratio=0.7
+        ),
+    )
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(split_result)
+    presenter._run_backtest(config)
+    divider = presenter.view.chart_cards[0].chart_card.out_of_sample_divider
+    assert divider._line.isVisible()
+
+    presenter._on_backtest_empty("No historical data", config)
+
+    assert not divider._line.isVisible()
+
+
+def test_backtest_failed_clears_the_out_of_sample_divider(
+    presenter, view_model, mock_dispatcher
+):
+    config = _lock_and_get_config(presenter, view_model)
+    split_result = _make_result(with_trades=True)
+    split_result = replace(
+        split_result,
+        out_of_sample=OutOfSampleValidation(
+            in_sample=split_result, out_of_sample=split_result, in_sample_ratio=0.7
+        ),
+    )
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(split_result)
+    presenter._run_backtest(config)
+    divider = presenter.view.chart_cards[0].chart_card.out_of_sample_divider
+    assert divider._line.isVisible()
+
+    presenter._on_backtest_failed("boom")
+
+    assert not divider._line.isVisible()
+
+
 def test_no_historical_data_clears_limitations(presenter, view_model, mock_dispatcher):
     config = _lock_and_get_config(presenter, view_model)
     mock_dispatcher.dispatch.return_value = None
