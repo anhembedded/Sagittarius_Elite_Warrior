@@ -3486,6 +3486,53 @@ def test_backtest_succeeded_transitions_to_completed_and_snapshots_last_run_conf
     assert "1m" in vm.lastRunSummary
 
 
+def test_backtest_succeeded_sets_the_comparison_snapshot(presenter):
+    """`BOT-115D` — `ReportComparisonDialog`'s Column A reads this
+    snapshot; it must carry exactly the run's own config and result, not a
+    stale or re-derived copy."""
+    vm = presenter._view_model
+    vm.strategy_params.selectedStrategyKey = "fake_strategy"
+
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=[])
+    presenter._on_backtest_succeeded(result)
+
+    snapshot = vm.run_result.comparison_snapshot()
+    assert snapshot is not None
+    assert snapshot.run_config == presenter._last_run_config
+    assert snapshot.result is result
+
+
+def test_backtest_empty_clears_the_comparison_snapshot(presenter):
+    """Mutation check: without this reset, a comparison snapshot from an
+    earlier successful run would stay retained after a run that returned
+    no data at all, showing stale Column A data."""
+    vm = presenter._view_model
+    vm.strategy_params.selectedStrategyKey = "fake_strategy"
+    presenter._on_run_backtest()
+    presenter._on_backtest_succeeded(_make_fake_result(trades=[]))
+    assert vm.run_result.comparison_snapshot() is not None
+
+    presenter._on_run_backtest()
+    cfg = presenter._get_current_config()
+    presenter._on_backtest_empty("No historical data", cfg)
+
+    assert vm.run_result.comparison_snapshot() is None
+
+
+def test_backtest_failed_clears_the_comparison_snapshot(presenter):
+    vm = presenter._view_model
+    vm.strategy_params.selectedStrategyKey = "fake_strategy"
+    presenter._on_run_backtest()
+    presenter._on_backtest_succeeded(_make_fake_result(trades=[]))
+    assert vm.run_result.comparison_snapshot() is not None
+
+    presenter._on_run_backtest()
+    presenter._on_backtest_failed("Connection timed out")
+
+    assert vm.run_result.comparison_snapshot() is None
+
+
 def test_chart_data_ready_pushes_a_session_run_history_snapshot(presenter, view_model):
     """`BOT-095G` — the one point a complete snapshot (config, result and
     the exact candles drawn) exists at once is `_on_chart_data_ready`, after

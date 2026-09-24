@@ -144,6 +144,7 @@ from .logic.performance_charts import (
     build_drawdown_chart_points,
     build_yearly_returns_rows,
 )
+from .logic.report_comparison_snapshot import ReportComparisonSnapshot
 from .logic.report_export import (
     build_backtest_report,
     resolve_default_reports_dir,
@@ -1237,6 +1238,9 @@ class BackTestPresenter(BasePresenter):
                 fee_rate_percent=self._fee_rate_percent_for(broker_config),
             )
         )
+        self._view_model.run_result.set_comparison_snapshot(
+            ReportComparisonSnapshot(run_config=run_config, result=result)
+        )
         self._view_model.run_result.set_result_warning_text(
             build_result_warning_text(result)
         )
@@ -1285,6 +1289,7 @@ class BackTestPresenter(BasePresenter):
         self._view_model.run_result.set_needs_data_sync(True)
         self._view_model.run_result.set_stat_cards([], [])
         self._view_model.run_result.set_extended_metrics_snapshot(None)
+        self._view_model.run_result.set_comparison_snapshot(None)
         self._view_model.run_result.set_result_warning_text("")
         self._view_model.run_result.set_limitations([])
         self._view_model.run_result.set_drawdown_points([])
@@ -1303,6 +1308,7 @@ class BackTestPresenter(BasePresenter):
         self._log_dev_trace("run_failed", message=message)
         self._view_model.run_result.set_stat_cards([], [])
         self._view_model.run_result.set_extended_metrics_snapshot(None)
+        self._view_model.run_result.set_comparison_snapshot(None)
         self._view_model.run_result.set_result_warning_text("")
         self._view_model.run_result.set_limitations([])
         self._view_model.run_result.set_drawdown_points([])

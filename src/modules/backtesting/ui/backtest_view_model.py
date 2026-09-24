@@ -173,6 +173,8 @@ class BackTestViewModel(BaseQmlViewModel):
     openBotParamsRequested = Signal(str)
     openExtendedMetricsRequested = Signal()
     openLimitationsRequested = Signal()
+    #: `BOT-115D` — the "compare 2 reports" modal.
+    openCompareReportsRequested = Signal()
     openCapitalRequested = Signal(float, float)
     openIndicatorPickerRequested = Signal(float, float)
     openOrderExecutionRequested = Signal(float, float)
@@ -627,6 +629,12 @@ class BackTestViewModel(BaseQmlViewModel):
     @Slot()
     def requestOpenLimitations(self) -> None:
         self.openLimitationsRequested.emit()
+
+    @Slot()
+    def requestOpenCompareReports(self) -> None:
+        """Called from the top panel's "Compare reports" button
+        (`BOT-115D`)."""
+        self.openCompareReportsRequested.emit()
 
     @Slot(float, float)
     def requestOpenCapital(self, x: float, y: float) -> None:

@@ -171,6 +171,33 @@ def test_top_panel_import_report_button_emits_the_request_signal(
     panel.deleteLater()
 
 
+def test_top_panel_compare_reports_button_emits_the_request_signal(
+    qapp: QApplication,
+) -> None:
+    """`BOT-115D` — "Compare reports" is always available, same reasoning
+    as "Import report": the comparison dialog's own Column A shows "run a
+    backtest first" until a result exists, rather than the button being
+    disabled and unexplained."""
+    _ensure_theme_bridge(qapp)
+    vm = BackTestViewModel()
+    panel = BackTestTopPanel(vm)
+    panel.resize(1200, 350)
+    panel.show()
+    qapp.processEvents()
+
+    assert panel._btn_compare_reports.isEnabled()
+
+    mock_compare = MagicMock()
+    vm.openCompareReportsRequested.connect(mock_compare)
+
+    panel._btn_compare_reports.click()
+
+    mock_compare.assert_called_once()
+
+    panel.close()
+    panel.deleteLater()
+
+
 def test_top_panel_imported_report_banner_shows_only_while_viewing(
     qapp: QApplication,
 ) -> None:
