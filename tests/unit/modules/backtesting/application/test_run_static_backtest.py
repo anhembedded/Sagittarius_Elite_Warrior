@@ -536,6 +536,179 @@ def test_stop_loss_closes_the_position_on_a_bar_with_no_strategy_signal():
 
 
 # =========================================================================
+# BOT-105B: bar magnifier, end to end through the real handler
+# =========================================================================
+
+
+def _build_both_touched_klines() -> list[MarketData]:
+    """Same shape as `_build_stop_loss_klines()`, but candle 5 touches BOTH
+    stop-loss (95.0) and take-profit (110.0) in the same bar — the ambiguous
+    case the magnifier exists to resolve."""
+    opens_closes_highs_lows = [
+        (100.0, 100.0, 101.0, 99.0),  # 0: HOLD
+        (100.0, 100.0, 101.0, 99.0),  # 1: BUY signal generated here
+        (100.0, 102.0, 103.0, 98.0),  # 2: filled at open=100.0; SL=95.0, TP=110.0
+        (102.0, 103.0, 104.0, 101.0),  # 3: neither touched
+        (103.0, 104.0, 105.0, 102.0),  # 4: neither touched
+        (104.0, 106.0, 112.0, 90.0),  # 5: high=112 (TP) and low=90 (SL) both hit
+        (106.0, 107.0, 108.0, 105.0),  # 6: irrelevant, position already closed
+    ]
+    return [
+        MarketData(
+            symbol="BTCUSDT",
+            interval=TimeFrame.ONE_HOUR.value,
+            open_time=datetime(2024, 1, 1, tzinfo=UTC) + timedelta(hours=i),
+            open_price=o,
+            high_price=h,
+            low_price=low,
+            close_price=c,
+            volume=10.0,
+            close_time=datetime(2024, 1, 1, tzinfo=UTC) + timedelta(hours=i + 1),
+            quote_asset_volume=1000.0,
+            number_of_trades=5,
+            taker_buy_base_asset_volume=5.0,
+            taker_buy_quote_asset_volume=500.0,
+        )
+        for i, (o, c, h, low) in enumerate(opens_closes_highs_lows)
+    ]
+
+
+def _build_sub_candle(high: float, low: float) -> MarketData:
+    return MarketData(
+        symbol="BTCUSDT",
+        interval=TimeFrame.ONE_MINUTE.value,
+        open_time=datetime(2024, 1, 1, tzinfo=UTC),
+        open_price=high,
+        high_price=high,
+        low_price=low,
+        close_price=low,
+        volume=1.0,
+        close_time=datetime(2024, 1, 1, tzinfo=UTC) + timedelta(minutes=1),
+        quote_asset_volume=1.0,
+        number_of_trades=1,
+        taker_buy_base_asset_volume=0.5,
+        taker_buy_quote_asset_volume=0.5,
+    )
+
+
+def test_magnifier_resolution_resolves_take_profit_first_via_real_sub_candles():
+    klines = _build_both_touched_klines()
+    repo = Mock()
+    _configure_repo_with_klines(repo, klines)
+    # Sub-candle 1 only crosses TP (110.0); sub-candle 2, never reached if
+    # the wiring is correct, would cross SL (95.0) instead.
+    repo.get_klines.return_value = [
+        _build_sub_candle(high=111.0, low=99.0),
+        _build_sub_candle(high=112.0, low=90.0),
+    ]
+    registry = StrategyRegistry()
+    registry.register("buy_once_hold", _BuyOnceThenHoldStrategy)
+    handler = RunStaticBacktestCommandHandler(
+        repository=repo,
+        engine_factory=StrategyEngineFactory(registry, Mock()),
+        sizing_policy=default_sizing_policy(),
+        event_publisher=Mock(),
+    )
+    command = RunStaticBacktestCommand(
+        symbol="BTCUSDT",
+        interval=TimeFrame.ONE_HOUR,
+        strategy_key="buy_once_hold",
+        initial_balance=1_000.0,
+        fee_percent=0.0,
+        broker_config=BrokerSimulationConfig(
+            commission_value=0.0, stop_loss_pct=5.0, take_profit_pct=10.0
+        ),
+        magnifier_resolution=TimeFrame.ONE_MINUTE,
+    )
+
+    result = handler.execute(command)
+
+    assert isinstance(result, BacktestResult)
+    assert len(result.trades) == 1
+    trade = result.trades[0]
+    assert trade.exit_reason is ExitReason.TAKE_PROFIT
+    assert trade.exit_price == pytest.approx(110.0)
+    # The ambiguous bar is index 5: open_time = T0 + 5h, close_time = T0 + 6h.
+    repo.get_klines.assert_called_once_with(
+        symbol="BTCUSDT",
+        interval=TimeFrame.ONE_MINUTE,
+        start_time=datetime(2024, 1, 1, tzinfo=UTC) + timedelta(hours=5),
+        end_time=datetime(2024, 1, 1, tzinfo=UTC) + timedelta(hours=6),
+    )
+
+
+def test_magnifier_resolution_falls_back_to_pessimistic_when_repository_has_no_finer_data():
+    """The symbol was never separately synced at the magnifier resolution —
+    `get_klines()` returns empty, and the run must still complete with the
+    BOT-041 pessimistic default, not crash or silently skip the exit."""
+    klines = _build_both_touched_klines()
+    repo = Mock()
+    _configure_repo_with_klines(repo, klines)
+    repo.get_klines.return_value = []
+    registry = StrategyRegistry()
+    registry.register("buy_once_hold", _BuyOnceThenHoldStrategy)
+    handler = RunStaticBacktestCommandHandler(
+        repository=repo,
+        engine_factory=StrategyEngineFactory(registry, Mock()),
+        sizing_policy=default_sizing_policy(),
+        event_publisher=Mock(),
+    )
+    command = RunStaticBacktestCommand(
+        symbol="BTCUSDT",
+        interval=TimeFrame.ONE_HOUR,
+        strategy_key="buy_once_hold",
+        initial_balance=1_000.0,
+        fee_percent=0.0,
+        broker_config=BrokerSimulationConfig(
+            commission_value=0.0, stop_loss_pct=5.0, take_profit_pct=10.0
+        ),
+        magnifier_resolution=TimeFrame.ONE_MINUTE,
+    )
+
+    result = handler.execute(command)
+
+    assert isinstance(result, BacktestResult)
+    assert len(result.trades) == 1
+    trade = result.trades[0]
+    assert trade.exit_reason is ExitReason.STOP_LOSS
+    assert trade.exit_price == pytest.approx(95.0)
+    assert repo.get_klines.called
+
+
+def test_magnifier_resolution_none_never_queries_the_repository_for_sub_candles():
+    """Default behavior (no opt-in): `get_klines()` must never be called at
+    all, matching every run before this feature existed."""
+    klines = _build_both_touched_klines()
+    repo = Mock()
+    _configure_repo_with_klines(repo, klines)
+    registry = StrategyRegistry()
+    registry.register("buy_once_hold", _BuyOnceThenHoldStrategy)
+    handler = RunStaticBacktestCommandHandler(
+        repository=repo,
+        engine_factory=StrategyEngineFactory(registry, Mock()),
+        sizing_policy=default_sizing_policy(),
+        event_publisher=Mock(),
+    )
+    command = RunStaticBacktestCommand(
+        symbol="BTCUSDT",
+        interval=TimeFrame.ONE_HOUR,
+        strategy_key="buy_once_hold",
+        initial_balance=1_000.0,
+        fee_percent=0.0,
+        broker_config=BrokerSimulationConfig(
+            commission_value=0.0, stop_loss_pct=5.0, take_profit_pct=10.0
+        ),
+    )
+
+    result = handler.execute(command)
+
+    assert isinstance(result, BacktestResult)
+    assert len(result.trades) == 1
+    assert result.trades[0].exit_reason is ExitReason.STOP_LOSS
+    repo.get_klines.assert_not_called()
+
+
+# =========================================================================
 # BOT-050: Short-selling flows end-to-end through the real handler/engine
 # =========================================================================
 

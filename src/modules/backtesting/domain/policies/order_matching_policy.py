@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from typing import TypeVar
 
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason import (
@@ -105,16 +105,76 @@ class OrderMatchingPolicy:
             return effective_price * (1.0 + tp_pct)
         return effective_price * (1.0 - tp_pct)
 
+    def _touch_flags(
+        self, pos: IStoppablePosition, high: float, low: float
+    ) -> tuple[bool, bool]:
+        """
+        @brief (stop_hit, target_hit) for one position against one bar's
+        high/low boundaries.
+        @details Single source of truth for the LONG/SHORT crossing rule,
+        shared by `evaluate_intrabar_stops()`'s own bar check and
+        `_resolve_ambiguous_stop()`'s finer sub-candle walk (BOT-105B) —
+        both ask exactly the same question, just at different resolutions.
+        """
+        sl_price = pos.stop_loss_price
+        tp_price = pos.take_profit_price
+        if pos.side is PositionSide.LONG:
+            stop_hit = sl_price is not None and low <= sl_price
+            target_hit = tp_price is not None and high >= tp_price
+        else:
+            stop_hit = sl_price is not None and high >= sl_price
+            target_hit = tp_price is not None and low <= tp_price
+        return stop_hit, target_hit
+
+    def _resolve_ambiguous_stop(
+        self,
+        pos: IStoppablePosition,
+        magnifier_candles: Sequence[tuple[float, float]] | None,
+    ) -> ExitReason:
+        """
+        @brief BOT-105B — decides SL-vs-TP order for a bar that touched
+        both, using finer sub-candles when available.
+        @details `magnifier_candles` is an ordered, chronological sequence
+        of (high, low) pairs spanning the enclosing bar (from a finer
+        resolution than the bar itself, e.g. 1m sub-candles of a 15m bar).
+        The first sub-candle that resolves either threshold decides the
+        real order — a plain pair rather than a richer candle type because
+        this is the only data the tie-break needs (Interface Segregation);
+        the caller owns turning real klines into these pairs. Falls back to
+        the BOT-041/BOT-050 pessimistic STOP_LOSS default when no magnifier
+        data was supplied, or when even the finest sub-candle still
+        straddles both thresholds (the ambiguity is real at that
+        resolution too, not a lookup failure).
+        """
+        if not magnifier_candles:
+            return ExitReason.STOP_LOSS
+
+        for sub_high, sub_low in magnifier_candles:
+            stop_hit, target_hit = self._touch_flags(pos, sub_high, sub_low)
+            if stop_hit:
+                return ExitReason.STOP_LOSS
+            if target_hit:
+                return ExitReason.TAKE_PROFIT
+
+        return ExitReason.STOP_LOSS
+
     def evaluate_intrabar_stops(
         self,
         positions: Sequence[TPosition],
         high: float,
         low: float,
+        magnifier_lookup: Callable[[], Sequence[tuple[float, float]]] | None = None,
     ) -> tuple[list[tuple[TPosition, float, ExitReason]], list[TPosition]]:
         """
         @brief Evaluates every open position against bar high/low boundaries.
-        @details When a single bar touches both stop-loss and take-profit thresholds,
-        stop-loss conservatively wins (BOT-041/BOT-050 convention).
+        @details When a single bar touches both stop-loss and take-profit
+        thresholds, `magnifier_lookup` (BOT-105B) decides the tie: called
+        at most once per bar, lazily — only the first position actually
+        found ambiguous triggers it, and every other position in the same
+        bar reuses that one result — so a normal bar with no conflict, and
+        a run with no `magnifier_lookup` at all, never pay for it. Without
+        one (the default), stop-loss conservatively wins
+        (BOT-041/BOT-050 convention) rather than guessing optimistically.
         @return tuple of (triggered_positions_with_fill_price_and_reason, still_open_positions).
         """
         if not positions:
@@ -122,19 +182,29 @@ class OrderMatchingPolicy:
 
         triggered: list[tuple[TPosition, float, ExitReason]] = []
         still_open: list[TPosition] = []
+        magnifier_candles: Sequence[tuple[float, float]] | None = None
+        magnifier_fetched = False
 
         for pos in positions:
             sl_price = pos.stop_loss_price
             tp_price = pos.take_profit_price
+            stop_hit, target_hit = self._touch_flags(pos, high, low)
 
-            if pos.side is PositionSide.LONG:
-                stop_hit = sl_price is not None and low <= sl_price
-                target_hit = tp_price is not None and high >= tp_price
-            else:
-                stop_hit = sl_price is not None and high >= sl_price
-                target_hit = tp_price is not None and low <= tp_price
-
-            if stop_hit and sl_price is not None:
+            if (
+                stop_hit
+                and target_hit
+                and sl_price is not None
+                and tp_price is not None
+            ):
+                if not magnifier_fetched:
+                    magnifier_candles = (
+                        magnifier_lookup() if magnifier_lookup is not None else None
+                    )
+                    magnifier_fetched = True
+                reason = self._resolve_ambiguous_stop(pos, magnifier_candles)
+                price = sl_price if reason is ExitReason.STOP_LOSS else tp_price
+                triggered.append((pos, price, reason))
+            elif stop_hit and sl_price is not None:
                 triggered.append((pos, sl_price, ExitReason.STOP_LOSS))
             elif target_hit and tp_price is not None:
                 triggered.append((pos, tp_price, ExitReason.TAKE_PROFIT))

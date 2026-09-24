@@ -74,6 +74,16 @@ class RunStaticBacktestCommand(BaseModel):
         default=None,
         description="Optional cap on number of candles fetched; None fetches the full range",
     )
+    magnifier_resolution: TimeFrame | None = Field(
+        default=None,
+        description=(
+            "BOT-105B — when a bar touches both stop-loss and take-profit, "
+            "look up real sub-candles at this finer resolution to decide "
+            "which was actually hit first instead of the pessimistic "
+            "stop-loss-first default. None (default) preserves that "
+            "pessimistic-only behavior exactly."
+        ),
+    )
     cancellation_requested: CancellationCheck | None = Field(
         default=None,
         exclude=True,
