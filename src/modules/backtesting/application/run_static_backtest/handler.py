@@ -1,5 +1,5 @@
 import logging
-from collections.abc import Iterable
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import replace
 from datetime import datetime
 from time import perf_counter
@@ -226,6 +226,41 @@ class RunStaticBacktestCommandHandler(
             limit=limit,
         )
 
+    def _magnifier_lookup(
+        self, command: RunStaticBacktestCommand, candle: MarketData
+    ) -> Callable[[], Sequence[tuple[float, float]]] | None:
+        """BOT-105B — a lazy, bar-scoped magnifier fetch bound to one bar's
+        own [open_time, close_time) span; `evaluate_intrabar_stops()` only
+        calls it when that exact bar turns out to be genuinely ambiguous for
+        some position, so this never queries the repository for a bar that
+        doesn't need it. `None` when the run never opted into magnifier
+        mode, matching `command.magnifier_resolution`'s own default."""
+        if command.magnifier_resolution is None:
+            return None
+        resolution = command.magnifier_resolution
+
+        def _fetch() -> Sequence[tuple[float, float]]:
+            sub_candles = self._repository.get_klines(
+                symbol=command.symbol,
+                interval=resolution,
+                start_time=candle.open_time,
+                end_time=candle.close_time,
+            )
+            if not sub_candles:
+                # Never separately synced for this symbol/range — fall back
+                # to the pessimistic default rather than raising (task's
+                # own §2.1 fallback); this is best-effort accuracy, not a
+                # hard requirement.
+                self._log_trace(
+                    "handler_magnifier_unavailable",
+                    symbol=command.symbol,
+                    resolution=resolution.value,
+                    bar_open_time=candle.open_time,
+                )
+            return [(sub.high_price, sub.low_price) for sub in sub_candles]
+
+        return _fetch
+
     def _simulate(
         self,
         klines: Iterable[MarketData],
@@ -283,8 +318,14 @@ class RunStaticBacktestCommandHandler(
             # signal-free bar would otherwise never be caught. Runs after
             # the pending-signal fill above so a position opened at this
             # bar's open is still checked against this same bar's range.
+            # magnifier_lookup (BOT-105B) is a lazy, bar-scoped closure —
+            # `evaluate_intrabar_stops()` only calls it for a bar it finds
+            # genuinely ambiguous, so a normal bar never pays this query.
             exchange.check_intrabar_stops(
-                candle.high_price, candle.low_price, candle.close_time
+                candle.high_price,
+                candle.low_price,
+                candle.close_time,
+                self._magnifier_lookup(command, candle),
             )
 
             # BOT-110: tells the strategy which side (if any) is currently

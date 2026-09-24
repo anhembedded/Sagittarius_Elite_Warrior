@@ -449,6 +449,66 @@ def test_check_intrabar_stops_when_bar_touches_both_stop_loss_wins():
     assert trades[0].exit_price == pytest.approx(98.8)
 
 
+def test_check_intrabar_stops_passes_magnifier_lookup_through_to_resolve_take_profit():
+    """BOT-105B — end to end through `check_intrabar_stops()`: a bar that
+    touches both SL and TP resolves to whichever `magnifier_lookup`'s
+    sub-candles actually cross first, not the pessimistic default."""
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, stop_loss_pct=1.2, take_profit_pct=3.2
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    # SL=98.8, TP=103.2; sub-candle 1 only crosses TP, sub-candle 2 (never
+    # reached if correct) would cross SL.
+    sub_candles = [(103.5, 99.0), (100.0, 98.0)]
+
+    trades = exchange.check_intrabar_stops(
+        high=105.0, low=95.0, time=_T2, magnifier_lookup=lambda: sub_candles
+    )
+
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.TAKE_PROFIT
+    assert trades[0].exit_price == pytest.approx(103.2)
+
+
+def test_check_intrabar_stops_evaluates_magnifier_against_the_post_break_even_stop():
+    """BOT-105B — the magnifier decision must see the SAME bar's break-even
+    move, not the position's stop from before this bar started. No static
+    stop-loss is configured here; only break-even can ever set one, so this
+    bar is ambiguous ONLY because break-even just armed it — a caller that
+    checked ambiguity before applying break-even would see no stop-loss at
+    all and go straight to TAKE_PROFIT, never invoking the magnifier."""
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, take_profit_pct=5.0, break_even_trigger_pct=2.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    # TP=105.0. high=106 both crosses TP and gives 6% MFE (>= 2% trigger),
+    # arming break-even at entry (100.0); low=99.5 then crosses that new
+    # stop. Sub-candle 1 crosses the break-even stop before sub-candle 2
+    # (never reached if correct) would cross TP.
+    sub_candles = [(101.0, 99.8), (106.0, 99.5)]
+    calls: list[None] = []
+
+    def lookup() -> list[tuple[float, float]]:
+        calls.append(None)
+        return sub_candles
+
+    trades = exchange.check_intrabar_stops(
+        high=106.0, low=99.5, time=_T2, magnifier_lookup=lookup
+    )
+
+    assert len(calls) == 1, "magnifier must run — this bar is ambiguous post-break-even"
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.STOP_LOSS
+    assert trades[0].exit_price == pytest.approx(100.0)
+    assert trades[0].pnl == pytest.approx(0.0)
+
+
 def test_check_intrabar_stops_is_a_no_op_when_neither_sl_nor_tp_is_configured():
     """Default BrokerSimulationConfig (BOT-021 behavior) must not change at
     all — every existing caller that never opted into SL/TP keeps working

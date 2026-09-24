@@ -23,7 +23,7 @@ Mở rộng năng lực khớp lệnh của `PaperExchange` từ mức cơ bản
 | :--- | :--- | :---: | :--- |
 | **`BOT-041`** | **Stop Loss / Take Profit Cơ bản & Risk Sizing** | 🔴 `L` | SL/TP cố định theo %, theo Giá hoặc theo ATR; kiểm tra High/Low từng bar. |
 | ✅ **[`BOT-105A`](../completed/BOT-105A_trailing_stop_and_partial_tp.md)** | **Trailing Stop, Break-Even Stop & Chốt lời từng phần** | 🔴 `L` | **Break-Even xong (23/09)** — tự động dời SL về Entry khi MFE đạt ngưỡng. Trailing Stop (bám đỉnh giá) và Partial TP (thoát 50%/50%) hoãn — xem file task §3. |
-| **`BOT-105B`** | **Intra-bar Bar Magnifier & SL/TP Conflict Resolution** | 🔴 `L` | Dùng klines 1s giải quyết xung đột khi râu nến chạm cả SL và TP trên cùng 1 thanh nến. |
+| ✅ **[`BOT-105B`](../completed/BOT-105B_intrabar_magnifier_and_conflict_resolution.md)** | **Intra-bar Bar Magnifier & SL/TP Conflict Resolution** | 🔴 `L` | **Xong (24/09)** — pessimistic SL-first (§2.1) đã có sẵn từ `BOT-041`; phần thật sự mới là Bar Magnifier (§2.2): khi bar tĩnh chạm cả SL và TP, tra klines mịn hơn qua `IMarketDataRepository.get_klines()` để xác định thứ tự chạm thật, lazy (chỉ tra khi thật sự mơ hồ), fallback về pessimistic khi không có dữ liệu. |
 | **`BOT-049`** | **Đòn bẩy (Leverage), Ký quỹ Isolated & Giá thanh lý** | 🔴 `L` | Mô phỏng đòn bẩy 1x..50x, tính Liquidation Price chính xác theo chuẩn Binance Futures. |
 | **`BOT-050`** | **Bán khống (Short Selling) & Đảo chiều Vị thế** | 🔴 `L` | Hỗ trợ mở vị thế SHORT, quản lý PnL khi giá giảm, và lệnh đảo chiều (Reverse). |
 

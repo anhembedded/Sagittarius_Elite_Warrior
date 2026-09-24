@@ -22,9 +22,9 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 164 | 82.0% |
+| 🟢 **Completed** | 165 | 82.5% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 28 | 14.0% |
+| 🔴 **Backlog** | 27 | 13.5% |
 | ❌ **Cancelled** | 8 | 4.0% |
 | 📈 **Tổng số Task** | **200** | **100%** |
 
@@ -166,6 +166,8 @@ Sagittarius_Elite_Warrior/Tasks/
 ## 📋 Bảng Quản lý Nhiệm vụ (Task Board)
 
 ### 🟢 Completed (Đã hoàn thành)
+
+- [x] **`BOT-105B`**: [Intra-bar Bar Magnifier & SL/TP conflict resolution — re-verified before implementing: §2.1's pessimistic SL-first rule was already fully done and mutation-tested by `BOT-041`; `BUG-133`'s tick-backtest fix also does not implement real first-touch resolution, it only re-runs the same pessimistic tie-break at `tick_resolution` granularity. The actual unbuilt work was §2.2's Bar Magnifier: `OrderMatchingPolicy.evaluate_intrabar_stops()` gained an optional, lazily-invoked `magnifier_lookup` closure (called at most once per bar, only when a position is genuinely ambiguous) that walks real finer sub-candles fetched via `IMarketDataRepository.get_klines()` — reusing `BOT-076`'s own repository/table, not separate infrastructure — to determine which of SL/TP was truly touched first, falling back to the pessimistic default when finer data was never synced. Threaded through `PaperExchange.check_intrabar_stops()` **after** `_apply_break_even_stops()` so the decision uses the position's real, current-bar stop price, verified by mutation. New `magnifier_resolution: TimeFrame | None = None` field on `BacktestRunConfig`/`RunStaticBacktestCommand`; no UI picker added yet, matching `tick_resolution`'s own established precedent (config field is the seam, picker is the deferred variant)](completed/BOT-105B_intrabar_magnifier_and_conflict_resolution.md).
 
 - [x] **`BOT-115D`**: [So sánh 2 báo cáo backtest cạnh nhau — Epic `BOT-115`'s own 4th and closing sub-task. Column A is always the result currently on screen (`BackTestViewModel.run_result.comparison_snapshot()`, retained by the Presenter's `_present_result()` right alongside its stat cards), Column B is always loaded from a `.sagi-report.json` file — a deliberate re-scope from the task's own "either column can be a file or the on-screen result": Column A already *is* whatever is on screen, which is the point of comparing against it. Config-diff line reuses `BacktestRunConfig.compute_diff_summary()` verbatim rather than a rebuilt per-field table (the task's own instruction); metrics side-by-side table shows a single Δ (B − A) column coloured by direction, with `max_drawdown_percent`/`max_consecutive_losses`/`max_drawdown_duration_bars` correctly treated as "smaller is better" rather than coloured by raw sign; both equity curves rebased to "% of starting capital" so different `initial_balance` values still overlay meaningfully; a warning banner when comparing across symbols/timeframes. The task's own "reuse `OverlayHost`" instruction was stale — `BOT-088` already migrated every Backtest modal off `OverlayHost`/`QQuickWidget` onto `Overlay`-based `QDialog`s; built as the 12th such dialog instead, wired through the existing `BackTestModalsHost`](completed/BOT-115D_backtest_report_side_by_side_comparison.md).
 

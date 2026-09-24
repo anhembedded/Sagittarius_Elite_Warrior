@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Mapping, Sequence
+from collections.abc import Callable, Mapping, Sequence
 from datetime import datetime
 from typing import Any
 
@@ -459,7 +459,11 @@ class PaperExchange:
             )
 
     def check_intrabar_stops(
-        self, high: float, low: float, time: datetime
+        self,
+        high: float,
+        low: float,
+        time: datetime,
+        magnifier_lookup: Callable[[], Sequence[tuple[float, float]]] | None = None,
     ) -> Sequence[Trade]:
         """
         @brief Widens every open position's MAE/MFE from this bar, arms
@@ -472,7 +476,10 @@ class PaperExchange:
         close as `LIQUIDATION`, never `STOP_LOSS`/`TAKE_PROFIT`. A break-even
         move happens from this same bar's high/low, so a bar that both
         triggers it and reverses far enough can close as `STOP_LOSS` at
-        `entry_price` within that one bar.
+        `entry_price` within that one bar — and `magnifier_lookup`
+        (`BOT-105B`) is passed down only after that move, so an ambiguous
+        SL+TP bar is resolved against the position's real, post-break-even
+        stop price, never a stale pre-arm one.
         """
         if not self._positions:
             return []
@@ -486,7 +493,7 @@ class PaperExchange:
         self._positions = still_open
 
         triggered, still_open = self._pricing.evaluate_intrabar_stops(
-            self._positions, high, low
+            self._positions, high, low, magnifier_lookup
         )
         self._positions = still_open
 

@@ -244,7 +244,10 @@ class ExecutionCoordinator:
             )
             return self._dispatcher.dispatch(RunHistoricalTickBacktestCommand, command)
 
-        command = RunStaticBacktestCommand(**shared)
+        command = RunStaticBacktestCommand(
+            magnifier_resolution=config.magnifier_resolution,
+            **shared,
+        )
         self._log_dev_trace(
             "worker_dispatch_run_static_backtest",
             symbol=command.symbol,

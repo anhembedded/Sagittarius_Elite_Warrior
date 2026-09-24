@@ -304,6 +304,14 @@ class BacktestRunConfig:
     #: same reasoning as `tick_resolution` above. Default `False` preserves
     #: `BOT-076`'s shipped behavior for every run that never opts in.
     calc_on_order_fills: bool = False
+    #: BOT-105B — only meaningful when `execution_mode == BAR_CLOSE`. When
+    #: set, a bar that touches both stop-loss and take-profit is resolved
+    #: using real sub-candles at this finer resolution when available,
+    #: instead of always assuming stop-loss first. `None` (default)
+    #: preserves that pessimistic-only behavior for every run that never
+    #: opts in — no resolution picker exists yet, same as `tick_resolution`
+    #: above: optional UI follow-up, not required for the mode to work.
+    magnifier_resolution: TimeFrame | None = None
     position_sizing: PositionSizing = field(
         default_factory=lambda: PositionSizing(
             type=PositionSizingType.PERCENT_OF_EQUITY, value=100.0
@@ -417,6 +425,19 @@ class BacktestRunConfig:
                     f"Calc on order fills ({self.calc_on_order_fills} → "
                     f"{other.calc_on_order_fills})"
                 )
+        elif (
+            self.execution_mode == BacktestExecutionMode.BAR_CLOSE
+            and self.magnifier_resolution != other.magnifier_resolution
+        ):
+            self_res = (
+                self.magnifier_resolution.value if self.magnifier_resolution else "off"
+            )
+            other_res = (
+                other.magnifier_resolution.value
+                if other.magnifier_resolution
+                else "off"
+            )
+            diffs.append(f"Magnifier resolution ({self_res} → {other_res})")
 
         if not diffs:
             return "Configuration changed"

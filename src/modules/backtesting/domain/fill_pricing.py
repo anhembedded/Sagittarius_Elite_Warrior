@@ -43,7 +43,7 @@ and made public to its one caller.
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import PositionSizing
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.broker_simulation_config import (
@@ -132,13 +132,21 @@ class FillPricing:
         )
 
     def evaluate_intrabar_stops[TPosition: IStoppablePosition](
-        self, positions: Sequence[TPosition], high: float, low: float
+        self,
+        positions: Sequence[TPosition],
+        high: float,
+        low: float,
+        magnifier_lookup: Callable[[], Sequence[tuple[float, float]]] | None = None,
     ) -> tuple[list[tuple[TPosition, float, ExitReason]], list[TPosition]]:
         """Generic in the position type, like the policy it delegates to: the
         caller's own `OpenPosition` comes back as an `OpenPosition`, so
         `self._positions` stays precisely typed rather than widening to the
-        contract on every bar."""
-        return self._matching_policy.evaluate_intrabar_stops(positions, high, low)
+        contract on every bar. `magnifier_lookup` passes straight through
+        (BOT-105B) — this class holds no state of its own to add to the
+        decision."""
+        return self._matching_policy.evaluate_intrabar_stops(
+            positions, high, low, magnifier_lookup
+        )
 
     # -- leverage and sizing ----------------------------------------------
 

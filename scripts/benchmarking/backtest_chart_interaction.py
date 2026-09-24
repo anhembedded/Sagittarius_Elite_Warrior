@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card import (
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.plot_layout import (
     ChartAntialiasMode,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
+    seed_app_theme,
+)
 
 _CANDLE_COUNT = 6420
 _MARKER_COUNT = 1112
@@ -320,6 +323,7 @@ def main() -> None:
     visible_candles = max(1, min(args.visible_candles, _CANDLE_COUNT - 1))
     antialias_mode = ChartAntialiasMode(args.antialias)
     app = QApplication.instance() or QApplication([])
+    seed_app_theme()
     candles = _candles()
     profiles = (
         ("candles", False, False, False, False),
