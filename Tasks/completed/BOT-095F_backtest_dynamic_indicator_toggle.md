@@ -1,5 +1,7 @@
 # Nhiệm vụ: BOT-095F — Toggle Chỉ báo Tham chiếu Động trên Biểu đồ sau Backtest
 
+**Trạng thái:** ✅ **Done — already implemented, verified 2026-09-24** (see §5)
+
 > Thuộc Epic [`BOT-095`](../backlog/BOT-095_backtest_signals_fsm_lifecycle_epic.md).
 > Phụ thuộc: `BOT-095H`.
 > **Trọng tâm**: Cho phép người dùng bật / tắt các chỉ báo kỹ thuật tham chiếu (`IndicatorPickerModal` như RSI, MACD, EMA Ribbon) và tự động vẽ / ẩn trực tiếp trên biểu đồ `ChartCanvas` sau khi Backtest đã hoàn thành mà **không bắt người dùng phải chạy lại toàn bộ thuật toán Backtest**.
@@ -64,3 +66,54 @@ Khi nhận signal `enabledKeysChanged` từ `script_model`:
 
 4. **Race verification**:
    - Toggle nhanh on/off hoặc đổi run khi indicator đang tính không được render artifact của run cũ; signal mang `run_id` và bị fence bởi `BOT-095H`.
+
+---
+
+## 5. Implementation Notes (2026-09-24)
+
+The paths in §2/§3 above are stale (`presentation/ui/screens/backtest/`,
+`IndicatorPickerModal.qml`) — this codebase dropped QML and moved to the
+`modules/`-based layout well before this task was picked up. Re-verified
+against the real, current code rather than assumed obsolete, and found
+**already fully implemented** under current paths, matching this task's
+own proposed design almost exactly:
+
+- The real widget is `IndicatorPickerDialog` (`ChecklistOverlay`, QtWidgets
+  — `backtest_modals/indicator_picker_dialog.py`, `EPIC-025` PR 4.3f
+  replaced `CheckboxList.qml`). Toggling a row calls
+  `IndicatorScriptListModel.setEnabled()`
+  (`support/indicators/ui/list_model.py`), which emits `enabledKeysChanged`
+  — wired in `signal_wiring.py` to
+  `BackTestPresenter._on_indicator_script_selection_changed()`
+  (`backtest_presenter.py`), which delegates to
+  `IndicatorCoordinator.on_script_selection_changed()`
+  (`coordinators/indicator_coordinator.py`).
+- That method **is** the "Dynamic Script Feeder" §2.1 asks for: it diffs
+  `enabled_keys` against the running `IndicatorScriptRunner`'s active
+  scripts, calls `remove_script(key, card)` for newly-disabled keys and
+  `add_script(key, raw_klines)` for newly-enabled ones — `raw_klines` is
+  the presenter's own retained `current_raw_klines`
+  (`presenter_screen_state.py`, populated by `ChartRenderCoordinator
+  .on_data_ready()` after a run finishes) — synchronously on the main
+  thread, no worker dispatch, no `RunStaticBacktestCommand` re-run, no
+  `CONFIG_DIRTY`.
+- `IndicatorManager` (`support/charting/chart_card/indicator_manager.py`)
+  already exposes the incremental `set_script_regions`/`set_script_info`/
+  `set_script_markers` (+ their `clear_*` counterparts) that
+  `IndicatorScriptRunner.add_script()`/`remove_script()` drive — no full
+  chart reload anywhere in this path.
+- §4's race-safety criterion is satisfied by construction rather than by
+  `run_id` fencing: the toggle path runs synchronously against
+  already-cached klines with no async gap for a stale callback to land in
+  — `BOT-095H`'s fencing machinery exists for the genuinely async paths
+  (a real backtest run), which this one deliberately isn't.
+- Verified with the real test suite, not assumed from reading code alone:
+  `tests/unit/modules/backtesting/ui/coordinators/test_indicator_coordinator.py`
+  (7 tests, including
+  `test_toggling_a_script_off_removes_it_and_on_adds_it` and
+  `test_a_script_enabled_during_equity_mode_starts_hidden`) — all passing.
+
+No implementation work was needed. The only real defect this investigation
+found was process, not code: the epic's own front-matter status note
+(`Tasks/backlog/BOT-095_backtest_signals_fsm_lifecycle_epic.md`) still
+listed this task as open — fixed in the same commit as this note.
