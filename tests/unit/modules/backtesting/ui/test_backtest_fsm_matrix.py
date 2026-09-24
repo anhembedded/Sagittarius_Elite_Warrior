@@ -154,6 +154,50 @@ def test_compute_diff_summary_ignores_calc_on_order_fills_outside_tick_mode():
     assert "Calc on order fills" not in diff
 
 
+def test_compute_diff_summary_detects_magnifier_resolution_change_in_bar_close_mode():
+    """BOT-105B — mirrors `..._calc_on_order_fills_change_in_tick_mode` above,
+    for the sibling `BAR_CLOSE`-only field."""
+    cfg1 = _base_config()
+    cfg2 = BacktestRunConfig(
+        strategy_key=cfg1.strategy_key,
+        timeframe=cfg1.timeframe,
+        initial_balance=cfg1.initial_balance,
+        start_time=cfg1.start_time,
+        end_time=cfg1.end_time,
+        magnifier_resolution=TimeFrame.ONE_MINUTE,
+    )
+
+    diff = cfg1.compute_diff_summary(cfg2)
+    assert "Magnifier resolution (off → 1m)" in diff
+
+
+def test_compute_diff_summary_ignores_magnifier_resolution_outside_bar_close_mode():
+    """BOT-105B §2.1 — the magnifier is meaningless in `HISTORICAL_TICK` mode
+    (that engine already resolves stops at `tick_resolution` granularity);
+    flagging it there would read as a change with no actual effect."""
+    cfg1 = BacktestRunConfig(
+        strategy_key="ema_crossover",
+        timeframe=TimeFrame.FIVE_MINUTES,
+        initial_balance=10_000.0,
+        start_time=None,
+        end_time=None,
+        execution_mode=BacktestExecutionMode.HISTORICAL_TICK,
+        magnifier_resolution=None,
+    )
+    cfg2 = BacktestRunConfig(
+        strategy_key=cfg1.strategy_key,
+        timeframe=cfg1.timeframe,
+        initial_balance=cfg1.initial_balance,
+        start_time=cfg1.start_time,
+        end_time=cfg1.end_time,
+        execution_mode=BacktestExecutionMode.HISTORICAL_TICK,
+        magnifier_resolution=TimeFrame.ONE_MINUTE,
+    )
+
+    diff = cfg1.compute_diff_summary(cfg2)
+    assert "Magnifier resolution" not in diff
+
+
 def test_fsm_run_restored_from_history_lands_on_completed_from_every_non_busy_state():
     """`BOT-095G` — picking an older run off the session history dropdown
     is a real previously-completed run being redisplayed, allowed from any

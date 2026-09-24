@@ -109,6 +109,23 @@ def test_calc_on_order_fills_is_forwarded_from_the_config_to_the_command() -> No
     assert dispatcher.commands[0].calc_on_order_fills is False
 
 
+def test_magnifier_resolution_is_forwarded_from_the_config_to_the_static_command() -> (
+    None
+):
+    """BOT-105B — mirrors `test_calc_on_order_fills_is_forwarded_...` above:
+    the coordinator must read the config's own `magnifier_resolution`, never
+    drop it silently. A typo'd field name in the static branch's kwargs would
+    otherwise leave every ambiguous bar guessing pessimistically with no
+    test failing to say so."""
+    coordinator, dispatcher, _events = _build()
+    coordinator.run(run_config(magnifier_resolution=TimeFrame.ONE_MINUTE))
+    assert dispatcher.commands[0].magnifier_resolution == TimeFrame.ONE_MINUTE
+
+    coordinator, dispatcher, _events = _build()
+    coordinator.run(run_config())
+    assert dispatcher.commands[0].magnifier_resolution is None
+
+
 def test_both_commands_carry_the_same_shared_fields() -> None:
     """They are built from one dict now; before, a field added to one and not
     the other would have been silently missing from that engine."""
