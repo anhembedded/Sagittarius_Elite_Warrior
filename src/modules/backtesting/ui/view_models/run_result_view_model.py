@@ -39,6 +39,9 @@ if TYPE_CHECKING:
     from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.extended_metrics_snapshot import (
         ExtendedMetricsSnapshot,
     )
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_comparison_snapshot import (
+        ReportComparisonSnapshot,
+    )
 
 
 class RunResultViewModel(QObject):
@@ -64,6 +67,12 @@ class RunResultViewModel(QObject):
         #: `None` until the first run succeeds, the same "no result yet"
         #: convention `_extended_stat_cards` uses via an empty list.
         self._extended_metrics_snapshot: ExtendedMetricsSnapshot | None = None
+        #: `BOT-115D` — the config+result pair behind whatever is currently
+        #: on screen, for the report comparison dialog's Column A. Same
+        #: "plain Python accessor, not a QML `Property`" reasoning as
+        #: `_extended_metrics_snapshot` above: only that dialog's
+        #: composition root reads it.
+        self._comparison_snapshot: ReportComparisonSnapshot | None = None
         self._result_warning_text = ""
         self._limitations: list[str] = []
         self._is_data_fully_covered = False
@@ -149,6 +158,22 @@ class RunResultViewModel(QObject):
         `ExtendedMetricsSnapshot | None` needs — it is not a Qt-registrable
         type on its own."""
         self._extended_metrics_snapshot = snapshot
+
+    def comparison_snapshot(self) -> ReportComparisonSnapshot | None:
+        """Plain Python accessor (no `Property`), same shape as
+        `extended_metrics_snapshot()` — `ReportComparisonDialog`'s
+        composition root reads it for Column A."""
+        return self._comparison_snapshot
+
+    @Slot(object)
+    def set_comparison_snapshot(
+        self, snapshot: ReportComparisonSnapshot | None
+    ) -> None:
+        """Set by `BackTestPresenter._present_result()` right alongside
+        `set_extended_metrics_snapshot(...)`, cleared wherever that one is.
+        `@Slot(object)` for the same `unprotected_mutators()` reason that
+        method documents."""
+        self._comparison_snapshot = snapshot
 
     # ------------------------------------------------------------------ #
     # Warning + limitations

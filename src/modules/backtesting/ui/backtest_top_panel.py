@@ -562,6 +562,20 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         self._btn_import_report.clicked.connect(self._vm.requestImportReport)
         row.addWidget(self._btn_import_report)
 
+        # `BOT-115D` — same "no existing result needed" enablement as
+        # `_btn_import_report`: the dialog's own Column A shows "run a
+        # backtest first" until one exists, rather than the button being
+        # disabled and unexplained.
+        self._btn_compare_reports = QPushButton("Compare reports")
+        self._btn_compare_reports.setObjectName("btnCompareReports")
+        self._btn_compare_reports.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_compare_reports.setFixedHeight(26)
+        self._btn_compare_reports.setToolTip(
+            "Compare the current result against a saved .sagi-report.json file"
+        )
+        self._btn_compare_reports.clicked.connect(self._vm.requestOpenCompareReports)
+        row.addWidget(self._btn_compare_reports)
+
         return row_widget
 
     def _build_result_warning_label(self) -> QLabel:
@@ -670,6 +684,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
             self._btn_capital,
             self._btn_bot_params,
             self._btn_import_report,
+            self._btn_compare_reports,
         ):
             btn.setEnabled(enabled)
         # `BOT-095G` — a busy run/sync owns the screen the same way it owns

@@ -20,6 +20,7 @@ from .indicator_picker_dialog import IndicatorPickerDialog
 from .limitations_dialog import LimitationsDialog
 from .metrics_detail_dialog import MetricsDetailDialogWidget
 from .order_execution_dialog import OrderExecutionDialog
+from .report_comparison_dialog import ReportComparisonDialog
 from .strategy_picker_dialog import StrategyPickerDialog
 from .strategy_properties_dialog import StrategyPropertiesDialog
 from .symbol_picker_dialog import SymbolPickerDialogWidget
@@ -47,6 +48,7 @@ class BackTestModalsHost:
         self._limitations: LimitationsDialog | None = None
         self._indicator_picker: IndicatorPickerDialog | None = None
         self._order_execution: OrderExecutionDialog | None = None
+        self._report_comparison: ReportComparisonDialog | None = None
         self._strategy_picker: StrategyPickerDialog | None = None
         self._timeframe_picker: TimeframePickerDialog | None = None
         # EPIC-015 bậc 1: private, non-persisted — this picker is its own
@@ -71,6 +73,7 @@ class BackTestModalsHost:
         view_model.openLimitationsRequested.connect(self._open_limitations)
         view_model.openIndicatorPickerRequested.connect(self._open_indicator_picker)
         view_model.openOrderExecutionRequested.connect(self._open_order_execution)
+        view_model.openCompareReportsRequested.connect(self._open_report_comparison)
         view_model.openStrategyPickerRequested.connect(self._open_strategy_picker)
         view_model.openTimeframePickerRequested.connect(self._open_timeframe_picker)
         view_model.openSymbolPickerRequested.connect(self._open_symbol_picker)
@@ -105,6 +108,11 @@ class BackTestModalsHost:
             self._order_execution = OrderExecutionDialog(self._vm, self._parent)
         self._order_execution.show()
         self._order_execution.raise_()
+
+    def _open_report_comparison(self) -> None:
+        if self._report_comparison is None:
+            self._report_comparison = ReportComparisonDialog(self._vm, self._parent)
+        self._report_comparison.open_dialog()
 
     def _open_strategy_picker(self) -> None:
         if self._strategy_picker is None:
