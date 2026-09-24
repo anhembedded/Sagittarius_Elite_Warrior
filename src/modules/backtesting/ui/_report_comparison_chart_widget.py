@@ -51,9 +51,17 @@ class ReportComparisonChartWidget(QWidget):
         self._plot_widget.getPlotItem().getAxis("left").setLabel(
             "% of starting capital"
         )
-        self._plot_widget.addLegend()
-        self._curve_a = PlotCurveItem(pen=mkPen(_SERIES_A_COLOR, width=1), name="A")
-        self._curve_b = PlotCurveItem(pen=mkPen(_SERIES_B_COLOR, width=1), name="B")
+        # No `addLegend()`: this pyqtgraph version's `LegendItem`/`LabelItem`
+        # has a real initialization-order bug (`LabelItem.sizeHint()` reads
+        # `self._sizeHint` before `__init__` sets it) that a resize pass
+        # during dialog construction can trigger on a cold process —
+        # reproduced deterministically running this widget's own dialog
+        # test in isolation. `_drawdown_chart_widget.py` never calls
+        # `addLegend()` for the same reason; the dialog's own "Column A"/
+        # "Column B" labels above the chart already say which series is
+        # which, so a legend duplicates that rather than adding information.
+        self._curve_a = PlotCurveItem(pen=mkPen(_SERIES_A_COLOR, width=1))
+        self._curve_b = PlotCurveItem(pen=mkPen(_SERIES_B_COLOR, width=1))
         self._plot_widget.addItem(self._curve_a)
         self._plot_widget.addItem(self._curve_b)
         self._plot_widget.setVisible(False)
