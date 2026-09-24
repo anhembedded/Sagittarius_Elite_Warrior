@@ -854,6 +854,12 @@ class BackTestPresenter(BasePresenter):
                 end_time=published_candle_cutoff(datetime.now(UTC), config.timeframe),
             )
         self._active_preview_id = 0
+        # BOT-107B should-fix (PR #265): a new backtest run makes any
+        # in-flight Monte Carlo result stale (it was computed from the
+        # PREVIOUS run's trades) the same way it makes an in-flight chart
+        # preview stale — fence it out exactly like `_active_preview_id`
+        # above, not just on the dialog's own "Run simulation" re-click.
+        self._active_monte_carlo_run_id = 0
         removed_strategy_lines = len(self._active_strategy_lines)
         self._log_dev_trace(
             "run_submit_start",
@@ -2232,6 +2238,7 @@ class BackTestPresenter(BasePresenter):
         self._shutdown_requested = True
         self._invalidate_active_action()
         self._active_preview_id += 1
+        self._active_monte_carlo_run_id += 1
         if self._backtest_cancellation_token is not None:
             self._backtest_cancellation_token.cancel()
         if self._sync_cancellation_token is not None:

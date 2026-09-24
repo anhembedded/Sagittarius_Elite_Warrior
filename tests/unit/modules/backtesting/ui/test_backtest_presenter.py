@@ -1544,6 +1544,44 @@ def test_a_stale_monte_carlo_completion_is_ignored(presenter, view_model):
     assert view_model.run_result.monte_carlo_result() is current_result
 
 
+def test_a_new_backtest_run_invalidates_an_in_flight_monte_carlo_run(
+    presenter, view_model, mock_dispatcher
+):
+    """Should-fix from PR #265's independent review: a new backtest run
+    makes any in-flight Monte Carlo worker's eventual result stale (it was
+    computed from the PREVIOUS run's trades), the exact same way it already
+    fences a stale chart-preview callback via `_active_preview_id = 0` in
+    `_start_backtest_run()`. Mutation-verified: removing the
+    `_active_monte_carlo_run_id = 0` line there makes this fail — the
+    "stale" result silently resurrects instead of staying cleared."""
+    config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True)
+    )
+    presenter._run_backtest(config)
+    stale_run_id = presenter._claim_monte_carlo_run_id()
+
+    second_config = _lock_and_get_config(presenter, view_model)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
+        _make_result(with_trades=True)
+    )
+    presenter._run_backtest(second_config)
+
+    stale_result = MonteCarloSimulationResult(
+        iterations=5000,
+        median_return_percent=99.0,
+        p95_max_drawdown_percent=99.0,
+        p99_max_drawdown_percent=99.0,
+        risk_of_ruin_50_percent=99.0,
+        risk_of_ruin_100_percent=99.0,
+        max_drawdowns_percent=(99.0,),
+        sample_equity_curves=(),
+    )
+    presenter._on_monte_carlo_completed(stale_run_id, stale_result)
+
+    assert view_model.run_result.monte_carlo_result() is None
+
+
 def test_monte_carlo_failed_stores_the_error_message(presenter, view_model):
     run_id = presenter._claim_monte_carlo_run_id()
 
