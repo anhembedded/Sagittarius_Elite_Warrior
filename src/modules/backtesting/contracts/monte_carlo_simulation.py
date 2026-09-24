@@ -41,6 +41,7 @@ from __future__ import annotations
 import statistics
 from collections.abc import Sequence
 from dataclasses import dataclass
+from itertools import accumulate
 from random import Random
 
 from .trade import Trade
@@ -107,10 +108,7 @@ def run_monte_carlo_simulation(
     shuffled = list(pnls)
     for iteration in range(iterations):
         rng.shuffle(shuffled)
-        keep_curve = iteration < sample_count
-        balance, min_balance, max_drawdown, curve = _walk_path(
-            shuffled, initial_balance, keep_curve=keep_curve
-        )
+        balance, min_balance, max_drawdown = _walk_path(shuffled, initial_balance)
         final_returns_percent.append(
             (balance - initial_balance) / initial_balance * 100
         )
@@ -119,8 +117,8 @@ def run_monte_carlo_simulation(
             ruin_50_count += 1
         if min_balance <= initial_balance * _RUIN_100_BALANCE_FRACTION:
             ruin_100_count += 1
-        if curve is not None:
-            sample_curves.append(curve)
+        if iteration < sample_count:
+            sample_curves.append(tuple(accumulate(shuffled, initial=initial_balance)))
 
     return MonteCarloSimulationResult(
         iterations=iterations,
@@ -137,32 +135,25 @@ def run_monte_carlo_simulation(
 def _walk_path(
     shuffled_pnls: Sequence[float],
     initial_balance: float,
-    *,
-    keep_curve: bool,
-) -> tuple[float, float, float, tuple[float, ...] | None]:
-    """One shuffled path's final balance, minimum balance reached (for
-    Risk of Ruin), peak-to-trough max drawdown percent, and — only when
-    `keep_curve` — the full equity curve for the spaghetti chart."""
+) -> tuple[float, float, float]:
+    """One shuffled path's final balance, minimum balance reached (for Risk
+    of Ruin), and peak-to-trough max drawdown percent. The full equity
+    curve itself (needed only for the bounded spaghetti-chart sample) is a
+    separate, one-line `itertools.accumulate` over the same `shuffled_pnls`
+    at the call site — deliberately not a `keep_curve` flag here
+    (`code/quality.md` §7 forbids a boolean that branches behavior)."""
     balance = initial_balance
     peak = initial_balance
     min_balance = initial_balance
     max_drawdown = 0.0
-    curve = [initial_balance] if keep_curve else None
     for pnl in shuffled_pnls:
         balance += pnl
-        if curve is not None:
-            curve.append(balance)
         peak = max(peak, balance)
         min_balance = min(min_balance, balance)
         if peak > 0:
             drawdown = (peak - balance) / peak * 100
             max_drawdown = max(max_drawdown, drawdown)
-    return (
-        balance,
-        min_balance,
-        max_drawdown,
-        (tuple(curve) if curve is not None else None),
-    )
+    return balance, min_balance, max_drawdown
 
 
 def _percentile(values: Sequence[float], percentile: float) -> float:
