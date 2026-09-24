@@ -9,6 +9,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_metrics import (
     BacktestMetrics,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
+    BacktestResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
     BacktestRunConfig,
 )
@@ -59,6 +62,18 @@ def _metrics(**overrides) -> BacktestMetrics:
     }
     defaults.update(overrides)
     return BacktestMetrics(**defaults)  # type: ignore[arg-type]
+
+
+def _result(
+    equity_curve: list[tuple[datetime, float]], initial_balance: float
+) -> BacktestResult:
+    return BacktestResult.compute(
+        symbol="BTCUSDT",
+        initial_balance=initial_balance,
+        final_balance=equity_curve[-1][1] if equity_curve else initial_balance,
+        trades=[],
+        equity_curve=equity_curve,
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -187,7 +202,7 @@ def test_equity_curves_are_rebased_to_percent_of_their_own_starting_balance():
     curve_b = [(_T0, 5_000.0), (_T0 + timedelta(hours=1), 5_500.0)]
 
     points_a, points_b = build_equity_comparison_series(
-        curve_a, 10_000.0, curve_b, 5_000.0
+        _result(curve_a, 10_000.0), _result(curve_b, 5_000.0)
     )
 
     assert math.isclose(points_a[0]["v"], 100.0)
@@ -197,7 +212,9 @@ def test_equity_curves_are_rebased_to_percent_of_their_own_starting_balance():
 
 
 def test_empty_curve_produces_no_points():
-    points_a, points_b = build_equity_comparison_series([], 10_000.0, [], 5_000.0)
+    points_a, points_b = build_equity_comparison_series(
+        _result([], 10_000.0), _result([], 5_000.0)
+    )
 
     assert points_a == []
     assert points_b == []
@@ -206,7 +223,7 @@ def test_empty_curve_produces_no_points():
 def test_non_positive_initial_balance_produces_no_points_rather_than_dividing_by_zero():
     curve = [(_T0, 0.0), (_T0 + timedelta(hours=1), 100.0)]
 
-    points, _ = build_equity_comparison_series(curve, 0.0, [], 1.0)
+    points, _ = build_equity_comparison_series(_result(curve, 0.0), _result([], 1.0))
 
     assert points == []
 

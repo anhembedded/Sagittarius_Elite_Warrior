@@ -247,10 +247,7 @@ class ReportComparisonDialog(Overlay):
         self._fill_tree(rows)
 
         points_a, points_b = build_equity_comparison_series(
-            snapshot_a.result.equity_curve,
-            snapshot_a.result.initial_balance,
-            snapshot_b.result.equity_curve,
-            snapshot_b.result.initial_balance,
+            snapshot_a.result, snapshot_b.result
         )
         self._chart.set_series(points_a, points_b)
 

@@ -28,6 +28,9 @@ from datetime import datetime
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_metrics import (
     BacktestMetrics,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
+    BacktestResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
     BacktestRunConfig,
 )
@@ -165,20 +168,20 @@ def build_metric_comparison_rows(
 
 
 def build_equity_comparison_series(
-    equity_curve_a: Sequence[tuple[datetime, float]],
-    initial_balance_a: float,
-    equity_curve_b: Sequence[tuple[datetime, float]],
-    initial_balance_b: float,
+    result_a: BacktestResult, result_b: BacktestResult
 ) -> tuple[list[dict[str, float]], list[dict[str, float]]]:
     """Both curves rebased to "% of starting capital" (100.0 at the first
     point) so two runs with different `initial_balance` still overlay
-    meaningfully — task §2.3's own requirement. Points with a
+    meaningfully — task §2.3's own requirement. Takes the two full results
+    rather than their `equity_curve`/`initial_balance` separately
+    (`code/quality.md` §7 — those two fields are conceptually paired and
+    `BacktestResult` already carries them together). Points with a
     non-positive starting balance are returned empty rather than dividing
     by zero/negative (never a real backtest input, but not this function's
     job to raise over)."""
     return (
-        _normalize_to_percent(equity_curve_a, initial_balance_a),
-        _normalize_to_percent(equity_curve_b, initial_balance_b),
+        _normalize_to_percent(result_a.equity_curve, result_a.initial_balance),
+        _normalize_to_percent(result_b.equity_curve, result_b.initial_balance),
     )
 
 

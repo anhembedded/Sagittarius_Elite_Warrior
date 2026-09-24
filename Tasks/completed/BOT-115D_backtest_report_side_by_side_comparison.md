@@ -118,13 +118,18 @@ call in `_present_result()` was confirmed to turn all 3 red, then
 restored), `test_backtest_top_panel_layout.py` (+1 — button wiring).
 
 **Verification**: `ruff check`/`ruff format --check` clean on every touched
-file; mypy (`--config-file pyproject.toml --namespace-packages
---explicit-package-bases`) introduces zero new errors — confirmed by
-comparing the exact error count/file set on the touched `backtest_modals`/
-`view_models`/`backtest_view_model.py`/`backtest_top_panel.py` files before
-and after this change (95 errors in 33 files, identical both times — all
-pre-existing PySide6 `@Property` descriptor false positives, same baseline
-class documented for `backtest_presenter.py` throughout this epic) and by
-grepping the full `src`+`scripts` mypy run for any error naming this
-feature's own new identifiers (none). `tests/unit/modules/backtesting/`
-(all green, no regressions) + the new test files above.
+file; mypy run with the gate's real invocation (`scripts/ci-local.ps1`:
+cwd at the parent directory holding both checkouts, `MYPYPATH` set to the
+sibling `Sagittarius_Engine` checkout plus that parent, `--config-file
+pyproject.toml --namespace-packages --explicit-package-bases
+Sagittarius_Elite_Warrior/src Sagittarius_Elite_Warrior/scripts`) —
+**zero errors** anywhere under `Sagittarius_Elite_Warrior/`, both before
+and after this change; the only errors mypy reports (12, in 7 files) are
+pre-existing and confined entirely to the separate `Sagittarius_Engine`
+repository, out of this board's scope. (An earlier draft of this note
+cited "95 errors in 33 files" from a run missing `MYPYPATH`, which
+resolves the engine package differently and produces spurious PySide6
+`@Property`-descriptor errors that do not occur under the correct
+invocation — caught in independent review, reproduced independently, and
+corrected here.) `tests/unit/modules/backtesting/` (all green, no
+regressions) + the new test files above.
