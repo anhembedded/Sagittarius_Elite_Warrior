@@ -50,6 +50,43 @@ trong lượt đối chứng chính thức, còn hybrid tạo viewport nhưng co
 OpenGL được giữ opt-in với CPU fallback, không bật mặc định. Bước kế tiếp là
 `BOT-098E` LOD/mipmap + batched rendering theo pixel budget.
 
+**Cập nhật 2026-09-24 — parent vẫn mở, hướng "native" đã bị revert hoàn toàn,
+không phải bước kế tiếp.** Note cũ (trên) dừng ở `BOT-098E`; đây là phần tiếp
+theo bị bỏ sót khi các sub-task native được đóng:
+
+- `BOT-098E` (LOD + cached-frame + batched geometry, hoàn thành) tự kết luận:
+  "Full profile không đạt gate sau cached-frame + LOD" — viewport 6.000 nến
+  giảm candle primitive 6.001 → 376, nhưng LOD "không sửa được CPU scene-graph
+  ceiling ở viewport 150 nến". Quyết định lúc đó: chuyển sang retained GPU
+  geometry ở `BOT-098F` thay vì tiếp tục micro-optimize PyQtGraph.
+- `BOT-098F`/`F1`–`F6F` (custom Qt Quick Scene Graph / QML native renderer)
+  được xây, và `BOT-098F6E` từng đưa native lên làm backend mặc định (commit
+  `30ffa185`, 2026-08-18).
+- 5 ngày dùng thật phát hiện native **chưa từng render một frame production
+  nào** — luôn âm thầm rebuild lại Python host (`BUG-039`). Bị tắt về Python
+  (`c56fcda5`), rồi **xoá hoàn toàn** cây C++/QML, mọi benchmark và 17 test
+  liên quan (`36f3a9f9`, 2026-08-24) — `BOT-098F4`/`F5`/`F6C`/`F6D` chuyển sang
+  `Tasks/cancelled/`. Điều này một phần dẫn tới quyết định cấm QML toàn bộ ứng
+  dụng (ADR D20–D22, `.claude/rules/ui-presentation-rule.md` §1) — nghĩa là
+  hướng "custom scene graph renderer" của `BOT-098F` **không còn là lựa chọn
+  hợp lệ** cho bất kỳ nỗ lực tiếp theo nào.
+- **Đo lại 2026-09-24** bằng chính harness gốc
+  (`scripts/benchmarking/backtest_chart_interaction.py`, đã vá lỗi
+  `get_theme_bridge()` chưa được seed — script bit-rot theo cùng đợt tái cấu
+  trúc theme, không liên quan performance) trên container offscreen (không
+  phải máy tham chiếu của user, nên số tuyệt đối chỉ mang tính định hướng, xem
+  `Tasks/reports/BOT-098_2026-09-24_post_native_revert_benchmark.md`):
+  full profile (6.420 nến + volume + 5 indicator + 1.112 marker + crosshair)
+  median **83,9 ms** / p95 **99,1 ms** — khoảng 5× mục tiêu median 16,7 ms.
+  Marker virtualization của `BOT-098A` vẫn đúng như thiết kế: bật 1.112 marker
+  chỉ tăng median từ 80,7 → 84,1 ms (~4%, trong ngân sách 25% của tiêu chí #3).
+  Chi phí chính nằm ở chính pipeline vẽ candle+volume cơ bản, đúng như kết
+  luận cũ của `BOT-098E` — không phải do marker hay do thiếu LOD.
+- **Kết luận:** `BOT-098` vẫn là vấn đề thật, chưa có lời giải trong ràng buộc
+  QtWidgets-only hiện tại. Không có "bước kế tiếp" đã biết — bất kỳ nỗ lực mới
+  nào cũng cần thiết kế lại từ đầu trong khuôn khổ không-QML, không giả định
+  lại được hướng renderer riêng đã thất bại.
+
 ### 4.1. Marker layer
 
 - Không tạo/giữ một `pg.TextItem` cho mọi marker trong full history.
