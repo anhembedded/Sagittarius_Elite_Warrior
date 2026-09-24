@@ -2,7 +2,7 @@
 
 **Mã Epic:** `BOT-115`  
 **Độ phức tạp:** 🔴 **L (Thinking)**  
-**Trạng thái:** 🟡 **2/4 task con xong (22/09)** — `BOT-115A`/`BOT-115B` xong; `BOT-115C`/`115D` còn ở backlog  
+**Trạng thái:** 🟡 **3/4 task con xong (23/09)** — `BOT-115A`/`BOT-115B` xong, `BOT-115C` xong một phần (chart nến + vault-sync hoãn); `BOT-115D` còn ở backlog  
 **Ưu tiên:** 📈 **P2 — Phân tích Hiệu suất & Đo lường Rủi ro**  
 **Liên quan:** [`BOT-095G`](BOT-095G_backtest_session_run_history_cache.md) (cache trong phiên), [`BOT-078`](BOT-078_backtest_trustworthiness_epic.md) (độ tin cậy kết quả), [`BOT-112D`](BOT-112D_market_data_import_export_csv_parquet.md) (import/export dữ liệu nến — **khác** epic này)
 
@@ -50,7 +50,7 @@ Ba nguyên tắc chốt trước khi code:
 | :--- | :--- | :---: | :--- |
 | ✅ **[`BOT-115A`](../completed/BOT-115A_backtest_report_schema_and_serializer.md)** | **Schema `BacktestReport` & Serializer JSON** | 🟡 `M` | **Xong (22/09).** Dataclass + `serialize`/`load` + `schema_version` + provenance + validate nghiêm ngặt (whitelist enum/strategy_key, cross-check `BacktestMetrics`). Thuần domain, zero UI. |
 | ✅ **[`BOT-115B`](../completed/BOT-115B_backtest_report_export_ui.md)** | **Xuất báo cáo từ màn Backtest** | 🟢 `S` | **Xong (22/09).** Nút "Lưu báo cáo" trên toolbar + file dialog + thư mục `reports/` mặc định, xuất đúng lần chạy đã sinh ra kết quả (không phải toolbar đang dở). |
-| **[`BOT-115C`](BOT-115C_backtest_report_import_and_readonly_state.md)** | **Nạp báo cáo & Chế độ xem chỉ đọc** | 🔴 `L` | Import, state FSM riêng, banner nguồn gốc, cảnh báo provenance lệch, fallback thiếu nến. |
+| ✅ **[`BOT-115C`](../completed/BOT-115C_backtest_report_import_and_readonly_state.md)** | **Nạp báo cáo & Chế độ xem chỉ đọc** | 🔴 `L` | **Xong một phần (23/09)**: nút Import + state FSM `VIEWING_IMPORTED_REPORT` riêng, banner nguồn gốc, cảnh báo provenance gộp (engine version/strategy lạ/metrics lệch), 3 panel (Summary/Trade Logs/Equity) khớp chính xác. Chart nến (fetch vault + BOT-059 sync affordance) hoãn — xem file task §6. |
 | **[`BOT-115D`](BOT-115D_backtest_report_side_by_side_comparison.md)** | **So sánh 2 báo cáo cạnh nhau** | 🟡 `M` | Bảng diff config + metrics side-by-side. Đây là chỗ giá trị thật sự của epic đọng lại. |
 
 ---

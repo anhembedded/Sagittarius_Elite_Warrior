@@ -136,6 +136,45 @@ def trade_flag_markers_for_trades(trades: Sequence[Trade]) -> list[MarkerPoint]:
     return markers
 
 
+#: `PROP-003` §3.1 DETAILED mode's short reason code, alongside the PnL
+#: percent — deliberately not folded into `_exit_marker()`'s own label
+#: (`_LONG_EXIT_LABEL` etc.), which several tests pin exactly
+#: (`test_chart_canvas_view.py`, `test_truthful_backtest_markers_and_logs.py`)
+#: and which the tooltip still shows unchanged.
+_EXIT_REASON_SHORT_CODES: dict[ExitReason, str] = {
+    ExitReason.TAKE_PROFIT: "TP",
+    ExitReason.STOP_LOSS: "SL",
+    ExitReason.STRATEGY_SIGNAL: "Sig",
+    ExitReason.END_OF_BACKTEST: "EOB",
+    ExitReason.LIQUIDATION: "Liq",
+}
+
+
+def trade_marker_badges_for_trades(trades: Sequence[Trade]) -> list[str | None]:
+    """`PROP-003` — one badge per marker `trade_flag_markers_for_trades()`
+    would emit for the same `trades`, in the same order (`None`/reason+PnL%
+    for an entry/exit respectively): `MarkerLayer` only shows a badge once
+    the viewport is zoomed in enough, but the text itself never depends on
+    zoom, so it is computed once here rather than per pan/zoom.
+
+    Must be called with the exact same `trades` sequence passed to
+    `trade_flag_markers_for_trades()` — the two are positionally aligned by
+    construction (both iterate `trades` once, two items per trade), not by
+    any shared key.
+    """
+    badges: list[str | None] = []
+    for trade in trades:
+        badges.append(None)  # no PnL yet at entry
+        badges.append(_exit_badge(trade))
+    return badges
+
+
+def _exit_badge(trade: Trade) -> str:
+    sign = "+" if trade.pnl_percent >= 0 else ""
+    reason_code = _EXIT_REASON_SHORT_CODES.get(trade.exit_reason, "Exit")
+    return f"{reason_code} {sign}{trade.pnl_percent:.2f}%"
+
+
 def filter_trades_for_markers(
     trades: Sequence[Trade],
     *,

@@ -1,4 +1,4 @@
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 
 import pyqtgraph as pg
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.info_field import (
@@ -312,12 +312,31 @@ class IndicatorManager:
         self._script_info.pop(key, None)
         self._render_script_info_panel()
 
-    def set_script_markers(self, key: str, markers: list[MarkerPoint]) -> None:
-        """Draws (replacing) one script's Buy/Sell-style labelled markers."""
-        self._marker_layer.set_markers(key, markers)
+    def set_script_markers(
+        self,
+        key: str,
+        markers: list[MarkerPoint],
+        badges: Sequence[str | None] | None = None,
+    ) -> None:
+        """Draws (replacing) one script's Buy/Sell-style labelled markers.
+
+        `badges` is `PROP-003`'s optional per-marker PnL/reason text, shown
+        as a persistent label instead of hover-only once the viewport is
+        zoomed in enough (`MarkerLayer`'s own `MarkerDensityMode`); omitted
+        by every caller that has none (custom indicator scripts).
+        """
+        self._marker_layer.set_markers(key, markers, badges)
 
     def clear_script_markers(self, key: str) -> None:
         self._marker_layer.clear(key)
+
+    def set_marker_bar_seconds(self, bar_seconds: float) -> None:
+        """`PROP-003` — forwards `ChartCard`'s own candle spacing to the
+        marker layer so it can classify the current viewport's
+        `MarkerDensityMode`. Called on every pan/zoom alongside
+        `refresh_window()`, not only at data load, since a live chart's
+        spacing is only known once history has arrived."""
+        self._marker_layer.set_bar_seconds(bar_seconds)
 
     def _render_script_info_panel(self) -> None:
         rows = [

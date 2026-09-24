@@ -37,6 +37,11 @@ class BacktestUiState(str, Enum):
     - EMPTY_DATA: Calculation finished with zero trades or empty historical data.
     - COMPLETED: Calculation finished successfully; results match toolbar parameters.
     - ERROR: System exception occurred during calculation or sync.
+    - VIEWING_IMPORTED_REPORT: A `.sagi-report.json` was loaded from disk
+      (`BOT-115C`) — a read-only display of a past, possibly foreign-machine
+      run, distinct from `COMPLETED` (this session's own last run) and from
+      `RUN_RESTORED_FROM_HISTORY`'s target (a same-session run, whose
+      provenance can never drift from the current environment).
     """
 
     IDLE = "IDLE"
@@ -47,6 +52,7 @@ class BacktestUiState(str, Enum):
     EMPTY_DATA = "EMPTY_DATA"
     COMPLETED = "COMPLETED"
     ERROR = "ERROR"
+    VIEWING_IMPORTED_REPORT = "VIEWING_IMPORTED_REPORT"
 
 
 class BacktestUiEvent(str, Enum):
@@ -71,10 +77,19 @@ class BacktestUiEvent(str, Enum):
     #: `BOT-095G` — the user picked an older run from the session history
     #: dropdown. Lands on `COMPLETED` from any non-busy state: it is a real
     #: previously-completed run being redisplayed, not a config edit or an
-    #: external file import (`BOT-115C`'s own `VIEWING_IMPORTED_REPORT` is
-    #: the right state for that different case — provenance can drift from
-    #: the current environment; a same-session run never has that problem).
+    #: external file import (`BOT-115C`'s `REPORT_IMPORTED`/
+    #: `VIEWING_IMPORTED_REPORT` is the state for that different case —
+    #: provenance can drift from the current environment; a same-session
+    #: run never has that problem).
     RUN_RESTORED_FROM_HISTORY = "RUN_RESTORED_FROM_HISTORY"
+    #: `BOT-115C` — a `.sagi-report.json` was loaded from disk. Reachable
+    #: from the same non-busy states as `RUN_RESTORED_FROM_HISTORY`, but
+    #: lands on `VIEWING_IMPORTED_REPORT`, never `COMPLETED` — see that
+    #: state's own docstring for why the two are kept apart.
+    REPORT_IMPORTED = "REPORT_IMPORTED"
+    #: `BOT-115C` — the user dismissed the imported-report banner without
+    #: running or editing anything; returns to a clean slate.
+    IMPORTED_REPORT_VIEW_EXITED = "IMPORTED_REPORT_VIEW_EXITED"
 
 
 class BacktestActionKind(str, Enum):
@@ -114,6 +129,10 @@ BACKTEST_STATE_TRANSITIONS: dict[
         BacktestUiState.IDLE,
         BacktestUiEvent.RUN_RESTORED_FROM_HISTORY,
     ): BacktestUiState.COMPLETED,
+    (
+        BacktestUiState.IDLE,
+        BacktestUiEvent.REPORT_IMPORTED,
+    ): BacktestUiState.VIEWING_IMPORTED_REPORT,
     # --- COMPLETED ---
     (
         BacktestUiState.COMPLETED,
@@ -128,6 +147,10 @@ BACKTEST_STATE_TRANSITIONS: dict[
         BacktestUiState.COMPLETED,
         BacktestUiEvent.RUN_RESTORED_FROM_HISTORY,
     ): BacktestUiState.COMPLETED,
+    (
+        BacktestUiState.COMPLETED,
+        BacktestUiEvent.REPORT_IMPORTED,
+    ): BacktestUiState.VIEWING_IMPORTED_REPORT,
     # --- CONFIG_DIRTY (Stale Data) ---
     (
         BacktestUiState.CONFIG_DIRTY,
@@ -149,6 +172,10 @@ BACKTEST_STATE_TRANSITIONS: dict[
         BacktestUiState.CONFIG_DIRTY,
         BacktestUiEvent.RUN_RESTORED_FROM_HISTORY,
     ): BacktestUiState.COMPLETED,
+    (
+        BacktestUiState.CONFIG_DIRTY,
+        BacktestUiEvent.REPORT_IMPORTED,
+    ): BacktestUiState.VIEWING_IMPORTED_REPORT,
     # --- RUNNING ---
     (
         BacktestUiState.RUNNING,
@@ -203,6 +230,10 @@ BACKTEST_STATE_TRANSITIONS: dict[
         BacktestUiState.EMPTY_DATA,
         BacktestUiEvent.RUN_RESTORED_FROM_HISTORY,
     ): BacktestUiState.COMPLETED,
+    (
+        BacktestUiState.EMPTY_DATA,
+        BacktestUiEvent.REPORT_IMPORTED,
+    ): BacktestUiState.VIEWING_IMPORTED_REPORT,
     # --- ERROR ---
     (BacktestUiState.ERROR, BacktestUiEvent.ERROR_DISMISSED): BacktestUiState.IDLE,
     (BacktestUiState.ERROR, BacktestUiEvent.CONFIG_CHANGED): BacktestUiState.IDLE,
@@ -212,6 +243,27 @@ BACKTEST_STATE_TRANSITIONS: dict[
         BacktestUiState.ERROR,
         BacktestUiEvent.RUN_RESTORED_FROM_HISTORY,
     ): BacktestUiState.COMPLETED,
+    (
+        BacktestUiState.ERROR,
+        BacktestUiEvent.REPORT_IMPORTED,
+    ): BacktestUiState.VIEWING_IMPORTED_REPORT,
+    # --- VIEWING_IMPORTED_REPORT (`BOT-115C`) ---
+    (
+        BacktestUiState.VIEWING_IMPORTED_REPORT,
+        BacktestUiEvent.CONFIG_CHANGED,
+    ): BacktestUiState.CONFIG_DIRTY,
+    (
+        BacktestUiState.VIEWING_IMPORTED_REPORT,
+        BacktestUiEvent.RUN_REQUESTED,
+    ): BacktestUiState.RUNNING,
+    (
+        BacktestUiState.VIEWING_IMPORTED_REPORT,
+        BacktestUiEvent.REPORT_IMPORTED,
+    ): BacktestUiState.VIEWING_IMPORTED_REPORT,
+    (
+        BacktestUiState.VIEWING_IMPORTED_REPORT,
+        BacktestUiEvent.IMPORTED_REPORT_VIEW_EXITED,
+    ): BacktestUiState.IDLE,
 }
 
 #: UI Modes in which controls must be disabled

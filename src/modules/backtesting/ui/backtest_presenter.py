@@ -13,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest import (
     BacktestCancelled,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report_loader import (
+    load_backtest_report,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
@@ -131,7 +134,11 @@ from .logic.backtest_fsm_matrix import (
 )
 from .logic.backtest_limitations_view import build_backtest_limitations
 from .logic.backtest_screen_config import BacktestScreenConfig
-from .logic.chart_canvas_view import build_trade_link, build_trade_view_range
+from .logic.chart_canvas_view import (
+    ChartDisplayMode,
+    build_trade_link,
+    build_trade_view_range,
+)
 from .logic.extended_metrics_snapshot import ExtendedMetricsSnapshot
 from .logic.performance_charts import (
     build_drawdown_chart_points,
@@ -143,6 +150,12 @@ from .logic.report_export import (
     resolve_engine_version,
     suggest_report_filename,
     write_backtest_report,
+)
+from .logic.report_import import (
+    backtest_report_to_run_config,
+    build_imported_report_banner_text,
+    build_report_provenance_warning_text,
+    read_backtest_report_bytes,
 )
 from .logic.result_formatter import format_result_summary
 from .logic.run_config_builder import (
@@ -207,6 +220,7 @@ _REPORT_EXPORT_DIALOG_TITLE = "Save Backtest Report"
 _REPORT_EXPORT_FILE_FILTER = (
     "Sagittarius Report (*.sagi-report.json *.sagi-report.json.gz)"
 )
+_REPORT_IMPORT_DIALOG_TITLE = "Import Backtest Report"
 _UNKNOWN_APP_VERSION = "unknown"
 
 
@@ -1889,6 +1903,121 @@ class BackTestPresenter(BasePresenter):
             f"[report-export] Wrote {path} "
             f"({len(report.result.trades)} trades, {size_bytes:,} bytes)"
         )
+
+    @Slot()
+    @safe_ui_action
+    def _ask_report_import_path(self) -> str:
+        """Where to read the report from, or "" if the user cancelled —
+        same reasoning as `_ask_report_export_path` for staying on the
+        presenter (`BOT-115C`)."""
+        reports_dir = resolve_default_reports_dir(
+            self.config.get(ConfigKeys.BACKTEST_REPORTS_DIR.value)
+        )
+        path, _selected_filter = QFileDialog.getOpenFileName(
+            self.view,
+            _REPORT_IMPORT_DIALOG_TITLE,
+            reports_dir,
+            _REPORT_EXPORT_FILE_FILTER,
+        )
+        return path
+
+    @Slot()
+    @safe_ui_action
+    def _on_report_import_requested(self) -> None:
+        """`BOT-115C` — reads a `.sagi-report.json`/`.gz` from disk and
+        enters `VIEWING_IMPORTED_REPORT`, a read-only display of that past
+        run. A malformed/unsupported file shows its own Vietnamese error
+        (`load_backtest_report()`'s own convention, task §5 item 6) and
+        leaves the screen exactly as it was — no FSM transition, matching
+        `RUN_RESTORED_FROM_HISTORY`'s own "never touched on refusal"
+        contract.
+
+        The toolbar's own fields are deliberately left untouched: several
+        of them (capital, commission, slippage, custom date range) are
+        free-text `QLineEdit`s with no established "format this parsed
+        number back into what the user would have typed" convention
+        anywhere in this codebase (`BACKTEST_STATE_FIELDS`'s own restore
+        path only ever round-trips a string this exact session captured
+        moments earlier) — inventing one here risks a subtly wrong display,
+        which `domain-truth-rule.md` treats as worse than not touching the
+        field at all. `isConfigDirty` is a pure function of FSM state
+        (`_get_is_config_dirty()`), so entering `VIEWING_IMPORTED_REPORT`
+        already satisfies the task's own criterion without it; clicking Run
+        afterwards uses whatever the toolbar currently shows, exactly as
+        the task's own §2 describes.
+        """
+        path = self._ask_report_import_path()
+        if not path:
+            return
+        if self.fsm is None or not self.fsm.can_dispatch(
+            BacktestUiEvent.REPORT_IMPORTED
+        ):
+            return
+        try:
+            data = read_backtest_report_bytes(path)
+        except OSError as exc:
+            self._view_model.run_result.set_result(
+                f"Không đọc được tệp: {exc}", is_error=True
+            )
+            return
+        valid_strategy_keys = {
+            option.key for option in self._strategy_catalog.options()
+        }
+        loaded = load_backtest_report(data, valid_strategy_keys=valid_strategy_keys)
+        if loaded.report is None:
+            error_message = (
+                loaded.error.message
+                if loaded.error is not None
+                else "Không nạp được báo cáo."
+            )
+            self._view_model.run_result.set_result(error_message, is_error=True)
+            return
+
+        report = loaded.report
+        run_config = backtest_report_to_run_config(report)
+        self._present_result(report.result, run_config, run_config.broker_config)
+        provenance_warning = build_report_provenance_warning_text(
+            report,
+            strategy_key_unknown=loaded.strategy_key_unknown,
+            metrics_mismatch=loaded.metrics_mismatch,
+            current_engine_version=resolve_engine_version(),
+        )
+        combined_warning = "   •   ".join(
+            note
+            for note in (provenance_warning, build_result_warning_text(report.result))
+            if note
+        )
+        self._view_model.run_result.set_result_warning_text(combined_warning)
+        self._last_run_config = run_config
+        self._last_result = report.result
+        self._view_model.lastRunSummary = run_config.to_summary_label()
+        self._view_model.configDiffSummary = ""
+        self._view_model.importedReportBannerText = build_imported_report_banner_text(
+            path, report
+        )
+        # Klines are never embedded in a report (`backtest_report.py`'s own
+        # docstring) — the OHLC/candlestick view has nothing real to draw,
+        # so the chart is forced to Equity mode, which renders straight
+        # from `result.equity_curve` (always present). Real candle
+        # rendering for an imported report needs the vault-sync affordance
+        # already used for "no data yet" (`BOT-059`) wired to this report's
+        # own `symbol`/`timeframe`/date range — a separate, comparably
+        # sized follow-up, not attempted here.
+        self.view.on_backtest_data_ready(report.result, [], [])
+        self.view.set_chart_mode(ChartDisplayMode.EQUITY)
+        self.fsm.dispatch(BacktestUiEvent.REPORT_IMPORTED)
+
+    @Slot()
+    @safe_ui_action
+    def _on_exit_imported_report_view_requested(self) -> None:
+        """`BOT-115C` — the user dismissed the imported-report banner
+        without running or editing anything."""
+        if self.fsm is None or not self.fsm.can_dispatch(
+            BacktestUiEvent.IMPORTED_REPORT_VIEW_EXITED
+        ):
+            return
+        self._view_model.importedReportBannerText = ""
+        self.fsm.dispatch(BacktestUiEvent.IMPORTED_REPORT_VIEW_EXITED)
 
     # ================================================================== #
     # Main-thread helpers

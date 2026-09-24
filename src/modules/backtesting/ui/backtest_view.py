@@ -22,6 +22,7 @@ from .logic.chart_canvas_view import (
     equity_curve_to_line_data,
     filter_trades_for_markers,
     trade_flag_markers_for_trades,
+    trade_marker_badges_for_trades,
 )
 from .logic.chart_controls import BacktestChartControls
 from .ports.i_backtest_chart_host import IBacktestChartHost
@@ -301,7 +302,9 @@ class BackTestView(BaseView):
             return
         if visible and self._chart_mode is not ChartDisplayMode.EQUITY:
             card.set_script_markers(
-                _TRADE_FLAGS_KEY, self._filtered_trade_flag_markers()
+                _TRADE_FLAGS_KEY,
+                self._filtered_trade_flag_markers(),
+                self._filtered_trade_flag_badges(),
             )
         else:
             card.clear_script_markers(_TRADE_FLAGS_KEY)
@@ -313,13 +316,12 @@ class BackTestView(BaseView):
         if self.chart_controls is not None:
             self.set_trade_flags_visible(self.chart_controls.is_trade_flags_checked())
 
-    def _filtered_trade_flag_markers(self):
+    def _filtered_trades(self):
         """`_last_result.trades` narrowed by `chart_controls`'s marker
-        filters (PROP-004) before being turned into marker points — a
-        `chart_controls is None` host (never happens once a run has
-        results, but the type is `| None`) falls back to every trade.
-        Only called once `set_trade_flags_visible()`'s own guard has
-        already confirmed `_last_result is not None`."""
+        filters (PROP-004) — a `chart_controls is None` host (never
+        happens once a run has results, but the type is `| None`) falls
+        back to every trade. Only called once `set_trade_flags_visible()`'s
+        own guard has already confirmed `_last_result is not None`."""
         trades = self._last_result.trades
         if self.chart_controls is not None:
             trades = filter_trades_for_markers(
@@ -328,7 +330,16 @@ class BackTestView(BaseView):
                 side=self.chart_controls.side_filter(),
                 min_abs_pnl_percent=self.chart_controls.min_pnl_threshold(),
             )
-        return trade_flag_markers_for_trades(trades)
+        return trades
+
+    def _filtered_trade_flag_markers(self):
+        return trade_flag_markers_for_trades(self._filtered_trades())
+
+    def _filtered_trade_flag_badges(self):
+        """`PROP-003` — badges for the same filtered trades, in the same
+        order `_filtered_trade_flag_markers()` builds its markers in, so
+        the two stay positionally aligned for `MarkerLayer.set_markers()`."""
+        return trade_marker_badges_for_trades(self._filtered_trades())
 
     def _current_card(self):
         return self.chart_cards[0] if self.chart_cards else None
@@ -357,7 +368,9 @@ class BackTestView(BaseView):
             and self.chart_controls.is_trade_flags_checked()
         ):
             card.set_script_markers(
-                _TRADE_FLAGS_KEY, self._filtered_trade_flag_markers()
+                _TRADE_FLAGS_KEY,
+                self._filtered_trade_flag_markers(),
+                self._filtered_trade_flag_badges(),
             )
         else:
             card.clear_script_markers(_TRADE_FLAGS_KEY)

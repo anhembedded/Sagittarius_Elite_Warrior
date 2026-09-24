@@ -111,8 +111,10 @@ class PythonBacktestChartHost:
     def clear_script_info(self, key: str) -> None:
         self._chart_card.clear_script_info(key)
 
-    def set_script_markers(self, key: str, markers: list) -> None:
-        self._chart_card.set_script_markers(key, markers)
+    def set_script_markers(
+        self, key: str, markers: list, badges: list | None = None
+    ) -> None:
+        self._chart_card.set_script_markers(key, markers, badges)
 
     def clear_script_markers(self, key: str) -> None:
         self._chart_card.clear_script_markers(key)

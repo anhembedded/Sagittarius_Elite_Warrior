@@ -427,22 +427,58 @@ class PaperExchange:
             pos.mae_percent = min(pos.mae_percent, worst_pnl_percent)
             pos.mfe_percent = max(pos.mfe_percent, best_pnl_percent)
 
+    def _apply_break_even_stops(self) -> None:
+        """
+        @brief BOT-105A — once a position's best-seen unrealized profit
+        (`pos.mfe_percent`, already widened for this bar by
+        `_update_excursion_tracking()`) reaches
+        `break_even_trigger_pct`, moves `stop_loss_price` to `entry_price`
+        exactly once.
+        @details Ignores fees (moves to the raw `entry_price`, not
+        `entry_price` adjusted for `entry_fee`) — the proposal names both
+        as acceptable; the raw price is the simpler, unambiguous choice
+        and is what "break-even" means without a fee-aware reading. Always
+        a favorable move: a not-yet-triggered `stop_loss_price` sits on
+        the losing side of `entry_price` by construction, or is `None`
+        (no static stop configured for this run) — either way this only
+        ever tightens protection, so it never needs to compare against
+        the position's current stop the way a trailing stop would.
+        """
+        trigger_pct = self._broker_config.break_even_trigger_pct
+        if trigger_pct is None:
+            return
+        for pos in self._positions:
+            if pos.break_even_armed or pos.mfe_percent < trigger_pct:
+                continue
+            pos.stop_loss_price = pos.entry_price
+            pos.break_even_armed = True
+            logger.debug(
+                f"[paper-exchange] Break-even armed | {pos.side.value} entry "
+                f"{pos.entry_price:,.2f} | MFE {pos.mfe_percent:.2f}% >= "
+                f"trigger {trigger_pct:.2f}% | stop moved to entry"
+            )
+
     def check_intrabar_stops(
         self, high: float, low: float, time: datetime
     ) -> Sequence[Trade]:
         """
-        @brief Widens every open position's MAE/MFE from this bar, then
-        checks liquidation/stop-loss/take-profit against the same high/low.
+        @brief Widens every open position's MAE/MFE from this bar, arms
+        break-even stops (`BOT-105A`), then checks liquidation/stop-loss/
+        take-profit against the same high/low.
         @details Liquidation is checked **first** and its trades removed from
         `self._positions` before stop-loss/take-profit ever sees them
         (`BOT-049` §2) — a real exchange liquidates before a user's own SL/TP
         order could fill, so a position that would hit both in one bar must
-        close as `LIQUIDATION`, never `STOP_LOSS`/`TAKE_PROFIT`.
+        close as `LIQUIDATION`, never `STOP_LOSS`/`TAKE_PROFIT`. A break-even
+        move happens from this same bar's high/low, so a bar that both
+        triggers it and reverses far enough can close as `STOP_LOSS` at
+        `entry_price` within that one bar.
         """
         if not self._positions:
             return []
 
         self._update_excursion_tracking(high, low)
+        self._apply_break_even_stops()
 
         liquidated, still_open = self._pricing.evaluate_liquidations(
             self._positions, high, low

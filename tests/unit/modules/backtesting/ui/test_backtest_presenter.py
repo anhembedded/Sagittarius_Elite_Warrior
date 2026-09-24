@@ -3825,6 +3825,171 @@ def test_report_export_uses_the_run_that_produced_the_result_not_a_dirty_toolbar
     assert loaded.report.config.timeframe == TimeFrame.ONE_MINUTE
 
 
+def _export_a_report(presenter, path, *, trades=None):
+    """Runs a real backtest end to end and exports it, so import tests
+    have a genuine `.sagi-report.json` on disk rather than a hand-built
+    payload — the same real-file approach `test_write_backtest_report_
+    writes_a_file_that_loads_back` already uses at the `logic/` layer."""
+    vm = presenter._view_model
+    vm.strategy_params.selectedStrategyKey = "fake_strategy"
+    vm.selectedTimeframe = "1m"
+    vm.initialCapitalText = "10000"
+    vm.selectedCurrency = Currency.USD
+    presenter._on_run_backtest()
+    result = _make_fake_result(trades=trades or [])
+    presenter._on_backtest_succeeded(result)
+    with patch(
+        "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
+        "backtest_presenter.QFileDialog.getSaveFileName",
+        return_value=(str(path), ""),
+    ):
+        presenter._on_report_export_requested()
+    return result
+
+
+def test_report_import_does_nothing_when_the_dialog_is_cancelled(presenter):
+    """`BOT-115C` — an empty path (Cancel) must not touch the FSM."""
+    with patch(
+        "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
+        "backtest_presenter.QFileDialog.getOpenFileName",
+        return_value=("", ""),
+    ):
+        presenter._on_report_import_requested()
+
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert presenter._last_result is None
+
+
+def test_report_import_enters_the_viewing_state_with_matching_panels(
+    presenter, tmp_path
+):
+    """`BOT-115C` §5 — importing a valid report enters
+    `VIEWING_IMPORTED_REPORT`, `isConfigDirty` is False, and the presented
+    result is exactly the exported one."""
+    path = tmp_path / "run.sagi-report.json"
+    result = _export_a_report(presenter, path)
+
+    with patch(
+        "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
+        "backtest_presenter.QFileDialog.getOpenFileName",
+        return_value=(str(path), ""),
+    ):
+        presenter._on_report_import_requested()
+
+    vm = presenter._view_model
+    assert presenter.fsm.current_state == BacktestUiState.VIEWING_IMPORTED_REPORT
+    assert vm.uiMode == BacktestUiState.VIEWING_IMPORTED_REPORT.value
+    assert vm.isConfigDirty is False
+    assert presenter._last_result.trades == result.trades
+    assert presenter._last_run_config.strategy_key == "fake_strategy"
+    assert vm.importedReportBannerText != ""
+    assert path.name in vm.importedReportBannerText
+
+
+def test_report_import_of_a_malformed_file_shows_an_error_and_stays_idle(
+    presenter, tmp_path
+):
+    """`BOT-115C` §5 — a corrupt file must show an error and leave the
+    screen exactly as it was, no FSM transition."""
+    path = tmp_path / "broken.sagi-report.json"
+    path.write_bytes(b"not json at all")
+
+    with patch(
+        "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
+        "backtest_presenter.QFileDialog.getOpenFileName",
+        return_value=(str(path), ""),
+    ):
+        presenter._on_report_import_requested()
+
+    vm = presenter._view_model
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert vm.run_result.resultIsError is True
+    assert vm.run_result.resultText != ""
+
+
+def test_report_import_flags_a_strategy_no_longer_registered(presenter, tmp_path):
+    """`BOT-115C` §3 — a report whose strategy was since removed from the
+    registry can still be viewed, with the fact surfaced in the warning
+    text (task's own combined-badge re-scope, see report_import.py)."""
+    path = tmp_path / "run.sagi-report.json"
+    _export_a_report(presenter, path)
+
+    with (
+        patch.object(presenter._strategy_catalog, "options", return_value=()),
+        patch(
+            "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
+            "backtest_presenter.QFileDialog.getOpenFileName",
+            return_value=(str(path), ""),
+        ),
+    ):
+        presenter._on_report_import_requested()
+
+    vm = presenter._view_model
+    assert presenter.fsm.current_state == BacktestUiState.VIEWING_IMPORTED_REPORT
+    assert "fake_strategy" in vm.run_result.resultWarningText
+
+
+def test_exiting_the_imported_report_view_returns_to_idle_and_clears_the_banner(
+    presenter, tmp_path
+):
+    path = tmp_path / "run.sagi-report.json"
+    _export_a_report(presenter, path)
+    with patch(
+        "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
+        "backtest_presenter.QFileDialog.getOpenFileName",
+        return_value=(str(path), ""),
+    ):
+        presenter._on_report_import_requested()
+    vm = presenter._view_model
+    assert vm.importedReportBannerText != ""
+
+    presenter._on_exit_imported_report_view_requested()
+
+    assert presenter.fsm.current_state == BacktestUiState.IDLE
+    assert vm.importedReportBannerText == ""
+
+
+def test_run_requested_while_viewing_an_imported_report_starts_a_real_run(
+    presenter, tmp_path
+):
+    """`BOT-115C` §2 — clicking Run while viewing exits the read-only view
+    and runs for real, using the toolbar's own live values."""
+    path = tmp_path / "run.sagi-report.json"
+    _export_a_report(presenter, path)
+    with patch(
+        "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
+        "backtest_presenter.QFileDialog.getOpenFileName",
+        return_value=(str(path), ""),
+    ):
+        presenter._on_report_import_requested()
+    vm = presenter._view_model
+    assert presenter.fsm.current_state == BacktestUiState.VIEWING_IMPORTED_REPORT
+    vm.strategy_params.selectedStrategyKey = "fake_strategy"
+
+    presenter._on_run_backtest()
+
+    assert presenter.fsm.current_state == BacktestUiState.RUNNING
+
+
+def test_config_changed_while_viewing_an_imported_report_marks_it_dirty(
+    presenter, tmp_path
+):
+    path = tmp_path / "run.sagi-report.json"
+    _export_a_report(presenter, path)
+    with patch(
+        "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
+        "backtest_presenter.QFileDialog.getOpenFileName",
+        return_value=(str(path), ""),
+    ):
+        presenter._on_report_import_requested()
+    vm = presenter._view_model
+    assert presenter.fsm.current_state == BacktestUiState.VIEWING_IMPORTED_REPORT
+
+    vm.selectedTimeframe = "5m"
+
+    assert presenter.fsm.current_state == BacktestUiState.CONFIG_DIRTY
+
+
 def test_dirty_tracking_detects_timeframe_change_after_completed(presenter):
     """Verify changing timeframe when COMPLETED transitions to CONFIG_DIRTY with diff summary."""
     vm = presenter._view_model

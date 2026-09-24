@@ -1223,3 +1223,156 @@ def test_check_intrabar_stops_does_not_widen_mae_mfe_of_an_unrelated_position():
     # (-55%); high=210 -> value=1050 (+5%).
     assert second.mae_percent == pytest.approx(-55.0)
     assert second.mfe_percent == pytest.approx(5.0)
+
+
+# ---------------------------------------------------------------------------
+# `BOT-105A` — break-even stop
+# ---------------------------------------------------------------------------
+
+
+def test_break_even_is_disabled_by_default_a_deep_pullback_never_stops_out():
+    # No `break_even_trigger_pct` configured and no `stop_loss_pct` either —
+    # every position behaves exactly as before this field existed.
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1_000.0)
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trades = exchange.check_intrabar_stops(high=103.0, low=90.0, time=_T2)
+
+    assert trades == []
+    assert exchange.is_in_position is True
+
+
+def test_break_even_does_not_arm_below_its_own_trigger():
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, break_even_trigger_pct=5.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    # MFE this bar is 3% (high=103), below the 5% trigger.
+    trades = exchange.check_intrabar_stops(high=103.0, low=99.0, time=_T2)
+
+    assert trades == []
+    pos = exchange._positions[0]
+    assert pos.break_even_armed is False
+    assert pos.stop_loss_price is None
+
+
+def test_break_even_arms_and_a_later_pullback_to_entry_closes_at_zero_pnl_long():
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, break_even_trigger_pct=2.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)  # qty 10
+
+    # Bar 1: MFE reaches 3% (>= 2% trigger) but the bar's own low (101) never
+    # revisits entry, so nothing closes yet — only the stop gets armed.
+    first_bar_trades = exchange.check_intrabar_stops(high=103.0, low=101.0, time=_T2)
+    assert first_bar_trades == []
+    pos = exchange._positions[0]
+    assert pos.break_even_armed is True
+    assert pos.stop_loss_price == pytest.approx(100.0)
+
+    # Bar 2: price pulls back through entry.
+    trades = exchange.check_intrabar_stops(high=101.0, low=99.0, time=_T2)
+
+    assert len(trades) == 1
+    trade = trades[0]
+    assert trade.exit_reason is ExitReason.STOP_LOSS
+    assert trade.exit_price == pytest.approx(100.0)
+    assert trade.pnl == pytest.approx(0.0)
+    assert exchange.is_in_position is False
+
+
+def test_break_even_triggers_and_stops_out_within_the_same_bar():
+    # High reaches the trigger and the same bar's low reverses all the way
+    # back to entry — must close as STOP_LOSS at entry within one bar, not
+    # require a second bar to notice the armed stop.
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, break_even_trigger_pct=2.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trades = exchange.check_intrabar_stops(high=103.0, low=99.0, time=_T2)
+
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.STOP_LOSS
+    assert trades[0].exit_price == pytest.approx(100.0)
+    assert trades[0].pnl == pytest.approx(0.0)
+
+
+def test_break_even_is_direction_aware_for_a_short_position():
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, break_even_trigger_pct=2.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+
+    # A short profits as price falls: low=97 -> +3% MFE, arms the stop.
+    first_bar_trades = exchange.check_intrabar_stops(high=99.0, low=97.0, time=_T2)
+    assert first_bar_trades == []
+    pos = exchange._positions[0]
+    assert pos.break_even_armed is True
+    assert pos.stop_loss_price == pytest.approx(100.0)
+
+    # A bounce back up through entry must now stop it out at breakeven.
+    trades = exchange.check_intrabar_stops(high=101.0, low=99.5, time=_T2)
+
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.STOP_LOSS
+    assert trades[0].exit_price == pytest.approx(100.0)
+    assert trades[0].pnl == pytest.approx(0.0)
+
+
+def test_break_even_only_ever_tightens_an_existing_static_stop_loss():
+    # A static SL 1% below entry (99.0) exists before break-even ever
+    # triggers; once it does, the stop must move UP to entry (100.0) —
+    # strictly favorable, never left at or moved past the original stop.
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, stop_loss_pct=1.0, break_even_trigger_pct=2.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    pos = exchange._positions[0]
+    assert pos.stop_loss_price == pytest.approx(99.0)
+
+    exchange.check_intrabar_stops(high=103.0, low=101.0, time=_T2)
+
+    pos = exchange._positions[0]
+    assert pos.stop_loss_price == pytest.approx(100.0)
+
+
+def test_break_even_arms_only_once_a_further_rally_does_not_move_it_again():
+    """A one-time move to entry — this slice ships break-even only, not a
+    trailing stop, so a further rally past the trigger must never re-arm or
+    otherwise touch `stop_loss_price` again."""
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, break_even_trigger_pct=2.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    exchange.check_intrabar_stops(high=103.0, low=101.0, time=_T2)
+    exchange.check_intrabar_stops(high=110.0, low=105.0, time=_T2)
+
+    pos = exchange._positions[0]
+    assert pos.stop_loss_price == pytest.approx(100.0)
+    assert pos.break_even_armed is True
+
+
+def test_break_even_trigger_pct_rejects_non_positive_values():
+    with pytest.raises(ValueError, match="break_even_trigger_pct"):
+        BrokerSimulationConfig(break_even_trigger_pct=0.0)
