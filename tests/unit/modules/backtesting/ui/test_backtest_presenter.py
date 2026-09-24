@@ -51,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.currency import (
     Currency,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.monte_carlo_simulation import (
+    MonteCarloSimulationResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.out_of_sample_validation import (
     OutOfSampleValidation,
 )
@@ -1450,6 +1453,135 @@ def test_backtest_failed_clears_the_out_of_sample_divider(
     presenter._on_backtest_failed("boom")
 
     assert not divider._line.isVisible()
+
+
+# ---------------------------------------------------------------------------
+# BOT-107B — Monte Carlo simulation dispatch and result fencing
+# ---------------------------------------------------------------------------
+
+
+def test_run_monte_carlo_requested_dispatches_the_current_results_trades(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
+    presenter._run_backtest(config)
+    # `_lock_and_get_config()`'s own `requestRun()` already submitted the
+    # backtest run itself — reset so the assertion below is about the
+    # Monte Carlo dispatch specifically, not that earlier, unrelated call.
+    mock_thread_mgr.submit.reset_mock()
+
+    presenter._on_run_monte_carlo_requested(5000)
+
+    mock_thread_mgr.submit.assert_called_once()
+    args = mock_thread_mgr.submit.call_args.args
+    assert args[0] == presenter._monte_carlo._run_worker
+    assert args[1] == result.trades
+    assert args[2] == result.initial_balance
+    assert args[3] == 5000
+    assert args[4] == presenter._active_monte_carlo_run_id
+
+
+def test_run_monte_carlo_requested_does_nothing_without_a_completed_run(
+    presenter, mock_thread_mgr
+):
+    presenter._on_run_monte_carlo_requested(5000)
+
+    mock_thread_mgr.submit.assert_not_called()
+
+
+def test_monte_carlo_completed_stores_the_result_on_the_view_model(
+    presenter, view_model
+):
+    run_id = presenter._claim_monte_carlo_run_id()
+    result = MonteCarloSimulationResult(
+        iterations=1000,
+        median_return_percent=5.0,
+        p95_max_drawdown_percent=10.0,
+        p99_max_drawdown_percent=15.0,
+        risk_of_ruin_50_percent=0.0,
+        risk_of_ruin_100_percent=0.0,
+        max_drawdowns_percent=(1.0, 2.0),
+        sample_equity_curves=((1000.0, 1050.0),),
+    )
+
+    presenter._on_monte_carlo_completed(run_id, result)
+
+    assert view_model.run_result.monte_carlo_result() is result
+
+
+def test_a_stale_monte_carlo_completion_is_ignored(presenter, view_model):
+    """Mutation check: without the run-id fence, a slow first simulation
+    completing after a second, faster one would silently overwrite the
+    newer, still-correct result with a stale one."""
+    stale_run_id = presenter._claim_monte_carlo_run_id()
+    current_run_id = presenter._claim_monte_carlo_run_id()
+    current_result = MonteCarloSimulationResult(
+        iterations=1000,
+        median_return_percent=5.0,
+        p95_max_drawdown_percent=10.0,
+        p99_max_drawdown_percent=15.0,
+        risk_of_ruin_50_percent=0.0,
+        risk_of_ruin_100_percent=0.0,
+        max_drawdowns_percent=(1.0,),
+        sample_equity_curves=(),
+    )
+    presenter._on_monte_carlo_completed(current_run_id, current_result)
+
+    stale_result = MonteCarloSimulationResult(
+        iterations=2000,
+        median_return_percent=99.0,
+        p95_max_drawdown_percent=99.0,
+        p99_max_drawdown_percent=99.0,
+        risk_of_ruin_50_percent=99.0,
+        risk_of_ruin_100_percent=99.0,
+        max_drawdowns_percent=(99.0,),
+        sample_equity_curves=(),
+    )
+    presenter._on_monte_carlo_completed(stale_run_id, stale_result)
+
+    assert view_model.run_result.monte_carlo_result() is current_result
+
+
+def test_monte_carlo_failed_stores_the_error_message(presenter, view_model):
+    run_id = presenter._claim_monte_carlo_run_id()
+
+    presenter._on_monte_carlo_failed(run_id, "boom")
+
+    assert view_model.run_result.monte_carlo_error() == "boom"
+
+
+def test_a_stale_monte_carlo_failure_is_ignored(presenter, view_model):
+    stale_run_id = presenter._claim_monte_carlo_run_id()
+    presenter._claim_monte_carlo_run_id()
+
+    presenter._on_monte_carlo_failed(stale_run_id, "boom")
+
+    assert view_model.run_result.monte_carlo_error() == ""
+
+
+def test_the_full_dispatch_to_completion_path_reaches_the_view_model(
+    presenter, view_model, mock_dispatcher, mock_thread_mgr
+):
+    """End-to-end (not just each half in isolation): a real `submit()` call
+    that actually runs the task, same as the thread pool would, all the
+    way through `MonteCarloCoordinator`'s real domain call and back onto
+    the real `_monteCarloCompletedSignal`."""
+    config = _lock_and_get_config(presenter, view_model)
+    result = _make_result(with_trades=True)
+    mock_dispatcher.dispatch.side_effect = _dispatch_stub(result)
+    presenter._run_backtest(config)
+    # Only now, so the backtest run above still goes through this test's
+    # own direct `_run_backtest()` call rather than being double-invoked by
+    # `_lock_and_get_config()`'s own `requestRun()` submit.
+    mock_thread_mgr.submit.side_effect = lambda fn, *a, **kw: fn(*a, **kw)
+
+    presenter._on_run_monte_carlo_requested(1000)
+
+    stored = view_model.run_result.monte_carlo_result()
+    assert stored is not None
+    assert stored.iterations == 1000
 
 
 def test_no_historical_data_clears_limitations(presenter, view_model, mock_dispatcher):

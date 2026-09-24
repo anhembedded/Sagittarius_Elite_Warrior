@@ -31,6 +31,7 @@ from .indicator_picker_dialog import IndicatorPickerDialog
 from .limitations_dialog import LimitationsDialog
 from .metrics_detail_dialog import MetricsDetailDialogWidget
 from .modals_host import BackTestModalsHost
+from .monte_carlo_dialog import MonteCarloDialog
 from .order_execution_dialog import OrderExecutionDialog
 from .out_of_sample_comparison_dialog import OutOfSampleComparisonDialog
 from .report_comparison_dialog import ReportComparisonDialog
@@ -46,6 +47,7 @@ __all__ = [
     "IndicatorPickerDialog",
     "LimitationsDialog",
     "MetricsDetailDialogWidget",
+    "MonteCarloDialog",
     "OrderExecutionDialog",
     "OutOfSampleComparisonDialog",
     "ReportComparisonDialog",

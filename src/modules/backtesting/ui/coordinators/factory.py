@@ -27,6 +27,7 @@ from .chart_render_coordinator import ChartRenderCoordinator
 from .data_sync_coordinator import DataSyncCoordinator
 from .execution_coordinator import ExecutionCoordinator
 from .indicator_coordinator import IndicatorCoordinator
+from .monte_carlo_coordinator import MonteCarloCoordinator
 from .strategy_config_coordinator import StrategyConfigCoordinator
 from .trade_log_coordinator import TradeLogCoordinator
 
@@ -43,6 +44,7 @@ class Coordinators(NamedTuple):
     chart_preview: ChartPreviewCoordinator
     chart_feed: ChartFeedCoordinator
     execution: ExecutionCoordinator
+    monte_carlo: MonteCarloCoordinator
 
 
 def build_coordinators(presenter) -> Coordinators:
@@ -180,6 +182,11 @@ def build_coordinators(presenter) -> Coordinators:
         ),
         emit_strategy_trend_zones=lambda *a: presenter._emit_strategy_trend_zones(*a),
     )
+    _monte_carlo = MonteCarloCoordinator(
+        thread_manager=presenter._thread_manager,
+        emit_completed=presenter._monteCarloCompletedSignal.emit,
+        emit_failed=presenter._monteCarloFailedSignal.emit,
+    )
     return Coordinators(
         trade_log=_trade_log,
         strategy_config=_strategy_config,
@@ -189,4 +196,5 @@ def build_coordinators(presenter) -> Coordinators:
         chart_preview=_chart_preview,
         chart_feed=_chart_feed,
         execution=_execution,
+        monte_carlo=_monte_carlo,
     )

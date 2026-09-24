@@ -591,6 +591,20 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         )
         row.addWidget(self._btn_out_of_sample_comparison)
 
+        # `BOT-107B` — same "always available while not busy" enablement as
+        # its siblings above: the dialog itself shows "run a backtest
+        # first"/"too few trades" until a real, reshufflable result exists.
+        self._btn_monte_carlo = QPushButton("Monte Carlo")
+        self._btn_monte_carlo.setObjectName("btnMonteCarlo")
+        self._btn_monte_carlo.setCursor(Qt.CursorShape.PointingHandCursor)
+        self._btn_monte_carlo.setFixedHeight(26)
+        self._btn_monte_carlo.setToolTip(
+            "Reshuffle this run's trades to estimate Risk of Ruin and "
+            "worst-case drawdown"
+        )
+        self._btn_monte_carlo.clicked.connect(self._vm.requestOpenMonteCarlo)
+        row.addWidget(self._btn_monte_carlo)
+
         return row_widget
 
     def _build_result_warning_label(self) -> QLabel:
@@ -701,6 +715,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
             self._btn_import_report,
             self._btn_compare_reports,
             self._btn_out_of_sample_comparison,
+            self._btn_monte_carlo,
         ):
             btn.setEnabled(enabled)
         # `BOT-095G` — a busy run/sync owns the screen the same way it owns

@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest_failed_event import (
     BacktestFailedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.monte_carlo_simulation import (
+    MonteCarloSimulationResult,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_signal_payloads import (
     BacktestProgress,
@@ -315,6 +318,11 @@ class BackTestPresenter(BasePresenter):
     _uiLogSignal = Signal(str, str, bool)  # message, level, is_dev
     _symbolOptionsReadySignal = Signal(list)  # BOT-102: sorted symbol list
     _symbolOptionsFailedSignal = Signal(str)  # BOT-102: error message
+    # BOT-107B: run_id, result — a stale result from a superseded run must
+    # never overwrite a newer one, same fencing shape as the preview id
+    # above (`_claim_monte_carlo_run_id`/`_active_monte_carlo_run_id`).
+    _monteCarloCompletedSignal = Signal(int, object)
+    _monteCarloFailedSignal = Signal(int, str)  # run_id, error message
 
     def __init__(self, view: BackTestView, container: IContainer) -> None:
         super().__init__(view, container)
@@ -371,6 +379,8 @@ class BackTestPresenter(BasePresenter):
         self._shutdown_requested = False
         self._next_preview_id = 0
         self._active_preview_id = 0
+        self._next_monte_carlo_run_id = 0
+        self._active_monte_carlo_run_id = 0
         # BUG-101 — `_connect_ui_signals()` wires `selectedSymbolChanged`/
         # `selectedTimeframeChanged`/`timeRangePresetChanged`/
         # `customStart|EndTextChanged` straight to handlers that call
@@ -506,6 +516,7 @@ class BackTestPresenter(BasePresenter):
         self._chart_preview = coordinators.chart_preview
         self._chart_feed = coordinators.chart_feed
         self._execution = coordinators.execution
+        self._monte_carlo = coordinators.monte_carlo
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
         # user_config.json with a typo) is left alone — BackTestViewModel
@@ -1242,6 +1253,10 @@ class BackTestPresenter(BasePresenter):
         self._view_model.run_result.set_comparison_snapshot(
             ReportComparisonSnapshot(run_config=run_config, result=result)
         )
+        # `BOT-107B` — whatever Monte Carlo result was on screen was
+        # computed from the PREVIOUS result's trades; the new one on
+        # screen makes it stale.
+        self._view_model.run_result.clear_monte_carlo_result()
         self._view_model.run_result.set_result_warning_text(
             build_result_warning_text(result)
         )
@@ -1313,6 +1328,7 @@ class BackTestPresenter(BasePresenter):
         self._view_model.run_result.set_stat_cards([], [])
         self._view_model.run_result.set_extended_metrics_snapshot(None)
         self._view_model.run_result.set_comparison_snapshot(None)
+        self._view_model.run_result.clear_monte_carlo_result()
         self._view_model.run_result.set_result_warning_text("")
         self._view_model.run_result.set_limitations([])
         self._view_model.run_result.set_drawdown_points([])
@@ -1333,6 +1349,7 @@ class BackTestPresenter(BasePresenter):
         self._view_model.run_result.set_stat_cards([], [])
         self._view_model.run_result.set_extended_metrics_snapshot(None)
         self._view_model.run_result.set_comparison_snapshot(None)
+        self._view_model.run_result.clear_monte_carlo_result()
         self._view_model.run_result.set_result_warning_text("")
         self._view_model.run_result.set_limitations([])
         self._view_model.run_result.set_drawdown_points([])
@@ -1625,6 +1642,52 @@ class BackTestPresenter(BasePresenter):
         self._next_preview_id += 1
         self._active_preview_id = self._next_preview_id
         return self._active_preview_id
+
+    def _claim_monte_carlo_run_id(self) -> int:
+        """Next Monte Carlo run generation id, and the one now considered
+        current — same fencing shape as `_claim_preview_id()` above, for the
+        same reason: a user can click "Run simulation" again (e.g. with a
+        different iteration count) before the previous run's background
+        thread has reported back."""
+        self._next_monte_carlo_run_id += 1
+        self._active_monte_carlo_run_id = self._next_monte_carlo_run_id
+        return self._active_monte_carlo_run_id
+
+    @Slot(int)
+    @safe_ui_action
+    def _on_run_monte_carlo_requested(self, iterations: int) -> None:
+        """`BOT-107B` — the Monte Carlo dialog's "Run simulation" button.
+        Dispatches to a background thread (`MonteCarloCoordinator`);
+        `_on_monte_carlo_completed`/`_on_monte_carlo_failed` report back
+        through the fenced run id, same as `_claim_preview_id()`'s own
+        preview generation."""
+        snapshot = self._view_model.run_result.comparison_snapshot()
+        if snapshot is None:
+            return
+        run_id = self._claim_monte_carlo_run_id()
+        self._monte_carlo.run(
+            snapshot.result.trades,
+            snapshot.result.initial_balance,
+            iterations,
+            run_id,
+        )
+
+    @Slot(int, object)
+    @safe_ui_action
+    def _on_monte_carlo_completed(
+        self, run_id: int, result: MonteCarloSimulationResult
+    ) -> None:
+        if run_id != self._active_monte_carlo_run_id:
+            self._log_dev_trace("monte_carlo_ignored", run_id=run_id)
+            return
+        self._view_model.run_result.set_monte_carlo_result(result)
+
+    @Slot(int, str)
+    @safe_ui_action
+    def _on_monte_carlo_failed(self, run_id: int, message: str) -> None:
+        if run_id != self._active_monte_carlo_run_id:
+            return
+        self._view_model.run_result.set_monte_carlo_error(message)
 
     def _is_busy_for_preview(self) -> bool:
         """A preview during a run would race the run's own chart writes."""
