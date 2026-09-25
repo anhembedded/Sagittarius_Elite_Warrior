@@ -115,6 +115,32 @@ exchange.py`: 95 passed (+9). `tests/unit/architecture`: 440 passed.
 (961 baseline + 9 new), no regressions.
 `python3 scripts/check_skill_prompt_references.py`: OK.
 
-**Delivery**: implemented and verified locally; not yet committed at the
-time this note was written — see the task board entry for the commit/push/
-PR/review trail.
+**Delivery**: committed, pushed, `PR #267` opened, independently reviewed
+(verdict PASS, full 97-Check-ID rubric disclosed) and merged to
+`master-warrior` by the user (2026-09-25).
+
+**Follow-up from independent review of `PR #267`** (1 non-blocking
+observation, not a confirmed defect): `_apply_partial_take_profits()`
+removed fully-closed positions from `self._positions` with `[p for p in
+self._positions if p not in fully_closed]` — since `OpenPosition` is a
+mutable (non-frozen) dataclass, `in` here is VALUE equality across every
+field, not identity, unlike this file's other position-list rebuilds
+(`_close()`'s `pos.side is not side`, `evaluate_liquidations()`/
+`evaluate_intrabar_stops()` appending references). The reviewer built a
+repro (two field-identical pyramided `BUY` entries, one partial-TP level)
+and confirmed both twins stayed correctly open — no reachable collision,
+because a position only enters `fully_closed` once `quantity` hits exactly
+`0.0`, and a genuinely still-open position always has `quantity > 0`, so
+the discriminating field can never coincide. Fixed anyway as a hygiene/
+consistency correction (identity via `id()`, matching the rest of the
+file) since the old code worked only by an invariant not enforced at that
+call site. No regression test was added for this one: per
+`testing-rule.md` ("do not test states an invariant already makes
+unreachable"), the collision cannot be constructed without breaking that
+same invariant, so no test could meaningfully fail under the old code —
+confirmed by re-running the existing suite unchanged and green.
+
+Re-verified after the fix: `ruff check`/`format --check` clean; mypy zero
+errors in `paper_exchange.py`; `test_paper_exchange.py` 95 passed
+(unchanged, no new test needed per the above); full `tests/unit` suite
+green (see the follow-up commit's own PR for the exact re-run).
