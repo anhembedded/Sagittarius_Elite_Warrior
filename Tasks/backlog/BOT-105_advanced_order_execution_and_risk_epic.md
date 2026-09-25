@@ -2,7 +2,7 @@
 
 **Mã Epic:** `BOT-105`  
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  
-**Trạng thái:** 🟡 **Đang làm — 4/5 cơ chế xong, chỉ còn Partial TP (`BOT-105A` §4)**  
+**Trạng thái:** ✅ **Hoàn thành (25/09) — 5/5 cơ chế xong, kể cả Partial TP (`BOT-105C`)**  
 **Ưu tiên:** ⚡ **P1 — Tính năng Cốt lõi (Core Trading Simulation)**  
 **Liên quan:** [`BOT-041`](../completed/BOT-041_stop_loss_take_profit_and_risk_sizing.md), [`BOT-049`](../completed/BOT-049_leverage_and_liquidation.md), [`BOT-050`](../completed/BOT-050_short_selling_support.md), [`BOT-076`](../completed/BOT-076_realtime_backtest_engine.md), [`BOT-104`](../completed/BOT-104_backtest_properties_and_broker_simulator_modal.md)
 
@@ -22,8 +22,9 @@ Mở rộng năng lực khớp lệnh của `PaperExchange` từ mức cơ bản
 | Task ID | Tên Nhiệm vụ | Độ phức tạp | Mô tả tóm tắt |
 | :--- | :--- | :---: | :--- |
 | ✅ **[`BOT-041`](../completed/BOT-041_stop_loss_take_profit_and_risk_sizing.md)** | **Stop Loss / Take Profit Cơ bản & Risk Sizing** | 🔴 `L` | **Xong (19/08).** SL/TP cố định theo %, theo Giá hoặc theo ATR; kiểm tra High/Low từng bar. |
-| ✅ **[`BOT-105A`](../completed/BOT-105A_trailing_stop_and_partial_tp.md)** | **Trailing Stop, Break-Even Stop & Chốt lời từng phần** | 🔴 `L` | **Break-Even (23/09) + Trailing Stop (25/09) xong** — tự động dời SL về Entry khi MFE đạt ngưỡng, và bám đỉnh/đáy giá ratchet dần khi đã kích hoạt. Partial TP (thoát 50%/50%) vẫn hoãn — xem file task §3/§4. |
+| ✅ **[`BOT-105A`](../completed/BOT-105A_trailing_stop_and_partial_tp.md)** | **Trailing Stop & Break-Even Stop** | 🔴 `L` | **Break-Even (23/09) + Trailing Stop (25/09) xong** — tự động dời SL về Entry khi MFE đạt ngưỡng, và bám đỉnh/đáy giá ratchet dần khi đã kích hoạt. Partial TP tách thành `BOT-105C` riêng — xem file task §3/§4. |
 | ✅ **[`BOT-105B`](../completed/BOT-105B_intrabar_magnifier_and_conflict_resolution.md)** | **Intra-bar Bar Magnifier & SL/TP Conflict Resolution** | 🔴 `L` | **Xong (24/09)** — pessimistic SL-first (§2.1) đã có sẵn từ `BOT-041`; phần thật sự mới là Bar Magnifier (§2.2): khi bar tĩnh chạm cả SL và TP, tra klines mịn hơn qua `IMarketDataRepository.get_klines()` để xác định thứ tự chạm thật, lazy (chỉ tra khi thật sự mơ hồ), fallback về pessimistic khi không có dữ liệu. |
+| ✅ **[`BOT-105C`](../completed/BOT-105C_partial_take_profit.md)** | **Chốt lời từng phần (Partial Take Profit / Scaling Out)** | 🟡 `M` | **Xong (25/09)** — danh sách mốc `(price_pct, close_fraction)` có thứ tự; mỗi mốc đóng đúng phần đó của khối lượng gốc, sinh `Trade` riêng gắn `ExitReason.PARTIAL_TAKE_PROFIT`, phí/margin được chia tỷ lệ đúng qua các lần đóng một phần liên tiếp. |
 | ✅ **[`BOT-049`](../completed/BOT-049_leverage_and_liquidation.md)** | **Đòn bẩy (Leverage), Ký quỹ Isolated & Giá thanh lý** | 🔴 `L` | **Xong (22/09).** Mô phỏng đòn bẩy 1x..50x, tính Liquidation Price chính xác theo chuẩn Binance Futures. |
 | ✅ **[`BOT-050`](../completed/BOT-050_short_selling_support.md)** | **Bán khống (Short Selling) & Đảo chiều Vị thế** | 🔴 `L` | **Xong (20/08).** Hỗ trợ mở vị thế SHORT, quản lý PnL khi giá giảm, và lệnh đảo chiều (Reverse). |
 

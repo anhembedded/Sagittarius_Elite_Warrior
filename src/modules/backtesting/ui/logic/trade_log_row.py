@@ -63,6 +63,7 @@ _EXIT_REASON_LABELS = EnumLabels(
         ExitReason.STOP_LOSS: "Hit Stop Loss (SL)",
         ExitReason.TAKE_PROFIT: "Hit Take Profit (TP)",
         ExitReason.LIQUIDATION: "Liquidation",
+        ExitReason.PARTIAL_TAKE_PROFIT: "Partial Take Profit (scale-out)",
     },
 )
 

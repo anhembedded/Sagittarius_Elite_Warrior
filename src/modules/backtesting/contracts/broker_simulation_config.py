@@ -1,10 +1,14 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type import (
     CommissionType,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.partial_take_profit_level import (
+    PartialTakeProfitLevel,
+)
 
 _PERCENT_UPPER_BOUND = 100.0
+_FRACTION_UPPER_BOUND = 1.0
 
 
 @dataclass(frozen=True)
@@ -52,6 +56,17 @@ class BrokerSimulationConfig:
     #: position's best price once armed. Must be set together with
     #: `trailing_activation_pct`.
     trailing_offset_pct: float | None = None
+    #: BOT-105C — ordered scale-out levels: at each level's `price_pct` %
+    #: distance from entry (same convention as `stop_loss_pct`/
+    #: `take_profit_pct`), close that level's `close_fraction` of the
+    #: ORIGINAL entry quantity, leaving the remainder open. `()` (default)
+    #: disables Partial Take Profit entirely. Mutually exclusive with
+    #: `take_profit_pct` — a single full take-profit and a scale-out ladder
+    #: both configure "how this position takes profit"; combining them is
+    #: an interaction this task was never asked to define.
+    partial_take_profit_levels: tuple[PartialTakeProfitLevel, ...] = field(
+        default_factory=tuple
+    )
 
     def __post_init__(self) -> None:
         if self.slippage_ticks < 0:
@@ -104,3 +119,26 @@ class BrokerSimulationConfig:
             raise ValueError(
                 f"trailing_offset_pct must be in (0, 100), got {self.trailing_offset_pct}"
             )
+        if self.partial_take_profit_levels:
+            if self.take_profit_pct is not None:
+                raise ValueError(
+                    "partial_take_profit_levels and take_profit_pct are mutually "
+                    "exclusive — combining a scale-out ladder with a single "
+                    "full take-profit is not a defined interaction"
+                )
+            price_pcts = [level.price_pct for level in self.partial_take_profit_levels]
+            if price_pcts != sorted(price_pcts) or len(set(price_pcts)) != len(
+                price_pcts
+            ):
+                raise ValueError(
+                    "partial_take_profit_levels must be ordered by strictly "
+                    f"increasing price_pct, got {price_pcts}"
+                )
+            total_fraction = sum(
+                level.close_fraction for level in self.partial_take_profit_levels
+            )
+            if total_fraction > _FRACTION_UPPER_BOUND:
+                raise ValueError(
+                    "partial_take_profit_levels close_fraction values must sum "
+                    f"to at most 1.0, got {total_fraction}"
+                )
