@@ -1436,3 +1436,172 @@ def test_break_even_arms_only_once_a_further_rally_does_not_move_it_again():
 def test_break_even_trigger_pct_rejects_non_positive_values():
     with pytest.raises(ValueError, match="break_even_trigger_pct"):
         BrokerSimulationConfig(break_even_trigger_pct=0.0)
+
+
+# ---------------------------------------------------------------------------
+# `BOT-105A` — trailing stop (deferred sibling of break-even, picked up
+# separately per that task's own re-scope notes)
+# ---------------------------------------------------------------------------
+
+
+def test_trailing_activation_and_offset_pct_must_be_set_together():
+    with pytest.raises(ValueError, match="trailing_activation_pct"):
+        BrokerSimulationConfig(trailing_activation_pct=2.0)
+    with pytest.raises(ValueError, match="trailing_activation_pct"):
+        BrokerSimulationConfig(trailing_offset_pct=5.0)
+
+
+def test_trailing_activation_pct_rejects_negative_values():
+    with pytest.raises(ValueError, match="trailing_activation_pct"):
+        BrokerSimulationConfig(trailing_activation_pct=-1.0, trailing_offset_pct=5.0)
+
+
+def test_trailing_offset_pct_rejects_out_of_bounds_values():
+    with pytest.raises(ValueError, match="trailing_offset_pct"):
+        BrokerSimulationConfig(trailing_activation_pct=2.0, trailing_offset_pct=0.0)
+    with pytest.raises(ValueError, match="trailing_offset_pct"):
+        BrokerSimulationConfig(trailing_activation_pct=2.0, trailing_offset_pct=100.0)
+
+
+def test_trailing_stop_is_disabled_by_default_a_deep_pullback_never_stops_out():
+    # No trailing fields configured and no `stop_loss_pct` either — every
+    # position behaves exactly as before this mechanism existed.
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1_000.0)
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trades = exchange.check_intrabar_stops(high=110.0, low=80.0, time=_T2)
+
+    assert trades == []
+    assert exchange.is_in_position is True
+
+
+def test_trailing_stop_does_not_arm_below_its_own_activation_threshold():
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, trailing_activation_pct=5.0, trailing_offset_pct=2.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    # MFE this bar is 3% (high=103), below the 5% activation threshold.
+    trades = exchange.check_intrabar_stops(high=103.0, low=99.0, time=_T2)
+
+    assert trades == []
+    pos = exchange._positions[0]
+    assert pos.trailing_armed is False
+    assert pos.stop_loss_price is None
+
+
+def test_trailing_stop_arms_ratchets_up_and_never_retreats_without_a_new_high():
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, trailing_activation_pct=2.0, trailing_offset_pct=5.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)  # qty 10
+
+    # Bar 1: MFE reaches 3% (>= 2% activation) — arms at this bar's own high.
+    first = exchange.check_intrabar_stops(high=103.0, low=101.0, time=_T2)
+    assert first == []
+    pos = exchange._positions[0]
+    assert pos.trailing_armed is True
+    assert pos.trailing_peak_price == pytest.approx(103.0)
+    assert pos.stop_loss_price == pytest.approx(103.0 * 0.95)
+
+    # Bar 2: a new high ratchets the peak and the stop up further.
+    second = exchange.check_intrabar_stops(high=110.0, low=108.0, time=_T2)
+    assert second == []
+    pos = exchange._positions[0]
+    assert pos.trailing_peak_price == pytest.approx(110.0)
+    assert pos.stop_loss_price == pytest.approx(110.0 * 0.95)
+
+    # Bar 3: pulls back without making a new high — the peak and stop must
+    # not retreat even though price has fallen well off the top.
+    third = exchange.check_intrabar_stops(high=109.0, low=107.0, time=_T2)
+    assert third == []
+    pos = exchange._positions[0]
+    assert pos.trailing_peak_price == pytest.approx(110.0)
+    assert pos.stop_loss_price == pytest.approx(110.0 * 0.95)
+
+    # Bar 4: price finally pulls back through the ratcheted stop.
+    trades = exchange.check_intrabar_stops(high=105.0, low=104.0, time=_T2)
+
+    assert len(trades) == 1
+    trade = trades[0]
+    assert trade.exit_reason is ExitReason.STOP_LOSS
+    assert trade.exit_price == pytest.approx(110.0 * 0.95)
+    assert trade.pnl == pytest.approx(45.0)  # (104.5 - 100) * 10 qty
+    assert exchange.is_in_position is False
+
+
+def test_trailing_stop_triggers_and_stops_out_within_the_same_bar():
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, trailing_activation_pct=2.0, trailing_offset_pct=5.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    # High reaches far past activation (arming at peak 110, stop 104.5) and
+    # the same bar's low reverses all the way back through that new stop —
+    # must close within one bar, not require a second bar to notice it.
+    trades = exchange.check_intrabar_stops(high=110.0, low=99.0, time=_T2)
+
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.STOP_LOSS
+    assert trades[0].exit_price == pytest.approx(110.0 * 0.95)
+
+
+def test_trailing_stop_is_direction_aware_for_a_short_position():
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0, trailing_activation_pct=2.0, trailing_offset_pct=5.0
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+
+    # A short profits as price falls: low=90 -> +10% MFE, arms at this bar's
+    # own low (90); high=93 stays below the resulting stop (94.5), so it
+    # only arms, it does not trigger yet.
+    first = exchange.check_intrabar_stops(high=93.0, low=90.0, time=_T2)
+    assert first == []
+    pos = exchange._positions[0]
+    assert pos.trailing_armed is True
+    assert pos.trailing_peak_price == pytest.approx(90.0)
+    assert pos.stop_loss_price == pytest.approx(90.0 * 1.05)
+
+    # A new, lower low ratchets the trough (and the stop) down further, and
+    # the same bar's bounce back up through it must stop it out.
+    trades = exchange.check_intrabar_stops(high=96.0, low=85.0, time=_T2)
+
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.STOP_LOSS
+    assert trades[0].exit_price == pytest.approx(85.0 * 1.05)
+    assert trades[0].pnl > 0  # price fell from 100 to the 89.25 exit
+
+
+def test_trailing_stop_only_ever_tightens_an_existing_static_stop_loss():
+    # A static SL 10% below entry (90.0) exists before trailing ever
+    # arms; once it does, the stop must move UP to the trailing level
+    # (92.92) — strictly favorable, never left at or below the static one.
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0,
+        stop_loss_pct=10.0,
+        trailing_activation_pct=1.0,
+        trailing_offset_pct=8.0,
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    pos = exchange._positions[0]
+    assert pos.stop_loss_price == pytest.approx(90.0)
+
+    exchange.check_intrabar_stops(high=101.0, low=100.5, time=_T2)
+
+    pos = exchange._positions[0]
+    assert pos.stop_loss_price == pytest.approx(101.0 * 0.92)

@@ -39,6 +39,19 @@ class BrokerSimulationConfig:
     #: disables it entirely — every position behaves exactly as it did
     #: before this field existed.
     break_even_trigger_pct: float | None = None
+    #: BOT-105A — % profit-of-margin (`OpenPosition.mfe_percent`'s own
+    #: convention, same as `break_even_trigger_pct`) at which the trailing
+    #: stop arms and starts tracking the position's best-seen price. `0.0`
+    #: arms from the very first bar after entry. Must be set together with
+    #: `trailing_offset_pct` — one without the other is not a coherent
+    #: configuration. `None` (default) disables trailing entirely.
+    trailing_activation_pct: float | None = None
+    #: BOT-105A — % distance of PRICE (not margin — compared directly
+    #: against the running peak/trough, the same unit as
+    #: `stop_loss_pct`/`take_profit_pct`) that the stop trails behind the
+    #: position's best price once armed. Must be set together with
+    #: `trailing_activation_pct`.
+    trailing_offset_pct: float | None = None
 
     def __post_init__(self) -> None:
         if self.slippage_ticks < 0:
@@ -69,4 +82,25 @@ class BrokerSimulationConfig:
             raise ValueError(
                 "break_even_trigger_pct must be positive, got "
                 f"{self.break_even_trigger_pct}"
+            )
+        if (self.trailing_activation_pct is None) != (self.trailing_offset_pct is None):
+            raise ValueError(
+                "trailing_activation_pct and trailing_offset_pct must be set "
+                "together, got trailing_activation_pct="
+                f"{self.trailing_activation_pct}, trailing_offset_pct="
+                f"{self.trailing_offset_pct}"
+            )
+        if (
+            self.trailing_activation_pct is not None
+            and self.trailing_activation_pct < 0
+        ):
+            raise ValueError(
+                "trailing_activation_pct must be non-negative, got "
+                f"{self.trailing_activation_pct}"
+            )
+        if self.trailing_offset_pct is not None and not (
+            0 < self.trailing_offset_pct < _PERCENT_UPPER_BOUND
+        ):
+            raise ValueError(
+                f"trailing_offset_pct must be in (0, 100), got {self.trailing_offset_pct}"
             )

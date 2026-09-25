@@ -458,6 +458,59 @@ class PaperExchange:
                 f"trigger {trigger_pct:.2f}% | stop moved to entry"
             )
 
+    def _apply_trailing_stops(self, high: float, low: float) -> None:
+        """
+        @brief BOT-105A — once a position's best-seen unrealized profit
+        (`pos.mfe_percent`) reaches `trailing_activation_pct`, arms its
+        trailing stop and, every bar from then on, ratchets
+        `stop_loss_price` to `trailing_offset_pct` behind the best price
+        seen since arming (`pos.trailing_peak_price`).
+        @details Unlike `_apply_break_even_stops()`'s one-time move, this
+        repeats every bar — the peak/trough only ever advances favorably
+        (`max()` for LONG, `min()` for SHORT), and the resulting stop only
+        ever replaces `stop_loss_price` with a strictly more protective
+        value, so a stop already moved further (by break-even or a prior,
+        tighter trailing update) is never loosened.
+        """
+        activation_pct = self._broker_config.trailing_activation_pct
+        offset_pct = self._broker_config.trailing_offset_pct
+        if activation_pct is None or offset_pct is None:
+            return
+        offset_fraction = offset_pct / 100.0
+        for pos in self._positions:
+            if pos.trailing_armed:
+                # Narrowed to `float` here (never `None` once armed — the
+                # arm branch below always sets it in the same call), so the
+                # `max()`/`min()` below stay `float`-typed for mypy.
+                existing_peak = pos.trailing_peak_price
+                if existing_peak is None:
+                    continue
+                peak_price = (
+                    max(existing_peak, high)
+                    if pos.side is PositionSide.LONG
+                    else min(existing_peak, low)
+                )
+            else:
+                if pos.mfe_percent < activation_pct:
+                    continue
+                pos.trailing_armed = True
+                peak_price = high if pos.side is PositionSide.LONG else low
+            pos.trailing_peak_price = peak_price
+
+            if pos.side is PositionSide.LONG:
+                candidate_stop = peak_price * (1.0 - offset_fraction)
+                if pos.stop_loss_price is None or candidate_stop > pos.stop_loss_price:
+                    pos.stop_loss_price = candidate_stop
+            else:
+                candidate_stop = peak_price * (1.0 + offset_fraction)
+                if pos.stop_loss_price is None or candidate_stop < pos.stop_loss_price:
+                    pos.stop_loss_price = candidate_stop
+            logger.debug(
+                f"[paper-exchange] Trailing stop | {pos.side.value} peak "
+                f"{peak_price:,.2f} | offset {offset_pct:.2f}% | "
+                f"stop now {pos.stop_loss_price:,.2f}"
+            )
+
     def check_intrabar_stops(
         self,
         high: float,
@@ -467,25 +520,27 @@ class PaperExchange:
     ) -> Sequence[Trade]:
         """
         @brief Widens every open position's MAE/MFE from this bar, arms
-        break-even stops (`BOT-105A`), then checks liquidation/stop-loss/
-        take-profit against the same high/low.
+        break-even stops (`BOT-105A`) then ratchets trailing stops
+        (`BOT-105A`), then checks liquidation/stop-loss/take-profit
+        against the same high/low.
         @details Liquidation is checked **first** and its trades removed from
         `self._positions` before stop-loss/take-profit ever sees them
         (`BOT-049` §2) — a real exchange liquidates before a user's own SL/TP
         order could fill, so a position that would hit both in one bar must
         close as `LIQUIDATION`, never `STOP_LOSS`/`TAKE_PROFIT`. A break-even
-        move happens from this same bar's high/low, so a bar that both
-        triggers it and reverses far enough can close as `STOP_LOSS` at
-        `entry_price` within that one bar — and `magnifier_lookup`
-        (`BOT-105B`) is passed down only after that move, so an ambiguous
-        SL+TP bar is resolved against the position's real, post-break-even
-        stop price, never a stale pre-arm one.
+        or trailing-stop move happens from this same bar's high/low, so a bar
+        that both triggers one and reverses far enough can close as
+        `STOP_LOSS` at the new stop within that one bar — and
+        `magnifier_lookup` (`BOT-105B`) is passed down only after both moves,
+        so an ambiguous SL+TP bar is resolved against the position's real,
+        post-adjustment stop price, never a stale pre-arm one.
         """
         if not self._positions:
             return []
 
         self._update_excursion_tracking(high, low)
         self._apply_break_even_stops()
+        self._apply_trailing_stops(high, low)
 
         liquidated, still_open = self._pricing.evaluate_liquidations(
             self._positions, high, low
