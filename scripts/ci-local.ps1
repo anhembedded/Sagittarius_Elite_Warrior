@@ -154,6 +154,40 @@ $scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
 $botRoot   = Split-Path -Parent $scriptDir
 $repoRoot  = Split-Path -Parent $botRoot
 
+# BUG-136 (2026-09-25): this repo's Python import scheme
+# (`from Sagittarius_Elite_Warrior.src....`, install-rule.md §2b) and the
+# test targets below both assume the checkout's own leaf directory is named
+# exactly `Sagittarius_Elite_Warrior`. A worktree given any other name --
+# including `git worktree add ../review-worktree <sha>`, the exact command
+# `pr-review/SKILL.md` §3 recommends -- broke this silently: pytest resolved
+# its hardcoded relative target against whichever OTHER sibling directory
+# happened to be named `Sagittarius_Elite_Warrior`, reporting a gate result
+# for that unrelated tree with no error at all. Checked here, once, as early
+# as possible, and surfaced through the normal $failed/$SkipLint/$SkipTests
+# mechanism below rather than a bare `exit` -- a hard exit here would print
+# nothing past this point, leaving a caller that waits specifically for the
+# `===END_CI_LOCAL_RESULT===` marker (ci-rule.md) hanging forever.
+$expectedCheckoutName = "Sagittarius_Elite_Warrior"
+$actualCheckoutName = Split-Path -Leaf $botRoot
+$checkoutNameValid = $actualCheckoutName -eq $expectedCheckoutName
+if (-not $checkoutNameValid) {
+    Write-Host ""
+    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
+    Write-Host "  ❌  Checkout directory name mismatch" -ForegroundColor Red
+    Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
+    Write-Host "  This checkout's own directory is named '$actualCheckoutName'," -ForegroundColor Yellow
+    Write-Host "  not '$expectedCheckoutName'. Lint and tests are skipped because" -ForegroundColor Yellow
+    Write-Host "  both the Python import scheme and this script's test targets" -ForegroundColor Yellow
+    Write-Host "  resolve against that exact name (install-rule.md §2b) -- running" -ForegroundColor Yellow
+    Write-Host "  them here would either silently test an unrelated sibling" -ForegroundColor Yellow
+    Write-Host "  directory (BUG-136) or fail confusingly deep inside collection." -ForegroundColor Yellow
+    Write-Host "  Fix: rename this checkout, or add a symlink, so its own" -ForegroundColor Yellow
+    Write-Host "  directory is named exactly '$expectedCheckoutName' (case-sensitive)," -ForegroundColor Yellow
+    Write-Host "  then re-run this script." -ForegroundColor Yellow
+    $SkipLint = $true
+    $SkipTests = $true
+}
+
 # ONBOARDING.md §5 / BUG-029 / BUG-030 (2026-08-21): a truncated terminal or
 # `| tail -N` view can hide a real failure ENTIRELY, not just add noise — a
 # session reported "100% green" from a run that, fully captured, actually
@@ -243,6 +277,7 @@ if ($venvActivateWin) {
 }
 
 $failed = @()
+if (-not $checkoutNameValid) { $failed += "Checkout Name" }
 
 # The repo directory's own name now matches the Python package name
 # (Sagittarius_Elite_Warrior), so $repoRoot alone on PYTHONPATH already

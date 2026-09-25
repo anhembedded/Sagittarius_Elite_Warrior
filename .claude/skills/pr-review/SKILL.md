@@ -31,11 +31,21 @@ Load `CLAUDE.md`, `.claude/CONSTITUTION.md`, `.claude/ONBOARDING.md` §7, and `.
 
 Read the entire diff and surrounding production code. Execute verification in an isolated environment; never mutate or switch the active working tree. To run gate verification safely without mutating the working tree:
 ```bash
-git worktree add ../review-worktree <COMMIT_SHA>
+# Named to match this repository exactly, inside a fresh temp parent
+# (BUG-136 / CS-006, same fix `scripts/verify_against_base.py` already
+# applies): the import scheme (`Sagittarius_Elite_Warrior.src....`) and
+# `ci-local.ps1`'s own test targets both resolve against the checkout's
+# literal directory name. `git worktree add ../review-worktree <sha>` gives
+# the worktree the WRONG name, and can then silently resolve tests against
+# an unrelated sibling directory that happens to be named
+# `Sagittarius_Elite_Warrior` instead of erroring — never use that form.
+REVIEW_TMP="$(mktemp -d)"
+git worktree add "$REVIEW_TMP/Sagittarius_Elite_Warrior" <COMMIT_SHA>
+cd "$REVIEW_TMP/Sagittarius_Elite_Warrior"
 # Run gate inside worktree using repo venv:
-cd ../review-worktree && PYTHONPATH=. .venv/bin/pytest <TARGET_TESTS>
+PYTHONPATH="$REVIEW_TMP" .venv/bin/pytest <TARGET_TESTS>
 # Clean up when done:
-cd - && git worktree remove ../review-worktree
+cd - && git worktree remove "$REVIEW_TMP/Sagittarius_Elite_Warrior" && rm -rf "$REVIEW_TMP"
 ```
 
 ## 3. Rule Scope Routing
