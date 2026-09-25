@@ -483,7 +483,16 @@ class PaperExchange:
                     fully_closed.append(pos)
                     break
         if fully_closed:
-            self._positions = [p for p in self._positions if p not in fully_closed]
+            # Identity, not `OpenPosition`'s (value) `__eq__` — this file's
+            # other position-list rebuilds (`_close()`'s `pos.side is not
+            # side`, `evaluate_liquidations()`/`evaluate_intrabar_stops()`
+            # appending references) are all identity-based; `in` here would
+            # silently drop an unrelated, still-open, field-identical twin
+            # (e.g. two pyramided entries opened at the same price/time).
+            fully_closed_ids = {id(p) for p in fully_closed}
+            self._positions = [
+                p for p in self._positions if id(p) not in fully_closed_ids
+            ]
         return trades
 
     def _close(

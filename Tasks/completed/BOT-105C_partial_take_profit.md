@@ -115,6 +115,57 @@ exchange.py`: 95 passed (+9). `tests/unit/architecture`: 440 passed.
 (961 baseline + 9 new), no regressions.
 `python3 scripts/check_skill_prompt_references.py`: OK.
 
-**Delivery**: implemented and verified locally; not yet committed at the
-time this note was written — see the task board entry for the commit/push/
-PR/review trail.
+**Delivery**: committed, pushed, `PR #267` opened, independently reviewed
+(verdict PASS, full 97-Check-ID rubric disclosed) and merged to
+`master-warrior` by the user (2026-09-25).
+
+**Follow-up from independent review of `PR #267`** (1 non-blocking
+observation, not a confirmed defect): `_apply_partial_take_profits()`
+removed fully-closed positions from `self._positions` with `[p for p in
+self._positions if p not in fully_closed]` — since `OpenPosition` is a
+mutable (non-frozen) dataclass, `in` here is VALUE equality across every
+field, not identity, unlike this file's other position-list rebuilds
+(`_close()`'s `pos.side is not side`, `evaluate_liquidations()`/
+`evaluate_intrabar_stops()` appending references). The reviewer built a
+repro (two field-identical pyramided `BUY` entries, one partial-TP level)
+and confirmed both twins stayed correctly open — no reachable collision,
+because a position only enters `fully_closed` once `quantity` hits exactly
+`0.0`, and a genuinely still-open position always has `quantity > 0`, so
+the discriminating field can never coincide. Fixed anyway as a hygiene/
+consistency correction (identity via `id()`, matching the rest of the
+file) since the old code worked only by an invariant not enforced at that
+call site. No regression test was added for this one: per
+`testing-rule.md` ("do not test states an invariant already makes
+unreachable"), the collision cannot be constructed without breaking that
+same invariant, so no test could meaningfully fail under the old code —
+confirmed by re-running the existing suite unchanged and green.
+
+Re-verified after the fix: `ruff check`/`format --check` clean; mypy zero
+errors in `paper_exchange.py`; `test_paper_exchange.py` 95 passed
+(unchanged, no new test needed per the above); full `tests/unit` suite
+green. Delivered as `PR #268`, independently reviewed (verdict PASS).
+
+**Follow-up from independent review of `PR #268`** (1 non-blocking
+systemic suggestion, explicitly framed by the reviewer as "a question for
+the team" rather than a required fix): the reviewer noted the identity-vs-
+equality footgun this PR patched at one call site exists on `OpenPosition`
+itself — as a plain mutable `@dataclass` (default `eq=True`), *any* future
+consumer (a `set`, a dict key, another list filter, a test assertion)
+inherits the same risk, not just `_apply_partial_take_profits()`. Grepped
+`src/` and `tests/` for anywhere an `OpenPosition` is compared for value
+equality against a separately-constructed instance (as opposed to a field
+read like `pos.mae_percent == ...`, or comparing a returned reference back
+against its own source variable) — found none. Applied `@dataclass(eq=False)`
+on `OpenPosition` itself (`open_position.py`): falls back to identity
+(`object.__eq__`/`__hash__`), closing the whole class at the type level
+(`code/errors.md` §8) rather than relying on every future call site to
+remember `id()`. This one *is* a real, testable behavior change (before:
+two field-identical positions compared equal; after: they don't unless the
+same object) — new `tests/unit/modules/backtesting/domain/
+test_open_position.py` (+2) proves it directly, rather than relying on the
+`testing-rule.md` "unreachable invariant" exemption the sibling `id()` fix
+used.
+
+Re-verified: `ruff`/mypy clean; `tests/unit/modules/backtesting/domain`:
+149 passed (+2 new); full `tests/unit/modules/backtesting` +
+`tests/unit/architecture` green.
