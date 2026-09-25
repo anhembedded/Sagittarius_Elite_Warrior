@@ -34,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.margin_ri
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.order_matching_policy import (
     OrderMatchingPolicy,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.stop_management_policy import (
+    StopManagementPolicy,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
     ISizingPolicy,
 )
@@ -68,9 +71,12 @@ class PaperExchange:
     holds this run's configuration together with the four policies that do the
     arithmetic; a position is an `OpenPosition` (`open_position.py`). PR 3.1c-2
     split the three apart and `fill_pricing.py`'s docstring carries the
-    argument. The constructor's four policy parameters pass straight through and
-    are unchanged: fifty-five inline call sites in this class's own test file
-    construct it (`ONBOARDING` §8 trap 5).
+    argument. The constructor's four `FillPricing` policy parameters pass
+    straight through unchanged: fifty-five inline call sites in this class's
+    own test file construct it (`ONBOARDING` §8 trap 5). `StopManagementPolicy`
+    (`stop_management_policy.py`) is a fifth, separate policy — not part of the
+    `FillPricing` bundle, since it adjusts a position's risk state before a
+    fill is ever considered, rather than computing one.
     """
 
     def __init__(
@@ -84,6 +90,7 @@ class PaperExchange:
         sizing_policy: ISizingPolicy | None = None,
         matching_policy: OrderMatchingPolicy | None = None,
         fee_policy: FeeCalculatorPolicy | None = None,
+        stop_management_policy: StopManagementPolicy | None = None,
     ) -> None:
         if initial_balance <= 0:
             raise ValueError(f"initial_balance must be positive, got {initial_balance}")
@@ -123,6 +130,10 @@ class PaperExchange:
 
         self._positions: list[OpenPosition] = []
         self._trades: list[Trade] = []
+        #: Not part of the `FillPricing` bundle above — those four compute a
+        #: fill's price/quantity; this one adjusts a position's risk state
+        #: (MAE/MFE, break-even, trailing) BEFORE a fill is ever considered.
+        self._stop_management = stop_management_policy or StopManagementPolicy()
 
         logger.info(
             f"[paper-exchange] Initialized for {symbol} | Initial Capital: {initial_balance:,.2f} | "
@@ -388,129 +399,6 @@ class PaperExchange:
         )
         return closed_trades
 
-    def _update_excursion_tracking(self, high: float, low: float) -> None:
-        """
-        @brief BOT-106B — widens every open position's MAE/MFE from this
-        bar's high/low, before any close this same bar removes it from
-        `self._positions` — a position's final bar still counts.
-        """
-        for pos in self._positions:
-            if pos.balance_before_entry <= 0:
-                continue
-            worst_price, best_price = (
-                (low, high) if pos.side is PositionSide.LONG else (high, low)
-            )
-            worst_value = self._pricing.mark_to_market(
-                pos.side,
-                pos.leverage,
-                pos.quantity,
-                pos.entry_price,
-                pos.balance_before_entry,
-                worst_price,
-            )
-            best_value = self._pricing.mark_to_market(
-                pos.side,
-                pos.leverage,
-                pos.quantity,
-                pos.entry_price,
-                pos.balance_before_entry,
-                best_price,
-            )
-            worst_pnl_percent = (
-                (worst_value - pos.balance_before_entry)
-                / pos.balance_before_entry
-                * 100
-            )
-            best_pnl_percent = (
-                (best_value - pos.balance_before_entry) / pos.balance_before_entry * 100
-            )
-            pos.mae_percent = min(pos.mae_percent, worst_pnl_percent)
-            pos.mfe_percent = max(pos.mfe_percent, best_pnl_percent)
-
-    def _apply_break_even_stops(self) -> None:
-        """
-        @brief BOT-105A — once a position's best-seen unrealized profit
-        (`pos.mfe_percent`, already widened for this bar by
-        `_update_excursion_tracking()`) reaches
-        `break_even_trigger_pct`, moves `stop_loss_price` to `entry_price`
-        exactly once.
-        @details Ignores fees (moves to the raw `entry_price`, not
-        `entry_price` adjusted for `entry_fee`) — the proposal names both
-        as acceptable; the raw price is the simpler, unambiguous choice
-        and is what "break-even" means without a fee-aware reading. Always
-        a favorable move: a not-yet-triggered `stop_loss_price` sits on
-        the losing side of `entry_price` by construction, or is `None`
-        (no static stop configured for this run) — either way this only
-        ever tightens protection, so it never needs to compare against
-        the position's current stop the way a trailing stop would.
-        """
-        trigger_pct = self._broker_config.break_even_trigger_pct
-        if trigger_pct is None:
-            return
-        for pos in self._positions:
-            if pos.break_even_armed or pos.mfe_percent < trigger_pct:
-                continue
-            pos.stop_loss_price = pos.entry_price
-            pos.break_even_armed = True
-            logger.debug(
-                f"[paper-exchange] Break-even armed | {pos.side.value} entry "
-                f"{pos.entry_price:,.2f} | MFE {pos.mfe_percent:.2f}% >= "
-                f"trigger {trigger_pct:.2f}% | stop moved to entry"
-            )
-
-    def _apply_trailing_stops(self, high: float, low: float) -> None:
-        """
-        @brief BOT-105A — once a position's best-seen unrealized profit
-        (`pos.mfe_percent`) reaches `trailing_activation_pct`, arms its
-        trailing stop and, every bar from then on, ratchets
-        `stop_loss_price` to `trailing_offset_pct` behind the best price
-        seen since arming (`pos.trailing_peak_price`).
-        @details Unlike `_apply_break_even_stops()`'s one-time move, this
-        repeats every bar — the peak/trough only ever advances favorably
-        (`max()` for LONG, `min()` for SHORT), and the resulting stop only
-        ever replaces `stop_loss_price` with a strictly more protective
-        value, so a stop already moved further (by break-even or a prior,
-        tighter trailing update) is never loosened.
-        """
-        activation_pct = self._broker_config.trailing_activation_pct
-        offset_pct = self._broker_config.trailing_offset_pct
-        if activation_pct is None or offset_pct is None:
-            return
-        offset_fraction = offset_pct / 100.0
-        for pos in self._positions:
-            if pos.trailing_armed:
-                # Narrowed to `float` here (never `None` once armed — the
-                # arm branch below always sets it in the same call), so the
-                # `max()`/`min()` below stay `float`-typed for mypy.
-                existing_peak = pos.trailing_peak_price
-                if existing_peak is None:
-                    continue
-                peak_price = (
-                    max(existing_peak, high)
-                    if pos.side is PositionSide.LONG
-                    else min(existing_peak, low)
-                )
-            else:
-                if pos.mfe_percent < activation_pct:
-                    continue
-                pos.trailing_armed = True
-                peak_price = high if pos.side is PositionSide.LONG else low
-            pos.trailing_peak_price = peak_price
-
-            if pos.side is PositionSide.LONG:
-                candidate_stop = peak_price * (1.0 - offset_fraction)
-                if pos.stop_loss_price is None or candidate_stop > pos.stop_loss_price:
-                    pos.stop_loss_price = candidate_stop
-            else:
-                candidate_stop = peak_price * (1.0 + offset_fraction)
-                if pos.stop_loss_price is None or candidate_stop < pos.stop_loss_price:
-                    pos.stop_loss_price = candidate_stop
-            logger.debug(
-                f"[paper-exchange] Trailing stop | {pos.side.value} peak "
-                f"{peak_price:,.2f} | offset {offset_pct:.2f}% | "
-                f"stop now {pos.stop_loss_price:,.2f}"
-            )
-
     def check_intrabar_stops(
         self,
         high: float,
@@ -538,9 +426,19 @@ class PaperExchange:
         if not self._positions:
             return []
 
-        self._update_excursion_tracking(high, low)
-        self._apply_break_even_stops()
-        self._apply_trailing_stops(high, low)
+        self._stop_management.update_excursion_tracking(
+            self._positions, self._pricing, high, low
+        )
+        self._stop_management.apply_break_even_stops(
+            self._positions, self._broker_config.break_even_trigger_pct
+        )
+        self._stop_management.apply_trailing_stops(
+            self._positions,
+            self._broker_config.trailing_activation_pct,
+            self._broker_config.trailing_offset_pct,
+            high,
+            low,
+        )
 
         liquidated, still_open = self._pricing.evaluate_liquidations(
             self._positions, high, low
