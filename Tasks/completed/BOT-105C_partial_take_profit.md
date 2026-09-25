@@ -143,4 +143,29 @@ confirmed by re-running the existing suite unchanged and green.
 Re-verified after the fix: `ruff check`/`format --check` clean; mypy zero
 errors in `paper_exchange.py`; `test_paper_exchange.py` 95 passed
 (unchanged, no new test needed per the above); full `tests/unit` suite
-green (see the follow-up commit's own PR for the exact re-run).
+green. Delivered as `PR #268`, independently reviewed (verdict PASS).
+
+**Follow-up from independent review of `PR #268`** (1 non-blocking
+systemic suggestion, explicitly framed by the reviewer as "a question for
+the team" rather than a required fix): the reviewer noted the identity-vs-
+equality footgun this PR patched at one call site exists on `OpenPosition`
+itself — as a plain mutable `@dataclass` (default `eq=True`), *any* future
+consumer (a `set`, a dict key, another list filter, a test assertion)
+inherits the same risk, not just `_apply_partial_take_profits()`. Grepped
+`src/` and `tests/` for anywhere an `OpenPosition` is compared for value
+equality against a separately-constructed instance (as opposed to a field
+read like `pos.mae_percent == ...`, or comparing a returned reference back
+against its own source variable) — found none. Applied `@dataclass(eq=False)`
+on `OpenPosition` itself (`open_position.py`): falls back to identity
+(`object.__eq__`/`__hash__`), closing the whole class at the type level
+(`code/errors.md` §8) rather than relying on every future call site to
+remember `id()`. This one *is* a real, testable behavior change (before:
+two field-identical positions compared equal; after: they don't unless the
+same object) — new `tests/unit/modules/backtesting/domain/
+test_open_position.py` (+2) proves it directly, rather than relying on the
+`testing-rule.md` "unreachable invariant" exemption the sibling `id()` fix
+used.
+
+Re-verified: `ruff`/mypy clean; `tests/unit/modules/backtesting/domain`:
+149 passed (+2 new); full `tests/unit/modules/backtesting` +
+`tests/unit/architecture` green.

@@ -36,8 +36,22 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side impor
 )
 
 
-@dataclass
+@dataclass(eq=False)
 class OpenPosition(IStoppablePosition):
+    """`eq=False` (2026-09-25, `PR #268` follow-up to `BOT-105C`): a mutable
+    dataclass's default `__eq__` compares every field, so two positions that
+    happen to be field-identical (two pyramided entries at the same price/
+    time/size) would compare equal despite being distinct positions — the
+    exact footgun `PaperExchange._apply_partial_take_profits()`'s `in`-based
+    filter was patched to avoid at one call site. Falling back to identity
+    (`object.__eq__`/`__hash__`) closes the whole class of bug at the type
+    level (`code/errors.md` §8 — make invalid states hard to represent)
+    instead of relying on every future consumer to remember `id()`. No test
+    in this codebase compares two separately-constructed `OpenPosition`
+    instances for equality (verified by grep before this change), so this
+    is a pure strengthening, not a behavior change on any real path.
+    """
+
     quantity: float
     entry_price: float
     entry_time: datetime
