@@ -177,6 +177,10 @@ class BackTestViewModel(BaseQmlViewModel):
     openCompareReportsRequested = Signal()
     #: `BOT-107A` — the "In-Sample vs Out-of-Sample" modal.
     openOutOfSampleComparisonRequested = Signal()
+    #: `BOT-107B` — the Monte Carlo simulation modal, and its own "Run
+    #: simulation" button once open (carries the chosen iteration count).
+    openMonteCarloRequested = Signal()
+    runMonteCarloRequested = Signal(int)
     openCapitalRequested = Signal(float, float)
     openIndicatorPickerRequested = Signal(float, float)
     openOrderExecutionRequested = Signal(float, float)
@@ -643,6 +647,16 @@ class BackTestViewModel(BaseQmlViewModel):
         """Called from the top panel's "In-Sample vs Out-of-Sample" button
         (`BOT-107A`)."""
         self.openOutOfSampleComparisonRequested.emit()
+
+    @Slot()
+    def requestOpenMonteCarlo(self) -> None:
+        """Called from the top panel's "Monte Carlo" button (`BOT-107B`)."""
+        self.openMonteCarloRequested.emit()
+
+    @Slot(int)
+    def requestRunMonteCarlo(self, iterations: int) -> None:
+        """Called from `MonteCarloDialog`'s own "Run simulation" button."""
+        self.runMonteCarloRequested.emit(iterations)
 
     @Slot(float, float)
     def requestOpenCapital(self, x: float, y: float) -> None:

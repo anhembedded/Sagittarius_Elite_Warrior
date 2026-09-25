@@ -19,6 +19,7 @@ from .capital_dialog import CapitalDialogWidget
 from .indicator_picker_dialog import IndicatorPickerDialog
 from .limitations_dialog import LimitationsDialog
 from .metrics_detail_dialog import MetricsDetailDialogWidget
+from .monte_carlo_dialog import MonteCarloDialog
 from .order_execution_dialog import OrderExecutionDialog
 from .out_of_sample_comparison_dialog import OutOfSampleComparisonDialog
 from .report_comparison_dialog import ReportComparisonDialog
@@ -33,7 +34,7 @@ if TYPE_CHECKING:
 
 
 class BackTestModalsHost:
-    """Owns all 13 modal `QDialog`s, built lazily on first open (matching
+    """Owns all 14 modal `QDialog`s, built lazily on first open (matching
     every other lazy-modal precedent in this app —
     `DataManagementView._kline_inspector`, EPIC-005E2/E3), and wires
     `BackTestViewModel`'s `openXRequested` signals to them. Replaces both
@@ -51,6 +52,7 @@ class BackTestModalsHost:
         self._order_execution: OrderExecutionDialog | None = None
         self._report_comparison: ReportComparisonDialog | None = None
         self._out_of_sample_comparison: OutOfSampleComparisonDialog | None = None
+        self._monte_carlo: MonteCarloDialog | None = None
         self._strategy_picker: StrategyPickerDialog | None = None
         self._timeframe_picker: TimeframePickerDialog | None = None
         # EPIC-015 bậc 1: private, non-persisted — this picker is its own
@@ -79,6 +81,7 @@ class BackTestModalsHost:
         view_model.openOutOfSampleComparisonRequested.connect(
             self._open_out_of_sample_comparison
         )
+        view_model.openMonteCarloRequested.connect(self._open_monte_carlo)
         view_model.openStrategyPickerRequested.connect(self._open_strategy_picker)
         view_model.openTimeframePickerRequested.connect(self._open_timeframe_picker)
         view_model.openSymbolPickerRequested.connect(self._open_symbol_picker)
@@ -125,6 +128,11 @@ class BackTestModalsHost:
                 self._vm, self._parent
             )
         self._out_of_sample_comparison.open_dialog()
+
+    def _open_monte_carlo(self) -> None:
+        if self._monte_carlo is None:
+            self._monte_carlo = MonteCarloDialog(self._vm, self._parent)
+        self._monte_carlo.open_dialog()
 
     def _open_strategy_picker(self) -> None:
         if self._strategy_picker is None:

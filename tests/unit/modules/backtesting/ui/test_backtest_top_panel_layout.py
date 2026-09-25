@@ -224,6 +224,32 @@ def test_top_panel_out_of_sample_comparison_button_emits_the_request_signal(
     panel.deleteLater()
 
 
+def test_top_panel_monte_carlo_button_emits_the_request_signal(
+    qapp: QApplication,
+) -> None:
+    """`BOT-107B` — same "always available" reasoning as its siblings: the
+    dialog itself shows "run a backtest first"/"too few trades" until a
+    real, reshufflable result exists."""
+    _ensure_theme_bridge(qapp)
+    vm = BackTestViewModel()
+    panel = BackTestTopPanel(vm)
+    panel.resize(1200, 350)
+    panel.show()
+    qapp.processEvents()
+
+    assert panel._btn_monte_carlo.isEnabled()
+
+    mock_open = MagicMock()
+    vm.openMonteCarloRequested.connect(mock_open)
+
+    panel._btn_monte_carlo.click()
+
+    mock_open.assert_called_once()
+
+    panel.close()
+    panel.deleteLater()
+
+
 def test_top_panel_imported_report_banner_shows_only_while_viewing(
     qapp: QApplication,
 ) -> None:

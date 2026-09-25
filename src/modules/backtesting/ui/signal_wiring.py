@@ -132,6 +132,11 @@ def connect_ui_signals(presenter) -> None:
     presenter._uiLogSignal.connect(presenter._on_ui_log)
     presenter._symbolOptionsReadySignal.connect(presenter._on_symbol_options_ready)
     presenter._symbolOptionsFailedSignal.connect(presenter._on_symbol_options_failed)
+    presenter._view_model.runMonteCarloRequested.connect(
+        presenter._on_run_monte_carlo_requested
+    )
+    presenter._monteCarloCompletedSignal.connect(presenter._on_monte_carlo_completed)
+    presenter._monteCarloFailedSignal.connect(presenter._on_monte_carlo_failed)
     presenter._view_model.trade_log.queryChanged.connect(
         presenter._on_trade_log_query_changed
     )

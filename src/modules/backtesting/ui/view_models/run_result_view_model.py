@@ -36,6 +36,9 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Property, QObject, Signal, Slot
 
 if TYPE_CHECKING:
+    from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.monte_carlo_simulation import (
+        MonteCarloSimulationResult,
+    )
     from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.extended_metrics_snapshot import (
         ExtendedMetricsSnapshot,
     )
@@ -55,6 +58,10 @@ class RunResultViewModel(QObject):
     needsDataSyncChanged = Signal()
     drawdownPointsChanged = Signal()
     yearlyReturnsChanged = Signal()
+    #: `BOT-107B` — a Monte Carlo run completes on its own schedule (a
+    #: dialog button click, not a backtest finishing), so it needs its own
+    #: notify signal rather than riding `statCardsChanged`.
+    monteCarloResultChanged = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -83,6 +90,13 @@ class RunResultViewModel(QObject):
         #: `_primary_stat_cards` above.
         self._drawdown_points: list[dict[str, float]] = []
         self._yearly_returns: list[dict[str, object]] = []
+        #: `BOT-107B` — same "plain Python accessor, not a QML `Property`"
+        #: reasoning as `_comparison_snapshot`: only the Monte Carlo
+        #: dialog's composition root reads it. `_monte_carlo_error` is the
+        #: sibling "why not" text, mutually exclusive with a result — a
+        #: fresh run clears whichever one is stale.
+        self._monte_carlo_result: MonteCarloSimulationResult | None = None
+        self._monte_carlo_error = ""
 
     # ------------------------------------------------------------------ #
     # Result line
@@ -276,3 +290,47 @@ class RunResultViewModel(QObject):
         `build_yearly_returns_rows()` output."""
         self._yearly_returns = rows
         self.yearlyReturnsChanged.emit()
+
+    # ------------------------------------------------------------------ #
+    # Monte Carlo simulation (BOT-107B)
+    # ------------------------------------------------------------------ #
+
+    def monte_carlo_result(self) -> MonteCarloSimulationResult | None:
+        """Plain Python accessor (no `Property`), same shape as
+        `comparison_snapshot()` — only `MonteCarloDialog`'s composition
+        root reads it."""
+        return self._monte_carlo_result
+
+    def monte_carlo_error(self) -> str:
+        """Empty string means "no error" — either no run has failed yet,
+        or a later successful run cleared it."""
+        return self._monte_carlo_error
+
+    @Slot(object)
+    def set_monte_carlo_result(self, result: MonteCarloSimulationResult) -> None:
+        """Set by `BackTestPresenter._on_monte_carlo_completed()`.
+        `@Slot(object)` for the same `unprotected_mutators()` reason
+        `set_comparison_snapshot()` documents."""
+        self._monte_carlo_result = result
+        self._monte_carlo_error = ""
+        self.monteCarloResultChanged.emit()
+
+    @Slot(str)
+    def set_monte_carlo_error(self, message: str) -> None:
+        """Set by `BackTestPresenter._on_monte_carlo_failed()` — leaves
+        `monte_carlo_result()` at whatever it last was (a failed re-run
+        does not erase a still-valid earlier one), but the dialog shows
+        `message` alongside it."""
+        self._monte_carlo_error = message
+        self.monteCarloResultChanged.emit()
+
+    @Slot()
+    def clear_monte_carlo_result(self) -> None:
+        """Called by the Presenter alongside `set_comparison_snapshot(None)`
+        whenever the run it was computed from stops being "the current
+        result" (a new run starts, or the current one comes back empty or
+        failed) — a Monte Carlo result tied to a superseded run is no
+        longer meaningful."""
+        self._monte_carlo_result = None
+        self._monte_carlo_error = ""
+        self.monteCarloResultChanged.emit()

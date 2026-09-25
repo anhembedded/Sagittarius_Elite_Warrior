@@ -20,6 +20,7 @@ from .data_sync_coordinator import DataSyncCoordinator
 from .execution_coordinator import ExecutionCoordinator
 from .factory import Coordinators, build_coordinators
 from .indicator_coordinator import IndicatorCoordinator
+from .monte_carlo_coordinator import MonteCarloCoordinator
 from .strategy_config_coordinator import StrategyConfigCoordinator
 from .trade_log_coordinator import TradeLogCoordinator
 
@@ -31,6 +32,7 @@ __all__ = [
     "DataSyncCoordinator",
     "ExecutionCoordinator",
     "IndicatorCoordinator",
+    "MonteCarloCoordinator",
     "StrategyConfigCoordinator",
     "TradeLogCoordinator",
     "build_coordinators",
