@@ -44,6 +44,7 @@ and made public to its one caller.
 from __future__ import annotations
 
 from collections.abc import Callable, Sequence
+from typing import cast
 
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import PositionSizing
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.broker_simulation_config import (
@@ -129,6 +130,34 @@ class FillPricing:
     ) -> float | None:
         return self._matching_policy.calculate_take_profit_price(
             side, effective_price, self._broker_config.take_profit_pct
+        )
+
+    def partial_take_profit_prices(
+        self, side: PositionSide, effective_price: float
+    ) -> tuple[float, ...]:
+        """BOT-105C — one absolute price per configured scale-out level, in
+        the same order as `broker_config.partial_take_profit_levels`. Each
+        reuses `calculate_take_profit_price()` with that level's own
+        `price_pct` rather than the config's single `take_profit_pct` —
+        the two fields are mutually exclusive by construction
+        (`BrokerSimulationConfig.__post_init__`), so this never doubles up
+        with `take_profit_price()`."""
+        # `level.price_pct: float` (never `None`, `PartialTakeProfitLevel.
+        # __post_init__` requires it positive) is passed as a `float | None`
+        # here only because `calculate_take_profit_price()`'s single
+        # parameter is shared with `take_profit_price()`'s optional
+        # `take_profit_pct` — the `None` branch of its return is
+        # unreachable from this call site, so `cast` documents that instead
+        # of a runtime `assert` (`ruff` `S101`) checking something that
+        # cannot fail.
+        return tuple(
+            cast(
+                float,
+                self._matching_policy.calculate_take_profit_price(
+                    side, effective_price, level.price_pct
+                ),
+            )
+            for level in self._broker_config.partial_take_profit_levels
         )
 
     def evaluate_intrabar_stops[TPosition: IStoppablePosition](

@@ -78,3 +78,20 @@ class OpenPosition(IStoppablePosition):
     #: so ratcheting `stop_loss_price` needs no leverage/margin inversion —
     #: `None` until armed.
     trailing_peak_price: float | None = None
+    #: BOT-105C — absolute price of each configured scale-out level,
+    #: precomputed once at entry from `BrokerSimulationConfig.
+    #: partial_take_profit_levels`, same convention as `take_profit_price`.
+    #: `()` when Partial Take Profit is not configured for this run.
+    partial_take_profit_prices: tuple[float, ...] = field(default_factory=tuple)
+    #: BOT-105C — absolute quantity to close at each level, fixed at entry
+    #: time as `close_fraction * (this position's ORIGINAL quantity)` —
+    #: fixed rather than recomputed from the (shrinking) remaining
+    #: `quantity` so "total closed + remaining == original" holds without a
+    #: separately tracked original-quantity field.
+    partial_take_profit_close_quantities: tuple[float, ...] = field(
+        default_factory=tuple
+    )
+    #: BOT-105C — index into both tuples above of the next level still
+    #: pending; levels fire in order and a level already hit is never
+    #: re-evaluated.
+    partial_tp_next_level_index: int = 0

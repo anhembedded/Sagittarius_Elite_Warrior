@@ -271,6 +271,13 @@ class PaperExchange:
         liquidation_price = self._pricing.liquidation_price(
             side, leverage, effective_price
         )
+        partial_tp_prices = self._pricing.partial_take_profit_prices(
+            side, effective_price
+        )
+        partial_tp_close_quantities = tuple(
+            quantity * level.close_fraction
+            for level in self._broker_config.partial_take_profit_levels
+        )
 
         self._balance -= capital_deployed
         position = OpenPosition(
@@ -286,6 +293,8 @@ class PaperExchange:
             side=side,
             leverage=leverage,
             liquidation_price=liquidation_price,
+            partial_take_profit_prices=partial_tp_prices,
+            partial_take_profit_close_quantities=partial_tp_close_quantities,
         )
         self._positions.append(position)
         slippage_delta = self._pricing.slippage_delta()
@@ -362,6 +371,121 @@ class PaperExchange:
         )
         return trade
 
+    def _close_partial_position(
+        self,
+        pos: OpenPosition,
+        exit_price: float,
+        time: datetime,
+        close_qty: float,
+    ) -> Trade:
+        """
+        @brief BOT-105C — closes exactly `close_qty` of `pos` (a scale-out
+        level's fixed absolute quantity, already clamped to at most what
+        remains), realizes its prorated PnL, and shrinks `pos` in place
+        rather than removing it.
+        @details `fraction` is computed against `pos.quantity` as it stands
+        RIGHT NOW — the remaining quantity after any earlier partial exit —
+        so `entry_fee`/`balance_before_entry` are prorated against what
+        actually remains, not the original position. `pos.quantity`,
+        `pos.entry_fee` and `pos.balance_before_entry` are then all reduced
+        by that same fraction, keeping the three mutually consistent for
+        whatever exit (partial or, on the final level, full) prorates
+        against them next — the same generic contract a full close already
+        uses via `_close_one_position()`, just with `fraction < 1.0`.
+        """
+        fraction = close_qty / pos.quantity
+        prorated_balance = pos.balance_before_entry * fraction
+        prorated_entry_fee = pos.entry_fee * fraction
+        exit_fee = self._pricing.exit_fee(close_qty, exit_price)
+
+        pnl, pnl_percent, balance_release = self._pricing.realized_pnl(
+            pos.side,
+            pos.leverage,
+            close_qty,
+            pos.entry_price,
+            exit_price,
+            prorated_balance,
+            prorated_entry_fee,
+            exit_fee,
+        )
+        self._balance += balance_release
+
+        trade = Trade(
+            symbol=self._symbol,
+            entry_time=pos.entry_time,
+            entry_price=pos.entry_price,
+            exit_time=time,
+            exit_price=exit_price,
+            quantity=close_qty,
+            pnl=pnl,
+            pnl_percent=pnl_percent,
+            fees_paid=prorated_entry_fee + exit_fee,
+            entry_reason=pos.entry_reason,
+            exit_reason=ExitReason.PARTIAL_TAKE_PROFIT,
+            metadata=pos.entry_metadata,
+            side=pos.side,
+            leverage=pos.leverage,
+            mae_percent=pos.mae_percent,
+            mfe_percent=pos.mfe_percent,
+        )
+        self._trades.append(trade)
+
+        pos.quantity -= close_qty
+        pos.balance_before_entry -= prorated_balance
+        pos.entry_fee -= prorated_entry_fee
+
+        logger.debug(
+            f"[paper-exchange] Partial take-profit filled | {pos.side.value} "
+            f"Price: {exit_price:,.2f} | Qty: {close_qty:.6f} | "
+            f"PnL: {pnl:+,.2f} ({pnl_percent:+.2f}%) | "
+            f"Remaining: {pos.quantity:.6f}"
+        )
+        return trade
+
+    def _apply_partial_take_profits(
+        self, high: float, low: float, time: datetime
+    ) -> Sequence[Trade]:
+        """
+        @brief BOT-105C — checks every still-open position's next pending
+        scale-out level against this bar's high/low, in order, closing
+        each level hit and advancing past it.
+        @details Called LAST in `check_intrabar_stops()`, after liquidation
+        and stop-loss/take-profit have already removed their own closes
+        from `self._positions` — a position that fully closed this bar
+        through one of those never also produces a partial-TP trade the
+        same bar, the same pessimistic-first convention `BOT-041`/
+        `BOT-105B` already apply to an ambiguous SL/TP bar, extended here
+        rather than inventing a new tie-break for a same-bar overlap.
+        """
+        if not self._positions:
+            return []
+        trades: list[Trade] = []
+        fully_closed: list[OpenPosition] = []
+        for pos in self._positions:
+            while pos.partial_tp_next_level_index < len(pos.partial_take_profit_prices):
+                idx = pos.partial_tp_next_level_index
+                level_price = pos.partial_take_profit_prices[idx]
+                hit = (
+                    high >= level_price
+                    if pos.side is PositionSide.LONG
+                    else low <= level_price
+                )
+                if not hit:
+                    break
+                close_qty = min(
+                    pos.partial_take_profit_close_quantities[idx], pos.quantity
+                )
+                trades.append(
+                    self._close_partial_position(pos, level_price, time, close_qty)
+                )
+                pos.partial_tp_next_level_index += 1
+                if pos.quantity <= 0:
+                    fully_closed.append(pos)
+                    break
+        if fully_closed:
+            self._positions = [p for p in self._positions if p not in fully_closed]
+        return trades
+
     def _close(
         self,
         side: PositionSide,
@@ -421,7 +545,11 @@ class PaperExchange:
         `STOP_LOSS` at the new stop within that one bar — and
         `magnifier_lookup` (`BOT-105B`) is passed down only after both moves,
         so an ambiguous SL+TP bar is resolved against the position's real,
-        post-adjustment stop price, never a stale pre-arm one.
+        post-adjustment stop price, never a stale pre-arm one. Partial
+        take-profit (`BOT-105C`) is checked **last**, against whatever
+        survives liquidation/stop-loss/take-profit this bar — a position
+        already fully closed by one of those never also produces a
+        partial-TP trade the same bar.
         """
         if not self._positions:
             return []
@@ -451,10 +579,9 @@ class PaperExchange:
         self._positions = still_open
 
         all_triggered = liquidated + triggered
-        if not all_triggered:
-            return []
-
-        return [
+        closed_trades = [
             self._close_one_position(pos, exit_price, time, reason)
             for pos, exit_price, reason in all_triggered
         ]
+        partial_trades = self._apply_partial_take_profits(high, low, time)
+        return [*closed_trades, *partial_trades]

@@ -16,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason import (
     ExitReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.partial_take_profit_level import (
+    PartialTakeProfitLevel,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.paper_exchange import (
     PaperExchange,
 )
@@ -1647,3 +1650,165 @@ def test_trailing_stop_coordinates_with_a_break_even_move_already_in_place():
     assert len(trades) == 1
     assert trades[0].exit_reason is ExitReason.STOP_LOSS
     assert trades[0].exit_price == pytest.approx(110.0 * 0.97)
+
+
+# ---------------------------------------------------------------------------
+# `BOT-105C` — partial take profit (scale-out), the last deferred sibling
+# from `BOT-105A` §3's original re-scope notes
+# ---------------------------------------------------------------------------
+
+
+def test_partial_take_profit_level_rejects_non_positive_price_pct():
+    with pytest.raises(ValueError, match="price_pct"):
+        PartialTakeProfitLevel(price_pct=0.0, close_fraction=0.5)
+
+
+def test_partial_take_profit_level_rejects_out_of_bounds_close_fraction():
+    with pytest.raises(ValueError, match="close_fraction"):
+        PartialTakeProfitLevel(price_pct=5.0, close_fraction=0.0)
+    with pytest.raises(ValueError, match="close_fraction"):
+        PartialTakeProfitLevel(price_pct=5.0, close_fraction=1.5)
+
+
+def test_partial_take_profit_levels_must_be_strictly_increasing_by_price_pct():
+    with pytest.raises(ValueError, match="increasing"):
+        BrokerSimulationConfig(
+            partial_take_profit_levels=(
+                PartialTakeProfitLevel(price_pct=10.0, close_fraction=0.5),
+                PartialTakeProfitLevel(price_pct=5.0, close_fraction=0.5),
+            )
+        )
+    with pytest.raises(ValueError, match="increasing"):
+        BrokerSimulationConfig(
+            partial_take_profit_levels=(
+                PartialTakeProfitLevel(price_pct=5.0, close_fraction=0.3),
+                PartialTakeProfitLevel(price_pct=5.0, close_fraction=0.3),
+            )
+        )
+
+
+def test_partial_take_profit_levels_close_fraction_sum_cannot_exceed_one():
+    with pytest.raises(ValueError, match="sum to at most 1.0"):
+        BrokerSimulationConfig(
+            partial_take_profit_levels=(
+                PartialTakeProfitLevel(price_pct=5.0, close_fraction=0.6),
+                PartialTakeProfitLevel(price_pct=10.0, close_fraction=0.6),
+            )
+        )
+
+
+def test_partial_take_profit_levels_are_mutually_exclusive_with_take_profit_pct():
+    with pytest.raises(ValueError, match="mutually exclusive"):
+        BrokerSimulationConfig(
+            take_profit_pct=8.0,
+            partial_take_profit_levels=(
+                PartialTakeProfitLevel(price_pct=5.0, close_fraction=0.5),
+            ),
+        )
+
+
+def test_partial_take_profit_is_disabled_by_default_no_extra_trade_is_produced():
+    exchange = PaperExchange(symbol="BTCUSDT", initial_balance=1_000.0)
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trades = exchange.check_intrabar_stops(high=200.0, low=99.0, time=_T2)
+
+    assert trades == []
+    assert exchange.is_in_position is True
+
+
+def test_partial_take_profit_closes_each_level_and_leaves_the_remainder_open():
+    # Entry 100, qty 10 (1000 balance / 100 price, zero commission). Two
+    # levels: TP1 at +5% (105) closes half, TP2 at +10% (110) closes the rest.
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0,
+        partial_take_profit_levels=(
+            PartialTakeProfitLevel(price_pct=5.0, close_fraction=0.5),
+            PartialTakeProfitLevel(price_pct=10.0, close_fraction=0.5),
+        ),
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+    assert exchange.balance == 0.0
+
+    # Bar 1: high reaches TP1 (105) only.
+    first = exchange.check_intrabar_stops(high=106.0, low=104.0, time=_T2)
+
+    assert len(first) == 1
+    assert first[0].exit_reason is ExitReason.PARTIAL_TAKE_PROFIT
+    assert first[0].quantity == pytest.approx(5.0)
+    assert first[0].exit_price == pytest.approx(105.0)
+    assert first[0].pnl == pytest.approx(25.0)  # (105-100)*5
+    assert exchange.balance == pytest.approx(525.0)  # 5*105 net proceeds
+    assert exchange.is_in_position is True
+    pos = exchange._positions[0]
+    assert pos.quantity == pytest.approx(5.0)
+    assert pos.balance_before_entry == pytest.approx(500.0)
+    assert pos.partial_tp_next_level_index == 1
+
+    # Bar 2: high reaches TP2 (110) — closes the exact remainder.
+    second = exchange.check_intrabar_stops(high=111.0, low=109.0, time=_T2)
+
+    assert len(second) == 1
+    assert second[0].exit_reason is ExitReason.PARTIAL_TAKE_PROFIT
+    assert second[0].quantity == pytest.approx(5.0)
+    assert second[0].exit_price == pytest.approx(110.0)
+    assert second[0].pnl == pytest.approx(50.0)  # (110-100)*5
+    assert exchange.is_in_position is False  # last level exhausted the position
+    assert exchange.balance == pytest.approx(525.0 + 550.0)  # 5*110 net proceeds
+
+    # Financial invariant: total closed quantity across both partial exits
+    # equals the position's original entry quantity.
+    total_closed_quantity = first[0].quantity + second[0].quantity
+    assert total_closed_quantity == pytest.approx(10.0)
+
+
+def test_partial_take_profit_is_direction_aware_for_a_short_position():
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0,
+        partial_take_profit_levels=(
+            PartialTakeProfitLevel(price_pct=5.0, close_fraction=0.5),
+        ),
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.SHORT), price=100.0, time=_T1)
+
+    # A short profits as price falls: low=94 crosses the -5% level (95).
+    trades = exchange.check_intrabar_stops(high=96.0, low=94.0, time=_T2)
+
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.PARTIAL_TAKE_PROFIT
+    assert trades[0].quantity == pytest.approx(5.0)
+    assert trades[0].exit_price == pytest.approx(95.0)
+    assert trades[0].pnl == pytest.approx(25.0)  # (100-95)*5
+    assert exchange.is_in_position is True
+    assert exchange._positions[0].quantity == pytest.approx(5.0)
+
+
+def test_partial_take_profit_never_fires_the_same_bar_a_static_stop_loss_closes_it():
+    # Static SL 5% below entry (95) AND a partial level 5% above (105) are
+    # both configured; a bar that spans both must close as STOP_LOSS only —
+    # liquidation/stop-loss/take-profit runs before partial-TP and removes
+    # the position first, so it never also produces a partial-TP trade.
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0,
+        stop_loss_pct=5.0,
+        partial_take_profit_levels=(
+            PartialTakeProfitLevel(price_pct=5.0, close_fraction=0.5),
+        ),
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    trades = exchange.check_intrabar_stops(high=106.0, low=94.0, time=_T2)
+
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.STOP_LOSS
+    assert trades[0].quantity == pytest.approx(10.0)
+    assert exchange.is_in_position is False

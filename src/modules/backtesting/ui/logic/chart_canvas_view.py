@@ -147,6 +147,9 @@ _EXIT_REASON_SHORT_CODES: dict[ExitReason, str] = {
     ExitReason.STRATEGY_SIGNAL: "Sig",
     ExitReason.END_OF_BACKTEST: "EOB",
     ExitReason.LIQUIDATION: "Liq",
+    #: BOT-105C — distinct from a full `TAKE_PROFIT` close: this trade's
+    #: `quantity` is only a fraction of the position, which stayed open.
+    ExitReason.PARTIAL_TAKE_PROFIT: "pTP",
 }
 
 
@@ -257,8 +260,11 @@ def _entry_marker(trade: Trade, is_short: bool) -> MarkerPoint:
     return (trade.entry_time.timestamp(), trade.entry_price, label, color, direction)
 
 
+_TAKE_PROFIT_EXIT_REASONS = (ExitReason.TAKE_PROFIT, ExitReason.PARTIAL_TAKE_PROFIT)
+
+
 def _exit_marker(trade: Trade, is_short: bool) -> MarkerPoint:
-    is_take_profit = trade.exit_reason is ExitReason.TAKE_PROFIT
+    is_take_profit = trade.exit_reason in _TAKE_PROFIT_EXIT_REASONS
     if is_take_profit:
         label = _SHORT_EXIT_TP_LABEL if is_short else _LONG_EXIT_TP_LABEL
         color = TAKE_PROFIT_COLOR
