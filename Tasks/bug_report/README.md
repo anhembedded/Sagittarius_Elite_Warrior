@@ -58,9 +58,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :--- |
-| 🔴 **Đang mở** | 0 |
+| 🔴 **Đang mở** | 1 |
 | ✅ **Đã sửa / đã đóng** | 133 |
-| 📈 **Tổng** | **133** |
+| 📈 **Tổng** | **134** |
 
 ---
 
@@ -68,7 +68,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo |
 | :--- | :--- | :---: | :---: |
-| _(không có bug đang mở)_ | | | |
+| [`BUG-136`](incomplete/BUG-136_ci_local_silently_wrong_target_in_named_worktree.md) | `ci-local.ps1` âm thầm test sai checkout khi chạy trong worktree không tên `Sagittarius_Elite_Warrior` (đúng tên `pr-review/SKILL.md` §3 tự khuyên dùng) | 🟡 P2 | 2026-09-25 |
 
 > Hai hồ sơ cuối đóng cùng ngày theo hai đường khác hẳn nhau, và cặp đó đáng nhớ:
 > `BUG-068` đóng dạng **không tái hiện được từ môi trường hiện có** (cảnh báo Qt chỉ tồn tại trên
