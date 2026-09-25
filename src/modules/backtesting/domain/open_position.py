@@ -68,3 +68,13 @@ class OpenPosition(IStoppablePosition):
     #: side of `entry_price` (`OrderMatchingPolicy.calculate_stop_loss_price`),
     #: so re-arming would never move it anywhere new.
     break_even_armed: bool = False
+    #: BOT-105A — `True` once this position's trailing stop has armed
+    #: (`mfe_percent` reached `trailing_activation_pct`); guards whether
+    #: `trailing_peak_price` is tracking yet, distinct from `break_even_armed`
+    #: since a run can configure either, both, or neither independently.
+    trailing_armed: bool = False
+    #: BOT-105A — best price seen since the trailing stop armed (a running
+    #: high for LONG, a running low for SHORT), independent of `mfe_percent`
+    #: so ratcheting `stop_loss_price` needs no leverage/margin inversion —
+    #: `None` until armed.
+    trailing_peak_price: float | None = None

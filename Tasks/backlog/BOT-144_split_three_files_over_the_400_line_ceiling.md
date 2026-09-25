@@ -1,7 +1,7 @@
-# BOT-144 — Three Dev Board/Data Management files split back under the 400-line ceiling
+# BOT-144 — Four files split back under the 400-line ceiling
 
 **Status:** 🔵 Backlog
-**Source:** Independent PR review of `PR #257` (2026-09-23), flagged as a should-fix, pre-existing item — "worth a tracked follow-up task rather than continuing to accrete onto these three files indefinitely."
+**Source:** Independent PR review of `PR #257` (2026-09-23), flagged as a should-fix, pre-existing item — "worth a tracked follow-up task rather than continuing to accrete onto these three files indefinitely." A fourth file (`paper_exchange.py`) was added from an independent review of `PR #266` (2026-09-25), same finding, different file.
 **Risk:** 🟡 — each file is a live Presenter/Panel wired into the composition root and covered by hundreds of existing tests; a split done as extraction (not rewrite) should be behavior-preserving, but a bad seam could silently drop a signal connection or FSM transition.
 **Complexity:** L — three separate god-files, each needing its own extraction design; no single mechanical transform covers all three.
 **Epic (optional):** None — standalone debt-paydown, not tied to a feature epic.
@@ -17,12 +17,14 @@
 - `src/modules/trading/ui/dashboard/dashboard_presenter.py` — **1994 lines** (measured 2026-09-23; was 1975 before `PR #257`, 1994 after).
 - `src/modules/trading/ui/dashboard/dev_board_panel.py` — **1145 lines** (was 1070 before `PR #257`).
 - `src/modules/market_data/ui/data_management_presenter.py` — **964 lines** (was 861 before `PR #257`).
+- `src/modules/backtesting/domain/paper_exchange.py` — **460 lines** (measured 2026-09-25, `PR #266`; was 507 before that PR's Trailing Stop addition — already reduced once, by extracting `StopManagementPolicy` [excursion tracking + break-even + trailing stop] into `domain/policies/stop_management_policy.py`, the same review's own recommended first cut. What is left — `_open()`/`_close()`/`_close_one_position()`, the core entry/exit/trade-recording lifecycle — is well-tested, unrelated to that PR's actual change, and was deliberately left alone rather than risking a large refactor of stable order-execution code inside a trailing-stop PR).
 
-This is not new debt from any one PR — `EPIC-003` (Presenter/god-file decomposition) already extracted several coordinators out of two of these three files, but stopped short of bringing either under the ceiling, and no machine guard currently catches a file that is already over 400 lines from growing further (`C7`/`D6`/`D7` are review-only checks per `architecture-rule.md`, not a pytest guard like the module-boundary allowlist or the app-styling ratchet).
+This is not new debt from any one PR — `EPIC-003` (Presenter/god-file decomposition) already extracted several coordinators out of two of the first three files, but stopped short of bringing either under the ceiling, and no machine guard currently catches a file that is already over 400 lines from growing further (`C7`/`D6`/`D7` are review-only checks per `architecture-rule.md`, not a pytest guard like the module-boundary allowlist or the app-styling ratchet).
 
 ## 2. Acceptance criteria
 
 - [ ] `dashboard_presenter.py`, `dev_board_panel.py`, `data_management_presenter.py` are each ≤400 lines, achieved by extracting cohesive responsibilities into new coordinator/helper classes under the same module's `ui/` tree — mirroring the existing coordinator pattern (`GapCoordinator`, `IndicatorCoordinator`, `ExportImportCoordinator`, etc.), not by deleting functionality or renaming without moving logic.
+- [ ] `paper_exchange.py` is ≤400 lines, achieved by extracting its remaining position entry/exit lifecycle (`_open()`/`_close()`/`_close_one_position()`) into a domain policy under `domain/policies/`, mirroring the extraction `PR #266` already did for `StopManagementPolicy`.
 - [ ] Every existing test for these three files (and their coordinators/view models) still passes unchanged in behavior — a test may need its constructor call updated for a new collaborator, but must not need its assertions weakened.
 - [ ] No FSM transition, signal connection, or coordinator wiring present before the split is silently dropped — verified by running the full `tests/unit` suite plus a manual `tools/run_app` (or `scripts/run-dev.ps1`, whichever this repo's `run` skill uses) smoke pass on the Dev Board and Data Management screens.
 - [ ] A machine guard is added (or an existing one extended) so a file already over 400 lines cannot grow further without the gate failing — closing the gap the independent review noted ("no guard test currently catches this"). A shrink-only ratchet, mirroring `test_app_styling_only_shrinks.py`'s own pattern, is the vetted precedent to apply before inventing a new mechanism.

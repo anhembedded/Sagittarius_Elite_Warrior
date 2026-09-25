@@ -9,9 +9,13 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.margin_ri
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.order_matching_policy import (
     OrderMatchingPolicy,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.stop_management_policy import (
+    StopManagementPolicy,
+)
 
 __all__ = [
     "FeeCalculatorPolicy",
     "MarginRiskPolicy",
     "OrderMatchingPolicy",
+    "StopManagementPolicy",
 ]

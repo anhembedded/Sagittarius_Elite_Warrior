@@ -34,6 +34,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.margin_ri
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.order_matching_policy import (
     OrderMatchingPolicy,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.stop_management_policy import (
+    StopManagementPolicy,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_sizing_policy import (
     ISizingPolicy,
 )
@@ -68,9 +71,12 @@ class PaperExchange:
     holds this run's configuration together with the four policies that do the
     arithmetic; a position is an `OpenPosition` (`open_position.py`). PR 3.1c-2
     split the three apart and `fill_pricing.py`'s docstring carries the
-    argument. The constructor's four policy parameters pass straight through and
-    are unchanged: fifty-five inline call sites in this class's own test file
-    construct it (`ONBOARDING` §8 trap 5).
+    argument. The constructor's four `FillPricing` policy parameters pass
+    straight through unchanged: fifty-five inline call sites in this class's
+    own test file construct it (`ONBOARDING` §8 trap 5). `StopManagementPolicy`
+    (`stop_management_policy.py`) is a fifth, separate policy — not part of the
+    `FillPricing` bundle, since it adjusts a position's risk state before a
+    fill is ever considered, rather than computing one.
     """
 
     def __init__(
@@ -84,6 +90,7 @@ class PaperExchange:
         sizing_policy: ISizingPolicy | None = None,
         matching_policy: OrderMatchingPolicy | None = None,
         fee_policy: FeeCalculatorPolicy | None = None,
+        stop_management_policy: StopManagementPolicy | None = None,
     ) -> None:
         if initial_balance <= 0:
             raise ValueError(f"initial_balance must be positive, got {initial_balance}")
@@ -123,6 +130,10 @@ class PaperExchange:
 
         self._positions: list[OpenPosition] = []
         self._trades: list[Trade] = []
+        #: Not part of the `FillPricing` bundle above — those four compute a
+        #: fill's price/quantity; this one adjusts a position's risk state
+        #: (MAE/MFE, break-even, trailing) BEFORE a fill is ever considered.
+        self._stop_management = stop_management_policy or StopManagementPolicy()
 
         logger.info(
             f"[paper-exchange] Initialized for {symbol} | Initial Capital: {initial_balance:,.2f} | "
@@ -388,76 +399,6 @@ class PaperExchange:
         )
         return closed_trades
 
-    def _update_excursion_tracking(self, high: float, low: float) -> None:
-        """
-        @brief BOT-106B — widens every open position's MAE/MFE from this
-        bar's high/low, before any close this same bar removes it from
-        `self._positions` — a position's final bar still counts.
-        """
-        for pos in self._positions:
-            if pos.balance_before_entry <= 0:
-                continue
-            worst_price, best_price = (
-                (low, high) if pos.side is PositionSide.LONG else (high, low)
-            )
-            worst_value = self._pricing.mark_to_market(
-                pos.side,
-                pos.leverage,
-                pos.quantity,
-                pos.entry_price,
-                pos.balance_before_entry,
-                worst_price,
-            )
-            best_value = self._pricing.mark_to_market(
-                pos.side,
-                pos.leverage,
-                pos.quantity,
-                pos.entry_price,
-                pos.balance_before_entry,
-                best_price,
-            )
-            worst_pnl_percent = (
-                (worst_value - pos.balance_before_entry)
-                / pos.balance_before_entry
-                * 100
-            )
-            best_pnl_percent = (
-                (best_value - pos.balance_before_entry) / pos.balance_before_entry * 100
-            )
-            pos.mae_percent = min(pos.mae_percent, worst_pnl_percent)
-            pos.mfe_percent = max(pos.mfe_percent, best_pnl_percent)
-
-    def _apply_break_even_stops(self) -> None:
-        """
-        @brief BOT-105A — once a position's best-seen unrealized profit
-        (`pos.mfe_percent`, already widened for this bar by
-        `_update_excursion_tracking()`) reaches
-        `break_even_trigger_pct`, moves `stop_loss_price` to `entry_price`
-        exactly once.
-        @details Ignores fees (moves to the raw `entry_price`, not
-        `entry_price` adjusted for `entry_fee`) — the proposal names both
-        as acceptable; the raw price is the simpler, unambiguous choice
-        and is what "break-even" means without a fee-aware reading. Always
-        a favorable move: a not-yet-triggered `stop_loss_price` sits on
-        the losing side of `entry_price` by construction, or is `None`
-        (no static stop configured for this run) — either way this only
-        ever tightens protection, so it never needs to compare against
-        the position's current stop the way a trailing stop would.
-        """
-        trigger_pct = self._broker_config.break_even_trigger_pct
-        if trigger_pct is None:
-            return
-        for pos in self._positions:
-            if pos.break_even_armed or pos.mfe_percent < trigger_pct:
-                continue
-            pos.stop_loss_price = pos.entry_price
-            pos.break_even_armed = True
-            logger.debug(
-                f"[paper-exchange] Break-even armed | {pos.side.value} entry "
-                f"{pos.entry_price:,.2f} | MFE {pos.mfe_percent:.2f}% >= "
-                f"trigger {trigger_pct:.2f}% | stop moved to entry"
-            )
-
     def check_intrabar_stops(
         self,
         high: float,
@@ -467,25 +408,37 @@ class PaperExchange:
     ) -> Sequence[Trade]:
         """
         @brief Widens every open position's MAE/MFE from this bar, arms
-        break-even stops (`BOT-105A`), then checks liquidation/stop-loss/
-        take-profit against the same high/low.
+        break-even stops (`BOT-105A`) then ratchets trailing stops
+        (`BOT-105A`), then checks liquidation/stop-loss/take-profit
+        against the same high/low.
         @details Liquidation is checked **first** and its trades removed from
         `self._positions` before stop-loss/take-profit ever sees them
         (`BOT-049` §2) — a real exchange liquidates before a user's own SL/TP
         order could fill, so a position that would hit both in one bar must
         close as `LIQUIDATION`, never `STOP_LOSS`/`TAKE_PROFIT`. A break-even
-        move happens from this same bar's high/low, so a bar that both
-        triggers it and reverses far enough can close as `STOP_LOSS` at
-        `entry_price` within that one bar — and `magnifier_lookup`
-        (`BOT-105B`) is passed down only after that move, so an ambiguous
-        SL+TP bar is resolved against the position's real, post-break-even
-        stop price, never a stale pre-arm one.
+        or trailing-stop move happens from this same bar's high/low, so a bar
+        that both triggers one and reverses far enough can close as
+        `STOP_LOSS` at the new stop within that one bar — and
+        `magnifier_lookup` (`BOT-105B`) is passed down only after both moves,
+        so an ambiguous SL+TP bar is resolved against the position's real,
+        post-adjustment stop price, never a stale pre-arm one.
         """
         if not self._positions:
             return []
 
-        self._update_excursion_tracking(high, low)
-        self._apply_break_even_stops()
+        self._stop_management.update_excursion_tracking(
+            self._positions, self._pricing, high, low
+        )
+        self._stop_management.apply_break_even_stops(
+            self._positions, self._broker_config.break_even_trigger_pct
+        )
+        self._stop_management.apply_trailing_stops(
+            self._positions,
+            self._broker_config.trailing_activation_pct,
+            self._broker_config.trailing_offset_pct,
+            high,
+            low,
+        )
 
         liquidated, still_open = self._pricing.evaluate_liquidations(
             self._positions, high, low

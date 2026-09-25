@@ -3,7 +3,7 @@
 **Mã Task:** `BOT-105A`  
 **Thuộc Epic:** [`BOT-105`](BOT-105_advanced_order_execution_and_risk_epic.md)  
 **Độ phức tạp:** 🔴 **L (Thinking Agent)**  
-**Trạng thái:** ✅ **Hoàn thành một phần (2026-09-23) — chỉ Break-Even Stop; Trailing Stop và Partial TP hoãn, xem §3.**  
+**Trạng thái:** ✅ **Hoàn thành một phần (2026-09-25) — Break-Even Stop (23/09) và Trailing Stop (25/09); Partial TP hoãn, xem §3/§4.**  
 **Dependencies:** [`BOT-041`](../completed/BOT-041_stop_loss_take_profit_and_risk_sizing.md), `BOT-021`
 
 ---
@@ -57,10 +57,10 @@ bỏ sót:
   `stop_loss_pct` tĩnh sẵn có (luôn dời lên hòa vốn, không bao giờ lùi), đúng
   hướng cho cả LONG/SHORT, và khớp lệnh ngay trong cùng 1 bar khi giá chạm
   ngưỡng kích hoạt rồi hồi về hòa vốn trong cùng bar đó.
-- **Còn lại (chưa xây, backlog riêng khi cần)**: Trailing Stop (`trailing_
-  activation_price`/`trailing_offset`, dời lại theo mỗi đỉnh mới) và Partial
-  Take Profit (đóng từng phần `quantity`, sinh nhiều `Trade` cho 1 vị thế).
-  Không có hạ tầng nào cho 2 cái này tồn tại trong `PaperExchange` hiện tại —
+- **Còn lại lúc đó (chưa xây)**: Trailing Stop và Partial Take Profit. Trailing
+  Stop nay đã xây xong — xem §4 (2026-09-25). Partial TP (đóng từng phần
+  `quantity`, sinh nhiều `Trade` cho 1 vị thế) vẫn hoãn, backlog riêng khi cần
+  — không có hạ tầng nào cho nó tồn tại trong `PaperExchange` hiện tại,
   xác minh bằng cách đọc `paper_exchange.py`/`open_position.py` trực tiếp,
   không suy đoán.
 
@@ -81,3 +81,89 @@ sửa; mypy (`--config-file pyproject.toml --namespace-packages
 --explicit-package-bases`) không phát sinh lỗi mới trên file nào đã sửa.
 `tests/unit/modules/backtesting/domain/` + `application/` + `contracts/`:
 217 passed.
+
+## 4. Implementation Notes — Trailing Stop (2026-09-25)
+
+**Đơn vị công việc riêng, như §3 đã dự tính** — bám sát mẫu `_apply_break_even_
+stops()` đã có, chỉ khác ở chỗ nó lặp lại **mỗi bar** thay vì một lần duy nhất:
+
+- **Đơn vị %**: `trailing_activation_pct` dùng cùng quy ước với
+  `break_even_trigger_pct` (% lợi nhuận-trên-margin qua `mfe_percent` đã có) để
+  quyết định *khi nào* kích hoạt bám đỉnh — tái dùng cơ chế sẵn có thay vì phát
+  minh đơn vị mới. Nhưng `trailing_offset_pct` là % của GIÁ (cùng quy ước với
+  `stop_loss_pct`/`take_profit_pct`), không phải % margin — vì nó được so trực
+  tiếp với đỉnh/đáy giá thực (`OpenPosition.trailing_peak_price`, theo dõi
+  riêng, độc lập với `mfe_percent`) để tránh phải đảo ngược công thức đòn bẩy.
+  Đây là một chọn lựa có chủ ý khác với cách task gốc đặt tên
+  (`trailing_activation_price`/`trailing_offset` như thể cả hai đều là giá
+  tuyệt đối) — giữ nhất quán với mọi field khác của `BrokerSimulationConfig`
+  (toàn bộ đều %, không field nào là giá tuyệt đối).
+- Hai field `trailing_activation_pct`/`trailing_offset_pct` bắt buộc đi cùng
+  nhau (validate ở `__post_init__`) — một mình một field không phải cấu hình
+  hợp lý.
+- **Không có hạ tầng UI mới** — đúng tiền lệ `break_even_trigger_pct` chính nó
+  đã đặt ra (không dây UI nào cả) và tiền lệ `tick_resolution` của `BOT-105B`
+  ("field cấu hình là seam, picker UI là biến thể hoãn lại"), `architecture-
+  rule.md` §7.2.1.
+- **Đã kiểm tra runtime thật** (test suite thật, không đoán): bám đỉnh mới
+  cho LONG (`max()`) và đáy mới cho SHORT (`min()`), không bao giờ lùi khi
+  không có đỉnh/đáy mới, khớp lệnh ngay trong cùng 1 bar khi giá bám rồi hồi
+  về chạm stop mới, phối hợp đúng với `stop_loss_pct` tĩnh sẵn có (chỉ siết
+  chặt, không bao giờ nới lỏng) — kể cả khi phối hợp với break-even cùng lúc
+  (cả hai chỉ tiến, không bao giờ lùi, nhờ so sánh "chỉ thay nếu chặt hơn"
+  trước khi ghi `stop_loss_price`).
+- **Không cần thay đổi `OrderMatchingPolicy`/khớp lệnh** — `evaluate_
+  intrabar_stops()` đã đọc `stop_loss_price` một cách tổng quát qua
+  `IStoppablePosition`; trailing stop chỉ là một cơ chế khác *ghi* vào field
+  đó trước khi khớp lệnh chạy, giống hệt break-even.
+
+**Files**: `contracts/broker_simulation_config.py`
+(`trailing_activation_pct`, `trailing_offset_pct`), `domain/open_position.py`
+(`trailing_armed`, `trailing_peak_price`), `domain/paper_exchange.py`
+(`_apply_trailing_stops()`, gọi trong `check_intrabar_stops()` ngay sau
+`_apply_break_even_stops()`).
+
+**Tests**: `test_paper_exchange.py` (+9 — validation cấu hình (bắt buộc đi
+cùng nhau, biên số âm/ngoài khoảng), tắt mặc định, dưới ngưỡng kích hoạt
+không bám, bám đỉnh + không lùi qua nhiều bar + khớp lệnh khi hồi về,
+LONG/SHORT, cùng bar, phối hợp chỉ-siết-chặt với SL tĩnh có sẵn).
+Mutation-verified: gỡ tạm lời gọi `_apply_trailing_stops()` trong
+`check_intrabar_stops()` làm 4/9 test đỏ đúng lý do, khôi phục lại sau.
+
+**Verification**: `ruff check`/`ruff format --check` sạch trên mọi file đã
+sửa. mypy (gate thật — cwd tại thư mục cha, `MYPYPATH` trỏ `Sagittarius_
+Engine` checkout kề bên): zero lỗi trên 3 file đã sửa; tổng lỗi toàn `src`+
+`scripts` giữ nguyên 706 như trước nhánh này (đối chiếu bằng cách chạy trước/
+sau thay đổi) — không lỗi mới, không thoái lui.
+`tests/unit/modules/backtesting/domain/test_paper_exchange.py`: 85 passed.
+`tests/unit/modules/backtesting/domain` + `application` + `contracts`: 246
+passed. `tests/unit/architecture`: 440 passed.
+`tests/unit/modules/backtesting` (toàn bộ): 954 passed, không thoái lui.
+`python3 scripts/check_skill_prompt_references.py`: OK.
+
+**Follow-up từ review độc lập của `PR #266`** (2 should-fix, không blocking):
+1. **`paper_exchange.py` vượt ngưỡng 400 dòng** (`architecture-rule.md` §5.4,
+   `C7`/`D7`) — tách `_update_excursion_tracking()`/`_apply_break_even_
+   stops()`/`_apply_trailing_stops()` thành `StopManagementPolicy` mới
+   (`domain/policies/stop_management_policy.py`), cùng một lifecycle (đúng
+   thứ tự gọi mỗi bar, cái sau đọc cái trước vừa ghi). File còn lại **460
+   dòng** (từ 562) — vẫn trên ngưỡng, vì phần còn lại (`_open()`/`_close()`/
+   `_close_one_position()`) là vòng đời khớp lệnh cốt lõi, đã có test đầy
+   đủ, không liên quan tới thay đổi của PR này; tách tiếp rủi ro hơn giá trị
+   trong phạm vi 1 PR trailing-stop. Đã thêm vào `BOT-144` (task theo dõi nợ
+   400-dòng có sẵn) làm file thứ 4, thay vì tự ý làm refactor lớn ngoài
+   phạm vi. `StopManagementPolicy` có bộ test riêng
+   (`tests/unit/modules/backtesting/domain/policies/test_stop_management_
+   policy.py`, +6, dùng `OpenPosition`/`FillPricing` thật, không qua
+   `PaperExchange`).
+2. **Thiếu test phối hợp break-even + trailing cùng lúc** — docstring/PR
+   body khẳng định 2 cơ chế phối hợp đúng nhưng chỉ có test với `stop_loss_
+   pct` tĩnh. Thêm `test_trailing_stop_coordinates_with_a_break_even_move_
+   already_in_place` (+1): break-even dời stop về entry trước, trailing sau
+   đó dời tiếp xa hơn, không bao giờ lùi.
+
+Xác minh lại sau fix: `ruff check`/`format --check` sạch; mypy 0 lỗi mới,
+tổng vẫn 706 không đổi; `test_paper_exchange.py` 86 passed;
+`test_stop_management_policy.py` 6 passed (mới); `domain`+`application`+
+`contracts`: 253 passed; `tests/unit/architecture`: 440 passed;
+`tests/unit/modules/backtesting` (toàn bộ): 961 passed, không thoái lui.
