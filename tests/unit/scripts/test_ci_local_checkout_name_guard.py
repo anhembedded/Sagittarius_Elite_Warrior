@@ -80,3 +80,18 @@ def test_matching_checkout_name_is_unaffected(tmp_path: Path) -> None:
     assert fields["RESULT"] == "PASS"
     assert fields["FAILED_STEPS"] == "none"
     assert result.returncode == 0
+
+
+def test_case_only_mismatch_fails_fast(tmp_path: Path) -> None:
+    # install-rule.md §2b names this exact scenario (a reviewer's default
+    # lowercase clone) as the standard real-world trigger for this bug
+    # class. PowerShell's `-eq` is case-insensitive, so a naive fix could
+    # pass test_mismatched_checkout_name_fails_fast_instead_of_silently_passing
+    # above while still missing this case; the guard must use `-ceq`.
+    checkout = tmp_path / "sagittarius_elite_warrior"
+    result = _run_ci_local(checkout)
+
+    fields = _result_block(result.stdout)
+    assert fields["RESULT"] == "FAIL"
+    assert "Checkout Name" in fields["FAILED_STEPS"]
+    assert result.returncode != 0

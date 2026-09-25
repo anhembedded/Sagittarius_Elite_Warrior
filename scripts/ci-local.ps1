@@ -169,7 +169,7 @@ $repoRoot  = Split-Path -Parent $botRoot
 # `===END_CI_LOCAL_RESULT===` marker (ci-rule.md) hanging forever.
 $expectedCheckoutName = "Sagittarius_Elite_Warrior"
 $actualCheckoutName = Split-Path -Leaf $botRoot
-$checkoutNameValid = $actualCheckoutName -eq $expectedCheckoutName
+$checkoutNameValid = $actualCheckoutName -ceq $expectedCheckoutName
 if (-not $checkoutNameValid) {
     Write-Host ""
     Write-Host "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━" -ForegroundColor Red
