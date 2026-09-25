@@ -140,3 +140,30 @@ sau thay đổi) — không lỗi mới, không thoái lui.
 passed. `tests/unit/architecture`: 440 passed.
 `tests/unit/modules/backtesting` (toàn bộ): 954 passed, không thoái lui.
 `python3 scripts/check_skill_prompt_references.py`: OK.
+
+**Follow-up từ review độc lập của `PR #266`** (2 should-fix, không blocking):
+1. **`paper_exchange.py` vượt ngưỡng 400 dòng** (`architecture-rule.md` §5.4,
+   `C7`/`D7`) — tách `_update_excursion_tracking()`/`_apply_break_even_
+   stops()`/`_apply_trailing_stops()` thành `StopManagementPolicy` mới
+   (`domain/policies/stop_management_policy.py`), cùng một lifecycle (đúng
+   thứ tự gọi mỗi bar, cái sau đọc cái trước vừa ghi). File còn lại **460
+   dòng** (từ 562) — vẫn trên ngưỡng, vì phần còn lại (`_open()`/`_close()`/
+   `_close_one_position()`) là vòng đời khớp lệnh cốt lõi, đã có test đầy
+   đủ, không liên quan tới thay đổi của PR này; tách tiếp rủi ro hơn giá trị
+   trong phạm vi 1 PR trailing-stop. Đã thêm vào `BOT-144` (task theo dõi nợ
+   400-dòng có sẵn) làm file thứ 4, thay vì tự ý làm refactor lớn ngoài
+   phạm vi. `StopManagementPolicy` có bộ test riêng
+   (`tests/unit/modules/backtesting/domain/policies/test_stop_management_
+   policy.py`, +6, dùng `OpenPosition`/`FillPricing` thật, không qua
+   `PaperExchange`).
+2. **Thiếu test phối hợp break-even + trailing cùng lúc** — docstring/PR
+   body khẳng định 2 cơ chế phối hợp đúng nhưng chỉ có test với `stop_loss_
+   pct` tĩnh. Thêm `test_trailing_stop_coordinates_with_a_break_even_move_
+   already_in_place` (+1): break-even dời stop về entry trước, trailing sau
+   đó dời tiếp xa hơn, không bao giờ lùi.
+
+Xác minh lại sau fix: `ruff check`/`format --check` sạch; mypy 0 lỗi mới,
+tổng vẫn 706 không đổi; `test_paper_exchange.py` 86 passed;
+`test_stop_management_policy.py` 6 passed (mới); `domain`+`application`+
+`contracts`: 253 passed; `tests/unit/architecture`: 440 passed;
+`tests/unit/modules/backtesting` (toàn bộ): 961 passed, không thoái lui.

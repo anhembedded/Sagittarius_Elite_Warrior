@@ -1605,3 +1605,45 @@ def test_trailing_stop_only_ever_tightens_an_existing_static_stop_loss():
 
     pos = exchange._positions[0]
     assert pos.stop_loss_price == pytest.approx(101.0 * 0.92)
+
+
+def test_trailing_stop_coordinates_with_a_break_even_move_already_in_place():
+    """Both mechanisms configured together: break-even moves the stop to
+    entry first, then trailing later ratchets it further forward — never
+    backward — past that break-even level once it arms."""
+    broker_cfg = BrokerSimulationConfig(
+        commission_value=0.0,
+        break_even_trigger_pct=2.0,
+        trailing_activation_pct=5.0,
+        trailing_offset_pct=3.0,
+    )
+    exchange = PaperExchange(
+        symbol="BTCUSDT", initial_balance=1_000.0, broker_config=broker_cfg
+    )
+    exchange.fill(_signal(SignalAction.BUY), price=100.0, time=_T1)
+
+    # Bar 1: MFE 3% arms break-even (>= 2%) but not trailing (< 5% activation).
+    exchange.check_intrabar_stops(high=103.0, low=102.0, time=_T2)
+    pos = exchange._positions[0]
+    assert pos.break_even_armed is True
+    assert pos.trailing_armed is False
+    assert pos.stop_loss_price == pytest.approx(100.0)
+
+    # Bar 2: MFE 10% arms trailing (>= 5%); its own computed level (106.7)
+    # is more protective than break-even's 100, so it takes over.
+    exchange.check_intrabar_stops(high=110.0, low=108.0, time=_T2)
+    pos = exchange._positions[0]
+    assert pos.trailing_armed is True
+    assert pos.stop_loss_price == pytest.approx(110.0 * 0.97)
+
+    # Bar 3: no new high — neither mechanism may move the stop backward.
+    exchange.check_intrabar_stops(high=109.0, low=107.0, time=_T2)
+    pos = exchange._positions[0]
+    assert pos.stop_loss_price == pytest.approx(110.0 * 0.97)
+
+    # Bar 4: pulls back through the trailing level — closes there, well
+    # above break-even's own 100.0, proving trailing's tighter level won.
+    trades = exchange.check_intrabar_stops(high=106.0, low=105.0, time=_T2)
+    assert len(trades) == 1
+    assert trades[0].exit_reason is ExitReason.STOP_LOSS
+    assert trades[0].exit_price == pytest.approx(110.0 * 0.97)
