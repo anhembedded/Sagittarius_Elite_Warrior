@@ -359,6 +359,22 @@ exclude = [
     # narrowing gaps exit when a future pass adds the `None`/type-guard checks
     # their call sites are missing, not as a side effect of this move.
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dev_board_panel\\.py$",
+
+    # `BOT-144` re-key, same shape as the `sidebar`/`chart_card` re-keys
+    # above: `dev_board_panel.py`'s System Controls/Strategy/Manual
+    # Order/Last Signal cards moved to `dev_board_widgets/`, and the
+    # `@Property`-descriptor false positive that justified the parent
+    # file's own exclusion above moved with them (23 errors, all
+    # `Property has no attribute <x>` / `incompatible type "Property"` —
+    # every one reading or writing a `DashboardQmlViewModel`/
+    # `StrategyCardViewModel` `@Property`). `layout_helpers.py` and
+    # `session_card.py` touch no `@Property` and stay under real coverage,
+    # same reasoning `strategy_card_view_model.py` was kept out of the
+    # move that created this list's `dashboard_presenter.py` entry.
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dev_board_widgets[\\/]system_controls_card\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dev_board_widgets[\\/]strategy_card\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dev_board_widgets[\\/]manual_order_card\\.py$",
+    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dev_board_widgets[\\/]last_signal_card\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_presenter\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_view\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_view_model\\.py$",

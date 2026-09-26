@@ -25,32 +25,28 @@ private constants existed.
 If this screen ever does want its own identity, the way to have one is a
 named token in `Palette`, not a module constant a reader has to diff
 against another file to discover is shared.
+
+`BOT-144` — the five cards (System Controls, Strategy, Last Signal, Session,
+Manual Order) that used to be built and synced directly on this class now
+live under `dev_board_widgets/`, each owning its own widgets and wiring.
+This class keeps the header, the Indicators checklist (still entangled with
+this panel's own script-catalog/symbol-preferences state), the dialogs a
+card cannot parent itself, and the handful of cross-cutting syncs
+(`_sync_controls_active`, `_sync_trading_state`) that reach into more than
+one card or the header.
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import QObject, Qt
 from PySide6.QtWidgets import (
-    QComboBox,
-    QDoubleSpinBox,
     QFrame,
     QHBoxLayout,
     QLabel,
-    QLineEdit,
     QPushButton,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
-    MAX_LEVERAGE,
-    MAX_SIZING_PERCENT,
-    MIN_LEVERAGE,
-    MIN_SIZING_PERCENT,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
-    ManualOrderDirection,
-)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_catalog import (
     IndicatorScriptCatalog,
 )
@@ -66,12 +62,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Panel,
-    ProgressBanner,
-    SectionLabel,
     StyledButton,
     StyledCheckBox,
     StyleRole,
-    apply_role,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPreferences,
@@ -82,6 +75,15 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.time_range_picker import (
 
 from .dashboard_symbol_picker_dialog import DashboardSymbolPickerDialog
 from .dashboard_view_model import DashboardQmlViewModel
+from .dev_board_widgets.last_signal_card import LastSignalCard
+from .dev_board_widgets.layout_helpers import section_row
+from .dev_board_widgets.manual_order_card import ManualOrderCard
+from .dev_board_widgets.session_card import SessionCard
+from .dev_board_widgets.strategy_card import StrategyCard
+from .dev_board_widgets.system_controls_card import (
+    SystemControlsCallbacks,
+    SystemControlsCard,
+)
 from .ws_status_pill import WsStatusPill
 
 #: `DashboardQmlViewModel` (unlike `DataManagementViewModel`) exposes no
@@ -97,55 +99,11 @@ from .ws_status_pill import WsStatusPill
 _FALLBACK_TIMEFRAME_SECONDS = TimeFrame.ONE_MINUTE.to_seconds()
 _FALLBACK_TIMEFRAME_LABEL = TimeFrame.ONE_MINUTE.value
 
-# --- `EPIC-023C` strategy card — same fixed domain terms `TradingView`
-# uses (`ui-presentation-rule.md`: "Strategy Parameters" is a fixed term,
-# distinct from general Bot settings, never rephrased per screen). ---
-_PARAMS_BUTTON_TEXT = "Strategy Parameters…"
-_ARM_TEXT = "Arm Strategy"
-_DISARM_TEXT = "Disarm"
-_NOT_ARMED_TEXT = "No strategy armed."
-_NO_SIGNAL_TEXT = "No signal yet."
-
 # --- `EPIC-023D` toggle/Emergency Stop — same fixed text `TradingView` uses. --- #
 _TOGGLE_ON_TEXT = "Disable Trading"
 _TOGGLE_OFF_TEXT = "Enable Trading"
 _TOGGLE_BUSY_TEXT = "Processing..."
 _EMERGENCY_STOP_TEXT = "EMERGENCY STOP"
-
-# --- `EPIC-024B` manual trading card. No leverage/margin-mode field here —
-# `PRO-003` §8.1 confirmed `ITradingClient` has no way to change either on
-# the real exchange, so drawing that control would be a UI that lies
-# (`domain-truth-rule.md`). ---
-_MANUAL_ORDER_LONG_TEXT = "LONG"
-_MANUAL_ORDER_SHORT_TEXT = "SHORT"
-
-
-def _field_style() -> str:
-    return (
-        f"background-color: {Palette.STATE_IDLE_BG}; color: {Palette.TEXT_PRIMARY}; "
-        f"border: 1px solid {Palette.STATE_NAV_BORDER}; border-radius: 6px; padding: 0 10px;"
-    )
-
-
-def _section_row(title_text: str) -> QHBoxLayout:
-    """A section heading in a row of its own.
-
-    Was `_SectionLabel(QHBoxLayout)` — a heading that was an *arrangement*
-    (a 3x12px tick `QFrame` beside a styled `QLabel`) rather than a thing,
-    so it could not be styled, hidden or enabled as a unit. `EPIC-007F`
-    replaces it with the engine's `SectionLabel`, whose tick is a QSS
-    `border-left` on the label itself: one object where there were three.
-
-    The wrapping row survives only because every call site pairs the
-    heading with `addStretch(1)` to keep it left-aligned in a stretching
-    column; the heading itself is now a widget.
-    """
-    row = QHBoxLayout()
-    row.setSpacing(6)
-    row.addWidget(SectionLabel(title_text, tick=True))
-    row.addStretch(1)
-    return row
-
 
 #: Dock titles, one per card. A title is the user's handle on a panel — the
 #: View menu lists it, a floating panel's title bar reads it, and
@@ -209,11 +167,19 @@ class DevBoardPanel(QObject):
         # reference and not by a layout: a `Panel()` with no parent and no
         # Python reference is garbage-collected the moment this method
         # returns, so the attribute *is* the ownership until a dock takes it.
-        self._system_controls_card = self._build_system_controls()
-        self._strategy_card = self._build_strategy_card()
-        self._last_signal_card = self._build_last_signal_card()
-        self._session_card = self._build_session_card()
-        self._manual_order_card = self._build_manual_order_card()
+        self._system_controls_card = SystemControlsCard(
+            view_model,
+            SystemControlsCallbacks(
+                on_symbol_clicked=self._open_symbol_picker,
+                on_pick_range=self._on_pick_range,
+                on_start_date_edited=self._on_start_date_edited,
+                on_end_date_edited=self._on_end_date_edited,
+            ),
+        )
+        self._strategy_card = StrategyCard(view_model)
+        self._last_signal_card = LastSignalCard(view_model)
+        self._session_card = SessionCard(view_model)
+        self._manual_order_card = ManualOrderCard(view_model)
         self._indicators_card = self._build_indicators()
 
         self._log_panel = AppLogPanel("SYSTEM MONITOR")
@@ -230,6 +196,49 @@ class DevBoardPanel(QObject):
         self._sync_controls_active()
         self._sync_progress()
         self._sync_trading_state()
+
+    # ------------------------------------------------------------------ #
+    # System Controls card pass-through — the card owns these widgets;
+    # `_sync_controls_active()` below (which also reaches the header's own
+    # `_btn_reload`) and every existing test still read them as
+    # `panel._btn_start` etc.
+    # ------------------------------------------------------------------ #
+
+    @property
+    def _cbo_market(self) -> QWidget:
+        return self._system_controls_card._cbo_market
+
+    @property
+    def _btn_symbol(self) -> QPushButton:
+        return self._system_controls_card._btn_symbol
+
+    @property
+    def _txt_start_date(self) -> QWidget:
+        return self._system_controls_card._txt_start_date
+
+    @property
+    def _txt_end_date(self) -> QWidget:
+        return self._system_controls_card._txt_end_date
+
+    @property
+    def _btn_pick_range(self) -> QWidget:
+        return self._system_controls_card._btn_pick_range
+
+    @property
+    def _btn_load_history(self) -> QWidget:
+        return self._system_controls_card._btn_load_history
+
+    @property
+    def _btn_start(self) -> QWidget:
+        return self._system_controls_card._btn_start
+
+    @property
+    def _btn_stop(self) -> QWidget:
+        return self._system_controls_card._btn_stop
+
+    @property
+    def _progress_banner(self) -> QWidget:
+        return self._system_controls_card._progress_banner
 
     # ------------------------------------------------------------------ #
     # Layout
@@ -343,109 +352,12 @@ class DevBoardPanel(QObject):
         """
         return self._manual_order_card
 
-    def _build_system_controls(self) -> Panel:
-        card = Panel()
-        layout = card.body_layout
-        layout.setContentsMargins(14, 14, 14, 14)
-        layout.setSpacing(12)
-
-        layout.addLayout(_section_row("System Controls"))
-
-        layout.addWidget(self._field_row("Market:", self._build_market_combo()))
-        layout.addWidget(self._field_row("Symbol:", self._build_symbol_button()))
-
-        layout.addLayout(_section_row("Data Range"))
-
-        self._txt_start_date = QLineEdit()
-        self._txt_start_date.setObjectName("txtStartDate")
-        self._txt_start_date.setPlaceholderText("yyyy-MM-dd HH:mm")
-        self._txt_start_date.setFixedHeight(32)
-        self._txt_start_date.setStyleSheet(_field_style())
-        self._txt_start_date.setText(self._view_model.startDate)
-        self._txt_start_date.textEdited.connect(self._on_start_date_edited)
-        layout.addWidget(self._txt_start_date)
-
-        self._txt_end_date = QLineEdit()
-        self._txt_end_date.setObjectName("txtEndDate")
-        self._txt_end_date.setPlaceholderText("yyyy-MM-dd HH:mm")
-        self._txt_end_date.setFixedHeight(32)
-        self._txt_end_date.setStyleSheet(_field_style())
-        self._txt_end_date.setText(self._view_model.endDate)
-        self._txt_end_date.textEdited.connect(self._on_end_date_edited)
-        layout.addWidget(self._txt_end_date)
-
-        # Same bridge the storage screen uses: the two fields stay typable,
-        # this only adds a calendar that writes into them.
-        pick_row = QHBoxLayout()
-        pick_row.setContentsMargins(0, 0, 0, 0)
-        pick_row.addStretch(1)
-        self._btn_pick_range = QPushButton("Pick Dates")
-        self._btn_pick_range.setObjectName("btnPickDataRange")
-        self._btn_pick_range.setFixedHeight(22)
-        self._btn_pick_range.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_pick_range.setStyleSheet(
-            f"QPushButton {{ color: {Palette.ACCENT}; background: transparent; "
-            f"border: 0; border-radius: 4px; font-size: 11px; padding: 0 6px; }}"
-            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
-        )
-        self._btn_pick_range.clicked.connect(self._on_pick_range)
-        pick_row.addWidget(self._btn_pick_range)
-        layout.addLayout(pick_row)
-
-        layout.addLayout(_section_row("Actions"))
-
-        actions_row = QHBoxLayout()
-        actions_row.setSpacing(8)
-
-        self._btn_load_history = QPushButton()
-        self._btn_load_history.setObjectName("btnLoadHistory")
-        self._btn_load_history.setIcon(
-            get_icon_loader().get_icon("clock", Palette.MUTED, 14)
-        )
-        self._btn_load_history.clicked.connect(self._view_model.requestLoadHistory)
-        actions_row.addWidget(self._btn_load_history, 1)
-
-        self._btn_start = QPushButton("Start Live")
-        self._btn_start.setObjectName("btnStart")
-        self._btn_start.setIcon(get_icon_loader().get_icon("play", Palette.SUCCESS, 14))
-        self._btn_start.setStyleSheet(self._action_button_style(Palette.SUCCESS))
-        self._btn_start.clicked.connect(self._view_model.requestStartStream)
-        actions_row.addWidget(self._btn_start, 1)
-
-        self._btn_stop = QPushButton("Stop")
-        self._btn_stop.setObjectName("btnStop")
-        self._btn_stop.setIcon(get_icon_loader().get_icon("square", Palette.DANGER, 14))
-        self._btn_stop.setStyleSheet(self._action_button_style(Palette.DANGER))
-        self._btn_stop.clicked.connect(self._view_model.requestStopStream)
-        actions_row.addWidget(self._btn_stop, 1)
-
-        layout.addLayout(actions_row)
-
-        # BOT-123 — Start Live's `SyncMarketDataCommand` phase (fetching
-        # missing candles from Binance before the websocket opens) used to
-        # give no feedback at all: the log line "Syncing missing data from
-        # Binance..." was the only sign anything was happening, for however
-        # long that fetch took, with no way to cancel it short of killing
-        # the app. Same `kit.ProgressBanner` Backtest/Data Management
-        # already use, in the same spot relative to their own sync trigger.
-        self._progress_banner = self._build_progress_banner()
-        layout.addWidget(self._progress_banner)
-
-        return card
-
-    def _build_progress_banner(self) -> ProgressBanner:
-        banner = ProgressBanner()
-        banner.setObjectName("devBoardProgressBanner")
-        banner.setVisible(False)
-        banner.cancelRequested.connect(self._view_model.requestStopStream)
-        return banner
-
     def _build_indicators(self) -> Panel:
         card = Panel()
         self._indicators_layout = card.body_layout
         self._indicators_layout.setContentsMargins(14, 14, 14, 14)
         self._indicators_layout.setSpacing(10)
-        self._indicators_layout.addLayout(_section_row("Indicators"))
+        self._indicators_layout.addLayout(section_row("Indicators"))
 
         self._script_checkboxes: dict[str, StyledCheckBox] = {}
         #: `BOT-063` — only the scripts that declare `.inputs` get an entry.
@@ -453,175 +365,6 @@ class DevBoardPanel(QObject):
         self._rebuild_script_rows()
         self._view_model.script_model.modelReset.connect(self._rebuild_script_rows)
         return card
-
-    def _build_strategy_card(self) -> Panel:
-        """`EPIC-023C` — a real "Nạp chiến lược" card, replacing the fake
-        `_build_strategy_combo()` combo this screen used to carry (hard-coded
-        `["Manual", "SMA Crossover"]`, never dispatching anything). Wiring
-        mirrors `TradingView._build_strategy_card()` exactly — same fixed
-        domain terms, same objectNames — driven by the same
-        `StrategyArmingCoordinator` instance `DashboardPresenter` owns.
-
-        `_sync_armed_summary()` disables the whole card while `strategyBusy`
-        OR while trading is on (`EPIC-023D`) — the same pre-emptive,
-        visible-before-click half of `EPIC-022` §4.1's rule `TradingView`'s
-        own `_apply_armed_summary` enforces; the command handler refuses the
-        swap server-side regardless either way.
-        """
-        card = Panel()
-        layout = card.body_layout
-        layout.setContentsMargins(14, 14, 14, 14)
-        layout.setSpacing(10)
-        layout.addLayout(_section_row("Strategy"))
-
-        self._cbo_live_strategy = QComboBox()
-        self._cbo_live_strategy.setObjectName("cboLiveStrategy")
-        self._cbo_live_strategy.setFixedHeight(32)
-        self._cbo_live_strategy.setStyleSheet(_field_style())
-        layout.addWidget(self._field_row("Strategy", self._cbo_live_strategy))
-
-        self._cbo_live_interval = QComboBox()
-        self._cbo_live_interval.setObjectName("cboLiveInterval")
-        self._cbo_live_interval.setFixedHeight(32)
-        self._cbo_live_interval.setStyleSheet(_field_style())
-        layout.addWidget(self._field_row("Timeframe", self._cbo_live_interval))
-
-        self._spn_sizing_percent = QDoubleSpinBox()
-        self._spn_sizing_percent.setObjectName("spnLiveSizingPercent")
-        self._spn_sizing_percent.setRange(MIN_SIZING_PERCENT, MAX_SIZING_PERCENT)
-        self._spn_sizing_percent.setSingleStep(1.0)
-        self._spn_sizing_percent.setSuffix(" %")
-        self._spn_sizing_percent.setFixedHeight(32)
-        self._spn_sizing_percent.setStyleSheet(_field_style())
-        layout.addWidget(self._field_row("% Capital/Trade", self._spn_sizing_percent))
-
-        self._spn_leverage = QDoubleSpinBox()
-        self._spn_leverage.setObjectName("spnLiveLeverage")
-        self._spn_leverage.setRange(MIN_LEVERAGE, MAX_LEVERAGE)
-        self._spn_leverage.setSingleStep(1.0)
-        self._spn_leverage.setSuffix(" x")
-        self._spn_leverage.setFixedHeight(32)
-        self._spn_leverage.setStyleSheet(_field_style())
-        layout.addWidget(self._field_row("Leverage", self._spn_leverage))
-
-        self._btn_strategy_params = StyledButton(
-            _PARAMS_BUTTON_TEXT, role=StyleRole.SECONDARY_BUTTON
-        )
-        self._btn_strategy_params.setObjectName("btnStrategyParams")
-        self._btn_strategy_params.setCursor(Qt.CursorShape.PointingHandCursor)
-        layout.addWidget(self._btn_strategy_params)
-
-        actions = QWidget()
-        actions_row = QHBoxLayout(actions)
-        actions_row.setContentsMargins(0, 0, 0, 0)
-        actions_row.setSpacing(8)
-        self._btn_arm_strategy = StyledButton(_ARM_TEXT, role=StyleRole.PRIMARY_BUTTON)
-        self._btn_arm_strategy.setObjectName("btnArmStrategy")
-        self._btn_arm_strategy.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_disarm_strategy = StyledButton(
-            _DISARM_TEXT, role=StyleRole.SECONDARY_BUTTON
-        )
-        self._btn_disarm_strategy.setObjectName("btnDisarmStrategy")
-        self._btn_disarm_strategy.setCursor(Qt.CursorShape.PointingHandCursor)
-        actions_row.addWidget(self._btn_arm_strategy, 1)
-        actions_row.addWidget(self._btn_disarm_strategy, 1)
-        layout.addWidget(actions)
-
-        self._lbl_armed_strategy = QLabel(_NOT_ARMED_TEXT)
-        self._lbl_armed_strategy.setObjectName("lblArmedStrategy")
-        self._lbl_armed_strategy.setWordWrap(True)
-        layout.addWidget(self._lbl_armed_strategy)
-
-        #: Everything above is disabled while an arm/disarm is in flight —
-        #: see the docstring above for what this does NOT yet gate on.
-        self._strategy_controls = (
-            self._cbo_live_strategy,
-            self._cbo_live_interval,
-            self._spn_sizing_percent,
-            self._spn_leverage,
-            self._btn_strategy_params,
-            self._btn_arm_strategy,
-            self._btn_disarm_strategy,
-        )
-
-        self._cbo_live_strategy.currentIndexChanged.connect(
-            lambda _index: self._view_model.strategy.requestStrategySelection(
-                self._cbo_live_strategy.currentData() or ""
-            )
-        )
-        self._cbo_live_interval.currentTextChanged.connect(
-            self._view_model.strategy.requestIntervalSelection
-        )
-        self._spn_sizing_percent.valueChanged.connect(
-            self._view_model.strategy.requestSizingPercent
-        )
-        self._spn_leverage.valueChanged.connect(
-            self._view_model.strategy.requestLeverage
-        )
-        self._btn_arm_strategy.clicked.connect(self._view_model.strategy.requestArm)
-        self._btn_disarm_strategy.clicked.connect(
-            self._view_model.strategy.requestDisarm
-        )
-        self._btn_strategy_params.clicked.connect(self._open_strategy_params_dialog)
-
-        self._view_model.strategy.strategyConfigChanged.connect(
-            self._on_strategy_config_changed
-        )
-        self._sync_strategy_options()
-        self._sync_strategy_selection()
-        self._sync_armed_summary()
-
-        return card
-
-    def _build_last_signal_card(self) -> Panel:
-        """`EPIC-023C` — mirrors `TradingView._build_last_signal_card()`."""
-        card = Panel()
-        layout = card.body_layout
-        layout.setContentsMargins(14, 14, 14, 14)
-        layout.setSpacing(6)
-        layout.addLayout(_section_row("Latest Signal"))
-        self._lbl_last_signal = QLabel(_NO_SIGNAL_TEXT)
-        self._lbl_last_signal.setObjectName("lblLastSignal")
-        self._lbl_last_signal.setWordWrap(True)
-        layout.addWidget(self._lbl_last_signal)
-        self._view_model.strategy.lastSignalChanged.connect(self._sync_last_signal)
-        self._sync_last_signal()
-        return card
-
-    def _build_session_card(self) -> Panel:
-        """`EPIC-023D` — mirrors `TradingView._build_session_card()`."""
-        card = Panel()
-        card.setObjectName("devBoardSessionCard")
-        layout = card.body_layout
-        layout.setContentsMargins(14, 14, 14, 14)
-        layout.setSpacing(10)
-        layout.addLayout(_section_row("Trading Session"))
-
-        layout.addWidget(self._field_label("Orders Sent This Session"))
-        self._lbl_orders_sent = QLabel("0")
-        self._lbl_orders_sent.setObjectName("lblOrdersSentThisSession")
-        apply_role(self._lbl_orders_sent, StyleRole.STAT_VALUE)
-        layout.addWidget(self._lbl_orders_sent)
-
-        layout.addWidget(self._field_label("Symbols With Open Positions"))
-        self._lbl_open_symbols = QLabel("0")
-        self._lbl_open_symbols.setObjectName("lblOpenSymbolsCount")
-        apply_role(self._lbl_open_symbols, StyleRole.STAT_VALUE)
-        layout.addWidget(self._lbl_open_symbols)
-
-        self._sync_session_stats()
-        return card
-
-    @staticmethod
-    def _field_label(text: str) -> QLabel:
-        label = QLabel(text)
-        label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
-        return label
-
-    def _sync_session_stats(self) -> None:
-        vm = self._view_model
-        self._lbl_orders_sent.setText(str(vm.ordersSentThisSession))
-        self._lbl_open_symbols.setText(str(vm.openSymbolsCount))
 
     def _sync_trading_state(self) -> None:
         vm = self._view_model
@@ -632,243 +375,6 @@ class DevBoardPanel(QObject):
             self._btn_toggle_trading.setText(
                 _TOGGLE_ON_TEXT if vm.enabled else _TOGGLE_OFF_TEXT
             )
-        # The strategy card's editable gate reads `vm.enabled` too
-        # (`_sync_armed_summary`) — must re-run on every toggle, not just
-        # on `strategyConfigChanged`, the same pairing `TradingView`'s own
-        # `tradingStateChanged` connection documents.
-        self._sync_armed_summary()
-
-    # ------------------------------------------------------------------ #
-    # Manual trading card (`EPIC-024B`) — Long/Short submit directly, no
-    # separate "submit" button: each is its own dispatch, same simplification
-    # this task's own file allows ("combo Long/Short (hoặc 2 nút tab)").
-    # ------------------------------------------------------------------ #
-
-    def _build_manual_order_card(self) -> Panel:
-        card = Panel()
-        card.setObjectName("devBoardManualOrderCard")
-        layout = card.body_layout
-        layout.setContentsMargins(14, 14, 14, 14)
-        layout.setSpacing(10)
-        layout.addLayout(_section_row("Manual Order"))
-
-        self._cbo_manual_order_type = QComboBox()
-        self._cbo_manual_order_type.setObjectName("cboManualOrderType")
-        self._cbo_manual_order_type.addItem("Market", OrderType.MARKET.name)
-        self._cbo_manual_order_type.addItem("Limit", OrderType.LIMIT.name)
-        self._cbo_manual_order_type.setFixedHeight(32)
-        self._cbo_manual_order_type.setStyleSheet(_field_style())
-        self._cbo_manual_order_type.currentIndexChanged.connect(
-            self._sync_manual_order_price_visibility
-        )
-        layout.addWidget(self._field_row("Order Type", self._cbo_manual_order_type))
-
-        self._spn_manual_quantity = QDoubleSpinBox()
-        self._spn_manual_quantity.setObjectName("spnManualQuantity")
-        self._spn_manual_quantity.setDecimals(6)
-        self._spn_manual_quantity.setRange(0.0, 1_000_000.0)
-        self._spn_manual_quantity.setFixedHeight(32)
-        self._spn_manual_quantity.setStyleSheet(_field_style())
-        layout.addWidget(self._field_row("Quantity", self._spn_manual_quantity))
-
-        self._spn_manual_price = QDoubleSpinBox()
-        self._spn_manual_price.setObjectName("spnManualPrice")
-        self._spn_manual_price.setDecimals(2)
-        self._spn_manual_price.setRange(0.0, 10_000_000.0)
-        self._spn_manual_price.setFixedHeight(32)
-        self._spn_manual_price.setStyleSheet(_field_style())
-        self._row_manual_price = self._field_row(
-            "Price (Limit)", self._spn_manual_price
-        )
-        layout.addWidget(self._row_manual_price)
-
-        actions = QWidget()
-        actions_row = QHBoxLayout(actions)
-        actions_row.setContentsMargins(0, 0, 0, 0)
-        actions_row.setSpacing(10)
-        self._btn_manual_long = StyledButton(
-            _MANUAL_ORDER_LONG_TEXT, role=StyleRole.PRIMARY_BUTTON
-        )
-        self._btn_manual_long.setObjectName("btnManualLong")
-        self._btn_manual_long.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_manual_long.clicked.connect(
-            lambda: self._on_manual_order_clicked(ManualOrderDirection.LONG)
-        )
-        self._btn_manual_short = StyledButton(
-            _MANUAL_ORDER_SHORT_TEXT, role=StyleRole.DANGER_BUTTON
-        )
-        self._btn_manual_short.setObjectName("btnManualShort")
-        self._btn_manual_short.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_manual_short.clicked.connect(
-            lambda: self._on_manual_order_clicked(ManualOrderDirection.SHORT)
-        )
-        actions_row.addWidget(self._btn_manual_long)
-        actions_row.addWidget(self._btn_manual_short)
-        layout.addWidget(actions)
-
-        self._lbl_manual_order_status = QLabel("")
-        self._lbl_manual_order_status.setObjectName("lblManualOrderStatus")
-        self._lbl_manual_order_status.setWordWrap(True)
-        self._lbl_manual_order_status.setStyleSheet(
-            f"color: {Palette.MUTED}; font-size: 11px;"
-        )
-        layout.addWidget(self._lbl_manual_order_status)
-
-        #: Disabled together while a manual order attempt is in flight —
-        #: same "editable gate" idiom `_strategy_controls`/`_sync_armed_
-        #: summary` uses above.
-        self._manual_order_controls: tuple[QWidget, ...] = (
-            self._cbo_manual_order_type,
-            self._spn_manual_quantity,
-            self._spn_manual_price,
-            self._btn_manual_long,
-            self._btn_manual_short,
-        )
-        self._sync_manual_order_price_visibility()
-        self._sync_manual_order_state()
-        return card
-
-    def _sync_manual_order_price_visibility(self) -> None:
-        order_type = OrderType[self._cbo_manual_order_type.currentData()]
-        self._row_manual_price.setVisible(order_type is OrderType.LIMIT)
-
-    def _sync_manual_order_state(self) -> None:
-        vm = self._view_model
-        for widget in self._manual_order_controls:
-            widget.setEnabled(not vm.manualOrderBusy)
-        self._lbl_manual_order_status.setText(vm.manualOrderMessage)
-
-    def _on_manual_order_clicked(self, direction: ManualOrderDirection) -> None:
-        order_type = OrderType[self._cbo_manual_order_type.currentData()]
-        quantity = self._spn_manual_quantity.value()
-        price = self._spn_manual_price.value() if order_type is OrderType.LIMIT else 0.0
-        self._view_model.requestManualOrder(
-            direction.value, quantity, order_type.name, price
-        )
-
-    def _open_strategy_params_dialog(self) -> None:
-        """Built fresh per opening — same reasoning `TradingView`'s own
-        method documents. Imported lazily for the same reason: the dialog
-        pulls in `QScrollArea`/`Overlay` chrome no user who never opens it
-        should pay for at panel construction.
-
-        `BUG-134` — parents to `self._dialog_parent()`, never `self`:
-        `DevBoardPanel` is a `QObject`, not a `QWidget` (`EPIC-025` PR
-        1.4c-3), and a `QDialog` parented to one raises `TypeError` — see
-        `_dialog_parent()`'s own docstring, which this call had not
-        actually followed."""
-        from Sagittarius_Elite_Warrior.src.support.ui_kit.param_form import (
-            StrategyParamsDialog,
-        )
-
-        dialog = StrategyParamsDialog(self._view_model.strategy, self._dialog_parent())
-        dialog.exec()
-
-    def _on_strategy_config_changed(self) -> None:
-        self._sync_strategy_options()
-        self._sync_strategy_selection()
-        self._sync_armed_summary()
-
-    def _sync_strategy_options(self) -> None:
-        """@details Each row's registry key rides on `setItemData`, never
-        on the visible text — same reasoning `TradingView`'s own method
-        documents (a renamed strategy silently stops being armable
-        otherwise)."""
-        self._cbo_live_strategy.blockSignals(True)
-        self._cbo_live_strategy.clear()
-        for option in self._view_model.strategy.strategyOptions:
-            self._cbo_live_strategy.addItem(
-                option.get("label", ""), option.get("key", "")
-            )
-        self._cbo_live_strategy.blockSignals(False)
-
-        self._cbo_live_interval.blockSignals(True)
-        self._cbo_live_interval.clear()
-        self._cbo_live_interval.addItems(self._view_model.strategy.intervalOptions)
-        self._cbo_live_interval.blockSignals(False)
-
-    def _sync_strategy_selection(self) -> None:
-        vm = self._view_model.strategy
-        self._cbo_live_strategy.blockSignals(True)
-        index = self._cbo_live_strategy.findData(vm.selectedStrategyKey)
-        if index >= 0:
-            self._cbo_live_strategy.setCurrentIndex(index)
-        self._cbo_live_strategy.blockSignals(False)
-
-        self._cbo_live_interval.blockSignals(True)
-        if vm.liveInterval:
-            self._cbo_live_interval.setCurrentText(vm.liveInterval)
-        self._cbo_live_interval.blockSignals(False)
-
-        for spin, value in (
-            (self._spn_sizing_percent, vm.sizingPercent),
-            (self._spn_leverage, vm.leverage),
-        ):
-            spin.blockSignals(True)
-            spin.setValue(value)
-            spin.blockSignals(False)
-
-    def _sync_armed_summary(self) -> None:
-        vm = self._view_model.strategy
-        summary = vm.armedSummary
-        self._lbl_armed_strategy.setText(summary or _NOT_ARMED_TEXT)
-        self._lbl_armed_strategy.setStyleSheet(
-            f"color: {Palette.SUCCESS if summary else Palette.MUTED}; font-size: 11px;"
-        )
-        # `EPIC-022` §4.1 — swapping the engine under an open position is
-        # refused by the command handler too; this is the same rule made
-        # visible before the click rather than after it (`TradingView`'s
-        # own `_apply_armed_summary` docstring).
-        editable = not vm.strategyBusy and not self._view_model.enabled
-        for widget in self._strategy_controls:
-            widget.setEnabled(editable)
-
-    def _sync_last_signal(self) -> None:
-        self._lbl_last_signal.setText(
-            self._view_model.strategy.lastSignalText or _NO_SIGNAL_TEXT
-        )
-
-    @staticmethod
-    def _field_row(label_text: str, field: QWidget) -> QWidget:
-        row = QWidget()
-        layout = QHBoxLayout(row)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(10)
-        label = QLabel(label_text)
-        label.setFixedWidth(60)
-        label.setStyleSheet(
-            f"color: {Palette.MUTED}; font-size: 11px; font-weight: bold;"
-        )
-        layout.addWidget(label)
-        layout.addWidget(field, 1)
-        return row
-
-    def _build_market_combo(self) -> QComboBox:
-        self._cbo_market = QComboBox()
-        self._cbo_market.setObjectName("cboMarket")
-        self._cbo_market.addItems(["Spot", "Futures"])
-        self._cbo_market.setFixedHeight(32)
-        self._cbo_market.setStyleSheet(_field_style())
-        return self._cbo_market
-
-    def _build_symbol_button(self) -> QPushButton:
-        """The field that opens the shared symbol picker.
-
-        `EPIC-014`: was an editable `QComboBox` seeded with `["BTCUSDT",
-        "ETHUSDT"]`. Two of the exchange's ~1,400 pairs were one click away
-        and every other one had to be typed exactly, from memory, with
-        nothing to validate it — a typo became a symbol the stream would
-        never tick on. A button rather than a populated combo because the
-        list is fetched on demand (it costs an exchange round trip), which is
-        the same reason Backtest opens a dialog rather than filling a combo.
-        """
-        self._btn_symbol = QPushButton(self._view_model.symbol)
-        self._btn_symbol.setObjectName("btnSymbol")
-        self._btn_symbol.setFixedHeight(32)
-        self._btn_symbol.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_symbol.setStyleSheet(_field_style())
-        self._btn_symbol.clicked.connect(self._open_symbol_picker)
-        return self._btn_symbol
 
     def set_indicator_script_dependencies(
         self,
@@ -926,15 +432,6 @@ class DevBoardPanel(QObject):
     def _refresh_symbol_picker(self) -> None:
         if self._symbol_picker is not None and self._symbol_picker.isVisible():
             self._symbol_picker.refresh()
-
-    @staticmethod
-    def _action_button_style(accent: str) -> str:
-        return (
-            f"QPushButton {{ background-color: {Palette.STATE_IDLE_BG}; color: {Palette.TEXT_PRIMARY}; "
-            f"border: 1px solid {accent}; border-radius: 6px; min-height: 32px; "
-            f"font-size: 12px; }} "
-            f"QPushButton:disabled {{ color: {Palette.MUTED}; border-color: {Palette.STATE_NAV_BORDER}; }}"
-        )
 
     # ------------------------------------------------------------------ #
     # Indicators checklist
@@ -1001,8 +498,8 @@ class DevBoardPanel(QObject):
     def _open_script_params_dialog(self, key: str) -> None:
         """Built fresh per opening, one per script key — see
         `IndicatorScriptParamsSink`'s own docstring for why this differs
-        from `_open_strategy_params_dialog`'s one-permanent-sink shape.
-        A no-op before the Presenter has injected the catalog/store
+        from a strategy card's one-permanent-sink shape. A no-op before the
+        Presenter has injected the catalog/store
         (`set_indicator_script_dependencies`), same guard
         `_open_symbol_picker` gives for its own late-injected dependency."""
         if self._script_catalog is None or self._script_params_store is None:
@@ -1037,8 +534,6 @@ class DevBoardPanel(QObject):
         vm.endDateChanged.connect(self._sync_end_date)
         vm.symbolChanged.connect(self._sync_symbol)
         vm.tradingStateChanged.connect(self._sync_trading_state)
-        vm.sessionStatsChanged.connect(self._sync_session_stats)
-        vm.manualOrderChanged.connect(self._sync_manual_order_state)
 
     def _on_start_date_edited(self, text: str) -> None:
         self._view_model.startDate = text
