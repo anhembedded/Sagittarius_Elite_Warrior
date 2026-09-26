@@ -1,6 +1,6 @@
 # BOT-144 — Four files split back under the 400-line ceiling
 
-**Status:** 🟡 In progress — `data_management_presenter.py` slice implemented 2026-09-26: 964 → 671 lines (30% cut), still over the 400-line target; see §4 for the honest remaining gap and why the extraction stopped where it did.
+**Status:** 🟡 In progress — `data_management_presenter.py` slice implemented and merged 2026-09-26 (`PR #270`): 964 → 671 lines (30% cut), still over the 400-line target; the `IStateContributor` extraction was decided against, not deferred (§4). The shrink-only line-count guard (acceptance criterion 5) is also done. `dashboard_presenter.py` has a measured design (§3.2) but no code changed yet; `dev_board_panel.py`/`paper_exchange.py` not started.
 **Source:** Independent PR review of `PR #257` (2026-09-23), flagged as a should-fix, pre-existing item — "worth a tracked follow-up task rather than continuing to accrete onto these three files indefinitely." A fourth file (`paper_exchange.py`) was added from an independent review of `PR #266` (2026-09-25), same finding, different file.
 **Risk:** 🟡 — each file is a live Presenter/Panel wired into the composition root and covered by hundreds of existing tests; a split done as extraction (not rewrite) should be behavior-preserving, but a bad seam could silently drop a signal connection or FSM transition.
 **Complexity:** L — three separate god-files, each needing its own extraction design; no single mechanical transform covers all three.
@@ -27,7 +27,7 @@ This is not new debt from any one PR — `EPIC-003` (Presenter/god-file decompos
 - [ ] `paper_exchange.py` is ≤400 lines, achieved by extracting its remaining position entry/exit lifecycle (`_open()`/`_close()`/`_close_one_position()`/`_close_partial_position()`/`_apply_partial_take_profits()`) into a domain policy under `domain/policies/`, mirroring the extraction `PR #266` already did for `StopManagementPolicy`.
 - [ ] Every existing test for these three files (and their coordinators/view models) still passes unchanged in behavior — a test may need its constructor call updated for a new collaborator, but must not need its assertions weakened.
 - [ ] No FSM transition, signal connection, or coordinator wiring present before the split is silently dropped — verified by running the full `tests/unit` suite plus a manual `tools/run_app` (or `scripts/run-dev.ps1`, whichever this repo's `run` skill uses) smoke pass on the Dev Board and Data Management screens.
-- [ ] A machine guard is added (or an existing one extended) so a file already over 400 lines cannot grow further without the gate failing — closing the gap the independent review noted ("no guard test currently catches this"). A shrink-only ratchet, mirroring `test_app_styling_only_shrinks.py`'s own pattern, is the vetted precedent to apply before inventing a new mechanism.
+- [x] A machine guard is added (or an existing one extended) so a file already over 400 lines cannot grow further without the gate failing — closing the gap the independent review noted ("no guard test currently catches this"). A shrink-only ratchet, mirroring `test_app_styling_only_shrinks.py`'s own pattern, is the vetted precedent to apply before inventing a new mechanism. **Done 2026-09-26** — see §4.
 
 ## 3. Design
 
@@ -130,16 +130,94 @@ submit-with-correct-args) needs its own test — added to the relevant
 is mechanical but touches most of the existing test file; budget real time
 for it, not just the production-code edit.
 
-### 3.2 The other three files — not designed yet
+### 3.2 `dashboard_presenter.py` (1994 → target ≤400) — measured 2026-09-26, design in progress
 
-`dashboard_presenter.py` (1994), `dev_board_panel.py` (1145),
-`paper_exchange.py` (587, see §1) still need their own measurement pass
-each, the same way §3.1 was done for `data_management_presenter.py` — do
-not assume the same `request_*`/dead-seam pattern applies; each file's own
-`git log -p` and current coordinator/policy split must be read first
-(`fix-bug-rule.md` §2's "root cause first" applies to a design pass too:
-guessing a second file's seam from the first file's shape is exactly the
-"guessing a split boundary" `architecture-rule.md` §7.2.1 warns against).
+Measured, not guessed, before designing anything (`fix-bug-rule.md` §2):
+section-by-section outline via the file's own `# ===` banners, then read the
+two largest candidates in full.
+
+**Two real candidates found, each with its own reason:**
+
+1. **`__init__` (519–909, ~390 lines)** — the same "complex multi-step
+   construction sequence" `code/quality.md` §9 gives to a Factory that
+   `coordinator_factory.py` already extracted for `data_management_presenter.py`.
+   **Does not transfer as a pure copy of that precedent, though** — verified
+   by reading it, not assumed: it interleaves FSM transition wiring that
+   must run in a specific order, several nested closures
+   (`_get_cancellation_token`/`_reset_cancellation_token`/
+   `_get_active_interval`/etc.) capturing `self` and reading/writing state
+   defined earlier in the *same* constructor, and explicit sequencing
+   comments ("restore state only after X exists", "constructed last: it
+   immediately calls `_on_start_stream()`"). A Factory extraction is still
+   the right target, but it has to take these closures and orderings as
+   parameters/return values rather than mechanically relocating lines — more
+   design work than `data_management_presenter.py`'s equivalent, not a
+   same-shape port.
+
+2. **Enable/Disable toggle + Emergency Stop + Manual order + Per-order
+   cancel (1235–1627, ~392 lines)** — shape-matches the Coordinator pattern
+   this same file already uses for `SymbolOptionsCoordinator`/
+   `LiveOrderBookCoordinator`/`StrategyArmingCoordinator`/
+   `IndicatorCoordinator` (`_on_x_requested` → validate/track → submit to
+   `IThreadManager` → `_run_x` worker) almost exactly, and is currently
+   **not** using it — the same "seam pattern established elsewhere in the
+   file, not applied consistently" finding §3.1 made for
+   `data_management_presenter.py`'s dead `transition_fsm` seam.
+   **A real reason found here, not assumed to transfer — corrected
+   2026-09-26 after PR #271's independent review reproduced the actual
+   mechanism against this repo's pinned `PySide6==6.11.1` and disproved this
+   entry's first-draft claim:** an earlier version of this paragraph argued
+   the five `_on_x_completed` `@Slot(tuple)` handlers had to stay
+   Presenter-owned because Qt's queued-connection marshaling depends on the
+   connected slot being a bound method of a `QObject`. That is false —
+   `AutoConnection`'s queuing decision is governed by the **signal owner's**
+   thread affinity (`DashboardPresenter`, always main-thread) versus the
+   emitting thread, not by whether the connected callable's own object is a
+   `QObject`; a plain Coordinator's method is marshaled exactly as safely,
+   confirmed both by a live repro and by this codebase's own existing
+   precedent (`SyncCoordinator`, a plain non-`QObject`, already reaches a
+   Presenter-owned signal's `.emit()` from a background thread without
+   incident). **The real, still-standing reason the five `_on_x_completed`
+   handlers cannot move is `async-ui-action-rule.md` §2: a Coordinator owns
+   no action-id/FSM bookkeeping — the owning Presenter keeps its own
+   `ActionOwnershipTracker`, and `_on_enable_trading_completed` (etc.) calls
+   `self._toggle_tracker.finish_action(...)` directly.** The practical
+   conclusion is unchanged — only the `_run_x` workers and the four
+   `_on_x_requested` synchronous request-orchestration methods move into a
+   Coordinator; the five `_on_x_completed` handlers (~140 of the ~392 lines)
+   stay Presenter-owned — but for this reason, not a Qt-threading constraint
+   that does not exist. A partial win (~250 lines), not the ~392 a naive
+   port would claim.
+
+**Not yet designed** (need their own read before any claim about them):
+`BasePresenter` contract implementations / engine event bridge (1050–1235),
+FSM Hooks / UI Helpers (1664–1721), custom indicator script orchestration
+(1723–1748, likely stays — `IndicatorCoordinator` already owns the async
+half), Qt Slots for chart/stream actions and Background Signal Slots
+(1748–1899, likely mostly delegates to `StreamLifecycleController`/
+`HistoryPaginationController` already — needs confirming, not assuming),
+Engine Event Bridge / tick handling (1899–1991).
+
+**Sizing reality check:** even both candidates above together
+(~390 + ~250 = ~640 lines) would land this file around **~1350 lines** —
+still far over 400. Confirms this task's own `Complexity: L` framing ("no
+single mechanical transform covers all three") rather than a quick win;
+expect this file alone to need more than one slice. Implementation not yet
+started — the next executable action is the Coordinator extraction (item 2
+above), since it is the better-understood, lower-conceptual-risk half; the
+`__init__` Factory (item 1) should follow once the Coordinator's
+construction lines have already moved once, reducing what the Factory has
+to carry.
+
+### `dev_board_panel.py` (1145), `paper_exchange.py` (596) — not designed yet
+
+Still need their own measurement pass each, the same way §3.1/§3.2 were
+done — do not assume either the `request_*`/dead-seam pattern or the
+Coordinator-with-completion-caveat pattern above applies; each file's own
+`git log -p` and current split must be read first (`fix-bug-rule.md` §2's
+"root cause first" applies to a design pass too: guessing a split boundary
+from a different file's shape is exactly what `architecture-rule.md` §7.2.1
+warns against).
 
 ## 4. Changes, per file
 
@@ -245,7 +323,52 @@ right reason when temporarily removed; `SyncCoordinator`
 /`ExportImportCoordinator`/`VaultMaintenanceCoordinator`'s shutdown-guards
 and FSM-transition assertions are each backed by a dedicated test.
 
-{`dashboard_presenter.py`, `dev_board_panel.py`, `paper_exchange.py`: not started.}
+### Line-count guard — added 2026-09-26 (acceptance criterion 5)
+
+`tools/measure_god_files.py` scans `src/**/*.py` and returns every file over
+`architecture-rule.md` §5.4's 400-line ceiling. `baseline_god_files.json`
+freezes today's 29 violators (measured the same day PR #270 merged — the
+count moved 964 → 671 for `data_management_presenter.py` in that same PR, so
+the baseline was taken *after* it, not before).
+`tests/unit/architecture/test_god_files_only_shrink.py` is the ratchet:
+
+- a file already in the baseline may shrink freely but never grow past its
+  recorded count (mirrors `test_app_styling_only_shrinks.py`);
+- a file crossing 400 lines for the **first time** fails outright — deliberately
+  **not** offered a baseline-edit escape hatch the way the styling census
+  allows, since this rule's remedy is "split it", not "grandfather it in";
+- a baseline entry that drops out of the measured set (shrunk under 400,
+  moved, or deleted) fails too, forcing the baseline down in the same commit.
+
+Scope is `src/` only (`tests/`/`tools/` also exceed 400 lines in many places —
+`architecture-rule.md` §5.4 names them too, but freezing that debt as well is
+a separate, larger undertaking than this task asked for). Registered in
+`scanned_roots_registry.py` and `test_guard_scans_its_registered_root.py`'s
+`_UNRESOLVABLE_GUARDS` (scans via an imported function, not a literal
+`.rglob()` in its own body — same shape as `test_module_boundaries.py`'s
+neighbors). Mutation-verified all three directions (a file grown past its
+baseline, a new violator with no baseline entry, a stale baseline entry no
+longer over the ceiling) — each failed for the stated reason, then reverted.
+
+### IStateContributor extraction — decided 2026-09-26, not done
+
+Resume step 2 asked to decide, not just defer again. Decision: **do not
+extract it.** The four methods (`capture_state`/`restore_state`/
+`state_scope`/`_mark_state_dirty`) have exactly one real collaborator each
+(`self._view_model`, `self._state_coordinator`) and no existing Coordinator
+owns either — inventing a class to hold four methods purely to cross a line
+count would be the "bespoke machinery" `CONSTITUTION.md` P5 rejects, not a
+seam any other consumer needs (`architecture-rule.md` §7.2.1: a seam is built
+for a plausible *second* case, and there isn't one here). `671` lines stands
+as this slice's final number; the line-count guard above now holds that
+ground so it cannot silently grow back toward 964.
+
+### `dashboard_presenter.py`, `dev_board_panel.py`, `paper_exchange.py`: not started.
+
+Now unblocked by the guard above (their current counts are the frozen
+baseline, so no further work here makes them worse by accident). Each still
+needs its own §3.2 measurement-and-design pass before touching code — do not
+assume `data_management_presenter.py`'s `request_*`/dead-seam shape transfers.
 
 ## 5. Testing
 
@@ -275,22 +398,25 @@ and FSM-transition assertions are each backed by a dedicated test.
 
 ## Resume (optional; while unfinished)
 
-`data_management_presenter.py` is substantially smaller (964 → 671, 30%) and
-fully green, but not yet at the ≤400 target — see §4's honest gap analysis.
-Next executable action, in order:
-1. Confirm the full `tests/unit` suite (not just `market_data`/`architecture`/
-   `sanity`) is green on this slice — it was running at hand-off.
-2. Decide on the `IStateContributor` extraction §4 flags as the only
-   remaining *mechanical* lever (a small new collaborator owning
-   `capture_state`/`restore_state`/`_mark_state_dirty`, injected with
-   `view_model` and `state_coordinator`) — or accept 671 as this slice's
-   final number and move on, since forcing it below 400 by trimming the
-   signal-bridge documentation would cost more than it's worth.
-3. Add the shrink-only line-count guard once a decision on (2) is made,
-   seeded with whichever files are already compliant (the six coordinators
-   qualify today even if the Presenter does not yet).
-4. Only after `data_management_presenter.py` is closed should
-   `dashboard_presenter.py`/`dev_board_panel.py`/`paper_exchange.py` get
-   their own §3.2 design passes — each is materially larger, and this
-   slice's exact `request_*`/dead-seam pattern is not guaranteed to
-   transfer (the Factory extraction might, but verify rather than assume).
+`data_management_presenter.py` is substantially smaller (964 → 671, 30%),
+merged, and fully green. Steps 1–3 below are done; only step 4 remains open.
+
+1. ~~Confirm the full `tests/unit` suite is green on this slice~~ — done
+   (5451 passed), confirmed before `PR #270` merged.
+2. ~~Decide on the `IStateContributor` extraction~~ — decided against (§4):
+   671 stands as this slice's final number.
+3. ~~Add the shrink-only line-count guard~~ — done (§4), scoped to `src/`,
+   seeded with all 29 current violators including this file's own 671.
+4. `dashboard_presenter.py`'s §3.2 design pass is done (measured, two
+   candidates found, one real mechanism difference from
+   `data_management_presenter.py` recorded: `_on_x_completed` `@Slot`
+   handlers cannot move off the Presenter, only `_run_x`/`_on_x_requested`
+   can — see §3.2). **Next executable action:** implement candidate 2 (a new
+   Coordinator for Enable/Disable toggle + Emergency Stop + Manual order +
+   Per-order cancel, ~250 lines moved, `_on_x_completed` staying Presenter-side)
+   — smaller blast radius and better-understood than candidate 1's `__init__`
+   Factory, which should follow once this lands. Budget real time for
+   retargeting `test_dashboard_presenter.py` (2903 lines) the same way
+   `test_data_management_presenter.py` needed it. `dev_board_panel.py` (1145)
+   and `paper_exchange.py` (596, target for a `domain/policies/` extraction
+   mirroring `StopManagementPolicy`) still need their own §3.2 passes after.
