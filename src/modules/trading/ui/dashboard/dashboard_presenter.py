@@ -77,14 +77,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
-    OrderRequest,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
-    ManualOrderDirection,
-    manual_order_intent_for,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
     equity_sample_to_candle,
     equity_samples_to_candles,
@@ -160,6 +152,7 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 
 from .autostart_controller import AutoStartController
 from .coordinators.indicator_coordinator import IndicatorCoordinator
+from .coordinators.trading_actions_coordinator import TradingActionsCoordinator
 from .dashboard_view_model import (
     DATETIME_FORMAT,
     DEFAULT_LOOKBACK_DAYS,
@@ -684,6 +677,36 @@ class DashboardPresenter(BasePresenter):
         # Updated on every `_on_ui_chart_update` tick; `Decimal`, not the
         # `float` the tick itself carries — `OrderRequest` requires it.
         self._last_price_by_symbol: dict[str, Decimal] = {}
+        # `BOT-144` — the request_*/run_* halves of the four action families
+        # just above, extracted once adding them (plus the Presenter's own
+        # existing orchestration) pushed this file over the 400-line
+        # ceiling. Trackers stay Presenter-owned and constructed above,
+        # handed in exactly like `StrategyArmingCoordinator` already
+        # receives `tracker=self._arm_tracker` — the Coordinator uses the
+        # shared tracker, it does not own a second one
+        # (`async-ui-action-rule.md` §2).
+        self._trading_actions = TradingActionsCoordinator(
+            thread_manager=self._thread_manager,
+            trading_session=self._trading_session,
+            order_submission=self._order_submission,
+            account=self._account,
+            toggle_tracker=self._toggle_tracker,
+            emergency_stop_tracker=self._emergency_stop_tracker,
+            manual_order_tracker=self._manual_order_tracker,
+            toggle_action_kind=_TOGGLE_ACTION,
+            emergency_stop_action_kind=_EMERGENCY_STOP_ACTION,
+            manual_order_action_kind=_MANUAL_ORDER_ACTION,
+            set_trading_state=self._view_model.set_trading_state,
+            set_manual_order_state=self._view_model.set_manual_order_state,
+            append_log=self._append_log,
+            get_active_symbol=lambda: self._active_symbol,
+            get_last_price=lambda symbol: self._last_price_by_symbol.get(symbol),
+            emit_enable_completed=self.enableTradingCompleted.emit,
+            emit_disable_completed=self.disableTradingCompleted.emit,
+            emit_emergency_stop_completed=self.emergencyStopCompleted.emit,
+            emit_manual_order_completed=self.manualOrderCompleted.emit,
+            emit_cancel_order_completed=self.cancelOrderCompleted.emit,
+        )
         # Seeds from whatever the session already says — if Trading enabled it
         # first, opening Dev Board must show "đang BẬT", never a default "TẮT"
         # that contradicts the account's real state.
@@ -1250,38 +1273,7 @@ class DashboardPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_toggle_requested(self) -> None:
-        # `BUG-089` (Trading's own precedent) — the toggle button is already
-        # disabled by `busy=True` while Emergency Stop runs, but this is the
-        # real guard: a click that slips through anyway must not begin a
-        # new toggle action and, via the shared session state, race the
-        # Emergency Stop already in flight.
-        if self._emergency_stop_tracker.active_outcome is ActionOutcome.PENDING:
-            self._append_log(
-                "Emergency stop in progress — please wait for it to finish "
-                "before enabling/disabling trading."
-            )
-            return
-        action = self._toggle_tracker.begin_action(_TOGGLE_ACTION, None, None)
-        currently_enabled = self._trading_session.snapshot().enabled
-        self._view_model.set_trading_state(currently_enabled, True)
-        if currently_enabled:
-            self._thread_manager.submit(self._run_disable, action.action_id)
-        else:
-            self._thread_manager.submit(self._run_enable, action.action_id)
-
-    def _run_enable(self, action_id: int) -> None:
-        try:
-            result = self._trading_session.enable()
-            self.enableTradingCompleted.emit((action_id, result, None))
-        except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self.enableTradingCompleted.emit((action_id, None, str(exc)))
-
-    def _run_disable(self, action_id: int) -> None:
-        try:
-            self._trading_session.disable()
-            self.disableTradingCompleted.emit((action_id, None))
-        except Exception as exc:  # noqa: BLE001 - worker boundary
-            self.disableTradingCompleted.emit((action_id, str(exc)))
+        self._trading_actions.request_toggle()
 
     @Slot(tuple)
     def _on_enable_trading_completed(self, payload: tuple) -> None:
@@ -1340,52 +1332,17 @@ class DashboardPresenter(BasePresenter):
         self._append_log("Trading disabled.")
 
     # ================================================================== #
-    # Emergency Stop (`EPIC-023D`) — deliberately NOT `@safe_ui_action`
-    # (that decorator swallows exceptions; this button's whole point is
-    # that a failure must be seen, never silently dropped mid-flow —
-    # ONBOARDING.md §8, bẫy 8), same reasoning `TradingPresenter` documents
-    # for its own identical button. The manual `try/except` below reports
-    # every failure through the log instead, the same "worker boundary"
-    # idiom `_run_enable`/`_run_disable` above already use.
+    # Emergency Stop (`EPIC-023D`) — the request/run halves live on
+    # `TradingActionsCoordinator` now (`BOT-144`); deliberately NOT
+    # `@safe_ui_action` here (that decorator swallows exceptions; this
+    # button's whole point is that a failure must be seen, never silently
+    # dropped mid-flow — ONBOARDING.md §8, bẫy 8), same reasoning
+    # `TradingPresenter` documents for its own identical button.
     # ================================================================== #
 
     @Slot()
     def _on_emergency_stop_requested(self) -> None:
-        try:
-            # `BUG-089` debounce (Trading's own precedent) — the Emergency
-            # Stop button is deliberately never disabled (it must always be
-            # clickable), so a second click while one is still in flight is
-            # only caught here: without this, it would submit a second,
-            # independent `ITradingSession.emergency_stop()` against the
-            # live exchange, racing the first one's own cancel/close calls.
-            if self._emergency_stop_tracker.active_outcome is ActionOutcome.PENDING:
-                self._append_log(
-                    "Emergency stop in progress — the request has already been sent, please wait."
-                )
-                return
-            action = self._emergency_stop_tracker.begin_action(
-                _EMERGENCY_STOP_ACTION, None, None
-            )
-            # Disables the toggle button for the duration — Enable/Disable
-            # must not race Emergency Stop's own `disable()`/`place_order()`
-            # calls.
-            self._view_model.set_trading_state(
-                self._trading_session.snapshot().enabled, True
-            )
-            self._append_log("Emergency stop in progress...")
-            self._thread_manager.submit(self._run_emergency_stop, action.action_id)
-        except Exception as exc:  # noqa: BLE001 - deliberately not @safe_ui_action, see this section's own docstring
-            self._view_model.set_trading_state(
-                self._trading_session.snapshot().enabled, False
-            )
-            self._append_log(f"Error during emergency stop: {exc}")
-
-    def _run_emergency_stop(self, action_id: int) -> None:
-        try:
-            result = self._trading_session.emergency_stop()
-            self.emergencyStopCompleted.emit((action_id, result, None))
-        except Exception as exc:  # noqa: BLE001 - worker boundary
-            self.emergencyStopCompleted.emit((action_id, None, str(exc)))
+        self._trading_actions.request_emergency_stop()
 
     @Slot(tuple)
     def _on_emergency_stop_completed(self, payload: tuple) -> None:
@@ -1464,94 +1421,9 @@ class DashboardPresenter(BasePresenter):
     def _on_manual_order_requested(
         self, direction_text: str, quantity: float, order_type_text: str, price: float
     ) -> None:
-        if self._manual_order_tracker.active_outcome is ActionOutcome.PENDING:
-            self._append_log("Already processing a manual order — please wait.")
-            return
-        try:
-            direction = ManualOrderDirection(direction_text)
-            order_type = OrderType[order_type_text]
-        except (ValueError, KeyError):
-            self._append_log(
-                f"Invalid manual order parameters: {direction_text}/{order_type_text}"
-            )
-            return
-        quantity_decimal = Decimal(str(quantity))
-        if quantity_decimal <= 0:
-            self._append_log("Manual order quantity must be greater than 0.")
-            return
-
-        symbol = self._active_symbol
-        if order_type is OrderType.LIMIT:
-            reference_price = Decimal(str(price))
-            if reference_price <= 0:
-                self._append_log("Limit order price must be greater than 0.")
-                return
-        else:
-            reference_price = self._last_price_by_symbol.get(symbol)
-            if reference_price is None:
-                self._append_log(
-                    "No market price available for this symbol yet — wait for "
-                    "live data and try again."
-                )
-                return
-
-        action = self._manual_order_tracker.begin_action(
-            _MANUAL_ORDER_ACTION, None, None
+        self._trading_actions.request_manual_order(
+            direction_text, quantity, order_type_text, price
         )
-        self._view_model.set_manual_order_state(True, "Sending order...")
-        self._thread_manager.submit(
-            self._run_manual_order,
-            action.action_id,
-            symbol,
-            direction,
-            quantity_decimal,
-            order_type,
-            reference_price,
-        )
-
-    def _run_manual_order(
-        self,
-        action_id: int,
-        symbol: str,
-        direction: ManualOrderDirection,
-        quantity: Decimal,
-        order_type: OrderType,
-        reference_price: Decimal,
-    ) -> None:
-        try:
-            # `PRO-003` §4.1.2's hard block on the strategy's armed symbol is
-            # **not** here any more (`EPIC-025` PR 2.1f). It used to read
-            # `IArmedStrategy.armed()` and refuse before submitting — a screen
-            # enforcing a trading safety rule, which `architecture-rule.md` §3
-            # puts the wrong way round and which covered only this one form:
-            # measured, three callers reach `IOrderSubmission.submit()` and only
-            # this one had it. The rule now lives on the order path as
-            # `ExecuteOrderSafetyGate.SYMBOL_LEASED`, refused against
-            # `trading`'s own symbol lease, so every caller inherits it and the
-            # words the operator sees are unchanged (they moved to
-            # `execute_order_block_reason.py` with the gate). It is still free:
-            # the gate is evaluated ahead of `check_connection()`.
-            #
-            # `EPIC-024B` §2 — read the REAL current position fresh, every
-            # attempt; never guessed, never remembered from a prior click
-            # (see `manual_order_intent_for()`'s own docstring).
-            positions = self._account.open_positions()
-            current_position = next((p for p in positions if p.symbol == symbol), None)
-            intent = manual_order_intent_for(direction, current_position)
-            result = self._order_submission.submit(
-                OrderRequest(
-                    symbol=symbol,
-                    side=intent.side,
-                    order_type=order_type,
-                    quantity=quantity,
-                    reference_price=reference_price,
-                    reduce_only=intent.reduce_only,
-                ),
-                live=True,
-            )
-            self.manualOrderCompleted.emit((action_id, result, None))
-        except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self.manualOrderCompleted.emit((action_id, None, str(exc)))
 
     @Slot(tuple)
     def _on_manual_order_completed(self, payload: tuple) -> None:
@@ -1600,15 +1472,7 @@ class DashboardPresenter(BasePresenter):
     @Slot(str, str)
     @safe_ui_action
     def _on_cancel_order_requested(self, symbol: str, client_order_id: str) -> None:
-        self._append_log(f"Cancelling order {client_order_id} ({symbol})...")
-        self._thread_manager.submit(self._run_cancel_order, symbol, client_order_id)
-
-    def _run_cancel_order(self, symbol: str, client_order_id: str) -> None:
-        try:
-            result = self._order_submission.cancel(symbol, client_order_id)
-            self.cancelOrderCompleted.emit((symbol, client_order_id, result, None))
-        except Exception as exc:  # noqa: BLE001 - worker boundary
-            self.cancelOrderCompleted.emit((symbol, client_order_id, None, str(exc)))
+        self._trading_actions.request_cancel_order(symbol, client_order_id)
 
     @Slot(tuple)
     def _on_cancel_order_completed(self, payload: tuple) -> None:

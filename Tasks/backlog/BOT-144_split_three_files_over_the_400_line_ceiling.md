@@ -1,6 +1,6 @@
 # BOT-144 — Four files split back under the 400-line ceiling
 
-**Status:** 🟡 In progress — `data_management_presenter.py` slice implemented and merged 2026-09-26 (`PR #270`): 964 → 671 lines (30% cut), still over the 400-line target; the `IStateContributor` extraction was decided against, not deferred (§4). The shrink-only line-count guard (acceptance criterion 5) is also done (`PR #271`, merged). `paper_exchange.py` is now done too — 596 → 372 lines, ≤400 at last (§4). `dashboard_presenter.py` has a measured design (§3.2) but no code changed yet; `dev_board_panel.py` not started.
+**Status:** 🟡 In progress — `data_management_presenter.py` slice implemented and merged 2026-09-26 (`PR #270`): 964 → 671 lines (30% cut), still over the 400-line target; the `IStateContributor` extraction was decided against, not deferred (§4). The shrink-only line-count guard (acceptance criterion 5) is also done (`PR #271`, merged). `paper_exchange.py` is done — 596 → 372 lines, ≤400 (§4). `dashboard_presenter.py`'s Coordinator extraction is done — 1994 → 1858 lines, still over 400 (§4); its `__init__` Factory extraction is not. `dev_board_panel.py` is fully designed (§3.4) but not implemented.
 **Source:** Independent PR review of `PR #257` (2026-09-23), flagged as a should-fix, pre-existing item — "worth a tracked follow-up task rather than continuing to accrete onto these three files indefinitely." A fourth file (`paper_exchange.py`) was added from an independent review of `PR #266` (2026-09-25), same finding, different file.
 **Risk:** 🟡 — each file is a live Presenter/Panel wired into the composition root and covered by hundreds of existing tests; a split done as extraction (not rewrite) should be behavior-preserving, but a bad seam could silently drop a signal connection or FSM transition.
 **Complexity:** L — three separate god-files, each needing its own extraction design; no single mechanical transform covers all three.
@@ -130,7 +130,7 @@ submit-with-correct-args) needs its own test — added to the relevant
 is mechanical but touches most of the existing test file; budget real time
 for it, not just the production-code edit.
 
-### 3.2 `dashboard_presenter.py` (1994 → target ≤400) — measured 2026-09-26, design in progress
+### 3.2 `dashboard_presenter.py` (1994 → 1858, target ≤400) — measured 2026-09-26, candidate 2 implemented (see §4)
 
 Measured, not guessed, before designing anything (`fix-bug-rule.md` §2):
 section-by-section outline via the file's own `# ===` banners, then read the
@@ -488,12 +488,65 @@ for a plausible *second* case, and there isn't one here). `671` lines stands
 as this slice's final number; the line-count guard above now holds that
 ground so it cannot silently grow back toward 964.
 
-### `paper_exchange.py`: done — see §3.3. `dashboard_presenter.py` designed (§3.2), not implemented. `dev_board_panel.py`: not started.
+### `dashboard_presenter.py` — §3.2 candidate 2 implemented 2026-09-26; still over 400
+
+New `dashboard/coordinators/trading_actions_coordinator.py`
+(`TradingActionsCoordinator`) holds the `run_*` workers and `request_*`
+synchronous orchestration for Enable/Disable toggle, Emergency Stop, manual
+order submission and per-order cancel — exactly candidate 2 from §3.2, with
+the corrected reason (`async-ui-action-rule.md` §2) already recorded there
+for why the four `_on_x_completed` handlers stay on the Presenter. The three
+`ActionOwnershipTracker` instances stay Presenter-constructed and are handed
+to the Coordinator's constructor, the same "shared tracker, not a second
+owner" shape `StrategyArmingCoordinator` already uses. The Presenter's four
+`_on_x_requested` `@Slot`s (still needed — `DashboardQmlViewModel`/`DashboardView`
+signals connect to them) are now one-line delegations.
+
+Two unused imports (`OrderRequest`, `manual_order_intent_for`,
+`ManualOrderDirection`, `OrderType` — the last still used inside the new
+coordinator, removed only from the Presenter) dropped from
+`dashboard_presenter.py` once nothing there referenced them any more.
+
+**A real, first-time type ambiguity surfaced, not introduced:**
+`dashboard_presenter.py`/`dev_board_panel.py` are both in `pyproject.toml`'s
+mypy `exclude` list, so this exact code was never mypy-checked before. The
+new (non-excluded) coordinator file *is* checked, and moving
+`request_manual_order`'s `reference_price` branch into it surfaced a real
+`Decimal | None` vs `Decimal` narrowing mypy had simply never seen — fixed
+with an explicit `reference_price: Decimal | None` annotation, not by adding
+the new file to the exclude list (`pyproject.toml`'s own rule: "a new file
+must be fixed, not added here").
+
+**Result:** `dashboard_presenter.py` 1994 → 1858 lines (136-line cut, still
+over 400 — an honest partial result, the same shape `data_management_presenter.py`
+landed at 671); new `trading_actions_coordinator.py` at 294 lines (well
+under the ceiling). `test_dashboard_presenter.py`'s 14 tests that asserted
+identity against the old `presenter._run_x`/`presenter._on_x_requested`
+methods retargeted to `presenter._trading_actions.run_x`
+(`_on_x_requested` stayed callable the same way, since it is still a thin
+Presenter `@Slot`) — the same mechanical retargeting §3.1 budgeted real time
+for. All 117 tests in that file, the full `tests/unit/modules/trading` suite
+(768 tests) and `tests/unit/architecture` (445, including the god-files
+guard once `dashboard_presenter.py`'s baseline entry was lowered to 1858)
+pass. `ruff`/`mypy` clean.
+
+**Honest remaining gap, matching §3.2's own sizing estimate:** the `__init__`
+Factory extraction (candidate 1, ~390 lines, closures/temporal coupling) is
+not implemented in this PR — real, verified progress on the better-understood
+half was the priority; rushing the harder half in the same pass risked both.
+1858 stands as this slice's number; the line-count guard above now holds
+that ground.
+
+### `paper_exchange.py`: done — see §3.3. `dashboard_presenter.py`: Coordinator extraction done (see above), Factory extraction not done. `dev_board_panel.py`: designed (§3.4), not implemented.
 
 Now unblocked by the guard above (each file's current count is the frozen
-baseline, so no further work here makes them worse by accident). `dev_board_panel.py`
-still needs its own measurement-and-design pass before touching code — do not
-assume any of the three shapes found so far transfers.
+baseline, so no further work here makes them worse by accident). Next
+executable actions, in priority order: (1) `dashboard_presenter.py`'s
+`__init__` Factory extraction (candidate 1, §3.2) — the Coordinator's own
+construction lines have already moved once, which should reduce what the
+Factory has to carry; (2) `dev_board_panel.py`'s per-card componentization
+(§3.4) — materially larger, budget a dedicated session for it, verifying the
+16-attribute contract field-by-field, not sampled.
 
 ## 5. Testing
 
