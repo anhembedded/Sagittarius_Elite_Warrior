@@ -149,11 +149,15 @@ def main() -> None:
             fsm = getattr(presenter, "fsm", None)
             if fsm is not None:
                 fsm.transition_to(UIMode.SYNCING)
-            presenter._cancellation_token = CancellationToken()
+            # Stored on the coordinator's own field (not a bare local), so
+            # `DataManagementPresenter.shutdown()` -> `SyncCoordinator.cancel()`
+            # actually finds and cancels it (BOT-144 moved token ownership
+            # from the Presenter to the coordinator that runs the action).
+            presenter._sync_coordinator._cancellation_token = CancellationToken()
             presenter._thread_manager.submit(
-                presenter._run_bulk_sync,
+                presenter._sync_coordinator.run_bulk_sync,
                 [("BTCUSDT", "1h")],
-                presenter._cancellation_token,
+                presenter._sync_coordinator._cancellation_token,
             )
 
         elif mode == "repair_gap":

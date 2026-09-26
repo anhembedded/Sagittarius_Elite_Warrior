@@ -33,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
+from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 
 class ExportImportCoordinator:
@@ -42,20 +43,26 @@ class ExportImportCoordinator:
     def __init__(
         self,
         dispatcher: IDispatcher,
+        thread_manager: IThreadManager,
         tracker: ActionOwnershipTracker[DataManagementActionKind, object, UIMode],
         ui_log_signal: Callable[[str], None],
         ui_error_log_signal: Callable[[str], None],
         ui_unlock_signal: Callable[[], None],
         ui_stats_refresh_signal: Callable[[], None],
+        transition_fsm: Callable[[UIMode], bool],
         get_current_fsm_state: Callable[[], UIMode],
+        is_shutdown_requested: Callable[[], bool],
     ) -> None:
         self._dispatcher = dispatcher
+        self._thread_manager = thread_manager
         self._tracker = tracker
         self._ui_log_signal = ui_log_signal
         self._ui_error_log_signal = ui_error_log_signal
         self._ui_unlock_signal = ui_unlock_signal
         self._ui_stats_refresh_signal = ui_stats_refresh_signal
+        self._transition_fsm = transition_fsm
         self._get_current_fsm_state = get_current_fsm_state
+        self._is_shutdown_requested = is_shutdown_requested
 
     def run_export(
         self,
@@ -158,3 +165,29 @@ class ExportImportCoordinator:
         finally:
             self._ui_unlock_signal()
             self._ui_stats_refresh_signal()
+
+    # ------------------------------------------------------------------ #
+    # User-triggered orchestration — runs on the main thread, synchronously
+    # from the Presenter's Slot, after it has already resolved the file
+    # dialog (BOT-144). See `ScanCoordinator`'s own section for why
+    # `_transition_fsm` is safe to call only here.
+    # ------------------------------------------------------------------ #
+
+    def request_export_data(
+        self, symbol: str, interval: str, path: str, file_format: ExportFileFormat
+    ) -> None:
+        """Orchestrates writing a symbol/interval's klines to `path`."""
+        if self._is_shutdown_requested():
+            return
+        self._ui_log_signal(f"Exporting {symbol} ({interval}) to {path}...")
+        self._thread_manager.submit(
+            self.run_export, symbol, interval, path, file_format
+        )
+
+    def request_import_data(self, symbol: str, interval: str, path: str) -> None:
+        """Orchestrates loading klines from `path` into the vault."""
+        if self._is_shutdown_requested():
+            return
+        self._ui_log_signal(f"Importing {symbol} ({interval}) from {path}...")
+        self._transition_fsm(UIMode.CLEARING)
+        self._thread_manager.submit(self.run_import, symbol, interval, path)

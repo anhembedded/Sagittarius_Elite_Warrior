@@ -367,7 +367,17 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟡 In Progress (Sprint hiện tại)
 
-*(trống — xem NOTE bên dưới)*
+- **`BOT-144` (400-line ceiling debt-paydown)**: [`data_management_presenter.py`
+  slice landed — 964 → 671 lines (30%), all four `run_*` Coordinators (`Scan`/
+  `Sync`/`Gap`/`ExportImport`) gained `request_*` orchestration methods using
+  a previously-dead `transition_fsm` seam, a new `VaultMaintenanceCoordinator`
+  split out of `ScanCoordinator` when adding those methods pushed it over 400
+  in turn, and coordinator construction moved to a new
+  `logic/coordinator_factory.py`. Still 271 lines over the ≤400 target — see
+  the task file §4 for the honest remaining-gap analysis (an `IStateContributor`
+  extraction is the only mechanical lever left) rather than a forced cut.
+  `dashboard_presenter.py`/`dev_board_panel.py`/`paper_exchange.py` not
+  started](backlog/BOT-144_split_three_files_over_the_400_line_ceiling.md).
 
 > [!NOTE]
 > **Cập nhật 2026-08-24, do user quyết định: native C++/QML chart backend đã

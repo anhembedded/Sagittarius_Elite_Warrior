@@ -3,10 +3,6 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.clear_market_data import (
-    ClearMarketDataCommand,
-    ClearMarketDataResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.prune_empty_shards import (
     PruneEmptyShardsCommand,
     PruneEmptyShardsResult,
@@ -60,6 +56,7 @@ def scan_fixture():
         "ui_known_shard_count": Mock(),
         "transition_fsm": Mock(return_value=True),
         "get_fsm_state": Mock(return_value=UIMode.IDLE),
+        "is_shutdown_requested": Mock(return_value=False),
     }
 
     symbol_catalog = FakeSymbolCatalog()
@@ -82,6 +79,7 @@ def scan_fixture():
         ui_known_shard_count_signal=signals["ui_known_shard_count"],
         transition_fsm=signals["transition_fsm"],
         get_current_fsm_state=signals["get_fsm_state"],
+        is_shutdown_requested=signals["is_shutdown_requested"],
     )
 
     return coordinator, dispatcher, market_data_repo, tracker, signals, symbol_catalog
@@ -274,46 +272,6 @@ def test_scan_coordinator_check_status_success(scan_fixture):
     assert tracker.active_outcome == ActionOutcome.SUCCEEDED
 
 
-def test_scan_coordinator_clear_data_success(scan_fixture):
-    coordinator, dispatcher, _, tracker, signals, _catalog = scan_fixture
-
-    dispatcher.dispatch.return_value = ClearMarketDataResult(
-        deleted_records=100, success=True, message="Data cleared"
-    )
-
-    coordinator.run_clear_data("BTCUSDT", "15m")
-
-    dispatcher.dispatch.assert_called_once()
-    assert isinstance(dispatcher.dispatch.call_args[0][1], ClearMarketDataCommand)
-    signals["ui_remove_symbol"].assert_called_once_with("BTCUSDT", "15m")
-    signals["ui_unlock"].assert_called_once()
-    assert tracker.active_outcome == ActionOutcome.SUCCEEDED
-
-
-def test_scan_coordinator_purge_all_success(scan_fixture):
-    coordinator, dispatcher, _, tracker, signals, _catalog = scan_fixture
-
-    dispatcher.dispatch.return_value = ClearMarketDataResult(
-        deleted_records=500, success=True, message="Purged all"
-    )
-
-    coordinator.run_purge_all()
-
-    signals["ui_clear_table"].assert_called_once()
-    signals["ui_unlock"].assert_called_once()
-    assert tracker.active_outcome == ActionOutcome.SUCCEEDED
-
-
-def test_scan_coordinator_vacuum_uses_injected_repository(scan_fixture):
-    coordinator, _, market_data_repo, tracker, signals, _catalog = scan_fixture
-
-    coordinator.run_vacuum()
-
-    market_data_repo.vacuum.assert_called_once()
-    signals["ui_stats_refresh"].assert_called_once()
-    assert tracker.active_outcome == ActionOutcome.SUCCEEDED
-
-
 def test_scan_coordinator_cancel_is_wired_into_scan_query(scan_fixture):
     """BUG-041: coordinator cancellation must reach the application handler."""
     coordinator, dispatcher, _, _, _, _ = scan_fixture
@@ -326,3 +284,58 @@ def test_scan_coordinator_cancel_is_wired_into_scan_query(scan_fixture):
     query = dispatcher.dispatch.call_args.args[1]
     assert query.cancellation_requested is not None
     assert query.cancellation_requested() is True
+
+
+# ---------------------------------------------------------------------------
+# `request_*` orchestration (BOT-144) — validate/log/transition/submit, moved
+# here from the Presenter's own Slots. `run_*` above is unaffected: these
+# methods only decide whether and how to submit it.
+# ---------------------------------------------------------------------------
+
+
+def test_request_check_status_transitions_and_submits_with_the_given_selection(
+    scan_fixture,
+):
+    coordinator, _dispatcher, _repo, _tracker, signals, _catalog = scan_fixture
+    thread_manager = coordinator._thread_manager
+
+    coordinator.request_check_status("BTCUSDT", "1h")
+
+    signals["transition_fsm"].assert_called_once_with(UIMode.SCANNING)
+    thread_manager.submit.assert_called_once_with(
+        coordinator.run_check_status, "BTCUSDT", "1h"
+    )
+
+
+def test_request_check_all_status_clears_table_and_submits_empty_symbol_list(
+    scan_fixture,
+):
+    """BOT-120: the empty symbol list is what makes the handler fall back to
+    on-disk shards instead of the full exchange catalogue."""
+    coordinator, _dispatcher, _repo, _tracker, signals, _catalog = scan_fixture
+    thread_manager = coordinator._thread_manager
+
+    coordinator.request_check_all_status(["1m", "15m"])
+
+    signals["ui_clear_table"].assert_called_once()
+    signals["transition_fsm"].assert_called_once_with(UIMode.SCANNING)
+    method, symbols, intervals, token = thread_manager.submit.call_args.args
+    assert method == coordinator.run_scan_all
+    assert symbols == []
+    assert intervals == ["1m", "15m"]
+    assert token is not None
+
+
+def test_request_check_all_status_does_nothing_once_shutdown(scan_fixture):
+    coordinator, _dispatcher, _repo, _tracker, signals, _catalog = scan_fixture
+    signals["is_shutdown_requested"].return_value = True
+
+    coordinator.request_check_all_status(["1m"])
+
+    signals["transition_fsm"].assert_not_called()
+    coordinator._thread_manager.submit.assert_not_called()
+
+
+#: Clear/purge/VACUUM's own `request_*` tests moved to
+#: `test_vault_maintenance_coordinator.py` alongside their `run_*` tests
+#: (BOT-144, `VaultMaintenanceCoordinator` extraction).

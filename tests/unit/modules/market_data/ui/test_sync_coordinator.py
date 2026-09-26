@@ -238,3 +238,98 @@ def test_sync_coordinator_custom_time_range_parsing(sync_fixture):
     start, end = coordinator.custom_time_range()
     assert start == datetime(2024, 1, 1, 0, 0, tzinfo=UTC)
     assert end == datetime(2024, 1, 2, 12, 0, tzinfo=UTC)
+
+
+# ---------------------------------------------------------------------------
+# `request_*` orchestration (BOT-144) — validate/log/transition/submit, moved
+# here from the Presenter's own `_trigger_single_sync`/`_on_sync_all_gaps`.
+# ---------------------------------------------------------------------------
+
+
+def test_request_single_sync_transitions_and_submits_a_fresh_token(sync_fixture):
+    coordinator, _view_model, _dispatcher, _tracker, signals, _sync = sync_fixture
+    thread_manager = coordinator._thread_manager
+
+    coordinator.request_single_sync("BTCUSDT", "15m")
+
+    signals["transition_fsm"].assert_called_once_with(UIMode.SYNCING)
+    method, symbol, interval, start, end, token = thread_manager.submit.call_args.args
+    assert method == coordinator.run_single_sync
+    assert symbol == "BTCUSDT"
+    assert interval == "15m"
+    assert start is None
+    assert end is None
+    assert token is coordinator.cancellation_token
+
+
+def test_request_single_sync_falls_back_to_the_selected_interval(sync_fixture):
+    """Per-row sync passes an explicit interval; the toolbar button passes
+    `None` and must fall back to the view model's current selection."""
+    coordinator, view_model, _dispatcher, _tracker, _signals, _sync = sync_fixture
+    view_model.selectedInterval = "1h"
+    thread_manager = coordinator._thread_manager
+
+    coordinator.request_single_sync("BTCUSDT", None)
+
+    _method, _symbol, interval, *_rest = thread_manager.submit.call_args.args
+    assert interval == "1h"
+
+
+def test_request_single_sync_rejects_an_unparseable_custom_range(sync_fixture):
+    coordinator, view_model, _dispatcher, _tracker, signals, _sync = sync_fixture
+    view_model.useCustomTime = True
+    view_model.fromDateTime = "not-a-date"
+    view_model.toDateTime = ""
+
+    coordinator.request_single_sync("BTCUSDT", "1h")
+
+    signals["ui_error_log"].assert_called_once()
+    signals["transition_fsm"].assert_not_called()
+    coordinator._thread_manager.submit.assert_not_called()
+
+
+def test_request_single_sync_rejects_an_inverted_custom_range(sync_fixture):
+    coordinator, view_model, _dispatcher, _tracker, signals, _sync = sync_fixture
+    view_model.useCustomTime = True
+    view_model.fromDateTime = "2024-01-02 00:00"
+    view_model.toDateTime = "2024-01-01 00:00"
+
+    coordinator.request_single_sync("BTCUSDT", "1h")
+
+    signals["ui_error_log"].assert_called_once()
+    coordinator._thread_manager.submit.assert_not_called()
+
+
+def test_request_single_sync_does_nothing_once_shutdown(sync_fixture):
+    coordinator, _view_model, _dispatcher, _tracker, signals, _sync = sync_fixture
+    signals["is_shutdown"].return_value = True
+
+    coordinator.request_single_sync("BTCUSDT", "1h")
+
+    signals["transition_fsm"].assert_not_called()
+    coordinator._thread_manager.submit.assert_not_called()
+
+
+def test_request_bulk_sync_submits_the_gap_targets(sync_fixture):
+    coordinator, view_model, _dispatcher, _tracker, signals, _sync = sync_fixture
+    view_model.status_model.gap_targets.return_value = [("ETHUSDT", "15m")]
+    thread_manager = coordinator._thread_manager
+
+    coordinator.request_bulk_sync()
+
+    signals["transition_fsm"].assert_called_once_with(UIMode.SYNCING)
+    method, targets, token = thread_manager.submit.call_args.args
+    assert method == coordinator.run_bulk_sync
+    assert targets == [("ETHUSDT", "15m")]
+    assert token is coordinator.cancellation_token
+
+
+def test_request_bulk_sync_with_no_gap_targets_does_not_submit(sync_fixture):
+    coordinator, view_model, _dispatcher, _tracker, signals, _sync = sync_fixture
+    view_model.status_model.gap_targets.return_value = []
+
+    coordinator.request_bulk_sync()
+
+    signals["ui_log"].assert_called_once()
+    signals["transition_fsm"].assert_not_called()
+    coordinator._thread_manager.submit.assert_not_called()

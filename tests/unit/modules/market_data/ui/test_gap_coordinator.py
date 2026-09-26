@@ -161,3 +161,63 @@ def test_gap_coordinator_repair_all_gaps_cancelled(gap_fixture):
 
     signals["ui_unlock"].assert_called_once()
     assert tracker.active_outcome == ActionOutcome.CANCELLED
+
+
+# ---------------------------------------------------------------------------
+# `request_*` orchestration (BOT-144) — validate/transition/submit, moved
+# here from the Presenter's own `_on_repair_gap`/`_on_repair_all_gaps`.
+# ---------------------------------------------------------------------------
+
+
+def test_request_repair_gap_transitions_and_submits_a_fresh_token(gap_fixture):
+    coordinator, _dispatcher, _tracker, signals = gap_fixture
+    thread_manager = coordinator._thread_manager
+
+    coordinator.request_repair_gap("BTCUSDT", "1m", "2024-01-01", "2024-01-02")
+
+    signals["transition_fsm"].assert_called_once_with(UIMode.SYNCING)
+    method, symbol, interval, start, end, token = thread_manager.submit.call_args.args
+    assert method == coordinator.run_repair_gap
+    assert (symbol, interval, start, end) == (
+        "BTCUSDT",
+        "1m",
+        "2024-01-01",
+        "2024-01-02",
+    )
+    assert token is coordinator.cancellation_token
+
+
+def test_request_repair_gap_does_not_submit_when_the_fsm_refuses(gap_fixture):
+    """`-> False` here means "an FSM exists and rejected the move" — the one
+    case pre-`BOT-144`'s `if self.fsm and not self.fsm.transition_to(...)`
+    bailed on, distinct from "there is no FSM at all" (see
+    `DataManagementPresenter._transition_fsm_safe`)."""
+    coordinator, _dispatcher, _tracker, signals = gap_fixture
+    signals["transition_fsm"].return_value = False
+
+    coordinator.request_repair_gap("BTCUSDT", "1m", "2024-01-01", "2024-01-02")
+
+    coordinator._thread_manager.submit.assert_not_called()
+
+
+def test_request_repair_gap_does_nothing_once_shutdown(gap_fixture):
+    coordinator, _dispatcher, _tracker, signals = gap_fixture
+    signals["is_shutdown"].return_value = True
+
+    coordinator.request_repair_gap("BTCUSDT", "1m", "2024-01-01", "2024-01-02")
+
+    signals["transition_fsm"].assert_not_called()
+    coordinator._thread_manager.submit.assert_not_called()
+
+
+def test_request_repair_all_gaps_transitions_and_submits(gap_fixture):
+    coordinator, _dispatcher, _tracker, signals = gap_fixture
+    thread_manager = coordinator._thread_manager
+
+    coordinator.request_repair_all_gaps("BTCUSDT", "1m")
+
+    signals["transition_fsm"].assert_called_once_with(UIMode.SYNCING)
+    method, symbol, interval, token = thread_manager.submit.call_args.args
+    assert method == coordinator.run_repair_all_gaps
+    assert (symbol, interval) == ("BTCUSDT", "1m")
+    assert token is coordinator.cancellation_token

@@ -273,3 +273,81 @@ class SyncCoordinator:
             return datetime.strptime(raw.strip(), DATETIME_FORMAT).replace(tzinfo=UTC)
         except (ValueError, AttributeError):
             return None
+
+    # ------------------------------------------------------------------ #
+    # User-triggered orchestration — runs on the main thread, synchronously
+    # from the Presenter's Slot (BOT-144). See `ScanCoordinator`'s own
+    # section for why `_transition_fsm` is safe to call only here, never
+    # from `run_*()` above.
+    #
+    # Creating the `CancellationToken` here, in the coordinator that owns
+    # the action, rather than on the Presenter, is what makes this
+    # coordinator's own `cancel()`/`self._cancellation_token` (above) live:
+    # previously nothing ever assigned a real token to that field, so
+    # `cancel()` was a silent no-op and the Presenter's own separate token
+    # field did the real work. Moving token creation to where the action is
+    # now orchestrated closes that gap as a direct consequence of the move,
+    # not a separate behavior change.
+    # ------------------------------------------------------------------ #
+
+    def request_single_sync(self, symbol: str, interval: str | None = None) -> None:
+        """Orchestrates a sync for one symbol/interval, triggered from the UI.
+
+        Shared by the toolbar "Sync" button (current selection) and a
+        per-row "Sync" action (explicit `interval`).
+        """
+        if self._is_shutdown_requested():
+            return
+
+        start_time, end_time = self.custom_time_range()
+        if self._view_model.useCustomTime:
+            if start_time is None:
+                self._ui_error_log_signal(
+                    f"Invalid custom time range — expected format {DATETIME_FORMAT}."
+                )
+                return
+            if end_time is not None and start_time > end_time:
+                self._ui_error_log_signal(
+                    "Invalid time range: 'From' date must be before 'To' date."
+                )
+                return
+
+        target_interval = interval or (
+            self._view_model.selectedInterval or TimeFrame.ONE_MINUTE.value
+        )
+        self._ui_log_signal(
+            f"Starting sync from Binance for {symbol} ({target_interval})..."
+        )
+        self._transition_fsm(UIMode.SYNCING)
+        self._view_model.set_progress(value=0, maximum=0, visible=True)
+
+        self._cancellation_token = CancellationToken()
+        self._thread_manager.submit(
+            self.run_single_sync,
+            symbol,
+            target_interval,
+            start_time,
+            end_time,
+            self._cancellation_token,
+        )
+
+    def request_bulk_sync(self) -> None:
+        """Orchestrates "Sync All Gaps", triggered from the UI."""
+        if self._is_shutdown_requested():
+            return
+
+        targets = self._view_model.status_model.gap_targets()
+        if not targets:
+            self._ui_log_signal("No gaps found to sync.")
+            return
+
+        self._ui_log_signal(
+            f"Found {len(targets)} targets to sync. Starting sequential bulk sync..."
+        )
+        self._transition_fsm(UIMode.SYNCING)
+        self._view_model.set_progress(value=0, maximum=len(targets), visible=True)
+
+        self._cancellation_token = CancellationToken()
+        self._thread_manager.submit(
+            self.run_bulk_sync, targets, self._cancellation_token
+        )

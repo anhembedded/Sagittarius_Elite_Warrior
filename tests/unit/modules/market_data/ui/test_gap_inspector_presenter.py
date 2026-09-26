@@ -84,7 +84,7 @@ def test_on_inspect_gaps_submits_background_runner(
     view_model.requestInspectGaps("BTCUSDT", "5m")
 
     mock_thread_mgr.submit.assert_called_with(
-        presenter._run_inspect_gaps, "BTCUSDT", "5m"
+        presenter._gap_coordinator.run_inspect_gaps, "BTCUSDT", "5m"
     )
 
 
@@ -128,7 +128,7 @@ def test_run_inspect_gaps_dispatches_query_and_populates_view_model(
         ],
     )
 
-    presenter._run_inspect_gaps("BTCUSDT", "5m")
+    presenter._gap_coordinator.run_inspect_gaps("BTCUSDT", "5m")
 
     assert view_model.gapInspectorSymbol == "BTCUSDT"
     assert view_model.gapInspectorInterval == "5m"
@@ -145,12 +145,12 @@ def test_on_repair_gap_submits_worker(presenter, view_model, mock_thread_mgr):
 
     assert presenter.fsm.current_state == UIMode.SYNCING
     mock_thread_mgr.submit.assert_called_with(
-        presenter._run_repair_gap,
+        presenter._gap_coordinator.run_repair_gap,
         "BTCUSDT",
         "1m",
         "2024-01-01 00:01:00",
         "2024-01-01 01:00:00",
-        presenter._cancellation_token,
+        presenter._gap_coordinator.cancellation_token,
     )
 
 
@@ -160,7 +160,7 @@ def test_run_repair_gap_dispatches_command(presenter, view_model, mock_dispatche
     )
 
     presenter.fsm.transition_to(UIMode.SYNCING)
-    presenter._run_repair_gap(
+    presenter._gap_coordinator.run_repair_gap(
         "BTCUSDT", "1m", "2024-01-01 00:01:00", "2024-01-01 01:00:00"
     )
 
