@@ -124,6 +124,7 @@ _UNRESOLVABLE_GUARDS: dict[str, str] = {
     "tests/sanity/test_self_check_process.py": "proves `src/main.py` exists via a direct path check — no glob/rglob/iterdir call.",
     "tests/sanity/test_python_floor.py": "root joined from a bare-string tuple (`_FIRST_PARTY_DIRS`) at the call site, not a literal chain.",
     "tests/unit/architecture/test_guard_scans_its_registered_root.py": "reads each registered guard file's own source via `.read_text()` — no glob/rglob/iterdir call of its own; the exact same shape as `test_scanned_roots_are_not_empty.py`, registered next to it for the same reason.",
+    "tests/unit/architecture/test_god_files_only_shrink.py": "scans via `measure()`, imported from `tools/measure_god_files.py` — no glob/rglob call of its own.",
 }
 
 #: (guard, root, pattern) rows registered for a real reason this check's
