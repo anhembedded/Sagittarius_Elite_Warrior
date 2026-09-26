@@ -1,6 +1,6 @@
 # BOT-144 — Four files split back under the 400-line ceiling
 
-**Status:** 🟡 In progress — `data_management_presenter.py` slice implemented and merged 2026-09-26 (`PR #270`): 964 → 671 lines (30% cut), still over the 400-line target; the `IStateContributor` extraction was decided against, not deferred (§4). The shrink-only line-count guard (acceptance criterion 5) is also done. `dashboard_presenter.py` has a measured design (§3.2) but no code changed yet; `dev_board_panel.py`/`paper_exchange.py` not started.
+**Status:** 🟡 In progress — `data_management_presenter.py` slice implemented and merged 2026-09-26 (`PR #270`): 964 → 671 lines (30% cut), still over the 400-line target; the `IStateContributor` extraction was decided against, not deferred (§4). The shrink-only line-count guard (acceptance criterion 5) is also done (`PR #271`, merged). `paper_exchange.py` is done — 596 → 372 lines, ≤400 (§4). `dashboard_presenter.py`'s Coordinator extraction is done — 1994 → 1858 lines, still over 400 (§4); its `__init__` Factory extraction is not. `dev_board_panel.py` is fully designed (§3.4) but not implemented.
 **Source:** Independent PR review of `PR #257` (2026-09-23), flagged as a should-fix, pre-existing item — "worth a tracked follow-up task rather than continuing to accrete onto these three files indefinitely." A fourth file (`paper_exchange.py`) was added from an independent review of `PR #266` (2026-09-25), same finding, different file.
 **Risk:** 🟡 — each file is a live Presenter/Panel wired into the composition root and covered by hundreds of existing tests; a split done as extraction (not rewrite) should be behavior-preserving, but a bad seam could silently drop a signal connection or FSM transition.
 **Complexity:** L — three separate god-files, each needing its own extraction design; no single mechanical transform covers all three.
@@ -24,7 +24,7 @@ This is not new debt from any one PR — `EPIC-003` (Presenter/god-file decompos
 ## 2. Acceptance criteria
 
 - [ ] `dashboard_presenter.py`, `dev_board_panel.py`, `data_management_presenter.py` are each ≤400 lines, achieved by extracting cohesive responsibilities into new coordinator/helper classes under the same module's `ui/` tree — mirroring the existing coordinator pattern (`GapCoordinator`, `IndicatorCoordinator`, `ExportImportCoordinator`, etc.), not by deleting functionality or renaming without moving logic.
-- [ ] `paper_exchange.py` is ≤400 lines, achieved by extracting its remaining position entry/exit lifecycle (`_open()`/`_close()`/`_close_one_position()`/`_close_partial_position()`/`_apply_partial_take_profits()`) into a domain policy under `domain/policies/`, mirroring the extraction `PR #266` already did for `StopManagementPolicy`.
+- [x] `paper_exchange.py` is ≤400 lines, achieved by extracting its remaining position entry/exit lifecycle (`_open()`/`_close()`/`_close_one_position()`/`_close_partial_position()`/`_apply_partial_take_profits()`) into a domain policy under `domain/policies/`, mirroring the extraction `PR #266` already did for `StopManagementPolicy`. **Done 2026-09-26** — see §4.
 - [ ] Every existing test for these three files (and their coordinators/view models) still passes unchanged in behavior — a test may need its constructor call updated for a new collaborator, but must not need its assertions weakened.
 - [ ] No FSM transition, signal connection, or coordinator wiring present before the split is silently dropped — verified by running the full `tests/unit` suite plus a manual `tools/run_app` (or `scripts/run-dev.ps1`, whichever this repo's `run` skill uses) smoke pass on the Dev Board and Data Management screens.
 - [x] A machine guard is added (or an existing one extended) so a file already over 400 lines cannot grow further without the gate failing — closing the gap the independent review noted ("no guard test currently catches this"). A shrink-only ratchet, mirroring `test_app_styling_only_shrinks.py`'s own pattern, is the vetted precedent to apply before inventing a new mechanism. **Done 2026-09-26** — see §4.
@@ -130,7 +130,7 @@ submit-with-correct-args) needs its own test — added to the relevant
 is mechanical but touches most of the existing test file; budget real time
 for it, not just the production-code edit.
 
-### 3.2 `dashboard_presenter.py` (1994 → target ≤400) — measured 2026-09-26, design in progress
+### 3.2 `dashboard_presenter.py` (1994 → 1858, target ≤400) — measured 2026-09-26, candidate 2 implemented (see §4)
 
 Measured, not guessed, before designing anything (`fix-bug-rule.md` §2):
 section-by-section outline via the file's own `# ===` banners, then read the
@@ -209,15 +209,140 @@ above), since it is the better-understood, lower-conceptual-risk half; the
 construction lines have already moved once, reducing what the Factory has
 to carry.
 
-### `dev_board_panel.py` (1145), `paper_exchange.py` (596) — not designed yet
+### 3.3 `paper_exchange.py` (596 → 372) — designed and implemented 2026-09-26
 
-Still need their own measurement pass each, the same way §3.1/§3.2 were
-done — do not assume either the `request_*`/dead-seam pattern or the
-Coordinator-with-completion-caveat pattern above applies; each file's own
-`git log -p` and current split must be read first (`fix-bug-rule.md` §2's
-"root cause first" applies to a design pass too: guessing a split boundary
-from a different file's shape is exactly what `architecture-rule.md` §7.2.1
-warns against).
+§1 had already named the target precisely: the entry/exit/trade-recording
+lifecycle (`_open()`/`_close_one_position()`/`_close_partial_position()`/
+`_apply_partial_take_profits()`) was the one extraction left after `PR #266`'s
+`StopManagementPolicy` split, deliberately deferred rather than attempted
+inside a feature PR. No further design pass was needed beyond confirming the
+shape, which differs from `StopManagementPolicy` in one real way: that policy
+never touches `self._balance`/`self._trades` (it only adjusts pre-fill risk
+state on the `OpenPosition` objects themselves), while these four methods are
+exactly the "books" mutations — cash and the trade log — the class's own
+docstring names as its core responsibility. A stateless policy that also
+needs to update a caller's `balance` cannot mutate a `float` in place, so the
+new `PositionLifecyclePolicy` follows the same "return the new state, let the
+caller apply it" idiom `paper_exchange.py`'s own `check_intrabar_stops()`
+already uses for `FillPricing.evaluate_liquidations()`/
+`evaluate_intrabar_stops()` — extended here rather than invented, per
+`architecture-rule.md` §7.2.1's "mirror proven structures" instruction.
+`PaperExchange` keeps owning `self._balance`/`self._positions`/`self._trades`
+(the ledger) and applies the deltas/replacements the policy returns; it never
+hands the ledger itself to the policy. Individual `OpenPosition` field
+mutation (e.g. `close_partial_position()`'s in-place quantity reduction)
+stays exactly as before — the same pattern `StopManagementPolicy` already
+uses on the same domain entity, not new.
+
+`_close()`'s own ~30 lines of orchestration (filter positions by side, loop
+calling the policy's `close_one_position()`, filter the remainder) stayed on
+`PaperExchange` rather than moving into the policy too — extracting it would
+have pushed `positions` in as a fifth parameter alongside `side`/`price`/
+`time`/`exit_reason`, over `code/quality.md` §7's 4-argument limit, for a
+thin loop that isn't itself complex enough to be worth the parameter-object
+indirection that would otherwise be needed to dodge that limit.
+
+**Result:** `paper_exchange.py` 596 → 372 lines (≤400, done); new
+`domain/policies/position_lifecycle_policy.py` at 384 lines (also ≤400 — no
+new violator). No test file needed retargeting: `test_paper_exchange.py`
+(1814 lines, 95 tests) exercises `PaperExchange` only through its public API
+(`fill`/`force_close`/`check_intrabar_stops`/properties), never the private
+methods that moved — confirmed by grep before starting, not assumed. All 95
+tests pass unchanged, plus the full `tests/unit/modules/backtesting` suite
+(972 tests) and `tests/unit/architecture` (445, including the god-files guard
+once its baseline entry for this file was removed — see below). `ruff`/`mypy`
+clean.
+
+**Guard bookkeeping:** `paper_exchange.py`'s entry in `baseline_god_files.json`
+removed in the same commit (596 → 372 is now under the ceiling), per
+`test_god_files_only_shrink.py`'s own "lower the baseline in the same commit"
+rule — confirmed the guard actually catches a stale entry first (it failed
+before the removal, naming this exact file).
+
+### 3.4 `dev_board_panel.py` (1145) — measured 2026-09-26, none of the other three shapes transfer
+
+Measured before designing (`fix-bug-rule.md` §2): this is a View-layer
+widget-builder (`DevBoardPanel(QObject)`, no Presenter, no async actions),
+not a Presenter or a domain policy — `async-ui-action-rule.md` §2's
+Coordinator pattern and `paper_exchange.py`'s return-new-state policy shape
+both have no subject here (nothing async, no ledger). The file's own class
+docstring states a real, load-bearing constraint that has to survive any
+split: **"Every private attribute stays where it was, because that is what
+the tests and the Presenter key off"** — confirmed by grep, not assumed:
+`test_dev_board_panel.py` reads `panel._btn_start`/`_txt_start_date`/
+`_script_checkboxes`/`_progress_banner`/etc. directly, and `DashboardView`
+reads the four public properties (`header_actions`/`status_tiles`/
+`dock_panels`/`manual_order_card`) built from those same private attributes.
+
+**Why the obvious "extract each `_build_x_card` into a free function" port
+does not work here** — checked by reading every `_build_*` method in full,
+not assumed from their names: unlike `coordinator_factory.py`'s six
+`Coordinator(...)` constructor calls (independent, side-effect-free objects),
+each `_build_x_card()` here interleaves widget construction with (a) signal
+connections that target `self`'s *other* methods (`self._btn_arm_strategy
+.clicked.connect(self._view_model.strategy.requestArm)` is fine to extract,
+but `self._btn_strategy_params.clicked.connect(self._open_strategy_params_dialog)`
+and lambdas like `lambda: self._on_manual_order_clicked(ManualOrderDirection.LONG)`
+close over `self`), and (b) calls to `self`'s own `_sync_*` methods to set
+correct initial state before the method returns (e.g. `_build_strategy_card()`
+ends by calling `self._sync_strategy_options()`/`_sync_strategy_selection()`/
+`_sync_armed_summary()`). A free function taking every one of these as a
+separate callback parameter would need 8–12 parameters per card — the
+"closed-design tell" `architecture-rule.md` §7.2.1 names directly, not a
+seam to build.
+
+**The real target: componentize each card into its own `QWidget` subclass**
+(`SystemControlsCard`, `StrategyCard`, `ManualOrderCard`, `SessionCard`,
+`LastSignalCard`, each under a new `dashboard/dev_board_widgets/` package),
+mirroring how `WsStatusPill` (already imported here) and this repo's other
+extracted "Card" widgets (`EPIC-007`'s card standardization,
+`BOT-124`'s shared `DataTable`) already work: the widget owns its own
+buttons/fields, connects its own signals to the `view_model` directly where
+the wiring is static, and exposes a small, real constructor
+(`view_model: DashboardQmlViewModel`) plus whatever narrow callables it
+needs for the handful of connections that aren't to the view_model itself
+(e.g. `ManualOrderCard` needs `on_order_clicked: Callable[[ManualOrderDirection],
+None]` for its two buttons, not all of `DevBoardPanel`). Each card keeps its
+own `_sync_*` methods internally, called from its own `__init__` and from
+whichever `view_model` signal currently drives them — this is a real move of
+behavior, not just widget construction, unlike the "layout only" first idea.
+
+**Preserving the private-attribute contract**: `DevBoardPanel.__init__`
+constructs each card (`self._strategy_card_widget = StrategyCard(view_model)`)
+and re-exposes every attribute a test currently reads directly as a
+pass-through property or a direct reassignment (`self._btn_start =
+self._system_controls_card_widget.btn_start`) — mechanical, but it is the
+one part of this split that must be checked field-by-field against the
+grepped list below, not sampled, since a single missed name is a silent
+regression only a targeted regression test (or an attentive human) would
+catch, and the file's own docstring is explicit that these are load-bearing.
+
+**Full grepped list of attributes `test_dev_board_panel.py` and
+`DashboardView`/`DashboardPresenter` read directly** (the exact contract
+any split must preserve): `_btn_load_history`, `_btn_pick_range`,
+`_btn_reload`, `_btn_start`, `_btn_stop`, `_btn_symbol`, `_log_panel`,
+`_price_ticker_label`, `_progress_banner`, `_script_checkboxes`,
+`_symbol_picker`, `_symbol_preferences`, `_time_range_dialog`,
+`_txt_end_date`, `_txt_start_date`, `_ws_status_pill` (test file), plus the
+four public properties (View).
+
+**Sizing estimate, not yet implemented**: the five `_build_*_card` methods
+plus their paired `_sync_*`/`_on_*` methods (the content that would move
+into the new card widgets) account for roughly 550–650 of this file's 1145
+lines; `_build_header_widgets`/`_build_progress_banner`/`_build_indicators`
+(the header, and the indicators checklist which is driven by a dynamic,
+per-script list rather than a fixed card) are smaller and more entangled
+with `DevBoardPanel`'s own script-catalog/symbol-preferences state, and were
+not sized in this pass — a second, later reason to expect this file to need
+more than one slice, the same way `dashboard_presenter.py` does.
+
+**Not implemented in this PR.** This is a materially larger and riskier
+change than the other two files' extractions (financially-adjacent live
+trading controls, with a documented cross-file private-attribute contract
+to preserve exactly), and rushing it inside the same batch as two already-
+verified extractions would risk the whole PR's reviewability. Recorded here
+as a real, checked design rather than left as a guess, so the next session
+does not have to re-derive it.
 
 ## 4. Changes, per file
 
@@ -363,12 +488,65 @@ for a plausible *second* case, and there isn't one here). `671` lines stands
 as this slice's final number; the line-count guard above now holds that
 ground so it cannot silently grow back toward 964.
 
-### `dashboard_presenter.py`, `dev_board_panel.py`, `paper_exchange.py`: not started.
+### `dashboard_presenter.py` — §3.2 candidate 2 implemented 2026-09-26; still over 400
 
-Now unblocked by the guard above (their current counts are the frozen
-baseline, so no further work here makes them worse by accident). Each still
-needs its own §3.2 measurement-and-design pass before touching code — do not
-assume `data_management_presenter.py`'s `request_*`/dead-seam shape transfers.
+New `dashboard/coordinators/trading_actions_coordinator.py`
+(`TradingActionsCoordinator`) holds the `run_*` workers and `request_*`
+synchronous orchestration for Enable/Disable toggle, Emergency Stop, manual
+order submission and per-order cancel — exactly candidate 2 from §3.2, with
+the corrected reason (`async-ui-action-rule.md` §2) already recorded there
+for why the four `_on_x_completed` handlers stay on the Presenter. The three
+`ActionOwnershipTracker` instances stay Presenter-constructed and are handed
+to the Coordinator's constructor, the same "shared tracker, not a second
+owner" shape `StrategyArmingCoordinator` already uses. The Presenter's four
+`_on_x_requested` `@Slot`s (still needed — `DashboardQmlViewModel`/`DashboardView`
+signals connect to them) are now one-line delegations.
+
+Two unused imports (`OrderRequest`, `manual_order_intent_for`,
+`ManualOrderDirection`, `OrderType` — the last still used inside the new
+coordinator, removed only from the Presenter) dropped from
+`dashboard_presenter.py` once nothing there referenced them any more.
+
+**A real, first-time type ambiguity surfaced, not introduced:**
+`dashboard_presenter.py`/`dev_board_panel.py` are both in `pyproject.toml`'s
+mypy `exclude` list, so this exact code was never mypy-checked before. The
+new (non-excluded) coordinator file *is* checked, and moving
+`request_manual_order`'s `reference_price` branch into it surfaced a real
+`Decimal | None` vs `Decimal` narrowing mypy had simply never seen — fixed
+with an explicit `reference_price: Decimal | None` annotation, not by adding
+the new file to the exclude list (`pyproject.toml`'s own rule: "a new file
+must be fixed, not added here").
+
+**Result:** `dashboard_presenter.py` 1994 → 1858 lines (136-line cut, still
+over 400 — an honest partial result, the same shape `data_management_presenter.py`
+landed at 671); new `trading_actions_coordinator.py` at 294 lines (well
+under the ceiling). `test_dashboard_presenter.py`'s 14 tests that asserted
+identity against the old `presenter._run_x`/`presenter._on_x_requested`
+methods retargeted to `presenter._trading_actions.run_x`
+(`_on_x_requested` stayed callable the same way, since it is still a thin
+Presenter `@Slot`) — the same mechanical retargeting §3.1 budgeted real time
+for. All 117 tests in that file, the full `tests/unit/modules/trading` suite
+(768 tests) and `tests/unit/architecture` (445, including the god-files
+guard once `dashboard_presenter.py`'s baseline entry was lowered to 1858)
+pass. `ruff`/`mypy` clean.
+
+**Honest remaining gap, matching §3.2's own sizing estimate:** the `__init__`
+Factory extraction (candidate 1, ~390 lines, closures/temporal coupling) is
+not implemented in this PR — real, verified progress on the better-understood
+half was the priority; rushing the harder half in the same pass risked both.
+1858 stands as this slice's number; the line-count guard above now holds
+that ground.
+
+### `paper_exchange.py`: done — see §3.3. `dashboard_presenter.py`: Coordinator extraction done (see above), Factory extraction not done. `dev_board_panel.py`: designed (§3.4), not implemented.
+
+Now unblocked by the guard above (each file's current count is the frozen
+baseline, so no further work here makes them worse by accident). Next
+executable actions, in priority order: (1) `dashboard_presenter.py`'s
+`__init__` Factory extraction (candidate 1, §3.2) — the Coordinator's own
+construction lines have already moved once, which should reduce what the
+Factory has to carry; (2) `dev_board_panel.py`'s per-card componentization
+(§3.4) — materially larger, budget a dedicated session for it, verifying the
+16-attribute contract field-by-field, not sampled.
 
 ## 5. Testing
 

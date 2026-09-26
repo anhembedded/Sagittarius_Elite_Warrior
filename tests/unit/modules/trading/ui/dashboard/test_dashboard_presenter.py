@@ -2364,7 +2364,7 @@ def test_toggle_when_disabled_submits_enable(presenter, mock_thread_mgr):
 
     mock_thread_mgr.submit.assert_called_once()
     submitted_callable = mock_thread_mgr.submit.call_args[0][0]
-    assert submitted_callable == presenter._run_enable
+    assert submitted_callable == presenter._trading_actions.run_enable
     assert presenter._view_model.toggleBusy is True
 
 
@@ -2379,7 +2379,7 @@ def test_toggle_when_enabled_submits_disable(
 
     mock_thread_mgr.submit.assert_called_once()
     submitted_callable = mock_thread_mgr.submit.call_args[0][0]
-    assert submitted_callable == presenter._run_disable
+    assert submitted_callable == presenter._trading_actions.run_disable
 
 
 def test_toggle_is_blocked_while_emergency_stop_is_pending(presenter, mock_thread_mgr):
@@ -2423,7 +2423,7 @@ def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
     presenter._view_model.toggleRequested.emit()
     action_id = presenter._toggle_tracker.active_action.action_id
 
-    presenter._run_enable(action_id)
+    presenter._trading_actions.run_enable(action_id)
 
     assert trading_session.enables == 1
     assert presenter._view_model.enabled is True
@@ -2457,7 +2457,7 @@ def test_refused_enable_shows_the_block_reason_and_seeds_positions(
     presenter._view_model.toggleRequested.emit()
     action_id = presenter._toggle_tracker.active_action.action_id
 
-    presenter._run_enable(action_id)
+    presenter._trading_actions.run_enable(action_id)
 
     assert presenter._view_model.enabled is False
     log_entries = presenter._view_model.log_model.entries
@@ -2472,7 +2472,7 @@ def test_an_enable_exception_from_the_session_port_is_reported_not_raised(
     presenter._view_model.toggleRequested.emit()
     action_id = presenter._toggle_tracker.active_action.action_id
 
-    presenter._run_enable(action_id)  # must not raise
+    presenter._trading_actions.run_enable(action_id)  # must not raise
 
     log_entries = presenter._view_model.log_model.entries
     assert any("boom" in entry.message for entry in log_entries)
@@ -2484,7 +2484,7 @@ def test_successful_disable_turns_the_toggle_off(view, mock_container, trading_s
     presenter._view_model.toggleRequested.emit()
     action_id = presenter._toggle_tracker.active_action.action_id
 
-    presenter._run_disable(action_id)
+    presenter._trading_actions.run_disable(action_id)
 
     assert trading_session.disables == 1
     assert presenter._view_model.enabled is False
@@ -2523,7 +2523,7 @@ def test_emergency_stop_success_reconciles_the_tables_and_logs(
 
     presenter._on_emergency_stop_requested()
     action_id = presenter._emergency_stop_tracker.active_action.action_id
-    presenter._run_emergency_stop(action_id)
+    presenter._trading_actions.run_emergency_stop(action_id)
 
     assert trading_session.emergency_stops == 1
     assert presenter._view_model.enabled is False
@@ -2541,7 +2541,7 @@ def test_emergency_stop_partial_failure_is_reported(presenter, trading_session):
 
     presenter._on_emergency_stop_requested()
     action_id = presenter._emergency_stop_tracker.active_action.action_id
-    presenter._run_emergency_stop(action_id)
+    presenter._trading_actions.run_emergency_stop(action_id)
 
     log_entries = presenter._view_model.log_model.entries
     assert any("PARTIALLY FAILED" in entry.message for entry in log_entries)
@@ -2562,7 +2562,7 @@ def test_emergency_stop_with_unconfirmed_final_state_does_not_touch_the_tables(
 
     presenter._on_emergency_stop_requested()
     action_id = presenter._emergency_stop_tracker.active_action.action_id
-    presenter._run_emergency_stop(action_id)
+    presenter._trading_actions.run_emergency_stop(action_id)
 
     open_orders_spy.assert_not_called()
     positions_spy.assert_not_called()
@@ -2704,7 +2704,7 @@ def test_manual_order_requested_submits_background_worker_for_a_market_order(
 
     mock_thread_mgr.submit.assert_called_once()
     args = mock_thread_mgr.submit.call_args[0]
-    assert args[0] == presenter._run_manual_order
+    assert args[0] == presenter._trading_actions.run_manual_order
     assert args[2] == "BTCUSDT"
     assert args[3] is ManualOrderDirection.LONG
     assert args[4] == Decimal("0.01")
@@ -2766,7 +2766,7 @@ def test_run_manual_order_submits_one_live_order_with_the_mapped_intent(
         )
     )
 
-    presenter._run_manual_order(
+    presenter._trading_actions.run_manual_order(
         1,
         "BTCUSDT",
         ManualOrderDirection.LONG,
@@ -2843,7 +2843,7 @@ def test_a_leased_symbol_is_reported_to_the_card_in_the_operators_own_words(
     )
     context = presenter._manual_order_tracker.begin_action("manual_order", None, None)
 
-    presenter._run_manual_order(
+    presenter._trading_actions.run_manual_order(
         context.action_id,
         "BTCUSDT",
         ManualOrderDirection.LONG,
@@ -2863,7 +2863,7 @@ def test_cancel_order_requested_submits_background_worker(presenter, mock_thread
     presenter._on_cancel_order_requested("BTCUSDT", "abc123")
 
     mock_thread_mgr.submit.assert_called_once_with(
-        presenter._run_cancel_order, "BTCUSDT", "abc123"
+        presenter._trading_actions.run_cancel_order, "BTCUSDT", "abc123"
     )
 
 
@@ -2878,7 +2878,7 @@ def test_run_cancel_order_cancels_exactly_that_order_and_nothing_else(
     presenter.cancelOrderCompleted.connect(completed)
     order_submission.cancel_answers(CancelOrderResult(None, None))
 
-    presenter._run_cancel_order("BTCUSDT", "abc123")
+    presenter._trading_actions.run_cancel_order("BTCUSDT", "abc123")
 
     assert order_submission.cancelled == [("BTCUSDT", "abc123")]
     # Cancelling one order must never submit one, which the port's fake can
