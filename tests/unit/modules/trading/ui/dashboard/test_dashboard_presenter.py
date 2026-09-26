@@ -52,6 +52,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_presen
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_view import (
     DashboardView,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.logic.presenter_factory_stream import (
+    build_stream_presenter_state,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.logic.presenter_factory_trading import (
+    build_trading_presenter_state,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping import (
     map_klines,
     map_volume,
@@ -2901,3 +2907,43 @@ def test_cancel_order_completed_removes_the_order_from_the_book(
     )
 
     remove_spy.assert_called_once_with("abc123")
+
+
+# ---------------------------------------------------------------------------
+# presenter_factory Builder dependency graph (PR #273 review finding D14) —
+# mutation-verified against the real, fully-constructed `presenter` fixture,
+# not just asserted from a docstring (architecture-rule.md §7.3: "a decision
+# that lives only in prose has nothing to detect that it stopped being
+# true"). Each test deletes exactly the one attribute an earlier Builder
+# uniquely sets and re-runs a later Builder, proving that dependency is
+# real — not "the whole object is empty", which would pass for almost any
+# missing attribute regardless of which ordering claim is actually true.
+# ---------------------------------------------------------------------------
+
+
+def test_stream_state_requires_thread_manager_from_core(
+    presenter, view, mock_container
+):
+    """`build_stream_presenter_state()` reads `presenter._thread_manager`,
+    set only by `build_core_presenter_state()`."""
+    del presenter._thread_manager
+    with pytest.raises(AttributeError):
+        build_stream_presenter_state(presenter, view, mock_container, presenter.fsm)
+
+
+def test_stream_state_requires_script_runner_from_indicators(
+    presenter, view, mock_container
+):
+    """Same proof for `build_stream_presenter_state()`'s dependency on
+    `build_indicator_presenter_state()` (`presenter._script_runner`)."""
+    del presenter._script_runner
+    with pytest.raises(AttributeError):
+        build_stream_presenter_state(presenter, view, mock_container, presenter.fsm)
+
+
+def test_trading_state_requires_thread_manager_from_core(presenter, mock_container):
+    """Same proof for `build_trading_presenter_state()`'s dependency on
+    `build_core_presenter_state()`."""
+    del presenter._thread_manager
+    with pytest.raises(AttributeError):
+        build_trading_presenter_state(presenter, mock_container)
