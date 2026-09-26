@@ -259,16 +259,90 @@ removed in the same commit (596 → 372 is now under the ceiling), per
 rule — confirmed the guard actually catches a stale entry first (it failed
 before the removal, naming this exact file).
 
-### `dev_board_panel.py` (1145) — not designed yet
+### 3.4 `dev_board_panel.py` (1145) — measured 2026-09-26, none of the other three shapes transfer
 
-Still needs its own measurement pass, the same way §3.1/§3.2/§3.3 were
-done — do not assume any of the three patterns found so far (data_management's
-`request_*`/dead-seam, dashboard's Coordinator-with-completion-caveat,
-paper_exchange's return-new-state ledger split) applies; this file's own
-`git log -p` and current split must be read first (`fix-bug-rule.md` §2's
-"root cause first" applies to a design pass too: guessing a split boundary
-from a different file's shape is exactly what `architecture-rule.md` §7.2.1
-warns against).
+Measured before designing (`fix-bug-rule.md` §2): this is a View-layer
+widget-builder (`DevBoardPanel(QObject)`, no Presenter, no async actions),
+not a Presenter or a domain policy — `async-ui-action-rule.md` §2's
+Coordinator pattern and `paper_exchange.py`'s return-new-state policy shape
+both have no subject here (nothing async, no ledger). The file's own class
+docstring states a real, load-bearing constraint that has to survive any
+split: **"Every private attribute stays where it was, because that is what
+the tests and the Presenter key off"** — confirmed by grep, not assumed:
+`test_dev_board_panel.py` reads `panel._btn_start`/`_txt_start_date`/
+`_script_checkboxes`/`_progress_banner`/etc. directly, and `DashboardView`
+reads the four public properties (`header_actions`/`status_tiles`/
+`dock_panels`/`manual_order_card`) built from those same private attributes.
+
+**Why the obvious "extract each `_build_x_card` into a free function" port
+does not work here** — checked by reading every `_build_*` method in full,
+not assumed from their names: unlike `coordinator_factory.py`'s six
+`Coordinator(...)` constructor calls (independent, side-effect-free objects),
+each `_build_x_card()` here interleaves widget construction with (a) signal
+connections that target `self`'s *other* methods (`self._btn_arm_strategy
+.clicked.connect(self._view_model.strategy.requestArm)` is fine to extract,
+but `self._btn_strategy_params.clicked.connect(self._open_strategy_params_dialog)`
+and lambdas like `lambda: self._on_manual_order_clicked(ManualOrderDirection.LONG)`
+close over `self`), and (b) calls to `self`'s own `_sync_*` methods to set
+correct initial state before the method returns (e.g. `_build_strategy_card()`
+ends by calling `self._sync_strategy_options()`/`_sync_strategy_selection()`/
+`_sync_armed_summary()`). A free function taking every one of these as a
+separate callback parameter would need 8–12 parameters per card — the
+"closed-design tell" `architecture-rule.md` §7.2.1 names directly, not a
+seam to build.
+
+**The real target: componentize each card into its own `QWidget` subclass**
+(`SystemControlsCard`, `StrategyCard`, `ManualOrderCard`, `SessionCard`,
+`LastSignalCard`, each under a new `dashboard/dev_board_widgets/` package),
+mirroring how `WsStatusPill` (already imported here) and this repo's other
+extracted "Card" widgets (`EPIC-007`'s card standardization,
+`BOT-124`'s shared `DataTable`) already work: the widget owns its own
+buttons/fields, connects its own signals to the `view_model` directly where
+the wiring is static, and exposes a small, real constructor
+(`view_model: DashboardQmlViewModel`) plus whatever narrow callables it
+needs for the handful of connections that aren't to the view_model itself
+(e.g. `ManualOrderCard` needs `on_order_clicked: Callable[[ManualOrderDirection],
+None]` for its two buttons, not all of `DevBoardPanel`). Each card keeps its
+own `_sync_*` methods internally, called from its own `__init__` and from
+whichever `view_model` signal currently drives them — this is a real move of
+behavior, not just widget construction, unlike the "layout only" first idea.
+
+**Preserving the private-attribute contract**: `DevBoardPanel.__init__`
+constructs each card (`self._strategy_card_widget = StrategyCard(view_model)`)
+and re-exposes every attribute a test currently reads directly as a
+pass-through property or a direct reassignment (`self._btn_start =
+self._system_controls_card_widget.btn_start`) — mechanical, but it is the
+one part of this split that must be checked field-by-field against the
+grepped list below, not sampled, since a single missed name is a silent
+regression only a targeted regression test (or an attentive human) would
+catch, and the file's own docstring is explicit that these are load-bearing.
+
+**Full grepped list of attributes `test_dev_board_panel.py` and
+`DashboardView`/`DashboardPresenter` read directly** (the exact contract
+any split must preserve): `_btn_load_history`, `_btn_pick_range`,
+`_btn_reload`, `_btn_start`, `_btn_stop`, `_btn_symbol`, `_log_panel`,
+`_price_ticker_label`, `_progress_banner`, `_script_checkboxes`,
+`_symbol_picker`, `_symbol_preferences`, `_time_range_dialog`,
+`_txt_end_date`, `_txt_start_date`, `_ws_status_pill` (test file), plus the
+four public properties (View).
+
+**Sizing estimate, not yet implemented**: the five `_build_*_card` methods
+plus their paired `_sync_*`/`_on_*` methods (the content that would move
+into the new card widgets) account for roughly 550–650 of this file's 1145
+lines; `_build_header_widgets`/`_build_progress_banner`/`_build_indicators`
+(the header, and the indicators checklist which is driven by a dynamic,
+per-script list rather than a fixed card) are smaller and more entangled
+with `DevBoardPanel`'s own script-catalog/symbol-preferences state, and were
+not sized in this pass — a second, later reason to expect this file to need
+more than one slice, the same way `dashboard_presenter.py` does.
+
+**Not implemented in this PR.** This is a materially larger and riskier
+change than the other two files' extractions (financially-adjacent live
+trading controls, with a documented cross-file private-attribute contract
+to preserve exactly), and rushing it inside the same batch as two already-
+verified extractions would risk the whole PR's reviewability. Recorded here
+as a real, checked design rather than left as a guess, so the next session
+does not have to re-derive it.
 
 ## 4. Changes, per file
 
