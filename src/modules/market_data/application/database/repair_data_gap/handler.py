@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     ExchangeRequestCancelledError,
     IExchangeClient,
@@ -14,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_r
 from .command import RepairDataGapCommand, RepairDataGapResult
 
 logger = logging.getLogger("App.SyncMarketData")
+#: `EPIC-027A` — see `scan_all_databases/handler.py`'s identical constant for
+#: why this is Spot and not yet a caller-chosen market.
+_MARKET = MarketType.SPOT
 
 
 class RepairDataGapCommandHandler(
@@ -47,6 +51,7 @@ class RepairDataGapCommandHandler(
 
         try:
             klines = self.exchange_client.get_historical_klines(
+                market=_MARKET,
                 symbol=command.symbol,
                 interval=command.interval,
                 start_str=command.start_time,
@@ -77,7 +82,7 @@ class RepairDataGapCommandHandler(
             )
 
         if klines:
-            self.repo.save_klines(klines)
+            self.repo.save_klines(_MARKET, klines)
             logger.info(
                 f"Successfully repaired gap for {command.symbol}: saved {len(klines)} klines."
             )

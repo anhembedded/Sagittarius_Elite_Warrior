@@ -101,6 +101,7 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
         synced_count = 0
         try:
             for chunk in self.exchange_client.stream_historical_klines(
+                command.market,
                 symbol,
                 command.interval,
                 start_time,
@@ -113,7 +114,7 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
                         "[%s] Market data sync cancelled before save.", symbol
                     )
                     return
-                self.repo.save_klines(chunk)
+                self.repo.save_klines(command.market, chunk)
                 synced_count += len(chunk)
                 self.logger.debug(
                     "[%s] Persisted chunk of %d klines (%d total so far) — "
@@ -140,7 +141,9 @@ class SyncMarketDataCommandHandler(ICommandHandler[SyncMarketDataCommand, None])
                 f"[{symbol}] Syncing from explicit start time: {start_time}"
             )
         else:
-            latest_time = self.repo.get_latest_kline_time(symbol, command.interval)
+            latest_time = self.repo.get_latest_kline_time(
+                command.market, symbol, command.interval
+            )
             if latest_time is None:
                 start_time = datetime.now(UTC) - timedelta(
                     days=command.days_back_if_empty

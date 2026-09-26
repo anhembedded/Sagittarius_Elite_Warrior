@@ -3,6 +3,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.database_manager import (
     DatabaseConfig,
@@ -51,9 +52,9 @@ def test_save_and_get_klines(repo):
 
     klines = [create_mock_kline("BTCUSDT", dt1), create_mock_kline("BTCUSDT", dt2)]
 
-    repo.save_klines(klines)
+    repo.save_klines(MarketType.SPOT, klines)
 
-    fetched = repo.get_klines("BTCUSDT", TimeFrame.ONE_MINUTE)
+    fetched = repo.get_klines(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE)
 
     assert len(fetched) == 2
     assert fetched[0].open_time == dt1
@@ -72,32 +73,38 @@ def test_upsert_behavior(repo):
     dt = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
     kline1 = create_mock_kline("ETHUSDT", dt)
 
-    repo.save_klines([kline1])
+    repo.save_klines(MarketType.SPOT, [kline1])
 
     # Save the same kline but with updated price (simulating an upsert)
     kline2 = create_mock_kline("ETHUSDT", dt)
     # Using object.__setattr__ because MarketData is frozen=True
     object.__setattr__(kline2, "close_price", 200.0)
 
-    repo.save_klines([kline2])
+    repo.save_klines(MarketType.SPOT, [kline2])
 
-    fetched = repo.get_klines("ETHUSDT", TimeFrame.ONE_MINUTE)
+    fetched = repo.get_klines(MarketType.SPOT, "ETHUSDT", TimeFrame.ONE_MINUTE)
 
     assert len(fetched) == 1
     assert fetched[0].close_price == 200.0  # Should be updated
 
 
 def test_get_latest_kline_time(repo):
-    assert repo.get_latest_kline_time("BNBUSDT", TimeFrame.ONE_MINUTE) is None
+    assert (
+        repo.get_latest_kline_time(MarketType.SPOT, "BNBUSDT", TimeFrame.ONE_MINUTE)
+        is None
+    )
 
     dt1 = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
     dt2 = datetime(2023, 1, 1, 12, 1, tzinfo=UTC)
 
     repo.save_klines(
-        [create_mock_kline("BNBUSDT", dt1), create_mock_kline("BNBUSDT", dt2)]
+        MarketType.SPOT,
+        [create_mock_kline("BNBUSDT", dt1), create_mock_kline("BNBUSDT", dt2)],
     )
 
-    latest = repo.get_latest_kline_time("BNBUSDT", TimeFrame.ONE_MINUTE)
+    latest = repo.get_latest_kline_time(
+        MarketType.SPOT, "BNBUSDT", TimeFrame.ONE_MINUTE
+    )
 
     assert latest == dt2
 
@@ -108,22 +115,25 @@ def test_get_klines_with_time_range(repo):
     dt3 = datetime(2023, 1, 1, 12, 2, tzinfo=UTC)
 
     repo.save_klines(
+        MarketType.SPOT,
         [
             create_mock_kline("BTCUSDT", dt1),
             create_mock_kline("BTCUSDT", dt2),
             create_mock_kline("BTCUSDT", dt3),
-        ]
+        ],
     )
 
     # Query only middle point
     fetched = repo.get_klines(
-        "BTCUSDT", TimeFrame.ONE_MINUTE, start_time=dt2, end_time=dt2
+        MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE, start_time=dt2, end_time=dt2
     )
     assert len(fetched) == 1
     assert fetched[0].open_time == dt2
 
     # Query from middle to end
-    fetched2 = repo.get_klines("BTCUSDT", TimeFrame.ONE_MINUTE, start_time=dt2)
+    fetched2 = repo.get_klines(
+        MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE, start_time=dt2
+    )
     assert len(fetched2) == 2
     assert fetched2[0].open_time == dt2
     assert fetched2[1].open_time == dt3
@@ -136,11 +146,11 @@ def test_get_klines_with_limit(repo):
     klines = [
         create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(10)
     ]
-    repo.save_klines(klines)
+    repo.save_klines(MarketType.SPOT, klines)
 
     # Get last 3 klines efficiently descending
     fetched = repo.get_klines(
-        "BTCUSDT", TimeFrame.ONE_MINUTE, limit=3, order_by_desc=True
+        MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE, limit=3, order_by_desc=True
     )
 
     assert len(fetched) == 3
@@ -161,10 +171,10 @@ def test_save_klines_bulk_chunking(repo):
     ]
 
     # This should not raise any exceptions and should insert in chunks
-    repo.save_klines(klines)
+    repo.save_klines(MarketType.SPOT, klines)
 
     # Verify count
-    fetched = repo.get_klines("BTCUSDT", TimeFrame.ONE_MINUTE)
+    fetched = repo.get_klines(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE)
     assert len(fetched) == 12000
     assert fetched[0].open_time == base_dt
     assert fetched[-1].open_time == base_dt + timedelta(minutes=11999)
@@ -183,11 +193,11 @@ def test_multi_symbol_db_separation(repo):
         create_mock_kline("ETHUSDT", base_dt + timedelta(minutes=i)) for i in range(5)
     ]
 
-    repo.save_klines(btc_klines + eth_klines)
+    repo.save_klines(MarketType.SPOT, btc_klines + eth_klines)
 
     # Retrieve independently
-    btc_fetched = repo.get_klines("BTCUSDT", TimeFrame.ONE_MINUTE)
-    eth_fetched = repo.get_klines("ETHUSDT", TimeFrame.ONE_MINUTE)
+    btc_fetched = repo.get_klines(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE)
+    eth_fetched = repo.get_klines(MarketType.SPOT, "ETHUSDT", TimeFrame.ONE_MINUTE)
 
     assert len(btc_fetched) == 5
     assert len(eth_fetched) == 5
@@ -199,12 +209,17 @@ def test_multi_symbol_db_separation(repo):
     # Verify two separate shards were created, one per symbol. Asserted through
     # list_shards() rather than a private session dict: the sharding internals moved
     # into the engine's SqliteShardManager, and the observable outcome is the point.
-    assert sorted(repo.db_manager.list_shards()) == ["BTCUSDT", "ETHUSDT"]
+    assert sorted(repo.db_manager.list_shards(MarketType.SPOT)) == [
+        "BTCUSDT",
+        "ETHUSDT",
+    ]
 
 
 def test_get_database_status_empty_database(repo):
     """An empty database returns a zeroed, typed DatabaseStatusSnapshot — not a dict."""
-    status = repo.get_database_status("NOSUCHCOIN", TimeFrame.ONE_MINUTE)
+    status = repo.get_database_status(
+        MarketType.SPOT, "NOSUCHCOIN", TimeFrame.ONE_MINUTE
+    )
 
     assert isinstance(status, DatabaseStatusSnapshot)
     assert status.first_record is None
@@ -221,14 +236,15 @@ def test_get_database_status_detects_gap(repo):
     dt3 = datetime(2023, 1, 1, 12, 5, tzinfo=UTC)
 
     repo.save_klines(
+        MarketType.SPOT,
         [
             create_mock_kline("BTCUSDT", dt1),
             create_mock_kline("BTCUSDT", dt2),
             create_mock_kline("BTCUSDT", dt3),
-        ]
+        ],
     )
 
-    status = repo.get_database_status("BTCUSDT", TimeFrame.ONE_MINUTE)
+    status = repo.get_database_status(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE)
 
     assert isinstance(status, DatabaseStatusSnapshot)
     assert status.first_record == dt1
@@ -245,9 +261,10 @@ def test_get_range_coverage_is_half_open_and_reports_first_gap(repo):
         create_mock_kline("BTCUSDT", start + timedelta(minutes=3)),
         create_mock_kline("BTCUSDT", start + timedelta(minutes=4)),
     ]
-    repo.save_klines(rows)
+    repo.save_klines(MarketType.SPOT, rows)
 
     snapshot = repo.get_range_coverage(
+        MarketType.SPOT,
         "BTCUSDT",
         TimeFrame.ONE_MINUTE,
         start,
@@ -277,9 +294,9 @@ def test_count_klines_matches_get_klines_length(repo):
     klines = [
         create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(10)
     ]
-    repo.save_klines(klines)
+    repo.save_klines(MarketType.SPOT, klines)
 
-    assert repo.count_klines("BTCUSDT", TimeFrame.ONE_MINUTE) == 10
+    assert repo.count_klines(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE) == 10
 
 
 def test_count_klines_respects_time_range_and_limit(repo):
@@ -287,19 +304,25 @@ def test_count_klines_respects_time_range_and_limit(repo):
     klines = [
         create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(10)
     ]
-    repo.save_klines(klines)
+    repo.save_klines(MarketType.SPOT, klines)
 
     assert (
         repo.count_klines(
-            "BTCUSDT", TimeFrame.ONE_MINUTE, start_time=base_dt + timedelta(minutes=5)
+            MarketType.SPOT,
+            "BTCUSDT",
+            TimeFrame.ONE_MINUTE,
+            start_time=base_dt + timedelta(minutes=5),
         )
         == 5
     )
-    assert repo.count_klines("BTCUSDT", TimeFrame.ONE_MINUTE, limit=3) == 3
+    assert (
+        repo.count_klines(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE, limit=3)
+        == 3
+    )
 
 
 def test_count_klines_on_empty_database_is_zero(repo):
-    assert repo.count_klines("BTCUSDT", TimeFrame.ONE_MINUTE) == 0
+    assert repo.count_klines(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE) == 0
 
 
 def test_stream_klines_yields_the_same_rows_as_get_klines(repo):
@@ -307,10 +330,12 @@ def test_stream_klines_yields_the_same_rows_as_get_klines(repo):
     klines = [
         create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(10)
     ]
-    repo.save_klines(klines)
+    repo.save_klines(MarketType.SPOT, klines)
 
-    streamed = list(repo.stream_klines("BTCUSDT", TimeFrame.ONE_MINUTE))
-    fetched = repo.get_klines("BTCUSDT", TimeFrame.ONE_MINUTE)
+    streamed = list(
+        repo.stream_klines(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE)
+    )
+    fetched = repo.get_klines(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE)
 
     assert [k.open_time for k in streamed] == [k.open_time for k in fetched]
 
@@ -323,9 +348,13 @@ def test_stream_klines_offset_and_limit_select_the_out_of_sample_tail(repo):
     klines = [
         create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i)) for i in range(10)
     ]
-    repo.save_klines(klines)
+    repo.save_klines(MarketType.SPOT, klines)
 
-    tail = list(repo.stream_klines("BTCUSDT", TimeFrame.ONE_MINUTE, offset=7, limit=3))
+    tail = list(
+        repo.stream_klines(
+            MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE, offset=7, limit=3
+        )
+    )
 
     assert [k.open_time for k in tail] == [
         base_dt + timedelta(minutes=i) for i in (7, 8, 9)
@@ -355,12 +384,14 @@ def test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live(repo)
         create_mock_kline("BTCUSDT", base_dt + timedelta(minutes=i))
         for i in range(total_rows)
     ]
-    repo.save_klines(klines)
+    repo.save_klines(MarketType.SPOT, klines)
 
     baseline = _live_market_data_count()
     peak_live_beyond_baseline = 0
 
-    for index, row in enumerate(repo.stream_klines("BTCUSDT", TimeFrame.ONE_MINUTE)):
+    for index, row in enumerate(
+        repo.stream_klines(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE)
+    ):
         if index % sample_every == 0:
             live_now = _live_market_data_count() - baseline
             peak_live_beyond_baseline = max(peak_live_beyond_baseline, live_now)
@@ -383,14 +414,21 @@ def test_stream_klines_never_holds_more_than_a_bounded_number_of_rows_live(repo)
 @pytest.mark.parametrize(
     "call",
     [
-        lambda repo: repo.get_database_status("GHOST", TimeFrame.ONE_MINUTE),
-        lambda repo: repo.get_latest_kline_time("GHOST", TimeFrame.ONE_MINUTE),
-        lambda repo: repo.get_klines("GHOST", TimeFrame.ONE_MINUTE),
-        lambda repo: repo.count_klines("GHOST", TimeFrame.ONE_MINUTE),
-        lambda repo: list(repo.stream_klines("GHOST", TimeFrame.ONE_MINUTE)),
-        lambda repo: repo.get_gaps("GHOST", TimeFrame.ONE_MINUTE),
-        lambda repo: repo.has_any_klines("GHOST"),
+        lambda repo: repo.get_database_status(
+            MarketType.SPOT, "GHOST", TimeFrame.ONE_MINUTE
+        ),
+        lambda repo: repo.get_latest_kline_time(
+            MarketType.SPOT, "GHOST", TimeFrame.ONE_MINUTE
+        ),
+        lambda repo: repo.get_klines(MarketType.SPOT, "GHOST", TimeFrame.ONE_MINUTE),
+        lambda repo: repo.count_klines(MarketType.SPOT, "GHOST", TimeFrame.ONE_MINUTE),
+        lambda repo: list(
+            repo.stream_klines(MarketType.SPOT, "GHOST", TimeFrame.ONE_MINUTE)
+        ),
+        lambda repo: repo.get_gaps(MarketType.SPOT, "GHOST", TimeFrame.ONE_MINUTE),
+        lambda repo: repo.has_any_klines(MarketType.SPOT, "GHOST"),
         lambda repo: repo.get_range_coverage(
+            MarketType.SPOT,
             "GHOST",
             TimeFrame.ONE_MINUTE,
             None,
@@ -406,26 +444,26 @@ def test_read_on_symbol_without_shard_creates_no_shard_file(repo, call):
     silently pollute the Storage Vault. Every read method must consult
     `has_shard()` first and short-circuit before touching disk."""
     call(repo)
-    assert repo.list_available_shards() == []
+    assert repo.list_available_shards(MarketType.SPOT) == []
 
 
 def test_write_still_creates_a_shard_normally(repo):
     """The has_shard() guard must only gate reads — save_klines() must still
     create the shard on first write, same as before BUG-078."""
     dt = datetime(2024, 1, 1, tzinfo=UTC)
-    repo.save_klines([create_mock_kline("BTCUSDT", dt)])
-    assert repo.list_available_shards() == ["BTCUSDT"]
+    repo.save_klines(MarketType.SPOT, [create_mock_kline("BTCUSDT", dt)])
+    assert repo.list_available_shards(MarketType.SPOT) == ["BTCUSDT"]
 
 
 def test_has_any_klines_true_for_data_in_any_interval(repo):
     dt = datetime(2024, 1, 1, tzinfo=UTC)
     kline = create_mock_kline("BTCUSDT", dt)
     object.__setattr__(kline, "interval", TimeFrame.FOUR_HOURS.value)
-    repo.save_klines([kline])
+    repo.save_klines(MarketType.SPOT, [kline])
 
     # Even though 4h isn't in the app's curated default scan intervals, the
     # shard is NOT empty — has_any_klines() must say so.
-    assert repo.has_any_klines("BTCUSDT") is True
+    assert repo.has_any_klines(MarketType.SPOT, "BTCUSDT") is True
 
 
 def test_get_database_status_for_intervals_matches_per_interval_calls(repo):
@@ -434,24 +472,27 @@ def test_get_database_status_for_intervals_matches_per_interval_calls(repo):
     just over one shard session instead of one per interval."""
     dt = datetime(2024, 1, 1, tzinfo=UTC)
     repo.save_klines(
+        MarketType.SPOT,
         [
             create_mock_kline("BTCUSDT", dt),
             create_mock_kline("BTCUSDT", dt + timedelta(minutes=1)),
-        ]
+        ],
     )
 
     intervals = [TimeFrame.ONE_MINUTE, TimeFrame.ONE_HOUR]
-    batched = repo.get_database_status_for_intervals("BTCUSDT", intervals)
+    batched = repo.get_database_status_for_intervals(
+        MarketType.SPOT, "BTCUSDT", intervals
+    )
 
     for interval in intervals:
-        individual = repo.get_database_status("BTCUSDT", interval)
+        individual = repo.get_database_status(MarketType.SPOT, "BTCUSDT", interval)
         assert batched[interval.value] == individual
 
 
 def test_get_database_status_for_intervals_on_ghost_symbol_returns_all_empty(repo):
     intervals = [TimeFrame.ONE_MINUTE, TimeFrame.FIVE_MINUTES, TimeFrame.ONE_DAY]
-    result = repo.get_database_status_for_intervals("GHOST", intervals)
+    result = repo.get_database_status_for_intervals(MarketType.SPOT, "GHOST", intervals)
 
     assert set(result.keys()) == {iv.value for iv in intervals}
     assert all(snapshot.total_candles == 0 for snapshot in result.values())
-    assert repo.list_available_shards() == []
+    assert repo.list_available_shards(MarketType.SPOT) == []

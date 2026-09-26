@@ -27,6 +27,7 @@ from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
     MemoryEventBus,
 )
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
     EngineEventPublisher,
@@ -43,6 +44,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_d
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.database_manager import (
     DatabaseConfig,
     DatabaseManager,
+    shard_name,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqlalchemy_repository import (
     SQLAlchemyMarketDataRepository,
@@ -95,23 +97,28 @@ def main() -> None:
         print(f"\n=== {label} ===")
 
         t0 = time.perf_counter()
-        klines = client.get_historical_klines(SYMBOL, interval, start, end)
+        klines = client.get_historical_klines(
+            MarketType.SPOT, SYMBOL, interval, start, end
+        )
         fetch_s = time.perf_counter() - t0
         rate = len(klines) / fetch_s if fetch_s > 0 else float("inf")
         print(f"Fetched {len(klines)} klines in {fetch_s:.2f}s ({rate:.0f}/s)")
 
         renamed = [replace(k, symbol=spike_symbol) for k in klines]
         t0 = time.perf_counter()
-        repo.save_klines(renamed)
+        repo.save_klines(MarketType.SPOT, renamed)
         save_s = time.perf_counter() - t0
         print(f"Saved in {save_s:.2f}s")
 
-        db_path = os.path.join(DB_DIR, f"{spike_symbol}.db")
+        db_path = os.path.join(
+            DB_DIR, f"{shard_name(MarketType.SPOT, spike_symbol)}.db"
+        )
         size_bytes = os.path.getsize(db_path) if os.path.exists(db_path) else 0
         print(f"DB file size: {size_bytes / 1024 / 1024:.2f} MiB ({db_path})")
 
         t0 = time.perf_counter()
         queried = repo.get_klines(
+            market=MarketType.SPOT,
             symbol=spike_symbol,
             interval=interval,
             start_time=start,

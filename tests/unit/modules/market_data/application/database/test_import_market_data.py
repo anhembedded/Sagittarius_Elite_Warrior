@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.import_market_data import (
     ImportMarketDataCommand,
@@ -21,7 +22,10 @@ def test_import_valid_csv_upserts_via_save_klines(tmp_path):
     handler = ImportMarketDataCommandHandler(repo)
 
     cmd = ImportMarketDataCommand(
-        symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE, source_path=str(source)
+        symbol="BTCUSDT",
+        interval=TimeFrame.ONE_MINUTE,
+        market=MarketType.SPOT,
+        source_path=str(source),
     )
     result = handler.execute(cmd)
 
@@ -29,7 +33,7 @@ def test_import_valid_csv_upserts_via_save_klines(tmp_path):
     assert result.imported_records == 2
     assert result.warnings == []
     repo.save_klines.assert_called_once()
-    saved = repo.save_klines.call_args[0][0]
+    saved = repo.save_klines.call_args[0][1]
     assert len(saved) == 2
     assert all(kline.symbol == "BTCUSDT" for kline in saved)
 
@@ -46,7 +50,10 @@ def test_import_partially_malformed_file_reports_warnings_but_still_imports(tmp_
     handler = ImportMarketDataCommandHandler(repo)
 
     cmd = ImportMarketDataCommand(
-        symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE, source_path=str(source)
+        symbol="BTCUSDT",
+        interval=TimeFrame.ONE_MINUTE,
+        market=MarketType.SPOT,
+        source_path=str(source),
     )
     result = handler.execute(cmd)
 
@@ -63,7 +70,10 @@ def test_import_file_with_no_valid_rows_fails_without_calling_save(tmp_path):
     handler = ImportMarketDataCommandHandler(repo)
 
     cmd = ImportMarketDataCommand(
-        symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE, source_path=str(source)
+        symbol="BTCUSDT",
+        interval=TimeFrame.ONE_MINUTE,
+        market=MarketType.SPOT,
+        source_path=str(source),
     )
     result = handler.execute(cmd)
 
@@ -79,6 +89,7 @@ def test_import_missing_file_fails_gracefully():
     cmd = ImportMarketDataCommand(
         symbol="BTCUSDT",
         interval=TimeFrame.ONE_MINUTE,
+        market=MarketType.SPOT,
         source_path="/nonexistent/path/candles.csv",
     )
     result = handler.execute(cmd)
@@ -99,7 +110,10 @@ def test_import_repository_failure_is_reported_never_raised(tmp_path):
     handler = ImportMarketDataCommandHandler(repo)
 
     cmd = ImportMarketDataCommand(
-        symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE, source_path=str(source)
+        symbol="BTCUSDT",
+        interval=TimeFrame.ONE_MINUTE,
+        market=MarketType.SPOT,
+        source_path=str(source),
     )
     result = handler.execute(cmd)
 

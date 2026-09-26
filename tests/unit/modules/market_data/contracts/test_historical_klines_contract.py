@@ -27,6 +27,7 @@ from collections.abc import Sequence
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.handler import (
     StoredKlinesReader,
@@ -78,7 +79,7 @@ class TestTheRealQueryHandler(HistoricalKlinesContract):
     @pytest.fixture
     def seed(self, store: FakeMarketDataRepository) -> SeedKlines:
         def put(klines: Sequence[MarketData]) -> None:
-            store.save_klines(list(klines))
+            store.save_klines(MarketType.SPOT, list(klines))
 
         return put
 
@@ -181,7 +182,7 @@ def test_the_fake_and_the_handler_agree_on_a_seeded_series() -> None:
     fake = FakeHistoricalKlines()
     fake.seed(rows)
     store = FakeMarketDataRepository()
-    store.save_klines(rows)
+    store.save_klines(MarketType.SPOT, rows)
     real = StoredKlinesReader(store)
 
     assert fake.load("BTCUSDT", MINUTE, limit=3, newest_first=True) == real.load(

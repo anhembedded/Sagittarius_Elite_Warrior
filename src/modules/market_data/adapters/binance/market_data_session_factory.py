@@ -53,6 +53,4 @@ class MarketDataSessionFactory(IExchangeSessionFactory):
             requests_params={"timeout": REQUEST_TIMEOUT_SECONDS},
             testnet=resolve_testnet_flag(self._market_data_venue),
         )
-        return PythonBinanceClient(
-            client=session, market_data_venue=self._market_data_venue
-        )
+        return PythonBinanceClient(client=session)

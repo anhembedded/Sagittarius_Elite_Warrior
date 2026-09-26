@@ -6,6 +6,7 @@ import pytest
 import requests
 from binance.enums import HistoricalKlinesType
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.client import (
     _KLINE_STREAM_CHUNK_SIZE,
@@ -56,27 +57,41 @@ def test_injected_client_is_used_directly_without_patching_the_sdk():
     assert client.client is injected_client
 
     client.get_historical_klines(
-        "BTCUSDT", TimeFrame.ONE_MINUTE, datetime(2023, 1, 1, tzinfo=UTC)
+        MarketType.SPOT,
+        "BTCUSDT",
+        TimeFrame.ONE_MINUTE,
+        datetime(2023, 1, 1, tzinfo=UTC),
     )
     injected_client.get_historical_klines_generator.assert_called_once()
 
 
-def test_default_market_data_venue_uses_spot_klines_type():
-    """`EPIC-021A`: `PythonBinanceClient` no longer constructs its own SDK
-    client (a session factory is the one place allowed to) — this
-    replaces the old fallback-construction test. Default `market_data_venue`
-    (`MAINNET_PUBLIC`) must still resolve to `HistoricalKlinesType.SPOT`,
-    keeping every existing call site's behavior unchanged."""
+def test_get_historical_klines_resolves_klines_type_from_the_market_argument():
+    """`EPIC-027A`: `klines_type` is resolved per call from the `market`
+    argument, not fixed at construction from a venue — one client now
+    serves every market a sync asks for. Spot and USDⓈ-M each resolve to
+    their own `HistoricalKlinesType`."""
     injected_client = Mock()
     injected_client.get_historical_klines_generator.return_value = []
 
     client = PythonBinanceClient(client=injected_client)
 
     client.get_historical_klines(
-        "BTCUSDT", TimeFrame.ONE_MINUTE, datetime(2023, 1, 1, tzinfo=UTC)
+        MarketType.SPOT,
+        "BTCUSDT",
+        TimeFrame.ONE_MINUTE,
+        datetime(2023, 1, 1, tzinfo=UTC),
     )
     _, kwargs = injected_client.get_historical_klines_generator.call_args
     assert kwargs["klines_type"] == HistoricalKlinesType.SPOT
+
+    client.get_historical_klines(
+        MarketType.FUTURES_USD_M,
+        "BTCUSDT",
+        TimeFrame.ONE_MINUTE,
+        datetime(2023, 1, 1, tzinfo=UTC),
+    )
+    _, kwargs = injected_client.get_historical_klines_generator.call_args
+    assert kwargs["klines_type"] == HistoricalKlinesType.FUTURES
 
 
 def test_get_historical_klines_propagates_underlying_client_errors():
@@ -90,7 +105,10 @@ def test_get_historical_klines_propagates_underlying_client_errors():
 
     try:
         client.get_historical_klines(
-            "BTCUSDT", TimeFrame.ONE_MINUTE, datetime(2023, 1, 1, tzinfo=UTC)
+            MarketType.SPOT,
+            "BTCUSDT",
+            TimeFrame.ONE_MINUTE,
+            datetime(2023, 1, 1, tzinfo=UTC),
         )
         raise AssertionError("Expected RuntimeError to propagate")
     except RuntimeError as exc:
@@ -123,7 +141,7 @@ def test_python_binance_client_with_end_str():
     end_dt = datetime(2023, 1, 2, tzinfo=UTC)
 
     klines = client.get_historical_klines(
-        "BTCUSDT", TimeFrame.ONE_MINUTE, start_dt, end_dt
+        MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE, start_dt, end_dt
     )
 
     # Assert the generator was called with formatted strings
@@ -143,7 +161,9 @@ def test_python_binance_client_without_end_str():
     client = PythonBinanceClient(client=injected_client)
     start_dt = datetime(2023, 1, 1, tzinfo=UTC)
 
-    client.get_historical_klines("ETHUSDT", TimeFrame.ONE_HOUR, start_dt)
+    client.get_historical_klines(
+        MarketType.SPOT, "ETHUSDT", TimeFrame.ONE_HOUR, start_dt
+    )
 
     # end_str defaults to None
     args, kwargs = injected_client.get_historical_klines_generator.call_args
@@ -181,6 +201,7 @@ def test_historical_kline_iteration_stops_cooperatively_when_cancelled():
 
     with pytest.raises(ExchangeRequestCancelledError):
         client.get_historical_klines(
+            MarketType.SPOT,
             "BTCUSDT",
             TimeFrame.ONE_MINUTE,
             datetime(2023, 1, 1, tzinfo=UTC),
@@ -205,7 +226,10 @@ def test_stream_historical_klines_yields_bounded_chunks_instead_of_one_giant_lis
 
     chunks = list(
         client.stream_historical_klines(
-            "BTCUSDT", TimeFrame.ONE_MINUTE, datetime(2023, 1, 1, tzinfo=UTC)
+            MarketType.SPOT,
+            "BTCUSDT",
+            TimeFrame.ONE_MINUTE,
+            datetime(2023, 1, 1, tzinfo=UTC),
         )
     )
 
@@ -238,7 +262,10 @@ def test_streaming_and_discarding_chunks_never_lets_more_than_one_chunk_stay_ali
     peak_live_beyond_baseline = 0
 
     for chunk in client.stream_historical_klines(
-        "BTCUSDT", TimeFrame.ONE_MINUTE, datetime(2023, 1, 1, tzinfo=UTC)
+        MarketType.SPOT,
+        "BTCUSDT",
+        TimeFrame.ONE_MINUTE,
+        datetime(2023, 1, 1, tzinfo=UTC),
     ):
         live_now = _live_market_data_count() - baseline
         peak_live_beyond_baseline = max(peak_live_beyond_baseline, live_now)
@@ -259,6 +286,7 @@ def test_stream_historical_klines_reports_progress_and_maps_fields_correctly():
 
     chunks = list(
         client.stream_historical_klines(
+            MarketType.SPOT,
             "BTCUSDT",
             TimeFrame.ONE_MINUTE,
             datetime(2023, 1, 1, tzinfo=UTC),
@@ -289,6 +317,7 @@ def test_stream_historical_klines_stops_cooperatively_when_cancelled():
     with pytest.raises(ExchangeRequestCancelledError):
         list(
             client.stream_historical_klines(
+                MarketType.SPOT,
                 "BTCUSDT",
                 TimeFrame.ONE_MINUTE,
                 datetime(2023, 1, 1, tzinfo=UTC),
@@ -377,7 +406,10 @@ def test_stream_historical_klines_resumes_from_the_last_kline_after_a_transient_
 
     chunks = list(
         client.stream_historical_klines(
-            "BTCUSDT", TimeFrame.ONE_MINUTE, datetime(2023, 1, 1, tzinfo=UTC)
+            MarketType.SPOT,
+            "BTCUSDT",
+            TimeFrame.ONE_MINUTE,
+            datetime(2023, 1, 1, tzinfo=UTC),
         )
     )
 
@@ -408,7 +440,10 @@ def test_stream_historical_klines_gives_up_after_repeated_transient_errors_with_
     with pytest.raises(requests.exceptions.RequestException):
         list(
             client.stream_historical_klines(
-                "BTCUSDT", TimeFrame.ONE_MINUTE, datetime(2023, 1, 1, tzinfo=UTC)
+                MarketType.SPOT,
+                "BTCUSDT",
+                TimeFrame.ONE_MINUTE,
+                datetime(2023, 1, 1, tzinfo=UTC),
             )
         )
 
@@ -447,6 +482,7 @@ def test_stream_historical_klines_cancellation_during_retry_backoff_stops_immedi
     with pytest.raises(ExchangeRequestCancelledError):
         list(
             client.stream_historical_klines(
+                MarketType.SPOT,
                 "BTCUSDT",
                 TimeFrame.ONE_MINUTE,
                 datetime(2023, 1, 1, tzinfo=UTC),

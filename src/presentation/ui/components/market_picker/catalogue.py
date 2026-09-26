@@ -9,9 +9,8 @@ renders a flat list — nothing here does that job over again.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
-
-from .....domain.value_objects.market_type import MarketType
 
 #: Display order and Vietnamese label per market.
 _LABELS = EnumLabels(

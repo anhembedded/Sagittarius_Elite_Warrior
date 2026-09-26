@@ -3,6 +3,7 @@ import sys
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data import (
     SyncMarketDataCommand,
@@ -39,8 +40,13 @@ def execute_sync(app: App, args):
         )
         sys.exit(1)
 
+    # `EPIC-027A` — see `sync_cli_handler.py`'s identical comment: no
+    # `--market` flag yet, pinned to Spot.
     command = SyncMarketDataCommand(
-        symbols=symbols_list, interval=timeframe, days_back_if_empty=args.days
+        symbols=symbols_list,
+        interval=timeframe,
+        market=MarketType.SPOT,
+        days_back_if_empty=args.days,
     )
 
     # Dispatch to Application Layer

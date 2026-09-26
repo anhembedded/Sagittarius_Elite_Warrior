@@ -10,6 +10,7 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.database_manager import (
     DatabaseConfig,
@@ -74,10 +75,11 @@ def test_bug010_unclosed_forming_candle_does_not_break_range_coverage(repo):
             datetime(2026, 8, 18, 10, 41, 59, 999000, tzinfo=UTC),
         )
     )
-    repo.save_klines(candles)
+    repo.save_klines(MarketType.SPOT, candles)
 
     # Test "Toàn bộ lịch sử" (All history): start_time=None, end_time=now
     snapshot = repo.get_range_coverage(
+        MarketType.SPOT,
         "BTCUSDT",
         TimeFrame.ONE_MINUTE,
         start_time=None,

@@ -26,6 +26,7 @@ from sagittarius_engine.infrastructure.config.config_manager import ConfigManage
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
@@ -50,22 +51,31 @@ _PREVIEW_TIMEOUT_MS = 5_000
 
 
 class _SeededMarketDataRepository(IMarketDataRepository):
-    """Deterministic multi-timeframe source used solely by the desktop probe."""
+    """Deterministic multi-timeframe source used solely by the desktop probe.
+
+    `EPIC-027A` added `market` to every `IMarketDataRepository` method; this
+    hand-rolled implementer is not `market`-aware itself (the probe seeds and
+    reads Spot only), so every method just ignores the parameter it's now
+    required to accept — architecture-rule.md §2's "every implementer stays
+    complete" applies to a `scripts/` implementer exactly as it does to a
+    production one (`BUG-026`).
+    """
 
     def __init__(self, klines: list[MarketData]) -> None:
         self._klines = list(klines)
 
-    def save_klines(self, klines: list[MarketData]) -> None:
+    def save_klines(self, market: MarketType, klines: list[MarketData]) -> None:
         self._klines = list(klines)
 
     def get_latest_kline_time(
-        self, symbol: str, interval: TimeFrame
+        self, market: MarketType, symbol: str, interval: TimeFrame
     ) -> datetime | None:
-        rows = self.get_klines(symbol, interval)
+        rows = self.get_klines(market, symbol, interval)
         return rows[-1].open_time if rows else None
 
     def get_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_time: datetime | None = None,
@@ -87,16 +97,20 @@ class _SeededMarketDataRepository(IMarketDataRepository):
 
     def count_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         limit: int | None = None,
     ) -> int:
-        return len(self.get_klines(symbol, interval, start_time, end_time, limit))
+        return len(
+            self.get_klines(market, symbol, interval, start_time, end_time, limit)
+        )
 
     def stream_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_time: datetime | None = None,
@@ -106,7 +120,7 @@ class _SeededMarketDataRepository(IMarketDataRepository):
         order_by_desc: bool = False,
     ) -> Iterator[MarketData]:
         rows = self.get_klines(
-            symbol, interval, start_time, end_time, None, order_by_desc
+            market, symbol, interval, start_time, end_time, None, order_by_desc
         )
         if offset is not None:
             rows = rows[offset:]
@@ -114,28 +128,32 @@ class _SeededMarketDataRepository(IMarketDataRepository):
             rows = rows[:limit]
         yield from rows
 
-    def clear_klines(self, symbol: str, interval: TimeFrame | None = None) -> int:
+    def clear_klines(
+        self, market: MarketType, symbol: str, interval: TimeFrame | None = None
+    ) -> int:
         return 0
 
     def purge_all(self) -> int:
         return 0
 
-    def list_available_shards(self) -> list[str]:
+    def list_available_shards(self, market: MarketType) -> list[str]:
         return [_SYMBOL]
 
-    def vacuum(self, symbol: str | None = None) -> None:
+    def vacuum(self, market: MarketType, symbol: str | None = None) -> None:
         pass
 
-    def get_gaps(self, symbol: str, interval: TimeFrame) -> list[DataGap]:
+    def get_gaps(
+        self, market: MarketType, symbol: str, interval: TimeFrame
+    ) -> list[DataGap]:
         return []
 
-    def has_any_klines(self, symbol: str) -> bool:
+    def has_any_klines(self, market: MarketType, symbol: str) -> bool:
         return any(kline.symbol == symbol for kline in self._klines)
 
     def get_database_status(
-        self, symbol: str, interval: TimeFrame
+        self, market: MarketType, symbol: str, interval: TimeFrame
     ) -> DatabaseStatusSnapshot:
-        rows = self.get_klines(symbol, interval)
+        rows = self.get_klines(market, symbol, interval)
         return DatabaseStatusSnapshot(
             first_record=rows[0].open_time if rows else None,
             last_record=rows[-1].open_time if rows else None,
@@ -144,22 +162,23 @@ class _SeededMarketDataRepository(IMarketDataRepository):
         )
 
     def get_database_status_for_intervals(
-        self, symbol: str, intervals: list[TimeFrame]
+        self, market: MarketType, symbol: str, intervals: list[TimeFrame]
     ) -> dict[str, DatabaseStatusSnapshot]:
         return {
-            interval.value: self.get_database_status(symbol, interval)
+            interval.value: self.get_database_status(market, symbol, interval)
             for interval in intervals
         }
 
     def get_range_coverage(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_time: datetime | None,
         end_time: datetime,
         now: datetime,
     ) -> RangeCoverageSnapshot:
-        rows = self.get_klines(symbol, interval, start_time, end_time)
+        rows = self.get_klines(market, symbol, interval, start_time, end_time)
         rows = [row for row in rows if row.open_time < end_time]
         first_gap_after = next(
             (

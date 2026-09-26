@@ -51,6 +51,7 @@ from PySide6.QtCore import (
     Signal,
 )
 from PySide6.QtGui import QFont
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.ui_kit.model_indexes import AnyIndex
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import (
@@ -63,6 +64,15 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import (
 #: Mirrors the strings the Presenter forwards from DatabaseStatusDTO.
 HEALTHY_STATUSES = frozenset({"OK", "0 gaps found!"})
 
+#: `EPIC-027A` — every shard this screen can show is Spot today (Phase 1 has
+#: no second market with real data), so `DatabaseStatusRow.market` defaults
+#: here rather than widening `upsert_row()`/`StatusRowUpdate` across the
+#: cross-thread signal boundary those two guard against changing lightly
+#: (see this module's own docstring §"What left this file"). A real market
+#: filter/column value arrives with `EPIC-027D`'s selector, once a second
+#: market has data to distinguish.
+_MARKET_LABEL_SPOT = MarketType.SPOT.value.capitalize()
+
 
 @dataclass
 class DatabaseStatusRow:
@@ -74,6 +84,7 @@ class DatabaseStatusRow:
     total_candles: str
     status_text: str
     interval: str = TimeFrame.ONE_MINUTE.value
+    market: str = _MARKET_LABEL_SPOT
 
     @property
     def key(self) -> str:
@@ -109,6 +120,7 @@ class DatabaseStatusTableModel(RowTableModel[DatabaseStatusRow]):
     LAST_RECORD_COLUMN: Final = 3
     TOTAL_CANDLES_COLUMN: Final = 4
     STATUS_COLUMN: Final = 5
+    MARKET_COLUMN: Final = 6
 
     HEADERS: ClassVar[tuple[str, ...]] = (
         "Symbol",
@@ -117,6 +129,7 @@ class DatabaseStatusTableModel(RowTableModel[DatabaseStatusRow]):
         "Last record",
         "Candles",
         "Status",
+        "Market",
     )
 
     #: Right-aligned because the eye compares a column of counts by its last
@@ -141,6 +154,7 @@ class DatabaseStatusTableModel(RowTableModel[DatabaseStatusRow]):
             self.LAST_RECORD_COLUMN: row.last_record,
             self.TOTAL_CANDLES_COLUMN: row.total_candles,
             self.STATUS_COLUMN: row.status_text,
+            self.MARKET_COLUMN: row.market,
         }.get(column, "")
 
     def _sort_value(self, row: DatabaseStatusRow, column: int) -> object:

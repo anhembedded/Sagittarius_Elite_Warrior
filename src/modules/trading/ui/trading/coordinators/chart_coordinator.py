@@ -39,6 +39,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
@@ -64,6 +65,11 @@ if TYPE_CHECKING:
 #: which grows with enabled indicator scripts — this screen has none,
 #: EPIC-021I's own scope decision).
 _HISTORY_CANDLE_LIMIT = 500
+
+#: `EPIC-027A` — the live trading chart's own market selector is a later
+#: phase's job (Phase 1 has no market to choose from yet). Pinned to Spot,
+#: what this screen has always synced and read.
+_MARKET = MarketType.SPOT
 
 #: `BOT-126` — this screen's own identity on `IMarketStream`. Exactly
 #: one `TradingPresenter`/`ChartCoordinator` is ever alive at once, so a
@@ -153,6 +159,7 @@ class ChartCoordinator:
                     MarketDataSyncRequest(
                         symbols=(symbol,),
                         interval=interval,
+                        market=_MARKET,
                         cancellation_requested=token.is_cancelled,
                     )
                 )
