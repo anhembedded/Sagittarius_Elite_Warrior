@@ -1,6 +1,7 @@
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_database_status.query import (
     GetDatabaseStatusQuery,
 )
@@ -12,6 +13,10 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_r
 )
 
 logger = logging.getLogger("App.QueryHandler")
+
+#: `EPIC-027A` — see `scan_all_databases/handler.py`'s identical constant for
+#: why this is Spot and not yet a caller-chosen market.
+_MARKET = MarketType.SPOT
 
 
 class GetDatabaseStatusQueryHandler(
@@ -36,7 +41,7 @@ class GetDatabaseStatusQueryHandler(
             raise ValueError("Invalid symbol")
 
         snapshot = self.repository.get_database_status(
-            symbol=query.symbol, interval=query.interval
+            market=_MARKET, symbol=query.symbol, interval=query.interval
         )
         return DatabaseStatusDTO.from_snapshot(
             query.symbol, query.interval.value, snapshot

@@ -27,6 +27,7 @@ from __future__ import annotations
 
 from binance.client import BaseClient, Client
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
     MarketDataSessionFactory,
 )
@@ -37,6 +38,16 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_end
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,
 )
+
+#: `EPIC-027A` decoupled `klines_type` from venue, keying it on `MarketType`
+#: instead — every real call site now passes its own market explicitly. This
+#: probe still walks venues (it is about *host* resolution, not market
+#: choice), so it pairs each venue with the one market that venue has
+#: historically served, purely to keep printing a representative klines URL.
+_PROBE_MARKET_FOR_VENUE: dict[MarketDataVenue, MarketType] = {
+    MarketDataVenue.MAINNET_PUBLIC: MarketType.SPOT,
+    MarketDataVenue.FUTURES_TESTNET: MarketType.FUTURES_USD_M,
+}
 
 
 def _library_resolved_urls(testnet: bool) -> tuple[str, str]:
@@ -56,7 +67,7 @@ def _library_resolved_urls(testnet: bool) -> tuple[str, str]:
 
 def _probe(venue: MarketDataVenue) -> None:
     testnet = resolve_testnet_flag(venue)
-    klines_type = klines_type_for(venue).name
+    klines_type = klines_type_for(_PROBE_MARKET_FOR_VENUE[venue]).name
     spot_url, futures_url = _library_resolved_urls(testnet)
     klines_url = futures_url if klines_type == "FUTURES" else spot_url
 

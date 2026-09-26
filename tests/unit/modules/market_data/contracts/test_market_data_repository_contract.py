@@ -7,6 +7,7 @@ which is what makes this fake *verified* rather than merely in-memory.
 """
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
@@ -37,7 +38,7 @@ def test_the_seed_argument_stores_like_a_save() -> None:
         [candle(minutes=0, close_price=1.0), candle(minutes=0, close_price=2.0)]
     )
 
-    rows = repo.get_klines("BTCUSDT", TimeFrame.ONE_MINUTE)
+    rows = repo.get_klines(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE)
 
     assert len(rows) == 1, "the seed must upsert, not append"
     assert rows[0].close_price == 2.0
@@ -49,10 +50,10 @@ def test_vacuum_is_recorded_so_a_caller_can_prove_it_asked() -> None:
     nothing."""
     repo = FakeMarketDataRepository()
 
-    repo.vacuum("BTCUSDT")
-    repo.vacuum()
+    repo.vacuum(MarketType.SPOT, "BTCUSDT")
+    repo.vacuum(MarketType.SPOT)
 
-    assert repo.vacuum_calls == ["BTCUSDT", None]
+    assert repo.vacuum_calls == [(MarketType.SPOT, "BTCUSDT"), (MarketType.SPOT, None)]
 
 
 def test_purge_all_reports_how_much_it_removed() -> None:
@@ -61,4 +62,4 @@ def test_purge_all_reports_how_much_it_removed() -> None:
     )
 
     assert repo.purge_all() == 3
-    assert repo.list_available_shards() == []
+    assert repo.list_available_shards(MarketType.SPOT) == []

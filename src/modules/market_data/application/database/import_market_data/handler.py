@@ -57,7 +57,7 @@ class ImportMarketDataCommandHandler(
             )
 
         try:
-            self._repository.save_klines(parsed.klines)
+            self._repository.save_klines(command.market, parsed.klines)
         except Exception as exc:  # noqa: BLE001 - boundary: wrap exception in result
             err_msg = f"Error while saving imported candles: {exc}"
             logger.error(err_msg)

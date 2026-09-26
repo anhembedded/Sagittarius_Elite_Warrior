@@ -4,6 +4,7 @@ import logging
 from concurrent.futures import ThreadPoolExecutor
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.scan_all_databases.query import (
     DatabaseStatusDTO,
@@ -14,6 +15,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_r
 )
 
 logger = logging.getLogger("App.QueryHandler")
+
+#: `EPIC-027A` added `market` to `IMarketDataRepository`; Data Management's own
+#: multi-market filter is a later phase's job (Futures shards do not exist
+#: until live Spot/Futures Testnet syncing lands). Pinned to Spot, what every
+#: shard on disk actually is after the legacy-shard migration (ADR O3).
+_MARKET = MarketType.SPOT
 
 _DEFAULT_SCAN_INTERVALS = [
     TimeFrame.ONE_MINUTE.value,
@@ -50,7 +57,9 @@ class ScanAllDatabasesQueryHandler(
             return []
 
         symbols = (
-            query.symbols if query.symbols else self._repository.list_available_shards()
+            query.symbols
+            if query.symbols
+            else self._repository.list_available_shards(_MARKET)
         )
         raw_intervals = query.intervals if query.intervals else _DEFAULT_SCAN_INTERVALS
         intervals = self._parse_intervals(raw_intervals)
@@ -104,7 +113,7 @@ class ScanAllDatabasesQueryHandler(
         """
         try:
             snapshots = self._repository.get_database_status_for_intervals(
-                symbol, intervals
+                _MARKET, symbol, intervals
             )
         except Exception as exc:  # noqa: BLE001 - boundary: report per-symbol scan failure without aborting the batch
             logger.error(f"Error scanning {symbol}: {exc}")

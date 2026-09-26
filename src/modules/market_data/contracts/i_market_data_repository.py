@@ -4,6 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.domain.data_gap import DataGap
 
@@ -40,26 +41,35 @@ class RangeCoverageSnapshot:
 class IMarketDataRepository(ABC):
     """
     @brief Port for storing and retrieving market data.
+    @details `EPIC-027A` — every method takes an explicit `market: MarketType`.
+    Spot and Futures candles of the same symbol and interval are stored and
+    read independently; there is no default market a caller falls back on.
     """
 
     @abstractmethod
-    def save_klines(self, klines: list[MarketData]) -> None:
+    def save_klines(self, market: MarketType, klines: list[MarketData]) -> None:
         """
         @brief Saves a batch of klines to the repository.
+        @details `klines` must all belong to `market` — a single call writes to
+        one market's shards. A caller mixing markets in one batch is a caller
+        bug, not something this port infers from the candles themselves
+        (candles carry no market field; see the ADR's own finding).
         """
 
     @abstractmethod
     def get_latest_kline_time(
-        self, symbol: str, interval: TimeFrame
+        self, market: MarketType, symbol: str, interval: TimeFrame
     ) -> datetime | None:
         """
-        @brief Retrieves the open_time of the most recent kline stored for a given symbol and interval.
+        @brief Retrieves the open_time of the most recent kline stored for a given
+        market, symbol and interval.
         @return The datetime of the latest kline, or None if no data exists.
         """
 
     @abstractmethod
     def get_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_time: datetime | None = None,
@@ -74,6 +84,7 @@ class IMarketDataRepository(ABC):
     @abstractmethod
     def count_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_time: datetime | None = None,
@@ -92,6 +103,7 @@ class IMarketDataRepository(ABC):
     @abstractmethod
     def stream_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_time: datetime | None = None,
@@ -113,19 +125,20 @@ class IMarketDataRepository(ABC):
 
     @abstractmethod
     def get_database_status(
-        self, symbol: str, interval: TimeFrame
+        self, market: MarketType, symbol: str, interval: TimeFrame
     ) -> DatabaseStatusSnapshot:
         """
-        @brief Gets database status for a specific symbol/interval.
+        @brief Gets database status for a specific market/symbol/interval.
         @return A DatabaseStatusSnapshot with first_record, last_record, total_candles, gaps.
         """
 
     @abstractmethod
     def get_database_status_for_intervals(
-        self, symbol: str, intervals: list[TimeFrame]
+        self, market: MarketType, symbol: str, intervals: list[TimeFrame]
     ) -> dict[str, DatabaseStatusSnapshot]:
         """
-        @brief Gets database status for every interval of one symbol in a single call.
+        @brief Gets database status for every interval of one market/symbol in a
+        single call.
         @details BUG-078 — lets a caller scanning many intervals of the same symbol
         (e.g. `ScanAllDatabasesQueryHandler`) do it over one underlying connection
         instead of one per interval, since a symbol's intervals all live in the same
@@ -136,6 +149,7 @@ class IMarketDataRepository(ABC):
     @abstractmethod
     def get_range_coverage(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_time: datetime | None,
@@ -145,43 +159,51 @@ class IMarketDataRepository(ABC):
         """Aggregate coverage facts for ``[start_time, end_time)``."""
 
     @abstractmethod
-    def clear_klines(self, symbol: str, interval: TimeFrame | None = None) -> int:
+    def clear_klines(
+        self, market: MarketType, symbol: str, interval: TimeFrame | None = None
+    ) -> int:
         """
-        @brief Deletes klines for a given symbol and optional interval.
+        @brief Deletes klines for a given market/symbol and optional interval.
         @return The number of deleted records.
         """
 
     @abstractmethod
     def purge_all(self) -> int:
         """
-        @brief Purges all market data databases / shards.
+        @brief Purges all market data databases / shards, across every market.
         @return Total number of shards or records purged.
         """
 
     @abstractmethod
-    def list_available_shards(self) -> list[str]:
+    def list_available_shards(self, market: MarketType) -> list[str]:
         """
-        @brief Lists all symbol names that have existing storage shards on disk.
+        @brief Lists all symbol names that have an existing storage shard for one
+        market on disk.
         @return List of symbol names (e.g. ['BTCUSDT', 'ETHUSDT']).
         """
 
     @abstractmethod
-    def vacuum(self, symbol: str | None = None) -> None:
+    def vacuum(self, market: MarketType, symbol: str | None = None) -> None:
         """
-        @brief Optimizes SQLite storage by running VACUUM on specified or all shards.
+        @brief Optimizes SQLite storage by running VACUUM on one market's specified
+        or all shards.
         """
 
     @abstractmethod
-    def get_gaps(self, symbol: str, interval: TimeFrame) -> list[DataGap]:
+    def get_gaps(
+        self, market: MarketType, symbol: str, interval: TimeFrame
+    ) -> list[DataGap]:
         """
-        @brief Scans and returns all detected gaps in historical market data for a symbol/interval.
+        @brief Scans and returns all detected gaps in historical market data for a
+        market/symbol/interval.
         @return Ordered list of DataGap objects.
         """
 
     @abstractmethod
-    def has_any_klines(self, symbol: str) -> bool:
+    def has_any_klines(self, market: MarketType, symbol: str) -> bool:
         """
-        @brief Whether a symbol's shard holds at least one kline, in any interval.
+        @brief Whether a market/symbol's shard holds at least one kline, in any
+        interval.
         @details BUG-078 — deliberately interval-agnostic (unlike `get_database_status`),
         so a caller deciding whether a shard is safe to delete never misjudges "empty"
         against only a curated interval subset (e.g. the default 6 shown in the UI) while

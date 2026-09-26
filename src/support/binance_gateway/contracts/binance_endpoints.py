@@ -8,6 +8,7 @@ import logging
 
 from binance.enums import HistoricalKlinesType
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,
 )
@@ -45,12 +46,16 @@ _TESTNET_FLAG: dict[MarketDataVenue, bool] = {
 }
 
 #: Which `klines_type` `get_historical_klines_generator()` should use for a
-#: given market-data venue. Both values share one pagination/retry pipeline
-#: inside `python-binance` (`_historical_klines_generator` -> `_klines`) —
-#: verified by reading the installed library's own source, not assumed.
-_KLINES_TYPE: dict[MarketDataVenue, HistoricalKlinesType] = {
-    MarketDataVenue.MAINNET_PUBLIC: HistoricalKlinesType.SPOT,
-    MarketDataVenue.FUTURES_TESTNET: HistoricalKlinesType.FUTURES,
+#: given `MarketType` (`EPIC-027A`; keyed by venue before that — the venue
+#: picks the host via `Client(testnet=...)`, the market picks the klines
+#: family, and the two vary independently per call). All three values share
+#: one pagination/retry pipeline inside `python-binance`
+#: (`_historical_klines_generator` -> `_klines`) — verified by reading the
+#: installed library's own source, not assumed.
+_KLINES_TYPE: dict[MarketType, HistoricalKlinesType] = {
+    MarketType.SPOT: HistoricalKlinesType.SPOT,
+    MarketType.FUTURES_USD_M: HistoricalKlinesType.FUTURES,
+    MarketType.FUTURES_COIN_M: HistoricalKlinesType.FUTURES_COIN,
 }
 
 
@@ -59,11 +64,11 @@ def resolve_testnet_flag(venue: MarketDataVenue) -> bool:
     return _TESTNET_FLAG[venue]
 
 
-def klines_type_for(venue: MarketDataVenue) -> HistoricalKlinesType:
-    """Returns which `python-binance` kline family a venue's klines resolve
-    against. Exchange-info/symbol-catalog calls are unaffected — `021C`'s
-    concern, not this one's (see `EPIC-021A` §2.2b)."""
-    return _KLINES_TYPE[venue]
+def klines_type_for(market: MarketType) -> HistoricalKlinesType:
+    """Returns which `python-binance` kline family a `MarketType`'s klines
+    resolve against. Exchange-info/symbol-catalog calls are unaffected —
+    `021C`'s concern, not this one's (see `EPIC-021A` §2.2b)."""
+    return _KLINES_TYPE[market]
 
 
 def resolve_market_data_venue(config: IConfig) -> MarketDataVenue:

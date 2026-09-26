@@ -6,6 +6,7 @@ from unittest.mock import Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest import (
     BacktestCancelled,
@@ -130,12 +131,19 @@ def _configure_repo_with_klines(repo: Mock, klines: list[MarketData]) -> None:
     """
 
     def _count(
-        *, symbol=None, interval=None, start_time=None, end_time=None, limit=None
+        *,
+        market=None,
+        symbol=None,
+        interval=None,
+        start_time=None,
+        end_time=None,
+        limit=None,
     ) -> int:
         return len(klines) if limit is None else min(limit, len(klines))
 
     def _stream(
         *,
+        market=None,
         symbol=None,
         interval=None,
         start_time=None,
@@ -630,6 +638,7 @@ def test_magnifier_resolution_resolves_take_profit_first_via_real_sub_candles():
     assert trade.exit_price == pytest.approx(110.0)
     # The ambiguous bar is index 5: open_time = T0 + 5h, close_time = T0 + 6h.
     repo.get_klines.assert_called_once_with(
+        market=MarketType.SPOT,
         symbol="BTCUSDT",
         interval=TimeFrame.ONE_MINUTE,
         start_time=datetime(2024, 1, 1, tzinfo=UTC) + timedelta(hours=5),

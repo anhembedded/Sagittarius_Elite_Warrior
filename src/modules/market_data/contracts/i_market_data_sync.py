@@ -34,6 +34,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 #: A caller-owned "should I stop?" check, polled between fetches. It is a
@@ -52,6 +53,10 @@ class MarketDataSyncRequest:
     #: same rule every other symbol entry point in this app follows.
     symbols: tuple[str, ...]
     interval: TimeFrame
+    #: `EPIC-027A` — which market's shard(s) to sync. Required, not defaulted:
+    #: every caller states it explicitly, so a request can never silently
+    #: sync the wrong market's history.
+    market: MarketType
     #: `None` means "the implementation decides where to start" — which is
     #: what three of the four callers want: continue from the newest candle
     #: already stored, or reach back a default window when there is none.

@@ -1,6 +1,6 @@
 # EPIC-027 — Spot beside Futures: truthful Spot backtests first, then live Spot on Testnet
 
-- **Status:** 🟡 Phase 1 in progress — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` is the current task.
+- **Status:** 🟡 Phase 1 in progress — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` is done; `EPIC-027B` is the current task.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-26): *"đánh giá xem giờ tui muốn giao dịch spot và back test theo
   spot thì app này cần những gì, lên plan và epic, sao đó report cho tôi"* ("assess what this app
@@ -89,7 +89,7 @@ request unless its file says otherwise.
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | **Phase 1 — Spot backtest (no API keys needed)** | | | | | |
-| [EPIC-027A](incomplete/EPIC-027A_market_aware_kline_storage_and_download.md) | Every stored candle knows its market; a sync asks for one | Elite | O3 (answered) | 🔴 | In progress |
+| [EPIC-027A](completed/EPIC-027A_market_aware_kline_storage_and_download.md) | Every stored candle knows its market; a sync asks for one | Elite | O3 (answered) | 🔴 | ✅ Done (2026-09-26) |
 | [EPIC-027B](incomplete/EPIC-027B_spot_mode_in_the_backtest_engine.md) | Spot mode in the engine: long-only, 1×, never liquidated, shorts counted | Elite | A | 🟡 | Planned |
 | [EPIC-027C](incomplete/EPIC-027C_exchange_filters_on_simulated_fills.md) | Simulated fills obey step size, minimum notional and tick size | Elite | A | 🟡 | Planned |
 | [EPIC-027D](incomplete/EPIC-027D_backtest_ui_market_selector.md) | Backtest screen chooses the market and shows only what it can do | Elite | A, B | 🟢 | Planned |
@@ -130,6 +130,11 @@ request unless its file says otherwise.
 - **Funding-rate modeling for Futures.** Still out of scope as in `BOT-049`.
 
 ## Notes (newest first)
+- **2026-09-26** — `EPIC-027A` done: `MarketType` moved to the shared kernel, every kline shard,
+  repository/sync port and download call now carries an explicit market, legacy shards migrate once
+  (idempotent, tagged Spot per O3), and Data Management/export/import show and carry the market. Full
+  unit (5515), integration (165) and architecture (445) suites green; mypy clean on 702 files.
+  `EPIC-027B` is next.
 - **2026-09-26** — Epic scaffolded from two independent audits of the tree (live path, backtest
   path). The ADR was Accepted the same day, with every open question answered per its recommended
   option; `EPIC-027A` is now in progress.

@@ -26,6 +26,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     DEFAULT_KLINE_LIMIT,
@@ -136,8 +137,18 @@ class StoredKlinesReader(IHistoricalKlines):
     ) -> list[MarketData]:
         """One repository read. `newest_first` is the repository's
         `order_by_desc`, renamed at the boundary because the port's callers
-        ask for "the newest N", not for a sort direction."""
+        ask for "the newest N", not for a sort direction.
+
+        `EPIC-027A` added `market` to `IMarketDataRepository`, but
+        `IHistoricalKlines`'s six callers (the live trading chart, the Dev
+        Board stream, the CLI's `trade-once`, two backtest coordinators, the
+        Data Management kline inspector) have no market to choose yet — that
+        is `EPIC-027D`'s (backtest market selector) and later Phase 2/3 tasks'
+        job. Pinned to Spot here, not defaulted inside the port: it is what
+        every one of these screens has actually been reading all along.
+        """
         return self.repository.get_klines(
+            market=MarketType.SPOT,
             symbol=symbol,
             interval=interval,
             start_time=start_time,

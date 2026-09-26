@@ -20,6 +20,7 @@ from Sagittarius_Elite_Warrior.scripts.backtest_timeframe_toolbar_e2e import (
     _SeededMarketDataRepository,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
@@ -53,7 +54,7 @@ def test_count_klines_matches_get_klines_length():
     klines = [_make_kline(start + timedelta(hours=i)) for i in range(5)]
     repo = _SeededMarketDataRepository(klines)
 
-    assert repo.count_klines(_SYMBOL, TimeFrame.ONE_HOUR) == 5
+    assert repo.count_klines(MarketType.SPOT, _SYMBOL, TimeFrame.ONE_HOUR) == 5
 
 
 def test_stream_klines_yields_the_same_rows_as_get_klines():
@@ -61,8 +62,8 @@ def test_stream_klines_yields_the_same_rows_as_get_klines():
     klines = [_make_kline(start + timedelta(hours=i)) for i in range(5)]
     repo = _SeededMarketDataRepository(klines)
 
-    streamed = list(repo.stream_klines(_SYMBOL, TimeFrame.ONE_HOUR))
-    fetched = repo.get_klines(_SYMBOL, TimeFrame.ONE_HOUR)
+    streamed = list(repo.stream_klines(MarketType.SPOT, _SYMBOL, TimeFrame.ONE_HOUR))
+    fetched = repo.get_klines(MarketType.SPOT, _SYMBOL, TimeFrame.ONE_HOUR)
 
     assert [k.open_time for k in streamed] == [k.open_time for k in fetched]
 
@@ -72,7 +73,11 @@ def test_stream_klines_offset_and_limit():
     klines = [_make_kline(start + timedelta(hours=i)) for i in range(5)]
     repo = _SeededMarketDataRepository(klines)
 
-    tail = list(repo.stream_klines(_SYMBOL, TimeFrame.ONE_HOUR, offset=3, limit=2))
+    tail = list(
+        repo.stream_klines(
+            MarketType.SPOT, _SYMBOL, TimeFrame.ONE_HOUR, offset=3, limit=2
+        )
+    )
 
     assert [k.open_time for k in tail] == [
         start + timedelta(hours=3),
@@ -88,8 +93,8 @@ def test_stub_administrative_methods_are_harmless_no_ops():
     (`tests/integration/presentation/test_backtest_user_flow.py`)."""
     repo = _SeededMarketDataRepository([])
 
-    assert repo.clear_klines(_SYMBOL) == 0
+    assert repo.clear_klines(MarketType.SPOT, _SYMBOL) == 0
     assert repo.purge_all() == 0
-    assert repo.list_available_shards() == [_SYMBOL]
-    assert repo.vacuum() is None
-    assert repo.get_gaps(_SYMBOL, TimeFrame.ONE_HOUR) == []
+    assert repo.list_available_shards(MarketType.SPOT) == [_SYMBOL]
+    assert repo.vacuum(MarketType.SPOT) is None
+    assert repo.get_gaps(MarketType.SPOT, _SYMBOL, TimeFrame.ONE_HOUR) == []

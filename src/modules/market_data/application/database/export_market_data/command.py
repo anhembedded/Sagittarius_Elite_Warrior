@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.export_file_format import (
     ExportFileFormat,
@@ -19,6 +20,7 @@ class ExportMarketDataCommand:
 
     symbol: str
     interval: TimeFrame
+    market: MarketType
     destination_path: str
     file_format: ExportFileFormat
     start_time: datetime | None = None

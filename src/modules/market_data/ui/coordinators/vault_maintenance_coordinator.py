@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.clear_market_data import (
     ClearMarketDataCommand,
@@ -31,6 +32,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+
+#: `EPIC-027A` — see `scan_coordinator.py`'s identical constant for why this
+#: is Spot and not yet a caller-chosen market.
+_MARKET = MarketType.SPOT
 
 
 class VaultMaintenanceCoordinator:
@@ -158,7 +163,7 @@ class VaultMaintenanceCoordinator:
             self._get_current_fsm_state(),
         )
         try:
-            self._market_data_repo.vacuum()
+            self._market_data_repo.vacuum(_MARKET)
             if self._tracker.is_current_pending(
                 action.action_id, DataManagementActionKind.VACUUM
             ):

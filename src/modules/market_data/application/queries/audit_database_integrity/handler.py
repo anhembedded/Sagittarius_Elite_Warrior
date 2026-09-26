@@ -6,6 +6,7 @@ from enum import StrEnum
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.audit_database_integrity.query import (
     AuditDatabaseIntegrityQuery,
     DataAnomalyDTO,
@@ -149,6 +150,11 @@ _VALUE_RULES: tuple[AnomalyRule, ...] = (
 )
 
 
+#: `EPIC-027A` — see `scan_all_databases/handler.py`'s identical constant for
+#: why this is Spot and not yet a caller-chosen market.
+_MARKET = MarketType.SPOT
+
+
 class AuditDatabaseIntegrityQueryHandler(
     IQueryHandler[AuditDatabaseIntegrityQuery, DatabaseAuditResultDTO]
 ):
@@ -162,6 +168,7 @@ class AuditDatabaseIntegrityQueryHandler(
     def execute(self, query: AuditDatabaseIntegrityQuery) -> DatabaseAuditResultDTO:
         # Fetch all candles ordered chronologically
         klines = self._repository.get_klines(
+            market=_MARKET,
             symbol=query.symbol,
             interval=query.interval,
             limit=None,

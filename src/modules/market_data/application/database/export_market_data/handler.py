@@ -10,6 +10,7 @@ import pyarrow as pa
 import pyarrow.parquet as pq
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.export_market_data.command import (
     ExportMarketDataCommand,
     ExportMarketDataResult,
@@ -29,6 +30,7 @@ logger = logging.getLogger("App.Database")
 _COLUMNS = (
     "symbol",
     "interval",
+    "market",
     "open_time",
     "open_price",
     "high_price",
@@ -48,10 +50,11 @@ _COLUMNS = (
 _PARQUET_BATCH_SIZE = 20_000
 
 
-def _kline_to_row(kline: MarketData) -> dict[str, Any]:
+def _kline_to_row(kline: MarketData, market: MarketType) -> dict[str, Any]:
     return {
         "symbol": kline.symbol,
         "interval": kline.interval,
+        "market": market.value,
         "open_time": kline.open_time.isoformat(),
         "open_price": kline.open_price,
         "high_price": kline.high_price,
@@ -84,6 +87,7 @@ class ExportMarketDataCommandHandler(
     def execute(self, command: ExportMarketDataCommand) -> ExportMarketDataResult:
         try:
             klines = self._repository.stream_klines(
+                market=command.market,
                 symbol=command.symbol,
                 interval=command.interval,
                 start_time=command.start_time,
@@ -94,7 +98,7 @@ class ExportMarketDataCommandHandler(
                 ExportFileFormat.JSON: self._write_json,
                 ExportFileFormat.PARQUET: self._write_parquet,
             }[command.file_format]
-            count = writer(klines, command.destination_path)
+            count = writer(klines, command.destination_path, command.market)
             msg = (
                 f"Exported {count:,} candles for {command.symbol} "
                 f"({command.interval.value}) to {command.destination_path}."
@@ -111,18 +115,18 @@ class ExportMarketDataCommandHandler(
             )
 
     @staticmethod
-    def _write_csv(klines: Iterator[MarketData], path: str) -> int:
+    def _write_csv(klines: Iterator[MarketData], path: str, market: MarketType) -> int:
         count = 0
         with open(path, "w", newline="", encoding="utf-8") as csv_file:
             writer = csv.DictWriter(csv_file, fieldnames=_COLUMNS)
             writer.writeheader()
             for kline in klines:
-                writer.writerow(_kline_to_row(kline))
+                writer.writerow(_kline_to_row(kline, market))
                 count += 1
         return count
 
     @staticmethod
-    def _write_json(klines: Iterator[MarketData], path: str) -> int:
+    def _write_json(klines: Iterator[MarketData], path: str, market: MarketType) -> int:
         """Streams a JSON array by hand (`[row,row,...]`) rather than
         `json.dump(list(...))` — a 500k-row list held twice (once as
         `MarketData`, once as dicts) before writing a single byte is exactly
@@ -133,19 +137,22 @@ class ExportMarketDataCommandHandler(
             for kline in klines:
                 if count:
                     json_file.write(",")
-                json_file.write(json.dumps(_kline_to_row(kline)))
+                json_file.write(json.dumps(_kline_to_row(kline, market)))
                 count += 1
             json_file.write("]")
         return count
 
     @staticmethod
-    def _write_parquet(klines: Iterator[MarketData], path: str) -> int:
+    def _write_parquet(
+        klines: Iterator[MarketData], path: str, market: MarketType
+    ) -> int:
         count = 0
         batch: list[dict[str, Any]] = []
         schema = pa.schema(
             [
                 ("symbol", pa.string()),
                 ("interval", pa.string()),
+                ("market", pa.string()),
                 ("open_time", pa.string()),
                 ("open_price", pa.float64()),
                 ("high_price", pa.float64()),
@@ -161,7 +168,7 @@ class ExportMarketDataCommandHandler(
         )
         with pq.ParquetWriter(path, schema) as parquet_writer:
             for kline in klines:
-                batch.append(_kline_to_row(kline))
+                batch.append(_kline_to_row(kline, market))
                 count += 1
                 if len(batch) >= _PARQUET_BATCH_SIZE:
                     parquet_writer.write_table(

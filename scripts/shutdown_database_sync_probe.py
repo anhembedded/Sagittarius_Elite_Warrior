@@ -18,6 +18,7 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
@@ -54,6 +55,7 @@ class _BlockingExchangeClient(IExchangeClient):
 
     def get_historical_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_str: str | datetime,
@@ -61,7 +63,7 @@ class _BlockingExchangeClient(IExchangeClient):
         progress_callback: Callable[[int], None] | None = None,
         cancellation_requested: Callable[[], bool] | None = None,
     ) -> list[MarketData]:
-        del symbol, interval, start_str, end_str, progress_callback
+        del market, symbol, interval, start_str, end_str, progress_callback
         self.started.set()
         if cancellation_requested is None:
             raise RuntimeError("Shutdown probe requires a cancellation callback")
@@ -72,6 +74,7 @@ class _BlockingExchangeClient(IExchangeClient):
 
     def stream_historical_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_str: str | datetime,
@@ -79,7 +82,7 @@ class _BlockingExchangeClient(IExchangeClient):
         progress_callback: Callable[[int], None] | None = None,
         cancellation_requested: Callable[[], bool] | None = None,
     ) -> Iterator[list[MarketData]]:
-        del symbol, interval, start_str, end_str, progress_callback
+        del market, symbol, interval, start_str, end_str, progress_callback
         self.started.set()
         if cancellation_requested is None:
             raise RuntimeError("Shutdown probe requires a cancellation callback")

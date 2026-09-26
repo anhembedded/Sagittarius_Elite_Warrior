@@ -1,4 +1,4 @@
-"""`DatabaseStatusTableModel` — the six columns a `QTableView` renders, and
+"""`DatabaseStatusTableModel` — the seven columns a `QTableView` renders, and
 the upsert-by-key behaviour the Presenter depends on.
 
 Rewritten for `EPIC-025` PR 0.4b. The previous version of this file asserted
@@ -58,11 +58,12 @@ def _text(model: DatabaseStatusTableModel, row: int, column: int) -> str:
 # ---------------------------------------------------------------------------
 
 
-def test_the_model_declares_six_columns(model):
-    """One per field the deleted QML delegate drew by hand. A model reporting
-    `columnCount() == 1` — as this one used to — renders a `QTableView` with
-    exactly one visible column, which is how this rebuild started."""
-    assert model.columnCount() == 6
+def test_the_model_declares_seven_columns(model):
+    """One per field the deleted QML delegate drew by hand, plus `EPIC-027A`'s
+    Market column. A model reporting `columnCount() == 1` — as this one used
+    to — renders a `QTableView` with exactly one visible column, which is how
+    this rebuild started."""
+    assert model.columnCount() == 7
 
 
 def test_every_column_has_a_header(model):
@@ -78,6 +79,7 @@ def test_every_column_has_a_header(model):
         "Last record",
         "Candles",
         "Status",
+        "Market",
     ]
 
 
@@ -96,6 +98,7 @@ def test_each_column_renders_its_own_field(model):
     )
     assert _text(model, 0, DatabaseStatusTableModel.TOTAL_CANDLES_COLUMN) == "216,000"
     assert _text(model, 0, DatabaseStatusTableModel.STATUS_COLUMN) == _UNHEALTHY
+    assert _text(model, 0, DatabaseStatusTableModel.MARKET_COLUMN) == "Spot"
 
 
 def test_a_child_index_holds_no_rows(model):

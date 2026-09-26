@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.repair_data_gap import (
     RepairDataGapCommand,
@@ -50,7 +51,7 @@ def test_repair_data_gap_success():
     assert result.success is True
     assert result.repaired_candles == 1
     assert "1 candles" in result.message
-    repo.save_klines.assert_called_once_with([dummy_kline])
+    repo.save_klines.assert_called_once_with(MarketType.SPOT, [dummy_kline])
 
 
 def test_repair_data_gap_cancelled():

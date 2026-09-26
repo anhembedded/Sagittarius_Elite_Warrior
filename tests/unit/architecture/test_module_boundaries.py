@@ -80,12 +80,15 @@ _SHELL_LEGACY_FILE = Path(__file__).with_name("baseline_shell_legacy_imports.txt
 #: below by checking `git_tracked_paths.tracked_paths()` for at least one file
 #: under each zone, not `Path.is_dir()`.
 #:
-#: `domain` holds exactly one tracked file (`value_objects/market_type.py`),
-#: and the pull request that moves it must drop this entry in the same commit
-#: — dropping it a commit late now fails loudly instead of passing quietly.
-#: `LEGACY_ZONES` keeps both names on purpose — a zone with no files classifies
-#: nothing, while the rule table still has to know what a legacy zone *is*.
-_ZONES_THAT_MUST_EXIST = ("domain", "presentation", "infrastructure")
+#: **`domain` was retired from this list on 2026-09-26 (`EPIC-027A`), the same
+#: way and for the same reason as `application` above.** Its one tracked file,
+#: `value_objects/market_type.py`, moved to `src/core/vo/` (`architecture-rule.md`
+#: §3's Published Language) once `MarketType` gained a second consumer module —
+#: `src/domain/` is now empty by design, and this list must not demand a zone
+#: the repository no longer has anything under. `LEGACY_ZONES` keeps both names
+#: on purpose — a zone with no files classifies nothing, while the rule table
+#: still has to know what a legacy zone *is*.
+_ZONES_THAT_MUST_EXIST = ("presentation", "infrastructure")
 #: Well below the real count (about 600); a scan that finds fewer is scanning
 #: the wrong directory.
 _MINIMUM_SCANNED_FILES = 100

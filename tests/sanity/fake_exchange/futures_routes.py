@@ -35,6 +35,26 @@ from typing import Any
 
 from .order_book_state import OrderBookState
 
+#: `EPIC-027A` — one fixed row, distinguishable from `spot_routes.py`'s own
+#: row by `open_price`, so a test can prove a `MarketType.FUTURES_USD_M`
+#: request actually reached `/fapi/v1/klines` and not `/api/v3/klines`. One
+#: row is still fewer than any page-size `limit` python-binance requests, so
+#: pagination still stops after this one page instead of looping.
+_FUTURES_KLINE_ROW = [
+    1672531200000,
+    "222.0",
+    "224.0",
+    "220.0",
+    "223.0",
+    "20.0",
+    1672531259999,
+    "4460.0",
+    8,
+    "10.0",
+    "2230.0",
+    "0",
+]
+
 #: Futures `/fapi/v1/exchangeInfo` payload — genuinely different shape from
 #: spot's (`quantityPrecision`/`pricePrecision` at the symbol level, and
 #: `MIN_NOTIONAL`'s value under `"notional"` rather than spot's
@@ -115,7 +135,7 @@ _FAKE_LISTEN_KEY = "fake-listen-key-0000000000000000000000000000000000000000"
 GET_ROUTES: dict[str, object] = {
     "/fapi/v1/ping": {},
     "/fapi/v1/exchangeInfo": _FUTURES_EXCHANGE_INFO,
-    "/fapi/v1/klines": [],
+    "/fapi/v1/klines": [_FUTURES_KLINE_ROW],
     "/fapi/v1/time": {"serverTime": 0},
     "/fapi/v2/account": _FUTURES_ACCOUNT,
     "/fapi/v1/positionSide/dual": {"dualSidePosition": False},

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.clear_market_data import (
     ClearMarketDataCommand,
@@ -21,7 +22,7 @@ def test_clear_market_data_for_specific_symbol_and_interval():
     assert result.deleted_records == 1440
     assert "BTCUSDT" in result.message
     repo.clear_klines.assert_called_once_with(
-        symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE
+        market=MarketType.SPOT, symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE
     )
 
 
@@ -35,7 +36,9 @@ def test_clear_market_data_for_symbol_all_intervals():
 
     assert result.success is True
     assert result.deleted_records == 5000
-    repo.clear_klines.assert_called_once_with(symbol="ETHUSDT", interval=None)
+    repo.clear_klines.assert_called_once_with(
+        market=MarketType.SPOT, symbol="ETHUSDT", interval=None
+    )
 
 
 def test_clear_market_data_purge_all():

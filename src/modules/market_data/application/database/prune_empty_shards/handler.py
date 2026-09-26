@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.prune_empty_shards.command import (
     PruneEmptyShardsCommand,
     PruneEmptyShardsResult,
@@ -12,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_r
 )
 
 logger = logging.getLogger("App.Database")
+#: `EPIC-027A` — see `scan_all_databases/handler.py`'s identical constant for
+#: why this is Spot and not yet a caller-chosen market.
+_MARKET = MarketType.SPOT
 
 
 class PruneEmptyShardsCommandHandler(
@@ -25,7 +29,7 @@ class PruneEmptyShardsCommandHandler(
         self._repository = repository
 
     def execute(self, command: PruneEmptyShardsCommand) -> PruneEmptyShardsResult:
-        shards = self._repository.list_available_shards()
+        shards = self._repository.list_available_shards(_MARKET)
         removed: list[str] = []
         for symbol in shards:
             if command.cancellation_requested and command.cancellation_requested():
@@ -34,9 +38,9 @@ class PruneEmptyShardsCommandHandler(
                     f"{len(removed)}/{len(shards)} empty shards."
                 )
                 break
-            if self._repository.has_any_klines(symbol):
+            if self._repository.has_any_klines(_MARKET, symbol):
                 continue
-            self._repository.clear_klines(symbol, interval=None)
+            self._repository.clear_klines(_MARKET, symbol, interval=None)
             removed.append(symbol)
 
         if removed:

@@ -14,6 +14,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.rate_limiter import (
     ThreadSafeRateLimiter,
 )
@@ -30,6 +31,11 @@ DEFAULT_RATE_LIMIT_DELAY_MS: int = 500
 _MS_PER_SECOND: float = 1000.0
 _MIN_BULK_SYNC_WORKERS: int = 1
 _MAX_BULK_SYNC_WORKERS: int = 10
+#: `EPIC-027A` added `market` to `SyncMarketDataCommand`; `BulkSyncMarketDataCommand`
+#: has no market field yet — Data Management's bulk "Sync All Gaps" action has
+#: no market selector (Phase 1). Pinned to Spot, what every gap this screen
+#: finds actually is (`scan_all_databases/handler.py`'s identical constant).
+_MARKET = MarketType.SPOT
 
 
 class BulkSyncMarketDataCommandHandler(
@@ -135,6 +141,7 @@ class BulkSyncMarketDataCommandHandler(
             sync_cmd = SyncMarketDataCommand(
                 symbols=[symbol],
                 interval=target.interval,
+                market=_MARKET,
                 start_time=None,
                 end_time=None,
                 cancellation_requested=cancellation_requested,

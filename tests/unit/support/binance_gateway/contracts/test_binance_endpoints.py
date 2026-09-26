@@ -2,6 +2,7 @@ from unittest.mock import Mock
 
 from binance.enums import HistoricalKlinesType
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     klines_type_for,
     resolve_market_data_venue,
@@ -17,10 +18,11 @@ def test_resolve_testnet_flag_every_venue():
     assert resolve_testnet_flag(MarketDataVenue.FUTURES_TESTNET) is True
 
 
-def test_klines_type_for_every_venue():
-    assert klines_type_for(MarketDataVenue.MAINNET_PUBLIC) == HistoricalKlinesType.SPOT
+def test_klines_type_for_every_market():
+    assert klines_type_for(MarketType.SPOT) == HistoricalKlinesType.SPOT
+    assert klines_type_for(MarketType.FUTURES_USD_M) == HistoricalKlinesType.FUTURES
     assert (
-        klines_type_for(MarketDataVenue.FUTURES_TESTNET) == HistoricalKlinesType.FUTURES
+        klines_type_for(MarketType.FUTURES_COIN_M) == HistoricalKlinesType.FUTURES_COIN
     )
 
 

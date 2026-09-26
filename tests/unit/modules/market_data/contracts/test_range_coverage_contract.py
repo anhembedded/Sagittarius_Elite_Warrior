@@ -15,6 +15,7 @@ fake's scripting helpers do.
 from __future__ import annotations
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage import (
     RangeCoverageService,
@@ -72,7 +73,9 @@ class TestWhatOnlyTheRealServiceCanAnswer:
 
     def test_a_complete_range_reads_as_fully_covered(self) -> None:
         store = FakeMarketDataRepository()
-        store.save_klines([candle("BTCUSDT", minute) for minute in range(5)])
+        store.save_klines(
+            MarketType.SPOT, [candle("BTCUSDT", minute) for minute in range(5)]
+        )
 
         answer = RangeCoverageService(store).coverage(
             "BTCUSDT", MINUTE, start_time=at(0), end_time=at(5), now=_NOW
@@ -88,7 +91,8 @@ class TestWhatOnlyTheRealServiceCanAnswer:
         the screen tells the user *where* history breaks."""
         store = FakeMarketDataRepository()
         store.save_klines(
-            [candle("BTCUSDT", minute) for minute in (0, 1, 3, 4)]  # 2 is missing
+            MarketType.SPOT,
+            [candle("BTCUSDT", minute) for minute in (0, 1, 3, 4)],  # 2 is missing
         )
 
         answer = RangeCoverageService(store).coverage(
