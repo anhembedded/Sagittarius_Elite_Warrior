@@ -34,6 +34,10 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.margin_ri
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.order_matching_policy import (
     OrderMatchingPolicy,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.position_lifecycle_policy import (
+    PositionLifecyclePolicy,
+    PositionOpenRequest,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.stop_management_policy import (
     StopManagementPolicy,
 )
@@ -50,10 +54,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side impor
 
 logger = logging.getLogger("App.PaperExchange")
 
-_ENTRY_LOG_LABEL: dict[PositionSide, str] = {
-    PositionSide.LONG: "BUY",
-    PositionSide.SHORT: "SHORT",
-}
 _EXIT_LOG_LABEL: dict[PositionSide, str] = {
     PositionSide.LONG: "SELL",
     PositionSide.SHORT: "COVER",
@@ -76,7 +76,15 @@ class PaperExchange:
     own test file construct it (`ONBOARDING` §8 trap 5). `StopManagementPolicy`
     (`stop_management_policy.py`) is a fifth, separate policy — not part of the
     `FillPricing` bundle, since it adjusts a position's risk state before a
-    fill is ever considered, rather than computing one.
+    fill is ever considered, rather than computing one. `PositionLifecyclePolicy`
+    (`position_lifecycle_policy.py`, `BOT-144`) is a sixth: the entry/exit/
+    trade-recording mechanics themselves (`open_position()`/
+    `close_one_position()`/`close_partial_position()`/
+    `apply_partial_take_profits()`), extracted once this file crossed the
+    400-line ceiling `architecture-rule.md` §5.4 sets — this class keeps
+    owning `self._balance`/`self._positions`/`self._trades` (the actual
+    books) and applies the deltas the policy returns; it does not hand the
+    ledger itself to the policy.
     """
 
     def __init__(
@@ -91,6 +99,7 @@ class PaperExchange:
         matching_policy: OrderMatchingPolicy | None = None,
         fee_policy: FeeCalculatorPolicy | None = None,
         stop_management_policy: StopManagementPolicy | None = None,
+        lifecycle_policy: PositionLifecyclePolicy | None = None,
     ) -> None:
         if initial_balance <= 0:
             raise ValueError(f"initial_balance must be positive, got {initial_balance}")
@@ -134,6 +143,12 @@ class PaperExchange:
         #: fill's price/quantity; this one adjusts a position's risk state
         #: (MAE/MFE, break-even, trailing) BEFORE a fill is ever considered.
         self._stop_management = stop_management_policy or StopManagementPolicy()
+        #: The entry/exit/trade-recording mechanics — see the class
+        #: docstring. `symbol`/`self._broker_config`/`self._pricing` never
+        #: change across a run, so this is safe to construct once here.
+        self._lifecycle = lifecycle_policy or PositionLifecyclePolicy(
+            symbol, self._pricing, self._broker_config
+        )
 
         logger.info(
             f"[paper-exchange] Initialized for {symbol} | Initial Capital: {initial_balance:,.2f} | "
@@ -236,264 +251,12 @@ class PaperExchange:
         reason: str,
         metadata: Mapping[str, Any],
     ) -> None:
-        opposite = (
-            PositionSide.SHORT if side is PositionSide.LONG else PositionSide.LONG
+        request = PositionOpenRequest(
+            side=side, price=price, time=time, reason=reason, metadata=metadata
         )
-        if any(pos.side is opposite for pos in self._positions):
-            logger.debug(
-                f"[paper-exchange] {_ENTRY_LOG_LABEL[side]} rejected: an opposite-side "
-                f"({opposite.value}) position is still open — BOT-050 requires the "
-                "strategy to close it first with an explicit signal, never an implicit reversal"
-            )
-            return
-        if len(self._positions) >= self._broker_config.pyramiding:
-            logger.debug(
-                f"[paper-exchange] {_ENTRY_LOG_LABEL[side]} rejected: pyramiding limit "
-                f"reached ({len(self._positions)}/{self._broker_config.pyramiding})"
-            )
-            return
-
-        current_eq = self.equity(price)
-        capital_deployed, quantity, entry_fee = self._pricing.entry_capital(
-            side, price, current_eq, self._balance
+        self._positions, self._balance = self._lifecycle.open_position(
+            self._positions, self._balance, request
         )
-        if quantity <= 0 or capital_deployed <= 0:
-            logger.debug(
-                f"[paper-exchange] {_ENTRY_LOG_LABEL[side]} rejected: insufficient balance "
-                f"({self._balance:,.2f}) for sizing {self._position_sizing}"
-            )
-            return
-
-        effective_price = self._pricing.entry_effective_price(side, price)
-        stop_loss_price = self._pricing.stop_loss_price(side, effective_price)
-        take_profit_price = self._pricing.take_profit_price(side, effective_price)
-        leverage = self._pricing.leverage_for(side)
-        liquidation_price = self._pricing.liquidation_price(
-            side, leverage, effective_price
-        )
-        partial_tp_prices = self._pricing.partial_take_profit_prices(
-            side, effective_price
-        )
-        partial_tp_close_quantities = tuple(
-            quantity * level.close_fraction
-            for level in self._broker_config.partial_take_profit_levels
-        )
-
-        self._balance -= capital_deployed
-        position = OpenPosition(
-            quantity=quantity,
-            entry_price=effective_price,
-            entry_time=time,
-            balance_before_entry=capital_deployed,
-            entry_fee=entry_fee,
-            entry_reason=reason,
-            stop_loss_price=stop_loss_price,
-            take_profit_price=take_profit_price,
-            entry_metadata=metadata,
-            side=side,
-            leverage=leverage,
-            liquidation_price=liquidation_price,
-            partial_take_profit_prices=partial_tp_prices,
-            partial_take_profit_close_quantities=partial_tp_close_quantities,
-        )
-        self._positions.append(position)
-        slippage_delta = self._pricing.slippage_delta()
-        slip_sign = "+" if side is PositionSide.LONG else "-"
-        logger.debug(
-            f"[paper-exchange] {_ENTRY_LOG_LABEL[side]} filled | Price: {effective_price:,.2f} "
-            f"(raw: {price:,.2f}, slip: {slip_sign}{slippage_delta:,.2f}) | "
-            f"Qty: {quantity:.6f} | Cost: {capital_deployed:,.2f} | Fee: {entry_fee:,.2f} | "
-            f"Pos: {len(self._positions)}/{self._broker_config.pyramiding} | Cash Left: {self._balance:,.2f}"
-        )
-
-    def _close_one_position(
-        self,
-        pos: OpenPosition,
-        exit_price: float,
-        time: datetime,
-        exit_reason: ExitReason,
-        *,
-        raw_price: float | None = None,
-        slippage_delta: float = 0.0,
-    ) -> Trade:
-        exit_fee = self._pricing.exit_fee(pos.quantity, exit_price)
-
-        pnl, pnl_percent, balance_release = self._pricing.realized_pnl(
-            pos.side,
-            pos.leverage,
-            pos.quantity,
-            pos.entry_price,
-            exit_price,
-            pos.balance_before_entry,
-            pos.entry_fee,
-            exit_fee,
-        )
-        if exit_reason is ExitReason.LIQUIDATION:
-            pnl, pnl_percent, balance_release = (
-                self._pricing.clamp_liquidation_settlement(
-                    pnl, pnl_percent, balance_release, pos.balance_before_entry
-                )
-            )
-        self._balance += balance_release
-
-        trade = Trade(
-            symbol=self._symbol,
-            entry_time=pos.entry_time,
-            entry_price=pos.entry_price,
-            exit_time=time,
-            exit_price=exit_price,
-            quantity=pos.quantity,
-            pnl=pnl,
-            pnl_percent=pnl_percent,
-            fees_paid=pos.entry_fee + exit_fee,
-            entry_reason=pos.entry_reason,
-            exit_reason=exit_reason,
-            metadata=pos.entry_metadata,
-            side=pos.side,
-            leverage=pos.leverage,
-            mae_percent=pos.mae_percent,
-            mfe_percent=pos.mfe_percent,
-        )
-        self._trades.append(trade)
-        exit_label = _EXIT_LOG_LABEL[pos.side]
-        if raw_price is not None:
-            slip_sign = "-" if pos.side is PositionSide.LONG else "+"
-            price_detail = (
-                f"Price: {exit_price:,.2f} (raw: {raw_price:,.2f}, "
-                f"slip: {slip_sign}{slippage_delta:,.2f})"
-            )
-        else:
-            price_detail = f"Price: {exit_price:,.2f}"
-        logger.debug(
-            f"[paper-exchange] {exit_label} filled | {price_detail} | "
-            f"Qty: {pos.quantity:.6f} | PnL: {pnl:+,.2f} ({pnl_percent:+.2f}%) | "
-            f"Fee: {pos.entry_fee + exit_fee:,.2f} | Reason: {exit_reason.value}"
-        )
-        return trade
-
-    def _close_partial_position(
-        self,
-        pos: OpenPosition,
-        exit_price: float,
-        time: datetime,
-        close_qty: float,
-    ) -> Trade:
-        """
-        @brief BOT-105C — closes exactly `close_qty` of `pos` (a scale-out
-        level's fixed absolute quantity, already clamped to at most what
-        remains), realizes its prorated PnL, and shrinks `pos` in place
-        rather than removing it.
-        @details `fraction` is computed against `pos.quantity` as it stands
-        RIGHT NOW — the remaining quantity after any earlier partial exit —
-        so `entry_fee`/`balance_before_entry` are prorated against what
-        actually remains, not the original position. `pos.quantity`,
-        `pos.entry_fee` and `pos.balance_before_entry` are then all reduced
-        by that same fraction, keeping the three mutually consistent for
-        whatever exit (partial or, on the final level, full) prorates
-        against them next — the same generic contract a full close already
-        uses via `_close_one_position()`, just with `fraction < 1.0`.
-        """
-        fraction = close_qty / pos.quantity
-        prorated_balance = pos.balance_before_entry * fraction
-        prorated_entry_fee = pos.entry_fee * fraction
-        exit_fee = self._pricing.exit_fee(close_qty, exit_price)
-
-        pnl, pnl_percent, balance_release = self._pricing.realized_pnl(
-            pos.side,
-            pos.leverage,
-            close_qty,
-            pos.entry_price,
-            exit_price,
-            prorated_balance,
-            prorated_entry_fee,
-            exit_fee,
-        )
-        self._balance += balance_release
-
-        trade = Trade(
-            symbol=self._symbol,
-            entry_time=pos.entry_time,
-            entry_price=pos.entry_price,
-            exit_time=time,
-            exit_price=exit_price,
-            quantity=close_qty,
-            pnl=pnl,
-            pnl_percent=pnl_percent,
-            fees_paid=prorated_entry_fee + exit_fee,
-            entry_reason=pos.entry_reason,
-            exit_reason=ExitReason.PARTIAL_TAKE_PROFIT,
-            metadata=pos.entry_metadata,
-            side=pos.side,
-            leverage=pos.leverage,
-            mae_percent=pos.mae_percent,
-            mfe_percent=pos.mfe_percent,
-        )
-        self._trades.append(trade)
-
-        pos.quantity -= close_qty
-        pos.balance_before_entry -= prorated_balance
-        pos.entry_fee -= prorated_entry_fee
-
-        logger.debug(
-            f"[paper-exchange] Partial take-profit filled | {pos.side.value} "
-            f"Price: {exit_price:,.2f} | Qty: {close_qty:.6f} | "
-            f"PnL: {pnl:+,.2f} ({pnl_percent:+.2f}%) | "
-            f"Remaining: {pos.quantity:.6f}"
-        )
-        return trade
-
-    def _apply_partial_take_profits(
-        self, high: float, low: float, time: datetime
-    ) -> Sequence[Trade]:
-        """
-        @brief BOT-105C — checks every still-open position's next pending
-        scale-out level against this bar's high/low, in order, closing
-        each level hit and advancing past it.
-        @details Called LAST in `check_intrabar_stops()`, after liquidation
-        and stop-loss/take-profit have already removed their own closes
-        from `self._positions` — a position that fully closed this bar
-        through one of those never also produces a partial-TP trade the
-        same bar, the same pessimistic-first convention `BOT-041`/
-        `BOT-105B` already apply to an ambiguous SL/TP bar, extended here
-        rather than inventing a new tie-break for a same-bar overlap.
-        """
-        if not self._positions:
-            return []
-        trades: list[Trade] = []
-        fully_closed: list[OpenPosition] = []
-        for pos in self._positions:
-            while pos.partial_tp_next_level_index < len(pos.partial_take_profit_prices):
-                idx = pos.partial_tp_next_level_index
-                level_price = pos.partial_take_profit_prices[idx]
-                hit = (
-                    high >= level_price
-                    if pos.side is PositionSide.LONG
-                    else low <= level_price
-                )
-                if not hit:
-                    break
-                close_qty = min(
-                    pos.partial_take_profit_close_quantities[idx], pos.quantity
-                )
-                trades.append(
-                    self._close_partial_position(pos, level_price, time, close_qty)
-                )
-                pos.partial_tp_next_level_index += 1
-                if pos.quantity <= 0:
-                    fully_closed.append(pos)
-                    break
-        if fully_closed:
-            # Identity, not `OpenPosition`'s (value) `__eq__` — this file's
-            # other position-list rebuilds (`_close()`'s `pos.side is not
-            # side`, `evaluate_liquidations()`/`evaluate_intrabar_stops()`
-            # appending references) are all identity-based; `in` here would
-            # silently drop an unrelated, still-open, field-identical twin
-            # (e.g. two pyramided entries opened at the same price/time).
-            fully_closed_ids = {id(p) for p in fully_closed}
-            self._positions = [
-                p for p in self._positions if id(p) not in fully_closed_ids
-            ]
-        return trades
 
     def _close(
         self,
@@ -513,8 +276,9 @@ class PaperExchange:
         effective_price = self._pricing.exit_effective_price(side, price)
         slippage_delta = self._pricing.slippage_delta()
 
-        closed_trades = [
-            self._close_one_position(
+        closed_trades: list[Trade] = []
+        for pos in matching:
+            trade, balance_release = self._lifecycle.close_one_position(
                 pos,
                 effective_price,
                 time,
@@ -522,8 +286,9 @@ class PaperExchange:
                 raw_price=price,
                 slippage_delta=slippage_delta,
             )
-            for pos in matching
-        ]
+            closed_trades.append(trade)
+            self._balance += balance_release
+        self._trades.extend(closed_trades)
 
         self._positions = [pos for pos in self._positions if pos.side is not side]
         logger.debug(
@@ -588,9 +353,18 @@ class PaperExchange:
         self._positions = still_open
 
         all_triggered = liquidated + triggered
-        closed_trades = [
-            self._close_one_position(pos, exit_price, time, reason)
-            for pos, exit_price, reason in all_triggered
-        ]
-        partial_trades = self._apply_partial_take_profits(high, low, time)
+        closed_trades: list[Trade] = []
+        for pos, exit_price, reason in all_triggered:
+            trade, balance_release = self._lifecycle.close_one_position(
+                pos, exit_price, time, reason
+            )
+            closed_trades.append(trade)
+            self._balance += balance_release
+        self._trades.extend(closed_trades)
+
+        partial_trades, partial_balance_release, self._positions = (
+            self._lifecycle.apply_partial_take_profits(self._positions, high, low, time)
+        )
+        self._balance += partial_balance_release
+        self._trades.extend(partial_trades)
         return [*closed_trades, *partial_trades]

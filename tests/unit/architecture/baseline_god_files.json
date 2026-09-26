@@ -1,6 +1,5 @@
 {
  "src/modules/backtesting/application/run_historical_tick_backtest/handler.py": 404,
- "src/modules/backtesting/domain/paper_exchange.py": 596,
  "src/modules/backtesting/ui/backtest_modals/strategy_properties_dialog.py": 445,
  "src/modules/backtesting/ui/backtest_presenter.py": 2260,
  "src/modules/backtesting/ui/backtest_top_panel.py": 888,

@@ -1,6 +1,6 @@
 # BOT-144 — Four files split back under the 400-line ceiling
 
-**Status:** 🟡 In progress — `data_management_presenter.py` slice implemented and merged 2026-09-26 (`PR #270`): 964 → 671 lines (30% cut), still over the 400-line target; the `IStateContributor` extraction was decided against, not deferred (§4). The shrink-only line-count guard (acceptance criterion 5) is also done. `dashboard_presenter.py` has a measured design (§3.2) but no code changed yet; `dev_board_panel.py`/`paper_exchange.py` not started.
+**Status:** 🟡 In progress — `data_management_presenter.py` slice implemented and merged 2026-09-26 (`PR #270`): 964 → 671 lines (30% cut), still over the 400-line target; the `IStateContributor` extraction was decided against, not deferred (§4). The shrink-only line-count guard (acceptance criterion 5) is also done (`PR #271`, merged). `paper_exchange.py` is now done too — 596 → 372 lines, ≤400 at last (§4). `dashboard_presenter.py` has a measured design (§3.2) but no code changed yet; `dev_board_panel.py` not started.
 **Source:** Independent PR review of `PR #257` (2026-09-23), flagged as a should-fix, pre-existing item — "worth a tracked follow-up task rather than continuing to accrete onto these three files indefinitely." A fourth file (`paper_exchange.py`) was added from an independent review of `PR #266` (2026-09-25), same finding, different file.
 **Risk:** 🟡 — each file is a live Presenter/Panel wired into the composition root and covered by hundreds of existing tests; a split done as extraction (not rewrite) should be behavior-preserving, but a bad seam could silently drop a signal connection or FSM transition.
 **Complexity:** L — three separate god-files, each needing its own extraction design; no single mechanical transform covers all three.
@@ -24,7 +24,7 @@ This is not new debt from any one PR — `EPIC-003` (Presenter/god-file decompos
 ## 2. Acceptance criteria
 
 - [ ] `dashboard_presenter.py`, `dev_board_panel.py`, `data_management_presenter.py` are each ≤400 lines, achieved by extracting cohesive responsibilities into new coordinator/helper classes under the same module's `ui/` tree — mirroring the existing coordinator pattern (`GapCoordinator`, `IndicatorCoordinator`, `ExportImportCoordinator`, etc.), not by deleting functionality or renaming without moving logic.
-- [ ] `paper_exchange.py` is ≤400 lines, achieved by extracting its remaining position entry/exit lifecycle (`_open()`/`_close()`/`_close_one_position()`/`_close_partial_position()`/`_apply_partial_take_profits()`) into a domain policy under `domain/policies/`, mirroring the extraction `PR #266` already did for `StopManagementPolicy`.
+- [x] `paper_exchange.py` is ≤400 lines, achieved by extracting its remaining position entry/exit lifecycle (`_open()`/`_close()`/`_close_one_position()`/`_close_partial_position()`/`_apply_partial_take_profits()`) into a domain policy under `domain/policies/`, mirroring the extraction `PR #266` already did for `StopManagementPolicy`. **Done 2026-09-26** — see §4.
 - [ ] Every existing test for these three files (and their coordinators/view models) still passes unchanged in behavior — a test may need its constructor call updated for a new collaborator, but must not need its assertions weakened.
 - [ ] No FSM transition, signal connection, or coordinator wiring present before the split is silently dropped — verified by running the full `tests/unit` suite plus a manual `tools/run_app` (or `scripts/run-dev.ps1`, whichever this repo's `run` skill uses) smoke pass on the Dev Board and Data Management screens.
 - [x] A machine guard is added (or an existing one extended) so a file already over 400 lines cannot grow further without the gate failing — closing the gap the independent review noted ("no guard test currently catches this"). A shrink-only ratchet, mirroring `test_app_styling_only_shrinks.py`'s own pattern, is the vetted precedent to apply before inventing a new mechanism. **Done 2026-09-26** — see §4.
@@ -209,11 +209,62 @@ above), since it is the better-understood, lower-conceptual-risk half; the
 construction lines have already moved once, reducing what the Factory has
 to carry.
 
-### `dev_board_panel.py` (1145), `paper_exchange.py` (596) — not designed yet
+### 3.3 `paper_exchange.py` (596 → 372) — designed and implemented 2026-09-26
 
-Still need their own measurement pass each, the same way §3.1/§3.2 were
-done — do not assume either the `request_*`/dead-seam pattern or the
-Coordinator-with-completion-caveat pattern above applies; each file's own
+§1 had already named the target precisely: the entry/exit/trade-recording
+lifecycle (`_open()`/`_close_one_position()`/`_close_partial_position()`/
+`_apply_partial_take_profits()`) was the one extraction left after `PR #266`'s
+`StopManagementPolicy` split, deliberately deferred rather than attempted
+inside a feature PR. No further design pass was needed beyond confirming the
+shape, which differs from `StopManagementPolicy` in one real way: that policy
+never touches `self._balance`/`self._trades` (it only adjusts pre-fill risk
+state on the `OpenPosition` objects themselves), while these four methods are
+exactly the "books" mutations — cash and the trade log — the class's own
+docstring names as its core responsibility. A stateless policy that also
+needs to update a caller's `balance` cannot mutate a `float` in place, so the
+new `PositionLifecyclePolicy` follows the same "return the new state, let the
+caller apply it" idiom `paper_exchange.py`'s own `check_intrabar_stops()`
+already uses for `FillPricing.evaluate_liquidations()`/
+`evaluate_intrabar_stops()` — extended here rather than invented, per
+`architecture-rule.md` §7.2.1's "mirror proven structures" instruction.
+`PaperExchange` keeps owning `self._balance`/`self._positions`/`self._trades`
+(the ledger) and applies the deltas/replacements the policy returns; it never
+hands the ledger itself to the policy. Individual `OpenPosition` field
+mutation (e.g. `close_partial_position()`'s in-place quantity reduction)
+stays exactly as before — the same pattern `StopManagementPolicy` already
+uses on the same domain entity, not new.
+
+`_close()`'s own ~30 lines of orchestration (filter positions by side, loop
+calling the policy's `close_one_position()`, filter the remainder) stayed on
+`PaperExchange` rather than moving into the policy too — extracting it would
+have pushed `positions` in as a fifth parameter alongside `side`/`price`/
+`time`/`exit_reason`, over `code/quality.md` §7's 4-argument limit, for a
+thin loop that isn't itself complex enough to be worth the parameter-object
+indirection that would otherwise be needed to dodge that limit.
+
+**Result:** `paper_exchange.py` 596 → 372 lines (≤400, done); new
+`domain/policies/position_lifecycle_policy.py` at 384 lines (also ≤400 — no
+new violator). No test file needed retargeting: `test_paper_exchange.py`
+(1814 lines, 95 tests) exercises `PaperExchange` only through its public API
+(`fill`/`force_close`/`check_intrabar_stops`/properties), never the private
+methods that moved — confirmed by grep before starting, not assumed. All 95
+tests pass unchanged, plus the full `tests/unit/modules/backtesting` suite
+(972 tests) and `tests/unit/architecture` (445, including the god-files guard
+once its baseline entry for this file was removed — see below). `ruff`/`mypy`
+clean.
+
+**Guard bookkeeping:** `paper_exchange.py`'s entry in `baseline_god_files.json`
+removed in the same commit (596 → 372 is now under the ceiling), per
+`test_god_files_only_shrink.py`'s own "lower the baseline in the same commit"
+rule — confirmed the guard actually catches a stale entry first (it failed
+before the removal, naming this exact file).
+
+### `dev_board_panel.py` (1145) — not designed yet
+
+Still needs its own measurement pass, the same way §3.1/§3.2/§3.3 were
+done — do not assume any of the three patterns found so far (data_management's
+`request_*`/dead-seam, dashboard's Coordinator-with-completion-caveat,
+paper_exchange's return-new-state ledger split) applies; this file's own
 `git log -p` and current split must be read first (`fix-bug-rule.md` §2's
 "root cause first" applies to a design pass too: guessing a split boundary
 from a different file's shape is exactly what `architecture-rule.md` §7.2.1
@@ -363,12 +414,12 @@ for a plausible *second* case, and there isn't one here). `671` lines stands
 as this slice's final number; the line-count guard above now holds that
 ground so it cannot silently grow back toward 964.
 
-### `dashboard_presenter.py`, `dev_board_panel.py`, `paper_exchange.py`: not started.
+### `paper_exchange.py`: done — see §3.3. `dashboard_presenter.py` designed (§3.2), not implemented. `dev_board_panel.py`: not started.
 
-Now unblocked by the guard above (their current counts are the frozen
-baseline, so no further work here makes them worse by accident). Each still
-needs its own §3.2 measurement-and-design pass before touching code — do not
-assume `data_management_presenter.py`'s `request_*`/dead-seam shape transfers.
+Now unblocked by the guard above (each file's current count is the frozen
+baseline, so no further work here makes them worse by accident). `dev_board_panel.py`
+still needs its own measurement-and-design pass before touching code — do not
+assume any of the three shapes found so far transfers.
 
 ## 5. Testing
 
