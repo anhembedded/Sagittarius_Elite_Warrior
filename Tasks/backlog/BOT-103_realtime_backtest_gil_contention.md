@@ -1,33 +1,37 @@
 # Nhiệm vụ: Realtime Backtest (BOT-076) làm UI đơ khi chạy — GIL contention, không phải chạy trên UI thread
 
-> **Cập nhật 2026-09-22 — vẫn ở backlog, chưa xong.** Trước khi chọn hướng,
-> đã đo thật option (a) (`time.sleep(0)` định kỳ, kể cả N=256 task này đề
-> xuất) bằng benchmark synthetic: **không** giảm được `max_gap_ms` (worst-case
-> GIL-acquisition gap) ở bất kỳ N nào thử, và làm chậm vòng lặp tới +456% ở
-> N=256. Đã revert, không ship. Chi tiết + số đo đầy đủ + khuyến nghị hướng
-> tiếp theo (option c: profile `_simulate()` thật trước khi chọn) ở
+> **Update 2026-09-22 — still in backlog, not done.** Before picking a
+> direction, option (a) (`time.sleep(0)` periodically, including this
+> task's own suggested N=256) was really measured with a synthetic
+> benchmark: it does **not** reduce `max_gap_ms` (the worst-case
+> GIL-acquisition gap) at any tested N, and slows the loop by up to +456%
+> at N=256. Reverted, never shipped. Full measurements and the
+> recommended next direction (option c: profile the real `_simulate()`
+> before choosing) are in
 > [`Tasks/reports/BOT-103_gil_yield_benchmark_investigation.md`](../reports/BOT-103_gil_yield_benchmark_investigation.md).
-> Module thật đã đổi tên: `run_realtime_backtest/handler.py` bên dưới giờ là
-> `run_historical_tick_backtest/handler.py`.
+> The real module has since been renamed: `run_realtime_backtest/handler.py`
+> below is now `run_historical_tick_backtest/handler.py`.
 >
-> **Cập nhật 2026-09-26 — option (c) đã thực hiện, vẫn chưa đóng được task.**
-> `scripts/benchmarking/tick_backtest_profile.py` chạy `cProfile` thật trên
-> `RunHistoricalTickBacktestCommandHandler.execute()` (strategy/indicator/
-> exchange thật, không mock, 600k tick). Kết quả sạch (sau khi sửa 2 lỗi
-> phương pháp luận — xem báo cáo): **~42% tổng thời gian nằm trong đường
-> đánh giá strategy/crossover-detection (`Series`/`decide`/`evaluate`), và
-> đây là chi phí cố ý theo thiết kế (BOT-042D/BOT-076: đánh giá lại mỗi tick,
-> không chỉ lúc đóng nến, chính là lý do handler này tồn tại) — không phải
-> chi phí thừa để cắt.** Không tìm được điểm tối ưu cục bộ an toàn nào. Kết
-> hợp với việc option (a) đã bị loại ở trên, hai hướng còn lại là (b)
-> `ProcessPoolExecutor` (đổi kiến trúc thật, rủi ro/công sức lớn) hoặc chấp
-> nhận giới hạn hiện tại (~5x ngân sách 16.7ms) như một hạn chế đã biết —
-> đây là quyết định đánh đổi sản phẩm/rủi ro, không phải lựa chọn kỹ thuật
-> nên tự quyết trong một lượt thực thi task. Số đo đầy đủ + bảng
-> `tottime`/`cumtime` ở
+> **Update 2026-09-26 — option (c) executed, task still not closed.**
+> `scripts/benchmarking/tick_backtest_profile.py` runs a real `cProfile`
+> pass over `RunHistoricalTickBacktestCommandHandler.execute()` (real
+> strategy/indicator/exchange, no mocks, 600k ticks). Clean result (after
+> fixing two methodology traps — see the report): **~42% of total time is
+> in the strategy/crossover-detection evaluation path
+> (`Series`/`decide`/`evaluate`), and that cost is deliberate by design
+> (BOT-042D/BOT-076: re-evaluating every tick, not just at bar close, is
+> this handler's entire reason to exist) — not overhead to cut.** No safe
+> local optimization target was found. Combined with option (a) already
+> being ruled out above, the two remaining directions are (b)
+> `ProcessPoolExecutor` (a real architectural change, high risk/effort) or
+> accepting the current limitation (~5x the 16.7ms budget) as a known
+> constraint — this is a product/risk trade-off decision, not a technical
+> choice to make unilaterally within one task-execution pass. Full
+> measurements plus the `tottime`/`cumtime` table are in
 > [`Tasks/reports/BOT-103_gil_yield_benchmark_investigation.md`](../reports/BOT-103_gil_yield_benchmark_investigation.md)
-> §"Update 2026-09-26". Task vẫn ở `backlog/`, chờ quyết định hướng (b) hay
-> chấp nhận giới hạn, trước khi sửa code production.
+> §"Update 2026-09-26". Task stays in `backlog/`, awaiting a decision
+> between direction (b) or accepting the limitation, before any
+> production code changes.
 
 > Không thuộc epic nào. Người dùng báo cáo trong lúc dùng thật: "làm cơ chế
 > chạy realtime tính toán trên 1 thread khác được không, đang chạy trên UI

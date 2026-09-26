@@ -5,6 +5,11 @@ the new `StrategyParamsDialog`'s Qt parent. `Overlay(QDialog)` requires a
 dialog could show — 100% reproducible, never caught because nothing
 exercised the button end to end.
 
+`BOT-144` moved the method onto `StrategyCard` (`dev_board_widgets/
+strategy_card.py`), which parents to its own `self.window()` instead —
+still never the `DevBoardPanel`/`QObject` this regression was about, so the
+call site below follows the method, the assertion does not change.
+
 `StrategyParamsDialog` is patched here — its real `.exec()` is modal, and
 this suite runs under `QT_QPA_PLATFORM=offscreen` with no human to dismiss
 it (the exact shape `BUG-048`/`test_app_bootstrapper_exception_handler.py`
@@ -57,7 +62,7 @@ def test_open_strategy_params_dialog_does_not_crash(qapp, panel):
     types` — `DevBoardPanel` is a `QObject`, not a `QWidget`, and cannot
     itself be a `QDialog`'s parent."""
     with patch(_DIALOG_PATH) as dialog_cls:
-        panel._open_strategy_params_dialog()  # must not raise
+        panel._strategy_card._open_strategy_params_dialog()  # must not raise
 
     dialog_cls.assert_called_once()
     parent = dialog_cls.call_args[0][1]

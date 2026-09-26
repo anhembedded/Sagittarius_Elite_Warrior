@@ -26,6 +26,17 @@ Originally one function; split into the four sibling modules once this
 file itself crossed `architecture-rule.md` §5.4's 400-line ceiling — see
 `git log` on this file for that single-function version if a future change
 needs the full sequence in one place for reference.
+
+**Real dependency graph (verified against each module's own attribute
+reads, not assumed from call order — pull request 273's own review, finding
+D14):** `_core`
+has no prerequisite; `_trading` and `_indicators` each depend only on
+`_core` and are independent of each other (their relative order below is
+kept for fidelity to the original constructor, not because either needs the
+other's output); `_stream` depends on both `_core` (`_thread_manager`,
+`_raw_klines_by_symbol`) and `_indicators` (`_script_runner`), but nothing
+`_trading` sets. `_core` must run first and `_stream` must run last; `_trading`
+and `_indicators` could swap without breaking either.
 """
 
 from __future__ import annotations

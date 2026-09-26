@@ -41,9 +41,14 @@ def build_indicator_presenter_state(
     presenter: DashboardPresenter, container: IContainer
 ) -> None:
     """`_active_interval`/`_active_symbol`, the indicator-script registry/
-    catalog/params-store/runner, and `IndicatorCoordinator`. Call third, from
-    `build_dashboard_presenter_state()` only, after
-    `build_trading_presenter_state()`."""
+    catalog/params-store/runner, and `IndicatorCoordinator`. Only reads
+    `presenter.config`/`presenter._view_model` — both set by
+    `build_core_presenter_state()`, which is its one real prerequisite;
+    it does not read anything `build_trading_presenter_state()` sets, so the
+    two are independent of each other despite the fixed order
+    `build_dashboard_presenter_state()` calls them in (kept for fidelity to
+    the original constructor, not because indicators needs trading's
+    output — see that orchestrator's own docstring)."""
     # BOT-033 — interval actually used by Load History/Start Live, set by
     # ChartToolbar.sig_timeframe_changed (see _ensure_chart_cards). An
     # instance attribute rather than the module constant so it can change
