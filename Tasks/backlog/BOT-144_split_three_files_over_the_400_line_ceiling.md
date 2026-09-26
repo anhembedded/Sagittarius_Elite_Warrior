@@ -1,6 +1,6 @@
 # BOT-144 — Four files split back under the 400-line ceiling
 
-**Status:** 🟡 In progress — `data_management_presenter.py` slice implemented and merged 2026-09-26 (`PR #270`): 964 → 671 lines (30% cut), still over the 400-line target; the `IStateContributor` extraction was decided against, not deferred (§4). The shrink-only line-count guard (acceptance criterion 5) is also done (`PR #271`, merged). `paper_exchange.py` is done — 596 → 372 lines, ≤400 (§4). `dashboard_presenter.py`'s Coordinator extraction is done — 1994 → 1858 lines, still over 400 (§4); its `__init__` Factory extraction is now also done (§4) — 1858 → 1454 lines, still over 400 but a 404-line, 22% cut. `dev_board_panel.py`'s per-card componentization (§3.4) is now implemented too — 1145 → 640 lines, still over 400 but a 505-line, 44% cut (§4).
+**Status:** 🟡 In progress — `data_management_presenter.py` slice implemented and merged 2026-09-26 (`PR #270`): 964 → 671 lines (30% cut), still over the 400-line target; the `IStateContributor` extraction was decided against, not deferred (§4). The shrink-only line-count guard (acceptance criterion 5) is also done (`PR #271`, merged). `paper_exchange.py` is done — 596 → 372 lines, ≤400 (§4). `dashboard_presenter.py`'s Coordinator extraction is done — 1994 → 1858 lines, still over 400 (§4); its `__init__` Factory extraction is now also done (§4) — 1858 → 1454 lines, still over 400 but a 404-line, 22% cut. `dev_board_panel.py`'s per-card componentization (§3.4) is now implemented too — 1145 → 692 lines, still over 400 but a 453-line, 40% cut (§4).
 **Source:** Independent PR review of `PR #257` (2026-09-23), flagged as a should-fix, pre-existing item — "worth a tracked follow-up task rather than continuing to accrete onto these three files indefinitely." A fourth file (`paper_exchange.py`) was added from an independent review of `PR #266` (2026-09-25), same finding, different file.
 **Risk:** 🟡 — each file is a live Presenter/Panel wired into the composition root and covered by hundreds of existing tests; a split done as extraction (not rewrite) should be behavior-preserving, but a bad seam could silently drop a signal connection or FSM transition.
 **Complexity:** L — three separate god-files, each needing its own extraction design; no single mechanical transform covers all three.
@@ -702,9 +702,10 @@ cross-cutting syncs `_sync_controls_active()` (reaches both the header's
 `_sync_trading_state()` (now only the header's toggle button).
 
 **Guard bookkeeping, same shape as every prior slice in this task:**
-- `baseline_god_files.json`: `dev_board_panel.py` entry lowered 1145 → 640
-  (still over 400, still a tracked violator — the ratchet now holds this new,
-  lower ground).
+- `baseline_god_files.json`: `dev_board_panel.py` entry lowered, twice —
+  1145 → 640 in the split's own commit, then 640 → 692 once the CI-red fix
+  below added 10 more pass-through properties (still over 400, still a
+  tracked violator — the ratchet now holds this new, lower ground).
 - `baseline_app_styling.json`: `set_style_sheet_files` 21 → 25,
   `palette_files` 33 → 37 — a pure artifact of the split, not new styling:
   `set_style_sheet_calls` stayed at exactly 141 (confirmed via
@@ -748,17 +749,40 @@ cross-cutting syncs `_sync_controls_active()` (reaches both the header's
   `panel._strategy_card._open_strategy_params_dialog()` — the method moved,
   the regression it proves (the dialog's parent is never the `QObject`
   `DevBoardPanel`) did not.
+- **CI-red fix, caught by the real GitHub Actions gate, not local
+  verification:** the "Full grepped list of attributes" §3.4 recorded before
+  implementing (used to scope the pass-through contract) only grepped
+  `test_dev_board_panel.py` and `DashboardView`/`DashboardPresenter` — it
+  missed `tests/integration/presentation/ui/test_dev_board_known_gaps.py`
+  and `test_dev_board_manual_order_qt_click.py`, two real-`qtbot`-click
+  integration tests that reach `panel._cbo_live_strategy`/
+  `_cbo_live_interval`/`_btn_arm_strategy`/`_lbl_armed_strategy` (now on
+  `StrategyCard`) and `panel._cbo_manual_order_type`/`_spn_manual_quantity`/
+  `_spn_manual_price`/`_btn_manual_long`/`_btn_manual_short`/
+  `_lbl_manual_order_status` (now on `ManualOrderCard`) directly. GitHub
+  Actions' `ci-local.ps1 -Full` run failed with `AttributeError:
+  'DevBoardPanel' object has no attribute '_cbo_live_strategy'` (and the
+  manual-order equivalent) — root-caused from the real job log/artifact per
+  `ci-rule.md`, not guessed. Fixed by adding the same 10 attributes as
+  `@property` pass-throughs, mirroring the `SystemControlsCard` block
+  exactly. A broader grep of all of `tests/` (not just the two files
+  originally checked) turned up no further gaps once these 10 were added —
+  confirmed by running the full `tests/integration/presentation/ui` suite
+  (43 passed, 4 skipped) locally before pushing the fix.
 
-**Result:** `dev_board_panel.py` 1145 → 640 lines (a 505-line, 44% cut); five
+**Result:** `dev_board_panel.py` 1145 → 692 lines (a 453-line, 40% cut,
+including the 10 pass-through properties the CI-red fix above added); five
 new `dev_board_widgets/*.py` files, none over 222 lines. `ruff check`/`ruff
 format --check` clean on every touched and new file. `mypy` (the real CI
-invocation) reports zero errors — `Success: no issues found in 698 source
+invocation) reports zero errors — `Success: no issues found in 702 source
 files`. `tests/unit/architecture` (445, including the god-files, app-styling
-and presenter-duplication ratchets at their newly-lowered baselines) and
+and presenter-duplication ratchets at their newly-lowered baselines),
 `tests/unit/modules/trading` (794, including the retargeted BUG-134
-regression) pass. Full `tests/unit` run in progress at hand-off — see Resume.
+regression) and `tests/integration/presentation/ui` (43 passed, 4 skipped)
+pass. A combined re-run (`tests/unit/architecture` +
+`tests/unit/modules/trading` + `tests/sanity`, 1270 tests) also passes.
 
-**Honest remaining gap:** 640 lines, 240 over the 400 target — expected,
+**Honest remaining gap:** 692 lines, 292 over the 400 target — expected,
 matching §3.4's own sizing note that the header/indicators/dialog-management
 code left on `DevBoardPanel` ("smaller and more entangled with `DevBoardPanel`'s
 own script-catalog/symbol-preferences state") was not sized and would likely
@@ -834,7 +858,7 @@ merged, and fully green. Steps 1–3 below are done; only step 4 remains open.
    design, the same way §3.2's first two candidates were (mirroring
    `fix-bug-rule.md` §2's "read the real evidence before writing a line").
 7. ~~Implement `dev_board_panel.py`'s per-card componentization (§3.4)~~ —
-   done (see §4 above): 1145 → 640, five new `dev_board_widgets/*.py` files.
-   `640` is `240` over target — the header/Indicators-checklist/dialog-
+   done (see §4 above): 1145 → 692, five new `dev_board_widgets/*.py` files.
+   `692` is `292` over target — the header/Indicators-checklist/dialog-
    management code left behind (§3.4's own sizing note) is a further,
    independent candidate slice, not started.

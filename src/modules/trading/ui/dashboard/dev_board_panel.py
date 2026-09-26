@@ -241,6 +241,58 @@ class DevBoardPanel(QObject):
         return self._system_controls_card._progress_banner
 
     # ------------------------------------------------------------------ #
+    # Strategy/Manual Order card pass-through — same reasoning as the System
+    # Controls block above. Found missing by a real GitHub Actions run
+    # (`ci-local.ps1 -Full`, not the narrower local test selection this
+    # split was first verified against): `tests/integration/presentation/ui/
+    # test_dev_board_known_gaps.py`/`test_dev_board_manual_order_qt_click.py`
+    # drive these widgets directly with real `qtbot` clicks, and were not
+    # part of the grepped 16-attribute contract `BOT-144` §3.4 recorded
+    # (that grep covered `test_dev_board_panel.py` and `DashboardView`/
+    # `DashboardPresenter` only, not `tests/integration/`).
+    # ------------------------------------------------------------------ #
+
+    @property
+    def _cbo_live_strategy(self) -> QWidget:
+        return self._strategy_card._cbo_live_strategy
+
+    @property
+    def _cbo_live_interval(self) -> QWidget:
+        return self._strategy_card._cbo_live_interval
+
+    @property
+    def _btn_arm_strategy(self) -> QWidget:
+        return self._strategy_card._btn_arm_strategy
+
+    @property
+    def _lbl_armed_strategy(self) -> QWidget:
+        return self._strategy_card._lbl_armed_strategy
+
+    @property
+    def _cbo_manual_order_type(self) -> QWidget:
+        return self._manual_order_card._cbo_manual_order_type
+
+    @property
+    def _spn_manual_quantity(self) -> QWidget:
+        return self._manual_order_card._spn_manual_quantity
+
+    @property
+    def _spn_manual_price(self) -> QWidget:
+        return self._manual_order_card._spn_manual_price
+
+    @property
+    def _btn_manual_long(self) -> QWidget:
+        return self._manual_order_card._btn_manual_long
+
+    @property
+    def _btn_manual_short(self) -> QWidget:
+        return self._manual_order_card._btn_manual_short
+
+    @property
+    def _lbl_manual_order_status(self) -> QWidget:
+        return self._manual_order_card._lbl_manual_order_status
+
+    # ------------------------------------------------------------------ #
     # Layout
     # ------------------------------------------------------------------ #
 

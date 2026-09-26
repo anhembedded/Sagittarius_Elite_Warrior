@@ -13,7 +13,7 @@
  "src/modules/trading/adapters/binance/futures_user_data_stream.py": 409,
  "src/modules/trading/ui/dashboard/dashboard_presenter.py": 1454,
  "src/modules/trading/ui/dashboard/dashboard_view_model.py": 452,
- "src/modules/trading/ui/dashboard/dev_board_panel.py": 640,
+ "src/modules/trading/ui/dashboard/dev_board_panel.py": 692,
  "src/modules/trading/ui/dashboard/stream_lifecycle_controller.py": 602,
  "src/modules/trading/ui/strategy_arming_coordinator.py": 424,
  "src/modules/trading/ui/trading/trading_presenter.py": 978,
