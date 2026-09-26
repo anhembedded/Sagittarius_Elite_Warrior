@@ -6,6 +6,9 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import QLabel, QWidget
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.strategy_card_view_model import (
+    StrategyCardViewModel,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Panel
 
 from ..dashboard_view_model import DashboardQmlViewModel
@@ -33,10 +36,21 @@ class LastSignalCard(Panel):
         self._lbl_last_signal.setObjectName("lblLastSignal")
         self._lbl_last_signal.setWordWrap(True)
         layout.addWidget(self._lbl_last_signal)
-        view_model.strategy.lastSignalChanged.connect(self._sync_last_signal)
+        # `DashboardQmlViewModel.strategy` is a PySide6 `@Property`; mypy
+        # reads the descriptor itself (`Property`) rather than the
+        # `StrategyCardViewModel` it actually holds at runtime — the same
+        # systemic false positive `pyproject.toml`'s `[tool.mypy]` exclude
+        # list documents for `presentation/` (needs a stub/plugin decision,
+        # not a per-line fix). Narrowed once here rather than ignored at
+        # every call site below.
+        strategy_vm: StrategyCardViewModel = view_model.strategy  # type: ignore[assignment]
+        strategy_vm.lastSignalChanged.connect(self._sync_last_signal)
         self._sync_last_signal()
 
     def _sync_last_signal(self) -> None:
-        self._lbl_last_signal.setText(
-            self._view_model.strategy.lastSignalText or _NO_SIGNAL_TEXT
-        )
+        strategy_vm: StrategyCardViewModel = self._view_model.strategy  # type: ignore[assignment]
+        # `lastSignalText` is itself a PySide6 `@Property` on
+        # `StrategyCardViewModel` — narrowing `strategy_vm` above resolves
+        # the outer object's own type but not this inner `@Property`
+        # field's, the same systemic false positive one level deeper.
+        self._lbl_last_signal.setText(strategy_vm.lastSignalText or _NO_SIGNAL_TEXT)  # type: ignore[arg-type]

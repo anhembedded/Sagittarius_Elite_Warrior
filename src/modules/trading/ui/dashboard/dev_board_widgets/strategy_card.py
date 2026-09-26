@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_conf
     MIN_LEVERAGE,
     MIN_SIZING_PERCENT,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.strategy_card_view_model import (
+    StrategyCardViewModel,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Panel,
@@ -50,6 +53,14 @@ class StrategyCard(Panel):
     ) -> None:
         super().__init__(parent)
         self._view_model = view_model
+        # `DashboardQmlViewModel.strategy` is a PySide6 `@Property`; mypy
+        # reads the descriptor itself (`Property`) rather than the
+        # `StrategyCardViewModel` it actually holds at runtime — the same
+        # systemic false positive `pyproject.toml`'s `[tool.mypy]` exclude
+        # list documents for `presentation/` (needs a stub/plugin decision,
+        # not a per-line fix). Narrowed once here rather than ignored at
+        # every call site below.
+        self._strategy_vm: StrategyCardViewModel = view_model.strategy  # type: ignore[assignment]
         layout = self.body_layout
         layout.setContentsMargins(14, 14, 14, 14)
         layout.setSpacing(10)
@@ -127,22 +138,22 @@ class StrategyCard(Panel):
         )
 
         self._cbo_live_strategy.currentIndexChanged.connect(
-            lambda _index: view_model.strategy.requestStrategySelection(
+            lambda _index: self._strategy_vm.requestStrategySelection(
                 self._cbo_live_strategy.currentData() or ""
             )
         )
         self._cbo_live_interval.currentTextChanged.connect(
-            view_model.strategy.requestIntervalSelection
+            self._strategy_vm.requestIntervalSelection
         )
         self._spn_sizing_percent.valueChanged.connect(
-            view_model.strategy.requestSizingPercent
+            self._strategy_vm.requestSizingPercent
         )
-        self._spn_leverage.valueChanged.connect(view_model.strategy.requestLeverage)
-        self._btn_arm_strategy.clicked.connect(view_model.strategy.requestArm)
-        self._btn_disarm_strategy.clicked.connect(view_model.strategy.requestDisarm)
+        self._spn_leverage.valueChanged.connect(self._strategy_vm.requestLeverage)
+        self._btn_arm_strategy.clicked.connect(self._strategy_vm.requestArm)
+        self._btn_disarm_strategy.clicked.connect(self._strategy_vm.requestDisarm)
         self._btn_strategy_params.clicked.connect(self._open_strategy_params_dialog)
 
-        view_model.strategy.strategyConfigChanged.connect(
+        self._strategy_vm.strategyConfigChanged.connect(
             self._on_strategy_config_changed
         )
         view_model.tradingStateChanged.connect(self._sync_armed_summary)
@@ -163,7 +174,12 @@ class StrategyCard(Panel):
             StrategyParamsDialog,
         )
 
-        dialog = StrategyParamsDialog(self._view_model.strategy, self.window())
+        # `BotParamsSink.botParamsError`/`.botParamsGroups` are plain
+        # settable attributes on the Protocol; `StrategyCardViewModel`
+        # implements both as PySide6 `@Property` (read-only to mypy, which
+        # reads the descriptor as `Property` rather than the runtime value)
+        # — the same systemic false positive, one structural check deeper.
+        dialog = StrategyParamsDialog(self._strategy_vm, self.window())  # type: ignore[arg-type]
         dialog.exec()
 
     def _on_strategy_config_changed(self) -> None:
@@ -178,7 +194,13 @@ class StrategyCard(Panel):
         otherwise)."""
         self._cbo_live_strategy.blockSignals(True)
         self._cbo_live_strategy.clear()
-        for option in self._view_model.strategy.strategyOptions:
+        # `strategyOptions`/`intervalOptions`/`liveInterval`/`sizingPercent`/
+        # `leverage`/`armedSummary` below are themselves each a PySide6
+        # `@Property` on `StrategyCardViewModel` — narrowing `self._strategy_vm`
+        # (see `__init__`) resolves the outer object's own type but not each
+        # inner `@Property` field's, the same systemic false positive one
+        # level deeper.
+        for option in self._strategy_vm.strategyOptions:  # type: ignore[attr-defined]
             self._cbo_live_strategy.addItem(
                 option.get("label", ""), option.get("key", "")
             )
@@ -186,11 +208,11 @@ class StrategyCard(Panel):
 
         self._cbo_live_interval.blockSignals(True)
         self._cbo_live_interval.clear()
-        self._cbo_live_interval.addItems(self._view_model.strategy.intervalOptions)
+        self._cbo_live_interval.addItems(self._strategy_vm.intervalOptions)  # type: ignore[arg-type]
         self._cbo_live_interval.blockSignals(False)
 
     def _sync_strategy_selection(self) -> None:
-        vm = self._view_model.strategy
+        vm = self._strategy_vm
         self._cbo_live_strategy.blockSignals(True)
         index = self._cbo_live_strategy.findData(vm.selectedStrategyKey)
         if index >= 0:
@@ -199,7 +221,7 @@ class StrategyCard(Panel):
 
         self._cbo_live_interval.blockSignals(True)
         if vm.liveInterval:
-            self._cbo_live_interval.setCurrentText(vm.liveInterval)
+            self._cbo_live_interval.setCurrentText(vm.liveInterval)  # type: ignore[arg-type]
         self._cbo_live_interval.blockSignals(False)
 
         for spin, value in (
@@ -207,13 +229,13 @@ class StrategyCard(Panel):
             (self._spn_leverage, vm.leverage),
         ):
             spin.blockSignals(True)
-            spin.setValue(value)
+            spin.setValue(value)  # type: ignore[arg-type]
             spin.blockSignals(False)
 
     def _sync_armed_summary(self) -> None:
-        vm = self._view_model.strategy
+        vm = self._strategy_vm
         summary = vm.armedSummary
-        self._lbl_armed_strategy.setText(summary or _NOT_ARMED_TEXT)
+        self._lbl_armed_strategy.setText(summary or _NOT_ARMED_TEXT)  # type: ignore[arg-type]
         self._lbl_armed_strategy.setStyleSheet(
             f"color: {Palette.SUCCESS if summary else Palette.MUTED}; font-size: 11px;"
         )

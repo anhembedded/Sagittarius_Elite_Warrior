@@ -126,7 +126,13 @@ class ManualOrderCard(Panel):
         vm = self._view_model
         for widget in self._manual_order_controls:
             widget.setEnabled(not vm.manualOrderBusy)
-        self._lbl_manual_order_status.setText(vm.manualOrderMessage)
+        # `DashboardQmlViewModel.manualOrderMessage` is a PySide6
+        # `@Property(str)`; mypy reads the descriptor itself (`Property`)
+        # rather than the `str` it actually holds at runtime — the same
+        # systemic false positive `pyproject.toml`'s `[tool.mypy]` exclude
+        # list documents for `presentation/` (needs a stub/plugin decision,
+        # not a per-line fix).
+        self._lbl_manual_order_status.setText(vm.manualOrderMessage)  # type: ignore[arg-type]
 
     def _on_manual_order_clicked(self, direction: ManualOrderDirection) -> None:
         order_type = OrderType[self._cbo_manual_order_type.currentData()]

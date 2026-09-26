@@ -719,19 +719,29 @@ cross-cutting syncs `_sync_controls_active()` (reaches both the header's
   67 → 66 — an incidental improvement from moving `_field_row`/`_field_style`/
   `_section_row` off `DevBoardPanel` (not a deliberate dedup target), lowered
   per the ratchet's own "never tightened stops being one" rule.
-- `pyproject.toml` mypy `exclude`: the `@Property`-descriptor false positive
-  that justified `dev_board_panel.py`'s own long-standing exclusion (still
-  present, unchanged) moved with the ViewModel-heavy interaction into four of
-  the five new card files — `system_controls_card.py`, `strategy_card.py`,
-  `manual_order_card.py`, `last_signal_card.py` (23 errors total, every one
-  either `Property has no attribute <x>` or `incompatible type "Property"`,
+- **mypy — fixed per-file, `pyproject.toml`'s exclude list left untouched.**
+  Four of the five new card files (`system_controls_card.py`,
+  `strategy_card.py`, `manual_order_card.py`, `last_signal_card.py`) inherited
+  the `@Property`-descriptor false positive that justified the ORIGINAL
+  `dev_board_panel.py`'s own long-standing exclusion (23 errors total,
   confirmed via the real CI-shape invocation — `--namespace-packages
   --explicit-package-bases` from the repo's parent directory, not a bare
   `mypy src scripts`, which mis-resolves imports entirely and reports
-  thousands of unrelated spurious errors). Re-keyed into the exclude list,
-  same shape as the existing `sidebar`/`chart_card`/`dashboard_presenter.py`
-  re-keys already documented there. `layout_helpers.py` and `session_card.py`
-  touch no `@Property` and were kept out, same reasoning that already kept
+  thousands of unrelated spurious errors). **First attempt wrongly re-keyed
+  these four into the exclude list** — self-caught before push: the list's
+  own docstring is explicit ("a NEW file must be fixed, not added here"), and
+  this exact task's own earlier candidate-1 slice (§4 above) had already
+  established the correct precedent for a new, non-excluded file hitting this
+  same false positive — a typed local narrowing `view_model.strategy` to
+  `StrategyCardViewModel` once, plus a targeted `# type: ignore[<code>]` with
+  a comment citing the documented cause at each remaining `@Property` field
+  access one level deeper (`strategyOptions`, `intervalOptions`,
+  `startDate`/`endDate`, `manualOrderMessage`, `lastSignalText`, etc.) —
+  mirroring `presenter_factory_core.py`'s own single `# type:
+  ignore[assignment]` for `view_model.symbol`. `pyproject.toml` reverted to
+  its pre-slice content (zero diff); all 23 errors fixed inline instead.
+  `layout_helpers.py` and `session_card.py` needed no ignores — they touch no
+  `@Property` at all, same reasoning that already kept
   `strategy_card_view_model.py` out of `dashboard_presenter.py`'s own move.
 - `test_bug_134_strategy_params_dialog_parent.py`: retargeted from
   `panel._open_strategy_params_dialog()` to

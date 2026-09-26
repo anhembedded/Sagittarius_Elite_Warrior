@@ -65,7 +65,12 @@ class SystemControlsCard(Panel):
         self._txt_start_date.setPlaceholderText("yyyy-MM-dd HH:mm")
         self._txt_start_date.setFixedHeight(32)
         self._txt_start_date.setStyleSheet(field_style())
-        self._txt_start_date.setText(view_model.startDate)
+        # `DashboardQmlViewModel.startDate`/`.endDate` are PySide6 `@Property(str)`;
+        # mypy reads the descriptor itself (`Property`) rather than the `str`
+        # it actually holds at runtime — the same systemic false positive
+        # `pyproject.toml`'s `[tool.mypy]` exclude list documents for
+        # `presentation/` (needs a stub/plugin decision, not a per-line fix).
+        self._txt_start_date.setText(view_model.startDate)  # type: ignore[arg-type]
         self._txt_start_date.textEdited.connect(callbacks.on_start_date_edited)
         layout.addWidget(self._txt_start_date)
 
@@ -74,7 +79,7 @@ class SystemControlsCard(Panel):
         self._txt_end_date.setPlaceholderText("yyyy-MM-dd HH:mm")
         self._txt_end_date.setFixedHeight(32)
         self._txt_end_date.setStyleSheet(field_style())
-        self._txt_end_date.setText(view_model.endDate)
+        self._txt_end_date.setText(view_model.endDate)  # type: ignore[arg-type]
         self._txt_end_date.textEdited.connect(callbacks.on_end_date_edited)
         layout.addWidget(self._txt_end_date)
 
@@ -146,7 +151,9 @@ class SystemControlsCard(Panel):
         on demand (it costs an exchange round trip) — see
         `DevBoardPanel._open_symbol_picker` for why opening it stays there.
         """
-        self._btn_symbol = QPushButton(self._view_model.symbol)
+        # Same `@Property` false positive as `startDate`/`endDate` above —
+        # `symbol` is a PySide6 `@Property(str)` mypy reads as `Property`.
+        self._btn_symbol = QPushButton(self._view_model.symbol)  # type: ignore[call-overload]
         self._btn_symbol.setObjectName("btnSymbol")
         self._btn_symbol.setFixedHeight(32)
         self._btn_symbol.setCursor(Qt.CursorShape.PointingHandCursor)
