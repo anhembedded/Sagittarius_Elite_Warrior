@@ -52,6 +52,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_
     ManualOrderDirection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.coordinators.trading_actions_coordinator import (
+    ActionTrackers,
+    CompletionEmitters,
     TradingActionsCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
@@ -168,6 +170,57 @@ def emit_cancel_order_completed() -> _Recorder:
     return _Recorder()
 
 
+def _build_coordinator(
+    *,
+    thread_manager,
+    trading_session,
+    order_submission,
+    account,
+    toggle_tracker,
+    emergency_stop_tracker,
+    manual_order_tracker,
+    append_log,
+    set_trading_state,
+    set_manual_order_state,
+    get_last_price,
+    emit_enable_completed,
+    emit_disable_completed,
+    emit_emergency_stop_completed,
+    emit_manual_order_completed,
+    emit_cancel_order_completed,
+) -> TradingActionsCoordinator:
+    """Shared construction for the default fixture and the one test that
+    needs a non-default `get_last_price` — keeps the grouping into
+    `ActionTrackers`/`CompletionEmitters` (`code/quality.md` §7) written in
+    exactly one place."""
+    return TradingActionsCoordinator(
+        thread_manager=thread_manager,
+        trading_session=trading_session,
+        order_submission=order_submission,
+        account=account,
+        trackers=ActionTrackers(
+            toggle=toggle_tracker,
+            emergency_stop=emergency_stop_tracker,
+            manual_order=manual_order_tracker,
+        ),
+        toggle_action_kind=_TOGGLE,
+        emergency_stop_action_kind=_EMERGENCY_STOP,
+        manual_order_action_kind=_MANUAL_ORDER,
+        completion_emitters=CompletionEmitters(
+            enable=emit_enable_completed,
+            disable=emit_disable_completed,
+            emergency_stop=emit_emergency_stop_completed,
+            manual_order=emit_manual_order_completed,
+            cancel_order=emit_cancel_order_completed,
+        ),
+        set_trading_state=set_trading_state,
+        set_manual_order_state=set_manual_order_state,
+        append_log=append_log,
+        get_active_symbol=lambda: "BTCUSDT",
+        get_last_price=get_last_price,
+    )
+
+
 @pytest.fixture
 def coordinator(
     thread_manager,
@@ -186,7 +239,7 @@ def coordinator(
     emit_manual_order_completed,
     emit_cancel_order_completed,
 ) -> TradingActionsCoordinator:
-    return TradingActionsCoordinator(
+    return _build_coordinator(
         thread_manager=thread_manager,
         trading_session=trading_session,
         order_submission=order_submission,
@@ -194,13 +247,9 @@ def coordinator(
         toggle_tracker=toggle_tracker,
         emergency_stop_tracker=emergency_stop_tracker,
         manual_order_tracker=manual_order_tracker,
-        toggle_action_kind=_TOGGLE,
-        emergency_stop_action_kind=_EMERGENCY_STOP,
-        manual_order_action_kind=_MANUAL_ORDER,
+        append_log=append_log,
         set_trading_state=set_trading_state,
         set_manual_order_state=set_manual_order_state,
-        append_log=append_log,
-        get_active_symbol=lambda: "BTCUSDT",
         get_last_price=lambda _symbol: Decimal(64000),
         emit_enable_completed=emit_enable_completed,
         emit_disable_completed=emit_disable_completed,
@@ -429,7 +478,7 @@ def test_request_manual_order_rejects_a_market_order_with_no_known_price(
     emit_manual_order_completed,
     emit_cancel_order_completed,
 ):
-    coordinator = TradingActionsCoordinator(
+    coordinator = _build_coordinator(
         thread_manager=thread_manager,
         trading_session=trading_session,
         order_submission=order_submission,
@@ -437,13 +486,9 @@ def test_request_manual_order_rejects_a_market_order_with_no_known_price(
         toggle_tracker=toggle_tracker,
         emergency_stop_tracker=emergency_stop_tracker,
         manual_order_tracker=manual_order_tracker,
-        toggle_action_kind=_TOGGLE,
-        emergency_stop_action_kind=_EMERGENCY_STOP,
-        manual_order_action_kind=_MANUAL_ORDER,
+        append_log=append_log,
         set_trading_state=set_trading_state,
         set_manual_order_state=set_manual_order_state,
-        append_log=append_log,
-        get_active_symbol=lambda: "BTCUSDT",
         get_last_price=lambda _symbol: None,  # no live data yet
         emit_enable_completed=emit_enable_completed,
         emit_disable_completed=emit_disable_completed,

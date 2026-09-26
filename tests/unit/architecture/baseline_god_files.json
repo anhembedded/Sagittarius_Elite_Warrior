@@ -11,7 +11,7 @@
  "src/modules/market_data/ui/data_management_view.py": 725,
  "src/modules/market_data/ui/data_management_view_model.py": 525,
  "src/modules/trading/adapters/binance/futures_user_data_stream.py": 409,
- "src/modules/trading/ui/dashboard/dashboard_presenter.py": 1858,
+ "src/modules/trading/ui/dashboard/dashboard_presenter.py": 1857,
  "src/modules/trading/ui/dashboard/dashboard_view_model.py": 452,
  "src/modules/trading/ui/dashboard/dev_board_panel.py": 1145,
  "src/modules/trading/ui/dashboard/stream_lifecycle_controller.py": 602,

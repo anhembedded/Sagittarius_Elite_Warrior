@@ -27,6 +27,7 @@ not just its construction.
 from __future__ import annotations
 
 from collections.abc import Callable
+from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
@@ -56,6 +57,32 @@ if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 
+@dataclass(frozen=True)
+class ActionTrackers:
+    """The three `ActionOwnershipTracker` instances `DashboardPresenter`
+    constructs and owns, handed in as one group (`code/quality.md` §7) —
+    each still reaches its own action family; this bundles the *handoff*,
+    not the trackers' own independent lifecycles."""
+
+    toggle: ActionOwnershipTracker[str, None, None]
+    emergency_stop: ActionOwnershipTracker[str, None, None]
+    manual_order: ActionOwnershipTracker[str, None, None]
+
+
+@dataclass(frozen=True)
+class CompletionEmitters:
+    """The five `Signal.emit` bindings a `run_*` worker reports its result
+    through — `DashboardPresenter` connects each signal to its own
+    `_on_x_completed` handler (this coordinator's own module docstring
+    explains why those handlers stay Presenter-owned)."""
+
+    enable: Callable[[tuple], None]
+    disable: Callable[[tuple], None]
+    emergency_stop: Callable[[tuple], None]
+    manual_order: Callable[[tuple], None]
+    cancel_order: Callable[[tuple], None]
+
+
 class TradingActionsCoordinator:
     """Enable/Disable trading, Emergency Stop, manual order submission and
     per-order cancel — the four action families `DashboardPresenter` already
@@ -68,30 +95,24 @@ class TradingActionsCoordinator:
         trading_session: ITradingSession,
         order_submission: IOrderSubmission,
         account: IAccountSnapshot,
-        toggle_tracker: ActionOwnershipTracker[str, None, None],
-        emergency_stop_tracker: ActionOwnershipTracker[str, None, None],
-        manual_order_tracker: ActionOwnershipTracker[str, None, None],
+        trackers: ActionTrackers,
         toggle_action_kind: str,
         emergency_stop_action_kind: str,
         manual_order_action_kind: str,
+        completion_emitters: CompletionEmitters,
         set_trading_state: Callable[[bool, bool], None],
         set_manual_order_state: Callable[[bool, str], None],
         append_log: Callable[[str], None],
         get_active_symbol: Callable[[], str],
         get_last_price: Callable[[str], Decimal | None],
-        emit_enable_completed: Callable[[tuple], None],
-        emit_disable_completed: Callable[[tuple], None],
-        emit_emergency_stop_completed: Callable[[tuple], None],
-        emit_manual_order_completed: Callable[[tuple], None],
-        emit_cancel_order_completed: Callable[[tuple], None],
     ) -> None:
         self._thread_manager = thread_manager
         self._trading_session = trading_session
         self._order_submission = order_submission
         self._account = account
-        self._toggle_tracker = toggle_tracker
-        self._emergency_stop_tracker = emergency_stop_tracker
-        self._manual_order_tracker = manual_order_tracker
+        self._toggle_tracker = trackers.toggle
+        self._emergency_stop_tracker = trackers.emergency_stop
+        self._manual_order_tracker = trackers.manual_order
         self._toggle_action_kind = toggle_action_kind
         self._emergency_stop_action_kind = emergency_stop_action_kind
         self._manual_order_action_kind = manual_order_action_kind
@@ -100,11 +121,11 @@ class TradingActionsCoordinator:
         self._append_log = append_log
         self._get_active_symbol = get_active_symbol
         self._get_last_price = get_last_price
-        self._emit_enable_completed = emit_enable_completed
-        self._emit_disable_completed = emit_disable_completed
-        self._emit_emergency_stop_completed = emit_emergency_stop_completed
-        self._emit_manual_order_completed = emit_manual_order_completed
-        self._emit_cancel_order_completed = emit_cancel_order_completed
+        self._emit_enable_completed = completion_emitters.enable
+        self._emit_disable_completed = completion_emitters.disable
+        self._emit_emergency_stop_completed = completion_emitters.emergency_stop
+        self._emit_manual_order_completed = completion_emitters.manual_order
+        self._emit_cancel_order_completed = completion_emitters.cancel_order
 
     # ------------------------------------------------------------------ #
     # Enable/Disable trading toggle

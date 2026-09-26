@@ -152,7 +152,11 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 
 from .autostart_controller import AutoStartController
 from .coordinators.indicator_coordinator import IndicatorCoordinator
-from .coordinators.trading_actions_coordinator import TradingActionsCoordinator
+from .coordinators.trading_actions_coordinator import (
+    ActionTrackers,
+    CompletionEmitters,
+    TradingActionsCoordinator,
+)
 from .dashboard_view_model import (
     DATETIME_FORMAT,
     DEFAULT_LOOKBACK_DAYS,
@@ -653,12 +657,10 @@ class DashboardPresenter(BasePresenter):
         self._refresh_armed_summary(busy=False)
 
         # `EPIC-023D` — Enable/Disable trading + Emergency Stop. Own tracker
-        # instances, not shared with `_arm_tracker` above or with Trading's
-        # own (`async-ui-action-rule.md` §2: a tracker holds exactly one
-        # active action regardless of kind, so sharing would let an
-        # unrelated click on this screen fence a toggle/emergency-stop
-        # result on Trading — or the other screen's own action fence this
-        # one — as stale).
+        # instances, not shared with `_arm_tracker` or Trading's own
+        # (`async-ui-action-rule.md` §2: one tracker holds one active
+        # action, so sharing would let either screen's own click fence the
+        # other's result as stale).
         self._toggle_tracker: ActionOwnershipTracker[str, None, None] = (
             ActionOwnershipTracker()
         )
@@ -677,35 +679,32 @@ class DashboardPresenter(BasePresenter):
         # Updated on every `_on_ui_chart_update` tick; `Decimal`, not the
         # `float` the tick itself carries — `OrderRequest` requires it.
         self._last_price_by_symbol: dict[str, Decimal] = {}
-        # `BOT-144` — the request_*/run_* halves of the four action families
-        # just above, extracted once adding them (plus the Presenter's own
-        # existing orchestration) pushed this file over the 400-line
-        # ceiling. Trackers stay Presenter-owned and constructed above,
-        # handed in exactly like `StrategyArmingCoordinator` already
-        # receives `tracker=self._arm_tracker` — the Coordinator uses the
-        # shared tracker, it does not own a second one
-        # (`async-ui-action-rule.md` §2).
+        # `BOT-144` — trackers stay Presenter-owned (`async-ui-action-rule.md` §2).
         self._trading_actions = TradingActionsCoordinator(
             thread_manager=self._thread_manager,
             trading_session=self._trading_session,
             order_submission=self._order_submission,
             account=self._account,
-            toggle_tracker=self._toggle_tracker,
-            emergency_stop_tracker=self._emergency_stop_tracker,
-            manual_order_tracker=self._manual_order_tracker,
+            trackers=ActionTrackers(
+                toggle=self._toggle_tracker,
+                emergency_stop=self._emergency_stop_tracker,
+                manual_order=self._manual_order_tracker,
+            ),
             toggle_action_kind=_TOGGLE_ACTION,
             emergency_stop_action_kind=_EMERGENCY_STOP_ACTION,
             manual_order_action_kind=_MANUAL_ORDER_ACTION,
+            completion_emitters=CompletionEmitters(
+                enable=self.enableTradingCompleted.emit,
+                disable=self.disableTradingCompleted.emit,
+                emergency_stop=self.emergencyStopCompleted.emit,
+                manual_order=self.manualOrderCompleted.emit,
+                cancel_order=self.cancelOrderCompleted.emit,
+            ),
             set_trading_state=self._view_model.set_trading_state,
             set_manual_order_state=self._view_model.set_manual_order_state,
             append_log=self._append_log,
             get_active_symbol=lambda: self._active_symbol,
             get_last_price=lambda symbol: self._last_price_by_symbol.get(symbol),
-            emit_enable_completed=self.enableTradingCompleted.emit,
-            emit_disable_completed=self.disableTradingCompleted.emit,
-            emit_emergency_stop_completed=self.emergencyStopCompleted.emit,
-            emit_manual_order_completed=self.manualOrderCompleted.emit,
-            emit_cancel_order_completed=self.cancelOrderCompleted.emit,
         )
         # Seeds from whatever the session already says — if Trading enabled it
         # first, opening Dev Board must show "đang BẬT", never a default "TẮT"
