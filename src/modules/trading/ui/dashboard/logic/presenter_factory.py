@@ -28,7 +28,8 @@ file itself crossed `architecture-rule.md` §5.4's 400-line ceiling — see
 needs the full sequence in one place for reference.
 
 **Real dependency graph (verified against each module's own attribute
-reads, not assumed from call order — PR #273 review finding D14):** `_core`
+reads, not assumed from call order — pull request 273's own review, finding
+D14):** `_core`
 has no prerequisite; `_trading` and `_indicators` each depend only on
 `_core` and are independent of each other (their relative order below is
 kept for fidelity to the original constructor, not because either needs the
