@@ -36,7 +36,7 @@ gantt
     027J Fake exchange Spot routes          :         j, after s2, 4d
     027G Spot Testnet venue and keys        :         g, after f, 3d
     027I Spot metadata provider             :         i, after g, 2d
-    027H Spot account and holdings          :         h, after j, 4d
+    027H Spot account and holdings          :         h, after g j, 4d
     Phase 2 exit check                      :milestone, m2, after h, 0d
 
     section Phase 3 - Live Spot orders
