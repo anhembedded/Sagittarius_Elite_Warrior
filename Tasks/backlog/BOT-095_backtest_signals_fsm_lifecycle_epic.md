@@ -1,11 +1,12 @@
 # Epic BOT-095: Hoàn thiện Hệ thống UI Signals, State Machine & Vòng đời Tham số Màn hình Backtest
 
-> **Trạng thái 2026-09-24:** Chưa hoàn tất. `BOT-095A/B/C/D/D1/E/E2/H/G/F` đã
-> hoàn thành; chỉ `BOT-095E1` (market metadata) còn mở theo dòng bảng bên
-> dưới — chưa xác minh lại độc lập trong đợt này. `BOT-095F` được xác minh
-> lại 24/09: đã có cài đặt thật (`IndicatorCoordinator
-> .on_script_selection_changed()`), file task của nó ghi rõ bằng chứng —
-> dòng ghi chú này của epic là thứ lỗi thời thật sự, không phải task.
+> **Trạng thái 2026-09-26: Epic đã hoàn thành.** Toàn bộ 10 task con
+> (`BOT-095A/B/C/D/D1/E/E2/H/G/F`) đã xong, cùng `BOT-095E1` (market
+> metadata) — ghi chú 2026-09-24 trước đó liệt `BOT-095E1` là "còn mở" đã
+> lỗi thời: file của nó đã dời sang
+> [`Tasks/completed/BOT-095E1_symbol_market_metadata_validation.md`](../completed/BOT-095E1_symbol_market_metadata_validation.md).
+> Xem `Tasks/ROADMAP.md` §"Epic BOT-095 — Chi tiết" để đối chiếu toàn bộ
+> bảng task con.
 
 > **Nguồn gốc**: Phân tích toàn diện luồng tương tác của người dùng trên màn hình Backtest (`BackTestPresenter`, `BackTestViewModel`, `BackTestTopPanel.qml`).
 > 
