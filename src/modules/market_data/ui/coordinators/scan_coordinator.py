@@ -163,7 +163,9 @@ class ScanCoordinator:
                 )
                 return
 
-            local_shard_count = len(self._market_data_repo.list_available_shards(_MARKET))
+            local_shard_count = len(
+                self._market_data_repo.list_available_shards(_MARKET)
+            )
             self._ui_known_shard_count_signal(local_shard_count)
             if local_shard_count:
                 logger.info(

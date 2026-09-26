@@ -35,7 +35,8 @@ class MarketDataDeletionContract:
         self, impl: IMarketDataRepository
     ) -> None:
         impl.save_klines(
-            SPOT, [candle(minutes=0), candle(minutes=0, interval=TimeFrame.FIVE_MINUTES)]
+            SPOT,
+            [candle(minutes=0), candle(minutes=0, interval=TimeFrame.FIVE_MINUTES)],
         )
 
         removed = impl.clear_klines(SPOT, "BTCUSDT", MINUTE)
@@ -48,7 +49,8 @@ class MarketDataDeletionContract:
         self, impl: IMarketDataRepository
     ) -> None:
         impl.save_klines(
-            SPOT, [candle(minutes=0), candle(minutes=0, interval=TimeFrame.FIVE_MINUTES)]
+            SPOT,
+            [candle(minutes=0), candle(minutes=0, interval=TimeFrame.FIVE_MINUTES)],
         )
 
         removed = impl.clear_klines(SPOT, "BTCUSDT")

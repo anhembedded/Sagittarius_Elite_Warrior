@@ -163,7 +163,16 @@ class DatabaseManager:
         migrated: list[str] = []
         for legacy_symbol in self.list_legacy_shard_names():
             new_name = shard_name(MarketType.SPOT, legacy_symbol)
-            self._rename_shard_files(legacy_symbol, new_name)
+            try:
+                self._rename_shard_files(legacy_symbol, new_name)
+            except FileExistsError as exc:
+                logger.error(
+                    f"Could not migrate legacy shard {legacy_symbol!r} to "
+                    f"{new_name!r}: {exc} Left as a legacy shard; the "
+                    "collision must be resolved manually before it can "
+                    "migrate."
+                )
+                continue
             migrated.append(legacy_symbol)
             logger.info(
                 f"Migrated legacy shard {legacy_symbol!r} to Spot as {new_name!r} "
@@ -174,13 +183,31 @@ class DatabaseManager:
         return migrated
 
     def _rename_shard_files(self, old_name: str, new_name: str) -> None:
-        """@brief Renames one shard's `.db` file and its WAL sidecars, if any."""
+        """@brief Renames one shard's `.db` file and its WAL sidecars, if any.
+
+        @raise FileExistsError if any destination file already exists.
+        `os.rename` overwrites an existing destination silently on POSIX —
+        checked for every suffix before renaming any of them, so a
+        collision on one sidecar can never leave the shard half-renamed
+        (some files under the old name, some under the new one) and never
+        silently destroys a shard that already exists under `new_name`.
+        """
         if self.db_dir == IN_MEMORY:
             return
+        renames: list[tuple[str, str]] = []
         for suffix in _SHARD_FILE_SUFFIXES:
             old_path = os.path.join(self.db_dir, f"{old_name}{suffix}")
-            if os.path.isfile(old_path):
-                os.rename(old_path, os.path.join(self.db_dir, f"{new_name}{suffix}"))
+            if not os.path.isfile(old_path):
+                continue
+            new_path = os.path.join(self.db_dir, f"{new_name}{suffix}")
+            if os.path.exists(new_path):
+                raise FileExistsError(
+                    f"{new_path!r} already exists; refusing to overwrite it "
+                    f"with {old_path!r}."
+                )
+            renames.append((old_path, new_path))
+        for old_path, new_path in renames:
+            os.rename(old_path, new_path)
 
     def has_shard(self, market: MarketType, symbol: str) -> bool:
         """

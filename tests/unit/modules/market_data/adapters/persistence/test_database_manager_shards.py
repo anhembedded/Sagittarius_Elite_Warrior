@@ -187,3 +187,61 @@ def test_migrate_legacy_shards_is_idempotent_and_tags_data_as_spot():
                 assert rows[0].close_price == 1.5
         finally:
             manager.dispose_all()
+
+
+def test_migrate_legacy_shards_refuses_to_overwrite_an_existing_destination(caplog):
+    """`os.rename` overwrites an existing destination silently on POSIX — a
+    real install can already have `spot_BTCUSDT.db` (e.g. a prior partial
+    migration, a restored backup) alongside a re-introduced bare-name
+    `BTCUSDT.db`. Migrating must never destroy the pre-existing Spot data to
+    make room for the "legacy" one; the legacy shard is left unmigrated and
+    the collision is logged loudly instead."""
+    with tempfile.TemporaryDirectory() as tmpdir:
+        config = DatabaseConfig(db_dir=tmpdir)
+        manager = DatabaseManager(config)
+        try:
+            # Real, already-migrated Spot data — this must survive untouched.
+            with manager.get_session(MarketType.SPOT, "BTCUSDT") as session:
+                session.add(
+                    KlineModel(
+                        symbol="BTCUSDT",
+                        interval="1h",
+                        open_time=datetime(2026, 1, 1, tzinfo=UTC),
+                        open_price=100.0,
+                        high_price=110.0,
+                        low_price=90.0,
+                        close_price=105.0,
+                        volume=1.0,
+                        close_time=datetime(2026, 1, 1, 1, tzinfo=UTC),
+                        quote_asset_volume=105.0,
+                        number_of_trades=1,
+                        taker_buy_base_asset_volume=0.5,
+                        taker_buy_quote_asset_volume=52.5,
+                    )
+                )
+                session.commit()
+            manager.dispose_all()
+
+            # A bare-name legacy shard re-introduced alongside it (the
+            # collision scenario) — its own content is irrelevant here.
+            (Path(tmpdir) / "BTCUSDT.db").touch()
+
+            manager = DatabaseManager(config)
+            with caplog.at_level("ERROR", logger="App.Database"):
+                migrated = manager.migrate_legacy_shards()
+
+            assert migrated == []
+            assert manager.list_legacy_shard_names() == ["BTCUSDT"]
+            assert any(
+                "BTCUSDT" in record.getMessage()
+                and "already exists" in record.getMessage()
+                for record in caplog.records
+            )
+
+            # The real Spot data was never touched.
+            with manager.get_session(MarketType.SPOT, "BTCUSDT") as session:
+                rows = session.query(KlineModel).filter_by(symbol="BTCUSDT").all()
+                assert len(rows) == 1
+                assert rows[0].close_price == 105.0
+        finally:
+            manager.dispose_all()

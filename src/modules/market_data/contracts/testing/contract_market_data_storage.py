@@ -84,7 +84,8 @@ class MarketDataStorageContract:
         """The same symbol at two timeframes is two series. Mixing them would
         make every cadence and gap calculation wrong."""
         impl.save_klines(
-            SPOT, [candle(minutes=0), candle(minutes=0, interval=TimeFrame.FIVE_MINUTES)]
+            SPOT,
+            [candle(minutes=0), candle(minutes=0, interval=TimeFrame.FIVE_MINUTES)],
         )
 
         assert len(impl.get_klines(SPOT, "BTCUSDT", MINUTE)) == 1

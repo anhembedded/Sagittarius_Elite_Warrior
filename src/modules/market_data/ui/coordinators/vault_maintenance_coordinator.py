@@ -33,7 +33,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
-
 #: `EPIC-027A` — see `scan_coordinator.py`'s identical constant for why this
 #: is Spot and not yet a caller-chosen market.
 _MARKET = MarketType.SPOT

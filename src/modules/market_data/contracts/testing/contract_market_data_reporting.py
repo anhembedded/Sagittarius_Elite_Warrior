@@ -124,7 +124,9 @@ class MarketDataReportingContract:
         minute 3."""
         impl.save_klines(SPOT, [candle(minutes=m) for m in (0, 1, 3, 4)])
 
-        snapshot = impl.get_range_coverage(SPOT, "BTCUSDT", MINUTE, at(0), at(4), at(10))
+        snapshot = impl.get_range_coverage(
+            SPOT, "BTCUSDT", MINUTE, at(0), at(4), at(10)
+        )
 
         assert snapshot.first_record == at(0)
         assert snapshot.last_record == at(3)
@@ -150,7 +152,9 @@ class MarketDataReportingContract:
     ) -> None:
         impl.save_klines(SPOT, [candle(minutes=m) for m in range(5)])
 
-        snapshot = impl.get_range_coverage(SPOT, "BTCUSDT", MINUTE, at(0), at(5), at(10))
+        snapshot = impl.get_range_coverage(
+            SPOT, "BTCUSDT", MINUTE, at(0), at(5), at(10)
+        )
 
         assert snapshot.total_candles == 5
         assert snapshot.distinct_candles == 5

@@ -66,7 +66,9 @@ class FakeMarketDataRepository(IMarketDataRepository):
     """Market history in dicts, with the real repository's semantics."""
 
     def __init__(
-        self, klines: list[MarketData] | None = None, market: MarketType = MarketType.SPOT
+        self,
+        klines: list[MarketData] | None = None,
+        market: MarketType = MarketType.SPOT,
     ) -> None:
         """`klines` seeds the store exactly as `save_klines()` would, so a
         consumer's test arranges its history in one line. `market` names which
@@ -195,7 +197,11 @@ class FakeMarketDataRepository(IMarketDataRepository):
 
     def list_available_shards(self, market: MarketType) -> list[str]:
         return sorted(
-            {key[1] for key, series in self._series.items() if key[0] == market and series}
+            {
+                key[1]
+                for key, series in self._series.items()
+                if key[0] == market and series
+            }
         )
 
     # -- reporting -----------------------------------------------------------

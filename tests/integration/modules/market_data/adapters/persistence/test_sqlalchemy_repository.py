@@ -1,4 +1,5 @@
 import gc
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 import pytest
@@ -213,6 +214,44 @@ def test_multi_symbol_db_separation(repo):
         "BTCUSDT",
         "ETHUSDT",
     ]
+
+
+def test_spot_and_futures_klines_of_the_same_symbol_are_isolated_through_the_real_stack(
+    repo,
+):
+    """EPIC-027A acceptance, proven through the real `SQLAlchemyMarketDataRepository`
+    + `DatabaseManager` stack rather than the fake — every other test in this file
+    exercises `MarketType.SPOT` exclusively, so a regression that coerced `market`
+    to SPOT somewhere between the repository and `DatabaseManager` would pass all
+    of them. Saving distinguishable Spot and Futures candles for the same symbol
+    and interval, then reading each market back, is what would catch that."""
+    base_dt = datetime(2023, 1, 1, 12, 0, tzinfo=UTC)
+    spot_kline = create_mock_kline("BTCUSDT", base_dt)
+    # distinguishable from the Spot row above
+    futures_kline = replace(spot_kline, close_price=999.0)
+
+    repo.save_klines(MarketType.SPOT, [spot_kline])
+    repo.save_klines(MarketType.FUTURES_USD_M, [futures_kline])
+
+    spot_fetched = repo.get_klines(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE)
+    futures_fetched = repo.get_klines(
+        MarketType.FUTURES_USD_M, "BTCUSDT", TimeFrame.ONE_MINUTE
+    )
+
+    assert len(spot_fetched) == 1
+    assert len(futures_fetched) == 1
+    assert spot_fetched[0].close_price == 105.0
+    assert futures_fetched[0].close_price == 999.0
+
+    # Removing the Futures shard must not touch the Spot one.
+    repo.clear_klines(MarketType.FUTURES_USD_M, "BTCUSDT")
+    assert (
+        repo.get_klines(MarketType.FUTURES_USD_M, "BTCUSDT", TimeFrame.ONE_MINUTE) == []
+    )
+    assert len(repo.get_klines(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE)) == 1
+
+    assert sorted(repo.db_manager.list_shards(MarketType.SPOT)) == ["BTCUSDT"]
+    assert repo.db_manager.list_shards(MarketType.FUTURES_USD_M) == []
 
 
 def test_get_database_status_empty_database(repo):

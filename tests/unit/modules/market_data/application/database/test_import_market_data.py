@@ -33,7 +33,9 @@ def test_import_valid_csv_upserts_via_save_klines(tmp_path):
     assert result.imported_records == 2
     assert result.warnings == []
     repo.save_klines.assert_called_once()
+    saved_market = repo.save_klines.call_args[0][0]
     saved = repo.save_klines.call_args[0][1]
+    assert saved_market == MarketType.SPOT
     assert len(saved) == 2
     assert all(kline.symbol == "BTCUSDT" for kline in saved)
 
