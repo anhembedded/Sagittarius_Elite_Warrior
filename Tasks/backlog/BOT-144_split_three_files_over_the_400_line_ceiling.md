@@ -163,25 +163,31 @@ two largest candidates in full.
    **not** using it — the same "seam pattern established elsewhere in the
    file, not applied consistently" finding §3.1 made for
    `data_management_presenter.py`'s dead `transition_fsm` seam.
-   **A real mechanism difference found here, not assumed to transfer:**
-   the five `_on_x_completed` methods (`_on_enable_trading_completed`, etc.)
-   are `@Slot(tuple)` handlers connected to `Signal(tuple)`s
-   (`enableTradingCompleted` etc.) that `_run_x` emits **from the background
-   thread pool worker**. `DashboardPresenter` is a `QObject`
-   (`BasePresenter(QObject)`); Qt's automatic queued-connection marshaling
-   from a background thread to the main thread depends on the connected
-   slot being a bound method of a `QObject` with real thread affinity. A
-   plain (non-`QObject`) Coordinator — every existing Coordinator in this
-   codebase, by design (`async-ui-action-rule.md` §2) — has no thread
-   affinity Qt can marshal against, so connecting one of its methods to
-   these signals would silently turn a queued cross-thread call into a
-   direct same-thread one: exactly the `BUG-031` class `async-ui-action-rule.md`
-   §1 and this file's own signal-bridge comments exist to prevent. **Only
-   the `_run_x` workers and the four `_on_x_requested` synchronous
-   request-orchestration methods can move into a Coordinator; the five
-   `_on_x_completed` `@Slot` handlers (~140 of the ~392 lines) must stay
-   Presenter-owned.** A partial win (~250 lines), not the ~392 a naive port
-   would claim.
+   **A real reason found here, not assumed to transfer — corrected
+   2026-09-26 after PR #271's independent review reproduced the actual
+   mechanism against this repo's pinned `PySide6==6.11.1` and disproved this
+   entry's first-draft claim:** an earlier version of this paragraph argued
+   the five `_on_x_completed` `@Slot(tuple)` handlers had to stay
+   Presenter-owned because Qt's queued-connection marshaling depends on the
+   connected slot being a bound method of a `QObject`. That is false —
+   `AutoConnection`'s queuing decision is governed by the **signal owner's**
+   thread affinity (`DashboardPresenter`, always main-thread) versus the
+   emitting thread, not by whether the connected callable's own object is a
+   `QObject`; a plain Coordinator's method is marshaled exactly as safely,
+   confirmed both by a live repro and by this codebase's own existing
+   precedent (`SyncCoordinator`, a plain non-`QObject`, already reaches a
+   Presenter-owned signal's `.emit()` from a background thread without
+   incident). **The real, still-standing reason the five `_on_x_completed`
+   handlers cannot move is `async-ui-action-rule.md` §2: a Coordinator owns
+   no action-id/FSM bookkeeping — the owning Presenter keeps its own
+   `ActionOwnershipTracker`, and `_on_enable_trading_completed` (etc.) calls
+   `self._toggle_tracker.finish_action(...)` directly.** The practical
+   conclusion is unchanged — only the `_run_x` workers and the four
+   `_on_x_requested` synchronous request-orchestration methods move into a
+   Coordinator; the five `_on_x_completed` handlers (~140 of the ~392 lines)
+   stay Presenter-owned — but for this reason, not a Qt-threading constraint
+   that does not exist. A partial win (~250 lines), not the ~392 a naive
+   port would claim.
 
 **Not yet designed** (need their own read before any claim about them):
 `BasePresenter` contract implementations / engine event bridge (1050–1235),
