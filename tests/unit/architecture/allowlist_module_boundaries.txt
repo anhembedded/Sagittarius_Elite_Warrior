@@ -700,7 +700,16 @@
 # gone, i.e. never fully (the feed genuinely lives in a different module),
 # unless a future per-module `SyncProgressFeed` variant (§3.15's seam) removes
 # the direct read.
-modules.trading.ui.dashboard.dashboard_presenter -> modules.market_data.ui.symbol_options_coordinator
+#
+# `BOT-144` moved the first line's *construction* out of `dashboard_presenter`
+# into its own `__init__` Builder (`logic/presenter_factory_core.py`, one of
+# the four sibling modules `logic/presenter_factory.py` orchestrates --
+# `build_core_presenter_state`) -- `symbol_options_coordinator`'s real import
+# now lives there instead; `dashboard_presenter` itself keeps only a
+# `TYPE_CHECKING`-guarded import for the class-level attribute annotation the
+# same move required (never executed, so the boundary scanner does not see
+# it). Retirement condition is otherwise unchanged from the paragraph above.
+modules.trading.ui.dashboard.logic.presenter_factory_core -> modules.market_data.ui.symbol_options_coordinator
 modules.trading.ui.dashboard.dashboard_presenter -> modules.market_data.ui.sync_progress_feed
 
 # Two more are new for the same reason PR 4.4b's `shell.legacy_screens ->

@@ -1,6 +1,6 @@
 # BOT-144 — Four files split back under the 400-line ceiling
 
-**Status:** 🟡 In progress — `data_management_presenter.py` slice implemented and merged 2026-09-26 (`PR #270`): 964 → 671 lines (30% cut), still over the 400-line target; the `IStateContributor` extraction was decided against, not deferred (§4). The shrink-only line-count guard (acceptance criterion 5) is also done (`PR #271`, merged). `paper_exchange.py` is done — 596 → 372 lines, ≤400 (§4). `dashboard_presenter.py`'s Coordinator extraction is done — 1994 → 1858 lines, still over 400 (§4); its `__init__` Factory extraction is not. `dev_board_panel.py` is fully designed (§3.4) but not implemented.
+**Status:** 🟡 In progress — `data_management_presenter.py` slice implemented and merged 2026-09-26 (`PR #270`): 964 → 671 lines (30% cut), still over the 400-line target; the `IStateContributor` extraction was decided against, not deferred (§4). The shrink-only line-count guard (acceptance criterion 5) is also done (`PR #271`, merged). `paper_exchange.py` is done — 596 → 372 lines, ≤400 (§4). `dashboard_presenter.py`'s Coordinator extraction is done — 1994 → 1858 lines, still over 400 (§4); its `__init__` Factory extraction is now also done (§4) — 1858 → 1454 lines, still over 400 but a 404-line, 22% cut. `dev_board_panel.py` is fully designed (§3.4) but not implemented.
 **Source:** Independent PR review of `PR #257` (2026-09-23), flagged as a should-fix, pre-existing item — "worth a tracked follow-up task rather than continuing to accrete onto these three files indefinitely." A fourth file (`paper_exchange.py`) was added from an independent review of `PR #266` (2026-09-25), same finding, different file.
 **Risk:** 🟡 — each file is a live Presenter/Panel wired into the composition root and covered by hundreds of existing tests; a split done as extraction (not rewrite) should be behavior-preserving, but a bad seam could silently drop a signal connection or FSM transition.
 **Complexity:** L — three separate god-files, each needing its own extraction design; no single mechanical transform covers all three.
@@ -537,16 +537,121 @@ half was the priority; rushing the harder half in the same pass risked both.
 1858 stands as this slice's number; the line-count guard above now holds
 that ground.
 
-### `paper_exchange.py`: done — see §3.3. `dashboard_presenter.py`: Coordinator extraction done (see above), Factory extraction not done. `dev_board_panel.py`: designed (§3.4), not implemented.
+### `dashboard_presenter.py` — §3.2 candidate 1 (`__init__` Factory) implemented 2026-09-26; still over 400
+
+Candidate 1's own sizing note above was accurate about scope but not about
+shape: the constructor's ~410 lines (`self._view_model = ...` through
+`self._autostart.begin()`) moved verbatim into a Builder (`code/quality.md`
+§9), `presenter_factory.py`'s `build_dashboard_presenter_state(presenter,
+view, container)`, called from `__init__` as its only remaining statement
+after `super().__init__(view, container)`. "Builder", not the
+`NamedTuple`-returning Factory shape `coordinator_factory.py` used for
+`data_management_presenter.py`: unlike that file's six independent
+Coordinator constructions, this sequence interleaves FSM transition wiring,
+five closures that read/write `presenter`'s own not-yet-set attributes
+(`_get_cancellation_token` etc. — verified these keep working unchanged: a
+closure over `presenter` behaves identically whether created inside
+`__init__` or in an external function, since `presenter` is the same object
+either way), and side-effecting calls whose relative order is load-bearing
+(`_connect_ui_signals()`, `self._autostart.begin()`). Passing `presenter`
+itself into the Builder (mirroring `coordinator_factory.py`'s own
+`build_coordinators(presenter, ...)` signature) is what makes this safe
+without reordering anything.
+
+**The Builder itself split into five files, not one** — the first version
+was one 595-line function, itself a new violator of the exact 400-line
+ceiling this task exists to enforce (`architecture-rule.md` §5.4 applies to
+new files with no baseline-entry escape hatch). Split along the constructor's
+own natural section boundaries, each a Builder over `presenter` called in
+the original order, in a new `logic/` package:
+- `presenter_factory.py` (88 lines) — orchestrator: narrows `presenter.fsm`
+  once (see below), calls the four sibling Builders in order.
+- `presenter_factory_core.py` (166 lines) — view model, the DI resolves
+  later sections read, the symbol-options coordinator, FSM transitions/
+  callbacks, cancellation token, per-run dicts.
+- `presenter_factory_trading.py` (172 lines) — order book, strategy-arming
+  coordinator, `TradingActionsCoordinator` + its three trackers.
+- `presenter_factory_indicators.py` (119 lines) — active interval/symbol,
+  indicator-script registry/catalog/params-store/runner, `IndicatorCoordinator`.
+- `presenter_factory_stream.py` (209 lines) — `StreamLifecycleController` +
+  its closures, signal connections, initial health check, equity chart seed,
+  remembered-state restore, config-gated autostart.
+
+**A real, first-time type-visibility gap surfaced, not introduced** — same
+shape as candidate 2's own finding, one level deeper: `dashboard_presenter.py`
+is itself mypy-excluded (`pyproject.toml`), but every one of its instance
+attributes used to be inferrable from a `self.x = ...` line inside its own
+`__init__` — which is how mypy (and a reader) learns a class's attribute
+surface even in a file whose *own* errors go unreported. Moving those
+assignments into an external Builder broke that inference silently (no error
+anywhere — `presenter._foo` calls in the new, checked `presenter_factory*.py`
+files just stopped resolving, `attr-defined` on ~30 attributes). Fixed by
+declaring the full attribute surface explicitly as class-level annotations in
+`DashboardPresenter` itself (`_view_model: DashboardQmlViewModel`, etc.,
+with `TYPE_CHECKING`-guarded imports for the types) — this restores the
+inference and is arguably the more honest form regardless (`code/quality.md`
+§1: explicit typing over inference). Two further, narrower fixes: `presenter.fsm`
+is typed `BaseStateMachine[Any] | None` on the engine's `BasePresenter` (a
+generic base allows a subclass with no FSM); `build_dashboard_presenter_state`
+narrows it once with an explicit `RuntimeError` (never actually raised — 
+`BasePresenter.__init__` already guarantees it) rather than leaving five
+`add_transition`/`add_global_callback`/`on_enter` calls each separately
+un-narrowed. And `IEquityCurve.samples()` returns `tuple[EquitySample, ...]`
+against `equity_samples_to_candles(samples: list[EquitySample])`'s narrower
+parameter — a real, pre-existing, harmless-in-practice mismatch (a tuple
+satisfies every use inside that function) fixed at its root by widening the
+parameter to `Sequence[EquitySample]` in `equity_chart_adapter.py`, not by
+ignoring the call site. Two remaining occurrences are the same systemic
+`@Property`-descriptor false positive `pyproject.toml`'s own exclude-list
+comment already documents for `presentation/` (mypy reads PySide6's
+`@Property` as its own type, not the runtime value) — `# type: ignore`d
+individually with a comment citing that documented cause, not silenced by
+adding a new file to the exclude list. Net effect on the mypy baseline:
+608 → 597 errors (a decrease — most of the ~30 surfaced `dashboard_presenter.py`
+attribute errors were themselves eliminated by the class-level annotations,
+and the lines they were attached to moved out of that file entirely).
+
+**A real, cross-module-boundary import moved, not introduced:**
+`presenter_factory_core.py`'s construction of `SymbolOptionsCoordinator`
+(from `modules.market_data.ui`) is the same cross-module read
+`dashboard_presenter.py` already had an allowlisted entry for (PR 4.4c) —
+that entry retargeted to the new module in
+`tests/unit/architecture/allowlist_module_boundaries.txt`, not duplicated,
+since the real import left `dashboard_presenter.py` entirely (it keeps only
+a `TYPE_CHECKING`-guarded one for the class-level annotation, which the
+boundary scanner correctly does not see as a real import).
+
+**Result:** `dashboard_presenter.py` 1858 → 1454 lines (404-line, 22% cut,
+plus the five new `logic/presenter_factory*.py` files, none over 130 lines
+above the smallest useful split). All 791 tests in `tests/unit/modules/trading`
+(including `test_dashboard_presenter.py`'s full suite) and all 445 in
+`tests/unit/architecture` (including the god-files guard once
+`dashboard_presenter.py`'s baseline entry was lowered to 1454, and the
+module-boundary allowlist/staleness checks once the retargeted entry above
+landed) pass unchanged. `ruff`/`mypy` clean on every touched and new file
+(zero errors attributable to any of the five new `presenter_factory*.py`
+files or `equity_chart_adapter.py`).
+
+**Honest remaining gap:** 1454 lines, 1054 over the 400 target — expected,
+matching §3.2's own "even both candidates together would land ~1350" estimate
+(this session's actual number is close: candidate 1 alone cut 404, more than
+the ~390 estimated, since a few small nearby de-duplications fell out of the
+class-annotation cleanup). The sections `dashboard_presenter.py`'s own §3.2
+listed as "not yet designed" (`BasePresenter` contract implementations/engine
+event bridge, FSM Hooks/UI Helpers, custom indicator script orchestration,
+Qt Slots for chart/stream actions, Engine Event Bridge/tick handling) still
+need their own read-before-design pass — this file will need at least one
+more slice.
+
+### `paper_exchange.py`: done — see §3.3. `dashboard_presenter.py`: both candidates from §3.2 done (Coordinator extraction, then Factory extraction — see above). `dev_board_panel.py`: designed (§3.4), not implemented.
 
 Now unblocked by the guard above (each file's current count is the frozen
 baseline, so no further work here makes them worse by accident). Next
-executable actions, in priority order: (1) `dashboard_presenter.py`'s
-`__init__` Factory extraction (candidate 1, §3.2) — the Coordinator's own
-construction lines have already moved once, which should reduce what the
-Factory has to carry; (2) `dev_board_panel.py`'s per-card componentization
-(§3.4) — materially larger, budget a dedicated session for it, verifying the
-16-attribute contract field-by-field, not sampled.
+executable action: `dev_board_panel.py`'s per-card componentization (§3.4) —
+materially larger, budget a dedicated session for it, verifying the
+16-attribute contract field-by-field, not sampled. `dashboard_presenter.py`
+itself needs at least one further slice too (see the Factory extraction's own
+"honest remaining gap" above), once its own next design pass is done.
 
 ## 5. Testing
 
@@ -585,16 +690,21 @@ merged, and fully green. Steps 1–3 below are done; only step 4 remains open.
    671 stands as this slice's final number.
 3. ~~Add the shrink-only line-count guard~~ — done (§4), scoped to `src/`,
    seeded with all 29 current violators including this file's own 671.
-4. `dashboard_presenter.py`'s §3.2 design pass is done (measured, two
-   candidates found, one real mechanism difference from
-   `data_management_presenter.py` recorded: `_on_x_completed` `@Slot`
-   handlers cannot move off the Presenter, only `_run_x`/`_on_x_requested`
-   can — see §3.2). **Next executable action:** implement candidate 2 (a new
-   Coordinator for Enable/Disable toggle + Emergency Stop + Manual order +
-   Per-order cancel, ~250 lines moved, `_on_x_completed` staying Presenter-side)
-   — smaller blast radius and better-understood than candidate 1's `__init__`
-   Factory, which should follow once this lands. Budget real time for
-   retargeting `test_dashboard_presenter.py` (2903 lines) the same way
-   `test_data_management_presenter.py` needed it. `dev_board_panel.py` (1145)
-   and `paper_exchange.py` (596, target for a `domain/policies/` extraction
-   mirroring `StopManagementPolicy`) still need their own §3.2 passes after.
+4. ~~Implement candidate 2 (Coordinator for Enable/Disable toggle + Emergency
+   Stop + Manual order + Per-order cancel)~~ — done, `dashboard_presenter.py`
+   1994 → 1858.
+5. ~~Implement candidate 1 (`__init__` Factory extraction)~~ — done (see §4
+   above): 1858 → 1454, split across five `logic/presenter_factory*.py`
+   files since the Builder itself first came out at 595 lines, a new
+   god-file violation of the exact ceiling this task enforces.
+6. `dashboard_presenter.py` still needs at least one further slice —
+   `1454` is `1054` over target. §3.2's own "not yet designed" list
+   (`BasePresenter` contract implementations/engine event bridge, FSM
+   Hooks/UI Helpers, custom indicator script orchestration, Qt Slots for
+   chart/stream actions, Engine Event Bridge/tick handling) is the
+   **next executable action**: read each section in full before claiming a
+   design, the same way §3.2's first two candidates were (mirroring
+   `fix-bug-rule.md` §2's "read the real evidence before writing a line").
+   `dev_board_panel.py` (1145, target: per-card componentization, §3.4 —
+   already fully designed, not implemented) is a materially larger,
+   independent slice that does not depend on this one.
