@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
@@ -15,24 +14,14 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.bulk_syn
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.export_file_format import (
     ExportFileFormat,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
-    IHistoricalKlines,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
-    IMarketDataSync,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
-    ISymbolCatalog,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.sync_progress_report import (
     SyncProgressReport,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.coordinators import (
     DataManagementActionKind,
-    ExportImportCoordinator,
     GapCoordinator,
     KLineInspectorCoordinator,
     ScanCoordinator,
@@ -51,7 +40,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     default_symbol_options,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
-    DATETIME_FORMAT,
     UIMode,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.container_lookup import (
@@ -71,15 +59,16 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
-from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 from .data_management_signal_payloads import GapInspectorPayload, StatusRowUpdate
 from .data_management_view_model import DataManagementViewModel
+from .logic.coordinator_factory import build_coordinators
 from .logic.export_paths import (
     export_file_filter,
     resolve_default_exports_dir,
     suggest_export_filename,
 )
+from .logic.stats import database_size_text
 from .logic.ui_mode_transitions import install_transitions
 from .signal_log_handler import SignalLogHandler
 
@@ -90,7 +79,6 @@ if TYPE_CHECKING:
 
 _DATABASE_DIR_CONFIG_KEY = "database.dir"
 _UNKNOWN_STAT = "—"
-_BYTES_PER_MB = 1024 * 1024
 
 # --- EPIC-010E — remembered selection ---------------------------------
 #: This slice's flat keys, named so `capture_state()`/`restore_state()`
@@ -182,7 +170,6 @@ class DataManagementPresenter(BasePresenter):
         )
         view.set_view_model(self._view_model)
         self._shutdown_requested = False
-        self._cancellation_token: CancellationToken | None = None
 
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
         market_data_repo: IMarketDataRepository = container.resolve(
@@ -206,77 +193,19 @@ class DataManagementPresenter(BasePresenter):
             # middle of a composition root.
             install_transitions(self.fsm)
 
-        # Initialize Coordinators (EPIC-003B)
-        self._scan_coordinator = ScanCoordinator(
-            view_model=self._view_model,
-            dispatcher=self.dispatcher,
-            thread_manager=self._thread_manager,
-            tracker=self._tracker,
-            market_data_repo=market_data_repo,
-            symbol_catalog=container.resolve(ISymbolCatalog),
-            ui_log_signal=self.ui_log_signal.emit,
-            ui_error_log_signal=self.ui_error_log_signal.emit,
-            ui_status_table_signal=self.ui_status_table_signal.emit,
-            ui_remove_symbol_signal=self.ui_remove_symbol_signal.emit,
-            ui_clear_table_signal=self.ui_clear_table_signal.emit,
-            ui_stats_refresh_signal=self.ui_stats_refresh_signal.emit,
-            ui_unlock_signal=self.ui_unlock_signal.emit,
-            ui_symbol_options_signal=self.ui_symbol_options_signal.emit,
-            ui_known_shard_count_signal=self.ui_known_shard_count_signal.emit,
-            transition_fsm=self._transition_fsm_safe,
-            get_current_fsm_state=self._get_fsm_state,
+        # Coordinators (EPIC-003B) — construction moved to a Factory
+        # (BOT-144, `code/quality.md` §9): six of them, each wired to this
+        # Presenter's own signals/FSM callbacks, is exactly the multi-step
+        # construction sequence that rule routes out of a constructor.
+        coordinators = build_coordinators(
+            self, container, self._view_model, self._thread_manager, market_data_repo
         )
-
-        self._sync_coordinator = SyncCoordinator(
-            view_model=self._view_model,
-            dispatcher=self.dispatcher,
-            market_data_sync=container.resolve(IMarketDataSync),
-            thread_manager=self._thread_manager,
-            tracker=self._tracker,
-            ui_log_signal=self.ui_log_signal.emit,
-            ui_error_log_signal=self.ui_error_log_signal.emit,
-            ui_single_sync_progress_signal=self.ui_single_sync_progress_signal.emit,
-            ui_sync_complete_signal=self.ui_sync_complete_signal.emit,
-            ui_unlock_signal=self.ui_unlock_signal.emit,
-            transition_fsm=self._transition_fsm_safe,
-            get_current_fsm_state=self._get_fsm_state,
-            is_shutdown_requested=self._is_shutdown,
-        )
-
-        self._gap_coordinator = GapCoordinator(
-            dispatcher=self.dispatcher,
-            thread_manager=self._thread_manager,
-            tracker=self._tracker,
-            ui_log_signal=self.ui_log_signal.emit,
-            ui_error_log_signal=self.ui_error_log_signal.emit,
-            ui_gap_inspector_signal=self.ui_gap_inspector_signal.emit,
-            ui_unlock_signal=self.ui_unlock_signal.emit,
-            transition_fsm=self._transition_fsm_safe,
-            get_current_fsm_state=self._get_fsm_state,
-            is_shutdown_requested=self._is_shutdown,
-            on_check_status_callback=self._scan_coordinator.run_check_status,
-        )
-
-        self._kline_inspector_coordinator = KLineInspectorCoordinator(
-            dispatcher=self.dispatcher,
-            historical_klines=container.resolve(IHistoricalKlines),
-            thread_manager=self._thread_manager,
-            tracker=self._tracker,
-            ui_error_log_signal=self.ui_error_log_signal.emit,
-            ui_kline_inspector_signal=self.ui_kline_inspector_signal.emit,
-            ui_audit_result_signal=self.ui_audit_result_signal.emit,
-            get_current_fsm_state=self._get_fsm_state,
-        )
-
-        self._export_import_coordinator = ExportImportCoordinator(
-            dispatcher=self.dispatcher,
-            tracker=self._tracker,
-            ui_log_signal=self.ui_log_signal.emit,
-            ui_error_log_signal=self.ui_error_log_signal.emit,
-            ui_unlock_signal=self.ui_unlock_signal.emit,
-            ui_stats_refresh_signal=self.ui_stats_refresh_signal.emit,
-            get_current_fsm_state=self._get_fsm_state,
-        )
+        self._scan_coordinator = coordinators.scan
+        self._sync_coordinator = coordinators.sync
+        self._gap_coordinator = coordinators.gap
+        self._kline_inspector_coordinator = coordinators.kline_inspector
+        self._export_import_coordinator = coordinators.export_import
+        self._vault_maintenance_coordinator = coordinators.vault_maintenance
 
         self._connect_ui_signals()
         self._connect_engine_events()
@@ -309,7 +238,9 @@ class DataManagementPresenter(BasePresenter):
 
         # Auto-discover shards and symbol list in background on open
         scan_token = self._scan_coordinator.create_cancellation_token()
-        self._thread_manager.submit(self._run_auto_discover, scan_token)
+        self._thread_manager.submit(
+            self._scan_coordinator.run_auto_discover, scan_token
+        )
 
     # ------------------------------------------------------------------ #
     # Coordinators & Tracker access
@@ -338,9 +269,13 @@ class DataManagementPresenter(BasePresenter):
         return self._kline_inspector_coordinator
 
     def _transition_fsm_safe(self, state: UIMode) -> bool:
+        """`True` means "proceed": either the transition succeeded, or there
+        is no FSM to refuse it (matches every pre-`BOT-144` inline
+        `if self.fsm: self.fsm.transition_to(...)` call, which never
+        blocked on a missing FSM either)."""
         if self.fsm:
             return bool(self.fsm.transition_to(state))
-        return False
+        return True
 
     def _get_fsm_state(self) -> UIMode:
         if self.fsm and self.fsm.current_state:
@@ -518,8 +453,6 @@ class DataManagementPresenter(BasePresenter):
             return
         self._shutdown_requested = True
         self._tracker.invalidate_active()
-        if self._cancellation_token is not None:
-            self._cancellation_token.cancel()
         self._scan_coordinator.cancel()
         self._sync_coordinator.cancel()
         self._gap_coordinator.cancel()
@@ -547,47 +480,19 @@ class DataManagementPresenter(BasePresenter):
         interval = (
             self._view_model.selectedInterval.strip() or TimeFrame.ONE_MINUTE.value
         )
-
-        self.ui_log_signal.emit(
-            f"Checking database status for {symbol} ({interval})..."
-        )
-        if self.fsm:
-            self.fsm.transition_to(UIMode.SCANNING)
-        self._thread_manager.submit(self._run_check_status, symbol, interval)
+        self._scan_coordinator.request_check_status(symbol, interval)
 
     @Slot()
     @safe_ui_action
     def _on_check_all_status(self) -> None:
-        if self._shutdown_requested:
-            return
-
-        self.ui_clear_table_signal.emit()
-        self.ui_log_signal.emit(
-            "Scanning DB status for ALL local shards & timeframes..."
-        )
-        if self.fsm:
-            self.fsm.transition_to(UIMode.SCANNING)
-
-        scan_token = self._scan_coordinator.create_cancellation_token()
-        # BOT-120: an empty symbol list makes ScanAllDatabasesQueryHandler fall
-        # back to IMarketDataRepository.list_available_shards() — the shards
-        # actually on disk — instead of every exchange symbol (most of which
-        # never have a shard). Intervals stay the full explicit list; an empty
-        # list there would instead fall back to the handler's own narrower
-        # default set, silently dropping timeframes this button used to cover.
-        self._thread_manager.submit(
-            self._run_scan_all,
-            [],
-            list(self._view_model.intervals),
-            scan_token,
+        self._scan_coordinator.request_check_all_status(
+            list(self._view_model.intervals)
         )
 
     @Slot()
     @safe_ui_action
     def _on_cancel(self) -> None:
         """Cooperatively cancel whichever background sync/gap repair is currently active."""
-        if self._cancellation_token is not None:
-            self._cancellation_token.cancel()
         self._tracker.invalidate_active()
         self._scan_coordinator.cancel()
         self._sync_coordinator.cancel()
@@ -599,7 +504,7 @@ class DataManagementPresenter(BasePresenter):
     @Slot()
     @safe_ui_action
     def _on_sync_data(self) -> None:
-        self._trigger_single_sync(
+        self._sync_coordinator.request_single_sync(
             self._view_model.selectedSymbol.strip(),
             self._view_model.selectedInterval.strip(),
         )
@@ -608,156 +513,74 @@ class DataManagementPresenter(BasePresenter):
     @Slot(str)
     @safe_ui_action
     def _trigger_single_sync(self, symbol: str, interval: str | None = None) -> None:
-        if self._shutdown_requested:
-            return
-
-        start_time, end_time = self._custom_time_range()
-        if self._view_model.useCustomTime:
-            if start_time is None:
-                self.ui_error_log_signal.emit(
-                    f"Invalid custom time range — expected format {DATETIME_FORMAT}."
-                )
-                return
-            if end_time is not None and start_time > end_time:
-                self.ui_error_log_signal.emit(
-                    "Invalid time range: 'From' date must be before 'To' date."
-                )
-                return
-
-        target_interval = (
-            interval
-            if interval
-            else (self._view_model.selectedInterval or TimeFrame.ONE_MINUTE.value)
-        )
-        self.ui_log_signal.emit(
-            f"Starting sync from Binance for {symbol} ({target_interval})..."
-        )
-        if self.fsm:
-            self.fsm.transition_to(UIMode.SYNCING)
-        self._view_model.set_progress(value=0, maximum=0, visible=True)
-
-        self._cancellation_token = CancellationToken()
-        self._thread_manager.submit(
-            self._run_single_sync,
-            symbol,
-            target_interval,
-            start_time,
-            end_time,
-            self._cancellation_token,
-        )
+        """Per-row "Sync" action (`syncRowRequested`) — shares the toolbar
+        button's orchestration via `SyncCoordinator.request_single_sync`."""
+        self._sync_coordinator.request_single_sync(symbol, interval)
 
     @Slot()
     @safe_ui_action
     def _on_sync_all_gaps(self) -> None:
-        if self._shutdown_requested:
-            return
-
-        targets = self._view_model.status_model.gap_targets()
-        if not targets:
-            self.ui_log_signal.emit("No gaps found to sync.")
-            return
-
-        self.ui_log_signal.emit(
-            f"Found {len(targets)} targets to sync. Starting sequential bulk sync..."
-        )
-        if self.fsm:
-            self.fsm.transition_to(UIMode.SYNCING)
-        self._view_model.set_progress(value=0, maximum=len(targets), visible=True)
-
-        self._cancellation_token = CancellationToken()
-        self._thread_manager.submit(
-            self._run_bulk_sync, targets, self._cancellation_token
-        )
+        self._sync_coordinator.request_bulk_sync()
 
     @Slot()
     @safe_ui_action
     def _on_clear_data(self) -> None:
-        if self._shutdown_requested:
-            return
-        symbol = self._view_model.selectedSymbol.strip()
-        interval = self._view_model.selectedInterval.strip()
-        self.ui_log_signal.emit(f"Requesting data clear for {symbol} ({interval})...")
-        if self.fsm:
-            self.fsm.transition_to(UIMode.CLEARING)
-        self._thread_manager.submit(self._run_clear_data, symbol, interval)
+        self._vault_maintenance_coordinator.request_clear_data(
+            self._view_model.selectedSymbol.strip(),
+            self._view_model.selectedInterval.strip(),
+        )
 
     @Slot(str, str)
     @safe_ui_action
     def _on_clear_row(self, symbol: str, interval: str) -> None:
-        if self._shutdown_requested:
-            return
-        self.ui_log_signal.emit(f"Requesting data clear for {symbol} ({interval})...")
-        if self.fsm:
-            self.fsm.transition_to(UIMode.CLEARING)
-        self._thread_manager.submit(self._run_clear_data, symbol, interval)
+        self._vault_maintenance_coordinator.request_clear_data(symbol, interval)
 
     @Slot()
     @safe_ui_action
     def _on_purge_all(self) -> None:
-        if self._shutdown_requested:
-            return
-        self.ui_log_signal.emit("Requesting PURGE of all Storage Vault databases...")
-        if self.fsm:
-            self.fsm.transition_to(UIMode.CLEARING)
-        self._thread_manager.submit(self._run_purge_all)
+        self._vault_maintenance_coordinator.request_purge_all()
 
     @Slot()
     @safe_ui_action
     def _on_vacuum(self) -> None:
-        if self._shutdown_requested:
-            return
-        self.ui_log_signal.emit("Running SQLite VACUUM optimization...")
-        self._thread_manager.submit(self._run_vacuum)
+        self._vault_maintenance_coordinator.request_vacuum()
 
     @Slot(str, str)
     @safe_ui_action
     def _on_inspect_gaps(self, symbol: str, interval: str) -> None:
-        self._thread_manager.submit(self._run_inspect_gaps, symbol, interval)
+        self._thread_manager.submit(
+            self._gap_coordinator.run_inspect_gaps, symbol, interval
+        )
 
     @Slot(str, str, str, str)
     @safe_ui_action
     def _on_repair_gap(
         self, symbol: str, interval: str, start_time: str, end_time: str
     ) -> None:
-        if self._shutdown_requested:
-            return
-        if self.fsm and not self.fsm.transition_to(UIMode.SYNCING):
-            return
-        self._cancellation_token = CancellationToken()
-        self._thread_manager.submit(
-            self._run_repair_gap,
-            symbol,
-            interval,
-            start_time,
-            end_time,
-            self._cancellation_token,
-        )
+        self._gap_coordinator.request_repair_gap(symbol, interval, start_time, end_time)
 
     @Slot(str, str)
     @safe_ui_action
     def _on_repair_all_gaps(self, symbol: str, interval: str) -> None:
-        if self._shutdown_requested:
-            return
-        if self.fsm and not self.fsm.transition_to(UIMode.SYNCING):
-            return
-        self._cancellation_token = CancellationToken()
-        self._thread_manager.submit(
-            self._run_repair_all_gaps, symbol, interval, self._cancellation_token
-        )
+        self._gap_coordinator.request_repair_all_gaps(symbol, interval)
 
     @Slot(str, str)
     @safe_ui_action
     def _on_inspect_klines(
         self, symbol: str, interval: str = TimeFrame.ONE_MINUTE.value
     ) -> None:
-        self._thread_manager.submit(self._run_inspect_klines, symbol, interval)
+        self._thread_manager.submit(
+            self._kline_inspector_coordinator.run_inspect_klines, symbol, interval
+        )
 
     @Slot(str, str)
     @safe_ui_action
     def _on_run_audit(
         self, symbol: str, interval: str = TimeFrame.ONE_MINUTE.value
     ) -> None:
-        self._thread_manager.submit(self._run_audit, symbol, interval)
+        self._thread_manager.submit(
+            self._kline_inspector_coordinator.run_audit, symbol, interval
+        )
 
     def _ask_export_path(self, file_format: ExportFileFormat) -> str:
         """Where to write the export, or "" if the user cancelled.
@@ -805,9 +628,8 @@ class DataManagementPresenter(BasePresenter):
             return
         symbol = self._view_model.selectedSymbol.strip()
         interval = self._view_model.selectedInterval.strip()
-        self.ui_log_signal.emit(f"Exporting {symbol} ({interval}) to {path}...")
-        self._thread_manager.submit(
-            self._run_export, symbol, interval, path, file_format
+        self._export_import_coordinator.request_export_data(
+            symbol, interval, path, file_format
         )
 
     @Slot()
@@ -820,10 +642,7 @@ class DataManagementPresenter(BasePresenter):
             return
         symbol = self._view_model.selectedSymbol.strip()
         interval = self._view_model.selectedInterval.strip()
-        self.ui_log_signal.emit(f"Importing {symbol} ({interval}) from {path}...")
-        if self.fsm:
-            self.fsm.transition_to(UIMode.CLEARING)
-        self._thread_manager.submit(self._run_import, symbol, interval, path)
+        self._export_import_coordinator.request_import_data(symbol, interval, path)
 
     # ================================================================== #
     # Main-thread helpers
@@ -848,117 +667,5 @@ class DataManagementPresenter(BasePresenter):
                 continue
 
         stored = f"{total_records:,}" if total_records else _UNKNOWN_STAT
-        self._view_model.set_stats(stored, self._database_size_text())
-
-    def _database_size_text(self) -> str:
-        """Sums on-disk SQLite files."""
         raw_dir = self.config.get(_DATABASE_DIR_CONFIG_KEY, None)
-        if not isinstance(raw_dir, (str, Path)) or not str(raw_dir).strip():
-            return _UNKNOWN_STAT
-
-        try:
-            directory = Path(raw_dir)
-            if not directory.is_dir():
-                return _UNKNOWN_STAT
-            total_bytes = sum(
-                path.stat().st_size
-                for path in directory.glob("*.db*")
-                if path.is_file()
-            )
-        except OSError:
-            return _UNKNOWN_STAT
-
-        if not total_bytes:
-            return _UNKNOWN_STAT
-        return f"{total_bytes / _BYTES_PER_MB:.2f} MB"
-
-    # ================================================================== #
-    # Backward-compatible worker delegates (delegate to Coordinators)
-    # ================================================================== #
-
-    def _run_auto_discover(
-        self, cancellation_token: CancellationToken | None = None
-    ) -> None:
-        self._scan_coordinator.run_auto_discover(cancellation_token)
-
-    def _run_check_status(self, symbol: str, interval: str) -> None:
-        self._scan_coordinator.run_check_status(symbol, interval)
-
-    def _run_scan_all(
-        self,
-        symbols: list[str],
-        intervals: list[str],
-        cancellation_token: CancellationToken | None = None,
-    ) -> None:
-        self._scan_coordinator.run_scan_all(symbols, intervals, cancellation_token)
-
-    def _run_single_sync(
-        self,
-        symbol: str,
-        interval: str,
-        start_time: datetime | None,
-        end_time: datetime | None,
-        cancellation_token: CancellationToken | None = None,
-    ) -> None:
-        self._sync_coordinator.run_single_sync(
-            symbol, interval, start_time, end_time, cancellation_token
-        )
-
-    def _run_bulk_sync(
-        self,
-        targets: list[tuple[str, str]],
-        cancellation_token: CancellationToken | None = None,
-    ) -> None:
-        self._sync_coordinator.run_bulk_sync(targets, cancellation_token)
-
-    def _run_clear_data(self, symbol: str, interval: str) -> None:
-        self._scan_coordinator.run_clear_data(symbol, interval)
-
-    def _run_purge_all(self) -> None:
-        self._scan_coordinator.run_purge_all()
-
-    def _run_vacuum(self) -> None:
-        self._scan_coordinator.run_vacuum()
-
-    def _run_inspect_gaps(self, symbol: str, interval: str) -> None:
-        self._gap_coordinator.run_inspect_gaps(symbol, interval)
-
-    def _run_repair_gap(
-        self,
-        symbol: str,
-        interval: str,
-        start_iso: str,
-        end_iso: str,
-        cancellation_token: CancellationToken | None = None,
-    ) -> None:
-        self._gap_coordinator.run_repair_gap(
-            symbol, interval, start_iso, end_iso, cancellation_token
-        )
-
-    def _run_repair_all_gaps(
-        self,
-        symbol: str,
-        interval: str,
-        cancellation_token: CancellationToken | None = None,
-    ) -> None:
-        self._gap_coordinator.run_repair_all_gaps(symbol, interval, cancellation_token)
-
-    def _run_inspect_klines(self, symbol: str, interval: str) -> None:
-        self._kline_inspector_coordinator.run_inspect_klines(symbol, interval)
-
-    def _run_audit(self, symbol: str, interval: str) -> None:
-        self._kline_inspector_coordinator.run_audit(symbol, interval)
-
-    def _run_export(
-        self,
-        symbol: str,
-        interval: str,
-        destination_path: str,
-        file_format: ExportFileFormat,
-    ) -> None:
-        self._export_import_coordinator.run_export(
-            symbol, interval, destination_path, file_format
-        )
-
-    def _run_import(self, symbol: str, interval: str, source_path: str) -> None:
-        self._export_import_coordinator.run_import(symbol, interval, source_path)
+        self._view_model.set_stats(stored, database_size_text(raw_dir))

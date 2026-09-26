@@ -83,9 +83,9 @@ def export_import_setup(qapp, tmp_path):
 
     view = DataManagementView()
     presenter = DataManagementPresenter(view, container)
-    # `__init__` submits `_run_auto_discover` on open — irrelevant to every
-    # export/import assertion below, so it is cleared here rather than
-    # forcing each test to account for it.
+    # `__init__` submits `ScanCoordinator.run_auto_discover` on open —
+    # irrelevant to every export/import assertion below, so it is cleared
+    # here rather than forcing each test to account for it.
     mock_thread_mgr.submit.reset_mock()
     return presenter, presenter._view_model, mock_thread_mgr, mock_dispatcher, mock_repo
 
@@ -130,7 +130,11 @@ def test_export_confirmed_path_submits_run_export(export_import_setup, tmp_path)
         view_model.requestExport()
 
     mock_thread_mgr.submit.assert_called_once_with(
-        presenter._run_export, "ETHUSDT", "1h", dest, ExportFileFormat.CSV
+        presenter._export_import_coordinator.run_export,
+        "ETHUSDT",
+        "1h",
+        dest,
+        ExportFileFormat.CSV,
     )
 
 
@@ -140,7 +144,9 @@ def test_run_export_delegates_to_export_import_coordinator(export_import_setup):
         exported_records=1, success=True, message="ok"
     )
 
-    presenter._run_export("BTCUSDT", "1m", "/tmp/x.csv", ExportFileFormat.CSV)
+    presenter._export_import_coordinator.run_export(
+        "BTCUSDT", "1m", "/tmp/x.csv", ExportFileFormat.CSV
+    )
 
     command = mock_dispatcher.dispatch.call_args[0][1]
     assert isinstance(command, ExportMarketDataCommand)
@@ -170,7 +176,7 @@ def test_import_confirmed_path_submits_run_import_and_locks_fsm(
         view_model.requestImport()
 
     mock_thread_mgr.submit.assert_called_once_with(
-        presenter._run_import, "BTCUSDT", "5m", source
+        presenter._export_import_coordinator.run_import, "BTCUSDT", "5m", source
     )
     assert presenter.fsm.current_state == UIMode.CLEARING
 
@@ -181,7 +187,7 @@ def test_run_import_delegates_to_export_import_coordinator(export_import_setup):
         imported_records=3, success=True, message="ok"
     )
 
-    presenter._run_import("BTCUSDT", "1m", "/tmp/in.csv")
+    presenter._export_import_coordinator.run_import("BTCUSDT", "1m", "/tmp/in.csv")
 
     command = mock_dispatcher.dispatch.call_args[0][1]
     assert isinstance(command, ImportMarketDataCommand)
@@ -247,7 +253,9 @@ def test_csv_export_writes_real_file_end_to_end(export_import_setup, tmp_path):
     )
     dest = tmp_path / "real.csv"
 
-    presenter._run_export("BTCUSDT", "1m", str(dest), ExportFileFormat.CSV)
+    presenter._export_import_coordinator.run_export(
+        "BTCUSDT", "1m", str(dest), ExportFileFormat.CSV
+    )
 
     assert dest.is_file()
     with open(dest, newline="", encoding="utf-8") as csv_file:

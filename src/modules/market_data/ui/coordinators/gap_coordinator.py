@@ -270,3 +270,40 @@ class GapCoordinator:
         finally:
             self._cancellation_token = None
             self._ui_unlock_signal()
+
+    # ------------------------------------------------------------------ #
+    # User-triggered orchestration — runs on the main thread, synchronously
+    # from the Presenter's Slot (BOT-144). See `ScanCoordinator`'s own
+    # section for why `_transition_fsm` is safe to call only here, and
+    # `SyncCoordinator`'s for why creating the token here (rather than on
+    # the Presenter) is what makes this coordinator's own `cancel()` live.
+    # ------------------------------------------------------------------ #
+
+    def request_repair_gap(
+        self, symbol: str, interval: str, start_time: str, end_time: str
+    ) -> None:
+        """Orchestrates repairing one detected gap, triggered from the UI."""
+        if self._is_shutdown_requested():
+            return
+        if not self._transition_fsm(UIMode.SYNCING):
+            return
+        self._cancellation_token = CancellationToken()
+        self._thread_manager.submit(
+            self.run_repair_gap,
+            symbol,
+            interval,
+            start_time,
+            end_time,
+            self._cancellation_token,
+        )
+
+    def request_repair_all_gaps(self, symbol: str, interval: str) -> None:
+        """Orchestrates repairing every detected gap, triggered from the UI."""
+        if self._is_shutdown_requested():
+            return
+        if not self._transition_fsm(UIMode.SYNCING):
+            return
+        self._cancellation_token = CancellationToken()
+        self._thread_manager.submit(
+            self.run_repair_all_gaps, symbol, interval, self._cancellation_token
+        )

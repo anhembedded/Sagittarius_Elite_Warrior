@@ -158,7 +158,7 @@ def view_model(presenter):
 
 
 def test_on_sync_data_submits_background_task(presenter, view_model, mock_thread_mgr):
-    """Must lock the FSM and submit _run_single_sync with selected symbol & interval."""
+    """Must lock the FSM and submit run_single_sync with selected symbol & interval."""
     view_model.selectedSymbol = "BTCUSDT"
     view_model.selectedInterval = "15m"
 
@@ -166,12 +166,12 @@ def test_on_sync_data_submits_background_task(presenter, view_model, mock_thread
 
     assert presenter.fsm.current_state == UIMode.SYNCING
     mock_thread_mgr.submit.assert_called_with(
-        presenter._run_single_sync,
+        presenter._sync_coordinator.run_single_sync,
         "BTCUSDT",
         "15m",
         None,
         None,
-        presenter._cancellation_token,
+        presenter._sync_coordinator.cancellation_token,
     )
 
 
@@ -181,7 +181,7 @@ def test_run_single_sync_asks_the_market_data_port(presenter, fake_market_data_s
     readable straight off the port."""
     presenter.fsm.transition_to(UIMode.SYNCING)
 
-    presenter._run_single_sync("ETHUSDT", "1h", None, None)
+    presenter._sync_coordinator.run_single_sync("ETHUSDT", "1h", None, None)
 
     request = fake_market_data_sync.requests[0]
     assert request.symbols == ("ETHUSDT",)
@@ -218,7 +218,7 @@ def test_invalid_custom_time_range_is_rejected_without_syncing(
 
     # Must not submit single sync when invalid
     for call in mock_thread_mgr.submit.call_args_list:
-        assert call.args[0] != presenter._run_single_sync
+        assert call.args[0] != presenter._sync_coordinator.run_single_sync
     assert presenter.fsm.current_state == UIMode.IDLE
     assert view_model.log_model.entries[-1].level == "error"
 
@@ -237,7 +237,7 @@ def test_on_check_all_status_submits_background_task(
     method, symbols, intervals, cancellation_token = (
         mock_thread_mgr.submit.call_args.args
     )
-    assert method == presenter._run_scan_all
+    assert method == presenter._scan_coordinator.run_scan_all
     # BOT-120: an empty symbol list makes the handler fall back to shards
     # actually on disk instead of the full exchange symbol catalogue.
     assert symbols == []
@@ -249,7 +249,7 @@ def test_run_scan_all_dispatches_single_query(presenter, mock_dispatcher):
     mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type([])
     presenter.fsm.transition_to(UIMode.SCANNING)
 
-    presenter._run_scan_all(["BTCUSDT"], ["1m", "5m"])
+    presenter._scan_coordinator.run_scan_all(["BTCUSDT"], ["1m", "5m"])
 
     assert any(
         call.args[0] is ScanAllDatabasesQuery
@@ -282,7 +282,7 @@ def test_run_scan_all_fills_the_table_model(presenter, view_model, mock_dispatch
     )
     presenter.fsm.transition_to(UIMode.SCANNING)
 
-    presenter._run_scan_all(["BTCUSDT", "ETHUSDT"], ["1m", "15m"])
+    presenter._scan_coordinator.run_scan_all(["BTCUSDT", "ETHUSDT"], ["1m", "15m"])
 
     assert view_model.status_model.rowCount() == 2
     assert view_model.status_model.gap_targets() == [("ETHUSDT", "15m")]
@@ -297,7 +297,7 @@ def test_on_check_status_submits_background_task(
     view_model.requestCheckStatus()
 
     mock_thread_mgr.submit.assert_called_with(
-        presenter._run_check_status, "BTCUSDT", "1h"
+        presenter._scan_coordinator.run_check_status, "BTCUSDT", "1h"
     )
     assert presenter.fsm.current_state == UIMode.SCANNING
 
@@ -318,7 +318,7 @@ def test_run_check_status_populates_the_row_for_the_selection(
     mock_dispatcher.dispatch.return_value = response
 
     presenter.fsm.transition_to(UIMode.SCANNING)
-    presenter._run_check_status("BTCUSDT", "1h")
+    presenter._scan_coordinator.run_check_status("BTCUSDT", "1h")
 
     rows = view_model.status_model.rows
     assert len(rows) == 1
@@ -340,7 +340,7 @@ def test_sync_all_gaps_uses_only_unhealthy_rows(presenter, view_model, mock_thre
     view_model.requestSyncAllGaps()
 
     method, targets, token = mock_thread_mgr.submit.call_args.args
-    assert method == presenter._run_bulk_sync
+    assert method == presenter._sync_coordinator.run_bulk_sync
     assert targets == [("ETHUSDT", "15m")]
     assert isinstance(token, CancellationToken)
     assert view_model.progressMaximum == 1
@@ -356,7 +356,7 @@ def test_sync_all_gaps_with_no_gaps_does_nothing(
 
     # Must not submit bulk sync
     for call in mock_thread_mgr.submit.call_args_list:
-        assert call.args[0] != presenter._run_bulk_sync
+        assert call.args[0] != presenter._sync_coordinator.run_bulk_sync
     assert presenter.fsm.current_state == UIMode.IDLE
 
 
@@ -395,14 +395,16 @@ def test_confirm_overlays_reach_the_view_model_after_it_is_attached(
 
     assert presenter.fsm.current_state == UIMode.CLEARING
     mock_thread_mgr.submit.assert_called_with(
-        presenter._run_clear_data, "BTCUSDT", "5m"
+        presenter._vault_maintenance_coordinator.run_clear_data, "BTCUSDT", "5m"
     )
 
     presenter.fsm.transition_to(UIMode.IDLE)
     view._purge_dialog.confirm_button.click()
 
     assert presenter.fsm.current_state == UIMode.CLEARING
-    mock_thread_mgr.submit.assert_called_with(presenter._run_purge_all)
+    mock_thread_mgr.submit.assert_called_with(
+        presenter._vault_maintenance_coordinator.run_purge_all
+    )
 
 
 def test_confirm_overlays_are_safe_before_a_view_model_is_attached(qapp, request):
@@ -427,7 +429,7 @@ def test_on_clear_data_submits_clear_worker(presenter, view_model, mock_thread_m
 
     assert presenter.fsm.current_state == UIMode.CLEARING
     mock_thread_mgr.submit.assert_called_with(
-        presenter._run_clear_data, "BTCUSDT", "5m"
+        presenter._vault_maintenance_coordinator.run_clear_data, "BTCUSDT", "5m"
     )
 
 
@@ -443,7 +445,7 @@ def test_run_clear_data_dispatches_command_and_updates_model(
     assert view_model.status_model.rowCount() == 1
 
     presenter.fsm.transition_to(UIMode.CLEARING)
-    presenter._run_clear_data("BTCUSDT", "5m")
+    presenter._vault_maintenance_coordinator.run_clear_data("BTCUSDT", "5m")
 
     assert view_model.status_model.rowCount() == 0
     assert view_model.log_model.entries[-1].level == "info"
@@ -454,7 +456,9 @@ def test_on_purge_all_submits_purge_worker(presenter, view_model, mock_thread_mg
     view_model.requestPurgeAll()
 
     assert presenter.fsm.current_state == UIMode.CLEARING
-    mock_thread_mgr.submit.assert_called_with(presenter._run_purge_all)
+    mock_thread_mgr.submit.assert_called_with(
+        presenter._vault_maintenance_coordinator.run_purge_all
+    )
 
 
 def test_run_purge_all_dispatches_command_and_clears_all(
@@ -469,7 +473,7 @@ def test_run_purge_all_dispatches_command_and_clears_all(
     view_model.status_model.upsert_row("ETHUSDT", "a", "b", "200", "OK", "1h")
 
     presenter.fsm.transition_to(UIMode.CLEARING)
-    presenter._run_purge_all()
+    presenter._vault_maintenance_coordinator.run_purge_all()
 
     assert view_model.status_model.rowCount() == 0
     assert presenter.fsm.current_state == UIMode.IDLE
@@ -477,7 +481,9 @@ def test_run_purge_all_dispatches_command_and_clears_all(
 
 def test_on_vacuum_submits_vacuum_worker(presenter, view_model, mock_thread_mgr):
     view_model.requestVacuum()
-    mock_thread_mgr.submit.assert_called_with(presenter._run_vacuum)
+    mock_thread_mgr.submit.assert_called_with(
+        presenter._vault_maintenance_coordinator.run_vacuum
+    )
 
 
 # ---------------------------------------------------------------------------
@@ -495,7 +501,7 @@ def test_stored_records_tile_sums_scanned_totals(
         ]
     )
     presenter.fsm.transition_to(UIMode.SCANNING)
-    presenter._run_scan_all(["BTCUSDT", "ETHUSDT"], ["1m", "15m"])
+    presenter._scan_coordinator.run_scan_all(["BTCUSDT", "ETHUSDT"], ["1m", "15m"])
 
     presenter._refresh_stats()
 
@@ -557,7 +563,7 @@ def test_startup_auto_discovery_stays_cheap_and_refreshes_the_stat_tiles(
     mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type([])
     assert presenter.fsm.current_state == UIMode.IDLE
 
-    presenter._run_auto_discover()
+    presenter._scan_coordinator.run_auto_discover()
 
     assert view_model.status_model.rowCount() == 0
     assert view_model.storedRecords == "—"
@@ -580,7 +586,7 @@ def test_startup_auto_discovery_reports_known_shard_count_truthfully(
     mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type([])
     mock_market_data_repo.list_available_shards.return_value = ["BTCUSDT", "ETHUSDT"]
 
-    presenter._run_auto_discover()
+    presenter._scan_coordinator.run_auto_discover()
 
     assert view_model.status_model.rowCount() == 0
     assert view_model.knownShardCount == 2
@@ -596,7 +602,7 @@ def test_startup_auto_discovery_does_not_unlock_a_sync_started_meanwhile(
     mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type([])
     presenter.fsm.transition_to(UIMode.SYNCING)
 
-    presenter._run_auto_discover()
+    presenter._scan_coordinator.run_auto_discover()
 
     assert presenter.fsm.current_state == UIMode.SYNCING
 
@@ -610,9 +616,9 @@ def test_vacuum_refreshes_the_stat_tiles(presenter, view_model, mock_dispatcher)
         [DatabaseStatusDTO("BTCUSDT", "1m", "a", "b", "500", "0", "OK")]
     )
     presenter.fsm.transition_to(UIMode.SCANNING)
-    presenter._run_scan_all(["BTCUSDT"], ["1m"])
+    presenter._scan_coordinator.run_scan_all(["BTCUSDT"], ["1m"])
 
-    presenter._run_vacuum()
+    presenter._vault_maintenance_coordinator.run_vacuum()
 
     assert presenter.fsm.current_state == UIMode.IDLE
     assert view_model.storedRecords == "500"
@@ -635,7 +641,7 @@ def test_unlock_ui_is_idempotent_when_already_idle(
         [DatabaseStatusDTO("BTCUSDT", "1m", "a", "b", "777", "0", "OK")]
     )
     presenter.fsm.transition_to(UIMode.SCANNING)
-    presenter._run_scan_all(["BTCUSDT"], ["1m"])
+    presenter._scan_coordinator.run_scan_all(["BTCUSDT"], ["1m"])
     assert presenter.fsm.current_state == UIMode.IDLE
 
     presenter._unlock_ui()
@@ -664,7 +670,7 @@ def test_auto_discover_empty_database_logs_informative_message(
     """When disk has no databases, auto-discover should log a clear message for the user."""
     mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type([])
 
-    presenter._run_auto_discover()
+    presenter._scan_coordinator.run_auto_discover()
 
     log_entries = [
         view_model.log_model.data(view_model.log_model.index(i, 0), 257)
@@ -679,7 +685,7 @@ def test_scan_all_empty_database_logs_informative_message(
     """When a scan finds 0 tables, full scan should log that no database tables were found."""
     mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type([])
 
-    presenter._run_scan_all(["BTCUSDT"], ["1m"])
+    presenter._scan_coordinator.run_scan_all(["BTCUSDT"], ["1m"])
 
     log_entries = [
         view_model.log_model.data(view_model.log_model.index(i, 0), 257)
@@ -696,7 +702,7 @@ def test_auto_discover_empty_database_emits_storage_vault_logger(
     """Asserts that App.DataManagement emits structured [storage-vault] INFO logs."""
     mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type([])
     with caplog.at_level(logging.INFO, logger="App.DataManagement"):
-        presenter._run_auto_discover()
+        presenter._scan_coordinator.run_auto_discover()
 
     assert any(
         "[storage-vault]" in record.message
@@ -709,7 +715,7 @@ def test_on_cancel_cancels_active_cancellation_token_and_transitions_fsm_to_canc
     presenter, view_model
 ):
     token = CancellationToken()
-    presenter._cancellation_token = token
+    presenter._sync_coordinator._cancellation_token = token
     presenter.fsm.transition_to(UIMode.SYNCING)
 
     presenter._on_cancel()
@@ -724,7 +730,7 @@ def test_single_sync_with_cancelled_token_logs_cancellation_message(
     token = CancellationToken()
     token.cancel()
 
-    presenter._run_single_sync(
+    presenter._sync_coordinator.run_single_sync(
         symbol="BTCUSDT",
         interval="1m",
         start_time=None,
@@ -737,7 +743,7 @@ def test_single_sync_with_cancelled_token_logs_cancellation_message(
         for i in range(view_model.log_model.rowCount())
     ]
     assert any("Sync stopped for BTCUSDT (1m)" in entry for entry in log_entries)
-    assert presenter._cancellation_token is None
+    assert presenter._sync_coordinator.cancellation_token is None
 
 
 def test_bulk_sync_with_cancelled_token_logs_cancellation_message(
@@ -746,7 +752,7 @@ def test_bulk_sync_with_cancelled_token_logs_cancellation_message(
     token = CancellationToken()
     token.cancel()
 
-    presenter._run_bulk_sync(
+    presenter._sync_coordinator.run_bulk_sync(
         targets=[("BTCUSDT", "1m"), ("ETHUSDT", "5m")],
         cancellation_token=token,
     )
@@ -756,14 +762,14 @@ def test_bulk_sync_with_cancelled_token_logs_cancellation_message(
         for i in range(view_model.log_model.rowCount())
     ]
     assert any("Bulk sync process stopped" in entry for entry in log_entries)
-    assert presenter._cancellation_token is None
+    assert presenter._sync_coordinator.cancellation_token is None
 
 
 def test_presenter_shutdown_cancels_inflight_sync_token_idempotently(
     presenter,
 ):
     token = Mock()
-    presenter._cancellation_token = token
+    presenter._sync_coordinator._cancellation_token = token
 
     presenter.shutdown()
 
@@ -804,13 +810,13 @@ def test_repair_gap_wires_cancellation_token(
     mock_thread_mgr.submit.reset_mock()
     presenter._on_repair_gap("BTCUSDT", "1m", "2024-01-01", "2024-01-02")
 
-    assert presenter._cancellation_token is not None
+    assert presenter._gap_coordinator.cancellation_token is not None
     assert mock_thread_mgr.submit.call_count == 1
 
     call_args = mock_thread_mgr.submit.call_args[0]
-    assert call_args[0] == presenter._run_repair_gap
+    assert call_args[0] == presenter._gap_coordinator.run_repair_gap
     assert call_args[1] == "BTCUSDT"
     assert call_args[2] == "1m"
     assert call_args[3] == "2024-01-01"
     assert call_args[4] == "2024-01-02"
-    assert call_args[5] == presenter._cancellation_token
+    assert call_args[5] == presenter._gap_coordinator.cancellation_token

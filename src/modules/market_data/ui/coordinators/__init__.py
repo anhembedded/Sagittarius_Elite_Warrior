@@ -4,6 +4,7 @@ from .gap_coordinator import GapCoordinator
 from .kline_inspector_coordinator import KLineInspectorCoordinator
 from .scan_coordinator import ScanCoordinator
 from .sync_coordinator import SyncCoordinator
+from .vault_maintenance_coordinator import VaultMaintenanceCoordinator
 
 __all__ = [
     "DataManagementActionKind",
@@ -12,4 +13,5 @@ __all__ = [
     "KLineInspectorCoordinator",
     "ScanCoordinator",
     "SyncCoordinator",
+    "VaultMaintenanceCoordinator",
 ]

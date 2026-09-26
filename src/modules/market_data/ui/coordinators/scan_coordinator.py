@@ -3,10 +3,6 @@ from collections.abc import Callable
 from threading import Lock
 
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
-from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.clear_market_data import (
-    ClearMarketDataCommand,
-    ClearMarketDataResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.prune_empty_shards import (
     PruneEmptyShardsCommand,
     PruneEmptyShardsResult,
@@ -67,6 +63,7 @@ class ScanCoordinator:
         ui_known_shard_count_signal: Callable[[int], None],
         transition_fsm: Callable[[UIMode], bool],
         get_current_fsm_state: Callable[[], UIMode],
+        is_shutdown_requested: Callable[[], bool],
     ) -> None:
         self._view_model = view_model
         self._dispatcher = dispatcher
@@ -86,6 +83,7 @@ class ScanCoordinator:
         self._ui_known_shard_count_signal = ui_known_shard_count_signal
         self._transition_fsm = transition_fsm
         self._get_current_fsm_state = get_current_fsm_state
+        self._is_shutdown_requested = is_shutdown_requested
         self._cancellation_lock = Lock()
         self._cancellation_tokens: set[CancellationToken] = set()
 
@@ -341,99 +339,36 @@ class ScanCoordinator:
             self._release_cancellation_token(token)
             self._ui_unlock_signal()
 
-    def run_clear_data(self, symbol: str, interval: str) -> None:
-        """Background worker: dispatches ClearMarketDataCommand."""
-        action = self._tracker.begin_action(
-            DataManagementActionKind.CLEAR_DATA,
-            {"symbol": symbol, "interval": interval},
-            self._get_current_fsm_state(),
-        )
-        try:
-            interval_vo = TimeFrame(interval) if interval else None
-            cmd = ClearMarketDataCommand(symbol=symbol, interval=interval_vo)
-            result: ClearMarketDataResult = self._dispatcher.dispatch(
-                ClearMarketDataCommand, cmd
-            )
-            if self._tracker.is_current_pending(
-                action.action_id, DataManagementActionKind.CLEAR_DATA
-            ):
-                if result.success:
-                    self._ui_log_signal(result.message)
-                    self._ui_remove_symbol_signal(symbol, interval)
-                    self._tracker.finish_action(
-                        action.action_id, ActionOutcome.SUCCEEDED
-                    )
-                else:
-                    self._ui_error_log_signal(result.message)
-                    self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
-            else:
-                self._tracker.log_stale_callback(
-                    "clear_data",
-                    action.action_id,
-                    DataManagementActionKind.CLEAR_DATA,
-                )
-        except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing
-            self._ui_error_log_signal(f"Failed to clear market data: {exc}")
-            self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
-        finally:
-            self._ui_unlock_signal()
+    # ------------------------------------------------------------------ #
+    # User-triggered orchestration — runs on the main thread, synchronously
+    # from the Presenter's Slot (BOT-144). Validates, logs, transitions the
+    # FSM via the injected callback, then submits the matching `run_*()`
+    # worker above. Never called from a background thread: `_transition_fsm`
+    # touches Qt state and may only be invoked from the thread that owns it.
+    #
+    # Clear/purge/VACUUM's own `run_*`/`request_*` pair moved to
+    # `VaultMaintenanceCoordinator` (BOT-144) once adding this section here
+    # pushed this file back over the 400-line ceiling — the same reason
+    # export/import left for `ExportImportCoordinator` before this feature
+    # existed (see that file's own docstring).
+    # ------------------------------------------------------------------ #
 
-    def run_purge_all(self) -> None:
-        """Background worker: dispatches ClearMarketDataCommand with purge_all=True."""
-        action = self._tracker.begin_action(
-            DataManagementActionKind.PURGE_ALL,
-            None,
-            self._get_current_fsm_state(),
-        )
-        try:
-            cmd = ClearMarketDataCommand(purge_all=True)
-            result: ClearMarketDataResult = self._dispatcher.dispatch(
-                ClearMarketDataCommand, cmd
-            )
-            if self._tracker.is_current_pending(
-                action.action_id, DataManagementActionKind.PURGE_ALL
-            ):
-                if result.success:
-                    self._ui_log_signal(result.message)
-                    self._ui_clear_table_signal()
-                    self._tracker.finish_action(
-                        action.action_id, ActionOutcome.SUCCEEDED
-                    )
-                else:
-                    self._ui_error_log_signal(result.message)
-                    self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
-            else:
-                self._tracker.log_stale_callback(
-                    "purge_all",
-                    action.action_id,
-                    DataManagementActionKind.PURGE_ALL,
-                )
-        except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing
-            self._ui_error_log_signal(f"Failed to purge vault: {exc}")
-            self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
-        finally:
-            self._ui_unlock_signal()
+    def request_check_status(self, symbol: str, interval: str) -> None:
+        """Orchestrates a single-row status check triggered from the UI."""
+        self._ui_log_signal(f"Checking database status for {symbol} ({interval})...")
+        self._transition_fsm(UIMode.SCANNING)
+        self._thread_manager.submit(self.run_check_status, symbol, interval)
 
-    def run_vacuum(self) -> None:
-        """Background worker: runs SQLite VACUUM compaction using injected repository."""
-        action = self._tracker.begin_action(
-            DataManagementActionKind.VACUUM,
-            None,
-            self._get_current_fsm_state(),
-        )
-        try:
-            self._market_data_repo.vacuum()
-            if self._tracker.is_current_pending(
-                action.action_id, DataManagementActionKind.VACUUM
-            ):
-                self._ui_log_signal("Database optimization (VACUUM) completed.")
-                self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
-            else:
-                self._tracker.log_stale_callback(
-                    "vacuum", action.action_id, DataManagementActionKind.VACUUM
-                )
-        except Exception as exc:  # noqa: BLE001
-            self._ui_error_log_signal(f"VACUUM optimization failed: {exc}")
-            self._tracker.finish_action(action.action_id, ActionOutcome.FAILED)
-        finally:
-            self._ui_stats_refresh_signal()
+    def request_check_all_status(self, intervals: list[str]) -> None:
+        """Orchestrates "Scan All Shards & Timeframes", triggered from the UI.
+
+        BOT-120: an empty symbol list makes `run_scan_all` fall back to
+        shards actually on disk instead of every exchange symbol.
+        """
+        if self._is_shutdown_requested():
+            return
+        self._ui_clear_table_signal()
+        self._ui_log_signal("Scanning DB status for ALL local shards & timeframes...")
+        self._transition_fsm(UIMode.SCANNING)
+        scan_token = self.create_cancellation_token()
+        self._thread_manager.submit(self.run_scan_all, [], intervals, scan_token)

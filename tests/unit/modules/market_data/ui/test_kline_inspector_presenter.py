@@ -92,10 +92,12 @@ def test_inspect_klines_submits_thread_and_populates_model(presenter_setup, qapp
     vm.requestInspectKlines("BTCUSDT", "1m")
 
     # Verify thread manager submitted worker
-    thread_mgr.submit.assert_called_with(presenter._run_inspect_klines, "BTCUSDT", "1m")
+    thread_mgr.submit.assert_called_with(
+        presenter._kline_inspector_coordinator.run_inspect_klines, "BTCUSDT", "1m"
+    )
 
     # Execute worker directly
-    presenter._run_inspect_klines("BTCUSDT", "1m")
+    presenter._kline_inspector_coordinator.run_inspect_klines("BTCUSDT", "1m")
     qapp.processEvents()
 
     assert vm.klineInspectorSymbol == "BTCUSDT"
@@ -118,9 +120,11 @@ def test_run_audit_submits_thread_and_emits_result(presenter_setup, qapp):
 
     vm.requestRunAudit("ETHUSDT", "5m")
 
-    thread_mgr.submit.assert_called_with(presenter._run_audit, "ETHUSDT", "5m")
+    thread_mgr.submit.assert_called_with(
+        presenter._kline_inspector_coordinator.run_audit, "ETHUSDT", "5m"
+    )
 
-    presenter._run_audit("ETHUSDT", "5m")
+    presenter._kline_inspector_coordinator.run_audit("ETHUSDT", "5m")
     qapp.processEvents()
 
     assert vm.auditRunning is False
