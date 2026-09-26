@@ -9,6 +9,25 @@
 > [`Tasks/reports/BOT-103_gil_yield_benchmark_investigation.md`](../reports/BOT-103_gil_yield_benchmark_investigation.md).
 > Module thật đã đổi tên: `run_realtime_backtest/handler.py` bên dưới giờ là
 > `run_historical_tick_backtest/handler.py`.
+>
+> **Cập nhật 2026-09-26 — option (c) đã thực hiện, vẫn chưa đóng được task.**
+> `scripts/benchmarking/tick_backtest_profile.py` chạy `cProfile` thật trên
+> `RunHistoricalTickBacktestCommandHandler.execute()` (strategy/indicator/
+> exchange thật, không mock, 600k tick). Kết quả sạch (sau khi sửa 2 lỗi
+> phương pháp luận — xem báo cáo): **~42% tổng thời gian nằm trong đường
+> đánh giá strategy/crossover-detection (`Series`/`decide`/`evaluate`), và
+> đây là chi phí cố ý theo thiết kế (BOT-042D/BOT-076: đánh giá lại mỗi tick,
+> không chỉ lúc đóng nến, chính là lý do handler này tồn tại) — không phải
+> chi phí thừa để cắt.** Không tìm được điểm tối ưu cục bộ an toàn nào. Kết
+> hợp với việc option (a) đã bị loại ở trên, hai hướng còn lại là (b)
+> `ProcessPoolExecutor` (đổi kiến trúc thật, rủi ro/công sức lớn) hoặc chấp
+> nhận giới hạn hiện tại (~5x ngân sách 16.7ms) như một hạn chế đã biết —
+> đây là quyết định đánh đổi sản phẩm/rủi ro, không phải lựa chọn kỹ thuật
+> nên tự quyết trong một lượt thực thi task. Số đo đầy đủ + bảng
+> `tottime`/`cumtime` ở
+> [`Tasks/reports/BOT-103_gil_yield_benchmark_investigation.md`](../reports/BOT-103_gil_yield_benchmark_investigation.md)
+> §"Update 2026-09-26". Task vẫn ở `backlog/`, chờ quyết định hướng (b) hay
+> chấp nhận giới hạn, trước khi sửa code production.
 
 > Không thuộc epic nào. Người dùng báo cáo trong lúc dùng thật: "làm cơ chế
 > chạy realtime tính toán trên 1 thread khác được không, đang chạy trên UI

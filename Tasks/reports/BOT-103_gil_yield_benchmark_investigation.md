@@ -76,3 +76,69 @@ callable-based `cancellation_requested`/`progress_callback`). This
 benchmark's harness (probe-thread pattern, `pairwise()`-based gap
 statistics) is reusable for measuring whichever fix comes next — recreate it
 against the real handler rather than a synthetic loop.
+
+## Update 2026-09-26 — option (c) executed: real-handler `cProfile` run
+
+`scripts/benchmarking/tick_backtest_profile.py` calls the real
+`RunHistoricalTickBacktestCommandHandler.execute()` end-to-end (real
+`EmaCrossoverStrategy`, real `StrategyEngineFactory`/`StrategyRegistry`,
+real `PaperExchange`) under `cProfile`, 600,000 synthetic ticks (`BOT-075`'s
+own worst case). Two methodological traps found and fixed before the numbers
+below are trustworthy — both are the finding #2 warning above, applied
+concretely:
+
+1. **`unittest.mock.Mock()` as the `event_publisher`** inflated the profile
+   with `unittest.mock` bookkeeping (~1.15M `Mock.__init__`/`__new__` calls,
+   ~289k `Mock.__call__`) that production's real (cheap) publisher never
+   pays — replaced with a hand-written `NoOpEventPublisher(IEventPublisher)`
+   (`testing-rule.md`'s "use the real, cheap thing over a Mock" — the port is
+   one method, trivially real).
+2. **A price oscillation flipping direction every 50 ticks** made ~48% of
+   all ticks fire a real trading signal (`strategy_engine.py:124/145`'s
+   `publish(SignalGeneratedEvent(...))`), far more often than real market
+   data crosses two EMAs — replaced with a slow `math.sin()` drift that
+   crosses only a handful of times across the full run.
+
+**Clean result: 600,000 ticks, 20.464s wall-clock, 37,642,473 function
+calls** (the first, polluted run measured 52.25s / 58.9M calls — confirms
+both fixes mattered). Top self-time (`tottime`) contributors:
+
+| Function | Calls | tottime | cumtime |
+| :--- | ---: | ---: | ---: |
+| `_simulate` (loop overhead itself) | 1 | 1.920s | 24.155s |
+| `EmaCrossoverStrategy.decide` | 598,441 | 1.595s | 9.469s |
+| `series._pair` | 1,196,609 | 1.417s | 4.515s |
+| `Series.__getitem__` | 4,786,436 | 1.192s | 1.471s |
+| `BaseStrategy.series` (accessor) | 1,196,882 | 1.042s | 2.101s |
+| `StrategyEngine.on_forming_bar_tick` | 590,000 | 1.037s | 13.704s |
+| `FormingBar.to_candle` | 600,000 | 0.997s | 3.254s |
+| `PaperExchange.check_intrabar_stops` | 600,000 | 0.975s | 3.251s |
+| `Series.__init__` | 1,196,882 | 0.819s | 0.819s |
+
+**Finding: the dominant cost (~42% of total wall time, summing the
+`Series`/crossover-detection rows plus `decide`/`series()`/`evaluate`) is the
+strategy-evaluation path — and it is *not* incidental overhead to cut.**
+`on_forming_bar_tick` runs a full `strategy.evaluate()` (crossover detection
+via `Series._pair`/`crossed_above`/`crossed_below`) on **every** tick, not
+just at bar close, by deliberate design (BOT-042D/BOT-076: catching a
+signal or stop the instant a real tick crosses it is this handler's entire
+reason to exist over the Static engine). Removing or throttling this
+per-tick evaluation would change observable trading behavior — exactly the
+kind of "hack that also breaks the promise" `domain-truth-rule.md` and
+`fix-bug-rule.md` §1 rule out; it is not a legitimate optimization target.
+No other row is disproportionate to its own necessary work
+(`check_intrabar_stops`, `to_candle`, indicator bookkeeping — all O(1) per
+tick, no redundant recomputation found).
+
+**Conclusion: this investigation does not find a safe, local per-tick cost
+to cut.** Combined with the prior finding that periodic GIL-yielding
+(option a) does not reduce `max_gap_ms` at any interval, the two
+candidate directions left in the task's own §3 are: (b) `ProcessPoolExecutor`
+— a real architectural change (pickling ticks/results across a process
+boundary, replacing the callable-based `cancellation_requested`/
+`progress_callback` with a queue/pipe mechanism) — or accepting the current
+~5x-over-16.7ms-budget UI responsiveness during a realtime tick backtest as
+a known, documented limitation. Both are product/risk trade-off calls, not
+implementation details a task-execution pass should decide unilaterally;
+recorded here as **BOT-103 not closed**, escalated to the user for a
+direction before further code changes.
