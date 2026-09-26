@@ -55,7 +55,7 @@ gantt
 
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
-| EPIC-027A | [Market-aware candles](incomplete/EPIC-027A_market_aware_kline_storage_and_download.md) | — | 🔴 | 🔵 Planned | — |
+| EPIC-027A | [Market-aware candles](incomplete/EPIC-027A_market_aware_kline_storage_and_download.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | 🟡 Active | — |
 | EPIC-027B | [Spot mode in the engine](incomplete/EPIC-027B_spot_mode_in_the_backtest_engine.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-027C | [Exchange filters on fills](incomplete/EPIC-027C_exchange_filters_on_simulated_fills.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-027D | [Backtest market selector](incomplete/EPIC-027D_backtest_ui_market_selector.md) | — | 🟢 | 🔵 Planned | — |
@@ -79,6 +79,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-09-26 | Spec | Epic scaffolded from two audits of `ee7105f8`; ADR Proposed; 16 sub-tasks sliced. |
+| 2026-09-26 | ADR | User accepted D1–D9 and answered O1–O6 with every recommended option. `EPIC-027A` started. |
 
 ---
 
@@ -86,9 +87,9 @@ gantt
 
 | Blocker / Dependency | Impacted Tasks | Resolution / Owner | Status |
 | :--- | :--- | :--- | :--- |
-| ADR D1–D9 accepted | all | the user | 🟡 Open |
-| O3 — how to tag legacy candles | EPIC-027A | the user | 🟡 Open |
-| O2, O4 — arming short-capable strategies; non-USDT quotes | EPIC-027N | the user | 🟡 Open |
-| O6 — Spot average entry price source | EPIC-027H | the user | 🟡 Open |
+| ADR D1–D9 accepted | all | the user | ✅ Resolved 2026-09-26 |
+| O3 — how to tag legacy candles | EPIC-027A | the user | ✅ Resolved 2026-09-26 — tag as Spot |
+| O2, O4 — arming short-capable strategies; non-USDT quotes | EPIC-027N | the user | ✅ Resolved 2026-09-26 — refuse to arm; USDT-only |
+| O6 — Spot average entry price source | EPIC-027H | the user | ✅ Resolved 2026-09-26 — `GET /api/v3/myTrades` |
 | Spot Testnet API keys (`testnet.binance.vision`) | EPIC-027H, EPIC-027P | the user | 🟡 Open |
 | Shared factory seam with `EPIC-026P` | EPIC-027F | whichever epic lands first builds it | 🟡 Open |

@@ -1,6 +1,6 @@
 # EPIC-027 — Spot beside Futures: truthful Spot backtests first, then live Spot on Testnet
 
-- **Status:** 🔵 Planned — awaiting the user's decisions on the ADR (D1–D9, O1–O6).
+- **Status:** 🟡 Phase 1 in progress — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` is the current task.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-26): *"đánh giá xem giờ tui muốn giao dịch spot và back test theo
   spot thì app này cần những gì, lên plan và epic, sao đó report cho tôi"* ("assess what this app
@@ -11,7 +11,7 @@
   and `support/binance_gateway` is the one anticorruption layer around the SDK. When the ADR below is
   accepted, its decisions become a section of the HLD in the same pull request as `EPIC-027A`.
 - **Decisions:** [`DECISION_2026-09-26_spot_market_axis.md`](DECISION_2026-09-26_spot_market_axis.md)
-  (D1–D9 Proposed, O1–O6 open).
+  (D1–D9 Accepted, O1–O6 answered — 2026-09-26).
 - **Tracking (Gantt, PR matrix):** [`TRACKING.md`](TRACKING.md).
 - **Dependencies:**
   - It revisits [`EPIC-021`'s ADR](../EPIC-021_ket_noi_binance_futures_testnet/DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
@@ -24,7 +24,8 @@
 ---
 
 ## 1. Decisions already made
-None is accepted yet. The ADR proposes nine; the ones that shape the plan are:
+All nine are accepted (🟢 user decision, 2026-09-26), and all six open questions are answered with
+their recommended option — see the ADR §4. The ones that shape the plan are:
 1. **Market type is an explicit axis** (D1). The unused `MarketType` enum moves to the shared kernel,
    and stored candles are keyed by market (D2).
 2. **Spot in the backtest = long-only, 1×, no liquidation** (D3). The existing 1× LONG arithmetic is
@@ -88,7 +89,7 @@ request unless its file says otherwise.
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | **Phase 1 — Spot backtest (no API keys needed)** | | | | | |
-| [EPIC-027A](incomplete/EPIC-027A_market_aware_kline_storage_and_download.md) | Every stored candle knows its market; a sync asks for one | Elite | O3 | 🔴 | Planned |
+| [EPIC-027A](incomplete/EPIC-027A_market_aware_kline_storage_and_download.md) | Every stored candle knows its market; a sync asks for one | Elite | O3 (answered) | 🔴 | In progress |
 | [EPIC-027B](incomplete/EPIC-027B_spot_mode_in_the_backtest_engine.md) | Spot mode in the engine: long-only, 1×, never liquidated, shorts counted | Elite | A | 🟡 | Planned |
 | [EPIC-027C](incomplete/EPIC-027C_exchange_filters_on_simulated_fills.md) | Simulated fills obey step size, minimum notional and tick size | Elite | A | 🟡 | Planned |
 | [EPIC-027D](incomplete/EPIC-027D_backtest_ui_market_selector.md) | Backtest screen chooses the market and shows only what it can do | Elite | A, B | 🟢 | Planned |
@@ -130,4 +131,5 @@ request unless its file says otherwise.
 
 ## Notes (newest first)
 - **2026-09-26** — Epic scaffolded from two independent audits of the tree (live path, backtest
-  path). The ADR is Proposed; nothing is implemented.
+  path). The ADR was Accepted the same day, with every open question answered per its recommended
+  option; `EPIC-027A` is now in progress.

@@ -2,11 +2,13 @@
 
 **Epic:** [EPIC-027](README.md)
 **Date:** 2026-09-26
-**Status:** Proposed
-**Decided by:** Pending — the user decides D1–D9 and answers O1–O6. The user asked on 2026-09-26:
-*"đánh giá xem giờ tui muốn giao dịch spot và back test theo spot thì app này cần những gì, lên
-plan và epic"* ("assess what this app needs now that I want to trade spot and backtest on spot;
-make a plan and an epic").
+**Status:** Accepted (2026-09-26)
+**Decided by:** 🟢 User decision, 2026-09-26 — *"đồng ý các khuyến nghị, bắt đầu làm 027A đi"*
+("I agree with the recommendations, start on 027A"), replying to the report generated from this
+ADR. This accepts D1–D9 as written and answers O1–O6 with each question's recommended option
+(recorded in §4 below). The original request, 2026-09-26: *"đánh giá xem giờ tui muốn giao dịch
+spot và back test theo spot thì app này cần những gì, lên plan và epic"* ("assess what this app
+needs now that I want to trade spot and backtest on spot; make a plan and an epic").
 **Supersedes / superseded by:** Revisits §1 of
 [`EPIC-021`'s ADR](../EPIC-021_ket_noi_binance_futures_testnet/DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md)
 ("USD-M Futures Testnet, not Spot Testnet"). That decision stays in force for Futures; this record
@@ -76,15 +78,15 @@ never states — `domain-truth-rule.md`.
 
 | # | Decision | Status | Decided by | Consequence |
 | :-- | :--- | :--- | :--- | :--- |
-| D1 | **Market type is an explicit axis.** `MarketType` moves to the shared kernel published language (`src/core/vo/`) and keeps its three members. Scope is `SPOT` + `FUTURES_USD_M`; `FUTURES_COIN_M` stays unused. | 🔵 Proposed | Pending | One vocabulary for data, backtest and trading. The orphaned enum gets consumers. COIN-M is still unsupported, and that is stated. |
-| D2 | **Stored candles are keyed by market.** One shard per (market, symbol). A sync asks for a market explicitly. Mainnet Spot klines come from `/api/v3`, mainnet Futures klines from `/fapi`. | 🔵 Proposed | Pending | Fixes the truth finding above: a Futures backtest can run on Futures prices. Costs a data migration (O3) and a second download for users who want both markets. |
-| D3 | **Spot in the backtest means long-only, 1× and no liquidation.** A `market_type` field on `BrokerSimulationConfig` defaults to `FUTURES_USD_M`, so existing runs are byte-for-byte unchanged (`pitfalls/source.md` #1, #2). When it is `SPOT`, validation forces leverage to 1. | 🔵 Proposed | Pending | Reuses the existing 1× LONG arithmetic; no new valuation formula. |
-| D4 | **In Spot, SHORT/COVER signals are dropped, counted and reported, never remapped.** A SHORT is not turned into a SELL. The result carries "N short signals ignored (spot)". | 🔵 Proposed | Pending | Keeps `domain-truth-rule.md` F2: an exit and a short entry are different facts. A short-heavy strategy shows honestly how little of it survives on Spot. |
-| D5 | **Exchange filters apply to every simulated fill, in both markets.** Quantity is floored to the step size. An order below the minimum notional is rejected and counted. Price uses the tick size from metadata. Spot metadata already exists (`market_data/adapters/binance/market_metadata_parser.py`). | 🔵 Proposed | Pending | Backtests stop trading quantities the exchange would refuse. This slightly changes Futures results too, so the default is explicit: the filters are on, and they are recorded in the report. |
-| D6 | **Live Spot is a second adapter set behind the same ports.** It gets its own client, account reader, user data stream and metadata provider. First, the six direct `FuturesTradingClient(...)` constructions go through one venue-selected factory. That refactor changes no behavior and goes in its own PR. | 🔵 Proposed | Pending | The refactor also serves `EPIC-026P`, since mainnet Futures needs the same factory parameter. Spot then plugs in without editing the handlers again. |
-| D7 | **A Spot "position" is a holding.** It is the base-asset balance (free + locked) above a dust threshold. The average entry price is not given by the Spot API (O6). Equity is the quote balance plus holdings × last price. | 🔵 Proposed | Pending | The UI never invents a mark price, leverage or liquidation price for Spot. It shows balances. |
-| D8 | **Live Spot starts on Spot Testnet only.** A new member `TradingVenue.SPOT_TESTNET` (`testnet.binance.vision`) gets its own credential names (`BINANCE_SPOT_TESTNET_API_KEY/_SECRET`), the same way `EPIC-021B` names Futures keys. Spot mainnet follows the same gates as `EPIC-026`, not a separate road. | 🔵 Proposed | Pending | Consistent with `EPIC-021` ADR §3: a venue that does not exist in the enum cannot be switched on by a config edit. |
-| D9 | **Phase 1 supports only USDT-quoted pairs for Spot.** Arming or ordering a non-USDT pair is refused with a stated reason. | 🔵 Proposed | Pending | Trading limits and sizing are already in USDT (`config_keys.py:91`). Multi-quote support is deferred and stated (O4). |
+| D1 | **Market type is an explicit axis.** `MarketType` moves to the shared kernel published language (`src/core/vo/`) and keeps its three members. Scope is `SPOT` + `FUTURES_USD_M`; `FUTURES_COIN_M` stays unused. | ✅ Accepted | 🟢 User decision, 2026-09-26 | One vocabulary for data, backtest and trading. The orphaned enum gets consumers. COIN-M is still unsupported, and that is stated. |
+| D2 | **Stored candles are keyed by market.** One shard per (market, symbol). A sync asks for a market explicitly. Mainnet Spot klines come from `/api/v3`, mainnet Futures klines from `/fapi`. | ✅ Accepted | 🟢 User decision, 2026-09-26 | Fixes the truth finding above: a Futures backtest can run on Futures prices. Costs a data migration (O3) and a second download for users who want both markets. |
+| D3 | **Spot in the backtest means long-only, 1× and no liquidation.** A `market_type` field on `BrokerSimulationConfig` defaults to `FUTURES_USD_M`, so existing runs are byte-for-byte unchanged (`pitfalls/source.md` #1, #2). When it is `SPOT`, validation forces leverage to 1. | ✅ Accepted | 🟢 User decision, 2026-09-26 | Reuses the existing 1× LONG arithmetic; no new valuation formula. |
+| D4 | **In Spot, SHORT/COVER signals are dropped, counted and reported, never remapped.** A SHORT is not turned into a SELL. The result carries "N short signals ignored (spot)". | ✅ Accepted | 🟢 User decision, 2026-09-26 | Keeps `domain-truth-rule.md` F2: an exit and a short entry are different facts. A short-heavy strategy shows honestly how little of it survives on Spot. |
+| D5 | **Exchange filters apply to every simulated fill, in both markets.** Quantity is floored to the step size. An order below the minimum notional is rejected and counted. Price uses the tick size from metadata. Spot metadata already exists (`market_data/adapters/binance/market_metadata_parser.py`). | ✅ Accepted | 🟢 User decision, 2026-09-26 | Backtests stop trading quantities the exchange would refuse. This slightly changes Futures results too, so the default is explicit: the filters are on, and they are recorded in the report. |
+| D6 | **Live Spot is a second adapter set behind the same ports.** It gets its own client, account reader, user data stream and metadata provider. First, the six direct `FuturesTradingClient(...)` constructions go through one venue-selected factory. That refactor changes no behavior and goes in its own PR. | ✅ Accepted | 🟢 User decision, 2026-09-26 | The refactor also serves `EPIC-026P`, since mainnet Futures needs the same factory parameter. Spot then plugs in without editing the handlers again. |
+| D7 | **A Spot "position" is a holding.** It is the base-asset balance (free + locked) above a dust threshold. The average entry price is not given by the Spot API (O6). Equity is the quote balance plus holdings × last price. | ✅ Accepted | 🟢 User decision, 2026-09-26 | The UI never invents a mark price, leverage or liquidation price for Spot. It shows balances. |
+| D8 | **Live Spot starts on Spot Testnet only.** A new member `TradingVenue.SPOT_TESTNET` (`testnet.binance.vision`) gets its own credential names (`BINANCE_SPOT_TESTNET_API_KEY/_SECRET`), the same way `EPIC-021B` names Futures keys. Spot mainnet follows the same gates as `EPIC-026`, not a separate road. | ✅ Accepted | 🟢 User decision, 2026-09-26 | Consistent with `EPIC-021` ADR §3: a venue that does not exist in the enum cannot be switched on by a config edit. |
+| D9 | **Phase 1 supports only USDT-quoted pairs for Spot.** Arming or ordering a non-USDT pair is refused with a stated reason. | ✅ Accepted | 🟢 User decision, 2026-09-26 | Trading limits and sizing are already in USDT (`config_keys.py:91`). Multi-quote support is deferred and stated (O4). |
 
 ## 3. Alternatives considered
 
@@ -102,16 +104,16 @@ never states — `domain-truth-rule.md`.
   are proposed because the existing export/import (`BOT-112D`), gap scan and vacuum all work per shard.
   A shard-level key keeps them unchanged. The task records the final choice.
 
-## 4. Open questions
+## 4. Open questions — answered 2026-09-26 (the user accepted every recommended option)
 
-| # | Question | Blocks | Asked on |
-| :-- | :--- | :--- | :--- |
-| O1 | Order of work: **Spot backtest first** (Phase 1, no keys needed, most value soonest — recommended) or live Spot first? | Phase order | 2026-09-26 |
-| O2 | Live arming of a strategy that can emit SHORT on a Spot venue: **refuse to arm** (recommended — a live account must not quietly skip half a strategy), or allow it with shorts dropped, the way the backtest does (D4)? | `EPIC-027N` | 2026-09-26 |
-| O3 | Candles already stored have no market tag. **Tag them as Spot** (recommended: the default venue has always downloaded Spot klines), or mark them "unknown" until re-synced? Candles synced under `FUTURES_TESTNET` cannot be told apart after the fact. | `EPIC-027A` | 2026-09-26 |
-| O4 | Is USDT-quoted only acceptable for the first release (D9)? | `EPIC-027N` | 2026-09-26 |
-| O5 | Spot mainnet: through `EPIC-026`'s stages (journal, breaker, soak) like Futures (recommended), or earlier? Which market reaches real money first — Futures or Spot? | Out-of-scope boundary | 2026-09-26 |
-| O6 | Where the Spot average entry price comes from: `GET /api/v3/myTrades` (recommended for Phase 3), or the app's own fill journal (`EPIC-026G`, not built yet)? | `EPIC-027H` | 2026-09-26 |
+| # | Question | Answer | Decided by | Blocks |
+| :-- | :--- | :--- | :--- | :--- |
+| O1 | Order of work: Spot backtest first, or live Spot first? | **Spot backtest first** (Phase 1, no keys needed, most value soonest). | 🟢 User decision, 2026-09-26 | Phase order |
+| O2 | Live arming of a strategy that can emit SHORT on a Spot venue: refuse to arm, or allow it with shorts dropped? | **Refuse to arm**, with a reason naming the strategy — a live account must not quietly skip half a strategy. | 🟢 User decision, 2026-09-26 | `EPIC-027N` |
+| O3 | How to tag candles already stored, which carry no market? | **Tag them as Spot** — the default venue has always downloaded Spot klines, so this is the honest label, not a guess. Candles synced under `FUTURES_TESTNET` are Futures and migrate to that shard instead. | 🟢 User decision, 2026-09-26 | `EPIC-027A` |
+| O4 | Is USDT-quoted only acceptable for the first release (D9)? | **Yes.** | 🟢 User decision, 2026-09-26 | `EPIC-027N` |
+| O5 | Spot mainnet: through `EPIC-026`'s stages like Futures, or earlier? | **Through `EPIC-026`'s stages** (journal, breaker, soak) — no separate, faster road to real money for Spot. | 🟢 User decision, 2026-09-26 | Out-of-scope boundary |
+| O6 | Where the Spot average entry price comes from. | **`GET /api/v3/myTrades`**, for `EPIC-027H`/Phase 3. | 🟢 User decision, 2026-09-26 | `EPIC-027H` |
 
 ## 5. Implementation evidence
 
