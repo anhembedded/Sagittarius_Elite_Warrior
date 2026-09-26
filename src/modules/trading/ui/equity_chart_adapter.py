@@ -18,6 +18,8 @@ cross-screen-import anti-pattern `architecture-rule.md` §5 documents.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
     EquitySample,
 )
@@ -35,7 +37,10 @@ def equity_sample_to_candle(sample: EquitySample) -> OhlcCandle:
     return (sample.captured_at.timestamp(), value, value, value, value)
 
 
-def equity_samples_to_candles(samples: list[EquitySample]) -> list[OhlcCandle]:
+def equity_samples_to_candles(samples: Sequence[EquitySample]) -> list[OhlcCandle]:
     """@brief The full backlog, oldest-first (`IEquityCurve.samples()`'
-    own order) — for the chart's initial seed on screen construction."""
+    own order) — for the chart's initial seed on screen construction.
+    `Sequence`, not `list`: `IEquityCurve.samples()` returns
+    `tuple[EquitySample, ...]`, and this function only ever iterates its
+    argument once, so a tuple is exactly as valid a caller as a list."""
     return [equity_sample_to_candle(sample) for sample in samples]

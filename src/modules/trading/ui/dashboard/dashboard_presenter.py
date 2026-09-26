@@ -11,29 +11,11 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
-    IHistoricalKlines,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
-    IMarketDataSync,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
-    IMarketStream,
-)
-from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
-    ISymbolCatalog,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.market_tick_feed import (
     MarketTickFeed,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.ui.symbol_options_coordinator import (
-    SymbolOptionsCoordinator,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.sync_progress_feed import (
     SyncProgressFeed,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
-    SUPPORTED_LIVE_INTERVALS,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
@@ -56,75 +38,28 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
-    IAccountSnapshot,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_armed_strategy_reader import (
-    IArmedStrategyReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
-    IEquityCurve,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
-    IOrderSubmission,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_arming_control import (
-    IStrategyArmingControl,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
-    IStrategyCatalogReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
-    ITradingSession,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
     equity_sample_to_candle,
-    equity_samples_to_candles,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_feed import EquityFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
     format_execute_order_block_reason,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.live_order_book_coordinator import (
-    LiveOrderBookCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
     order_filled_marker,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.signal_feed import SignalFeed
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.strategy_arming_coordinator import (
-    StrategyArmingCoordinator,
-)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
 )
-from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
-    TimeframePinPreferences,
-    find_timeframe_pin_preferences,
-)
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_catalog import (
-    IndicatorScriptCatalog,
-)
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_params_store import (
-    IndicatorScriptParamsStore,
-)
-from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
-    IndicatorScriptRegistry,
-)
-from Sagittarius_Elite_Warrior.src.support.indicators.ui.runner import (
-    IndicatorScriptRunner,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
-    ActionOwnershipTracker,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_INTERVAL,
     FALLBACK_SYMBOL,
-    default_interval,
-    default_symbol,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
@@ -132,47 +67,95 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.support.ui_kit.health_check_coordinator import (
     HealthCheckCoordinator,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.state.container_lookup import (
-    find_state_coordinator,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import (
     StateData,
     StateScope,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
-    UiStateCoordinator,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
-    SymbolPreferences,
-    find_symbol_preferences,
-)
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
-from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
-from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
-from .autostart_controller import AutoStartController
-from .coordinators.indicator_coordinator import IndicatorCoordinator
-from .coordinators.trading_actions_coordinator import (
-    ActionTrackers,
-    CompletionEmitters,
-    TradingActionsCoordinator,
-)
 from .dashboard_view_model import (
     DATETIME_FORMAT,
     DEFAULT_LOOKBACK_DAYS,
-    DashboardQmlViewModel,
 )
-from .history_pagination_controller import HistoryPaginationController
 from .logic.chart_zoom_limits import max_visible_x_range
-from .stream_lifecycle_controller import StreamLifecycleController
+from .logic.presenter_factory import (
+    _EMERGENCY_STOP_ACTION,
+    _MANUAL_ORDER_ACTION,
+    _TOGGLE_ACTION,
+    build_dashboard_presenter_state,
+)
 
 logger = logging.getLogger("App.Dashboard")
 
 if TYPE_CHECKING:
+    from collections.abc import Callable
+
+    from Sagittarius_Elite_Warrior.src.modules.market_data.ui.symbol_options_coordinator import (
+        SymbolOptionsCoordinator,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
+        IAccountSnapshot,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_armed_strategy_reader import (
+        IArmedStrategyReader,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
+        IEquityCurve,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
+        IOrderSubmission,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+        ITradingSession,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.autostart_controller import (
+        AutoStartController,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.coordinators.indicator_coordinator import (
+        IndicatorCoordinator,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.coordinators.trading_actions_coordinator import (
+        TradingActionsCoordinator,
+    )
     from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_view import (
         DashboardView,
     )
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_view_model import (
+        DashboardQmlViewModel,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.history_pagination_controller import (
+        HistoryPaginationController,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.stream_lifecycle_controller import (
+        StreamLifecycleController,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.live_order_book_coordinator import (
+        LiveOrderBookCoordinator,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.strategy_arming_coordinator import (
+        StrategyArmingCoordinator,
+    )
+    from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_catalog import (
+        IndicatorScriptCatalog,
+    )
+    from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_params_store import (
+        IndicatorScriptParamsStore,
+    )
+    from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
+        IndicatorScriptRegistry,
+    )
+    from Sagittarius_Elite_Warrior.src.support.indicators.ui.runner import (
+        IndicatorScriptRunner,
+    )
+    from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
+        ActionOwnershipTracker,
+    )
+    from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
+        UiStateCoordinator,
+    )
     from sagittarius_engine.interfaces.i_container import IContainer
+    from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+    from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 # ---------------------------------------------------------------------------
 # Constants — no magic values scattered in method bodies
@@ -207,18 +190,11 @@ _MAX_LOOKBACK_DAYS = 3650
 #: still rejects a corrupted blob is the point, not a precise limit.
 _MAX_SYMBOL_LENGTH = 20
 
-_AUTOSTART_ENABLED_CONFIG_KEY: str = "DEV_BOARD_AUTOSTART_ENABLED"
-_DEFAULT_AUTOSTART_ENABLED: bool = False
-
-#: How long AutoStartController waits for a real MarketTickEvent before
-#: falling back to Load History (see autostart_controller.py). Configurable
-#: so integration tests — which take real wall-clock time to run and offer
-#: no real WS ticks ever — can push this window far out and get a
-#: deterministic run instead of racing a fallback callback that fires mid
-#: assertion. Production keeps the 2s default the design was built around.
-_AUTOSTART_FALLBACK_SECONDS_CONFIG_KEY: str = "DEV_BOARD_AUTOSTART_FALLBACK_SECONDS"
-_DEFAULT_AUTOSTART_FALLBACK_SECONDS: float = 2.0
-
+#: `BOT-144` — moved into `logic/presenter_factory.py` alongside the
+#: construction code that primarily uses them (`build_dashboard_presenter_state`);
+#: imported back here for the methods below that still read them
+#: (`_on_enable_trading_completed` etc. for the `_*_ACTION` kinds — see the
+#: import block above this class).
 #: BOT-035 — how many older candles to fetch each time the user scrolls near
 #: the left edge of loaded history. User-configurable (IConfig key), but
 #: deliberately NOT run through _compute_fetch_limit() — this is a literal
@@ -230,22 +206,6 @@ _DEFAULT_LOAD_MORE_BATCH_CANDLES: int = 75
 #: `EPIC-021K` §2.3/§3 — live-fill trade markers, same key `TradingPresenter`
 #: uses (separate `MarkerLayer` per `ChartCard`, so no collision between screens).
 _FILL_MARKERS_KEY = "live_fills"
-
-#: `EPIC-023C` — same action-kind string `TradingPresenter` uses for its own
-#: `ActionOwnershipTracker`; the two trackers are separate instances (each
-#: Presenter owns its own, `async-ui-action-rule.md` §2), so identical
-#: strings here do not collide.
-_ARM_ACTION = "arm_strategy"
-
-#: `EPIC-023D` — same action-kind strings `TradingPresenter` uses for its own
-#: toggle/Emergency Stop trackers; again separate instances, so no collision.
-_TOGGLE_ACTION = "toggle_trading"
-_EMERGENCY_STOP_ACTION = "emergency_stop"
-
-#: `EPIC-024B` — manual trading card. One tracker for the whole card (like
-#: `_TOGGLE_ACTION` above): the form represents exactly one pending attempt
-#: at a time, never two concurrent Long/Short clicks from the same card.
-_MANUAL_ORDER_ACTION = "manual_order"
 
 #: `PRO-003` §4.1.2's message for the hard block on the strategy's armed
 #: symbol used to live here. `EPIC-025` PR 2.1f moved the rule onto the order
@@ -513,420 +473,57 @@ class DashboardPresenter(BasePresenter):
 
     INITIAL_STATE = UIMode.IDLE
 
+    #: `BOT-144` — declared here, not just assigned inside
+    #: `build_dashboard_presenter_state()`: every one of these used to be
+    #: inferrable from a `self.x = ...` line inside `__init__` itself, which
+    #: is how a type checker (and a reader) normally learns a class's
+    #: instance-attribute surface. Moving the assignments into an external
+    #: Builder function broke that inference silently — nothing raised, mypy
+    #: just stopped seeing these attributes exist — so they are restated
+    #: explicitly here instead. This file is mypy-excluded (see
+    #: `pyproject.toml`'s `[tool.mypy]` exclude list) so these are not
+    #: self-checked, but `logic/presenter_factory.py` — which is checked —
+    #: reads `presenter.<name>` throughout and needs this declared shape.
+    _view_model: DashboardQmlViewModel
+    _thread_manager: IThreadManager
+    _trading_session: ITradingSession
+    _order_submission: IOrderSubmission
+    _account: IAccountSnapshot
+    _equity_curve: IEquityCurve
+    _symbol_options_coordinator: SymbolOptionsCoordinator
+    _cancellation_token: CancellationToken
+    _shutdown_requested: bool
+    active_charts: dict
+    _raw_klines_by_symbol: dict[str, list]
+    _fill_markers_by_symbol: dict[str, list]
+    _order_book: LiveOrderBookCoordinator
+    _armed_strategy: IArmedStrategyReader
+    _arm_tracker: ActionOwnershipTracker[str, None, None]
+    _arming_coordinator: StrategyArmingCoordinator
+    _toggle_tracker: ActionOwnershipTracker[str, None, None]
+    _emergency_stop_tracker: ActionOwnershipTracker[str, None, None]
+    _manual_order_tracker: ActionOwnershipTracker[str, None, None]
+    _last_price_by_symbol: dict[str, Decimal]
+    _trading_actions: TradingActionsCoordinator
+    _pagination: HistoryPaginationController
+    _active_interval: str
+    _active_symbol: str
+    _script_registry: IndicatorScriptRegistry
+    _script_catalog: IndicatorScriptCatalog
+    _script_params_store: IndicatorScriptParamsStore
+    _script_runner: IndicatorScriptRunner
+    _indicator_coordinator: IndicatorCoordinator
+    _stream_controller: StreamLifecycleController
+    _run_load_history: Callable[..., None]
+    _run_load_more_history: Callable[..., None]
+    _run_sync_and_start: Callable[..., None]
+    _state_coordinator: UiStateCoordinator | None
+    _autostart: AutoStartController | None
+
     def __init__(self, view: DashboardView, container: IContainer) -> None:
         super().__init__(view, container)
 
-        self._view_model = DashboardQmlViewModel()
-        # EPIC-010H, middle tier: seed the form from Settings before the view
-        # builds its widgets — `DevBoardPanel` reads `view_model.symbol` once
-        # while constructing the combo. `restore_state()` later overrides this
-        # with a remembered value if there is one, which is the top tier.
-        self._view_model.symbol = default_symbol(self.config.get_all(), FALLBACK_SYMBOL)
-        view.set_view_model(self._view_model)
-
-        # Resolve IThreadManager exactly once — stored as an instance attribute.
-        # No further container.resolve(IThreadManager) calls anywhere else.
-        self._thread_manager: IThreadManager = container.resolve(IThreadManager)
-        # `EPIC-023D` — account-wide, shared with Trading (bấm ở Dev Board
-        # hoặc Trading đều ra cùng một sự thật — xem EPIC-023's README §2).
-        self._trading_session: ITradingSession = container.resolve(ITradingSession)
-        self._order_submission: IOrderSubmission = container.resolve(IOrderSubmission)
-        self._account: IAccountSnapshot = container.resolve(IAccountSnapshot)
-        # `EPIC-023B` — the recorder outlives this screen (a DI singleton
-        # written by `FuturesUserDataStream` regardless of whether Dev Board
-        # is even open), same reasoning `TradingPresenter` documents for its
-        # own `_equity_curve`.
-        self._equity_curve: IEquityCurve = container.resolve(IEquityCurve)
-
-        # EPIC-019A: shared with BackTestPresenter — `None` means "never
-        # fetched", which is what makes the fetch happen once per session
-        # rather than on every picker open. An empty list is a real answer
-        # (the query returned nothing) and is deliberately NOT retried — a
-        # distinction a falsy check would lose.
-        self._symbol_options_coordinator = SymbolOptionsCoordinator(
-            symbol_catalog=container.resolve(ISymbolCatalog),
-            thread_manager=self._thread_manager,
-            emit_ready=self._symbolOptionsReadySignal.emit,
-            emit_failed=self._symbolOptionsFailedSignal.emit,
-        )
-
-        # Define allowed FSM transitions
-        self.fsm.add_transition(UIMode.IDLE, UIMode.LOCKED)
-        self.fsm.add_transition(UIMode.LOCKED, UIMode.LIVE)
-        self.fsm.add_transition(UIMode.LOCKED, UIMode.ERROR)
-        # BOT-123 — Stop (and the progress banner's Cancel) is now reachable
-        # from LOCKED, not just LIVE: _on_stop_stream()'s unconditional
-        # fsm.transition_to(UIMode.IDLE) needs this edge to actually succeed.
-        # Without it, the very first Stop/Cancel click during a sync raised
-        # InvalidStateTransitionError; the except-branch fallback to ERROR
-        # happened to be valid from LOCKED and ERROR auto-recovers to IDLE
-        # (_on_fsm_error below), so the screen didn't stay stuck — but every
-        # cancel flashed a false "Error while stopping" log line and the WS
-        # badge briefly read ERROR for nothing that actually failed. A
-        # second cancel landing after that detour (already IDLE) had no such
-        # detour and raised for real — see
-        # test_stop_stream_is_a_no_op_once_already_idle.
-        self.fsm.add_transition(UIMode.LOCKED, UIMode.IDLE)
-        self.fsm.add_transition(UIMode.ERROR, UIMode.IDLE)
-        self.fsm.add_transition(UIMode.LIVE, UIMode.IDLE)
-        self.fsm.add_transition(UIMode.LIVE, UIMode.ERROR)
-
-        # Automatically bind FSM state changes to UI Matrix
-        self._bind_fsm_to_ui()
-
-        # Top-bar WS status badge — a second, independent global callback
-        # (BaseStateMachine supports multiple; see _bind_fsm_to_ui above).
-        self.fsm.add_global_callback(self._on_fsm_state_changed_update_ws_badge)
-
-        # Register Lifecycle Hooks for custom behaviors
-        self.fsm.on_enter(UIMode.ERROR, self._on_fsm_error)
-
-        self._apply_ws_status_badge(UIMode.IDLE)
-
-        # BOT-034 — cooperative cancellation for background Load History/
-        # Start Live work, checked at each step that would otherwise touch a
-        # possibly-torn-down chart/view. "Individual tasks should still
-        # implement cancellation tokens" is literally what
-        # ThreadManagerExtension.shutdown()'s docstring asks for — it calls
-        # thread_manager.shutdown(wait=False), so nothing else stops an
-        # in-flight background method from continuing to run past app
-        # shutdown. Reset on explicit Stop (see _on_stop_stream) so the next
-        # Start Live isn't born pre-cancelled — mirrors how
-        # BinanceWebsocketService makes a fresh CancellationToken per
-        # start_stream() call rather than reusing one for its whole lifetime.
-        self._cancellation_token = CancellationToken()
-        self._shutdown_requested: bool = False
-
-        self.active_charts: dict = {}
-
-        # BOT-035 — full MarketData objects behind whatever's currently
-        # rendered per symbol, kept in chronological order. ChartCard only
-        # retains the (t, o, h, l, c) tuple projection it renders from
-        # (_raw_history), which is not enough to correctly rebuild+refeed
-        # IndicatorScriptRunner after a prepend (scripts need real MarketData,
-        # and have no reset() — see history_pagination_controller.py's
-        # docstring and BOT-035's task file §2.4). Overwritten (not appended)
-        # on every Load History/Start Live, so a stale interval's klines
-        # never leak into a later one.
-        self._raw_klines_by_symbol: dict[str, list] = {}
-
-        # `EPIC-021K` §2.3 — live-fill trade markers per symbol, keyed the
-        # same way `_raw_klines_by_symbol` is (Dev Board is multi-symbol,
-        # unlike Trading's single `_active_symbol`; every symbol with an
-        # open chart card gets its own marker series drawn live).
-        self._fill_markers_by_symbol: dict[str, list] = {}
-
-        # `EPIC-023A` — Vị thế/Lệnh chờ khớp, account-wide state read via
-        # `OrderFeed`. Empty until the next successful `ITradingSession.enable()`
-        # reconciles them (bấm ở Dev Board hoặc Trading đều được — cả hai
-        # đi qua cùng một `ITradingSession` singleton) — same starting shape
-        # `TradingPresenter`'s own `LiveOrderBookCoordinator` has, not a gap
-        # introduced here.
-        self._order_book = LiveOrderBookCoordinator(
-            view=self.view, emit_log=self._append_log
-        )
-
-        # `EPIC-023C` — the strategy card. Constructed before
-        # `_connect_ui_signals()` so its signals have something to reach,
-        # same reasoning `TradingPresenter` documents for its own identical
-        # construction. `_active_symbol` is not read until the user actually
-        # arms (the lambda below), well after it is assigned further down
-        # this constructor.
-        self._armed_strategy: IArmedStrategyReader = container.resolve(
-            IArmedStrategyReader
-        )
-        self._arm_tracker: ActionOwnershipTracker[str, None, None] = (
-            ActionOwnershipTracker()
-        )
-        self._arming_coordinator = StrategyArmingCoordinator(
-            # PR 2.1e gave the card one shared owner; PR 4.3m keeps it that
-            # way, just relocated out of `modules/strategy/ui/` — the
-            # card's own view model, not the screen's.
-            view_model=self._view_model.strategy,
-            catalog=container.resolve(IStrategyCatalogReader),
-            arming=container.resolve(IStrategyArmingControl),
-            get_active_symbol=lambda: self._active_symbol,
-            get_armed_config=lambda: self._armed_strategy.armed().config,
-            tracker=self._arm_tracker,
-            arm_action_kind=_ARM_ACTION,
-            set_status=lambda message, _is_error: self._append_log(message),
-            append_log=self._append_log,
-            on_armed_changed=self._on_armed_config_changed,
-        )
-        self._arming_coordinator.restore_into_view_model(list(SUPPORTED_LIVE_INTERVALS))
-        self._refresh_armed_summary(busy=False)
-
-        # `EPIC-023D` — Enable/Disable trading + Emergency Stop. Own tracker
-        # instances, not shared with `_arm_tracker` or Trading's own
-        # (`async-ui-action-rule.md` §2: one tracker holds one active
-        # action, so sharing would let either screen's own click fence the
-        # other's result as stale).
-        self._toggle_tracker: ActionOwnershipTracker[str, None, None] = (
-            ActionOwnershipTracker()
-        )
-        self._emergency_stop_tracker: ActionOwnershipTracker[str, None, None] = (
-            ActionOwnershipTracker()
-        )
-        # `EPIC-024B` — manual trading card. Own tracker, same reasoning as
-        # the two just above (a manual order attempt must not fence, or be
-        # fenced by, an unrelated toggle/emergency-stop/arm click).
-        self._manual_order_tracker: ActionOwnershipTracker[str, None, None] = (
-            ActionOwnershipTracker()
-        )
-        # `EPIC-024B` — last live close price per symbol, the manual order
-        # card's `reference_price` for a MARKET order (a LIMIT order's own
-        # price field is the reference instead — see `_on_manual_order_requested`).
-        # Updated on every `_on_ui_chart_update` tick; `Decimal`, not the
-        # `float` the tick itself carries — `OrderRequest` requires it.
-        self._last_price_by_symbol: dict[str, Decimal] = {}
-        # `BOT-144` — trackers stay Presenter-owned (`async-ui-action-rule.md` §2).
-        self._trading_actions = TradingActionsCoordinator(
-            thread_manager=self._thread_manager,
-            trading_session=self._trading_session,
-            order_submission=self._order_submission,
-            account=self._account,
-            trackers=ActionTrackers(
-                toggle=self._toggle_tracker,
-                emergency_stop=self._emergency_stop_tracker,
-                manual_order=self._manual_order_tracker,
-            ),
-            toggle_action_kind=_TOGGLE_ACTION,
-            emergency_stop_action_kind=_EMERGENCY_STOP_ACTION,
-            manual_order_action_kind=_MANUAL_ORDER_ACTION,
-            completion_emitters=CompletionEmitters(
-                enable=self.enableTradingCompleted.emit,
-                disable=self.disableTradingCompleted.emit,
-                emergency_stop=self.emergencyStopCompleted.emit,
-                manual_order=self.manualOrderCompleted.emit,
-                cancel_order=self.cancelOrderCompleted.emit,
-            ),
-            set_trading_state=self._view_model.set_trading_state,
-            set_manual_order_state=self._view_model.set_manual_order_state,
-            append_log=self._append_log,
-            get_active_symbol=lambda: self._active_symbol,
-            get_last_price=lambda symbol: self._last_price_by_symbol.get(symbol),
-        )
-        # Seeds from whatever the session already says — if Trading enabled it
-        # first, opening Dev Board must show "đang BẬT", never a default "TẮT"
-        # that contradicts the account's real state.
-        self._view_model.set_trading_state(
-            self._trading_session.snapshot().enabled, False
-        )
-        self._refresh_session_stats()
-
-        # BOT-035 — one collaborator per Dev Board screen, same lifetime
-        # pattern as AutoStartController: constructed once here, torn down
-        # implicitly with the presenter (parented to self).
-        self._pagination = HistoryPaginationController(
-            fetch_older=self._fetch_older_history,
-            recheck_edge=self._recheck_edge,
-            parent=self,
-        )
-
-        # BOT-033 — interval actually used by Load History/Start Live, set by
-        # ChartToolbar.sig_timeframe_changed (see _ensure_chart_cards). An
-        # instance attribute rather than the module constant so it can change
-        # per-run without a restart.
-        # EPIC-010H — Settings' DEFAULT_INTERVAL now reaches this screen too.
-        # It used to read the module constant only, so editing Settings
-        # changed the Backtest screen and silently left this one alone.
-        config_values = self.config.get_all()
-        self._active_interval: str = default_interval(config_values, FALLBACK_INTERVAL)
-
-        # BOT-033 Phase 2 — symbol actually used by Load History/Start Live,
-        # set from DashboardQmlViewModel.symbol at click time (see
-        # StreamLifecycleController._on_load_history/_on_start_stream). An
-        # instance attribute, same reasoning as _active_interval above: every
-        # per-symbol chart-card lookup below (_rebuild_scripts,
-        # _on_indicator_data, _on_script_region_data, _on_script_info_data,
-        # _on_script_marker_data) must key off whatever symbol is actually
-        # loaded, not the _DEFAULT_SYMBOLS[0] constant — otherwise switching
-        # to a different symbol silently stops routing indicator data to the
-        # (correctly re-keyed) chart card _ensure_chart_cards just built.
-        self._active_symbol: str = default_symbol(config_values, FALLBACK_SYMBOL)
-
-        # Custom indicator scripts (BOT-032) are the ONLY indicator mechanism
-        # now (Phase 6 — no indicator is hardcoded in the engine; RSI/EMA/MACD
-        # ship as default-registered scripts, see binance_bot_module.py).
-        # Stored on self (not a local) — BOT-034's _compute_fetch_limit() also
-        # needs it, to look up an enabled script's min_warmup_bars.
-        self._script_registry: IndicatorScriptRegistry = container.resolve(
-            IndicatorScriptRegistry
-        )
-        # `BOT-063` — the Dev Board's per-script params dialog: a script's
-        # declared `.inputs` turned into a form, and where an edited value
-        # is saved. `get_script_params` below reads through this store on
-        # every call (never cached), the same "no retroactive effect until
-        # the next Load History/Start Live" contract enabling/disabling a
-        # script already has.
-        self._script_catalog = IndicatorScriptCatalog(self._script_registry)
-        self._script_params_store = IndicatorScriptParamsStore(self.config)
-        self._script_runner = IndicatorScriptRunner(
-            registry=self._script_registry,
-            emit_line=self.ui_indicator_data_signal.emit,
-            emit_region=self.ui_script_region_signal.emit,
-            emit_info=self.ui_script_info_signal.emit,
-            emit_markers=self.ui_script_marker_signal.emit,
-            on_error=self.ui_log_signal.emit,
-            get_params=lambda key: self._script_params_store.load_all().get(key),
-        )
-        # ViewModel owns the enabled/disabled state (Phase 3) — the Presenter
-        # only ever hands it what's available, once, same as logModel.
-        self._view_model.script_model.set_available(self._script_registry.available())
-
-        # `EPIC-003G` — which chart card a script's data lands on, and how
-        # many candles a fetch needs to warm every enabled script up.
-        # `get_enabled_script_keys` is a lambda, not the bound method itself,
-        # on purpose: `test_dashboard_presenter.py` monkeypatches
-        # `presenter._enabled_script_keys` on the instance after
-        # construction, and only a late `self._enabled_script_keys()` call
-        # sees that — a captured bound method would keep calling the
-        # original.
-        self._indicator_coordinator = IndicatorCoordinator(
-            script_registry=self._script_registry,
-            script_runner=self._script_runner,
-            config=self.config,
-            get_active_charts=lambda: self.active_charts,
-            get_active_symbol=lambda: self._active_symbol,
-            get_enabled_script_keys=lambda: self._enabled_script_keys(),
-            get_script_params=lambda key: self._script_params_store.load_all().get(key),
-        )
-        self.view.set_indicator_script_dependencies(
-            self._script_catalog, self._script_params_store
-        )
-
-        def _get_cancellation_token():
-            return self._cancellation_token
-
-        def _reset_cancellation_token():
-            self._cancellation_token = CancellationToken()
-            return self._cancellation_token
-
-        def _get_active_interval():
-            return self._active_interval
-
-        def _set_active_interval(val: str):
-            self._active_interval = val
-
-        def _set_active_symbol(val: str):
-            self._active_symbol = val
-
-        self._stream_controller = StreamLifecycleController(
-            thread_manager=self._thread_manager,
-            market_data_sync=container.resolve(IMarketDataSync),
-            historical_klines=container.resolve(IHistoricalKlines),
-            market_stream=container.resolve(IMarketStream),
-            config=self.config,
-            fsm=self.fsm,
-            view_model=self._view_model,
-            script_runner=self._script_runner,
-            raw_klines_by_symbol=self._raw_klines_by_symbol,
-            get_active_interval=_get_active_interval,
-            set_active_interval=_set_active_interval,
-            set_active_symbol=_set_active_symbol,
-            ensure_chart_cards=lambda symbols: self._ensure_chart_cards(symbols),
-            rebuild_scripts=lambda: self._rebuild_scripts(),
-            compute_fetch_limit=lambda: self._compute_fetch_limit(),
-            get_cancellation_token=_get_cancellation_token,
-            reset_cancellation_token=_reset_cancellation_token,
-            emit_history_reloaded=self.ui_history_reloaded_signal.emit,
-            emit_history_load_finished=self.ui_history_load_finished_signal.emit,
-            emit_history_prepended=self.ui_history_prepended_signal.emit,
-            emit_history_prepend_finished=self.ui_history_prepend_finished_signal.emit,
-            emit_stream_success=self.ui_stream_success_signal.emit,
-            emit_stream_failed=self.ui_stream_failed_signal.emit,
-            emit_log=self.ui_log_signal.emit,
-            emit_sync_progress=self.ui_sync_progress_signal.emit,
-        )
-
-        self._run_load_history = self._stream_controller._run_load_history
-        self._run_load_more_history = self._stream_controller._run_load_more_history
-        self._run_sync_and_start = self._stream_controller._run_sync_and_start
-
-        # Must be called explicitly at the end of BasePresenter's contract.
-        self._connect_ui_signals()
-        self._connect_engine_events()
-        self._trigger_initial_health_check()
-
-        # `EPIC-023B` — read *after* `_connect_engine_events()` has already
-        # subscribed `_equity_feed`, not before: a live sample recorded in
-        # between subscribing and reading is otherwise missed entirely
-        # (subscribed-after-read order), same reasoning `TradingPresenter`
-        # documents for its own identical seed call.
-        self.view.equity_chart.render_historical_data(
-            equity_samples_to_candles(self._equity_curve.samples())
-        )
-
-        # EPIC-010D — restore the remembered form values, then start tracking
-        # changes. Placed here deliberately: after `_active_interval` and the
-        # ViewModel exist for `restore_state()` to write into, and *before*
-        # the auto-start block below, which (when config-enabled) calls
-        # `_on_start_stream()` immediately and would otherwise stream the
-        # default symbol rather than the remembered one.
-        #
-        # Restoring first and only then connecting `_mark_dirty` keeps the
-        # restore from writing the values straight back out as if the user
-        # had just typed them.
-        self._state_coordinator: UiStateCoordinator | None = find_state_coordinator(
-            container
-        )
-        if self._state_coordinator is not None:
-            self._state_coordinator.restore_into(self)
-        # EPIC-014 — the shared symbol favourites/recents store, injected
-        # into the panel that owns the picker. Optional exactly like the
-        # coordinator above: a presenter built against a container that does
-        # not know about it keeps an unpersisted store and still works.
-        view.set_symbol_preferences(
-            find_symbol_preferences(container) or SymbolPreferences()
-        )
-        # Follow-up to `EPIC-015` Phase 4 — the shared, per-symbol pinned-
-        # timeframe store. Optional exactly like the coordinator/symbol
-        # store above: set before `_ensure_chart_cards()` is ever invoked
-        # (it runs later, off the first market tick/health check, via the
-        # `ensure_chart_cards` lambda handed to `StreamLifecycleController`
-        # above), so every ChartCard Dev Board builds — now or on a later
-        # symbol-list rebuild — is scoped against the same store.
-        view.set_timeframe_pin_preferences(
-            find_timeframe_pin_preferences(container) or TimeframePinPreferences()
-        )
-
-        self._view_model.script_model.enabledKeysChanged.connect(self._mark_state_dirty)
-        self._view_model.symbolChanged.connect(self._mark_state_dirty)
-        self._view_model.startDateChanged.connect(self._mark_state_dirty)
-        self._view_model.endDateChanged.connect(self._mark_state_dirty)
-
-        # EPIC-006D: DevBoardPanel.qml is no longer loaded here — view's
-        # set_view_model() now builds the QtWidgets DevBoardPanel directly.
-        # .qml file kept on disk, unloaded (EPIC-006's rollback convention).
-
-        # BOT-034 — auto-start Start Live the moment the Dev Board opens,
-        # falling back to Load History if no MarketTickEvent proves a real
-        # connection within a few seconds. Constructed last: it immediately
-        # calls _on_start_stream(), which needs everything above already set
-        # up (script runner, signal connections, FSM). Config-gated
-        # (default off — BOT-062: opening Dev Board must not silently start
-        # a live connection unless the user has opted in); `None` when
-        # disabled so `_on_ui_chart_update`'s `self._autostart.on_market_tick()`
-        # has to guard against that instead of assuming it always exists.
-        self._autostart: AutoStartController | None = None
-        is_autostart_enabled = self.config.get(
-            _AUTOSTART_ENABLED_CONFIG_KEY,
-            _DEFAULT_AUTOSTART_ENABLED,
-            cast=bool,
-        )
-        if is_autostart_enabled:
-            fallback_seconds = self.config.get(
-                _AUTOSTART_FALLBACK_SECONDS_CONFIG_KEY,
-                _DEFAULT_AUTOSTART_FALLBACK_SECONDS,
-                cast=float,
-            )
-            self._autostart = AutoStartController(
-                start_stream=self._on_start_stream,
-                load_history=self._on_load_history,
-                fallback_seconds=fallback_seconds,
-                parent=self,
-            )
-            self._autostart.begin()
+        build_dashboard_presenter_state(self, view, container)
 
     # ================================================================== #
     # Symbol options (EPIC-014) — same shape as BackTestPresenter's BOT-102
