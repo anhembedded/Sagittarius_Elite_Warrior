@@ -23,10 +23,11 @@ would block on a limit before reaching the behaviour under test. The real
 reader has its own round-trip coverage in
 `tests/integration/infrastructure/binance/test_futures_account_reader_against_fake_server.py`.
 
-Constructs the LIVE submission path (`ExecuteOrderCommandHandler` builds
-`FuturesTradingClient(..., OrderSubmissionMode.LIVE)` itself) — the LIVE
-usage guard scans only `src/`/`scripts/`, precisely so a test driving that
-path against a local fixture is not mistaken for a production entry point.
+Constructs the LIVE submission path (`ExecuteOrderCommandHandler` resolves
+`ITradingClientFactory.create(OrderSubmissionMode.LIVE)`, `EPIC-027F`) — the
+LIVE usage guard scans only `src/`/`scripts/`, precisely so a test driving
+that path against a local fixture is not mistaken for a production entry
+point.
 """
 
 from __future__ import annotations
@@ -60,6 +61,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_meta
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client_factory import (
+    FuturesTradingClientFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
@@ -179,6 +183,9 @@ def _build_pipeline() -> _Pipeline:
     account_reader = _StubAccountReader()
     session_state = TradingSessionState()
     session_state.enable(set())
+    trading_client_factory = FuturesTradingClientFactory(
+        session_factory, _FakeCredentialsProvider(), metadata_provider
+    )
 
     handler = ExecuteOrderCommandHandler(
         TradingVenue.FUTURES_TESTNET,
@@ -186,9 +193,7 @@ def _build_pipeline() -> _Pipeline:
         account_reader,
         PreviewOrderQueryHandler(metadata_provider),
         TradingLimitPolicy(_LIMITS),
-        session_factory,
-        _FakeCredentialsProvider(),
-        metadata_provider,
+        trading_client_factory,
     )
     dispatcher = _RecordingDispatcher(handler)
     # `EPIC-025` PR 1.3c-2 — the coordinator now holds `IOrderSubmission`, so

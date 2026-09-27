@@ -77,11 +77,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
+    ITradingClientFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
@@ -90,12 +90,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit
     TradingLimitPolicy,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
-    IExchangeCredentialsProvider,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
-    ITradingSessionFactory,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -337,9 +331,7 @@ def app_engine(
                 engine.context.container.resolve(ITradingAccountReader),
                 engine.context.container.resolve(PreviewOrderQueryHandler),
                 engine.context.container.resolve(TradingLimitPolicy),
-                engine.context.container.resolve(ITradingSessionFactory),
-                engine.context.container.resolve(IExchangeCredentialsProvider),
-                engine.context.container.resolve(IMarketMetadataProvider),
+                engine.context.container.resolve(ITradingClientFactory),
             )
             return handler.execute(command_obj)
         if command_type is GetOpenPositionsQuery:
