@@ -31,6 +31,7 @@ from dataclasses import dataclass
 from decimal import Decimal
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     OrderRequest,
 )
@@ -95,6 +96,7 @@ class TradingActionsCoordinator:
         trading_session: ITradingSession,
         order_submission: IOrderSubmission,
         account: IAccountSnapshot,
+        market_type: MarketType,
         trackers: ActionTrackers,
         toggle_action_kind: str,
         emergency_stop_action_kind: str,
@@ -110,6 +112,7 @@ class TradingActionsCoordinator:
         self._trading_session = trading_session
         self._order_submission = order_submission
         self._account = account
+        self._market_type = market_type
         self._toggle_tracker = trackers.toggle
         self._emergency_stop_tracker = trackers.emergency_stop
         self._manual_order_tracker = trackers.manual_order
@@ -280,7 +283,9 @@ class TradingActionsCoordinator:
             # (see `manual_order_intent_for()`'s own docstring).
             positions = self._account.open_positions()
             current_position = next((p for p in positions if p.symbol == symbol), None)
-            intent = manual_order_intent_for(direction, current_position)
+            intent = manual_order_intent_for(
+                direction, current_position, self._market_type
+            )
             result = self._order_submission.submit(
                 OrderRequest(
                     symbol=symbol,

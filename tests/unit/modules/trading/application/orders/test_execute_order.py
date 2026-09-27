@@ -175,20 +175,18 @@ class TestSafetyGates:
         assert result.blocked_by is ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
         assert result.preview is None
 
-    def test_blocked_when_trading_venue_is_spot_testnet(self) -> None:
-        """`EPIC-027G` — the gate asks `TradingVenue.supports_order_submission`,
-        not a literal `is not FUTURES_TESTNET`, so a future supported venue
-        is a one-property change, not a three-handler edit. `SPOT_TESTNET`
-        is a real, closed enum member (its own `market_type`, isolated
-        credentials) but has no real order-submission implementation behind
-        it yet (`ITradingAccountReader`/`ITradingClientFactory` still bind
-        only the Futures adapters) — routing an order through it today
-        would sign a Futures Testnet call with Spot Testnet credentials.
-        `supports_order_submission` is `False` for it until `EPIC-027K`."""
+    def test_not_blocked_when_trading_venue_is_spot_testnet(self) -> None:
+        """`EPIC-027K` — the gate asks `TradingVenue.supports_order_submission`,
+        not a literal `is not FUTURES_TESTNET`, so a newly-supported venue is
+        a one-property change, not a three-handler edit. `SPOT_TESTNET` now
+        has a real order-submission implementation (`SpotTradingClient`,
+        bound by `adapter_bindings.py`'s `ITradingClientFactory` branch), so
+        `supports_order_submission` is `True` for it and this gate no longer
+        blocks — see `TestLiveSubmission::test_live_submits_and_records_the_order_on_spot_testnet`
+        for the full successful submission this unblocks."""
         handler, _ = _handler(trading_venue=TradingVenue.SPOT_TESTNET)
         result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))
-        assert result.blocked_by is ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
-        assert result.preview is None
+        assert result.blocked_by is not ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
 
     def test_blocked_when_switch_is_off(self) -> None:
         handler, _ = _handler(enabled=False)
@@ -487,6 +485,25 @@ class TestLiveSubmission:
                 )
             )
         raw_client.futures_create_order.assert_not_called()
+
+    def test_live_submits_and_records_the_order_on_spot_testnet(self) -> None:
+        """`EPIC-027K` — proves `SPOT_TESTNET` genuinely submits through this
+        same handler once the venue's safety gate stops blocking it, not
+        merely that the gate opens (`TestSafetyGates`'s own test only proves
+        that)."""
+        raw_client = Mock()
+        raw_client.futures_create_order.return_value = {}
+        handler, state = _handler(
+            trading_venue=TradingVenue.SPOT_TESTNET, raw_client=raw_client
+        )
+
+        result = handler.execute(
+            ExecuteOrderCommand(order_request=_order_request(), live=True)
+        )
+
+        assert result.blocked_by is None
+        assert result.submitted_order is not None
+        assert state.orders_sent_this_session == 1
 
 
 class TestConcurrentDispatch:

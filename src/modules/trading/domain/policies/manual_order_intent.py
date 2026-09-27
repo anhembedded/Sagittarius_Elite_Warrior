@@ -14,14 +14,28 @@ must always pass the *real*, freshly-read current position
 prior click) — a human can click Long/Short in either order, at any time,
 with no signal history to fall back on the way `LiveTradingCoordinator`
 does.
+
+`EPIC-027K` post-review fix (PR #284) — `market_type` gates Short the same
+way: Spot has no leveraged position to open a short in, so
+`ITradingClient.get_positions()` always answers `[]` there
+(`SpotTradingClient.get_positions()`'s own docstring), which used to make
+every Spot Short click translate to a plain `OrderSide.SELL`/
+`reduce_only=False` — indistinguishable from a deliberate sale of a real
+holding once `TradingVenue.supports_order_submission` started admitting
+Spot orders. Refused here, before an `OrderIntent` is ever built, rather
+than silently reinterpreted as a Sell the user did not ask for.
 """
 
 from __future__ import annotations
 
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.manual_short_not_supported_on_market_error import (
+    ManualShortNotSupportedOnMarketError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_intent import (
     OrderIntent,
@@ -55,7 +69,9 @@ _OPPOSITE_POSITION_SIDE: dict[ManualOrderDirection, PositionSide] = {
 
 
 def manual_order_intent_for(
-    direction: ManualOrderDirection, current_position: LivePosition | None
+    direction: ManualOrderDirection,
+    current_position: LivePosition | None,
+    market_type: MarketType,
 ) -> OrderIntent:
     """@brief `EPIC-024B` §2's 4-row table, as code.
     @param current_position The account's real, just-read position on the
@@ -63,7 +79,17 @@ def manual_order_intent_for(
     from a prior call; a flat position is absent from `ITradingClient.
     get_positions()`'s result (see `LivePosition`'s own docstring), not a
     zero-amount entry, so `None` is the only way "flat" is represented.
+    @param market_type The venue's market — `MarketType.SPOT` refuses
+    `ManualOrderDirection.SHORT` outright (see this module's own docstring).
+    @raise ManualShortNotSupportedOnMarketError `direction` is `SHORT` and
+    `market_type` cannot represent a short position.
     """
+    if direction is ManualOrderDirection.SHORT and market_type is MarketType.SPOT:
+        raise ManualShortNotSupportedOnMarketError(
+            "Short is not supported on Spot — a Spot account has no "
+            "leveraged position to open one; use Sell to reduce a real "
+            "holding instead."
+        )
     side = _ORDER_SIDE_BY_DIRECTION[direction]
     reduce_only = (
         current_position is not None

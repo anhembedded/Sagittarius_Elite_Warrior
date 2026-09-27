@@ -1,15 +1,19 @@
-"""`EPIC-027H`/`EPIC-027I` — the one place allowed to construct a
+"""`EPIC-027H`/`EPIC-027I`/`EPIC-027K` — the one place allowed to construct a
 `binance.client.Client` for Spot Testnet, mirroring `FuturesSessionFactory`'s
 own construction pattern (`testnet=True`, `REQUEST_TIMEOUT_SECONDS`, a
 clock-skew-corrected `timestamp_offset` for the signed session) with Spot's
 own unprefixed session-client methods (`ping`/`get_server_time`/
-`get_account`/`get_exchange_info`) in place of Futures' `futures_*` ones.
+`get_account`/`get_exchange_info`/`create_order`) in place of Futures'
+`futures_*` ones.
 
 @details `create_metadata_client()` is on no port, same as
 `FuturesSessionFactory.create_futures_metadata_client()`: its only caller is
 this module's own `SpotMetadataProvider` (`EPIC-027I`), so the two talk
 directly — a port exists to cross a boundary, and there is none here
-(`architecture-rule.md` §2).
+(`architecture-rule.md` §2). `create_account_client()`/`create_trading_client()`
+mint the same kind of signed session for two different callers
+(`SpotAccountReader`/`SpotTradingClient`) — see `ISpotSessionFactory`'s own
+docstring for why that is two methods, not one shared by both.
 """
 
 from __future__ import annotations
@@ -62,6 +66,24 @@ class SpotSessionFactory(ISpotSessionFactory):
         returning it as-is would fail `no-any-return` against this method's
         own declared return type.
         """
+        client = Client(
+            api_key=credentials.api_key,
+            api_secret=credentials.api_secret,
+            requests_params={"timeout": REQUEST_TIMEOUT_SECONDS},
+            testnet=True,
+        )
+        _sync_timestamp_offset(client)
+        return cast(ISpotSessionClient, client)
+
+    def create_trading_client(
+        self, credentials: ExchangeCredentials
+    ) -> ISpotSessionClient:
+        """A signed session, ready to place/cancel orders and read open
+        orders (`EPIC-027K`). Same construction as `create_account_client()`
+        — a real Spot Testnet session satisfies both structurally; kept as
+        its own method because `SpotTradingClient` and `SpotAccountReader`
+        call it for different reasons (see `ISpotSessionFactory`'s own
+        docstring)."""
         client = Client(
             api_key=credentials.api_key,
             api_secret=credentials.api_secret,

@@ -18,6 +18,7 @@ from decimal import Decimal
 from unittest.mock import MagicMock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
     CancelOrderResult,
 )
@@ -116,6 +117,14 @@ def account() -> FakeAccountSnapshot:
 
 
 @pytest.fixture
+def market_type() -> MarketType:
+    """`FUTURES_USD_M` — the venue every other fixture in this file already
+    assumes (`_live_position()`'s own leveraged shape); Spot-specific
+    behaviour gets its own dedicated fixture override below."""
+    return MarketType.FUTURES_USD_M
+
+
+@pytest.fixture
 def toggle_tracker() -> ActionOwnershipTracker:
     return ActionOwnershipTracker()
 
@@ -176,6 +185,7 @@ def _build_coordinator(
     trading_session,
     order_submission,
     account,
+    market_type,
     toggle_tracker,
     emergency_stop_tracker,
     manual_order_tracker,
@@ -198,6 +208,7 @@ def _build_coordinator(
         trading_session=trading_session,
         order_submission=order_submission,
         account=account,
+        market_type=market_type,
         trackers=ActionTrackers(
             toggle=toggle_tracker,
             emergency_stop=emergency_stop_tracker,
@@ -227,6 +238,7 @@ def coordinator(
     trading_session,
     order_submission,
     account,
+    market_type,
     toggle_tracker,
     emergency_stop_tracker,
     manual_order_tracker,
@@ -244,6 +256,7 @@ def coordinator(
         trading_session=trading_session,
         order_submission=order_submission,
         account=account,
+        market_type=market_type,
         toggle_tracker=toggle_tracker,
         emergency_stop_tracker=emergency_stop_tracker,
         manual_order_tracker=manual_order_tracker,
@@ -466,6 +479,7 @@ def test_request_manual_order_rejects_a_market_order_with_no_known_price(
     trading_session,
     order_submission,
     account,
+    market_type,
     toggle_tracker,
     emergency_stop_tracker,
     manual_order_tracker,
@@ -483,6 +497,7 @@ def test_request_manual_order_rejects_a_market_order_with_no_known_price(
         trading_session=trading_session,
         order_submission=order_submission,
         account=account,
+        market_type=market_type,
         toggle_tracker=toggle_tracker,
         emergency_stop_tracker=emergency_stop_tracker,
         manual_order_tracker=manual_order_tracker,
@@ -595,6 +610,67 @@ def test_run_manual_order_reports_an_exception_rather_than_raising(
     assert action_id == 2
     assert result is None
     assert error == "rejected"
+
+
+def test_run_manual_order_refuses_a_short_click_on_spot_without_submitting(
+    thread_manager,
+    trading_session,
+    order_submission,
+    account,
+    toggle_tracker,
+    emergency_stop_tracker,
+    manual_order_tracker,
+    append_log,
+    set_trading_state,
+    set_manual_order_state,
+    emit_enable_completed,
+    emit_disable_completed,
+    emit_emergency_stop_completed,
+    emit_manual_order_completed,
+    emit_cancel_order_completed,
+):
+    """`EPIC-027K` post-review fix (PR #284) — before this fix, a Spot
+    Short click reached `order_submission.submit()` as a plain
+    `SELL`/`reduce_only=False`, indistinguishable from a deliberate sale of
+    a real holding, because `SpotTradingClient.get_positions()` always
+    answers `[]` so `current_position` is always `None`. The coordinator's
+    own `market_type` must refuse it before any order is built."""
+    coordinator = _build_coordinator(
+        thread_manager=thread_manager,
+        trading_session=trading_session,
+        order_submission=order_submission,
+        account=account,
+        market_type=MarketType.SPOT,
+        toggle_tracker=toggle_tracker,
+        emergency_stop_tracker=emergency_stop_tracker,
+        manual_order_tracker=manual_order_tracker,
+        append_log=append_log,
+        set_trading_state=set_trading_state,
+        set_manual_order_state=set_manual_order_state,
+        get_last_price=lambda _symbol: Decimal(64000),
+        emit_enable_completed=emit_enable_completed,
+        emit_disable_completed=emit_disable_completed,
+        emit_emergency_stop_completed=emit_emergency_stop_completed,
+        emit_manual_order_completed=emit_manual_order_completed,
+        emit_cancel_order_completed=emit_cancel_order_completed,
+    )
+
+    coordinator.run_manual_order(
+        3,
+        "BTCUSDT",
+        ManualOrderDirection.SHORT,
+        Decimal("0.01"),
+        OrderType.MARKET,
+        Decimal(64000),
+    )
+
+    assert order_submission.submitted_live == []
+    assert order_submission.submitted_dry == []
+    (call,) = emit_manual_order_completed.calls
+    action_id, result, error = call[0]
+    assert action_id == 3
+    assert result is None
+    assert "Short is not supported on Spot" in error
 
 
 # ---------------------------------------------------------------------------

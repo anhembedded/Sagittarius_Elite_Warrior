@@ -3,17 +3,24 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
+import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.manual_short_not_supported_on_market_error import (
+    ManualShortNotSupportedOnMarketError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
     ManualOrderDirection,
     manual_order_intent_for,
 )
+
+_FUTURES = MarketType.FUTURES_USD_M
 
 
 def _position(signed_amount: str) -> LivePosition:
@@ -34,38 +41,81 @@ class TestLongClick:
     """`EPIC-024B` §2's table, row 1-2: bấm Long."""
 
     def test_flat_opens_long_not_reduce_only(self) -> None:
-        intent = manual_order_intent_for(ManualOrderDirection.LONG, None)
+        intent = manual_order_intent_for(ManualOrderDirection.LONG, None, _FUTURES)
         assert intent.side is OrderSide.BUY
         assert intent.reduce_only is False
 
     def test_already_long_adds_to_long_not_reduce_only(self) -> None:
-        intent = manual_order_intent_for(ManualOrderDirection.LONG, _position("0.01"))
+        intent = manual_order_intent_for(
+            ManualOrderDirection.LONG, _position("0.01"), _FUTURES
+        )
         assert intent.side is OrderSide.BUY
         assert intent.reduce_only is False
 
     def test_currently_short_closes_the_short_reduce_only(self) -> None:
-        intent = manual_order_intent_for(ManualOrderDirection.LONG, _position("-0.01"))
+        intent = manual_order_intent_for(
+            ManualOrderDirection.LONG, _position("-0.01"), _FUTURES
+        )
         assert intent.side is OrderSide.BUY
         assert intent.reduce_only is True
 
+    def test_long_is_allowed_on_spot_too(self) -> None:
+        """Spot has no short capability, but Long (a plain Buy) is always
+        valid there — only `SHORT` is refused (see `TestSpotRefusesShort`)."""
+        intent = manual_order_intent_for(
+            ManualOrderDirection.LONG, None, MarketType.SPOT
+        )
+        assert intent.side is OrderSide.BUY
+        assert intent.reduce_only is False
+
 
 class TestShortClick:
-    """`EPIC-024B` §2's table, row 3-4: bấm Short."""
+    """`EPIC-024B` §2's table, row 3-4: bấm Short — on a market that can
+    represent one (`MarketType.FUTURES_USD_M`); Spot's own refusal is
+    `TestSpotRefusesShort` below."""
 
     def test_flat_opens_short_not_reduce_only(self) -> None:
-        intent = manual_order_intent_for(ManualOrderDirection.SHORT, None)
+        intent = manual_order_intent_for(ManualOrderDirection.SHORT, None, _FUTURES)
         assert intent.side is OrderSide.SELL
         assert intent.reduce_only is False
 
     def test_already_short_adds_to_short_not_reduce_only(self) -> None:
-        intent = manual_order_intent_for(ManualOrderDirection.SHORT, _position("-0.01"))
+        intent = manual_order_intent_for(
+            ManualOrderDirection.SHORT, _position("-0.01"), _FUTURES
+        )
         assert intent.side is OrderSide.SELL
         assert intent.reduce_only is False
 
     def test_currently_long_closes_the_long_reduce_only(self) -> None:
-        intent = manual_order_intent_for(ManualOrderDirection.SHORT, _position("0.01"))
+        intent = manual_order_intent_for(
+            ManualOrderDirection.SHORT, _position("0.01"), _FUTURES
+        )
         assert intent.side is OrderSide.SELL
         assert intent.reduce_only is True
+
+
+class TestSpotRefusesShort:
+    """`EPIC-027K` post-review fix (PR #284) — before this fix, a Spot
+    Short click silently became a plain `SELL`/`reduce_only=False`,
+    indistinguishable from a deliberate sale of a real holding, because
+    `SpotTradingClient.get_positions()` always answers `[]` (no leveraged
+    position to read), which made `current_position` always `None` here
+    regardless of the account's real holdings."""
+
+    def test_flat_short_is_refused(self) -> None:
+        with pytest.raises(
+            ManualShortNotSupportedOnMarketError, match="not supported on Spot"
+        ):
+            manual_order_intent_for(ManualOrderDirection.SHORT, None, MarketType.SPOT)
+
+    def test_short_is_refused_even_with_a_position_argument(self) -> None:
+        """Never reachable in production (Spot's own `get_positions()`
+        always answers `[]`), but the refusal must not depend on that —
+        it is a market capability, not a position-shape coincidence."""
+        with pytest.raises(ManualShortNotSupportedOnMarketError):
+            manual_order_intent_for(
+                ManualOrderDirection.SHORT, _position("0.01"), MarketType.SPOT
+            )
 
 
 def test_long_and_short_share_no_ambiguity_the_signal_path_has() -> None:
@@ -74,6 +124,6 @@ def test_long_and_short_share_no_ambiguity_the_signal_path_has() -> None:
     the button itself already disambiguates direction; only
     `reduce_only`, driven by the real current position, still varies."""
     flat = None
-    long_intent = manual_order_intent_for(ManualOrderDirection.LONG, flat)
-    short_intent = manual_order_intent_for(ManualOrderDirection.SHORT, flat)
+    long_intent = manual_order_intent_for(ManualOrderDirection.LONG, flat, _FUTURES)
+    short_intent = manual_order_intent_for(ManualOrderDirection.SHORT, flat, _FUTURES)
     assert long_intent.side is not short_intent.side

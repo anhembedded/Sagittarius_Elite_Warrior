@@ -33,14 +33,12 @@ class TradingVenue(str, Enum):
         implementation for this venue.
 
         @details Distinct from "is this a closed, reviewed `TradingVenue`
-        member" — `SPOT_TESTNET` is one (`EPIC-027G`: its own `market_type`,
-        isolated credentials, alignment state), but `adapter_bindings.py`
-        still binds those three ports unconditionally to their Futures-only
-        adapters, so routing an order through `SPOT_TESTNET` today would
-        sign a Futures Testnet API call with Spot Testnet credentials. The
-        three order-path safety gates and `TradingModule`'s `ITradingClient`
-        bind read this property, not a literal venue comparison, so
-        `EPIC-027K` (Spot's real order path) flips one `return` here rather
-        than three handler files again.
+        member" — both tradeable members now have one: `FUTURES_TESTNET`
+        since `EPIC-021`, `SPOT_TESTNET` since `EPIC-027K` bound
+        `SpotTradingClientFactory` alongside `FuturesTradingClientFactory` in
+        `adapter_bindings.py`. The three order-path safety gates and
+        `TradingModule`'s `ITradingClient` bind read this property, not a
+        literal venue comparison, so a future venue only ever needs one line
+        added here.
         """
-        return self is TradingVenue.FUTURES_TESTNET
+        return self in (TradingVenue.FUTURES_TESTNET, TradingVenue.SPOT_TESTNET)

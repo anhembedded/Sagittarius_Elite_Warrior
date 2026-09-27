@@ -171,7 +171,9 @@ def _submit_manual_order(direction: ManualOrderDirection) -> None:
         ),
         None,
     )
-    intent = manual_order_intent_for(direction, current_position)
+    intent = manual_order_intent_for(
+        direction, current_position, TradingVenue.FUTURES_TESTNET.market_type
+    )
 
     handler = ExecuteOrderCommandHandler(
         TradingVenue.FUTURES_TESTNET,

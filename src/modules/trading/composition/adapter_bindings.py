@@ -61,6 +61,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_me
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_session_factory import (
     SpotSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_trading_client_factory import (
+    SpotTradingClientFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
@@ -181,18 +184,30 @@ def bind_adapters(container: IContainer) -> None:
 
     # `EPIC-027F`: the one place allowed to construct `FuturesTradingClient`
     # (guarded by
-    # `test_only_the_factory_constructs_futures_trading_client.py`).
+    # `test_only_the_factory_constructs_futures_trading_client.py`/
+    # `test_only_the_factory_constructs_spot_trading_client.py`).
     # Registered unconditionally — like `ITradingAccountReader`/
     # `IUserDataStream` below, not gated on `TradingVenue` the way
     # `ITradingClient` itself is in `TradingModule.boot()` — so every
     # handler that depends on it stays constructible regardless of whether
     # trading is enabled.
+    # `EPIC-027K`: venue-branches exactly like `ITradingAccountReader`/
+    # `IMarketMetadataProvider` above — `SpotTradingClientFactory` for
+    # `SPOT_TESTNET`, unchanged `FuturesTradingClientFactory` otherwise.
     container.singleton(
         ITradingClientFactory,
-        lambda c: FuturesTradingClientFactory(
-            session_factory,
-            c.resolve(IExchangeCredentialsProvider),
-            c.resolve(IMarketMetadataProvider),
+        lambda c: (
+            SpotTradingClientFactory(
+                spot_session_factory,
+                c.resolve(IExchangeCredentialsProvider),
+                c.resolve(IMarketMetadataProvider),
+            )
+            if c.resolve(TradingVenue) is TradingVenue.SPOT_TESTNET
+            else FuturesTradingClientFactory(
+                session_factory,
+                c.resolve(IExchangeCredentialsProvider),
+                c.resolve(IMarketMetadataProvider),
+            )
         ),
     )
 
