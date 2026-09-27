@@ -404,17 +404,15 @@ class StreamLifecycleController:
             # is the one caller of `load_many()`. Two guards went with the
             # dispatch and are worth naming rather than just deleting:
             #
-            # `isinstance(results, dict)` guarded against the handler's return
-            # type changing with its argument's runtime type, and logged
-            # "Unexpected response format from history query." — a message
-            # about a shape the port can no longer produce, so the branch was
-            # unreachable rather than merely unused.
+            # `isinstance(results, dict)` logged "Unexpected response format
+            # from history query." — a shape the port can no longer produce.
             #
             # `isinstance(klines, list)` was the same defensiveness one level
             # down, and would have *inverted* on the way over: the port hands
             # back tuples, so leaving that check in place would have reported
             # "No historical data found" for every symbol that had data.
             results = self._historical_klines.load_many(
+                MarketType.SPOT,  # what this screen syncs; `MarketType` docstring
                 symbols,
                 TimeFrame(interval_str),
                 limit=limit,
@@ -468,6 +466,7 @@ class StreamLifecycleController:
             # keeping that check would have reported "No older data" on every
             # successful page.
             newest_first_rows = self._historical_klines.load(
+                MarketType.SPOT,  # what this screen syncs; `MarketType` docstring
                 symbol,
                 TimeFrame(interval_str),
                 limit=limit,

@@ -20,6 +20,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.param_field import ParamGroup
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Overlay,
@@ -103,6 +104,8 @@ class StrategyPropertiesDialog(Overlay):
         self._properties_tab = self._build_properties_tab()
         self._property_widgets = self._build_property_widgets()
         self._bindings = self._bind_broker_properties()
+        self._vm.broker_sim.marketChanged.connect(self._show_leverage_for_market)
+        self._show_leverage_for_market()
         properties_scroll = QScrollArea()
         properties_scroll.setWidgetResizable(True)
         properties_scroll.setFrameShape(QFrame.Shape.NoFrame)
@@ -183,7 +186,12 @@ class StrategyPropertiesDialog(Overlay):
         row3.addLayout(_field_row("Slippage (Ticks)", self._prop_slippage_ticks))
         layout.addLayout(row3)
 
-        layout.addLayout(_section_header("x", "Leverage"))
+        # EPIC-027D — its own widget, so Spot can hide it (not merely disable).
+        self._leverage_section = QWidget()
+        self._leverage_section.setObjectName("leverageSection")
+        section = QVBoxLayout(self._leverage_section)
+        section.setContentsMargins(0, 0, 0, 0)
+        section.addLayout(_section_header("x", "Leverage"))
         row4 = QHBoxLayout()
         row4.setSpacing(12)
         self._prop_long_leverage = QSpinBox()
@@ -194,7 +202,8 @@ class StrategyPropertiesDialog(Overlay):
         self._prop_short_leverage.setObjectName("propShortLeverage")
         self._prop_short_leverage.setRange(1, 125)
         row4.addLayout(_field_row("Short Leverage (x)", self._prop_short_leverage), 1)
-        layout.addLayout(row4)
+        section.addLayout(row4)
+        layout.addWidget(self._leverage_section)
 
         layout.addLayout(_section_header("%", "Automatic Take Profit (Take Profit %)"))
         row5 = QHBoxLayout()
@@ -296,17 +305,10 @@ class StrategyPropertiesDialog(Overlay):
         btn_save.clicked.connect(self.save_and_close)
         row.addWidget(btn_save)
 
-        # BUG-064 — a QPushButton inside a QDialog has autoDefault ON by
-        # default, and the FIRST such button becomes the dialog's default
-        # button. That was "Đặt lại mặc định": pressing Enter in any field
-        # wiped every setting back to its default. Measured, not guessed —
-        # btnResetBotParams reported isDefault=True, and a Return keypress
-        # fired its clicked signal.
-        #
-        # No button here should answer Enter: in this dialog Enter means
-        # "commit the field I am typing in" (that is the whole point of
-        # editingFinished), and destroying the user's settings is the worst
-        # possible thing to bind the most reflexive key to.
+        # BUG-064 — a dialog's first autoDefault button answers Enter; it was
+        # "Đặt lại mặc định", so Enter in any field wiped every setting
+        # (measured: isDefault=True). Here Enter means "commit this field"
+        # (editingFinished), so no button may answer it.
         for button in (btn_reset, btn_cancel, btn_save):
             button.setAutoDefault(False)
             button.setDefault(False)
@@ -408,26 +410,20 @@ class StrategyPropertiesDialog(Overlay):
             },
         }
 
+    def _show_leverage_for_market(self) -> None:
+        """EPIC-027D — Spot trades at 1× only (ADR D3): no leverage to set."""
+        spot = self._vm.broker_sim.market == MarketType.SPOT.value
+        self._leverage_section.setVisible(not spot)
+
     def _commit_edited_values(self) -> None:
         """Persist what is currently typed, and nothing more — the
         focus-loss/Enter path.
 
-        BUG-064 went through two wrong versions of this before landing here,
-        both reported by the user within minutes:
-
-        1. Wired straight to the save path: tabbing between fields closed
-           the dialog, because that path emits `botParamsSaved`, which
-           `__init__` connects to `accept()` for the Save button's benefit.
-        2. Wired to a wrapper that merely suppressed the close: the dialog
-           stayed open, but the save still dispatched `RUN_REQUESTED`, so
-           every field tabbed past moved the screen out of IDLE and kicked off
-           a backtest — "chưa save sao lại nhảy state?".
-
-        Both were the same mistake in different clothes: reusing the "save"
-        pipeline for something that is not a save. The commit path is now its
-        own signal end to end (`requestStrategyPropertiesCommit` ->
-        `strategyPropertiesCommitRequested` ->
-        `StrategyConfigCoordinator.commit_strategy_properties`), which
+        BUG-064's two wrong versions both reused the save pipeline (one closed
+        the dialog on every tab, the other dispatched `RUN_REQUESTED` and
+        started a backtest). The commit path is its own signal end to end
+        (`requestStrategyPropertiesCommit` -> `strategyPropertiesCommitRequested`
+        -> `StrategyConfigCoordinator.commit_strategy_properties`): it
         validates and stores the values and stops there.
         """
         self._vm.requestStrategyPropertiesCommit(self._collect_payload())

@@ -99,6 +99,13 @@ class PositionLifecyclePolicy:
         self._symbol = symbol
         self._pricing = pricing
         self._broker_config = broker_config
+        self._rejected_entries = 0
+
+    @property
+    def rejected_entries(self) -> int:
+        """EPIC-027C — entries an exchange filter refused (min quantity or
+        notional). Counted here, the one place an entry is decided."""
+        return self._rejected_entries
 
     def open_position(
         self,
@@ -139,10 +146,16 @@ class PositionLifecyclePolicy:
             )
             for pos in positions
         )
-        capital_deployed, quantity, entry_fee = self._pricing.entry_capital(
-            side, request.price, current_eq, balance
-        )
-        if quantity <= 0 or capital_deployed <= 0:
+        entry = self._pricing.entry_capital(side, request.price, current_eq, balance)
+        if entry.rejection is not None:
+            self._rejected_entries += 1
+            logger.debug(
+                f"[exchange-filter] {_ENTRY_LOG_LABEL[side]} rejected at "
+                f"{request.time.isoformat()}: {entry.rejection.value}"
+            )
+            return positions, balance
+        margin, quantity, entry_fee = entry.margin, entry.quantity, entry.entry_fee
+        if not entry.is_fillable:
             logger.debug(
                 f"[paper-exchange] {_ENTRY_LOG_LABEL[side]} rejected: insufficient balance "
                 f"({balance:,.2f}) for sizing"
@@ -164,12 +177,12 @@ class PositionLifecyclePolicy:
             for level in self._broker_config.partial_take_profit_levels
         )
 
-        new_balance = balance - capital_deployed
+        new_balance = balance - margin
         position = OpenPosition(
             quantity=quantity,
             entry_price=effective_price,
             entry_time=request.time,
-            balance_before_entry=capital_deployed,
+            balance_before_entry=margin,
             entry_fee=entry_fee,
             entry_reason=request.reason,
             stop_loss_price=stop_loss_price,
@@ -187,7 +200,7 @@ class PositionLifecyclePolicy:
         logger.debug(
             f"[paper-exchange] {_ENTRY_LOG_LABEL[side]} filled | Price: {effective_price:,.2f} "
             f"(raw: {request.price:,.2f}, slip: {slip_sign}{slippage_delta:,.2f}) | "
-            f"Qty: {quantity:.6f} | Cost: {capital_deployed:,.2f} | Fee: {entry_fee:,.2f} | "
+            f"Qty: {quantity:.6f} | Cost: {margin:,.2f} | Fee: {entry_fee:,.2f} | "
             f"Pos: {len(new_positions)}/{self._broker_config.pyramiding} | Cash Left: {new_balance:,.2f}"
         )
         return new_positions, new_balance

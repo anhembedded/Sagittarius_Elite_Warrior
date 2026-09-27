@@ -8,7 +8,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.backtesting.application.progress_throttle import (
     ProgressThrottle,
 )
@@ -113,16 +112,11 @@ class RunHistoricalTickBacktestCommandHandler(
             start=command.start_time,
             end=command.end_time,
         )
-        # BUG-051 — was self._repository.get_klines(): one call that
-        # materialized the ENTIRE tick range (up to millions of rows) before
-        # the simulation loop could start. Measured: 1.5M rows via
-        # get_klines() took ~70s with Qt main-thread stalls up to ~1.9s
-        # (background thread or not); the same rows via count_klines()+
-        # stream_klines() below took ~28s with no stall above 0.09s. Mirrors
-        # BUG-025's fix for RunStaticBacktestCommandHandler — this handler
-        # (BOT-076, added after BUG-025) never got the same treatment.
+        # BUG-051 — streamed, never get_klines(): materializing 1.5M ticks took
+        # ~70s with UI stalls up to ~1.9s; count_klines()+stream_klines() took
+        # ~28s with no stall above 0.09s (BUG-025's fix for the static handler).
         total_ticks = self._repository.count_klines(
-            market=MarketType.SPOT,
+            market=command.market,
             symbol=command.symbol,
             interval=command.tick_resolution,
             start_time=command.start_time,
@@ -140,7 +134,7 @@ class RunHistoricalTickBacktestCommandHandler(
             return None
 
         ticks = self._repository.stream_klines(
-            market=MarketType.SPOT,
+            market=command.market,
             symbol=command.symbol,
             interval=command.tick_resolution,
             start_time=command.start_time,
@@ -334,6 +328,9 @@ class RunHistoricalTickBacktestCommandHandler(
             equity_curve=equity_curve,
             committed_bars=committed_bars,
             ignored_short_signals=exchange.ignored_short_signals,
+            rejected_entries=exchange.rejected_entries,
+            exchange_filters=exchange.broker_config.exchange_filters,
+            market_type=exchange.broker_config.market_type,
         )
 
     def _reevaluate_on_order_fill(

@@ -15,6 +15,7 @@ from types import SimpleNamespace
 from typing import Any
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
     BacktestExecutionMode,
@@ -48,6 +49,9 @@ class InMemoryScreenState(IBacktestScreenState):
     # test's appended kline would show up in the next (`ruff` RUF012 flags
     # exactly this). Real types live on `IBacktestScreenState`.
     symbol = "BTCUSDT"
+    # Spot, the market the `market_data` fakes seed by default, so a test that
+    # seeds candles or coverage without naming one reads them back.
+    market = MarketType.SPOT
     all_trades: Any = None
     active_strategy_lines: Any = None
     chart_klines_fetch_limit = 1000
@@ -60,6 +64,7 @@ class InMemoryScreenState(IBacktestScreenState):
         self,
         *,
         symbol: str = "BTCUSDT",
+        market: MarketType = MarketType.SPOT,
         all_trades: list[Any] | None = None,
         active_strategy_lines: Any = None,
         chart_klines_fetch_limit: int = 1000,
@@ -71,6 +76,7 @@ class InMemoryScreenState(IBacktestScreenState):
         # Every collection is rebuilt per instance; the class attributes above
         # exist only so `abc` sees a binding for each abstract member.
         self.symbol = symbol
+        self.market = market
         self.all_trades = all_trades if all_trades is not None else []
         self.active_strategy_lines = (
             active_strategy_lines if active_strategy_lines is not None else {}

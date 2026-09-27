@@ -9,6 +9,7 @@ real one does not pass, the fake would be wrong.
 """
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog_repository import (
     ISymbolCatalogRepository,
 )
@@ -33,4 +34,4 @@ def test_the_seed_argument_normalises_like_a_save() -> None:
     test against a list the real catalog could never hold."""
     catalog = FakeSymbolCatalogRepository([" ethusdt ", "BTCUSDT", "btcusdt", ""])
 
-    assert catalog.get_symbols() == ["BTCUSDT", "ETHUSDT"]
+    assert catalog.get_symbols(MarketType.SPOT) == ["BTCUSDT", "ETHUSDT"]

@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QFrame, QSplitter, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
@@ -135,13 +136,11 @@ class BackTestView(BaseView):
         self.scroll_area.setWidget(self.scroll_content)
 
     def set_view_model(self, view_model, context_name: str = "viewModel") -> None:
-        """Registers the screen's ViewModel and builds every child that
-        needs it at construction time (EPIC-006E: `top_widget`,
-        `bottom_widget`, and the 11 modal `QDialog`s owned by
-        `_modals_host` — all plain QtWidgets now, no QML context property
-        registration left to do). `context_name` is unused, kept only for
-        call-site compatibility with `BasePresenter`'s generic wiring."""
+        """Registers the ViewModel and builds every child that needs it
+        (EPIC-006E: top/bottom widgets and the modals). `context_name` is
+        unused, kept for `BasePresenter`'s generic wiring."""
         self._view_model = view_model
+        view_model.broker_sim.marketChanged.connect(self._show_marker_sides)
         self.top_widget = BackTestTopPanel(view_model)
         self._scroll_content_layout.insertWidget(0, self.top_widget)
         self._shell.set_header(
@@ -162,6 +161,12 @@ class BackTestView(BaseView):
         )
 
         self._modals_host = BackTestModalsHost(view_model, self)
+
+    def _show_marker_sides(self) -> None:
+        """EPIC-027D — the chart's side filter follows the screen's market."""
+        if self.chart_controls is not None and self._view_model is not None:
+            market = MarketType(self._view_model.broker_sim.market)
+            self.chart_controls.show_sides_for(market)
 
     def apply_ui_mode(self, mode, section_key: str = "main") -> None:
         """Receives FSM state changes from BasePresenter and forwards them to
@@ -200,6 +205,7 @@ class BackTestView(BaseView):
         if self.chart_cards:
             self.chart_controls = BacktestChartControls()
             self.chart_cards[0].add_to_header(self.chart_controls)
+            self._show_marker_sides()
 
         return self.chart_cards
 

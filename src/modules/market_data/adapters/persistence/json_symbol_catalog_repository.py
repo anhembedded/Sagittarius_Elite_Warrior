@@ -6,6 +6,7 @@ import json
 import logging
 from pathlib import Path
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog_repository import (
     ISymbolCatalogRepository,
 )
@@ -27,17 +28,27 @@ class JsonSymbolCatalogRepository(ISymbolCatalogRepository):
         else:
             self._file_path = Path(file_path).resolve()
 
-    def get_symbols(self) -> list[str]:
-        """Reads cached symbols from disk."""
-        if not self._file_path.is_file():
+    def _path_for(self, market: MarketType) -> Path:
+        """`EPIC-027D` — one file per market. Spot keeps the original file
+        name, which is what every catalog saved before a market existed holds
+        (the only catalog this app ever fetched was Spot's)."""
+        if market is MarketType.SPOT:
+            return self._file_path
+        return self._file_path.with_name(
+            f"{self._file_path.stem}_{market.value}{self._file_path.suffix}"
+        )
+
+    def get_symbols(self, market: MarketType) -> list[str]:
+        """Reads one market's cached symbols from disk."""
+        path = self._path_for(market)
+        if not path.is_file():
             logger.debug(
-                "Symbol catalog file not found at %s. Returning empty list.",
-                self._file_path,
+                "Symbol catalog file not found at %s. Returning empty list.", path
             )
             return []
 
         try:
-            with open(self._file_path, encoding="utf-8") as f:
+            with open(path, encoding="utf-8") as f:
                 data = json.load(f)
             if isinstance(data, list):
                 return [
@@ -45,19 +56,17 @@ class JsonSymbolCatalogRepository(ISymbolCatalogRepository):
                     for s in data
                     if isinstance(s, str) and s.strip()
                 ]
-            logger.warning(
-                "Invalid symbol catalog format in %s (expected list).",
-                self._file_path,
-            )
+            logger.warning("Invalid symbol catalog format in %s (expected list).", path)
             return []
         except Exception:
-            logger.exception("Failed to read symbol catalog from %s", self._file_path)
+            logger.exception("Failed to read symbol catalog from %s", path)
             return []
 
-    def save_symbols(self, symbols: list[str]) -> None:
-        """Saves tradeable symbols to disk."""
+    def save_symbols(self, market: MarketType, symbols: list[str]) -> None:
+        """Saves one market's tradeable symbols to disk."""
+        path = self._path_for(market)
         try:
-            self._file_path.parent.mkdir(parents=True, exist_ok=True)
+            path.parent.mkdir(parents=True, exist_ok=True)
             cleaned = sorted(
                 {
                     str(s).strip().upper()
@@ -65,12 +74,10 @@ class JsonSymbolCatalogRepository(ISymbolCatalogRepository):
                     if isinstance(s, str) and s.strip()
                 }
             )
-            temp_path = self._file_path.with_suffix(".tmp")
+            temp_path = path.with_suffix(".tmp")
             with open(temp_path, "w", encoding="utf-8") as f:
                 json.dump(cleaned, f, indent=2)
-            temp_path.replace(self._file_path)
-            logger.info(
-                "Saved %d tradeable symbols to %s", len(cleaned), self._file_path
-            )
+            temp_path.replace(path)
+            logger.info("Saved %d tradeable symbols to %s", len(cleaned), path)
         except Exception:
-            logger.exception("Failed to save symbol catalog to %s", self._file_path)
+            logger.exception("Failed to save symbol catalog to %s", path)

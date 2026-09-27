@@ -144,6 +144,7 @@ class ChartFeedCoordinator:
             # fetch limit keeps the MOST RECENT candles — chronological order
             # would silently cap at the OLDEST instead.
             newest_first_rows = self._historical_klines.load(
+                self._state.market,
                 symbol,
                 config.timeframe,
                 limit=limit,

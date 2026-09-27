@@ -3,8 +3,12 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from PySide6.QtWidgets import QWidget
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exchange_filters import (
+    ExchangeFilters,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
@@ -13,9 +17,15 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_limitations_view import (
+    build_backtest_limitations,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_charts import (
     build_drawdown_chart_points,
     build_yearly_returns_rows,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.performance_metrics_view import (
+    build_result_warning_text,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_row import (
     build_trade_log_rows,
@@ -72,12 +82,6 @@ def build_preview() -> QWidget:
             {"title": "Average Profit/Loss", "value": "59.19 USDT", "suffix": ""},
         ],
     )
-    view_model.run_result.set_limitations(
-        [
-            "Simulated on closed historical candle data",
-            "Fixed 0.1% fee per side",
-        ]
-    )
     sample_trades = [
         Trade(
             symbol="ETHUSDT",
@@ -110,12 +114,25 @@ def build_preview() -> QWidget:
         (start + timedelta(days=300), 11_900.0),
         (start + timedelta(days=364), 13_050.0),
     ]
+    # EPIC-027D — the preview shows a Spot run, the market whose screen
+    # differs from the default: leverage hidden, no short filters, and the
+    # result naming the shorts it ignored and the exchange filters it applied.
+    view_model.broker_sim.market = MarketType.SPOT.value
     sample_result = BacktestResult.compute(
         symbol="ETHUSDT",
         initial_balance=10_000.0,
         final_balance=sample_equity_curve[-1][1],
         trades=sample_trades,
         equity_curve=sample_equity_curve,
+        ignored_short_signals=3,
+        exchange_filters=ExchangeFilters(
+            step_size=0.0001, min_quantity=0.0001, min_notional=5.0, tick_size=0.01
+        ),
+        market_type=MarketType.SPOT,
+    )
+    view_model.run_result.set_limitations(build_backtest_limitations(sample_result))
+    view_model.run_result.set_result_warning_text(
+        build_result_warning_text(sample_result)
     )
     view_model.run_result.set_drawdown_points(
         build_drawdown_chart_points(sample_result)

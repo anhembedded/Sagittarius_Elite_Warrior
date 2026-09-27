@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from datetime import UTC, datetime
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizingType,
 )
@@ -64,6 +65,7 @@ class FakeBroker:
     shortLeverage: float = 1.0
     takeProfitPctEnabled: bool = False
     takeProfitPctText: str = "2.0"
+    market: str = MarketType.FUTURES_USD_M.value
 
 
 @dataclass
@@ -354,3 +356,29 @@ def test_an_unparseable_custom_range_becomes_no_range_not_an_error() -> None:
 
     assert config.start_time is None
     assert config.end_time is None
+
+
+def test_the_chosen_market_reaches_the_run_config() -> None:
+    """EPIC-027D — the market is part of the run config, so run history and
+    re-run reproduce it."""
+    outcome = _build(FakeInputs(broker_sim=FakeBroker(market=MarketType.SPOT.value)))
+
+    assert outcome.config is not None
+    assert outcome.config.broker_config.market_type is MarketType.SPOT
+
+
+def test_an_unknown_or_unsupported_stored_market_falls_back_to_the_default() -> None:
+    for stored in ("not_a_market", MarketType.FUTURES_COIN_M.value):
+        outcome = _build(FakeInputs(broker_sim=FakeBroker(market=stored)))
+
+        assert outcome.config is not None
+        assert outcome.config.broker_config.market_type is MarketType.FUTURES_USD_M
+
+
+def test_the_snapshot_carries_the_market_so_switching_it_marks_the_run_stale() -> None:
+    futures = _snapshot(FakeInputs())
+    spot = _snapshot(FakeInputs(broker_sim=FakeBroker(market=MarketType.SPOT.value)))
+
+    assert spot.broker_config.market_type is MarketType.SPOT
+    assert spot != futures
+    assert "Market (futures_usd_m → spot)" in futures.compute_diff_summary(spot)

@@ -141,7 +141,7 @@ class ScanCoordinator:
                 # auto-discover is about what is already on disk, so forcing
                 # an exchange round trip here would make a local scan wait on
                 # the network.
-                available_symbols = self._symbol_catalog.list_symbols()
+                available_symbols = self._symbol_catalog.list_symbols(_MARKET)
                 if available_symbols and self._tracker.is_current_pending(
                     action.action_id, DataManagementActionKind.AUTO_DISCOVER
                 ):

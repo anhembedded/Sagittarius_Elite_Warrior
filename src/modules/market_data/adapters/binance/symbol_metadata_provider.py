@@ -26,6 +26,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
 )
@@ -53,19 +54,25 @@ class BinanceSymbolMetadataProvider(ISymbolMetadataProvider):
         self._exchange_client = exchange_client
         self._cache = cache
 
-    def get_or_fetch(self, symbol: str) -> SymbolMarketMetadata | None:
-        cached = self._cache.get(symbol)
+    def get_or_fetch(
+        self, market: MarketType, symbol: str
+    ) -> SymbolMarketMetadata | None:
+        cached = self._cache.get(market, symbol)
         if cached is not None and not cached.is_stale():
             return cached
-        self.refresh()
-        return self._cache.get(symbol)
+        self.refresh(market)
+        return self._cache.get(market, symbol)
 
-    def refresh(self) -> int:
-        entries = self._exchange_client().get_symbol_metadata()
+    def refresh(self, market: MarketType) -> int:
+        entries = self._exchange_client().get_symbol_metadata(market)
         for entry in entries:
-            self._cache.put(entry)
+            self._cache.put(market, entry)
         # `INFO` and once per refresh, not per symbol: a catalog is ~2,500
         # entries, and `SignalLogHandler` mirrors every `App.*` INFO line to the
         # UI's queued log model (`BUG-042`, `ONBOARDING` §8 trap 9).
-        logger.info("Symbol metadata refreshed: %d symbols cached.", len(entries))
+        logger.info(
+            "Symbol metadata refreshed: %d %s symbols cached.",
+            len(entries),
+            market.value,
+        )
         return len(entries)

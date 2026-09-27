@@ -12,6 +12,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+
 
 class IBacktestScreenState(ABC):
     """
@@ -53,6 +55,12 @@ class IBacktestScreenState(ABC):
     @abstractmethod
     def symbol(self) -> str:
         """The symbol every coordinator is currently working on."""
+
+    @property
+    @abstractmethod
+    def market(self) -> MarketType:
+        """`EPIC-027D` — the market the screen is set to: whose candles,
+        catalog and exchange filters it reads."""
 
     @property
     @abstractmethod

@@ -13,6 +13,7 @@ from __future__ import annotations
 
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
@@ -41,6 +42,7 @@ def _coordinator(
         thread_manager=thread_manager or _thread_manager_runs_inline(),
         emit_ready=emit_ready or Mock(),
         emit_failed=emit_failed or Mock(),
+        market=MarketType.SPOT,
     )
 
 
@@ -52,7 +54,9 @@ class _ACatalogThatCannotBeRead(ISymbolCatalog):
     instantiate — the reminder `Mock(spec=...)` cannot give.
     """
 
-    def list_symbols(self, *, force_refresh: bool = False) -> tuple[str, ...]:
+    def list_symbols(
+        self, market: MarketType, *, force_refresh: bool = False
+    ) -> tuple[str, ...]:
         raise ConnectionError("exchange unreachable")
 
 
@@ -129,3 +133,40 @@ def test_on_options_ready_populates_cache_independent_of_fetch() -> None:
     coordinator.on_options_ready(["BTCUSDT"])
 
     assert coordinator._symbol_options_cache == ["BTCUSDT"]
+
+
+def test_switching_the_market_lists_that_markets_catalog() -> None:
+    """`EPIC-027D` — Spot and USD-M Futures list different symbols; a market
+    switch drops the cached list, so the next open fetches the new one."""
+    catalog = FakeSymbolCatalog(["BTCUSDT"], market=MarketType.SPOT)
+    catalog.seed(["SOLUSDT"], market=MarketType.FUTURES_USD_M)
+    emit_ready = Mock()
+    coordinator = _coordinator(catalog, emit_ready=emit_ready)
+    coordinator.request_open()
+    coordinator.on_options_ready(["BTCUSDT"])
+
+    coordinator.set_market(MarketType.FUTURES_USD_M)
+    coordinator.request_open()
+
+    assert catalog.markets_read == [MarketType.SPOT, MarketType.FUTURES_USD_M]
+    assert emit_ready.call_args_list[-1].args == (["SOLUSDT"],)
+
+
+def test_a_fetch_for_the_previous_market_is_discarded() -> None:
+    """A slow fetch that returns after the user switched market must not put
+    the old market's symbols in the picker."""
+    submitted = []
+    thread_manager = Mock()
+    thread_manager.submit.side_effect = lambda fn, *a, **kw: submitted.append(fn)
+    emit_ready = Mock()
+    coordinator = _coordinator(
+        FakeSymbolCatalog(["BTCUSDT"]),
+        thread_manager=thread_manager,
+        emit_ready=emit_ready,
+    )
+    coordinator.request_open()
+
+    coordinator.set_market(MarketType.FUTURES_USD_M)
+    submitted[0]()
+
+    emit_ready.assert_not_called()

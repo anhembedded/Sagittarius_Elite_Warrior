@@ -8,7 +8,9 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+from dataclasses import replace
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_historical_tick_backtest import (
     RunHistoricalTickBacktestCommand,
@@ -17,8 +19,14 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_ba
     BacktestCancelled,
     RunStaticBacktestCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.broker_simulation_config import (
+    BrokerSimulationConfig,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type import (
     CommissionType,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exchange_filters import (
+    ExchangeFilters,
 )
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
@@ -54,6 +62,7 @@ class ExecutionCoordinator:
         emit_empty: Callable[..., None],
         emit_succeeded: Callable[..., None],
         on_result_ready: Callable[..., None],
+        exchange_filters_for: Callable[[MarketType, str], ExchangeFilters | None],
     ) -> None:
         self._view_model = view_model
         self._state = state
@@ -74,6 +83,9 @@ class ExecutionCoordinator:
         #: none of its business, and a failure over there must not undo the
         #: `BacktestResult` already reported (`EPIC-013E`).
         self._on_result_ready = on_result_ready
+        #: EPIC-027C — the (market, symbol) exchange filters a run applies, read
+        #: from the metadata cache the pre-run sync has just warmed.
+        self._exchange_filters_for = exchange_filters_for
 
     # ---------------------------------------------------------------- #
     # Pure helpers
@@ -189,6 +201,20 @@ class ExecutionCoordinator:
         self._emit_coverage_ready(action_id, coverage)
         return True
 
+    def _with_exchange_filters(
+        self, broker_config: BrokerSimulationConfig
+    ) -> BrokerSimulationConfig:
+        filters = self._exchange_filters_for(
+            broker_config.market_type, self._state.symbol
+        )
+        logger.info(
+            "[exchange-filter] %s %s: %s",
+            broker_config.market_type.value,
+            self._state.symbol,
+            filters if filters is not None else "no metadata, no filter applied",
+        )
+        return replace(broker_config, exchange_filters=filters)
+
     def _dispatch_run(
         self,
         config: BacktestRunConfig,
@@ -221,7 +247,7 @@ class ExecutionCoordinator:
             if config.broker_config.commission_type == CommissionType.PERCENT
             else 0.0,
             "position_sizing": config.position_sizing,
-            "broker_config": config.broker_config,
+            "broker_config": self._with_exchange_filters(config.broker_config),
             "start_time": config.start_time,
             "end_time": config.end_time,
             "strategy_params": config.strategy_params,

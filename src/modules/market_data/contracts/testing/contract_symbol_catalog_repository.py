@@ -26,9 +26,12 @@ implementation-specific tests beside the inherited ones.
 from __future__ import annotations
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog_repository import (
     ISymbolCatalogRepository,
 )
+
+_MARKET = MarketType.SPOT
 
 
 class SymbolCatalogRepositoryContract:
@@ -49,34 +52,34 @@ class SymbolCatalogRepositoryContract:
         """Not `None`, and not an error. The first run of a fresh install hits
         this path — the real one has no file yet — and the symbol picker must
         render empty rather than crash on boot."""
-        assert impl.get_symbols() == []
+        assert impl.get_symbols(_MARKET) == []
 
     # -- the round trip ------------------------------------------------------
 
     def test_saved_symbols_come_back(self, impl: ISymbolCatalogRepository) -> None:
-        impl.save_symbols(["BTCUSDT", "ETHUSDT"])
+        impl.save_symbols(_MARKET, ["BTCUSDT", "ETHUSDT"])
 
-        assert impl.get_symbols() == ["BTCUSDT", "ETHUSDT"]
+        assert impl.get_symbols(_MARKET) == ["BTCUSDT", "ETHUSDT"]
 
     def test_a_second_save_replaces_the_first(
         self, impl: ISymbolCatalogRepository
     ) -> None:
         """Replaces, never merges. A sync that found fewer symbols than last
         time must be able to say so — a delisted symbol has to disappear."""
-        impl.save_symbols(["BTCUSDT", "ETHUSDT"])
+        impl.save_symbols(_MARKET, ["BTCUSDT", "ETHUSDT"])
 
-        impl.save_symbols(["SOLUSDT"])
+        impl.save_symbols(_MARKET, ["SOLUSDT"])
 
-        assert impl.get_symbols() == ["SOLUSDT"]
+        assert impl.get_symbols(_MARKET) == ["SOLUSDT"]
 
     def test_saving_nothing_clears_the_catalog(
         self, impl: ISymbolCatalogRepository
     ) -> None:
-        impl.save_symbols(["BTCUSDT"])
+        impl.save_symbols(_MARKET, ["BTCUSDT"])
 
-        impl.save_symbols([])
+        impl.save_symbols(_MARKET, [])
 
-        assert impl.get_symbols() == []
+        assert impl.get_symbols(_MARKET) == []
 
     # -- the shape of what comes back ---------------------------------------
 
@@ -86,38 +89,38 @@ class SymbolCatalogRepositoryContract:
         """The exchange is asked in upper case and every other module compares
         in upper case, so the catalog is the place that normalises — not each
         of the three pickers that read it."""
-        impl.save_symbols(["btcusdt", "EthUsdt"])
+        impl.save_symbols(_MARKET, ["btcusdt", "EthUsdt"])
 
-        assert impl.get_symbols() == ["BTCUSDT", "ETHUSDT"]
+        assert impl.get_symbols(_MARKET) == ["BTCUSDT", "ETHUSDT"]
 
     def test_surrounding_whitespace_is_trimmed(
         self, impl: ISymbolCatalogRepository
     ) -> None:
-        impl.save_symbols([" BTCUSDT ", "\tETHUSDT\n"])
+        impl.save_symbols(_MARKET, [" BTCUSDT ", "\tETHUSDT\n"])
 
-        assert impl.get_symbols() == ["BTCUSDT", "ETHUSDT"]
+        assert impl.get_symbols(_MARKET) == ["BTCUSDT", "ETHUSDT"]
 
     def test_blank_entries_are_dropped(self, impl: ISymbolCatalogRepository) -> None:
         """A trailing comma in a hand-edited file, or an empty cell from an
         exchange response, must not become a blank row in the picker."""
-        impl.save_symbols(["BTCUSDT", "", "   ", "ETHUSDT"])
+        impl.save_symbols(_MARKET, ["BTCUSDT", "", "   ", "ETHUSDT"])
 
-        assert impl.get_symbols() == ["BTCUSDT", "ETHUSDT"]
+        assert impl.get_symbols(_MARKET) == ["BTCUSDT", "ETHUSDT"]
 
     def test_duplicates_are_collapsed(self, impl: ISymbolCatalogRepository) -> None:
         """Including duplicates that differ only by case or padding — they are
         the same symbol, and a picker showing it twice is a bug the user sees."""
-        impl.save_symbols(["BTCUSDT", "btcusdt", " BTCUSDT "])
+        impl.save_symbols(_MARKET, ["BTCUSDT", "btcusdt", " BTCUSDT "])
 
-        assert impl.get_symbols() == ["BTCUSDT"]
+        assert impl.get_symbols(_MARKET) == ["BTCUSDT"]
 
     def test_symbols_come_back_sorted(self, impl: ISymbolCatalogRepository) -> None:
         """Ordering is part of the contract, not an accident of storage: the
         picker shows the list as given, and a list whose order changed between
         two syncs of the same symbols is a UI that moves under the cursor."""
-        impl.save_symbols(["SOLUSDT", "BTCUSDT", "ETHUSDT"])
+        impl.save_symbols(_MARKET, ["SOLUSDT", "BTCUSDT", "ETHUSDT"])
 
-        assert impl.get_symbols() == ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
+        assert impl.get_symbols(_MARKET) == ["BTCUSDT", "ETHUSDT", "SOLUSDT"]
 
     # -- isolation -----------------------------------------------------------
 
@@ -128,8 +131,19 @@ class SymbolCatalogRepositoryContract:
         fake handing out its own storage would let a consumer's test pass on
         behaviour the real implementation does not have — which is precisely
         the drift this mechanism exists to catch."""
-        impl.save_symbols(["BTCUSDT"])
+        impl.save_symbols(_MARKET, ["BTCUSDT"])
 
-        impl.get_symbols().append("ETHUSDT")
+        impl.get_symbols(_MARKET).append("ETHUSDT")
 
-        assert impl.get_symbols() == ["BTCUSDT"]
+        assert impl.get_symbols(_MARKET) == ["BTCUSDT"]
+
+    def test_each_market_keeps_its_own_catalog(
+        self, impl: ISymbolCatalogRepository
+    ) -> None:
+        """`EPIC-027D` — Spot and USD-M Futures list different symbols; saving
+        one market's list never touches the other's."""
+        impl.save_symbols(MarketType.SPOT, ["BTCUSDT", "ETHUSDT"])
+        impl.save_symbols(MarketType.FUTURES_USD_M, ["SOLUSDT"])
+
+        assert impl.get_symbols(MarketType.SPOT) == ["BTCUSDT", "ETHUSDT"]
+        assert impl.get_symbols(MarketType.FUTURES_USD_M) == ["SOLUSDT"]

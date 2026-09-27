@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
@@ -97,6 +98,9 @@ def build_core_presenter_state(
         thread_manager=presenter._thread_manager,
         emit_ready=presenter._symbolOptionsReadySignal.emit,
         emit_failed=presenter._symbolOptionsFailedSignal.emit,
+        # Pinned to Spot, what this picker has always listed (`MarketType`'s
+        # docstring); the Dashboard has no market selector.
+        market=MarketType.SPOT,
     )
 
     # Define allowed FSM transitions

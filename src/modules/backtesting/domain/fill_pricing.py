@@ -53,6 +53,13 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.broker_simulati
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason import (
     ExitReason,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.entry_capital import (
+    UNFUNDABLE,
+    EntryCapital,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.exchange_filter_policy import (
+    ExchangeFilterPolicy,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.fee_calculator_policy import (
     FeeCalculatorPolicy,
 )
@@ -100,12 +107,15 @@ class FillPricing:
         self._sizing_policy = sizing_policy or default_sizing_policy()
         self._matching_policy = matching_policy or OrderMatchingPolicy()
         self._fee_policy = fee_policy or FeeCalculatorPolicy()
+        #: EPIC-027C — the symbol's exchange order rules; inert when the run
+        #: has none (`exchange_filters is None`).
+        self._exchange_filters = ExchangeFilterPolicy(broker_config.exchange_filters)
 
     # -- prices ------------------------------------------------------------
 
     def slippage_delta(self) -> float:
         return self._matching_policy.calculate_slippage_delta(
-            self._broker_config.slippage_ticks, self._broker_config.tick_size
+            self._broker_config.slippage_ticks, self._broker_config.price_tick_size
         )
 
     def entry_effective_price(self, side: PositionSide, price: float) -> float:
@@ -202,14 +212,17 @@ class FillPricing:
         price: float,
         current_equity: float,
         available_balance: float,
-    ) -> tuple[float, float, float]:
-        """`(margin, quantity, entry_fee)`, or three zeros when this entry is
-        not fundable — which is the *one* refusal a caller must handle, and the
-        reason all three come back together rather than through three calls that
-        could disagree about whether the entry happens at all."""
+    ) -> EntryCapital:
+        """The margin, quantity and fee of this entry — together, so they
+        cannot disagree about whether it happens — or `UNFUNDABLE`, or the
+        exchange rule that refused it (`EPIC-027C`).
+
+        The sized quantity is floored to the symbol's step size; the margin
+        and fee then shrink with it, so what the floor did not buy stays in
+        cash."""
         effective_price = self.entry_effective_price(side, price)
         if effective_price <= 0:
-            return 0.0, 0.0, 0.0
+            return UNFUNDABLE
 
         leverage = self.leverage_for(side)
         allocation = self._sizing_policy.allocate(
@@ -222,7 +235,7 @@ class FillPricing:
         )
 
         if not allocation.is_fundable:
-            return 0.0, 0.0, 0.0
+            return UNFUNDABLE
 
         entry_fee, quantity = self._fee_policy.calculate_entry_fee_and_quantity(
             allocation.notional_capital,
@@ -232,9 +245,35 @@ class FillPricing:
         )
 
         if quantity <= 0:
-            return 0.0, 0.0, 0.0
+            return UNFUNDABLE
 
-        return allocation.margin, quantity, entry_fee
+        floored = self._exchange_filters.floor_quantity(quantity)
+        rejection = self._exchange_filters.rejection_for(floored, effective_price)
+        if rejection is not None:
+            return EntryCapital(0.0, 0.0, 0.0, rejection)
+        if floored == quantity:
+            return EntryCapital(allocation.margin, quantity, entry_fee)
+        return self._floored_entry(
+            allocation.margin, allocation.notional_capital, floored, effective_price
+        )
+
+    def _floored_entry(
+        self,
+        margin: float,
+        notional_capital: float,
+        quantity: float,
+        effective_price: float,
+    ) -> EntryCapital:
+        """The same entry at its floored `quantity`: the fee of the smaller
+        order, and the margin scaled to the capital that order commits."""
+        entry_fee = self._fee_policy.entry_fee_for_quantity(
+            quantity,
+            effective_price,
+            self._broker_config.commission_type,
+            self._broker_config.commission_value,
+        )
+        committed = quantity * effective_price + entry_fee
+        return EntryCapital(margin * committed / notional_capital, quantity, entry_fee)
 
     # -- what a position is worth, and what it realized --------------------
 

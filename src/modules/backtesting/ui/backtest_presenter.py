@@ -183,6 +183,7 @@ from .signal_wiring import (
 )
 from .state_persistence import capture as capture_backtest_state
 from .state_persistence import restore as restore_backtest_state
+from .view_models.broker_sim_view_model import DEFAULT_MARKET_TYPE
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -436,6 +437,7 @@ class BackTestPresenter(BasePresenter):
             thread_manager=self._thread_manager,
             emit_ready=self._symbolOptionsReadySignal.emit,
             emit_failed=self._symbolOptionsFailedSignal.emit,
+            market=DEFAULT_MARKET_TYPE,  # the ViewModel is built below
         )
         # BOT-060: names of the currently-drawn strategy indicator lines
         # (added to as `_on_chart_strategy_line` registers each one on the
@@ -517,6 +519,7 @@ class BackTestPresenter(BasePresenter):
         self._chart_feed = coordinators.chart_feed
         self._execution = coordinators.execution
         self._monte_carlo = coordinators.monte_carlo
+        self._market_selection = coordinators.market_selection
         self._view_model.script_model.set_available(self._script_registry.available())
         # An invalid/empty DEFAULT_INTERVAL (unset config, or a hand-edited
         # user_config.json with a typo) is left alone — BackTestViewModel
@@ -1587,12 +1590,9 @@ class BackTestPresenter(BasePresenter):
         if not new_symbol or new_symbol == self._symbol:
             return
         self._symbol = new_symbol
-        # Full chart host rebuild — skipping the bookkeeping reset/reconnect
-        # leaves the new host's controls unwired and stale ResourceScope
-        # dispose callbacks bound to the just-deleted old host (BUG-013).
-        # _last_klines/_last_result still belong to the PREVIOUS symbol —
-        # _request_chart_preview() below fetches and renders fresh data for
-        # the new one instead.
+        # Full host rebuild: without the reset/reconnect the new host's controls
+        # stay unwired and dispose callbacks bind the deleted host (BUG-013);
+        # _request_chart_preview() below renders the new symbol's data.
         self.view.render_symbol_cards([self._symbol])
         self._reset_indicator_bookkeeping_after_host_rebuild()
         connect_chart_controls(self)

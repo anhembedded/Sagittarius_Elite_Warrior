@@ -28,10 +28,6 @@ from ..ports.i_backtest_screen_state import IBacktestScreenState
 logger = logging.getLogger("App.BackTestPresenter")
 
 _TRACE_PREFIX = "BACKTEST_TRACE"
-#: `EPIC-027A` — the Backtest screen's own market selector is `EPIC-027D`'s
-#: job (Phase 1 has no market to choose from yet). Pinned to Spot, what every
-#: sync from this screen actually fetches.
-_MARKET = MarketType.SPOT
 
 
 class DataSyncCoordinator:
@@ -127,6 +123,7 @@ class DataSyncCoordinator:
     def probe_coverage(self, config) -> BacktestRangeCoverage:
         now = datetime.now(UTC)
         return self._range_coverage.coverage(
+            self._state.market,
             self._state.symbol,
             self._effective_data_interval(config),
             start_time=config.start_time,
@@ -207,7 +204,7 @@ class DataSyncCoordinator:
             self._emit_cancelled(resolved_action_id)
             return
 
-        self._warm_symbol_metadata(config.symbol)
+        self._warm_symbol_metadata(self._state.market, config.symbol)
 
         coverage = self.probe_coverage(config)
         if not coverage.is_fully_covered:
@@ -224,8 +221,9 @@ class DataSyncCoordinator:
             return
         self._emit_succeeded(resolved_action_id)
 
-    def _warm_symbol_metadata(self, symbol: str) -> None:
-        """`BUG-127` — put this symbol's exchange filters in the cache, here.
+    def _warm_symbol_metadata(self, market: MarketType, symbol: str) -> None:
+        """`BUG-127` — put this symbol's exchange filters for the run's
+        market in the cache, here (`EPIC-027C` applies them to the run).
 
         @par Why on this worker and not where the check runs
         `StrategyConfigCoordinator.refresh_market_rule_verification()` runs on
@@ -251,7 +249,7 @@ class DataSyncCoordinator:
         gate greps for that level and `BUG-127` is what silence costs.
         """
         try:
-            cached = self._symbol_metadata.get_or_fetch(symbol)
+            cached = self._symbol_metadata.get_or_fetch(market, symbol)
         except Exception as exc:  # noqa: BLE001 - see the docstring
             logger.warning(
                 "Could not read exchange filters for %s: %s. The backtest can "
@@ -261,7 +259,10 @@ class DataSyncCoordinator:
             )
             return
         self._log_dev_trace(
-            "symbol_metadata_warmed", symbol=symbol, found=cached is not None
+            "symbol_metadata_warmed",
+            market=market.value,
+            symbol=symbol,
+            found=cached is not None,
         )
 
     def _ask_for_the_sync(
@@ -271,7 +272,7 @@ class DataSyncCoordinator:
         request = MarketDataSyncRequest(
             symbols=(symbol,),
             interval=sync_interval,
-            market=_MARKET,
+            market=self._state.market,
             start_time=sync_start,
             # Binance treats the history end boundary as exclusive. Fetch one
             # extra interval; coverage/backtest still keep the requested

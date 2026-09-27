@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest.command import (
     RunStaticBacktestCommand,
 )
@@ -48,7 +49,12 @@ def run_golden_backtest() -> BacktestResult:
     registry = StrategyRegistry()
     registry.register(STRATEGY_KEY, EmaCrossoverStrategy)
     handler = RunStaticBacktestCommandHandler(
-        repository=FakeMarketDataRepository(make_golden_klines()),
+        # The golden run uses the default config, a USD-M Futures run; since
+        # EPIC-027D a run reads its own market's candles, so they are stored
+        # as Futures candles.
+        repository=FakeMarketDataRepository(
+            make_golden_klines(), market=MarketType.FUTURES_USD_M
+        ),
         engine_factory=StrategyEngineFactory(registry, RecordingEventPublisher()),
         sizing_policy=default_sizing_policy(),
         event_publisher=RecordingEventPublisher(),

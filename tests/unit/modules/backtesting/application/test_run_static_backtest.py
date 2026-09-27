@@ -637,8 +637,10 @@ def test_magnifier_resolution_resolves_take_profit_first_via_real_sub_candles():
     assert trade.exit_reason is ExitReason.TAKE_PROFIT
     assert trade.exit_price == pytest.approx(110.0)
     # The ambiguous bar is index 5: open_time = T0 + 5h, close_time = T0 + 6h.
+    # The sub-candles come from the run's own market (EPIC-027D) — a default
+    # config simulates USD-M Futures.
     repo.get_klines.assert_called_once_with(
-        market=MarketType.SPOT,
+        market=MarketType.FUTURES_USD_M,
         symbol="BTCUSDT",
         interval=TimeFrame.ONE_MINUTE,
         start_time=datetime(2024, 1, 1, tzinfo=UTC) + timedelta(hours=5),

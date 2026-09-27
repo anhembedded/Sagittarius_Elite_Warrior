@@ -2402,6 +2402,7 @@
    "9211.710992749204"
   ]
  ],
+ "exchange_filters": null,
  "final_balance": "9211.710992749204",
  "ignored_short_signals": 0,
  "initial_balance": "10000.0",
@@ -4115,6 +4116,7 @@
      "8952.655483582537"
     ]
    ],
+   "exchange_filters": null,
    "final_balance": "8943.702828098954",
    "ignored_short_signals": 0,
    "initial_balance": "10000.0",
@@ -4144,6 +4146,7 @@
     "total_fees_paid": "170.57859698752577"
    },
    "out_of_sample": null,
+   "rejected_entries": 0,
    "symbol": "GOLDUSDT",
    "trades": [
     {
@@ -5035,6 +5038,7 @@
      "10152.130262554496"
     ]
    ],
+   "exchange_filters": null,
    "final_balance": "10152.130262554496",
    "ignored_short_signals": 0,
    "initial_balance": "10000.0",
@@ -5064,6 +5068,7 @@
     "total_fees_paid": "61.69869573952388"
    },
    "out_of_sample": null,
+   "rejected_entries": 0,
    "symbol": "GOLDUSDT",
    "trades": [
     {
@@ -5123,6 +5128,7 @@
    ]
   }
  },
+ "rejected_entries": 0,
  "symbol": "GOLDUSDT",
  "trades": [
   {

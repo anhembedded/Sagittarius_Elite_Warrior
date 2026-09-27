@@ -25,12 +25,17 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
 
 #: How a subclass puts symbols where its implementation reads them.
 type GivenSymbols = Callable[[Sequence[str]], None]
+
+
+#: Where every `given` puts its symbols (both implementations seed Spot).
+_MARKET = MarketType.SPOT
 
 
 class SymbolCatalogContract:
@@ -55,14 +60,14 @@ class SymbolCatalogContract:
     def test_an_empty_catalog_reads_empty(self, impl: ISymbolCatalog) -> None:
         """Not an error: a first run has fetched nothing yet, and both callers
         handle it by showing an empty picker."""
-        assert impl.list_symbols() == ()
+        assert impl.list_symbols(_MARKET) == ()
 
     def test_every_symbol_given_comes_back(
         self, impl: ISymbolCatalog, given_symbols: GivenSymbols
     ) -> None:
         given_symbols(["BTCUSDT", "ETHUSDT"])
 
-        assert impl.list_symbols() == ("BTCUSDT", "ETHUSDT")
+        assert impl.list_symbols(_MARKET) == ("BTCUSDT", "ETHUSDT")
 
     # -- normalisation, which three pickers render directly ------------------
 
@@ -71,14 +76,14 @@ class SymbolCatalogContract:
     ) -> None:
         given_symbols(["btcusdt"])
 
-        assert impl.list_symbols() == ("BTCUSDT",)
+        assert impl.list_symbols(_MARKET) == ("BTCUSDT",)
 
     def test_surrounding_whitespace_is_trimmed(
         self, impl: ISymbolCatalog, given_symbols: GivenSymbols
     ) -> None:
         given_symbols(["  BTCUSDT  "])
 
-        assert impl.list_symbols() == ("BTCUSDT",)
+        assert impl.list_symbols(_MARKET) == ("BTCUSDT",)
 
     def test_duplicates_collapse(
         self, impl: ISymbolCatalog, given_symbols: GivenSymbols
@@ -88,14 +93,14 @@ class SymbolCatalogContract:
         answers before the port promised one."""
         given_symbols(["BTCUSDT", "btcusdt", " BTCUSDT "])
 
-        assert impl.list_symbols() == ("BTCUSDT",)
+        assert impl.list_symbols(_MARKET) == ("BTCUSDT",)
 
     def test_blank_entries_are_dropped(
         self, impl: ISymbolCatalog, given_symbols: GivenSymbols
     ) -> None:
         given_symbols(["BTCUSDT", "", "   "])
 
-        assert impl.list_symbols() == ("BTCUSDT",)
+        assert impl.list_symbols(_MARKET) == ("BTCUSDT",)
 
     def test_the_order_is_alphabetical_not_the_source_order(
         self, impl: ISymbolCatalog, given_symbols: GivenSymbols
@@ -104,7 +109,7 @@ class SymbolCatalogContract:
         accident of whichever source answered."""
         given_symbols(["ETHUSDT", "BTCUSDT", "SOLUSDT"])
 
-        assert impl.list_symbols() == ("BTCUSDT", "ETHUSDT", "SOLUSDT")
+        assert impl.list_symbols(_MARKET) == ("BTCUSDT", "ETHUSDT", "SOLUSDT")
 
     # -- the snapshot is a snapshot ------------------------------------------
 
@@ -116,7 +121,7 @@ class SymbolCatalogContract:
         reader saw."""
         given_symbols(["BTCUSDT"])
 
-        assert isinstance(impl.list_symbols(), tuple)
+        assert isinstance(impl.list_symbols(_MARKET), tuple)
 
     def test_two_reads_answer_the_same(
         self, impl: ISymbolCatalog, given_symbols: GivenSymbols
@@ -125,4 +130,4 @@ class SymbolCatalogContract:
         caller sees must not depend on which one it happened to get."""
         given_symbols(["BTCUSDT", "ethusdt"])
 
-        assert impl.list_symbols() == impl.list_symbols()
+        assert impl.list_symbols(_MARKET) == impl.list_symbols(_MARKET)

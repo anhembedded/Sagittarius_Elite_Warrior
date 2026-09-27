@@ -9,7 +9,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.backtesting.application.progress_throttle import (
     ProgressThrottle,
 )
@@ -50,14 +49,6 @@ from .command import RunStaticBacktestCommand
 
 logger = logging.getLogger("App.RunStaticBacktest")
 _TRACE_PREFIX = "BACKTEST_TRACE"
-
-#: `EPIC-027A` added `market` to `IMarketDataRepository`. Candle reads stay
-#: pinned to Spot — what every backtest on this handler has always run against —
-#: even though `broker_config.market_type` (`EPIC-027B`) defaults to
-#: `FUTURES_USD_M`: following that default here would send every existing run to
-#: Futures shards no user has downloaded. The read follows the market once the
-#: run config carries a user-chosen one (`EPIC-027D`).
-_MARKET = MarketType.SPOT
 
 
 class RunStaticBacktestCommandHandler(
@@ -121,7 +112,7 @@ class RunStaticBacktestCommandHandler(
             has_params=bool(command.strategy_params),
         )
         total_count = self._repository.count_klines(
-            market=_MARKET,
+            market=command.market,
             symbol=command.symbol,
             interval=command.interval,
             start_time=command.start_time,
@@ -228,7 +219,7 @@ class RunStaticBacktestCommandHandler(
         `count_klines()` + `split_count_for_out_of_sample()`), so this never
         needs to know the phase's meaning, only its position in the range."""
         return self._repository.stream_klines(
-            market=_MARKET,
+            market=command.market,
             symbol=command.symbol,
             interval=command.interval,
             start_time=command.start_time,
@@ -252,7 +243,7 @@ class RunStaticBacktestCommandHandler(
 
         def _fetch() -> Sequence[tuple[float, float]]:
             sub_candles = self._repository.get_klines(
-                market=_MARKET,
+                market=command.market,
                 symbol=command.symbol,
                 interval=resolution,
                 start_time=candle.open_time,
@@ -385,4 +376,7 @@ class RunStaticBacktestCommandHandler(
             trades=exchange.trades,
             equity_curve=equity_curve,
             ignored_short_signals=exchange.ignored_short_signals,
+            rejected_entries=exchange.rejected_entries,
+            exchange_filters=exchange.broker_config.exchange_filters,
+            market_type=exchange.broker_config.market_type,
         )

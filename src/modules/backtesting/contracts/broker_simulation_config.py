@@ -4,6 +4,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type import (
     CommissionType,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exchange_filters import (
+    ExchangeFilters,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.partial_take_profit_level import (
     PartialTakeProfitLevel,
 )
@@ -15,7 +18,7 @@ _SPOT_LEVERAGE = 1.0
 #: EPIC-027B — markets the backtest engine can simulate (ADR D1: COIN-M is
 #: unused and unsupported). Supporting another market is one entry here plus
 #: whatever its own arithmetic needs.
-_SIMULATED_MARKETS = frozenset({MarketType.SPOT, MarketType.FUTURES_USD_M})
+SIMULATED_MARKETS = frozenset({MarketType.SPOT, MarketType.FUTURES_USD_M})
 
 
 @dataclass(frozen=True)
@@ -81,6 +84,21 @@ class BrokerSimulationConfig:
     #: arithmetic has none); `PaperExchange.fill()` drops SHORT/COVER signals
     #: and counts them.
     market_type: MarketType = MarketType.FUTURES_USD_M
+    #: EPIC-027C — the symbol's exchange order rules for `market_type` (ADR
+    #: D5), resolved from metadata before the run. `None` (default) means no
+    #: metadata was available: quantities stay unrounded, no entry is refused
+    #: and slippage uses `tick_size`; the result records that no filter was
+    #: applied. When set, its `tick_size` wins over the field above — it is
+    #: the symbol's real tick, the field only a default.
+    exchange_filters: ExchangeFilters | None = None
+
+    @property
+    def price_tick_size(self) -> float:
+        """@brief The tick one slippage tick moves a fill by: the symbol's own
+        when its exchange filters are known, `tick_size` otherwise."""
+        if self.exchange_filters is not None:
+            return self.exchange_filters.tick_size
+        return self.tick_size
 
     def __post_init__(self) -> None:
         self._validate_market()
@@ -159,7 +177,7 @@ class BrokerSimulationConfig:
                 )
 
     def _validate_market(self) -> None:
-        if self.market_type not in _SIMULATED_MARKETS:
+        if self.market_type not in SIMULATED_MARKETS:
             raise ValueError(
                 f"market_type {self.market_type.value} is not supported by the "
                 "backtest engine (ADR D1: only spot and futures_usd_m)"

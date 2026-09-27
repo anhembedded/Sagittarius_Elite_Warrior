@@ -44,6 +44,7 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
     SymbolMarketMetadata,
 )
@@ -53,9 +54,12 @@ class ISymbolMetadataProvider(ABC):
     """One symbol's price, lot and notional filters, cache-first."""
 
     @abstractmethod
-    def get_or_fetch(self, symbol: str) -> SymbolMarketMetadata | None:
-        """@brief Cached metadata for `symbol`, fetching the whole catalog
-        first if the cache holds nothing for it.
+    def get_or_fetch(
+        self, market: MarketType, symbol: str
+    ) -> SymbolMarketMetadata | None:
+        """@brief Cached metadata for `symbol` on `market`, fetching that
+        market's whole catalog first if the cache holds nothing for it
+        (`EPIC-027C`: a symbol's filters differ between Spot and Futures).
 
         @return `None` when `symbol` does not exist in the catalog even after a
         fetch. May perform a network call, so never call it on the Qt main
@@ -63,9 +67,9 @@ class ISymbolMetadataProvider(ABC):
         """
 
     @abstractmethod
-    def refresh(self) -> int:
-        """@brief Unconditionally re-fetches the catalog and repopulates the
-        cache.
+    def refresh(self, market: MarketType) -> int:
+        """@brief Unconditionally re-fetches `market`'s catalog and
+        repopulates its part of the cache.
 
         @return How many symbols were cached — the number a caller logs, and
         the one a test asserts against instead of reaching into the cache.

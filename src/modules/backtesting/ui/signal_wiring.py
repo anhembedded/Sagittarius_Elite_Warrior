@@ -62,6 +62,9 @@ def connect_ui_signals(presenter) -> None:
     presenter._view_model.refreshSymbolOptionsRequested.connect(
         presenter._on_symbol_picker_refresh_requested
     )
+    presenter._view_model.broker_sim.marketChanged.connect(
+        presenter._market_selection.on_market_changed
+    )
     presenter._view_model.executionModeChanged.connect(
         presenter._on_execution_mode_changed
     )

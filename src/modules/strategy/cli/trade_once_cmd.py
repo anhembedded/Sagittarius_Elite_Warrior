@@ -13,6 +13,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizing,
     PositionSizingType,
@@ -92,8 +93,10 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
     # `EPIC-025` PR 1.1 — resolved from the container rather than dispatched,
     # so this command names only market_data's contract. `app.dispatch` stays
     # in use below for everything that is still a command.
+    # Spot candles, what `trade-once` has always warmed up on (`MarketType`'s
+    # docstring); the CLI has no market flag yet.
     candles: tuple[MarketData, ...] = app.container.resolve(IHistoricalKlines).load(
-        args.symbol, interval, limit=_WARMUP_CANDLE_LIMIT
+        MarketType.SPOT, args.symbol, interval, limit=_WARMUP_CANDLE_LIMIT
     )
     if not candles:
         print(

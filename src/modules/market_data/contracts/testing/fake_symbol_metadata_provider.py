@@ -22,6 +22,7 @@ mismatch would be asserting against an answer production cannot give.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_metadata_provider import (
     ISymbolMetadataProvider,
 )
@@ -34,28 +35,34 @@ class FakeSymbolMetadataProvider(ISymbolMetadataProvider):
     """In-memory `ISymbolMetadataProvider`: scripted catalog, counted fetches."""
 
     def __init__(self) -> None:
-        self._catalog: dict[str, SymbolMarketMetadata] = {}
-        self._cached: dict[str, SymbolMarketMetadata] = {}
+        self._catalog: dict[tuple[MarketType, str], SymbolMarketMetadata] = {}
+        self._cached: dict[tuple[MarketType, str], SymbolMarketMetadata] = {}
         #: How many times a read had to leave the "exchange". Read by tests that
         #: care the second one is free.
         self.fetch_count = 0
 
-    def knows(self, metadata: SymbolMarketMetadata) -> None:
-        """Script one symbol into the "exchange" this fake stands for."""
+    def knows(
+        self, metadata: SymbolMarketMetadata, market: MarketType = MarketType.SPOT
+    ) -> None:
+        """Script one symbol of `market` into the "exchange" this fake stands
+        for."""
         symbol = metadata.symbol.upper()
         if not symbol:
             raise ValueError("a scripted metadata entry must name its symbol")
-        self._catalog[symbol] = metadata
+        self._catalog[(market, symbol)] = metadata
 
-    def get_or_fetch(self, symbol: str) -> SymbolMarketMetadata | None:
-        key = symbol.upper()
+    def get_or_fetch(
+        self, market: MarketType, symbol: str
+    ) -> SymbolMarketMetadata | None:
+        key = (market, symbol.upper())
         cached = self._cached.get(key)
         if cached is not None and not cached.is_stale():
             return cached
-        self.refresh()
+        self.refresh(market)
         return self._cached.get(key)
 
-    def refresh(self) -> int:
+    def refresh(self, market: MarketType) -> int:
         self.fetch_count += 1
-        self._cached = dict(self._catalog)
-        return len(self._cached)
+        fetched = {key: meta for key, meta in self._catalog.items() if key[0] is market}
+        self._cached.update(fetched)
+        return len(fetched)

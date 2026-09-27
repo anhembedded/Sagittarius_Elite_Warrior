@@ -187,7 +187,7 @@ class ChartCoordinator:
         # runtime type (`architecture-rule.md` §2.1). The port asks for one
         # symbol and gets that symbol's rows.
         newest_first_rows = self._historical_klines.load(
-            symbol, interval, limit=_HISTORY_CANDLE_LIMIT, newest_first=True
+            _MARKET, symbol, interval, limit=_HISTORY_CANDLE_LIMIT, newest_first=True
         )
         if not newest_first_rows:
             self._emit_log(f"No historical data for {symbol}.")

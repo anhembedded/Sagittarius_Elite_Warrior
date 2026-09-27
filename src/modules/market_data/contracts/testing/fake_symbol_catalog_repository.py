@@ -20,6 +20,7 @@ is a fake every consumer will re-invent.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog_repository import (
     ISymbolCatalogRepository,
 )
@@ -42,17 +43,22 @@ def _normalised(symbols: list[str]) -> list[str]:
 class FakeSymbolCatalogRepository(ISymbolCatalogRepository):
     """The symbol catalog, in a list, with the real one's normalisation."""
 
-    def __init__(self, symbols: list[str] | None = None) -> None:
-        """`symbols` seeds the catalog as if a previous run had saved them, so a
-        consumer's test starts from the state it needs in one line."""
-        self._symbols: list[str] = _normalised(symbols or [])
+    def __init__(
+        self, symbols: list[str] | None = None, market: MarketType = MarketType.SPOT
+    ) -> None:
+        """`symbols` seeds `market`'s catalog as if a previous run had saved
+        them, so a consumer's test starts from the state it needs in one line.
+        Every other market starts empty, as the real per-market files do."""
+        self._symbols: dict[MarketType, list[str]] = {
+            market: _normalised(symbols or [])
+        }
 
-    def get_symbols(self) -> list[str]:
+    def get_symbols(self, market: MarketType) -> list[str]:
         # A copy, not the list itself: the real one reads a file, so a caller
         # that mutates the result cannot corrupt the store. A fake that handed
         # out its own list would let a consumer's test pass on behaviour the
         # real implementation does not have.
-        return list(self._symbols)
+        return list(self._symbols.get(market, []))
 
-    def save_symbols(self, symbols: list[str]) -> None:
-        self._symbols = _normalised(symbols)
+    def save_symbols(self, market: MarketType, symbols: list[str]) -> None:
+        self._symbols[market] = _normalised(symbols)

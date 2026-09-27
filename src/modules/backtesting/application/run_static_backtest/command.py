@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizing,
     PositionSizingType,
@@ -94,3 +95,10 @@ class RunStaticBacktestCommand(BaseModel):
         exclude=True,
         description="Optional callback: phase, completed bars, total bars, elapsed seconds.",
     )
+
+    @property
+    def market(self) -> MarketType:
+        """`EPIC-027D` — the market this run reads candles from and simulates:
+        its broker config's, or that config's own default when none was
+        given (the exchange then builds the same default)."""
+        return (self.broker_config or BrokerSimulationConfig()).market_type

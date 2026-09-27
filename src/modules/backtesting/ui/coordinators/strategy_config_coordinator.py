@@ -6,6 +6,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
     MetadataVerificationStatus,
     OrderIntent,
@@ -48,7 +49,7 @@ class StrategyConfigCoordinator:
         state: IBacktestScreenState,
         catalog: IStrategyCatalog,
         logger,
-        get_market_metadata: Callable[[str], Any],
+        get_market_metadata: Callable[[MarketType, str], Any],
         notify_config_changed: Callable[[], None],
     ) -> None:
         self._view_model = view_model
@@ -230,7 +231,7 @@ class StrategyConfigCoordinator:
     def refresh_market_rule_verification(self) -> None:
         """Evaluates whether current symbol and capital comply with exchange
         order rules (BOT-095E1)."""
-        metadata = self._get_market_metadata(self._state.symbol)
+        metadata = self._get_market_metadata(self._state.market, self._state.symbol)
         try:
             capital_val = float(self._view_model.initialCapitalText)
         except (ValueError, TypeError):

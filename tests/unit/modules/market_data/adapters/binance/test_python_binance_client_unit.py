@@ -343,7 +343,70 @@ def test_get_available_symbols_returns_only_trading_status_symbols_sorted():
 
     client = PythonBinanceClient(client=injected_client)
 
-    assert client.get_available_symbols() == ["BTCUSDT", "ETHUSDT"]
+    assert client.get_available_symbols(MarketType.SPOT) == ["BTCUSDT", "ETHUSDT"]
+
+
+def test_futures_symbols_come_from_futures_exchange_info_and_only_perpetuals():
+    """EPIC-027D — the USD-M catalog is `/fapi/v1/exchangeInfo`, not Spot's,
+    and a dated delivery contract is a different instrument whose `_` could
+    never be a shard name."""
+    injected_client = Mock()
+    injected_client.futures_exchange_info.return_value = {
+        "symbols": [
+            {"symbol": "SOLUSDT", "status": "TRADING", "contractType": "PERPETUAL"},
+            {
+                "symbol": "BTCUSDT_251226",
+                "status": "TRADING",
+                "contractType": "CURRENT_QUARTER",
+            },
+            {"symbol": "BTCUSDT", "status": "TRADING", "contractType": "PERPETUAL"},
+        ]
+    }
+
+    client = PythonBinanceClient(client=injected_client)
+
+    assert client.get_available_symbols(MarketType.FUTURES_USD_M) == [
+        "BTCUSDT",
+        "SOLUSDT",
+    ]
+    injected_client.get_exchange_info.assert_not_called()
+
+
+def test_futures_symbol_metadata_parses_the_futures_filters():
+    """EPIC-027C — Futures' notional filter is `MIN_NOTIONAL` with a `notional`
+    field; the shared parser reads it, so a Futures run gets Futures rules."""
+    injected_client = Mock()
+    injected_client.futures_exchange_info.return_value = {
+        "symbols": [
+            {
+                "symbol": "BTCUSDT",
+                "status": "TRADING",
+                "contractType": "PERPETUAL",
+                "filters": [
+                    {
+                        "filterType": "PRICE_FILTER",
+                        "minPrice": "0.10",
+                        "maxPrice": "4529764",
+                        "tickSize": "0.10",
+                    },
+                    {
+                        "filterType": "LOT_SIZE",
+                        "minQty": "0.001",
+                        "maxQty": "1000",
+                        "stepSize": "0.001",
+                    },
+                    {"filterType": "MIN_NOTIONAL", "notional": "100"},
+                ],
+            }
+        ]
+    }
+
+    client = PythonBinanceClient(client=injected_client)
+    [metadata] = client.get_symbol_metadata(MarketType.FUTURES_USD_M)
+
+    assert metadata.lot_size_filter.step_size == 0.001
+    assert metadata.notional_filter.min_notional == 100.0
+    assert metadata.price_filter.tick_size == 0.1
 
 
 def test_get_available_symbols_returns_empty_list_when_exchange_info_is_empty():
@@ -352,7 +415,7 @@ def test_get_available_symbols_returns_empty_list_when_exchange_info_is_empty():
 
     client = PythonBinanceClient(client=injected_client)
 
-    assert client.get_available_symbols() == []
+    assert client.get_available_symbols(MarketType.SPOT) == []
 
 
 # --------------------------------------------------------------------------- #

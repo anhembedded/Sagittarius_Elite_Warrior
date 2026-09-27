@@ -383,3 +383,20 @@ def test_stat_cards_to_qml_uses_qml_property_names():
         == {"title", "value", "valueTone", "suffix", "badgeText", "badgeTone"}
         for card in qml_cards
     )
+
+
+def test_result_warning_text_reports_the_short_signals_a_spot_run_ignored():
+    """EPIC-027D — "N short signals ignored (Spot)" when N > 0."""
+    text = build_result_warning_text(replace(_result([], []), ignored_short_signals=4))
+
+    assert "4 short/cover signal(s) ignored (Spot is long-only)." in text
+
+
+def test_result_warning_text_reports_entries_the_exchange_filters_rejected():
+    text = build_result_warning_text(replace(_result([], []), rejected_entries=2))
+
+    assert "2 entr(y/ies) rejected by exchange filters" in text
+
+
+def test_result_warning_text_says_nothing_about_markets_when_nothing_was_dropped():
+    assert build_result_warning_text(_result([], [])) == ""

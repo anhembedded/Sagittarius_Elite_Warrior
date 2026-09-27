@@ -20,6 +20,7 @@ from __future__ import annotations
 from typing import NamedTuple
 
 from ..logic.backtest_fsm_matrix import BacktestActionKind
+from ..logic.exchange_filters_from_metadata import exchange_filters_from_metadata
 from ..logic.presenter_screen_state import PresenterBackedScreenState
 from .chart_feed_coordinator import ChartFeedCoordinator
 from .chart_preview_coordinator import ChartPreviewCoordinator
@@ -27,6 +28,7 @@ from .chart_render_coordinator import ChartRenderCoordinator
 from .data_sync_coordinator import DataSyncCoordinator
 from .execution_coordinator import ExecutionCoordinator
 from .indicator_coordinator import IndicatorCoordinator
+from .market_selection_coordinator import MarketSelectionCoordinator
 from .monte_carlo_coordinator import MonteCarloCoordinator
 from .strategy_config_coordinator import StrategyConfigCoordinator
 from .trade_log_coordinator import TradeLogCoordinator
@@ -45,6 +47,7 @@ class Coordinators(NamedTuple):
     chart_feed: ChartFeedCoordinator
     execution: ExecutionCoordinator
     monte_carlo: MonteCarloCoordinator
+    market_selection: MarketSelectionCoordinator
 
 
 def build_coordinators(presenter) -> Coordinators:
@@ -79,7 +82,9 @@ def build_coordinators(presenter) -> Coordinators:
         # tests replace `presenter._market_metadata_cache` after
         # construction. The bound version read the original cache and
         # reported UNVERIFIED_MISSING for every symbol.
-        get_market_metadata=lambda symbol: presenter._market_metadata_cache.get(symbol),
+        get_market_metadata=lambda market, symbol: presenter._market_metadata_cache.get(
+            market, symbol
+        ),
         notify_config_changed=presenter._on_config_input_changed,
     )
     _indicators = IndicatorCoordinator(
@@ -168,6 +173,9 @@ def build_coordinators(presenter) -> Coordinators:
         # the run hands its result to, and this factory has already been
         # burned four times by capturing something a test replaces later.
         on_result_ready=lambda *a: presenter._chart_feed.fetch_and_emit_chart_data(*a),
+        exchange_filters_for=lambda market, symbol: exchange_filters_from_metadata(
+            presenter._market_metadata_cache.get(market, symbol)
+        ),
     )
     _chart_feed = ChartFeedCoordinator(
         historical_klines=presenter._historical_klines,
@@ -187,6 +195,17 @@ def build_coordinators(presenter) -> Coordinators:
         emit_completed=presenter._monteCarloCompletedSignal.emit,
         emit_failed=presenter._monteCarloFailedSignal.emit,
     )
+    _market_selection = MarketSelectionCoordinator(
+        state=state,
+        set_symbol_options_market=lambda market: (
+            presenter._symbol_options_coordinator.set_market(market)
+        ),
+        refresh_market_rule_verification=(
+            _strategy_config.refresh_market_rule_verification
+        ),
+        notify_config_changed=presenter._on_config_input_changed,
+        request_chart_preview=presenter._request_chart_preview,
+    )
     return Coordinators(
         trade_log=_trade_log,
         strategy_config=_strategy_config,
@@ -197,4 +216,5 @@ def build_coordinators(presenter) -> Coordinators:
         chart_feed=_chart_feed,
         execution=_execution,
         monte_carlo=_monte_carlo,
+        market_selection=_market_selection,
     )

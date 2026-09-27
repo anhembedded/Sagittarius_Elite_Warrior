@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import threading
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_market_metadata_cache import (
     ISymbolMarketMetadataCache,
 )
@@ -17,19 +18,19 @@ class InMemorySymbolMarketMetadataCache(ISymbolMarketMetadataCache):
 
     def __init__(self) -> None:
         self._lock = threading.Lock()
-        self._cache: dict[str, SymbolMarketMetadata] = {}
+        self._cache: dict[tuple[MarketType, str], SymbolMarketMetadata] = {}
 
-    def get(self, symbol: str) -> SymbolMarketMetadata | None:
+    def get(self, market: MarketType, symbol: str) -> SymbolMarketMetadata | None:
         with self._lock:
-            return self._cache.get(symbol.upper())
+            return self._cache.get((market, symbol.upper()))
 
-    def put(self, metadata: SymbolMarketMetadata) -> None:
+    def put(self, market: MarketType, metadata: SymbolMarketMetadata) -> None:
         with self._lock:
-            self._cache[metadata.symbol.upper()] = metadata
+            self._cache[(market, metadata.symbol.upper())] = metadata
 
-    def has(self, symbol: str) -> bool:
+    def has(self, market: MarketType, symbol: str) -> bool:
         with self._lock:
-            return symbol.upper() in self._cache
+            return (market, symbol.upper()) in self._cache
 
     def clear(self) -> None:
         with self._lock:

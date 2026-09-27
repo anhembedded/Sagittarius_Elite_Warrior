@@ -40,6 +40,7 @@ class RangeCoverageService(IRangeCoverage):
 
     def coverage(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         *,
@@ -47,11 +48,8 @@ class RangeCoverageService(IRangeCoverage):
         end_time: datetime,
         now: datetime,
     ) -> BacktestRangeCoverage:
-        # `EPIC-027A` added `market` to `IMarketDataRepository`; `IRangeCoverage`
-        # itself stays market-less until `EPIC-027D` gives the backtest screen a
-        # market to choose. Pinned to Spot, what this path has always read.
         snapshot = self._repository.get_range_coverage(
-            MarketType.SPOT,
+            market,
             symbol,
             interval,
             start_time,

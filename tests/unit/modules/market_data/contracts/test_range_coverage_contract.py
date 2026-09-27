@@ -78,7 +78,12 @@ class TestWhatOnlyTheRealServiceCanAnswer:
         )
 
         answer = RangeCoverageService(store).coverage(
-            "BTCUSDT", MINUTE, start_time=at(0), end_time=at(5), now=_NOW
+            MarketType.SPOT,
+            "BTCUSDT",
+            MINUTE,
+            start_time=at(0),
+            end_time=at(5),
+            now=_NOW,
         )
 
         assert answer.is_fully_covered is True
@@ -96,7 +101,12 @@ class TestWhatOnlyTheRealServiceCanAnswer:
         )
 
         answer = RangeCoverageService(store).coverage(
-            "BTCUSDT", MINUTE, start_time=at(0), end_time=at(5), now=_NOW
+            MarketType.SPOT,
+            "BTCUSDT",
+            MINUTE,
+            start_time=at(0),
+            end_time=at(5),
+            now=_NOW,
         )
 
         assert answer.is_fully_covered is False
@@ -112,7 +122,12 @@ class TestTheFakesOwnHelpers:
         fake = FakeRangeCoverage()
 
         answer = fake.coverage(
-            "BTCUSDT", MINUTE, start_time=at(0), end_time=at(5), now=_NOW
+            MarketType.SPOT,
+            "BTCUSDT",
+            MINUTE,
+            start_time=at(0),
+            end_time=at(5),
+            now=_NOW,
         )
 
         assert answer == NOTHING_STORED
@@ -123,7 +138,12 @@ class TestTheFakesOwnHelpers:
         fake.answer_with(scripted, symbol="BTCUSDT", interval=MINUTE)
 
         answer = fake.coverage(
-            "BTCUSDT", MINUTE, start_time=at(0), end_time=at(5), now=_NOW
+            MarketType.SPOT,
+            "BTCUSDT",
+            MINUTE,
+            start_time=at(0),
+            end_time=at(5),
+            now=_NOW,
         )
 
         assert answer is scripted
@@ -133,7 +153,12 @@ class TestTheFakesOwnHelpers:
         fake.answer_with(fully_covered(at(0), at(4), candles=5), symbol="BTCUSDT")
 
         answer = fake.coverage(
-            "ETHUSDT", MINUTE, start_time=at(0), end_time=at(5), now=_NOW
+            MarketType.SPOT,
+            "ETHUSDT",
+            MINUTE,
+            start_time=at(0),
+            end_time=at(5),
+            now=_NOW,
         )
 
         assert answer == NOTHING_STORED
@@ -147,6 +172,7 @@ class TestTheFakesOwnHelpers:
         )
 
         answer = fake.coverage(
+            MarketType.SPOT,
             "BTCUSDT",
             TimeFrame.ONE_DAY,
             start_time=at(0),
@@ -181,14 +207,28 @@ class TestTheFakesOwnHelpers:
     def test_was_asked_about_says_no_for_a_symbol_nobody_asked_about(self) -> None:
         fake = FakeRangeCoverage()
 
-        fake.coverage("BTCUSDT", MINUTE, start_time=None, end_time=at(5), now=_NOW)
+        fake.coverage(
+            MarketType.SPOT,
+            "BTCUSDT",
+            MINUTE,
+            start_time=None,
+            end_time=at(5),
+            now=_NOW,
+        )
 
         assert fake.was_asked_about("ETHUSDT") is False
 
     def test_the_timeframe_narrows_was_asked_about(self) -> None:
         fake = FakeRangeCoverage()
 
-        fake.coverage("BTCUSDT", MINUTE, start_time=None, end_time=at(5), now=_NOW)
+        fake.coverage(
+            MarketType.SPOT,
+            "BTCUSDT",
+            MINUTE,
+            start_time=None,
+            end_time=at(5),
+            now=_NOW,
+        )
 
         assert fake.was_asked_about("BTCUSDT", MINUTE) is True
         assert fake.was_asked_about("BTCUSDT", TimeFrame.ONE_DAY) is False
@@ -198,7 +238,14 @@ class TestTheFakesOwnHelpers:
         picked reached the module, not a default."""
         fake = FakeRangeCoverage()
 
-        fake.coverage("BTCUSDT", MINUTE, start_time=at(1), end_time=at(9), now=_NOW)
+        fake.coverage(
+            MarketType.SPOT,
+            "BTCUSDT",
+            MINUTE,
+            start_time=at(1),
+            end_time=at(9),
+            now=_NOW,
+        )
 
         request = fake.requests[0]
         assert (request.start_time, request.end_time, request.now) == (

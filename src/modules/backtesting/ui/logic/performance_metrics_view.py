@@ -34,6 +34,13 @@ _FREQUENCY_WARNING_NOTE = (
 #: directly into the sentence (not just "diverges") so the warning is
 #: self-explanatory without a popup click, per the user's explicit decision
 #: to reuse BOT-079's resultWarningText for this rather than a separate UI.
+#: EPIC-027B/027D — a Spot run drops what a Spot market cannot execute.
+_IGNORED_SHORTS_NOTE = "{count} short/cover signal(s) ignored (Spot is long-only)."
+#: EPIC-027C — entries an exchange filter refused; they opened nothing.
+_REJECTED_ENTRIES_NOTE = (
+    "{count} entr(y/ies) rejected by exchange filters (below the minimum "
+    "quantity or notional)."
+)
 _OUT_OF_SAMPLE_DIVERGENCE_NOTE = (
     "⚠ Possible overfitting — In-sample {in_sample:+.2f}% but "
     "Out-of-sample {out_of_sample:+.2f}%."
@@ -120,6 +127,10 @@ def build_result_warning_text(result: BacktestResult) -> str:
                 out_of_sample=out_of_sample.out_of_sample.metrics.net_profit_percent,
             )
         )
+    if result.ignored_short_signals:
+        notes.append(_IGNORED_SHORTS_NOTE.format(count=result.ignored_short_signals))
+    if result.rejected_entries:
+        notes.append(_REJECTED_ENTRIES_NOTE.format(count=result.rejected_entries))
     return "   •   ".join(notes)
 
 

@@ -33,6 +33,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     MAX_REPORTED_MISSING_OPENS,
@@ -77,6 +78,7 @@ def fully_covered(
 class CoverageRequest:
     """One `coverage()` call, as the caller made it."""
 
+    market: MarketType
     symbol: str
     interval: TimeFrame
     start_time: datetime | None
@@ -87,8 +89,13 @@ class CoverageRequest:
 class FakeRangeCoverage(IRangeCoverage):
     """Coverage answers a test scripts, and a record of what was asked."""
 
-    def __init__(self) -> None:
-        self._answers: dict[tuple[str, TimeFrame], BacktestRangeCoverage] = {}
+    def __init__(self, default_market: MarketType = MarketType.SPOT) -> None:
+        """`default_market` is what `answer_with()` scripts when a test names
+        no market — the market the consumer under test asks about."""
+        self._default_market = default_market
+        self._answers: dict[
+            tuple[MarketType, str, TimeFrame], BacktestRangeCoverage
+        ] = {}
         #: Every call, in order. A consumer's test asserts "the screen asked
         #: about the range the user picked" against this — a fact about the
         #: screen, which no scripted answer can show.
@@ -96,6 +103,7 @@ class FakeRangeCoverage(IRangeCoverage):
 
     def coverage(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         *,
@@ -105,6 +113,7 @@ class FakeRangeCoverage(IRangeCoverage):
     ) -> BacktestRangeCoverage:
         self.requests.append(
             CoverageRequest(
+                market=market,
                 symbol=symbol,
                 interval=interval,
                 start_time=start_time,
@@ -112,7 +121,7 @@ class FakeRangeCoverage(IRangeCoverage):
                 now=now,
             )
         )
-        return self._answers.get((symbol, interval), NOTHING_STORED)
+        return self._answers.get((market, symbol, interval), NOTHING_STORED)
 
     # -- what a consumer's test usually wants to know ------------------------
 
@@ -122,8 +131,9 @@ class FakeRangeCoverage(IRangeCoverage):
         *,
         symbol: str = "BTCUSDT",
         interval: TimeFrame = TimeFrame.ONE_MINUTE,
+        market: MarketType | None = None,
     ) -> None:
-        """Script the answer for one symbol and timeframe."""
+        """Script the answer for one symbol and timeframe of `market`."""
         if len(coverage.missing_open_times) > MAX_REPORTED_MISSING_OPENS:
             raise ValueError(
                 "missing_open_times is a sample truncated to "
@@ -131,7 +141,7 @@ class FakeRangeCoverage(IRangeCoverage):
                 "the real path, so a test asserting on it would be asserting "
                 "against an answer production never produces"
             )
-        self._answers[(symbol, interval)] = coverage
+        self._answers[(market or self._default_market, symbol, interval)] = coverage
 
     def was_asked_about(self, symbol: str, interval: TimeFrame | None = None) -> bool:
         """Whether any call asked about this symbol (optionally at one

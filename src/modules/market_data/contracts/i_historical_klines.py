@@ -36,6 +36,7 @@ from collections.abc import Mapping, Sequence
 from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 #: What every caller passes today when it does not care how far back the rows
@@ -50,6 +51,7 @@ class IHistoricalKlines(ABC):
     @abstractmethod
     def load(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         *,
@@ -58,7 +60,9 @@ class IHistoricalKlines(ABC):
         end_time: datetime | None = None,
         newest_first: bool = False,
     ) -> tuple[MarketData, ...]:
-        """One symbol's stored candles, empty when this shard has none.
+        """One symbol's stored candles of `market`, empty when this shard has
+        none. `market` picks the shard (`EPIC-027D`): Spot and Futures candles
+        of the same symbol are stored apart since `EPIC-027A`.
 
         Empty rather than an error, and rather than `None`: "nothing stored
         yet" is the ordinary state of a symbol the user has not synced, which
@@ -76,6 +80,7 @@ class IHistoricalKlines(ABC):
     @abstractmethod
     def load_many(
         self,
+        market: MarketType,
         symbols: Sequence[str],
         interval: TimeFrame,
         *,
