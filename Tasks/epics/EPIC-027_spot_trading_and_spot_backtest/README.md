@@ -1,6 +1,6 @@
 # EPIC-027 — Spot beside Futures: truthful Spot backtests first, then live Spot on Testnet
 
-- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 in progress (2/5, 2026-09-27) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027E` are done; `EPIC-027F` and `EPIC-027G` are done, so `TradingVenue` now has a Spot Testnet member with its own credentials, capability-checked gates and an honest market-mismatch alignment state.
+- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 in progress (3/5, 2026-09-27) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027E` are done; `EPIC-027F`, `EPIC-027G` and `EPIC-027J` are done, so `TradingVenue` now has a Spot Testnet member with its own credentials, capability-checked gates, an honest market-mismatch alignment state, and the fake exchange answers the full Spot order lifecycle.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-26): *"đánh giá xem giờ tui muốn giao dịch spot và back test theo
   spot thì app này cần những gì, lên plan và epic, sao đó report cho tôi"* ("assess what this app
@@ -97,7 +97,7 @@ request unless its file says otherwise.
 | **Phase 2 — Live Spot foundations (read-only)** | | | | | |
 | [EPIC-027F](completed/EPIC-027F_venue_selected_trading_client_factory.md) | One venue-selected factory replaces six direct client constructions | Elite | None | 🔴 | ✅ Done (2026-09-27) |
 | [EPIC-027G](completed/EPIC-027G_spot_testnet_venue_and_credentials.md) | `TradingVenue.SPOT_TESTNET`, own keys, market-mismatch alignment | Elite | F | 🟡 | ✅ Done (2026-09-27) |
-| [EPIC-027J](incomplete/EPIC-027J_fake_exchange_spot_routes.md) | Fake exchange answers the Spot API (signed orders, account, stream) | Elite | None | 🟡 | Planned |
+| [EPIC-027J](completed/EPIC-027J_fake_exchange_spot_routes.md) | Fake exchange answers the Spot API (signed orders, account, stream) | Elite | None | 🟡 | ✅ Done (2026-09-27) |
 | [EPIC-027H](incomplete/EPIC-027H_spot_account_reader_and_holdings_model.md) | Spot account read as balances and holdings | Elite | G, J, O6 | 🟡 | Planned |
 | [EPIC-027I](incomplete/EPIC-027I_spot_symbol_metadata_provider.md) | Spot exchange filters for live rounding | Elite | G | 🟢 | Planned |
 | **Phase 3 — Live Spot orders on Testnet** | | | | | |
@@ -130,6 +130,22 @@ request unless its file says otherwise.
 - **Funding-rate modeling for Futures.** Still out of scope as in `BOT-049`.
 
 ## Notes (newest first)
+- **2026-09-27** — `EPIC-027J` done, advancing Phase 2 (3/5). The fake exchange now answers the full
+  Spot order lifecycle: signed `POST`/`DELETE /api/v3/order`, `/order/test`, `/openOrders`,
+  `GET /api/v3/account`, `GET /api/v3/time`, and the (unsigned) `/api/v3/userDataStream` trio — a new,
+  independent `SpotAccountState` (balances + open orders), never a union with Futures' own
+  `OrderBookState`. A `MARKET` fill moves quote↔base and charges its 0.1% fee in the asset received,
+  and queues `executionReport`/`outboundAccountPosition` user-data events for a test to drain. Along
+  the way, `server.py`'s `do_POST`/`PUT`/`DELETE` were found to route to Futures unconditionally — only
+  `do_GET` ever consulted Spot's own routes — collapsed into one `_dispatch()` that routes by path
+  prefix, closing that gap for good. `exchangeInfo`'s filter shape was verified against the real
+  parser this app runs (`market_metadata_parser.py`), not guessed: `baseAsset`/`quoteAsset` at the
+  symbol level and the current `NOTIONAL`/`minNotional` filter name. 9 new contract tests exercise
+  every route through a real, unpatched-except-URL `binance.client.Client` (the established
+  `test_session_factories_against_fake_server.py` precedent, since `EPIC-027K`'s real Spot adapter
+  does not exist yet to drive these routes through). `tests/unit/architecture` 451 passed; targeted
+  `tests/integration/infrastructure/binance` + `tests/sanity` 51 passed; ruff clean. No `src/`/`scripts/`
+  files touched, so mypy's baseline is unaffected.
 - **2026-09-27** — `EPIC-027G` correction after independent PR review: the three order-path gates and
   `TradingModule`'s `ITradingClient` bind now check a new `TradingVenue.supports_order_submission`
   property (`True` only for `FUTURES_TESTNET`) instead of a literal `is DISABLED` check. The review
