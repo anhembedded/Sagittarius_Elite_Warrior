@@ -51,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
@@ -84,7 +87,7 @@ def credentials_provider(tmp_path):
     the old fixture's `"test-key"`/`"test-secret"` expectations."""
     secrets_file = SecretsFileSource(str(tmp_path / "secrets.local.json"))
     secrets_file.write("test-key", "test-secret")
-    return EnvFirstCredentialsProvider(secrets_file)
+    return EnvFirstCredentialsProvider(secrets_file, TradingVenue.FUTURES_TESTNET)
 
 
 @pytest.fixture
@@ -185,7 +188,8 @@ def test_missing_credentials_load_safely(qapp, mock_config, tmp_path, request):
     content has no floor to fall back to."""
     container = Mock()
     empty_provider = EnvFirstCredentialsProvider(
-        SecretsFileSource(str(tmp_path / "does-not-exist.json"))
+        SecretsFileSource(str(tmp_path / "does-not-exist.json")),
+        TradingVenue.FUTURES_TESTNET,
     )
     container.resolve.side_effect = lambda interface: (
         mock_config
@@ -233,7 +237,7 @@ def test_save_writes_a_new_key_to_the_real_secrets_file(qapp, tmp_path, request)
     """
     secrets_file_path = tmp_path / "secrets.local.json"
     credentials_provider = EnvFirstCredentialsProvider(
-        SecretsFileSource(str(secrets_file_path))
+        SecretsFileSource(str(secrets_file_path)), TradingVenue.FUTURES_TESTNET
     )
 
     config = ConfigManager()
@@ -281,7 +285,7 @@ def test_save_does_not_touch_the_secrets_file_when_an_env_var_is_locking_it(
     monkeypatch.setenv("BINANCE_FUTURES_TESTNET_API_SECRET", "env-secret")
     secrets_file_path = tmp_path / "secrets.local.json"
     credentials_provider = EnvFirstCredentialsProvider(
-        SecretsFileSource(str(secrets_file_path))
+        SecretsFileSource(str(secrets_file_path)), TradingVenue.FUTURES_TESTNET
     )
     container = Mock()
     container.resolve.side_effect = lambda interface: (

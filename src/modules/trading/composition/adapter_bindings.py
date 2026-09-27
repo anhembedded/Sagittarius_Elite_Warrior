@@ -137,10 +137,20 @@ def bind_adapters(container: IContainer) -> None:
     secrets_file_path = PathUtils.get_relative_path(
         __file__, "..", "..", "..", "config", "secrets.local.json"
     )
-    credentials_provider = EnvFirstCredentialsProvider(
-        SecretsFileSource(secrets_file_path)
+    # `EPIC-027G`: `EnvFirstCredentialsProvider` now reads a different env
+    # var pair per `TradingVenue` (Futures Testnet keys must never leak into
+    # a Spot Testnet resolution or vice versa), so the binding needs
+    # `TradingVenue`'s actual resolved value — which `register()` may not
+    # fetch (see this file's own module docstring). Lazy, matching
+    # `TradingVenue`'s own binding below; every consumer that used to close
+    # over a plain `credentials_provider` local now resolves this port
+    # instead.
+    container.singleton(
+        IExchangeCredentialsProvider,
+        lambda c: EnvFirstCredentialsProvider(
+            SecretsFileSource(secrets_file_path), c.resolve(TradingVenue)
+        ),
     )
-    container.singleton(IExchangeCredentialsProvider, credentials_provider)
 
     # `EPIC-027F`: the one place allowed to construct `FuturesTradingClient`
     # (guarded by
@@ -153,16 +163,21 @@ def bind_adapters(container: IContainer) -> None:
     container.singleton(
         ITradingClientFactory,
         lambda c: FuturesTradingClientFactory(
-            session_factory, credentials_provider, c.resolve(IMarketMetadataProvider)
+            session_factory,
+            c.resolve(IExchangeCredentialsProvider),
+            c.resolve(IMarketMetadataProvider),
         ),
     )
 
     # EPIC-021D: read-only, does not require TradingVenue to be "enabled"
     # anywhere — see FuturesAccountReader's own docstring for why this check
-    # works off credentials alone.
+    # works off credentials alone. Lazy since `EPIC-027G` made the
+    # credentials provider itself lazy.
     container.singleton(
         ITradingAccountReader,
-        FuturesAccountReader(session_factory, credentials_provider),
+        lambda c: FuturesAccountReader(
+            session_factory, c.resolve(IExchangeCredentialsProvider)
+        ),
     )
 
     # EPIC-021H: read-only like ITradingAccountReader — registered
@@ -182,7 +197,7 @@ def bind_adapters(container: IContainer) -> None:
         lambda c: FuturesUserDataStream(
             c.resolve(IEventBus),
             c.resolve(ITaskManager),
-            credentials_provider,
+            c.resolve(IExchangeCredentialsProvider),
             c.resolve(ITradingClientFactory),
             c.resolve(TradingSessionState),
             c.resolve(EquityCurveRecorder),

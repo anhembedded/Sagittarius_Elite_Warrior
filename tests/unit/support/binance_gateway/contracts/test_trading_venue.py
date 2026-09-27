@@ -1,3 +1,4 @@
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -6,6 +7,31 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 def test_trading_venue_enum_values():
     assert TradingVenue.DISABLED == "disabled"
     assert TradingVenue.FUTURES_TESTNET == "futures_testnet"
+    assert TradingVenue.SPOT_TESTNET == "spot_testnet"
+
+
+def test_market_type_reports_the_market_each_venue_trades():
+    assert TradingVenue.FUTURES_TESTNET.market_type is MarketType.FUTURES_USD_M
+    assert TradingVenue.SPOT_TESTNET.market_type is MarketType.SPOT
+
+
+def test_disabled_venue_has_no_market_type():
+    """No trading means no market to compare a chart against — `None`,
+    not a fabricated default (`code/errors.md` #6)."""
+    assert TradingVenue.DISABLED.market_type is None
+
+
+def test_only_futures_testnet_supports_order_submission_today():
+    """`EPIC-027G` — `SPOT_TESTNET` is a real, closed enum member, but
+    `adapter_bindings.py` still binds `ITradingAccountReader`/
+    `ITradingClientFactory`/`IUserDataStream` unconditionally to their
+    Futures-only adapters. `supports_order_submission` is the one place
+    that must flip to include it once `EPIC-027K` binds a real Spot
+    implementation — not a fifth literal venue comparison resurrected
+    across the order-path handlers this property replaced."""
+    assert TradingVenue.FUTURES_TESTNET.supports_order_submission is True
+    assert TradingVenue.SPOT_TESTNET.supports_order_submission is False
+    assert TradingVenue.DISABLED.supports_order_submission is False
 
 
 def test_trading_venue_has_no_mainnet_member():

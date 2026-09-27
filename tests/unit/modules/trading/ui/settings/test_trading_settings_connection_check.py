@@ -106,7 +106,9 @@ def mock_thread_manager():
 
 @pytest.fixture
 def credentials_provider(tmp_path):
-    return EnvFirstCredentialsProvider(SecretsFileSource(str(tmp_path / "s.json")))
+    return EnvFirstCredentialsProvider(
+        SecretsFileSource(str(tmp_path / "s.json")), TradingVenue.FUTURES_TESTNET
+    )
 
 
 @pytest.fixture

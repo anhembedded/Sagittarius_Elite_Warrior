@@ -1,6 +1,6 @@
 # EPIC-027 — Spot beside Futures: truthful Spot backtests first, then live Spot on Testnet
 
-- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 in progress (1/5, 2026-09-27) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027E` are done; `EPIC-027F` is done, opening the venue-selected factory seam Phase 2's remaining tasks build on.
+- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 in progress (3/5, 2026-09-27) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027E` are done; `EPIC-027F`, `EPIC-027G` and `EPIC-027J` are done, so `TradingVenue` now has a Spot Testnet member with its own credentials, capability-checked gates, an honest market-mismatch alignment state, and the fake exchange answers the full Spot order lifecycle.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-26): *"đánh giá xem giờ tui muốn giao dịch spot và back test theo
   spot thì app này cần những gì, lên plan và epic, sao đó report cho tôi"* ("assess what this app
@@ -96,8 +96,8 @@ request unless its file says otherwise.
 | [EPIC-027E](completed/EPIC-027E_report_schema_carries_market_type.md) | Saved reports state their market | Elite | B, C | 🟢 | ✅ Done (2026-09-27) |
 | **Phase 2 — Live Spot foundations (read-only)** | | | | | |
 | [EPIC-027F](completed/EPIC-027F_venue_selected_trading_client_factory.md) | One venue-selected factory replaces six direct client constructions | Elite | None | 🔴 | ✅ Done (2026-09-27) |
-| [EPIC-027G](incomplete/EPIC-027G_spot_testnet_venue_and_credentials.md) | `TradingVenue.SPOT_TESTNET`, own keys, market-mismatch alignment | Elite | F | 🟡 | Planned |
-| [EPIC-027J](incomplete/EPIC-027J_fake_exchange_spot_routes.md) | Fake exchange answers the Spot API (signed orders, account, stream) | Elite | None | 🟡 | Planned |
+| [EPIC-027G](completed/EPIC-027G_spot_testnet_venue_and_credentials.md) | `TradingVenue.SPOT_TESTNET`, own keys, market-mismatch alignment | Elite | F | 🟡 | ✅ Done (2026-09-27) |
+| [EPIC-027J](completed/EPIC-027J_fake_exchange_spot_routes.md) | Fake exchange answers the Spot API (signed orders, account, stream) | Elite | None | 🟡 | ✅ Done (2026-09-27) |
 | [EPIC-027H](incomplete/EPIC-027H_spot_account_reader_and_holdings_model.md) | Spot account read as balances and holdings | Elite | G, J, O6 | 🟡 | Planned |
 | [EPIC-027I](incomplete/EPIC-027I_spot_symbol_metadata_provider.md) | Spot exchange filters for live rounding | Elite | G | 🟢 | Planned |
 | **Phase 3 — Live Spot orders on Testnet** | | | | | |
@@ -130,6 +130,50 @@ request unless its file says otherwise.
 - **Funding-rate modeling for Futures.** Still out of scope as in `BOT-049`.
 
 ## Notes (newest first)
+- **2026-09-27** — `EPIC-027J` done, advancing Phase 2 (3/5). The fake exchange now answers the full
+  Spot order lifecycle: signed `POST`/`DELETE /api/v3/order`, `/order/test`, `/openOrders`,
+  `GET /api/v3/account`, `GET /api/v3/time`, and the (unsigned) `/api/v3/userDataStream` trio — a new,
+  independent `SpotAccountState` (balances + open orders), never a union with Futures' own
+  `OrderBookState`. A `MARKET` fill moves quote↔base and charges its 0.1% fee in the asset received,
+  and queues `executionReport`/`outboundAccountPosition` user-data events for a test to drain. Along
+  the way, `server.py`'s `do_POST`/`PUT`/`DELETE` were found to route to Futures unconditionally — only
+  `do_GET` ever consulted Spot's own routes — collapsed into one `_dispatch()` that routes by path
+  prefix, closing that gap for good. `exchangeInfo`'s filter shape was verified against the real
+  parser this app runs (`market_metadata_parser.py`), not guessed: `baseAsset`/`quoteAsset` at the
+  symbol level and the current `NOTIONAL`/`minNotional` filter name. 9 new contract tests exercise
+  every route through a real, unpatched-except-URL `binance.client.Client` (the established
+  `test_session_factories_against_fake_server.py` precedent, since `EPIC-027K`'s real Spot adapter
+  does not exist yet to drive these routes through). `tests/unit/architecture` 451 passed; targeted
+  `tests/integration/infrastructure/binance` + `tests/sanity` 51 passed; ruff clean. No `src/`/`scripts/`
+  files touched, so mypy's baseline is unaffected.
+- **2026-09-27** — `EPIC-027G` correction after independent PR review: the three order-path gates and
+  `TradingModule`'s `ITradingClient` bind now check a new `TradingVenue.supports_order_submission`
+  property (`True` only for `FUTURES_TESTNET`) instead of a literal `is DISABLED` check. The review
+  found the literal check let `SPOT_TESTNET` clear the gates while `ITradingAccountReader`/
+  `ITradingClientFactory`/`IUserDataStream` stayed unconditionally bound to their Futures-only
+  adapters — `EnableTradingCommandHandler` would have signed a Futures Testnet call with Spot Testnet
+  credentials instead of failing cleanly. Constitutional decision (P1 poka-yoke, P6 fix-the-mechanism,
+  P7 seam-now/variant-later): one named capability property is the mechanical barrier, and the "one
+  place" `EPIC-027K` flips when Spot's real order path lands. See the task file's own "Post-review
+  correction" note for the full trace.
+- **2026-09-27** — `EPIC-027G` done, advancing Phase 2 (2/5). `TradingVenue.SPOT_TESTNET` exists,
+  with a `market_type` property every downstream consumer reads instead of assuming Futures.
+  `EnvFirstCredentialsProvider` is now bound to one venue for its lifetime and reads a distinct env
+  var pair per venue (`BINANCE_SPOT_TESTNET_API_KEY/_SECRET`), so a Futures key can never resolve for
+  Spot or vice versa — its composition-root binding became a lazy factory (the same
+  register()-cannot-resolve() constraint `EPIC-027F` hit), and its three former consumers now resolve
+  the port themselves instead of closing over a plain instance. The three order-path safety gates
+  changed from `is not FUTURES_TESTNET` to `is DISABLED` — a capability check, so a new supported
+  venue is never refused by default. Found along the way: the live Trading/Dashboard screens' own
+  chart and stream are hard-coded to `MarketType.SPOT` regardless of `TradingVenue` — a real,
+  previously-unreported truth violation directly analogous to `EPIC-027A`'s headline finding but for
+  the live screen, not the backtester. `VenueAlignment.MARKET_MISMATCH` now names it, and
+  `compute_venue_alignment` takes an explicit `chart_market_type` parameter rather than a hidden
+  constant. Settings gained the Spot Testnet option. `tests/unit/architecture` 451 passed (after
+  trimming `app_bootstrapper.py`'s comment to stay under its 550-line ratchet), `tests/unit/modules/trading`
+  797 passed, full `tests/unit` 5638 passed; ruff and mypy clean (mypy diffed byte-for-byte against a
+  clean-cache pre-change baseline — zero new errors). `EPIC-027J` is next (independent of `027G`, per
+  the table above).
 - **2026-09-27** — `EPIC-027F` done, opening Phase 2 (1/5). Six sites that each constructed
   `FuturesTradingClient(...)` directly (the four order-path handlers, the open-positions query, the
   user data stream) now resolve `ITradingClientFactory.create(mode)` instead — a single seam

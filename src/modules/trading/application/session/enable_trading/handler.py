@@ -84,7 +84,7 @@ class EnableTradingCommandHandler(
     def execute(self, command: EnableTradingCommand) -> EnableTradingResult:
         logger.debug("Handling EnableTradingCommand")
 
-        if self._trading_venue is not TradingVenue.FUTURES_TESTNET:
+        if not self._trading_venue.supports_order_submission:
             return self._blocked(EnableTradingBlockReason.TRADING_VENUE_DISABLED)
 
         # `BUG-088` — read *before* the two network round-trips below, not

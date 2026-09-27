@@ -1,5 +1,7 @@
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+
 
 class TradingVenue(str, Enum):
     """
@@ -13,3 +15,32 @@ class TradingVenue(str, Enum):
 
     DISABLED = "disabled"
     FUTURES_TESTNET = "futures_testnet"
+    SPOT_TESTNET = "spot_testnet"
+
+    @property
+    def market_type(self) -> MarketType | None:
+        """@brief The market this venue trades, or `None` when trading is off."""
+        if self is TradingVenue.FUTURES_TESTNET:
+            return MarketType.FUTURES_USD_M
+        if self is TradingVenue.SPOT_TESTNET:
+            return MarketType.SPOT
+        return None
+
+    @property
+    def supports_order_submission(self) -> bool:
+        """@brief Whether this build's composition root has a real
+        `ITradingClient`/`ITradingAccountReader`/`IUserDataStream`
+        implementation for this venue.
+
+        @details Distinct from "is this a closed, reviewed `TradingVenue`
+        member" — `SPOT_TESTNET` is one (`EPIC-027G`: its own `market_type`,
+        isolated credentials, alignment state), but `adapter_bindings.py`
+        still binds those three ports unconditionally to their Futures-only
+        adapters, so routing an order through `SPOT_TESTNET` today would
+        sign a Futures Testnet API call with Spot Testnet credentials. The
+        three order-path safety gates and `TradingModule`'s `ITradingClient`
+        bind read this property, not a literal venue comparison, so
+        `EPIC-027K` (Spot's real order path) flips one `return` here rather
+        than three handler files again.
+        """
+        return self is TradingVenue.FUTURES_TESTNET

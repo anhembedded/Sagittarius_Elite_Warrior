@@ -16,6 +16,7 @@ from __future__ import annotations
 
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
     MarketDataVenue,
 )
@@ -25,14 +26,21 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 
 
 class VenueAlignment(str, Enum):
-    """@brief The three states a user can be in, in order of increasing risk."""
+    """@brief The four states a user can be in, in order of increasing risk."""
 
     #: `TradingVenue.DISABLED` — no order can ever be sent, regardless of
     #: `MarketDataVenue`. The safest state: nothing to misalign.
     TRADING_DISABLED = "trading_disabled"
     #: Both venues answer to the same environment (testnet data, testnet
-    #: orders) — what the price shown is the price that would fill at.
+    #: orders) and the chart shows the same market the order would fill in
+    #: — what the price shown is the price that would fill at.
     ALIGNED = "aligned"
+    #: The chart's market (`EPIC-027G` — e.g. the live Trading screen's own
+    #: chart/stream, hard-coded to `MarketType.SPOT`) is not the market
+    #: `trading_venue.market_type` sends orders to (e.g. `FUTURES_USD_M`
+    #: while `TradingVenue.FUTURES_TESTNET` is active). The price and the
+    #: instrument on screen are not the ones the order books against.
+    MARKET_MISMATCH = "market_mismatch"
     #: `MarketDataVenue.MAINNET_PUBLIC` while `TradingVenue.FUTURES_TESTNET`
     #: — real prices on screen, fake money behind the order button. The
     #: literal trap `EPIC-021`'s ADR §2.2 names: "chart hiển thị giá
@@ -41,18 +49,28 @@ class VenueAlignment(str, Enum):
 
 
 def compute_venue_alignment(
-    market_data_venue: MarketDataVenue, trading_venue: TradingVenue
+    market_data_venue: MarketDataVenue,
+    trading_venue: TradingVenue,
+    chart_market_type: MarketType,
 ) -> VenueAlignment:
     """@brief The one place this comparison is made.
 
-    @details `TradingVenue` has no `MAINNET` member yet (ADR §3 — a future
-    epic's reviewed addition, not a config flip), so the only real
-    misalignment this app can produce today is testnet orders against
-    mainnet data; when that day comes, this function is where the fourth
-    state gets added, not a fifth independent comparison somewhere else.
+    @details `chart_market_type` is the market the caller's chart/stream
+    actually reads (`EPIC-027G` — the live Trading/Dashboard screens hard-
+    code `MarketType.SPOT` today, independently of `trading_venue`, which
+    this function's own docstring anticipated as "the fourth state" rather
+    than a fifth independent comparison elsewhere).
+
+    Priority when more than one condition holds: the mainnet-data trap is
+    checked first because it is the one already named as the worst case
+    (real prices driving a decision, `EPIC-021`'s ADR §2.2); a market-type
+    mismatch is checked next, since either one alone is reason enough not
+    to report `ALIGNED`.
     """
     if trading_venue is TradingVenue.DISABLED:
         return VenueAlignment.TRADING_DISABLED
     if market_data_venue is MarketDataVenue.MAINNET_PUBLIC:
         return VenueAlignment.DATA_MAINNET_ORDERS_TESTNET
+    if chart_market_type is not trading_venue.market_type:
+        return VenueAlignment.MARKET_MISMATCH
     return VenueAlignment.ALIGNED

@@ -1,8 +1,8 @@
-"""`EPIC-021J` — HTTP plumbing for the Binance-protocol fake server: parses
-each request, dispatches to `spot_routes`/`futures_routes` by path prefix,
-and owns the one piece of state (`OrderBookState`) both `GET
-/fapi/v1/openOrders` and the order-lifecycle `POST`/`DELETE` routes share
-for the lifetime of one `run_binance_fake_server()` call.
+"""`EPIC-021J`/`EPIC-027J` — HTTP plumbing for the Binance-protocol fake
+server: parses each request, dispatches to `spot_routes`/`futures_routes`
+by path prefix, and owns the two pieces of state — `OrderBookState`
+(Futures) and `SpotAccountState` (Spot), independent facts, never a union
+— for the lifetime of one `run_binance_fake_server()` call.
 
 Any path/method this fixture does not recognize returns 404 rather than a
 plausible-looking empty success — an unexpected call should be loud, not
@@ -22,9 +22,10 @@ from dataclasses import dataclass
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qsl
 
-from . import spot_routes
 from .futures_routes import handle as handle_futures
 from .order_book_state import OrderBookState
+from .spot_account_state import SpotAccountState
+from .spot_routes import handle as handle_spot
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -34,6 +35,7 @@ class _Handler(BaseHTTPRequestHandler):
     #: cannot live on `self`; it lives on the class, scoped by the
     #: contextmanager's own `try`/`finally` instead.
     order_book: OrderBookState
+    spot_account: SpotAccountState
 
     def log_message(self, format: str, *args: object) -> None:
         pass  # Silence per-request access logs — this is a test fixture,
@@ -41,29 +43,29 @@ class _Handler(BaseHTTPRequestHandler):
 
     def do_GET(self) -> None:
         path, query = self._split_path()
-        if path in spot_routes.GET_ROUTES:
-            self._respond(200, spot_routes.GET_ROUTES[path])
-            return
-        result = handle_futures("GET", path, query, self.order_book)
-        self._respond_or_404(path, result)
+        self._respond_or_404(path, self._dispatch("GET", path, query))
 
     def do_POST(self) -> None:
         path, _ = self._split_path()
         body = self._read_form_body()
-        result = handle_futures("POST", path, body, self.order_book)
-        self._respond_or_404(path, result)
+        self._respond_or_404(path, self._dispatch("POST", path, body))
 
     def do_PUT(self) -> None:
         path, _ = self._split_path()
         body = self._read_form_body()
-        result = handle_futures("PUT", path, body, self.order_book)
-        self._respond_or_404(path, result)
+        self._respond_or_404(path, self._dispatch("PUT", path, body))
 
     def do_DELETE(self) -> None:
         path, _ = self._split_path()
         body = self._read_form_body()
-        result = handle_futures("DELETE", path, body, self.order_book)
-        self._respond_or_404(path, result)
+        self._respond_or_404(path, self._dispatch("DELETE", path, body))
+
+    def _dispatch(
+        self, method: str, path: str, params: dict[str, str]
+    ) -> tuple[int, object] | None:
+        if path.startswith("/api/"):
+            return handle_spot(method, path, params, self.spot_account)
+        return handle_futures(method, path, params, self.order_book)
 
     def _split_path(self) -> tuple[str, dict[str, str]]:
         path, _, query_string = self.path.partition("?")
@@ -106,9 +108,11 @@ class FakeServerUrls:
 @contextmanager
 def run_binance_fake_server() -> Iterator[FakeServerUrls]:
     """Starts the server on an OS-assigned free port, yields its spot and
-    futures base URLs, stops it on exit. A fresh `OrderBookState` per call
-    — order-lifecycle state never survives past one `with` block."""
+    futures base URLs, stops it on exit. A fresh `OrderBookState` and
+    `SpotAccountState` per call — order-lifecycle state never survives past
+    one `with` block."""
     _Handler.order_book = OrderBookState()
+    _Handler.spot_account = SpotAccountState()
     server = HTTPServer(("127.0.0.1", 0), _Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

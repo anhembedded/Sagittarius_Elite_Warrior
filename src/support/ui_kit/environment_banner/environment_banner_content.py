@@ -34,6 +34,11 @@ _CONTENT: dict[VenueAlignment, tuple[str, str, StyleRole]] = {
         "FUTURES TESTNET — simulated funds.",
         Severity.WARN,
     ),
+    VenueAlignment.MARKET_MISMATCH: (
+        "⚠",
+        "Chart is showing a different market than your orders trade in. Price shown is not the order's fill market.",
+        Severity.DANGER,
+    ),
     VenueAlignment.DATA_MAINNET_ORDERS_TESTNET: (
         "⚠",
         "Chart is showing MAINNET prices, orders fill on TESTNET. Price shown ≠ fill price.",

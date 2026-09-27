@@ -285,10 +285,12 @@ class TradingModule(BoundedContextModule):
     def _bind_trading_client_if_enabled(container: Any) -> None:
         """`EPIC-021F` — unlike `ITradingAccountReader` (read-only, always
         safe), `ITradingClient` can place/cancel a real order, so it is
-        registered only when trading is explicitly turned on; resolving
-        this port anywhere trading is `DISABLED` fails loudly (an
-        unbound-type error) instead of silently handing back a client
-        nobody asked to enable.
+        registered only for a `TradingVenue` this build actually has a real
+        implementation for (`TradingVenue.supports_order_submission`,
+        `EPIC-027G`); resolving this port for `DISABLED` or an unsupported
+        venue fails loudly (an unbound-type error) instead of silently
+        handing back a client nobody asked to enable, or one that would
+        sign the wrong venue's request.
 
         `tests/sanity/test_composition_root.py`'s `_NOT_DISPATCHED` entry
         for `SubmitOrderCommand` only *skips* asserting a resolve under the
@@ -301,7 +303,7 @@ class TradingModule(BoundedContextModule):
         thing saying this still holds.
         """
         trading_venue = container.resolve(TradingVenue)
-        if trading_venue is not TradingVenue.DISABLED:
+        if trading_venue.supports_order_submission:
             container.singleton(
                 ITradingClient,
                 lambda c: c.resolve(ITradingClientFactory).create(
