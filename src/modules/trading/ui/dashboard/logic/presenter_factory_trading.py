@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.live_order_book_coordinato
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.strategy_arming_coordinator import (
     StrategyArmingCoordinator,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOwnershipTracker,
 )
@@ -133,6 +136,11 @@ def build_trading_presenter_state(
         trading_session=presenter._trading_session,
         order_submission=presenter._order_submission,
         account=presenter._account,
+        # `EPIC-027K` post-review fix (PR #284) — `manual_order_intent_for()`
+        # refuses a Short click on a market with no short capability; the
+        # venue is resolved once here, like every other venue-branched bind
+        # in `adapter_bindings.py`, not re-read per click.
+        market_type=container.resolve(TradingVenue).market_type,
         trackers=ActionTrackers(
             toggle=presenter._toggle_tracker,
             emergency_stop=presenter._emergency_stop_tracker,

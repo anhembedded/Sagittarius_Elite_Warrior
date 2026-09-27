@@ -22,6 +22,7 @@ from __future__ import annotations
 from dataclasses import FrozenInstanceError
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
     SignalAction,
 )
@@ -51,7 +52,9 @@ def test_both_producers_return_the_published_type() -> None:
     `isinstance` while handing every consumer something the contract does not
     describe."""
     from_signal = order_intent_for(SignalAction.BUY)
-    from_click = manual_order_intent_for(ManualOrderDirection.LONG, None)
+    from_click = manual_order_intent_for(
+        ManualOrderDirection.LONG, None, MarketType.FUTURES_USD_M
+    )
 
     assert type(from_signal) is OrderIntent
     assert type(from_click) is OrderIntent
@@ -63,7 +66,7 @@ def test_the_two_paths_agree_where_they_describe_the_same_order() -> None:
     an equality here is a real cross-check rather than a tautology, and it only
     holds because both tables answer in one type."""
     assert order_intent_for(SignalAction.BUY) == manual_order_intent_for(
-        ManualOrderDirection.LONG, None
+        ManualOrderDirection.LONG, None, MarketType.FUTURES_USD_M
     )
 
 

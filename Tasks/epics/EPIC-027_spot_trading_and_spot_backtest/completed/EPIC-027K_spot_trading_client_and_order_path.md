@@ -70,6 +70,69 @@
   (P7 — no second call site needs a narrower contract yet) for the same return value a split would
   produce anyway.
 
+## 3.1 Post-review correction (2026-09-27, PR #284)
+Independent review found two issues on the initial head commit (`c3bb5d64`):
+1. **GitHub Actions `ci-local.ps1 -Full` was red on that exact commit** — a pre-existing unit test,
+   `tests/unit/support/binance_gateway/contracts/test_trading_venue.py::
+   test_only_futures_testnet_supports_order_submission_today`, directly asserted
+   `TradingVenue.SPOT_TESTNET.supports_order_submission is False`, the exact literal this task's own
+   `trading_venue.py` change flips to `True`. Its own docstring had pre-announced this task would need
+   to touch it, but it lived outside both directories the PR body's targeted-test citation covered
+   (`tests/unit/architecture`, `tests/unit/modules/trading`), so the author's own fast-tier run never
+   caught it. Fixed by renaming it to `test_both_testnets_support_order_submission` and rewriting the
+   assertion to the new correct behaviour — a one-line, mechanical fix, but it is exactly the same class
+   of gap `pitfalls/source.md` #3 already names ("a port gains an abstract method and only the main
+   implementer changes — grep `src/`, `scripts/` **and** `tests/`"), applied here to a changed property
+   rather than a changed port signature.
+2. **[BLOCKING] A Spot manual "Short" click could silently sell real held assets.** Traced the real call
+   graph: `SpotTradingClient.get_positions()` always answers `[]` (by design — a Spot account has no
+   leveraged position to report), so `TradingActionsCoordinator.run_manual_order()`'s `current_position`
+   was always `None` for Spot, which made `manual_order_intent_for(SHORT, None)` always return
+   `reduce_only=False` — indistinguishable from a deliberate sale of a real holding, once this task's own
+   `supports_order_submission` flip stopped every Spot order from being refused outright at
+   `TRADING_VENUE_DISABLED`. `manual_order_card.py`'s Short button carries no `TradingVenue`/`MarketType`
+   gate anywhere, so a user with real Spot inventory clicking "Short" (meaning: open a short position that
+   does not exist on Spot) would have that inventory sold live under an action the UI frames as opening a
+   position — a `domain-truth-rule.md` F3 violation ("an unsupported capability is hidden, disabled or
+   labelled unavailable"), not merely a cosmetic gap.
+
+   Fixed at the one, un-bypassable translation point rather than in the UI: `manual_order_intent_for()`
+   gained a third parameter, `market_type: MarketType`, and now raises the new
+   `ManualShortNotSupportedOnMarketError` before building any `OrderIntent` when
+   `direction is SHORT and market_type is MarketType.SPOT` — refused, never silently reinterpreted as a
+   Sell the user did not ask for. `TradingActionsCoordinator` takes `market_type` as a constructor
+   collaborator (resolved once in `presenter_factory_trading.py` via `container.resolve(TradingVenue)
+   .market_type`, the same "resolve once at composition, not per click" pattern every other
+   venue-branched bind in `adapter_bindings.py` already uses); the raise flows through the coordinator's
+   existing `except Exception` error-reporting path with zero new plumbing. `Long` (a plain Buy) stays
+   valid on Spot — only `Short` is refused, since Spot's own inability to represent it is the actual
+   capability gap, not Sell itself. This is the mechanism `§3`'s original ADR D4 precondition was meant to
+   guard, reached from the manual-UI angle rather than the handler-level `reduce_only` angle the original
+   design sketched — the handler-level version was checked and rejected: by the time `OrderRequest`
+   reaches `ExecuteOrderCommandHandler`, the Short/Sell distinction is already collapsed into
+   `side=SELL`/`reduce_only=False`, identical to a genuine reduce-holding sell, so a handler-level refusal
+   there cannot tell the two apart — only the point where `ManualOrderDirection.SHORT` is still known can.
+
+   Two more pre-existing call sites of `manual_order_intent_for()` needed the new parameter to keep
+   compiling correctly, found by grepping every call site rather than trusting the first regression run
+   alone: `tests/unit/modules/trading/contracts/test_order_intent.py` (2 calls) and
+   `tests/integration/application/test_manual_order_pipeline_against_fake_server.py` (1 call), all passed
+   `MarketType.FUTURES_USD_M`/`TradingVenue.FUTURES_TESTNET.market_type` to keep their existing Futures
+   scenarios unchanged.
+
+   New tests: `test_manual_order_intent.py::TestSpotRefusesShort` (2 cases — flat, and with a position
+   argument to prove the refusal is a market capability, not a position-shape coincidence);
+   `test_trading_actions_coordinator.py::test_run_manual_order_refuses_a_short_click_on_spot_without_submitting`
+   (proves `order_submission.submit()` is never reached and the coordinator's existing error-reporting
+   path surfaces the refusal). Regression: `tests/unit/modules/trading` + `tests/unit/architecture` +
+   `tests/integration` together, 1525 passed, 4 pre-existing skips, 0 failed; ruff/format clean; mypy
+   unchanged at the 584-error baseline (zero new errors in any file this correction touched).
+
+The reviewer's "should-fix" (locking the oversell-redundancy claim with a test rather than prose) and its
+non-blocking note (the `TRACKING.md` catch-up bundled into this PR) are recorded but not actioned in this
+correction — the should-fix is a strengthening, not a defect, and the note was independently confirmed
+accurate by the reviewer itself.
+
 ## 4. Changes, per file
 | File | Change |
 | :--- | :--- |
@@ -83,6 +146,10 @@
 | `tests/unit/architecture/test_only_the_factory_constructs_spot_trading_client.py` | new guard, mirroring the Futures one |
 | `tests/unit/architecture/scanned_roots_registry.py` | registry row for the new guard |
 | Not touched: `src/modules/trading/contracts/order_type.py` | order-type validity is enforced in the mapper (`_SUPPORTED_SPOT_ORDER_TYPES`), not on the shared enum — `OrderType` has no notion of "valid for which venue" and none was added, keeping it venue-neutral for Futures' own use |
+| `src/modules/trading/contracts/manual_short_not_supported_on_market_error.py` | new (post-review, §3.1) — the refusal `manual_order_intent_for()` raises |
+| `src/modules/trading/domain/policies/manual_order_intent.py` | post-review (§3.1) — `market_type` parameter, refuses `SHORT` on `MarketType.SPOT` |
+| `src/modules/trading/ui/dashboard/coordinators/trading_actions_coordinator.py` | post-review (§3.1) — takes `market_type`, passes it to `manual_order_intent_for()` |
+| `src/modules/trading/ui/dashboard/logic/presenter_factory_trading.py` | post-review (§3.1) — resolves `TradingVenue.market_type` once at composition |
 
 ## 5. Testing
 - Unit: `tests/unit/modules/trading/adapters/binance/spot/test_spot_order_payload_mapper.py` (13 tests)
