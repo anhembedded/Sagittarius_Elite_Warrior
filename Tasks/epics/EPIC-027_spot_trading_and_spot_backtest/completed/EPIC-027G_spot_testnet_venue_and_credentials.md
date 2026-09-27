@@ -127,4 +127,12 @@ a weaker `is not`; `app_bootstrapper.py`'s trimmed banner comment was restored t
 "goes back to one registration when the last `PageShell` is gone in Phase 4" retirement condition
 (`architecture-rule.md` §7.3), re-tightened to fit the same 548/550-line budget. The reviewer's
 [Question] (GitHub Actions' `ci-local.ps1 -Full` conclusion, which their environment could not check)
-is answered: green on the PR's post-review head.
+is answered: green on the PR's post-review head (`cb542973`).
+
+Final verification on `cb542973`: `ruff` clean; `mypy` diffed byte-for-byte against the clean-cache
+baseline — still 631 pre-existing errors, zero new; `tests/unit/architecture` 451 passed;
+`tests/unit/modules/trading` 798 passed; full `tests/unit` 5640 passed, 0 failed (9m55s — +2 over the
+pre-fix run's 5638 from the two new tests, `supports_order_submission`'s own unit test and
+`test_module_trading_client_binding.py`'s `SPOT_TESTNET`-stays-unbound case). GitHub Actions'
+`ci-local.ps1 -Full` check run: success. PR #281 moved out of draft; merge awaits the user's own
+action per `ONBOARDING.md` §7 (author never merges own code).
