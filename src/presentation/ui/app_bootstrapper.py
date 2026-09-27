@@ -208,15 +208,15 @@ def build() -> AppRuntime:
 
     # EPIC-021K — the global "which venue am I in" banner, computed once
     # here from the same config `binance_bot_module.py` reads
-    # (`resolve_market_data_venue`/`resolve_trading_venue`) — safe to do
-    # once at boot since neither has a Settings UI control.
-    # `set_environment_banner_factory` is the *one* place this reaches
-    # every screen (see that classmethod's own docstring).
+    # (`resolve_market_data_venue`/`resolve_trading_venue`) — safe since
+    # neither has a Settings UI control. `set_environment_banner_factory`
+    # is the *one* place this reaches every screen.
     #
     # Registered on **both** shells (a screen not yet converted is a
     # `PageShell`, a converted one a `WorkbenchSurface`, `EPIC-025` PR
-    # 1.4c-2); `test_environment_banner_all_screens.py` fails if a screen
-    # changes shell and its banner does not come along.
+    # 1.4c-2) — goes back to one registration when the last `PageShell` is
+    # gone in Phase 4; `test_environment_banner_all_screens.py` fails if a
+    # screen changes shell and its banner does not come along.
     banner_content = venue_alignment_banner_content(
         compute_venue_alignment(
             resolve_market_data_venue(config_manager),

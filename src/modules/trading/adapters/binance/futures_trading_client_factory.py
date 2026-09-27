@@ -4,10 +4,11 @@
 
 @details Holds the three raw collaborators every `FuturesTradingClient` needs
 so its own six former call sites (now callers of `create()`) no longer each
-carry them just to build one. Always Futures Testnet — `TradingVenue` has no
-second tradeable member yet (ADR `DECISION_2026-09-01_moi_truong_san_va_duong_di_lenh.md`
-§3); `EPIC-027K` binds a Spot implementation of `ITradingClientFactory`
-alongside this one once a Spot venue exists to select between.
+carry them just to build one. Always Futures Testnet — bound unconditionally
+in `adapter_bindings.py` regardless of the configured `TradingVenue`, but
+order submission itself stays gated by `TradingVenue.supports_order_submission`
+(`EPIC-027G`), which is `False` for `SPOT_TESTNET` until `EPIC-027K` binds a
+Spot implementation of `ITradingClientFactory` alongside this one.
 """
 
 from __future__ import annotations

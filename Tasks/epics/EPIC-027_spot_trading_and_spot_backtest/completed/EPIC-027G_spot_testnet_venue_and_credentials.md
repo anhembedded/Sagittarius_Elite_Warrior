@@ -29,9 +29,12 @@
       never be read as a Spot key, and a test proves it. (`env_first_credentials_provider.py`;
       `test_env_first_credentials_provider.py::test_a_futures_testnet_env_var_never_resolves_for_spot_testnet`)
 - [x] The three gates ask "is this a supported trading venue", not "is this Futures Testnet".
-      `DISABLED` is still refused everywhere. (`execute_order`/`cancel_order`/`enable_trading`
-      handlers now check `is TradingVenue.DISABLED`; a `SPOT_TESTNET`-clears-the-gate test added to
-      each handler's suite)
+      Superseded by a constitutional decision after independent review (see Implementation notes):
+      the gates now ask `TradingVenue.supports_order_submission` — a named, single-source capability
+      that is `False` for both `DISABLED` and `SPOT_TESTNET` today, `True` only for `FUTURES_TESTNET`,
+      until `EPIC-027K` flips it. (`execute_order`/`cancel_order`/`enable_trading` handlers;
+      `TradingModule._bind_trading_client_if_enabled`; a `SPOT_TESTNET`-still-refused test in each
+      handler's suite and in `test_module_trading_client_binding.py`)
 - [x] Venue alignment reports a market mismatch (chart market ≠ trading market) as its own state. The
       environment banner shows it. (`VenueAlignment.MARKET_MISMATCH`; `compute_venue_alignment` takes
       a `chart_market_type` parameter; `environment_banner_content.py`'s new `DANGER`-tier entry)
@@ -93,3 +96,35 @@
 - `DISABLED.market_type` returns `None` (no fabricated default) — a market comparison for a venue
   with no market is meaningless, so `EnvFirstCredentialsProvider` also has no env-var pair for
   `DISABLED` and degrades to the (venue-agnostic) file fallback rather than crashing.
+
+### Post-review correction (2026-09-27) — the gate/`ITradingClient` bind design changed
+
+The independent reviewer (`ONBOARDING.md` §7) found a BLOCKING defect in the first version of this
+PR: the literal `is TradingVenue.DISABLED` gate let `SPOT_TESTNET` clear the three order-path gates,
+but `ITradingAccountReader`/`ITradingClientFactory`/`IUserDataStream` (`adapter_bindings.py`) and the
+`ITradingClient` conditional bind (`TradingModule._bind_trading_client_if_enabled`) all still resolve
+Futures-only adapters unconditionally — so `EnableTradingCommandHandler.execute()` would call
+`FuturesAccountReader.check_connection()`, signing a **Futures Testnet** request with **Spot
+Testnet** credentials, instead of failing loudly and correctly.
+
+Put to the user, who deferred to `.claude/CONSTITUTION.md`'s invariants (P1 Poka-yoke — mechanical
+barriers, never human vigilance; P6 — fix the mechanism generally, not a local patch scattered across
+adapters; P7 — build the seam now, defer the variant). Decision: add
+`TradingVenue.supports_order_submission`, a named capability property (`True` only for
+`FUTURES_TESTNET` today) that the three gates and the `ITradingClient` bind now consult instead of a
+literal venue comparison. This closes the defect with one mechanical barrier — `SPOT_TESTNET` is
+refused at the same gate `DISABLED` already goes through, and `test_module_trading_client_binding.py`
+proves `ITradingClient` stays unbound for it — while keeping the "one place" property this task's
+original acceptance criterion #3 was written to achieve: `EPIC-027K` flips one `return` in
+`supports_order_submission` when Spot's real order path lands, not three handler files again.
+Superseding acceptance criterion #3's literal wording ("DISABLED is still refused everywhere") is a
+deliberate, recorded deviation, not an oversight — `SPOT_TESTNET`'s own credentials/market_type/
+alignment work from the rest of this task is unaffected and unchanged.
+
+Also fixed from the same review: two "should fix" findings — the three new gate tests now assert the
+strong `blocked_by is TRADING_VENUE_DISABLED` (matching every sibling test in those files) instead of
+a weaker `is not`; `app_bootstrapper.py`'s trimmed banner comment was restored to keep its dropped
+"goes back to one registration when the last `PageShell` is gone in Phase 4" retirement condition
+(`architecture-rule.md` §7.3), re-tightened to fit the same 548/550-line budget. The reviewer's
+[Question] (GitHub Actions' `ci-local.ps1 -Full` conclusion, which their environment could not check)
+is answered: green on the PR's post-review head.

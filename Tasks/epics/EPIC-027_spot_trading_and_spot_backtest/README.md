@@ -130,6 +130,16 @@ request unless its file says otherwise.
 - **Funding-rate modeling for Futures.** Still out of scope as in `BOT-049`.
 
 ## Notes (newest first)
+- **2026-09-27** — `EPIC-027G` correction after independent PR review: the three order-path gates and
+  `TradingModule`'s `ITradingClient` bind now check a new `TradingVenue.supports_order_submission`
+  property (`True` only for `FUTURES_TESTNET`) instead of a literal `is DISABLED` check. The review
+  found the literal check let `SPOT_TESTNET` clear the gates while `ITradingAccountReader`/
+  `ITradingClientFactory`/`IUserDataStream` stayed unconditionally bound to their Futures-only
+  adapters — `EnableTradingCommandHandler` would have signed a Futures Testnet call with Spot Testnet
+  credentials instead of failing cleanly. Constitutional decision (P1 poka-yoke, P6 fix-the-mechanism,
+  P7 seam-now/variant-later): one named capability property is the mechanical barrier, and the "one
+  place" `EPIC-027K` flips when Spot's real order path lands. See the task file's own "Post-review
+  correction" note for the full trace.
 - **2026-09-27** — `EPIC-027G` done, advancing Phase 2 (2/5). `TradingVenue.SPOT_TESTNET` exists,
   with a `market_type` property every downstream consumer reads instead of assuming Futures.
   `EnvFirstCredentialsProvider` is now bound to one venue for its lifetime and reads a distinct env

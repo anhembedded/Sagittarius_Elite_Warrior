@@ -80,3 +80,18 @@ def test_trading_client_is_bound_and_constructible_when_venue_is_enabled():
 
     client = container.resolve(ITradingClient)
     assert isinstance(client, FuturesTradingClient)
+
+
+def test_trading_client_stays_unbound_when_venue_is_spot_testnet():
+    """`EPIC-027G` review finding — `SPOT_TESTNET` is a real `TradingVenue`
+    member, but this build has no Spot `ITradingClient` implementation yet
+    (`TradingVenue.supports_order_submission` is `False` for it until
+    `EPIC-027K`). Before this test, resolving `ITradingClient` for
+    `SPOT_TESTNET` silently returned a `FuturesTradingClient` — signing a
+    Futures Testnet request with Spot Testnet credentials."""
+    container = _container_with_venue(TradingVenue.SPOT_TESTNET)
+
+    TradingModule._bind_trading_client_if_enabled(container)
+
+    with pytest.raises(DependencyResolutionError):
+        container.resolve(ITradingClient)

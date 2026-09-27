@@ -129,17 +129,24 @@ def test_blocked_when_trading_venue_disabled() -> None:
     user_data_stream.start.assert_not_called()
 
 
-def test_not_blocked_by_venue_gate_when_trading_venue_is_spot_testnet() -> None:
-    """`EPIC-027G` — the gate asks "is this a supported venue", not "is this
-    Futures Testnet"; `SPOT_TESTNET` must clear it exactly like
-    `FUTURES_TESTNET` does."""
-    handler, _session_state, _user_data_stream, _account_reader = _handler(
+def test_blocked_when_trading_venue_is_spot_testnet() -> None:
+    """`EPIC-027G` — the gate asks `TradingVenue.supports_order_submission`,
+    not a literal `is not FUTURES_TESTNET`. `SPOT_TESTNET` is a real, closed
+    enum member but has no real order-submission implementation behind it
+    yet (`ITradingAccountReader`/`ITradingClientFactory` still bind only the
+    Futures adapters) — enabling trading on it today would sign a Futures
+    Testnet call with Spot Testnet credentials. `supports_order_submission`
+    is `False` for it until `EPIC-027K`."""
+    handler, session_state, user_data_stream, _account_reader = _handler(
         trading_venue=TradingVenue.SPOT_TESTNET
     )
 
     result = handler.execute(EnableTradingCommand())
 
-    assert result.block_reason is not EnableTradingBlockReason.TRADING_VENUE_DISABLED
+    assert result.enabled is False
+    assert result.block_reason is EnableTradingBlockReason.TRADING_VENUE_DISABLED
+    assert session_state.enabled is False
+    user_data_stream.start.assert_not_called()
 
 
 def test_blocked_when_connection_not_reachable() -> None:

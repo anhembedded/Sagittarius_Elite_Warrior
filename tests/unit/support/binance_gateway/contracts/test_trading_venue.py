@@ -21,6 +21,19 @@ def test_disabled_venue_has_no_market_type():
     assert TradingVenue.DISABLED.market_type is None
 
 
+def test_only_futures_testnet_supports_order_submission_today():
+    """`EPIC-027G` — `SPOT_TESTNET` is a real, closed enum member, but
+    `adapter_bindings.py` still binds `ITradingAccountReader`/
+    `ITradingClientFactory`/`IUserDataStream` unconditionally to their
+    Futures-only adapters. `supports_order_submission` is the one place
+    that must flip to include it once `EPIC-027K` binds a real Spot
+    implementation — not a fifth literal venue comparison resurrected
+    across the order-path handlers this property replaced."""
+    assert TradingVenue.FUTURES_TESTNET.supports_order_submission is True
+    assert TradingVenue.SPOT_TESTNET.supports_order_submission is False
+    assert TradingVenue.DISABLED.supports_order_submission is False
+
+
 def test_trading_venue_has_no_mainnet_member():
     """`EPIC-021`'s ADR §3: real-money trading is not a config flip — it is
     a future epic that has to add a new enum member here. Locks that safety
