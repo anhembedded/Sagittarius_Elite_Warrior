@@ -2403,6 +2403,7 @@
   ]
  ],
  "final_balance": "9211.710992749204",
+ "ignored_short_signals": 0,
  "initial_balance": "10000.0",
  "metrics": {
   "avg_bars_per_trade": "46.15384615384615",
@@ -4115,6 +4116,7 @@
     ]
    ],
    "final_balance": "8943.702828098954",
+   "ignored_short_signals": 0,
    "initial_balance": "10000.0",
    "metrics": {
     "avg_bars_per_trade": "46.666666666666664",
@@ -5034,6 +5036,7 @@
     ]
    ],
    "final_balance": "10152.130262554496",
+   "ignored_short_signals": 0,
    "initial_balance": "10000.0",
    "metrics": {
     "avg_bars_per_trade": "60.0",

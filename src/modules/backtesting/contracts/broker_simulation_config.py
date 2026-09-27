@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type import (
     CommissionType,
 )
@@ -9,6 +10,12 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.partial_take_pr
 
 _PERCENT_UPPER_BOUND = 100.0
 _FRACTION_UPPER_BOUND = 1.0
+#: EPIC-027B — a Spot account trades its own cash, no borrowed margin (ADR D3).
+_SPOT_LEVERAGE = 1.0
+#: EPIC-027B — markets the backtest engine can simulate (ADR D1: COIN-M is
+#: unused and unsupported). Supporting another market is one entry here plus
+#: whatever its own arithmetic needs.
+_SIMULATED_MARKETS = frozenset({MarketType.SPOT, MarketType.FUTURES_USD_M})
 
 
 @dataclass(frozen=True)
@@ -67,8 +74,16 @@ class BrokerSimulationConfig:
     partial_take_profit_levels: tuple[PartialTakeProfitLevel, ...] = field(
         default_factory=tuple
     )
+    #: EPIC-027B — which market the run simulates (ADR
+    #: `DECISION_2026-09-26_spot_market_axis.md` D3, D4). The default keeps
+    #: every pre-EPIC-027 run byte-for-byte unchanged. `SPOT` means long-only
+    #: at 1× (enforced below) and no liquidation (the existing 1× LONG
+    #: arithmetic has none); `PaperExchange.fill()` drops SHORT/COVER signals
+    #: and counts them.
+    market_type: MarketType = MarketType.FUTURES_USD_M
 
     def __post_init__(self) -> None:
+        self._validate_market()
         if self.slippage_ticks < 0:
             raise ValueError(
                 f"slippage_ticks must be non-negative, got {self.slippage_ticks}"
@@ -142,3 +157,19 @@ class BrokerSimulationConfig:
                     "partial_take_profit_levels close_fraction values must sum "
                     f"to at most 1.0, got {total_fraction}"
                 )
+
+    def _validate_market(self) -> None:
+        if self.market_type not in _SIMULATED_MARKETS:
+            raise ValueError(
+                f"market_type {self.market_type.value} is not supported by the "
+                "backtest engine (ADR D1: only spot and futures_usd_m)"
+            )
+        if self.market_type is MarketType.SPOT and (
+            self.long_leverage != _SPOT_LEVERAGE
+            or self.short_leverage != _SPOT_LEVERAGE
+        ):
+            raise ValueError(
+                "spot backtests trade at 1x: long_leverage and short_leverage "
+                f"must both be 1.0, got long_leverage={self.long_leverage}, "
+                f"short_leverage={self.short_leverage}"
+            )

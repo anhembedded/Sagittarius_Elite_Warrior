@@ -1,7 +1,7 @@
 # EPIC-027 — Tracking
 
 - **Epic:** [EPIC-027 — Spot beside Futures](README.md)
-- **Status:** 🟡 Phase 1 in progress — `EPIC-027A` done
+- **Status:** 🟡 Phase 1 in progress — `EPIC-027A` and `EPIC-027B` done
 - **Target Completion:** not committed; the bars below are relative estimates from the day the ADR is accepted.
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -24,8 +24,8 @@ gantt
     User decisions on ADR D1-D9 and O1-O6   :crit,    s2, after s1, 3d
 
     section Phase 1 - Spot backtest
-    027A Market-aware candles               :crit,    a, after s2, 5d
-    027B Spot mode in the engine            :         b, after a, 3d
+    027A Market-aware candles               :done,    a, after s2, 5d
+    027B Spot mode in the engine            :done,    b, after a, 3d
     027C Exchange filters on fills          :         c, after a, 3d
     027D Backtest market selector           :         d, after b, 3d
     027E Report carries market              :         e, after c, 2d
@@ -56,7 +56,7 @@ gantt
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-027A | [Market-aware candles](completed/EPIC-027A_market_aware_kline_storage_and_download.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | ✅ Done | 2026-09-26 |
-| EPIC-027B | [Spot mode in the engine](incomplete/EPIC-027B_spot_mode_in_the_backtest_engine.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-027B | [Spot mode in the engine](completed/EPIC-027B_spot_mode_in_the_backtest_engine.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | 2026-09-27 |
 | EPIC-027C | [Exchange filters on fills](incomplete/EPIC-027C_exchange_filters_on_simulated_fills.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-027D | [Backtest market selector](incomplete/EPIC-027D_backtest_ui_market_selector.md) | — | 🟢 | 🔵 Planned | — |
 | EPIC-027E | [Report carries market](incomplete/EPIC-027E_report_schema_carries_market_type.md) | — | 🟢 | 🔵 Planned | — |
@@ -80,7 +80,8 @@ gantt
 | :--- | :--- | :--- |
 | 2026-09-26 | Spec | Epic scaffolded from two audits of `ee7105f8`; ADR Proposed; 16 sub-tasks sliced. |
 | 2026-09-26 | ADR | User accepted D1–D9 and answered O1–O6 with every recommended option. `EPIC-027A` started. |
-| 2026-09-26 | EPIC-027A | Done — `MarketType` in the shared kernel, market-scoped shard storage + repository/sync ports, klines type resolved per market (not venue), fake exchange proves Spot/Futures routing, legacy shards migrated (tagged Spot), Data Management + export/import carry market. Unit 5515, integration 165 (4 skipped), architecture 445 all green; mypy clean on 702 files. |
+| 2026-09-26 | EPIC-027A | Done — `MarketType` in the shared kernel, market-scoped shard storage + repository/sync ports, klines type resolved per market (not venue), fake exchange proves Spot/Futures routing, legacy shards migrated (tagged Spot), Data Management + export/import carry market. Unit 5516, integration 165 (4 skipped), architecture 445 all green; mypy clean on 702 files. |
+| 2026-09-27 | EPIC-027B | Done — `BrokerSimulationConfig.market_type` (default `FUTURES_USD_M`, golden run unchanged apart from the new zero count); Spot refuses leverage ≠ 1 and COIN-M; `MarketSignalGatePolicy` drops and counts SHORT/COVER in both handlers; no Spot trade can liquidate. unit 5550 passed, integration 166 passed (4 pre-existing skips), architecture 445; mypy clean on 703 files. |
 
 ---
 

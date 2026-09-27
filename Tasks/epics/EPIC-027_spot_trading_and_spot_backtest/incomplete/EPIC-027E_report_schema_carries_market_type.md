@@ -5,7 +5,7 @@
 **Risk:** 🟢 — additive schema change with a default; old reports must still load.
 **Complexity:** S — one config field, the ignored/rejected counters, a schema version bump.
 **Epic (optional):** [EPIC-027](../README.md)
-**Depends on:** [EPIC-027B](EPIC-027B_spot_mode_in_the_backtest_engine.md), [EPIC-027C](EPIC-027C_exchange_filters_on_simulated_fills.md)
+**Depends on:** [EPIC-027B](../completed/EPIC-027B_spot_mode_in_the_backtest_engine.md), [EPIC-027C](EPIC-027C_exchange_filters_on_simulated_fills.md)
 
 ---
 

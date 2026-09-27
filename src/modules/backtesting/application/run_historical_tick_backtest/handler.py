@@ -333,6 +333,7 @@ class RunHistoricalTickBacktestCommandHandler(
             trades=exchange.trades,
             equity_curve=equity_curve,
             committed_bars=committed_bars,
+            ignored_short_signals=exchange.ignored_short_signals,
         )
 
     def _reevaluate_on_order_fill(

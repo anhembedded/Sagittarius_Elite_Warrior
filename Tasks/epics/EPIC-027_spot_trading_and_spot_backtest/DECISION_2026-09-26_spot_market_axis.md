@@ -119,9 +119,9 @@ never states — `domain-truth-rule.md`.
 
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
-| D1 | [`EPIC-027A`](incomplete/EPIC-027A_market_aware_kline_storage_and_download.md) | Not started | Not yet verified |
-| D2 | [`EPIC-027A`](incomplete/EPIC-027A_market_aware_kline_storage_and_download.md) | Not started | Not yet verified |
-| D3, D4 | [`EPIC-027B`](incomplete/EPIC-027B_spot_mode_in_the_backtest_engine.md) | Not started | Not yet verified |
+| D1 | [`EPIC-027A`](completed/EPIC-027A_market_aware_kline_storage_and_download.md) | ✅ Done (2026-09-26) | `MarketType` in `src/core/vo/`; every storage and sync call names a market (PR #276) |
+| D2 | [`EPIC-027A`](completed/EPIC-027A_market_aware_kline_storage_and_download.md) | ✅ Done (2026-09-26) | one shard per (market, symbol); `test_market_data_client_routes_klines_by_market.py` proves `/api/v3` vs `/fapi` routing (PR #276) |
+| D3, D4 | [`EPIC-027B`](completed/EPIC-027B_spot_mode_in_the_backtest_engine.md) | ✅ Done (2026-09-27) | `BrokerSimulationConfig.market_type`; `MarketSignalGatePolicy`; `test_spot_market_backtest.py` (both handlers), golden run unchanged apart from the new zero count |
 | D5 | [`EPIC-027C`](incomplete/EPIC-027C_exchange_filters_on_simulated_fills.md) | Not started | Not yet verified |
 | D6 | [`EPIC-027F`](incomplete/EPIC-027F_venue_selected_trading_client_factory.md), [`EPIC-027K`](incomplete/EPIC-027K_spot_trading_client_and_order_path.md) | Not started | Not yet verified |
 | D7 | [`EPIC-027H`](incomplete/EPIC-027H_spot_account_reader_and_holdings_model.md) | Not started | Not yet verified |

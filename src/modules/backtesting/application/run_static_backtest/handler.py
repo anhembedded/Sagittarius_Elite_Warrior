@@ -51,10 +51,12 @@ from .command import RunStaticBacktestCommand
 logger = logging.getLogger("App.RunStaticBacktest")
 _TRACE_PREFIX = "BACKTEST_TRACE"
 
-#: `EPIC-027A` added `market` to `IMarketDataRepository`; `RunStaticBacktestCommand`
-#: has no market field yet — that is `EPIC-027B`'s (Spot mode in the backtest
-#: engine) and `EPIC-027D`'s (market selector on screen) job. Pinned to Spot,
-#: what every backtest on this handler has actually always run against.
+#: `EPIC-027A` added `market` to `IMarketDataRepository`. Candle reads stay
+#: pinned to Spot — what every backtest on this handler has always run against —
+#: even though `broker_config.market_type` (`EPIC-027B`) defaults to
+#: `FUTURES_USD_M`: following that default here would send every existing run to
+#: Futures shards no user has downloaded. The read follows the market once the
+#: run config carries a user-chosen one (`EPIC-027D`).
 _MARKET = MarketType.SPOT
 
 
@@ -382,4 +384,5 @@ class RunStaticBacktestCommandHandler(
             final_balance=exchange.balance,
             trades=exchange.trades,
             equity_curve=equity_curve,
+            ignored_short_signals=exchange.ignored_short_signals,
         )

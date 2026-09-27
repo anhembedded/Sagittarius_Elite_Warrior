@@ -51,6 +51,11 @@ class BacktestResult:
     #: published ones beneath markers derived from these would show a chart
     #: that disagrees with the decisions the strategy really made.
     committed_bars: list[MarketData] | None = None
+    #: EPIC-027B — SHORT/COVER signals a Spot run dropped because a Spot
+    #: market cannot execute them (ADR D4: counted and reported, never
+    #: remapped). Always 0 for a Futures run. A result fact, so the report
+    #: (`EPIC-027E`) and the UI show it without re-deriving it.
+    ignored_short_signals: int = 0
 
     @classmethod
     def compute(
@@ -62,6 +67,7 @@ class BacktestResult:
         equity_curve: list[tuple[datetime, float]],
         out_of_sample: OutOfSampleValidation | None = None,
         committed_bars: list[MarketData] | None = None,
+        ignored_short_signals: int = 0,
     ) -> BacktestResult:
         return cls(
             symbol=symbol,
@@ -72,4 +78,5 @@ class BacktestResult:
             metrics=BacktestMetrics.compute(trades, equity_curve, initial_balance),
             out_of_sample=out_of_sample,
             committed_bars=None if committed_bars is None else list(committed_bars),
+            ignored_short_signals=ignored_short_signals,
         )
