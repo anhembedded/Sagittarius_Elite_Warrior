@@ -145,7 +145,7 @@ def test_switching_the_market_lists_that_markets_catalog() -> None:
     coordinator.request_open()
     coordinator.on_options_ready(["BTCUSDT"])
 
-    coordinator.set_market(MarketType.FUTURES_USD_M)
+    coordinator.retarget_market(MarketType.FUTURES_USD_M)
     coordinator.request_open()
 
     assert catalog.markets_read == [MarketType.SPOT, MarketType.FUTURES_USD_M]
@@ -166,7 +166,7 @@ def test_a_fetch_for_the_previous_market_is_discarded() -> None:
     )
     coordinator.request_open()
 
-    coordinator.set_market(MarketType.FUTURES_USD_M)
+    coordinator.retarget_market(MarketType.FUTURES_USD_M)
     submitted[0]()
 
     emit_ready.assert_not_called()

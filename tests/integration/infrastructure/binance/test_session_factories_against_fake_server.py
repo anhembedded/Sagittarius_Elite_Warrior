@@ -31,6 +31,7 @@ from pathlib import Path
 from unittest.mock import patch
 
 from binance.client import Client
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_data_session_factory import (
     MarketDataSessionFactory,
 )
@@ -54,7 +55,7 @@ def test_mainnet_public_client_round_trips_against_the_fake_server():
             MarketDataVenue.MAINNET_PUBLIC
         ).create_market_data_client()
 
-        assert client.get_available_symbols() == ["BTCUSDT", "ETHUSDT"]
+        assert client.get_available_symbols(MarketType.SPOT) == ["BTCUSDT", "ETHUSDT"]
 
 
 def test_futures_testnet_client_round_trips_against_the_fake_server():
@@ -71,7 +72,7 @@ def test_futures_testnet_client_round_trips_against_the_fake_server():
         ).create_market_data_client()
 
         assert client.client.testnet is True
-        assert client.get_available_symbols() == ["BTCUSDT", "ETHUSDT"]
+        assert client.get_available_symbols(MarketType.SPOT) == ["BTCUSDT", "ETHUSDT"]
 
 
 def test_create_trading_client_syncs_timestamp_offset_against_the_exchange_clock():

@@ -47,10 +47,17 @@ class SymbolOptionsCoordinator:
         #: thread only; a worker compares its own captured market against it.
         self._market = market
 
-    def set_market(self, market: MarketType) -> None:
+    def retarget_market(self, market: MarketType) -> None:
         """`EPIC-027D` — the picker now lists `market`'s catalog. Drops the
         cached list, so the next open fetches that market's symbols; a fetch
-        still in flight for the old market is discarded when it returns."""
+        still in flight for the old market is discarded when it returns.
+        Named apart from a plain `set_market` (`code/naming.md` §4's "one
+        word per concept" does not forbid a more specific verb where the
+        action is more than a property write — this also invalidates a
+        cache) — and it also keeps this method's name from colliding with
+        `BrokerSimViewModel.set_market`'s unrelated property setter across
+        the `market_data.ui`/`backtesting.ui` boundary
+        (`test_presenter_duplication_only_shrinks.py`)."""
         if market is self._market:
             return
         self._market = market

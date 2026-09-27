@@ -198,7 +198,7 @@ def build_coordinators(presenter) -> Coordinators:
     _market_selection = MarketSelectionCoordinator(
         state=state,
         set_symbol_options_market=lambda market: (
-            presenter._symbol_options_coordinator.set_market(market)
+            presenter._symbol_options_coordinator.retarget_market(market)
         ),
         refresh_market_rule_verification=(
             _strategy_config.refresh_market_rule_verification
