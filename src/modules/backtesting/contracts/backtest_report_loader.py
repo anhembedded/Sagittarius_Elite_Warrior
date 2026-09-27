@@ -24,6 +24,7 @@ from collections.abc import Collection
 from datetime import datetime
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizing,
     PositionSizingType,
@@ -33,6 +34,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_metric
     BacktestMetrics,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report import (
+    MIN_SUPPORTED_SCHEMA_VERSION,
     SCHEMA_VERSION,
     BacktestReport,
     BacktestReportConfig,
@@ -54,16 +56,28 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.currency import (
     Currency,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exchange_filters import (
+    ExchangeFilters,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason import (
     ExitReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.out_of_sample_validation import (
     OutOfSampleValidation,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.partial_take_profit_level import (
+    PartialTakeProfitLevel,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
+
+#: `EPIC-027E` — the JSON key that only exists from `schema_version` 2
+#: onward. Its presence (not the version number alone) decides
+#: `market_type_recorded`, so a payload someone hand-edited to add the
+#: newer fields without bumping the version still reads correctly.
+_MARKET_TYPE_KEY = "market_type"
 
 #: Mirrors `BacktestExecutionMode`'s real values — see `backtest_report.py`
 #: for why the enum itself isn't imported here.
@@ -101,7 +115,11 @@ def load_backtest_report(
         )
 
     schema_version = payload.get("schema_version")
-    if schema_version != SCHEMA_VERSION:
+    if (
+        not isinstance(schema_version, int)
+        or schema_version > SCHEMA_VERSION
+        or schema_version < MIN_SUPPORTED_SCHEMA_VERSION
+    ):
         if isinstance(schema_version, int) and schema_version > SCHEMA_VERSION:
             return _load_error(
                 BacktestReportLoadErrorKind.UNSUPPORTED_SCHEMA_VERSION,
@@ -127,12 +145,14 @@ def load_backtest_report(
         report.result.trades, report.result.equity_curve, report.config.initial_balance
     )
     metrics_mismatch = not _metrics_agree(recomputed, report.result.metrics)
+    market_type_recorded = _MARKET_TYPE_KEY in _require_dict(payload, "result")
 
     return BacktestReportLoadResult(
         report=report,
         error=None,
         strategy_key_unknown=strategy_key_unknown,
         metrics_mismatch=metrics_mismatch,
+        market_type_recorded=market_type_recorded,
     )
 
 
@@ -203,6 +223,25 @@ def _deserialize_config(payload: dict[str, Any]) -> BacktestReportConfig:
             short_leverage=broker["short_leverage"],
             stop_loss_pct=broker["stop_loss_pct"],
             take_profit_pct=broker["take_profit_pct"],
+            # EPIC-027E — absent on a schema_version 1 report; each default
+            # matches `BrokerSimulationConfig`'s own, so a v1 file re-runs
+            # exactly as it did before these fields existed.
+            break_even_trigger_pct=broker.get("break_even_trigger_pct"),
+            trailing_activation_pct=broker.get("trailing_activation_pct"),
+            trailing_offset_pct=broker.get("trailing_offset_pct"),
+            partial_take_profit_levels=tuple(
+                PartialTakeProfitLevel(
+                    price_pct=level["price_pct"],
+                    close_fraction=level["close_fraction"],
+                )
+                for level in broker.get("partial_take_profit_levels", ())
+            ),
+            market_type=MarketType(
+                broker.get("market_type", MarketType.FUTURES_USD_M.value)
+            ),
+            exchange_filters=_deserialize_exchange_filters(
+                broker.get("exchange_filters")
+            ),
         ),
         tick_resolution=TimeFrame(payload["tick_resolution"]),
         calc_on_order_fills=payload["calc_on_order_fills"],
@@ -231,6 +270,30 @@ def deserialize_backtest_result(
         metrics=_deserialize_metrics(_require_dict(payload, "metrics")),
         out_of_sample=out_of_sample,
         committed_bars=None,
+        # EPIC-027E — absent on a schema_version 1 report; each default
+        # matches `BacktestResult`'s own (a pre-EPIC-027 run had no shorts
+        # to ignore, no filter to reject an entry, no market recorded —
+        # `load_backtest_report`'s own `market_type_recorded` flag is what
+        # tells a caller this `market_type` is the default, not a fact).
+        ignored_short_signals=payload.get("ignored_short_signals", 0),
+        rejected_entries=payload.get("rejected_entries", 0),
+        exchange_filters=_deserialize_exchange_filters(payload.get("exchange_filters")),
+        market_type=MarketType(
+            payload.get("market_type", MarketType.FUTURES_USD_M.value)
+        ),
+    )
+
+
+def _deserialize_exchange_filters(
+    payload: dict[str, Any] | None,
+) -> ExchangeFilters | None:
+    if payload is None:
+        return None
+    return ExchangeFilters(
+        step_size=payload["step_size"],
+        min_quantity=payload["min_quantity"],
+        min_notional=payload["min_notional"],
+        tick_size=payload["tick_size"],
     )
 
 

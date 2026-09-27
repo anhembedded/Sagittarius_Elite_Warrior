@@ -13,6 +13,7 @@ import os
 
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report import (
     BacktestReport,
+    BacktestReportLoadResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
     BacktestExecutionMode,
@@ -34,6 +35,10 @@ _STRATEGY_UNKNOWN_NOTE = (
 _METRICS_MISMATCH_NOTE = (
     "The stored metrics do not match what recomputing them from this "
     "report's own trades produces — the file may have been edited by hand."
+)
+_MARKET_NOT_RECORDED_NOTE = (
+    "This report's market was not recorded (pre-EPIC-027) — it may have "
+    "simulated Spot or Futures; do not assume the value shown below."
 )
 
 
@@ -85,16 +90,17 @@ def backtest_report_to_run_config(report: BacktestReport) -> BacktestRunConfig:
 
 def build_report_provenance_warning_text(
     report: BacktestReport,
+    loaded: BacktestReportLoadResult,
     *,
-    strategy_key_unknown: bool,
-    metrics_mismatch: bool,
     current_engine_version: str,
 ) -> str:
-    """One combined warning line for every provenance concern `BOT-078`
-    names (task §3): `load_backtest_report()`'s own `strategy_key_unknown`/
-    `metrics_mismatch` flags, plus a live engine-version comparison made
-    here. A single joined line rather than one colored badge per concern —
-    this screen has no existing badge widget to reuse, and `resultWarningText`
+    """One combined warning line for every provenance concern `BOT-078`/
+    `EPIC-027E` names: `load_backtest_report()`'s own `strategy_key_unknown`/
+    `metrics_mismatch`/`market_type_recorded` flags (grouped into `loaded`
+    rather than three more scalar parameters — `code/quality.md` §7's own
+    4-argument ceiling), plus a live engine-version comparison made here. A
+    single joined line rather than one colored badge per concern — this
+    screen has no existing badge widget to reuse, and `resultWarningText`
     already renders exactly this kind of multi-note line for
     `build_result_warning_text()`; empty when nothing to say.
 
@@ -111,10 +117,12 @@ def build_report_provenance_warning_text(
                 current_version=current_engine_version,
             )
         )
-    if strategy_key_unknown:
+    if loaded.strategy_key_unknown:
         notes.append(
             _STRATEGY_UNKNOWN_NOTE.format(strategy_key=report.provenance.strategy_key)
         )
-    if metrics_mismatch:
+    if loaded.metrics_mismatch:
         notes.append(_METRICS_MISMATCH_NOTE)
+    if not loaded.market_type_recorded:
+        notes.append(_MARKET_NOT_RECORDED_NOTE)
     return _NOTE_SEPARATOR.join(notes)

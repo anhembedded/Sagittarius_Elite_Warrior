@@ -12,6 +12,7 @@ import gzip
 import json
 from datetime import UTC, datetime, timedelta
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizing,
     PositionSizingType,
@@ -47,11 +48,17 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.commission_type
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.currency import (
     Currency,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exchange_filters import (
+    ExchangeFilters,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exit_reason import (
     ExitReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.out_of_sample_validation import (
     OutOfSampleValidation,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.partial_take_profit_level import (
+    PartialTakeProfitLevel,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
@@ -59,6 +66,10 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_mat
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
+)
+
+_FULL_EXCHANGE_FILTERS = ExchangeFilters(
+    step_size=0.001, min_quantity=0.001, min_notional=5.0, tick_size=0.01
 )
 
 _T0 = datetime(2024, 1, 1, tzinfo=UTC)
@@ -136,6 +147,10 @@ def _full_result(*, with_out_of_sample: bool = True) -> BacktestResult:
         trades=trades,
         equity_curve=equity_curve,
         out_of_sample=out_of_sample,
+        ignored_short_signals=2,
+        rejected_entries=1,
+        exchange_filters=_FULL_EXCHANGE_FILTERS,
+        market_type=MarketType.FUTURES_USD_M,
     )
 
 
@@ -173,6 +188,8 @@ def _full_report(*, with_out_of_sample: bool = True) -> BacktestReport:
                 short_leverage=5.0,
                 stop_loss_pct=1.5,
                 take_profit_pct=3.0,
+                market_type=MarketType.FUTURES_USD_M,
+                exchange_filters=_FULL_EXCHANGE_FILTERS,
             ),
             tick_resolution=TimeFrame.ONE_SECOND,
             calc_on_order_fills=False,
@@ -211,6 +228,14 @@ def test_round_trip_preserves_every_field_including_out_of_sample_short_and_leve
     # Klines are never embedded (epic §3.1) — always None coming back, even
     # though nothing in this test ever set it either way on the original.
     assert restored.result.committed_bars is None
+    # EPIC-027E — these four facts used to be silently dropped by the
+    # serializer; the loader rebuilt a result with their defaults instead
+    # of what the run actually produced.
+    assert restored.result.market_type == report.result.market_type
+    assert restored.result.ignored_short_signals == report.result.ignored_short_signals
+    assert restored.result.rejected_entries == report.result.rejected_entries
+    assert restored.result.exchange_filters == report.result.exchange_filters
+    assert loaded.market_type_recorded is True
 
 
 def test_round_trip_without_out_of_sample():
@@ -244,6 +269,69 @@ def test_dump_and_load_agree_with_and_without_gzip():
     assert plain_loaded.is_valid
     assert gzip_loaded.is_valid
     assert plain_loaded.report == gzip_loaded.report
+
+
+def test_round_trip_preserves_break_even_trailing_and_partial_take_profit_on_spot():
+    """A separate, minimal report — the shared `_full_report()` fixture
+    already sets `take_profit_pct`, which is mutually exclusive with
+    `partial_take_profit_levels` (`BrokerSimulationConfig.__post_init__`)."""
+    report = BacktestReport(
+        provenance=BacktestReportProvenance(
+            engine_version="1.4.0",
+            app_version="0.9.2",
+            strategy_key="ema_trend_confirm_pullback",
+            created_at=_T0,
+            execution_mode="BAR_CLOSE",
+            data_window=DataWindow(
+                first_kline_open=_T0 - timedelta(days=1),
+                last_kline_close=_T0,
+                kline_count=288,
+            ),
+        ),
+        config=BacktestReportConfig(
+            symbol="BTCUSDT",
+            timeframe=TimeFrame.FIVE_MINUTES,
+            initial_balance=1000.0,
+            start_time=_T0 - timedelta(days=1),
+            end_time=_T0,
+            strategy_params=None,
+            currency=Currency.USD,
+            position_sizing=PositionSizing(
+                type=PositionSizingType.PERCENT_OF_EQUITY, value=100.0
+            ),
+            broker_config=BrokerSimulationConfig(
+                long_leverage=1.0,
+                short_leverage=1.0,
+                break_even_trigger_pct=1.2,
+                trailing_activation_pct=2.0,
+                trailing_offset_pct=0.8,
+                partial_take_profit_levels=(
+                    PartialTakeProfitLevel(price_pct=2.0, close_fraction=0.5),
+                    PartialTakeProfitLevel(price_pct=4.0, close_fraction=0.5),
+                ),
+                market_type=MarketType.SPOT,
+            ),
+            tick_resolution=TimeFrame.ONE_SECOND,
+            calc_on_order_fills=False,
+        ),
+        result=BacktestResult.compute(
+            symbol="BTCUSDT",
+            initial_balance=1000.0,
+            final_balance=1000.0,
+            trades=[],
+            equity_curve=[],
+            market_type=MarketType.SPOT,
+        ),
+    )
+
+    loaded = load_backtest_report(
+        dump_backtest_report(report),
+        valid_strategy_keys={"ema_trend_confirm_pullback"},
+    )
+
+    assert loaded.is_valid
+    assert loaded.report.config.broker_config == report.config.broker_config
+    assert loaded.report.result.market_type is MarketType.SPOT
 
 
 def test_equity_curve_round_trips_at_zero_one_and_many_points():
@@ -292,6 +380,39 @@ def test_load_rejects_a_future_schema_version():
     assert not loaded.is_valid
     assert loaded.error.kind is BacktestReportLoadErrorKind.UNSUPPORTED_SCHEMA_VERSION
     assert "chưa hiểu được" in loaded.error.message
+
+
+def test_a_pre_epic_027_v1_report_still_loads_with_its_market_unrecorded():
+    """`EPIC-027E` §2's own acceptance criterion: an old report is never
+    refused outright, and its market is never guessed as a fact — the
+    payload is stripped down to exactly what `schema_version` 1 (pre-this
+    task) ever wrote, matching a real file saved by that build."""
+    payload = serialize_backtest_report(_full_report())
+    payload["schema_version"] = 1
+    del payload["result"]["market_type"]
+    del payload["result"]["ignored_short_signals"]
+    del payload["result"]["rejected_entries"]
+    del payload["result"]["exchange_filters"]
+    del payload["config"]["broker_config"]["market_type"]
+    del payload["config"]["broker_config"]["exchange_filters"]
+    del payload["config"]["broker_config"]["break_even_trigger_pct"]
+    del payload["config"]["broker_config"]["trailing_activation_pct"]
+    del payload["config"]["broker_config"]["trailing_offset_pct"]
+    del payload["config"]["broker_config"]["partial_take_profit_levels"]
+    data = json.dumps(payload).encode("utf-8")
+
+    loaded = load_backtest_report(
+        data, valid_strategy_keys={"ema_trend_confirm_pullback"}
+    )
+
+    assert loaded.is_valid
+    assert loaded.market_type_recorded is False
+    assert loaded.report.result.market_type == MarketType.FUTURES_USD_M
+    assert loaded.report.result.ignored_short_signals == 0
+    assert loaded.report.result.rejected_entries == 0
+    assert loaded.report.result.exchange_filters is None
+    assert loaded.report.config.broker_config.exchange_filters is None
+    assert loaded.report.config.broker_config.partial_take_profit_levels == ()
 
 
 def test_load_rejects_a_missing_field_explicitly_rather_than_crashing():
