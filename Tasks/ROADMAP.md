@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 168 | 83.6% |
+| 🟢 **Completed** | 168 | 83.2% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 25 | 12.4% |
+| 🔴 **Backlog** | 26 | 12.9% |
 | ❌ **Cancelled** | 8 | 4.0% |
-| 📈 **Tổng số Task** | **201** | **100%** |
+| 📈 **Tổng số Task** | **202** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -417,6 +417,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Priority | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :---: | :--- |
+| **P3** | **[BOT-145](backlog/BOT-145_user_data_stream_blocking_rest_calls_on_event_loop.md)** | **User-data-stream handlers block the asyncio event loop on REST calls** | 🟡 **`S (Small)`** | — | *(row added 27/09 — found by independent review of PR #285.)* Both `FuturesUserDataStream._handle_account_update` and the new `SpotUserDataStream._refresh_equity` (`EPIC-027L`) call a blocking, `requests`-backed REST method directly from the async `stream.recv()` loop, delaying the next queued message for the round trip's duration. Not fixed inside `EPIC-027L` — extends a pre-existing Futures pattern rather than introducing it; `fix-bug-rule.md` §1 calls for one fix covering both streams. |
 | **P3** | **[BOT-144](backlog/BOT-144_split_three_files_over_the_400_line_ceiling.md)** | **Chia nhỏ 3 file đã vượt trần 400 dòng (Dev Board/Data Management)** | 🔴 **`L (Thinking)`** | — | *(hàng thêm 23/09 — phát hiện từ review độc lập của `PR #257`.)* `dashboard_presenter.py` (1994 dòng), `dev_board_panel.py` (1145 dòng), `data_management_presenter.py` (964 dòng) đều vượt trần `architecture-rule.md` §5.4 (400 dòng), và mỗi PR feature qua 2 màn này lại cộng thêm vào cả 3 thay vì tách. Chưa có guard máy nào bắt lỗi này (`C7`/`D6`/`D7` chỉ là review-only). Chưa thiết kế cách tách — xem hồ sơ task để biết acceptance bar. |
 | ✅ | **[BOT-125](completed/BOT-125_ui_bat_tat_2_venue_trong_settings.md)** | **2 control bật/tắt môi trường sàn trong Settings** | 🟢 **S (Small)** | — | **Đã hoàn thành (07/09).** `exchange.market_data_venue`/`exchange.trading_venue` trước đó là config sửa-file-rồi-khởi-động-lại, **không có UI nào chạm được** (`environment_banner_content.py` đã ghi thẳng điều đó trong docstring của chính nó) — nên xong `EPIC-022` user vẫn không bật nổi giao dịch nếu không mở `app_config.json` sửa tay. Thêm 2 `QComboBox` vào Settings, danh sách sinh từ chính enum (nên `TradingVenue` không có `MAINNET` thì UI cũng không thể có). Giữ **2 control riêng**, không gộp thành 1 công tắc: ADR §2 cố ý cho phép tổ hợp giá mainnet + lệnh testnet, và banner đỏ tồn tại chính vì tổ hợp đó. Nói thẳng trên UI là **cần khởi động lại** (2 giá trị chỉ đọc lúc boot, `ITradingClient` chỉ được đăng ký DI khi venue ≠ DISABLED); **từ chối lưu** khi đang giao dịch thay vì lưu một nửa. 7 test mới. |
 | ✅ | **[BOT-124](completed/BOT-124_trich_datatable_dung_chung_cho_qml.md)** | **Trích `DataTable` dùng chung cho `ui/qml/`, gộp 3 bản sao đang có** | 🟡 **`M (Standard)`** | — | **Đã hoàn thành (02/09).** `DataTable.qml` dùng chung thay thế phần đuôi gần-giống-từng-ký-tự của `TradeLogTable`/`KlineInspectorTable`/`DatabaseStatusTable` — 3 wrapper 420→253 dòng, **0 assert bị sửa** (đối chiếu `git stash`-diff `--collect-only`: 0 test ID thêm/bớt). Mở khoá `EPIC-021I`. |
