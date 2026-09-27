@@ -29,6 +29,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_historical_tick_backtest.command import (
     RunHistoricalTickBacktestCommand,
@@ -77,6 +78,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_mat
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.chart_canvas_view import (
     ChartDisplayMode,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.view_models.broker_sim_view_model import (
+    DEFAULT_MARKET_TYPE,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symbol_market_metadata_cache import (
     InMemorySymbolMarketMetadataCache,
@@ -170,6 +174,10 @@ from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToke
 
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
 _T1 = datetime(2026, 1, 2, tzinfo=UTC)
+
+#: EPIC-027D — the market a fresh Backtest screen reads (`BrokerSimViewModel`'s
+#: default). The market_data fakes seed it unless a test names another.
+_SCREEN_MARKET = DEFAULT_MARKET_TYPE
 
 
 class _FakeStrategy(BaseStrategy):
@@ -280,9 +288,9 @@ def _build_presenter_with_registry(
     container = Mock()
     resolved_script_registry = script_registry or IndicatorScriptRegistry()
     resolved_sync = market_data_sync or FakeMarketDataSync()
-    resolved_history = historical_klines or FakeHistoricalKlines()
-    resolved_catalog = FakeSymbolCatalog()
-    resolved_coverage = FakeRangeCoverage()
+    resolved_history = historical_klines or FakeHistoricalKlines(_SCREEN_MARKET)
+    resolved_catalog = FakeSymbolCatalog(market=_SCREEN_MARKET)
+    resolved_coverage = FakeRangeCoverage(_SCREEN_MARKET)
 
     def resolve_mock(interface):
         if interface == IThreadManager:
@@ -305,6 +313,10 @@ def _build_presenter_with_registry(
             return resolved_coverage
         if interface == ISymbolCatalog:
             return resolved_catalog
+        if interface == ISymbolMarketMetadataCache:
+            return InMemorySymbolMarketMetadataCache()
+        if interface == ISymbolMetadataProvider:
+            return FakeSymbolMetadataProvider()
         if interface == IMarketDataSync:
             return resolved_sync
         return Mock()
@@ -492,7 +504,7 @@ def fake_range_coverage():
     """`EPIC-025` PR 1.2 — the screen probes coverage through
     `IRangeCoverage`, so the container hands out the port's verified fake and
     a test reads the range the screen asked about."""
-    return FakeRangeCoverage()
+    return FakeRangeCoverage(_SCREEN_MARKET)
 
 
 @pytest.fixture
@@ -500,7 +512,7 @@ def fake_symbol_catalog():
     """`EPIC-025` PR 1.2 — the symbol picker reads `ISymbolCatalog`, so the
     container hands out the port's verified fake and a test can assert the
     symbols that reached the screen."""
-    return FakeSymbolCatalog()
+    return FakeSymbolCatalog(market=_SCREEN_MARKET)
 
 
 @pytest.fixture
@@ -509,7 +521,7 @@ def fake_historical_klines():
     `IHistoricalKlines`. The container hands out the port's verified fake, so a
     test can seed candles and assert what the screen drew, where a `MagicMock`
     could only confirm that something was called."""
-    return FakeHistoricalKlines()
+    return FakeHistoricalKlines(_SCREEN_MARKET)
 
 
 @pytest.fixture
@@ -691,9 +703,13 @@ def test_opening_symbol_picker_fetches_options_from_the_exchange(
 ):
     presenter._on_symbol_picker_open_requested()
 
-    mock_thread_mgr.submit.assert_called_once_with(
-        presenter._symbol_options_coordinator._fetch
-    )
+    mock_thread_mgr.submit.assert_called_once()
+    worker = mock_thread_mgr.submit.call_args.args[0]
+    worker()
+    # EPIC-027D — the picker lists the catalog of the screen's market.
+    assert presenter._symbol_options_coordinator._symbol_catalog.markets_read == [
+        _SCREEN_MARKET
+    ]
 
 
 def test_opening_symbol_picker_again_does_not_refetch_when_already_cached(
@@ -715,7 +731,7 @@ def test_fetch_symbol_options_reads_the_catalog_and_populates_the_view_model(
     shows came from the module."""
     fake_symbol_catalog.seed(["ETHUSDT", "BTCUSDT"])
 
-    presenter._symbol_options_coordinator._fetch()
+    presenter._symbol_options_coordinator._fetch(_SCREEN_MARKET)
 
     assert fake_symbol_catalog.reads == [False]
     assert view_model.symbolOptions == ["BTCUSDT", "ETHUSDT"]
@@ -729,7 +745,7 @@ def test_fetch_symbol_options_failure_does_not_cache_and_logs_without_crashing(
 
     presenter._symbol_options_coordinator._symbol_catalog.list_symbols = unreachable
 
-    presenter._symbol_options_coordinator._fetch()
+    presenter._symbol_options_coordinator._fetch(_SCREEN_MARKET)
 
     assert presenter._symbol_options_coordinator._symbol_options_cache is None
     assert view_model.symbolOptions == []
@@ -770,6 +786,51 @@ def test_selecting_a_symbol_submits_a_fresh_chart_preview_for_it(
     worker, config, _preview_id = mock_thread_mgr.submit.call_args[0]
     assert worker == presenter._run_chart_preview
     assert config.symbol == new_symbol
+
+
+def test_switching_the_market_marks_the_config_dirty_with_a_truthful_diff(
+    presenter, view_model
+):
+    """EPIC-027D — changing the market goes through the existing FSM
+    (`CONFIG_DIRTY`) and the diff names it."""
+    view_model.strategy_params.selectedStrategyKey = "fake_strategy"
+    view_model.selectedTimeframe = "1m"
+    view_model.initialCapitalText = "10000"
+    view_model.selectedCurrency = Currency.USD
+    presenter._on_run_backtest()
+    presenter._on_backtest_succeeded(_make_fake_result(trades=[]))
+    assert presenter.fsm.current_state == BacktestUiState.COMPLETED
+
+    view_model.broker_sim.market = MarketType.SPOT.value
+
+    assert presenter.fsm.current_state == BacktestUiState.CONFIG_DIRTY
+    assert "Market (futures_usd_m → spot)" in view_model.configDiffSummary
+
+
+def test_switching_the_market_lists_that_markets_symbols(presenter, view_model):
+    """EPIC-027D — the picker lists the chosen market's catalog, not the one
+    it happened to fetch first."""
+    catalog = presenter._symbol_options_coordinator._symbol_catalog
+    catalog.seed(["SOLUSDT"], market=MarketType.SPOT)
+
+    view_model.broker_sim.market = MarketType.SPOT.value
+    presenter._symbol_options_coordinator._fetch(MarketType.SPOT)
+
+    assert catalog.markets_read == [MarketType.SPOT]
+    assert view_model.symbolOptions == ["SOLUSDT"]
+
+
+def test_spot_pins_both_leverages_to_one_and_the_run_is_valid(presenter, view_model):
+    """EPIC-027D — Spot trades at 1x (ADR D3); the ViewModel pins leverage when
+    the market switches, so the run config `BrokerSimulationConfig` accepts."""
+    view_model.broker_sim.longLeverage = 5.0
+    view_model.broker_sim.shortLeverage = 3.0
+
+    view_model.broker_sim.market = MarketType.SPOT.value
+    view_model.broker_sim.longLeverage = 10.0
+
+    assert view_model.broker_sim.longLeverage == 1.0
+    assert view_model.broker_sim.shortLeverage == 1.0
 
 
 def test_selecting_a_symbol_marks_the_config_dirty_with_a_truthful_diff(
@@ -1339,7 +1400,9 @@ def test_successful_run_populates_limitations_from_the_real_result(
     presenter._run_backtest(config)
 
     joined = " ".join(view_model.run_result.limitations)
-    assert "Stop Loss" in joined
+    # EPIC-027D dropped the stale "No Stop Loss / Take Profit yet" line; the
+    # per-run market line is what proves the builder was wired through.
+    assert "Market: Futures (USDⓈ-M)" in joined
     assert "out-of-sample" in joined  # this specific run has no split
 
 
@@ -4800,7 +4863,7 @@ def test_market_rule_verification_verified_when_metadata_cached(presenter, view_
         notional_filter=NotionalFilter(5.0, apply_to_market=True),
         fetched_at=datetime.now(UTC),
     )
-    cache.put(metadata)
+    cache.put(_SCREEN_MARKET, metadata)
     presenter._market_metadata_cache = cache
 
     view_model.initialCapitalText = "15000"
@@ -4828,7 +4891,7 @@ def test_market_rule_verification_stale_metadata_reported_truthfully(
         notional_filter=NotionalFilter(5.0, apply_to_market=True),
         fetched_at=stale_time,
     )
-    cache.put(metadata)
+    cache.put(_SCREEN_MARKET, metadata)
     presenter._market_metadata_cache = cache
 
     view_model.initialCapitalText = "5000"

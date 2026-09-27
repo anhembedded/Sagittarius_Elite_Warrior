@@ -53,6 +53,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.currency import
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
     BacktestRunConfig,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_market import (
+    market_from_value,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_state import (
     BacktestExecutionMode,
 )
@@ -125,6 +128,8 @@ class BrokerSimInputs(Protocol):
     def takeProfitPctEnabled(self) -> bool: ...
     @property
     def takeProfitPctText(self) -> str: ...
+    @property
+    def market(self) -> str: ...
 
 
 class RunConfigInputs(Protocol):
@@ -342,6 +347,11 @@ def snapshot_current_config(
         symbol=symbol,
         execution_mode=execution_mode,
         calc_on_order_fills=view_model.calcOnOrderFills,
+        # The market only (EPIC-027D): switching it must mark the run stale,
+        # while fees and leverage stay at their defaults (see the test).
+        broker_config=BrokerSimulationConfig(
+            market_type=market_from_value(view_model.broker_sim.market)
+        ),
     )
 
 
@@ -381,4 +391,5 @@ def _broker_config(broker: BrokerSimInputs) -> BrokerSimulationConfig:
         long_leverage=broker.longLeverage,
         short_leverage=broker.shortLeverage,
         take_profit_pct=take_profit_pct,
+        market_type=market_from_value(broker.market),
     )

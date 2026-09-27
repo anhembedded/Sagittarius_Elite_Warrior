@@ -68,17 +68,21 @@ class IExchangeClient(ABC):
         """
 
     @abstractmethod
-    def get_available_symbols(self) -> list[str]:
+    def get_available_symbols(self, market: MarketType) -> list[str]:
         """
         @brief Lists every actively tradeable symbol on the exchange (BOT-102).
+        @param market Which market's catalog (`EPIC-027D`): Spot and USD-M
+        Futures list different symbols.
         @return Sorted list of symbol names (e.g. ["BTCUSDT", "ETHUSDT", ...]),
         restricted to symbols currently open for trading.
         """
 
     @abstractmethod
-    def get_symbol_metadata(self) -> list[SymbolMarketMetadata]:
+    def get_symbol_metadata(self, market: MarketType) -> list[SymbolMarketMetadata]:
         """
         @brief Every symbol's price, lot and notional filters (`BUG-127`).
+        @param market Which market's filters (`EPIC-027C`): the same symbol has
+        a different step size and minimum notional on Spot and on Futures.
 
         @details The same payload `get_available_symbols()` already fetches and
         then keeps only the names from. This is that discarded half, and it is a

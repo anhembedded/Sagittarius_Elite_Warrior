@@ -293,24 +293,17 @@ class BacktestRunConfig:
     strategy_params: dict[str, Any] | None = field(default=None)
     currency: Currency = Currency.USD
     symbol: str = "ETHUSDT"
-    #: BOT-076 §3.3. `tick_resolution` is only meaningful when
-    #: `execution_mode == HISTORICAL_TICK`; `BOT-075`'s validated feasibility
-    #: number (1s, ~17s worst-case for a 7-day window, background-safe) is
-    #: the default — no resolution picker exists yet, that is optional
-    #: follow-up, not required for this mode to work correctly.
+    #: BOT-076 §3.3 — only meaningful when `execution_mode == HISTORICAL_TICK`;
+    #: `BOT-075`'s validated 1s default (no resolution picker exists yet).
     execution_mode: BacktestExecutionMode = BacktestExecutionMode.BAR_CLOSE
     tick_resolution: TimeFrame = TimeFrame.ONE_SECOND
     #: BOT-077 — only meaningful when `execution_mode == HISTORICAL_TICK`,
     #: same reasoning as `tick_resolution` above. Default `False` preserves
     #: `BOT-076`'s shipped behavior for every run that never opts in.
     calc_on_order_fills: bool = False
-    #: BOT-105B — only meaningful when `execution_mode == BAR_CLOSE`. When
-    #: set, a bar that touches both stop-loss and take-profit is resolved
-    #: using real sub-candles at this finer resolution when available,
-    #: instead of always assuming stop-loss first. `None` (default)
-    #: preserves that pessimistic-only behavior for every run that never
-    #: opts in — no resolution picker exists yet, same as `tick_resolution`
-    #: above: optional UI follow-up, not required for the mode to work.
+    #: BOT-105B — only meaningful when `execution_mode == BAR_CLOSE`: resolves
+    #: a bar touching both SL and TP from finer sub-candles. `None` (default)
+    #: keeps the pessimistic stop-loss-first rule (no picker exists yet).
     magnifier_resolution: TimeFrame | None = None
     position_sizing: PositionSizing = field(
         default_factory=lambda: PositionSizing(
@@ -326,6 +319,12 @@ class BacktestRunConfig:
         @brief Compute a human-readable description of changed fields.
         """
         diffs: list[str] = []
+
+        if self.broker_config.market_type != other.broker_config.market_type:
+            diffs.append(
+                f"Market ({self.broker_config.market_type.value} → "
+                f"{other.broker_config.market_type.value})"
+            )
 
         if self.symbol != other.symbol:
             diffs.append(f"Symbol ({self.symbol} → {other.symbol})")

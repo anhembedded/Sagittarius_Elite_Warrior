@@ -195,6 +195,11 @@ class PaperExchange:
         return self._signal_gate.refused_count
 
     @property
+    def rejected_entries(self) -> int:
+        """EPIC-027C — entries an exchange filter refused (always 0 without filters)."""
+        return self._lifecycle.rejected_entries
+
+    @property
     def position_sizing(self) -> PositionSizing:
         return self._position_sizing
 

@@ -3,6 +3,7 @@ from datetime import datetime
 from typing import Any
 
 from pydantic import BaseModel, Field, model_validator
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizing,
     PositionSizingType,
@@ -113,3 +114,10 @@ class RunHistoricalTickBacktestCommand(BaseModel):
                 "least once per bar for the forming-bar path to mean anything."
             )
         return self
+
+    @property
+    def market(self) -> MarketType:
+        """`EPIC-027D` — the market this run reads candles from and simulates:
+        its broker config's, or that config's own default when none was
+        given (the exchange then builds the same default)."""
+        return (self.broker_config or BrokerSimulationConfig()).market_type

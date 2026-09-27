@@ -37,6 +37,7 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from datetime import datetime
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
@@ -49,6 +50,7 @@ class IRangeCoverage(ABC):
     @abstractmethod
     def coverage(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         *,
@@ -56,7 +58,8 @@ class IRangeCoverage(ABC):
         end_time: datetime,
         now: datetime,
     ) -> BacktestRangeCoverage:
-        """The coverage of `[start_time, end_time)`, with the diagnosis.
+        """The coverage of `[start_time, end_time)` in `market`'s shard, with
+        the diagnosis (`EPIC-027D`).
 
         Always an answer, never an error, for a symbol nothing is stored for:
         `is_fully_covered=False` with `first_open_time`/`last_open_time`

@@ -15,6 +15,7 @@ from collections.abc import Sequence
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols import (
     SymbolCatalogService,
 )
@@ -74,7 +75,7 @@ class TestTheRealService(SymbolCatalogContract):
     @pytest.fixture
     def given_symbols(self, catalog_repo: FakeSymbolCatalogRepository) -> GivenSymbols:
         def store(symbols: Sequence[str]) -> None:
-            catalog_repo.save_symbols(list(symbols))
+            catalog_repo.save_symbols(MarketType.SPOT, list(symbols))
 
         return store
 
@@ -95,7 +96,7 @@ class TestTheFakesOwnHelpers:
     def test_was_refreshed_says_no_for_an_ordinary_read(self) -> None:
         fake = FakeSymbolCatalog(["BTCUSDT"])
 
-        fake.list_symbols()
+        fake.list_symbols(MarketType.SPOT)
 
         assert fake.was_refreshed() is False
 
@@ -104,15 +105,15 @@ class TestTheFakesOwnHelpers:
         it, and "the button reached the module" is the fact its test needs."""
         fake = FakeSymbolCatalog(["BTCUSDT"])
 
-        fake.list_symbols(force_refresh=True)
+        fake.list_symbols(MarketType.SPOT, force_refresh=True)
 
         assert fake.was_refreshed() is True
 
     def test_reads_records_every_call_in_order(self) -> None:
         fake = FakeSymbolCatalog()
 
-        fake.list_symbols()
-        fake.list_symbols(force_refresh=True)
+        fake.list_symbols(MarketType.SPOT)
+        fake.list_symbols(MarketType.SPOT, force_refresh=True)
 
         assert fake.reads == [False, True]
 
@@ -121,7 +122,7 @@ class TestTheFakesOwnHelpers:
 
         fake.seed([" ethusdt ", "BTCUSDT"])
 
-        assert fake.list_symbols() == ("BTCUSDT", "ETHUSDT")
+        assert fake.list_symbols(MarketType.SPOT) == ("BTCUSDT", "ETHUSDT")
 
 
 class TestWhatOnlyTheRealServiceCanAnswer:
@@ -133,7 +134,7 @@ class TestWhatOnlyTheRealServiceCanAnswer:
         catalog = FakeSymbolCatalogRepository(["OLDPAIR"])
 
         result = SymbolCatalogService(lambda: exchange, catalog).list_symbols(
-            force_refresh=True
+            MarketType.SPOT, force_refresh=True
         )
 
         assert result == ("NEWPAIR",)
@@ -145,6 +146,6 @@ class TestWhatOnlyTheRealServiceCanAnswer:
         exchange = _exchange_answering(["SHOULD_NOT_BE_ASKED"])
         catalog = FakeSymbolCatalogRepository(["BTCUSDT"])
 
-        SymbolCatalogService(lambda: exchange, catalog).list_symbols()
+        SymbolCatalogService(lambda: exchange, catalog).list_symbols(MarketType.SPOT)
 
         exchange.get_available_symbols.assert_not_called()

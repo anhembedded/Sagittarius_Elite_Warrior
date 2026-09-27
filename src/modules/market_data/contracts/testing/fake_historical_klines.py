@@ -30,6 +30,7 @@ from dataclasses import dataclass
 from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     DEFAULT_KLINE_LIMIT,
@@ -55,6 +56,8 @@ class KlineRead:
     `read.limit` beats unpacking a six-tuple at every call site.
     """
 
+    #: `EPIC-027D` — whose shard the read asked for.
+    market: MarketType
     #: One entry for `load()`, every symbol asked for `load_many()`.
     symbols: tuple[str, ...]
     interval: TimeFrame
@@ -67,26 +70,33 @@ class KlineRead:
 class FakeHistoricalKlines(IHistoricalKlines):
     """Stored candles a test controls, read through the port's promises."""
 
-    def __init__(self) -> None:
-        self._series: dict[tuple[str, str], dict[datetime, MarketData]] = {}
+    def __init__(self, default_market: MarketType = MarketType.SPOT) -> None:
+        """`default_market` is where `seed()` stores rows when a test names no
+        market — the market the consumer under test reads (`EPIC-027D`)."""
+        self._default_market = default_market
+        self._series: dict[tuple[MarketType, str, str], dict[datetime, MarketData]] = {}
         #: Every `load`/`load_many` call, in order. A consumer's test often
         #: needs "the chart asked for 500 candles, not 5000", or "the date
         #: range reached the read" — facts about the screen, not the store.
         self.reads: list[KlineRead] = []
 
-    def seed(self, klines: Sequence[MarketData]) -> None:
-        """Put rows in the store, as a completed sync would have.
+    def seed(
+        self, klines: Sequence[MarketData], market: MarketType | None = None
+    ) -> None:
+        """Put rows in `market`'s store, as a completed sync would have.
 
         Upsert on `open_time`, like the real primary key: the same candle
         seeded twice replaces rather than duplicates, so a test that seeds
         overlapping windows gets what production would hold.
         """
+        target = market or self._default_market
         for kline in klines:
-            key = (kline.symbol, _interval_value(kline.interval))
+            key = (target, kline.symbol, _interval_value(kline.interval))
             self._series.setdefault(key, {})[kline.open_time] = kline
 
     def load(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         *,
@@ -97,6 +107,7 @@ class FakeHistoricalKlines(IHistoricalKlines):
     ) -> tuple[MarketData, ...]:
         self.reads.append(
             KlineRead(
+                market=market,
                 symbols=(symbol,),
                 interval=interval,
                 limit=limit,
@@ -106,6 +117,7 @@ class FakeHistoricalKlines(IHistoricalKlines):
             )
         )
         return self._rows(
+            market,
             symbol,
             interval,
             limit=limit,
@@ -116,6 +128,7 @@ class FakeHistoricalKlines(IHistoricalKlines):
 
     def load_many(
         self,
+        market: MarketType,
         symbols: Sequence[str],
         interval: TimeFrame,
         *,
@@ -127,6 +140,7 @@ class FakeHistoricalKlines(IHistoricalKlines):
         requested = tuple(symbols)
         self.reads.append(
             KlineRead(
+                market=market,
                 symbols=requested,
                 interval=interval,
                 limit=limit,
@@ -137,6 +151,7 @@ class FakeHistoricalKlines(IHistoricalKlines):
         )
         return {
             symbol: self._rows(
+                market,
                 symbol,
                 interval,
                 limit=limit,
@@ -160,6 +175,7 @@ class FakeHistoricalKlines(IHistoricalKlines):
 
     def _rows(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         *,
@@ -168,7 +184,7 @@ class FakeHistoricalKlines(IHistoricalKlines):
         end_time: datetime | None,
         newest_first: bool,
     ) -> tuple[MarketData, ...]:
-        series = self._series.get((symbol, _interval_value(interval)), {})
+        series = self._series.get((market, symbol, _interval_value(interval)), {})
         ordered = sorted(series, reverse=newest_first)
         selected = [
             series[open_time]

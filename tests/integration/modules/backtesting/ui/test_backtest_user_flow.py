@@ -9,6 +9,7 @@ from unittest.mock import patch
 import pytest
 from PySide6.QtWidgets import QPushButton
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
@@ -118,8 +119,11 @@ def booted_backtest_app():
 def backtest_screen(qapp, qtbot, booted_backtest_app):
     booted_backtest_app.context.container.singleton(
         IMarketDataRepository,
+        # EPIC-027D: a fresh Backtest screen simulates USD-M Futures (the
+        # engine's own default) and reads that market's candles.
         FakeMarketDataRepository(
-            _make_runtime_klines() + _make_runtime_klines(_TOOLBAR_TIMEFRAME_INTERVAL)
+            _make_runtime_klines() + _make_runtime_klines(_TOOLBAR_TIMEFRAME_INTERVAL),
+            market=MarketType.FUTURES_USD_M,
         ),
     )
     view = BackTestView()

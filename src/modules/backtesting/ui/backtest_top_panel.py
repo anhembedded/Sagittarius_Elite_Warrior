@@ -49,6 +49,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
 )
 
 from .backtest_stat_row import BacktestStatRow
+from .market_selector import MarketSelector
 
 if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
@@ -182,6 +183,8 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
             "btnBacktestSymbol", "dollar-sign", Palette.ACCENT, min_width=110
         )
         self._btn_symbol.clicked.connect(self._vm.requestOpenSymbolPicker)
+        self._combo_market = MarketSelector(self._vm.broker_sim)
+        row.addWidget(self._combo_market)
         row.addWidget(self._btn_symbol)
 
         self._btn_strategy = self._icon_text_button(
@@ -374,14 +377,9 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
     def _build_progress_banner(self) -> QFrame:
         banner = QFrame()
         banner.setObjectName("backtestProgressBanner")
-        # EPIC-015 Phase 4 replaced `AppProgressBar` + a standalone Cancel
-        # `QPushButton` with a QML embed; PR 4.3l replaces that with
-        # `kit.ProgressBanner`, the same swap Data Management and Dev Board
-        # make. This bordered `QFrame` is kept as-is,
-        # unlike Data Management's own plain container: this banner sits
-        # *inside* an already-SURFACE-styled `self._card`, so it still needs
-        # its own nested background/border to read as a distinct strip, same
-        # as before the swap.
+        # PR 4.3l's `kit.ProgressBanner` in a bordered `QFrame`: unlike Data
+        # Management's, this banner sits inside the SURFACE-styled card, so
+        # it needs its own background/border to read as a distinct strip.
         banner.setStyleSheet(
             f"QFrame {{ background-color: {Palette.BG_CARD}; "
             f"border: 1px solid {Palette.STATE_NAV_BORDER}; border-radius: 6px; }}"
@@ -705,6 +703,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
     def _sync_controls_enabled(self) -> None:
         enabled = bool(self._vm.controlsEnabled)
         for btn in (
+            self._combo_market,
             self._btn_symbol,
             self._btn_strategy,
             self._btn_timeframe,

@@ -31,6 +31,12 @@ logger = logging.getLogger("App.ExchangeClient")
 #: per-symbol entries — distinct from BinanceMetadataKey.FILTERS, which is
 #: the nested filter list *inside* one such entry (BOT-102).
 _EXCHANGE_INFO_SYMBOLS_KEY = "symbols"
+#: `EPIC-027D` — a Futures catalog also lists dated delivery contracts
+#: (`BTCUSDT_251226`). Only perpetuals are offered: a dated contract is a
+#: different instrument, and its `_` cannot be a shard name. Spot entries carry
+#: no contract type, so they default to passing.
+_CONTRACT_TYPE_KEY = "contractType"
+_PERPETUAL = "PERPETUAL"
 
 #: Klines per yielded chunk in `stream_historical_klines` (BUG-025) — matches
 #: Binance's own per-request page size, so a chunk boundary always lines up
@@ -332,19 +338,20 @@ class PythonBinanceClient(IExchangeClient):
 
         return self._map_to_market_data(raw_klines, symbol, interval.value)
 
-    def get_available_symbols(self) -> list[str]:
-        symbols_raw = self._exchange_info_entries()
+    def get_available_symbols(self, market: MarketType) -> list[str]:
+        symbols_raw = self._exchange_info_entries(market)
         tradeable = {
             str(entry.get(BinanceMetadataKey.SYMBOL.value, "")).upper()
             for entry in symbols_raw
             if isinstance(entry, dict)
             and str(entry.get(BinanceMetadataKey.STATUS.value, "")).upper()
             == DEFAULT_STATUS
+            and entry.get(_CONTRACT_TYPE_KEY, _PERPETUAL) == _PERPETUAL
         }
         tradeable.discard("")
         return sorted(tradeable)
 
-    def get_symbol_metadata(self) -> list[SymbolMarketMetadata]:
+    def get_symbol_metadata(self, market: MarketType) -> list[SymbolMarketMetadata]:
         """`BUG-127` — the half of `exchangeInfo` this adapter used to drop.
 
         `parse_binance_symbol_metadata` has existed since `BOT-095E1` and had
@@ -356,17 +363,23 @@ class PythonBinanceClient(IExchangeClient):
         fetched_at = datetime.now(UTC)
         return [
             parse_binance_symbol_metadata(entry, fetched_at=fetched_at)
-            for entry in self._exchange_info_entries()
+            for entry in self._exchange_info_entries(market)
             if isinstance(entry, dict)
         ]
 
-    def _exchange_info_entries(self) -> list[dict]:
-        """The raw per-symbol entries of `GET /api/v3/exchangeInfo`.
+    def _exchange_info_entries(self, market: MarketType) -> list[dict]:
+        """The raw per-symbol entries of one market's `exchangeInfo`:
+        `/api/v3` for Spot, `/fapi/v1` for USD-M, `/dapi/v1` for COIN-M.
 
         One reader for two derived facts (names, filters), so a change to the
         payload's shape lands in one place rather than two that can drift.
         """
-        info = self.client.get_exchange_info()
+        if market is MarketType.SPOT:
+            info = self.client.get_exchange_info()
+        elif market is MarketType.FUTURES_USD_M:
+            info = self.client.futures_exchange_info()
+        else:
+            info = self.client.futures_coin_exchange_info()
         entries = info.get(_EXCHANGE_INFO_SYMBOLS_KEY, [])
         return entries if isinstance(entries, list) else []
 

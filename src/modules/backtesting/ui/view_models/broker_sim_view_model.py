@@ -32,6 +32,7 @@ from __future__ import annotations
 from contextlib import suppress
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizingType,
 )
@@ -56,6 +57,13 @@ MIN_PYRAMIDING = 1
 MIN_COMMISSION_VALUE = 0.0
 MIN_SLIPPAGE_TICKS = 0
 MIN_LEVERAGE = 1.0
+#: `EPIC-027D` — a fresh screen simulates USD-M Futures, the same default as
+#: `BrokerSimulationConfig.market_type`, so a run's semantics do not change
+#: for a user who never opens the selector.
+DEFAULT_MARKET_TYPE = MarketType.FUTURES_USD_M
+DEFAULT_MARKET = DEFAULT_MARKET_TYPE.value
+#: Spot trades its own cash: leverage is pinned here (ADR D3).
+SPOT_LEVERAGE = 1.0
 
 
 class BrokerSimViewModel(QObject):
@@ -73,6 +81,7 @@ class BrokerSimViewModel(QObject):
     shortLeverageChanged = Signal()
     takeProfitPctEnabledChanged = Signal()
     takeProfitPctTextChanged = Signal()
+    marketChanged = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -92,6 +101,7 @@ class BrokerSimViewModel(QObject):
         #: field existed.
         self._take_profit_pct_enabled = False
         self._take_profit_pct_text = DEFAULT_TAKE_PROFIT_PCT_TEXT
+        self._market = DEFAULT_MARKET
 
     # ------------------------------------------------------------------ #
     # Position sizing
@@ -217,8 +227,9 @@ class BrokerSimViewModel(QObject):
         return self._long_leverage
 
     def _set_long_leverage(self, value: float) -> None:
+        value = self._leverage_allowed(value)
         if value != self._long_leverage:
-            self._long_leverage = max(MIN_LEVERAGE, value)
+            self._long_leverage = value
             self.longLeverageChanged.emit()
 
     longLeverage = Property(
@@ -229,13 +240,41 @@ class BrokerSimViewModel(QObject):
         return self._short_leverage
 
     def _set_short_leverage(self, value: float) -> None:
+        value = self._leverage_allowed(value)
         if value != self._short_leverage:
-            self._short_leverage = max(MIN_LEVERAGE, value)
+            self._short_leverage = value
             self.shortLeverageChanged.emit()
 
     shortLeverage = Property(
         float, _get_short_leverage, _set_short_leverage, notify=shortLeverageChanged
     )
+
+    def _leverage_allowed(self, value: float) -> float:
+        """The floor always applies; in Spot the only leverage is 1×."""
+        if self._market == MarketType.SPOT.value:
+            return SPOT_LEVERAGE
+        return max(MIN_LEVERAGE, value)
+
+    # ------------------------------------------------------------------ #
+    # Market (EPIC-027D)
+    # ------------------------------------------------------------------ #
+
+    def _get_market(self) -> str:
+        return self._market
+
+    def _set_market(self, value: str) -> None:
+        """Switching to Spot pins both leverages to 1× here, on the single
+        writer, so no restored state or Presenter write can pair Spot with
+        leverage — `BrokerSimulationConfig` would refuse that run."""
+        if value == self._market:
+            return
+        self._market = value
+        if value == MarketType.SPOT.value:
+            self._set_long_leverage(SPOT_LEVERAGE)
+            self._set_short_leverage(SPOT_LEVERAGE)
+        self.marketChanged.emit()
+
+    market = Property(str, _get_market, _set_market, notify=marketChanged)
 
     def _get_take_profit_pct_enabled(self) -> bool:
         return self._take_profit_pct_enabled
@@ -315,3 +354,7 @@ class BrokerSimViewModel(QObject):
     @Slot(float)
     def set_short_leverage(self, value: float) -> None:
         self._set_short_leverage(value)
+
+    @Slot(str)
+    def set_market(self, value: str) -> None:
+        self._set_market(value)

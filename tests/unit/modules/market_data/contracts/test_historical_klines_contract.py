@@ -99,14 +99,14 @@ class TestTheFakesOwnQuery:
     def test_it_says_no_for_a_symbol_nobody_asked_about(self) -> None:
         fake = FakeHistoricalKlines()
 
-        fake.load("BTCUSDT", MINUTE)
+        fake.load(MarketType.SPOT, "BTCUSDT", MINUTE)
 
         assert fake.was_read_for("ETHUSDT") is False
 
     def test_it_says_yes_for_a_symbol_that_was_read(self) -> None:
         fake = FakeHistoricalKlines()
 
-        fake.load("BTCUSDT", MINUTE)
+        fake.load(MarketType.SPOT, "BTCUSDT", MINUTE)
 
         assert fake.was_read_for("BTCUSDT") is True
 
@@ -116,13 +116,13 @@ class TestTheFakesOwnQuery:
         symbol with no data has still asked."""
         fake = FakeHistoricalKlines()
 
-        assert fake.load("BTCUSDT", MINUTE) == ()
+        assert fake.load(MarketType.SPOT, "BTCUSDT", MINUTE) == ()
         assert fake.was_read_for("BTCUSDT") is True
 
     def test_the_interval_narrows_the_answer(self) -> None:
         fake = FakeHistoricalKlines()
 
-        fake.load("BTCUSDT", MINUTE)
+        fake.load(MarketType.SPOT, "BTCUSDT", MINUTE)
 
         assert fake.was_read_for("BTCUSDT", MINUTE) is True
         assert fake.was_read_for("BTCUSDT", TimeFrame.ONE_DAY) is False
@@ -130,7 +130,7 @@ class TestTheFakesOwnQuery:
     def test_load_many_registers_every_symbol_it_was_given(self) -> None:
         fake = FakeHistoricalKlines()
 
-        fake.load_many(["BTCUSDT", "ETHUSDT"], MINUTE)
+        fake.load_many(MarketType.SPOT, ["BTCUSDT", "ETHUSDT"], MINUTE)
 
         assert fake.was_read_for("BTCUSDT") is True
         assert fake.was_read_for("ETHUSDT") is True
@@ -140,8 +140,8 @@ class TestTheFakesOwnQuery:
         candles, not 5000" against — a fact about the screen, not the store."""
         fake = FakeHistoricalKlines()
 
-        fake.load("BTCUSDT", MINUTE, limit=500, newest_first=True)
-        fake.load_many(["ETHUSDT"], TimeFrame.ONE_DAY, limit=7)
+        fake.load(MarketType.SPOT, "BTCUSDT", MINUTE, limit=500, newest_first=True)
+        fake.load_many(MarketType.SPOT, ["ETHUSDT"], TimeFrame.ONE_DAY, limit=7)
 
         assert [
             (read.symbols, read.interval, read.limit, read.newest_first)
@@ -158,7 +158,7 @@ class TestTheFakesOwnQuery:
         fake = FakeHistoricalKlines()
         start, end = at(1), at(9)
 
-        fake.load("BTCUSDT", MINUTE, start_time=start, end_time=end)
+        fake.load(MarketType.SPOT, "BTCUSDT", MINUTE, start_time=start, end_time=end)
 
         assert fake.reads[0].start_time == start
         assert fake.reads[0].end_time == end
@@ -166,7 +166,7 @@ class TestTheFakesOwnQuery:
     def test_an_unbounded_read_records_no_range(self) -> None:
         fake = FakeHistoricalKlines()
 
-        fake.load("BTCUSDT", MINUTE)
+        fake.load(MarketType.SPOT, "BTCUSDT", MINUTE)
 
         assert fake.reads[0].start_time is None
         assert fake.reads[0].end_time is None
@@ -185,6 +185,6 @@ def test_the_fake_and_the_handler_agree_on_a_seeded_series() -> None:
     store.save_klines(MarketType.SPOT, rows)
     real = StoredKlinesReader(store)
 
-    assert fake.load("BTCUSDT", MINUTE, limit=3, newest_first=True) == real.load(
-        "BTCUSDT", MINUTE, limit=3, newest_first=True
-    )
+    assert fake.load(
+        MarketType.SPOT, "BTCUSDT", MINUTE, limit=3, newest_first=True
+    ) == real.load(MarketType.SPOT, "BTCUSDT", MINUTE, limit=3, newest_first=True)

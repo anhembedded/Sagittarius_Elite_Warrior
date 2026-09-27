@@ -17,6 +17,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
 )
@@ -35,12 +36,32 @@ class SymbolOptionsCoordinator:
         thread_manager: IThreadManager,
         emit_ready: Callable[[list[str]], None],
         emit_failed: Callable[[str], None],
+        market: MarketType,
     ) -> None:
         self._symbol_catalog = symbol_catalog
         self._thread_manager = thread_manager
         self._emit_ready = emit_ready
         self._emit_failed = emit_failed
         self._symbol_options_cache: list[str] | None = None
+        #: `EPIC-027D` — whose catalog the picker lists. Written on the main
+        #: thread only; a worker compares its own captured market against it.
+        self._market = market
+
+    def retarget_market(self, market: MarketType) -> None:
+        """`EPIC-027D` — the picker now lists `market`'s catalog. Drops the
+        cached list, so the next open fetches that market's symbols; a fetch
+        still in flight for the old market is discarded when it returns.
+        Named apart from a plain `set_market` (`code/naming.md` §4's "one
+        word per concept" does not forbid a more specific verb where the
+        action is more than a property write — this also invalidates a
+        cache) — and it also keeps this method's name from colliding with
+        `BrokerSimViewModel.set_market`'s unrelated property setter across
+        the `market_data.ui`/`backtesting.ui` boundary
+        (`test_presenter_duplication_only_shrinks.py`)."""
+        if market is self._market:
+            return
+        self._market = market
+        self._symbol_options_cache = None
 
     def request_open(self) -> None:
         """Fetches the exchange's pair list the first time the picker opens
@@ -48,23 +69,33 @@ class SymbolOptionsCoordinator:
         it and this is a no-op."""
         if self._symbol_options_cache is not None:
             return
-        self._thread_manager.submit(self._fetch)
+        market = self._market
+        self._thread_manager.submit(lambda: self._fetch(market))
 
     def request_refresh(self) -> None:
         """Forces a refetch straight from the exchange, bypassing both this
         coordinator's cache and `ISymbolCatalogRepository`'s local one (the
         manual 🔄 in the picker, `BUG-066`)."""
         self._symbol_options_cache = None
-        self._thread_manager.submit(lambda: self._fetch(force_refresh=True))
+        market = self._market
+        self._thread_manager.submit(lambda: self._fetch(market, force_refresh=True))
 
-    def _fetch(self, force_refresh: bool = False) -> None:
+    def _fetch(self, market: MarketType, force_refresh: bool = False) -> None:
         """Runs on a worker thread — hence reporting through callables that
         forward to Qt signals, rather than writing a ViewModel directly."""
         try:
-            symbols = self._symbol_catalog.list_symbols(force_refresh=force_refresh)
+            symbols = self._symbol_catalog.list_symbols(
+                market, force_refresh=force_refresh
+            )
         except Exception as exc:
             logger.exception("Failed to fetch available symbols")
             self._emit_failed(str(exc))
+            return
+        if market is not self._market:
+            logger.debug(
+                f"Discarded the {market.value} symbol list: the picker now lists "
+                f"{self._market.value}."
+            )
             return
         # `list()` because `emit_ready` forwards into a Qt signal declared
         # `list` — the port answers with a tuple so no consumer can edit the

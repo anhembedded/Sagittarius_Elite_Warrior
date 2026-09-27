@@ -131,6 +131,7 @@ class ChartPreviewCoordinator:
         symbol = self._state.symbol
         try:
             newest_first_rows = self._historical_klines.load(
+                self._state.market,
                 symbol,
                 config.timeframe,
                 limit=self._state.chart_klines_fetch_limit,
@@ -146,6 +147,7 @@ class ChartPreviewCoordinator:
             # worker/main thread queue; `IRangeCoverage` returns
             # `BacktestRangeCoverage`, so there is no envelope to tolerate.
             coverage = self._range_coverage.coverage(
+                self._state.market,
                 symbol,
                 config.timeframe,
                 start_time=config.start_time,

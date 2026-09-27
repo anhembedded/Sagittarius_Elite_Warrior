@@ -62,6 +62,7 @@ class StoredKlinesReader(IHistoricalKlines):
 
     def load(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         *,
@@ -71,6 +72,7 @@ class StoredKlinesReader(IHistoricalKlines):
         newest_first: bool = False,
     ) -> tuple[MarketData, ...]:
         rows = self._read_one(
+            market,
             symbol,
             interval,
             limit=limit,
@@ -83,6 +85,7 @@ class StoredKlinesReader(IHistoricalKlines):
 
     def load_many(
         self,
+        market: MarketType,
         symbols: Sequence[str],
         interval: TimeFrame,
         *,
@@ -101,6 +104,7 @@ class StoredKlinesReader(IHistoricalKlines):
         def read(symbol: str) -> tuple[str, tuple[MarketData, ...]]:
             return symbol, tuple(
                 self._read_one(
+                    market,
                     symbol,
                     interval,
                     limit=limit,
@@ -127,6 +131,7 @@ class StoredKlinesReader(IHistoricalKlines):
 
     def _read_one(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         *,
@@ -137,18 +142,9 @@ class StoredKlinesReader(IHistoricalKlines):
     ) -> list[MarketData]:
         """One repository read. `newest_first` is the repository's
         `order_by_desc`, renamed at the boundary because the port's callers
-        ask for "the newest N", not for a sort direction.
-
-        `EPIC-027A` added `market` to `IMarketDataRepository`, but
-        `IHistoricalKlines`'s six callers (the live trading chart, the Dev
-        Board stream, the CLI's `trade-once`, two backtest coordinators, the
-        Data Management kline inspector) have no market to choose yet — that
-        is `EPIC-027D`'s (backtest market selector) and later Phase 2/3 tasks'
-        job. Pinned to Spot here, not defaulted inside the port: it is what
-        every one of these screens has actually been reading all along.
-        """
+        ask for "the newest N", not for a sort direction."""
         return self.repository.get_klines(
-            market=MarketType.SPOT,
+            market=market,
             symbol=symbol,
             interval=interval,
             start_time=start_time,

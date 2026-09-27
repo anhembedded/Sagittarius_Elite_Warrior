@@ -25,6 +25,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     MAX_REPORTED_MISSING_OPENS,
@@ -38,6 +39,9 @@ _MINUTE = TimeFrame.ONE_MINUTE
 _FROM = datetime(2024, 1, 1, tzinfo=UTC)
 _TO = datetime(2024, 1, 2, tzinfo=UTC)
 _NOW = datetime(2024, 1, 3, tzinfo=UTC)
+
+
+_MARKET = MarketType.SPOT
 
 
 class RangeCoverageContract:
@@ -57,7 +61,7 @@ class RangeCoverageContract:
         would make the normal case exceptional, and returning `None` would
         reach a Qt signal typed `object` (`BUG-072`)."""
         answer = impl.coverage(
-            "NOSUCHPAIR", _MINUTE, start_time=_FROM, end_time=_TO, now=_NOW
+            _MARKET, "NOSUCHPAIR", _MINUTE, start_time=_FROM, end_time=_TO, now=_NOW
         )
 
         assert isinstance(answer, BacktestRangeCoverage)
@@ -69,7 +73,7 @@ class RangeCoverageContract:
         a sync suggestion, "you have most of this" is a warning. Both bounds
         `None` is what distinguishes them."""
         answer = impl.coverage(
-            "NOSUCHPAIR", _MINUTE, start_time=_FROM, end_time=_TO, now=_NOW
+            _MARKET, "NOSUCHPAIR", _MINUTE, start_time=_FROM, end_time=_TO, now=_NOW
         )
 
         assert answer.is_fully_covered is False
@@ -82,7 +86,7 @@ class RangeCoverageContract:
         what a user who left the range open asks for — an implementation that
         required a start would break the screen's default state."""
         answer = impl.coverage(
-            "NOSUCHPAIR", _MINUTE, start_time=None, end_time=_TO, now=_NOW
+            _MARKET, "NOSUCHPAIR", _MINUTE, start_time=None, end_time=_TO, now=_NOW
         )
 
         assert isinstance(answer, BacktestRangeCoverage)
@@ -95,7 +99,7 @@ class RangeCoverageContract:
         missing opens, and a caller that treated its length as the count
         would be reporting a number it never had."""
         answer = impl.coverage(
-            "NOSUCHPAIR", _MINUTE, start_time=_FROM, end_time=_TO, now=_NOW
+            _MARKET, "NOSUCHPAIR", _MINUTE, start_time=_FROM, end_time=_TO, now=_NOW
         )
 
         assert len(answer.missing_open_times) <= MAX_REPORTED_MISSING_OPENS

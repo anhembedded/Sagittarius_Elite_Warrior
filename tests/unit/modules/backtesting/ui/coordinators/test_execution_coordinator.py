@@ -7,8 +7,10 @@ the doubles they both use live in `conftest.py`.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from types import SimpleNamespace
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_historical_tick_backtest import (
     RunHistoricalTickBacktestCommand,
@@ -16,6 +18,12 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_historica
 from Sagittarius_Elite_Warrior.src.modules.backtesting.application.run_static_backtest import (
     BacktestCancelled,
     RunStaticBacktestCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.broker_simulation_config import (
+    BrokerSimulationConfig,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exchange_filters import (
+    ExchangeFilters,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.coordinators import (
     ExecutionCoordinator,
@@ -32,7 +40,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.backtesting.ui.coordinators.co
 )
 
 
-def _build(dispatcher=None, action_id=3, coverage_ok=True):
+def _build(dispatcher=None, action_id=3, coverage_ok=True, exchange_filters=None):
     dispatcher = dispatcher or RecordingDispatcher(backtest_result())
     events: list[tuple] = []
 
@@ -54,6 +62,9 @@ def _build(dispatcher=None, action_id=3, coverage_ok=True):
         emit_empty=record("empty"),
         emit_succeeded=record("succeeded"),
         on_result_ready=record("result_ready"),
+        exchange_filters_for=lambda market, symbol: (
+            exchange_filters.get((market, symbol)) if exchange_filters else None
+        ),
     )
     return coordinator, dispatcher, events
 
@@ -199,3 +210,36 @@ def test_nothing_runs_without_an_action_to_attribute_it_to() -> None:
 
     assert events == []
     assert dispatcher.commands == []
+
+
+_BTC_SPOT = ExchangeFilters(
+    step_size=0.00001, min_quantity=0.00001, min_notional=5.0, tick_size=0.01
+)
+
+
+def test_the_run_applies_the_exchange_filters_of_its_own_market_and_symbol() -> None:
+    """EPIC-027C — the filters are looked up for the run's (market, symbol) and
+    ride on the command's broker config; another market's filters never do."""
+    config = replace(
+        run_config(),
+        broker_config=BrokerSimulationConfig(market_type=MarketType.SPOT),
+    )
+    futures_filters = replace(_BTC_SPOT, min_notional=100.0)
+    coordinator, dispatcher, _ = _build(
+        exchange_filters={
+            (MarketType.SPOT, "BTCUSDT"): _BTC_SPOT,
+            (MarketType.FUTURES_USD_M, "BTCUSDT"): futures_filters,
+        }
+    )
+
+    coordinator.run(config, FakeCancellationToken())
+
+    assert dispatcher.commands[0].broker_config.exchange_filters == _BTC_SPOT
+
+
+def test_without_metadata_the_run_applies_no_exchange_filter() -> None:
+    coordinator, dispatcher, _ = _build()
+
+    coordinator.run(run_config(), FakeCancellationToken())
+
+    assert dispatcher.commands[0].broker_config.exchange_filters is None

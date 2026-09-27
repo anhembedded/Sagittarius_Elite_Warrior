@@ -22,6 +22,7 @@ upper-cased.
 
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.list_available_symbols.handler import (
     SymbolCatalogService,
 )
@@ -52,7 +53,9 @@ def test_a_populated_catalog_answers_without_touching_the_exchange():
     exchange = _exchange(["SHOULD_NOT_BE_ASKED"])
     catalog = FakeSymbolCatalogRepository(["BTCUSDT", "ETHUSDT"])
 
-    result = SymbolCatalogService(lambda: exchange, catalog).list_symbols()
+    result = SymbolCatalogService(lambda: exchange, catalog).list_symbols(
+        MarketType.SPOT
+    )
 
     assert result == ("BTCUSDT", "ETHUSDT")
     exchange.get_available_symbols.assert_not_called()
@@ -62,12 +65,14 @@ def test_an_empty_catalog_is_filled_from_the_exchange():
     exchange = _exchange(["SOLUSDT"])
     catalog = FakeSymbolCatalogRepository()
 
-    result = SymbolCatalogService(lambda: exchange, catalog).list_symbols()
+    result = SymbolCatalogService(lambda: exchange, catalog).list_symbols(
+        MarketType.SPOT
+    )
 
     assert result == ("SOLUSDT",)
     exchange.get_available_symbols.assert_called_once()
     # The effect, not the call: the next query answers from the catalog.
-    assert catalog.get_symbols() == ["SOLUSDT"]
+    assert catalog.get_symbols(MarketType.SPOT) == ["SOLUSDT"]
 
 
 def test_force_refresh_replaces_a_populated_catalog():
@@ -75,12 +80,14 @@ def test_force_refresh_replaces_a_populated_catalog():
     catalog = FakeSymbolCatalogRepository(["OLDPAIR"])
 
     result = SymbolCatalogService(lambda: exchange, catalog).list_symbols(
-        force_refresh=True
+        MarketType.SPOT, force_refresh=True
     )
 
     assert result == ("NEWPAIR",)
     exchange.get_available_symbols.assert_called_once()
-    assert catalog.get_symbols() == ["NEWPAIR"], "the stale symbol must be gone"
+    assert catalog.get_symbols(MarketType.SPOT) == ["NEWPAIR"], (
+        "the stale symbol must be gone"
+    )
 
 
 def test_an_exchange_answer_is_persisted_normalised():
@@ -92,9 +99,11 @@ def test_an_exchange_answer_is_persisted_normalised():
     exchange = _exchange([" ethusdt ", "BTCUSDT", "btcusdt"])
     catalog = FakeSymbolCatalogRepository()
 
-    SymbolCatalogService(lambda: exchange, catalog).list_symbols(force_refresh=True)
+    SymbolCatalogService(lambda: exchange, catalog).list_symbols(
+        MarketType.SPOT, force_refresh=True
+    )
 
-    assert catalog.get_symbols() == ["BTCUSDT", "ETHUSDT"]
+    assert catalog.get_symbols(MarketType.SPOT) == ["BTCUSDT", "ETHUSDT"]
 
 
 def test_an_empty_exchange_answer_does_not_wipe_the_catalog():
@@ -105,7 +114,7 @@ def test_an_empty_exchange_answer_does_not_wipe_the_catalog():
     catalog = FakeSymbolCatalogRepository(["BTCUSDT"])
 
     result = SymbolCatalogService(lambda: exchange, catalog).list_symbols(
-        force_refresh=True
+        MarketType.SPOT, force_refresh=True
     )
 
     # Behaviour kept exactly (ADR D12): the answer is what the exchange said,
@@ -113,7 +122,7 @@ def test_an_empty_exchange_answer_does_not_wipe_the_catalog():
     # picker for this one read and a populated one on the next — which is the
     # old handler's behaviour, not a decision this PR made.
     assert result == ()
-    assert catalog.get_symbols() == ["BTCUSDT"]
+    assert catalog.get_symbols(MarketType.SPOT) == ["BTCUSDT"]
 
 
 def test_a_cached_read_never_even_builds_an_exchange_client():
@@ -129,7 +138,7 @@ def test_a_cached_read_never_even_builds_an_exchange_client():
     factory = _factory_for(client)
     catalog = FakeSymbolCatalogRepository(["BTCUSDT"])
 
-    SymbolCatalogService(factory, catalog).list_symbols()
+    SymbolCatalogService(factory, catalog).list_symbols(MarketType.SPOT)
 
     factory.assert_not_called()
 
@@ -139,7 +148,23 @@ def test_a_refresh_builds_the_client_once():
     factory = _factory_for(client)
 
     SymbolCatalogService(factory, FakeSymbolCatalogRepository()).list_symbols(
-        force_refresh=True
+        MarketType.SPOT, force_refresh=True
     )
 
     factory.assert_called_once()
+
+
+def test_a_market_is_fetched_and_stored_as_that_market():
+    """EPIC-027D — a Futures read asks the exchange for Futures symbols and
+    stores them as Futures; the Spot catalog is untouched."""
+    exchange = _exchange(["SOLUSDT"])
+    catalog = FakeSymbolCatalogRepository(["BTCUSDT"], market=MarketType.SPOT)
+
+    result = SymbolCatalogService(lambda: exchange, catalog).list_symbols(
+        MarketType.FUTURES_USD_M
+    )
+
+    assert result == ("SOLUSDT",)
+    exchange.get_available_symbols.assert_called_once_with(MarketType.FUTURES_USD_M)
+    assert catalog.get_symbols(MarketType.SPOT) == ["BTCUSDT"]
+    assert catalog.get_symbols(MarketType.FUTURES_USD_M) == ["SOLUSDT"]

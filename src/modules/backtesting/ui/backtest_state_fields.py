@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.currency import
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
     BacktestExecutionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_market import (
+    BACKTEST_MARKETS,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.time_range_preset import (
     TimeRangePreset,
 )
@@ -238,6 +241,13 @@ BACKTEST_STATE_FIELDS: tuple[StateField, ...] = (
         "execution_mode",
         "executionMode",
         _one_of(mode.value for mode in BacktestExecutionMode),
+    ),
+    # Before the leverage rows: restoring Spot pins leverage to 1x, so a
+    # leverage restored first would be clamped by a market restored later.
+    StateField(
+        "market",
+        "broker_sim.market",
+        _one_of(market.value for market in BACKTEST_MARKETS),
     ),
     StateField(
         "order_size_type",

@@ -95,7 +95,7 @@ def _build(strategies=None, state=None):
         ),
         logger=logger,
         state=state,
-        get_market_metadata=lambda _symbol: state.metadata,
+        get_market_metadata=lambda _market, _symbol: state.metadata,
         notify_config_changed=bump,
     )
     view_model.strategy_params.selectedStrategyKey = "s1"

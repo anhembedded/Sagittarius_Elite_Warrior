@@ -48,6 +48,30 @@ class FeeCalculatorPolicy:
 
         return entry_fee, quantity
 
+    def entry_fee_for_quantity(
+        self,
+        quantity: float,
+        effective_price: float,
+        commission_type: CommissionType,
+        commission_value: float,
+    ) -> float:
+        """
+        @brief The entry fee of a position of exactly `quantity` (`EPIC-027C`).
+        @details The inverse of `calculate_entry_fee_and_quantity()`: once an
+        exchange filter floors the quantity it sized, the fee is that of the
+        smaller order. Every model keeps `notional_capital == quantity *
+        effective_price + entry_fee`, so the capital an entry commits follows
+        from this fee.
+        """
+        if commission_type is CommissionType.PERCENT:
+            rate = commission_value / 100.0
+            return quantity * effective_price * rate / (1.0 - rate)
+        if commission_type is CommissionType.CASH_PER_ORDER:
+            return commission_value
+        if commission_type is CommissionType.CASH_PER_CONTRACT:
+            return quantity * commission_value
+        return 0.0
+
     def calculate_exit_fee(
         self,
         quantity: float,

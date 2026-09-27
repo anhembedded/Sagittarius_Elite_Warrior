@@ -10,6 +10,8 @@ from __future__ import annotations
 
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+
 from ..ports.i_backtest_screen_state import IBacktestScreenState
 
 
@@ -40,6 +42,10 @@ class PresenterBackedScreenState(IBacktestScreenState):
     @property
     def symbol(self) -> str:
         return self._presenter._symbol
+
+    @property
+    def market(self) -> MarketType:
+        return MarketType(self._presenter._view_model.broker_sim.market)
 
     @property
     def all_trades(self) -> list[Any]:

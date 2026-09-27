@@ -91,14 +91,16 @@ class _BlockingExchangeClient(IExchangeClient):
         self.finished.set()
         raise ExchangeRequestCancelledError("shutdown probe cancelled")
 
-    def get_available_symbols(self) -> list[str]:
+    def get_available_symbols(self, market: MarketType) -> list[str]:
+        del market
         return ["BTCUSDT", "ETHUSDT"]
 
-    def get_symbol_metadata(self) -> list[SymbolMarketMetadata]:
+    def get_symbol_metadata(self, market: MarketType) -> list[SymbolMarketMetadata]:
         """`BUG-127` added this to the port. This probe's subject is a sync
         that hangs on shutdown, not exchange filters, so it answers empty —
         spelled out because `IExchangeClient` is an ABC and a missing method is
         a construction-time `TypeError` (`ONBOARDING` §8 trap 11)."""
+        del market
         return []
 
 

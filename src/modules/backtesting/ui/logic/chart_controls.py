@@ -1,4 +1,5 @@
 from PySide6 import QtCore, QtWidgets
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 from .chart_canvas_view import ChartDisplayMode, MarkerOutcomeFilter, MarkerSideFilter
@@ -126,6 +127,20 @@ class BacktestChartControls(QtWidgets.QWidget):
         layout.addWidget(self._marker_min_pnl_spin)
 
         layout.addStretch(1)
+
+    def show_sides_for(self, market: MarketType) -> None:
+        """EPIC-027D — a Spot screen offers no "Short Only" marker filter:
+        Spot is long-only (ADR D3). A selected one falls back to "All" first,
+        which re-emits the filter so the chart redraws its markers."""
+        combo = self._marker_side_combo
+        index = combo.findData(MarkerSideFilter.SHORT_ONLY)
+        if market is MarketType.SPOT and index >= 0:
+            if combo.currentIndex() == index:
+                combo.setCurrentIndex(combo.findData(MarkerSideFilter.ALL))
+            combo.removeItem(index)
+        elif market is not MarketType.SPOT and index < 0:
+            short_only = MarkerSideFilter.SHORT_ONLY
+            combo.addItem(_SIDE_LABELS[short_only], short_only)
 
     @staticmethod
     def _add_checkbox(

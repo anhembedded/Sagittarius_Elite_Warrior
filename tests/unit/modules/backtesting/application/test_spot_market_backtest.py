@@ -150,6 +150,14 @@ def _one_tick_per_minute(closes: list[float]) -> list[MarketData]:
     ]
 
 
+def _repository_with(
+    candles: list[MarketData], market: MarketType
+) -> FakeMarketDataRepository:
+    """The candles stored under the run's own market, which is where a run
+    reads them from (EPIC-027D)."""
+    return FakeMarketDataRepository(candles, market=market)
+
+
 def _engine_factory(strategy_cls: type[BaseStrategy]) -> StrategyEngineFactory:
     registry = StrategyRegistry()
     registry.register(_STRATEGY_KEY, strategy_cls)
@@ -162,7 +170,7 @@ def _run_static(
     strategy_cls: type[BaseStrategy] = _ScriptedMixedStrategy,
 ) -> BacktestResult:
     handler = RunStaticBacktestCommandHandler(
-        repository=FakeMarketDataRepository(candles, market=MarketType.SPOT),
+        repository=_repository_with(candles, broker_config.market_type),
         engine_factory=_engine_factory(strategy_cls),
         sizing_policy=default_sizing_policy(),
         event_publisher=Mock(),
@@ -185,7 +193,7 @@ def _run_tick(
     ticks: list[MarketData], broker_config: BrokerSimulationConfig
 ) -> BacktestResult:
     handler = RunHistoricalTickBacktestCommandHandler(
-        repository=FakeMarketDataRepository(ticks, market=MarketType.SPOT),
+        repository=_repository_with(ticks, broker_config.market_type),
         engine_factory=_engine_factory(_ScriptedMixedStrategy),
         sizing_policy=default_sizing_policy(),
         event_publisher=Mock(),
@@ -264,3 +272,35 @@ def test_static_spot_price_crash_stops_out_and_never_liquidates():
         1_000.0 + sum(trade.pnl for trade in result.trades)
     )
     assert result.final_balance > 0
+
+
+def test_a_run_reads_the_candles_of_its_own_market():
+    """EPIC-027D — Spot and Futures candles of one symbol are stored apart and
+    priced differently; each run fills at its own market's prices."""
+    spot = _hourly_candles([(99.0, 101.0, 100.0 + step) for step in range(8)])
+    futures = _hourly_candles([(199.0, 201.0, 200.0 + step) for step in range(8)])
+    repository = FakeMarketDataRepository(spot, market=MarketType.SPOT)
+    repository.save_klines(MarketType.FUTURES_USD_M, futures)
+
+    def run(config: BrokerSimulationConfig) -> BacktestResult:
+        handler = RunStaticBacktestCommandHandler(
+            repository=repository,
+            engine_factory=_engine_factory(_BuyWhenFlatStrategy),
+            sizing_policy=default_sizing_policy(),
+            event_publisher=Mock(),
+        )
+        result = handler.execute(
+            RunStaticBacktestCommand(
+                symbol="BTCUSDT",
+                interval=TimeFrame.ONE_HOUR,
+                strategy_key=_STRATEGY_KEY,
+                initial_balance=1_000.0,
+                fee_percent=0.0,
+                broker_config=config,
+            )
+        )
+        assert isinstance(result, BacktestResult)
+        return result
+
+    assert run(_SPOT).trades[0].entry_price == pytest.approx(101.0)
+    assert run(_FUTURES).trades[0].entry_price == pytest.approx(201.0)

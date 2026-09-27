@@ -23,6 +23,7 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalog import (
     ISymbolCatalog,
     normalised_symbols,
@@ -32,24 +33,40 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_catalo
 class FakeSymbolCatalog(ISymbolCatalog):
     """The tradeable-symbol list a test controls, and no exchange."""
 
-    def __init__(self, symbols: Sequence[str] | None = None) -> None:
-        """`symbols` seeds the catalog as a completed fetch would have, so a
-        consumer's test starts from the state it needs in one line."""
-        self._symbols = normalised_symbols(list(symbols or []))
+    def __init__(
+        self,
+        symbols: Sequence[str] | None = None,
+        market: MarketType = MarketType.SPOT,
+    ) -> None:
+        """`symbols` seeds `market`'s catalog as a completed fetch would have,
+        so a consumer's test starts from the state it needs in one line. Every
+        other market starts empty, as a real catalog is per market; `seed()`
+        without a market seeds this one."""
+        self._default_market = market
+        self._symbols: dict[MarketType, tuple[str, ...]] = {
+            market: normalised_symbols(list(symbols or []))
+        }
         #: Every call, as `force_refresh` was passed. A consumer asserts on
         #: this to show the manual refresh reached the module — a fact about
         #: the screen, not about the exchange.
         self.reads: list[bool] = []
+        #: The market of every call, in order.
+        self.markets_read: list[MarketType] = []
 
-    def list_symbols(self, *, force_refresh: bool = False) -> tuple[str, ...]:
+    def list_symbols(
+        self, market: MarketType, *, force_refresh: bool = False
+    ) -> tuple[str, ...]:
         self.reads.append(force_refresh)
-        return self._symbols
+        self.markets_read.append(market)
+        return self._symbols.get(market, ())
 
     # -- what a consumer's test usually wants to know ------------------------
 
-    def seed(self, symbols: Sequence[str]) -> None:
-        """Replace the catalog, as a refresh from the exchange would."""
-        self._symbols = normalised_symbols(list(symbols))
+    def seed(self, symbols: Sequence[str], market: MarketType | None = None) -> None:
+        """Replace `market`'s catalog, as a refresh from the exchange would."""
+        self._symbols[market or self._default_market] = normalised_symbols(
+            list(symbols)
+        )
 
     def was_refreshed(self) -> bool:
         """Whether any call asked to bypass the cache."""

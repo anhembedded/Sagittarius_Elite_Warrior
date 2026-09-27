@@ -16,6 +16,7 @@ from collections.abc import Iterator
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.symbol_metadata_provider import (
     BinanceSymbolMetadataProvider,
 )
@@ -55,12 +56,14 @@ class _ScriptedExchangeClient(IExchangeClient):
         self.entries: list[SymbolMarketMetadata] = []
         self.calls = 0
 
-    def get_symbol_metadata(self) -> list[SymbolMarketMetadata]:
+    def get_symbol_metadata(self, market: MarketType) -> list[SymbolMarketMetadata]:
+        # Scripted entries are Spot's catalog; another market's is empty, as
+        # the real exchange's Futures catalog is a different payload.
         self.calls += 1
-        return list(self.entries)
+        return list(self.entries) if market is MarketType.SPOT else []
 
-    def get_available_symbols(self) -> list[str]:
-        return [entry.symbol for entry in self.entries]
+    def get_available_symbols(self, market: MarketType) -> list[str]:
+        return [entry.symbol for entry in self.get_symbol_metadata(market)]
 
     def get_historical_klines(self, *args, **kwargs) -> list[MarketData]:
         raise AssertionError("the metadata provider must not read klines")
@@ -120,7 +123,7 @@ def test_the_real_provider_builds_no_client_until_a_read_needs_one() -> None:
 
     assert built == [], "constructing the provider built an exchange client"
 
-    provider.refresh()
+    provider.refresh(MarketType.SPOT)
 
     assert built == ["client"]
 

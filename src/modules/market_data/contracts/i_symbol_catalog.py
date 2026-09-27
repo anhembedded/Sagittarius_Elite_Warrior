@@ -37,6 +37,8 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+
 
 def normalised_symbols(symbols: Sequence[str]) -> tuple[str, ...]:
     """Upper-cased, trimmed, de-duplicated, sorted — the port's promise.
@@ -63,8 +65,11 @@ class ISymbolCatalog(ABC):
     """The symbols this context knows are open for trading."""
 
     @abstractmethod
-    def list_symbols(self, *, force_refresh: bool = False) -> tuple[str, ...]:
-        """Every tradeable symbol, upper-cased, de-duplicated and sorted.
+    def list_symbols(
+        self, market: MarketType, *, force_refresh: bool = False
+    ) -> tuple[str, ...]:
+        """Every tradeable symbol of `market`, upper-cased, de-duplicated and
+        sorted. Spot and USD-M Futures list different symbols (`EPIC-027D`).
 
         Normalised because three consumers render it straight into a picker,
         where `" btcusdt "` arriving twice is a visible defect — the same

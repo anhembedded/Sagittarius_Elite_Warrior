@@ -32,6 +32,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_symbol_metadata_provider import (
     ISymbolMetadataProvider,
 )
@@ -93,7 +94,7 @@ class SymbolMetadataProviderContract:
     def test_a_known_symbol_comes_back(self, impl) -> None:
         self.script(impl, metadata_for(_KNOWN))
 
-        found = impl.get_or_fetch(_KNOWN)
+        found = impl.get_or_fetch(MarketType.SPOT, _KNOWN)
 
         assert found is not None
         assert found.symbol == _KNOWN, (
@@ -109,16 +110,16 @@ class SymbolMetadataProviderContract:
         the exchange has never heard of passes the exchange's own rules."""
         self.script(impl, metadata_for(_KNOWN))
 
-        assert impl.get_or_fetch(_UNKNOWN) is None
+        assert impl.get_or_fetch(MarketType.SPOT, _UNKNOWN) is None
 
     def test_the_second_read_costs_no_round_trip(self, impl) -> None:
         """The reason the consumer calls this on a worker thread: the first read
         may go to the network, and the main thread's later reads must not."""
         self.script(impl, metadata_for(_KNOWN))
-        impl.get_or_fetch(_KNOWN)
+        impl.get_or_fetch(MarketType.SPOT, _KNOWN)
         after_first = self.round_trips(impl)
 
-        impl.get_or_fetch(_KNOWN)
+        impl.get_or_fetch(MarketType.SPOT, _KNOWN)
 
         assert self.round_trips(impl) == after_first
 
@@ -127,21 +128,28 @@ class SymbolMetadataProviderContract:
         never called it, so a filter Binance had since changed was trusted for
         the life of the process."""
         self.script(impl, metadata_for(_KNOWN, fetched_at=_LONG_AGO))
-        impl.get_or_fetch(_KNOWN)
+        impl.get_or_fetch(MarketType.SPOT, _KNOWN)
         after_first = self.round_trips(impl)
 
         self.script(impl, metadata_for(_KNOWN))
-        impl.get_or_fetch(_KNOWN)
+        impl.get_or_fetch(MarketType.SPOT, _KNOWN)
 
         assert self.round_trips(impl) > after_first, (
             "a stale entry was served from the cache — the whole point of "
             "`fetched_at` is that filters expire"
         )
 
+    def test_a_symbol_known_on_one_market_is_unknown_on_another(self, impl) -> None:
+        """`EPIC-027C` — Spot and Futures filters of one symbol differ, so a
+        symbol scripted only as Spot has no Futures filters to answer with."""
+        self.script(impl, metadata_for(_KNOWN))
+
+        assert impl.get_or_fetch(MarketType.FUTURES_USD_M, _KNOWN) is None
+
     def test_refresh_reports_how_many_it_cached(self, impl) -> None:
         self.script(impl, metadata_for(_KNOWN), metadata_for("ETHUSDT"))
 
-        assert impl.refresh() == 2
+        assert impl.refresh(MarketType.SPOT) == 2
 
     def test_refresh_on_an_empty_catalog_reports_zero_rather_than_raising(
         self, impl
@@ -149,4 +157,4 @@ class SymbolMetadataProviderContract:
         """A bad day at the exchange is an empty catalog, not an exception: the
         caller logs the number and carries on, which is what
         `DataSyncCoordinator` does after a sync that already succeeded."""
-        assert impl.refresh() == 0
+        assert impl.refresh(MarketType.SPOT) == 0

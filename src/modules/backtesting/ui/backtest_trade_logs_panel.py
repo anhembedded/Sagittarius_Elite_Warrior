@@ -16,6 +16,7 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import (
     AppLogPanel,
 )
@@ -48,6 +49,8 @@ _FILTER_TABS = [
     ("loss", "Losing trades"),
 ]
 
+_ALL_FILTER, _SHORT_FILTER = "all", "short"
+
 _HEADERS = (
     "# / TIME",
     "TYPE",
@@ -71,13 +74,9 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
     ROW_HEIGHT = 44
     MIN_VISIBLE_ROWS = 5
 
-    #: `PROP-001` — emitted with the trade's stable `TradeLogRow.index`
-    #: (1-based position in the full, unfiltered trades list) whenever a
-    #: row becomes expanded, and with `-1` when that same row collapses
-    #: again. The Presenter uses this to draw/clear the chart's
-    #: entry-exit connecting line — expand/collapse already means "the
-    #: user is looking at this trade", so this reuses that click rather
-    #: than adding a second, separate selection gesture.
+    #: `PROP-001` — the expanded row's stable `TradeLogRow.index` (1-based in
+    #: the unfiltered list), `-1` on collapse: the Presenter draws/clears the
+    #: chart's entry-exit line, reusing that click as the selection gesture.
     selectedTradeChanged = Signal(int)
 
     def __init__(
@@ -310,6 +309,7 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
         vm = self._vm
         vm.activeBottomTabChanged.connect(self._sync_active_tab)
         vm.trade_log.filterChanged.connect(self._sync_filters)
+        vm.broker_sim.marketChanged.connect(self._sync_filters)
         vm.trade_log.searchTextChanged.connect(self._sync_search)
         vm.trade_log.rowsChanged.connect(self._sync_rows)
         vm.trade_log.rowsChanged.connect(self._sync_tab_badges)
@@ -330,9 +330,7 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
         self._sync_drawdown()
         self._sync_returns()
 
-    #: `activeBottomTab` values this panel understands — kept in one place so
-    #: an unrecognized value (should never happen; defensive default only)
-    #: falls back to "trades" instead of hiding every tab.
+    #: `activeBottomTab` values this panel understands; anything else -> "trades".
     _BOTTOM_TAB_IDS = ("trades", "drawdown", "returns", "logs")
 
     def _sync_active_tab(self) -> None:
@@ -368,9 +366,15 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
         self._returns_heatmap.set_rows(self._vm.run_result.yearlyReturns)
 
     def _sync_filters(self) -> None:
+        """EPIC-027D — Spot is long-only: no short tab; a selected one -> all."""
+        spot = self._vm.broker_sim.market == MarketType.SPOT.value
+        if spot and self._vm.trade_log.filter == _SHORT_FILTER:
+            self._vm.trade_log.filter = _ALL_FILTER
+            return
         current = self._vm.trade_log.filter
         for btn in self._filter_buttons:
             btn.set_active(btn.value == current)
+            btn.setVisible(not (spot and btn.value == _SHORT_FILTER))
 
     def _on_filter_clicked(self, value: str) -> None:
         self._vm.trade_log.filter = value
@@ -424,13 +428,9 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
         )
 
     def _sync_dirty_opacity(self) -> None:
-        # Qt Widgets has no CSS `opacity` for arbitrary QFrame content;
-        # QGraphicsOpacityEffect is the real mechanism. The *effect object*
-        # is still built lazily, below, so a panel that never goes dirty
-        # never pays for one -- which is what the laziness was ever for. The
-        # import itself is now at the top, where `code-rule.md` requires it:
-        # binding a name out of a module PySide6 has already loaded costs
-        # nothing, so importing it here bought none of that saving.
+        # Qt Widgets has no CSS `opacity` for QFrame content;
+        # QGraphicsOpacityEffect is the mechanism, built lazily so a panel
+        # that never goes dirty never pays for one.
         effect = self._trades_tab.graphicsEffect()
         if self._vm.isConfigDirty:
             if not isinstance(effect, QGraphicsOpacityEffect):

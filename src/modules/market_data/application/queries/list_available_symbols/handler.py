@@ -18,6 +18,7 @@ it fetched) is a cache fill, not a new fact about the market.
 import logging
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
 )
@@ -62,19 +63,27 @@ class SymbolCatalogService(ISymbolCatalog):
         self._exchange_client = exchange_client
         self._catalog_repo = catalog_repo
 
-    def list_symbols(self, *, force_refresh: bool = False) -> tuple[str, ...]:
+    def list_symbols(
+        self, market: MarketType, *, force_refresh: bool = False
+    ) -> tuple[str, ...]:
         if not force_refresh:
-            cached = self._catalog_repo.get_symbols()
+            cached = self._catalog_repo.get_symbols(market)
             if cached:
-                logger.info(f"Loaded {len(cached)} tradeable symbols from local cache.")
+                logger.info(
+                    f"Loaded {len(cached)} tradeable {market.value} symbols from "
+                    "local cache."
+                )
                 return normalised_symbols(cached)
 
-        logger.debug("Reading the tradeable-symbol list from the exchange")
-        symbols = self._exchange_client().get_available_symbols()
-        logger.info(f"Fetched {len(symbols)} tradeable symbols from the exchange.")
+        logger.debug(f"Reading the {market.value} symbol list from the exchange")
+        symbols = self._exchange_client().get_available_symbols(market)
+        logger.info(
+            f"Fetched {len(symbols)} tradeable {market.value} symbols from the "
+            "exchange."
+        )
         if symbols:
             # Only a non-empty answer is stored: writing an empty list would
             # overwrite a good cache with the result of a bad day at the
             # exchange, and the next caller would see "no symbols" as fact.
-            self._catalog_repo.save_symbols(symbols)
+            self._catalog_repo.save_symbols(market, symbols)
         return normalised_symbols(symbols)

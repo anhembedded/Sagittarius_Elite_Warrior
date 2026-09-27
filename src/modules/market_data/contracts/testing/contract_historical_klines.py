@@ -21,6 +21,7 @@ from collections.abc import Callable, Sequence
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
@@ -35,6 +36,10 @@ _MINUTE = MINUTE
 
 #: How a subclass puts rows where its implementation will read them.
 type SeedKlines = Callable[[Sequence[MarketData]], None]
+
+
+#: Where every `seed` puts its rows (both implementations seed Spot).
+_MARKET = MarketType.SPOT
 
 
 def _minute_candle(
@@ -78,7 +83,7 @@ class HistoricalKlinesContract:
         """The ordinary state of a symbol the user has not synced. Every
         caller handles it by drawing an empty chart and saying so; raising
         would make the normal case exceptional."""
-        assert impl.load("NOSUCHPAIR", _MINUTE) == ()
+        assert impl.load(_MARKET, "NOSUCHPAIR", _MINUTE) == ()
 
     def test_a_symbol_stored_at_another_interval_reads_empty(
         self, impl: IHistoricalKlines, seed: SeedKlines
@@ -88,7 +93,7 @@ class HistoricalKlinesContract:
         from real data."""
         seed([_minute_candle("BTCUSDT", 0, interval=TimeFrame.ONE_DAY)])
 
-        assert impl.load("BTCUSDT", _MINUTE) == ()
+        assert impl.load(_MARKET, "BTCUSDT", _MINUTE) == ()
 
     # -- order and selection -------------------------------------------------
 
@@ -103,7 +108,7 @@ class HistoricalKlinesContract:
             ]
         )
 
-        assert _closes(impl.load("BTCUSDT", _MINUTE)) == [0.0, 1.0, 2.0]
+        assert _closes(impl.load(_MARKET, "BTCUSDT", _MINUTE)) == [0.0, 1.0, 2.0]
 
     def test_newest_first_reverses_the_order(
         self, impl: IHistoricalKlines, seed: SeedKlines
@@ -116,7 +121,7 @@ class HistoricalKlinesContract:
             ]
         )
 
-        rows = impl.load("BTCUSDT", _MINUTE, newest_first=True)
+        rows = impl.load(_MARKET, "BTCUSDT", _MINUTE, newest_first=True)
 
         assert _closes(rows) == [2.0, 1.0, 0.0]
 
@@ -125,7 +130,7 @@ class HistoricalKlinesContract:
     ) -> None:
         seed([_minute_candle("BTCUSDT", minute) for minute in range(5)])
 
-        assert _closes(impl.load("BTCUSDT", _MINUTE, limit=2)) == [0.0, 1.0]
+        assert _closes(impl.load(_MARKET, "BTCUSDT", _MINUTE, limit=2)) == [0.0, 1.0]
 
     def test_newest_first_decides_which_rows_a_limit_keeps(
         self, impl: IHistoricalKlines, seed: SeedKlines
@@ -135,7 +140,7 @@ class HistoricalKlinesContract:
         chart the oldest candles in the shard and look identical in type."""
         seed([_minute_candle("BTCUSDT", minute) for minute in range(5)])
 
-        rows = impl.load("BTCUSDT", _MINUTE, limit=2, newest_first=True)
+        rows = impl.load(_MARKET, "BTCUSDT", _MINUTE, limit=2, newest_first=True)
 
         assert _closes(rows) == [4.0, 3.0]
 
@@ -151,6 +156,7 @@ class HistoricalKlinesContract:
         seed([_minute_candle("BTCUSDT", minute) for minute in range(5)])
 
         rows = impl.load(
+            _MARKET,
             "BTCUSDT",
             _MINUTE,
             start_time=at(1),
@@ -170,7 +176,7 @@ class HistoricalKlinesContract:
         with no rows."""
         seed([_minute_candle("BTCUSDT", 0)])
 
-        rows = impl.load_many(["BTCUSDT", "ETHUSDT"], _MINUTE)
+        rows = impl.load_many(_MARKET, ["BTCUSDT", "ETHUSDT"], _MINUTE)
 
         assert set(rows) == {"BTCUSDT", "ETHUSDT"}
         assert _closes(rows["BTCUSDT"]) == [0.0]
@@ -181,7 +187,7 @@ class HistoricalKlinesContract:
     ) -> None:
         seed([_minute_candle("BTCUSDT", 0), _minute_candle("ETHUSDT", 1)])
 
-        rows = impl.load_many(["BTCUSDT", "ETHUSDT"], _MINUTE)
+        rows = impl.load_many(_MARKET, ["BTCUSDT", "ETHUSDT"], _MINUTE)
 
         assert _closes(rows["BTCUSDT"]) == [0.0]
         assert _closes(rows["ETHUSDT"]) == [1.0]
@@ -192,7 +198,7 @@ class HistoricalKlinesContract:
         """A screen with an empty symbol list is not an error here — it has
         simply nothing to draw, and the real path must not build a thread pool
         for it either."""
-        assert dict(impl.load_many([], _MINUTE)) == {}
+        assert dict(impl.load_many(_MARKET, [], _MINUTE)) == {}
 
     def test_the_range_and_the_limit_apply_per_symbol(
         self, impl: IHistoricalKlines, seed: SeedKlines
@@ -205,7 +211,7 @@ class HistoricalKlinesContract:
             + [_minute_candle("ETHUSDT", minute) for minute in range(4)]
         )
 
-        rows = impl.load_many(["BTCUSDT", "ETHUSDT"], _MINUTE, limit=2)
+        rows = impl.load_many(_MARKET, ["BTCUSDT", "ETHUSDT"], _MINUTE, limit=2)
 
         assert _closes(rows["BTCUSDT"]) == [0.0, 1.0]
         assert _closes(rows["ETHUSDT"]) == [0.0, 1.0]
@@ -220,7 +226,21 @@ class HistoricalKlinesContract:
         stored data."""
         seed([_minute_candle("BTCUSDT", 0)])
 
-        rows = impl.load("BTCUSDT", _MINUTE)
+        rows = impl.load(_MARKET, "BTCUSDT", _MINUTE)
 
         assert isinstance(rows, tuple)
-        assert isinstance(impl.load_many(["BTCUSDT"], _MINUTE)["BTCUSDT"], tuple)
+        assert isinstance(
+            impl.load_many(_MARKET, ["BTCUSDT"], _MINUTE)["BTCUSDT"], tuple
+        )
+
+    def test_a_symbol_stored_in_another_market_reads_empty(
+        self, impl: IHistoricalKlines, seed: SeedKlines
+    ) -> None:
+        """`EPIC-027D` — Spot and Futures candles of one symbol are stored apart,
+        so a Futures read of a symbol seeded only as Spot finds nothing."""
+        seed([_minute_candle("BTCUSDT", 0)])
+
+        assert impl.load(MarketType.FUTURES_USD_M, "BTCUSDT", _MINUTE) == ()
+        assert dict(impl.load_many(MarketType.FUTURES_USD_M, ["BTCUSDT"], _MINUTE)) == {
+            "BTCUSDT": ()
+        }

@@ -1,6 +1,6 @@
 # EPIC-027 — Spot beside Futures: truthful Spot backtests first, then live Spot on Testnet
 
-- **Status:** 🟡 Phase 1 in progress — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` and `EPIC-027B` are done; `EPIC-027C` is next.
+- **Status:** 🟡 Phase 1 in progress — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` to `EPIC-027D` are done; `EPIC-027E` closes Phase 1.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-26): *"đánh giá xem giờ tui muốn giao dịch spot và back test theo
   spot thì app này cần những gì, lên plan và epic, sao đó report cho tôi"* ("assess what this app
@@ -91,8 +91,8 @@ request unless its file says otherwise.
 | **Phase 1 — Spot backtest (no API keys needed)** | | | | | |
 | [EPIC-027A](completed/EPIC-027A_market_aware_kline_storage_and_download.md) | Every stored candle knows its market; a sync asks for one | Elite | O3 (answered) | 🔴 | ✅ Done (2026-09-26) |
 | [EPIC-027B](completed/EPIC-027B_spot_mode_in_the_backtest_engine.md) | Spot mode in the engine: long-only, 1×, never liquidated, shorts counted | Elite | A | 🟡 | ✅ Done (2026-09-27) |
-| [EPIC-027C](incomplete/EPIC-027C_exchange_filters_on_simulated_fills.md) | Simulated fills obey step size, minimum notional and tick size | Elite | A | 🟡 | Planned |
-| [EPIC-027D](incomplete/EPIC-027D_backtest_ui_market_selector.md) | Backtest screen chooses the market and shows only what it can do | Elite | A, B | 🟢 | Planned |
+| [EPIC-027C](completed/EPIC-027C_exchange_filters_on_simulated_fills.md) | Simulated fills obey step size, minimum notional and tick size | Elite | A | 🟡 | ✅ Done (2026-09-27) |
+| [EPIC-027D](completed/EPIC-027D_backtest_ui_market_selector.md) | Backtest screen chooses the market and shows only what it can do | Elite | A, B | 🟢 | ✅ Done (2026-09-27) |
 | [EPIC-027E](incomplete/EPIC-027E_report_schema_carries_market_type.md) | Saved reports state their market | Elite | B, C | 🟢 | Planned |
 | **Phase 2 — Live Spot foundations (read-only)** | | | | | |
 | [EPIC-027F](incomplete/EPIC-027F_venue_selected_trading_client_factory.md) | One venue-selected factory replaces six direct client constructions | Elite | None | 🔴 | Planned |
@@ -130,6 +130,14 @@ request unless its file says otherwise.
 - **Funding-rate modeling for Futures.** Still out of scope as in `BOT-049`.
 
 ## Notes (newest first)
+- **2026-09-27** — `EPIC-027C` and `EPIC-027D` done, in one pull request.
+  - **Simulated fills obey the exchange's rules** for the run's (market, symbol): quantity floored
+    to the step, entries below the minimum refused and counted, slippage by the real tick.
+  - **The Backtest screen chooses Spot or USD-M Futures.** Candles, catalog, coverage, sync and
+    exchange filters all follow the choice, so `market_data`'s read ports now take a market. Spot
+    hides leverage and the short-only filters.
+  - Result and limitations state the market, the ignored shorts and the filters.
+  - 5612 unit passed, 168 integration passed (4 skipped), 32 sanity passed. `EPIC-027E` (the report) closes Phase 1.
 - **2026-09-27** — `EPIC-027B` done: `BrokerSimulationConfig.market_type` (default `FUTURES_USD_M`,
   so existing runs are unchanged); `SPOT` is long-only at 1× and never liquidated, and SHORT/COVER are
   dropped and counted by `MarketSignalGatePolicy` at `PaperExchange.fill()` in both handlers

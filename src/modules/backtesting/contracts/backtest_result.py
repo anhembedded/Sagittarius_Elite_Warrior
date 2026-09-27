@@ -4,8 +4,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_metrics import (
     BacktestMetrics,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exchange_filters import (
+    ExchangeFilters,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
 
@@ -56,6 +60,17 @@ class BacktestResult:
     #: remapped). Always 0 for a Futures run. A result fact, so the report
     #: (`EPIC-027E`) and the UI show it without re-deriving it.
     ignored_short_signals: int = 0
+    #: EPIC-027C — entries an exchange filter refused (below the minimum
+    #: quantity or notional). They opened nothing and the run continued.
+    rejected_entries: int = 0
+    #: EPIC-027C — the exchange filters this run applied, or `None` when no
+    #: metadata was available and none were (ADR D5: whether filters applied,
+    #: and their values, is a result fact).
+    exchange_filters: ExchangeFilters | None = None
+    #: EPIC-027D — the market this run simulated. Defaults like
+    #: `BrokerSimulationConfig.market_type`, so a result built without one
+    #: (a report saved before EPIC-027E) reads as the engine default.
+    market_type: MarketType = MarketType.FUTURES_USD_M
 
     @classmethod
     def compute(
@@ -68,6 +83,9 @@ class BacktestResult:
         out_of_sample: OutOfSampleValidation | None = None,
         committed_bars: list[MarketData] | None = None,
         ignored_short_signals: int = 0,
+        rejected_entries: int = 0,
+        exchange_filters: ExchangeFilters | None = None,
+        market_type: MarketType = MarketType.FUTURES_USD_M,
     ) -> BacktestResult:
         return cls(
             symbol=symbol,
@@ -79,4 +97,7 @@ class BacktestResult:
             out_of_sample=out_of_sample,
             committed_bars=None if committed_bars is None else list(committed_bars),
             ignored_short_signals=ignored_short_signals,
+            rejected_entries=rejected_entries,
+            exchange_filters=exchange_filters,
+            market_type=market_type,
         )

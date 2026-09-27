@@ -122,7 +122,7 @@ never states — `domain-truth-rule.md`.
 | D1 | [`EPIC-027A`](completed/EPIC-027A_market_aware_kline_storage_and_download.md) | ✅ Done (2026-09-26) | `MarketType` in `src/core/vo/`; every storage and sync call names a market (PR #276) |
 | D2 | [`EPIC-027A`](completed/EPIC-027A_market_aware_kline_storage_and_download.md) | ✅ Done (2026-09-26) | one shard per (market, symbol); `test_market_data_client_routes_klines_by_market.py` proves `/api/v3` vs `/fapi` routing (PR #276) |
 | D3, D4 | [`EPIC-027B`](completed/EPIC-027B_spot_mode_in_the_backtest_engine.md) | ✅ Done (2026-09-27) | `BrokerSimulationConfig.market_type`; `MarketSignalGatePolicy`; `test_spot_market_backtest.py` (both handlers), golden run unchanged apart from the new zero count |
-| D5 | [`EPIC-027C`](incomplete/EPIC-027C_exchange_filters_on_simulated_fills.md) | Not started | Not yet verified |
+| D5 | [`EPIC-027C`](completed/EPIC-027C_exchange_filters_on_simulated_fills.md) | ✅ Done (2026-09-27) | `ExchangeFilterPolicy` floors entries to the step and refuses below minimum quantity/notional, per (market, symbol); `test_exchange_filters_backtest.py`; filters and rejections on `BacktestResult` (report: `EPIC-027E`) |
 | D6 | [`EPIC-027F`](incomplete/EPIC-027F_venue_selected_trading_client_factory.md), [`EPIC-027K`](incomplete/EPIC-027K_spot_trading_client_and_order_path.md) | Not started | Not yet verified |
 | D7 | [`EPIC-027H`](incomplete/EPIC-027H_spot_account_reader_and_holdings_model.md) | Not started | Not yet verified |
 | D8 | [`EPIC-027G`](incomplete/EPIC-027G_spot_testnet_venue_and_credentials.md) | Not started | Not yet verified |
