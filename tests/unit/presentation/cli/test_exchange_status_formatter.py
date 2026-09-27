@@ -8,6 +8,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     MarginType,
     PositionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
+    SpotHolding,
+)
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter import (
     format_exchange_connection_status,
 )
@@ -100,3 +103,126 @@ def test_hedge_mode_shows_reachable_but_still_names_the_failure():
     assert "✔" in text
     assert "HEDGE_MODE_UNSUPPORTED" in text
     assert "Hedge Mode" in text
+
+
+def _spot_holding(asset: str, free: str, locked: str = "0") -> SpotHolding:
+    return SpotHolding(
+        asset=asset,
+        free=Decimal(free),
+        locked=Decimal(locked),
+        dust_threshold=Decimal("0.00000001"),
+    )
+
+
+def _spot_success_status(**overrides) -> ExchangeConnectionStatus:
+    defaults = {
+        "venue": TradingVenue.SPOT_TESTNET,
+        "reachable": True,
+        "failure": None,
+        "server_time_skew_ms": 50,
+        "usdt_balance": Decimal("10000.00"),
+        "position_mode": None,
+        "margin_type": None,
+        "open_position_count": None,
+        "holdings": (
+            _spot_holding("USDT", "10000.00"),
+            _spot_holding("BTC", "0.5"),
+        ),
+        "equity": Decimal("35000.00"),
+    }
+    defaults.update(overrides)
+    return ExchangeConnectionStatus(**defaults)
+
+
+def test_a_spot_success_shows_holdings_and_equity_not_position_mode():
+    """`EPIC-027H` — `holdings is not None` is what routes rendering to the
+    Spot shape; Spot has no position mode/margin type to show."""
+    text = format_exchange_connection_status(_spot_success_status())
+
+    assert "SPOT_TESTNET" in text
+    assert "BTC" in text
+    assert "35,000.00" in text
+    assert "Position mode" not in text
+    assert "Margin type" not in text
+
+
+def test_a_spot_success_omits_the_quote_asset_from_the_holdings_list():
+    text = format_exchange_connection_status(_spot_success_status())
+
+    holdings_section = text.split("Holdings:", 1)[1]
+    assert "USDT" not in holdings_section
+
+
+def test_a_spot_success_with_no_holdings_says_so_rather_than_an_empty_list():
+    text = format_exchange_connection_status(
+        _spot_success_status(holdings=(_spot_holding("USDT", "10000.00"),))
+    )
+
+    assert "none above dust threshold" in text
+
+
+def test_unavailable_spot_equity_shows_a_question_mark_never_a_guess():
+    """`SpotAccountReader._compute_equity` returns `None` rather than a
+    partial sum when a holding could not be priced (`EPIC-027H`) — the
+    formatter must show that as "not available", not silently omit the
+    line or print `0.00`."""
+    text = format_exchange_connection_status(_spot_success_status(equity=None))
+
+    lines = [line for line in text.splitlines() if "Equity" in line]
+    assert len(lines) == 1
+    assert "?" in lines[0]
+
+
+def test_a_spot_key_mixup_gets_spot_specific_guidance():
+    status = ExchangeConnectionStatus(
+        venue=TradingVenue.SPOT_TESTNET,
+        reachable=False,
+        failure=ConnectionFailureKind.KEY_EXPIRED,
+        server_time_skew_ms=None,
+        usdt_balance=None,
+        position_mode=None,
+        margin_type=None,
+        open_position_count=None,
+    )
+
+    text = format_exchange_connection_status(status)
+
+    assert "testnet.binance.vision" in text
+    assert "Futures Testnet keys" in text
+    assert "testnet.binancefuture.com" not in text
+
+
+def test_a_spot_not_configured_status_points_at_the_spot_env_vars():
+    status = ExchangeConnectionStatus(
+        venue=TradingVenue.SPOT_TESTNET,
+        reachable=False,
+        failure=ConnectionFailureKind.NOT_CONFIGURED,
+        server_time_skew_ms=None,
+        usdt_balance=None,
+        position_mode=None,
+        margin_type=None,
+        open_position_count=None,
+    )
+
+    text = format_exchange_connection_status(status)
+
+    assert "BINANCE_SPOT_TESTNET_API_KEY" in text
+
+
+def test_a_spot_clock_skew_failure_reuses_the_venue_agnostic_guidance():
+    """`CLOCK_SKEW` has no Spot-specific entry — `_guidance_for` must fall
+    back to the shared table rather than raising a `KeyError`."""
+    status = ExchangeConnectionStatus(
+        venue=TradingVenue.SPOT_TESTNET,
+        reachable=False,
+        failure=ConnectionFailureKind.CLOCK_SKEW,
+        server_time_skew_ms=None,
+        usdt_balance=None,
+        position_mode=None,
+        margin_type=None,
+        open_position_count=None,
+    )
+
+    text = format_exchange_connection_status(status)
+
+    assert "Resync the system" in text
