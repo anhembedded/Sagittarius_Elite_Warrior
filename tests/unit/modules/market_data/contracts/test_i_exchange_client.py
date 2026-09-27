@@ -51,10 +51,10 @@ def test_valid_implementation():
         ) -> Iterator[list[MarketData]]:
             yield []
 
-        def get_available_symbols(self) -> list[str]:
+        def get_available_symbols(self, market: MarketType) -> list[str]:
             return []
 
-        def get_symbol_metadata(self) -> list[SymbolMarketMetadata]:
+        def get_symbol_metadata(self, market: MarketType) -> list[SymbolMarketMetadata]:
             # `BUG-127` added this to the port. Spelled out rather than
             # inherited: this test's whole subject is that a class claiming to
             # implement the port implements *all* of it, so the method the port
@@ -71,4 +71,5 @@ def test_valid_implementation():
             MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE, "1 day ago UTC"
         )
     ) == [[]]
-    assert client.get_available_symbols() == []
+    assert client.get_available_symbols(MarketType.SPOT) == []
+    assert client.get_symbol_metadata(MarketType.SPOT) == []
