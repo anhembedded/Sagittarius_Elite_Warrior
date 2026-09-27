@@ -38,3 +38,12 @@ class OrderFilledEvent(BaseEvent):
     order: Order
     fill_price: Decimal
     fill_quantity: Decimal
+    #: `EPIC-027L` — Spot's per-fill commission (`"n"`/`"N"` on
+    #: `executionReport`), absent for Futures (`ORDER_TRADE_UPDATE` carries
+    #: no per-fill commission field at all — funding/commission there is a
+    #: separate wallet-balance concern `account_update_wallet_balance`
+    #: already covers). `None` rather than `Decimal(0)` when unknown: a real
+    #: zero-fee fill and "this venue's parser never populated it" are
+    #: different facts (`code/errors.md` §6, no fabricated fallback).
+    fee_amount: Decimal | None = None
+    fee_asset: str | None = None

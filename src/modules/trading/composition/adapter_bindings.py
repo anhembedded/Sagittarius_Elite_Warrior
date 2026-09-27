@@ -64,6 +64,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_se
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_trading_client_factory import (
     SpotTradingClientFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_user_data_stream import (
+    SpotUserDataStream,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
@@ -245,15 +248,29 @@ def bind_adapters(container: IContainer) -> None:
     # read/write through one shared singleton).
     container.singleton(EquityCurveRecorder, EquityCurveRecorder())
 
+    # `EPIC-027L`: venue-branches exactly like `ITradingAccountReader`/
+    # `ITradingClientFactory` above — `SpotUserDataStream` (no position-
+    # reconciliation deps, re-fetches equity via `ITradingAccountReader`)
+    # for `SPOT_TESTNET`, unchanged `FuturesUserDataStream` otherwise.
     container.singleton(
         IUserDataStream,
-        lambda c: FuturesUserDataStream(
-            c.resolve(IEventBus),
-            c.resolve(ITaskManager),
-            c.resolve(IExchangeCredentialsProvider),
-            c.resolve(ITradingClientFactory),
-            c.resolve(TradingSessionState),
-            c.resolve(EquityCurveRecorder),
+        lambda c: (
+            SpotUserDataStream(
+                c.resolve(IEventBus),
+                c.resolve(ITaskManager),
+                c.resolve(IExchangeCredentialsProvider),
+                c.resolve(ITradingAccountReader),
+                c.resolve(EquityCurveRecorder),
+            )
+            if c.resolve(TradingVenue) is TradingVenue.SPOT_TESTNET
+            else FuturesUserDataStream(
+                c.resolve(IEventBus),
+                c.resolve(ITaskManager),
+                c.resolve(IExchangeCredentialsProvider),
+                c.resolve(ITradingClientFactory),
+                c.resolve(TradingSessionState),
+                c.resolve(EquityCurveRecorder),
+            )
         ),
     )
 
