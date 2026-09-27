@@ -108,7 +108,9 @@ class TestSafetyGates:
             "origQty": "0.01",
             "status": "CANCELED",
         }
-        handler = _handler(trading_venue=TradingVenue.SPOT_TESTNET, raw_client=raw_client)
+        handler = _handler(
+            trading_venue=TradingVenue.SPOT_TESTNET, raw_client=raw_client
+        )
         result = handler.execute(CancelOrderCommand("BTCUSDT", "abc"))
         assert result.blocked_by is not ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
 
