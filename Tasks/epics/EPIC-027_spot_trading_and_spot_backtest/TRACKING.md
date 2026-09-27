@@ -1,7 +1,7 @@
 # EPIC-027 — Tracking
 
 - **Epic:** [EPIC-027 — Spot beside Futures](README.md)
-- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27) — `EPIC-027A`–`EPIC-027E` done; Phase 2 starts at `EPIC-027F`
+- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 in progress (1/5) — `EPIC-027A`–`EPIC-027E` done; `EPIC-027F` done, opening the venue-selected factory seam
 - **Target Completion:** not committed; the bars below are relative estimates from the day the ADR is accepted.
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -32,7 +32,7 @@ gantt
     Phase 1 exit check                      :milestone, m1, after d, 0d
 
     section Phase 2 - Live foundations
-    027F Venue-selected client factory      :crit,    f, after s2, 3d
+    027F Venue-selected client factory      :done,    f, after s2, 3d
     027J Fake exchange Spot routes          :         j, after s2, 4d
     027G Spot Testnet venue and keys        :         g, after f, 3d
     027I Spot metadata provider             :         i, after g, 2d
@@ -60,7 +60,7 @@ gantt
 | EPIC-027C | [Exchange filters on fills](completed/EPIC-027C_exchange_filters_on_simulated_fills.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | 2026-09-27 |
 | EPIC-027D | [Backtest market selector](completed/EPIC-027D_backtest_ui_market_selector.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Done | 2026-09-27 |
 | EPIC-027E | [Report carries market](completed/EPIC-027E_report_schema_carries_market_type.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Done | 2026-09-27 |
-| EPIC-027F | [Venue-selected client factory](incomplete/EPIC-027F_venue_selected_trading_client_factory.md) | — | 🔴 | 🔵 Planned | — |
+| EPIC-027F | [Venue-selected client factory](completed/EPIC-027F_venue_selected_trading_client_factory.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | ✅ Done | 2026-09-27 |
 | EPIC-027G | [Spot Testnet venue and keys](incomplete/EPIC-027G_spot_testnet_venue_and_credentials.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-027H | [Spot account and holdings](incomplete/EPIC-027H_spot_account_reader_and_holdings_model.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-027I | [Spot metadata provider](incomplete/EPIC-027I_spot_symbol_metadata_provider.md) | — | 🟢 | 🔵 Planned | — |
@@ -84,6 +84,7 @@ gantt
 | 2026-09-27 | EPIC-027B | Done — `BrokerSimulationConfig.market_type` (default `FUTURES_USD_M`, golden run unchanged apart from the new zero count); Spot refuses leverage ≠ 1 and COIN-M; `MarketSignalGatePolicy` drops and counts SHORT/COVER in both handlers; no Spot trade can liquidate. unit 5550 passed, integration 166 passed (4 pre-existing skips), architecture 445; mypy clean on 703 files. |
 | 2026-09-27 | EPIC-027C, EPIC-027D | Done in one PR — fills floored to the step and refused below the minimum notional per (market, symbol), slippage by the real tick; Backtest market selector (Spot / USD-M Futures) with candles, catalog, coverage, sync and filters following it; Spot hides leverage and short-only filters; `market_data` read ports take a market. 5612 unit passed, 168 integration passed (4 skipped), 32 sanity passed. |
 | 2026-09-27 | EPIC-027E | Done, closing Phase 1 (5/5) — the report schema (v1→v2) now writes `market_type`/`exchange_filters`/`ignored_short_signals`/`rejected_entries`, plus four pre-existing `BOT-105A`/`105C` fields the serializer had also been silently dropping; a v1 report still loads, its market flagged "not recorded" via `BacktestReportLoadResult.market_type_recorded` rather than guessed; the comparison dialog gained a Spot-vs-Futures mismatch warning distinct from the pre-existing symbol/timeframe one. 5618 unit passed, 168 integration passed (4 skipped), 32 sanity passed, architecture 445, mypy clean. |
+| 2026-09-27 | EPIC-027F | Done, opening Phase 2 (1/5) — six direct `FuturesTradingClient(...)` constructions (four order-path handlers, the open-positions query, the user data stream) replaced by `ITradingClientFactory.create(mode)`, bound unconditionally so handlers stay constructible while trading is disabled; venue is selected once by which concrete factory is bound, not by a `create()` argument. New architecture guard scans all of `src/`+`scripts/` and caught a probe script's stale constructor call via mypy. `tests/unit/modules/trading` 794 passed, `tests/unit/architecture` 451 passed, full `tests/unit` 5626 passed, `tests/sanity` 32 passed; ruff and mypy (713 files) clean. |
 
 ---
 

@@ -10,9 +10,6 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
-    FuturesTradingClient,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order.command import (
     CancelOrderCommand,
 )
@@ -25,20 +22,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderSafetyGate,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
+    ITradingClientFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
-    IExchangeCredentialsProvider,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
-    ITradingSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -53,16 +44,12 @@ class CancelOrderCommandHandler(ICommandHandler[CancelOrderCommand, CancelOrderR
         trading_venue: TradingVenue,
         session_state: TradingSessionState,
         account_reader: ITradingAccountReader,
-        session_factory: ITradingSessionFactory,
-        credentials_provider: IExchangeCredentialsProvider,
-        metadata_provider: IMarketMetadataProvider,
+        trading_client_factory: ITradingClientFactory,
     ) -> None:
         self._trading_venue = trading_venue
         self._session_state = session_state
         self._account_reader = account_reader
-        self._session_factory = session_factory
-        self._credentials_provider = credentials_provider
-        self._metadata_provider = metadata_provider
+        self._trading_client_factory = trading_client_factory
 
     def execute(self, command: CancelOrderCommand) -> CancelOrderResult:
         logger.debug(
@@ -77,11 +64,8 @@ class CancelOrderCommandHandler(ICommandHandler[CancelOrderCommand, CancelOrderR
         # `OrderSubmissionMode` only gates `place_order()` — irrelevant to
         # a cancel, same reasoning `EnableTradingCommandHandler` already
         # gives for its own read-only calls through this same adapter.
-        trading_client = FuturesTradingClient(
-            self._session_factory,
-            self._credentials_provider,
-            self._metadata_provider,
-            OrderSubmissionMode.VALIDATE_ONLY,
+        trading_client = self._trading_client_factory.create(
+            OrderSubmissionMode.VALIDATE_ONLY
         )
         cancelled_order = trading_client.cancel_order(
             command.symbol, command.client_order_id

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client_factory import (
+    FuturesTradingClientFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
     GetOpenPositionsQuery,
     GetOpenPositionsQueryHandler,
@@ -39,14 +42,16 @@ def _handler(raw_client: Mock) -> GetOpenPositionsQueryHandler:
     credentials_provider = Mock()
     credentials_provider.resolve.return_value = _CREDENTIALS
     metadata_provider = Mock()
-    return GetOpenPositionsQueryHandler(
+    trading_client_factory = FuturesTradingClientFactory(
         session_factory, credentials_provider, metadata_provider
     )
+    return GetOpenPositionsQueryHandler(trading_client_factory)
 
 
 def test_execute_reads_positions_through_a_freshly_built_trading_client() -> None:
-    """Builds its own `FuturesTradingClient` from the always-registered
-    session-factory/credentials/metadata collaborators rather than taking
+    """Resolves its client from `ITradingClientFactory`, a fresh
+    `FuturesTradingClient` built from the always-registered
+    session-factory/credentials/metadata collaborators, rather than taking
     `ITradingClient` directly — see the handler's own docstring for why
     (`ITradingClient` is only registered when trading is enabled, and
     every use case must stay constructible regardless)."""

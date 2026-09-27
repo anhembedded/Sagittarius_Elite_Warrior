@@ -67,9 +67,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
-    FuturesTradingClient,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.position_refresh_service import (
     PositionRefreshService,
 )
@@ -88,11 +85,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.query_bindings im
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.state_bindings import (
     bind_state,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
+    ITradingClientFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
@@ -111,12 +108,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings_contribution impo
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_screen import (
     trading_screen,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
-    IExchangeCredentialsProvider,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
-    ITradingSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -313,11 +304,8 @@ class TradingModule(BoundedContextModule):
         if trading_venue is not TradingVenue.DISABLED:
             container.singleton(
                 ITradingClient,
-                lambda c: FuturesTradingClient(
-                    c.resolve(ITradingSessionFactory),
-                    c.resolve(IExchangeCredentialsProvider),
-                    c.resolve(IMarketMetadataProvider),
-                    OrderSubmissionMode.VALIDATE_ONLY,
+                lambda c: c.resolve(ITradingClientFactory).create(
+                    OrderSubmissionMode.VALIDATE_ONLY
                 ),
             )
 

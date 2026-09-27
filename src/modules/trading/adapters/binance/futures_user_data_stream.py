@@ -47,9 +47,6 @@ from typing import Any
 
 from binance import AsyncClient, BinanceSocketManager
 from binance.exceptions import ReadLoopClosed
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
-    FuturesTradingClient,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_event_parser import (
     ACCOUNT_UPDATE,
     ORDER_TRADE_UPDATE,
@@ -85,11 +82,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
+    ITradingClientFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
@@ -99,9 +96,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
-    ITradingSessionFactory,
 )
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManager
@@ -124,31 +118,36 @@ _LIBRARY_ERROR_EVENT = "error"
 
 
 class FuturesUserDataStream(IUserDataStream):
-    """@details Builds its own `FuturesTradingClient` (`VALIDATE_ONLY` —
-    irrelevant for the read-only `get_positions()` call this uses it for)
-    from raw collaborators, the same reasoning `ExecuteOrderCommandHandler`/
+    """@details Resolves its `ITradingClient` from `ITradingClientFactory`
+    (`VALIDATE_ONLY` — irrelevant for the read-only `get_positions()` call
+    this uses it for), the same reasoning `ExecuteOrderCommandHandler`/
     `EnableTradingCommandHandler` already use (`EPIC-021G`): depending on
     the `ITradingClient` singleton directly would only be safely
     constructible when `TradingVenue != DISABLED`, and this class must stay
     constructible (and therefore safely injectable into
-    `EnableTradingCommandHandler`) regardless.
+    `EnableTradingCommandHandler`) regardless — `ITradingClientFactory` is
+    bound unconditionally (`EPIC-027F`).
+
+    `credentials_provider` stays its own constructor parameter, separate
+    from the factory: `_run_stream()` opens the raw signed websocket
+    (`AsyncClient.create(api_key=..., api_secret=...)`) directly, which
+    needs credentials on their own, not the `ITradingClient` the factory
+    builds around them.
     """
 
     def __init__(
         self,
         event_bus: IEventBus,
         task_manager: ITaskManager,
-        session_factory: ITradingSessionFactory,
         credentials_provider: IExchangeCredentialsProvider,
-        metadata_provider: IMarketMetadataProvider,
+        trading_client_factory: ITradingClientFactory,
         session_state: TradingSessionState,
         equity_recorder: EquityCurveRecorder,
     ) -> None:
         self._event_bus = event_bus
         self._task_manager = task_manager
-        self._session_factory = session_factory
         self._credentials_provider = credentials_provider
-        self._metadata_provider = metadata_provider
+        self._trading_client_factory = trading_client_factory
         self._session_state = session_state
         self._equity_recorder = equity_recorder
         self._trading_client: ITradingClient | None = None
@@ -230,11 +229,8 @@ class FuturesUserDataStream(IUserDataStream):
             )
             return
 
-        self._trading_client = FuturesTradingClient(
-            self._session_factory,
-            self._credentials_provider,
-            self._metadata_provider,
-            OrderSubmissionMode.VALIDATE_ONLY,
+        self._trading_client = self._trading_client_factory.create(
+            OrderSubmissionMode.VALIDATE_ONLY
         )
 
         is_closing = False
