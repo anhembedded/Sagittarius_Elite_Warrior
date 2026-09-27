@@ -1,6 +1,6 @@
 # EPIC-027 — Spot beside Futures: truthful Spot backtests first, then live Spot on Testnet
 
-- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 in progress (1/5, 2026-09-27) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027E` are done; `EPIC-027F` is done, opening the venue-selected factory seam Phase 2's remaining tasks build on.
+- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 in progress (2/5, 2026-09-27) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027E` are done; `EPIC-027F` and `EPIC-027G` are done, so `TradingVenue` now has a Spot Testnet member with its own credentials, capability-checked gates and an honest market-mismatch alignment state.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-26): *"đánh giá xem giờ tui muốn giao dịch spot và back test theo
   spot thì app này cần những gì, lên plan và epic, sao đó report cho tôi"* ("assess what this app
@@ -96,7 +96,7 @@ request unless its file says otherwise.
 | [EPIC-027E](completed/EPIC-027E_report_schema_carries_market_type.md) | Saved reports state their market | Elite | B, C | 🟢 | ✅ Done (2026-09-27) |
 | **Phase 2 — Live Spot foundations (read-only)** | | | | | |
 | [EPIC-027F](completed/EPIC-027F_venue_selected_trading_client_factory.md) | One venue-selected factory replaces six direct client constructions | Elite | None | 🔴 | ✅ Done (2026-09-27) |
-| [EPIC-027G](incomplete/EPIC-027G_spot_testnet_venue_and_credentials.md) | `TradingVenue.SPOT_TESTNET`, own keys, market-mismatch alignment | Elite | F | 🟡 | Planned |
+| [EPIC-027G](completed/EPIC-027G_spot_testnet_venue_and_credentials.md) | `TradingVenue.SPOT_TESTNET`, own keys, market-mismatch alignment | Elite | F | 🟡 | ✅ Done (2026-09-27) |
 | [EPIC-027J](incomplete/EPIC-027J_fake_exchange_spot_routes.md) | Fake exchange answers the Spot API (signed orders, account, stream) | Elite | None | 🟡 | Planned |
 | [EPIC-027H](incomplete/EPIC-027H_spot_account_reader_and_holdings_model.md) | Spot account read as balances and holdings | Elite | G, J, O6 | 🟡 | Planned |
 | [EPIC-027I](incomplete/EPIC-027I_spot_symbol_metadata_provider.md) | Spot exchange filters for live rounding | Elite | G | 🟢 | Planned |
@@ -130,6 +130,24 @@ request unless its file says otherwise.
 - **Funding-rate modeling for Futures.** Still out of scope as in `BOT-049`.
 
 ## Notes (newest first)
+- **2026-09-27** — `EPIC-027G` done, advancing Phase 2 (2/5). `TradingVenue.SPOT_TESTNET` exists,
+  with a `market_type` property every downstream consumer reads instead of assuming Futures.
+  `EnvFirstCredentialsProvider` is now bound to one venue for its lifetime and reads a distinct env
+  var pair per venue (`BINANCE_SPOT_TESTNET_API_KEY/_SECRET`), so a Futures key can never resolve for
+  Spot or vice versa — its composition-root binding became a lazy factory (the same
+  register()-cannot-resolve() constraint `EPIC-027F` hit), and its three former consumers now resolve
+  the port themselves instead of closing over a plain instance. The three order-path safety gates
+  changed from `is not FUTURES_TESTNET` to `is DISABLED` — a capability check, so a new supported
+  venue is never refused by default. Found along the way: the live Trading/Dashboard screens' own
+  chart and stream are hard-coded to `MarketType.SPOT` regardless of `TradingVenue` — a real,
+  previously-unreported truth violation directly analogous to `EPIC-027A`'s headline finding but for
+  the live screen, not the backtester. `VenueAlignment.MARKET_MISMATCH` now names it, and
+  `compute_venue_alignment` takes an explicit `chart_market_type` parameter rather than a hidden
+  constant. Settings gained the Spot Testnet option. `tests/unit/architecture` 451 passed (after
+  trimming `app_bootstrapper.py`'s comment to stay under its 550-line ratchet), `tests/unit/modules/trading`
+  797 passed, full `tests/unit` 5638 passed; ruff and mypy clean (mypy diffed byte-for-byte against a
+  clean-cache pre-change baseline — zero new errors). `EPIC-027J` is next (independent of `027G`, per
+  the table above).
 - **2026-09-27** — `EPIC-027F` done, opening Phase 2 (1/5). Six sites that each constructed
   `FuturesTradingClient(...)` directly (the four order-path handlers, the open-positions query, the
   user data stream) now resolve `ITradingClientFactory.create(mode)` instead — a single seam

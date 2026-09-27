@@ -1,6 +1,6 @@
 # EPIC-027G — Spot Testnet exists as a trading venue, with its own keys and honest alignment states
 
-**Status:** 🔵 Backlog
+**Status:** ✅ Done (2026-09-27)
 **Source:** the user, 2026-09-26: *"tui muốn giao dịch spot"* ("I want to trade spot").
 **Risk:** 🟡 — the venue enum gates order submission; a wrong gate could route a Spot order to Futures, or the reverse.
 **Complexity:** M — enum member, credentials, alignment states, Settings, gate checks.
@@ -65,7 +65,10 @@
   `tests/unit/support/binance_gateway/`, `tests/unit/support/ui_kit/environment_banner/`,
   `tests/unit/modules/trading/ui/settings/`, `test_environment_banner_all_screens.py`,
   `test_credentials_never_reach_a_git_tracked_file.py`, `test_module_trading_client_binding.py`
-  (120 passed). Full `tests/unit` run in progress at write time.
+  (120 passed). Full `tests/unit`: 5638 passed, 0 failed (9m20s) — no regression anywhere in the
+  tree from the `IExchangeCredentialsProvider` composition-root change. `tests/sanity` and
+  `tests/integration` not run for this change (author's fast-tier scope, `ci-rule.md` §1); GitHub
+  Actions' `-Full` run is the authority for those.
 
 ## Implementation notes (written when done)
 - `IExchangeCredentialsProvider`'s composition-root binding
