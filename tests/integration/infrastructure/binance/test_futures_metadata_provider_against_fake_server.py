@@ -19,8 +19,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
-    InMemoryFuturesSymbolMetadataCache,
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
+    InMemorySymbolOrderMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
@@ -46,7 +46,7 @@ def test_refresh_round_trips_real_filter_values_from_the_fake_server():
         # `create_futures_metadata_client()`'s docstring for why it always
         # targets Futures Testnet regardless.
         session_factory = FuturesSessionFactory()
-        cache = InMemoryFuturesSymbolMetadataCache()
+        cache = InMemorySymbolOrderMetadataCache()
         provider = FuturesMetadataProvider(session_factory, cache)
 
         metadata = provider.get_or_fetch("BTCUSDT")
@@ -72,7 +72,7 @@ def test_a_cache_hit_issues_no_second_request():
         patch.object(Client, "FUTURES_TESTNET_URL", urls.futures),
     ):
         session_factory = FuturesSessionFactory()
-        cache = InMemoryFuturesSymbolMetadataCache()
+        cache = InMemorySymbolOrderMetadataCache()
         provider = FuturesMetadataProvider(session_factory, cache)
         provider.get_or_fetch("BTCUSDT")
 

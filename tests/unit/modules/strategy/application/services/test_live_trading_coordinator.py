@@ -22,14 +22,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
     OrderRejectionReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_submission import (
     FakeOrderSubmission,
 )
@@ -38,8 +38,8 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 )
 
 
-def _metadata() -> FuturesSymbolMetadata:
-    return FuturesSymbolMetadata(
+def _metadata() -> SymbolOrderMetadata:
+    return SymbolOrderMetadata(
         symbol="BTCUSDT",
         status="TRADING",
         step_size=Decimal("0.001"),

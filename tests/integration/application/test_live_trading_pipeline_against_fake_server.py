@@ -46,8 +46,8 @@ from binance.client import Client
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
-    InMemoryFuturesSymbolMetadataCache,
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
+    InMemorySymbolOrderMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_trading_coordinator import (
     LiveTradingCoordinator,
@@ -178,7 +178,7 @@ class _Pipeline:
 def _build_pipeline() -> _Pipeline:
     session_factory = FuturesSessionFactory()
     metadata_provider = FuturesMetadataProvider(
-        session_factory, InMemoryFuturesSymbolMetadataCache()
+        session_factory, InMemorySymbolOrderMetadataCache()
     )
     account_reader = _StubAccountReader()
     session_state = TradingSessionState()

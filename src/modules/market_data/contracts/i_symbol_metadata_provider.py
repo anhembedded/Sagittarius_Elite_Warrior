@@ -8,7 +8,7 @@ were about (opening a screen must not open a connection). So the two concerns
 stay two objects, and this is the one that may leave the process.
 
 This is not invention: `trading` has run the identical split since `EPIC-021C` —
-`IFuturesSymbolMetadataCache` stores, `IMarketMetadataProvider` fetches and
+`ISymbolOrderMetadataCache` stores, `IMarketMetadataProvider` fetches and
 caches — and that pair is why order rounding on the live path works. `BUG-127`
 was the market-data twin having only the store half wired, and not even that:
 nothing bound it and nothing filled it, so the Backtest screen's exchange-rule

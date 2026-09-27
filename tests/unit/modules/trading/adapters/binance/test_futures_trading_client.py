@@ -22,9 +22,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trad
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
@@ -35,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
     OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
@@ -56,8 +56,8 @@ def _binance_api_exception(code: int, message: str) -> BinanceAPIException:
     return exc
 
 
-def _metadata() -> FuturesSymbolMetadata:
-    return FuturesSymbolMetadata(
+def _metadata() -> SymbolOrderMetadata:
+    return SymbolOrderMetadata(
         symbol="BTCUSDT",
         status="TRADING",
         step_size=Decimal("0.001"),

@@ -789,7 +789,7 @@ modules.trading.ui.settings.trading_settings_presenter -> presentation.cli.excha
 # a port to its concrete adapter", the one thing every composition file in
 # this epic exists to do.
 #
-# `InMemoryFuturesSymbolMetadataCache` implements `IFuturesSymbolMetadataCache`,
+# `InMemorySymbolOrderMetadataCache` implements `ISymbolOrderMetadataCache`,
 # a port `modules/trading/contracts/` owns, but the class itself sits under
 # the generic `infrastructure/persistence/` rather than `modules/trading/
 # adapters/persistence/` -- pre-existing debt from before the module split,
@@ -799,7 +799,7 @@ modules.trading.ui.settings.trading_settings_presenter -> presentation.cli.excha
 # nothing about *this* move -- real work of its own, out of this PR's
 # bounded scope (`task-execution-rule.md`). It exits when that relocation
 # lands.
-modules.trading.composition.adapter_bindings -> infrastructure.persistence.futures_symbol_metadata_cache
+modules.trading.composition.adapter_bindings -> infrastructure.persistence.symbol_order_metadata_cache
 
 # `EnvFirstCredentialsProvider`/`SecretsFileSource` are `support/
 # binance_gateway`'s own concrete adapters behind `IExchangeCredentialsProvider`

@@ -32,8 +32,8 @@ from typing import Any
 from unittest.mock import patch
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
-    InMemoryFuturesSymbolMetadataCache,
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
+    InMemorySymbolOrderMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
@@ -152,7 +152,7 @@ def _submit_manual_order(direction: ManualOrderDirection) -> None:
     dispatch the real handler."""
     session_factory = FuturesSessionFactory()
     metadata_provider = FuturesMetadataProvider(
-        session_factory, InMemoryFuturesSymbolMetadataCache()
+        session_factory, InMemorySymbolOrderMetadataCache()
     )
     account_reader = _StubAccountReader()
     credentials_provider = _FakeCredentialsProvider()

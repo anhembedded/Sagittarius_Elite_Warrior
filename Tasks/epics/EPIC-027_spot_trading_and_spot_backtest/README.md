@@ -1,6 +1,6 @@
 # EPIC-027 — Spot beside Futures: truthful Spot backtests first, then live Spot on Testnet
 
-- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 in progress (4/5, 2026-09-27) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027E` are done; `EPIC-027F`, `EPIC-027G`, `EPIC-027J` and `EPIC-027H` are done, so `TradingVenue` now has a Spot Testnet member with its own credentials, capability-checked gates, an honest market-mismatch alignment state, the fake exchange answers the full Spot order lifecycle, and the app reads a Spot account as balances/holdings/equity through the same `ITradingAccountReader` port Futures uses.
+- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 done (5/5, 2026-09-27) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027E` are done; `EPIC-027F`, `EPIC-027G`, `EPIC-027J`, `EPIC-027H` and `EPIC-027I` are done, so `TradingVenue` now has a Spot Testnet member with its own credentials, capability-checked gates, an honest market-mismatch alignment state, the fake exchange answers the full Spot order lifecycle, the app reads a Spot account as balances/holdings/equity through the same `ITradingAccountReader` port Futures uses, and a live Spot order will round against Spot's own `exchangeInfo` filters rather than Futures'. Phase 3 (live Spot orders on Testnet) is next.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-26): *"đánh giá xem giờ tui muốn giao dịch spot và back test theo
   spot thì app này cần những gì, lên plan và epic, sao đó report cho tôi"* ("assess what this app
@@ -99,7 +99,7 @@ request unless its file says otherwise.
 | [EPIC-027G](completed/EPIC-027G_spot_testnet_venue_and_credentials.md) | `TradingVenue.SPOT_TESTNET`, own keys, market-mismatch alignment | Elite | F | 🟡 | ✅ Done (2026-09-27) |
 | [EPIC-027J](completed/EPIC-027J_fake_exchange_spot_routes.md) | Fake exchange answers the Spot API (signed orders, account, stream) | Elite | None | 🟡 | ✅ Done (2026-09-27) |
 | [EPIC-027H](completed/EPIC-027H_spot_account_reader_and_holdings_model.md) | Spot account read as balances and holdings | Elite | G, J, O6 | 🟡 | ✅ Done (2026-09-27) |
-| [EPIC-027I](incomplete/EPIC-027I_spot_symbol_metadata_provider.md) | Spot exchange filters for live rounding | Elite | G | 🟢 | Planned |
+| [EPIC-027I](completed/EPIC-027I_spot_symbol_metadata_provider.md) | Spot exchange filters for live rounding | Elite | G | 🟢 | ✅ Done (2026-09-27) |
 | **Phase 3 — Live Spot orders on Testnet** | | | | | |
 | [EPIC-027K](incomplete/EPIC-027K_spot_trading_client_and_order_path.md) | Spot MARKET/LIMIT orders through `ExecuteOrderCommand` | Elite | F, G, I, J | 🔴 | Planned |
 | [EPIC-027L](incomplete/EPIC-027L_spot_user_data_stream.md) | Spot order truth and balances from the user data stream | Elite | H, K | 🔴 | Planned |
@@ -113,7 +113,7 @@ request unless its file says otherwise.
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
 | Phase 1 | A Spot backtest and a Futures backtest of the same symbol run on their own market's candles. The Spot one never shorts or liquidates. Both round quantities to exchange filters and state it in the report. | The golden Futures run unchanged byte-for-byte (except where `EPIC-027C`'s filters change it, and then recorded); the integration test of `EPIC-027D`; a saved report states its market and exchange filters (`EPIC-027E`); the full gate green on GitHub Actions. ✅ Closed 2026-09-27. |
-| Phase 2 | `exchange-status` against Spot Testnet shows balances with a Spot key and refuses a Futures key as a key error. No application-layer file constructs a trading client. | `EPIC-027F`'s architecture guard (closed 2026-09-27 — no file outside the one factory constructs `FuturesTradingClient`, in all of `src/`+`scripts/`, not just `application/`); `EPIC-027H`'s CLI output pasted into its task file. Rest not run. |
+| Phase 2 | `exchange-status` against Spot Testnet shows balances with a Spot key and refuses a Futures key as a key error. No application-layer file constructs a trading client. | `EPIC-027F`'s architecture guard (closed 2026-09-27 — no file outside the one factory constructs `FuturesTradingClient`, in all of `src/`+`scripts/`, not just `application/`); `EPIC-027H`'s CLI output pasted into its task file; `EPIC-027I`'s parser/provider/composition tests (closed 2026-09-27). ✅ Closed 2026-09-27. |
 | Phase 3 | A human BUY and SELL, and an armed long-only strategy, each round-trip on Spot Testnet. Emergency Stop never sells a pre-existing holding. | `EPIC-027P`'s tier output from the user's run; `EPIC-027M`'s baseline test; the SPEC listed as ✅ in `Docs/SPEC/README.md`. Not run. |
 
 ## 5. Out of scope
@@ -130,6 +130,18 @@ request unless its file says otherwise.
 - **Funding-rate modeling for Futures.** Still out of scope as in `BOT-049`.
 
 ## Notes (newest first)
+- **2026-09-27** — `EPIC-027I` done, closing Phase 2 (5/5). A live Spot order will now round its
+  quantity against Spot's own `exchangeInfo` filters instead of Futures'. `FuturesSymbolMetadata` was
+  renamed in place to `SymbolOrderMetadata` (and its cache port/impl to `ISymbolOrderMetadataCache`/
+  `InMemorySymbolOrderMetadataCache`) so both `FuturesMetadataProvider` and the new
+  `SpotMetadataProvider` return the same market-neutral type, chosen by `adapter_bindings.py`'s
+  `IMarketMetadataProvider` bind the same way `ITradingAccountReader` already branches on
+  `TradingVenue` (`EPIC-027H`). The new `spot_metadata_parser.py` deliberately does the opposite of
+  `futures_metadata_parser.py`'s defensive defaulting: a missing `PRICE_FILTER`/`LOT_SIZE`/`NOTIONAL`
+  filter or field raises `KeyError` rather than silently defaulting, per this task's own acceptance
+  criterion; only `MARKET_LOT_SIZE` is optional, and `SymbolOrderMetadata.step_size_for(order_type)`
+  picks it for `OrderType.MARKET` when published, falling back to `LOT_SIZE` otherwise (every other
+  order type, including `STOP_MARKET`, always uses `LOT_SIZE`).
 - **2026-09-27** — `EPIC-027H` done, advancing Phase 2 (4/5). The app now reads a Spot account through
   the same `ITradingAccountReader` port `FuturesAccountReader` already implements — `SpotAccountReader`
   over Spot's own unprefixed session methods (`ping`/`get_server_time`/`get_account`/`get_symbol_ticker`),

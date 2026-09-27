@@ -27,8 +27,8 @@ from unittest.mock import patch
 
 from binance.client import Client
 
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
-    InMemoryFuturesSymbolMetadataCache,
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
+    InMemorySymbolOrderMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
@@ -63,7 +63,7 @@ def _parse_args() -> argparse.Namespace:
 def _run(symbol: str, price: Decimal, quantities: list[Decimal]) -> None:
     session_factory = FuturesSessionFactory()
     provider = FuturesMetadataProvider(
-        session_factory, InMemoryFuturesSymbolMetadataCache()
+        session_factory, InMemorySymbolOrderMetadataCache()
     )
     metadata = provider.get_or_fetch(symbol)
     if metadata is None:

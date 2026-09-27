@@ -3,16 +3,16 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
-    InMemoryFuturesSymbolMetadataCache,
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
+    InMemorySymbolOrderMetadataCache,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
 )
 
 
-def _metadata(symbol: str = "BTCUSDT") -> FuturesSymbolMetadata:
-    return FuturesSymbolMetadata(
+def _metadata(symbol: str = "BTCUSDT") -> SymbolOrderMetadata:
+    return SymbolOrderMetadata(
         symbol=symbol,
         status="TRADING",
         step_size=Decimal("0.001"),
@@ -25,13 +25,13 @@ def _metadata(symbol: str = "BTCUSDT") -> FuturesSymbolMetadata:
 
 
 def test_a_symbol_not_yet_stored_is_absent():
-    cache = InMemoryFuturesSymbolMetadataCache()
+    cache = InMemorySymbolOrderMetadataCache()
     assert cache.get("BTCUSDT") is None
     assert cache.has("BTCUSDT") is False
 
 
 def test_put_then_get_round_trips():
-    cache = InMemoryFuturesSymbolMetadataCache()
+    cache = InMemorySymbolOrderMetadataCache()
     metadata = _metadata()
 
     cache.put(metadata)
@@ -41,7 +41,7 @@ def test_put_then_get_round_trips():
 
 
 def test_lookup_is_case_insensitive():
-    cache = InMemoryFuturesSymbolMetadataCache()
+    cache = InMemorySymbolOrderMetadataCache()
     cache.put(_metadata("BTCUSDT"))
 
     assert cache.get("btcusdt") is not None
@@ -49,9 +49,9 @@ def test_lookup_is_case_insensitive():
 
 
 def test_a_second_put_for_the_same_symbol_overwrites_the_first():
-    cache = InMemoryFuturesSymbolMetadataCache()
+    cache = InMemorySymbolOrderMetadataCache()
     cache.put(_metadata("BTCUSDT"))
-    updated = FuturesSymbolMetadata(
+    updated = SymbolOrderMetadata(
         symbol="BTCUSDT",
         status="TRADING",
         step_size=Decimal("0.01"),
@@ -68,7 +68,7 @@ def test_a_second_put_for_the_same_symbol_overwrites_the_first():
 
 
 def test_clear_empties_the_cache():
-    cache = InMemoryFuturesSymbolMetadataCache()
+    cache = InMemorySymbolOrderMetadataCache()
     cache.put(_metadata("BTCUSDT"))
     cache.put(_metadata("ETHUSDT"))
 

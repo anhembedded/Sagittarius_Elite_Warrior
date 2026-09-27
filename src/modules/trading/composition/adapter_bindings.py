@@ -34,8 +34,8 @@ from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
-    InMemoryFuturesSymbolMetadataCache,
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
+    InMemorySymbolOrderMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,
@@ -55,6 +55,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_reader import (
     SpotAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_metadata_provider import (
+    SpotMetadataProvider,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_session_factory import (
     SpotSessionFactory,
 )
@@ -64,11 +67,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_reco
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_symbol_metadata_cache import (
-    IFuturesSymbolMetadataCache,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_symbol_order_metadata_cache import (
+    ISymbolOrderMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
@@ -126,16 +129,27 @@ def bind_adapters(container: IContainer) -> None:
     # same file.
     spot_session_factory = SpotSessionFactory()
 
-    # EPIC-021C: `FuturesMetadataProvider` takes the concrete factory, not
-    # `ITradingSessionFactory` — `create_futures_metadata_client()` is
-    # deliberately not on that port (see the factory's own docstring), and
-    # both are `trading`'s own adapters, so there is no boundary between
-    # them to put one across.
-    container.singleton(IFuturesSymbolMetadataCache, InMemoryFuturesSymbolMetadataCache)
+    # EPIC-021C: `FuturesMetadataProvider`/`SpotMetadataProvider` each take
+    # their own concrete session factory, not a port — `create_futures_
+    # metadata_client()`/`create_metadata_client()` are deliberately not on
+    # any port (see each factory's own docstring), and all four types are
+    # `trading`'s own adapters, so there is no boundary between them to put
+    # one across.
+    # `EPIC-027I`: venue-branches the same way `ITradingAccountReader` above
+    # does — one cache instance regardless of venue is safe because exactly
+    # one venue is ever active per process (`ISymbolOrderMetadataCache`'s own
+    # docstring).
+    container.singleton(ISymbolOrderMetadataCache, InMemorySymbolOrderMetadataCache)
     container.singleton(
         IMarketMetadataProvider,
-        lambda c: FuturesMetadataProvider(
-            session_factory, c.resolve(IFuturesSymbolMetadataCache)
+        lambda c: (
+            SpotMetadataProvider(
+                spot_session_factory, c.resolve(ISymbolOrderMetadataCache)
+            )
+            if c.resolve(TradingVenue) is TradingVenue.SPOT_TESTNET
+            else FuturesMetadataProvider(
+                session_factory, c.resolve(ISymbolOrderMetadataCache)
+            )
         ),
     )
 

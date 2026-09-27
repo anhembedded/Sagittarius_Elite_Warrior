@@ -49,8 +49,9 @@ class PreviewOrderQueryHandler(IQueryHandler[PreviewOrderQuery, OrderPreview]):
         if metadata is None:
             raise ValueError(f"Unknown futures symbol: {query.symbol}")
 
+        step_size = metadata.step_size_for(query.order_type)
         rounded_quantity = self._rounding_policy.round_quantity_down(
-            query.quantity, metadata.step_size
+            query.quantity, step_size
         )
         rounded_price = self._rounding_policy.round_price_to_tick(
             query.reference_price, metadata.tick_size, query.side
@@ -83,6 +84,6 @@ class PreviewOrderQueryHandler(IQueryHandler[PreviewOrderQuery, OrderPreview]):
             raw_quantity=query.quantity,
             estimated_notional=rounded_quantity * rounded_price,
             min_notional=metadata.min_notional,
-            step_size=metadata.step_size,
+            step_size=step_size,
             notional_check=notional_check,
         )

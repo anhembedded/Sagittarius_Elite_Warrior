@@ -22,19 +22,19 @@ from __future__ import annotations
 
 from collections.abc import Iterable
 
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
 )
 
 
 class FakeMarketMetadataProvider(IMarketMetadataProvider):
     """The catalog a test says the exchange holds, and nothing else."""
 
-    def __init__(self, metadata: Iterable[FuturesSymbolMetadata] = ()) -> None:
-        self._catalog: dict[str, FuturesSymbolMetadata] = {}
+    def __init__(self, metadata: Iterable[SymbolOrderMetadata] = ()) -> None:
+        self._catalog: dict[str, SymbolOrderMetadata] = {}
         self.seed(metadata)
         #: Every symbol `get_or_fetch()` was asked for, in order — so a test
         #: can assert the cheap path was used once rather than per candle.
@@ -44,12 +44,12 @@ class FakeMarketMetadataProvider(IMarketMetadataProvider):
         #: different operations with two different costs.
         self.refreshes = 0
 
-    def seed(self, metadata: Iterable[FuturesSymbolMetadata]) -> None:
+    def seed(self, metadata: Iterable[SymbolOrderMetadata]) -> None:
         """Replaces the catalog. Keyed the way the real provider keys it —
         by the symbol as the exchange spells it, upper case."""
         self._catalog = {item.symbol.upper(): item for item in metadata}
 
-    def get_or_fetch(self, symbol: str) -> FuturesSymbolMetadata | None:
+    def get_or_fetch(self, symbol: str) -> SymbolOrderMetadata | None:
         self.reads.append(symbol)
         return self._catalog.get(symbol.upper())
 

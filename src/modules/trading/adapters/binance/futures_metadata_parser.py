@@ -23,8 +23,8 @@ from decimal import Decimal
 from enum import Enum
 from typing import Any
 
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
 )
 
 
@@ -81,7 +81,7 @@ def _decimal_from(value: object, default: Decimal) -> Decimal:
 def parse_futures_symbol_metadata(
     symbol_info: dict[str, Any],
     fetched_at: datetime | None = None,
-) -> FuturesSymbolMetadata:
+) -> SymbolOrderMetadata:
     """Parses a single symbol info dictionary from Binance's futures
     `/fapi/v1/exchangeInfo`.
 
@@ -133,7 +133,7 @@ def parse_futures_symbol_metadata(
     quantity_precision = symbol_info.get(FuturesMetadataKey.QUANTITY_PRECISION.value)
     price_precision = symbol_info.get(FuturesMetadataKey.PRICE_PRECISION.value)
 
-    return FuturesSymbolMetadata(
+    return SymbolOrderMetadata(
         symbol=symbol,
         status=status,
         step_size=step_size,
@@ -156,7 +156,7 @@ def parse_futures_symbol_metadata(
 def parse_futures_exchange_info(
     payload: dict[str, Any],
     fetched_at: datetime | None = None,
-) -> list[FuturesSymbolMetadata]:
+) -> list[SymbolOrderMetadata]:
     """Parses every symbol entry in a full futures `exchangeInfo` response.
     A malformed individual entry (not a dict) is skipped rather than
     aborting the whole catalog."""

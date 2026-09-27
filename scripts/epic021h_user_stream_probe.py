@@ -37,8 +37,8 @@ from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryE
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 from sagittarius_engine.utils.path_utils import PathUtils
 
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
-    InMemoryFuturesSymbolMetadataCache,
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
+    InMemorySymbolOrderMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
@@ -105,7 +105,7 @@ async def _run(seconds: float) -> None:
     )
     session_factory = FuturesSessionFactory()
     metadata_provider = FuturesMetadataProvider(
-        session_factory, InMemoryFuturesSymbolMetadataCache()
+        session_factory, InMemorySymbolOrderMetadataCache()
     )
     trading_client_factory = FuturesTradingClientFactory(
         session_factory, credentials_provider, metadata_provider

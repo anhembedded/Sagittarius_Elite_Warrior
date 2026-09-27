@@ -36,9 +36,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_orde
     map_futures_position_payload_to_live_position,
     map_order_to_futures_params,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -54,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_rea
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
@@ -166,7 +166,7 @@ class FuturesTradingClient(ITradingClient):
         # straight through here is deliberate, see this module's docstring.
         return self._session_factory.create_trading_client(resolution.credentials)
 
-    def _require_metadata(self, symbol: str) -> FuturesSymbolMetadata:
+    def _require_metadata(self, symbol: str) -> SymbolOrderMetadata:
         metadata = self._metadata_provider.get_or_fetch(symbol)
         if metadata is None:
             raise ValueError(f"Unknown futures symbol: {symbol}")

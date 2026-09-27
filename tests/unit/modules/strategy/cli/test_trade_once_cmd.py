@@ -35,9 +35,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ExchangeConnectionStatus,
     PositionMode,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -50,6 +47,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_r
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
     OrderRejectionReason,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_market_metadata_provider import (
     FakeMarketMetadataProvider,
@@ -97,8 +97,8 @@ def _candle() -> MarketData:
     )
 
 
-def _metadata() -> FuturesSymbolMetadata:
-    return FuturesSymbolMetadata(
+def _metadata() -> SymbolOrderMetadata:
+    return SymbolOrderMetadata(
         symbol=_SYMBOL,
         status="TRADING",
         step_size=Decimal("0.001"),

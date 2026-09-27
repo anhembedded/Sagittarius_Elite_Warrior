@@ -1,10 +1,15 @@
-"""`EPIC-027H` — the one place allowed to construct a signed
-`binance.client.Client` for reading a Spot Testnet account, mirroring
-`FuturesSessionFactory`'s own construction pattern (`testnet=True`,
-`REQUEST_TIMEOUT_SECONDS`, a clock-skew-corrected `timestamp_offset`)
-with Spot's own unprefixed session-client methods
-(`ping`/`get_server_time`/`get_account`) in place of Futures' `futures_*`
-ones.
+"""`EPIC-027H`/`EPIC-027I` — the one place allowed to construct a
+`binance.client.Client` for Spot Testnet, mirroring `FuturesSessionFactory`'s
+own construction pattern (`testnet=True`, `REQUEST_TIMEOUT_SECONDS`, a
+clock-skew-corrected `timestamp_offset` for the signed session) with Spot's
+own unprefixed session-client methods (`ping`/`get_server_time`/
+`get_account`/`get_exchange_info`) in place of Futures' `futures_*` ones.
+
+@details `create_metadata_client()` is on no port, same as
+`FuturesSessionFactory.create_futures_metadata_client()`: its only caller is
+this module's own `SpotMetadataProvider` (`EPIC-027I`), so the two talk
+directly — a port exists to cross a boundary, and there is none here
+(`architecture-rule.md` §2).
 """
 
 from __future__ import annotations
@@ -65,3 +70,14 @@ class SpotSessionFactory(ISpotSessionFactory):
         )
         _sync_timestamp_offset(client)
         return cast(ISpotSessionClient, client)
+
+    def create_metadata_client(self) -> Client:
+        """An unsigned Spot Testnet session for `GET /api/v3/exchangeInfo`
+        (`EPIC-027I`). No key: `exchangeInfo` is a public endpoint. Returns
+        the raw SDK type because the only caller is this module's own
+        `SpotMetadataProvider` — see the module docstring for why that is
+        not a leak."""
+        return Client(
+            requests_params={"timeout": REQUEST_TIMEOUT_SECONDS},
+            testnet=True,
+        )

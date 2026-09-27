@@ -32,9 +32,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.invalid_order_for_submission import (
     InvalidOrderForSubmissionError,
 )
@@ -45,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
+)
 
 #: `positionSide` Binance's API expects when the account is One-way mode —
 #: never anything else in this epic (ADR §6, `EPIC-021D`).
@@ -62,7 +62,7 @@ def _require_step_aligned(quantity: Decimal, step_size: Decimal, label: str) -> 
 
 
 def map_order_to_futures_params(
-    order: Order, metadata: FuturesSymbolMetadata
+    order: Order, metadata: SymbolOrderMetadata
 ) -> dict[str, Any]:
     """@brief Builds the `**params` dict `python-binance`'s
     `futures_create_order`/`futures_create_test_order` expects from `order`.

@@ -34,11 +34,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
@@ -52,10 +52,10 @@ _CREDENTIALS = ExchangeCredentials(api_key="key", api_secret="secret")
 
 
 class _StaticMetadataProvider(IMarketMetadataProvider):
-    def __init__(self, catalog: dict[str, FuturesSymbolMetadata]) -> None:
+    def __init__(self, catalog: dict[str, SymbolOrderMetadata]) -> None:
         self._catalog = catalog
 
-    def get_or_fetch(self, symbol: str) -> FuturesSymbolMetadata | None:
+    def get_or_fetch(self, symbol: str) -> SymbolOrderMetadata | None:
         return self._catalog.get(symbol)
 
     def refresh(self) -> None:
@@ -65,7 +65,7 @@ class _StaticMetadataProvider(IMarketMetadataProvider):
 def _metadata_provider() -> IMarketMetadataProvider:
     return _StaticMetadataProvider(
         {
-            "BTCUSDT": FuturesSymbolMetadata(
+            "BTCUSDT": SymbolOrderMetadata(
                 symbol="BTCUSDT",
                 status="TRADING",
                 step_size=Decimal("0.001"),

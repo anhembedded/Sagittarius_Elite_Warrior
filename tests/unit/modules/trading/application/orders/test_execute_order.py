@@ -36,9 +36,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderNotionalRejection,
     ExecuteOrderSafetyGate,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -48,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_rea
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimits,
     TradingLimitViolation,
@@ -77,10 +77,10 @@ _LIMITS = TradingLimits(
 
 
 class _StaticMetadataProvider(IMarketMetadataProvider):
-    def __init__(self, catalog: dict[str, FuturesSymbolMetadata]) -> None:
+    def __init__(self, catalog: dict[str, SymbolOrderMetadata]) -> None:
         self._catalog = catalog
 
-    def get_or_fetch(self, symbol: str) -> FuturesSymbolMetadata | None:
+    def get_or_fetch(self, symbol: str) -> SymbolOrderMetadata | None:
         return self._catalog.get(symbol)
 
     def refresh(self) -> None:
@@ -90,7 +90,7 @@ class _StaticMetadataProvider(IMarketMetadataProvider):
 def _metadata_provider() -> IMarketMetadataProvider:
     return _StaticMetadataProvider(
         {
-            "BTCUSDT": FuturesSymbolMetadata(
+            "BTCUSDT": SymbolOrderMetadata(
                 symbol="BTCUSDT",
                 status="TRADING",
                 step_size=Decimal("0.001"),
