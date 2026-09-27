@@ -1,6 +1,6 @@
 # EPIC-027 — Spot beside Futures: truthful Spot backtests first, then live Spot on Testnet
 
-- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 in progress (3/5, 2026-09-27) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027E` are done; `EPIC-027F`, `EPIC-027G` and `EPIC-027J` are done, so `TradingVenue` now has a Spot Testnet member with its own credentials, capability-checked gates, an honest market-mismatch alignment state, and the fake exchange answers the full Spot order lifecycle.
+- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 in progress (4/5, 2026-09-27) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027E` are done; `EPIC-027F`, `EPIC-027G`, `EPIC-027J` and `EPIC-027H` are done, so `TradingVenue` now has a Spot Testnet member with its own credentials, capability-checked gates, an honest market-mismatch alignment state, the fake exchange answers the full Spot order lifecycle, and the app reads a Spot account as balances/holdings/equity through the same `ITradingAccountReader` port Futures uses.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-26): *"đánh giá xem giờ tui muốn giao dịch spot và back test theo
   spot thì app này cần những gì, lên plan và epic, sao đó report cho tôi"* ("assess what this app
@@ -98,7 +98,7 @@ request unless its file says otherwise.
 | [EPIC-027F](completed/EPIC-027F_venue_selected_trading_client_factory.md) | One venue-selected factory replaces six direct client constructions | Elite | None | 🔴 | ✅ Done (2026-09-27) |
 | [EPIC-027G](completed/EPIC-027G_spot_testnet_venue_and_credentials.md) | `TradingVenue.SPOT_TESTNET`, own keys, market-mismatch alignment | Elite | F | 🟡 | ✅ Done (2026-09-27) |
 | [EPIC-027J](completed/EPIC-027J_fake_exchange_spot_routes.md) | Fake exchange answers the Spot API (signed orders, account, stream) | Elite | None | 🟡 | ✅ Done (2026-09-27) |
-| [EPIC-027H](incomplete/EPIC-027H_spot_account_reader_and_holdings_model.md) | Spot account read as balances and holdings | Elite | G, J, O6 | 🟡 | Planned |
+| [EPIC-027H](completed/EPIC-027H_spot_account_reader_and_holdings_model.md) | Spot account read as balances and holdings | Elite | G, J, O6 | 🟡 | ✅ Done (2026-09-27) |
 | [EPIC-027I](incomplete/EPIC-027I_spot_symbol_metadata_provider.md) | Spot exchange filters for live rounding | Elite | G | 🟢 | Planned |
 | **Phase 3 — Live Spot orders on Testnet** | | | | | |
 | [EPIC-027K](incomplete/EPIC-027K_spot_trading_client_and_order_path.md) | Spot MARKET/LIMIT orders through `ExecuteOrderCommand` | Elite | F, G, I, J | 🔴 | Planned |
@@ -130,6 +130,28 @@ request unless its file says otherwise.
 - **Funding-rate modeling for Futures.** Still out of scope as in `BOT-049`.
 
 ## Notes (newest first)
+- **2026-09-27** — `EPIC-027H` done, advancing Phase 2 (4/5). The app now reads a Spot account through
+  the same `ITradingAccountReader` port `FuturesAccountReader` already implements — `SpotAccountReader`
+  over Spot's own unprefixed session methods (`ping`/`get_server_time`/`get_account`/`get_symbol_ticker`),
+  never `LivePosition` with invented mark price or leverage (ADR D7). A new `SpotHolding` value type
+  carries only what `GET /api/v3/account`'s `balances` array gives; `ExchangeConnectionStatus` gained
+  `holdings`/`equity` fields a Futures venue answers `None` for, the exact symmetric case
+  `i_account_snapshot.py`'s docstring already anticipated for `position_mode`/`margin_type` answering
+  `None` for Spot. Equity (quote balance plus non-dust holdings × ticker price) is all-or-nothing: one
+  unpriceable holding makes the whole figure `None`, never a silently partial sum — the same "never
+  guess" discipline this task's own acceptance criteria demand of the average entry price (deferred to
+  ADR O6's `GET /api/v3/myTrades`, out of this task's scope). Two ports came along as a direct
+  consequence, not scope creep: `ISpotSessionFactory`/`ISpotSessionClient` (`support/binance_gateway/`)
+  — a parallel port to `ITradingSessionFactory`, since that port's own docstring rules out widening it
+  for a second venue — and `SpotSessionFactory`, mirroring `FuturesSessionFactory`'s own `BUG-111`
+  clock-skew correction. The venue-branching bind in `adapter_bindings.py` is locked against a real
+  `StdLibContainer` in both directions (`test_module_account_reader_binding.py`), mirroring
+  `test_module_trading_client_binding.py`'s own doctrine. `tests/unit/architecture` 451 passed (after
+  extending the Binance-client-construction allow-list for the new session factory);
+  `tests/unit/modules/trading` 798 passed; `tests/sanity` 32 passed;
+  `tests/integration/infrastructure/binance` 13 passed; ruff/mypy clean (mypy diffed byte-for-byte
+  against a clean-cache baseline including untracked files — zero new errors). Full `tests/unit` left to
+  GitHub Actions' `-Full` run per this repo's own cadence (user decision 2026-09-18).
 - **2026-09-27** — `EPIC-027J` done, advancing Phase 2 (3/5). The fake exchange now answers the full
   Spot order lifecycle: signed `POST`/`DELETE /api/v3/order`, `/order/test`, `/openOrders`,
   `GET /api/v3/account`, `GET /api/v3/time`, and the (unsigned) `/api/v3/userDataStream` trio — a new,

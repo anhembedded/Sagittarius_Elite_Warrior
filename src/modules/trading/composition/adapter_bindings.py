@@ -52,6 +52,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trad
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user_data_stream import (
     FuturesUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_reader import (
+    SpotAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_session_factory import (
+    SpotSessionFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
@@ -112,6 +118,13 @@ def bind_adapters(container: IContainer) -> None:
     # the container silently constructing each of them a throwaway one.
     session_factory = FuturesSessionFactory()
     container.singleton(ITradingSessionFactory, session_factory)
+    # `EPIC-027H`: a Spot read session has different, unprefixed method
+    # names from Futures' `futures_*` ones (`ITradingSessionFactory`'s own
+    # docstring rules out widening it), so it is a second, parallel
+    # instance the `ITradingAccountReader` binding below chooses between —
+    # not published on any port itself, since its only consumer is this
+    # same file.
+    spot_session_factory = SpotSessionFactory()
 
     # EPIC-021C: `FuturesMetadataProvider` takes the concrete factory, not
     # `ITradingSessionFactory` — `create_futures_metadata_client()` is
@@ -173,10 +186,21 @@ def bind_adapters(container: IContainer) -> None:
     # anywhere — see FuturesAccountReader's own docstring for why this check
     # works off credentials alone. Lazy since `EPIC-027G` made the
     # credentials provider itself lazy.
+    # `EPIC-027H`: the first binding in this file to actually branch on
+    # `TradingVenue`'s resolved value rather than treat Futures as the only
+    # possibility — `SpotAccountReader` for `SPOT_TESTNET`, unchanged
+    # `FuturesAccountReader` for everything else (including `DISABLED`,
+    # matching this reader's own "credentials alone decide" reasoning).
     container.singleton(
         ITradingAccountReader,
-        lambda c: FuturesAccountReader(
-            session_factory, c.resolve(IExchangeCredentialsProvider)
+        lambda c: (
+            SpotAccountReader(
+                spot_session_factory, c.resolve(IExchangeCredentialsProvider)
+            )
+            if c.resolve(TradingVenue) is TradingVenue.SPOT_TESTNET
+            else FuturesAccountReader(
+                session_factory, c.resolve(IExchangeCredentialsProvider)
+            )
         ),
     )
 

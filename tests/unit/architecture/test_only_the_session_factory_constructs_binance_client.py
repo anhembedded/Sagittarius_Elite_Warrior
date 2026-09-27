@@ -1,20 +1,20 @@
 """`EPIC-021A` — only a **session factory** may construct `binance.client.Client`.
 
-@details The rule and its two allowed files, in that order, because the count
+@details The rule and its allowed files, in that order, because the count
 changed and the rule did not. `EPIC-021A` wrote it as "one file", and for four
 pull requests that file was `ExchangeSessionFactory` — one class implementing
 two contexts' ports, which is exactly what `EPIC-025` PR 1.3c-4 split. The
 point was never the number: it is that venue flags and credentials must not be
 scattered across the app, so **only a session factory mints a session**. There
-are two session factories now, one per bounded context, and both are named
-below by exact path — no wildcard, no directory, so a third construction site
-anywhere still fails this test.
+are three session factories now, and all are named below by exact path — no
+wildcard, no directory, so a fourth construction site anywhere still fails
+this test.
 
 What each may mint is not symmetric, and that asymmetry is the rule doing its
 job: `MarketDataSessionFactory` can only build an unsigned public session (ADR
-§2.1 — a market-data client holds no credentials), and
-`FuturesSessionFactory` is the only place in the app that can build a signed
-one.
+§2.1 — a market-data client holds no credentials); `FuturesSessionFactory` and
+`SpotSessionFactory` (`EPIC-027H`) each build one venue's own signed session,
+never the other's.
 
 Not a docstring claim: each factory's own module docstring says it is one of
 the two places allowed to call `Client(...)`, and a
@@ -49,6 +49,14 @@ _ALLOWED_FILES = [
     / "adapters"
     / "binance"
     / "futures_session_factory.py",
+    _REPO_ROOT
+    / "src"
+    / "modules"
+    / "trading"
+    / "adapters"
+    / "binance"
+    / "spot"
+    / "spot_session_factory.py",
 ]
 
 

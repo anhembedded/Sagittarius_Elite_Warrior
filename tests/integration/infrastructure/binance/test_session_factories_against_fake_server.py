@@ -38,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_d
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_session_factory import (
+    SpotSessionFactory,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
@@ -101,4 +104,21 @@ def test_create_trading_client_syncs_timestamp_offset_against_the_exchange_clock
 
         # fake serverTime is 0, so the correct offset is `0 - local_time_ms`,
         # sampled somewhere between local_before_ms and local_after_ms.
+        assert -local_after_ms <= client.timestamp_offset <= -local_before_ms
+
+
+def test_create_account_client_syncs_timestamp_offset_against_the_exchange_clock():
+    """`EPIC-027H` — `SpotSessionFactory`'s own `BUG-111` fix, using Spot's
+    `/api/v3/time` (also a fixed `serverTime: 0` in the fake) instead of
+    Futures' `/fapi/v1/time`."""
+    with (
+        run_binance_fake_server() as urls,
+        patch.object(Client, "API_TESTNET_URL", urls.spot),
+    ):
+        local_before_ms = int(time.time() * 1000)
+        client = SpotSessionFactory().create_account_client(
+            ExchangeCredentials(api_key="k", api_secret="s")
+        )
+        local_after_ms = int(time.time() * 1000)
+
         assert -local_after_ms <= client.timestamp_offset <= -local_before_ms

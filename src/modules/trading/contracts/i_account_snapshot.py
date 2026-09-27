@@ -22,6 +22,9 @@ venue answered, and the adapter behind the port is chosen at composition.
 What is **not** local, and is not pretended otherwise: the status's
 `position_mode` / `margin_type` fields are USD-M Futures concepts, so a spot
 venue would answer `None` for both rather than the port growing a union.
+Symmetrically (`EPIC-027H`), `holdings` / `equity` are Spot concepts a
+Futures venue answers `None` for — the same "answer `None`, never grow a
+union" resolution, in the other direction.
 """
 
 from __future__ import annotations

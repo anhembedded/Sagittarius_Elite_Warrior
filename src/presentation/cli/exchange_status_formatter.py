@@ -9,6 +9,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ConnectionFailureKind,
     ExchangeConnectionStatus,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 #: python-binance's own default `recvWindow` — matches what
@@ -50,6 +53,33 @@ _FAILURE_GUIDANCE = EnumLabels(
     },
 )
 
+#: `EPIC-027H` — the two failure kinds where a Futures key mixup and a Spot
+#: key mixup need different wording (a different key page, and the mirror
+#: of Futures' own "wrong testnet family" warning). Deliberately a plain
+#: dict, not an `EnumLabels`: it covers only the members whose guidance
+#: differs by venue, so `EnumLabels`'s completeness check (every member
+#: must have a label) would reject it outright. Every other kind's guidance
+#: is venue-agnostic and stays in `_FAILURE_GUIDANCE` above.
+_SPOT_ONLY_GUIDANCE: dict[ConnectionFailureKind, str] = {
+    ConnectionFailureKind.NOT_CONFIGURED: (
+        "API key/secret not configured. Get a key at testnet.binance.vision, "
+        "then save it via the Settings screen or the "
+        "BINANCE_SPOT_TESTNET_API_KEY/BINANCE_SPOT_TESTNET_API_SECRET "
+        "environment variables."
+    ),
+    ConnectionFailureKind.KEY_EXPIRED: (
+        "The testnet key has expired or been reset. Get a new key at "
+        "testnet.binance.vision.\n"
+        "  (Note: Futures Testnet keys and mainnet keys do NOT work here.)"
+    ),
+}
+
+
+def _guidance_for(status: ExchangeConnectionStatus, kind: ConnectionFailureKind) -> str:
+    if status.venue is TradingVenue.SPOT_TESTNET and kind in _SPOT_ONLY_GUIDANCE:
+        return _SPOT_ONLY_GUIDANCE[kind]
+    return _FAILURE_GUIDANCE[kind]
+
 
 def _require_failure_kind(status: ExchangeConnectionStatus) -> ConnectionFailureKind:
     """Both failure-rendering branches are only ever reached when
@@ -73,7 +103,7 @@ def format_exchange_connection_status(status: ExchangeConnectionStatus) -> str:
 def _format_unreachable(status: ExchangeConnectionStatus) -> str:
     kind = _require_failure_kind(status)
     lines = [f"Venue: {status.venue.name}   Connection: ✘  {kind.name}"]
-    lines.append(f"→ {_FAILURE_GUIDANCE[kind]}")
+    lines.append(f"→ {_guidance_for(status, kind)}")
     return "\n".join(lines)
 
 
@@ -84,11 +114,14 @@ def _format_reachable_with_failure(status: ExchangeConnectionStatus) -> str:
     lines = [f"Venue: {status.venue.name}   Connection: ✔  but {kind.name}"]
     if status.usdt_balance is not None:
         lines.append(f"USDT balance: {status.usdt_balance:,.2f}")
-    lines.append(f"→ {_FAILURE_GUIDANCE[kind]}")
+    lines.append(f"→ {_guidance_for(status, kind)}")
     return "\n".join(lines)
 
 
 def _format_success(status: ExchangeConnectionStatus) -> str:
+    if status.venue is TradingVenue.SPOT_TESTNET:
+        return _format_spot_success(status)
+
     skew = status.server_time_skew_ms
     skew_text = "?" if skew is None else f"{skew:+d} ms"
     skew_safety = (
@@ -117,3 +150,31 @@ def _format_success(status: ExchangeConnectionStatus) -> str:
             f"USDT balance:     {balance_text:<25} Open positions: {open_positions_text}",
         ]
     )
+
+
+def _format_spot_success(status: ExchangeConnectionStatus) -> str:
+    """`EPIC-027H` — Spot has no position mode/margin type to show, and a
+    list of per-asset holdings instead of one USDT wallet figure. `?` for
+    `equity` means "not available" (`SpotAccountReader` never guesses a
+    partial sum), never a silently-omitted line."""
+    skew = status.server_time_skew_ms
+    skew_text = "?" if skew is None else f"{skew:+d} ms"
+    balance_text = "?" if status.usdt_balance is None else f"{status.usdt_balance:,.2f}"
+    equity_text = "?" if status.equity is None else f"{status.equity:,.2f}"
+
+    lines = [
+        f"Venue:            {status.venue.name:<25} Connection: ✔",
+        f"Clock skew:       {skew_text:<25}",
+        f"USDT balance:     {balance_text:<25} Equity (USDT): {equity_text}",
+        "Holdings:",
+    ]
+    holdings = [
+        h for h in (status.holdings or ()) if h.asset != "USDT" and not h.is_dust
+    ]
+    if not holdings:
+        lines.append("  (none above dust threshold)")
+    for holding in holdings:
+        lines.append(
+            f"  {holding.asset:<10} free {holding.free}  locked {holding.locked}"
+        )
+    return "\n".join(lines)

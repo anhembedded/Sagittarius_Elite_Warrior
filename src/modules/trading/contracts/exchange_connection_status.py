@@ -15,6 +15,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
+    SpotHolding,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -71,7 +74,10 @@ class ExchangeConnectionStatus:
     when it was never learned — either the check failed before reaching
     that data, or (for `margin_type`) the account has no open position to
     infer it from (margin type is per-symbol on Binance Futures, not
-    account-wide; see `FuturesAccountReader`'s own docstring).
+    account-wide; see `FuturesAccountReader`'s own docstring). `holdings`/
+    `equity` are the symmetric case (`EPIC-027H`): Spot concepts a Futures
+    venue answers `None` for, same as `position_mode`/`margin_type` answer
+    `None` for Spot — see `i_account_snapshot.py`'s own "@par The seam".
     """
 
     venue: TradingVenue
@@ -82,3 +88,5 @@ class ExchangeConnectionStatus:
     position_mode: PositionMode | None
     margin_type: MarginType | None
     open_position_count: int | None
+    holdings: tuple[SpotHolding, ...] | None = None
+    equity: Decimal | None = None
