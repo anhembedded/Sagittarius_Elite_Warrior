@@ -1,7 +1,7 @@
 """`EPIC-021C` — `FuturesMetadataProvider`: cache-first, `refresh()` always
 hits the network. Uses a `Mock` only for the SDK-facing boundary
 (`FuturesSessionFactory`/its `Client`) — the cache is the real
-`InMemoryFuturesSymbolMetadataCache`, so these tests exercise the actual
+`InMemorySymbolOrderMetadataCache`, so these tests exercise the actual
 cache-hit/miss logic, not a re-implementation of it."""
 
 from __future__ import annotations
@@ -10,14 +10,14 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import Mock
 
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
-    InMemoryFuturesSymbolMetadataCache,
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
+    InMemorySymbolOrderMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
 )
 
 _PAYLOAD = {
@@ -53,7 +53,7 @@ def _provider():
     raw_client.futures_exchange_info.return_value = _PAYLOAD
     session_factory = Mock()
     session_factory.create_futures_metadata_client.return_value = raw_client
-    cache = InMemoryFuturesSymbolMetadataCache()
+    cache = InMemorySymbolOrderMetadataCache()
     return FuturesMetadataProvider(session_factory, cache), session_factory, cache
 
 
@@ -95,13 +95,13 @@ def test_refresh_always_hits_the_network_even_on_a_warm_cache():
 
 
 def test_a_stale_cache_hit_forces_a_real_refresh():
-    """`BUG-098` — `FuturesSymbolMetadata.is_stale()` existed since
+    """`BUG-098` — `SymbolOrderMetadata.is_stale()` existed since
     `BOT-095E1` and was never called in production: once cached, a
     symbol's `stepSize`/`tickSize`/`minNotional` were trusted for the rest
     of the process, even after Binance changes an exchange filter
     server-side."""
     provider, session_factory, cache = _provider()
-    stale = FuturesSymbolMetadata(
+    stale = SymbolOrderMetadata(
         symbol="BTCUSDT",
         status="TRADING",
         step_size=Decimal("0.001"),

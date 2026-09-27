@@ -16,8 +16,8 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.contract_market_metadata_provider import (
     GivenMetadata,
@@ -29,8 +29,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_market
 
 
 @pytest.fixture
-def btc_metadata() -> FuturesSymbolMetadata:
-    return FuturesSymbolMetadata(
+def btc_metadata() -> SymbolOrderMetadata:
+    return SymbolOrderMetadata(
         symbol="BTCUSDT",
         status="TRADING",
         step_size=Decimal("0.001"),
@@ -49,7 +49,7 @@ class TestTheFake(MarketMetadataProviderContract):
 
     @pytest.fixture
     def given_metadata(self, impl: FakeMarketMetadataProvider) -> GivenMetadata:
-        def seed(metadata: Sequence[FuturesSymbolMetadata]) -> None:
+        def seed(metadata: Sequence[SymbolOrderMetadata]) -> None:
             impl.seed(metadata)
 
         return seed
@@ -60,7 +60,7 @@ class TestTheFakesOwnBookkeeping:
     tested too: a helper no contract covers is a helper that can lie."""
 
     def test_it_records_every_symbol_it_was_asked_for(
-        self, btc_metadata: FuturesSymbolMetadata
+        self, btc_metadata: SymbolOrderMetadata
     ) -> None:
         fake = FakeMarketMetadataProvider([btc_metadata])
 
@@ -70,7 +70,7 @@ class TestTheFakesOwnBookkeeping:
         assert fake.reads == ["BTCUSDT", "nosuch"]
 
     def test_it_counts_refreshes_separately_from_reads(
-        self, btc_metadata: FuturesSymbolMetadata
+        self, btc_metadata: SymbolOrderMetadata
     ) -> None:
         fake = FakeMarketMetadataProvider([btc_metadata])
 
@@ -81,7 +81,7 @@ class TestTheFakesOwnBookkeeping:
         assert (fake.refreshes, len(fake.reads)) == (2, 1)
 
     def test_seeding_replaces_rather_than_adds(
-        self, btc_metadata: FuturesSymbolMetadata
+        self, btc_metadata: SymbolOrderMetadata
     ) -> None:
         """The real provider's `refresh()` repopulates the cache from the whole
         catalog, so a symbol the exchange delisted stops being answered. A

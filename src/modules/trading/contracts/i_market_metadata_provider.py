@@ -1,17 +1,27 @@
-"""Application port for reading USD-M Futures order-rounding metadata by
-symbol (`EPIC-021C`)."""
+"""Application port for reading live order-rounding metadata by symbol
+(`EPIC-021C`/`EPIC-027I`), for whichever market the active `TradingVenue`
+trades."""
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
 )
 
 
 class IMarketMetadataProvider(ABC):
-    """@brief Port for resolving one symbol's futures order-rounding rules.
+    """@brief Port for resolving one symbol's order-rounding rules.
+
+    @details One implementer per market — `FuturesMetadataProvider`,
+    `SpotMetadataProvider` (`EPIC-027I`) — chosen at composition by the
+    active `TradingVenue`, mirroring `ITradingAccountReader`'s own
+    venue-branching bind. The port itself takes no venue parameter: which
+    market answers is fixed once, at boot, by which concrete class is
+    bound, never by an argument a caller could request the wrong market
+    with (the same reasoning `ITradingClientFactory.create()` already
+    gives for taking no venue argument).
 
     @details Deliberately two operations, not one: `get_or_fetch()` is the
     cheap, cache-first path every order-construction call site uses;
@@ -23,7 +33,7 @@ class IMarketMetadataProvider(ABC):
     """
 
     @abstractmethod
-    def get_or_fetch(self, symbol: str) -> FuturesSymbolMetadata | None:
+    def get_or_fetch(self, symbol: str) -> SymbolOrderMetadata | None:
         """@brief Returns cached metadata for `symbol`, fetching and
         caching the whole catalog first if the cache is empty.
         @return `None` if `symbol` does not exist in the catalog even after

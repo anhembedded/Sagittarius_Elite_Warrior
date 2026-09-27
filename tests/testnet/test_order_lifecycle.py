@@ -24,8 +24,8 @@ from __future__ import annotations
 import time
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
-    InMemoryFuturesSymbolMetadataCache,
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
+    InMemorySymbolOrderMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
@@ -93,7 +93,7 @@ def _build_client(
 ) -> tuple[FuturesTradingClient, FuturesMetadataProvider]:
     session_factory = FuturesSessionFactory()
     metadata_provider = FuturesMetadataProvider(
-        session_factory, InMemoryFuturesSymbolMetadataCache()
+        session_factory, InMemorySymbolOrderMetadataCache()
     )
     client = FuturesTradingClient(
         session_factory,

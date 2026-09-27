@@ -21,7 +21,7 @@ depend on exactly these:
 **One hook.** A subclass supplies `given_metadata`, because the two
 implementations are told what the catalog holds in different ways: the fake
 is seeded, and the real `FuturesMetadataProvider` reads an
-`IFuturesSymbolMetadataCache`. The asymmetry lives in the subclass, not in
+`ISymbolOrderMetadataCache`. The asymmetry lives in the subclass, not in
 the contract.
 
 What this suite does **not** pin is what `refresh()` actually fetches: the
@@ -36,15 +36,15 @@ from __future__ import annotations
 from collections.abc import Callable, Sequence
 
 import pytest
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
+)
 
 #: How a subclass puts metadata where its implementation reads it.
-type GivenMetadata = Callable[[Sequence[FuturesSymbolMetadata]], None]
+type GivenMetadata = Callable[[Sequence[SymbolOrderMetadata]], None]
 
 
 class MarketMetadataProviderContract:
@@ -69,7 +69,7 @@ class MarketMetadataProviderContract:
         self,
         impl: IMarketMetadataProvider,
         given_metadata: GivenMetadata,
-        btc_metadata: FuturesSymbolMetadata,
+        btc_metadata: SymbolOrderMetadata,
     ) -> None:
         given_metadata([btc_metadata])
 
@@ -79,7 +79,7 @@ class MarketMetadataProviderContract:
         self,
         impl: IMarketMetadataProvider,
         given_metadata: GivenMetadata,
-        btc_metadata: FuturesSymbolMetadata,
+        btc_metadata: SymbolOrderMetadata,
     ) -> None:
         """The port's own promise, and the expensive one to get wrong: a
         caller shaping an order rounds against `step_size`, so a default
@@ -93,7 +93,7 @@ class MarketMetadataProviderContract:
         self,
         impl: IMarketMetadataProvider,
         given_metadata: GivenMetadata,
-        btc_metadata: FuturesSymbolMetadata,
+        btc_metadata: SymbolOrderMetadata,
     ) -> None:
         """`trade-once --symbol btcusdt` is a thing a user types."""
         given_metadata([btc_metadata])
@@ -104,7 +104,7 @@ class MarketMetadataProviderContract:
         self,
         impl: IMarketMetadataProvider,
         given_metadata: GivenMetadata,
-        btc_metadata: FuturesSymbolMetadata,
+        btc_metadata: SymbolOrderMetadata,
     ) -> None:
         """Two methods, two costs. Reading a symbol that is already known
         must not go to the exchange — which is why the port does not offer

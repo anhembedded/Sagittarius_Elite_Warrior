@@ -8,9 +8,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
     PreviewOrderQuery,
     PreviewOrderQueryHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -22,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import
     OrderStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
 )
@@ -33,18 +33,18 @@ class _StaticMetadataProvider(IMarketMetadataProvider):
     `exchangeInfo` endpoint; this fake stands in exactly there, nowhere
     else."""
 
-    def __init__(self, catalog: dict[str, FuturesSymbolMetadata]) -> None:
+    def __init__(self, catalog: dict[str, SymbolOrderMetadata]) -> None:
         self._catalog = catalog
 
-    def get_or_fetch(self, symbol: str) -> FuturesSymbolMetadata | None:
+    def get_or_fetch(self, symbol: str) -> SymbolOrderMetadata | None:
         return self._catalog.get(symbol)
 
     def refresh(self) -> None:
         raise NotImplementedError("Not exercised by this fake's tests.")
 
 
-def _btcusdt_metadata() -> FuturesSymbolMetadata:
-    return FuturesSymbolMetadata(
+def _btcusdt_metadata() -> SymbolOrderMetadata:
+    return SymbolOrderMetadata(
         symbol="BTCUSDT",
         status="TRADING",
         step_size=Decimal("0.001"),

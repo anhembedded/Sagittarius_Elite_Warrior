@@ -9,7 +9,7 @@ send — get it wrong and every live order fails with Binance's `-1013`
 *after* being sent, which is a worse failure mode than catching it here
 first.
 
-`Decimal` throughout, never `float` — see `FuturesSymbolMetadata`'s own
+`Decimal` throughout, never `float` — see `SymbolOrderMetadata`'s own
 docstring for why.
 
 @par Why it sits in `contracts/` rather than `domain/policies/`

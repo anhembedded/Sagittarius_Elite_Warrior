@@ -372,7 +372,7 @@ def test_futures_symbols_come_from_futures_exchange_info_and_only_perpetuals():
     injected_client.get_exchange_info.assert_not_called()
 
 
-def test_futures_symbol_metadata_parses_the_futures_filters():
+def test_symbol_order_metadata_parses_the_futures_filters():
     """EPIC-027C — Futures' notional filter is `MIN_NOTIONAL` with a `notional`
     field; the shared parser reads it, so a Futures run gets Futures rules."""
     injected_client = Mock()

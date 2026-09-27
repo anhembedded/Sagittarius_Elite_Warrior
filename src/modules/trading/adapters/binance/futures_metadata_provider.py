@@ -11,14 +11,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_meta
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_metadata import (
-    FuturesSymbolMetadata,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_symbol_metadata_cache import (
-    IFuturesSymbolMetadataCache,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_symbol_order_metadata_cache import (
+    ISymbolOrderMetadataCache,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
 )
 
 logger = logging.getLogger("App.FuturesMetadata")
@@ -35,14 +35,14 @@ class FuturesMetadataProvider(IMarketMetadataProvider):
     def __init__(
         self,
         session_factory: FuturesSessionFactory,
-        cache: IFuturesSymbolMetadataCache,
+        cache: ISymbolOrderMetadataCache,
     ) -> None:
         self._session_factory = session_factory
         self._cache = cache
 
-    def get_or_fetch(self, symbol: str) -> FuturesSymbolMetadata | None:
+    def get_or_fetch(self, symbol: str) -> SymbolOrderMetadata | None:
         cached = self._cache.get(symbol)
-        # `BUG-098` — `FuturesSymbolMetadata.is_stale()` existed since
+        # `BUG-098` — `SymbolOrderMetadata.is_stale()` existed since
         # `BOT-095E1` and was never called anywhere in production: once a
         # symbol was cached, its `stepSize`/`tickSize`/`minNotional` were
         # trusted for the rest of the process, even after Binance changes

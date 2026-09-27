@@ -27,8 +27,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from binance.client import Client
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.futures_symbol_metadata_cache import (
-    InMemoryFuturesSymbolMetadataCache,
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
+    InMemorySymbolOrderMetadataCache,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
@@ -89,7 +89,7 @@ def test_placed_order_appears_in_open_orders_then_cancel_removes_it() -> None:
     ):
         session_factory = FuturesSessionFactory()
         metadata_provider = FuturesMetadataProvider(
-            session_factory, InMemoryFuturesSymbolMetadataCache()
+            session_factory, InMemorySymbolOrderMetadataCache()
         )
         client = FuturesTradingClient(
             session_factory,
@@ -117,7 +117,7 @@ def test_cancel_all_orders_returns_what_was_open_and_clears_the_book() -> None:
     ):
         session_factory = FuturesSessionFactory()
         metadata_provider = FuturesMetadataProvider(
-            session_factory, InMemoryFuturesSymbolMetadataCache()
+            session_factory, InMemorySymbolOrderMetadataCache()
         )
         client = FuturesTradingClient(
             session_factory,
@@ -147,7 +147,7 @@ def test_positions_are_always_flat_no_matching_engine() -> None:
     ):
         session_factory = FuturesSessionFactory()
         metadata_provider = FuturesMetadataProvider(
-            session_factory, InMemoryFuturesSymbolMetadataCache()
+            session_factory, InMemorySymbolOrderMetadataCache()
         )
         client = FuturesTradingClient(
             session_factory,
