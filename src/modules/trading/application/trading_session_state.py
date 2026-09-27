@@ -57,7 +57,9 @@ trade-off, not a bottleneck.
 from __future__ import annotations
 
 import threading
+from collections.abc import Mapping
 from datetime import datetime, timedelta
+from decimal import Decimal
 
 
 class TradingSessionState:
@@ -91,6 +93,18 @@ class TradingSessionState:
         #: Bumped by every state-changing call. See `enable()`'s own
         #: docstring for what this guards against.
         self._generation = 0
+        #: `EPIC-027M` — the Spot holdings this app saw at the moment
+        #: trading was enabled, per asset (e.g. `{"BTC": Decimal("0.5")}`).
+        #: `None` means "no baseline recorded" — either trading has never
+        #: been enabled this session, or the last enable was on a
+        #: non-Spot venue. Emergency Stop treats `None` as "unknown
+        #: baseline" and refuses to sell anything on Spot rather than
+        #: guessing (`code/errors.md` #6 — no fabricated fallback): the
+        #: unknown could be zero or the account's entire holding, and only
+        #: an actual baseline tells them apart. An empty dict (`{}`) is a
+        #: real, distinct baseline — "enabled while holding nothing" — and
+        #: makes every unit later held fair game to sell.
+        self._spot_baseline_holdings: dict[str, Decimal] | None = None
 
     @property
     def generation(self) -> int:
@@ -108,7 +122,11 @@ class TradingSessionState:
         return self._live_submission_lock
 
     def enable(
-        self, open_symbols: set[str], *, expected_generation: int | None = None
+        self,
+        open_symbols: set[str],
+        *,
+        expected_generation: int | None = None,
+        spot_baseline_holdings: Mapping[str, Decimal] | None = None,
     ) -> bool:
         """@brief Turns trading on for this session, seeded with
         `open_symbols` from a just-completed reconciliation.
@@ -124,6 +142,14 @@ class TradingSessionState:
         it had enabled trading (`BUG-088` — this is what stops
         `EnableTradingCommand` from re-enabling trading right after an
         Emergency Stop that ran while it was still reconciling).
+
+        `spot_baseline_holdings`, when given (`EPIC-027M`), replaces
+        whatever Spot baseline this instance held before — a fresh enable
+        always re-baselines from the exchange's current answer, never
+        merges with a stale one. `None` (the Futures/`DISABLED` case)
+        clears any previous baseline, so a venue switch cannot leave a
+        Spot baseline behind for `EmergencyStopCommandHandler` to
+        misapply on a later, unrelated Spot session.
         """
         with self._lock:
             if (
@@ -133,8 +159,28 @@ class TradingSessionState:
                 return False
             self.enabled = True
             self.known_open_symbols = set(open_symbols)
+            self._spot_baseline_holdings = (
+                dict(spot_baseline_holdings)
+                if spot_baseline_holdings is not None
+                else None
+            )
             self._generation += 1
             return True
+
+    def spot_baseline_holdings(self) -> Mapping[str, Decimal] | None:
+        """@brief The per-asset Spot holdings recorded by the last
+        successful `enable()`, or `None` if none was recorded — see
+        `_spot_baseline_holdings`'s own docstring for what each case means.
+        A copy, not the live dict: the same "handing out the live object is
+        a race dressed as a value" discipline `read_all()` already applies
+        to `known_open_symbols`.
+        """
+        with self._lock:
+            return (
+                None
+                if self._spot_baseline_holdings is None
+                else dict(self._spot_baseline_holdings)
+            )
 
     def disable(self) -> None:
         with self._lock:

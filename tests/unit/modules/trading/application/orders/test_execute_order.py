@@ -426,6 +426,23 @@ class TestTradingLimits:
         assert result.submitted_order is None
         assert state.orders_sent_this_session == 0
 
+    def test_the_same_four_limits_apply_unchanged_on_spot(self) -> None:
+        """`EPIC-027M` AC4 — the four session limits are plain USDT/count/
+        duration checks against `TradingSessionState`
+        (`TradingLimitContext`), with no Futures-only assumption anywhere
+        in this path; nothing about `EPIC-027M` changes them, this proves
+        that stayed true rather than leaving it an unverified claim."""
+        state = TradingSessionState()
+        state.enable({"BTCUSDT"})
+        handler, _ = _handler(
+            trading_venue=TradingVenue.SPOT_TESTNET, session_state=state, enabled=True
+        )
+
+        result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))
+
+        assert result.blocked_by is TradingLimitViolation.MAX_POSITIONS_PER_SYMBOL
+        assert len(result.limit_checks) == 4
+
 
 class TestNotionalRejection:
     def test_blocked_by_min_notional_before_any_network_order_call(self) -> None:

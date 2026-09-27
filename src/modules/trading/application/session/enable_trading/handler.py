@@ -1,6 +1,7 @@
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading.command import (
     EnableTradingCommand,
 )
@@ -65,6 +66,17 @@ class EnableTradingCommandHandler(
     to unlock manual-only trading forced a user into arming one on some
     symbol, which then immediately hard-blocked manual trading on that
     exact symbol (`PRO-003` §4.1.2) — a real deadlock, reported directly.
+
+    `EPIC-027M` — on a Spot venue, `positions` is always empty
+    (`SpotTradingClient.get_positions()`'s own docstring), so the
+    `UNEXPECTED_POSITIONS` refusal above never actually fires for Spot —
+    holding assets is normal there and says nothing about whether this app
+    opened them. What Spot needs instead is recorded here: the account's
+    current per-asset holdings (`status.holdings`, already fetched by the
+    connection check above — no second network call) become the session's
+    baseline, so `EmergencyStopCommandHandler` later knows exactly how much
+    of each asset this app itself is responsible for, never the balance the
+    user already held before enabling.
     """
 
     def __init__(
@@ -114,9 +126,16 @@ class EnableTradingCommandHandler(
         # above already returned otherwise) — `set()`, not
         # `{p.symbol for p in positions}`, which read as if it seeded from
         # real data while always producing the same empty set.
+        spot_baseline_holdings = (
+            {holding.asset: holding.total for holding in status.holdings}
+            if self._trading_venue.market_type is MarketType.SPOT
+            and status.holdings is not None
+            else None
+        )
         applied = self._session_state.enable(
             set(),
             expected_generation=generation_before_reconciliation,
+            spot_baseline_holdings=spot_baseline_holdings,
         )
         if not applied:
             logger.warning(
@@ -134,6 +153,11 @@ class EnableTradingCommandHandler(
             )
 
         self._user_data_stream.start()
+        if spot_baseline_holdings is not None:
+            logger.info(
+                "Spot holdings baseline recorded for this session: %d asset(s).",
+                len(spot_baseline_holdings),
+            )
         logger.info(
             "Trading enabled for this session (%d open orders reconciled).",
             len(open_orders),
