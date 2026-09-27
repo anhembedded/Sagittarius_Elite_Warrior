@@ -3,6 +3,9 @@ from __future__ import annotations
 from decimal import Decimal
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client_factory import (
+    FuturesTradingClientFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
     EnableTradingCommand,
     EnableTradingCommandHandler,
@@ -82,6 +85,9 @@ def _handler(
         _CREDENTIALS, CredentialsSource.FILE
     )
     metadata_provider = Mock()
+    trading_client_factory = FuturesTradingClientFactory(
+        session_factory, credentials_provider, metadata_provider
+    )
     session_state = TradingSessionState()
     user_data_stream = Mock()
 
@@ -89,9 +95,7 @@ def _handler(
         EnableTradingCommandHandler(
             trading_venue,
             account_reader,
-            session_factory,
-            credentials_provider,
-            metadata_provider,
+            trading_client_factory,
             session_state,
             user_data_stream,
         ),

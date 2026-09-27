@@ -1,6 +1,6 @@
 # EPIC-027 — Spot beside Futures: truthful Spot backtests first, then live Spot on Testnet
 
-- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027E` are done; Phase 2 (live Spot foundations) starts at `EPIC-027F`.
+- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 in progress (1/5, 2026-09-27) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027E` are done; `EPIC-027F` is done, opening the venue-selected factory seam Phase 2's remaining tasks build on.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-26): *"đánh giá xem giờ tui muốn giao dịch spot và back test theo
   spot thì app này cần những gì, lên plan và epic, sao đó report cho tôi"* ("assess what this app
@@ -95,7 +95,7 @@ request unless its file says otherwise.
 | [EPIC-027D](completed/EPIC-027D_backtest_ui_market_selector.md) | Backtest screen chooses the market and shows only what it can do | Elite | A, B | 🟢 | ✅ Done (2026-09-27) |
 | [EPIC-027E](completed/EPIC-027E_report_schema_carries_market_type.md) | Saved reports state their market | Elite | B, C | 🟢 | ✅ Done (2026-09-27) |
 | **Phase 2 — Live Spot foundations (read-only)** | | | | | |
-| [EPIC-027F](incomplete/EPIC-027F_venue_selected_trading_client_factory.md) | One venue-selected factory replaces six direct client constructions | Elite | None | 🔴 | Planned |
+| [EPIC-027F](completed/EPIC-027F_venue_selected_trading_client_factory.md) | One venue-selected factory replaces six direct client constructions | Elite | None | 🔴 | ✅ Done (2026-09-27) |
 | [EPIC-027G](incomplete/EPIC-027G_spot_testnet_venue_and_credentials.md) | `TradingVenue.SPOT_TESTNET`, own keys, market-mismatch alignment | Elite | F | 🟡 | Planned |
 | [EPIC-027J](incomplete/EPIC-027J_fake_exchange_spot_routes.md) | Fake exchange answers the Spot API (signed orders, account, stream) | Elite | None | 🟡 | Planned |
 | [EPIC-027H](incomplete/EPIC-027H_spot_account_reader_and_holdings_model.md) | Spot account read as balances and holdings | Elite | G, J, O6 | 🟡 | Planned |
@@ -113,7 +113,7 @@ request unless its file says otherwise.
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
 | Phase 1 | A Spot backtest and a Futures backtest of the same symbol run on their own market's candles. The Spot one never shorts or liquidates. Both round quantities to exchange filters and state it in the report. | The golden Futures run unchanged byte-for-byte (except where `EPIC-027C`'s filters change it, and then recorded); the integration test of `EPIC-027D`; a saved report states its market and exchange filters (`EPIC-027E`); the full gate green on GitHub Actions. ✅ Closed 2026-09-27. |
-| Phase 2 | `exchange-status` against Spot Testnet shows balances with a Spot key and refuses a Futures key as a key error. No application-layer file constructs a trading client. | `EPIC-027F`'s architecture guard; `EPIC-027H`'s CLI output pasted into its task file. Not run. |
+| Phase 2 | `exchange-status` against Spot Testnet shows balances with a Spot key and refuses a Futures key as a key error. No application-layer file constructs a trading client. | `EPIC-027F`'s architecture guard (closed 2026-09-27 — no file outside the one factory constructs `FuturesTradingClient`, in all of `src/`+`scripts/`, not just `application/`); `EPIC-027H`'s CLI output pasted into its task file. Rest not run. |
 | Phase 3 | A human BUY and SELL, and an armed long-only strategy, each round-trip on Spot Testnet. Emergency Stop never sells a pre-existing holding. | `EPIC-027P`'s tier output from the user's run; `EPIC-027M`'s baseline test; the SPEC listed as ✅ in `Docs/SPEC/README.md`. Not run. |
 
 ## 5. Out of scope
@@ -130,6 +130,22 @@ request unless its file says otherwise.
 - **Funding-rate modeling for Futures.** Still out of scope as in `BOT-049`.
 
 ## Notes (newest first)
+- **2026-09-27** — `EPIC-027F` done, opening Phase 2 (1/5). Six sites that each constructed
+  `FuturesTradingClient(...)` directly (the four order-path handlers, the open-positions query, the
+  user data stream) now resolve `ITradingClientFactory.create(mode)` instead — a single seam
+  `EPIC-027K` extends with one Spot row rather than editing all six again. `create()` takes only
+  `OrderSubmissionMode`, not `(venue, mode)`: venue is selected once, at boot, by which concrete
+  factory `adapter_bindings.py` binds, not by an argument a caller could request the wrong venue
+  with. `ITradingClientFactory` is bound unconditionally (like `ITradingAccountReader`/
+  `IUserDataStream`), so every handler that depends on it stays constructible while trading is
+  disabled. Found along the way: `FuturesUserDataStream` keeps `credentials_provider` as its own
+  constructor parameter, separate from the factory — `_run_stream()` uses it independently to open
+  the raw signed websocket. New architecture guard
+  (`test_only_the_factory_constructs_futures_trading_client.py`) scans all of `src/`+`scripts/`, not
+  just `application/` as the task originally scoped it — it also caught a probe script
+  (`scripts/epic021h_user_stream_probe.py`) using the old constructor shape, via mypy rather than the
+  original grep. `tests/unit/modules/trading` 794 passed, `tests/unit/architecture` 451 passed,
+  `tests/unit` (full) 5626 passed, `tests/sanity` 32 passed; ruff and mypy (713 files) clean.
 - **2026-09-27** — `EPIC-027E` done, closing Phase 1 (5/5). A saved report was silently dropping four
   facts (`market_type`, `ignored_short_signals`, `rejected_entries`, `exchange_filters`) `EPIC-027B`/
   `027C` had already put on `BacktestResult` — the serializer never wrote them, so the loader always

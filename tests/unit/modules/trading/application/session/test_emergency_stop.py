@@ -22,6 +22,9 @@ from decimal import Decimal
 from unittest.mock import Mock
 
 from binance.exceptions import BinanceAPIException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client_factory import (
+    FuturesTradingClientFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.command import (
     EmergencyStopCommand,
 )
@@ -124,12 +127,13 @@ def _handler(
     credentials_provider.resolve.return_value = ResolvedCredentials(
         _CREDENTIALS, CredentialsSource.FILE
     )
+    trading_client_factory = FuturesTradingClientFactory(
+        session_factory, credentials_provider, _metadata_provider()
+    )
     return EmergencyStopCommandHandler(
         session_state if session_state is not None else TradingSessionState(),
         user_data_stream or Mock(),
-        session_factory,
-        credentials_provider,
-        _metadata_provider(),
+        trading_client_factory,
     )
 
 

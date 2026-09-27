@@ -9,6 +9,9 @@ from unittest.mock import Mock
 
 import pytest
 from binance.exceptions import BinanceAPIException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client_factory import (
+    FuturesTradingClientFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
 )
@@ -150,6 +153,9 @@ def _handler(
     )
     metadata_provider = _metadata_provider()
     preview_handler = PreviewOrderQueryHandler(metadata_provider)
+    trading_client_factory = FuturesTradingClientFactory(
+        session_factory, credentials_provider, metadata_provider
+    )
 
     handler = ExecuteOrderCommandHandler(
         trading_venue,
@@ -157,9 +163,7 @@ def _handler(
         account_reader,
         preview_handler,
         TradingLimitPolicy(limits or _LIMITS),
-        session_factory,
-        credentials_provider,
-        metadata_provider,
+        trading_client_factory,
     )
     return handler, state
 
@@ -222,15 +226,16 @@ class TestSafetyGates:
             "the lease must be refused before the connection is read"
         )
         metadata_provider = _metadata_provider()
+        trading_client_factory = FuturesTradingClientFactory(
+            Mock(), Mock(), metadata_provider
+        )
         handler = ExecuteOrderCommandHandler(
             TradingVenue.FUTURES_TESTNET,
             state,
             account_reader,
             PreviewOrderQueryHandler(metadata_provider),
             TradingLimitPolicy(_LIMITS),
-            Mock(),
-            Mock(),
-            metadata_provider,
+            trading_client_factory,
         )
 
         result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))
@@ -265,15 +270,16 @@ class TestSafetyGates:
 
         account_reader.check_connection.side_effect = _claim_mid_flight
         metadata_provider = _metadata_provider()
+        trading_client_factory = FuturesTradingClientFactory(
+            Mock(), Mock(), metadata_provider
+        )
         handler = ExecuteOrderCommandHandler(
             TradingVenue.FUTURES_TESTNET,
             state,
             account_reader,
             PreviewOrderQueryHandler(metadata_provider),
             TradingLimitPolicy(_LIMITS),
-            Mock(),
-            Mock(),
-            metadata_provider,
+            trading_client_factory,
         )
 
         result = handler.execute(

@@ -3,6 +3,9 @@ from __future__ import annotations
 from decimal import Decimal
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client_factory import (
+    FuturesTradingClientFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order.command import (
     CancelOrderCommand,
 )
@@ -73,14 +76,15 @@ def _handler(
     credentials_provider = Mock()
     credentials_provider.resolve.return_value = _CREDENTIALS
     metadata_provider = Mock()
+    trading_client_factory = FuturesTradingClientFactory(
+        session_factory, credentials_provider, metadata_provider
+    )
 
     return CancelOrderCommandHandler(
         trading_venue,
         state,
         account_reader,
-        session_factory,
-        credentials_provider,
-        metadata_provider,
+        trading_client_factory,
     )
 
 

@@ -46,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_meta
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client_factory import (
+    FuturesTradingClientFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user_data_stream import (
     FuturesUserDataStream,
 )
@@ -63,6 +66,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_p
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
+    ITradingClientFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
@@ -136,6 +142,21 @@ def bind_adapters(container: IContainer) -> None:
     )
     container.singleton(IExchangeCredentialsProvider, credentials_provider)
 
+    # `EPIC-027F`: the one place allowed to construct `FuturesTradingClient`
+    # (guarded by
+    # `test_only_the_factory_constructs_futures_trading_client.py`).
+    # Registered unconditionally — like `ITradingAccountReader`/
+    # `IUserDataStream` below, not gated on `TradingVenue` the way
+    # `ITradingClient` itself is in `TradingModule.boot()` — so every
+    # handler that depends on it stays constructible regardless of whether
+    # trading is enabled.
+    container.singleton(
+        ITradingClientFactory,
+        lambda c: FuturesTradingClientFactory(
+            session_factory, credentials_provider, c.resolve(IMarketMetadataProvider)
+        ),
+    )
+
     # EPIC-021D: read-only, does not require TradingVenue to be "enabled"
     # anywhere — see FuturesAccountReader's own docstring for why this check
     # works off credentials alone.
@@ -161,9 +182,8 @@ def bind_adapters(container: IContainer) -> None:
         lambda c: FuturesUserDataStream(
             c.resolve(IEventBus),
             c.resolve(ITaskManager),
-            session_factory,
             credentials_provider,
-            c.resolve(IMarketMetadataProvider),
+            c.resolve(ITradingClientFactory),
             c.resolve(TradingSessionState),
             c.resolve(EquityCurveRecorder),
         ),

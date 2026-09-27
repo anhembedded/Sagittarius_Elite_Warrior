@@ -1,9 +1,10 @@
 """`EPIC-021K` §2.2 — `EmergencyStopCommandHandler`: the second file this
-app allows to construct `FuturesTradingClient` with
-`OrderSubmissionMode.LIVE` (see `ExecuteOrderCommandHandler`'s own
-docstring for the first, and
+app allows to reference `OrderSubmissionMode.LIVE` (see
+`ExecuteOrderCommandHandler`'s own docstring for the first, and
 `tests/unit/architecture/test_order_submission_mode_live_is_restricted.py`
-for the guard listing both by name).
+for the guard listing both by name). `EPIC-027F` — resolves its trading
+client from `ITradingClientFactory` rather than constructing
+`FuturesTradingClient` itself.
 
 @details Does **not** go through `ExecuteOrderCommand`/`DisableTradingCommand`
 for its own steps, on purpose:
@@ -25,9 +26,6 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
-    FuturesTradingClient,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.command import (
     EmergencyStopCommand,
 )
@@ -41,11 +39,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_resu
     EmergencyStopResult,
     EmergencyStopStepResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
+    ITradingClientFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
@@ -61,12 +59,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
-    IExchangeCredentialsProvider,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
-    ITradingSessionFactory,
 )
 
 logger = logging.getLogger("App.CommandHandler")
@@ -100,27 +92,18 @@ class EmergencyStopCommandHandler(
         self,
         session_state: TradingSessionState,
         user_data_stream: IUserDataStream,
-        session_factory: ITradingSessionFactory,
-        credentials_provider: IExchangeCredentialsProvider,
-        metadata_provider: IMarketMetadataProvider,
+        trading_client_factory: ITradingClientFactory,
     ) -> None:
         self._session_state = session_state
         self._user_data_stream = user_data_stream
-        self._session_factory = session_factory
-        self._credentials_provider = credentials_provider
-        self._metadata_provider = metadata_provider
+        self._trading_client_factory = trading_client_factory
 
     def execute(self, command: EmergencyStopCommand) -> EmergencyStopResult:
         logger.warning("Handling EmergencyStopCommand")
 
         trading_disabled = self._disable_trading()
 
-        trading_client = FuturesTradingClient(
-            self._session_factory,
-            self._credentials_provider,
-            self._metadata_provider,
-            OrderSubmissionMode.LIVE,
-        )
+        trading_client = self._trading_client_factory.create(OrderSubmissionMode.LIVE)
         orders_cancelled = self._cancel_all_orders(trading_client)
         positions_closed = self._close_all_positions(trading_client)
         final_positions, final_open_orders, final_state_confirmed = (

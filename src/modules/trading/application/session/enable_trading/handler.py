@@ -1,9 +1,6 @@
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
-    FuturesTradingClient,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading.command import (
     EnableTradingCommand,
 )
@@ -14,23 +11,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_resu
     EnableTradingBlockReason,
     EnableTradingResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
+    ITradingClientFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
-    IExchangeCredentialsProvider,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
-    ITradingSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -52,14 +43,14 @@ class EnableTradingCommandHandler(
     enable outright — this app never auto-adopts or auto-closes a
     position it did not open itself.
 
-    Builds its own `FuturesTradingClient` (`VALIDATE_ONLY` — irrelevant
-    for these two read-only calls) from the same raw collaborators
-    `ExecuteOrderCommandHandler` uses, rather than depending on the
+    Resolves its own client from `ITradingClientFactory` (`VALIDATE_ONLY` —
+    irrelevant for these two read-only calls) rather than depending on the
     `ITradingClient` singleton directly: that singleton is only
     registered when `TradingVenue != DISABLED`
     (`binance_bot_module.py`), and this handler must still be
     *constructible* (to report `TRADING_VENUE_DISABLED` itself) when it
-    is not.
+    is not — `ITradingClientFactory` is bound unconditionally
+    (`EPIC-027F`), unlike `ITradingClient`.
 
     Starts `IUserDataStream` on a successful enable (`EPIC-021H` §3) —
     the exchange's own account of what happens to an order only starts
@@ -80,17 +71,13 @@ class EnableTradingCommandHandler(
         self,
         trading_venue: TradingVenue,
         account_reader: ITradingAccountReader,
-        session_factory: ITradingSessionFactory,
-        credentials_provider: IExchangeCredentialsProvider,
-        metadata_provider: IMarketMetadataProvider,
+        trading_client_factory: ITradingClientFactory,
         session_state: TradingSessionState,
         user_data_stream: IUserDataStream,
     ) -> None:
         self._trading_venue = trading_venue
         self._account_reader = account_reader
-        self._session_factory = session_factory
-        self._credentials_provider = credentials_provider
-        self._metadata_provider = metadata_provider
+        self._trading_client_factory = trading_client_factory
         self._session_state = session_state
         self._user_data_stream = user_data_stream
 
@@ -110,11 +97,8 @@ class EnableTradingCommandHandler(
         if not status.reachable or status.failure is not None:
             return self._blocked(EnableTradingBlockReason.CONNECTION_NOT_READY)
 
-        trading_client = FuturesTradingClient(
-            self._session_factory,
-            self._credentials_provider,
-            self._metadata_provider,
-            OrderSubmissionMode.VALIDATE_ONLY,
+        trading_client = self._trading_client_factory.create(
+            OrderSubmissionMode.VALIDATE_ONLY
         )
         positions = tuple(trading_client.get_positions())
         open_orders = tuple(trading_client.get_open_orders())

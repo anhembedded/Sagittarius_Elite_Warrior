@@ -108,7 +108,6 @@ def _stream(
         Mock(),
         Mock(),
         Mock(),
-        Mock(),
         session_state,
         equity_recorder if equity_recorder is not None else EquityCurveRecorder(),
     )
@@ -438,7 +437,6 @@ async def test_run_stream_with_no_credentials_returns_without_crashing() -> None
     stream = FuturesUserDataStream(
         event_bus,
         Mock(),
-        Mock(),
         credentials_provider,
         Mock(),
         TradingSessionState(),
@@ -461,7 +459,6 @@ async def test_read_loop_closed_triggers_a_reconnect_not_a_crash() -> None:
     )
     stream = FuturesUserDataStream(
         MemoryEventBus(),
-        Mock(),
         Mock(),
         credentials_provider,
         Mock(),
@@ -535,7 +532,6 @@ async def test_a_superseded_generation_stops_handling_messages_mid_stream() -> N
     )
     stream = FuturesUserDataStream(
         MemoryEventBus(),
-        Mock(),
         Mock(),
         credentials_provider,
         Mock(),

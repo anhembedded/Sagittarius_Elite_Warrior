@@ -41,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_meta
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client_factory import (
+    FuturesTradingClientFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
 )
@@ -155,10 +158,11 @@ def _submit_manual_order(direction: ManualOrderDirection) -> None:
     credentials_provider = _FakeCredentialsProvider()
     session_state = TradingSessionState()
     session_state.enable(set())
-
-    positions_handler = GetOpenPositionsQueryHandler(
+    trading_client_factory = FuturesTradingClientFactory(
         session_factory, credentials_provider, metadata_provider
     )
+
+    positions_handler = GetOpenPositionsQueryHandler(trading_client_factory)
     current_position = next(
         (
             p
@@ -175,9 +179,7 @@ def _submit_manual_order(direction: ManualOrderDirection) -> None:
         account_reader,
         PreviewOrderQueryHandler(metadata_provider),
         TradingLimitPolicy(_LIMITS),
-        session_factory,
-        credentials_provider,
-        metadata_provider,
+        trading_client_factory,
     )
     result = handler.execute(
         ExecuteOrderCommand(

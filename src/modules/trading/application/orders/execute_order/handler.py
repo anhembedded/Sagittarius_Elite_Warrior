@@ -1,8 +1,11 @@
 """`EPIC-021G` — `ExecuteOrderCommandHandler`: the one place in this app
-allowed to construct `FuturesTradingClient` with `OrderSubmissionMode.LIVE`.
-Guarded by `tests/unit/infrastructure/binance/
-test_order_submission_mode_live_is_restricted.py`, which allowlists this
-exact file — nowhere else."""
+allowed to reference `OrderSubmissionMode.LIVE`. Guarded by
+`tests/unit/architecture/test_order_submission_mode_live_is_restricted.py`,
+which allowlists this exact file — nowhere else.
+
+`EPIC-027F` — resolves its trading client from `ITradingClientFactory`
+rather than constructing `FuturesTradingClient` itself (see that port's own
+docstring)."""
 
 from __future__ import annotations
 
@@ -10,9 +13,6 @@ import logging
 from datetime import UTC, datetime
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
-    FuturesTradingClient,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
 )
@@ -27,11 +27,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
+    ITradingClientFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
@@ -44,12 +44,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits impo
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitPolicy,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
-    IExchangeCredentialsProvider,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
-    ITradingSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -68,18 +62,14 @@ class ExecuteOrderCommandHandler(
         account_reader: ITradingAccountReader,
         preview_handler: PreviewOrderQueryHandler,
         limits_policy: TradingLimitPolicy,
-        session_factory: ITradingSessionFactory,
-        credentials_provider: IExchangeCredentialsProvider,
-        metadata_provider: IMarketMetadataProvider,
+        trading_client_factory: ITradingClientFactory,
     ) -> None:
         self._trading_venue = trading_venue
         self._session_state = session_state
         self._account_reader = account_reader
         self._preview_handler = preview_handler
         self._limits_policy = limits_policy
-        self._session_factory = session_factory
-        self._credentials_provider = credentials_provider
-        self._metadata_provider = metadata_provider
+        self._trading_client_factory = trading_client_factory
 
     def execute(self, command: ExecuteOrderCommand) -> ExecuteOrderResult:
         logger.debug(
@@ -156,11 +146,8 @@ class ExecuteOrderCommandHandler(
             if not command.live:
                 return ExecuteOrderResult(None, preview, checks, None, context, limits)
 
-            trading_client = FuturesTradingClient(
-                self._session_factory,
-                self._credentials_provider,
-                self._metadata_provider,
-                OrderSubmissionMode.LIVE,
+            trading_client = self._trading_client_factory.create(
+                OrderSubmissionMode.LIVE
             )
             submitted_order = trading_client.place_order(preview.order)
             self._session_state.record_order_sent(symbol, now)

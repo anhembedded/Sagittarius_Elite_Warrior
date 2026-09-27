@@ -46,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_meta
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client_factory import (
+    FuturesTradingClientFactory,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user_data_stream import (
     FuturesUserDataStream,
 )
@@ -101,6 +104,9 @@ async def _run(seconds: float) -> None:
     metadata_provider = FuturesMetadataProvider(
         session_factory, InMemoryFuturesSymbolMetadataCache()
     )
+    trading_client_factory = FuturesTradingClientFactory(
+        session_factory, credentials_provider, metadata_provider
+    )
     event_bus = MemoryEventBus()
     event_bus.on(OrderFilledEvent, _on_order_filled)
     event_bus.on(PositionChangedEvent, _on_position_changed)
@@ -111,9 +117,8 @@ async def _run(seconds: float) -> None:
         # `.start()`/`.stop()` — those are the only methods that touch
         # `task_manager`, so this probe never needs a real one.
         None,  # type: ignore[arg-type]
-        session_factory,
         credentials_provider,
-        metadata_provider,
+        trading_client_factory,
         TradingSessionState(),
         EquityCurveRecorder(),
     )
