@@ -92,7 +92,23 @@
 | `src/modules/trading/composition/adapter_bindings.py` | `IMarketMetadataProvider` now venue-branches |
 | ~20 other `src/`/`scripts/` files and ~15 test files | mechanical identifier rename only (old-name grep returns zero hits) |
 
-## 5. Testing
+## 5. Post-review correction (2026-09-27, PR #283)
+Independent review found a BLOCKING gap: `SymbolOrderMetadata.step_size_for(order_type)` existed and was
+unit-tested in isolation, but `PreviewOrderQueryHandler.execute()` — the only place a live order's
+quantity is rounded (`ExecuteOrderCommandHandler` delegates to it) — still rounded unconditionally with
+`metadata.step_size` (`LOT_SIZE`'s own step), never calling `step_size_for()`. Acceptance criterion #3
+("a MARKET order is rounded with `MARKET_LOT_SIZE` when present, and a LIMIT order with `LOT_SIZE`") was
+checked `[x]` above without being satisfied by any code path, and nothing gated this off as Phase-3
+work: `OrderSubmissionService.preview()` reaches this handler with no `TradingVenue` gate, so a Spot
+MARKET preview was reachable and silently wrong today. Fixed by making the handler call
+`metadata.step_size_for(query.order_type)` once and reuse the result for both the rounded quantity and
+`OrderPreview.step_size` (`preview_order/handler.py`). Two new end-to-end tests
+(`test_preview_order.py`) prove the wiring itself, not just the isolated dataclass method: a MARKET
+order rounds with `MARKET_LOT_SIZE` when published, a LIMIT order ignores it even when published.
+Mutation-verified: reverting the fix to plain `metadata.step_size` makes the new MARKET test fail for
+exactly this reason.
+
+## 6. Testing
 - Unit: `tests/unit/modules/trading/adapters/binance/spot/test_spot_metadata_parser.py` — real
   fixture-shaped BTCUSDT entry, decimal exactness, `MARKET_LOT_SIZE` absent, missing-status default,
   each of `PRICE_FILTER`/`LOT_SIZE`/`NOTIONAL` missing raises `KeyError`, a filter missing a required

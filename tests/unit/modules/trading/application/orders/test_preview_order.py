@@ -43,7 +43,7 @@ class _StaticMetadataProvider(IMarketMetadataProvider):
         raise NotImplementedError("Not exercised by this fake's tests.")
 
 
-def _btcusdt_metadata() -> SymbolOrderMetadata:
+def _btcusdt_metadata(market_step_size: Decimal | None = None) -> SymbolOrderMetadata:
     return SymbolOrderMetadata(
         symbol="BTCUSDT",
         status="TRADING",
@@ -53,11 +53,12 @@ def _btcusdt_metadata() -> SymbolOrderMetadata:
         quantity_precision=3,
         price_precision=2,
         fetched_at=datetime(2026, 8, 27, tzinfo=UTC),
+        market_step_size=market_step_size,
     )
 
 
-def _handler() -> PreviewOrderQueryHandler:
-    provider = _StaticMetadataProvider({"BTCUSDT": _btcusdt_metadata()})
+def _handler(metadata: SymbolOrderMetadata | None = None) -> PreviewOrderQueryHandler:
+    provider = _StaticMetadataProvider({"BTCUSDT": metadata or _btcusdt_metadata()})
     return PreviewOrderQueryHandler(provider)
 
 
@@ -179,6 +180,50 @@ def test_market_order_has_no_time_in_force() -> None:
     )
 
     assert preview.order.time_in_force is None
+
+
+def test_market_order_rounds_with_market_lot_size_when_published() -> None:
+    """`EPIC-027I`'s own acceptance criterion: a MARKET order rounds with
+    `MARKET_LOT_SIZE` when the exchange publishes one — this is the wiring
+    a `pr-review` finding on PR #283 caught missing: `step_size_for()`
+    existed and was unit-tested in isolation, but this handler, the only
+    place a live order's quantity is rounded, never called it. Break this
+    wiring (revert to plain `metadata.step_size`) and this test goes red."""
+    metadata = _btcusdt_metadata(market_step_size=Decimal("0.01"))
+
+    preview = _handler(metadata).execute(
+        PreviewOrderQuery(
+            symbol="BTCUSDT",
+            side=OrderSide.BUY,
+            order_type=OrderType.MARKET,
+            quantity=Decimal("0.0137"),
+            reference_price=Decimal(64000),
+        )
+    )
+
+    # 0.0137 rounded down to a 0.01 step is 0.01, not 0.013 (LOT_SIZE's step).
+    assert preview.order.quantity == Decimal("0.01")
+    assert preview.step_size == Decimal("0.01")
+
+
+def test_limit_order_ignores_market_lot_size_even_when_published() -> None:
+    """The other half of the same acceptance criterion: a LIMIT order
+    always rounds with `LOT_SIZE`, never `MARKET_LOT_SIZE`, even when the
+    symbol publishes one."""
+    metadata = _btcusdt_metadata(market_step_size=Decimal("0.01"))
+
+    preview = _handler(metadata).execute(
+        PreviewOrderQuery(
+            symbol="BTCUSDT",
+            side=OrderSide.BUY,
+            order_type=OrderType.LIMIT,
+            quantity=Decimal("0.0137"),
+            reference_price=Decimal("64000.005"),
+        )
+    )
+
+    assert preview.order.quantity == Decimal("0.013")
+    assert preview.step_size == Decimal("0.001")
 
 
 def test_unknown_symbol_raises_value_error() -> None:
