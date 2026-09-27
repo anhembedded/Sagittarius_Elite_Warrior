@@ -1,0 +1,115 @@
+"""`EPIC-027L` — Binance Spot User Data Stream payload -> domain types.
+
+@details Its own module, not a reuse of `user_data_event_parser.py`
+(Futures): Spot's `executionReport` is a **flat** payload (`"S"`/`"o"`/`"X"`/
+`"q"` sit at the top level), while Futures' `ORDER_TRADE_UPDATE` nests the
+same concepts one level down under `"o"` — different wire shapes for the
+same concept, exactly the reasoning that module's own docstring already
+gives for keeping itself separate from `futures_order_payload_mapper.py`.
+Pure parsing, no network — testable against static fixtures matching
+Binance's own documented `executionReport`/`outboundAccountPosition` shapes
+and the fake exchange's own `SpotAccountState._emit_fill_events()`.
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from decimal import Decimal
+from typing import Any
+
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_enum_parsing import (
+    order_status_or_unknown,
+    order_type_or_unknown,
+    time_in_force_or_none,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    ClientOrderId,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+
+#: The `"e"` (event type) field Binance stamps on every Spot user-data
+#: message this stream cares about.
+EXECUTION_REPORT = "executionReport"
+OUTBOUND_ACCOUNT_POSITION = "outboundAccountPosition"
+#: A deposit/withdrawal/dust-conversion balance change — the one Spot
+#: balance-affecting event that never accompanies a fill (a fill's own
+#: balance change is `OUTBOUND_ACCOUNT_POSITION`, always sent alongside its
+#: `EXECUTION_REPORT`). Handled the same way as `OUTBOUND_ACCOUNT_POSITION`
+#: (an authoritative equity re-fetch, never a derived delta) — this is the
+#: acceptance criteria's own "balances from outboundAccountPosition/
+#: balanceUpdate".
+BALANCE_UPDATE = "balanceUpdate"
+
+#: `"x"` (current execution type) value meaning this update represents an
+#: actual trade/fill, not merely a status transition (e.g. a plain `NEW`
+#: acknowledgement carries `x="NEW"`, not `"TRADE"`) — same distinction as
+#: Futures' `is_fill_execution`, just read from the payload's top level
+#: instead of nested under `"o"`.
+_TRADE_EXECUTION_TYPE = "TRADE"
+
+
+def _decimal_or_none(raw: Any) -> Decimal | None:
+    if raw is None:
+        return None
+    value = Decimal(str(raw))
+    return value if value != 0 else None
+
+
+def parse_execution_report(payload: dict[str, Any]) -> Order:
+    """@brief Parses one `executionReport` message into a domain `Order` —
+    the exchange's own account of this order's current state.
+    @raise KeyError A required field (`"c"`/`"s"`/`"S"`/`"o"`/`"q"`/`"X"`)
+    is missing — a genuinely malformed payload, not merely an unrecognized
+    enum value (`order_enum_parsing.py` handles that case without raising,
+    `BUG-091`)."""
+    return Order(
+        client_order_id=ClientOrderId(payload["c"]),
+        symbol=payload["s"],
+        side=OrderSide[payload["S"]],
+        order_type=order_type_or_unknown(payload["o"]),
+        quantity=Decimal(str(payload["q"])),
+        status=order_status_or_unknown(payload["X"]),
+        price=_decimal_or_none(payload.get("p")),
+        time_in_force=time_in_force_or_none(payload.get("f")),
+        order_time=_captured_at_or_none(payload.get("T")),
+    )
+
+
+def is_fill_execution(payload: dict[str, Any]) -> bool:
+    """@brief Whether this `executionReport` represents an actual fill
+    (partial or complete) rather than a plain status transition (`NEW`,
+    `CANCELED`, `EXPIRED`, ...)."""
+    return bool(payload.get("x") == _TRADE_EXECUTION_TYPE)
+
+
+def fill_details(payload: dict[str, Any]) -> tuple[Decimal, Decimal]:
+    """@brief `(fill_price, fill_quantity)` for *this* fill event —
+    Binance's `"L"`/`"l"` (last-filled price/quantity), not the order's
+    running totals (`"z"`), matching `OrderFilledEvent`'s own contract.
+    @raise KeyError if called on a payload `is_fill_execution()` says is not
+    a fill — callers must check that first.
+    """
+    return Decimal(str(payload["L"])), Decimal(str(payload["l"]))
+
+
+def fill_fee(payload: dict[str, Any]) -> tuple[Decimal, str] | None:
+    """@brief `(fee_amount, fee_asset)` for *this* fill's commission
+    (`"n"`/`"N"`), or `None` when the payload carries neither — never a
+    fabricated `Decimal(0)` for a fee this event never reported
+    (`code/errors.md` §6)."""
+    amount, asset = payload.get("n"), payload.get("N")
+    if amount is None or asset is None:
+        return None
+    return Decimal(str(amount)), asset
+
+
+def _captured_at_or_none(raw: Any) -> datetime | None:
+    return datetime.fromtimestamp(raw / 1000, tz=UTC) if raw else None
+
+
+def stream_event_captured_at(payload: dict[str, Any]) -> datetime:
+    """@brief The stream's own event time (`"E"`, ms) — shared by both
+    `executionReport` and `outboundAccountPosition`, which both stamp it at
+    the top level the same way."""
+    return datetime.fromtimestamp(payload["E"] / 1000, tz=UTC)
