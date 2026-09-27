@@ -5,7 +5,7 @@
 **Risk:** 🟡 — changes the numbers of every backtest, Futures included; must be explicit and reported.
 **Complexity:** M — metadata lookup per market, rounding in one place, a rejection counter.
 **Epic (optional):** [EPIC-027](../README.md)
-**Depends on:** [EPIC-027A](EPIC-027A_market_aware_kline_storage_and_download.md), which provides market-keyed metadata.
+**Depends on:** [EPIC-027A](../completed/EPIC-027A_market_aware_kline_storage_and_download.md), which provides market-keyed metadata.
 
 ---
 

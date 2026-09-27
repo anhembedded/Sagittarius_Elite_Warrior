@@ -70,7 +70,7 @@
 | ~40 further call sites across `src/`, `scripts/`, `tests/` | threaded `market` through per `architecture-rule.md` §2 ("every implementer of a port stays complete") |
 
 ## 5. Testing
-- **Unit** (`tests/unit`): 5515 passed, 0 failed. Covers `DatabaseManager` market isolation and legacy
+- **Unit** (`tests/unit`): 5516 passed, 0 failed (5515 before the shard-collision regression test added in review). Covers `DatabaseManager` market isolation and legacy
   migration (`test_database_manager_shards.py`), repository/sync port market-scoping
   (`test_market_data_repository_contract.py`, `test_market_data_sync_contract.py`), `klines_type_for`
   per `MarketType` (`test_binance_endpoints.py`), `PythonBinanceClient` per-call market resolution

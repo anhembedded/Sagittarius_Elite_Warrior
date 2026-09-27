@@ -5,7 +5,7 @@
 **Risk:** 🟢 — presentation only, over the engine behavior `EPIC-027B` already proves.
 **Complexity:** M — a selector, conditional controls, run-config plumbing, state persistence.
 **Epic (optional):** [EPIC-027](../README.md)
-**Depends on:** [EPIC-027B](EPIC-027B_spot_mode_in_the_backtest_engine.md), [EPIC-027A](EPIC-027A_market_aware_kline_storage_and_download.md)
+**Depends on:** [EPIC-027B](../completed/EPIC-027B_spot_mode_in_the_backtest_engine.md), [EPIC-027A](../completed/EPIC-027A_market_aware_kline_storage_and_download.md)
 
 ---
 
@@ -42,6 +42,7 @@
 | `src/modules/backtesting/ui/backtest_modals/strategy_properties_dialog.py` | leverage section hidden in Spot |
 | `src/modules/backtesting/ui/logic/backtest_limitations_view.py` | truthful text |
 | `src/modules/backtesting/ui/preview.py` | preview in both markets |
+| `src/modules/backtesting/application/run_static_backtest/handler.py`, `run_historical_tick_backtest/handler.py` | read candles from the chosen market instead of the Spot pin (`EPIC-027B` left the pin: following `BrokerSimulationConfig.market_type`'s `FUTURES_USD_M` default before a user can choose would send every existing run to Futures shards nobody has downloaded) |
 
 ## 5. Testing
 - Unit (ViewModel/logic): market to config, dirty flag, visibility rules.
