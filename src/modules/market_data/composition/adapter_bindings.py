@@ -87,7 +87,7 @@ def bind_adapters(container: IContainer) -> None:
     container.singleton(IExchangeSessionFactory, _build_exchange_session_factory)
 
     container.singleton(DatabaseConfig, _build_database_config)
-    container.singleton(DatabaseManager, DatabaseManager)
+    container.singleton(DatabaseManager, _build_database_manager)
     container.singleton(IMarketDataRepository, SQLAlchemyMarketDataRepository)
     container.singleton(ISymbolCatalogRepository, JsonSymbolCatalogRepository)
     # `BUG-127` — the store the Backtest screen's exchange-rule check reads.
@@ -134,6 +134,16 @@ def _build_database_config(container: IContainer) -> DatabaseConfig:
         os.getcwd(), _DEFAULT_DB_DIR_NAME
     )
     return DatabaseConfig(db_dir=db_dir)
+
+
+def _build_database_manager(container: IContainer) -> DatabaseManager:
+    """`EPIC-027A` — migrate once, right after construction and before any
+    shard is opened (`DatabaseManager.migrate_legacy_shards()`'s own
+    precondition), so a pre-existing install's shards are tagged Spot (ADR
+    O3) before the first read or sync ever asks for a market."""
+    manager = DatabaseManager(container.resolve(DatabaseConfig))
+    manager.migrate_legacy_shards()
+    return manager
 
 
 def _build_exchange_client(container: IContainer) -> IExchangeClient:

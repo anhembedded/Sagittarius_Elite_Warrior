@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.market_picker import (
     MARKET_OPTIONS,
 )

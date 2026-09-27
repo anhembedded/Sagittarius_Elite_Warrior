@@ -8,6 +8,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.backtesting.application.progress_throttle import (
     ProgressThrottle,
 )
@@ -112,20 +113,16 @@ class RunHistoricalTickBacktestCommandHandler(
             start=command.start_time,
             end=command.end_time,
         )
-        # BUG-051 — was self._repository.get_klines(): one synchronous call
-        # that materialized the ENTIRE tick range (up to millions of rows for
-        # a wide range/fine tick_resolution) into a single Python list before
-        # the simulation loop could even start. Measured on this exact
-        # SQLAlchemy/PySide6 stack: loading 1.5M rows via get_klines() takes
-        # ~70s and produces real Qt main-thread heartbeat stalls up to ~1.9s
-        # (even though this handler already runs on a background thread —
-        # ThreadManager doesn't protect the UI from a single giant Python
-        # allocation burst); the same 1.5M rows via count_klines()+
-        # stream_klines() below take ~28s with no stall above 0.09s. Mirrors
-        # the exact fix BUG-025 already applied to
-        # RunStaticBacktestCommandHandler — this handler (BOT-076, added
-        # alongside/after BUG-025) never got the same treatment.
+        # BUG-051 — was self._repository.get_klines(): one call that
+        # materialized the ENTIRE tick range (up to millions of rows) before
+        # the simulation loop could start. Measured: 1.5M rows via
+        # get_klines() took ~70s with Qt main-thread stalls up to ~1.9s
+        # (background thread or not); the same rows via count_klines()+
+        # stream_klines() below took ~28s with no stall above 0.09s. Mirrors
+        # BUG-025's fix for RunStaticBacktestCommandHandler — this handler
+        # (BOT-076, added after BUG-025) never got the same treatment.
         total_ticks = self._repository.count_klines(
+            market=MarketType.SPOT,
             symbol=command.symbol,
             interval=command.tick_resolution,
             start_time=command.start_time,
@@ -143,6 +140,7 @@ class RunHistoricalTickBacktestCommandHandler(
             return None
 
         ticks = self._repository.stream_klines(
+            market=MarketType.SPOT,
             symbol=command.symbol,
             interval=command.tick_resolution,
             start_time=command.start_time,

@@ -13,6 +13,7 @@ deliberately permissive) belongs to the engine and is tested there, in
 """
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.database_manager import (
     DatabaseConfig,
     DatabaseManager,
@@ -37,7 +38,7 @@ def test_database_manager_rejects_symbols_that_could_escape_the_db_dir(
 
     try:
         with pytest.raises(ValueError):
-            manager.get_session(dangerous_symbol)
+            manager.get_session(MarketType.SPOT, dangerous_symbol)
     finally:
         manager.dispose_all()
 
@@ -47,6 +48,6 @@ def test_database_manager_valid_path():
     manager = DatabaseManager(config)
     try:
         # Just ensuring a valid symbol doesn't throw
-        manager.get_session("BTCUSDT")
+        manager.get_session(MarketType.SPOT, "BTCUSDT")
     finally:
         manager.dispose_all()

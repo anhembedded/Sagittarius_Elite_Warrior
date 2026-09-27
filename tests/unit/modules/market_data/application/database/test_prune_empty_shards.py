@@ -2,6 +2,7 @@ from threading import Event
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.prune_empty_shards.command import (
     PruneEmptyShardsCommand,
     PruneEmptyShardsResult,
@@ -25,15 +26,15 @@ def test_removes_only_shards_with_zero_klines(handler, mock_repo):
     """BUG-078: a shard that holds even one kline (in any interval) must never
     be removed — only symbols where has_any_klines() is False are candidates."""
     mock_repo.list_available_shards.return_value = ["BTCUSDT", "PHANTOM1", "PHANTOM2"]
-    mock_repo.has_any_klines.side_effect = lambda symbol: symbol == "BTCUSDT"
+    mock_repo.has_any_klines.side_effect = lambda market, symbol: symbol == "BTCUSDT"
 
     result = handler.execute(PruneEmptyShardsCommand())
 
     assert isinstance(result, PruneEmptyShardsResult)
     assert result.scanned_count == 3
     assert set(result.removed_symbols) == {"PHANTOM1", "PHANTOM2"}
-    mock_repo.clear_klines.assert_any_call("PHANTOM1", interval=None)
-    mock_repo.clear_klines.assert_any_call("PHANTOM2", interval=None)
+    mock_repo.clear_klines.assert_any_call(MarketType.SPOT, "PHANTOM1", interval=None)
+    mock_repo.clear_klines.assert_any_call(MarketType.SPOT, "PHANTOM2", interval=None)
     assert mock_repo.clear_klines.call_count == 2
 
 
@@ -63,7 +64,7 @@ def test_cancellation_stops_remaining_shards(handler, mock_repo):
     symbols = [f"SYMBOL_{i}" for i in range(50)]
     mock_repo.list_available_shards.return_value = symbols
 
-    def cancel_after_first_check(symbol):
+    def cancel_after_first_check(market, symbol):
         cancellation.set()
         return False
 

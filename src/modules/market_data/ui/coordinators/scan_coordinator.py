@@ -2,6 +2,7 @@ import logging
 from collections.abc import Callable
 from threading import Lock
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.prune_empty_shards import (
     PruneEmptyShardsCommand,
@@ -39,6 +40,11 @@ from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
 logger = logging.getLogger("App.DataManagement")
+#: `EPIC-027A` — Data Management's own multi-market filter is a later phase's
+#: job (Futures shards do not exist until live Spot/Futures Testnet syncing
+#: lands). Pinned to Spot, what every shard on disk actually is after the
+#: legacy-shard migration (ADR O3).
+_MARKET = MarketType.SPOT
 
 
 class ScanCoordinator:
@@ -157,7 +163,9 @@ class ScanCoordinator:
                 )
                 return
 
-            local_shard_count = len(self._market_data_repo.list_available_shards())
+            local_shard_count = len(
+                self._market_data_repo.list_available_shards(_MARKET)
+            )
             self._ui_known_shard_count_signal(local_shard_count)
             if local_shard_count:
                 logger.info(
@@ -329,7 +337,7 @@ class ScanCoordinator:
             # and then pruned every candidate must not leave the placeholder
             # still quoting the pre-prune count.
             self._ui_known_shard_count_signal(
-                len(self._market_data_repo.list_available_shards())
+                len(self._market_data_repo.list_available_shards(_MARKET))
             )
             self._tracker.finish_action(action.action_id, ActionOutcome.SUCCEEDED)
         except Exception as exc:  # noqa: BLE001 - boundary: report to UI without crashing

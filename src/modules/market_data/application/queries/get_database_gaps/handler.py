@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
     IMarketDataRepository,
@@ -19,6 +20,9 @@ from .query import (
 
 logger = logging.getLogger("App.QueryHandler")
 _HOURS_PER_DAY = 24.0
+#: `EPIC-027A` — see `scan_all_databases/handler.py`'s identical constant for
+#: why this is Spot and not yet a caller-chosen market.
+_MARKET = MarketType.SPOT
 
 
 class GetDatabaseGapsQueryHandler(
@@ -36,7 +40,9 @@ class GetDatabaseGapsQueryHandler(
         if not query.symbol:
             raise ValueError("Symbol cannot be empty")
 
-        status = self.repository.get_database_status(query.symbol, query.interval)
+        status = self.repository.get_database_status(
+            _MARKET, query.symbol, query.interval
+        )
         if (
             status.total_candles == 0
             or status.first_record is None
@@ -52,7 +58,9 @@ class GetDatabaseGapsQueryHandler(
                 coverage_segments=[],
             )
 
-        gaps: list[DataGap] = self.repository.get_gaps(query.symbol, query.interval)
+        gaps: list[DataGap] = self.repository.get_gaps(
+            _MARKET, query.symbol, query.interval
+        )
         gap_dtos: list[DataGapDTO] = []
         total_missing = 0
 

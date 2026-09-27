@@ -3,6 +3,7 @@ from unittest.mock import Mock
 
 import pytest
 from binance.enums import HistoricalKlinesType
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.client import (
     PythonBinanceClient,
@@ -40,7 +41,9 @@ def client():
 def test_get_historical_klines_parsing(client):
     start_time = datetime(2023, 1, 1, tzinfo=UTC)
 
-    klines = client.get_historical_klines("BTCUSDT", TimeFrame.ONE_HOUR, start_time)
+    klines = client.get_historical_klines(
+        MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_HOUR, start_time
+    )
 
     assert len(klines) == 1
     kline = klines[0]
@@ -68,7 +71,9 @@ def test_get_historical_klines_arguments(client):
     # Test that datetime is correctly formatted to string before passing to underlying lib
     start_time = datetime(2023, 1, 1, 12, 0, 0, tzinfo=UTC)
 
-    client.get_historical_klines("ETHUSDT", TimeFrame.ONE_MINUTE, start_time)
+    client.get_historical_klines(
+        MarketType.SPOT, "ETHUSDT", TimeFrame.ONE_MINUTE, start_time
+    )
 
     # Check what the mocked underlying client received
     underlying_mock = client.client

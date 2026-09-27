@@ -13,7 +13,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtWidgets import QLabel
-from Sagittarius_Elite_Warrior.src.domain.value_objects.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.presentation.ui.components.market_picker import (
     MarketPickerDialog,
 )

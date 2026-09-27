@@ -3,6 +3,7 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.clear_market_data.command import (
     ClearMarketDataCommand,
     ClearMarketDataResult,
@@ -12,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_r
 )
 
 logger = logging.getLogger("App.Database")
+#: `EPIC-027A` — see `scan_all_databases/handler.py`'s identical constant for
+#: why this is Spot and not yet a caller-chosen market.
+_MARKET = MarketType.SPOT
 
 
 class ClearMarketDataCommandHandler(
@@ -42,7 +46,7 @@ class ClearMarketDataCommandHandler(
                 )
 
             count = self._repository.clear_klines(
-                symbol=command.symbol.strip(), interval=command.interval
+                market=_MARKET, symbol=command.symbol.strip(), interval=command.interval
             )
             interval_label = (
                 f" ({command.interval.value})" if command.interval is not None else ""

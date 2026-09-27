@@ -4,6 +4,7 @@ import tempfile
 from datetime import UTC, datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.database_manager import (
     DatabaseConfig,
@@ -45,9 +46,9 @@ def test_repository_detects_no_gaps_in_contiguous_series():
                 _make_candle("BTCUSDT", TimeFrame.ONE_MINUTE, t0 + timedelta(minutes=i))
                 for i in range(10)
             ]
-            repo.save_klines(candles)
+            repo.save_klines(MarketType.SPOT, candles)
 
-            gaps = repo.get_gaps("BTCUSDT", TimeFrame.ONE_MINUTE)
+            gaps = repo.get_gaps(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE)
             assert len(gaps) == 0
         finally:
             db_mgr.dispose_all()
@@ -65,9 +66,9 @@ def test_repository_detects_gap_between_separated_candles():
             t_gap = t0 + timedelta(minutes=6)
             c2 = _make_candle("BTCUSDT", TimeFrame.ONE_MINUTE, t_gap)
 
-            repo.save_klines([c1, c2])
+            repo.save_klines(MarketType.SPOT, [c1, c2])
 
-            gaps = repo.get_gaps("BTCUSDT", TimeFrame.ONE_MINUTE)
+            gaps = repo.get_gaps(MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE)
             assert len(gaps) == 1
             gap = gaps[0]
             assert gap.symbol == "BTCUSDT"

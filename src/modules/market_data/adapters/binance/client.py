@@ -6,6 +6,7 @@ from datetime import UTC, datetime
 import requests
 from binance.client import Client
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.market_metadata_parser import (
     DEFAULT_STATUS,
@@ -22,9 +23,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_m
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     klines_type_for,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data_venue import (
-    MarketDataVenue,
 )
 
 logger = logging.getLogger("App.ExchangeClient")
@@ -61,22 +59,18 @@ class PythonBinanceClient(IExchangeClient):
     @brief Infrastructure Adapter for python-binance.
     """
 
-    def __init__(
-        self,
-        client: Client,
-        market_data_venue: MarketDataVenue = MarketDataVenue.MAINNET_PUBLIC,
-    ) -> None:
+    def __init__(self, client: Client) -> None:
         """
         @param client A pre-built `binance.client.Client` (or a test double). `EPIC-021A`:
         this class never constructs the SDK client itself — `binance_session_builder` is the
         one place in the app allowed to call `Client(...)`, so the venue's endpoint and
         credentials are already baked into `client` by the time it gets here.
-        @param market_data_venue Only affects which `klines_type` kline calls use
-        (`binance_endpoints.klines_type_for`) — exchange-info/symbol-catalog calls stay
-        spot-shaped regardless (`EPIC-021A` §2.2b; futures metadata is `EPIC-021C`'s job).
+        @details `EPIC-027A` moved `klines_type` from a venue fixed at construction to a
+        `MarketType` given per call (`klines_type_for`) — one client now serves every
+        market a sync asks for; exchange-info/symbol-catalog calls stay spot-shaped
+        regardless (`EPIC-021A` §2.2b; futures metadata is `EPIC-021C`'s job).
         """
         self.client = client
-        self._klines_type = klines_type_for(market_data_venue)
 
     def _format_time(self, time_val: str | datetime | None) -> str | None:
         if isinstance(time_val, datetime):
@@ -85,6 +79,7 @@ class PythonBinanceClient(IExchangeClient):
 
     def _generate_raw_klines_with_retry(
         self,
+        market: MarketType,
         symbol: str,
         interval: str,
         start_str: str | int | None,
@@ -123,7 +118,7 @@ class PythonBinanceClient(IExchangeClient):
                 interval,
                 current_start,
                 end_str,
-                klines_type=self._klines_type,
+                klines_type=klines_type_for(market),
             )
             try:
                 for k in generator:
@@ -174,6 +169,7 @@ class PythonBinanceClient(IExchangeClient):
 
     def _fetch_raw_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: str,
         start_str: str,
@@ -184,7 +180,7 @@ class PythonBinanceClient(IExchangeClient):
         try:
             raw_klines = []
             generator = self._generate_raw_klines_with_retry(
-                symbol, interval, start_str, end_str, cancellation_requested
+                market, symbol, interval, start_str, end_str, cancellation_requested
             )
             for i, k in enumerate(generator):
                 raw_klines.append(k)
@@ -210,6 +206,7 @@ class PythonBinanceClient(IExchangeClient):
 
     def stream_historical_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_str: str | datetime,
@@ -225,6 +222,7 @@ class PythonBinanceClient(IExchangeClient):
         )
 
         yield from self._stream_raw_klines_as_market_data(
+            market,
             symbol,
             interval.value,
             formatted_start,
@@ -235,6 +233,7 @@ class PythonBinanceClient(IExchangeClient):
 
     def _stream_raw_klines_as_market_data(
         self,
+        market: MarketType,
         symbol: str,
         interval: str,
         start_str: str,
@@ -244,7 +243,7 @@ class PythonBinanceClient(IExchangeClient):
     ) -> Iterator[list[MarketData]]:
         try:
             generator = self._generate_raw_klines_with_retry(
-                symbol, interval, start_str, end_str, cancellation_requested
+                market, symbol, interval, start_str, end_str, cancellation_requested
             )
             buffer: list = []
             total_fetched = 0
@@ -303,6 +302,7 @@ class PythonBinanceClient(IExchangeClient):
 
     def get_historical_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_str: str | datetime,
@@ -321,6 +321,7 @@ class PythonBinanceClient(IExchangeClient):
         )
 
         raw_klines = self._fetch_raw_klines(
+            market,
             symbol,
             interval.value,
             formatted_start,

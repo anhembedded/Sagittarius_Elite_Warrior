@@ -7,6 +7,7 @@ from unittest.mock import Mock
 
 import pyarrow.parquet as pq
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.export_market_data import (
     ExportMarketDataCommand,
@@ -44,6 +45,7 @@ def test_export_csv_writes_header_and_every_row(tmp_path):
     cmd = ExportMarketDataCommand(
         symbol="BTCUSDT",
         interval=TimeFrame.ONE_MINUTE,
+        market=MarketType.SPOT,
         destination_path=str(destination),
         file_format=ExportFileFormat.CSV,
     )
@@ -55,9 +57,14 @@ def test_export_csv_writes_header_and_every_row(tmp_path):
         rows = list(csv.DictReader(csv_file))
     assert len(rows) == 2
     assert rows[0]["symbol"] == "BTCUSDT"
+    assert rows[0]["market"] == "spot"
     assert float(rows[0]["open_price"]) == 100.0
     repo.stream_klines.assert_called_once_with(
-        symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE, start_time=None, end_time=None
+        market=MarketType.SPOT,
+        symbol="BTCUSDT",
+        interval=TimeFrame.ONE_MINUTE,
+        start_time=None,
+        end_time=None,
     )
 
 
@@ -70,6 +77,7 @@ def test_export_json_writes_a_streamed_array(tmp_path):
     cmd = ExportMarketDataCommand(
         symbol="ETHUSDT",
         interval=TimeFrame.ONE_HOUR,
+        market=MarketType.SPOT,
         destination_path=str(destination),
         file_format=ExportFileFormat.JSON,
     )
@@ -81,6 +89,7 @@ def test_export_json_writes_a_streamed_array(tmp_path):
     assert isinstance(rows, list)
     assert rows[0]["open_price"] == 50.0
     assert rows[0]["number_of_trades"] == 5
+    assert rows[0]["market"] == "spot"
 
 
 def test_export_parquet_round_trips_through_pyarrow(tmp_path):
@@ -92,6 +101,7 @@ def test_export_parquet_round_trips_through_pyarrow(tmp_path):
     cmd = ExportMarketDataCommand(
         symbol="BTCUSDT",
         interval=TimeFrame.ONE_MINUTE,
+        market=MarketType.SPOT,
         destination_path=str(destination),
         file_format=ExportFileFormat.PARQUET,
     )
@@ -102,6 +112,7 @@ def test_export_parquet_round_trips_through_pyarrow(tmp_path):
     table = pq.read_table(destination)
     assert table.num_rows == 2
     assert table.column("open_price").to_pylist() == [10.0, 20.0]
+    assert table.column("market").to_pylist() == ["spot", "spot"]
 
 
 def test_export_failure_is_reported_never_raised(tmp_path):
@@ -112,6 +123,7 @@ def test_export_failure_is_reported_never_raised(tmp_path):
     cmd = ExportMarketDataCommand(
         symbol="BTCUSDT",
         interval=TimeFrame.ONE_MINUTE,
+        market=MarketType.SPOT,
         destination_path=str(tmp_path / "out.csv"),
         file_format=ExportFileFormat.CSV,
     )

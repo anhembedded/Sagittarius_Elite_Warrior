@@ -17,6 +17,7 @@ contract, and it already has tests at the tier that can prove it.
 from __future__ import annotations
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.market_data_sync_service import (
     MarketDataSyncService,
@@ -86,14 +87,22 @@ class TestTheFakesOwnQuery:
     def test_it_says_no_for_a_symbol_nobody_asked_about(self) -> None:
         fake = FakeMarketDataSync()
 
-        fake.sync(MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE))
+        fake.sync(
+            MarketDataSyncRequest(
+                symbols=("BTCUSDT",), interval=_MINUTE, market=MarketType.SPOT
+            )
+        )
 
         assert fake.was_asked_for("ETHUSDT") is False
 
     def test_it_says_yes_for_a_symbol_that_was_asked_about(self) -> None:
         fake = FakeMarketDataSync()
 
-        fake.sync(MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE))
+        fake.sync(
+            MarketDataSyncRequest(
+                symbols=("BTCUSDT",), interval=_MINUTE, market=MarketType.SPOT
+            )
+        )
 
         assert fake.was_asked_for("BTCUSDT") is True
 
@@ -103,7 +112,11 @@ class TestTheFakesOwnQuery:
         it is about to draw empty."""
         fake = FakeMarketDataSync()
 
-        fake.sync(MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE))
+        fake.sync(
+            MarketDataSyncRequest(
+                symbols=("BTCUSDT",), interval=_MINUTE, market=MarketType.SPOT
+            )
+        )
 
         assert fake.was_asked_for("BTCUSDT", TimeFrame.ONE_MINUTE) is True
         assert fake.was_asked_for("BTCUSDT", TimeFrame.ONE_DAY) is False
@@ -112,7 +125,9 @@ class TestTheFakesOwnQuery:
         fake = FakeMarketDataSync()
 
         fake.sync(
-            MarketDataSyncRequest(symbols=("BTCUSDT",), interval=TimeFrame.ONE_DAY)
+            MarketDataSyncRequest(
+                symbols=("BTCUSDT",), interval=TimeFrame.ONE_DAY, market=MarketType.SPOT
+            )
         )
 
         assert fake.was_asked_for("BTCUSDT") is True
@@ -123,7 +138,11 @@ class TestTheFakesOwnQuery:
         silently answers no."""
         fake = FakeMarketDataSync()
 
-        fake.sync(MarketDataSyncRequest(symbols=("btcusdt",), interval=_MINUTE))
+        fake.sync(
+            MarketDataSyncRequest(
+                symbols=("btcusdt",), interval=_MINUTE, market=MarketType.SPOT
+            )
+        )
 
         assert fake.was_asked_for("btcusdt") is True
         assert fake.was_asked_for("BTCUSDT") is True
@@ -131,8 +150,16 @@ class TestTheFakesOwnQuery:
     def test_it_reads_every_request_not_only_the_last(self) -> None:
         fake = FakeMarketDataSync()
 
-        fake.sync(MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE))
-        fake.sync(MarketDataSyncRequest(symbols=("ETHUSDT",), interval=_MINUTE))
+        fake.sync(
+            MarketDataSyncRequest(
+                symbols=("BTCUSDT",), interval=_MINUTE, market=MarketType.SPOT
+            )
+        )
+        fake.sync(
+            MarketDataSyncRequest(
+                symbols=("ETHUSDT",), interval=_MINUTE, market=MarketType.SPOT
+            )
+        )
 
         assert fake.was_asked_for("BTCUSDT") is True
         assert fake.was_asked_for("ETHUSDT") is True
@@ -164,6 +191,7 @@ class TestMarketDataSyncService(MarketDataSyncContract):
                 MarketDataSyncRequest(
                     symbols=tuple(command.symbols),
                     interval=command.interval,
+                    market=command.market,
                     start_time=command.start_time,
                     end_time=command.end_time,
                     cancellation_requested=command.cancellation_requested,
@@ -183,7 +211,9 @@ def test_the_service_dispatches_the_modules_own_command() -> None:
     dispatcher = _RecordingDispatcher()
 
     MarketDataSyncService(dispatcher).sync(
-        MarketDataSyncRequest(symbols=("BTCUSDT",), interval="1m")
+        MarketDataSyncRequest(
+            symbols=("BTCUSDT",), interval="1m", market=MarketType.SPOT
+        )
     )
 
     assert len(dispatcher.commands) == 1

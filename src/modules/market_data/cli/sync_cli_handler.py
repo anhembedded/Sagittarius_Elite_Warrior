@@ -11,6 +11,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_command_handler import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.sync_market_data import (
     SyncMarketDataCommand,
@@ -25,9 +26,13 @@ class SyncCliHandler(ICliCommandHandler):
     def handle(args: argparse.Namespace, app: App) -> None:
         symbols = [s.strip().upper() for s in args.symbols.split(",")]
         try:
+            # `EPIC-027A` — the CLI has no `--market` flag yet (Phase 1 has no
+            # market to choose from). Pinned to Spot, what this command has
+            # always fetched.
             cmd = SyncMarketDataCommand(
                 symbols=symbols,
                 interval=TimeFrame(args.interval),
+                market=MarketType.SPOT,
                 days_back_if_empty=args.days,
             )
             print(f"🔄 Syncing historical data for {symbols}...")

@@ -2,6 +2,7 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.bulk_sync_market_data.command import (
     BulkSyncMarketDataCommand,
@@ -36,6 +37,11 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
+
+#: `EPIC-027A` — Data Management's own multi-market selector is a later
+#: phase's job (Phase 1 has no market to choose from yet). Pinned to Spot,
+#: what every sync from this screen actually fetches.
+_MARKET = MarketType.SPOT
 
 
 class SyncCoordinator:
@@ -125,6 +131,7 @@ class SyncCoordinator:
                 MarketDataSyncRequest(
                     symbols=(symbol,),
                     interval=TimeFrame(interval),
+                    market=_MARKET,
                     start_time=start_time,
                     end_time=end_time,
                     cancellation_requested=(

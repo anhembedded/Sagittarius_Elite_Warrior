@@ -27,6 +27,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING, Any
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
@@ -59,12 +60,10 @@ if TYPE_CHECKING:
 _LOAD_MORE_BATCH_CANDLES_CONFIG_KEY = "CHART_CARD_LOAD_MORE_BATCH_CANDLES"
 _DEFAULT_LOAD_MORE_BATCH_CANDLES = 75
 
-#: BOT-033 Phase 2 — Binance-style pair: uppercase letters/digits only (no
-#: domain Symbol value object exists yet to delegate this to), 5-20 chars
-#: covers everything from "BTCUSDT" to a long leveraged-token pair like
-#: "1000SHIBUSDT". Input is upper()'d before matching, same as every other
-#: symbol entry point in this codebase (CLI handlers, SyncMarketDataCommand's
-#: own validator) — a lowercase "btcusdt" is not itself an error.
+#: BOT-033 Phase 2 — Binance-style pair, uppercase letters/digits only (no
+#: domain Symbol value object exists yet); 5-20 chars covers "BTCUSDT" through
+#: a long leveraged-token pair like "1000SHIBUSDT". Input is upper()'d before
+#: matching, same as every other symbol entry point in this codebase.
 _SYMBOL_PATTERN = re.compile(r"^[A-Z0-9]{5,20}$")
 
 #: `BOT-126` — this screen's own identity on `IMarketStream`. Exactly
@@ -524,6 +523,7 @@ class StreamLifecycleController:
             MarketDataSyncRequest(
                 symbols=tuple(symbols),
                 interval=interval,
+                market=MarketType.SPOT,
                 start_time=start_time,
                 end_time=end_time,
                 cancellation_requested=cancellation_requested,

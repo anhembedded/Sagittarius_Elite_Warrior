@@ -16,6 +16,7 @@ the snapshot to the builder.
 
 from datetime import datetime
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_backtest_range_coverage.coverage_builders import (
     build_backtest_range_coverage,
@@ -46,7 +47,11 @@ class RangeCoverageService(IRangeCoverage):
         end_time: datetime,
         now: datetime,
     ) -> BacktestRangeCoverage:
+        # `EPIC-027A` added `market` to `IMarketDataRepository`; `IRangeCoverage`
+        # itself stays market-less until `EPIC-027D` gives the backtest screen a
+        # market to choose. Pinned to Spot, what this path has always read.
         snapshot = self._repository.get_range_coverage(
+            MarketType.SPOT,
             symbol,
             interval,
             start_time,

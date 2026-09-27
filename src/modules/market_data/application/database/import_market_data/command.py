@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
@@ -14,6 +15,7 @@ class ImportMarketDataCommand:
 
     symbol: str
     interval: TimeFrame
+    market: MarketType
     source_path: str
 
 

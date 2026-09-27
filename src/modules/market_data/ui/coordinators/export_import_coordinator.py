@@ -12,6 +12,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.database.export_market_data import (
     ExportMarketDataCommand,
@@ -34,6 +35,11 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+
+#: `EPIC-027A` — Data Management has no market selector yet (see
+#: `MarketType`'s own docstring); every export/import through this screen is
+#: Spot until `EPIC-027D` gives it one.
+_MARKET = MarketType.SPOT
 
 
 class ExportImportCoordinator:
@@ -84,6 +90,7 @@ class ExportImportCoordinator:
             cmd = ExportMarketDataCommand(
                 symbol=symbol,
                 interval=TimeFrame(interval),
+                market=_MARKET,
                 destination_path=destination_path,
                 file_format=file_format,
             )
@@ -132,7 +139,10 @@ class ExportImportCoordinator:
         )
         try:
             cmd = ImportMarketDataCommand(
-                symbol=symbol, interval=TimeFrame(interval), source_path=source_path
+                symbol=symbol,
+                interval=TimeFrame(interval),
+                market=_MARKET,
+                source_path=source_path,
             )
             # Same frozen `IDispatcher`/`IDispatchable` mismatch as `run_export()`
             # above — see the comment there.

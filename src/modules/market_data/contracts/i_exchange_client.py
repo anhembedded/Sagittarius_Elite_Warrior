@@ -3,6 +3,7 @@ from collections.abc import Callable, Iterator
 from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.symbol_market_metadata import (
     SymbolMarketMetadata,
@@ -23,6 +24,7 @@ class IExchangeClient(ABC):
     @abstractmethod
     def get_historical_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_str: str | datetime,
@@ -32,6 +34,7 @@ class IExchangeClient(ABC):
     ) -> list[MarketData]:
         """
         @brief Fetches historical kline data for a symbol.
+        @param market Which Binance market segment to fetch from (`EPIC-027A`).
         @param symbol The trading pair symbol (e.g. BTCUSDT)
         @param interval The timeframe interval (e.g. 1m)
         @param start_str The start time string (e.g. '1 day ago UTC') or datetime
@@ -43,6 +46,7 @@ class IExchangeClient(ABC):
     @abstractmethod
     def stream_historical_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_str: str | datetime,
@@ -59,6 +63,7 @@ class IExchangeClient(ABC):
         whose requested range has no inherent upper bound (bulk/full-history
         sync); bounded, small requests should keep using
         `get_historical_klines`.
+        @param market Which Binance market segment to fetch from (`EPIC-027A`).
         @return An iterator of `MarketData` chunks, in chronological order.
         """
 

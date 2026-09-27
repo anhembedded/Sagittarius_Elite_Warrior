@@ -44,6 +44,7 @@ class MarketDataSyncService(IMarketDataSync):
         command = SyncMarketDataCommand(
             symbols=list(request.symbols),
             interval=request.interval,
+            market=request.market,
             start_time=request.start_time,
             end_time=request.end_time,
             cancellation_requested=request.cancellation_requested,

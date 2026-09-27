@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_database_status.handler import (
     GetDatabaseStatusQueryHandler,
@@ -46,7 +47,7 @@ def test_get_database_status_success(handler, mock_repo):
     assert result.gaps == "0"
     assert result.status_text == "OK"
     mock_repo.get_database_status.assert_called_once_with(
-        symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE
+        market=MarketType.SPOT, symbol="BTCUSDT", interval=TimeFrame.ONE_MINUTE
     )
 
 

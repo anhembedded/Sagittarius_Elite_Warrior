@@ -7,6 +7,7 @@ import uuid
 from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.backtest_range_coverage import (
     BacktestRangeCoverage,
 )
@@ -27,6 +28,10 @@ from ..ports.i_backtest_screen_state import IBacktestScreenState
 logger = logging.getLogger("App.BackTestPresenter")
 
 _TRACE_PREFIX = "BACKTEST_TRACE"
+#: `EPIC-027A` — the Backtest screen's own market selector is `EPIC-027D`'s
+#: job (Phase 1 has no market to choose from yet). Pinned to Spot, what every
+#: sync from this screen actually fetches.
+_MARKET = MarketType.SPOT
 
 
 class DataSyncCoordinator:
@@ -266,6 +271,7 @@ class DataSyncCoordinator:
         request = MarketDataSyncRequest(
             symbols=(symbol,),
             interval=sync_interval,
+            market=_MARKET,
             start_time=sync_start,
             # Binance treats the history end boundary as exclusive. Fetch one
             # extra interval; coverage/backtest still keep the requested

@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import sqlalchemy as sa
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.database_manager import (
     DatabaseManager,
@@ -34,15 +35,10 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.domain.data_gap import Da
 
 logger = logging.getLogger("App.Database")
 
-#: BUG-025 — `stream_klines()`'s server-side fetch batch size: how many ORM
-#: rows SQLAlchemy materializes per round trip, independent of how many rows
-#: the caller's own `limit` ultimately asks for. Tunable purely for this
-#: side's DB read performance — **not** the same knob as `client.py`'s
-#: `_KLINE_STREAM_CHUNK_SIZE` (Binance REST page size, an external API
-#: limit), which happens to share this value and this name but answers a
-#: different question (`EPIC-018` ADR D6: two independent tunables, kept
-#: separate on purpose — changing Binance's page size has no reason to
-#: change SQLAlchemy's batch size, or vice versa).
+#: BUG-025 — `stream_klines()`'s server-side ORM fetch batch size, independent
+#: of the caller's own `limit`. Not the same knob as `client.py`'s
+#: `_KLINE_STREAM_CHUNK_SIZE` (Binance's REST page size) despite the shared
+#: name and value — two independent tunables (`EPIC-018` ADR D6).
 _KLINE_STREAM_CHUNK_SIZE = 1000
 
 
@@ -58,7 +54,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
     def __init__(self, db_manager: DatabaseManager) -> None:
         self.db_manager = db_manager
 
-    def save_klines(self, klines: list[MarketData]) -> None:
+    def save_klines(self, market: MarketType, klines: list[MarketData]) -> None:
         """
         @brief Upserts a batch of klines using SQLite's native ON CONFLICT DO UPDATE for high performance.
                Chunks the inserts to prevent database locks on massive syncs.
@@ -71,12 +67,12 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             stmt = build_upsert_stmt()
 
             for symbol, group_klines in symbol_groups.items():
-                with self.db_manager.get_session(symbol) as session:
+                with self.db_manager.get_session(market, symbol) as session:
                     self._execute_chunked_upsert(session, stmt, group_klines)
 
                 logger.debug(
-                    f"Saved {len(group_klines)} klines for {symbol} to database "
-                    f"in chunks of {self._UPSERT_CHUNK_SIZE}."
+                    f"Saved {len(group_klines)} klines for {market.value}/{symbol} "
+                    f"to database in chunks of {self._UPSERT_CHUNK_SIZE}."
                 )
         except Exception as e:
             logger.error(f"Failed to save klines to database: {e}")
@@ -94,8 +90,6 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         # Using Core connection directly bypasses ORM overhead for bulk execution.
         conn = session.connection()
 
-        # We can map the chunk directly to dictionaries in one pass
-        # avoiding unnecessary comprehension overhead
         for i in range(0, len(klines), self._UPSERT_CHUNK_SIZE):
             chunk = klines[i : i + self._UPSERT_CHUNK_SIZE]
             params = [
@@ -120,11 +114,11 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         session.commit()
 
     def get_latest_kline_time(
-        self, symbol: str, interval: TimeFrame
+        self, market: MarketType, symbol: str, interval: TimeFrame
     ) -> datetime | None:
-        if not self.db_manager.has_shard(symbol):
+        if not self.db_manager.has_shard(market, symbol):
             return None
-        with self.db_manager.get_session(symbol) as session:
+        with self.db_manager.get_session(market, symbol) as session:
             latest = (
                 session.query(sa.func.max(KlineModel.open_time))
                 .filter_by(symbol=symbol, interval=interval.value)
@@ -136,6 +130,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
 
     def get_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_time: datetime | None = None,
@@ -143,9 +138,9 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         limit: int | None = None,
         order_by_desc: bool = False,
     ) -> list[MarketData]:
-        if not self.db_manager.has_shard(symbol):
+        if not self.db_manager.has_shard(market, symbol):
             return []
-        with self.db_manager.get_session(symbol) as session:
+        with self.db_manager.get_session(market, symbol) as session:
             query = session.query(KlineModel).filter_by(
                 symbol=symbol, interval=interval.value
             )
@@ -167,15 +162,16 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
 
     def count_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         limit: int | None = None,
     ) -> int:
-        if not self.db_manager.has_shard(symbol):
+        if not self.db_manager.has_shard(market, symbol):
             return 0
-        with self.db_manager.get_session(symbol) as session:
+        with self.db_manager.get_session(market, symbol) as session:
             query = session.query(KlineModel).filter_by(
                 symbol=symbol, interval=interval.value
             )
@@ -191,6 +187,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
 
     def stream_klines(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_time: datetime | None = None,
@@ -199,9 +196,9 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         limit: int | None = None,
         order_by_desc: bool = False,
     ) -> Iterator[MarketData]:
-        if not self.db_manager.has_shard(symbol):
+        if not self.db_manager.has_shard(market, symbol):
             return
-        with self.db_manager.get_session(symbol) as session:
+        with self.db_manager.get_session(market, symbol) as session:
             query = session.query(KlineModel).filter_by(
                 symbol=symbol, interval=interval.value
             )
@@ -225,18 +222,18 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                 yield to_market_data_entity(row)
 
     def get_database_status(
-        self, symbol: str, interval: TimeFrame
+        self, market: MarketType, symbol: str, interval: TimeFrame
     ) -> DatabaseStatusSnapshot:
         """
         @brief Retrieves status and gap count using SQLite Window Functions.
         """
-        if not self.db_manager.has_shard(symbol):
+        if not self.db_manager.has_shard(market, symbol):
             return DatabaseStatusSnapshot(
                 first_record=None, last_record=None, total_candles=0, gaps=0
             )
 
         query = build_status_query()
-        with self.db_manager.get_session(symbol) as session:
+        with self.db_manager.get_session(market, symbol) as session:
             result = session.execute(
                 query,
                 {
@@ -249,28 +246,26 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             return map_status_result(result)
 
     def get_database_status_for_intervals(
-        self, symbol: str, intervals: list[TimeFrame]
+        self, market: MarketType, symbol: str, intervals: list[TimeFrame]
     ) -> dict[str, DatabaseStatusSnapshot]:
         """
         @brief Status for every interval of one symbol, opened over a single session.
-        @details BUG-078 — `klines` is a single table per shard keyed on
-        `(symbol, interval, open_time)`; all intervals of one symbol already live in
-        the same SQLite file. Querying interval-by-interval on a fresh
-        `get_session()` each time (the shape `ScanAllDatabasesQueryHandler` used to
-        use) opens one SQLite connection per (symbol, interval) pair for no reason —
-        connection setup, not the query itself, dominates the cost on a large scan.
-        Opening the shard once and looping intervals inside it cuts connection count
-        6x for the default interval set.
+        @details BUG-078 — all intervals of one symbol live in the same SQLite
+        file, so opening a fresh `get_session()` per interval (the old
+        `ScanAllDatabasesQueryHandler` shape) pays for connection setup —
+        the actual cost driver on a large scan — once per interval for no
+        reason. Looping intervals inside one shard session cuts connection
+        count 6x for the default interval set.
         """
         empty = DatabaseStatusSnapshot(
             first_record=None, last_record=None, total_candles=0, gaps=0
         )
-        if not self.db_manager.has_shard(symbol):
+        if not self.db_manager.has_shard(market, symbol):
             return {interval.value: empty for interval in intervals}
 
         query = build_status_query()
         results: dict[str, DatabaseStatusSnapshot] = {}
-        with self.db_manager.get_session(symbol) as session:
+        with self.db_manager.get_session(market, symbol) as session:
             for interval in intervals:
                 result = session.execute(
                     query,
@@ -285,6 +280,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
 
     def get_range_coverage(
         self,
+        market: MarketType,
         symbol: str,
         interval: TimeFrame,
         start_time: datetime | None,
@@ -292,7 +288,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
         now: datetime,
     ) -> RangeCoverageSnapshot:
         """Run the range probe entirely in SQLite and return six scalars."""
-        if not self.db_manager.has_shard(symbol):
+        if not self.db_manager.has_shard(market, symbol):
             return RangeCoverageSnapshot(None, None, 0, 0, None, 0)
 
         interval_seconds = interval.to_seconds()
@@ -305,7 +301,7 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             else None
         )
         query = build_range_coverage_query()
-        with self.db_manager.get_session(symbol) as session:
+        with self.db_manager.get_session(market, symbol) as session:
             result = session.execute(
                 query,
                 {
@@ -328,23 +324,25 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
             unclosed_candles=int(result[5] or 0),
         )
 
-    def clear_klines(self, symbol: str, interval: TimeFrame | None = None) -> int:
+    def clear_klines(
+        self, market: MarketType, symbol: str, interval: TimeFrame | None = None
+    ) -> int:
         """
-        @brief Deletes klines for a given symbol and optional interval.
+        @brief Deletes klines for a given market/symbol and optional interval.
         @details If interval is None, removes the entire shard database file to reclaim disk space.
         If interval is specified, deletes matching rows in KlineModel and commits.
         """
         if interval is None:
             count = 0
             try:
-                with self.db_manager.get_session(symbol) as session:
+                with self.db_manager.get_session(market, symbol) as session:
                     count = session.query(KlineModel).filter_by(symbol=symbol).count()
             except Exception as err:  # noqa: BLE001
                 logger.debug(f"Could not count klines before shard removal: {err}")
-            self.db_manager.remove_shard(symbol)
+            self.db_manager.remove_shard(market, symbol)
             return count
 
-        with self.db_manager.get_session(symbol) as session:
+        with self.db_manager.get_session(market, symbol) as session:
             stmt = sa.delete(KlineModel).where(
                 KlineModel.symbol == symbol,
                 KlineModel.interval == interval.value,
@@ -356,33 +354,35 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
 
     def purge_all(self) -> int:
         """
-        @brief Purges all market data databases / shards.
+        @brief Purges all market data databases / shards, across every market.
         @return Total count of shards purged.
         """
         return self.db_manager.purge_all_shards()
 
-    def list_available_shards(self) -> list[str]:
+    def list_available_shards(self, market: MarketType) -> list[str]:
         """
-        @brief Lists all symbol names that have existing storage shards on disk.
+        @brief Lists all symbol names with an existing storage shard for one market.
         """
-        return self.db_manager.list_shards()
+        return self.db_manager.list_shards(market)
 
-    def vacuum(self, symbol: str | None = None) -> None:
+    def vacuum(self, market: MarketType, symbol: str | None = None) -> None:
         """
-        @brief Compacts SQLite storage files by running VACUUM.
+        @brief Compacts SQLite storage files by running VACUUM on one market's shards.
         """
-        self.db_manager.vacuum(symbol)
+        self.db_manager.vacuum(market, symbol)
 
-    def get_gaps(self, symbol: str, interval: TimeFrame) -> list[DataGap]:
+    def get_gaps(
+        self, market: MarketType, symbol: str, interval: TimeFrame
+    ) -> list[DataGap]:
         """
-        @brief Retrieves all gaps in historical market data for a symbol/interval.
+        @brief Retrieves all gaps in historical market data for a market/symbol/interval.
         """
-        if not self.db_manager.has_shard(symbol):
+        if not self.db_manager.has_shard(market, symbol):
             return []
 
         expected_seconds = interval.to_seconds()
         query = build_gaps_query()
-        with self.db_manager.get_session(symbol) as session:
+        with self.db_manager.get_session(market, symbol) as session:
             rows = session.execute(
                 query,
                 {
@@ -408,12 +408,12 @@ class SQLAlchemyMarketDataRepository(IMarketDataRepository):
                     )
             return gaps
 
-    def has_any_klines(self, symbol: str) -> bool:
+    def has_any_klines(self, market: MarketType, symbol: str) -> bool:
         """
-        @brief Whether a symbol's shard holds at least one kline, in any interval.
+        @brief Whether a market/symbol's shard holds at least one kline, in any interval.
         """
-        if not self.db_manager.has_shard(symbol):
+        if not self.db_manager.has_shard(market, symbol):
             return False
-        with self.db_manager.get_session(symbol) as session:
+        with self.db_manager.get_session(market, symbol) as session:
             row = session.query(KlineModel.symbol).filter_by(symbol=symbol).first()
             return row is not None

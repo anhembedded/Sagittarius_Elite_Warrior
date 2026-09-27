@@ -2,6 +2,7 @@ import uuid
 from datetime import datetime
 
 from pydantic import BaseModel, Field, field_validator
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     CancellationCheck,
@@ -23,6 +24,10 @@ class SyncMarketDataCommand(BaseModel):
 
     symbols: list[str] = Field(description="List of trading pairs (e.g., BTCUSDT)")
     interval: TimeFrame = Field(description="Candlestick timeframe")
+    #: `EPIC-027A` — required, not defaulted: every caller states which
+    #: market's shard(s) it means, so a sync can never silently write into
+    #: the wrong market's storage.
+    market: MarketType = Field(description="Which market's shard(s) to sync")
     days_back_if_empty: int = Field(
         default=30, description="How far back to sync if no data"
     )

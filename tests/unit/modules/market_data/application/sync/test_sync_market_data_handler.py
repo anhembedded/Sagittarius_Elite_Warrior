@@ -3,6 +3,7 @@ from unittest.mock import ANY, Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.in_flight_sync_guard import (
     InFlightSyncGuard,
@@ -51,23 +52,27 @@ def test_sync_empty_db(handler, mock_exchange_client, mock_repo):
     mock_exchange_client.stream_historical_klines.return_value = iter([mock_klines])
 
     command = SyncMarketDataCommand(
-        symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE, days_back_if_empty=5
+        market=MarketType.SPOT,
+        symbols=["BTCUSDT"],
+        interval=TimeFrame.ONE_MINUTE,
+        days_back_if_empty=5,
     )
     handler.execute(command)
 
     # Assert get_latest_kline_time called
     mock_repo.get_latest_kline_time.assert_called_once_with(
-        "BTCUSDT", TimeFrame.ONE_MINUTE
+        MarketType.SPOT, "BTCUSDT", TimeFrame.ONE_MINUTE
     )
 
     # Assert stream_historical_klines called with datetime ~5 days ago
     call_args = mock_exchange_client.stream_historical_klines.call_args[0]
-    assert call_args[0] == "BTCUSDT"
-    assert call_args[1] == TimeFrame.ONE_MINUTE
-    assert isinstance(call_args[2], datetime)
+    assert call_args[0] == MarketType.SPOT
+    assert call_args[1] == "BTCUSDT"
+    assert call_args[2] == TimeFrame.ONE_MINUTE
+    assert isinstance(call_args[3], datetime)
 
     # Assert save_klines called with the single yielded chunk
-    mock_repo.save_klines.assert_called_once_with(mock_klines)
+    mock_repo.save_klines.assert_called_once_with(MarketType.SPOT, mock_klines)
 
 
 def test_sync_existing_data(handler, mock_exchange_client, mock_repo):
@@ -78,15 +83,17 @@ def test_sync_existing_data(handler, mock_exchange_client, mock_repo):
     mock_klines = [Mock(spec=MarketData)]
     mock_exchange_client.stream_historical_klines.return_value = iter([mock_klines])
 
-    command = SyncMarketDataCommand(symbols=["ETHUSDT"], interval=TimeFrame.ONE_HOUR)
+    command = SyncMarketDataCommand(
+        market=MarketType.SPOT, symbols=["ETHUSDT"], interval=TimeFrame.ONE_HOUR
+    )
     handler.execute(command)
 
     # 5th arg is the per-symbol progress callback (SingleSyncProgressEvent) —
     # a fresh closure each call, so it can't be compared by equality.
     mock_exchange_client.stream_historical_klines.assert_called_once_with(
-        "ETHUSDT", TimeFrame.ONE_HOUR, latest_time, None, ANY, None
+        MarketType.SPOT, "ETHUSDT", TimeFrame.ONE_HOUR, latest_time, None, ANY, None
     )
-    mock_repo.save_klines.assert_called_once_with(mock_klines)
+    mock_repo.save_klines.assert_called_once_with(MarketType.SPOT, mock_klines)
 
 
 def test_sync_explicit_time_range(handler, mock_exchange_client, mock_repo):
@@ -98,6 +105,7 @@ def test_sync_explicit_time_range(handler, mock_exchange_client, mock_repo):
     end_time = datetime(2024, 1, 2, tzinfo=UTC)
 
     command = SyncMarketDataCommand(
+        market=MarketType.SPOT,
         symbols=["SOLUSDT"],
         interval=TimeFrame.ONE_HOUR,
         start_time=start_time,
@@ -107,9 +115,9 @@ def test_sync_explicit_time_range(handler, mock_exchange_client, mock_repo):
 
     mock_repo.get_latest_kline_time.assert_not_called()
     mock_exchange_client.stream_historical_klines.assert_called_once_with(
-        "SOLUSDT", TimeFrame.ONE_HOUR, start_time, end_time, ANY, None
+        MarketType.SPOT, "SOLUSDT", TimeFrame.ONE_HOUR, start_time, end_time, ANY, None
     )
-    mock_repo.save_klines.assert_called_once_with(mock_klines)
+    mock_repo.save_klines.assert_called_once_with(MarketType.SPOT, mock_klines)
 
 
 def test_sync_no_new_data(handler, mock_exchange_client, mock_repo):
@@ -117,7 +125,9 @@ def test_sync_no_new_data(handler, mock_exchange_client, mock_repo):
     # Exchange yields no chunks at all
     mock_exchange_client.stream_historical_klines.return_value = iter([])
 
-    command = SyncMarketDataCommand(symbols=["BNBUSDT"], interval=TimeFrame.ONE_DAY)
+    command = SyncMarketDataCommand(
+        market=MarketType.SPOT, symbols=["BNBUSDT"], interval=TimeFrame.ONE_DAY
+    )
     handler.execute(command)
 
     # Assert save_klines is NOT called because there's no new data
@@ -136,13 +146,16 @@ def test_sync_progress_events_carry_the_commands_correlation_id(
     mock_repo.get_latest_kline_time.return_value = None
     chunk = [Mock(spec=MarketData)]
 
-    def _stream(symbol, interval, start, end, progress_cb, cancellation_requested):
+    def _stream(
+        market, symbol, interval, start, end, progress_cb, cancellation_requested
+    ):
         progress_cb(len(chunk))
         yield chunk
 
     mock_exchange_client.stream_historical_klines.side_effect = _stream
 
     command = SyncMarketDataCommand(
+        market=MarketType.SPOT,
         symbols=["BTCUSDT"],
         interval=TimeFrame.ONE_MINUTE,
         correlation_id="caller-issued-id",
@@ -164,7 +177,9 @@ def test_sync_skips_a_symbol_already_in_flight_elsewhere(
     the other screen) must not be fetched from the exchange a second time."""
     assert in_flight_guard.try_acquire("BTCUSDT", TimeFrame.ONE_MINUTE.value)
 
-    command = SyncMarketDataCommand(symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE)
+    command = SyncMarketDataCommand(
+        market=MarketType.SPOT, symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE
+    )
     with caplog.at_level("INFO", logger="App.SyncMarketData"):
         handler.execute(command)
 
@@ -181,7 +196,9 @@ def test_sync_releases_the_in_flight_key_so_a_later_call_can_acquire_it_again(
     mock_repo.get_latest_kline_time.return_value = None
     mock_exchange_client.stream_historical_klines.return_value = iter([])
 
-    command = SyncMarketDataCommand(symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE)
+    command = SyncMarketDataCommand(
+        market=MarketType.SPOT, symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE
+    )
     handler.execute(command)
 
     assert in_flight_guard.try_acquire("BTCUSDT", TimeFrame.ONE_MINUTE.value)
@@ -193,7 +210,9 @@ def test_sync_releases_the_in_flight_key_even_when_the_exchange_raises(
     mock_repo.get_latest_kline_time.return_value = None
     mock_exchange_client.stream_historical_klines.side_effect = Exception("API Error")
 
-    command = SyncMarketDataCommand(symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE)
+    command = SyncMarketDataCommand(
+        market=MarketType.SPOT, symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE
+    )
     with pytest.raises(Exception, match="API Error"):
         handler.execute(command)
 
@@ -207,7 +226,9 @@ def test_sync_multiple_symbols(handler, mock_exchange_client, mock_repo):
     )
 
     command = SyncMarketDataCommand(
-        symbols=["BTCUSDT", "ETHUSDT"], interval=TimeFrame.ONE_MINUTE
+        market=MarketType.SPOT,
+        symbols=["BTCUSDT", "ETHUSDT"],
+        interval=TimeFrame.ONE_MINUTE,
     )
     handler.execute(command)
 
@@ -221,7 +242,9 @@ def test_sync_exchange_exception(handler, mock_exchange_client, mock_repo):
     mock_repo.get_latest_kline_time.return_value = None
     mock_exchange_client.stream_historical_klines.side_effect = Exception("API Error")
 
-    command = SyncMarketDataCommand(symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE)
+    command = SyncMarketDataCommand(
+        market=MarketType.SPOT, symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE
+    )
 
     with pytest.raises(Exception, match="API Error"):
         handler.execute(command)
@@ -237,6 +260,7 @@ def test_cancelled_sync_never_persists_partial_exchange_data(
         ExchangeRequestCancelledError("cancelled")
     )
     command = SyncMarketDataCommand(
+        market=MarketType.SPOT,
         symbols=["BTCUSDT"],
         interval=TimeFrame.ONE_MINUTE,
         cancellation_requested=lambda: False,
@@ -265,13 +289,14 @@ def test_cancellation_mid_stream_stops_before_saving_the_in_flight_chunk(
     # right before saving chunk_a, 3rd is the one right before chunk_b.
     cancel_before_second_chunk = Mock(side_effect=[False, False, True])
     command = SyncMarketDataCommand(
+        market=MarketType.SPOT,
         symbols=["BTCUSDT"],
         interval=TimeFrame.ONE_MINUTE,
         cancellation_requested=cancel_before_second_chunk,
     )
     handler.execute(command)
 
-    mock_repo.save_klines.assert_called_once_with(chunk_a)
+    mock_repo.save_klines.assert_called_once_with(MarketType.SPOT, chunk_a)
 
 
 def test_sync_streams_each_chunk_to_the_db_as_it_arrives_instead_of_buffering_the_whole_range(
@@ -292,13 +317,16 @@ def test_sync_streams_each_chunk_to_the_db_as_it_arrives_instead_of_buffering_th
     )
 
     command = SyncMarketDataCommand(
-        symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE, days_back_if_empty=5
+        market=MarketType.SPOT,
+        symbols=["BTCUSDT"],
+        interval=TimeFrame.ONE_MINUTE,
+        days_back_if_empty=5,
     )
     handler.execute(command)
 
     assert mock_repo.save_klines.call_count == 2
-    mock_repo.save_klines.assert_any_call(chunk_a)
-    mock_repo.save_klines.assert_any_call(chunk_b)
+    mock_repo.save_klines.assert_any_call(MarketType.SPOT, chunk_a)
+    mock_repo.save_klines.assert_any_call(MarketType.SPOT, chunk_b)
 
 
 def test_sync_logs_a_persisted_line_per_chunk_not_just_one_summary_at_the_end(
@@ -320,7 +348,10 @@ def test_sync_logs_a_persisted_line_per_chunk_not_just_one_summary_at_the_end(
     )
 
     command = SyncMarketDataCommand(
-        symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE, days_back_if_empty=5
+        market=MarketType.SPOT,
+        symbols=["BTCUSDT"],
+        interval=TimeFrame.ONE_MINUTE,
+        days_back_if_empty=5,
     )
     with caplog.at_level("DEBUG", logger="App.SyncMarketData"):
         handler.execute(command)

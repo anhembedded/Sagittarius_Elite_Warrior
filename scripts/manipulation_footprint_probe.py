@@ -712,6 +712,7 @@ def report_to_dict(report: ProbeReport) -> dict[str, object]:
 
 
 def load_from_db(symbol: str, days: int) -> list[MarketData]:
+    from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
     from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
     from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.database_manager import (
         DatabaseConfig,
@@ -727,6 +728,7 @@ def load_from_db(symbol: str, days: int) -> list[MarketData]:
     )
     end = datetime.now(UTC)
     return repo.get_klines(
+        market=MarketType.SPOT,
         symbol=symbol,
         interval=TimeFrame.ONE_SECOND,
         start_time=end - timedelta(days=days),
@@ -735,12 +737,14 @@ def load_from_db(symbol: str, days: int) -> list[MarketData]:
 
 
 def load_from_binance(symbol: str, days: int) -> list[MarketData]:
+    from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+
     end = datetime.now(UTC).replace(microsecond=0)
     client = MarketDataSessionFactory(
         MarketDataVenue.MAINNET_PUBLIC
     ).create_market_data_client()
     return client.get_historical_klines(
-        symbol, TimeFrame.ONE_SECOND, end - timedelta(days=days), end
+        MarketType.SPOT, symbol, TimeFrame.ONE_SECOND, end - timedelta(days=days), end
     )
 
 

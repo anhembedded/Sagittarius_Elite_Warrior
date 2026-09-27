@@ -23,6 +23,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
@@ -32,6 +33,10 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 _MINUTE = TimeFrame.ONE_MINUTE
 _FROM = datetime(2024, 1, 1, tzinfo=UTC)
 _TO = datetime(2024, 1, 2, tzinfo=UTC)
+#: Every test here targets Spot unless it is specifically about the market
+#: itself — `EPIC-027A` made `market` a required field.
+_SPOT = MarketType.SPOT
+_FUTURES = MarketType.FUTURES_USD_M
 
 #: What a subclass's `observed` fixture returns: the requests the
 #: implementation accepted, in order.
@@ -67,6 +72,7 @@ class MarketDataSyncContract:
             MarketDataSyncRequest(
                 symbols=("BTCUSDT",),
                 interval=TimeFrame.FIVE_MINUTES,
+                market=_SPOT,
                 start_time=_FROM,
                 end_time=_TO,
             )
@@ -77,6 +83,19 @@ class MarketDataSyncContract:
         assert request.start_time == _FROM
         assert request.end_time == _TO
 
+    def test_the_market_arrives_unchanged(
+        self, impl: IMarketDataSync, observed: ObservedRequests
+    ) -> None:
+        """`EPIC-027A`: a sync that quietly changed the market would write
+        candles into the wrong market's storage."""
+        impl.sync(
+            MarketDataSyncRequest(
+                symbols=("BTCUSDT",), interval=_MINUTE, market=_FUTURES
+            )
+        )
+
+        assert observed()[0].market == _FUTURES
+
     def test_an_open_ended_request_stays_open_ended(
         self, impl: IMarketDataSync, observed: ObservedRequests
     ) -> None:
@@ -84,7 +103,9 @@ class MarketDataSyncContract:
         into a concrete boundary on the way in, or the handler loses the
         distinction between "from the newest stored candle" and "from this
         exact time"."""
-        impl.sync(MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE))
+        impl.sync(
+            MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE, market=_SPOT)
+        )
 
         request = observed()[0]
         assert request.start_time is None
@@ -97,7 +118,9 @@ class MarketDataSyncContract:
         is keyed by `BTCUSDT`. If the port did not normalise, the same symbol
         typed two ways would sync into two shards."""
         impl.sync(
-            MarketDataSyncRequest(symbols=("btcusdt", "EthUsdt"), interval=_MINUTE)
+            MarketDataSyncRequest(
+                symbols=("btcusdt", "EthUsdt"), interval=_MINUTE, market=_SPOT
+            )
         )
 
         assert observed()[0].symbols == ("BTCUSDT", "ETHUSDT")
@@ -106,7 +129,9 @@ class MarketDataSyncContract:
         self, impl: IMarketDataSync, observed: ObservedRequests
     ) -> None:
         impl.sync(
-            MarketDataSyncRequest(symbols=("BTCUSDT", "ETHUSDT"), interval=_MINUTE)
+            MarketDataSyncRequest(
+                symbols=("BTCUSDT", "ETHUSDT"), interval=_MINUTE, market=_SPOT
+            )
         )
 
         assert observed()[0].symbols == ("BTCUSDT", "ETHUSDT")
@@ -119,7 +144,7 @@ class MarketDataSyncContract:
         """A screen whose selection is empty must hear about it here, not
         start a sync that fetches nothing and reports success."""
         with pytest.raises(ValueError, match="empty"):
-            impl.sync(MarketDataSyncRequest(symbols=(), interval=_MINUTE))
+            impl.sync(MarketDataSyncRequest(symbols=(), interval=_MINUTE, market=_SPOT))
 
         assert observed() == [], "a refused request must not be started"
 
@@ -133,7 +158,10 @@ class MarketDataSyncContract:
         The id the caller will compare against must survive the trip."""
         impl.sync(
             MarketDataSyncRequest(
-                symbols=("BTCUSDT",), interval=_MINUTE, correlation_id="screen-a"
+                symbols=("BTCUSDT",),
+                interval=_MINUTE,
+                market=_SPOT,
+                correlation_id="screen-a",
             )
         )
 
@@ -144,7 +172,9 @@ class MarketDataSyncContract:
     ) -> None:
         """A caller that never reads the events still produces them, and an
         event carrying no id cannot be attributed by anyone who does."""
-        impl.sync(MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE))
+        impl.sync(
+            MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE, market=_SPOT)
+        )
 
         generated = observed()[0].correlation_id
         assert generated, "every started sync carries an id"
@@ -152,8 +182,12 @@ class MarketDataSyncContract:
     def test_two_callers_ids_are_not_shared(
         self, impl: IMarketDataSync, observed: ObservedRequests
     ) -> None:
-        impl.sync(MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE))
-        impl.sync(MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE))
+        impl.sync(
+            MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE, market=_SPOT)
+        )
+        impl.sync(
+            MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE, market=_SPOT)
+        )
 
         first, second = observed()
         assert first.correlation_id != second.correlation_id
@@ -176,6 +210,7 @@ class MarketDataSyncContract:
             MarketDataSyncRequest(
                 symbols=("BTCUSDT",),
                 interval=_MINUTE,
+                market=_SPOT,
                 cancellation_requested=is_cancelled,
             )
         )
@@ -190,7 +225,9 @@ class MarketDataSyncContract:
         self, impl: IMarketDataSync, observed: ObservedRequests
     ) -> None:
         """Most callers have no token — the CLI, a scheduled job."""
-        impl.sync(MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE))
+        impl.sync(
+            MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE, market=_SPOT)
+        )
 
         assert observed()[0].cancellation_requested is None
 
@@ -202,7 +239,9 @@ class MarketDataSyncContract:
         """De-duplication is `InFlightSyncGuard`'s job, downstream and with
         the state to do it right. A port that silently swallowed the second
         ask would make a re-sync after a failure impossible."""
-        request = MarketDataSyncRequest(symbols=("BTCUSDT",), interval=_MINUTE)
+        request = MarketDataSyncRequest(
+            symbols=("BTCUSDT",), interval=_MINUTE, market=_SPOT
+        )
 
         impl.sync(request)
         impl.sync(request)
