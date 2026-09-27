@@ -119,7 +119,7 @@ def _format_reachable_with_failure(status: ExchangeConnectionStatus) -> str:
 
 
 def _format_success(status: ExchangeConnectionStatus) -> str:
-    if status.holdings is not None:
+    if status.venue is TradingVenue.SPOT_TESTNET:
         return _format_spot_success(status)
 
     skew = status.server_time_skew_ms

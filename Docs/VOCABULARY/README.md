@@ -113,6 +113,7 @@ difference is the reason the contexts exist (HLD §1.2).
 | Term | Definition | Defined in |
 | :--- | :--- | :--- |
 | **Position** (`LivePosition`) | A position **as the exchange reports it**, read-only; the app never computes any of its fields. Leaves the module only as `PositionSnapshot`. | `domain/trading/live_position.py` |
+| **Holding** (`SpotHolding`) | A Spot balance for one asset — asset, free, locked, dust threshold — never a `LivePosition` with an invented mark price, leverage or liquidation price (Spot has none of those). `ExchangeConnectionStatus.holdings` carries them; a Futures venue answers `None`. `EPIC-027H`. | `contracts/spot_holding.py` |
 | **Order** | A real order sent to the exchange through `IOrderSubmission` — the only path. | `contracts/IOrderSubmission` |
 | **Order intent** | What a caller *wants* (side, quantity, type, price, `owner_id`) before preview and rounding. | `contracts/dto` |
 | **Trading session** | The app-level state "trading is enabled", with its limits, counters and symbol leases; snapshot as `TradingSessionSnapshot`. | `contracts/ITradingSession` |
