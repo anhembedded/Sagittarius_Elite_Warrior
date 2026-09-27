@@ -1,4 +1,4 @@
-"""`EPIC-021B` — resolving Futures Testnet API credentials, env-var first."""
+"""`EPIC-021B` — resolving a trading venue's API credentials, env-var first."""
 
 from __future__ import annotations
 
@@ -32,13 +32,14 @@ class ResolvedCredentials:
 
 
 class IExchangeCredentialsProvider(ABC):
-    """@brief Port for resolving the Futures Testnet API key/secret
+    """@brief Port for resolving one trading venue's API key/secret
     (`EPIC-021B`, closes `BUG-080`'s credentials-never-reach-anything half).
 
-    @details Exactly one venue ever needs credentials today —
-    `TradingVenue.FUTURES_TESTNET` is the only non-`DISABLED` member (no
-    `MAINNET` member exists, ADR §3) — so this port takes no venue
-    parameter. Revisit if that ever changes.
+    @details `resolve()` itself takes no venue parameter: which venue's
+    credentials a call resolves is fixed at construction, not per call
+    (`EPIC-027G` — a concrete provider is bound to exactly one
+    `TradingVenue` for its lifetime, so a caller can never accidentally
+    pass the wrong venue at the call site).
     """
 
     @abstractmethod

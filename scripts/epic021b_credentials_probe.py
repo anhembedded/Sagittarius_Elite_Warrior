@@ -19,7 +19,7 @@ from __future__ import annotations
 from sagittarius_engine.utils.path_utils import PathUtils
 
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
-    ENV_API_KEY,
+    FUTURES_ENV_API_KEY,
     EnvFirstCredentialsProvider,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
@@ -28,9 +28,12 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 _SOURCE_LABEL = {
-    CredentialsSource.ENV: f"ENV ({ENV_API_KEY})",
+    CredentialsSource.ENV: f"ENV ({FUTURES_ENV_API_KEY})",
     CredentialsSource.FILE: "FILE (secrets.local.json)",
     CredentialsSource.NONE: "NONE",
 }
@@ -40,14 +43,16 @@ def main() -> None:
     secrets_file_path = PathUtils.get_relative_path(
         __file__, "..", "src", "config", "secrets.local.json"
     )
-    provider = EnvFirstCredentialsProvider(SecretsFileSource(secrets_file_path))
+    provider = EnvFirstCredentialsProvider(
+        SecretsFileSource(secrets_file_path), TradingVenue.FUTURES_TESTNET
+    )
     resolution = provider.resolve()
 
     print(f"Source: {_SOURCE_LABEL[resolution.source]}")
     if resolution.credentials is None:
         print(
             "Key:    (not configured) — get a key at testnet.binancefuture.com, "
-            f"then export {ENV_API_KEY} or save it via the Settings screen."
+            f"then export {FUTURES_ENV_API_KEY} or save it via the Settings screen."
         )
         return
 

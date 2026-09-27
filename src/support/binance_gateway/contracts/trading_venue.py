@@ -1,5 +1,7 @@
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+
 
 class TradingVenue(str, Enum):
     """
@@ -13,3 +15,13 @@ class TradingVenue(str, Enum):
 
     DISABLED = "disabled"
     FUTURES_TESTNET = "futures_testnet"
+    SPOT_TESTNET = "spot_testnet"
+
+    @property
+    def market_type(self) -> MarketType | None:
+        """@brief The market this venue trades, or `None` when trading is off."""
+        if self is TradingVenue.FUTURES_TESTNET:
+            return MarketType.FUTURES_USD_M
+        if self is TradingVenue.SPOT_TESTNET:
+            return MarketType.SPOT
+        return None

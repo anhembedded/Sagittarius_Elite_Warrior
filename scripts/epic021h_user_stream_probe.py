@@ -70,6 +70,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_cr
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
     SecretsFileSource,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 def _parse_args() -> argparse.Namespace:
@@ -98,7 +101,7 @@ async def _run(seconds: float) -> None:
         __file__, "..", "src", "config", "secrets.local.json"
     )
     credentials_provider = EnvFirstCredentialsProvider(
-        SecretsFileSource(secrets_file_path)
+        SecretsFileSource(secrets_file_path), TradingVenue.FUTURES_TESTNET
     )
     session_factory = FuturesSessionFactory()
     metadata_provider = FuturesMetadataProvider(

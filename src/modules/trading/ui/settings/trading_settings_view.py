@@ -52,6 +52,9 @@ _TRADING_VENUE_LABELS = EnumLabels(
         TradingVenue.FUTURES_TESTNET: (
             "ON — Futures Testnet, simulated funds (futures_testnet)"
         ),
+        TradingVenue.SPOT_TESTNET: (
+            "ON — Spot Testnet, simulated funds (spot_testnet)"
+        ),
     },
 )
 

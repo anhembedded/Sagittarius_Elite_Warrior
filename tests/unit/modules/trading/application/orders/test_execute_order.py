@@ -175,6 +175,14 @@ class TestSafetyGates:
         assert result.blocked_by is ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
         assert result.preview is None
 
+    def test_not_blocked_by_venue_gate_when_trading_venue_is_spot_testnet(self) -> None:
+        """`EPIC-027G` — the gate asks "is this a supported venue", not "is
+        this Futures Testnet"; `SPOT_TESTNET` must clear it exactly like
+        `FUTURES_TESTNET` does."""
+        handler, _ = _handler(trading_venue=TradingVenue.SPOT_TESTNET)
+        result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))
+        assert result.blocked_by is not ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
+
     def test_blocked_when_switch_is_off(self) -> None:
         handler, _ = _handler(enabled=False)
         result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))

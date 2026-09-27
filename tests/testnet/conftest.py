@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.utils.path_utils import PathUtils
 
 #: The switch a person must set explicitly — never true by accident the way
@@ -44,7 +47,7 @@ def testnet_credentials() -> ExchangeCredentials:
         __file__, "..", "..", "src", "config", "secrets.local.json"
     )
     resolution = EnvFirstCredentialsProvider(
-        SecretsFileSource(secrets_file_path)
+        SecretsFileSource(secrets_file_path), TradingVenue.FUTURES_TESTNET
     ).resolve()
     if resolution.credentials is None:
         pytest.skip(

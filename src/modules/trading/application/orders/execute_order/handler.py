@@ -176,7 +176,7 @@ class ExecuteOrderCommandHandler(
         which is the check that closes the race. Two reads, one cheap and one
         atomic, is the whole reason this method can stay free.
         """
-        if self._trading_venue is not TradingVenue.FUTURES_TESTNET:
+        if self._trading_venue is TradingVenue.DISABLED:
             return ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
         if not self._session_state.enabled:
             return ExecuteOrderSafetyGate.TRADING_SWITCH_OFF

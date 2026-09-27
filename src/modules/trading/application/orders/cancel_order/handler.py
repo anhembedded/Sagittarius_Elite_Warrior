@@ -74,7 +74,7 @@ class CancelOrderCommandHandler(ICommandHandler[CancelOrderCommand, CancelOrderR
         return CancelOrderResult(None, cancelled_order)
 
     def _first_blocked_safety_gate(self) -> ExecuteOrderSafetyGate | None:
-        if self._trading_venue is not TradingVenue.FUTURES_TESTNET:
+        if self._trading_venue is TradingVenue.DISABLED:
             return ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
         if not self._session_state.enabled:
             return ExecuteOrderSafetyGate.TRADING_SWITCH_OFF

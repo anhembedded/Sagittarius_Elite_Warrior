@@ -95,6 +95,23 @@ class TestSafetyGates:
         assert result.blocked_by is ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
         assert result.cancelled_order is None
 
+    def test_not_blocked_by_venue_gate_when_trading_venue_is_spot_testnet(self) -> None:
+        """`EPIC-027G` — the gate asks "is this a supported venue", not "is
+        this Futures Testnet"; `SPOT_TESTNET` must clear it exactly like
+        `FUTURES_TESTNET` does."""
+        raw_client = Mock()
+        raw_client.futures_cancel_order.return_value = {
+            "clientOrderId": "abc",
+            "symbol": "BTCUSDT",
+            "side": "SELL",
+            "type": "LIMIT",
+            "origQty": "0.01",
+            "status": "CANCELED",
+        }
+        handler = _handler(trading_venue=TradingVenue.SPOT_TESTNET, raw_client=raw_client)
+        result = handler.execute(CancelOrderCommand("BTCUSDT", "abc"))
+        assert result.blocked_by is not ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
+
     def test_blocked_when_switch_is_off(self) -> None:
         handler = _handler(enabled=False)
         result = handler.execute(CancelOrderCommand("BTCUSDT", "abc"))
