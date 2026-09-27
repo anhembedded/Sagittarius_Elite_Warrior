@@ -20,8 +20,10 @@ store to be current, and the app decides where to start reading from.
 
 1. The app is running — either the desktop window, `python -m src.main sync …`, or `sync` typed
    at the interactive prompt.
-2. The symbol is a Binance Futures pair. An unknown symbol is a failure row below, not a
-   precondition the actor has to check first.
+2. The symbol is a Binance pair of the market being synced: Spot, or USD-M Futures
+   (`EPIC-027A`). The Backtest screen syncs the market its selector holds (`EPIC-027D`); every
+   other caller syncs Spot. An unknown symbol is a failure row below, not a precondition the actor
+   has to check first.
 3. The timeframe is one of the sixteen `TimeFrame` values (`1s` … `1M`); the command line
    restricts `--interval` to exactly that list through `src/config/cli_commands.json`.
 4. No API credentials are needed. This use case reads public market data.
@@ -42,9 +44,11 @@ store to be current, and the app decides where to start reading from.
 7. When the range is covered, the app finishes. The command line prints `✅ Sync complete.`; a
    screen returns to idle and re-reads what is now stored.
 8. **On the Backtest screen only**, the same worker then caches that symbol's exchange order
-   filters — minimum notional, lot step, price tick — so the screen's market-rule check has
-   something to check against (`BUG-127`). It reads the **same** `exchangeInfo` payload the symbol
-   list already fetches, so it costs no extra request, and it runs here rather than where the check
+   filters for the selected market — minimum notional, lot step, price tick — so the screen's
+   market-rule check has something to check against (`BUG-127`), and so the run that follows
+   applies them to its simulated fills (`EPIC-027C`). It reads the **same** market's `exchangeInfo`
+   payload the symbol list already fetches (`/api/v3` for Spot, `/fapi/v1` for USD-M Futures), so
+   it costs no extra request, and it runs here rather than where the check
    runs because the check is on the Qt main thread and must not make a network call. A failure at
    this step does **not** fail the sync: the candles are already on disk, and the screen keeps
    saying *"not verified yet"* — see §6.

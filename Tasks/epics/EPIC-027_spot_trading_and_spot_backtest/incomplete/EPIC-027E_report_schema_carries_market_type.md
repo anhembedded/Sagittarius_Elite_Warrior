@@ -5,7 +5,7 @@
 **Risk:** 🟢 — additive schema change with a default; old reports must still load.
 **Complexity:** S — one config field, the ignored/rejected counters, a schema version bump.
 **Epic (optional):** [EPIC-027](../README.md)
-**Depends on:** [EPIC-027B](../completed/EPIC-027B_spot_mode_in_the_backtest_engine.md), [EPIC-027C](EPIC-027C_exchange_filters_on_simulated_fills.md)
+**Depends on:** [EPIC-027B](../completed/EPIC-027B_spot_mode_in_the_backtest_engine.md), [EPIC-027C](../completed/EPIC-027C_exchange_filters_on_simulated_fills.md)
 
 ---
 
@@ -15,6 +15,13 @@
   those fields (`backtest_report_loader.py:202-203,280-281`).
 - Nothing records the market, so a Spot report and a Futures report of the same symbol cannot be
   told apart. That undermines the side-by-side comparison (`BOT-115D`).
+- Since `EPIC-027B`–`027D` the facts exist on the result, but not in the report:
+  - `BacktestResult` carries `market_type`, `ignored_short_signals`, `rejected_entries` and
+    `exchange_filters`.
+  - `BrokerSimulationConfig` carries `market_type` and `exchange_filters`.
+  - The serializer writes none of them. The loader rebuilds a result with their defaults, so a
+    loaded report reads as a Futures run with no filters: the default, not the fact. This task
+    makes that "not recorded (pre-EPIC-027)".
 
 ## 2. Acceptance criteria
 - [ ] A new report carries `market_type`, the ignored-short count and the exchange-filter provenance.
