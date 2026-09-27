@@ -1,6 +1,6 @@
 # EPIC-027 — Spot beside Futures: truthful Spot backtests first, then live Spot on Testnet
 
-- **Status:** 🟡 Phase 1 in progress — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` to `EPIC-027D` are done; `EPIC-027E` closes Phase 1.
+- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027E` are done; Phase 2 (live Spot foundations) starts at `EPIC-027F`.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-26): *"đánh giá xem giờ tui muốn giao dịch spot và back test theo
   spot thì app này cần những gì, lên plan và epic, sao đó report cho tôi"* ("assess what this app
@@ -93,7 +93,7 @@ request unless its file says otherwise.
 | [EPIC-027B](completed/EPIC-027B_spot_mode_in_the_backtest_engine.md) | Spot mode in the engine: long-only, 1×, never liquidated, shorts counted | Elite | A | 🟡 | ✅ Done (2026-09-27) |
 | [EPIC-027C](completed/EPIC-027C_exchange_filters_on_simulated_fills.md) | Simulated fills obey step size, minimum notional and tick size | Elite | A | 🟡 | ✅ Done (2026-09-27) |
 | [EPIC-027D](completed/EPIC-027D_backtest_ui_market_selector.md) | Backtest screen chooses the market and shows only what it can do | Elite | A, B | 🟢 | ✅ Done (2026-09-27) |
-| [EPIC-027E](incomplete/EPIC-027E_report_schema_carries_market_type.md) | Saved reports state their market | Elite | B, C | 🟢 | Planned |
+| [EPIC-027E](completed/EPIC-027E_report_schema_carries_market_type.md) | Saved reports state their market | Elite | B, C | 🟢 | ✅ Done (2026-09-27) |
 | **Phase 2 — Live Spot foundations (read-only)** | | | | | |
 | [EPIC-027F](incomplete/EPIC-027F_venue_selected_trading_client_factory.md) | One venue-selected factory replaces six direct client constructions | Elite | None | 🔴 | Planned |
 | [EPIC-027G](incomplete/EPIC-027G_spot_testnet_venue_and_credentials.md) | `TradingVenue.SPOT_TESTNET`, own keys, market-mismatch alignment | Elite | F | 🟡 | Planned |
@@ -112,7 +112,7 @@ request unless its file says otherwise.
 
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
-| Phase 1 | A Spot backtest and a Futures backtest of the same symbol run on their own market's candles. The Spot one never shorts or liquidates. Both round quantities to exchange filters and state it in the report. | The golden Futures run unchanged byte-for-byte (except where `EPIC-027C`'s filters change it, and then recorded); the integration test of `EPIC-027D`; the full gate green on GitHub Actions. Not run. |
+| Phase 1 | A Spot backtest and a Futures backtest of the same symbol run on their own market's candles. The Spot one never shorts or liquidates. Both round quantities to exchange filters and state it in the report. | The golden Futures run unchanged byte-for-byte (except where `EPIC-027C`'s filters change it, and then recorded); the integration test of `EPIC-027D`; a saved report states its market and exchange filters (`EPIC-027E`); the full gate green on GitHub Actions. ✅ Closed 2026-09-27. |
 | Phase 2 | `exchange-status` against Spot Testnet shows balances with a Spot key and refuses a Futures key as a key error. No application-layer file constructs a trading client. | `EPIC-027F`'s architecture guard; `EPIC-027H`'s CLI output pasted into its task file. Not run. |
 | Phase 3 | A human BUY and SELL, and an armed long-only strategy, each round-trip on Spot Testnet. Emergency Stop never sells a pre-existing holding. | `EPIC-027P`'s tier output from the user's run; `EPIC-027M`'s baseline test; the SPEC listed as ✅ in `Docs/SPEC/README.md`. Not run. |
 
@@ -130,6 +130,18 @@ request unless its file says otherwise.
 - **Funding-rate modeling for Futures.** Still out of scope as in `BOT-049`.
 
 ## Notes (newest first)
+- **2026-09-27** — `EPIC-027E` done, closing Phase 1 (5/5). A saved report was silently dropping four
+  facts (`market_type`, `ignored_short_signals`, `rejected_entries`, `exchange_filters`) `EPIC-027B`/
+  `027C` had already put on `BacktestResult` — the serializer never wrote them, so the loader always
+  rebuilt a Futures-with-no-filters result regardless of what actually ran. Schema bumped 1 → 2 with
+  every new field defaulted on load (a v1 file re-runs unchanged); the report's own "market not
+  recorded" state is a `BacktestReportLoadResult` flag, the same mechanism `BOT-078` already used for
+  `strategy_key_unknown`/`metrics_mismatch`, never a guessed value on `BacktestResult` itself. The
+  comparison dialog gained a second, separate mismatch warning for Spot-vs-Futures (the existing
+  `build_market_mismatch_warning` already means "different symbol/timeframe" — a naming collision
+  flagged, not fixed, since renaming it is outside this task). Folded in the same bump: the serializer
+  also wasn't writing `break_even_trigger_pct`/`trailing_activation_pct`/`trailing_offset_pct`/
+  `partial_take_profit_levels` (`BOT-105A`/`105C`, pre-dating this epic). 5618 unit passed, 168 integration passed (4 skipped), 32 sanity passed, architecture 445, mypy clean.
 - **2026-09-27** — `EPIC-027C` and `EPIC-027D` done, in one pull request.
   - **Simulated fills obey the exchange's rules** for the run's (market, symbol): quantity floored
     to the step, entries below the minimum refused and counted, slippage by the real tick.

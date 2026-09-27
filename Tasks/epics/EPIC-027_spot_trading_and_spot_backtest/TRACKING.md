@@ -1,7 +1,7 @@
 # EPIC-027 — Tracking
 
 - **Epic:** [EPIC-027 — Spot beside Futures](README.md)
-- **Status:** 🟡 Phase 1 in progress — `EPIC-027A`–`EPIC-027D` done; `EPIC-027E` left
+- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27) — `EPIC-027A`–`EPIC-027E` done; Phase 2 starts at `EPIC-027F`
 - **Target Completion:** not committed; the bars below are relative estimates from the day the ADR is accepted.
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -28,7 +28,7 @@ gantt
     027B Spot mode in the engine            :done,    b, after a, 3d
     027C Exchange filters on fills          :done,    c, after a, 3d
     027D Backtest market selector           :done,    d, after b, 3d
-    027E Report carries market              :         e, after c, 2d
+    027E Report carries market              :done,    e, after c, 2d
     Phase 1 exit check                      :milestone, m1, after d, 0d
 
     section Phase 2 - Live foundations
@@ -59,7 +59,7 @@ gantt
 | EPIC-027B | [Spot mode in the engine](completed/EPIC-027B_spot_mode_in_the_backtest_engine.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | 2026-09-27 |
 | EPIC-027C | [Exchange filters on fills](completed/EPIC-027C_exchange_filters_on_simulated_fills.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | 2026-09-27 |
 | EPIC-027D | [Backtest market selector](completed/EPIC-027D_backtest_ui_market_selector.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Done | 2026-09-27 |
-| EPIC-027E | [Report carries market](incomplete/EPIC-027E_report_schema_carries_market_type.md) | — | 🟢 | 🔵 Planned | — |
+| EPIC-027E | [Report carries market](completed/EPIC-027E_report_schema_carries_market_type.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Done | 2026-09-27 |
 | EPIC-027F | [Venue-selected client factory](incomplete/EPIC-027F_venue_selected_trading_client_factory.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-027G | [Spot Testnet venue and keys](incomplete/EPIC-027G_spot_testnet_venue_and_credentials.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-027H | [Spot account and holdings](incomplete/EPIC-027H_spot_account_reader_and_holdings_model.md) | — | 🟡 | 🔵 Planned | — |
@@ -83,6 +83,7 @@ gantt
 | 2026-09-26 | EPIC-027A | Done — `MarketType` in the shared kernel, market-scoped shard storage + repository/sync ports, klines type resolved per market (not venue), fake exchange proves Spot/Futures routing, legacy shards migrated (tagged Spot), Data Management + export/import carry market. Unit 5516, integration 165 (4 skipped), architecture 445 all green; mypy clean on 702 files. |
 | 2026-09-27 | EPIC-027B | Done — `BrokerSimulationConfig.market_type` (default `FUTURES_USD_M`, golden run unchanged apart from the new zero count); Spot refuses leverage ≠ 1 and COIN-M; `MarketSignalGatePolicy` drops and counts SHORT/COVER in both handlers; no Spot trade can liquidate. unit 5550 passed, integration 166 passed (4 pre-existing skips), architecture 445; mypy clean on 703 files. |
 | 2026-09-27 | EPIC-027C, EPIC-027D | Done in one PR — fills floored to the step and refused below the minimum notional per (market, symbol), slippage by the real tick; Backtest market selector (Spot / USD-M Futures) with candles, catalog, coverage, sync and filters following it; Spot hides leverage and short-only filters; `market_data` read ports take a market. 5612 unit passed, 168 integration passed (4 skipped), 32 sanity passed. |
+| 2026-09-27 | EPIC-027E | Done, closing Phase 1 (5/5) — the report schema (v1→v2) now writes `market_type`/`exchange_filters`/`ignored_short_signals`/`rejected_entries`, plus four pre-existing `BOT-105A`/`105C` fields the serializer had also been silently dropping; a v1 report still loads, its market flagged "not recorded" via `BacktestReportLoadResult.market_type_recorded` rather than guessed; the comparison dialog gained a Spot-vs-Futures mismatch warning distinct from the pre-existing symbol/timeframe one. 5618 unit passed, 168 integration passed (4 skipped), 32 sanity passed, architecture 445, mypy clean. |
 
 ---
 

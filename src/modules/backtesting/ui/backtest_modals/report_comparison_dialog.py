@@ -41,6 +41,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_compariso
     build_equity_comparison_series,
     build_loaded_file_label,
     build_market_mismatch_warning,
+    build_market_type_mismatch_warning,
     build_metric_comparison_rows,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_comparison_snapshot import (
@@ -235,8 +236,17 @@ class ReportComparisonDialog(Overlay):
         self._diff_label.setText(
             build_config_diff_text(snapshot_a.run_config, snapshot_b.run_config)
         )
-        warning = build_market_mismatch_warning(
-            snapshot_a.run_config, snapshot_b.run_config
+        warning = "   •   ".join(
+            note
+            for note in (
+                build_market_mismatch_warning(
+                    snapshot_a.run_config, snapshot_b.run_config
+                ),
+                build_market_type_mismatch_warning(
+                    snapshot_a.run_config, snapshot_b.run_config
+                ),
+            )
+            if note
         )
         self._warning_label.setText(warning)
         self._warning_label.setVisible(bool(warning))

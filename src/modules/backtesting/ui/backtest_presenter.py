@@ -2078,8 +2078,7 @@ class BackTestPresenter(BasePresenter):
         self._present_result(report.result, run_config, run_config.broker_config)
         provenance_warning = build_report_provenance_warning_text(
             report,
-            strategy_key_unknown=loaded.strategy_key_unknown,
-            metrics_mismatch=loaded.metrics_mismatch,
+            loaded,
             current_engine_version=resolve_engine_version(),
         )
         combined_warning = "   •   ".join(

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
@@ -199,10 +200,7 @@ def test_provenance_warning_is_empty_when_nothing_is_wrong(tmp_path):
     loaded = _loaded_report(tmp_path)
 
     text = build_report_provenance_warning_text(
-        loaded.report,
-        strategy_key_unknown=loaded.strategy_key_unknown,
-        metrics_mismatch=loaded.metrics_mismatch,
-        current_engine_version="2.4.0",
+        loaded.report, loaded, current_engine_version="2.4.0"
     )
 
     assert text == ""
@@ -212,10 +210,7 @@ def test_provenance_warning_names_a_different_engine_version(tmp_path):
     loaded = _loaded_report(tmp_path)
 
     text = build_report_provenance_warning_text(
-        loaded.report,
-        strategy_key_unknown=False,
-        metrics_mismatch=False,
-        current_engine_version="3.0.0",
+        loaded.report, loaded, current_engine_version="3.0.0"
     )
 
     assert "2.4.0" in text
@@ -224,12 +219,10 @@ def test_provenance_warning_names_a_different_engine_version(tmp_path):
 
 def test_provenance_warning_names_an_unknown_strategy(tmp_path):
     loaded = _loaded_report(tmp_path, strategy_key="ema_crossover")
+    loaded = replace(loaded, strategy_key_unknown=True)
 
     text = build_report_provenance_warning_text(
-        loaded.report,
-        strategy_key_unknown=True,
-        metrics_mismatch=False,
-        current_engine_version="2.4.0",
+        loaded.report, loaded, current_engine_version="2.4.0"
     )
 
     assert "ema_crossover" in text
@@ -237,25 +230,37 @@ def test_provenance_warning_names_an_unknown_strategy(tmp_path):
 
 def test_provenance_warning_flags_a_metrics_mismatch(tmp_path):
     loaded = _loaded_report(tmp_path)
+    loaded = replace(loaded, metrics_mismatch=True)
 
     text = build_report_provenance_warning_text(
-        loaded.report,
-        strategy_key_unknown=False,
-        metrics_mismatch=True,
-        current_engine_version="2.4.0",
+        loaded.report, loaded, current_engine_version="2.4.0"
     )
 
     assert "hand" in text or "mismatch" in text.lower() or "edited" in text.lower()
 
 
-def test_provenance_warning_joins_multiple_notes_with_the_shared_separator(tmp_path):
+def test_provenance_warning_flags_an_unrecorded_market(tmp_path):
     loaded = _loaded_report(tmp_path)
+    loaded = replace(loaded, market_type_recorded=False)
 
     text = build_report_provenance_warning_text(
-        loaded.report,
-        strategy_key_unknown=True,
-        metrics_mismatch=True,
-        current_engine_version="3.0.0",
+        loaded.report, loaded, current_engine_version="2.4.0"
     )
 
-    assert text.count("   •   ") == 2
+    assert "not recorded" in text.lower()
+
+
+def test_provenance_warning_joins_multiple_notes_with_the_shared_separator(tmp_path):
+    loaded = _loaded_report(tmp_path)
+    loaded = replace(
+        loaded,
+        strategy_key_unknown=True,
+        metrics_mismatch=True,
+        market_type_recorded=False,
+    )
+
+    text = build_report_provenance_warning_text(
+        loaded.report, loaded, current_engine_version="3.0.0"
+    )
+
+    assert text.count("   •   ") == 3

@@ -59,7 +59,18 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.currency import
 
 #: Integer, strictly increasing. Checked first on every load; a version this
 #: build does not understand is refused with a clear message, never guessed.
-SCHEMA_VERSION = 1
+#: `EPIC-027E` bumped 1 -> 2: `market_type`, `exchange_filters`,
+#: `ignored_short_signals`, `rejected_entries` and four `BrokerSimulationConfig`
+#: fields (`break_even_trigger_pct`, `trailing_activation_pct`,
+#: `trailing_offset_pct`, `partial_take_profit_levels`) started being written.
+SCHEMA_VERSION = 2
+
+#: The oldest `schema_version` `load_backtest_report` still accepts. A file
+#: older than this is refused the same way a too-new one is (never silently
+#: upgraded by guessing missing fields); one older than `SCHEMA_VERSION` but
+#: at or above this loads with the fields introduced since it defaulted —
+#: see `backtest_report_loader.py`.
+MIN_SUPPORTED_SCHEMA_VERSION = 1
 
 
 @dataclass(frozen=True)
@@ -154,6 +165,15 @@ class BacktestReportLoadResult:
     #: beyond float noise — the file was hand-edited, or produced by a
     #: different engine version (`BOT-078`).
     metrics_mismatch: bool = False
+    #: `EPIC-027E` — False for a report saved before `market_type` existed
+    #: in the schema (`schema_version < 2`). `report.result.market_type`
+    #: still holds a valid `MarketType` in that case (the engine default,
+    #: `BacktestResult`'s own field default) so every consumer keeps working,
+    #: but it is not a recorded fact about that run — a caller displaying it
+    #: must show "not recorded (pre-EPIC-027)" rather than presenting the
+    #: default as if it were observed (`domain-truth-rule.md`: never invent
+    #: a value).
+    market_type_recorded: bool = True
 
     @property
     def is_valid(self) -> bool:

@@ -123,6 +123,26 @@ def build_market_mismatch_warning(
     return ""
 
 
+def build_market_type_mismatch_warning(
+    config_a: BacktestRunConfig, config_b: BacktestRunConfig
+) -> str:
+    """`EPIC-027E`'s own required case: Spot and Futures are valued by
+    different mechanics (leverage, liquidation, exchange filters), so
+    overlaying a Spot run's equity curve on a Futures one must say so — a
+    separate function, not folded into `build_market_mismatch_warning`
+    above, because that one already overloads "market" for the trading
+    pair/timeframe rather than `MarketType` (naming collision predating
+    this epic; out of this task's bounds to rename)."""
+    market_a = config_a.broker_config.market_type
+    market_b = config_b.broker_config.market_type
+    if market_a == market_b:
+        return ""
+    return (
+        f"Comparing different simulated markets: {market_a.value} vs "
+        f"{market_b.value} — metrics are not directly comparable."
+    )
+
+
 def _format_metric_value(value: object) -> str:
     if isinstance(value, bool):
         return "Yes" if value else "No"

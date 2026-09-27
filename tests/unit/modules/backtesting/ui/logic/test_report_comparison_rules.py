@@ -5,12 +5,16 @@ from __future__ import annotations
 import math
 from datetime import UTC, datetime, timedelta
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_metrics import (
     BacktestMetrics,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.broker_simulation_config import (
+    BrokerSimulationConfig,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_matrix import (
     BacktestRunConfig,
@@ -21,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_compariso
     build_equity_comparison_series,
     build_loaded_file_label,
     build_market_mismatch_warning,
+    build_market_type_mismatch_warning,
     build_metric_comparison_rows,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
@@ -127,6 +132,40 @@ def test_different_timeframe_names_both_timeframes_in_the_warning():
 
     assert TimeFrame.ONE_MINUTE.value in warning
     assert TimeFrame.FIVE_MINUTES.value in warning
+
+
+# ---------------------------------------------------------------------------
+# build_market_type_mismatch_warning
+# ---------------------------------------------------------------------------
+
+
+def test_same_market_type_has_no_warning():
+    config = _run_config()
+
+    assert build_market_type_mismatch_warning(config, config) == ""
+
+
+def test_spot_vs_futures_names_both_in_the_warning():
+    config_a = _run_config(
+        broker_config=BrokerSimulationConfig(market_type=MarketType.SPOT)
+    )
+    config_b = _run_config(
+        broker_config=BrokerSimulationConfig(market_type=MarketType.FUTURES_USD_M)
+    )
+
+    warning = build_market_type_mismatch_warning(config_a, config_b)
+
+    assert MarketType.SPOT.value in warning
+    assert MarketType.FUTURES_USD_M.value in warning
+
+
+def test_market_type_mismatch_is_independent_of_symbol_mismatch_warning():
+    """A symbol change alone must not also trip the market-type warning —
+    the two are unrelated axes, verified by flipping only one at a time."""
+    config_a = _run_config(symbol="BTCUSDT")
+    config_b = _run_config(symbol="ETHUSDT")
+
+    assert build_market_type_mismatch_warning(config_a, config_b) == ""
 
 
 # ---------------------------------------------------------------------------

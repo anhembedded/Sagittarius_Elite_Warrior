@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_result import (
     BacktestResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.exchange_filters import (
+    ExchangeFilters,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.out_of_sample_validation import (
     OutOfSampleValidation,
 )
@@ -83,6 +86,17 @@ def _serialize_config(config: BacktestReportConfig) -> dict[str, Any]:
             "short_leverage": config.broker_config.short_leverage,
             "stop_loss_pct": config.broker_config.stop_loss_pct,
             "take_profit_pct": config.broker_config.take_profit_pct,
+            "break_even_trigger_pct": config.broker_config.break_even_trigger_pct,
+            "trailing_activation_pct": config.broker_config.trailing_activation_pct,
+            "trailing_offset_pct": config.broker_config.trailing_offset_pct,
+            "partial_take_profit_levels": [
+                {"price_pct": level.price_pct, "close_fraction": level.close_fraction}
+                for level in config.broker_config.partial_take_profit_levels
+            ],
+            "market_type": config.broker_config.market_type.value,
+            "exchange_filters": _serialize_exchange_filters(
+                config.broker_config.exchange_filters
+            ),
         },
         "tick_resolution": config.tick_resolution.value,
         "calc_on_order_fills": config.calc_on_order_fills,
@@ -103,6 +117,23 @@ def serialize_backtest_result(result: BacktestResult) -> dict[str, Any]:
             if result.out_of_sample is not None
             else None
         ),
+        "ignored_short_signals": result.ignored_short_signals,
+        "rejected_entries": result.rejected_entries,
+        "exchange_filters": _serialize_exchange_filters(result.exchange_filters),
+        "market_type": result.market_type.value,
+    }
+
+
+def _serialize_exchange_filters(
+    filters: ExchangeFilters | None,
+) -> dict[str, Any] | None:
+    if filters is None:
+        return None
+    return {
+        "step_size": filters.step_size,
+        "min_quantity": filters.min_quantity,
+        "min_notional": filters.min_notional,
+        "tick_size": filters.tick_size,
     }
 
 
