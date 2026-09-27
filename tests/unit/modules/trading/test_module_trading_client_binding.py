@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
     FuturesTradingClient,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_trading_client import (
+    SpotTradingClient,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.adapter_bindings import (
     bind_adapters,
 )
@@ -82,16 +85,17 @@ def test_trading_client_is_bound_and_constructible_when_venue_is_enabled():
     assert isinstance(client, FuturesTradingClient)
 
 
-def test_trading_client_stays_unbound_when_venue_is_spot_testnet():
-    """`EPIC-027G` review finding — `SPOT_TESTNET` is a real `TradingVenue`
-    member, but this build has no Spot `ITradingClient` implementation yet
-    (`TradingVenue.supports_order_submission` is `False` for it until
-    `EPIC-027K`). Before this test, resolving `ITradingClient` for
-    `SPOT_TESTNET` silently returned a `FuturesTradingClient` — signing a
-    Futures Testnet request with Spot Testnet credentials."""
+def test_trading_client_is_bound_and_constructible_when_venue_is_spot_testnet():
+    """`EPIC-027K` — `SPOT_TESTNET` now has its own `ITradingClient`
+    implementation (`SpotTradingClient`), so `supports_order_submission`
+    is `True` for it and this bind resolves instead of raising. Before
+    `EPIC-027K`, resolving `ITradingClient` for `SPOT_TESTNET` either raised
+    (post `EPIC-027G` review fix) or silently returned a
+    `FuturesTradingClient` (pre-fix) — signing a Futures Testnet request
+    with Spot Testnet credentials either way."""
     container = _container_with_venue(TradingVenue.SPOT_TESTNET)
 
     TradingModule._bind_trading_client_if_enabled(container)
 
-    with pytest.raises(DependencyResolutionError):
-        container.resolve(ITradingClient)
+    client = container.resolve(ITradingClient)
+    assert isinstance(client, SpotTradingClient)

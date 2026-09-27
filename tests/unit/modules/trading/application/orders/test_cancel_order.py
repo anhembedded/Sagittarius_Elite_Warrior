@@ -95,18 +95,26 @@ class TestSafetyGates:
         assert result.blocked_by is ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
         assert result.cancelled_order is None
 
-    def test_blocked_when_trading_venue_is_spot_testnet(self) -> None:
-        """`EPIC-027G` — the gate asks `TradingVenue.supports_order_submission`,
-        not a literal `is not FUTURES_TESTNET`. `SPOT_TESTNET` is a real,
-        closed enum member but has no real order-submission implementation
-        behind it yet (`ITradingAccountReader`/`ITradingClientFactory` still
-        bind only the Futures adapters) — routing an order through it today
-        would sign a Futures Testnet call with Spot Testnet credentials.
-        `supports_order_submission` is `False` for it until `EPIC-027K`."""
-        handler = _handler(trading_venue=TradingVenue.SPOT_TESTNET)
+    def test_not_blocked_when_trading_venue_is_spot_testnet(self) -> None:
+        """`EPIC-027K` — the gate asks `TradingVenue.supports_order_submission`,
+        not a literal `is not FUTURES_TESTNET`. `SPOT_TESTNET` now has a real
+        order-submission implementation (`SpotTradingClient`), so this gate
+        no longer blocks it."""
+        raw_client = Mock()
+        raw_client.futures_cancel_order.return_value = {
+            "clientOrderId": "abc",
+            "symbol": "BTCUSDT",
+            "side": "SELL",
+            "type": "LIMIT",
+            "origQty": "0.01",
+            "status": "CANCELED",
+        }
+        handler = _handler(
+            trading_venue=TradingVenue.SPOT_TESTNET, raw_client=raw_client
+        )
         result = handler.execute(CancelOrderCommand("BTCUSDT", "abc"))
-        assert result.blocked_by is ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
-        assert result.cancelled_order is None
+        assert result.blocked_by is None
+        assert result.cancelled_order is not None
 
     def test_blocked_when_switch_is_off(self) -> None:
         handler = _handler(enabled=False)
