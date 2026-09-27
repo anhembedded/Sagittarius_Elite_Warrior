@@ -6,6 +6,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.fee_calcu
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.margin_risk_policy import (
     MarginRiskPolicy,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.market_signal_gate_policy import (
+    MarketSignalGatePolicy,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.order_matching_policy import (
     OrderMatchingPolicy,
 )
@@ -20,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.stop_mana
 __all__ = [
     "FeeCalculatorPolicy",
     "MarginRiskPolicy",
+    "MarketSignalGatePolicy",
     "OrderMatchingPolicy",
     "PositionLifecyclePolicy",
     "PositionOpenRequest",

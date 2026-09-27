@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.fee_calcu
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.margin_risk_policy import (
     MarginRiskPolicy,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.market_signal_gate_policy import (
+    MarketSignalGatePolicy,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.domain.policies.order_matching_policy import (
     OrderMatchingPolicy,
 )
@@ -139,6 +142,8 @@ class PaperExchange:
 
         self._positions: list[OpenPosition] = []
         self._trades: list[Trade] = []
+        #: EPIC-027B — which signals this run's market can execute.
+        self._signal_gate = MarketSignalGatePolicy(self._broker_config.market_type)
         #: Not part of the `FillPricing` bundle above — those four compute a
         #: fill's price/quantity; this one adjusts a position's risk state
         #: (MAE/MFE, break-even, trailing) BEFORE a fill is ever considered.
@@ -154,7 +159,8 @@ class PaperExchange:
             f"[paper-exchange] Initialized for {symbol} | Initial Capital: {initial_balance:,.2f} | "
             f"Sizing: {self._position_sizing.type.value} ({self._position_sizing.value}) | "
             f"Pyramiding: {self._broker_config.pyramiding} | Slippage: {self._broker_config.slippage_ticks} ticks | "
-            f"Commission: {self._broker_config.commission_value} ({self._broker_config.commission_type.value})"
+            f"Commission: {self._broker_config.commission_value} ({self._broker_config.commission_type.value}) | "
+            f"Market: {self._broker_config.market_type.value}"
         )
 
     @property
@@ -182,6 +188,11 @@ class PaperExchange:
     @property
     def trades(self) -> list[Trade]:
         return list(self._trades)
+
+    @property
+    def ignored_short_signals(self) -> int:
+        """EPIC-027B — SHORT/COVER signals a Spot run dropped (always 0 otherwise)."""
+        return self._signal_gate.refused_count
 
     @property
     def position_sizing(self) -> PositionSizing:
@@ -212,7 +223,12 @@ class PaperExchange:
         """
         Executes signal at price/time.
         Returns the last closed Trade on a SELL/COVER that closed positions, otherwise None.
+        A signal the market cannot execute (Spot: SHORT/COVER, EPIC-027B) is
+        dropped and counted by `MarketSignalGatePolicy`, never remapped.
         """
+        if not self._signal_gate.admits(signal.action):
+            self._signal_gate.record_refusal(signal.action, time)
+            return None
         if signal.action is SignalAction.BUY:
             self._open(PositionSide.LONG, price, time, signal.reason, signal.metadata)
             return None
@@ -241,6 +257,7 @@ class PaperExchange:
         closed += self._close(
             PositionSide.SHORT, price, time, ExitReason.END_OF_BACKTEST
         )
+        self._signal_gate.log_run_summary()
         return closed[-1] if closed else None
 
     def _open(
