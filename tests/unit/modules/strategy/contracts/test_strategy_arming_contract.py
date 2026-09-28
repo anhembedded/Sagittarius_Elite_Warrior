@@ -95,7 +95,7 @@ class TestTheRealService(StrategyArmingContract):
         # config-validation path under test never reaches these four, since
         # `arm()` builds an engine but this suite never dispatches a tick.
         session = LiveStrategySession(
-            LiveStrategyFactory(registry, Mock(), Mock(), Mock(), Mock())
+            LiveStrategyFactory(registry, Mock(), Mock(), Mock(), Mock(), Mock())
         )
         trading_session = FakeTradingSession()
         config_store = LiveStrategyConfigStore(DictConfig())

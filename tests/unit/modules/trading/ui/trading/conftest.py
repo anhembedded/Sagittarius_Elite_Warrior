@@ -141,6 +141,7 @@ def strategy_session(strategy_registry: StrategyRegistry) -> LiveStrategySession
         MagicMock(),
         MagicMock(),
         MagicMock(),
+        MagicMock(),
     )
     return LiveStrategySession(factory)
 

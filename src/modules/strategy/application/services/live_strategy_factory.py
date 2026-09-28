@@ -48,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    ITradingSession,
+)
 
 logger = logging.getLogger("App.LiveStrategyFactory")
 
@@ -63,12 +66,14 @@ class LiveStrategyFactory:
         order_submission: IOrderSubmission,
         account_reader: ITradingAccountReader,
         metadata_provider: IMarketMetadataProvider,
+        trading_session: ITradingSession,
     ) -> None:
         self._registry = registry
         self._event_publisher = event_publisher
         self._order_submission = order_submission
         self._account_reader = account_reader
         self._metadata_provider = metadata_provider
+        self._trading_session = trading_session
 
     @property
     def registry(self) -> StrategyRegistry:
@@ -102,6 +107,7 @@ class LiveStrategyFactory:
             self._account_reader,
             self._metadata_provider,
             self._event_publisher,
+            self._trading_session,
             config.sizing_percent,
             config.leverage,
         )

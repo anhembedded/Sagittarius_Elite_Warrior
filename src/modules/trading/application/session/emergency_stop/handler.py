@@ -68,7 +68,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.spot_holdings_close_policy import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holdings_close_policy import (
     sellable_spot_quantity,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (

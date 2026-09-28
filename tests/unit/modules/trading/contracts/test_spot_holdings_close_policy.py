@@ -6,7 +6,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.spot_holdings_close_policy import (
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holdings_close_policy import (
     sellable_spot_quantity,
 )
 

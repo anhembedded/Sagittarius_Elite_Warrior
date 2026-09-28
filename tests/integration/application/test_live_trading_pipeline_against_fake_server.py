@@ -207,6 +207,7 @@ def _build_pipeline() -> _Pipeline:
         account_reader,
         metadata_provider,
         Mock(),
+        Mock(),
         20.0,
         1.0,
     )

@@ -57,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy i
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     LiveStrategyConfig,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
+    SignalAction,
+)
 
 logger = logging.getLogger("App.LiveStrategySession")
 
@@ -113,6 +116,22 @@ class LiveStrategySession(IArmedStrategy):
         unstable order would reshuffle the list between sessions.
         """
         return tuple(sorted(self._factory.registry.available()))
+
+    def declared_directions(self, key: str) -> frozenset[SignalAction]:
+        """@brief The `SignalAction`s the strategy at `key` can ever emit.
+
+        @details Read from the strategy *class* the same registry
+        `available_strategy_keys` already reads — `EPIC-027N`'s arming
+        refusal must answer this before any instance is built. An unknown
+        key answers with the empty set rather than raising: the caller
+        already refuses an unknown key on its own (`STRATEGY_NOT_FOUND`),
+        so this is never reached for one in practice, and an empty set is
+        the honest "declares nothing" answer if it ever were.
+        """
+        strategy_cls = self._factory.registry.available().get(key)
+        if strategy_cls is None:
+            return frozenset()
+        return strategy_cls.supported_directions
 
     def armed(self) -> ArmedStrategySnapshot:
         """`IArmedStrategy`'s one method — both facts, one lock acquisition.

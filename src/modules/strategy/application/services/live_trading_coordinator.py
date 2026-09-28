@@ -24,16 +24,21 @@ matching half of this decision.
 from __future__ import annotations
 
 import logging
+from collections.abc import Mapping
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizing,
     PositionSizingType,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
+    SignalAction,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.strategy_owner import (
     STRATEGY_OWNER,
 )
@@ -55,6 +60,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    ITradingSession,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
 )
@@ -62,8 +70,22 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request impor
     OrderRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
+    SpotHolding,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holdings_close_policy import (
+    sellable_spot_quantity,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
+)
 
 logger = logging.getLogger("App.LiveTradingCoordinator")
+
+#: `EPIC-027N` — Phase 1 Spot trades USDT-quoted pairs only (ADR D9/O4), the
+#: same quote asset `emergency_stop/handler.py`/`spot_account_reader.py`
+#: already carry.
+_QUOTE_ASSET = "USDT"
 
 
 class LiveTradingCoordinator:
@@ -86,6 +108,7 @@ class LiveTradingCoordinator:
         account_reader: ITradingAccountReader,
         metadata_provider: IMarketMetadataProvider,
         event_publisher: IEventPublisher,
+        trading_session: ITradingSession,
         sizing_percent: float,
         leverage: float,
     ) -> None:
@@ -94,6 +117,9 @@ class LiveTradingCoordinator:
         self._account_reader = account_reader
         self._metadata_provider = metadata_provider
         self._event_publisher = event_publisher
+        #: `EPIC-027N` — the venue's market type and, on Spot, the holdings
+        #: baseline a SELL signal must size against (never below it).
+        self._trading_session = trading_session
         #: `BUG-084` — real config-backed controls
         #: (`ConfigKeys.TRADING_LIVE_SIZING_PERCENT`/`TRADING_LIVE_LEVERAGE`),
         #: not the hardcoded 20%/1x this class shipped with. That fixed
@@ -130,17 +156,46 @@ class LiveTradingCoordinator:
 
         intent = order_intent_for(signal.action)
         reference_price = Decimal(str(signal.price))
-        quantity = calculate_live_order_quantity(
-            sizing=self._sizing,
-            available_balance=status.usdt_balance,
-            reference_price=reference_price,
-            leverage=self._leverage,
-            step_size=metadata.step_size,
+        snapshot = self._trading_session.snapshot()
+        is_spot_sell = (
+            snapshot.market_type is MarketType.SPOT
+            and signal.action is SignalAction.SELL
         )
+        if is_spot_sell:
+            if snapshot.spot_baseline_holdings is None:
+                reason = (
+                    "No Spot holdings baseline recorded this session — "
+                    "the strategy's SELL signal was not sent."
+                )
+                logger.info(reason)
+                self._event_publisher.publish(
+                    LiveOrderBlockedEvent(symbol=signal.symbol, reason=reason)
+                )
+                return
+            quantity = self._sellable_spot_quantity(
+                signal.symbol,
+                status.holdings or (),
+                metadata,
+                snapshot.spot_baseline_holdings,
+            )
+        else:
+            quantity = calculate_live_order_quantity(
+                sizing=self._sizing,
+                available_balance=status.usdt_balance,
+                reference_price=reference_price,
+                leverage=self._leverage,
+                step_size=metadata.step_size,
+            )
         if quantity <= 0:
             reason = (
-                f"Computed live order quantity was zero for balance "
-                f"{status.usdt_balance} at {self._sizing.value}% sizing — nothing to send."
+                "Spot holding surplus over the baseline floors to dust — "
+                "nothing to send."
+                if is_spot_sell
+                else (
+                    f"Computed live order quantity was zero for balance "
+                    f"{status.usdt_balance} at {self._sizing.value}% sizing — "
+                    f"nothing to send."
+                )
             )
             logger.info(reason)
             # `BUG-084` — this used to be a `logger.debug()` line, functionally
@@ -205,3 +260,26 @@ class LiveTradingCoordinator:
             logger.info(
                 "Live order submitted for %s: %s", signal.symbol, signal.action.value
             )
+
+    def _sellable_spot_quantity(
+        self,
+        symbol: str,
+        holdings: tuple[SpotHolding, ...],
+        metadata: SymbolOrderMetadata,
+        baseline: Mapping[str, Decimal],
+    ) -> Decimal:
+        """@brief AC4 — a strategy's own SELL signal sizes from the actual
+        holding, never a percent of balance, and never below the session's
+        Spot baseline (the identical rule `EmergencyStopCommandHandler`
+        already applies, reused via the same pure policy rather than a
+        second, divergent one).
+        """
+        base_asset = symbol.removesuffix(_QUOTE_ASSET)
+        current_total = next(
+            (holding.total for holding in holdings if holding.asset == base_asset),
+            Decimal(0),
+        )
+        baseline_quantity = baseline.get(base_asset, Decimal(0))
+        return sellable_spot_quantity(
+            current_total, baseline_quantity, metadata.step_size_for(OrderType.MARKET)
+        )

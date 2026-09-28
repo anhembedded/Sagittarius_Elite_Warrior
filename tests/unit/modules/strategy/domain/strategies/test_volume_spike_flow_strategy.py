@@ -268,3 +268,11 @@ def test_baseline_excludes_the_bar_being_tested():
 
     assert action is SignalAction.BUY
     assert metadata["volume_ratio"] == 4.0
+
+
+def test_supported_directions_declares_short_and_cover():
+    """`EPIC-027N` — this strategy's `decide()` calls `self.short()`/
+    `self.cover()` for its fade/follow direction, so it must declare both
+    or a Spot arming would silently drop half of what it does."""
+    assert SignalAction.SHORT in VolumeSpikeFlowStrategy.supported_directions
+    assert SignalAction.COVER in VolumeSpikeFlowStrategy.supported_directions

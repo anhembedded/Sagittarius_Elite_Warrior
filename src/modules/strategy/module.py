@@ -161,6 +161,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.composition.port_bindings im
 from Sagittarius_Elite_Warrior.src.modules.strategy.composition.state_bindings import (
     bind_state,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
+    IStrategyArming,
+)
 from sagittarius_engine.interfaces.i_config import IConfig
 
 logger = logging.getLogger("App.StrategyModule")
@@ -259,13 +262,16 @@ class StrategyModule(BoundedContextModule):
         process.
         """
         session = context.container.resolve(LiveStrategySession)
-        self._arm_from_config(context.container.resolve(IConfig), session)
+        self._arm_from_config(
+            context.container.resolve(IConfig),
+            context.container.resolve(IStrategyArming),
+        )
 
         self._tick_handler = MarketTickEventHandler(session)
         context.event_bus.on(MarketTickEvent, self._tick_handler.handle)
 
     @staticmethod
-    def _arm_from_config(config: IConfig, session: LiveStrategySession) -> None:
+    def _arm_from_config(config: IConfig, arming: IStrategyArming) -> None:
         """Seeds the live strategy from `trading.live_*` at startup.
 
         `EPIC-025E` PR 4.4f-2 — moved out of `binance_bot_module.boot()`
@@ -274,6 +280,17 @@ class StrategyModule(BoundedContextModule):
         `LiveStrategyConfig.is_complete` asks. A bad saved config (an unknown
         strategy key, a parameter a strategy stopped declaring) is logged and
         left disarmed rather than crashing the whole app boot.
+
+        `EPIC-027N` PR #287 review (blocking) — this used to call
+        `LiveStrategySession.arm()` directly, a second door past
+        `ArmStrategyCommandHandler`'s validation (its three Spot-only
+        refusals among them): a saved Futures-era config (SHORT-capable,
+        leveraged, non-USDT) would re-arm here unchecked if the venue was
+        later switched to Spot. `IStrategyArming.arm()` dispatches that same
+        `ArmStrategyCommand` — the one door every other arming caller
+        (`StrategyArmingCoordinator` via `StrategyArmingControlAdapter`)
+        already goes through — so boot no longer has a second, unvalidated
+        one.
         """
         try:
             live_config = LiveStrategyConfigStore(config).load()
@@ -286,10 +303,9 @@ class StrategyModule(BoundedContextModule):
 
         if not live_config.is_complete:
             return
-        try:
-            session.arm(live_config)
-        except ValueError as exc:
+        result = arming.arm(live_config)
+        if not result.armed:
             logger.warning(
                 "Could not arm the strategy saved in config (%s) — starting disarmed.",
-                exc,
+                result.error_message or result.block_reason,
             )

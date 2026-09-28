@@ -19,6 +19,13 @@ class ArmStrategyBlockReason(str, Enum):
     INVALID_PARAMS = "invalid_params"
     MISSING_SYMBOL_OR_INTERVAL = "missing_symbol_or_interval"
     SYMBOL_LEASED = "symbol_leased"
+    #: `EPIC-027N` — mirrors `strategy.contracts.arm_strategy_result`'s
+    #: identical member of the same name; see this file's own module
+    #: docstring for why the two enums declare the same set by value rather
+    #: than one importing the other.
+    SPOT_LEVERAGE_NOT_SUPPORTED = "spot_leverage_not_supported"
+    SPOT_SHORT_NOT_SUPPORTED = "spot_short_not_supported"
+    SPOT_QUOTE_ASSET_NOT_SUPPORTED = "spot_quote_asset_not_supported"
 
 
 @dataclass(frozen=True)

@@ -5,6 +5,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_trading_coordinator import (
     LiveTradingCoordinator,
 )
@@ -22,11 +23,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    TradingSessionSnapshot,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
     OrderRejectionReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
+    SpotHolding,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
 )
@@ -51,7 +58,10 @@ def _metadata() -> SymbolOrderMetadata:
     )
 
 
-def _status(usdt_balance: Decimal | None = Decimal(1000)) -> ExchangeConnectionStatus:
+def _status(
+    usdt_balance: Decimal | None = Decimal(1000),
+    holdings: tuple[SpotHolding, ...] | None = None,
+) -> ExchangeConnectionStatus:
     return ExchangeConnectionStatus(
         venue=TradingVenue.FUTURES_TESTNET,
         reachable=True,
@@ -61,18 +71,41 @@ def _status(usdt_balance: Decimal | None = Decimal(1000)) -> ExchangeConnectionS
         position_mode=PositionMode.ONE_WAY,
         margin_type=None,
         open_position_count=0,
+        holdings=holdings,
     )
+
+
+def _snapshot(
+    market_type: MarketType | None = None,
+    spot_baseline_holdings: dict[str, Decimal] | None = None,
+) -> TradingSessionSnapshot:
+    return TradingSessionSnapshot(
+        enabled=True,
+        orders_sent_this_session=0,
+        known_open_symbols=(),
+        market_type=market_type,
+        spot_baseline_holdings=spot_baseline_holdings,
+    )
+
+
+def _trading_session(snapshot: TradingSessionSnapshot | None = None) -> Mock:
+    session = Mock()
+    session.snapshot.return_value = snapshot if snapshot is not None else _snapshot()
+    return session
 
 
 def _coordinator(
     submission: FakeOrderSubmission,
     live_symbol: str = "BTCUSDT",
     event_publisher: Mock | None = None,
+    trading_session: Mock | None = None,
     sizing_percent: float = 20.0,
     leverage: float = 1.0,
+    account_reader: Mock | None = None,
 ) -> LiveTradingCoordinator:
-    account_reader = Mock()
-    account_reader.check_connection.return_value = _status()
+    if account_reader is None:
+        account_reader = Mock()
+        account_reader.check_connection.return_value = _status()
     metadata_provider = Mock()
     metadata_provider.get_or_fetch.return_value = _metadata()
     return LiveTradingCoordinator(
@@ -81,6 +114,7 @@ def _coordinator(
         account_reader,
         metadata_provider,
         event_publisher if event_publisher is not None else Mock(),
+        trading_session if trading_session is not None else _trading_session(),
         sizing_percent,
         leverage,
     )
@@ -156,7 +190,14 @@ def test_no_known_balance_sends_nothing() -> None:
     metadata_provider = Mock()
     metadata_provider.get_or_fetch.return_value = _metadata()
     coordinator = LiveTradingCoordinator(
-        "BTCUSDT", submission, account_reader, metadata_provider, Mock(), 20.0, 1.0
+        "BTCUSDT",
+        submission,
+        account_reader,
+        metadata_provider,
+        Mock(),
+        _trading_session(),
+        20.0,
+        1.0,
     )
 
     coordinator.handle(_signal())
@@ -231,6 +272,7 @@ def test_a_zero_computed_quantity_publishes_a_live_order_blocked_event() -> None
         account_reader,
         metadata_provider,
         event_publisher,
+        _trading_session(),
         20.0,
         1.0,
     )
@@ -287,10 +329,147 @@ def test_unknown_symbol_metadata_sends_nothing() -> None:
     metadata_provider = Mock()
     metadata_provider.get_or_fetch.return_value = None
     coordinator = LiveTradingCoordinator(
-        "BTCUSDT", submission, account_reader, metadata_provider, Mock(), 20.0, 1.0
+        "BTCUSDT",
+        submission,
+        account_reader,
+        metadata_provider,
+        Mock(),
+        _trading_session(),
+        20.0,
+        1.0,
     )
 
     coordinator.handle(_signal())
 
     assert submission.submitted_live == []
     assert submission.submitted_dry == []
+
+
+# --------------------------------------------------------------------- #
+# Spot SELL sizing (`EPIC-027N` AC4)
+# --------------------------------------------------------------------- #
+
+
+def _btc_holding(total: Decimal) -> SpotHolding:
+    return SpotHolding(
+        asset="BTC", free=total, locked=Decimal(0), dust_threshold=Decimal("0.0001")
+    )
+
+
+def test_spot_sell_sizes_from_the_actual_holding_not_a_percent_of_balance() -> None:
+    """AC4 — SELL on Spot must size from what is actually held, floored to
+    the lot step; the pre-existing percent-of-balance formula (`sizing=20%`
+    here, which would size against the 1000 USDT balance instead) must
+    never be reached for this branch."""
+    submission = FakeOrderSubmission()
+    submission.submit_answers(ExecuteOrderResult(None, None, (), None))
+    account_reader = Mock()
+    account_reader.check_connection.return_value = _status(
+        holdings=(_btc_holding(Decimal("0.05")),)
+    )
+    snapshot = _snapshot(
+        market_type=MarketType.SPOT, spot_baseline_holdings={"BTC": Decimal("0.02")}
+    )
+    coordinator = _coordinator(
+        submission,
+        account_reader=account_reader,
+        trading_session=_trading_session(snapshot),
+    )
+
+    coordinator.handle(_signal(action=SignalAction.SELL))
+
+    (request,) = submission.submitted_live
+    assert request.side is OrderSide.SELL
+    assert request.quantity == Decimal("0.03")
+
+
+def test_spot_sell_never_sells_below_the_baseline() -> None:
+    """The same never-sell-the-baseline rule `EPIC-027M` established for
+    Emergency Stop, applied to the strategy's own exit signal: holding
+    exactly the baseline sends nothing."""
+    submission = FakeOrderSubmission()
+    account_reader = Mock()
+    account_reader.check_connection.return_value = _status(
+        holdings=(_btc_holding(Decimal("0.02")),)
+    )
+    snapshot = _snapshot(
+        market_type=MarketType.SPOT, spot_baseline_holdings={"BTC": Decimal("0.02")}
+    )
+    coordinator = _coordinator(
+        submission,
+        account_reader=account_reader,
+        trading_session=_trading_session(snapshot),
+    )
+
+    coordinator.handle(_signal(action=SignalAction.SELL))
+
+    assert submission.submitted_live == []
+    assert submission.submitted_dry == []
+
+
+def test_spot_sell_refuses_with_no_baseline_recorded() -> None:
+    """`None` (never enabled this session on Spot, or a non-Spot enable) is
+    the unrecoverable-unknown case: sell nothing rather than guess a
+    baseline of zero and offer up the user's entire pre-existing holding."""
+    submission = FakeOrderSubmission()
+    account_reader = Mock()
+    account_reader.check_connection.return_value = _status(
+        holdings=(_btc_holding(Decimal("0.05")),)
+    )
+    event_publisher = Mock()
+    snapshot = _snapshot(market_type=MarketType.SPOT, spot_baseline_holdings=None)
+    coordinator = _coordinator(
+        submission,
+        event_publisher=event_publisher,
+        account_reader=account_reader,
+        trading_session=_trading_session(snapshot),
+    )
+
+    coordinator.handle(_signal(action=SignalAction.SELL))
+
+    assert submission.submitted_live == []
+    assert submission.submitted_dry == []
+    event_publisher.publish.assert_called_once()
+    (published,) = event_publisher.publish.call_args.args
+    assert isinstance(published, LiveOrderBlockedEvent)
+
+
+def test_spot_sell_surplus_smaller_than_one_lot_step_sends_nothing() -> None:
+    """A real surplus below the exchange's own lot step floors to dust,
+    reported as a blocked event rather than a fractional order."""
+    submission = FakeOrderSubmission()
+    account_reader = Mock()
+    account_reader.check_connection.return_value = _status(
+        holdings=(_btc_holding(Decimal("0.0205")),)
+    )
+    event_publisher = Mock()
+    snapshot = _snapshot(
+        market_type=MarketType.SPOT, spot_baseline_holdings={"BTC": Decimal("0.02")}
+    )
+    coordinator = _coordinator(
+        submission,
+        event_publisher=event_publisher,
+        account_reader=account_reader,
+        trading_session=_trading_session(snapshot),
+    )
+
+    coordinator.handle(_signal(action=SignalAction.SELL))
+
+    assert submission.submitted_live == []
+    event_publisher.publish.assert_called_once()
+
+
+def test_spot_buy_still_uses_percent_of_balance_sizing() -> None:
+    """The Spot branch only applies to SELL — BUY keeps the existing
+    quote-balance sizing unchanged, since `usdt_balance` is already the
+    Spot quote balance (`EPIC-027H`)."""
+    submission = FakeOrderSubmission()
+    submission.submit_answers(ExecuteOrderResult(None, None, (), None))
+    snapshot = _snapshot(market_type=MarketType.SPOT, spot_baseline_holdings={})
+    coordinator = _coordinator(submission, trading_session=_trading_session(snapshot))
+
+    coordinator.handle(_signal(action=SignalAction.BUY))
+
+    (request,) = submission.submitted_live
+    assert request.side is OrderSide.BUY
+    assert request.quantity > 0

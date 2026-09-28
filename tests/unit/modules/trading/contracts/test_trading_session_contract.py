@@ -48,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.contract_tr
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 class TestTheFake(TradingSessionContract):
@@ -83,7 +86,9 @@ class TestTheRealServicesLease(SymbolLeaseContract):
 
         dispatcher = Mock()
         dispatcher.dispatch.side_effect = _never
-        return TradingSessionService(dispatcher, TradingSessionState())
+        return TradingSessionService(
+            dispatcher, TradingSessionState(), TradingVenue.FUTURES_TESTNET
+        )
 
 
 class TestTheFakesOwnBookkeeping:

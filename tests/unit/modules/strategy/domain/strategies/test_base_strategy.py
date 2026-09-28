@@ -131,3 +131,23 @@ def test_classify_trend_zone_defaults_to_none_for_a_strategy_that_declares_none(
     strategy = _ScriptedStrategy()
 
     assert strategy.classify_trend_zone(_context()) is None
+
+
+def test_supported_directions_defaults_to_long_only():
+    """`EPIC-027N` — a strategy that never overrides `supported_directions`
+    (like `_ScriptedStrategy` here) declares long-only capability, so it is
+    never refused for `SHORT` when armed on a Spot venue."""
+    assert _ScriptedStrategy.supported_directions == frozenset(
+        {SignalAction.BUY, SignalAction.SELL}
+    )
+
+
+def test_supported_directions_is_a_class_attribute_not_an_instance_one():
+    """The arming refusal (`ArmStrategyCommandHandler`) reads this off the
+    registered *class*, before any instance exists — a `ClassVar` proves
+    that access pattern actually works, not just that the default value is
+    right."""
+    assert (
+        _ScriptedStrategy.supported_directions
+        == _ScriptedStrategy().supported_directions
+    )
