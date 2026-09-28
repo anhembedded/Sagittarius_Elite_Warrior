@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
@@ -113,3 +114,71 @@ def test_reconcile_position_reports_disagreement_and_updates_membership() -> Non
     disagreed_on_close = state.reconcile_position("BTCUSDT", has_position=False)
     assert disagreed_on_close is True
     assert state.open_position_count("BTCUSDT") == 0
+
+
+def test_spot_baseline_holdings_is_none_before_any_enable() -> None:
+    """`EPIC-027M` — the "unknown baseline" case `EmergencyStopCommandHandler`
+    must treat as "refuse to sell anything on Spot", not as an empty
+    baseline (which would mean "sell everything")."""
+    state = TradingSessionState()
+    assert state.spot_baseline_holdings() is None
+
+
+def test_enable_records_the_spot_baseline_when_given() -> None:
+    state = TradingSessionState()
+    state.enable(set(), spot_baseline_holdings={"BTC": Decimal("0.5")})
+    assert state.spot_baseline_holdings() == {"BTC": Decimal("0.5")}
+
+
+def test_enable_with_no_spot_baseline_argument_clears_a_previous_one() -> None:
+    """A Futures/`DISABLED` enable passes no baseline — this must not leave
+    a prior Spot session's baseline behind for a later, unrelated session
+    to misapply."""
+    state = TradingSessionState()
+    state.enable(set(), spot_baseline_holdings={"BTC": Decimal("0.5")})
+
+    state.enable(set())
+
+    assert state.spot_baseline_holdings() is None
+
+
+def test_enable_records_an_empty_spot_baseline_distinctly_from_none() -> None:
+    """Enabling while holding literally nothing is a real, distinct
+    baseline (`{}`) — every unit later held is then fair game to sell,
+    unlike `None` ("never enabled"), which must refuse to sell anything."""
+    state = TradingSessionState()
+    state.enable(set(), spot_baseline_holdings={})
+    assert state.spot_baseline_holdings() == {}
+    assert state.spot_baseline_holdings() is not None
+
+
+def test_spot_baseline_holdings_returns_a_copy_not_the_live_dict() -> None:
+    """Same discipline as `read_all()`'s tuple copy of `known_open_symbols`
+    — handing out the live dict would let a caller mutate session state by
+    accident."""
+    state = TradingSessionState()
+    state.enable(set(), spot_baseline_holdings={"BTC": Decimal("0.5")})
+
+    baseline = state.spot_baseline_holdings()
+    assert baseline is not None
+    baseline["BTC"] = Decimal(999)
+
+    assert state.spot_baseline_holdings() == {"BTC": Decimal("0.5")}
+
+
+def test_a_stale_expected_generation_does_not_apply_the_spot_baseline() -> None:
+    """`BUG-088`'s same conditional-apply guard must cover the baseline
+    too — a superseded `enable()` call must not silently record a stale
+    baseline any more than it silently turns trading on."""
+    state = TradingSessionState()
+    stale_generation = state.generation
+    state.disable()  # bumps generation, making `stale_generation` stale
+
+    applied = state.enable(
+        set(),
+        expected_generation=stale_generation,
+        spot_baseline_holdings={"BTC": Decimal("0.5")},
+    )
+
+    assert applied is False
+    assert state.spot_baseline_holdings() is None

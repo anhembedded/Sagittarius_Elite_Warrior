@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ExchangeConnectionStatus,
     PositionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
+    SpotHolding,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
@@ -257,3 +260,63 @@ def test_enables_without_any_strategy_armed() -> None:
     assert result.block_reason is None
     assert session_state.enabled is True
     user_data_stream.start.assert_called_once()
+
+
+def _spot_status(holdings: tuple[SpotHolding, ...] = ()) -> ExchangeConnectionStatus:
+    return ExchangeConnectionStatus(
+        venue=TradingVenue.SPOT_TESTNET,
+        reachable=True,
+        failure=None,
+        server_time_skew_ms=10,
+        usdt_balance=Decimal(1000),
+        position_mode=None,
+        margin_type=None,
+        open_position_count=None,
+        holdings=holdings,
+        equity=Decimal(1000),
+    )
+
+
+def test_records_a_spot_baseline_from_current_holdings() -> None:
+    """`EPIC-027M` AC1 — the exact fact `EmergencyStopCommandHandler` later
+    needs: what the account held the moment this app turned trading on."""
+    status = _spot_status(
+        holdings=(
+            SpotHolding(
+                asset="BTC",
+                free=Decimal("0.5"),
+                locked=Decimal(0),
+                dust_threshold=Decimal("0.00000001"),
+            ),
+        )
+    )
+    handler, session_state, _user_data_stream, _account_reader = _handler(
+        trading_venue=TradingVenue.SPOT_TESTNET, status=status
+    )
+
+    result = handler.execute(EnableTradingCommand())
+
+    assert result.enabled is True
+    assert session_state.spot_baseline_holdings() == {"BTC": Decimal("0.5")}
+
+
+def test_records_an_empty_spot_baseline_when_holding_nothing() -> None:
+    handler, session_state, _user_data_stream, _account_reader = _handler(
+        trading_venue=TradingVenue.SPOT_TESTNET, status=_spot_status()
+    )
+
+    result = handler.execute(EnableTradingCommand())
+
+    assert result.enabled is True
+    assert session_state.spot_baseline_holdings() == {}
+
+
+def test_does_not_record_a_spot_baseline_on_futures() -> None:
+    """The baseline is a Spot-only concept — a Futures enable must not
+    leave one behind for a later Spot session to misread."""
+    handler, session_state, _user_data_stream, _account_reader = _handler()
+
+    result = handler.execute(EnableTradingCommand())
+
+    assert result.enabled is True
+    assert session_state.spot_baseline_holdings() is None

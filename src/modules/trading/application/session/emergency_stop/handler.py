@@ -24,8 +24,10 @@ for its own steps, on purpose:
 from __future__ import annotations
 
 import logging
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.command import (
     EmergencyStopCommand,
 )
@@ -38,6 +40,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
     EmergencyStopStepResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
+    IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
+    ITradingAccountReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,
@@ -60,8 +68,19 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.spot_holdings_close_policy import (
+    sellable_spot_quantity,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 logger = logging.getLogger("App.CommandHandler")
+
+#: Phase 1 supports USDT-quoted pairs only (ADR D9) — the quote asset a
+#: Spot asset's trading symbol is built against, matching
+#: `SpotAccountReader`'s own convention (`f"{asset}{_QUOTE_ASSET}"`).
+_QUOTE_ASSET = "USDT"
 
 
 class EmergencyStopCommandHandler(
@@ -86,6 +105,13 @@ class EmergencyStopCommandHandler(
     exchange rejection, insufficient margin) is reported through that
     step's own `EmergencyStopStepResult`, not raised — one step failing
     must never prevent the next one from being attempted.
+
+    `EPIC-027M` — step 3 branches by `trading_venue.market_type`: Spot has
+    no `LivePosition` to close (`ITradingClient.get_positions()` always
+    answers `[]` there), so "close" means selling each asset's surplus over
+    the session's own baseline (`TradingSessionState.spot_baseline_holdings()`)
+    instead. One dispatch point (`_close_all_positions`), not scattered
+    venue checks, per `code/quality.md` §3.
     """
 
     def __init__(
@@ -93,10 +119,16 @@ class EmergencyStopCommandHandler(
         session_state: TradingSessionState,
         user_data_stream: IUserDataStream,
         trading_client_factory: ITradingClientFactory,
+        trading_venue: TradingVenue,
+        account_reader: ITradingAccountReader,
+        metadata_provider: IMarketMetadataProvider,
     ) -> None:
         self._session_state = session_state
         self._user_data_stream = user_data_stream
         self._trading_client_factory = trading_client_factory
+        self._trading_venue = trading_venue
+        self._account_reader = account_reader
+        self._metadata_provider = metadata_provider
 
     def execute(self, command: EmergencyStopCommand) -> EmergencyStopResult:
         logger.warning("Handling EmergencyStopCommand")
@@ -164,6 +196,16 @@ class EmergencyStopCommandHandler(
     def _close_all_positions(
         self, trading_client: ITradingClient
     ) -> EmergencyStopStepResult:
+        """@brief Dispatches step 3 by venue market type — the one place
+        this handler branches on it (`code/quality.md` §3), rather than a
+        Futures/Spot check scattered across the step's own body."""
+        if self._trading_venue.market_type is MarketType.SPOT:
+            return self._sell_spot_surplus_holdings(trading_client)
+        return self._close_all_futures_positions(trading_client)
+
+    def _close_all_futures_positions(
+        self, trading_client: ITradingClient
+    ) -> EmergencyStopStepResult:
         try:
             positions = trading_client.get_positions()
         except Exception as exc:  # noqa: BLE001
@@ -195,6 +237,90 @@ class EmergencyStopCommandHandler(
                     f"{position.symbol}: {exc}. {remaining} positions still open.",
                 )
         return EmergencyStopStepResult(True, f"Closed {closed_count} positions.")
+
+    def _sell_spot_surplus_holdings(
+        self, trading_client: ITradingClient
+    ) -> EmergencyStopStepResult:
+        """@brief Sells each Spot asset's surplus over the session's own
+        baseline (`EPIC-027M` AC1-AC3) — never the baseline itself, and
+        never a symbol this app cannot safely size an order for.
+
+        @details Reads current holdings fresh (`ITradingAccountReader.
+        check_connection()`), never the stale figures `EnableTradingCommand`
+        baselined at — the same "re-fetch, never trust a remembered value"
+        principle every other reconciliation in this app already applies.
+        A holding with no recorded baseline at all (`spot_baseline_holdings()`
+        returns `None`) is the unrecoverable-unknown case: it could mean
+        this app was never enabled on Spot this session, so the safe,
+        conservative answer is to sell nothing rather than guess a baseline
+        of zero and offer up the user's entire pre-existing holdings.
+        """
+        baseline = self._session_state.spot_baseline_holdings()
+        if baseline is None:
+            return EmergencyStopStepResult(
+                True,
+                "No Spot holdings baseline recorded this session — nothing sold.",
+            )
+
+        status = self._account_reader.check_connection()
+        if not status.reachable or status.holdings is None:
+            return EmergencyStopStepResult(
+                False, "Could not read current Spot holdings."
+            )
+
+        sold_assets: list[str] = []
+        dust_assets: list[str] = []
+        skipped_assets: list[str] = []
+        for holding in status.holdings:
+            if holding.asset == _QUOTE_ASSET or holding.is_dust:
+                continue
+            symbol = f"{holding.asset}{_QUOTE_ASSET}"
+            metadata = self._metadata_provider.get_or_fetch(symbol)
+            if metadata is None:
+                # No exchange filters known for this symbol — cannot safely
+                # size an order without guessing a step size
+                # (`code/errors.md` #6, no fabricated fallback).
+                skipped_assets.append(holding.asset)
+                continue
+            quantity = sellable_spot_quantity(
+                holding.total,
+                baseline.get(holding.asset, Decimal(0)),
+                metadata.step_size_for(OrderType.MARKET),
+            )
+            if quantity <= 0:
+                dust_assets.append(holding.asset)
+                continue
+            closing_order = Order(
+                client_order_id=generate_client_order_id(),
+                symbol=symbol,
+                side=OrderSide.SELL,
+                order_type=OrderType.MARKET,
+                quantity=quantity,
+            )
+            try:
+                trading_client.place_order(closing_order)
+                sold_assets.append(holding.asset)
+            except Exception as exc:  # noqa: BLE001 - report every failure, never let one abort the remaining assets
+                return EmergencyStopStepResult(
+                    False,
+                    f"Sold surplus on {len(sold_assets)} asset(s) — error selling "
+                    f"{holding.asset}: {exc}.",
+                )
+
+        if not sold_assets and not dust_assets and not skipped_assets:
+            return EmergencyStopStepResult(True, "No Spot holdings above the baseline.")
+        message = f"Sold surplus on {len(sold_assets)} asset(s)."
+        if dust_assets:
+            message += (
+                f" Dust remainder below the exchange minimum on: "
+                f"{', '.join(sorted(dust_assets))}."
+            )
+        if skipped_assets:
+            message += (
+                f" Skipped (no exchange filters known): "
+                f"{', '.join(sorted(skipped_assets))}."
+            )
+        return EmergencyStopStepResult(True, message)
 
     def _read_final_state(
         self, trading_client: ITradingClient
