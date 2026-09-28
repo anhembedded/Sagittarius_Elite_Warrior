@@ -11,6 +11,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING, Any
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
@@ -89,6 +90,12 @@ def build_stream_presenter_state(
     def _set_active_symbol(val: str):
         presenter._active_symbol = val
 
+    def _get_active_market():
+        return presenter._active_market
+
+    def _set_active_market(val: MarketType):
+        presenter._active_market = val
+
     presenter._stream_controller = StreamLifecycleController(
         thread_manager=presenter._thread_manager,
         market_data_sync=container.resolve(IMarketDataSync),
@@ -102,6 +109,8 @@ def build_stream_presenter_state(
         get_active_interval=_get_active_interval,
         set_active_interval=_set_active_interval,
         set_active_symbol=_set_active_symbol,
+        get_active_market=_get_active_market,
+        set_active_market=_set_active_market,
         ensure_chart_cards=lambda symbols: presenter._ensure_chart_cards(symbols),
         rebuild_scripts=lambda: presenter._rebuild_scripts(),
         compute_fetch_limit=lambda: presenter._compute_fetch_limit(),

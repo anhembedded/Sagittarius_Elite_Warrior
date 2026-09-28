@@ -48,6 +48,9 @@ from typing import ClassVar, Final
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_row import (
+    HoldingRow,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     OpenOrderRow,
 )
@@ -168,5 +171,39 @@ class OpenOrdersTableModel(RowTableModel[OpenOrderRow]):
 
     def _sort_value(self, row: OpenOrderRow, column: int) -> object:
         if column in {self.QUANTITY_COLUMN, self.PRICE_COLUMN}:
+            return as_number(self._display_text(row, column))
+        return self._display_text(row, column)
+
+
+class HoldingsTableModel(RowTableModel[HoldingRow]):
+    """@brief Every Spot asset the account holds, one per row (`EPIC-027O`).
+
+    @details The Spot-venue counterpart to `PositionsTableModel` — same
+    file, same abstraction level and the same one reason to change (the
+    shape of a row of the account's order book), per this file's own
+    docstring on why both existing models already live together here.
+    """
+
+    ASSET_COLUMN: Final = 0
+    FREE_COLUMN: Final = 1
+    LOCKED_COLUMN: Final = 2
+    VALUE_COLUMN: Final = 3
+
+    HEADERS: ClassVar[tuple[str, ...]] = ("Asset", "Free", "Locked", "Value (USDT)")
+
+    RIGHT_ALIGNED: ClassVar[frozenset[int]] = frozenset(
+        {FREE_COLUMN, LOCKED_COLUMN, VALUE_COLUMN}
+    )
+
+    def _display_text(self, row: HoldingRow, column: int) -> str:
+        return {
+            self.ASSET_COLUMN: row.asset,
+            self.FREE_COLUMN: row.free_text,
+            self.LOCKED_COLUMN: row.locked_text,
+            self.VALUE_COLUMN: row.value_text,
+        }.get(column, "")
+
+    def _sort_value(self, row: HoldingRow, column: int) -> object:
+        if column in {self.FREE_COLUMN, self.LOCKED_COLUMN, self.VALUE_COLUMN}:
             return as_number(self._display_text(row, column))
         return self._display_text(row, column)

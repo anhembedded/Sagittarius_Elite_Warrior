@@ -15,12 +15,24 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.manual_short_not_su
     ManualShortNotSupportedOnMarketError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
+    SpotHolding,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
     ManualOrderDirection,
     manual_order_intent_for,
 )
 
 _FUTURES = MarketType.FUTURES_USD_M
+
+
+def _holding(free: str, *, dust_threshold: str = "0.00001") -> SpotHolding:
+    return SpotHolding(
+        asset="BTC",
+        free=Decimal(free),
+        locked=Decimal(0),
+        dust_threshold=Decimal(dust_threshold),
+    )
 
 
 def _position(signed_amount: str) -> LivePosition:
@@ -100,7 +112,9 @@ class TestSpotRefusesShort:
     indistinguishable from a deliberate sale of a real holding, because
     `SpotTradingClient.get_positions()` always answers `[]` (no leveraged
     position to read), which made `current_position` always `None` here
-    regardless of the account's real holdings."""
+    regardless of the account's real holdings. `EPIC-027O` narrows the
+    refusal to "no real holding" — `TestSpotSellsWithHolding` below covers
+    the case it no longer refuses."""
 
     def test_flat_short_is_refused(self) -> None:
         with pytest.raises(
@@ -116,6 +130,43 @@ class TestSpotRefusesShort:
             manual_order_intent_for(
                 ManualOrderDirection.SHORT, _position("0.01"), MarketType.SPOT
             )
+
+    def test_dust_holding_is_still_refused(self) -> None:
+        """A holding at or below its own `dust_threshold` is not sellable
+        (`SpotHolding.is_dust`) — the button reads as "no real holding"."""
+        dust = _holding("0.000001", dust_threshold="0.00001")
+        with pytest.raises(
+            ManualShortNotSupportedOnMarketError, match="not supported on Spot"
+        ):
+            manual_order_intent_for(
+                ManualOrderDirection.SHORT, None, MarketType.SPOT, dust
+            )
+
+
+class TestSpotSellsWithHolding:
+    """`EPIC-027O` — a Spot "Sell" click (still `ManualOrderDirection.SHORT`
+    under the hood, see `ManualOrderCard`'s own docstring) is allowed once a
+    real, non-dust holding backs it."""
+
+    def test_real_holding_sells_not_reduce_only(self) -> None:
+        intent = manual_order_intent_for(
+            ManualOrderDirection.SHORT, None, MarketType.SPOT, _holding("0.5")
+        )
+        assert intent.side is OrderSide.SELL
+        assert intent.reduce_only is False
+
+    def test_ignores_current_position_argument(self) -> None:
+        """Spot never has one (`get_positions()` always `[]`), and this
+        path must not depend on that happening to be true — the holding is
+        what decides, not the position."""
+        intent = manual_order_intent_for(
+            ManualOrderDirection.SHORT,
+            _position("0.01"),
+            MarketType.SPOT,
+            _holding("0.5"),
+        )
+        assert intent.side is OrderSide.SELL
+        assert intent.reduce_only is False
 
 
 def test_long_and_short_share_no_ambiguity_the_signal_path_has() -> None:

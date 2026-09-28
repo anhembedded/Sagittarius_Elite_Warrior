@@ -1,6 +1,6 @@
 # EPIC-027 — Spot beside Futures: truthful Spot backtests first, then live Spot on Testnet
 
-- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 done (5/5, 2026-09-27); Phase 3 in progress (4/6, 2026-09-28) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027M` are done, so `TradingVenue` now has a Spot Testnet member with its own credentials, capability-checked gates, an honest market-mismatch alignment state, the fake exchange answers the full Spot order lifecycle, the app reads a Spot account as balances/holdings/equity through the same `ITradingAccountReader` port Futures uses, a live Spot order rounds against Spot's own `exchangeInfo` filters rather than Futures', a Spot MARKET/LIMIT order can go end to end through `ExecuteOrderCommand` to Spot Testnet, `SpotUserDataStream` reports fills/fees and equity from Spot's own `executionReport`/`outboundAccountPosition`/`balanceUpdate` events, Enable trading on Spot records a holdings baseline instead of refusing on existing assets, and Emergency Stop sells only the surplus over that baseline. `EPIC-027N` is now also done: leverage is fixed at 1 on Spot, a SHORT-capable strategy is refused arming, and a strategy's own SELL signal sizes from the actual holding (never below the baseline) instead of a percent of balance. `EPIC-027O` (live UI for Spot) is next.
+- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 done (5/5, 2026-09-27); Phase 3 in progress (5/6, 2026-09-28) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027M` are done, so `TradingVenue` now has a Spot Testnet member with its own credentials, capability-checked gates, an honest market-mismatch alignment state, the fake exchange answers the full Spot order lifecycle, the app reads a Spot account as balances/holdings/equity through the same `ITradingAccountReader` port Futures uses, a live Spot order rounds against Spot's own `exchangeInfo` filters rather than Futures', a Spot MARKET/LIMIT order can go end to end through `ExecuteOrderCommand` to Spot Testnet, `SpotUserDataStream` reports fills/fees and equity from Spot's own `executionReport`/`outboundAccountPosition`/`balanceUpdate` events, Enable trading on Spot records a holdings baseline instead of refusing on existing assets, and Emergency Stop sells only the surplus over that baseline. `EPIC-027N` is now also done: leverage is fixed at 1 on Spot, a SHORT-capable strategy is refused arming, and a strategy's own SELL signal sizes from the actual holding (never below the baseline) instead of a percent of balance. `EPIC-027O` (live UI for Spot) is now also done: both screens show a Holdings table instead of Positions on Spot, the manual order card reads BUY/SELL with SELL disabled without a real holding, leverage controls are hidden on Spot, the Dev Board market combo is wired to the chart's own requested market, and every message naming the venue names the market too. `EPIC-027P` (real Spot Testnet round trip + SPEC) is next.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-26): *"đánh giá xem giờ tui muốn giao dịch spot và back test theo
   spot thì app này cần những gì, lên plan và epic, sao đó report cho tôi"* ("assess what this app
@@ -105,7 +105,7 @@ request unless its file says otherwise.
 | [EPIC-027L](completed/EPIC-027L_spot_user_data_stream.md) | Spot order truth and balances from the user data stream | Elite | H, K | 🔴 | ✅ Done (2026-09-27) |
 | [EPIC-027M](completed/EPIC-027M_spot_session_enable_and_emergency_stop.md) | Enable, Emergency Stop and limits mean the right thing on Spot | Elite | K, L | 🔴 | ✅ Done (2026-09-27) |
 | [EPIC-027N](completed/EPIC-027N_live_strategy_on_spot.md) | Armed strategy trades Spot long-only at 1× | Elite | M, O2, O4 | 🟡 | ✅ Done (2026-09-28) |
-| [EPIC-027O](incomplete/EPIC-027O_live_ui_for_spot.md) | Trading screen and Dev Board show Spot holdings, Buy/Sell only | Elite | L, N | 🟢 | Planned |
+| [EPIC-027O](completed/EPIC-027O_live_ui_for_spot.md) | Trading screen and Dev Board show Spot holdings, Buy/Sell only | Elite | L, N | 🟢 | ✅ Done (2026-09-28) |
 | [EPIC-027P](incomplete/EPIC-027P_spot_testnet_tier_and_spec.md) | Real Spot Testnet round trip proven; Spot order lifecycle SPEC | Elite | K–O | 🟡 | Planned |
 
 ## 4. Phase exit criteria
@@ -130,6 +130,21 @@ request unless its file says otherwise.
 - **Funding-rate modeling for Futures.** Still out of scope as in `BOT-049`.
 
 ## Notes (newest first)
+- **2026-09-28** — `EPIC-027O` done, Phase 3 now 5/6. Both live screens (Dev Board, Trading) swap
+  Positions for a Holdings table (asset/free/locked/value in USDT) on a Spot venue via a
+  `QStackedWidget` switched once at construction by `market_type`; the manual order card reads
+  BUY/SELL on Spot (SELL disabled until `LiveOrderBookCoordinator.has_holding()` says otherwise);
+  leverage controls are hidden on Spot on both screens; the Dev Board's previously-inert Market combo
+  now commits the chart's own requested `MarketType` through the same "commit at Load History/Start
+  Live click time, read the committed value later" pattern `_active_symbol`/`_active_interval` already
+  use, never a live re-read (a live re-read mid-scroll could mix Spot and Futures candles on one
+  chart); `TC-GAP-01` is rewritten to assert the new wiring instead of its absence; and every message
+  naming the venue (`TRADING_VENUE_DISABLED` on both screens, `trade-once`'s CLI formatter) now names
+  the market too. Reused the existing `ITradingAccountReader.check_connection().holdings` seam end to
+  end — no new port method. See `completed/EPIC-027O_live_ui_for_spot.md` §6 for the two notable
+  implementation decisions (a private-method rename to keep the cross-screen duplication ratchet at
+  its baseline; why the BUY→Holdings proof is a fake-Spot-exchange application test rather than a
+  second parallel `qtbot` Dev Board boot fixture).
 - **2026-09-28** — `EPIC-027N` done, Phase 3 now 4/6. `BaseStrategy` gained a `ClassVar[frozenset
   [SignalAction]] supported_directions`, defaulting to `{BUY, SELL}` (long-only) so every strategy that
   never calls `self.short()`/`self.cover()` needed zero changes; `EmaTrendPullbackStrategy` and

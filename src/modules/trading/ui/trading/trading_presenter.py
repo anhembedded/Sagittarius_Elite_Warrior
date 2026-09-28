@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
@@ -29,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_resu
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.holdings_changed_event import (
+    HoldingsChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.live_order_blocked_event import (
     LiveOrderBlockedEvent,
@@ -73,6 +77,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.live_order_book_coordinator import (
     LiveOrderBookCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_prices import (
+    holding_price_for_symbol,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
@@ -146,7 +153,8 @@ _BLOCK_REASON_MESSAGES = EnumLabels(
     EnableTradingBlockReason,
     {
         EnableTradingBlockReason.TRADING_VENUE_DISABLED: (
-            "Trading venue is disabled in configuration — only Futures Testnet is supported."
+            "Trading venue is disabled in configuration — set it to Futures Testnet "
+            "or Spot Testnet to enable trading."
         ),
         EnableTradingBlockReason.CONNECTION_NOT_READY: (
             "Connection to the exchange is not ready — check your API key/network connection."
@@ -183,38 +191,32 @@ class TradingPresenter(BasePresenter):
     """
     @brief Presenter for the Trading screen (`EPIC-021I`).
 
-    @details Three responsibilities, same split as `DashboardPresenter`/
+    @details Four responsibilities, same split as `DashboardPresenter`/
     `SettingsPresenter`:
-    1. The Enable/Disable toggle — a single async action, fenced through
-       `ActionOwnershipTracker` exactly like `SettingsPresenter`'s
-       connection check (`async-ui-action-rule.md`).
-    2. The chart — history load + live ticks, delegated to
-       `ChartCoordinator` for the background work; this Presenter owns
-       the `CancellationToken` and applies every result to `view.chart`
-       on the main thread (`async-ui-action-rule.md` §2 — a Coordinator
-       never owns that bookkeeping itself).
-    3. Positions/Open Orders tables — kept in two plain dicts here,
-       seeded from `EnableTradingResult` on a successful enable and kept
-       live via `OrderFeed` (`OrderFilledEvent`/`PositionChangedEvent`),
-       the sanctioned single subscriber per `architecture-rule.md` §6.
-    4. The equity chart (`EPIC-021M`) — seeded on construction from
-       `IEquityCurve`'s backlog (a DI singleton that outlives this
-       screen), then appended to live via `EquityFeed`
-       (`EquitySampledEvent`), the same single-subscriber shape as #3.
+    1. The Enable/Disable toggle — fenced through `ActionOwnershipTracker`,
+       exactly like `SettingsPresenter`'s connection check
+       (`async-ui-action-rule.md`).
+    2. The chart — history load + live ticks via `ChartCoordinator`; this
+       Presenter owns the `CancellationToken` and applies every result to
+       `view.chart` on the main thread (`async-ui-action-rule.md` §2).
+    3. Positions/Open Orders tables — two plain dicts, seeded from
+       `EnableTradingResult` and kept live via `OrderFeed`
+       (`OrderFilledEvent`/`PositionChangedEvent`), the sanctioned single
+       subscriber per `architecture-rule.md` §6.
+    4. The equity chart (`EPIC-021M`) — seeded from `IEquityCurve`'s
+       backlog, then appended live via `EquityFeed` (`EquitySampledEvent`),
+       the same single-subscriber shape as #3.
 
     A position closing to flat is handled by `_on_position_closed`
-    (`BUG-086`, `positionClosed` connected in `_connect_engine_events`) —
-    `futures_user_data_stream.py` publishes a dedicated `PositionClosedEvent`
-    for it, since `PositionChangedEvent` cannot represent "no position"
-    (`LivePosition`'s own invariant forbids `position_amt == 0`).
+    (`BUG-086`) — `PositionChangedEvent` cannot represent "no position"
+    (`LivePosition` forbids `position_amt == 0`), so
+    `futures_user_data_stream.py` publishes a dedicated `PositionClosedEvent`.
 
     Emergency Stop is the one path that event can never correct: it stops
-    the user-data stream in its own step 1, before steps 2-3 cancel/close
-    anything, so nothing will emit further events for whatever those steps
-    do. `_on_emergency_stop_completed` refreshes `_positions`/
-    `_open_orders` itself from `EmergencyStopResult.final_positions`/
-    `final_open_orders` — a best-effort read the handler takes after all
-    three steps, regardless of their own outcome (`BUG-093`).
+    the user-data stream in its own step 1 before steps 2-3 act, so nothing
+    emits further events for what those steps do.
+    `_on_emergency_stop_completed` refreshes `_positions`/`_open_orders`
+    itself from `EmergencyStopResult`'s best-effort final state (`BUG-093`).
     """
 
     #: Live tick -> chart, main-thread-safe (`(symbol, close_ts, o, h, l,
@@ -250,6 +252,8 @@ class TradingPresenter(BasePresenter):
         config_values = self.config.get_all()
         self._active_symbol = default_symbol(config_values, FALLBACK_SYMBOL)
         self._active_interval = default_interval(config_values, FALLBACK_INTERVAL)
+        #: `EPIC-027O` — active symbol's last close, for the Holdings table.
+        self._last_price: Decimal | None = None
 
         self._view_model = TradingViewModel()
         self._view_model.set_symbol_options(
@@ -456,6 +460,7 @@ class TradingPresenter(BasePresenter):
         # trading limit is invisible: no table changes, no exception, just
         # a screen that sits still whether or not the strategy ever fired.
         self._order_feed.orderBlocked.connect(self._on_order_blocked)
+        self._order_feed.holdingsChanged.connect(self._on_holdings_changed)  # EPIC-027O
         # `EPIC-021M` — one subscriber, this Presenter, same reasoning as
         # `OrderFeed` above (see `equity_feed.py`'s own docstring).
         self._equity_feed = EquityFeed(self.event_bus, parent=self)
@@ -497,17 +502,11 @@ class TradingPresenter(BasePresenter):
         self._restart_chart()
 
     def _go_live_if_not_already(self) -> None:
-        """Promotes the chart from local-history-only to live, once.
-
-        @details Deliberately does NOT go through `_restart_chart()`'s
-        stop-then-start: there is no stream of this screen's own to stop
-        yet (it has only ever read local history), so a `stop()` here would
-        release nothing of this screen's own — `BOT-126` made
-        `ChartCoordinator.stop()` owner-scoped, so calling it early would
-        be a harmless no-op rather than a risk, but it is still skipped as
-        dead motion — the original always-live open path never called
-        `stop()` first either.
-        """
+        """Promotes the chart from local-history-only to live, once. Skips
+        `_restart_chart()`'s stop-then-start: there is no stream of this
+        screen's own to stop yet, and `BOT-126` made
+        `ChartCoordinator.stop()` owner-scoped anyway, so it is skipped as
+        dead motion rather than called defensively."""
         if self._chart_live_requested:
             return
         self._chart_live_requested = True
@@ -521,12 +520,9 @@ class TradingPresenter(BasePresenter):
         )
 
     def _restart_chart(self) -> None:
-        """Symbol/interval change: reload the chart for the new selection.
-
-        @details `stop()` runs first only when this screen is itself the
-        live one — same reasoning as `_go_live_if_not_already()`: this
-        screen must only ever stop a stream it started.
-        """
+        """Symbol/interval change: reload the chart. `stop()` runs first
+        only when this screen is itself the live one — it must only ever
+        stop a stream it started."""
         self._cancellation_token.cancel()
         self._cancellation_token = CancellationToken()
         if self._chart_live_requested:
@@ -610,6 +606,7 @@ class TradingPresenter(BasePresenter):
     ) -> None:
         if symbol != self._active_symbol:
             return
+        self._last_price = Decimal(str(c))
         is_bullish = c >= o
         if is_closed:
             self.view.chart.append_closed_candle(t, o, h, low, c)
@@ -850,13 +847,10 @@ class TradingPresenter(BasePresenter):
             )
 
     def _apply_emergency_stop_final_state(self, result: EmergencyStopResult) -> None:
-        """`BUG-093` — the user-data stream is already stopped by
-        Emergency Stop's own step 1, so `_on_order_filled`/
-        `_on_position_changed`/`_on_position_closed` will never fire for
-        whatever steps 2-3 actually did. Without this, the Positions/Open
-        Orders tables keep showing whatever they held right before the
-        button was pressed — stale, and on a full success, actively wrong
-        (still "open" for a position that is now flat)."""
+        """`BUG-093` — the user-data stream is already stopped by Emergency
+        Stop's own step 1, so `_on_order_filled`/`_on_position_changed`/
+        `_on_position_closed` never fire for whatever steps 2-3 did; without
+        this the tables would keep showing stale pre-button state."""
         if not result.final_state_confirmed:
             self._append_log(
                 "[WARNING] Could not confirm account state after the emergency "
@@ -898,6 +892,11 @@ class TradingPresenter(BasePresenter):
     def _on_position_closed(self, event: PositionClosedEvent) -> None:
         """`BUG-086` — removes a position the exchange reports as flat."""
         self._order_book.on_position_closed(event.symbol)
+
+    def _on_holdings_changed(self, event: HoldingsChangedEvent) -> None:
+        """`OrderFeed.holdingsChanged` handler — see `DashboardPresenter`'s handler."""
+        prices = holding_price_for_symbol(self._active_symbol, self._last_price)
+        self._order_book.replace_holdings(event.holdings, prices)
 
     def _on_order_blocked(self, event: LiveOrderBlockedEvent) -> None:
         """`BUG-084` — the one place a blocked signal-driven order becomes

@@ -23,7 +23,8 @@ _SAFETY_GATE_MESSAGES = EnumLabels(
     ExecuteOrderSafetyGate,
     {
         ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED: (
-            "Trading venue is disabled in configuration — only Futures Testnet is supported."
+            "Trading venue is disabled in configuration — set it to Futures Testnet "
+            "or Spot Testnet to enable trading."
         ),
         ExecuteOrderSafetyGate.TRADING_SWITCH_OFF: (
             "Trading is OFF — enable trading before placing/cancelling an order."

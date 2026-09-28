@@ -1,7 +1,7 @@
 # EPIC-027 — Tracking
 
 - **Epic:** [EPIC-027 — Spot beside Futures](README.md)
-- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 done (5/5, 2026-09-27); Phase 3 started (1/6, 2026-09-27) — `EPIC-027A`–`EPIC-027J` done through Phase 2; `EPIC-027K` (Spot MARKET/LIMIT order path) done, opening Phase 3
+- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 done (5/5, 2026-09-27); Phase 3 in progress (5/6, 2026-09-28) — `EPIC-027A`–`EPIC-027J` done through Phase 2; `EPIC-027K`–`EPIC-027O` done in Phase 3; `EPIC-027P` (real Spot Testnet round trip + SPEC) is the only sub-task left
 - **Target Completion:** not committed; the bars below are relative estimates from the day the ADR is accepted.
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -66,10 +66,10 @@ gantt
 | EPIC-027I | [Spot metadata provider](completed/EPIC-027I_spot_symbol_metadata_provider.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Done | 2026-09-27 |
 | EPIC-027J | [Fake exchange Spot routes](completed/EPIC-027J_fake_exchange_spot_routes.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | 2026-09-27 |
 | EPIC-027K | [Spot order path](completed/EPIC-027K_spot_trading_client_and_order_path.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | ✅ Done | 2026-09-27 |
-| EPIC-027L | [Spot user data stream](incomplete/EPIC-027L_spot_user_data_stream.md) | — | 🔴 | 🔵 Planned | — |
-| EPIC-027M | [Enable and Emergency Stop on Spot](incomplete/EPIC-027M_spot_session_enable_and_emergency_stop.md) | — | 🔴 | 🔵 Planned | — |
-| EPIC-027N | [Live strategy on Spot](incomplete/EPIC-027N_live_strategy_on_spot.md) | — | 🟡 | 🔵 Planned | — |
-| EPIC-027O | [Live UI for Spot](incomplete/EPIC-027O_live_ui_for_spot.md) | — | 🟢 | 🔵 Planned | — |
+| EPIC-027L | [Spot user data stream](completed/EPIC-027L_spot_user_data_stream.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | ✅ Done | 2026-09-27 |
+| EPIC-027M | [Enable and Emergency Stop on Spot](completed/EPIC-027M_spot_session_enable_and_emergency_stop.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | ✅ Done | 2026-09-27 |
+| EPIC-027N | [Live strategy on Spot](completed/EPIC-027N_live_strategy_on_spot.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | 2026-09-28 |
+| EPIC-027O | [Live UI for Spot](completed/EPIC-027O_live_ui_for_spot.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Done | 2026-09-28 |
 | EPIC-027P | [Spot Testnet tier and SPEC](incomplete/EPIC-027P_spot_testnet_tier_and_spec.md) | — | 🟡 | 🔵 Planned | — |
 
 ---

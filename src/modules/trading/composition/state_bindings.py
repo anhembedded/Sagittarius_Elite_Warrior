@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.holdings_refresh_service import (
+    HoldingsRefreshService,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.position_refresh_service import (
     PositionRefreshService,
 )
@@ -43,6 +46,20 @@ def bind_state(container: IContainer) -> None:
     container.singleton(
         PositionRefreshService,
         lambda c: PositionRefreshService(
+            c.resolve(ICommandDispatcher),
+            c.resolve(IEventPublisher),
+            c.resolve(TradingSessionState),
+        ),
+    )
+
+    # `EPIC-027O` — the Holdings table's own equivalent of the refresh above.
+    # `TradingModule.boot()` only schedules this one on a Spot venue (its own
+    # docstring says why); bound here unconditionally regardless, the same
+    # "always bind, only conditionally schedule" split `PositionRefreshService`
+    # already uses.
+    container.singleton(
+        HoldingsRefreshService,
+        lambda c: HoldingsRefreshService(
             c.resolve(ICommandDispatcher),
             c.resolve(IEventPublisher),
             c.resolve(TradingSessionState),

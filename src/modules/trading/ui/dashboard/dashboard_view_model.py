@@ -3,6 +3,7 @@ from __future__ import annotations
 from datetime import UTC, datetime, timedelta
 
 from PySide6.QtCore import Property, QObject, Signal, Slot
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.strategy_card_view_model import (
     StrategyCardViewModel,
 )
@@ -26,14 +27,9 @@ _IDLE_STATUS_COLOR = Palette.MUTED
 _IDLE_STATUS_TONE = "idle"
 
 # BOT-033 Phase 2 — Symbol/Start date/End date defaults. Self-contained here
-# (not imported from dashboard_presenter.py's _DEFAULT_SYMBOLS) to match
-# DataManagementViewModel's own self-contained defaults; DashboardPresenter
-# reads these back through the same Property, so there is exactly one value
-# in play at runtime even though the "ETHUSDT" literal is duplicated in
-# source. The datetime format that comment used to describe now lives in
-# `constants.DATETIME_FORMAT`, imported above — it was the same literal in
-# six places across three screens, and this comment saying one copy
-# "matches" another was the intent to share written beside a duplicate.
+# (not imported from dashboard_presenter.py's own defaults) to match
+# DataManagementViewModel's own shape; DashboardPresenter reads these back
+# through the same Property, so only one value is in play at runtime.
 _DEFAULT_SYMBOL = FALLBACK_SYMBOL
 #: Public because `DashboardPresenter` needs the same number to fall back on
 #: when a remembered `lookback_days` is missing or nonsense (`EPIC-010D`).
@@ -43,18 +39,13 @@ DEFAULT_LOOKBACK_DAYS = 7
 
 
 class DashboardQmlViewModel(BaseQmlViewModel):
-    """
-    @brief ViewModel for the Dev Board's QML half (BOT-030 Phase 4): the top
-    bar, System Controls, Indicators, and the monitor log.
-
-    @details
-    ChartCard stays a QtWidgets sibling DashboardPresenter talks to
-    directly (see dashboard_view.py) — this ViewModel only carries state
-    for the QML panel. Mirrors the request-signal pattern established by
-    SettingsViewModel/DataManagementViewModel: QML calls a `request*()`
-    Slot, the Slot emits a Signal, the Presenter is the only thing
-    connected to it.
-    """
+    """ViewModel for the Dev Board's QML half (BOT-030 Phase 4): the top
+    bar, System Controls, Indicators, and the monitor log. `ChartCard`
+    stays a QtWidgets sibling `DashboardPresenter` talks to directly (see
+    `dashboard_view.py`) — this only carries state for the QML panel.
+    Mirrors `SettingsViewModel`/`DataManagementViewModel`'s request-signal
+    pattern: QML calls a `request*()` Slot, which emits a Signal the
+    Presenter is the only thing connected to."""
 
     #: Drives BaseQmlViewModel.controlsEnabled — matches this screen's
     #: pre-existing `root.controlsActive` allow-list (uiMode === "IDLE" ||
@@ -69,6 +60,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     historyLoadingChanged = Signal()
     progressChanged = Signal()
     symbolChanged = Signal()
+    marketChanged = Signal()
     symbolOptionsChanged = Signal()
     symbolOptionsRequested = Signal()
     symbolOptionsRefreshRequested = Signal()
@@ -89,14 +81,11 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     emergencyStopRequested = Signal()
 
     #: `EPIC-024B` — the manual trading card. `manualOrderRequested` mirrors
-    #: `botParamsSaveRequested`'s shape (a plain-args request signal, not a
-    #: form field written continuously): a click is one atomic attempt with
-    #: its own snapshot of quantity/order type/price, not a value the
-    #: Presenter should react to on every keystroke. Direction/order type
-    #: travel as `str` ("LONG"/"SHORT", "MARKET"/"LIMIT") rather than the
-    #: domain enums this card's own `ManualOrderDirection`/`OrderType` use —
-    #: this ViewModel is a Qt boundary type and must not import `domain/`
-    #: (`architecture-rule.md` §3); the Presenter converts.
+    #: `botParamsSaveRequested`'s shape: one atomic attempt per click, not a
+    #: value reacted to on every keystroke. Direction/order type travel as
+    #: `str` ("LONG"/"SHORT", "MARKET"/"LIMIT"), not the domain enums this
+    #: card's own `ManualOrderDirection`/`OrderType` use — a Qt boundary
+    #: type must not import `domain/` (`architecture-rule.md` §3).
     manualOrderChanged = Signal()
     manualOrderRequested = Signal(str, float, str, float)
     cancelOrderRequested = Signal(str, str)
@@ -113,20 +102,20 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self._ws_status_tone = _IDLE_STATUS_TONE
         self._history_loading = False
 
-        # BOT-123 — Start Live's `SyncMarketDataCommand` phase (fetching
-        # missing candles from Binance before the websocket opens) used to
-        # run with no visible feedback at all: same gap the progress banner
-        # already closed for Backtest/Data Management (see
-        # `kit.ProgressBanner`), just never wired up on this screen. Same property
-        # shape as `DataManagementViewModel`'s progress block on purpose —
-        # one shape for "a long task, a percent, a Cancel" everywhere it
-        # appears.
+        # BOT-123 — Start Live's `SyncMarketDataCommand` phase used to run
+        # with no visible feedback; same `kit.ProgressBanner` shape
+        # `DataManagementViewModel` already uses for "a long task, a
+        # percent, a Cancel", just never wired up on this screen before.
         self._progress_value = 0
         self._progress_maximum = 0
         self._progress_visible = False
         self._progress_text = ""
 
         self._symbol = _DEFAULT_SYMBOL
+        #: `EPIC-027O` — the chart's own market, independent of the fixed
+        #: trading venue (`TradingVenue.market_type`); read fresh at Load
+        #: History/Start Live click time, same as `symbol` above.
+        self._market = MarketType.SPOT.value
         self._symbol_options: list[str] = []
         now = datetime.now(UTC)
         self._start_date = (now - timedelta(days=DEFAULT_LOOKBACK_DAYS)).strftime(
@@ -150,11 +139,11 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         # `EPIC-024B` — manual trading card.
         self._manual_order_busy = False
         self._manual_order_message = ""
+        #: `EPIC-027O` — Spot Sell only; stays `True` on Futures.
+        self._manual_order_sell_enabled = True
 
-    # ------------------------------------------------------------------ #
     # Log model — exposed to LogPanel.qml, mutated by the Presenter's
     # ui_log_signal (main thread only, same contract as every other screen).
-    # ------------------------------------------------------------------ #
     @Property(QObject, constant=True)
     def logModel(self) -> LogListModel:
         return self._log_model
@@ -164,11 +153,9 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         """Pythonic accessor for the Presenter (mirrors DataManagementViewModel)."""
         return self._log_model
 
-    # ------------------------------------------------------------------ #
     # Script model (BOT-032) — exposed to DevBoardPanel.qml's "CUSTOM
     # SCRIPTS" checklist, populated by the Presenter from
     # IndicatorScriptRegistry.available().
-    # ------------------------------------------------------------------ #
     @Property(QObject, constant=True)
     def scriptModel(self) -> IndicatorScriptListModel:
         return self._script_model
@@ -178,18 +165,14 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         """Pythonic accessor for the Presenter (mirrors log_model)."""
         return self._script_model
 
-    # ------------------------------------------------------------------ #
     # The strategy card (`EPIC-023C`, one owner since PR 2.1e)
-    # ------------------------------------------------------------------ #
     @Property(QObject, constant=True)
     def strategy(self) -> StrategyCardViewModel:
         """@brief The card's own state — see `TradingViewModel.strategy`'s
         docstring for the full reasoning behind one shared owner."""
         return self._strategy
 
-    # ------------------------------------------------------------------ #
     # Price ticker — set by the Presenter on every market tick.
-    # ------------------------------------------------------------------ #
     def _get_price_ticker_text(self) -> str:
         return self._price_ticker_text
 
@@ -206,9 +189,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self._price_ticker_color = color
         self.priceTickerChanged.emit()
 
-    # ------------------------------------------------------------------ #
     # WS status badge — set by the Presenter's FSM global callback.
-    # ------------------------------------------------------------------ #
     def _get_ws_status_text(self) -> str:
         return self._ws_status_text
 
@@ -250,11 +231,8 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self._history_loading = value
         self.historyLoadingChanged.emit()
 
-    # ------------------------------------------------------------------ #
     # Sync progress (BOT-123) — the `SyncMarketDataCommand` phase inside
-    # Start Live, read by `kit.ProgressBanner` via `DevBoardPanel`.
-    # Mirrors `DataManagementViewModel`'s progress block exactly.
-    # ------------------------------------------------------------------ #
+    # Start Live; mirrors `DataManagementViewModel`'s progress block exactly.
     def _get_progress_value(self) -> int:
         return self._progress_value
 
@@ -316,6 +294,16 @@ class DashboardQmlViewModel(BaseQmlViewModel):
             self.symbolChanged.emit()
 
     symbol = Property(str, _get_symbol, _set_symbol, notify=symbolChanged)
+
+    def _get_chart_market(self) -> str:
+        return self._market
+
+    def _set_chart_market(self, value: str) -> None:
+        if value != self._market:
+            self._market = value
+            self.marketChanged.emit()
+
+    market = Property(str, _get_chart_market, _set_chart_market, notify=marketChanged)
 
     # ------------------------------------------------------------------ #
     # Symbol options (EPIC-014) — the list the shared picker renders.
@@ -424,6 +412,16 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     def set_manual_order_state(self, busy: bool, message: str) -> None:
         self._manual_order_busy = busy
         self._manual_order_message = message
+        self.manualOrderChanged.emit()
+
+    @Property(bool, notify=manualOrderChanged)
+    def manualOrderSellEnabled(self) -> bool:
+        return self._manual_order_sell_enabled
+
+    @Slot(bool)
+    def set_manual_order_sell_enabled(self, enabled: bool) -> None:
+        """`EPIC-027O` — pushed only from Spot's `HoldingsChangedEvent`."""
+        self._manual_order_sell_enabled = enabled
         self.manualOrderChanged.emit()
 
     @Slot(str, float, str, float)

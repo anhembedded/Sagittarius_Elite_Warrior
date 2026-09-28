@@ -1,11 +1,7 @@
-"""
-@brief Manages the stream lifecycle (load history, auto-sync, start/stop live stream)
-for DashboardPresenter (BOT-037 Phase 2 SRP extraction).
-
-@details
-Extracted from DashboardPresenter to isolate the asynchronous data fetching,
-auto-sync orchestration, and websocket stream control into a dedicated controller,
-keeping DashboardPresenter focused on FSM UI coordination and component composition.
+"""Manages the stream lifecycle (load history, auto-sync, start/stop live
+stream) for `DashboardPresenter` (`BOT-037` Phase 2 SRP extraction) —
+isolating async data fetching, auto-sync orchestration and websocket stream
+control so the presenter stays focused on FSM UI coordination.
 
 **No dispatcher (`EPIC-025` PR 1.1b).** Everything this controller used to
 dispatch is now a published `market_data` port: the sync (PR 0.5), the
@@ -13,10 +9,10 @@ history read (1.1a) and the live stream (1.1b). A constructor parameter
 nobody uses still tells every caller and every test that this class talks to
 the bus, so it went with the last of them.
 
-Threading contract:
-- Worker methods (_run_load_history, _run_sync_and_start, _run_load_more_history) run in background threads.
-- Background workers communicate with the main thread ONLY via Qt Signal callables (emit helpers).
-- Main-thread slots (_on_load_history, _on_start_stream, etc.) execute UI state updates.
+Threading contract: `_run_load_history`/`_run_sync_and_start`/
+`_run_load_more_history` run in background threads and reach the main
+thread only via the Qt Signal `emit_*` callables; `_on_load_history`/
+`_on_start_stream` and the other slots run on the main thread.
 """
 
 from __future__ import annotations
@@ -66,10 +62,9 @@ _DEFAULT_LOAD_MORE_BATCH_CANDLES = 75
 #: matching, same as every other symbol entry point in this codebase.
 _SYMBOL_PATTERN = re.compile(r"^[A-Z0-9]{5,20}$")
 
-#: `BOT-126` — this screen's own identity on `IMarketStream`. Exactly
-#: one Dev Board `DashboardPresenter`/`StreamLifecycleController` is ever
-#: alive at once, matching the `StateScope(key="dashboard")` this screen
-#: already uses for its own persisted state.
+#: `BOT-126` — this screen's own identity on `IMarketStream`. Exactly one
+#: Dev Board `DashboardPresenter`/`StreamLifecycleController` is ever alive
+#: at once, matching `StateScope(key="dashboard")`'s own persisted state.
 _STREAM_OWNER = "dashboard"
 
 
@@ -86,9 +81,7 @@ def _parse_datetime_utc(raw: str) -> datetime | None:
 
 
 class StreamLifecycleController:
-    """
-    @brief Controller for Dev Board historical data loading and WebSocket stream lifecycle.
-    """
+    """Controller for Dev Board historical data loading and WebSocket stream lifecycle."""
 
     def __init__(
         self,
@@ -105,6 +98,8 @@ class StreamLifecycleController:
         get_active_interval: Callable[[], str],
         set_active_interval: Callable[[str], None],
         set_active_symbol: Callable[[str], None],
+        get_active_market: Callable[[], MarketType],
+        set_active_market: Callable[[MarketType], None],
         ensure_chart_cards: Callable[[list[str]], list],
         rebuild_scripts: Callable[[], None],
         compute_fetch_limit: Callable[[], int],
@@ -138,6 +133,8 @@ class StreamLifecycleController:
         self._get_active_interval = get_active_interval
         self._set_active_interval = set_active_interval
         self._set_active_symbol = set_active_symbol
+        self._get_active_market = get_active_market
+        self._set_active_market = set_active_market
         self._ensure_chart_cards = ensure_chart_cards
         self._rebuild_scripts = rebuild_scripts
         self._compute_fetch_limit = compute_fetch_limit
@@ -165,20 +162,21 @@ class StreamLifecycleController:
         # is in flight from this screen right now.
         self._active_sync_correlation_id: str | None = None
 
-    # ================================================================== #
-    # Main-Thread Slot Handlers
-    # ================================================================== #
+    # -- Main-Thread Slot Handlers -- #
 
-    def _read_and_validate_inputs(self) -> tuple[str, str, datetime, datetime] | None:
-        """
-        @brief BOT-033 Phase 2 — reads Symbol/Start date/End date fresh from
-        the ViewModel (same "read at click time" contract _enabled_script_keys()
+    def _read_and_validate_inputs(
+        self,
+    ) -> tuple[str, str, datetime, datetime, MarketType] | None:
+        """`BOT-033` Phase 2 — reads Symbol/Start date/End date fresh from the
+        ViewModel (same "read at click time" contract `_enabled_script_keys()`
         already has) and validates all three before anything is dispatched.
-        @returns (symbol, interval_str, start_time, end_time) on success, or
-        None after logging a user-facing error — callers must return
-        immediately in that case, mirroring the historyLoading/FSM guards
-        already at the top of _on_load_history/_on_start_stream.
-        """
+        `EPIC-027O` — Market (the chart's own, independent of the fixed
+        trading venue) joins them, same read-fresh contract, no validation
+        needed (the combo only ever offers a real `MarketType.value`).
+        Returns `(symbol, interval_str, start_time, end_time, market)` on
+        success, or `None` after logging a user-facing error — callers must
+        return immediately in that case, mirroring the historyLoading/FSM
+        guards already at the top of `_on_load_history`/`_on_start_stream`."""
         symbol = self._view_model.symbol.strip().upper()
         if not _SYMBOL_PATTERN.match(symbol):
             self._view_model.log_model.append(
@@ -210,7 +208,8 @@ class StreamLifecycleController:
             )
             return None
 
-        return symbol, interval_str, start_time, end_time
+        market = MarketType(self._view_model.market)
+        return symbol, interval_str, start_time, end_time, market
 
     def _on_load_history(self) -> None:
         # BOT-069 — this single check replaces the old historyLoading-flag
@@ -228,8 +227,9 @@ class StreamLifecycleController:
         if validated is None:
             self._stream_actions.finish("load_history")
             return
-        symbol, interval_str, start_time, end_time = validated
+        symbol, interval_str, start_time, end_time, market = validated
         self._set_active_symbol(symbol)
+        self._set_active_market(market)
 
         self._view_model.set_history_loading(True)
         self._view_model.log_model.append(
@@ -245,6 +245,7 @@ class StreamLifecycleController:
             interval_str,
             self._compute_fetch_limit(),
             self._get_cancellation_token(),
+            market,
             start_time,
             end_time,
         )
@@ -271,8 +272,9 @@ class StreamLifecycleController:
         if validated is None:
             self._stream_actions.finish("start_stream")
             return
-        symbol, interval_str, start_time, end_time = validated
+        symbol, interval_str, start_time, end_time, market = validated
         self._set_active_symbol(symbol)
+        self._set_active_market(market)
 
         self._view_model.log_model.append("Starting Live Stream (Auto-Sync)...")
         self.fsm.transition_to(UIMode.LOCKED)
@@ -292,6 +294,7 @@ class StreamLifecycleController:
             interval_str,
             self._compute_fetch_limit(),
             self._get_cancellation_token(),
+            market,
             start_time,
             end_time,
         )
@@ -305,14 +308,11 @@ class StreamLifecycleController:
         self.fsm.transition_to(UIMode.ERROR)
 
     def _on_stop_stream(self) -> None:
-        # BOT-123 — the progress banner's own Cancel button has no FSM-based
-        # enablement (unlike the top-level Stop button): it stays visible
-        # for as long as `DashboardQmlViewModel.progressVisible` is true,
-        # which lags the FSM's own (synchronous) return to IDLE by however
-        # long the background worker takes to notice cancellation and hit
-        # its `finally` (see _run_sync_and_start). A second click landing in
-        # that window would otherwise attempt an IDLE -> IDLE transition,
-        # which the matrix does not declare either — nothing left to stop.
+        # BOT-123 — the progress banner's Cancel button has no FSM-based
+        # enablement and lags the FSM's own return to IDLE by however long
+        # the worker takes to notice cancellation (see `_run_sync_and_start`);
+        # a second click landing in that window would attempt an undeclared
+        # IDLE -> IDLE transition — nothing left to stop.
         if self.fsm.current_state == UIMode.IDLE:
             return
         self._view_model.log_model.append("Stopping Live Stream...")
@@ -320,11 +320,9 @@ class StreamLifecycleController:
         token.cancel()
         self._reset_cancellation_token()
         try:
-            # `EPIC-025` PR 1.1b — the outcome is deliberately not branched
-            # on: `success=False` means this screen held no subscription,
-            # which after a cancel is an ordinary state and not something to
-            # report as an error. The `except` below still catches a real
-            # failure, which is what drives the FSM to ERROR.
+            # `EPIC-025` PR 1.1b — `success=False` means this screen held no
+            # subscription, an ordinary post-cancel state, not an error; the
+            # `except` below catches a real failure, driving FSM to ERROR.
             self._market_stream.stop(_STREAM_OWNER)
             self._view_model.log_model.append("Live Stream stopped.")
             self.fsm.transition_to(UIMode.IDLE)
@@ -336,14 +334,12 @@ class StreamLifecycleController:
 
     def on_sync_progress(self, report: SyncProgressReport) -> None:
         """`SyncProgressFeed.progressUpdated` handler — already on the main
-        thread (`BaseFeed` wraps `QtEventBridge`).
-
-        BOT-123: `report` may belong to a sync Backtest or Data Management
-        started, not this screen's own — `SyncProgressFeed` fans every
-        `SingleSyncProgressEvent` out to every screen that has one. Only
-        apply it if its `correlation_id` matches the one THIS controller's
-        own in-flight dispatch is using (see `_active_sync_correlation_id`).
-        """
+        thread (`BaseFeed` wraps `QtEventBridge`). `BOT-123`: `report` may
+        belong to a sync Backtest or Data Management started, not this
+        screen's own — `SyncProgressFeed` fans every `SingleSyncProgressEvent`
+        out to every screen that has one. Only apply it if its
+        `correlation_id` matches the one THIS controller's own in-flight
+        dispatch is using (see `_active_sync_correlation_id`)."""
         if self._active_sync_correlation_id is None:
             return
         if report.correlation_id != self._active_sync_correlation_id:
@@ -375,6 +371,7 @@ class StreamLifecycleController:
                 cast=int,
             ),
             self._get_cancellation_token(),
+            self._get_active_market(),
         )
 
     def shutdown(self) -> None:
@@ -383,9 +380,7 @@ class StreamLifecycleController:
         if slot is not None:
             self._stream_actions.finish(slot.key)
 
-    # ================================================================== #
-    # Asynchronous Background Workers
-    # ================================================================== #
+    # -- Asynchronous Background Workers -- #
 
     def _run_load_history(
         self,
@@ -393,6 +388,7 @@ class StreamLifecycleController:
         interval_str: str,
         limit: int,
         token: CancellationToken,
+        market: MarketType,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
     ) -> None:
@@ -412,7 +408,7 @@ class StreamLifecycleController:
             # back tuples, so leaving that check in place would have reported
             # "No historical data found" for every symbol that had data.
             results = self._historical_klines.load_many(
-                MarketType.SPOT,  # what this screen syncs; `MarketType` docstring
+                market,  # `EPIC-027O` — the chart's own market, read at click time
                 symbols,
                 TimeFrame(interval_str),
                 limit=limit,
@@ -455,6 +451,7 @@ class StreamLifecycleController:
         before_timestamp: float,
         limit: int,
         token: CancellationToken,
+        market: MarketType,
     ) -> None:
         found_more = False
         try:
@@ -466,7 +463,7 @@ class StreamLifecycleController:
             # keeping that check would have reported "No older data" on every
             # successful page.
             newest_first_rows = self._historical_klines.load(
-                MarketType.SPOT,  # what this screen syncs; `MarketType` docstring
+                market,  # `EPIC-027O` — the chart's own market, committed at load time
                 symbol,
                 TimeFrame(interval_str),
                 limit=limit,
@@ -505,6 +502,7 @@ class StreamLifecycleController:
         self,
         symbols: list[str],
         interval: TimeFrame,
+        market: MarketType,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
         cancellation_requested: CancellationCheck | None = None,
@@ -522,7 +520,7 @@ class StreamLifecycleController:
             MarketDataSyncRequest(
                 symbols=tuple(symbols),
                 interval=interval,
-                market=MarketType.SPOT,
+                market=market,
                 start_time=start_time,
                 end_time=end_time,
                 cancellation_requested=cancellation_requested,
@@ -549,6 +547,7 @@ class StreamLifecycleController:
         interval_str: str,
         limit: int,
         token: CancellationToken,
+        market: MarketType,
         start_time: datetime | None = None,
         end_time: datetime | None = None,
     ) -> None:
@@ -571,6 +570,7 @@ class StreamLifecycleController:
             self._sync_market_data(
                 symbols,
                 interval,
+                market,
                 None,
                 None,
                 cancellation_requested=token.is_cancelled,
@@ -581,7 +581,7 @@ class StreamLifecycleController:
 
             self._emit_log("Reloading historical data onto charts...")
             self._run_load_history(
-                symbols, interval_str, limit, token, start_time, end_time
+                symbols, interval_str, limit, token, market, start_time, end_time
             )
 
             if token.is_cancelled():

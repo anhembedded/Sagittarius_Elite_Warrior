@@ -1,9 +1,9 @@
 """Standalone preview of the order-book tables (`ui-presentation-rule.md`).
 
-Both panels side by side with rows that cover what a reviewer needs to see
+Three panels side by side with rows that cover what a reviewer needs to see
 without a running exchange: a long and a short position, a profit and a loss,
-a limit order with a price and a market order without one.
-"""
+a limit order with a price and a market order without one, and (`EPIC-027O`)
+a Spot holding with a known price and one with none (renders "—")."""
 
 from __future__ import annotations
 
@@ -27,6 +27,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import
     OrderStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
+    SpotHolding,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_row import (
+    build_holding_row,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holdings_panel import (
+    HoldingsPanel,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     build_open_order_row,
 )
@@ -107,9 +116,34 @@ def build_preview() -> QWidget:
         ]
     )
 
+    holdings = HoldingsPanel()
+    holdings.set_rows(
+        [
+            build_holding_row(
+                SpotHolding(
+                    asset="BTC",
+                    free=Decimal("0.5"),
+                    locked=Decimal("0.0"),
+                    dust_threshold=Decimal("0.0001"),
+                ),
+                {"BTC": Decimal("64512.50")},
+            ),
+            build_holding_row(
+                SpotHolding(
+                    asset="SHIB",
+                    free=Decimal(1000000),
+                    locked=Decimal("0.0"),
+                    dust_threshold=Decimal("0.0001"),
+                ),
+                {},  # no price known yet — renders "—"
+            ),
+        ]
+    )
+
     host = QWidget()
     row = QHBoxLayout(host)
     row.addWidget(positions, 1)
     row.addWidget(open_orders, 1)
-    host.resize(1100, 320)
+    row.addWidget(holdings, 1)
+    host.resize(1500, 320)
     return host

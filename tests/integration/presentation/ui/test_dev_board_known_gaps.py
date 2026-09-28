@@ -17,6 +17,7 @@ QWidgets.
 """
 
 from PySide6.QtCore import Qt
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 
 
 def _click_toolbar_pill(toolbar, code):
@@ -101,19 +102,28 @@ def test_symbol_dropdown_changes_which_symbol_load_history_fetches(
     assert "BTCUSDT" in presenter.active_charts
 
 
-def test_market_dropdown_has_no_presenter_effect(
-    qtbot, main_window, navigate, qml_item
+def test_market_dropdown_changes_which_market_load_history_fetches(
+    qtbot, main_window, navigate, qml_item, seeded_history
 ):
-    """TC-GAP-01: switching Market (Spot/Futures) triggers no presenter
-    action at all — there is no binding connected to it."""
+    """TC-GAP-01: FIXED by `EPIC-027O` — picking "Futures" in the Market
+    field now changes which market Load History actually reads (was always
+    hard-coded to `MarketType.SPOT` before this task), mirroring how
+    `test_symbol_dropdown_changes_which_symbol_load_history_fetches` proves
+    the Symbol field."""
     qtbot.addWidget(main_window)
-    _, view = _open_dashboard(navigate)
+    presenter, view = _open_dashboard(navigate)
 
-    log_before = list(view._view_model.log_model.entries)
     view._panel._cbo_market.setCurrentIndex(1)  # "Futures"
-    qtbot.wait(50)
+    # `seeded_history` only seeds Spot rows (see its own fixture docstring),
+    # so a Futures read finds nothing — `ui_history_load_finished_signal`
+    # (unconditional, the `finally` in `_run_load_history`) is what proves
+    # the read actually ran, not `ui_history_reloaded_signal` (only emitted
+    # for a symbol with data).
+    with qtbot.waitSignal(presenter.ui_history_load_finished_signal, timeout=2000):
+        _click_load_history(view, qml_item)
 
-    assert list(view._view_model.log_model.entries) == log_before
+    assert presenter._active_market is MarketType.FUTURES_USD_M
+    assert seeded_history.reads[-1].market is MarketType.FUTURES_USD_M
 
 
 def test_chart_toolbar_timeframe_click_triggers_a_reload(

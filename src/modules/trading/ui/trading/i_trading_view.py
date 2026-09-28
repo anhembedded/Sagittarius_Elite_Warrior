@@ -28,6 +28,9 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable
 
 from PySide6.QtCore import SignalInstance
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_row import (
+    HoldingRow,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     OpenOrderRow,
 )
@@ -82,6 +85,11 @@ class ITradingView(Protocol):
     def set_open_orders(self, rows: list[OpenOrderRow]) -> None:
         """Replaces the Open Orders table's rows entirely — see
         `set_positions`."""
+        ...
+
+    def set_holdings(self, rows: list[HoldingRow]) -> None:
+        """Replaces the Holdings table's rows entirely (`EPIC-027O`) — see
+        `set_positions`. Driven only on a Spot venue."""
         ...
 
     #: `EPIC-024B` §0 — the Open Orders table's per-row "Huỷ" button,

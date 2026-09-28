@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.nav_metadata import NavMetadat
 from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.exceptions import DependencyResolutionError
 
 if TYPE_CHECKING:
@@ -99,7 +102,13 @@ def dashboard_screen(container: IContainer) -> ScreenContribution:
         )
 
         return DashboardView(
-            contributions=_contribution_table(container), container=container
+            contributions=_contribution_table(container),
+            container=container,
+            # `EPIC-027O` — decided once, here, alongside every other
+            # venue-branched read this composition layer already makes
+            # (`TradingActionsCoordinator`'s own `market_type=` in
+            # `presenter_factory_trading.py` is the precedent).
+            market_type=container.resolve(TradingVenue).market_type,
         )
 
     return ScreenContribution(

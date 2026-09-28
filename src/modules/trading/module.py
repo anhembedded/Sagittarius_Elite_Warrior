@@ -67,6 +67,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.trading.application.holdings_refresh_service import (
+    HoldingsRefreshService,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.position_refresh_service import (
     PositionRefreshService,
 )
@@ -201,9 +205,11 @@ class TradingModule(BoundedContextModule):
         boot for every run, a headless `sync` included, and a probe nobody
         opened must not cost a Qt import.
 
-        `dashboard_screen(self._container)` needs the container `boot()`
-        stashed (see `__init__`'s docstring); `trading_screen()` does not —
-        `TradingView()` takes no constructor arguments.
+        `dashboard_screen(self._container)`/`trading_screen(self._container)`
+        both need the container `boot()` stashed (see `__init__`'s
+        docstring) — `EPIC-027O` gave `TradingView` a `market_type`
+        constructor argument too, so this is no longer Dashboard's own
+        special case (`trading_screen.py`'s own docstring has the story).
         """
         if self._container is None:
             raise RuntimeError("TradingModule.contribute() called before boot()")
@@ -230,7 +236,7 @@ class TradingModule(BoundedContextModule):
             )
         )
         registry.contribute_screen(dashboard_screen(self._container))
-        registry.contribute_screen(trading_screen())
+        registry.contribute_screen(trading_screen(self._container))
 
     def boot(self, context: Any) -> None:
         """Two things `register()` could not decide or start.
@@ -277,9 +283,22 @@ class TradingModule(BoundedContextModule):
 
         config = container.resolve(IConfig)
         position_refresh = container.resolve(PositionRefreshService)
-        container.resolve(Scheduler).every(
-            seconds=self._position_refresh_interval_seconds(config)
-        ).do(position_refresh.refresh_once)
+        scheduler = container.resolve(Scheduler)
+        scheduler.every(seconds=self._position_refresh_interval_seconds(config)).do(
+            position_refresh.refresh_once
+        )
+
+        # `EPIC-027O` — the Holdings table's own poll, scheduled only on a
+        # Spot venue: `HoldingsRefreshService.refresh_once()` always no-ops
+        # while trading is disabled the same as positions, but unlike
+        # positions (cheap on every venue, Futures answers `[]`), a holdings
+        # poll is a real `check_connection()` round trip that a Futures venue
+        # would always answer `None` from — see that service's own docstring.
+        if container.resolve(TradingVenue).market_type is MarketType.SPOT:
+            holdings_refresh = container.resolve(HoldingsRefreshService)
+            scheduler.every(seconds=self._position_refresh_interval_seconds(config)).do(
+                holdings_refresh.refresh_once
+            )
 
     @staticmethod
     def _bind_trading_client_if_enabled(container: Any) -> None:
