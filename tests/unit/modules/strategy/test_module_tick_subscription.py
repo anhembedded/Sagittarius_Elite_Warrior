@@ -41,6 +41,18 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.event_handlers.m
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.arm_strategy_result import (
+    ArmStrategyResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.disarm_strategy_result import (
+    DisarmStrategyResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
+    IStrategyArming,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
+    LiveStrategyConfig,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.module import StrategyModule
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
@@ -64,6 +76,25 @@ class _RecordingSession:
 
     def dispatch_tick(self, market_data: MarketData) -> None:
         self.ticks.append(market_data)
+
+
+class _UnusedArming(IStrategyArming):
+    """Stands in for `IStrategyArming` — `boot()` resolves it unconditionally
+    (`EPIC-027N` PR #287 review) but `_arm_from_config()` returns before
+    calling any of it once the config is empty, which is this file's whole
+    fixture. Every method raises so a regression that reaches into arming
+    from this test would fail loudly instead of silently returning a fake
+    success.
+    """
+
+    def arm(self, config: LiveStrategyConfig) -> ArmStrategyResult:
+        raise AssertionError("arm() should not run for an empty saved config")
+
+    def disarm(self) -> DisarmStrategyResult:
+        raise AssertionError("disarm() is not exercised by this test")
+
+    def saved_selection(self) -> LiveStrategyConfig:
+        raise AssertionError("saved_selection() is not exercised by this test")
 
 
 def _market_data(symbol: str = "BTCUSDT") -> MarketData:
@@ -93,13 +124,18 @@ def _booted(session: _RecordingSession) -> tuple[StrategyModule, MemoryEventBus]
     substitute for a Mock) since `EPIC-025E` PR 4.4f-2: `boot()` now also
     seeds the live strategy from config before subscribing the tick path,
     and an empty config answers "nothing saved" — `is_complete` is `False`,
-    so `_arm_from_config()` returns before ever calling `.arm()` on
-    `_RecordingSession`, which does not have one. What this file tests is
-    still only the subscription, untouched by that seeding.
+    so `_arm_from_config()` returns before ever calling `.arm()`.
+    `IStrategyArming` is bound to `_UnusedArming` (`EPIC-027N` PR #287
+    review): `boot()` resolves it unconditionally to pass to
+    `_arm_from_config()`, and its every method raises, so a regression that
+    reached past the empty-config guard would fail this test instead of
+    quietly using a fake session. What this file tests is still only the
+    subscription, untouched by that seeding.
     """
     container = StdLibContainer()
     container.singleton(LiveStrategySession, session)
     container.singleton(IConfig, DictConfig())
+    container.singleton(IStrategyArming, _UnusedArming())
     event_bus = MemoryEventBus()
 
     module = StrategyModule()

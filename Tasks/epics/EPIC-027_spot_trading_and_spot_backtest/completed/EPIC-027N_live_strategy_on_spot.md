@@ -96,8 +96,21 @@
   `LiveOrderBlockedEvent`, never silently) when no baseline was ever recorded — the identical "unknown
   baseline, sell nothing" rule `EPIC-027M` applies to Emergency Stop, now applied to the strategy's own exit
   signal too. Futures SELL/SHORT/COVER keep the pre-existing `calculate_live_order_quantity()` path
-  unchanged; `SHORT`/`COVER` can never reach a Spot-armed coordinator at all once AC2's arming refusal is in
-  place, so no Spot branch is needed for them.
+  unchanged; `SHORT`/`COVER` can never reach a Spot-armed coordinator provided every arming path actually
+  runs through AC2's refusal — which, corrected below, was not yet true when this sentence was first written.
+- **PR #287 review (blocking, fixed same PR) — a second, unvalidated arming door.** The independent
+  reviewer found that `StrategyModule._arm_from_config()` (`src/modules/strategy/module.py`, pre-existing,
+  untouched by the rest of this task) called `LiveStrategySession.arm()` directly at every process boot,
+  never through `ArmStrategyCommandHandler` — so none of AC1/AC2/AC5's three refusals ran on that path. A
+  saved Futures-era config (a SHORT-capable strategy, non-default leverage, a non-USDT symbol) would
+  silently re-arm unchecked at boot if the venue was later switched to Spot, falsifying the sentence
+  above it: a resulting SHORT signal would still reach `LiveTradingCoordinator.handle()`'s unguarded
+  Futures-style sizing path. Fixed by routing `_arm_from_config()` through `IStrategyArming` — the same
+  `ArmStrategyCommand` dispatch every other arming caller (`StrategyArmingCoordinator` via
+  `StrategyArmingControlAdapter`) already goes through — rather than inventing a second validation
+  mechanism or reaching `ITradingSession`/the strategy registry into `LiveStrategySession.arm()` itself.
+  One door, not two, matching `fix-bug-rule.md` §1's "move shared logic up to the one layer that serves
+  every consumer" over patching the single reported call site.
 - **The guard test proves the declaration, not just its existence** (AC3). Every strategy `BaseStrategy`
   registers is source-scanned (`inspect.getsource`) for a literal `self.short(`/`self.cover(` call; finding
   one without the matching member in that class's own `supported_directions` fails the guard — a strategy
@@ -123,6 +136,7 @@
 | `src/modules/strategy/application/services/live_trading_coordinator.py` | `ITradingSession` dependency; Spot SELL sizing branch |
 | ~~`src/modules/trading/contracts/armed_strategy_config.py`~~ | scope correction — no change; leverage stays "deliberately unvalidated" by design |
 | `Docs/SPEC/` | out of scope, same reason `EPIC-027M` deferred `SPEC-007` — no live-trading SPEC exists yet to extend |
+| `src/modules/strategy/module.py` | PR #287 review fix — `_arm_from_config()` now resolves and dispatches through `IStrategyArming` instead of calling `LiveStrategySession.arm()` directly |
 
 ## 5. Testing
 - Unit: `BaseStrategy.supported_directions` default and the two overrides (`test_base_strategy.py`,
@@ -146,5 +160,19 @@
   reviewer both use) unchanged at the pre-existing 584-error baseline, verified by exact diff before and
   after — an earlier same-repo invocation from inside the repo root falsely reported 2722/2737 errors
   from a namespace-package resolution artifact of that invocation directory, not a real regression.
+- **PR #287 review fix regression test:** `test_module_boot_arming_reuses_the_validated_door.py` — a
+  real `StrategyRegistry`/`LiveStrategySession`/`ArmStrategyCommandHandler` wired exactly as
+  `test_strategy_arming_contract.py`'s `_DirectDispatcher` pattern does, seeded with a saved
+  SHORT-capable/USDT/1x config (isolating the SHORT-capability refusal from the other two, already
+  covered elsewhere) and a `FakeTradingSession` snapshot reporting `MarketType.SPOT`; asserts
+  `StrategyModule._arm_from_config()` leaves the session unarmed. Mutation-verified: reverting the fix
+  (calling the underlying session's `arm()` directly, bypassing `IStrategyArming`) turns it red for the
+  right reason — the strategy ends up armed. `test_module_tick_subscription.py`'s `_booted()` fixture
+  updated with an `_UnusedArming` double (every method raises) since `boot()` now resolves
+  `IStrategyArming` unconditionally, proving the empty-config fixture never reaches it.
+  `tests/unit/modules/strategy`, `tests/unit/modules/trading`,
+  `tests/integration/application/test_live_trading_pipeline_against_fake_server.py` and
+  `tests/integration/test_app_integration.py` re-run green (1208 + integration passed); `mypy` re-run
+  unchanged at 584; `tests/unit/architecture` re-run at 459 passed.
 - Full local gate (`ci-local.ps1 -Full`): not run locally, per `ci-rule.md` §1 (user decision
   2026-09-18) — GitHub Actions' `-Full` check run on the PR is the full-gate authority, cited once green.
