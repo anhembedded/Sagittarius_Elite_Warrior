@@ -8,6 +8,7 @@ from __future__ import annotations
 from types import SimpleNamespace
 from unittest.mock import MagicMock
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.client import (
     PythonBinanceClient,
@@ -45,6 +46,8 @@ def test_stream_lifecycle_controller_passes_cancellation_to_the_sync() -> None:
         get_active_interval=lambda: "1m",
         set_active_interval=MagicMock(),
         set_active_symbol=MagicMock(),
+        get_active_market=lambda: MarketType.SPOT,
+        set_active_market=MagicMock(),
         ensure_chart_cards=lambda s: [],
         rebuild_scripts=MagicMock(),
         compute_fetch_limit=lambda: 100,
@@ -67,6 +70,7 @@ def test_stream_lifecycle_controller_passes_cancellation_to_the_sync() -> None:
         interval_str="1m",
         limit=100,
         token=token,
+        market=MarketType.SPOT,
     )
 
     # `EPIC-025` PR 0.5: read off the port this screen now calls, instead of
@@ -102,6 +106,8 @@ def test_stream_lifecycle_controller_shutdown_finishes_action_slots() -> None:
         get_active_interval=lambda: "1m",
         set_active_interval=MagicMock(),
         set_active_symbol=MagicMock(),
+        get_active_market=lambda: MarketType.SPOT,
+        set_active_market=MagicMock(),
         ensure_chart_cards=lambda s: [],
         rebuild_scripts=MagicMock(),
         compute_fetch_limit=lambda: 100,
@@ -145,6 +151,8 @@ def _controller(**overrides) -> StreamLifecycleController:
         "get_active_interval": lambda: "1m",
         "set_active_interval": MagicMock(),
         "set_active_symbol": MagicMock(),
+        "get_active_market": lambda: MarketType.SPOT,
+        "set_active_market": MagicMock(),
         "ensure_chart_cards": lambda s: [],
         "rebuild_scripts": MagicMock(),
         "compute_fetch_limit": lambda: 100,
@@ -177,6 +185,7 @@ def test_sync_shows_the_progress_bar_then_hides_it_once_the_run_finishes() -> No
         interval_str="1m",
         limit=100,
         token=token,
+        market=MarketType.SPOT,
     )
 
     calls = emit_sync_progress.call_args_list

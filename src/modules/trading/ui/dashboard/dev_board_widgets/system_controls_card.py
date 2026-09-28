@@ -11,6 +11,7 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QHBoxLayout, QLineEdit, QPushButton, QWidget
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette, get_icon_loader
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Panel, ProgressBanner
 
@@ -137,12 +138,20 @@ class SystemControlsCard(Panel):
         layout.addWidget(self._progress_banner)
 
     def _build_market_combo(self) -> QComboBox:
+        """`EPIC-027O` — the chart's own market, independent of the fixed
+        trading venue; write-through only, same "no retroactive effect on
+        an in-flight run" contract `_view_model.symbol` already has."""
         self._cbo_market = QComboBox()
         self._cbo_market.setObjectName("cboMarket")
-        self._cbo_market.addItems(["Spot", "Futures"])
+        self._cbo_market.addItem("Spot", MarketType.SPOT.value)
+        self._cbo_market.addItem("Futures", MarketType.FUTURES_USD_M.value)
         self._cbo_market.setFixedHeight(32)
         self._cbo_market.setStyleSheet(field_style())
+        self._cbo_market.currentIndexChanged.connect(self._on_market_changed)
         return self._cbo_market
+
+    def _on_market_changed(self) -> None:
+        self._view_model.market = self._cbo_market.currentData()
 
     def _build_symbol_button(self) -> QPushButton:
         """The field that opens the shared symbol picker.

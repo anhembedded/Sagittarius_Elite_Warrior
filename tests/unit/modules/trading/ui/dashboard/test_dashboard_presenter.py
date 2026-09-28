@@ -24,6 +24,7 @@ from unittest.mock import MagicMock, Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
@@ -691,7 +692,9 @@ def test_run_load_history_reads_every_symbol_in_one_call(
     """
     symbols = ["BTCUSDT", "ETHUSDT"]
 
-    presenter._run_load_history(symbols, "1m", 5000, presenter._cancellation_token)
+    presenter._run_load_history(
+        symbols, "1m", 5000, presenter._cancellation_token, MarketType.SPOT
+    )
 
     assert len(fake_historical_klines.reads) == 1
     read = fake_historical_klines.reads[0]
@@ -756,7 +759,11 @@ def test_run_load_history_keeps_going_after_one_symbol_raises(
     )
 
     presenter._run_load_history(
-        ["BTCUSDT", "ETHUSDT"], "1m", 100, presenter._cancellation_token
+        ["BTCUSDT", "ETHUSDT"],
+        "1m",
+        100,
+        presenter._cancellation_token,
+        MarketType.SPOT,
     )
 
     assert any("Exception while loading history for BTCUSDT" in log for log in logs)
@@ -787,7 +794,11 @@ def test_run_load_history_logs_a_symbol_with_nothing_stored_and_loads_the_rest(
     )
 
     presenter._run_load_history(
-        ["BTCUSDT", "ETHUSDT"], "1m", 100, presenter._cancellation_token
+        ["BTCUSDT", "ETHUSDT"],
+        "1m",
+        100,
+        presenter._cancellation_token,
+        MarketType.SPOT,
     )
 
     assert any("No historical data found for BTCUSDT." in log for log in logs)
@@ -915,8 +926,8 @@ def test_on_load_history_submits_the_parsed_date_range(presenter, mock_thread_mg
     presenter._on_load_history()
 
     submit_args = mock_thread_mgr.submit.call_args[0]
-    assert submit_args[5] == datetime(2024, 1, 1, tzinfo=UTC)  # start_time
-    assert submit_args[6] == datetime(2024, 1, 2, tzinfo=UTC)  # end_time
+    assert submit_args[6] == datetime(2024, 1, 1, tzinfo=UTC)  # start_time
+    assert submit_args[7] == datetime(2024, 1, 2, tzinfo=UTC)  # end_time
 
 
 def test_run_load_history_gives_the_port_the_picked_date_range(
@@ -929,7 +940,13 @@ def test_run_load_history_gives_the_port_the_picked_date_range(
     end = datetime(2024, 1, 2, tzinfo=UTC)
 
     presenter._run_load_history(
-        ["BTCUSDT"], "1m", 100, presenter._cancellation_token, start, end
+        ["BTCUSDT"],
+        "1m",
+        100,
+        presenter._cancellation_token,
+        MarketType.SPOT,
+        start,
+        end,
     )
 
     read = fake_historical_klines.reads[0]
@@ -1017,7 +1034,12 @@ def test_run_sync_and_start_full_workflow(
     presenter.fsm.transition_to(UIMode.LOCKED)
 
     presenter._run_sync_and_start(
-        ["BTCUSDT"], TimeFrame("1m"), "1m", 5000, presenter._cancellation_token
+        ["BTCUSDT"],
+        TimeFrame("1m"),
+        "1m",
+        5000,
+        presenter._cancellation_token,
+        MarketType.SPOT,
     )
 
     assert journal == ["sync", "history", "stream"]
@@ -1071,8 +1093,8 @@ def test_on_start_stream_submits_the_parsed_date_range(presenter, mock_thread_mg
     presenter._on_start_stream()
 
     submit_args = mock_thread_mgr.submit.call_args[0]
-    assert submit_args[6] == datetime(2024, 1, 1, tzinfo=UTC)  # start_time
-    assert submit_args[7] == datetime(2024, 1, 2, tzinfo=UTC)  # end_time
+    assert submit_args[7] == datetime(2024, 1, 1, tzinfo=UTC)  # start_time
+    assert submit_args[8] == datetime(2024, 1, 2, tzinfo=UTC)  # end_time
 
 
 def test_run_sync_and_start_never_forwards_the_date_range_to_the_sync(
@@ -1103,6 +1125,7 @@ def test_run_sync_and_start_never_forwards_the_date_range_to_the_sync(
         "1m",
         5000,
         presenter._cancellation_token,
+        MarketType.SPOT,
         start,
         end,
     )
@@ -1133,6 +1156,7 @@ def test_run_sync_and_start_still_loads_history_for_the_picked_date_range(
         "1m",
         5000,
         presenter._cancellation_token,
+        MarketType.SPOT,
         start,
         end,
     )
@@ -1160,7 +1184,7 @@ def test_run_load_history_does_nothing_with_an_already_cancelled_token(
     token = CancellationToken()
     token.cancel()
 
-    presenter._run_load_history(["BTCUSDT"], "1m", 100, token)
+    presenter._run_load_history(["BTCUSDT"], "1m", 100, token, MarketType.SPOT)
 
     mock_dispatcher.dispatch.assert_not_called()
 
@@ -1178,7 +1202,9 @@ def test_run_sync_and_start_stops_after_step_1_when_cancelled(
     token.cancel()
     mock_dispatcher.dispatch.return_value = []
 
-    presenter._run_sync_and_start(["BTCUSDT"], TimeFrame("1m"), "1m", 5000, token)
+    presenter._run_sync_and_start(
+        ["BTCUSDT"], TimeFrame("1m"), "1m", 5000, token, MarketType.SPOT
+    )
 
     # The sync ran (step 1) and nothing after it: no history read, no stream.
     assert len(fake_market_data_sync.requests) == 1
@@ -1530,7 +1556,7 @@ def test_run_load_more_history_asks_for_the_newest_page_below_the_boundary(
     fake_historical_klines.seed([_make_stored_kline(900.0)])
 
     presenter._run_load_more_history(
-        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token
+        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token, MarketType.SPOT
     )
 
     read = fake_historical_klines.reads[0]
@@ -1558,7 +1584,7 @@ def test_run_load_more_history_filters_out_the_boundary_candle(
     )
 
     presenter._run_load_more_history(
-        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token
+        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token, MarketType.SPOT
     )
 
     assert len(emitted) == 1
@@ -1577,7 +1603,7 @@ def test_run_load_more_history_emits_nothing_when_no_older_data_exists(
     presenter.ui_history_prepend_finished_signal.connect(lambda *a: finished.append(a))
 
     presenter._run_load_more_history(
-        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token
+        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token, MarketType.SPOT
     )
 
     assert emitted == []
@@ -1593,7 +1619,7 @@ def test_run_load_more_history_does_nothing_with_an_already_cancelled_token(
     presenter._cancellation_token.cancel()
 
     presenter._run_load_more_history(
-        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token
+        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token, MarketType.SPOT
     )
 
     mock_dispatcher.dispatch.assert_not_called()
@@ -1641,7 +1667,7 @@ def test_run_load_more_history_reports_found_more_when_data_arrives(
     presenter.ui_history_prepend_finished_signal.connect(lambda *a: finished.append(a))
 
     presenter._run_load_more_history(
-        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token
+        "ETHUSDT", "1m", 1000.0, 75, presenter._cancellation_token, MarketType.SPOT
     )
 
     assert finished == [("ETHUSDT", True)]
@@ -2117,6 +2143,33 @@ def test_position_closed_removes_it_from_the_positions_table(
     presenter._on_position_closed(PositionClosedEvent(symbol=position.symbol))
 
     spy.assert_called_once_with([])
+
+
+def test_holdings_changed_updates_the_manual_order_sell_button(
+    presenter, view, monkeypatch
+):
+    """`EPIC-027O` — `_on_holdings_changed` is also where the manual order
+    card's SELL button learns whether `_active_symbol` has anything to
+    sell (`has_holding`)."""
+    from decimal import Decimal
+
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.holdings_changed_event import (
+        HoldingsChangedEvent,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
+        SpotHolding,
+    )
+
+    presenter._active_symbol = "BTCUSDT"
+    holding = SpotHolding(
+        asset="BTC", free=Decimal("0.5"), locked=Decimal(0), dust_threshold=Decimal(0)
+    )
+
+    presenter._on_holdings_changed(HoldingsChangedEvent(holdings=(holding,)))
+    assert presenter._view_model.manualOrderSellEnabled is True
+
+    presenter._on_holdings_changed(HoldingsChangedEvent(holdings=()))
+    assert presenter._view_model.manualOrderSellEnabled is False
 
 
 def test_position_closed_for_an_unknown_symbol_is_a_no_op(presenter, view, monkeypatch):

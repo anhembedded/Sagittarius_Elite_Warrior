@@ -55,7 +55,14 @@ if TYPE_CHECKING:
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
         ITradingSession,
     )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
+        SpotHolding,
+    )
     from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+
+#: `EPIC-027N` AC5 — the same literal every Spot-asset-parsing call site
+#: already carries (`live_order_book_coordinator.py`, `holding_prices.py`, …).
+_QUOTE_ASSET = "USDT"
 
 
 @dataclass(frozen=True)
@@ -283,8 +290,13 @@ class TradingActionsCoordinator:
             # (see `manual_order_intent_for()`'s own docstring).
             positions = self._account.open_positions()
             current_position = next((p for p in positions if p.symbol == symbol), None)
+            spot_holding = (
+                self._spot_holding_for_symbol(symbol)
+                if self._market_type is MarketType.SPOT
+                else None
+            )
             intent = manual_order_intent_for(
-                direction, current_position, self._market_type
+                direction, current_position, self._market_type, spot_holding
             )
             result = self._order_submission.submit(
                 OrderRequest(
@@ -300,6 +312,14 @@ class TradingActionsCoordinator:
             self._emit_manual_order_completed((action_id, result, None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
             self._emit_manual_order_completed((action_id, None, str(exc)))
+
+    def _spot_holding_for_symbol(self, symbol: str) -> SpotHolding | None:
+        """`EPIC-027O` — freshly read, same reasoning as `current_position`
+        above: never the UI's own cached `LiveOrderBookCoordinator._holdings`
+        (that copy only drives the SELL button's preemptive enabled state)."""
+        asset = symbol.removesuffix(_QUOTE_ASSET)
+        holdings = self._account.check_connection().holdings or ()
+        return next((holding for holding in holdings if holding.asset == asset), None)
 
     # ------------------------------------------------------------------ #
     # Per-order cancel (`EPIC-024B` §0) — no tracker: unlike the manual

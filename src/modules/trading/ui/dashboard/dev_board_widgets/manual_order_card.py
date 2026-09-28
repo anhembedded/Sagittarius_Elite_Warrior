@@ -5,12 +5,21 @@ feature's own task file allowed ("combo Long/Short (hoặc 2 nút tab)"). No
 leverage/margin-mode field here — `PRO-003` §8.1 confirmed `ITradingClient`
 has no way to change either on the real exchange, so drawing that control
 would be a UI that lies (`domain-truth-rule.md`).
+
+`EPIC-027O` — on Spot the same two buttons read "BUY"/"SELL" (label only;
+the click still dispatches `ManualOrderDirection.LONG`/`SHORT` underneath,
+see `_on_manual_order_clicked`) and SELL disables itself without a real
+holding to sell (`vm.manualOrderSellEnabled`, pushed by
+`DashboardPresenter._on_holdings_changed`) — a preemptive UX nicety, not
+the safety check itself, which `manual_order_intent_for()` still enforces
+fresh at submit time regardless of this button's state.
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QDoubleSpinBox, QHBoxLayout, QLabel, QWidget
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
     ManualOrderDirection,
@@ -27,6 +36,8 @@ from .layout_helpers import field_row, field_style, section_row
 
 _MANUAL_ORDER_LONG_TEXT = "LONG"
 _MANUAL_ORDER_SHORT_TEXT = "SHORT"
+_MANUAL_ORDER_BUY_TEXT = "BUY"
+_MANUAL_ORDER_SELL_TEXT = "SELL"
 
 
 class ManualOrderCard(Panel):
@@ -36,10 +47,15 @@ class ManualOrderCard(Panel):
     card itself as a dialog (`DevBoardPanel.manual_order_card`)."""
 
     def __init__(
-        self, view_model: DashboardQmlViewModel, parent: QWidget | None = None
+        self,
+        view_model: DashboardQmlViewModel,
+        parent: QWidget | None = None,
+        *,
+        market_type: MarketType | None = None,
     ) -> None:
         super().__init__(parent)
         self._view_model = view_model
+        self._is_spot = market_type is MarketType.SPOT
         self.setObjectName("devBoardManualOrderCard")
         layout = self.body_layout
         layout.setContentsMargins(14, 14, 14, 14)
@@ -79,7 +95,8 @@ class ManualOrderCard(Panel):
         actions_row.setContentsMargins(0, 0, 0, 0)
         actions_row.setSpacing(10)
         self._btn_manual_long = StyledButton(
-            _MANUAL_ORDER_LONG_TEXT, role=StyleRole.PRIMARY_BUTTON
+            _MANUAL_ORDER_BUY_TEXT if self._is_spot else _MANUAL_ORDER_LONG_TEXT,
+            role=StyleRole.PRIMARY_BUTTON,
         )
         self._btn_manual_long.setObjectName("btnManualLong")
         self._btn_manual_long.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -87,7 +104,8 @@ class ManualOrderCard(Panel):
             lambda: self._on_manual_order_clicked(ManualOrderDirection.LONG)
         )
         self._btn_manual_short = StyledButton(
-            _MANUAL_ORDER_SHORT_TEXT, role=StyleRole.DANGER_BUTTON
+            _MANUAL_ORDER_SELL_TEXT if self._is_spot else _MANUAL_ORDER_SHORT_TEXT,
+            role=StyleRole.DANGER_BUTTON,
         )
         self._btn_manual_short.setObjectName("btnManualShort")
         self._btn_manual_short.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -124,8 +142,17 @@ class ManualOrderCard(Panel):
 
     def _sync_manual_order_state(self) -> None:
         vm = self._view_model
+        editable = not vm.manualOrderBusy
         for widget in self._manual_order_controls:
-            widget.setEnabled(not vm.manualOrderBusy)
+            widget.setEnabled(editable)
+        # `EPIC-027O` — Spot Sell without a real holding, on top of the busy
+        # gate every other control already gets above. `manualOrderSellEnabled`
+        # is a PySide6 `@Property(bool)`; mypy reads the descriptor itself
+        # (`Property`) rather than the `bool` it actually holds at runtime —
+        # the same systemic false positive `manualOrderMessage` below hits.
+        self._btn_manual_short.setEnabled(
+            editable and vm.manualOrderSellEnabled  # type: ignore[arg-type]
+        )
         # `DashboardQmlViewModel.manualOrderMessage` is a PySide6
         # `@Property(str)`; mypy reads the descriptor itself (`Property`)
         # rather than the `str` it actually holds at runtime — the same

@@ -7,6 +7,7 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
@@ -26,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_resu
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.holdings_changed_event import (
+    HoldingsChangedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.live_order_blocked_event import (
     LiveOrderBlockedEvent,
 )
@@ -44,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter impor
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_feed import EquityFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
     format_execute_order_block_reason,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_prices import (
+    holding_prices_from_symbol_prices,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
@@ -222,7 +229,8 @@ _BLOCK_REASON_MESSAGES = EnumLabels(
     EnableTradingBlockReason,
     {
         EnableTradingBlockReason.TRADING_VENUE_DISABLED: (
-            "Trading venue is disabled in configuration — only Futures Testnet is supported."
+            "Trading venue is disabled in configuration — set it to Futures Testnet "
+            "or Spot Testnet to enable trading."
         ),
         EnableTradingBlockReason.CONNECTION_NOT_READY: (
             "Connection to the exchange is not ready — check your API key/network connection."
@@ -508,6 +516,7 @@ class DashboardPresenter(BasePresenter):
     _pagination: HistoryPaginationController
     _active_interval: str
     _active_symbol: str
+    _active_market: MarketType
     _script_registry: IndicatorScriptRegistry
     _script_catalog: IndicatorScriptCatalog
     _script_params_store: IndicatorScriptParamsStore
@@ -751,25 +760,20 @@ class DashboardPresenter(BasePresenter):
             emit_log=self.ui_log_signal.emit,
             parent=self,
         )
-        # Tiến độ đồng bộ là sự thật của HỆ THỐNG (Backtest, Data Management
-        # cũng hiển thị) → đi qua SyncProgressFeed, một nơi chuẩn hoá + ghép
-        # chuỗi (`architecture-rule.md` §6), thay vì màn này tự
-        # `event_bus.on(SingleSyncProgressEvent, ...)` và tự ghép câu chữ lần
-        # thứ ba (BOT-123).
+        # Tiến độ đồng bộ đi qua SyncProgressFeed — sự thật của HỆ THỐNG,
+        # chuẩn hoá một nơi (`architecture-rule.md` §6) thay vì tự ghép lần ba (BOT-123).
         self._sync_feed = SyncProgressFeed(self.event_bus, parent=self)
         self._sync_feed.progressUpdated.connect(self._on_sync_progress)
-        # `EPIC-021K` §2.3/§3 — live order fills as chart markers; `EPIC-023A`
-        # widens this same Feed instance to also keep the Vị thế/Lệnh chờ
-        # khớp tables live (`positionChanged`/`positionClosed`/`orderBlocked`
-        # — previously only `orderFilled` was read here). `OrderFeed` already
-        # exists for `TradingPresenter` (`EPIC-021H`), so this is a second
-        # consumer of the same one-place-subscribes Feed, not a new
-        # subscription shape.
+        # `EPIC-021K` §2.3/§3 — live fills as chart markers; `EPIC-023A` (Vị
+        # thế/Lệnh chờ khớp tables) and `EPIC-027O` (`holdingsChanged`) widened
+        # this same `OrderFeed` (`TradingPresenter`'s own, `EPIC-021H`) as
+        # further consumers, not a new subscription shape.
         self._order_feed = OrderFeed(self.event_bus, parent=self)
         self._order_feed.orderFilled.connect(self._on_order_filled)
         self._order_feed.positionChanged.connect(self._on_position_changed)
         self._order_feed.positionClosed.connect(self._on_position_closed)
         self._order_feed.orderBlocked.connect(self._on_order_blocked)
+        self._order_feed.holdingsChanged.connect(self._on_holdings_changed)  # EPIC-027O
         # `EPIC-023B` — same one-place-subscribes Feed `TradingPresenter`
         # already uses (`EPIC-021M`); a second consumer, not a new shape.
         self._equity_feed = EquityFeed(self.event_bus, parent=self)
@@ -793,22 +797,14 @@ class DashboardPresenter(BasePresenter):
 
     def _on_order_filled(self, event: OrderFilledEvent) -> None:
         """`OrderFeed.orderFilled` handler — already on the main thread.
-
-        @details Two independent effects:
-        1. Lệnh chờ khớp table bookkeeping — delegated to
-           `LiveOrderBookCoordinator` (`EPIC-023A` follow-up: this used to
-           be a byte-for-byte copy of `TradingPresenter`'s own dict/render
-           logic, pulled out once duplicated a second time — same class of
-           defect `health_check_coordinator.py`'s own docstring names).
-        2. Draws a chart marker, only when a chart card for that symbol is
-           currently open (`active_charts`); a fill on a symbol Dev Board
-           isn't showing has nowhere to draw and is silently dropped, same
-           as `TradingPresenter._record_fill_marker`'s
-           `symbol == self._active_symbol` guard for its single chart. This
-           half stays here — it is genuinely screen-specific, unlike #1.
-        3. `EPIC-023D` — refreshes the session-stats card, same as
-           `TradingPresenter._on_order_filled`.
-        """
+        Three effects: (1) table bookkeeping via `LiveOrderBookCoordinator`
+        (`EPIC-023A` — pulled out after this duplicated `TradingPresenter`'s
+        own dict/render logic a second time); (2) a chart marker, only when
+        that symbol's chart is open (`active_charts`) — a fill Dev Board
+        isn't showing has nowhere to draw, same guard
+        `TradingPresenter._record_fill_marker` uses for its one chart, and
+        stays here since it is genuinely screen-specific; (3) `EPIC-023D` —
+        refreshes the session-stats card."""
         self._order_book.on_order_filled(event.order)
         self._refresh_session_stats()
 
@@ -825,9 +821,19 @@ class DashboardPresenter(BasePresenter):
         self._order_book.on_position_changed(event.position)
 
     def _on_position_closed(self, event: PositionClosedEvent) -> None:
-        """`OrderFeed.positionClosed` handler — already on the main thread.
-        `BUG-086`."""
+        """`OrderFeed.positionClosed` handler — already on the main thread (`BUG-086`)."""
         self._order_book.on_position_closed(event.symbol)
+
+    def _on_holdings_changed(self, event: HoldingsChangedEvent) -> None:
+        """`OrderFeed.holdingsChanged` — Spot only, also where the manual
+        order card's SELL button learns `_active_symbol`'s sellability."""
+        self._order_book.replace_holdings(
+            event.holdings,
+            holding_prices_from_symbol_prices(self._last_price_by_symbol),
+        )
+        self._view_model.set_manual_order_sell_enabled(
+            self._order_book.has_holding(self._active_symbol)
+        )
 
     def _on_order_blocked(self, event: LiveOrderBlockedEvent) -> None:
         """`OrderFeed.orderBlocked` handler — already on the main thread.
@@ -976,10 +982,9 @@ class DashboardPresenter(BasePresenter):
     def _apply_emergency_stop_final_state(self, result: EmergencyStopResult) -> None:
         """`BUG-093` (Trading's own precedent) — the user-data stream is
         already stopped by Emergency Stop's own step 1, so
-        `_on_order_filled`/`_on_position_changed`/`_on_position_closed` will
-        never fire for whatever steps 2-3 actually did. Without this, the
-        Positions/Open Orders tables keep showing whatever they held right
-        before the button was pressed."""
+        `_on_order_filled`/`_on_position_changed`/`_on_position_closed`
+        never fire for whatever steps 2-3 did; without this the tables
+        would keep showing stale pre-button state."""
         if not result.final_state_confirmed:
             self._append_log(
                 "[WARNING] Could not confirm account state after the emergency "
@@ -1184,15 +1189,10 @@ class DashboardPresenter(BasePresenter):
     # ================================================================== #
 
     def _enabled_script_keys(self) -> list[str]:
-        """
-        @brief Which scripts to run — read fresh every call, not cached.
-        @details Backed by the view model's IndicatorScriptListModel
-        (DevBoardPanel.qml's "CUSTOM SCRIPTS" checklist). Only read at Load
-        History/Start Live click time (see _rebuild_scripts' callers) — the
-        same "no retroactive effect" contract RSI/EMA/MACD's toggles already
-        have (TC-GAP-07): ticking a box mid-run has no effect until the next
-        click.
-        """
+        """Which scripts to run — read fresh every call, not cached. Only
+        read at Load History/Start Live click time (see `_rebuild_scripts`'
+        callers) — the same "no retroactive effect" contract RSI/EMA/MACD's
+        toggles already have (TC-GAP-07)."""
         return self._view_model.script_model.enabled_keys
 
     def _rebuild_scripts(self) -> None:

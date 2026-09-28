@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QDoubleSpinBox, QHBoxLayout, QLabel, QWidget
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
     MAX_LEVERAGE,
     MAX_SIZING_PERCENT,
@@ -49,10 +50,15 @@ class StrategyCard(Panel):
     this reaction owned by the card whose state it actually changes."""
 
     def __init__(
-        self, view_model: DashboardQmlViewModel, parent: QWidget | None = None
+        self,
+        view_model: DashboardQmlViewModel,
+        parent: QWidget | None = None,
+        *,
+        market_type: MarketType | None = None,
     ) -> None:
         super().__init__(parent)
         self._view_model = view_model
+        self._is_spot = market_type is MarketType.SPOT
         # `DashboardQmlViewModel.strategy` is a PySide6 `@Property`; mypy
         # reads the descriptor itself (`Property`) rather than the
         # `StrategyCardViewModel` it actually holds at runtime — the same
@@ -94,7 +100,13 @@ class StrategyCard(Panel):
         self._spn_leverage.setSuffix(" x")
         self._spn_leverage.setFixedHeight(32)
         self._spn_leverage.setStyleSheet(field_style())
-        layout.addWidget(field_row("Leverage", self._spn_leverage))
+        self._row_leverage = field_row("Leverage", self._spn_leverage)
+        layout.addWidget(self._row_leverage)
+        # `EPIC-027O` AC3 — same Futures-only leverage concept
+        # `TradingView._build_strategy_card()` hides; the venue never
+        # changes mid-process (`self._is_spot`'s own reasoning there).
+        if self._is_spot:
+            self._row_leverage.setVisible(False)
 
         self._btn_strategy_params = StyledButton(
             _PARAMS_BUTTON_TEXT, role=StyleRole.SECONDARY_BUTTON

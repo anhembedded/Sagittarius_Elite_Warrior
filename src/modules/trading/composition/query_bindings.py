@@ -15,6 +15,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_excha
     GetExchangeConnectionStatusQuery,
     GetExchangeConnectionStatusQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_holdings import (
+    GetHoldingsQuery,
+    GetHoldingsQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
     GetOpenPositionsQuery,
     GetOpenPositionsQueryHandler,
@@ -25,6 +29,7 @@ from sagittarius_engine.interfaces.i_container import IContainer
 def bind_queries(container: IContainer) -> None:
     """Route each trading query type to the handler that answers it."""
     container.bind(GetOpenPositionsQuery, GetOpenPositionsQueryHandler)
+    container.bind(GetHoldingsQuery, GetHoldingsQueryHandler)
     container.bind(
         GetExchangeConnectionStatusQuery, GetExchangeConnectionStatusQueryHandler
     )

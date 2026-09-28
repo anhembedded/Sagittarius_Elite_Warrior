@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_view_model import (
     DashboardQmlViewModel,
 )
@@ -41,7 +42,10 @@ def build_preview() -> QWidget:
         }
     )
 
-    panel = DevBoardPanel(view_model)
+    # `EPIC-027O` — Spot: BUY/SELL labels on the manual order card, leverage
+    # hidden on the strategy card. Futures' LONG/SHORT + leverage stays the
+    # default everywhere `market_type` is not passed.
+    panel = DevBoardPanel(view_model, market_type=MarketType.SPOT)
 
     host = QWidget()
     column = QVBoxLayout(host)

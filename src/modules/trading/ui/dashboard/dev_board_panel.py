@@ -46,6 +46,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_catalog import (
     IndicatorScriptCatalog,
@@ -125,23 +126,26 @@ class DevBoardPanel(QObject):
     `DevBoardPanel.qml`, then a scrolling column of cards in a `QSplitter`
     pane, and since `EPIC-025` PR 1.4c-3 **one card per dock**.
 
-    It is no longer a widget, and that is the change: it builds the cards,
-    owns every field and button, and wires them to the ViewModel, while
-    *where they go* is `DashboardView`'s to decide — five docks the user can
-    hide or tab independently, plus the manual-order card as a dialog. As a
-    `QWidget` it had to be the region the cards sat on, which meant painting
-    the app background with a stylesheet of its own (`Palette.BG`); a
-    `QObject` paints nothing, and the workbench supplies the surface.
+    It is no longer a widget: it builds the cards, owns every field and
+    button, and wires them to the ViewModel, while *where they go* is
+    `DashboardView`'s to decide — five docks the user can hide or tab
+    independently, plus the manual-order card as a dialog. A `QWidget` had
+    to be the region the cards sat on (painting the app background with its
+    own stylesheet, `Palette.BG`); a `QObject` paints nothing.
 
-    Every private attribute stays where it was, because that is what the
-    tests and the Presenter key off — `panel._btn_start`, `panel.
-    _txt_start_date`, `panel._script_checkboxes`. What is new is the public
-    read side: `dock_panels`, `manual_order_card`, `header_actions`,
-    `status_tiles` and `console_widget`.
+    Every private attribute stays where it was — `panel._btn_start`,
+    `panel._txt_start_date`, `panel._script_checkboxes` — because that is
+    what tests and the Presenter key off. New: the public read side,
+    `dock_panels`/`manual_order_card`/`header_actions`/`status_tiles`/
+    `console_widget`.
     """
 
     def __init__(
-        self, view_model: DashboardQmlViewModel, parent: QWidget | None = None
+        self,
+        view_model: DashboardQmlViewModel,
+        parent: QWidget | None = None,
+        *,
+        market_type: MarketType | None = None,
     ) -> None:
         super().__init__(parent)
         self._view_model = view_model
@@ -176,10 +180,10 @@ class DevBoardPanel(QObject):
                 on_end_date_edited=self._on_end_date_edited,
             ),
         )
-        self._strategy_card = StrategyCard(view_model)
+        self._strategy_card = StrategyCard(view_model, market_type=market_type)
         self._last_signal_card = LastSignalCard(view_model)
         self._session_card = SessionCard(view_model)
-        self._manual_order_card = ManualOrderCard(view_model)
+        self._manual_order_card = ManualOrderCard(view_model, market_type=market_type)
         self._indicators_card = self._build_indicators()
 
         self._log_panel = AppLogPanel("SYSTEM MONITOR")
@@ -345,15 +349,11 @@ class DevBoardPanel(QObject):
 
     @property
     def header_actions(self) -> list[QWidget]:
-        """What `DashboardView` places in the workbench's header toolbar: the
-        three things the user *does* from here.
-
-        Mirrors `BackTestTopPanel.run_button`'s reason for existing — the
-        private attributes stay what every existing test keys off. The price
-        ticker and the websocket pill left this list in PR 1.4c-2: they report
-        rather than act, and HLD §11.2 puts both in the status bar
-        (`status_tiles` below).
-        """
+        """What `DashboardView` places in the workbench's header toolbar:
+        the three things the user *does* from here. The price ticker and
+        websocket pill left this list in PR 1.4c-2 — they report rather
+        than act, and HLD §11.2 puts both in the status bar instead
+        (`status_tiles` below)."""
         return [
             self._btn_reload,
             self._btn_toggle_trading,
@@ -549,11 +549,10 @@ class DevBoardPanel(QObject):
 
     def _open_script_params_dialog(self, key: str) -> None:
         """Built fresh per opening, one per script key — see
-        `IndicatorScriptParamsSink`'s own docstring for why this differs
-        from a strategy card's one-permanent-sink shape. A no-op before the
-        Presenter has injected the catalog/store
+        `IndicatorScriptParamsSink`'s own docstring for why. A no-op before
+        the Presenter injects the catalog/store
         (`set_indicator_script_dependencies`), same guard
-        `_open_symbol_picker` gives for its own late-injected dependency."""
+        `_open_symbol_picker` gives its own late-injected dependency."""
         if self._script_catalog is None or self._script_params_store is None:
             return
         from Sagittarius_Elite_Warrior.src.support.indicators.ui.script_params_sink import (

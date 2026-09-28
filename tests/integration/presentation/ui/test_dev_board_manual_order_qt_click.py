@@ -35,8 +35,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 
 _TRADING_VENUE_DISABLED_MESSAGE = (
-    "Manual order blocked: Trading venue is disabled in configuration — only "
-    "Futures Testnet is supported."
+    "Manual order blocked: Trading venue is disabled in configuration — set it to "
+    "Futures Testnet or Spot Testnet to enable trading."
 )
 
 

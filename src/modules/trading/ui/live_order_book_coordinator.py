@@ -22,7 +22,8 @@ coordinator's plain methods instead of connecting Qt signals directly here.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterable, Sequence
+from collections.abc import Callable, Iterable, Mapping, Sequence
+from decimal import Decimal
 from typing import Protocol
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
@@ -31,6 +32,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     is_terminal,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
+    SpotHolding,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_row import (
+    HoldingRow,
+    build_holding_row,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     OpenOrderRow,
@@ -51,16 +59,25 @@ class OrderBookDisplay(Protocol):
 
     def set_open_orders(self, rows: Sequence[OpenOrderRow]) -> None: ...
 
+    def set_holdings(self, rows: Sequence[HoldingRow]) -> None: ...
+
+
+#: `EPIC-027N` AC5/`EPIC-027O` — Phase 1 Spot trades USDT-quoted pairs only;
+#: the same literal `arm_strategy/handler.py`/`emergency_stop/handler.py`/
+#: `live_trading_coordinator.py` already carry, not a new one.
+_QUOTE_ASSET = "USDT"
+
 
 class LiveOrderBookCoordinator:
-    """@brief Keeps one screen's Positions/Open Orders tables in sync with
-    `OrderFeed` events the owning Presenter forwards in."""
+    """@brief Keeps one screen's Positions/Open Orders/Holdings tables in
+    sync with `OrderFeed` events the owning Presenter forwards in."""
 
     def __init__(self, view: OrderBookDisplay, emit_log: Callable[[str], None]) -> None:
         self._view = view
         self._emit_log = emit_log
         self._positions: dict[str, LivePosition] = {}
         self._open_orders: dict[str, Order] = {}
+        self._holdings: dict[str, SpotHolding] = {}
 
     def replace_all(
         self, positions: Iterable[LivePosition], open_orders: Iterable[Order]
@@ -109,6 +126,29 @@ class LiveOrderBookCoordinator:
         a one-time-meaningful event, not an application error."""
         self._emit_log(f"Live order blocked ({symbol}): {reason}")
 
+    def replace_holdings(
+        self, holdings: Iterable[SpotHolding], prices: Mapping[str, Decimal]
+    ) -> None:
+        """`EPIC-027O` — whole-set reconciliation, the only kind Holdings
+        ever gets: every `HoldingsChangedEvent` already carries the complete
+        account snapshot (that event's own docstring explains why there is
+        no incremental `on_holding_*` pair to mirror `on_position_changed`/
+        `on_position_closed`). `prices` is asset → last-known USDT price,
+        whatever the caller currently has (`build_holding_row` renders a
+        missing one as "—" rather than guessing)."""
+        self._holdings = {holding.asset: holding for holding in holdings}
+        self._render_holdings(prices)
+
+    def has_holding(self, symbol: str) -> bool:
+        """Whether the account holds a non-dust amount of `symbol`'s base
+        asset — what the manual order card's SELL button reads before
+        letting the user submit. USDT-quoted only (ADR D9): strips the same
+        fixed quote suffix `LiveTradingCoordinator._sellable_spot_quantity`
+        does."""
+        asset = symbol.removesuffix(_QUOTE_ASSET)
+        holding = self._holdings.get(asset)
+        return holding is not None and not holding.is_dust
+
     def _render_positions(self) -> None:
         self._view.set_positions(
             [build_position_row(position) for position in self._positions.values()]
@@ -117,4 +157,9 @@ class LiveOrderBookCoordinator:
     def _render_open_orders(self) -> None:
         self._view.set_open_orders(
             [build_open_order_row(order) for order in self._open_orders.values()]
+        )
+
+    def _render_holdings(self, prices: Mapping[str, Decimal]) -> None:
+        self._view.set_holdings(
+            [build_holding_row(holding, prices) for holding in self._holdings.values()]
         )

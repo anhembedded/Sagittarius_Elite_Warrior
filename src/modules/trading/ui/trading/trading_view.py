@@ -5,17 +5,17 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import (
     QComboBox,
-    QDoubleSpinBox,
     QHBoxLayout,
     QLabel,
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
-    MAX_LEVERAGE,
-    MAX_SIZING_PERCENT,
-    MIN_LEVERAGE,
-    MIN_SIZING_PERCENT,
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_row import (
+    HoldingRow,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holdings_panel import (
+    HoldingsPanel,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     OpenOrderRow,
@@ -51,6 +51,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
+from .strategy_card_widgets import build_strategy_card
+
 if TYPE_CHECKING:
     from .trading_view_model import TradingViewModel
 
@@ -79,19 +81,10 @@ _EQUITY_CHART_TITLE = "Equity"
 _EQUITY_CHART_MINIMUM_HEIGHT = 220
 
 # --- `EPIC-022D` strategy card ---------------------------------------- #
-#: Domain terminology fixed by `ui-presentation-rule.md`: strategy
-#: parameters are "Thông số Chiến lược", never the general Bot settings.
-_PARAMS_BUTTON_TEXT = "Strategy Parameters…"
-_ARM_TEXT = "Arm Strategy"
-_DISARM_TEXT = "Disarm"
+#: Same text `strategy_card_widgets.build_strategy_card()` labels the
+#: widget with — needed again here for this screen's own dynamic updates.
 _NOT_ARMED_TEXT = "No strategy armed."
 _NO_SIGNAL_TEXT = "No signal yet."
-#: The spin-box ranges come from `LiveStrategyConfig`'s own bounds, not
-#: from literals typed here (`BOT-125` review). A widget can only constrain
-#: what is typed into it; these values also arrive from `app_config.json`
-#: at boot and from a restored session, so the value object is where the
-#: rule has to live — this just keeps the widget from offering something
-#: the domain would reject.
 
 
 class TradingView(BaseView):
@@ -118,9 +111,19 @@ class TradingView(BaseView):
     #: layered re-export `DashboardView` does for its own identical panel.
     cancelOrderRequested = Signal(str, str)
 
-    def __init__(self, parent: QWidget | None = None) -> None:
+    def __init__(
+        self,
+        parent: QWidget | None = None,
+        *,
+        market_type: MarketType | None = None,
+    ) -> None:
         super().__init__(parent)
         self._view_model: TradingViewModel | None = None
+        # `EPIC-027O` — decided once, at construction, never re-read: same
+        # reasoning `DashboardView._is_spot` documents (the venue does not
+        # change without a restart). `None` (a bare `TradingView()` — a
+        # preview, a unit test) means "not Spot", the historical default.
+        self._is_spot = market_type is MarketType.SPOT
         self.chart = ChartCard(FALLBACK_SYMBOL)
         self.equity_chart = self._build_equity_chart()
         self._build_ui()
@@ -228,6 +231,9 @@ class TradingView(BaseView):
 
     def set_open_orders(self, rows: list[OpenOrderRow]) -> None:
         self._open_orders_panel.set_rows(rows)
+
+    def set_holdings(self, rows: list[HoldingRow]) -> None:
+        self._holdings_panel.set_rows(rows)
 
     # ------------------------------------------------------------------ #
     # Widget <-> ViewModel apply helpers (the "Python writes, UI shows" half)
@@ -442,12 +448,21 @@ class TradingView(BaseView):
         tables_layout.setContentsMargins(0, 0, 0, 0)
         tables_layout.setSpacing(12)
 
+        # `EPIC-027O` — on a Spot venue the Holdings panel takes this slot
+        # instead of Positions (never both — same reasoning
+        # `DashboardView`'s identical branch documents). The panel not
+        # shown this run is still constructed, so `OrderBookDisplay`'s full
+        # Protocol stays satisfied regardless of venue.
         self._positions_panel = PositionsPanel()
         self._positions_panel.setObjectName("positionsPanel")
+        self._holdings_panel = HoldingsPanel()
+        self._holdings_panel.setObjectName("holdingsPanel")
         self._open_orders_panel = OpenOrdersPanel()
         self._open_orders_panel.setObjectName("openOrdersPanel")
         self._open_orders_panel.cancelRequested.connect(self.cancelOrderRequested)
-        tables_layout.addWidget(self._positions_panel, 1)
+        tables_layout.addWidget(
+            self._holdings_panel if self._is_spot else self._positions_panel, 1
+        )
         tables_layout.addWidget(self._open_orders_panel, 1)
 
         layout.addWidget(tables_row, 1)
@@ -470,64 +485,26 @@ class TradingView(BaseView):
         return rail
 
     def _build_strategy_card(self) -> QWidget:
-        card = Card("STRATEGY")
-        card.setObjectName("tradingStrategyCard")
-        card.body_layout.setContentsMargins(12, 12, 12, 12)
-        card.body_layout.setSpacing(8)
+        widgets = build_strategy_card(self._field_label)
+        self._strategy_combo = widgets.strategy_combo
+        self._interval_combo = widgets.interval_combo
+        self._sizing_spin = widgets.sizing_spin
+        self._leverage_label = widgets.leverage_label
+        self._leverage_spin = widgets.leverage_spin
+        self._params_button = widgets.params_button
+        self._arm_button = widgets.arm_button
+        self._disarm_button = widgets.disarm_button
+        self._armed_label = widgets.armed_label
 
-        card.body_layout.addWidget(self._field_label("Strategy"))
-        self._strategy_combo = QComboBox()
-        self._strategy_combo.setObjectName("cboLiveStrategy")
-        card.body_layout.addWidget(self._strategy_combo)
-
-        card.body_layout.addWidget(self._field_label("Trading Timeframe"))
-        self._interval_combo = QComboBox()
-        self._interval_combo.setObjectName("cboLiveInterval")
-        card.body_layout.addWidget(self._interval_combo)
-
-        card.body_layout.addWidget(self._field_label("% Capital per Trade"))
-        self._sizing_spin = QDoubleSpinBox()
-        self._sizing_spin.setObjectName("spnLiveSizingPercent")
-        self._sizing_spin.setRange(MIN_SIZING_PERCENT, MAX_SIZING_PERCENT)
-        self._sizing_spin.setSingleStep(1.0)
-        self._sizing_spin.setSuffix(" %")
-        card.body_layout.addWidget(self._sizing_spin)
-
-        card.body_layout.addWidget(self._field_label("Leverage"))
-        self._leverage_spin = QDoubleSpinBox()
-        self._leverage_spin.setObjectName("spnLiveLeverage")
-        self._leverage_spin.setRange(MIN_LEVERAGE, MAX_LEVERAGE)
-        self._leverage_spin.setSingleStep(1.0)
-        self._leverage_spin.setSuffix(" x")
-        card.body_layout.addWidget(self._leverage_spin)
-
-        self._params_button = StyledButton(
-            _PARAMS_BUTTON_TEXT, role=StyleRole.SECONDARY_BUTTON
-        )
-        self._params_button.setObjectName("btnStrategyParams")
-        self._params_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        card.body_layout.addWidget(self._params_button)
-
-        actions = QWidget()
-        actions_row = QHBoxLayout(actions)
-        actions_row.setContentsMargins(0, 0, 0, 0)
-        actions_row.setSpacing(8)
-        self._arm_button = StyledButton(_ARM_TEXT, role=StyleRole.PRIMARY_BUTTON)
-        self._arm_button.setObjectName("btnArmStrategy")
-        self._arm_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._disarm_button = StyledButton(
-            _DISARM_TEXT, role=StyleRole.SECONDARY_BUTTON
-        )
-        self._disarm_button.setObjectName("btnDisarmStrategy")
-        self._disarm_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        actions_row.addWidget(self._arm_button, 1)
-        actions_row.addWidget(self._disarm_button, 1)
-        card.body_layout.addWidget(actions)
-
-        self._armed_label = QLabel(_NOT_ARMED_TEXT)
-        self._armed_label.setObjectName("lblArmedStrategy")
-        self._armed_label.setWordWrap(True)
-        card.body_layout.addWidget(self._armed_label)
+        # `EPIC-027O` AC3 — leverage is Futures-only
+        # (`ArmStrategyCommandHandler`'s `SPOT_LEVERAGE_NOT_SUPPORTED`,
+        # `EPIC-027N`). Static `setVisible()` at construction, not a live
+        # `ViewModel` property, since the venue never changes mid-process —
+        # unlike the backtest screen's market selector
+        # (`strategy_properties_dialog.py::_show_leverage_for_market()`).
+        if self._is_spot:
+            self._leverage_label.setVisible(False)
+            self._leverage_spin.setVisible(False)
 
         #: Everything above is disabled while trading is on. The command
         #: handlers refuse a swap anyway (`EPIC-022` §4.1) — this is the
@@ -542,7 +519,7 @@ class TradingView(BaseView):
             self._arm_button,
             self._disarm_button,
         )
-        return card
+        return widgets.card
 
     def _build_last_signal_card(self) -> QWidget:
         card = Card("LATEST SIGNAL")

@@ -32,6 +32,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
+    SpotHolding,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_row import (
+    build_holding_row,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     build_open_order_row,
 )
@@ -144,3 +150,37 @@ class TestAnOpenOrderRow:
         )
 
         assert row.order_time_text.startswith("2026-09-15")
+
+
+def holding(asset: str = "BTC", free: str = "0.5", locked: str = "0") -> SpotHolding:
+    return SpotHolding(
+        asset=asset,
+        free=Decimal(free),
+        locked=Decimal(locked),
+        dust_threshold=Decimal("0.0001"),
+    )
+
+
+class TestAHoldingRow:
+    def test_every_field_is_formatted_text(self) -> None:
+        row = build_holding_row(holding(), prices={"BTC": Decimal(64000)})
+
+        assert row.asset == "BTC"
+        assert row.free_text == "0.50000000"
+        assert row.locked_text == "0.00000000"
+        assert row.value_text == "32,000.00 USDT"
+
+    def test_free_and_locked_both_contribute_to_value(self) -> None:
+        row = build_holding_row(
+            holding(free="0.5", locked="0.25"), prices={"BTC": Decimal(64000)}
+        )
+
+        assert row.value_text == "48,000.00 USDT"
+
+    def test_a_missing_price_renders_the_value_as_a_dash(self) -> None:
+        """An asset with no live price known (no chart ever opened for it)
+        must not guess a value — the same "—" convention `position_row.py`
+        uses for a position with no reported liquidation price."""
+        row = build_holding_row(holding(asset="XRP"), prices={})
+
+        assert row.value_text == "—"

@@ -3,6 +3,13 @@ from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import QLabel, QToolButton, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_row import (
+    HoldingRow,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holdings_panel import (
+    HoldingsPanel,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
     OpenOrderRow,
 )
@@ -60,6 +67,10 @@ _EQUITY_CHART_MINIMUM_HEIGHT = 220
 #: perspective saved before the rename. The controls' own five titles belong to
 #: `DevBoardPanel`, which builds those cards.
 POSITIONS_DOCK = "Positions"
+#: `EPIC-027O` — the Spot counterpart to `POSITIONS_DOCK`, placed instead
+#: of it (never both); a new title rather than a rename, for the same
+#: saved-perspective reason as the comment above.
+HOLDINGS_DOCK = "Holdings"
 OPEN_ORDERS_DOCK = "Open orders"
 EQUITY_DOCK = "Equity"
 MONITOR_DOCK = "System monitor"
@@ -117,31 +128,36 @@ class DashboardView(BaseView):
     column of `ChartCard`s, with everything else in a `QDockWidget` the user
     can move, tab, float, hide and have remembered — Positions, Open orders,
     Equity and the five control cards on the right, the System Monitor log at
-    the bottom, the price ticker and websocket pill in the status bar.
+    the bottom, the price ticker and websocket pill in the status bar. Before
+    `BOT-128` this was a `PageShell`/`QSplitter` with two fixed, un-hideable
+    panes, which is why the account tables used to sit squeezed above the
+    charts instead of beside them.
 
-    Before it was a `PageShell` holding one `QSplitter`: two fixed panes,
-    neither hideable, and a rail column too narrow for a many-column table
-    (`BOT-128`) — which is why the two account tables used to sit squeezed
-    above the charts instead of beside them.
+    PR 1.4c-3 split the controls: `DevBoardPanel` stopped being a widget and
+    became the builder of five cards this View places in five docks, with
+    the manual-order card contributed as a **dialog** on `F9` — order entry
+    is occasional, with input and a confirmation, and as a card in a
+    scrolling column it was permanently in the way (HLD §11.3, MetaTrader's
+    own F9).
 
-    PR 1.4c-3 then split the controls: `DevBoardPanel` stopped being a widget
-    and became the builder of five cards this View places in five docks, with
-    the manual-order card contributed as a **dialog** on `F9` — order entry is
-    something the user does occasionally, with input and a confirmation, and as
-    a card in a scrolling column it was permanently in the way of everything
-    below it (HLD §11.3, and MetaTrader's own F9).
-
-    What did not change: the controls are still built lazily at
-    `set_view_model()` time (they need a real ViewModel to construct against),
-    the chart column is still QtWidgets/pyqtgraph, and FSM state still reaches
-    them through `apply_ui_mode` → the ViewModel's `uiMode` property.
+    The controls are still built lazily at `set_view_model()` time (they
+    need a real ViewModel to construct against), the chart column is still
+    QtWidgets/pyqtgraph, and FSM state still reaches them through
+    `apply_ui_mode` → the ViewModel's `uiMode` property.
     """
 
     #: `EPIC-024B` §0 — re-exposes `OpenOrdersPanel.cancelRequested`, same
     #: layered re-export the panel itself does for its own table.
     cancelOrderRequested = Signal(str, str)
 
-    def __init__(self, parent=None, *, contributions=None, container=None):
+    def __init__(
+        self,
+        parent=None,
+        *,
+        contributions=None,
+        container=None,
+        market_type: MarketType | None = None,
+    ):
         super().__init__(parent)
         self._view_model = None
         self._panel: DevBoardPanel | None = None
@@ -150,6 +166,11 @@ class DashboardView(BaseView):
         # which then renders this screen's own widgets and nothing else.
         self._contributions = contributions
         self._container = container
+        # `EPIC-027O` — decided once at construction, never re-read: the
+        # venue never changes without a restart (`EPIC-027G`). `None` (a
+        # bare `DashboardView()` — a preview, a unit test) means "not Spot".
+        self._is_spot = market_type is MarketType.SPOT
+        self._market_type = market_type
         # Follow-up to `EPIC-015` Phase 4: self-constructed default so a bare
         # DashboardView() still works unpersisted; DashboardPresenter
         # overrides this with the DI-resolved, shared store via
@@ -192,11 +213,22 @@ class DashboardView(BaseView):
         # widgets `TradingView` embeds (`components/order_book/`). Docks now,
         # each as wide as the user drags it, which is what the old fixed rail
         # column could not offer and HLD §11.2 assigns them.
+        #
+        # `EPIC-027O` — on Spot the Holdings dock is placed instead of
+        # Positions (never both). The panel not placed is still
+        # constructed, so `OrderBookDisplay`'s Protocol stays satisfied.
         self._positions_panel = PositionsPanel()
         self._positions_panel.setObjectName("positionsPanel")
-        self._surface.place_widget(
-            Place.RAIL, self._positions_panel, title=POSITIONS_DOCK
-        )
+        self._holdings_panel = HoldingsPanel()
+        self._holdings_panel.setObjectName("holdingsPanel")
+        if self._is_spot:
+            self._surface.place_widget(
+                Place.RAIL, self._holdings_panel, title=HOLDINGS_DOCK
+            )
+        else:
+            self._surface.place_widget(
+                Place.RAIL, self._positions_panel, title=POSITIONS_DOCK
+            )
 
         self._open_orders_panel = OpenOrdersPanel()
         self._open_orders_panel.setObjectName("openOrdersPanel")
@@ -231,7 +263,7 @@ class DashboardView(BaseView):
         something.
         """
         self._view_model = view_model
-        self._panel = DevBoardPanel(view_model)
+        self._panel = DevBoardPanel(view_model, market_type=self._market_type)
 
         for action_widget in self._panel.header_actions:
             self._surface.place_widget(Place.HEADER, action_widget)
@@ -266,16 +298,12 @@ class DashboardView(BaseView):
         fill_surface(self._surface, self._contributions, self._container)
 
     def _add_manual_order_action(self) -> None:
-        """`F9` raises the order dialog, and the same `QAction` sits in the
-        header toolbar.
-
-        One `QAction` per user action — it carries the shortcut, the toolbar
-        button and the enabled state in one object, which is the Consistency
-        and Efficiency pair HLD §11.2 asks for. `F9` because that is the key
-        MetaTrader has used for "new order" for twenty years, and the design
-        this workbench follows is theirs (HLD §11.2's "apply before you
-        invent").
-        """
+        """`F9` raises the order dialog; the same `QAction` sits in the
+        header toolbar — one `QAction` per user action carries the
+        shortcut, button and enabled state together (HLD §11.2's
+        Consistency/Efficiency pair). `F9` because MetaTrader has used it
+        for "new order" for twenty years (HLD §11.2's "apply before you
+        invent")."""
         self._manual_order_action = QAction(MANUAL_ORDER_DIALOG, self)
         self._manual_order_action.setObjectName("actManualOrder")
         self._manual_order_action.setShortcut(QKeySequence("F9"))
@@ -287,9 +315,8 @@ class DashboardView(BaseView):
         )
 
     def open_manual_order_dialog(self) -> None:
-        """Shows the order dialog, non-modally: a user placing an order by
-        hand is watching the chart behind it, and a modal `exec()` would
-        freeze the ticks they are deciding on."""
+        """Non-modal: a user placing an order by hand is watching the chart
+        behind it, and a modal `exec()` would freeze those ticks."""
         self._surface.show_modal(MANUAL_ORDER_DIALOG).show()
 
     def set_positions(self, rows: list[PositionRow]) -> None:
@@ -297,6 +324,9 @@ class DashboardView(BaseView):
 
     def set_open_orders(self, rows: list[OpenOrderRow]) -> None:
         self._open_orders_panel.set_rows(rows)
+
+    def set_holdings(self, rows: list[HoldingRow]) -> None:
+        self._holdings_panel.set_rows(rows)
 
     def set_symbol_preferences(self, preferences) -> None:
         """EPIC-014: DashboardPresenter injects the container-registered
@@ -311,22 +341,18 @@ class DashboardView(BaseView):
         catalog: IndicatorScriptCatalog,
         store: IndicatorScriptParamsStore,
     ) -> None:
-        """`BOT-063` — same forwarding shape as `set_symbol_preferences`:
-        this view has no container access either."""
+        """`BOT-063` — same forwarding shape as `set_symbol_preferences`."""
         if self._panel is not None:
             self._panel.set_indicator_script_dependencies(catalog, store)
 
     def set_timeframe_pin_preferences(
         self, preferences: TimeframePinPreferences
     ) -> None:
-        """Follow-up to `EPIC-015` Phase 4: `DashboardPresenter` injects the
-        container-registered, per-symbol pinned-timeframe store here. Unlike
-        `set_symbol_preferences` above, this View owns `render_symbol_cards`
-        itself (it builds `ChartCard`s directly, not through a panel), so
-        the store is kept on `self` and handed to every card built from now
-        on — including a card rebuilt for a symbol already seen, which is
-        exactly how it recovers that symbol's previously pinned set across
-        Dev Board's symbol-list rebuilds."""
+        """`EPIC-015` Phase 4: `DashboardPresenter` injects the shared,
+        per-symbol pinned-timeframe store here. Unlike `set_symbol_preferences`,
+        this View builds `ChartCard`s itself, so the store is kept on `self`
+        and handed to every card built from now on — recovering a rebuilt
+        symbol's previously pinned set across Dev Board's rebuilds."""
         self._timeframe_pin_preferences = preferences
 
     def apply_ui_mode(self, mode, section_key: str = "main") -> None:

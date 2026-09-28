@@ -30,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_resu
     EnableTradingResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    ExchangeConnectionStatus,
     MarginType,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
@@ -40,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
+    SpotHolding,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
     FakeAccountSnapshot,
 )
@@ -56,6 +60,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.coordinators.tra
     ActionTrackers,
     CompletionEmitters,
     TradingActionsCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -671,6 +678,91 @@ def test_run_manual_order_refuses_a_short_click_on_spot_without_submitting(
     assert action_id == 3
     assert result is None
     assert "Short is not supported on Spot" in error
+
+
+def test_run_manual_order_sells_a_real_spot_holding(
+    thread_manager,
+    trading_session,
+    order_submission,
+    account,
+    toggle_tracker,
+    emergency_stop_tracker,
+    manual_order_tracker,
+    append_log,
+    set_trading_state,
+    set_manual_order_state,
+    emit_enable_completed,
+    emit_disable_completed,
+    emit_emergency_stop_completed,
+    emit_manual_order_completed,
+    emit_cancel_order_completed,
+):
+    """`EPIC-027O` — the Sell counterpart to the refusal above: once a real,
+    freshly-read holding backs the click, it goes through as a plain
+    `SELL`/`reduce_only=False` (Spot's `create_order` rejects `reduceOnly`
+    outright — `manual_order_intent_for()`'s own docstring)."""
+    coordinator = _build_coordinator(
+        thread_manager=thread_manager,
+        trading_session=trading_session,
+        order_submission=order_submission,
+        account=account,
+        market_type=MarketType.SPOT,
+        toggle_tracker=toggle_tracker,
+        emergency_stop_tracker=emergency_stop_tracker,
+        manual_order_tracker=manual_order_tracker,
+        append_log=append_log,
+        set_trading_state=set_trading_state,
+        set_manual_order_state=set_manual_order_state,
+        get_last_price=lambda _symbol: Decimal(64000),
+        emit_enable_completed=emit_enable_completed,
+        emit_disable_completed=emit_disable_completed,
+        emit_emergency_stop_completed=emit_emergency_stop_completed,
+        emit_manual_order_completed=emit_manual_order_completed,
+        emit_cancel_order_completed=emit_cancel_order_completed,
+    )
+    account.answer_with(
+        ExchangeConnectionStatus(
+            venue=TradingVenue.SPOT_TESTNET,
+            reachable=True,
+            failure=None,
+            server_time_skew_ms=0,
+            usdt_balance=Decimal(1000),
+            position_mode=None,
+            margin_type=None,
+            open_position_count=None,
+            holdings=(
+                SpotHolding(
+                    asset="BTC",
+                    free=Decimal("0.5"),
+                    locked=Decimal(0),
+                    dust_threshold=Decimal("0.00001"),
+                ),
+            ),
+        )
+    )
+    order_submission.submit_answers(
+        ExecuteOrderResult(
+            blocked_by=None, preview=None, limit_checks=(), submitted_order=None
+        )
+    )
+
+    coordinator.run_manual_order(
+        4,
+        "BTCUSDT",
+        ManualOrderDirection.SHORT,
+        Decimal("0.01"),
+        OrderType.MARKET,
+        Decimal(64000),
+    )
+
+    (request,) = order_submission.submitted_live
+    assert request.side is OrderSide.SELL
+    assert request.reduce_only is False
+    (call,) = emit_manual_order_completed.calls
+    action_id, result, error = call[0]
+    assert action_id == 4
+    assert error is None
+    assert result.blocked_by is None
 
 
 # ---------------------------------------------------------------------------

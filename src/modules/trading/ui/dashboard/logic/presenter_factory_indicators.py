@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_catalog import (
     IndicatorScriptCatalog,
 )
@@ -70,6 +71,13 @@ def build_indicator_presenter_state(
     # to a different symbol silently stops routing indicator data to the
     # (correctly re-keyed) chart card _ensure_chart_cards just built.
     presenter._active_symbol = default_symbol(config_values, FALLBACK_SYMBOL)
+
+    # `EPIC-027O` — the chart's own market, committed at Load History/Start
+    # Live click time (see `StreamLifecycleController._on_load_history`/
+    # `_on_start_stream`), independent of the fixed trading venue. Defaults
+    # to Spot — the ViewModel's own `market` Property default — until the
+    # user picks Futures from the Dev Board's Market combo and (re)loads.
+    presenter._active_market = MarketType.SPOT
 
     # Custom indicator scripts (BOT-032) are the ONLY indicator mechanism
     # now (Phase 6 — no indicator is hardcoded in the engine; RSI/EMA/MACD

@@ -24,6 +24,14 @@ every Spot Short click translate to a plain `OrderSide.SELL`/
 holding once `TradingVenue.supports_order_submission` started admitting
 Spot orders. Refused here, before an `OrderIntent` is ever built, rather
 than silently reinterpreted as a Sell the user did not ask for.
+
+`EPIC-027O` — the Dev Board's Manual Order card now shows this same button
+as "SELL" on Spot (`ManualOrderCard`'s own docstring), so the outright
+refusal above softens to "refused unless a real, freshly-read `spot_holding`
+backs it": `reduce_only` stays meaningless for Spot either way (Binance's
+Spot `create_order` rejects the field outright —
+`spot_order_payload_mapper.py`'s own docstring), so a Spot Sell is always
+`reduce_only=False`, gated purely on whether there is something to sell.
 """
 
 from __future__ import annotations
@@ -43,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_intent import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
+    SpotHolding,
 )
 
 
@@ -72,6 +83,7 @@ def manual_order_intent_for(
     direction: ManualOrderDirection,
     current_position: LivePosition | None,
     market_type: MarketType,
+    spot_holding: SpotHolding | None = None,
 ) -> OrderIntent:
     """@brief `EPIC-024B` §2's 4-row table, as code.
     @param current_position The account's real, just-read position on the
@@ -79,17 +91,25 @@ def manual_order_intent_for(
     from a prior call; a flat position is absent from `ITradingClient.
     get_positions()`'s result (see `LivePosition`'s own docstring), not a
     zero-amount entry, so `None` is the only way "flat" is represented.
-    @param market_type The venue's market — `MarketType.SPOT` refuses
-    `ManualOrderDirection.SHORT` outright (see this module's own docstring).
-    @raise ManualShortNotSupportedOnMarketError `direction` is `SHORT` and
-    `market_type` cannot represent a short position.
+    @param market_type The venue's market — on `MarketType.SPOT`,
+    `ManualOrderDirection.SHORT` (`EPIC-027O`'s "Sell" button) needs
+    `spot_holding` to be a real, non-dust holding (see `spot_holding`).
+    @param spot_holding The account's real, just-read holding of the target
+    symbol's base asset — `None` when there is none. Ignored outside
+    `MarketType.SPOT` (Futures has no such concept). Same freshness rule
+    as `current_position`: read at submit time, never cached.
+    @raise ManualShortNotSupportedOnMarketError `direction` is `SHORT`,
+    `market_type` is `MarketType.SPOT`, and `spot_holding` is `None` or dust
+    — nothing real to sell.
     """
     if direction is ManualOrderDirection.SHORT and market_type is MarketType.SPOT:
-        raise ManualShortNotSupportedOnMarketError(
-            "Short is not supported on Spot — a Spot account has no "
-            "leveraged position to open one; use Sell to reduce a real "
-            "holding instead."
-        )
+        if spot_holding is None or spot_holding.is_dust:
+            raise ManualShortNotSupportedOnMarketError(
+                "Short is not supported on Spot — a Spot account has no "
+                "leveraged position to open one, and there is no sellable "
+                "holding of this asset to sell instead."
+            )
+        return OrderIntent(side=OrderSide.SELL, reduce_only=False)
     side = _ORDER_SIDE_BY_DIRECTION[direction]
     reduce_only = (
         current_position is not None
