@@ -56,6 +56,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
@@ -67,6 +70,7 @@ def _build_trading_session(container: IContainer) -> TradingSessionService:
     return TradingSessionService(
         container.resolve(ICommandDispatcher),
         container.resolve(TradingSessionState),
+        container.resolve(TradingVenue),
     )
 
 

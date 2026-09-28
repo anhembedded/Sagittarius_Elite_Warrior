@@ -65,46 +65,21 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_
     IStrategyCatalogReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.strategy_arm_result import (
-    ArmStrategyBlockReason,
     ArmStrategyResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.strategy_disarm_result import (
     DisarmStrategyResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.arm_block_messages import (
+    ARM_BLOCK_MESSAGES,
+    DISARM_BLOCKED_MESSAGE,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 
 logger = logging.getLogger("App.StrategyArming")
-
-#: English copy for each refusal. Every branch of
-#: `ArmStrategyBlockReason` has a line here — a missing one would surface
-#: as a silent no-op button, which is the failure mode this whole epic
-#: exists to remove.
-ARM_BLOCK_MESSAGES = EnumLabels(
-    ArmStrategyBlockReason,
-    {
-        ArmStrategyBlockReason.TRADING_IS_ENABLED: (
-            "Trading is active — turn off trading before changing strategy."
-        ),
-        ArmStrategyBlockReason.STRATEGY_NOT_FOUND: (
-            "This strategy was not found in the registered list."
-        ),
-        ArmStrategyBlockReason.INVALID_PARAMS: "Strategy Parameters are invalid.",
-        ArmStrategyBlockReason.MISSING_SYMBOL_OR_INTERVAL: (
-            "Both symbol and trading timeframe must be selected."
-        ),
-        ArmStrategyBlockReason.SYMBOL_LEASED: (
-            "This symbol is already being managed by another strategy — "
-            "remove that one first, or choose a different symbol."
-        ),
-    },
-)
-DISARM_BLOCKED_MESSAGE = (
-    "Trading is active — turn off trading before removing the strategy."
-)
 
 
 class StrategyCardViewModel(Protocol):

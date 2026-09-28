@@ -56,6 +56,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    ITradingSession,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
@@ -79,6 +82,7 @@ def bind_state(container: IContainer) -> None:
             c.resolve(IOrderSubmission),
             c.resolve(ITradingAccountReader),
             c.resolve(IMarketMetadataProvider),
+            c.resolve(ITradingSession),
         ),
     )
     container.singleton(

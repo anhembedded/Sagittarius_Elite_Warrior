@@ -45,8 +45,11 @@ assumed, because the reverse would have been a real hole.
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from collections.abc import Mapping
 from dataclasses import dataclass
+from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
 )
@@ -79,6 +82,27 @@ class TradingSessionSnapshot:
     #: confirmation, because over-blocking a second order is safer than
     #: under-blocking one.
     known_open_symbols: tuple[str, ...]
+    #: `EPIC-027N` — the active venue's market, so a caller outside `trading`
+    #: (`strategy`'s `ArmStrategyCommandHandler`, `LiveTradingCoordinator`)
+    #: can branch on Spot vs. Futures without importing `TradingVenue` from
+    #: `support/binance_gateway` directly, which `strategy` has never done.
+    #: A fourth "measured" fact on top of the original three this type's own
+    #: docstring once limited it to — added because this is a real second
+    #: consumer, not speculatively. `None` mirrors `TradingVenue.market_type`'s
+    #: own optionality exactly (`TradingVenue.DISABLED` trades no market at
+    #: all) rather than inventing a Futures/Spot stand-in for "disabled"
+    #: (`code/errors.md` #6). Every consumer only ever asks "is this Spot?",
+    #: so `None` — like any non-`SPOT` value — already answers "no" correctly.
+    market_type: MarketType | None = None
+    #: `EPIC-027M`/`EPIC-027N` — the Spot holdings baseline
+    #: `TradingSessionState.spot_baseline_holdings()` already tracks, read
+    #: here so a strategy's own SELL signal can apply the identical
+    #: never-sell-the-baseline rule Emergency Stop already enforces, instead
+    #: of a second, divergent rule. `None` = unknown (never enabled this
+    #: session, or a non-Spot venue); `{}` = enabled while holding nothing.
+    #: Defaults to `None` — the same honest "unknown" state a pre-`EPIC-027N`
+    #: call site's Futures session already was.
+    spot_baseline_holdings: Mapping[str, Decimal] | None = None
 
 
 class ITradingSession(ABC):

@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
     LiveStrategyConfigStore,
 )
@@ -18,6 +19,12 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.arm_strategy_resul
     ArmStrategyBlockReason,
     ArmStrategyResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
+    DEFAULT_LEVERAGE,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
+    SignalAction,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.strategy_owner import (
     STRATEGY_OWNER,
 )
@@ -26,6 +33,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session i
 )
 
 logger = logging.getLogger("App.CommandHandler")
+
+#: `EPIC-027N` AC5 — Phase 1 Spot trades USDT-quoted pairs only (ADR D9/O4).
+#: The same literal `emergency_stop/handler.py`/`spot_account_reader.py`
+#: already carry, not a new one (noted, not asked to fix, on the `EPIC-027M`
+#: PR review).
+_QUOTE_ASSET = "USDT"
 
 
 class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyResult]):
@@ -51,6 +64,11 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
        strategy's own. The build that validates is the build that gets
        armed — there is no window where a config passes validation and
        then fails to construct.
+    5. **`EPIC-027N`: three Spot-only refusals** (leverage fixed at 1, no
+       `SHORT`-capable strategy, USDT-quoted symbols only) → checked only
+       once the strategy key and symbol/interval are known good, since two
+       of the three need the resolved strategy's own `supported_directions`
+       or the symbol string. A no-op on every other venue.
     """
 
     def __init__(
@@ -73,7 +91,8 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
         config = command.config
         logger.debug("Handling ArmStrategyCommand for '%s'", config.strategy_key)
 
-        if self._trading_session.snapshot().enabled:
+        snapshot = self._trading_session.snapshot()
+        if snapshot.enabled:
             return ArmStrategyResult(
                 armed=False, block_reason=ArmStrategyBlockReason.TRADING_IS_ENABLED
             )
@@ -90,6 +109,27 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
             return ArmStrategyResult(
                 armed=False, block_reason=ArmStrategyBlockReason.STRATEGY_NOT_FOUND
             )
+
+        # `EPIC-027N` — three Spot-only refusals (ADR O2/O4/D9). Checked only
+        # on a Spot venue: none of them constrain Futures arming at all.
+        if snapshot.market_type is MarketType.SPOT:
+            if config.leverage != DEFAULT_LEVERAGE:
+                return ArmStrategyResult(
+                    armed=False,
+                    block_reason=ArmStrategyBlockReason.SPOT_LEVERAGE_NOT_SUPPORTED,
+                )
+            if SignalAction.SHORT in self._session.declared_directions(
+                config.strategy_key
+            ):
+                return ArmStrategyResult(
+                    armed=False,
+                    block_reason=ArmStrategyBlockReason.SPOT_SHORT_NOT_SUPPORTED,
+                )
+            if not config.symbol.endswith(_QUOTE_ASSET):
+                return ArmStrategyResult(
+                    armed=False,
+                    block_reason=ArmStrategyBlockReason.SPOT_QUOTE_ASSET_NOT_SUPPORTED,
+                )
 
         # `EPIC-025` PR 2.1f — claim the symbol BEFORE arming, so a refused
         # claim means nothing was armed. The reverse order would arm a strategy

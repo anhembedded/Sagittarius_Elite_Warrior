@@ -125,7 +125,12 @@ def mock_app():
     strategy_registry.register("ema_crossover", EmaCrossoverStrategy)
     strategy_session = LiveStrategySession(
         LiveStrategyFactory(
-            strategy_registry, MagicMock(), MagicMock(), MagicMock(), MagicMock()
+            strategy_registry,
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
         )
     )
     equity_curve = FakeEquityCurve()

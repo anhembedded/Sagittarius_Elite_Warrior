@@ -336,3 +336,11 @@ def test_forming_bar_ticks_never_advance_the_confirmation_counter_faster_than_on
 
     assert committed == reference_committed
     assert committed is None or committed.action is SignalAction.HOLD
+
+
+def test_supported_directions_declares_short_and_cover():
+    """`EPIC-027N` — this strategy's `decide()` calls `self.short()`/
+    `self.cover()` (BOT-110's short side), so it must declare both or a
+    Spot arming would silently drop half of what it does."""
+    assert SignalAction.SHORT in EmaTrendPullbackStrategy.supported_directions
+    assert SignalAction.COVER in EmaTrendPullbackStrategy.supported_directions

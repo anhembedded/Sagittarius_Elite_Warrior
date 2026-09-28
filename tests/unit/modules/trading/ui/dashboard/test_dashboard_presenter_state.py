@@ -134,7 +134,12 @@ def container(dispatcher):
     strategy_registry.register("ema_crossover", EmaCrossoverStrategy)
     strategy_session = LiveStrategySession(
         LiveStrategyFactory(
-            strategy_registry, MagicMock(), MagicMock(), MagicMock(), MagicMock()
+            strategy_registry,
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
+            MagicMock(),
         )
     )
 

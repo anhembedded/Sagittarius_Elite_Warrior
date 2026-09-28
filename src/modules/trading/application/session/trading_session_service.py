@@ -40,6 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session i
     ITradingSession,
     TradingSessionSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 def _answered(response: object, expected: type) -> object:
@@ -71,10 +74,14 @@ class TradingSessionService(ITradingSession):
     """The module's answer to "is trading on, and turn it on or off"."""
 
     def __init__(
-        self, dispatcher: ICommandDispatcher, session_state: TradingSessionState
+        self,
+        dispatcher: ICommandDispatcher,
+        session_state: TradingSessionState,
+        trading_venue: TradingVenue,
     ) -> None:
         self._dispatcher = dispatcher
         self._session_state = session_state
+        self._trading_venue = trading_venue
 
     def snapshot(self) -> TradingSessionSnapshot:
         enabled, orders_sent, open_symbols = self._session_state.read_all()
@@ -82,6 +89,8 @@ class TradingSessionService(ITradingSession):
             enabled=enabled,
             orders_sent_this_session=orders_sent,
             known_open_symbols=open_symbols,
+            market_type=self._trading_venue.market_type,
+            spot_baseline_holdings=self._session_state.spot_baseline_holdings(),
         )
 
     def enable(self) -> EnableTradingResult:

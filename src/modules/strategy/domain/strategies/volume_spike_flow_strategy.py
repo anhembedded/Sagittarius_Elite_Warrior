@@ -69,6 +69,13 @@ class VolumeSpikeFlowStrategy(BaseStrategy):
     exist yet.
     """
 
+    #: `EPIC-027N` — this strategy's `decide()` calls `self.short()`/
+    #: `self.cover()` (below), so it must declare them; refused at arm time
+    #: on a Spot venue rather than silently dropping its own SHORT signals.
+    supported_directions = frozenset(
+        {SignalAction.BUY, SignalAction.SELL, SignalAction.SHORT, SignalAction.COVER}
+    )
+
     TREND_EMA_KEY = "trend_ema"
     _VOLUME_SERIES = "volume"
 

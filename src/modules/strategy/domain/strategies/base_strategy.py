@@ -1,6 +1,6 @@
 from abc import abstractmethod
 from collections.abc import Mapping, Sequence
-from typing import Any, cast
+from typing import Any, ClassVar, cast
 
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action import (
@@ -54,6 +54,20 @@ class BaseStrategy(IStrategy):
     draws several kinds of output), but both need the same "describe a
     parameter, get its resolved value" primitive.
     """
+
+    #: `EPIC-027N` — which `SignalAction`s this strategy's `decide()` can
+    #: ever emit, declared by the type rather than inferred by scanning its
+    #: code (`architecture-rule.md` §7.3). Long-only by default: every
+    #: strategy that never calls `self.short()`/`self.cover()` needs no
+    #: override. A strategy that does override to add `SHORT, COVER` is
+    #: refused at arm time on a Spot venue (`ArmStrategyCommandHandler`,
+    #: `EPIC-027N` AC2) — a live Spot account has no short side to open. A
+    #: `ClassVar`, not an instance attribute: `StrategyRegistry.available()`
+    #: hands out classes, and the arming refusal must answer before any
+    #: instance of the strategy is ever built.
+    supported_directions: ClassVar[frozenset[SignalAction]] = frozenset(
+        {SignalAction.BUY, SignalAction.SELL}
+    )
 
     def __init__(self, params: Mapping[str, Any] | None = None) -> None:
         self._series: dict[str, Series] = {}

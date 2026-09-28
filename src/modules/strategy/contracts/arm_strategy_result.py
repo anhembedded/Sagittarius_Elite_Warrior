@@ -34,6 +34,22 @@ class ArmStrategyBlockReason(str, Enum):
     #: so a caller that pretended it could not would be the one left with a
     #: half-armed session when ADR §7 item 15's second strategy arrives.
     SYMBOL_LEASED = "symbol_leased"
+    #: `EPIC-027N` AC1 — leverage is a sizing multiplier only on Spot (there is
+    #: no margin to lever), fixed at `1`. A saved config naming anything else
+    #: is refused rather than silently clamped — clamping would run the
+    #: strategy at a sizing the user never chose.
+    SPOT_LEVERAGE_NOT_SUPPORTED = "spot_leverage_not_supported"
+    #: `EPIC-027N` AC2 (ADR O2) — the strategy's own `supported_directions`
+    #: names `SHORT`; a live Spot account has no short side to open, so half
+    #: of what the strategy would do could never run. Refused, not silently
+    #: run long-only, so the user is never quietly given a different strategy
+    #: than the one they picked.
+    SPOT_SHORT_NOT_SUPPORTED = "spot_short_not_supported"
+    #: `EPIC-027N` AC5 (ADR D9/O4) — Phase 1 Spot trades USDT-quoted pairs
+    #: only; the session limits and sizing are already USDT-denominated
+    #: (`config_keys.py`), and nothing in this phase converts a different
+    #: quote asset's balance into USDT.
+    SPOT_QUOTE_ASSET_NOT_SUPPORTED = "spot_quote_asset_not_supported"
 
 
 @dataclass(frozen=True)

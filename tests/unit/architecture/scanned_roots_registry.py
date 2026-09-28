@@ -303,6 +303,12 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_spec_index_is_consistent.py",
         (("Docs/SPEC", "SPEC-*.md"),),
     ),
+    # `EPIC-027N` AC3 — every registered strategy's own `supported_directions`
+    # is checked against its own source, not a hand-copied strategy list.
+    (
+        "tests/unit/modules/strategy/domain/strategies/test_supported_directions_guard.py",
+        (("src/modules/strategy/domain/strategies", "*_strategy.py"),),
+    ),
     # --- sanity ---------------------------------------------------------------
     (
         "tests/sanity/test_composition_root.py",

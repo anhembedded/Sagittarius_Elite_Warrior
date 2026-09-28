@@ -10,6 +10,7 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
     LiveStrategyConfigStore,
 )
@@ -32,12 +33,22 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_conf
 from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crossover_strategy import (
     EmaCrossoverStrategy,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_trend_pullback_strategy import (
+    EmaTrendPullbackStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
+    TradingSessionSnapshot,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
 )
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
 _KEY = "ema_crossover"
+#: `EPIC-027N` — registered alongside `_KEY` so the SHORT-capable-strategy
+#: refusal (AC2) has a real strategy that actually calls `self.short()` to
+#: test against, not a stand-in that merely claims the capability.
+_SHORT_CAPABLE_KEY = "ema_trend_confirm_pullback"
 
 
 def _session() -> LiveStrategySession:
@@ -60,8 +71,28 @@ def _session() -> LiveStrategySession:
 
     registry = StrategyRegistry()
     registry.register(_KEY, EmaCrossoverStrategy)
-    factory = LiveStrategyFactory(registry, Mock(), Mock(), Mock(), Mock())
+    registry.register(_SHORT_CAPABLE_KEY, EmaTrendPullbackStrategy)
+    factory = LiveStrategyFactory(registry, Mock(), Mock(), Mock(), Mock(), Mock())
     return LiveStrategySession(factory)
+
+
+def _spot_state(
+    spot_baseline_holdings: dict | None = None,
+) -> FakeTradingSession:
+    """`EPIC-027N` — a `FakeTradingSession` reporting a Spot venue, trading
+    off (so arming is never blocked by `TRADING_IS_ENABLED` instead of the
+    Spot-specific reason under test)."""
+    state = FakeTradingSession()
+    state.answer_with(
+        TradingSessionSnapshot(
+            enabled=False,
+            orders_sent_this_session=0,
+            known_open_symbols=(),
+            market_type=MarketType.SPOT,
+            spot_baseline_holdings=spot_baseline_holdings,
+        )
+    )
+    return state
 
 
 def _config(**overrides) -> LiveStrategyConfig:
@@ -292,3 +323,95 @@ def test_a_refused_disarm_keeps_the_lease() -> None:
 
     assert result.disarmed is False
     assert state.claim_symbol("BTCUSDT", "someone_else") is False
+
+
+# --------------------------------------------------------------------- #
+# Spot-only refusals (`EPIC-027N`)
+# --------------------------------------------------------------------- #
+
+
+def test_spot_refuses_a_leverage_other_than_1x() -> None:
+    """AC1 — Spot has no margin to lever; a saved config naming anything
+    else is refused, never silently clamped to 1x."""
+    session, state = _session(), _spot_state()
+
+    result = _arm_handler(session, state).execute(
+        ArmStrategyCommand(_config(leverage=5.0))
+    )
+
+    assert result.armed is False
+    assert result.block_reason is ArmStrategyBlockReason.SPOT_LEVERAGE_NOT_SUPPORTED
+    assert session.is_armed is False
+
+
+def test_spot_arms_at_the_default_1x_leverage() -> None:
+    """The refusal above must not fire on the one leverage Spot actually
+    supports — a strategy could otherwise never be armed on Spot at all."""
+    session, state = _session(), _spot_state()
+
+    result = _arm_handler(session, state).execute(
+        ArmStrategyCommand(_config(leverage=1.0))
+    )
+
+    assert result.armed is True
+    assert result.block_reason is None
+
+
+def test_spot_refuses_a_strategy_that_can_short() -> None:
+    """AC2 (ADR O2) — `EmaTrendPullbackStrategy` really does call
+    `self.short()`; arming it on Spot would silently drop that half of what
+    it does, so it is refused instead."""
+    session, state = _session(), _spot_state()
+
+    result = _arm_handler(session, state).execute(
+        ArmStrategyCommand(_config(strategy_key=_SHORT_CAPABLE_KEY, leverage=1.0))
+    )
+
+    assert result.armed is False
+    assert result.block_reason is ArmStrategyBlockReason.SPOT_SHORT_NOT_SUPPORTED
+    assert session.is_armed is False
+
+
+def test_spot_arms_a_long_only_strategy_that_cannot_short() -> None:
+    """The refusal above must not fire on a strategy that never declares
+    `SHORT` — `EmaCrossoverStrategy` is long-only by `BaseStrategy`'s own
+    default."""
+    session, state = _session(), _spot_state()
+
+    result = _arm_handler(session, state).execute(
+        ArmStrategyCommand(_config(leverage=1.0))
+    )
+
+    assert result.armed is True
+    assert result.block_reason is None
+
+
+def test_spot_refuses_a_non_usdt_quoted_symbol() -> None:
+    """AC5 (ADR D9/O4) — Phase 1 Spot trades USDT-quoted pairs only; the
+    session limits and sizing are already USDT-denominated."""
+    session, state = _session(), _spot_state()
+
+    result = _arm_handler(session, state).execute(
+        ArmStrategyCommand(_config(symbol="BTCBUSD", leverage=1.0))
+    )
+
+    assert result.armed is False
+    assert result.block_reason is ArmStrategyBlockReason.SPOT_QUOTE_ASSET_NOT_SUPPORTED
+    assert session.is_armed is False
+
+
+def test_futures_arming_is_unaffected_by_any_spot_only_refusal() -> None:
+    """None of the three Spot checks apply off Spot — a `FakeTradingSession`
+    with no market_type set (the Futures-shaped default) must arm a
+    SHORT-capable strategy at high leverage on a non-USDT symbol exactly as
+    it always could."""
+    session, state = _session(), FakeTradingSession()
+
+    result = _arm_handler(session, state).execute(
+        ArmStrategyCommand(
+            _config(strategy_key=_SHORT_CAPABLE_KEY, symbol="BTCBUSD", leverage=20.0)
+        )
+    )
+
+    assert result.armed is True
+    assert result.block_reason is None
