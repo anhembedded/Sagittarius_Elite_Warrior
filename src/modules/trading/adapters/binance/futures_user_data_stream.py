@@ -257,7 +257,7 @@ class FuturesUserDataStream(IUserDataStream):
                             # this coroutine was suspended waiting on
                             # `stream.recv()`.
                             if res and generation == self._generation:
-                                self._handle_message(res)
+                                await self._handle_message(res)
                 except asyncio.CancelledError:
                     logger.info("User data stream task was cancelled.")
                     break
@@ -295,12 +295,12 @@ class FuturesUserDataStream(IUserDataStream):
                 except Exception as exc:  # noqa: BLE001 - boundary: log and continue teardown
                     logger.warning("Error closing user data stream client: %s", exc)
 
-    def _handle_message(self, payload: dict[str, Any]) -> None:
+    async def _handle_message(self, payload: dict[str, Any]) -> None:
         event_type = payload.get("e")
         if event_type == ORDER_TRADE_UPDATE:
             self._handle_order_trade_update(payload)
         elif event_type == ACCOUNT_UPDATE:
-            self._handle_account_update(payload)
+            await self._handle_account_update(payload)
         elif event_type == _LIBRARY_ERROR_EVENT:
             # `BUG-096` — before this branch existed, a connection blip
             # produced this sentinel and `_handle_message` silently
@@ -341,7 +341,7 @@ class FuturesUserDataStream(IUserDataStream):
                 )
             )
 
-    def _handle_account_update(self, payload: dict[str, Any]) -> None:
+    async def _handle_account_update(self, payload: dict[str, Any]) -> None:
         if self._trading_client is None:
             # Only reachable if a caller invokes `_handle_message` directly
             # before `_run_stream` has ever set it up — the real socket
@@ -379,7 +379,10 @@ class FuturesUserDataStream(IUserDataStream):
             )
 
         for symbol in account_update_changed_symbols(payload):
-            positions = self._trading_client.get_positions(symbol)
+            # `BOT-145` — off the loop: `get_positions()` blocks on REST I/O.
+            positions = await asyncio.to_thread(
+                self._trading_client.get_positions, symbol
+            )
             reconcile_position_state(
                 self._session_state, symbol, has_position=bool(positions)
             )

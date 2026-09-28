@@ -10,7 +10,9 @@ itself in `_run_stream`) and a real `MemoryEventBus`/`TradingSessionState`
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Self
@@ -118,13 +120,13 @@ def _stream(
     return stream, event_bus
 
 
-def test_partial_fill_publishes_order_filled_event() -> None:
+async def test_partial_fill_publishes_order_filled_event() -> None:
     """This epic's own point: backtest never has a partial fill."""
     stream, event_bus = _stream()
     seen: list = []
     event_bus.on(OrderFilledEvent, seen.append)
 
-    stream._handle_message(_order_trade_update(X="PARTIALLY_FILLED", x="TRADE"))
+    await stream._handle_message(_order_trade_update(X="PARTIALLY_FILLED", x="TRADE"))
 
     assert len(seen) == 1
     assert seen[0].order.status.name == "PARTIALLY_FILLED"
@@ -132,14 +134,16 @@ def test_partial_fill_publishes_order_filled_event() -> None:
     assert seen[0].fill_quantity == Decimal("0.001")
 
 
-def test_order_trade_update_logs_at_debug_not_info(caplog) -> None:
+async def test_order_trade_update_logs_at_debug_not_info(caplog) -> None:
     """`BUG-095` (`BUG-042` regression) — this fires per order-status
     transition; at `INFO` it would flood `SignalLogHandler`'s queued-signal
     UI mirror exactly the way 838 trades once froze the UI in `BUG-042`."""
     stream, _event_bus = _stream()
 
     with caplog.at_level(logging.DEBUG, logger="App.UserDataStream"):
-        stream._handle_message(_order_trade_update(X="PARTIALLY_FILLED", x="TRADE"))
+        await stream._handle_message(
+            _order_trade_update(X="PARTIALLY_FILLED", x="TRADE")
+        )
 
     assert any(
         "ORDER_TRADE_UPDATE" in record.message and record.levelno == logging.DEBUG
@@ -151,17 +155,17 @@ def test_order_trade_update_logs_at_debug_not_info(caplog) -> None:
     )
 
 
-def test_new_acknowledgement_does_not_publish_order_filled_event() -> None:
+async def test_new_acknowledgement_does_not_publish_order_filled_event() -> None:
     stream, event_bus = _stream()
     seen: list = []
     event_bus.on(OrderFilledEvent, seen.append)
 
-    stream._handle_message(_order_trade_update(X="NEW", x="NEW"))
+    await stream._handle_message(_order_trade_update(X="NEW", x="NEW"))
 
     assert seen == []
 
 
-def test_account_update_publishes_position_changed_event() -> None:
+async def test_account_update_publishes_position_changed_event() -> None:
     position = _live_position()
     trading_client = Mock()
     trading_client.get_positions.return_value = [position]
@@ -169,7 +173,7 @@ def test_account_update_publishes_position_changed_event() -> None:
     seen: list = []
     event_bus.on(PositionChangedEvent, seen.append)
 
-    stream._handle_message(
+    await stream._handle_message(
         _account_update([{"s": "BTCUSDT", "pa": "0.002", "ep": "64105.35"}])
     )
 
@@ -178,7 +182,7 @@ def test_account_update_publishes_position_changed_event() -> None:
     assert seen[0].position is position
 
 
-def test_account_update_position_lines_log_at_debug_not_info(caplog) -> None:
+async def test_account_update_position_lines_log_at_debug_not_info(caplog) -> None:
     """`BUG-095` (`BUG-042` regression) — a position-changed line fires
     per `ACCOUNT_UPDATE`, which on an active trading session is every fill."""
     trading_client = Mock()
@@ -186,7 +190,7 @@ def test_account_update_position_lines_log_at_debug_not_info(caplog) -> None:
     stream, _event_bus = _stream(trading_client)
 
     with caplog.at_level(logging.DEBUG, logger="App.UserDataStream"):
-        stream._handle_message(
+        await stream._handle_message(
             _account_update([{"s": "BTCUSDT", "pa": "0.002", "ep": "64105.35"}])
         )
 
@@ -204,20 +208,22 @@ def test_account_update_position_lines_log_at_debug_not_info(caplog) -> None:
     )
 
 
-def test_account_update_going_flat_does_not_publish_position_changed() -> None:
+async def test_account_update_going_flat_does_not_publish_position_changed() -> None:
     """No `LivePosition` to construct when the exchange reports flat — see
     the parser's own docstring for why this is never fabricated."""
     stream, event_bus = _stream(Mock(get_positions=Mock(return_value=[])))
     seen: list = []
     event_bus.on(PositionChangedEvent, seen.append)
 
-    stream._handle_message(_account_update([{"s": "BTCUSDT", "pa": "0", "ep": "0"}]))
+    await stream._handle_message(
+        _account_update([{"s": "BTCUSDT", "pa": "0", "ep": "0"}])
+    )
 
     assert seen == []
     assert stream._session_state.open_position_count("BTCUSDT") == 0
 
 
-def test_account_update_going_flat_publishes_position_closed() -> None:
+async def test_account_update_going_flat_publishes_position_closed() -> None:
     """`BUG-086` regression — closing to flat is a real change, not
     silence; a dedicated event must fire (real `MemoryEventBus`, no
     mocked `IEventBus`, no network)."""
@@ -225,26 +231,28 @@ def test_account_update_going_flat_publishes_position_closed() -> None:
     seen: list = []
     event_bus.on(PositionClosedEvent, seen.append)
 
-    stream._handle_message(_account_update([{"s": "BTCUSDT", "pa": "0", "ep": "0"}]))
+    await stream._handle_message(
+        _account_update([{"s": "BTCUSDT", "pa": "0", "ep": "0"}])
+    )
 
     assert len(seen) == 1
     assert seen[0].symbol == "BTCUSDT"
 
 
-def test_account_update_still_open_does_not_publish_position_closed() -> None:
+async def test_account_update_still_open_does_not_publish_position_closed() -> None:
     position = _live_position()
     stream, event_bus = _stream(Mock(get_positions=Mock(return_value=[position])))
     seen: list = []
     event_bus.on(PositionClosedEvent, seen.append)
 
-    stream._handle_message(
+    await stream._handle_message(
         _account_update([{"s": "BTCUSDT", "pa": "0.002", "ep": "64105.35"}])
     )
 
     assert seen == []
 
 
-def test_account_update_before_stream_ready_does_not_crash() -> None:
+async def test_account_update_before_stream_ready_does_not_crash() -> None:
     """`_trading_client` is `None` until `_run_stream` sets it up — a
     message arriving (or a misbehaving test) before that must degrade,
     not raise `AttributeError` on `None`."""
@@ -252,23 +260,59 @@ def test_account_update_before_stream_ready_does_not_crash() -> None:
     seen: list = []
     event_bus.on(PositionChangedEvent, seen.append)
 
-    stream._handle_message(_account_update([{"s": "BTCUSDT", "pa": "0.002"}]))
+    await stream._handle_message(_account_update([{"s": "BTCUSDT", "pa": "0.002"}]))
 
     assert seen == []
 
 
-def test_unrecognized_event_type_is_ignored() -> None:
+async def test_account_update_s_get_positions_call_does_not_stall_the_event_loop() -> (
+    None
+):
+    """`BOT-145` — `get_positions()` is a blocking, `requests`-backed REST
+    call; before the fix it ran directly on `_handle_message`'s caller, the
+    same asyncio event loop that also drives `stream.recv()`. Proof, not
+    just absence of a symptom: a concurrently-scheduled coroutine that only
+    needs a short `asyncio.sleep` must finish *before* a slow
+    `get_positions()` call does — if the blocking call still ran on the
+    loop, nothing else could be scheduled until it returned, and the order
+    would flip. Mutation-verified: reverting the `asyncio.to_thread` wrap
+    makes this test fail (the slow call finishes first)."""
+    order: list[str] = []
+
+    def slow_get_positions(_symbol: str) -> list:
+        time.sleep(0.2)
+        return []
+
+    trading_client = Mock(get_positions=Mock(side_effect=slow_get_positions))
+    stream, _event_bus = _stream(trading_client)
+
+    async def slow_task() -> None:
+        await stream._handle_message(
+            _account_update([{"s": "BTCUSDT", "pa": "0.002", "ep": "0"}])
+        )
+        order.append("slow")
+
+    async def quick_task() -> None:
+        await asyncio.sleep(0.01)
+        order.append("quick")
+
+    await asyncio.gather(slow_task(), quick_task())
+
+    assert order == ["quick", "slow"]
+
+
+async def test_unrecognized_event_type_is_ignored() -> None:
     stream, event_bus = _stream()
     seen: list = []
     event_bus.on(OrderFilledEvent, seen.append)
     event_bus.on(PositionChangedEvent, seen.append)
 
-    stream._handle_message({"e": "listenKeyExpired"})
+    await stream._handle_message({"e": "listenKeyExpired"})
 
     assert seen == []
 
 
-def test_library_error_sentinel_is_logged_not_silently_dropped(caplog) -> None:
+async def test_library_error_sentinel_is_logged_not_silently_dropped(caplog) -> None:
     """`BUG-096` — `python-binance` pushes `{"e": "error", ...}` onto the
     same queue `stream.recv()` reads from on every connection blip
     (verified by reading `ReconnectingWebsocket._propagate_error()`'s call
@@ -281,7 +325,7 @@ def test_library_error_sentinel_is_logged_not_silently_dropped(caplog) -> None:
     event_bus.on(PositionChangedEvent, seen.append)
 
     with caplog.at_level(logging.WARNING, logger="App.UserDataStream"):
-        stream._handle_message(
+        await stream._handle_message(
             {"e": "error", "type": "ConnectionClosedError", "m": "no close frame"}
         )
 
@@ -292,7 +336,7 @@ def test_library_error_sentinel_is_logged_not_silently_dropped(caplog) -> None:
     )
 
 
-def test_account_update_with_a_balance_records_and_publishes_one_equity_sample() -> (
+async def test_account_update_with_a_balance_records_and_publishes_one_equity_sample() -> (
     None
 ):
     """`EPIC-021M` §2.1 — recorder and event bus stay in sync: exactly one
@@ -305,7 +349,7 @@ def test_account_update_with_a_balance_records_and_publishes_one_equity_sample()
     seen: list = []
     event_bus.on(EquitySampledEvent, seen.append)
 
-    stream._handle_message(
+    await stream._handle_message(
         _account_update(
             [{"s": "BTCUSDT", "pa": "0", "up": "0"}],
             balances=[{"a": "USDT", "wb": "1000.00", "cw": "1000.00"}],
@@ -317,7 +361,7 @@ def test_account_update_with_a_balance_records_and_publishes_one_equity_sample()
     assert seen[0].sample.wallet_balance == Decimal("1000.00")
 
 
-def test_equity_sample_logs_at_debug_not_info(caplog) -> None:
+async def test_equity_sample_logs_at_debug_not_info(caplog) -> None:
     """`BUG-095` (`BUG-042` regression) — fires on every `ACCOUNT_UPDATE`
     carrying a balance line, which on an active session is every fill."""
     stream, _event_bus = _stream(
@@ -325,7 +369,7 @@ def test_equity_sample_logs_at_debug_not_info(caplog) -> None:
     )
 
     with caplog.at_level(logging.DEBUG, logger="App.UserDataStream"):
-        stream._handle_message(
+        await stream._handle_message(
             _account_update(
                 [], balances=[{"a": "USDT", "wb": "1000.00", "cw": "1000.00"}]
             )
@@ -338,7 +382,7 @@ def test_equity_sample_logs_at_debug_not_info(caplog) -> None:
     assert not any(record.levelno >= logging.INFO for record in caplog.records)
 
 
-def test_equity_sample_sums_unrealized_pnl_across_positions_not_just_this_event() -> (
+async def test_equity_sample_sums_unrealized_pnl_across_positions_not_just_this_event() -> (
     None
 ):
     """`BUG-092` — a real `ACCOUNT_UPDATE` only reports the positions that
@@ -358,13 +402,13 @@ def test_equity_sample_sums_unrealized_pnl_across_positions_not_just_this_event(
     # First event: BTCUSDT opens with uPnL -0.02, no balance line (a
     # position-only update — realistic, matches
     # `test_account_update_with_no_balance_records_nothing` below).
-    stream._handle_message(
+    await stream._handle_message(
         _account_update([{"s": "BTCUSDT", "pa": "0.002", "up": "-0.02"}])
     )
     # Second event: only ETHUSDT changed this time (BTCUSDT's position is
     # untouched, so it is absent from this message's own "P" array) — but
     # carries the balance line that triggers a sample.
-    stream._handle_message(
+    await stream._handle_message(
         _account_update(
             [{"s": "ETHUSDT", "pa": "1.5", "up": "3.75"}],
             balances=[{"a": "USDT", "wb": "1000.00", "cw": "1000.00"}],
@@ -378,7 +422,7 @@ def test_equity_sample_sums_unrealized_pnl_across_positions_not_just_this_event(
     assert seen[0].sample.unrealized_pnl == Decimal("3.73")
 
 
-def test_start_resets_the_running_per_symbol_pnl_total() -> None:
+async def test_start_resets_the_running_per_symbol_pnl_total() -> None:
     """`BUG-092` — `EnableTradingCommand` only ever starts this stream
     once reconciliation has confirmed the account is flat, so a fresh
     `start()` must not carry over a stale PnL total from a previous
@@ -390,13 +434,13 @@ def test_start_resets_the_running_per_symbol_pnl_total() -> None:
     )
     seen: list = []
     event_bus.on(EquitySampledEvent, seen.append)
-    stream._handle_message(
+    await stream._handle_message(
         _account_update([{"s": "BTCUSDT", "pa": "0.002", "up": "-0.02"}])
     )
 
     stream._unrealized_pnl_by_symbol = {}  # what start() does, without a real task manager
 
-    stream._handle_message(
+    await stream._handle_message(
         _account_update(
             [],
             balances=[{"a": "USDT", "wb": "1000.00", "cw": "1000.00"}],
@@ -406,7 +450,7 @@ def test_start_resets_the_running_per_symbol_pnl_total() -> None:
     assert seen[-1].sample.unrealized_pnl == Decimal(0)
 
 
-def test_account_update_with_no_balance_records_nothing() -> None:
+async def test_account_update_with_no_balance_records_nothing() -> None:
     """No `'B'` entry -> no sample, not a garbage zero one (`EPIC-021M`
     §4)."""
     recorder = EquityCurveRecorder()
@@ -417,7 +461,7 @@ def test_account_update_with_no_balance_records_nothing() -> None:
     seen: list = []
     event_bus.on(EquitySampledEvent, seen.append)
 
-    stream._handle_message(_account_update([{"s": "BTCUSDT", "pa": "0.002"}]))
+    await stream._handle_message(_account_update([{"s": "BTCUSDT", "pa": "0.002"}]))
 
     assert seen == []
     assert recorder.samples() == ()
@@ -540,7 +584,11 @@ async def test_a_superseded_generation_stops_handling_messages_mid_stream() -> N
     )
     stream._generation = 1
     handled: list = []
-    stream._handle_message = handled.append  # type: ignore[method-assign]
+
+    async def _record(payload: dict) -> None:
+        handled.append(payload)
+
+    stream._handle_message = _record  # type: ignore[method-assign]
     token = Mock()
     token.is_cancelled.return_value = False
 
