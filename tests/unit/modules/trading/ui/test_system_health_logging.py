@@ -88,6 +88,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_presen
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_view import (
     DashboardView,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -145,6 +148,7 @@ def health_mock_container(qapp):
             MagicMock(),
             MagicMock(),
             MagicMock(),
+            venue=TradingVenue.FUTURES_TESTNET,
         )
     )
 

@@ -87,7 +87,7 @@ def test_refresh_dispatches_get_open_positions_and_publishes_position_changed():
         GetOpenPositionsQuery, GetOpenPositionsQuery(venue=TradingVenue.FUTURES_TESTNET)
     )
     event_publisher.publish.assert_called_once_with(
-        PositionChangedEvent(position=position)
+        PositionChangedEvent(position=position, venue=TradingVenue.FUTURES_TESTNET)
     )
 
 
@@ -110,7 +110,7 @@ def test_a_symbol_no_longer_reported_publishes_position_closed():
     service.refresh_once()
 
     event_publisher.publish.assert_called_once_with(
-        PositionClosedEvent(symbol="ETHUSDT")
+        PositionClosedEvent(symbol="ETHUSDT", venue=TradingVenue.FUTURES_TESTNET)
     )
 
 

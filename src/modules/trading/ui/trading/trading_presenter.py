@@ -67,11 +67,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_ov
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui import screen_venue_feeds
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
     equity_sample_to_candle,
     equity_samples_to_candles,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_feed import EquityFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
     format_execute_order_block_reason,
 )
@@ -81,7 +81,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.live_order_book_coordinato
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_prices import (
     holding_price_for_symbol,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
     order_filled_marker,
 )
@@ -449,7 +448,8 @@ class TradingPresenter(BasePresenter):
         # `EPIC-021H` — one subscriber, this Presenter, per
         # `architecture-rule.md` §6; the Positions/Open Orders tables are
         # both fed from it.
-        self._order_feed = OrderFeed(self.event_bus, parent=self)
+        feeds = screen_venue_feeds.build(self.event_bus, self.container, self)
+        self._order_feed = feeds.orders
         self._order_feed.orderFilled.connect(self._on_order_filled)
         self._order_feed.positionChanged.connect(self._on_position_changed)
         # `BUG-086` — a closed position never reached this table before;
@@ -463,7 +463,7 @@ class TradingPresenter(BasePresenter):
         self._order_feed.holdingsChanged.connect(self._on_holdings_changed)  # EPIC-027O
         # `EPIC-021M` — one subscriber, this Presenter, same reasoning as
         # `OrderFeed` above (see `equity_feed.py`'s own docstring).
-        self._equity_feed = EquityFeed(self.event_bus, parent=self)
+        self._equity_feed = feeds.equity
         # `EPIC-022E` — `SignalGeneratedEvent` has been published since
         # `BOT-020` with nothing in the UI listening.
         self._signal_feed = SignalFeed(self.event_bus, parent=self)

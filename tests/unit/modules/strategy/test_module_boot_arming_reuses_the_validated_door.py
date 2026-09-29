@@ -102,7 +102,15 @@ def test_boot_refuses_a_stale_short_capable_config_on_a_spot_venue() -> None:
         )
     )
     session = LiveStrategySession(
-        LiveStrategyFactory(registry, Mock(), Mock(), Mock(), Mock(), trading_session)
+        LiveStrategyFactory(
+            registry,
+            Mock(),
+            Mock(),
+            Mock(),
+            Mock(),
+            trading_session,
+            venue=TradingVenue.FUTURES_TESTNET,
+        )
     )
     config = DictConfig()
     config_store = LiveStrategyConfigStore(config)

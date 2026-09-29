@@ -58,6 +58,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_ev
     is_fill_execution,
     parse_order_trade_update,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
+    VenueEventEmitter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
@@ -69,18 +72,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
     EquitySample,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
-    EquitySampledEvent,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
-    OrderFilledEvent,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_changed_event import (
-    PositionChangedEvent,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
-    PositionClosedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,
@@ -97,7 +88,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
 )
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
@@ -137,14 +127,15 @@ class FuturesUserDataStream(IUserDataStream):
 
     def __init__(
         self,
-        event_bus: IEventBus,
+        events: VenueEventEmitter,
         task_manager: ITaskManager,
         credentials_provider: IExchangeCredentialsProvider,
         trading_client_factory: ITradingClientFactory,
         session_state: TradingSessionState,
         equity_recorder: EquityCurveRecorder,
     ) -> None:
-        self._event_bus = event_bus
+        #: `EPIC-028C` — this venue's emitter: every event carries the venue.
+        self._events = events
         self._task_manager = task_manager
         self._credentials_provider = credentials_provider
         self._trading_client_factory = trading_client_factory
@@ -335,11 +326,7 @@ class FuturesUserDataStream(IUserDataStream):
 
         if is_fill_execution(payload):
             fill_price, fill_quantity = fill_details(payload)
-            self._event_bus.emit(
-                OrderFilledEvent(
-                    order=order, fill_price=fill_price, fill_quantity=fill_quantity
-                )
-            )
+            self._events.order_filled(order, (fill_price, fill_quantity))
 
     async def _handle_account_update(self, payload: dict[str, Any]) -> None:
         if self._trading_client is None:
@@ -366,7 +353,7 @@ class FuturesUserDataStream(IUserDataStream):
                 unrealized_pnl=sum(self._unrealized_pnl_by_symbol.values(), Decimal(0)),
             )
             self._equity_recorder.record(equity_sample)
-            self._event_bus.emit(EquitySampledEvent(sample=equity_sample))
+            self._events.equity_sampled(equity_sample)
             # `BUG-095` — `DEBUG`: fires on every `ACCOUNT_UPDATE` carrying
             # a balance line, which on an active session is every fill.
             logger.debug(
@@ -390,7 +377,7 @@ class FuturesUserDataStream(IUserDataStream):
                 self._session_state, symbol, has_position=bool(positions)
             )
             if positions:
-                self._event_bus.emit(PositionChangedEvent(position=positions[0]))
+                self._events.position_changed(positions[0])
                 # `BUG-095` — `DEBUG`, same reasoning as the equity line
                 # above: one per changed position, per `ACCOUNT_UPDATE`.
                 logger.debug(
@@ -404,5 +391,5 @@ class FuturesUserDataStream(IUserDataStream):
                 # `BUG-086` — closing is a real change, carried by a dedicated
                 # event: `LivePosition` forbids `position_amt == 0`, so
                 # `PositionChangedEvent` cannot. `BUG-095` — `DEBUG` as above.
-                self._event_bus.emit(PositionClosedEvent(symbol=symbol))
+                self._events.position_closed(symbol)
                 logger.debug("ACCOUNT_UPDATE  %s  position closed", symbol)

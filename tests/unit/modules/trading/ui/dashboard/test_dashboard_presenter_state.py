@@ -88,6 +88,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_view_m
     DATETIME_FORMAT,
     DEFAULT_LOOKBACK_DAYS,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_registry import (
     IndicatorScriptRegistry,
 )
@@ -140,6 +143,7 @@ def container(dispatcher):
             MagicMock(),
             MagicMock(),
             MagicMock(),
+            venue=TradingVenue.FUTURES_TESTNET,
         )
     )
 

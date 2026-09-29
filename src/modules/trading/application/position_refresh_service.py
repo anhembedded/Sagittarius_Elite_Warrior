@@ -83,6 +83,11 @@ class PositionRefreshService:
         self._venue = venue
         self._known_symbols: set[str] = set()
 
+    @property
+    def venue(self) -> TradingVenue:
+        """The one venue this service reads and republishes."""
+        return self._venue
+
     def refresh_once(self) -> None:
         if not self._session_state.enabled:
             return
@@ -104,7 +109,11 @@ class PositionRefreshService:
 
         current_symbols = {position.symbol for position in positions}
         for position in positions:
-            self._event_publisher.publish(PositionChangedEvent(position=position))
+            self._event_publisher.publish(
+                PositionChangedEvent(position=position, venue=self._venue)
+            )
         for symbol in self._known_symbols - current_symbols:
-            self._event_publisher.publish(PositionClosedEvent(symbol=symbol))
+            self._event_publisher.publish(
+                PositionClosedEvent(symbol=symbol, venue=self._venue)
+            )
         self._known_symbols = current_symbols

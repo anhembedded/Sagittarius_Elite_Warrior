@@ -76,6 +76,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_presen
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_view import (
     DashboardView,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.mock_klines import (
     build_mock_klines,
@@ -131,6 +134,7 @@ def mock_app():
             MagicMock(),
             MagicMock(),
             MagicMock(),
+            venue=TradingVenue.FUTURES_TESTNET,
         )
     )
     equity_curve = FakeEquityCurve()

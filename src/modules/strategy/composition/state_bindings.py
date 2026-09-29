@@ -104,5 +104,6 @@ def _build_session(container: IContainer, venue: TradingVenue) -> LiveStrategySe
             context.account_reader,
             context.metadata_provider,
             ports.trading_session,
+            venue=venue,
         )
     )

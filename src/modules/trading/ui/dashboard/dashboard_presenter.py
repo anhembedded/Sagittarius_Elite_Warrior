@@ -42,17 +42,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui import screen_venue_feeds
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
     equity_sample_to_candle,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_feed import EquityFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
     format_execute_order_block_reason,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_prices import (
     holding_prices_from_symbol_prices,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
     order_filled_marker,
 )
@@ -768,7 +767,8 @@ class DashboardPresenter(BasePresenter):
         # thế/Lệnh chờ khớp tables) and `EPIC-027O` (`holdingsChanged`) widened
         # this same `OrderFeed` (`TradingPresenter`'s own, `EPIC-021H`) as
         # further consumers, not a new subscription shape.
-        self._order_feed = OrderFeed(self.event_bus, parent=self)
+        feeds = screen_venue_feeds.build(self.event_bus, self.container, self)
+        self._order_feed = feeds.orders
         self._order_feed.orderFilled.connect(self._on_order_filled)
         self._order_feed.positionChanged.connect(self._on_position_changed)
         self._order_feed.positionClosed.connect(self._on_position_closed)
@@ -776,7 +776,7 @@ class DashboardPresenter(BasePresenter):
         self._order_feed.holdingsChanged.connect(self._on_holdings_changed)  # EPIC-027O
         # `EPIC-023B` — same one-place-subscribes Feed `TradingPresenter`
         # already uses (`EPIC-021M`); a second consumer, not a new shape.
-        self._equity_feed = EquityFeed(self.event_bus, parent=self)
+        self._equity_feed = feeds.equity
         self._equity_feed.equitySampled.connect(self._on_equity_sampled)
         # `EPIC-023C` — same shared bus `TradingPresenter` reads
         # `SignalGeneratedEvent` from (`EPIC-022E`); a second consumer.

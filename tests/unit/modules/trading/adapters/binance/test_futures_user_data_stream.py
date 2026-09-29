@@ -22,6 +22,9 @@ from binance.exceptions import ReadLoopClosed
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user_data_stream import (
     FuturesUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
+    VenueEventEmitter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
@@ -53,6 +56,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
     ResolvedCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
@@ -106,7 +112,7 @@ def _stream(
     event_bus = MemoryEventBus()
     session_state = TradingSessionState()
     stream = FuturesUserDataStream(
-        event_bus,
+        VenueEventEmitter(event_bus, TradingVenue.FUTURES_TESTNET),
         Mock(),
         Mock(),
         Mock(),
@@ -132,6 +138,8 @@ async def test_partial_fill_publishes_order_filled_event() -> None:
     assert seen[0].order.status.name == "PARTIALLY_FILLED"
     assert seen[0].fill_price == Decimal("64105.10")
     assert seen[0].fill_quantity == Decimal("0.001")
+    # `EPIC-028C` — stamped with the stream's own venue.
+    assert seen[0].venue is TradingVenue.FUTURES_TESTNET
 
 
 async def test_order_trade_update_logs_at_debug_not_info(caplog) -> None:
@@ -504,7 +512,7 @@ async def test_run_stream_with_no_credentials_returns_without_crashing() -> None
     )
     event_bus = MemoryEventBus()
     stream = FuturesUserDataStream(
-        event_bus,
+        VenueEventEmitter(event_bus, TradingVenue.FUTURES_TESTNET),
         Mock(),
         credentials_provider,
         Mock(),
@@ -527,7 +535,7 @@ async def test_read_loop_closed_triggers_a_reconnect_not_a_crash() -> None:
         CredentialsSource.FILE,
     )
     stream = FuturesUserDataStream(
-        MemoryEventBus(),
+        VenueEventEmitter(MemoryEventBus(), TradingVenue.FUTURES_TESTNET),
         Mock(),
         credentials_provider,
         Mock(),
@@ -600,7 +608,7 @@ async def test_a_superseded_generation_stops_handling_messages_mid_stream() -> N
         CredentialsSource.FILE,
     )
     stream = FuturesUserDataStream(
-        MemoryEventBus(),
+        VenueEventEmitter(MemoryEventBus(), TradingVenue.FUTURES_TESTNET),
         Mock(),
         credentials_provider,
         Mock(),

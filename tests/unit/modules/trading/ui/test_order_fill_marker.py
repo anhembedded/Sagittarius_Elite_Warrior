@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
     order_filled_marker,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
@@ -40,7 +43,7 @@ def _event(**overrides) -> OrderFilledEvent:
         "fill_quantity": Decimal("0.05"),
     }
     defaults.update(overrides)
-    return OrderFilledEvent(**defaults)
+    return OrderFilledEvent(**defaults, venue=TradingVenue.FUTURES_TESTNET)
 
 
 def test_a_buy_fill_is_a_green_up_marker() -> None:

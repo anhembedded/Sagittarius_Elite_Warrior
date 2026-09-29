@@ -16,6 +16,11 @@ tên** với một lần **import**. Nay việc đó do `shell/system_failure_lo
 làm, và `tests/unit/architecture/test_a_bus_subscriber_is_constructed.py` đọc
 **AST** nên một docstring không thể làm nó im lặng nữa.
 
+`EPIC-028C` — một Feed nghe **một** venue: Futures và Spot chạy cùng lúc trên
+cùng một bus, nên mỗi màn dựng Feed với venue của chính nó và event của venue
+kia không bao giờ tới bảng của màn này (một lệnh Spot khớp không hiện trong
+bảng Futures).
+
 Phát lại nguyên vẹn `OrderFilledEvent`/`PositionChangedEvent`/
 `PositionClosedEvent` (không chuẩn hoá thành DTO riêng): cả ba đã là kiểu
 miền ổn định, có tên rõ ràng (`EPIC-021E`/`BUG-086`) — khác
@@ -27,7 +32,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.holdings_changed_event import (
     HoldingsChangedEvent,
 )
@@ -43,7 +48,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.base_feed import BaseFeed
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 
 class OrderFeed(BaseFeed):
@@ -60,6 +69,16 @@ class OrderFeed(BaseFeed):
     #: Mang một `HoldingsChangedEvent` (`EPIC-027O`).
     holdingsChanged = Signal(object)
 
+    def __init__(
+        self,
+        event_bus: IEventBus,
+        venue: TradingVenue,
+        parent: QObject | None = None,
+    ) -> None:
+        # Set before `super().__init__`: `BaseFeed.__init__` subscribes.
+        self._venue = venue
+        super().__init__(event_bus, parent)
+
     def _subscribe(self) -> None:
         self._events.on(OrderFilledEvent, self._on_order_filled)
         self._events.on(PositionChangedEvent, self._on_position_changed)
@@ -68,16 +87,21 @@ class OrderFeed(BaseFeed):
         self._events.on(HoldingsChangedEvent, self._on_holdings_changed)
 
     def _on_order_filled(self, event: Any) -> None:
-        self.orderFilled.emit(event)
+        if event.venue is self._venue:
+            self.orderFilled.emit(event)
 
     def _on_position_changed(self, event: Any) -> None:
-        self.positionChanged.emit(event)
+        if event.venue is self._venue:
+            self.positionChanged.emit(event)
 
     def _on_position_closed(self, event: Any) -> None:
-        self.positionClosed.emit(event)
+        if event.venue is self._venue:
+            self.positionClosed.emit(event)
 
     def _on_order_blocked(self, event: Any) -> None:
-        self.orderBlocked.emit(event)
+        if event.venue is self._venue:
+            self.orderBlocked.emit(event)
 
     def _on_holdings_changed(self, event: Any) -> None:
-        self.holdingsChanged.emit(event)
+        if event.venue is self._venue:
+            self.holdingsChanged.emit(event)

@@ -79,6 +79,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holdings_close
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 logger = logging.getLogger("App.LiveTradingCoordinator")
 
@@ -111,7 +114,12 @@ class LiveTradingCoordinator:
         trading_session: ITradingSession,
         sizing_percent: float,
         leverage: float,
+        *,
+        venue: TradingVenue,
     ) -> None:
+        #: `EPIC-028C` — the venue this coordinator's orders go to, stamped
+        #: on every `LiveOrderBlockedEvent` so only that venue's desk shows it.
+        self._venue = venue
         self._live_symbol = live_symbol
         self._order_submission = order_submission
         self._account_reader = account_reader
@@ -169,7 +177,9 @@ class LiveTradingCoordinator:
                 )
                 logger.info(reason)
                 self._event_publisher.publish(
-                    LiveOrderBlockedEvent(symbol=signal.symbol, reason=reason)
+                    LiveOrderBlockedEvent(
+                        symbol=signal.symbol, reason=reason, venue=self._venue
+                    )
                 )
                 return
             quantity = self._sellable_spot_quantity(
@@ -203,7 +213,9 @@ class LiveTradingCoordinator:
             # to tell "no signal fired" from "a signal fired but sizing
             # produced nothing to send".
             self._event_publisher.publish(
-                LiveOrderBlockedEvent(symbol=signal.symbol, reason=reason)
+                LiveOrderBlockedEvent(
+                    symbol=signal.symbol, reason=reason, venue=self._venue
+                )
             )
             return
 
@@ -253,7 +265,9 @@ class LiveTradingCoordinator:
             # `TradingPresenter`'s own log panel.
             self._event_publisher.publish(
                 LiveOrderBlockedEvent(
-                    symbol=signal.symbol, reason=str(result.blocked_by)
+                    symbol=signal.symbol,
+                    reason=str(result.blocked_by),
+                    venue=self._venue,
                 )
             )
         else:

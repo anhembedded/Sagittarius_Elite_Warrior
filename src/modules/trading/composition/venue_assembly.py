@@ -54,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_tr
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_user_data_stream import (
     SpotUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
+    VenueEventEmitter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
@@ -204,18 +207,21 @@ class VenueAssembly:
 
     @_LockedCachedProperty
     def user_data_stream(self) -> IUserDataStream:
-        event_bus = self._shared.container.resolve(IEventBus)
+        # `EPIC-028C` — the stream emits through its own venue's emitter.
+        events = VenueEventEmitter(
+            self._shared.container.resolve(IEventBus), self._venue
+        )
         task_manager = self._shared.container.resolve(ITaskManager)
         if self._is_spot:
             return SpotUserDataStream(
-                event_bus,
+                events,
                 task_manager,
                 self.credentials_provider,
                 self.account_reader,
                 self.equity_recorder,
             )
         return FuturesUserDataStream(
-            event_bus,
+            events,
             task_manager,
             self.credentials_provider,
             self.client_factory,

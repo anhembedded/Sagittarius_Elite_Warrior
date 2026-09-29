@@ -59,6 +59,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.logic.presenter_
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.logic.presenter_factory_trading import (
     build_trading_presenter_state,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping import (
     map_klines,
     map_volume,
@@ -157,6 +160,7 @@ def strategy_session(strategy_registry):
         MagicMock(),
         MagicMock(),
         MagicMock(),
+        venue=TradingVenue.FUTURES_TESTNET,
     )
     return LiveStrategySession(factory)
 
@@ -2014,7 +2018,10 @@ def _fill_event(symbol="ETHUSDT", order_time=None, status=None):
         order_time=order_time,
     )
     return OrderFilledEvent(
-        order=order, fill_price=Decimal("64000.00"), fill_quantity=Decimal("0.05")
+        order=order,
+        fill_price=Decimal("64000.00"),
+        fill_quantity=Decimal("0.05"),
+        venue=TradingVenue.FUTURES_TESTNET,
     )
 
 
@@ -2118,7 +2125,9 @@ def test_position_changed_updates_the_positions_table(presenter, view, monkeypat
     monkeypatch.setattr(view, "set_positions", spy)
     position = _position()
 
-    presenter._on_position_changed(PositionChangedEvent(position=position))
+    presenter._on_position_changed(
+        PositionChangedEvent(position=position, venue=TradingVenue.FUTURES_TESTNET)
+    )
 
     spy.assert_called_once_with([build_position_row(position)])
 
@@ -2137,10 +2146,14 @@ def test_position_closed_removes_it_from_the_positions_table(
     spy = MagicMock()
     monkeypatch.setattr(view, "set_positions", spy)
     position = _position()
-    presenter._on_position_changed(PositionChangedEvent(position=position))
+    presenter._on_position_changed(
+        PositionChangedEvent(position=position, venue=TradingVenue.FUTURES_TESTNET)
+    )
     spy.reset_mock()
 
-    presenter._on_position_closed(PositionClosedEvent(symbol=position.symbol))
+    presenter._on_position_closed(
+        PositionClosedEvent(symbol=position.symbol, venue=TradingVenue.FUTURES_TESTNET)
+    )
 
     spy.assert_called_once_with([])
 
@@ -2165,10 +2178,14 @@ def test_holdings_changed_updates_the_manual_order_sell_button(
         asset="BTC", free=Decimal("0.5"), locked=Decimal(0), dust_threshold=Decimal(0)
     )
 
-    presenter._on_holdings_changed(HoldingsChangedEvent(holdings=(holding,)))
+    presenter._on_holdings_changed(
+        HoldingsChangedEvent(holdings=(holding,), venue=TradingVenue.FUTURES_TESTNET)
+    )
     assert presenter._view_model.manualOrderSellEnabled is True
 
-    presenter._on_holdings_changed(HoldingsChangedEvent(holdings=()))
+    presenter._on_holdings_changed(
+        HoldingsChangedEvent(holdings=(), venue=TradingVenue.FUTURES_TESTNET)
+    )
     assert presenter._view_model.manualOrderSellEnabled is False
 
 
@@ -2180,7 +2197,9 @@ def test_position_closed_for_an_unknown_symbol_is_a_no_op(presenter, view, monke
     spy = MagicMock()
     monkeypatch.setattr(view, "set_positions", spy)
 
-    presenter._on_position_closed(PositionClosedEvent(symbol="ETHUSDT"))
+    presenter._on_position_closed(
+        PositionClosedEvent(symbol="ETHUSDT", venue=TradingVenue.FUTURES_TESTNET)
+    )
 
     spy.assert_called_once_with([])
 
@@ -2192,7 +2211,11 @@ def test_order_blocked_appears_in_the_screens_own_log_panel(presenter):
     )
 
     presenter._on_order_blocked(
-        LiveOrderBlockedEvent(symbol="BTCUSDT", reason="max_notional_per_order")
+        LiveOrderBlockedEvent(
+            symbol="BTCUSDT",
+            reason="max_notional_per_order",
+            venue=TradingVenue.FUTURES_TESTNET,
+        )
     )
 
     log_model = presenter._view_model.log_model
@@ -2270,7 +2293,9 @@ def test_equity_sampled_event_appends_one_point_to_the_chart(
     monkeypatch.setattr(view.equity_chart, "append_closed_candle", spy)
 
     sample = _equity_sample(5)
-    presenter._on_equity_sampled(EquitySampledEvent(sample=sample))
+    presenter._on_equity_sampled(
+        EquitySampledEvent(sample=sample, venue=TradingVenue.FUTURES_TESTNET)
+    )
 
     spy.assert_called_once_with(*equity_sample_to_candle(sample))
 

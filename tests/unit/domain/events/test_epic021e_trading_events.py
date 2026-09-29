@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.domain.base_event import BaseEvent
 from sagittarius_engine.domain.event_registry import EventRegistry
 
@@ -86,14 +89,17 @@ def test_order_filled_event_keeps_the_name_bot_009_waits_for() -> None:
 
 def test_order_submitted_event_carries_the_order() -> None:
     order = _order()
-    event = OrderSubmittedEvent(order=order)
+    event = OrderSubmittedEvent(order=order, venue=TradingVenue.FUTURES_TESTNET)
     assert event.order is order
 
 
 def test_order_filled_event_carries_fill_details() -> None:
     order = _order()
     event = OrderFilledEvent(
-        order=order, fill_price=Decimal(60000), fill_quantity=Decimal("0.013")
+        order=order,
+        fill_price=Decimal(60000),
+        fill_quantity=Decimal("0.013"),
+        venue=TradingVenue.FUTURES_TESTNET,
     )
     assert event.order is order
     assert event.fill_price == Decimal(60000)
@@ -102,14 +108,16 @@ def test_order_filled_event_carries_fill_details() -> None:
 
 def test_order_rejected_event_carries_a_named_reason() -> None:
     order = _order()
-    event = OrderRejectedEvent(order=order, reason="MIN_NOTIONAL")
+    event = OrderRejectedEvent(
+        order=order, reason="MIN_NOTIONAL", venue=TradingVenue.FUTURES_TESTNET
+    )
     assert event.order is order
     assert event.reason == "MIN_NOTIONAL"
 
 
 def test_position_changed_event_carries_the_position() -> None:
     position = _position()
-    event = PositionChangedEvent(position=position)
+    event = PositionChangedEvent(position=position, venue=TradingVenue.FUTURES_TESTNET)
     assert event.position is position
 
 
@@ -119,4 +127,6 @@ def test_new_events_compare_equal_on_payload_not_identity() -> None:
     two events with identical payloads must compare equal even though each
     carries a fresh, unique `_event_id`."""
     order = _order()
-    assert OrderSubmittedEvent(order=order) == OrderSubmittedEvent(order=order)
+    assert OrderSubmittedEvent(
+        order=order, venue=TradingVenue.FUTURES_TESTNET
+    ) == OrderSubmittedEvent(order=order, venue=TradingVenue.FUTURES_TESTNET)

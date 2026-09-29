@@ -113,6 +113,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_tradin
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_presenter import (
     TradingPresenter,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
@@ -142,6 +145,7 @@ def strategy_session(strategy_registry: StrategyRegistry) -> LiveStrategySession
         MagicMock(),
         MagicMock(),
         MagicMock(),
+        venue=TradingVenue.FUTURES_TESTNET,
     )
     return LiveStrategySession(factory)
 

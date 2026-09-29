@@ -66,13 +66,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.modules.trading.application.holdings_refresh_service import (
-    HoldingsRefreshService,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.position_refresh_service import (
-    PositionRefreshService,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.adapter_bindings import (
     bind_adapters,
 )
@@ -88,6 +81,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.query_bindings im
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.state_bindings import (
     bind_state,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_refresh_services import (
+    build_venue_refresh_services,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
 )
@@ -102,9 +98,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings_contribution impo
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_screen import (
     trading_screen,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
@@ -238,11 +231,11 @@ class TradingModule(BoundedContextModule):
 
         `EPIC-025E` PR 4.4f-4 added the first:
 
-        1. **`PositionRefreshService`'s scheduling** (`BUG-117`) — one
-           recurring job, registered once, for the lifetime of the process;
-           `PositionRefreshService.refresh_once()` is a no-op while trading
-           is disabled, so nothing else needs to start or stop this
-           alongside Enable/Disable/Emergency-Stop.
+        1. **The account refresh scheduling** (`BUG-117`) — one recurring
+           job per enabled venue since `EPIC-028C`, registered once, for the
+           lifetime of the process; each `refresh_once()` is a no-op while
+           its venue's trading is disabled, so nothing else needs to start
+           or stop it alongside Enable/Disable/Emergency-Stop.
 
         `EPIC-025F` PR 5.2 added the second: stashing `container` for
         `contribute()`'s `dashboard_screen(self._container)` call (see
@@ -262,22 +255,18 @@ class TradingModule(BoundedContextModule):
         self._container = container
 
         config = container.resolve(IConfig)
-        position_refresh = container.resolve(PositionRefreshService)
         scheduler = container.resolve(Scheduler)
-        scheduler.every(seconds=self._position_refresh_interval_seconds(config)).do(
-            position_refresh.refresh_once
-        )
-
-        # `EPIC-027O` — the Holdings table's own poll, scheduled only on a
-        # Spot venue: `HoldingsRefreshService.refresh_once()` always no-ops
-        # while trading is disabled the same as positions, but unlike
-        # positions (cheap on every venue, Futures answers `[]`), a holdings
-        # poll is a real `check_connection()` round trip that a Futures venue
-        # would always answer `None` from — see that service's own docstring.
-        if container.resolve(TradingVenue).market_type is MarketType.SPOT:
-            holdings_refresh = container.resolve(HoldingsRefreshService)
-            scheduler.every(seconds=self._position_refresh_interval_seconds(config)).do(
-                holdings_refresh.refresh_once
+        interval_seconds = self._position_refresh_interval_seconds(config)
+        # `EPIC-028C` — one refresh per enabled venue, chosen by its market
+        # (`venue_refresh_services.py`): positions on Futures, holdings on
+        # Spot, each reading and addressing its own venue.
+        for service in build_venue_refresh_services(container):
+            scheduler.every(seconds=interval_seconds).do(service.refresh_once)
+            logger.info(
+                "Scheduled %s for %s every %.1fs.",
+                type(service).__name__,
+                service.venue.value,
+                interval_seconds,
             )
 
     @staticmethod

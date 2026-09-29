@@ -43,17 +43,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_us
     parse_execution_report,
     stream_event_captured_at,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
+    VenueEventEmitter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
     EquitySample,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
-    EquitySampledEvent,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
-    OrderFilledEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
@@ -64,7 +61,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream 
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
 )
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_task_manager import ITaskHandle, ITaskManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
@@ -91,13 +87,14 @@ class SpotUserDataStream(IUserDataStream):
 
     def __init__(
         self,
-        event_bus: IEventBus,
+        events: VenueEventEmitter,
         task_manager: ITaskManager,
         credentials_provider: IExchangeCredentialsProvider,
         account_reader: ITradingAccountReader,
         equity_recorder: EquityCurveRecorder,
     ) -> None:
-        self._event_bus = event_bus
+        #: `EPIC-028C` — this venue's emitter: every event carries the venue.
+        self._events = events
         self._task_manager = task_manager
         self._credentials_provider = credentials_provider
         self._account_reader = account_reader
@@ -229,15 +226,7 @@ class SpotUserDataStream(IUserDataStream):
         if is_fill_execution(payload):
             fill_price, fill_quantity = fill_details(payload)
             fee = fill_fee(payload)
-            self._event_bus.emit(
-                OrderFilledEvent(
-                    order=order,
-                    fill_price=fill_price,
-                    fill_quantity=fill_quantity,
-                    fee_amount=fee[0] if fee is not None else None,
-                    fee_asset=fee[1] if fee is not None else None,
-                )
-            )
+            self._events.order_filled(order, (fill_price, fill_quantity), fee)
 
     async def _refresh_equity(self, payload: dict[str, Any]) -> None:
         """@brief Handles both `OUTBOUND_ACCOUNT_POSITION` (every fill) and
@@ -271,7 +260,7 @@ class SpotUserDataStream(IUserDataStream):
             unrealized_pnl=Decimal(0),
         )
         self._equity_recorder.record(equity_sample)
-        self._event_bus.emit(EquitySampledEvent(sample=equity_sample))
+        self._events.equity_sampled(equity_sample)
         # `BUG-095` — `DEBUG`: fires on every balance-affecting event, which
         # on an active session is every fill.
         logger.debug("%s  equity  total %s", payload.get("e"), equity_sample.total)

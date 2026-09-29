@@ -67,6 +67,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row im
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_presenter import (
     TradingPresenter,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 def _position(symbol="BTCUSDT") -> LivePosition:
@@ -266,7 +269,12 @@ def test_order_filled_with_a_live_status_adds_to_open_orders(presenter, view):
     order = _order(status=OrderStatus.NEW)
 
     presenter._on_order_filled(
-        OrderFilledEvent(order=order, fill_price=Decimal(0), fill_quantity=Decimal(0))
+        OrderFilledEvent(
+            order=order,
+            fill_price=Decimal(0),
+            fill_quantity=Decimal(0),
+            venue=TradingVenue.FUTURES_TESTNET,
+        )
     )
 
     view.set_open_orders.assert_called_once_with([build_open_order_row(order)])
@@ -276,7 +284,10 @@ def test_order_filled_with_a_terminal_status_removes_it(presenter, view):
     live_order = _order(status=OrderStatus.NEW)
     presenter._on_order_filled(
         OrderFilledEvent(
-            order=live_order, fill_price=Decimal(0), fill_quantity=Decimal(0)
+            order=live_order,
+            fill_price=Decimal(0),
+            fill_quantity=Decimal(0),
+            venue=TradingVenue.FUTURES_TESTNET,
         )
     )
     view.set_open_orders.reset_mock()
@@ -284,7 +295,10 @@ def test_order_filled_with_a_terminal_status_removes_it(presenter, view):
     filled_order = _order(status=OrderStatus.FILLED)
     presenter._on_order_filled(
         OrderFilledEvent(
-            order=filled_order, fill_price=Decimal(64000), fill_quantity=Decimal("0.5")
+            order=filled_order,
+            fill_price=Decimal(64000),
+            fill_quantity=Decimal("0.5"),
+            venue=TradingVenue.FUTURES_TESTNET,
         )
     )
 
@@ -294,7 +308,9 @@ def test_order_filled_with_a_terminal_status_removes_it(presenter, view):
 def test_position_changed_updates_the_positions_table(presenter, view):
     position = _position()
 
-    presenter._on_position_changed(PositionChangedEvent(position=position))
+    presenter._on_position_changed(
+        PositionChangedEvent(position=position, venue=TradingVenue.FUTURES_TESTNET)
+    )
 
     view.set_positions.assert_called_once_with([build_position_row(position)])
 
@@ -302,16 +318,22 @@ def test_position_changed_updates_the_positions_table(presenter, view):
 def test_position_closed_removes_it_from_the_positions_table(presenter, view):
     """`BUG-086` regression."""
     position = _position()
-    presenter._on_position_changed(PositionChangedEvent(position=position))
+    presenter._on_position_changed(
+        PositionChangedEvent(position=position, venue=TradingVenue.FUTURES_TESTNET)
+    )
     view.set_positions.reset_mock()
 
-    presenter._on_position_closed(PositionClosedEvent(symbol=position.symbol))
+    presenter._on_position_closed(
+        PositionClosedEvent(symbol=position.symbol, venue=TradingVenue.FUTURES_TESTNET)
+    )
 
     view.set_positions.assert_called_once_with([])
 
 
 def test_position_closed_for_an_unknown_symbol_is_a_no_op(presenter, view):
-    presenter._on_position_closed(PositionClosedEvent(symbol="ETHUSDT"))
+    presenter._on_position_closed(
+        PositionClosedEvent(symbol="ETHUSDT", venue=TradingVenue.FUTURES_TESTNET)
+    )
 
     view.set_positions.assert_called_once_with([])
 
@@ -322,7 +344,11 @@ def test_order_blocked_appears_in_the_screens_own_log_panel(presenter):
     "no signal fired" from "a signal fired but got blocked" on the Trading
     screen itself."""
     presenter._on_order_blocked(
-        LiveOrderBlockedEvent(symbol="BTCUSDT", reason="max_notional_per_order")
+        LiveOrderBlockedEvent(
+            symbol="BTCUSDT",
+            reason="max_notional_per_order",
+            venue=TradingVenue.FUTURES_TESTNET,
+        )
     )
 
     log_model = presenter._view_model.log_model
@@ -354,6 +380,7 @@ def test_order_filled_renders_a_fill_marker_on_the_active_symbols_chart(
         ),
         fill_price=Decimal("64000.00"),
         fill_quantity=Decimal("0.5"),
+        venue=TradingVenue.FUTURES_TESTNET,
     )
     assert presenter._active_symbol == "BTCUSDT"
 
@@ -369,6 +396,7 @@ def test_order_filled_for_a_different_symbol_does_not_touch_the_chart(presenter,
         order=_order(symbol="ETHUSDT"),
         fill_price=Decimal("3000.00"),
         fill_quantity=Decimal(1),
+        venue=TradingVenue.FUTURES_TESTNET,
     )
     assert presenter._active_symbol != "ETHUSDT"
 

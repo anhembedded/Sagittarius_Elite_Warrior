@@ -84,7 +84,15 @@ def _session() -> LiveStrategySession:
     registry = StrategyRegistry()
     registry.register(_KEY, EmaCrossoverStrategy)
     registry.register(_SHORT_CAPABLE_KEY, EmaTrendPullbackStrategy)
-    factory = LiveStrategyFactory(registry, Mock(), Mock(), Mock(), Mock(), Mock())
+    factory = LiveStrategyFactory(
+        registry,
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        Mock(),
+        venue=TradingVenue.FUTURES_TESTNET,
+    )
     return LiveStrategySession(factory)
 
 

@@ -52,6 +52,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trad
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user_data_stream import (
     FuturesUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
+    VenueEventEmitter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
@@ -115,7 +118,7 @@ async def _run(seconds: float) -> None:
     event_bus.on(PositionChangedEvent, _on_position_changed)
 
     stream = FuturesUserDataStream(
-        event_bus,
+        VenueEventEmitter(event_bus, TradingVenue.FUTURES_TESTNET),
         # `_run_stream()` is awaited directly below, never through
         # `.start()`/`.stop()` — those are the only methods that touch
         # `task_manager`, so this probe never needs a real one.

@@ -1,7 +1,10 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from sagittarius_engine.domain.base_event import BaseEvent
 
@@ -33,3 +36,7 @@ class PositionChangedEvent(BaseEvent):
     """
 
     position: LivePosition
+    #: `EPIC-028C` — the venue this happened on, so a screen showing one
+    #: venue never shows another's. No default: a missing venue is exactly
+    #: the fill landing in the wrong desk's table.
+    venue: TradingVenue = field(kw_only=True)
