@@ -301,6 +301,31 @@ async def test_account_update_s_get_positions_call_does_not_stall_the_event_loop
     assert order == ["quick", "slow"]
 
 
+async def test_a_generation_bumped_during_get_positions_writes_nothing() -> None:
+    """`BUG-094` fence, re-applied after `BOT-145`'s await: the handler passed
+    the pre-dispatch generation check, then `stop()`/`start()` superseded
+    the stream while `get_positions()` ran — the stale answer must neither
+    reconcile the new session's state nor publish a position event."""
+
+    def superseding_get_positions(_symbol: str) -> list:
+        stream._generation += 1
+        return [_live_position()]
+
+    stream, event_bus = _stream(
+        Mock(get_positions=Mock(side_effect=superseding_get_positions))
+    )
+    seen: list = []
+    event_bus.on(PositionChangedEvent, seen.append)
+    event_bus.on(PositionClosedEvent, seen.append)
+
+    await stream._handle_message(
+        _account_update([{"s": "BTCUSDT", "pa": "0.002", "ep": "64105.35"}])
+    )
+
+    assert seen == []
+    assert stream._session_state.open_position_count("BTCUSDT") == 0
+
+
 async def test_unrecognized_event_type_is_ignored() -> None:
     stream, event_bus = _stream()
     seen: list = []

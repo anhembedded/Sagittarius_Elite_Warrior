@@ -229,6 +229,39 @@ async def test_outbound_account_position_s_check_connection_does_not_stall_the_e
     assert order == ["quick", "slow"]
 
 
+class _SupersedingFakeTradingAccountReader(FakeTradingAccountReader):
+    """Bumps the stream's generation mid-call — what `stop()`/`start()` do
+    to a stream whose handler is suspended on the `BOT-145` REST await."""
+
+    stream: SpotUserDataStream | None = None
+
+    def check_connection(self) -> ExchangeConnectionStatus:
+        assert self.stream is not None
+        self.stream._generation += 1
+        return super().check_connection()
+
+
+async def test_a_generation_bumped_during_the_equity_refetch_records_nothing() -> None:
+    """`BUG-094` fence, re-applied after `BOT-145`'s await: the handler passed
+    the pre-dispatch generation check, then `stop()`/`start()` superseded
+    the stream while `check_connection()` ran — the stale answer must not be
+    recorded or published into the new session."""
+    reader = _SupersedingFakeTradingAccountReader(
+        _reachable_status(equity=Decimal("1234.56"))
+    )
+    recorder = EquityCurveRecorder()
+    stream, event_bus = _stream(account_reader=reader, equity_recorder=recorder)
+    reader.stream = stream
+    seen: list = []
+    event_bus.on(EquitySampledEvent, seen.append)
+
+    await stream._handle_message(_outbound_account_position())
+
+    assert reader.checks == 1
+    assert seen == []
+    assert recorder.samples() == ()
+
+
 async def test_outbound_account_position_logs_at_debug_not_info(caplog) -> None:
     reader = FakeTradingAccountReader(_reachable_status(equity=Decimal("1234.56")))
     stream, _event_bus = _stream(account_reader=reader)

@@ -249,8 +249,14 @@ class SpotUserDataStream(IUserDataStream):
         stream's own balance deltas (this module's own docstring)."""
         # `BOT-145` — off the event loop: `check_connection()` is several
         # blocking, `requests`-backed REST calls, and this handler runs on
-        # the same loop driving `stream.recv()` (`_run_stream`).
+        # the same loop driving `stream.recv()` (`_run_stream`). `BUG-094` —
+        # re-fenced after that await: `stop()`/`start()` can bump
+        # `self._generation` during the round trip, and a superseded
+        # stream must not record or publish into the new session.
+        generation = self._generation
         status = await asyncio.to_thread(self._account_reader.check_connection)
+        if generation != self._generation:
+            return
         if status.equity is None:
             logger.warning(
                 "%s received but equity could not be re-fetched — skipping "
