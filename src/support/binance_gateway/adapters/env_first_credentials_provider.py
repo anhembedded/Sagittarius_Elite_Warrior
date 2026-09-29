@@ -39,6 +39,19 @@ _ENV_VAR_NAMES: dict[TradingVenue, tuple[str, str]] = {
 }
 
 
+def _stripped_env(name: str) -> str | None:
+    """`BUG-137` — a shell-pasted or `.env`-sourced value routinely carries
+    a stray trailing newline or space; left in, it corrupts the signed
+    request's `X-MBX-APIKEY` header and surfaces as an opaque `NETWORK`
+    failure instead of naming the credentials problem. Stripped here, once,
+    so every venue and every caller of `resolve()` gets the same immunity.
+    A whitespace-only value strips to `""`, which is falsy — `resolve()`'s
+    `if api_key and api_secret` already treats that as "not set" and falls
+    through to the file source, same as a truly missing var."""
+    value = os.environ.get(name)
+    return value.strip() if value is not None else None
+
+
 class EnvFirstCredentialsProvider(IExchangeCredentialsProvider):
     """@brief Environment variables win outright over the file fallback —
     the only way to run headless (CI/VPS) without ever putting a secret on
@@ -59,8 +72,8 @@ class EnvFirstCredentialsProvider(IExchangeCredentialsProvider):
 
     def resolve(self) -> ResolvedCredentials:
         env_var_names = _ENV_VAR_NAMES.get(self._trading_venue)
-        api_key = os.environ.get(env_var_names[0]) if env_var_names else None
-        api_secret = os.environ.get(env_var_names[1]) if env_var_names else None
+        api_key = _stripped_env(env_var_names[0]) if env_var_names else None
+        api_secret = _stripped_env(env_var_names[1]) if env_var_names else None
         if api_key and api_secret:
             return ResolvedCredentials(
                 ExchangeCredentials(api_key, api_secret), CredentialsSource.ENV

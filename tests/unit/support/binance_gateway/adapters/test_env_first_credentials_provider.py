@@ -150,6 +150,46 @@ def test_a_futures_testnet_env_var_never_resolves_for_spot_testnet(
     assert resolution.source is not CredentialsSource.ENV
 
 
+def test_an_env_var_with_a_trailing_newline_is_stripped_before_use(
+    tmp_path, monkeypatch
+):
+    """`BUG-137` — a value pasted into a shell (PowerShell `$env:X="…"` with
+    an accidental Enter before the closing quote, a `.env` file's trailing
+    line ending) commonly carries a trailing `\\n`. Embedded verbatim in the
+    `X-MBX-APIKEY` HTTP header, that newline makes `requests` reject the
+    header outright — surfacing as a generic, misleading `NETWORK` failure
+    (`spot_account_reader._classify_exception`'s catch-all) instead of
+    naming the actual credentials problem. `resolve()` must strip
+    surrounding whitespace from both env var values before they ever reach
+    a signed request."""
+    _clear_all_venue_env_vars(monkeypatch)
+    monkeypatch.setenv(FUTURES_ENV_API_KEY, "env-key\n")
+    monkeypatch.setenv(FUTURES_ENV_API_SECRET, " env-secret \t\n")
+    provider = _provider(tmp_path)
+
+    resolution = provider.resolve()
+
+    assert resolution.source is CredentialsSource.ENV
+    assert resolution.credentials.api_key == "env-key"
+    assert resolution.credentials.api_secret == "env-secret"  # noqa: S105 - test fixture data
+
+
+def test_an_env_var_that_is_only_whitespace_falls_back_to_the_file(
+    tmp_path, monkeypatch
+):
+    """A key set to whitespace-only (a shell variable exported but emptied)
+    must not resolve to an empty-string credential — same "no half
+    resolution" contract as the partial-pair case above."""
+    provider = _provider(tmp_path)
+    provider.save_to_file("file-key", "file-secret")
+    monkeypatch.setenv(FUTURES_ENV_API_KEY, "   ")
+    monkeypatch.setenv(FUTURES_ENV_API_SECRET, "env-secret")
+
+    resolution = provider.resolve()
+
+    assert resolution.source is CredentialsSource.FILE
+
+
 def test_disabled_venue_has_no_env_vars_and_falls_back_to_the_file(
     tmp_path, monkeypatch
 ):

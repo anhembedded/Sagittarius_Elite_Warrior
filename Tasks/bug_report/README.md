@@ -59,8 +59,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 0 |
-| ✅ **Đã sửa / đã đóng** | 134 |
-| 📈 **Tổng** | **134** |
+| ✅ **Đã sửa / đã đóng** | 135 |
+| 📈 **Tổng** | **135** |
 
 ---
 
@@ -84,6 +84,7 @@ _Không có bug nào đang mở._
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-137](completed/BUG-137_env_credential_trailing_newline_misreported_as_network_failure.md)** | Chạy `EPIC-027P` AC5 (round-trip Spot Testnet thật), `BINANCE_SPOT_TESTNET_API_KEY`/`_SECRET` set qua PowerShell dính thêm `\n` cuối chuỗi (paste thừa Enter) — key lọt nguyên vẹn vào header `X-MBX-APIKEY` gửi lên Binance, `requests` từ chối, và `spot_account_reader._classify_exception()` (không phải `BinanceAPIException` có mã lỗi) gộp mọi exception dạng này vào `ConnectionFailureKind.NETWORK` chung chung, làm người dùng đi sai hướng tưởng do mạng/exchange chứ không phải do định dạng key. Đã sửa: `EnvFirstCredentialsProvider.resolve()` thêm `_stripped_env()`, `.strip()` cả key lẫn secret đọc từ biến môi trường trước khi dùng; giá trị chỉ toàn khoảng trắng strip về `""` thì rơi đúng vào nhánh fallback file có sẵn (không đổi hành vi trường hợp thiếu biến thật). 2 test mới, cả hai đỏ đúng lý do trước khi sửa | 🟡 P2 | 2026-09-29 | ✅ 2026-09-29 |
 | **[BUG-136](completed/BUG-136_ci_local_silently_wrong_target_in_named_worktree.md)** | `ci-local.ps1` âm thầm test sai checkout khi chạy trong worktree không tên `Sagittarius_Elite_Warrior` (đúng tên `pr-review/SKILL.md` §3 tự khuyên dùng trước đây) — pytest resolve target hardcode-tương-đối vào một sibling bất kỳ trùng tên, không báo lỗi. Sửa 2 lớp: (1) `ci-local.ps1` thêm precondition check tên checkout, fail rõ ràng qua đúng cơ chế `$failed`/khối `===CI_LOCAL_RESULT===` sẵn có thay vì `exit` trần (tránh treo caller đang chờ marker đó); (2) `pr-review/SKILL.md` §3 đổi sang tạo worktree tên đúng `Sagittarius_Elite_Warrior` trong 1 thư mục tạm mới (`mktemp -d`), cùng pattern đã có sẵn ở `scripts/verify_against_base.py`/`worktree_path()` cho đúng lớp lỗi này (`CS-006`). 2 test mới invoke script thật, mutation-verified | 🟡 P2 | 2026-09-25 | ✅ 2026-09-25 |
 | **[BUG-135](completed/BUG-135_metatrader_csv_import_drops_time_and_rejects_dotted_dates.md)** | Import CSV MetaTrader (`BOT-112D`) không hoạt động thật: cột `Date`+`Time` tách riêng chưa bao giờ được ghép — `_ALIASES["open_time"]` khớp `date` trước rồi bỏ qua `time`, xoá sạch giờ trong ngày mỗi dòng; ngày kiểu MT4/5 thật (`2024.01.15`, chấm phân cách) khiến `datetime.fromisoformat()` raise `ValueError` mọi dòng. Phát hiện bởi phiên review độc lập của `PR #257`. Đã sửa: ghép `Date`+`Time` khi cả hai cột cùng tồn tại, chuẩn hoá dấu chấm sang gạch ngang chỉ ở phần ngày (không đụng phần giây lẻ) | 🟡 P2 | 2026-09-23 | ✅ 2026-09-23 |
 | **[BUG-134](completed/BUG-134_dev_board_strategy_params_dialog_crashes_on_open.md)** | Nút "Strategy Parameters…" trên Dev Board crash `TypeError` ngay khi bấm — `_open_strategy_params_dialog()` truyền `self` (một `QObject` từ `EPIC-025` PR 1.4c-3, không còn là `QWidget`) làm Qt parent cho `StrategyParamsDialog`, trong khi `_dialog_parent()` (đã có sẵn trên đúng class này cho 2 dialog khác) mới là cách đúng. Phát hiện khi xây `BOT-063`'s dialog thông số indicator script, tái dùng đúng class này. Đã sửa: đổi sang `self._dialog_parent()` | 🔴 P1 | 2026-09-23 | ✅ 2026-09-23 |
