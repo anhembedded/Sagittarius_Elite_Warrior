@@ -53,6 +53,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
+    IExchangeCredentialsProvider,
     ResolvedCredentials,
 )
 
@@ -62,7 +63,7 @@ _POLL_INTERVAL_S = 1.0
 _TIMEOUT_S = 30.0
 
 
-class _StaticCredentialsProvider:
+class _StaticCredentialsProvider(IExchangeCredentialsProvider):
     def __init__(self, credentials: ExchangeCredentials) -> None:
         self._credentials = credentials
 
