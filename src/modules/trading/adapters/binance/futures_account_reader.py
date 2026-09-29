@@ -21,6 +21,7 @@ specific kind.
 
 from __future__ import annotations
 
+import logging
 import time
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -57,11 +58,29 @@ _ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
 
 _USDT_ASSET = "USDT"
 
+logger = logging.getLogger("App.TradingAdapter")
+
 
 def _classify_exception(exc: Exception) -> ConnectionFailureKind:
-    if isinstance(exc, BinanceAPIException):
-        return _ERROR_CODE_TO_FAILURE_KIND.get(exc.code, ConnectionFailureKind.NETWORK)
-    return ConnectionFailureKind.NETWORK
+    kind = (
+        _ERROR_CODE_TO_FAILURE_KIND.get(exc.code, ConnectionFailureKind.NETWORK)
+        if isinstance(exc, BinanceAPIException)
+        else ConnectionFailureKind.NETWORK
+    )
+    if kind is ConnectionFailureKind.NETWORK:
+        # `BUG-137` follow-up — same fix as `spot_account_reader`'s own:
+        # every other kind here already names the problem (`KEY_EXPIRED`,
+        # `BAD_SIGNATURE`, ...); this catch-all bucket was the one place the
+        # real exception was discarded, leaving the run log with zero
+        # evidence of what actually failed. Logged, never silently
+        # swallowed (`code/errors.md` #1).
+        logger.error(
+            "Futures Testnet connection check failed with an unclassified "
+            "exception: %s: %s",
+            type(exc).__name__,
+            exc,
+        )
+    return kind
 
 
 def _extract_usdt_balance(account: dict[str, Any]) -> Decimal | None:

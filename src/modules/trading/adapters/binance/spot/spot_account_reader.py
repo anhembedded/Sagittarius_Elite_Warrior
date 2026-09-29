@@ -72,9 +72,25 @@ _NETWORK_EXCEPTIONS = (BinanceAPIException, BinanceRequestException, RequestExce
 
 
 def _classify_exception(exc: Exception) -> ConnectionFailureKind:
-    if isinstance(exc, BinanceAPIException):
-        return _ERROR_CODE_TO_FAILURE_KIND.get(exc.code, ConnectionFailureKind.NETWORK)
-    return ConnectionFailureKind.NETWORK
+    kind = (
+        _ERROR_CODE_TO_FAILURE_KIND.get(exc.code, ConnectionFailureKind.NETWORK)
+        if isinstance(exc, BinanceAPIException)
+        else ConnectionFailureKind.NETWORK
+    )
+    if kind is ConnectionFailureKind.NETWORK:
+        # `BUG-137` follow-up — every other kind here already names the
+        # problem (`KEY_EXPIRED`, `BAD_SIGNATURE`, ...); this catch-all
+        # bucket is the one place the real exception was being discarded,
+        # leaving the run log with zero evidence of what actually failed
+        # (an operator staring at a bare "network" verdict with no next
+        # step). Logged, never silently swallowed (`code/errors.md` #1).
+        logger.error(
+            "Spot Testnet connection check failed with an unclassified "
+            "exception: %s: %s",
+            type(exc).__name__,
+            exc,
+        )
+    return kind
 
 
 def _parse_holdings(account: dict[str, Any]) -> tuple[SpotHolding, ...]:
