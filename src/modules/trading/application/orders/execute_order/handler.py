@@ -19,19 +19,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.handler import (
     PreviewOrderQueryHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
+    VenueTradingScope,
+    VenueTradingScopes,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderNotionalRejection,
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
-    ITradingAccountReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
-    ITradingClientFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
@@ -45,9 +40,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits impo
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitPolicy,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
-)
 
 logger = logging.getLogger("App.CommandHandler")
 
@@ -55,30 +47,39 @@ logger = logging.getLogger("App.CommandHandler")
 class ExecuteOrderCommandHandler(
     ICommandHandler[ExecuteOrderCommand, ExecuteOrderResult]
 ):
+    """@details `EPIC-028B` — acts on `command.venue` only: its session
+    state, its connection and its client come from one
+    `VenueTradingScopes.get()` call, so an order can never be checked
+    against one venue and sent to another."""
+
     def __init__(
         self,
-        trading_venue: TradingVenue,
-        session_state: TradingSessionState,
-        account_reader: ITradingAccountReader,
+        scopes: VenueTradingScopes,
         preview_handler: PreviewOrderQueryHandler,
         limits_policy: TradingLimitPolicy,
-        trading_client_factory: ITradingClientFactory,
     ) -> None:
-        self._trading_venue = trading_venue
-        self._session_state = session_state
-        self._account_reader = account_reader
+        self._scopes = scopes
         self._preview_handler = preview_handler
         self._limits_policy = limits_policy
-        self._trading_client_factory = trading_client_factory
 
     def execute(self, command: ExecuteOrderCommand) -> ExecuteOrderResult:
         logger.debug(
-            "Handling ExecuteOrderCommand for %s (live=%s)",
+            "Handling ExecuteOrderCommand for %s on %s (live=%s)",
             command.order_request.symbol,
+            command.venue.value,
             command.live,
         )
 
-        gate = self._first_blocked_safety_gate(command)
+        # Before any lookup: a venue that cannot trade has nothing to
+        # resolve, and refusing it costs nothing.
+        if not command.venue.supports_order_submission:
+            return ExecuteOrderResult(
+                ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED, None, (), None
+            )
+        scope = self._scopes.get(command.venue)
+        session_state = scope.session_state
+
+        gate = self._first_blocked_safety_gate(command, scope)
         if gate is not None:
             return ExecuteOrderResult(gate, None, (), None)
 
@@ -101,7 +102,7 @@ class ExecuteOrderCommandHandler(
         # dispatches reading `orders_sent_this_session` before either one's
         # order lands is a real race, not a hypothetical one. See
         # `TradingSessionState.live_submission_guard()`'s own docstring.
-        with self._session_state.live_submission_guard():
+        with session_state.live_submission_guard():
             # `EPIC-025` PR 2.1f — the symbol lease, and it is inside this lock
             # for the reason `Docs/SDD/05` §3 calls claim-then-execute: reading
             # the holder before acquiring the guard would let a strategy arm in
@@ -118,7 +119,7 @@ class ExecuteOrderCommandHandler(
             # in `DashboardPresenter._run_manual_order()`, so the CLI and any
             # future order path were not covered by a rule the user had asked
             # for.
-            holder = self._session_state.lease_holder(symbol)
+            holder = session_state.lease_holder(symbol)
             if holder is not None and holder != command.owner_id:
                 return ExecuteOrderResult(
                     ExecuteOrderSafetyGate.SYMBOL_LEASED, preview, (), None
@@ -126,12 +127,12 @@ class ExecuteOrderCommandHandler(
 
             now = datetime.now(UTC)
             context = TradingLimitContext(
-                orders_sent_this_session=self._session_state.orders_sent_this_session,
+                orders_sent_this_session=session_state.orders_sent_this_session,
                 order_notional=preview.estimated_notional,
-                open_position_count_for_symbol=self._session_state.open_position_count(
+                open_position_count_for_symbol=session_state.open_position_count(
                     symbol
                 ),
-                time_since_last_order_for_symbol=self._session_state.time_since_last_order(
+                time_since_last_order_for_symbol=session_state.time_since_last_order(
                     symbol, now
                 ),
             )
@@ -146,20 +147,22 @@ class ExecuteOrderCommandHandler(
             if not command.live:
                 return ExecuteOrderResult(None, preview, checks, None, context, limits)
 
-            trading_client = self._trading_client_factory.create(
-                OrderSubmissionMode.LIVE
-            )
+            trading_client = scope.ports.client_factory.create(OrderSubmissionMode.LIVE)
             submitted_order = trading_client.place_order(preview.order)
-            self._session_state.record_order_sent(symbol, now)
+            session_state.record_order_sent(symbol, now)
             logger.info(
-                "Live order submitted: %s %s", symbol, submitted_order.client_order_id
+                "Live order submitted on %s: %s %s",
+                command.venue.value,
+                symbol,
+                submitted_order.client_order_id,
             )
             return ExecuteOrderResult(
                 None, preview, checks, submitted_order, context, limits
             )
 
+    @staticmethod
     def _first_blocked_safety_gate(
-        self, command: ExecuteOrderCommand
+        command: ExecuteOrderCommand, scope: VenueTradingScope
     ) -> ExecuteOrderSafetyGate | None:
         """@details Ordered by cost, cheapest first, and the lease sits ahead of
         the connection check deliberately (`EPIC-025` PR 2.1f). The refusal it
@@ -176,14 +179,12 @@ class ExecuteOrderCommandHandler(
         which is the check that closes the race. Two reads, one cheap and one
         atomic, is the whole reason this method can stay free.
         """
-        if not self._trading_venue.supports_order_submission:
-            return ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
-        if not self._session_state.enabled:
+        if not scope.session_state.enabled:
             return ExecuteOrderSafetyGate.TRADING_SWITCH_OFF
-        holder = self._session_state.lease_holder(command.order_request.symbol)
+        holder = scope.session_state.lease_holder(command.order_request.symbol)
         if holder is not None and holder != command.owner_id:
             return ExecuteOrderSafetyGate.SYMBOL_LEASED
-        status = self._account_reader.check_connection()
+        status = scope.ports.account_reader.check_connection()
         if not status.reachable or status.failure is not None:
             return ExecuteOrderSafetyGate.CONNECTION_NOT_READY
         return None

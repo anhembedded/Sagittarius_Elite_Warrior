@@ -5,27 +5,15 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading.command import (
     EnableTradingCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
+    VenueTradingScopes,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
     EnableTradingBlockReason,
     EnableTradingResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
-    ITradingAccountReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
-    ITradingClientFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
-    IUserDataStream,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
 )
 
 logger = logging.getLogger("App.CommandHandler")
@@ -44,14 +32,11 @@ class EnableTradingCommandHandler(
     enable outright — this app never auto-adopts or auto-closes a
     position it did not open itself.
 
-    Resolves its own client from `ITradingClientFactory` (`VALIDATE_ONLY` —
-    irrelevant for these two read-only calls) rather than depending on the
-    `ITradingClient` singleton directly: that singleton is only
-    registered when `TradingVenue != DISABLED`
-    (`binance_bot_module.py`), and this handler must still be
-    *constructible* (to report `TRADING_VENUE_DISABLED` itself) when it
-    is not — `ITradingClientFactory` is bound unconditionally
-    (`EPIC-027F`), unlike `ITradingClient`.
+    `EPIC-028B` — acts on `command.venue` only. A venue that cannot submit
+    orders is refused as `TRADING_VENUE_DISABLED` before anything is
+    resolved; otherwise one `VenueTradingScopes.get()` call supplies that
+    venue's client factory (`VALIDATE_ONLY` — irrelevant for these two
+    read-only calls), account reader, session state and user data stream.
 
     Starts `IUserDataStream` on a successful enable (`EPIC-021H` §3) —
     the exchange's own account of what happens to an order only starts
@@ -79,37 +64,31 @@ class EnableTradingCommandHandler(
     user already held before enabling.
     """
 
-    def __init__(
-        self,
-        trading_venue: TradingVenue,
-        account_reader: ITradingAccountReader,
-        trading_client_factory: ITradingClientFactory,
-        session_state: TradingSessionState,
-        user_data_stream: IUserDataStream,
-    ) -> None:
-        self._trading_venue = trading_venue
-        self._account_reader = account_reader
-        self._trading_client_factory = trading_client_factory
-        self._session_state = session_state
-        self._user_data_stream = user_data_stream
+    def __init__(self, scopes: VenueTradingScopes) -> None:
+        self._scopes = scopes
 
     def execute(self, command: EnableTradingCommand) -> EnableTradingResult:
-        logger.debug("Handling EnableTradingCommand")
+        logger.debug("Handling EnableTradingCommand on %s", command.venue.value)
 
-        if not self._trading_venue.supports_order_submission:
+        if not command.venue.supports_order_submission:
             return self._blocked(EnableTradingBlockReason.TRADING_VENUE_DISABLED)
+        # `EPIC-028B` — everything below is `command.venue`'s own: its state,
+        # connection, client and user data stream. Enabling one venue never
+        # touches the other's session.
+        scope = self._scopes.get(command.venue)
+        session_state = scope.session_state
 
         # `BUG-088` — read *before* the two network round-trips below, not
         # after: `enable()` only applies if nothing else (a concurrent
         # Emergency Stop, most importantly) mutated `_session_state` while
         # this reconciliation was in flight.
-        generation_before_reconciliation = self._session_state.generation
+        generation_before_reconciliation = session_state.generation
 
-        status = self._account_reader.check_connection()
+        status = scope.ports.account_reader.check_connection()
         if not status.reachable or status.failure is not None:
             return self._blocked(EnableTradingBlockReason.CONNECTION_NOT_READY)
 
-        trading_client = self._trading_client_factory.create(
+        trading_client = scope.ports.client_factory.create(
             OrderSubmissionMode.VALIDATE_ONLY
         )
         positions = tuple(trading_client.get_positions())
@@ -128,11 +107,11 @@ class EnableTradingCommandHandler(
         # real data while always producing the same empty set.
         spot_baseline_holdings = (
             {holding.asset: holding.total for holding in status.holdings}
-            if self._trading_venue.market_type is MarketType.SPOT
+            if command.venue.market_type is MarketType.SPOT
             and status.holdings is not None
             else None
         )
-        applied = self._session_state.enable(
+        applied = session_state.enable(
             set(),
             expected_generation=generation_before_reconciliation,
             spot_baseline_holdings=spot_baseline_holdings,
@@ -152,14 +131,15 @@ class EnableTradingCommandHandler(
                 reconciled_open_orders=open_orders,
             )
 
-        self._user_data_stream.start()
+        scope.ports.user_data_stream.start()
         if spot_baseline_holdings is not None:
             logger.info(
                 "Spot holdings baseline recorded for this session: %d asset(s).",
                 len(spot_baseline_holdings),
             )
         logger.info(
-            "Trading enabled for this session (%d open orders reconciled).",
+            "Trading enabled on %s for this session (%d open orders reconciled).",
+            command.venue.value,
             len(open_orders),
         )
         return EnableTradingResult(

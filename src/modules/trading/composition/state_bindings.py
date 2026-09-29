@@ -1,6 +1,8 @@
-"""This module's own long-lived state: the one live trading session, and the
-scheduled service that keeps its open positions' mark price and unrealized
-PnL from going stale between account-update events.
+"""This module's own long-lived state: each venue's trading session
+(`VenueSessionStates`, `EPIC-028B`), the lookup every venue-addressed handler
+resolves its venue through, and the scheduled services that keep open
+positions' mark price and unrealized PnL from going stale between
+account-update events.
 
 `EPIC-025E` PR 4.4f-4 — moved out of `binance_bot_module.py` alongside
 `adapter_bindings.py`'s own move, same shape `strategy/composition/
@@ -28,21 +30,39 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.position_refresh_
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_contexts import (
-    VenueContexts,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
+    VenueSessionStates,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
+    VenueTradingScopes,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
+def _primary_session_state(container: IContainer) -> TradingSessionState:
+    """The primary venue's own state — the venue the single Trading screen
+    and Dev Board trade on (`EPIC-028B`). `EPIC-028C` runs one refresh
+    service per enabled venue instead."""
+    return container.resolve(VenueSessionStates).session_state(
+        container.resolve(TradingVenue)
+    )
+
+
 def bind_state(container: IContainer) -> None:
-    # EPIC-021G: never persisted, never seeded from config on boot (see the
-    # class's own docstring for why).
-    # `EPIC-028A`: one per venue, owned by its `VenueAssembly`; this
-    # single-venue door is the primary venue's own instance, so handlers and
-    # that venue's user data stream still share one object.
+    # `EPIC-028B`: each venue's session state, and the one lookup every
+    # venue-addressed handler resolves its venue through.
+    container.singleton(VenueSessionStates, VenueSessionStates())
     container.singleton(
-        TradingSessionState,
-        lambda c: c.resolve(VenueContexts).primary_assembly().session_state,
+        VenueTradingScopes,
+        lambda c: VenueTradingScopes(
+            c.resolve(IVenueContexts), c.resolve(VenueSessionStates)
+        ),
     )
 
     # `BUG-117` — keeps every open position's mark price/unrealized PnL from
@@ -57,7 +77,8 @@ def bind_state(container: IContainer) -> None:
         lambda c: PositionRefreshService(
             c.resolve(ICommandDispatcher),
             c.resolve(IEventPublisher),
-            c.resolve(TradingSessionState),
+            _primary_session_state(c),
+            c.resolve(TradingVenue),
         ),
     )
 
@@ -71,6 +92,7 @@ def bind_state(container: IContainer) -> None:
         lambda c: HoldingsRefreshService(
             c.resolve(ICommandDispatcher),
             c.resolve(IEventPublisher),
-            c.resolve(TradingSessionState),
+            _primary_session_state(c),
+            c.resolve(TradingVenue),
         ),
     )

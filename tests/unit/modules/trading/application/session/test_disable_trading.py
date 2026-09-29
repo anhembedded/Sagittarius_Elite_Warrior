@@ -9,6 +9,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.disable_t
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    single_venue_scopes,
+    venue_context,
+)
 
 
 def _handler(
@@ -17,7 +24,14 @@ def _handler(
     session_state = session_state or TradingSessionState()
     user_data_stream = Mock()
     return (
-        DisableTradingCommandHandler(session_state, user_data_stream),
+        DisableTradingCommandHandler(
+            single_venue_scopes(
+                venue_context(
+                    TradingVenue.FUTURES_TESTNET, user_data_stream=user_data_stream
+                ),
+                session_state,
+            )
+        ),
         session_state,
         user_data_stream,
     )
@@ -28,7 +42,7 @@ def test_disables_a_session_that_was_enabled() -> None:
     session_state.enable({"BTCUSDT"})
     handler, session_state, user_data_stream = _handler(session_state)
 
-    handler.execute(DisableTradingCommand())
+    handler.execute(DisableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
 
     assert session_state.enabled is False
     user_data_stream.stop.assert_called_once()
@@ -43,7 +57,7 @@ def test_disabling_an_already_disabled_session_is_a_no_op_but_still_stops_the_st
     prior disable never got its `stop()` through, e.g. a crash)."""
     handler, session_state, user_data_stream = _handler()
 
-    handler.execute(DisableTradingCommand())
+    handler.execute(DisableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
 
     assert session_state.enabled is False
     user_data_stream.stop.assert_called_once()
@@ -58,6 +72,6 @@ def test_symmetric_with_enable_known_open_symbols_survive_disable() -> None:
     session_state.enable({"BTCUSDT"})
     handler, session_state, _ = _handler(session_state)
 
-    handler.execute(DisableTradingCommand())
+    handler.execute(DisableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
 
     assert session_state.known_open_symbols == {"BTCUSDT"}

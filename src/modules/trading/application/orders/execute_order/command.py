@@ -6,6 +6,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     MANUAL_OWNER,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 @dataclass(frozen=True)
@@ -32,3 +35,10 @@ class ExecuteOrderCommand:
     #: with the fewest privileges, so a command built without one is refused on
     #: a leased symbol instead of waved through.
     owner_id: str = MANUAL_OWNER
+
+    @property
+    def venue(self) -> TradingVenue:
+        """`EPIC-028B` (ADR D3) — read from `order_request`, never stored a
+        second time: the order and the command acting on it cannot then
+        disagree about which venue they address."""
+        return self.order_request.venue

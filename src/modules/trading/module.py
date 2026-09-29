@@ -31,12 +31,11 @@ are genuinely this module's own; what remains there after this PR is the
 shared core engine-adapter ports and the indicator scripts, neither owned by
 any one module (`EPIC-025E_phase4_support_and_dissolve_common.md` §3.16).
 
-**One binding did not move into `register()`.** `ITradingClient` was
-registered *conditionally* in the legacy root, gated on `TradingVenue !=
-DISABLED` — a decision `register()` cannot make (`resolve()` is refused
-there; see `composition/adapter_bindings.py`'s own docstring for the full
-reasoning). It moved into `boot()` instead, alongside the
-`PositionRefreshService` scheduling that already lived here.
+**No binding lives in `boot()` any more.** `ITradingClient` used to be bound
+there, conditionally on the one `TradingVenue`. `EPIC-028B` deleted that
+bind: every venue's client is created from its own `VenueContext`
+(`IVenueContexts.get(venue).client_factory`), by the handler of the command
+that names the venue.
 
 **`contribute()` since PR 1.4c-4, and what it contributes.** One
 `DEV_PROBE`: the live trading session's own state, on the Dev Board — the
@@ -89,17 +88,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.query_bindings im
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.state_bindings import (
     bind_state,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
-    ITradingClient,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
-    ITradingClientFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
-    IUserDataStream,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
-    OrderSubmissionMode,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_screen import (
     dashboard_screen,
@@ -241,28 +231,20 @@ class TradingModule(BoundedContextModule):
     def boot(self, context: Any) -> None:
         """Two things `register()` could not decide or start.
 
-        `IUserDataStream` is registered but deliberately never started by
+        Each venue's `IUserDataStream` is built but deliberately never started by
         booting: only a successful `EnableTradingCommand` calls `.start()`
         on it, so opening the app opens no user-data socket (`EPIC-021H`).
         That stays true whoever registers it.
 
-        `EPIC-025E` PR 4.4f-4 added the other two:
+        `EPIC-025E` PR 4.4f-4 added the first:
 
-        1. **`ITradingClient`'s conditional bind** (`_bind_trading_client_
-           if_enabled`, below — its own method so `tests/unit/modules/
-           trading/test_module_trading_client_binding.py` can drive both
-           branches against a real container without also needing this
-           method's scheduler half). `register()` cannot make this call —
-           see `composition/adapter_bindings.py`'s own docstring for why —
-           so `boot()` makes it instead, once every module has registered
-           and `resolve()` is allowed again.
-        2. **`PositionRefreshService`'s scheduling** (`BUG-117`) — one
+        1. **`PositionRefreshService`'s scheduling** (`BUG-117`) — one
            recurring job, registered once, for the lifetime of the process;
            `PositionRefreshService.refresh_once()` is a no-op while trading
            is disabled, so nothing else needs to start or stop this
            alongside Enable/Disable/Emergency-Stop.
 
-        `EPIC-025F` PR 5.2 added the third: stashing `container` for
+        `EPIC-025F` PR 5.2 added the second: stashing `container` for
         `contribute()`'s `dashboard_screen(self._container)` call (see
         `__init__`'s docstring). Stashed here, not in `register()` — the
         `context.container` `register()` receives is `RegisteringContainer`,
@@ -278,8 +260,6 @@ class TradingModule(BoundedContextModule):
         """
         container = context.container
         self._container = container
-
-        self._bind_trading_client_if_enabled(container)
 
         config = container.resolve(IConfig)
         position_refresh = container.resolve(PositionRefreshService)
@@ -298,36 +278,6 @@ class TradingModule(BoundedContextModule):
             holdings_refresh = container.resolve(HoldingsRefreshService)
             scheduler.every(seconds=self._position_refresh_interval_seconds(config)).do(
                 holdings_refresh.refresh_once
-            )
-
-    @staticmethod
-    def _bind_trading_client_if_enabled(container: Any) -> None:
-        """`EPIC-021F` — unlike `ITradingAccountReader` (read-only, always
-        safe), `ITradingClient` can place/cancel a real order, so it is
-        registered only for a `TradingVenue` this build actually has a real
-        implementation for (`TradingVenue.supports_order_submission`,
-        `EPIC-027G`); resolving this port for `DISABLED` or an unsupported
-        venue fails loudly (an unbound-type error) instead of silently
-        handing back a client nobody asked to enable, or one that would
-        sign the wrong venue's request.
-
-        `tests/sanity/test_composition_root.py`'s `_NOT_DISPATCHED` entry
-        for `SubmitOrderCommand` only *skips* asserting a resolve under the
-        default (disabled) boot — it does not positively prove either
-        branch. `test_module_trading_client_binding.py` does: it resolves
-        `ITradingClient` against a real container in both states and
-        asserts the unbound-type error in one, a real `FuturesTradingClient`
-        in the other — the type-and-test pair `architecture-rule.md` §7.3
-        asks for wherever a docstring alone would otherwise be the only
-        thing saying this still holds.
-        """
-        trading_venue = container.resolve(TradingVenue)
-        if trading_venue.supports_order_submission:
-            container.singleton(
-                ITradingClient,
-                lambda c: c.resolve(ITradingClientFactory).create(
-                    OrderSubmissionMode.VALIDATE_ONLY
-                ),
             )
 
     @staticmethod
@@ -361,7 +311,7 @@ class TradingModule(BoundedContextModule):
         """Release the external connections this module owns.
 
         `EPIC-025E` PR 4.4f-4 — moved out of `binance_bot_module.py`, same
-        shape `MarketDataModule.shutdown()` already uses: the user-data
+        shape `MarketDataModule.shutdown()` already uses: each user-data
         stream is closed inside `try`/`except` because a shutdown path that
         raises turns a clean exit into a stack trace the user cannot act on,
         and by then there is nothing left to salvage anyway — so the
@@ -371,8 +321,17 @@ class TradingModule(BoundedContextModule):
         enabled this session** (`EPIC-021H` — it returns `False`, does not
         raise) — still worth calling unconditionally so a session that
         *did* enable trading always tears its stream down.
+
+        `EPIC-028B` — one stream per enabled venue, each stopped on its own,
+        so one venue failing to close never leaves the other's socket open.
+        `TradingVenue.DISABLED` is never enabled and can never start a
+        stream (`EnableTradingCommandHandler` refuses it first).
         """
-        try:
-            context.container.resolve(IUserDataStream).stop()
-        except Exception as exc:  # noqa: BLE001 — see the docstring
-            logger.debug("User data stream shutdown error: %s", exc)
+        contexts = context.container.resolve(IVenueContexts)
+        for venue in contexts.enabled():
+            try:
+                contexts.get(venue).user_data_stream.stop()
+            except Exception as exc:  # noqa: BLE001 — see the docstring
+                logger.debug(
+                    "User data stream shutdown error on %s: %s", venue.value, exc
+                )

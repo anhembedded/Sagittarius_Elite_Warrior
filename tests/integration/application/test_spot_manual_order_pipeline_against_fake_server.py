@@ -66,6 +66,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
     TradingSessionState,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
+    FakeVenueContexts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimits,
 )
@@ -85,6 +88,10 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    single_venue_scopes,
+    venue_context,
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests" / "sanity"))
@@ -153,17 +160,21 @@ def test_a_manual_buy_click_reaches_the_wire_and_moves_the_reported_holding() ->
         intent = manual_order_intent_for(
             ManualOrderDirection.LONG, None, TradingVenue.SPOT_TESTNET.market_type
         )
-        handler = ExecuteOrderCommandHandler(
+        context = venue_context(
             TradingVenue.SPOT_TESTNET,
-            session_state,
-            account_reader,
-            PreviewOrderQueryHandler(metadata_provider),
+            account_reader=account_reader,
+            client_factory=trading_client_factory,
+            metadata_provider=metadata_provider,
+        )
+        handler = ExecuteOrderCommandHandler(
+            single_venue_scopes(context, session_state),
+            PreviewOrderQueryHandler(FakeVenueContexts(context)),
             TradingLimitPolicy(_LIMITS),
-            trading_client_factory,
         )
         result = handler.execute(
             ExecuteOrderCommand(
                 order_request=PreviewOrderQuery(
+                    venue=TradingVenue.SPOT_TESTNET,
                     symbol=_SYMBOL,
                     side=intent.side,
                     order_type=OrderType.MARKET,

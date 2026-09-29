@@ -4,11 +4,8 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.disable_trading.command import (
     DisableTradingCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
-    IUserDataStream,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
+    VenueTradingScopes,
 )
 
 logger = logging.getLogger("App.CommandHandler")
@@ -29,18 +26,14 @@ class DisableTradingCommandHandler(ICommandHandler[DisableTradingCommand, None])
     started — e.g. disabling right after a refused enable).
     """
 
-    def __init__(
-        self,
-        session_state: TradingSessionState,
-        user_data_stream: IUserDataStream,
-    ) -> None:
-        self._session_state = session_state
-        self._user_data_stream = user_data_stream
+    def __init__(self, scopes: VenueTradingScopes) -> None:
+        self._scopes = scopes
 
     def execute(self, command: DisableTradingCommand) -> None:
-        logger.debug("Handling DisableTradingCommand")
-        was_enabled = self._session_state.enabled
-        self._session_state.disable()
-        self._user_data_stream.stop()
+        logger.debug("Handling DisableTradingCommand on %s", command.venue.value)
+        scope = self._scopes.get(command.venue)
+        was_enabled = scope.session_state.enabled
+        scope.session_state.disable()
+        scope.ports.user_data_stream.stop()
         if was_enabled:
-            logger.info("Trading disabled for this session.")
+            logger.info("Trading disabled on %s for this session.", command.venue.value)

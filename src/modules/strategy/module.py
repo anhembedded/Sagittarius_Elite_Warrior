@@ -149,8 +149,8 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.event_handlers.m
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
     LiveStrategyConfigStore,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
-    LiveStrategySession,
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
+    VenueStrategySessions,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.composition.command_bindings import (
     bind_commands,
@@ -261,13 +261,13 @@ class StrategyModule(BoundedContextModule):
         when it is, so an `off()` here would release nothing that outlives the
         process.
         """
-        session = context.container.resolve(LiveStrategySession)
+        sessions = context.container.resolve(VenueStrategySessions)
         self._arm_from_config(
             context.container.resolve(IConfig),
             context.container.resolve(IStrategyArming),
         )
 
-        self._tick_handler = MarketTickEventHandler(session)
+        self._tick_handler = MarketTickEventHandler(sessions)
         context.event_bus.on(MarketTickEvent, self._tick_handler.handle)
 
     @staticmethod

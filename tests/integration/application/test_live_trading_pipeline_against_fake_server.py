@@ -90,6 +90,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
     ITradingAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
+    FakeVenueContexts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimits,
     TradingLimitViolation,
@@ -106,6 +109,10 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    single_venue_scopes,
+    venue_context,
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests" / "sanity"))
@@ -187,13 +194,16 @@ def _build_pipeline() -> _Pipeline:
         session_factory, _FakeCredentialsProvider(), metadata_provider
     )
 
-    handler = ExecuteOrderCommandHandler(
+    context = venue_context(
         TradingVenue.FUTURES_TESTNET,
-        session_state,
-        account_reader,
-        PreviewOrderQueryHandler(metadata_provider),
+        account_reader=account_reader,
+        client_factory=trading_client_factory,
+        metadata_provider=metadata_provider,
+    )
+    handler = ExecuteOrderCommandHandler(
+        single_venue_scopes(context, session_state),
+        PreviewOrderQueryHandler(FakeVenueContexts(context)),
         TradingLimitPolicy(_LIMITS),
-        trading_client_factory,
     )
     dispatcher = _RecordingDispatcher(handler)
     # `EPIC-025` PR 1.3c-2 — the coordinator now holds `IOrderSubmission`, so
@@ -203,7 +213,7 @@ def _build_pipeline() -> _Pipeline:
     # one that drives the published port's real implementation end to end.
     coordinator = LiveTradingCoordinator(
         _SYMBOL,
-        OrderSubmissionService(dispatcher),
+        OrderSubmissionService(dispatcher, TradingVenue.FUTURES_TESTNET),
         account_reader,
         metadata_provider,
         Mock(),

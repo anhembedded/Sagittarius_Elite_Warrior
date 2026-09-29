@@ -12,6 +12,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.submit_ord
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
+    FakeVenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    venue_context,
+)
 
 
 def test_execute_submits_the_preview_handlers_normalized_order() -> None:
@@ -19,6 +28,7 @@ def test_execute_submits_the_preview_handlers_normalized_order() -> None:
     plain collaborator (not through the dispatcher) so normalization can
     never drift between `order-preview` and `order-dry-run`."""
     order_request = PreviewOrderQuery(
+        venue=TradingVenue.FUTURES_TESTNET,
         symbol="BTCUSDT",
         side=OrderSide.BUY,
         order_type=OrderType.MARKET,
@@ -31,7 +41,14 @@ def test_execute_submits_the_preview_handlers_normalized_order() -> None:
     preview_handler.execute.return_value = preview
     trading_client = Mock()
     trading_client.place_order.return_value = normalized_order
-    handler = SubmitOrderCommandHandler(preview_handler, trading_client)
+    client_factory = Mock()
+    client_factory.create.return_value = trading_client
+    handler = SubmitOrderCommandHandler(
+        preview_handler,
+        FakeVenueContexts(
+            venue_context(TradingVenue.FUTURES_TESTNET, client_factory=client_factory)
+        ),
+    )
 
     result = handler.execute(SubmitOrderCommand(order_request=order_request))
 

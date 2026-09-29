@@ -3,8 +3,8 @@ import logging
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
-    LiveStrategySession,
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
+    VenueStrategySessions,
 )
 
 
@@ -84,14 +84,21 @@ class MarketTickEventHandler:
     of.
     """
 
-    def __init__(self, session: LiveStrategySession) -> None:
+    def __init__(self, sessions: VenueStrategySessions) -> None:
         self.logger = logging.getLogger("App.TradingStrategy")
-        self._session = session
+        self._sessions = sessions
 
     def handle(self, event: MarketTickEvent) -> None:
         """
-        @brief Handles the MarketTickEvent.
+        @brief Hands the tick to every venue's session (`EPIC-028B`); each
+        session keeps only the candles of the symbol and interval it armed.
+
+        @details A tick names no market: the process has one live market
+        stream. Routing a Spot candle to Spot's session only, and a Futures
+        candle to Futures', needs the stream to be per market, which
+        `EPIC-028C` adds with both venues running concurrently.
         """
         md = event.market_data
         self.logger.debug(f"Processing tick for {md.symbol} at {md.close_price}")
-        self._session.dispatch_tick(md)
+        for session in self._sessions.built():
+            session.dispatch_tick(md)

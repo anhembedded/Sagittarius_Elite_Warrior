@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_sess
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_session_factory import (
     SpotSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
+    VenueSessionStates,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.composition import venue_assembly
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly import (
     SharedVenueInputs,
@@ -64,6 +67,7 @@ def test_two_threads_asking_first_share_one_metadata_cache(
             futures_session_factory=FuturesSessionFactory(),
             spot_session_factory=SpotSessionFactory(),
             secrets_file_path="unused",
+            session_states=VenueSessionStates(),
         ),
     )
     seen: list[object] = []

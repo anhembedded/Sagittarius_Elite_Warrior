@@ -25,17 +25,23 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 class AccountSnapshotService(IAccountSnapshot):
-    """The module's answer to "can we reach the venue, and what is open"."""
+    """The module's answer to "can we reach the venue, and what is open",
+    for one venue (`EPIC-028B`: one instance per venue)."""
 
-    def __init__(self, dispatcher: ICommandDispatcher) -> None:
+    def __init__(self, dispatcher: ICommandDispatcher, venue: TradingVenue) -> None:
         self._dispatcher = dispatcher
+        self._venue = venue
 
     def check_connection(self) -> ExchangeConnectionStatus:
         response = self._dispatcher.dispatch(
-            GetExchangeConnectionStatusQuery, GetExchangeConnectionStatusQuery()
+            GetExchangeConnectionStatusQuery,
+            GetExchangeConnectionStatusQuery(venue=self._venue),
         )
         if not isinstance(response, ExchangeConnectionStatus):
             raise TypeError(
@@ -51,7 +57,7 @@ class AccountSnapshotService(IAccountSnapshot):
         for a broken container — the one answer a caller must not be given
         (`IAccountSnapshot`'s own docstring)."""
         response = self._dispatcher.dispatch(
-            GetOpenPositionsQuery, GetOpenPositionsQuery()
+            GetOpenPositionsQuery, GetOpenPositionsQuery(venue=self._venue)
         )
         if not isinstance(response, tuple):
             raise TypeError(

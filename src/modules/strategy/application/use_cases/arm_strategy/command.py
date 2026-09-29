@@ -2,10 +2,13 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     LiveStrategyConfig,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
 
@@ -21,3 +24,7 @@ class ArmStrategyCommand:
     """
 
     config: LiveStrategyConfig
+    #: `EPIC-028B` (ADR D3) — the venue this strategy trades on; one strategy
+    #: can be armed per venue. Keyword-only and required, like every
+    #: venue-addressed command.
+    venue: TradingVenue = field(kw_only=True)

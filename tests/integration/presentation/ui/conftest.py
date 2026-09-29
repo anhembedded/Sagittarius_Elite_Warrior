@@ -55,8 +55,8 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_sy
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
     LiveStrategyConfigStore,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
-    LiveStrategySession,
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
+    VenueStrategySessions,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.arm_strategy import (
     ArmStrategyCommandHandler,
@@ -74,25 +74,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions import (
     GetOpenPositionsQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
+    VenueTradingScopes,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
-    ITradingAccountReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
-    ITradingClientFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
-    ITradingSession,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
+    IVenueTradingPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitPolicy,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.mock_klines import (
@@ -301,15 +292,15 @@ def app_engine(
         # wouldn't already cost.
         if command_type is ArmStrategyCommandHandler:
             handler = ArmStrategyCommandHandler(
-                engine.context.container.resolve(LiveStrategySession),
-                engine.context.container.resolve(ITradingSession),
+                engine.context.container.resolve(VenueStrategySessions),
+                engine.context.container.resolve(IVenueTradingPorts),
                 engine.context.container.resolve(LiveStrategyConfigStore),
             )
             return handler.execute(command_obj)
         if command_type is DisarmStrategyCommandHandler:
             handler = DisarmStrategyCommandHandler(
-                engine.context.container.resolve(LiveStrategySession),
-                engine.context.container.resolve(ITradingSession),
+                engine.context.container.resolve(VenueStrategySessions),
+                engine.context.container.resolve(IVenueTradingPorts),
             )
             return handler.execute(command_obj)
         if command_type is ExecuteOrderCommand:
@@ -325,13 +316,12 @@ def app_engine(
             # which `_first_blocked_safety_gate()` trips before any of the
             # network-touching collaborators (`account_reader`,
             # `preview_handler`, the exchange session) are ever called.
+            # `EPIC-028B`: the command names that venue itself, and the
+            # handler refuses it before resolving anything.
             handler = ExecuteOrderCommandHandler(
-                engine.context.container.resolve(TradingVenue),
-                engine.context.container.resolve(TradingSessionState),
-                engine.context.container.resolve(ITradingAccountReader),
+                engine.context.container.resolve(VenueTradingScopes),
                 engine.context.container.resolve(PreviewOrderQueryHandler),
                 engine.context.container.resolve(TradingLimitPolicy),
-                engine.context.container.resolve(ITradingClientFactory),
             )
             return handler.execute(command_obj)
         if command_type is GetOpenPositionsQuery:

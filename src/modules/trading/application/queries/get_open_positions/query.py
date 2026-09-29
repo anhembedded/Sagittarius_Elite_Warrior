@@ -1,4 +1,8 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
+
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 @dataclass(frozen=True)
@@ -7,8 +11,11 @@ class GetOpenPositionsQuery:
     §2): the manual order form must read the real position before mapping
     a Long/Short button click to `OrderSide`/`reduce_only`, not guess from
     symbol/side alone.
-    @details No fields, same reasoning `GetExchangeConnectionStatusQuery`
-    already gives: there is exactly one trading venue this app ever reads
-    positions from (`TradingVenue.FUTURES_TESTNET`), and `ITradingClient.
-    get_positions()` with no symbol already reads the whole account.
+    @details Only the venue (`EPIC-028B`): `ITradingClient.get_positions()`
+    with no symbol already reads that venue's whole account.
     """
+
+    #: `EPIC-028B` (ADR D3) — the venue this acts on. Keyword-only and
+    #: required: a caller that forgets it fails at construction, never
+    #: silently addresses some default venue.
+    venue: TradingVenue = field(kw_only=True)

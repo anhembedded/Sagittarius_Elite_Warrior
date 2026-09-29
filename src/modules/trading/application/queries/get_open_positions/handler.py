@@ -20,8 +20,8 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_positions.query import (
     GetOpenPositionsQuery,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
-    ITradingClientFactory,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
@@ -36,12 +36,12 @@ logger = logging.getLogger("App.QueryHandler")
 class GetOpenPositionsQueryHandler(
     IQueryHandler[GetOpenPositionsQuery, tuple[LivePosition, ...]]
 ):
-    def __init__(self, trading_client_factory: ITradingClientFactory) -> None:
-        self._trading_client_factory = trading_client_factory
+    def __init__(self, contexts: IVenueContexts) -> None:
+        self._contexts = contexts
 
     def execute(self, query: GetOpenPositionsQuery) -> tuple[LivePosition, ...]:
-        logger.debug("Handling GetOpenPositionsQuery")
-        trading_client = self._trading_client_factory.create(
+        logger.debug("Handling GetOpenPositionsQuery on %s", query.venue.value)
+        trading_client = self._contexts.get(query.venue).client_factory.create(
             OrderSubmissionMode.VALIDATE_ONLY
         )
         return tuple(trading_client.get_positions())

@@ -13,7 +13,9 @@ hands it out; anything else asks the registry.
 Scans `src/` by `ast` for a **call** to one of the classes below — by bare
 name, as `module.Class(...)` or through an `import ... as` alias; an import or
 a type annotation is fine. Besides the adapters it guards the per-venue state
-(`TradingSessionState`, `EquityCurveRecorder`, built only by `VenueAssembly`)
+(`TradingSessionState`, `EquityCurveRecorder`, built only by
+`VenueSessionStates` since `EPIC-028B`, so the handlers and the user data
+stream of a venue share one object)
 and the registry (`VenueAssembly`, `VenueContexts`, built only by
 `adapter_bindings.py`). `scripts/` is not scanned on purpose: its
 `epic021*_probe.py` scripts are standalone manual exercises that build one
@@ -37,6 +39,14 @@ _SCANNED_DIR = _REPO_ROOT / "src"
 _COMPOSITION_DIR = _REPO_ROOT / "src" / "modules" / "trading" / "composition"
 _VENUE_ASSEMBLY_FILE = _COMPOSITION_DIR / "venue_assembly.py"
 _ADAPTER_BINDINGS_FILE = _COMPOSITION_DIR / "adapter_bindings.py"
+_VENUE_SESSION_STATES_FILE = (
+    _REPO_ROOT
+    / "src"
+    / "modules"
+    / "trading"
+    / "application"
+    / "venue_session_states.py"
+)
 
 # The per-venue state is guarded with the adapters: a second
 # `TradingSessionState` beside the venue's own is a venue whose kill switch and
@@ -66,7 +76,8 @@ _REGISTRY_CLASSES = frozenset({"VenueAssembly", "VenueContexts"})
 _GUARDED_CLASSES = _VENUE_ADAPTER_CLASSES | _VENUE_STATE_CLASSES | _REGISTRY_CLASSES
 
 _ALLOWED: dict[Path, frozenset[str]] = {
-    _VENUE_ASSEMBLY_FILE: _VENUE_ADAPTER_CLASSES | _VENUE_STATE_CLASSES,
+    _VENUE_ASSEMBLY_FILE: _VENUE_ADAPTER_CLASSES,
+    _VENUE_SESSION_STATES_FILE: _VENUE_STATE_CLASSES,
     _ADAPTER_BINDINGS_FILE: _REGISTRY_CLASSES,
 }
 

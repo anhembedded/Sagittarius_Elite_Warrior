@@ -1,10 +1,13 @@
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 @dataclass(frozen=True)
@@ -34,3 +37,7 @@ class PreviewOrderQuery:
     quantity: Decimal
     reference_price: Decimal
     reduce_only: bool = False
+    #: `EPIC-028B` (ADR D3) — the venue this acts on. Keyword-only and
+    #: required: a caller that forgets it fails at construction, never
+    #: silently addresses some default venue.
+    venue: TradingVenue = field(kw_only=True)

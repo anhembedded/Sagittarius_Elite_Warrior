@@ -7,8 +7,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_excha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ExchangeConnectionStatus,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
-    ITradingAccountReader,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
 )
 
 logger = logging.getLogger("App.QueryHandler")
@@ -28,11 +28,13 @@ class GetExchangeConnectionStatusQueryHandler(
     §4), never straight to an infra adapter.
     """
 
-    def __init__(self, reader: ITradingAccountReader) -> None:
-        self._reader = reader
+    def __init__(self, contexts: IVenueContexts) -> None:
+        self._contexts = contexts
 
     def execute(
         self, query: GetExchangeConnectionStatusQuery
     ) -> ExchangeConnectionStatus:
-        logger.debug("Handling GetExchangeConnectionStatusQuery")
-        return self._reader.check_connection()
+        logger.debug(
+            "Handling GetExchangeConnectionStatusQuery on %s", query.venue.value
+        )
+        return self._contexts.get(query.venue).account_reader.check_connection()

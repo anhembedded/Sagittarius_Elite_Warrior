@@ -23,6 +23,8 @@
 - [ ] Saving those toggles writes `exchange.trading_venues` (the list) and drops the legacy scalar `exchange.trading_venue`, so a config migrates on its first save (moved here from `EPIC-028A`: the Settings page is the only writer of this key).
 - [ ] The Settings venue lock while `exchange.trading_venues` is configured (`_VENUE_LIST_MESSAGE` in `trading_settings_presenter.py`, added in `EPIC-028A` review F2) is removed: the per-venue toggles own the list, so Save is no longer refused.
 - [ ] Disabling one venue in Settings leaves the other fully working after restart.
+- [ ] A live tick reaches only the strategy session of its own market: a Spot kline never drives the strategy armed on Futures (moved here from `EPIC-028B`: `BinanceWebsocketService`'s stream carries no market type yet, so `MarketTickEventHandler` feeds every armed session).
+- [ ] The armed strategy configuration is saved and restored per venue, so arming on one desk never replaces the other's restored configuration (moved here from `EPIC-028B`: `LiveStrategyConfigStore` keeps the last armed one).
 
 ## 3. Design
 Events gain a `venue` field with no default (the fields are frozen dataclasses: every construction site updates in the same commit, `pitfalls/source.md` #1). The existing `EnvFirstCredentialsProvider` per venue is reused.

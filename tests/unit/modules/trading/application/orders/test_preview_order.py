@@ -22,8 +22,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
+    FakeVenueContexts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    venue_context,
 )
 
 
@@ -59,7 +68,11 @@ def _btcusdt_metadata(market_step_size: Decimal | None = None) -> SymbolOrderMet
 
 def _handler(metadata: SymbolOrderMetadata | None = None) -> PreviewOrderQueryHandler:
     provider = _StaticMetadataProvider({"BTCUSDT": metadata or _btcusdt_metadata()})
-    return PreviewOrderQueryHandler(provider)
+    return PreviewOrderQueryHandler(
+        FakeVenueContexts(
+            venue_context(TradingVenue.FUTURES_TESTNET, metadata_provider=provider)
+        )
+    )
 
 
 def test_market_order_rounds_quantity_down_to_step_size() -> None:
@@ -67,6 +80,7 @@ def test_market_order_rounds_quantity_down_to_step_size() -> None:
     0.001 rounds down to 0.013."""
     preview = _handler().execute(
         PreviewOrderQuery(
+            venue=TradingVenue.FUTURES_TESTNET,
             symbol="BTCUSDT",
             side=OrderSide.BUY,
             order_type=OrderType.MARKET,
@@ -85,6 +99,7 @@ def test_market_order_estimates_notional_and_passes_min_notional() -> None:
     "SẴN SÀNG GỬI" worked example."""
     preview = _handler().execute(
         PreviewOrderQuery(
+            venue=TradingVenue.FUTURES_TESTNET,
             symbol="BTCUSDT",
             side=OrderSide.BUY,
             order_type=OrderType.MARKET,
@@ -103,6 +118,7 @@ def test_small_order_is_rejected_for_insufficient_notional() -> None:
     MIN_NOTIONAL" worked example."""
     preview = _handler().execute(
         PreviewOrderQuery(
+            venue=TradingVenue.FUTURES_TESTNET,
             symbol="BTCUSDT",
             side=OrderSide.BUY,
             order_type=OrderType.MARKET,
@@ -118,6 +134,7 @@ def test_small_order_is_rejected_for_insufficient_notional() -> None:
 def test_market_order_has_no_price_field() -> None:
     preview = _handler().execute(
         PreviewOrderQuery(
+            venue=TradingVenue.FUTURES_TESTNET,
             symbol="BTCUSDT",
             side=OrderSide.BUY,
             order_type=OrderType.MARKET,
@@ -133,6 +150,7 @@ def test_market_order_has_no_price_field() -> None:
 def test_limit_order_carries_the_rounded_price() -> None:
     preview = _handler().execute(
         PreviewOrderQuery(
+            venue=TradingVenue.FUTURES_TESTNET,
             symbol="BTCUSDT",
             side=OrderSide.BUY,
             order_type=OrderType.LIMIT,
@@ -157,6 +175,7 @@ def test_limit_order_defaults_to_good_til_canceled() -> None:
     other time-in-force choice exposed anywhere in the UI."""
     preview = _handler().execute(
         PreviewOrderQuery(
+            venue=TradingVenue.FUTURES_TESTNET,
             symbol="BTCUSDT",
             side=OrderSide.BUY,
             order_type=OrderType.LIMIT,
@@ -171,6 +190,7 @@ def test_limit_order_defaults_to_good_til_canceled() -> None:
 def test_market_order_has_no_time_in_force() -> None:
     preview = _handler().execute(
         PreviewOrderQuery(
+            venue=TradingVenue.FUTURES_TESTNET,
             symbol="BTCUSDT",
             side=OrderSide.BUY,
             order_type=OrderType.MARKET,
@@ -193,6 +213,7 @@ def test_market_order_rounds_with_market_lot_size_when_published() -> None:
 
     preview = _handler(metadata).execute(
         PreviewOrderQuery(
+            venue=TradingVenue.FUTURES_TESTNET,
             symbol="BTCUSDT",
             side=OrderSide.BUY,
             order_type=OrderType.MARKET,
@@ -214,6 +235,7 @@ def test_limit_order_ignores_market_lot_size_even_when_published() -> None:
 
     preview = _handler(metadata).execute(
         PreviewOrderQuery(
+            venue=TradingVenue.FUTURES_TESTNET,
             symbol="BTCUSDT",
             side=OrderSide.BUY,
             order_type=OrderType.LIMIT,
@@ -230,6 +252,7 @@ def test_unknown_symbol_raises_value_error() -> None:
     with pytest.raises(ValueError, match="UNKNOWNUSDT"):
         _handler().execute(
             PreviewOrderQuery(
+                venue=TradingVenue.FUTURES_TESTNET,
                 symbol="UNKNOWNUSDT",
                 side=OrderSide.BUY,
                 order_type=OrderType.MARKET,

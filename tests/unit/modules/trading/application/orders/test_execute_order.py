@@ -48,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
+    FakeVenueContexts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimits,
     TradingLimitViolation,
@@ -64,6 +67,10 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    single_venue_scopes,
+    venue_context,
 )
 
 _CREDENTIALS = ExchangeCredentials(api_key="key", api_secret="secret")
@@ -124,9 +131,34 @@ def _order_request(**overrides: object) -> PreviewOrderQuery:
         "order_type": OrderType.MARKET,
         "quantity": Decimal("0.002"),
         "reference_price": Decimal(64000),
+        "venue": TradingVenue.FUTURES_TESTNET,
     }
     defaults.update(overrides)
     return PreviewOrderQuery(**defaults)  # type: ignore[arg-type]
+
+
+def _build_handler(
+    *,
+    venue: TradingVenue,
+    state: TradingSessionState,
+    account_reader: Mock,
+    metadata_provider: IMarketMetadataProvider,
+    trading_client_factory: FuturesTradingClientFactory,
+    limits: TradingLimits | None = None,
+) -> ExecuteOrderCommandHandler:
+    """`EPIC-028B` — the handler over one venue's scope: its account reader,
+    client factory and metadata, and the session state the test arranges."""
+    context = venue_context(
+        venue,
+        account_reader=account_reader,
+        client_factory=trading_client_factory,
+        metadata_provider=metadata_provider,
+    )
+    return ExecuteOrderCommandHandler(
+        single_venue_scopes(context, state),
+        PreviewOrderQueryHandler(FakeVenueContexts(context)),
+        TradingLimitPolicy(limits or _LIMITS),
+    )
 
 
 def _handler(
@@ -152,18 +184,17 @@ def _handler(
         _CREDENTIALS, CredentialsSource.FILE
     )
     metadata_provider = _metadata_provider()
-    preview_handler = PreviewOrderQueryHandler(metadata_provider)
     trading_client_factory = FuturesTradingClientFactory(
         session_factory, credentials_provider, metadata_provider
     )
 
-    handler = ExecuteOrderCommandHandler(
-        trading_venue,
-        state,
-        account_reader,
-        preview_handler,
-        TradingLimitPolicy(limits or _LIMITS),
-        trading_client_factory,
+    handler = _build_handler(
+        venue=trading_venue,
+        state=state,
+        account_reader=account_reader,
+        metadata_provider=metadata_provider,
+        trading_client_factory=trading_client_factory,
+        limits=limits,
     )
     return handler, state
 
@@ -171,7 +202,11 @@ def _handler(
 class TestSafetyGates:
     def test_blocked_when_trading_venue_disabled(self) -> None:
         handler, _ = _handler(trading_venue=TradingVenue.DISABLED)
-        result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))
+        result = handler.execute(
+            ExecuteOrderCommand(
+                order_request=_order_request(venue=TradingVenue.DISABLED)
+            )
+        )
         assert result.blocked_by is ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
         assert result.preview is None
 
@@ -185,7 +220,11 @@ class TestSafetyGates:
         blocks — see `TestLiveSubmission::test_live_submits_and_records_the_order_on_spot_testnet`
         for the full successful submission this unblocks."""
         handler, _ = _handler(trading_venue=TradingVenue.SPOT_TESTNET)
-        result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))
+        result = handler.execute(
+            ExecuteOrderCommand(
+                order_request=_order_request(venue=TradingVenue.SPOT_TESTNET)
+            )
+        )
         assert result.blocked_by is not ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
 
     def test_blocked_when_switch_is_off(self) -> None:
@@ -242,13 +281,12 @@ class TestSafetyGates:
         trading_client_factory = FuturesTradingClientFactory(
             Mock(), Mock(), metadata_provider
         )
-        handler = ExecuteOrderCommandHandler(
-            TradingVenue.FUTURES_TESTNET,
-            state,
-            account_reader,
-            PreviewOrderQueryHandler(metadata_provider),
-            TradingLimitPolicy(_LIMITS),
-            trading_client_factory,
+        handler = _build_handler(
+            venue=TradingVenue.FUTURES_TESTNET,
+            state=state,
+            account_reader=account_reader,
+            metadata_provider=metadata_provider,
+            trading_client_factory=trading_client_factory,
         )
 
         result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))
@@ -286,13 +324,12 @@ class TestSafetyGates:
         trading_client_factory = FuturesTradingClientFactory(
             Mock(), Mock(), metadata_provider
         )
-        handler = ExecuteOrderCommandHandler(
-            TradingVenue.FUTURES_TESTNET,
-            state,
-            account_reader,
-            PreviewOrderQueryHandler(metadata_provider),
-            TradingLimitPolicy(_LIMITS),
-            trading_client_factory,
+        handler = _build_handler(
+            venue=TradingVenue.FUTURES_TESTNET,
+            state=state,
+            account_reader=account_reader,
+            metadata_provider=metadata_provider,
+            trading_client_factory=trading_client_factory,
         )
 
         result = handler.execute(
@@ -367,7 +404,9 @@ class TestSafetyGates:
         handler, _ = _handler(trading_venue=TradingVenue.DISABLED, enabled=True)
         assert (
             handler.execute(
-                ExecuteOrderCommand(order_request=_order_request())
+                ExecuteOrderCommand(
+                    order_request=_order_request(venue=TradingVenue.DISABLED)
+                )
             ).blocked_by
             is ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
         )
@@ -438,7 +477,11 @@ class TestTradingLimits:
             trading_venue=TradingVenue.SPOT_TESTNET, session_state=state, enabled=True
         )
 
-        result = handler.execute(ExecuteOrderCommand(order_request=_order_request()))
+        result = handler.execute(
+            ExecuteOrderCommand(
+                order_request=_order_request(venue=TradingVenue.SPOT_TESTNET)
+            )
+        )
 
         assert result.blocked_by is TradingLimitViolation.MAX_POSITIONS_PER_SYMBOL
         assert len(result.limit_checks) == 4
@@ -495,7 +538,7 @@ class TestLiveSubmission:
         raw_client = Mock()
         handler, _ = _handler(raw_client=raw_client)
 
-        with pytest.raises(ValueError, match="Unknown futures symbol"):
+        with pytest.raises(ValueError, match="Unknown symbol on futures_testnet"):
             handler.execute(
                 ExecuteOrderCommand(
                     order_request=_order_request(symbol="UNKNOWNUSDT"), live=True
@@ -515,7 +558,9 @@ class TestLiveSubmission:
         )
 
         result = handler.execute(
-            ExecuteOrderCommand(order_request=_order_request(), live=True)
+            ExecuteOrderCommand(
+                order_request=_order_request(venue=TradingVenue.SPOT_TESTNET), live=True
+            )
         )
 
         assert result.blocked_by is None

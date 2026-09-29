@@ -7,20 +7,20 @@ the shared `ExchangeSessionFactory` one factory per context, so what kept
 those registrations out is gone; moving the dozen of them is PR 1.4's, with
 the surfaces.
 
-These four are different: not one of them needs an exchange session or a
-credential. Three need only `ICommandDispatcher` (a `core/` port) plus, for the
-session, the `TradingSessionState` singleton; the fourth hands back the
-`EquityCurveRecorder` singleton the module's own user-data stream writes. Every
-one is something this module can ask the container for at build time, so the
-published surface can be bound here now and the internals follow later — which
-is exactly the split that let PR 0.5 publish `IMarketDataSync` while its
-adapters still lived elsewhere.
+These are different: not one of them needs an exchange session or a
+credential. Each service needs only `ICommandDispatcher` (a `core/` port),
+its venue, and — for the session and the equity curve — that venue's own
+state from `VenueSessionStates` (`EPIC-028B`). Every one is something this
+module can ask the container for at build time, so the published surface can
+be bound here now and the internals follow later — which is exactly the split
+that let PR 0.5 publish `IMarketDataSync` while its adapters still lived
+elsewhere.
 
 `singleton`, matching `market_data`: a published port is a stateless façade
-over a dispatch, so one instance answers every consumer, and a Presenter
-holding it for a screen's lifetime holds nothing another screen could corrupt.
-`TradingSessionService` is the one that holds a reference — to the
-`TradingSessionState` singleton, which is *meant* to be shared and guards
+over a dispatch, so one instance per venue answers every consumer, and a
+Presenter holding it for a screen's lifetime holds nothing another screen
+could corrupt. `TradingSessionService` is the one that holds a reference — to
+its venue's `TradingSessionState`, which is *meant* to be shared and guards
 itself with a lock.
 """
 
@@ -29,20 +29,11 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.account.account_snapshot_service import (
-    AccountSnapshotService,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
+    VenueSessionStates,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.order_submission_service import (
-    OrderSubmissionService,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.trading_session_service import (
-    TradingSessionService,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_trading_ports_registry import (
+    VenueTradingPortsRegistry,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
     IAccountSnapshot,
@@ -56,35 +47,28 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
+    IVenueTradingPorts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_trading_ports import (
+    VenueTradingPorts,
 )
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
-def _build_order_submission(container: IContainer) -> OrderSubmissionService:
-    return OrderSubmissionService(container.resolve(ICommandDispatcher))
-
-
-def _build_trading_session(container: IContainer) -> TradingSessionService:
-    return TradingSessionService(
+def _build_venue_trading_ports(container: IContainer) -> VenueTradingPortsRegistry:
+    return VenueTradingPortsRegistry(
         container.resolve(ICommandDispatcher),
-        container.resolve(TradingSessionState),
-        container.resolve(TradingVenue),
+        container.resolve(IVenueContexts),
+        container.resolve(VenueSessionStates),
     )
 
 
-def _build_account_snapshot(container: IContainer) -> AccountSnapshotService:
-    return AccountSnapshotService(container.resolve(ICommandDispatcher))
-
-
-def _equity_curve(container: IContainer) -> EquityCurveRecorder:
-    """The recorder itself, not a wrapper: `FuturesUserDataStream` writes the
-    container's `EquityCurveRecorder` singleton, so anything else would answer
-    with a second, empty curve. The port narrows what a consumer can *do* with
-    it (read only), which is the whole point — it does not need a second
-    object to do that (`EPIC-025` PR 1.3c-3)."""
-    return container.resolve(EquityCurveRecorder)
+def _primary(container: IContainer) -> VenueTradingPorts:
+    return container.resolve(IVenueTradingPorts).primary()
 
 
 def bind_published_ports(container: IContainer) -> None:
@@ -92,10 +76,19 @@ def bind_published_ports(container: IContainer) -> None:
 
     Every value is a factory, not an instance: `register()` must never call
     `resolve()` (the declaration guard checks it), so the container is asked
-    for `ICommandDispatcher`, `TradingSessionState` and `EquityCurveRecorder`
-    when the port is first built, by which time every module has registered.
+    for `ICommandDispatcher` and the venue registries when a port is first
+    built, by which time every module has registered.
+
+    `EPIC-028B` — `IVenueTradingPorts` is the per-venue surface. The four
+    single ports below are the **primary** venue's own bundle: the venue
+    the single Trading screen and Dev Board trade on until `EPIC-028K`/
+    `028L` give each venue its own desk, and `EPIC-028M` retires them.
     """
-    container.singleton(IOrderSubmission, _build_order_submission)
-    container.singleton(ITradingSession, _build_trading_session)
-    container.singleton(IAccountSnapshot, _build_account_snapshot)
-    container.singleton(IEquityCurve, _equity_curve)
+    container.singleton(VenueTradingPortsRegistry, _build_venue_trading_ports)
+    container.singleton(
+        IVenueTradingPorts, lambda c: c.resolve(VenueTradingPortsRegistry)
+    )
+    container.singleton(IOrderSubmission, lambda c: _primary(c).order_submission)
+    container.singleton(ITradingSession, lambda c: _primary(c).trading_session)
+    container.singleton(IAccountSnapshot, lambda c: _primary(c).account_snapshot)
+    container.singleton(IEquityCurve, lambda c: _primary(c).equity_curve)

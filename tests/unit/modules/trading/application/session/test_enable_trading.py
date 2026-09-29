@@ -34,6 +34,10 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    single_venue_scopes,
+    venue_context,
+)
 
 _CREDENTIALS = ExchangeCredentials(api_key="key", api_secret="secret")
 
@@ -96,11 +100,15 @@ def _handler(
 
     return (
         EnableTradingCommandHandler(
-            trading_venue,
-            account_reader,
-            trading_client_factory,
-            session_state,
-            user_data_stream,
+            single_venue_scopes(
+                venue_context(
+                    trading_venue,
+                    account_reader=account_reader,
+                    client_factory=trading_client_factory,
+                    user_data_stream=user_data_stream,
+                ),
+                session_state,
+            )
         ),
         session_state,
         user_data_stream,
@@ -111,7 +119,7 @@ def _handler(
 def test_enables_when_account_is_flat() -> None:
     handler, session_state, user_data_stream, _account_reader = _handler()
 
-    result = handler.execute(EnableTradingCommand())
+    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
 
     assert result.enabled is True
     assert result.block_reason is None
@@ -124,7 +132,7 @@ def test_blocked_when_trading_venue_disabled() -> None:
         trading_venue=TradingVenue.DISABLED
     )
 
-    result = handler.execute(EnableTradingCommand())
+    result = handler.execute(EnableTradingCommand(venue=TradingVenue.DISABLED))
 
     assert result.enabled is False
     assert result.block_reason is EnableTradingBlockReason.TRADING_VENUE_DISABLED
@@ -141,7 +149,7 @@ def test_enables_when_trading_venue_is_spot_testnet() -> None:
         trading_venue=TradingVenue.SPOT_TESTNET
     )
 
-    result = handler.execute(EnableTradingCommand())
+    result = handler.execute(EnableTradingCommand(venue=TradingVenue.SPOT_TESTNET))
 
     assert result.enabled is True
     assert result.block_reason is None
@@ -164,7 +172,7 @@ def test_blocked_when_connection_not_reachable() -> None:
         status=unreachable
     )
 
-    result = handler.execute(EnableTradingCommand())
+    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
 
     assert result.block_reason is EnableTradingBlockReason.CONNECTION_NOT_READY
     assert session_state.enabled is False
@@ -186,7 +194,7 @@ def test_blocked_when_hedge_mode() -> None:
         status=hedge_mode
     )
 
-    result = handler.execute(EnableTradingCommand())
+    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
 
     assert result.block_reason is EnableTradingBlockReason.CONNECTION_NOT_READY
     assert session_state.enabled is False
@@ -212,7 +220,7 @@ def test_a_concurrent_emergency_stop_during_reconciliation_is_not_overridden() -
         _check_connection_then_concurrent_emergency_stop
     )
 
-    result = handler.execute(EnableTradingCommand())
+    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
 
     assert result.enabled is False
     assert (
@@ -230,7 +238,7 @@ def test_refuses_and_does_not_enable_when_unexpected_position_exists() -> None:
         position_payloads=[_position_payload()]
     )
 
-    result = handler.execute(EnableTradingCommand())
+    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
 
     assert result.enabled is False
     assert result.block_reason is EnableTradingBlockReason.UNEXPECTED_POSITIONS
@@ -254,7 +262,7 @@ def test_enables_without_any_strategy_armed() -> None:
     no strategy required, ordinary reconciliation still runs."""
     handler, session_state, user_data_stream, _account_reader = _handler()
 
-    result = handler.execute(EnableTradingCommand())
+    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
 
     assert result.enabled is True
     assert result.block_reason is None
@@ -294,7 +302,7 @@ def test_records_a_spot_baseline_from_current_holdings() -> None:
         trading_venue=TradingVenue.SPOT_TESTNET, status=status
     )
 
-    result = handler.execute(EnableTradingCommand())
+    result = handler.execute(EnableTradingCommand(venue=TradingVenue.SPOT_TESTNET))
 
     assert result.enabled is True
     assert session_state.spot_baseline_holdings() == {"BTC": Decimal("0.5")}
@@ -305,7 +313,7 @@ def test_records_an_empty_spot_baseline_when_holding_nothing() -> None:
         trading_venue=TradingVenue.SPOT_TESTNET, status=_spot_status()
     )
 
-    result = handler.execute(EnableTradingCommand())
+    result = handler.execute(EnableTradingCommand(venue=TradingVenue.SPOT_TESTNET))
 
     assert result.enabled is True
     assert session_state.spot_baseline_holdings() == {}
@@ -316,7 +324,7 @@ def test_does_not_record_a_spot_baseline_on_futures() -> None:
     leave one behind for a later Spot session to misread."""
     handler, session_state, _user_data_stream, _account_reader = _handler()
 
-    result = handler.execute(EnableTradingCommand())
+    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
 
     assert result.enabled is True
     assert session_state.spot_baseline_holdings() is None

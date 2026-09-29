@@ -5,8 +5,8 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
-    LiveStrategySession,
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
+    VenueStrategySessions,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.disarm_strategy.command import (
     DisarmStrategyCommand,
@@ -18,8 +18,8 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.disarm_strategy_re
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.strategy_owner import (
     STRATEGY_OWNER,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
-    ITradingSession,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
+    IVenueTradingPorts,
 )
 
 logger = logging.getLogger("App.CommandHandler")
@@ -39,27 +39,22 @@ class DisarmStrategyCommandHandler(
     """
 
     def __init__(
-        self,
-        session: LiveStrategySession,
-        trading_session: ITradingSession,
+        self, sessions: VenueStrategySessions, trading_ports: IVenueTradingPorts
     ) -> None:
-        self._session = session
-        self._trading_session = trading_session
+        self._sessions = sessions
+        self._trading_ports = trading_ports
 
     def execute(self, command: DisarmStrategyCommand) -> DisarmStrategyResult:
-        logger.debug("Handling DisarmStrategyCommand")
-        if self._trading_session.snapshot().enabled:
+        logger.debug("Handling DisarmStrategyCommand on %s", command.venue.value)
+        session = self._sessions.get(command.venue)
+        trading_session = self._trading_ports.get(command.venue).trading_session
+        if trading_session.snapshot().enabled:
             return DisarmStrategyResult(
                 disarmed=False,
                 block_reason=DisarmStrategyBlockReason.TRADING_IS_ENABLED,
             )
-        # `EPIC-025` PR 2.1f — read the symbol before disarming clears it, and
-        # release after, so the lease is given back exactly when the engine
-        # that justified it stops existing. `release_symbol` is a no-op when
-        # this owner does not hold that symbol, so a disarm with nothing armed
-        # needs no special case.
-        armed_symbol = self._session.config.symbol if self._session.config else None
-        self._session.disarm()
+        armed_symbol = session.config.symbol if session.config else None
+        session.disarm()
         if armed_symbol is not None:
-            self._trading_session.release_symbol(armed_symbol, STRATEGY_OWNER)
+            trading_session.release_symbol(armed_symbol, STRATEGY_OWNER)
         return DisarmStrategyResult(disarmed=True)

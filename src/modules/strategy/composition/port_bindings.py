@@ -42,6 +42,9 @@ arithmetic with nothing to inject.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
+    ICommandDispatcher,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
@@ -56,6 +59,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_catalog_re
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_chart_overlay_reader_adapter import (
     StrategyChartOverlayReaderAdapter,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
+    LiveStrategyConfigStore,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
@@ -108,6 +114,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_overlay_reader import (
     IStrategyChartOverlayReader,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
@@ -125,11 +135,22 @@ def bind_published_ports(container: IContainer) -> None:
     container.singleton(ISizingPolicy, MarginSizingPolicy)
     container.singleton(IStrategyCatalog, _the_catalog)
     container.singleton(IStrategyChartOverlay, _the_chart_overlay)
-    container.singleton(IStrategyArming, StrategyArmingService)
+    container.singleton(IStrategyArming, _the_strategy_arming)
     container.singleton(IArmedStrategyReader, _the_armed_strategy_reader)
     container.singleton(IStrategyCatalogReader, _the_strategy_catalog_reader)
     container.singleton(IStrategyArmingControl, _the_strategy_arming_control)
     container.singleton(IStrategyChartOverlayReader, _the_strategy_chart_overlay_reader)
+
+
+def _the_strategy_arming(container: IContainer) -> IStrategyArming:
+    """`EPIC-028B` — the primary venue's arming: what the single Trading
+    screen and Dev Board arm and disarm until each venue has its own desk.
+    Another venue arms through a `StrategyArmingService` built for it."""
+    return StrategyArmingService(
+        container.resolve(ICommandDispatcher),
+        LiveStrategyConfigStore(container.resolve(IConfig)),
+        container.resolve(TradingVenue),
+    )
 
 
 def _the_live_session(container: IContainer) -> IArmedStrategy:

@@ -38,8 +38,8 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.event_handlers.market_tick_event_handler import (
     MarketTickEventHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
-    LiveStrategySession,
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
+    VenueStrategySessions,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.arm_strategy_result import (
     ArmStrategyResult,
@@ -54,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_conf
     LiveStrategyConfig,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.module import StrategyModule
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
@@ -133,7 +136,11 @@ def _booted(session: _RecordingSession) -> tuple[StrategyModule, MemoryEventBus]
     subscription, untouched by that seeding.
     """
     container = StdLibContainer()
-    container.singleton(LiveStrategySession, session)
+    # `EPIC-028B` — `boot()` subscribes the tick path to every venue's
+    # session; this venue's session is the recording one, already built.
+    sessions = VenueStrategySessions(lambda _venue: session)
+    sessions.get(TradingVenue.FUTURES_TESTNET)
+    container.singleton(VenueStrategySessions, sessions)
     container.singleton(IConfig, DictConfig())
     container.singleton(IStrategyArming, _UnusedArming())
     event_bus = MemoryEventBus()

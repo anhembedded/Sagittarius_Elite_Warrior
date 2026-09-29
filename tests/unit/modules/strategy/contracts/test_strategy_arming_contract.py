@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strateg
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
+    VenueStrategySessions,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.arm_strategy import (
     ArmStrategyCommandHandler,
 )
@@ -63,6 +66,13 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.strategies.ema_crosso
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
+    FakeVenueTradingPorts,
+    fake_venue_ports,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
@@ -99,17 +109,22 @@ class TestTheRealService(StrategyArmingContract):
         )
         trading_session = FakeTradingSession()
         config_store = LiveStrategyConfigStore(DictConfig())
+        venue = TradingVenue.FUTURES_TESTNET
+        sessions = VenueStrategySessions(lambda _venue: session)
+        ports = FakeVenueTradingPorts(
+            fake_venue_ports(venue, trading_session=trading_session)
+        )
         dispatcher = _DirectDispatcher(
             {
                 ArmStrategyCommandHandler: ArmStrategyCommandHandler(
-                    session, trading_session, config_store
+                    sessions, ports, config_store
                 ),
                 DisarmStrategyCommandHandler: DisarmStrategyCommandHandler(
-                    session, trading_session
+                    sessions, ports
                 ),
             }
         )
-        return StrategyArmingService(dispatcher, config_store)
+        return StrategyArmingService(dispatcher, config_store, venue)
 
 
 def test_the_fakes_scripted_arm_result_is_what_arm_answers() -> None:

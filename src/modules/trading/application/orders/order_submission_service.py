@@ -48,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     OrderRequest,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 def _answered(response: object, expected: type) -> object:
@@ -61,12 +64,14 @@ def _answered(response: object, expected: type) -> object:
     return response
 
 
-def _as_query(request: OrderRequest) -> PreviewOrderQuery:
+def _as_query(request: OrderRequest, venue: TradingVenue) -> PreviewOrderQuery:
     """The one translation this class performs. Field for field on purpose:
     `OrderRequest` was given `PreviewOrderQuery`'s exact shape (HLD §2.4 —
     every caller sets all six), so a mismatch here would be a typo rather
-    than a design decision."""
+    than a design decision. The venue is the service's own (`EPIC-028B`),
+    never the caller's: a screen holds the service of the venue it trades."""
     return PreviewOrderQuery(
+        venue=venue,
         symbol=request.symbol,
         side=request.side,
         order_type=request.order_type,
@@ -77,30 +82,39 @@ def _as_query(request: OrderRequest) -> PreviewOrderQuery:
 
 
 class OrderSubmissionService(IOrderSubmission):
-    """The module's answer to "shape this order, and send it if I say so"."""
+    """The module's answer to "shape this order, and send it if I say so",
+    for one venue (`EPIC-028B`: one instance per venue, each stamping its own
+    venue on every command it sends)."""
 
-    def __init__(self, dispatcher: ICommandDispatcher) -> None:
+    def __init__(self, dispatcher: ICommandDispatcher, venue: TradingVenue) -> None:
         self._dispatcher = dispatcher
+        self._venue = venue
 
     def preview(self, request: OrderRequest) -> OrderPreview:
-        response = self._dispatcher.dispatch(PreviewOrderQuery, _as_query(request))
+        response = self._dispatcher.dispatch(
+            PreviewOrderQuery, _as_query(request, self._venue)
+        )
         return _answered(response, OrderPreview)  # type: ignore[return-value]
 
     def submit(
         self, request: OrderRequest, *, live: bool = False
     ) -> ExecuteOrderResult:
         command = ExecuteOrderCommand(
-            order_request=_as_query(request), live=live, owner_id=request.owner_id
+            order_request=_as_query(request, self._venue),
+            live=live,
+            owner_id=request.owner_id,
         )
         response = self._dispatcher.dispatch(ExecuteOrderCommand, command)
         return _answered(response, ExecuteOrderResult)  # type: ignore[return-value]
 
     def validate(self, request: OrderRequest) -> Order:
-        command = SubmitOrderCommand(order_request=_as_query(request))
+        command = SubmitOrderCommand(order_request=_as_query(request, self._venue))
         response = self._dispatcher.dispatch(SubmitOrderCommand, command)
         return _answered(response, Order)  # type: ignore[return-value]
 
     def cancel(self, symbol: str, client_order_id: str) -> CancelOrderResult:
-        command = CancelOrderCommand(symbol=symbol, client_order_id=client_order_id)
+        command = CancelOrderCommand(
+            symbol=symbol, client_order_id=client_order_id, venue=self._venue
+        )
         response = self._dispatcher.dispatch(CancelOrderCommand, command)
         return _answered(response, CancelOrderResult)  # type: ignore[return-value]
