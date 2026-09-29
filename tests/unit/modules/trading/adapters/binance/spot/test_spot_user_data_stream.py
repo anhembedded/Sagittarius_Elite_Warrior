@@ -10,7 +10,9 @@ it composes."""
 
 from __future__ import annotations
 
+import asyncio
 import logging
+import time
 from decimal import Decimal
 from typing import Self
 from unittest.mock import AsyncMock, Mock, patch
@@ -111,12 +113,22 @@ def _stream(
     return stream, event_bus
 
 
-def test_a_fill_publishes_order_filled_event_with_its_fee() -> None:
+class _SlowFakeTradingAccountReader(FakeTradingAccountReader):
+    """`BOT-145` — a real blocking `time.sleep` under a real thread, not a
+    mock: proves `check_connection()` runs off the event loop, which a
+    `Mock`'s in-process return could not distinguish from running on it."""
+
+    def check_connection(self) -> ExchangeConnectionStatus:
+        time.sleep(0.2)
+        return super().check_connection()
+
+
+async def test_a_fill_publishes_order_filled_event_with_its_fee() -> None:
     stream, event_bus = _stream()
     seen: list = []
     event_bus.on(OrderFilledEvent, seen.append)
 
-    stream._handle_message(_execution_report())
+    await stream._handle_message(_execution_report())
 
     assert len(seen) == 1
     assert seen[0].order.status.name == "FILLED"
@@ -126,13 +138,13 @@ def test_a_fill_publishes_order_filled_event_with_its_fee() -> None:
     assert seen[0].fee_asset == "USDT"
 
 
-def test_execution_report_logs_at_debug_not_info(caplog) -> None:
+async def test_execution_report_logs_at_debug_not_info(caplog) -> None:
     """`BUG-095` (`BUG-042` regression), same discipline as
     `FuturesUserDataStream`'s own `ORDER_TRADE_UPDATE` line."""
     stream, _event_bus = _stream()
 
     with caplog.at_level(logging.DEBUG, logger="App.UserDataStream"):
-        stream._handle_message(_execution_report())
+        await stream._handle_message(_execution_report())
 
     assert any(
         "executionReport" in record.message and record.levelno == logging.DEBUG
@@ -144,17 +156,17 @@ def test_execution_report_logs_at_debug_not_info(caplog) -> None:
     )
 
 
-def test_a_new_acknowledgement_does_not_publish_order_filled_event() -> None:
+async def test_a_new_acknowledgement_does_not_publish_order_filled_event() -> None:
     stream, event_bus = _stream()
     seen: list = []
     event_bus.on(OrderFilledEvent, seen.append)
 
-    stream._handle_message(_execution_report(X="NEW", x="NEW", z="0", l="0"))
+    await stream._handle_message(_execution_report(X="NEW", x="NEW", z="0", l="0"))
 
     assert seen == []
 
 
-def test_a_fill_with_no_fee_fields_publishes_none_not_a_fabricated_zero() -> None:
+async def test_a_fill_with_no_fee_fields_publishes_none_not_a_fabricated_zero() -> None:
     payload = _execution_report()
     del payload["n"]
     del payload["N"]
@@ -162,13 +174,15 @@ def test_a_fill_with_no_fee_fields_publishes_none_not_a_fabricated_zero() -> Non
     seen: list = []
     event_bus.on(OrderFilledEvent, seen.append)
 
-    stream._handle_message(payload)
+    await stream._handle_message(payload)
 
     assert seen[0].fee_amount is None
     assert seen[0].fee_asset is None
 
 
-def test_outbound_account_position_re_fetches_equity_and_publishes_sample() -> None:
+async def test_outbound_account_position_re_fetches_equity_and_publishes_sample() -> (
+    None
+):
     """`EPIC-027L` §3 — equity is re-fetched authoritatively through
     `ITradingAccountReader`, never derived from the stream's own `"B"`
     balance array (which is quote-asset-only and does not itself carry a
@@ -179,7 +193,7 @@ def test_outbound_account_position_re_fetches_equity_and_publishes_sample() -> N
     seen: list = []
     event_bus.on(EquitySampledEvent, seen.append)
 
-    stream._handle_message(_outbound_account_position())
+    await stream._handle_message(_outbound_account_position())
 
     assert reader.checks == 1
     assert len(seen) == 1
@@ -188,12 +202,72 @@ def test_outbound_account_position_re_fetches_equity_and_publishes_sample() -> N
     assert recorder.samples() == (seen[0].sample,)
 
 
-def test_outbound_account_position_logs_at_debug_not_info(caplog) -> None:
+async def test_outbound_account_position_s_check_connection_does_not_stall_the_event_loop() -> (
+    None
+):
+    """`BOT-145` — `check_connection()` is several blocking,
+    `requests`-backed REST calls; before the fix they ran directly on
+    `_handle_message`'s caller, the same asyncio event loop that also
+    drives `stream.recv()`. Same proof shape as `FuturesUserDataStream`'s
+    own `test_account_update_s_get_positions_call_does_not_stall_the_
+    event_loop`: a concurrently-scheduled coroutine needing only a short
+    `asyncio.sleep` must finish first."""
+    order: list[str] = []
+    reader = _SlowFakeTradingAccountReader(_reachable_status(equity=Decimal("1234.56")))
+    stream, _event_bus = _stream(account_reader=reader)
+
+    async def slow_task() -> None:
+        await stream._handle_message(_outbound_account_position())
+        order.append("slow")
+
+    async def quick_task() -> None:
+        await asyncio.sleep(0.01)
+        order.append("quick")
+
+    await asyncio.gather(slow_task(), quick_task())
+
+    assert order == ["quick", "slow"]
+
+
+class _SupersedingFakeTradingAccountReader(FakeTradingAccountReader):
+    """Bumps the stream's generation mid-call — what `stop()`/`start()` do
+    to a stream whose handler is suspended on the `BOT-145` REST await."""
+
+    stream: SpotUserDataStream | None = None
+
+    def check_connection(self) -> ExchangeConnectionStatus:
+        assert self.stream is not None
+        self.stream._generation += 1
+        return super().check_connection()
+
+
+async def test_a_generation_bumped_during_the_equity_refetch_records_nothing() -> None:
+    """`BUG-094` fence, re-applied after `BOT-145`'s await: the handler passed
+    the pre-dispatch generation check, then `stop()`/`start()` superseded
+    the stream while `check_connection()` ran — the stale answer must not be
+    recorded or published into the new session."""
+    reader = _SupersedingFakeTradingAccountReader(
+        _reachable_status(equity=Decimal("1234.56"))
+    )
+    recorder = EquityCurveRecorder()
+    stream, event_bus = _stream(account_reader=reader, equity_recorder=recorder)
+    reader.stream = stream
+    seen: list = []
+    event_bus.on(EquitySampledEvent, seen.append)
+
+    await stream._handle_message(_outbound_account_position())
+
+    assert reader.checks == 1
+    assert seen == []
+    assert recorder.samples() == ()
+
+
+async def test_outbound_account_position_logs_at_debug_not_info(caplog) -> None:
     reader = FakeTradingAccountReader(_reachable_status(equity=Decimal("1234.56")))
     stream, _event_bus = _stream(account_reader=reader)
 
     with caplog.at_level(logging.DEBUG, logger="App.UserDataStream"):
-        stream._handle_message(_outbound_account_position())
+        await stream._handle_message(_outbound_account_position())
 
     assert any(
         "outboundAccountPosition" in record.message and record.levelno == logging.DEBUG
@@ -202,7 +276,7 @@ def test_outbound_account_position_logs_at_debug_not_info(caplog) -> None:
     assert not any(record.levelno >= logging.INFO for record in caplog.records)
 
 
-def test_balance_update_also_re_fetches_equity_and_publishes_sample() -> None:
+async def test_balance_update_also_re_fetches_equity_and_publishes_sample() -> None:
     """`EPIC-027L` acceptance criteria's own "balances from
     outboundAccountPosition/balanceUpdate" — a deposit/withdrawal/dust
     conversion never produces a fill (no `executionReport`/
@@ -214,7 +288,7 @@ def test_balance_update_also_re_fetches_equity_and_publishes_sample() -> None:
     seen: list = []
     event_bus.on(EquitySampledEvent, seen.append)
 
-    stream._handle_message(
+    await stream._handle_message(
         {"e": "balanceUpdate", "E": 1573200697110, "a": "BTC", "d": "1.00000000"}
     )
 
@@ -223,7 +297,9 @@ def test_balance_update_also_re_fetches_equity_and_publishes_sample() -> None:
     assert seen[0].sample.wallet_balance == Decimal("2000.00")
 
 
-def test_outbound_account_position_with_unavailable_equity_records_nothing() -> None:
+async def test_outbound_account_position_with_unavailable_equity_records_nothing() -> (
+    None
+):
     """`SpotAccountReader._compute_equity` reports `None`, never a partial
     sum, when a holding cannot be priced — this stream must not fabricate a
     sample from an incomplete answer."""
@@ -233,13 +309,15 @@ def test_outbound_account_position_with_unavailable_equity_records_nothing() -> 
     seen: list = []
     event_bus.on(EquitySampledEvent, seen.append)
 
-    stream._handle_message(_outbound_account_position())
+    await stream._handle_message(_outbound_account_position())
 
     assert seen == []
     assert recorder.samples() == ()
 
 
-def test_outbound_account_position_with_unreachable_venue_records_nothing() -> None:
+async def test_outbound_account_position_with_unreachable_venue_records_nothing() -> (
+    None
+):
     reader = FakeTradingAccountReader(
         ExchangeConnectionStatus(
             venue=TradingVenue.SPOT_TESTNET,
@@ -256,23 +334,23 @@ def test_outbound_account_position_with_unreachable_venue_records_nothing() -> N
     seen: list = []
     event_bus.on(EquitySampledEvent, seen.append)
 
-    stream._handle_message(_outbound_account_position())
+    await stream._handle_message(_outbound_account_position())
 
     assert seen == []
 
 
-def test_unrecognized_event_type_is_ignored() -> None:
+async def test_unrecognized_event_type_is_ignored() -> None:
     stream, event_bus = _stream()
     seen: list = []
     event_bus.on(OrderFilledEvent, seen.append)
     event_bus.on(EquitySampledEvent, seen.append)
 
-    stream._handle_message({"e": "listenKeyExpired"})
+    await stream._handle_message({"e": "listenKeyExpired"})
 
     assert seen == []
 
 
-def test_library_error_sentinel_is_logged_not_silently_dropped(caplog) -> None:
+async def test_library_error_sentinel_is_logged_not_silently_dropped(caplog) -> None:
     """`BUG-096`'s same reconnect-sentinel handling as `FuturesUserDataStream`."""
     stream, event_bus = _stream()
     seen: list = []
@@ -280,7 +358,7 @@ def test_library_error_sentinel_is_logged_not_silently_dropped(caplog) -> None:
     event_bus.on(EquitySampledEvent, seen.append)
 
     with caplog.at_level(logging.WARNING, logger="App.UserDataStream"):
-        stream._handle_message(
+        await stream._handle_message(
             {"e": "error", "type": "ConnectionClosedError", "m": "no close frame"}
         )
 
@@ -392,7 +470,11 @@ async def test_a_superseded_generation_stops_handling_messages_mid_stream() -> N
     )
     stream._generation = 1
     handled: list = []
-    stream._handle_message = handled.append  # type: ignore[method-assign]
+
+    async def _record(payload: dict) -> None:
+        handled.append(payload)
+
+    stream._handle_message = _record  # type: ignore[method-assign]
     token = Mock()
     token.is_cancelled.return_value = False
 

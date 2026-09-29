@@ -41,7 +41,7 @@ or a dedicated window; Qt Creator has **modes** (Welcome / Edit / Debug) with a 
 | `HEADER` | a `QToolBar` of `QAction`s — one action carries its menu entry, toolbar button, shortcut and enabled state in one object | Consistency, Efficiency |
 | `CONTEXT_BAR` | a second toolbar (symbol, timeframe, connection) | Efficiency |
 | `WORKSPACE` | the mode's central widget (the chart; several charts as tabs or an MDI area on Dev Board) | Clarity |
-| `RAIL` | `QDockWidget`s in the right dock area — **panels** (positions, open orders, session, strategy, last signal); the user can move, tab, float, hide them; layout persists | User control, Scalability |
+| `RAIL` | `QDockWidget`s in the right dock area — **panels** (positions on Futures or holdings on Spot — one `QStackedWidget`, switched once by market at construction, `EPIC-027O` — open orders, session, strategy, last signal); the user can move, tab, float, hide them; layout persists | User control, Scalability |
 | `CONSOLE` | a `QDockWidget` in the bottom dock area | Clarity |
 | `MODAL` | a `QDialog` with explicit OK/Cancel, a title that names the action, and validation before OK enables | Clarity, User control |
 | `STATUS_TILE` | a widget in the `QStatusBar` (websocket pill, price ticker, run progress) | Clarity |

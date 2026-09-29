@@ -173,7 +173,7 @@ class SpotUserDataStream(IUserDataStream):
                             # bump `self._generation` while this coroutine
                             # was suspended waiting on `stream.recv()`.
                             if res and generation == self._generation:
-                                self._handle_message(res)
+                                await self._handle_message(res)
                 except asyncio.CancelledError:
                     logger.info("User data stream task was cancelled.")
                     break
@@ -197,12 +197,12 @@ class SpotUserDataStream(IUserDataStream):
                 except Exception as exc:  # noqa: BLE001 - boundary: log and continue teardown
                     logger.warning("Error closing user data stream client: %s", exc)
 
-    def _handle_message(self, payload: dict[str, Any]) -> None:
+    async def _handle_message(self, payload: dict[str, Any]) -> None:
         event_type = payload.get("e")
         if event_type == EXECUTION_REPORT:
             self._handle_execution_report(payload)
         elif event_type in (OUTBOUND_ACCOUNT_POSITION, BALANCE_UPDATE):
-            self._refresh_equity(payload)
+            await self._refresh_equity(payload)
         elif event_type == _LIBRARY_ERROR_EVENT:
             logger.warning(
                 "User data stream reported a connection issue: %s (%s)",
@@ -239,7 +239,7 @@ class SpotUserDataStream(IUserDataStream):
                 )
             )
 
-    def _refresh_equity(self, payload: dict[str, Any]) -> None:
+    async def _refresh_equity(self, payload: dict[str, Any]) -> None:
         """@brief Handles both `OUTBOUND_ACCOUNT_POSITION` (every fill) and
         `BALANCE_UPDATE` (a deposit/withdrawal/dust conversion — the one
         balance change a fill never produces) identically: no
@@ -247,7 +247,16 @@ class SpotUserDataStream(IUserDataStream):
         not leveraged positions), so either event only ever triggers an
         authoritative equity re-fetch, never a value derived from the
         stream's own balance deltas (this module's own docstring)."""
-        status = self._account_reader.check_connection()
+        # `BOT-145` — off the event loop: `check_connection()` is several
+        # blocking, `requests`-backed REST calls, and this handler runs on
+        # the same loop driving `stream.recv()` (`_run_stream`). `BUG-094` —
+        # re-fenced after that await: `stop()`/`start()` can bump
+        # `self._generation` during the round trip, and a superseded
+        # stream must not record or publish into the new session.
+        generation = self._generation
+        status = await asyncio.to_thread(self._account_reader.check_connection)
+        if generation != self._generation:
+            return
         if status.equity is None:
             logger.warning(
                 "%s received but equity could not be re-fetched — skipping "

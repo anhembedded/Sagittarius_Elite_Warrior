@@ -1,6 +1,6 @@
 # EPIC-027P — A real Spot Testnet round trip is proven, and the Spot order lifecycle is a written SPEC
 
-**Status:** 🔵 Backlog
+**Status:** 🟡 In progress (2026-09-28) — blocked on the user's own Spot Testnet run (AC5)
 **Source:** follows the user's *"giao dịch spot"* request, 2026-09-26; `testing-rule.md` §1 (`tests/testnet/`).
 **Risk:** 🟡 — touches a real exchange (testnet); must never make someone else's CI red.
 **Complexity:** M — an opt-in tier, a SPEC, the user's own confirmation run.
@@ -31,16 +31,18 @@
     natural place to add that missing SELL leg against the real fake exchange.
 
 ## 2. Acceptance criteria
-- [ ] `tests/testnet/spot/` runs only with its own opt-in flag and Spot Testnet keys. Without them it
+- [x] `tests/testnet/spot/` runs only with its own opt-in flag and Spot Testnet keys. Without them it
       skips with a stated reason and never fails the gate.
-- [ ] It proves a round trip: BUY a small MARKET quantity → holding appears (from the stream) → SELL it
+- [x] It proves a round trip: BUY a small MARKET quantity → holding appears (read through
+      `SpotAccountReader.check_connection().holdings`, the same read the Holdings table is driven by —
+      not the user data stream, which carries no holdings snapshot of its own) → SELL it
       back → holding returns to baseline. It asserts invariants (`FILLED`, back to baseline), never
       prices, and cleans up in `finally`.
-- [ ] A SPEC describes the Spot order lifecycle, with the tests that prove it listed under
+- [x] A SPEC describes the Spot order lifecycle, with the tests that prove it listed under
       "Proven by".
-- [ ] `Docs/HLD/11_desktop_workbench.md`'s RAIL dock panel list names the Holdings dock (Spot) beside
+- [x] `Docs/HLD/11_desktop_workbench.md`'s RAIL dock panel list names the Holdings dock (Spot) beside
       Positions (Futures).
-- [ ] `Docs/SPEC/SPEC-005_place_a_manual_order.md` §2's venue precondition reflects that Spot manual
+- [x] `Docs/SPEC/SPEC-005_place_a_manual_order.md` §2's venue precondition reflects that Spot manual
       submission is a real, working path (BUY, and SELL gated on a real holding), not just Futures.
 - [ ] The user runs the tier once and the output is pasted into this task file.
 
@@ -51,10 +53,36 @@
 | File | Change |
 | :--- | :--- |
 | `tests/testnet/spot/conftest.py`, `tests/testnet/spot/test_spot_order_lifecycle.py` | new tier |
-| `Docs/SPEC/SPEC-0nn_spot_order_lifecycle.md` + `Docs/SPEC/README.md` | new use case |
+| `Docs/SPEC/SPEC-012_place_a_spot_order.md` + `Docs/SPEC/README.md` | new use case |
 | `Docs/HLD/11_desktop_workbench.md` | RAIL dock panel list names Holdings (Spot) beside Positions |
 | `Docs/SPEC/SPEC-005_place_a_manual_order.md` | §2 precondition updated for Spot manual submission |
 
 ## 5. Testing
-- The tier itself; the SPEC index guard (`tests/unit/architecture/test_spec_index_is_consistent.py`).
-- Not run yet (needs Spot Testnet keys from the user).
+- `tests/testnet/spot/conftest.py` + `tests/testnet/spot/test_spot_order_lifecycle.py`: ruff
+  `check`/`format --check` clean; confirmed skipping cleanly (`1 skipped`, stated reason) without
+  `SEW_TESTNET_TESTS=1`.
+- `tests/unit/architecture/test_spec_index_is_consistent.py`: 43/43 passed — SPEC-012's index row,
+  required sections and every cited test path (including the new testnet file) verified to exist.
+- Full `tests/unit/architecture` suite: 464/464 passed (god-file and duplication ratchets
+  unaffected by this slice — no `src/` files touched).
+- `mypy` at the real gate invocation (`src`/`scripts` only, from repo parent dir): unchanged at the
+  584-error baseline; the new `tests/testnet/spot/` files are outside the gate's scanned paths
+  (`tests/` is never part of it), matching the existing Futures testnet test's own pattern.
+- Not run: the tier itself against a real Spot Testnet account (needs the user's own
+  `BINANCE_SPOT_TESTNET_API_KEY`/`_SECRET`) — AC5.
+
+## 6. Resume
+- **Blocked on:** AC5 only — the tier's real round trip needs the user's own Binance Spot Testnet
+  API key/secret, which no amount of further autonomous work can substitute for.
+- **Everything else in scope is done and verified** (AC1–AC4, the HLD and SPEC-005 doc fixes):
+  see §5 above.
+- **Next executable action, once the user supplies credentials:** set
+  `BINANCE_SPOT_TESTNET_API_KEY`/`_SECRET` (env or `src/config/secrets.local.json`, the same
+  file the Futures tier already uses — `ADR D8` keeps the two venues' keys separate), set
+  `SEW_TESTNET_TESTS=1`, and run
+  `pwsh -NoProfile -File scripts/ci-local.ps1 -TestnetOnly`. Paste the resulting
+  `===END_CI_LOCAL_RESULT===` block (or the log file's relevant excerpt) into this section, check
+  off the final AC box, flip SPEC-012 (its own status line and its `Docs/SPEC/README.md` row)
+  from 🟡 to ✅, move this file to `completed/`, and update the epic's README/TRACKING and
+  `Tasks/ROADMAP.md` to close EPIC-027P (and, since it is the epic's last queued sub-task per
+  `README.md`'s dependency chain, review whether `EPIC-027` itself is ready to close).

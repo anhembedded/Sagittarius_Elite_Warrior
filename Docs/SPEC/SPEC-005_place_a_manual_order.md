@@ -20,7 +20,10 @@ goes."*
 
 1. Live trading is on (SPEC-004) — for a **live** submission only. Preview and dry run work with
    it off, which is the point of having them.
-2. Credentials resolve and the venue is Futures Testnet.
+2. Credentials resolve and the venue is Futures Testnet — the mechanics below (normalisation,
+   safety gates, session limits, exchange rejections) apply unchanged on Spot Testnet too
+   (`EPIC-027K`); what differs there — BUY/SELL relabeling, no leverage, SELL gated on a real
+   holding, balances instead of positions — is SPEC-012, not a second copy of this one.
 3. The actor has a symbol, a side, a quantity and a reference price. The reference price is
    required, not optional: this app has no live mark-price path for the notional estimate, and
    the command line says so in its own help text rather than quietly using a stale number.

@@ -257,7 +257,7 @@ class FuturesUserDataStream(IUserDataStream):
                             # this coroutine was suspended waiting on
                             # `stream.recv()`.
                             if res and generation == self._generation:
-                                self._handle_message(res)
+                                await self._handle_message(res)
                 except asyncio.CancelledError:
                     logger.info("User data stream task was cancelled.")
                     break
@@ -295,12 +295,12 @@ class FuturesUserDataStream(IUserDataStream):
                 except Exception as exc:  # noqa: BLE001 - boundary: log and continue teardown
                     logger.warning("Error closing user data stream client: %s", exc)
 
-    def _handle_message(self, payload: dict[str, Any]) -> None:
+    async def _handle_message(self, payload: dict[str, Any]) -> None:
         event_type = payload.get("e")
         if event_type == ORDER_TRADE_UPDATE:
             self._handle_order_trade_update(payload)
         elif event_type == ACCOUNT_UPDATE:
-            self._handle_account_update(payload)
+            await self._handle_account_update(payload)
         elif event_type == _LIBRARY_ERROR_EVENT:
             # `BUG-096` — before this branch existed, a connection blip
             # produced this sentinel and `_handle_message` silently
@@ -341,11 +341,9 @@ class FuturesUserDataStream(IUserDataStream):
                 )
             )
 
-    def _handle_account_update(self, payload: dict[str, Any]) -> None:
+    async def _handle_account_update(self, payload: dict[str, Any]) -> None:
         if self._trading_client is None:
-            # Only reachable if a caller invokes `_handle_message` directly
-            # before `_run_stream` has ever set it up — the real socket
-            # loop never calls this until construction above has run.
+            # Only a direct `_handle_message` call before `_run_stream` gets here.
             logger.error("ACCOUNT_UPDATE received before the stream was ready.")
             return
 
@@ -378,8 +376,16 @@ class FuturesUserDataStream(IUserDataStream):
                 equity_sample.total,
             )
 
+        generation = self._generation
         for symbol in account_update_changed_symbols(payload):
-            positions = self._trading_client.get_positions(symbol)
+            # `BOT-145` — off the loop: `get_positions()` blocks on REST I/O.
+            # `BUG-094` — re-fenced after the await: `stop()`/`start()` may
+            # bump the generation mid-call; a stale handler must not write.
+            positions = await asyncio.to_thread(
+                self._trading_client.get_positions, symbol
+            )
+            if generation != self._generation:
+                return
             reconcile_position_state(
                 self._session_state, symbol, has_position=bool(positions)
             )
@@ -395,11 +401,8 @@ class FuturesUserDataStream(IUserDataStream):
                     positions[0].unrealized_pnl,
                 )
             else:
-                # `BUG-086` — a closed position is a real change too, not
-                # merely absence of one; `PositionChangedEvent` cannot
-                # carry it (no `LivePosition` to construct — its own
-                # docstring forbids `position_amt == 0`), so this is a
-                # dedicated event. `BUG-095` — `DEBUG`, same per-event
-                # reasoning as above.
+                # `BUG-086` — closing is a real change, carried by a dedicated
+                # event: `LivePosition` forbids `position_amt == 0`, so
+                # `PositionChangedEvent` cannot. `BUG-095` — `DEBUG` as above.
                 self._event_bus.emit(PositionClosedEvent(symbol=symbol))
                 logger.debug("ACCOUNT_UPDATE  %s  position closed", symbol)
