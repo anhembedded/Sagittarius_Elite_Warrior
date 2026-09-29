@@ -28,13 +28,22 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.position_refresh_
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_contexts import (
+    VenueContexts,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
 def bind_state(container: IContainer) -> None:
-    # EPIC-021G: one per app process — never persisted, never seeded from
-    # config on boot (see the class's own docstring for why).
-    container.singleton(TradingSessionState, TradingSessionState)
+    # EPIC-021G: never persisted, never seeded from config on boot (see the
+    # class's own docstring for why).
+    # `EPIC-028A`: one per venue, owned by its `VenueAssembly`; this
+    # single-venue door is the primary venue's own instance, so handlers and
+    # that venue's user data stream still share one object.
+    container.singleton(
+        TradingSessionState,
+        lambda c: c.resolve(VenueContexts).primary_assembly().session_state,
+    )
 
     # `BUG-117` — keeps every open position's mark price/unrealized PnL from
     # going stale between `ACCOUNT_UPDATE` events (a fill, a funding

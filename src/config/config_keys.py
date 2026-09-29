@@ -27,6 +27,11 @@ class ConfigKeys(str, Enum):
     #: trading is opt-in, never on by config omission. Values are
     #: `TradingVenue` members.
     EXCHANGE_TRADING_VENUE = "exchange.trading_venue"
+    #: `EPIC-028A` — the set of venues live at once (ADR D4), a JSON list
+    #: of `TradingVenue` values in priority order. Wins over the scalar
+    #: `EXCHANGE_TRADING_VENUE` whenever present; a config holding only the
+    #: scalar still reads as a one-element set (`"disabled"` as empty).
+    EXCHANGE_TRADING_VENUES = "exchange.trading_venues"
     LOG_FORMAT = "LOG_FORMAT"
     LOG_LEVEL = "log.level"
     LOG_CONSOLE_ENABLED = "log.console.enabled"

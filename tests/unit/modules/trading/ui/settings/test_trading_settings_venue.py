@@ -200,3 +200,46 @@ def test_the_combo_carries_the_config_value_not_the_label(
     }
 
     assert values == {venue.value for venue in TradingVenue}
+
+
+def _list_configured() -> _FakeConfig:
+    return _FakeConfig(
+        {
+            ConfigKeys.EXCHANGE_TRADING_VENUES.value: ["spot_testnet"],
+            ConfigKeys.EXCHANGE_TRADING_VENUE.value: "disabled",
+        }
+    )
+
+
+def test_a_venue_list_in_config_is_what_settings_shows(
+    qapp, request, credentials_provider
+):
+    """Review F2: the list overrides the scalar at boot, so the combo names
+    the list's primary venue, not the scalar it overrode."""
+    presenter, _view = _presenter(
+        request, _list_configured(), FakeTradingSession(), credentials_provider
+    )
+
+    assert presenter._settings_view_model.tradingVenue == "spot_testnet"
+
+
+def test_a_venue_list_in_config_locks_the_combo_and_refuses_the_save(
+    qapp, request, credentials_provider
+):
+    """The Settings page writes only the scalar, which the list overrides, so
+    a saved "disabled" would leave trading on. Until per-venue toggles
+    (`EPIC-028C`) own the list, saving is refused and says why."""
+    config = _list_configured()
+    presenter, _view = _presenter(
+        request, config, FakeTradingSession(), credentials_provider
+    )
+    view_model = presenter._settings_view_model
+    view_model.requestTradingVenue("disabled")
+
+    view_model.requestSave()
+
+    assert view_model.venueLocked is True
+    assert config.values[ConfigKeys.EXCHANGE_TRADING_VENUE.value] == "disabled"
+    assert config.values[ConfigKeys.EXCHANGE_TRADING_VENUES.value] == ["spot_testnet"]
+    assert view_model.statusIsError is True
+    assert "exchange.trading_venues" in view_model.statusMessage

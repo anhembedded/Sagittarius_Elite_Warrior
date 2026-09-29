@@ -1,7 +1,7 @@
 """Thread-safe in-memory cache for `SymbolOrderMetadata` snapshots
-(`EPIC-021C`/`EPIC-027I`) — one instance serves whichever single market
-the active `TradingVenue` trades; see `ISymbolOrderMetadataCache`'s own
-docstring for why that makes a bare `symbol` key safe here."""
+(`EPIC-021C`/`EPIC-027I`) — one instance per venue (`EPIC-028A`); see
+`ISymbolOrderMetadataCache`'s own docstring for why that makes a bare
+`symbol` key safe here."""
 
 from __future__ import annotations
 

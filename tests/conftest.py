@@ -2,11 +2,50 @@
 Root conftest.py — shared fixtures available to all tests.
 """
 
-from collections.abc import Mapping
+import sys
+from collections.abc import Iterator, Mapping
 from typing import Any
 from unittest.mock import Mock
 
 import pytest
+
+
+def flush_qt_deferred_deletes() -> None:
+    """Delivers every pending `deleteLater()` now, if Qt is loaded at all.
+
+    pytest-qt's teardown closes each `qtbot.addWidget()` widget with
+    `close()` + `deleteLater()` and then calls `processEvents()`. At
+    event-loop level 0 that call does not deliver `DeferredDelete`, so
+    nothing is destroyed. One xdist worker built up 171,874 live widgets
+    that way (2026-09-29). The first test to enter a real event loop then
+    destroyed them all in one go, which took 21.6 s, and that time ran
+    inside its own `waitUntil` timeout.
+    `tests/unit/test_qt_deferred_deletes_are_flushed.py` pins both halves.
+
+    Also destroys a module- or session-scoped widget that already has a
+    `deleteLater()` pending at the first test boundary; keep long-lived
+    widgets out of `deleteLater()` or out of this suite's scoped fixtures.
+
+    Reads `sys.modules` rather than importing: a test that never touched Qt
+    must not pull PySide6 in just to be told there is nothing to flush.
+    """
+    qt_core = sys.modules.get("PySide6.QtCore")
+    if qt_core is None or qt_core.QCoreApplication.instance() is None:
+        return
+    qt_core.QCoreApplication.sendPostedEvents(None, qt_core.QEvent.Type.DeferredDelete)
+
+
+@pytest.fixture(autouse=True)
+def _flush_qt_deferred_deletes() -> Iterator[None]:
+    """Runs `flush_qt_deferred_deletes()` after every test, so no test pays
+    for another test's widget cleanup.
+
+    Its teardown runs inside pytest-qt's own `pytest_runtest_teardown`
+    wrapper, after that wrapper has already `deleteLater()`-ed the test's
+    widgets, so this is the point where they are actually destroyed.
+    """
+    yield
+    flush_qt_deferred_deletes()
 
 
 @pytest.fixture(scope="session", autouse=True)

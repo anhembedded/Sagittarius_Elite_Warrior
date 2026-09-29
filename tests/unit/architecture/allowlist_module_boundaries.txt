@@ -799,7 +799,10 @@ modules.trading.ui.settings.trading_settings_presenter -> presentation.cli.excha
 # nothing about *this* move -- real work of its own, out of this PR's
 # bounded scope (`task-execution-rule.md`). It exits when that relocation
 # lands.
-modules.trading.composition.adapter_bindings -> infrastructure.persistence.symbol_order_metadata_cache
+# `EPIC-028A` moved these three constructions, unchanged, from
+# `adapter_bindings.py` into `venue_assembly.py` (one builder per venue);
+# the entries followed the move, the count did not grow.
+modules.trading.composition.venue_assembly -> infrastructure.persistence.symbol_order_metadata_cache
 
 # `EnvFirstCredentialsProvider`/`SecretsFileSource` are `support/
 # binance_gateway`'s own concrete adapters behind `IExchangeCredentialsProvider`
@@ -814,8 +817,8 @@ modules.trading.composition.adapter_bindings -> infrastructure.persistence.symbo
 # hides its adapter's construction -- until then, the one module that
 # consumes it constructs it directly, exactly as the legacy composition root
 # always did.
-modules.trading.composition.adapter_bindings -> support.binance_gateway.adapters.env_first_credentials_provider
-modules.trading.composition.adapter_bindings -> support.binance_gateway.adapters.secrets_file_source
+modules.trading.composition.venue_assembly -> support.binance_gateway.adapters.env_first_credentials_provider
+modules.trading.composition.venue_assembly -> support.binance_gateway.adapters.secrets_file_source
 
 # `BOT-019` moved `market_tick_feed.py` from `modules/trading/ui/` to
 # `modules/market_data/ui/`: `MarketTickEvent` is `market_data`'s own

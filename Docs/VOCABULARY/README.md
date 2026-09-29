@@ -118,6 +118,8 @@ difference is the reason the contexts exist (HLD §1.2).
 | **Order intent** | What a caller *wants* (side, quantity, type, price, `owner_id`) before preview and rounding. | `contracts/dto` |
 | **Trading session** | The app-level state "trading is enabled", with its limits, counters and symbol leases; snapshot as `TradingSessionSnapshot`. | `contracts/ITradingSession` |
 | **Trading venue** (`TradingVenue`) | Where orders go: disabled, testnet. Live is restricted by a guard. | `core/vo` |
+| **Venue context** (`VenueContext`) | Every live-trading port one enabled venue answers (credentials, metadata cache and provider, client factory, account reader, user data stream) as one immutable bundle; a caller gets it from `IVenueContexts.get(venue)`. `VenueAssembly` (composition) builds and caches one venue's parts and per-venue state under a lock; nothing else constructs them (guarded). | `trading/contracts`, `trading/composition` |
+| **Primary venue** | The first enabled venue, or `DISABLED` when none is: the venue the single-venue ports and `resolve_trading_venue` still name until `EPIC-028B` makes every command name its own. | `trading/composition` |
 | **Emergency stop** | Cancel everything, close positions, disable the session — one command. | `application/` |
 | **Account snapshot** | Balance and margin as read from the exchange. | `contracts/IAccountSnapshot` |
 | **Manual order** | An order intent with `owner_id="manual"`, from the manual-order card (Dev Board only, ADR D15). | `ui/` |
