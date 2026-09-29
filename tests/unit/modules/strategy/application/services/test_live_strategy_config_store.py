@@ -82,11 +82,11 @@ def test_a_venue_that_saved_nothing_restores_nothing() -> None:
     assert store.load(_SPOT).is_complete is False
 
 
-def test_the_legacy_keys_become_the_owners_own() -> None:
+def test_the_legacy_keys_become_the_one_enabled_venues_own() -> None:
     config = _legacy_config()
     store = LiveStrategyConfigStore(config)
 
-    store.adopt_legacy(_FUTURES)
+    store.adopt_legacy((_FUTURES,))
 
     assert store.load(_FUTURES) == _FUTURES_CONFIG
     assert store.load(_SPOT).is_complete is False
@@ -97,9 +97,9 @@ def test_adopting_empties_the_legacy_strategy_so_it_happens_once() -> None:
     market: once adopted, the legacy keys name no strategy."""
     config = _legacy_config()
     store = LiveStrategyConfigStore(config)
-    store.adopt_legacy(_FUTURES)
+    store.adopt_legacy((_FUTURES,))
 
-    store.adopt_legacy(_SPOT)
+    store.adopt_legacy((_SPOT,))
 
     assert config.get(ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value) == ""
     assert store.load(_SPOT).is_complete is False
@@ -113,6 +113,41 @@ def test_adopting_never_overwrites_what_the_owner_saved_itself() -> None:
     )
     store.save(_FUTURES, armed_since)
 
-    store.adopt_legacy(_FUTURES)
+    store.adopt_legacy((_FUTURES,))
 
     assert store.load(_FUTURES) == armed_since
+
+
+def test_with_trading_off_the_legacy_keys_wait() -> None:
+    """The PR #295 review's path: a first boot with trading off names no
+    owner, so nothing moves and the keys are still there for a later boot."""
+    config = _legacy_config()
+    store = LiveStrategyConfigStore(config)
+
+    store.adopt_legacy(())
+
+    assert config.get(ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value) == "ema_crossover"
+    assert store.load(_FUTURES).is_complete is False
+
+
+def test_with_two_venues_enabled_the_owner_is_unknown_and_nothing_moves() -> None:
+    """A strategy armed on Spot must not move to Futures just because
+    Futures became the primary venue when Settings enabled both."""
+    config = _legacy_config()
+    store = LiveStrategyConfigStore(config)
+
+    store.adopt_legacy((_FUTURES, _SPOT))
+
+    assert store.load(_FUTURES).is_complete is False
+    assert store.load(_SPOT).is_complete is False
+    assert config.get(ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value) == "ema_crossover"
+
+
+def test_a_disabled_first_boot_then_one_venue_adopts_on_that_venue() -> None:
+    config = _legacy_config()
+    store = LiveStrategyConfigStore(config)
+    store.adopt_legacy(())
+
+    store.adopt_legacy((_SPOT,))
+
+    assert store.load(_SPOT) == _FUTURES_CONFIG

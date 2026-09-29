@@ -24,11 +24,14 @@ one venue saves that venue's keys only and never replaces what the other
 restores at boot.
 
 The unscoped `trading.live_*` keys are what a single-venue app wrote. They
-belong to the one venue that app ran on, which is the primary venue at the
-first boot of this version, before Settings could enable a second one.
-`adopt_legacy()` copies them to that venue's own keys once and then empties
-the legacy strategy key, so a venue enabled later never inherits a strategy
-armed on another market.
+belong to the one venue that app ran on, which can be named for certain only
+while exactly one venue is enabled: with trading off there is no owner yet,
+and with two enabled the primary venue is not necessarily the one the keys
+were armed on (the PR #295 review: a Spot strategy would move to Futures).
+`adopt_legacy()` copies them to that one venue's own keys and then empties the
+legacy strategy key, so a venue enabled later never inherits a strategy armed
+on another market. In every other case it leaves the keys where they are and
+says so.
 """
 
 from __future__ import annotations
@@ -76,21 +79,42 @@ class LiveStrategyConfigStore:
     def __init__(self, config: IConfig) -> None:
         self._config = config
 
-    def adopt_legacy(self, owner: TradingVenue) -> None:
-        """Moves a single-venue app's unscoped keys to `owner`'s own, once.
+    def adopt_legacy(self, enabled: tuple[TradingVenue, ...]) -> None:
+        """Moves a single-venue app's unscoped keys to the one enabled
+        venue's own keys, once.
 
-        Does nothing when no strategy was saved there, or when `owner`
-        already has its own (a later boot, or a venue armed since). The
-        legacy strategy key is emptied afterwards, which is what makes a
-        second call a no-op.
+        Does nothing when no strategy was saved there, when the owner already
+        has its own (a later boot, or a venue armed since), or when the owner
+        cannot be named because not exactly one venue is enabled. The legacy
+        strategy key is emptied after a move, which is what makes a second
+        call a no-op.
         """
         legacy_strategy = self._config.get(
             ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value, ""
         )
+        if not legacy_strategy:
+            return
+        if not enabled:
+            logger.debug(
+                "Trading is off, so the saved live strategy '%s' has no venue "
+                "to move to yet.",
+                legacy_strategy,
+            )
+            return
+        if len(enabled) > 1:
+            logger.warning(
+                "The saved live strategy '%s' predates per-venue settings and "
+                "%d venues are enabled, so which one it belongs to is unknown "
+                "— left unadopted; arm it again on the venue you want.",
+                legacy_strategy,
+                len(enabled),
+            )
+            return
+        (owner,) = enabled
         owned = self._config.get(
             venue_config_key(ConfigKeys.TRADING_LIVE_STRATEGY_KEY, owner)
         )
-        if not legacy_strategy or owned is not None:
+        if owned is not None:
             return
         for key in _LIVE_KEYS:
             value = self._config.get(key.value)

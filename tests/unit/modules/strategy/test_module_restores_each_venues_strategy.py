@@ -1,4 +1,5 @@
-"""`EPIC-028C` — at boot, each enabled venue re-arms its own saved strategy.
+"""`EPIC-028C` — at boot, the primary venue re-arms its own saved strategy,
+and only that venue until each venue has its own desk (`EPIC-028K`/`L`).
 
 @details Driven through `StrategyModule.boot()` itself, so removing the
 per-venue restore from it fails here (`CS-002`: a test that built its own
@@ -86,7 +87,10 @@ def _armed(dispatcher: _RecordingDispatcher) -> dict[TradingVenue, LiveStrategyC
     return {command.venue: command.config for command in dispatcher.armed}
 
 
-def test_each_enabled_venue_rearms_its_own_saved_strategy() -> None:
+def test_the_primary_venue_rearms_its_own_saved_strategy_not_the_others() -> None:
+    """Both venues saved a strategy. No screen shows or disarms Spot yet (the
+    PR #295 review, F3), so Futures comes back armed with its own and Spot's
+    stays saved, untouched."""
     config = DictConfig()
     store = LiveStrategyConfigStore(config)
     store.save(_FUTURES, _FUTURES_CONFIG)
@@ -94,25 +98,24 @@ def test_each_enabled_venue_rearms_its_own_saved_strategy() -> None:
 
     dispatcher = _boot(config, _FUTURES, _SPOT)
 
-    assert _armed(dispatcher) == {_FUTURES: _FUTURES_CONFIG, _SPOT: _SPOT_CONFIG}
+    assert _armed(dispatcher) == {_FUTURES: _FUTURES_CONFIG}
+    assert store.load(_SPOT) == _SPOT_CONFIG
 
 
-def test_a_disabled_venue_is_not_rearmed() -> None:
-    """Spot was unticked in Settings: its saved strategy stays saved and
-    Futures comes back alone."""
+def test_a_spot_only_app_rearms_spots_own_strategy() -> None:
     config = DictConfig()
     store = LiveStrategyConfigStore(config)
     store.save(_FUTURES, _FUTURES_CONFIG)
     store.save(_SPOT, _SPOT_CONFIG)
 
-    dispatcher = _boot(config, _FUTURES)
+    dispatcher = _boot(config, _SPOT)
 
-    assert _armed(dispatcher) == {_FUTURES: _FUTURES_CONFIG}
+    assert _armed(dispatcher) == {_SPOT: _SPOT_CONFIG}
 
 
-def test_a_single_venue_apps_strategy_comes_back_on_the_primary_venue_only() -> None:
-    """The unscoped keys an older version saved belong to the venue it ran
-    on, the primary one; the second venue has nothing to restore."""
+def test_a_single_venue_apps_strategy_comes_back_on_that_venue() -> None:
+    """The unscoped keys an older version saved belong to the one venue it
+    ran on."""
     config = DictConfig(
         {
             ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value: "ema_crossover",
@@ -122,7 +125,21 @@ def test_a_single_venue_apps_strategy_comes_back_on_the_primary_venue_only() -> 
         }
     )
 
-    dispatcher = _boot(config, _FUTURES, _SPOT)
+    dispatcher = _boot(config, _FUTURES)
 
     assert list(_armed(dispatcher)) == [_FUTURES]
     assert _armed(dispatcher)[_FUTURES].strategy_key == "ema_crossover"
+
+
+def test_with_two_venues_enabled_a_legacy_strategy_is_not_guessed_onto_one() -> None:
+    config = DictConfig(
+        {
+            ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value: "ema_crossover",
+            ConfigKeys.TRADING_LIVE_SYMBOL.value: "BTCUSDT",
+            ConfigKeys.TRADING_LIVE_INTERVAL.value: "5m",
+        }
+    )
+
+    dispatcher = _boot(config, _FUTURES, _SPOT)
+
+    assert dispatcher.armed == []
