@@ -122,6 +122,16 @@ class SpotAccountReader(ITradingAccountReader):
     ) -> None:
         self._session_factory = session_factory
         self._credentials_provider = credentials_provider
+        # `BUG-139` — the live UI polls `check_connection()` every few
+        # seconds (`HoldingsRefreshService`); a holding with no real
+        # `<asset>USDT` market (a Testnet-only junk asset, or a genuinely
+        # untradeable one) fails the same ticker lookup every single poll,
+        # forever. The equity-unavailable *result* is correct and
+        # unchanged (`_compute_equity`'s own "never guess a partial sum"
+        # discipline) — only the identical WARNING is deduplicated, so a
+        # persistent, expected condition logs once instead of spamming the
+        # run log every poll cycle.
+        self._logged_unpriceable_assets: set[str] = set()
 
     def check_connection(self) -> ExchangeConnectionStatus:
         resolution = self._credentials_provider.resolve()
@@ -186,13 +196,16 @@ class SpotAccountReader(ITradingAccountReader):
                 ticker = client.get_symbol_ticker(symbol=symbol)
                 price = Decimal(str(ticker["price"]))
             except (*_NETWORK_EXCEPTIONS, KeyError, InvalidOperation):
-                logger.warning(
-                    "SpotAccountReader equity: could not price %s via %s "
-                    "ticker — reporting equity as unavailable rather than "
-                    "a partial sum",
-                    holding.asset,
-                    symbol,
-                )
+                if holding.asset not in self._logged_unpriceable_assets:
+                    self._logged_unpriceable_assets.add(holding.asset)
+                    logger.warning(
+                        "SpotAccountReader equity: could not price %s via %s "
+                        "ticker — reporting equity as unavailable rather "
+                        "than a partial sum (further occurrences for this "
+                        "asset are not logged again)",
+                        holding.asset,
+                        symbol,
+                    )
                 return None
             logger.info(
                 "SpotAccountReader equity: priced %s via %s ticker = %s",

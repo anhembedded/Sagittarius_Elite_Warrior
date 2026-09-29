@@ -265,6 +265,37 @@ def test_equity_is_none_not_a_partial_sum_when_a_holding_cannot_be_priced():
     assert status.equity is None
 
 
+def test_the_unpriceable_holding_warning_is_logged_once_not_every_poll(caplog):
+    """`BUG-139` — the live UI polls `check_connection()` every few seconds
+    (`HoldingsRefreshService`); a holding with no real market (a
+    Testnet-only junk asset, or a genuinely untradeable one) must not spam
+    an identical WARNING on every single poll forever. The equity result
+    itself is unchanged (still `None` on every call — never a guessed
+    partial sum); only the *log line* is deduplicated per asset."""
+    client = _happy_client(
+        account_payload=_account_payload(
+            balances=[
+                {"asset": "USDT", "free": "10000.00000000", "locked": "0"},
+                {"asset": "SHIB", "free": "1000000", "locked": "0"},
+            ]
+        )
+    )
+    client.get_symbol_ticker.side_effect = _binance_api_exception(-1121)
+    reader = _reader(client)
+
+    with caplog.at_level("WARNING"):
+        first = reader.check_connection()
+        second = reader.check_connection()
+        third = reader.check_connection()
+
+    assert first.equity is None
+    assert second.equity is None
+    assert third.equity is None
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "SHIB" in warnings[0].message
+
+
 def test_equity_is_none_when_the_ticker_payload_is_malformed():
     client = _happy_client(
         account_payload=_account_payload(
