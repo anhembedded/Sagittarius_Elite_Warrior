@@ -69,6 +69,12 @@ _VENUE_LOCKED_MESSAGE = (
     "Trading is active — disable trading on the Trading screen before "
     "changing the Order Venue. Nothing was saved."
 )
+# `EPIC-028A` review F2 — removed by `EPIC-028C`, which gives the list its
+# own per-venue toggles on this page.
+_VENUE_LIST_MESSAGE = (
+    "The venues are set by exchange.trading_venues in the config file, which "
+    "overrides this control. Edit it there. Nothing was saved."
+)
 
 #: `EPIC-021B` §2.3 — human-readable label per `CredentialsSource`, and
 #: whether the field must be locked.
@@ -132,8 +138,15 @@ class TradingSettingsPresenter(BasePresenter):
         @details Locked while live trading is on. Changing where orders go
         in the middle of a running session would redefine what everything
         already in flight means (`EPIC-022` §4.1, same reasoning as swapping
-        the strategy)."""
-        return self._trading_session.snapshot().enabled
+        the strategy). Also locked while `exchange.trading_venues` is
+        configured: it overrides the scalar this page writes, so a Save
+        would look applied and change nothing."""
+        return self._trading_session.snapshot().enabled or self._venue_list_configured()
+
+    def _venue_list_configured(self) -> bool:
+        return (
+            self.config.get(ConfigKeys.EXCHANGE_TRADING_VENUES.value, None) is not None
+        )
 
     @Slot()
     @safe_ui_action
@@ -159,6 +172,9 @@ class TradingSettingsPresenter(BasePresenter):
         # `BOT-125` — refuse rather than silently skip: a Save that wrote
         # every other field and quietly dropped this one would be the same
         # "button appears to work" failure `EPIC-022` removed.
+        if self._venue_list_configured():
+            view_model.set_status(_VENUE_LIST_MESSAGE, is_error=True)
+            return
         if self._venue_locked():
             view_model.set_status(_VENUE_LOCKED_MESSAGE, is_error=True)
             return

@@ -92,8 +92,8 @@ def resolve_market_data_venue(config: IConfig) -> MarketDataVenue:
         return _DEFAULT_MARKET_DATA_VENUE
 
 
-def resolve_trading_venue(config: IConfig) -> TradingVenue:
-    """The configured `TradingVenue`, or `DISABLED` if missing/unusable.
+def _resolve_scalar_trading_venue(config: IConfig) -> TradingVenue:
+    """The scalar `exchange.trading_venue`, or `DISABLED` if missing/unusable.
 
     @details Same shape as `resolve_market_data_venue` — warns instead of
     failing boot on a bad value, but defaults to the *safe* member
@@ -115,12 +115,24 @@ def resolve_trading_venue(config: IConfig) -> TradingVenue:
         return _DEFAULT_TRADING_VENUE
 
 
+def resolve_trading_venue(config: IConfig) -> TradingVenue:
+    """The one venue a single-venue caller acts on: the primary of
+    `resolve_trading_venues` (the first enabled), `DISABLED` when none is.
+
+    @details One reader, so the environment banner, the Welcome line and the
+    Settings page name the venue the process runs — not the scalar key that
+    `exchange.trading_venues` overrides (`EPIC-028A` review F2).
+    """
+    venues = resolve_trading_venues(config)
+    return venues[0] if venues else TradingVenue.DISABLED
+
+
 def resolve_trading_venues(config: IConfig) -> tuple[TradingVenue, ...]:
     """`EPIC-028A` — every venue live at once, in configuration order.
 
     @details `exchange.trading_venues` (a list) wins when present. A config
     that only has the scalar `exchange.trading_venue` reads exactly as before
-    through `resolve_trading_venue`: one venue, or none for `"disabled"`.
+    through `_resolve_scalar_trading_venue`: one venue, or none for `"disabled"`.
     Unknown entries and `"disabled"` inside the list are dropped with a
     warning, never mapped to a real venue, and a repeated venue counts once —
     the same "a typo must never silently turn trading on" rule the scalar
@@ -128,7 +140,7 @@ def resolve_trading_venues(config: IConfig) -> tuple[TradingVenue, ...]:
     """
     raw = config.get(ConfigKeys.EXCHANGE_TRADING_VENUES.value, None)
     if raw is None:
-        venue = resolve_trading_venue(config)
+        venue = _resolve_scalar_trading_venue(config)
         return () if venue is TradingVenue.DISABLED else (venue,)
     if not isinstance(raw, list):
         logger.warning(

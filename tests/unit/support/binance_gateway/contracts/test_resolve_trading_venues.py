@@ -6,6 +6,7 @@ from __future__ import annotations
 import pytest
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
+    resolve_trading_venue,
     resolve_trading_venues,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
@@ -81,3 +82,20 @@ def test_a_non_list_value_turns_trading_off_with_a_warning(
 
     assert resolve_trading_venues(config) == ()
     assert "must be a list" in caplog.text
+
+
+def test_the_single_venue_reader_is_the_primary_of_the_list() -> None:
+    """Review F2: the banner, the Welcome line and Settings read one venue.
+    They must name the venue the process actually runs as primary, not the
+    scalar key the list has overridden."""
+    config = DictConfig(
+        {_LIST_KEY: ["spot_testnet", "futures_testnet"], _SCALAR_KEY: "disabled"}
+    )
+
+    assert resolve_trading_venue(config) is TradingVenue.SPOT_TESTNET
+
+
+def test_the_single_venue_reader_is_disabled_for_an_empty_list() -> None:
+    config = DictConfig({_LIST_KEY: [], _SCALAR_KEY: "futures_testnet"})
+
+    assert resolve_trading_venue(config) is TradingVenue.DISABLED
