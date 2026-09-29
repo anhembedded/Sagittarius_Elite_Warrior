@@ -19,6 +19,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_me
     parse_spot_exchange_info,
     parse_spot_symbol_metadata,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 
 _FIXED_TIME = datetime(2026, 9, 1, tzinfo=UTC)
 
@@ -97,6 +98,44 @@ def test_a_missing_market_lot_size_filter_leaves_market_step_size_none():
     metadata = parse_spot_symbol_metadata(entry, fetched_at=_FIXED_TIME)
 
     assert metadata.market_step_size is None
+
+
+def test_a_zero_market_lot_size_step_leaves_market_step_size_none():
+    """`BUG-138` — Binance's own convention for `MARKET_LOT_SIZE`: a
+    `"0.00000000"` `stepSize`/`minQty` means "no restriction from this
+    filter, apply `LOT_SIZE` instead", not "a step of exactly zero".
+    Confirmed live against Binance Spot Testnet's real `BTCUSDT`
+    `exchangeInfo` (`GET /api/v3/exchangeInfo?symbol=BTCUSDT`), which
+    reports exactly this shape. Treating `Decimal("0")` as a real,
+    present step (the bug this test guards) made
+    `SymbolOrderMetadata.step_size_for(OrderType.MARKET)` return `0`;
+    `OrderQuantityRoundingPolicy.round_quantity_down()` and the payload
+    mapper's own `_require_step_aligned()` both treat `step_size <= 0` as
+    "no filter to round against" and skip rounding entirely — so an
+    unrounded MARKET SELL quantity (e.g. a BUY's fill net of its fee) was
+    sent straight to the exchange and rejected with a real
+    `-1013 Filter failure: LOT_SIZE`, exactly what the user's own
+    EPIC-027P AC5 run hit."""
+    entry = {
+        "symbol": "BTCUSDT",
+        "status": "TRADING",
+        "filters": [
+            f for f in _BTCUSDT_ENTRY["filters"] if f["filterType"] != "MARKET_LOT_SIZE"
+        ]
+        + [
+            {
+                "filterType": "MARKET_LOT_SIZE",
+                "minQty": "0.00000000",
+                "maxQty": "105.07867116",
+                "stepSize": "0.00000000",
+            }
+        ],
+    }
+
+    metadata = parse_spot_symbol_metadata(entry, fetched_at=_FIXED_TIME)
+
+    assert metadata.market_step_size is None
+    assert metadata.step_size_for(order_type=OrderType.MARKET) == metadata.step_size
 
 
 def test_a_missing_status_defaults_to_trading():

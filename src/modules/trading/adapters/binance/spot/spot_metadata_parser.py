@@ -110,8 +110,10 @@ def parse_spot_symbol_metadata(
     exchange-rounding rules must come from the real payload, never a
     fabricated default (`code/errors.md` #6/#7, `EPIC-027I`'s own acceptance
     criterion). `MARKET_LOT_SIZE` is the one optional filter: when absent,
-    `market_step_size` is `None` and `SymbolOrderMetadata.step_size_for()`
-    falls back to `LOT_SIZE`'s own step.
+    or present with a `"0"` `stepSize` (Binance's own "no restriction from
+    this filter" convention, `BUG-138`), `market_step_size` is `None` and
+    `SymbolOrderMetadata.step_size_for()` falls back to `LOT_SIZE`'s own
+    step.
 
     Example structure:
     {
@@ -158,6 +160,18 @@ def parse_spot_symbol_metadata(
         if market_lot_size_filter is not None
         else None
     )
+    # `BUG-138` — a `"0.00000000"` `stepSize` is Binance's own documented
+    # convention for "this filter places no restriction on a MARKET order,
+    # `LOT_SIZE` applies instead", not a real step of zero (confirmed live:
+    # Spot Testnet's real BTCUSDT `MARKET_LOT_SIZE` reports exactly this).
+    # `step_size_for()` only falls back to `LOT_SIZE` on `None`, so a
+    # present-but-zero filter must normalize to `None` here, same as an
+    # absent one — otherwise `0` propagates as a "real" step, and every
+    # `step_size <= 0` guard downstream (`OrderQuantityRoundingPolicy`, the
+    # payload mapper's `_require_step_aligned`) treats that as "no filter to
+    # round against" and skips rounding entirely.
+    if market_step_size == 0:
+        market_step_size = None
 
     notional_filter = _required_filter(filter_map, SpotFilterType.NOTIONAL, symbol)
     min_notional = _required_decimal(

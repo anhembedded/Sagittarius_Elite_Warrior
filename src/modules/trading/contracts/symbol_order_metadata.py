@@ -16,8 +16,10 @@ across the `trading`/`market_data` module boundary
 `exchangeInfo` carries no equivalent of Futures' symbol-level display
 precision fields, and nothing invents one. `market_step_size` is `None`
 whenever the venue's `exchangeInfo` carries no `MARKET_LOT_SIZE` filter for
-that symbol — every symbol this app has seen also has `LOT_SIZE`, which
-`step_size_for()` falls back to.
+that symbol, or reports one with a `"0"` `stepSize` (Binance's own
+convention for "no restriction from this filter" — confirmed live on Spot
+Testnet's real `BTCUSDT`, `BUG-138`) — every symbol this app has seen also
+has `LOT_SIZE`, which `step_size_for()` falls back to in both cases.
 """
 
 from __future__ import annotations
