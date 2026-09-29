@@ -106,7 +106,7 @@ request unless its file says otherwise.
 | [EPIC-027M](completed/EPIC-027M_spot_session_enable_and_emergency_stop.md) | Enable, Emergency Stop and limits mean the right thing on Spot | Elite | K, L | 🔴 | ✅ Done (2026-09-27) |
 | [EPIC-027N](completed/EPIC-027N_live_strategy_on_spot.md) | Armed strategy trades Spot long-only at 1× | Elite | M, O2, O4 | 🟡 | ✅ Done (2026-09-28) |
 | [EPIC-027O](completed/EPIC-027O_live_ui_for_spot.md) | Trading screen and Dev Board show Spot holdings, Buy/Sell only | Elite | L, N | 🟢 | ✅ Done (2026-09-28) |
-| [EPIC-027P](incomplete/EPIC-027P_spot_testnet_tier_and_spec.md) | Real Spot Testnet round trip proven; Spot order lifecycle SPEC | Elite | K–O | 🟡 | Planned |
+| [EPIC-027P](incomplete/EPIC-027P_spot_testnet_tier_and_spec.md) | Real Spot Testnet round trip proven; Spot order lifecycle SPEC | Elite | K–O | 🟡 | 🟡 In progress (2026-09-28) — blocked on the user's Spot Testnet run (AC5) |
 
 ## 4. Phase exit criteria
 

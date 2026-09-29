@@ -33,7 +33,9 @@
 ## 2. Acceptance criteria
 - [x] `tests/testnet/spot/` runs only with its own opt-in flag and Spot Testnet keys. Without them it
       skips with a stated reason and never fails the gate.
-- [x] It proves a round trip: BUY a small MARKET quantity → holding appears (from the stream) → SELL it
+- [x] It proves a round trip: BUY a small MARKET quantity → holding appears (read through
+      `SpotAccountReader.check_connection().holdings`, the same read the Holdings table is driven by —
+      not the user data stream, which carries no holdings snapshot of its own) → SELL it
       back → holding returns to baseline. It asserts invariants (`FILLED`, back to baseline), never
       prices, and cleans up in `finally`.
 - [x] A SPEC describes the Spot order lifecycle, with the tests that prove it listed under
@@ -80,6 +82,7 @@
   `SEW_TESTNET_TESTS=1`, and run
   `pwsh -NoProfile -File scripts/ci-local.ps1 -TestnetOnly`. Paste the resulting
   `===END_CI_LOCAL_RESULT===` block (or the log file's relevant excerpt) into this section, check
-  off the final AC box, move this file to `completed/`, and update the epic's README/TRACKING and
+  off the final AC box, flip SPEC-012 (its own status line and its `Docs/SPEC/README.md` row)
+  from 🟡 to ✅, move this file to `completed/`, and update the epic's README/TRACKING and
   `Tasks/ROADMAP.md` to close EPIC-027P (and, since it is the epic's last queued sub-task per
   `README.md`'s dependency chain, review whether `EPIC-027` itself is ready to close).
