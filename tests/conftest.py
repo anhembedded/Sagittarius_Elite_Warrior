@@ -22,6 +22,10 @@ def flush_qt_deferred_deletes() -> None:
     inside its own `waitUntil` timeout.
     `tests/unit/test_qt_deferred_deletes_are_flushed.py` pins both halves.
 
+    Also destroys a module- or session-scoped widget that already has a
+    `deleteLater()` pending at the first test boundary; keep long-lived
+    widgets out of `deleteLater()` or out of this suite's scoped fixtures.
+
     Reads `sys.modules` rather than importing: a test that never touched Qt
     must not pull PySide6 in just to be told there is nothing to flush.
     """

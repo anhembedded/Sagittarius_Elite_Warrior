@@ -21,6 +21,7 @@
 - [ ] Every trading event carries `venue`; the `LiveOrderBookCoordinator` / feeds filter on it (test: a Spot fill never lands in a Futures table).
 - [ ] Settings shows one toggle per venue (Futures Testnet, Spot Testnet) and still says a restart applies it.
 - [ ] Saving those toggles writes `exchange.trading_venues` (the list) and drops the legacy scalar `exchange.trading_venue`, so a config migrates on its first save (moved here from `EPIC-028A`: the Settings page is the only writer of this key).
+- [ ] The Settings venue lock while `exchange.trading_venues` is configured (`_VENUE_LIST_MESSAGE` in `trading_settings_presenter.py`, added in `EPIC-028A` review F2) is removed: the per-venue toggles own the list, so Save is no longer refused.
 - [ ] Disabling one venue in Settings leaves the other fully working after restart.
 
 ## 3. Design
