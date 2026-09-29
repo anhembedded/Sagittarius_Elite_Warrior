@@ -5,7 +5,7 @@
 **Risk:** 🔴 — the safety gates move from a global venue to a per-command venue; a missed call site is an order on the wrong exchange
 **Complexity:** L — every trading handler, `OrderSubmissionService`, strategy arming
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028A](EPIC-028A_venue_context_and_registry.md)
+**Depends on:** [EPIC-028A](../completed/EPIC-028A_venue_context_and_registry.md)
 
 ---
 

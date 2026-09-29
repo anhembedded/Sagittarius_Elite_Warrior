@@ -1,6 +1,6 @@
 # EPIC-028 — Two trading desks: Futures and Spot side by side, each with manual orders, a strategy and live account data
 
-- **Status:** 🟡 Phase 1 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); `EPIC-028A` and `EPIC-028B` awaiting review
+- **Status:** 🟡 Phase 1 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); `EPIC-028A` done; `EPIC-028B` awaiting review
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-29): *"giờ màn hình trading đang có vấn đề, cần có 2 cái chứ không
   phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng, 2 màn hình
@@ -62,7 +62,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | **Phase 1 — Both venues in one process** | | | | | |
-| [EPIC-028A](incomplete/EPIC-028A_venue_context_and_registry.md) | Per-venue `VenueContext` + `IVenueContexts` registry; config becomes a set | Elite | ADR O1 | 🔴 | Awaiting review |
+| [EPIC-028A](completed/EPIC-028A_venue_context_and_registry.md) | Per-venue `VenueContext` + `IVenueContexts` registry; config becomes a set | Elite | ADR O1 | 🔴 | ✅ Done (2026-09-29) |
 | [EPIC-028B](incomplete/EPIC-028B_venue_addressed_commands.md) | Every venue-touching command/query names its venue; gates per venue | Elite | A | 🔴 | Awaiting review |
 | [EPIC-028C](incomplete/EPIC-028C_both_venues_running_concurrently.md) | Both streams, refresh services and sessions run concurrently; Settings toggles | Elite | A, B | 🟡 | Planned |
 | **Phase 2 — Account data** | | | | | |
@@ -99,6 +99,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 - **Arming more than one strategy per desk.**
 
 ## Notes (newest first)
+- **2026-09-29** — `EPIC-028A` merged (PR #293) after an independent review; its four fixes are recorded in the task file.
 - **2026-09-29** — `EPIC-028B` implemented: every venue-touching command and query names its venue, handlers resolve it once, the single-venue port bindings are gone and a guard keeps them gone. Tick routing by market and per-venue arming persistence moved to `EPIC-028C`. Awaiting independent review.
 - **2026-09-29** — ADR accepted by the user ("đồng ý các khuyến nghị, bắt đầu làm 028A đi"); `EPIC-028A` started.
 - **2026-09-29** — Epic scaffolded from a survey of the Trading screen, Dev Board, composition root

@@ -1,6 +1,6 @@
 # EPIC-028A — Futures and Spot adapters live side by side in one process, each in its own `VenueContext`
 
-**Status:** 🟡 Awaiting review (2026-09-29) — implemented and verified on the fast tier; code merge waits on the independent review (`ONBOARDING.md` §7)
+**Status:** ✅ Done (2026-09-29) — merged in PR #293 after the independent review and its four fixes (note 7)
 **Source:** the user, 2026-09-29 — *"cần có 2 cái chứ không phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng"* ("two trading screens, one Futures and one Spot; share what can be shared"). See the [ADR](../DECISION_2026-09-29_two_trading_desks.md).
 **Risk:** 🔴 — rewires every live-trading binding in the composition root; a wrong key sends an order to the wrong venue
 **Complexity:** L — composition root, config reader, per-venue metadata cache, three docstrings
