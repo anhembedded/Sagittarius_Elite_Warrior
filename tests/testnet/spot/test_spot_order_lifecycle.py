@@ -18,8 +18,8 @@ credentials.
 
 Asserts invariants (the order left no open remainder — the real MARKET-
 fills-immediately-on-Spot fact `test_fake_exchange_spot_routes.py`'s
-fixture already encodes — and the holding returns to baseline within a fee
-tolerance), never prices. Cleans up in `finally`: a run that leaves a
+fixture already encodes — and the holding returns to within one lot step
+of its baseline), never prices. Cleans up in `finally`: a run that leaves a
 surplus holding corrupts the baseline the next run reads.
 
 `_QUANTITY` is deliberately small: `0.0002` BTC clears Binance Spot's
@@ -82,15 +82,6 @@ _QUANTITY = Decimal("0.0002")
 _POLL_INTERVAL_S = 1.0
 _TIMEOUT_S = 30.0
 
-#: Real Spot fee (0.1 % base rate, `spot_account_state.py`'s own fixture
-#: reasoning) is charged in the asset received on each leg — the BUY's fee
-#: shrinks what actually lands, the SELL's fee shrinks the quote proceeds,
-#: neither of which is `_QUANTITY` itself. A "back to baseline" holding
-#: comparison therefore needs slack wider than the fill amount's own fee,
-#: not an exact-zero check — one full fee's worth of `_QUANTITY` is a
-#: generous, still-tight bound.
-_BASELINE_TOLERANCE = _QUANTITY * Decimal("0.01")
-
 _ROUNDING = OrderQuantityRoundingPolicy()
 
 
@@ -108,6 +99,17 @@ class _StaticCredentialsProvider:
 def _holding_free(status: ExchangeConnectionStatus, asset: str) -> Decimal:
     holding = next((h for h in status.holdings or () if h.asset == asset), None)
     return holding.free if holding is not None else Decimal(0)
+
+
+def _is_back_to_baseline(free: Decimal, baseline: Decimal, step: Decimal) -> bool:
+    """@brief The round trip's exact residue bound, derived rather than
+    guessed: the SELL quantity is the BUY's *net* fill (after its fee,
+    charged in the asset received) floored to the lot step, so what it
+    cannot sell is strictly less than one `step`; the SELL's own fee is
+    charged in the quote asset and never touches this holding. A fee-sized
+    tolerance is smaller than that floor remainder (0.1 % of 0.0002 BTC vs
+    a 0.00001 step) and would time out on every run that pays fees in BTC."""
+    return abs(free - baseline) < step
 
 
 def _wait_until_holding_free(
@@ -201,9 +203,9 @@ def test_market_buy_then_sell_returns_the_holding_to_baseline(
             o.client_order_id for o in client.get_open_orders(_SYMBOL)
         }
         final = _wait_until_holding_free(
-            account_reader, _ASSET, lambda f: abs(f - baseline) <= _BASELINE_TOLERANCE
+            account_reader, _ASSET, lambda f: _is_back_to_baseline(f, baseline, step)
         )
-        assert abs(final - baseline) <= _BASELINE_TOLERANCE
+        assert _is_back_to_baseline(final, baseline, step)
     finally:
         # Safety net: never leave a real surplus holding for the next run,
         # regardless of which assertion above failed.
