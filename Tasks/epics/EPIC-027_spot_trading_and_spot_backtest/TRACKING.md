@@ -1,7 +1,7 @@
 # EPIC-027 — Tracking
 
 - **Epic:** [EPIC-027 — Spot beside Futures](README.md)
-- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 done (5/5, 2026-09-27); Phase 3 in progress (5/6, 2026-09-28) — `EPIC-027A`–`EPIC-027J` done through Phase 2; `EPIC-027K`–`EPIC-027O` done in Phase 3; `EPIC-027P` (real Spot Testnet round trip + SPEC) is the only sub-task left
+- **Status:** ✅ Done (2026-09-29) — Phase 1 done (5/5, 2026-09-27); Phase 2 done (5/5, 2026-09-27); Phase 3 done (6/6, 2026-09-29) — every sub-task `EPIC-027A`–`EPIC-027P` is done; the epic is closed
 - **Target Completion:** not committed; the bars below are relative estimates from the day the ADR is accepted.
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -45,8 +45,8 @@ gantt
     027M Enable and Emergency Stop on Spot  :crit,    m, after l, 3d
     027N Live strategy on Spot              :         n, after m, 3d
     027O Live UI for Spot                   :         o, after n, 3d
-    027P Spot Testnet tier and SPEC         :         p, after o, 2d
-    Phase 3 exit check                      :milestone, m3, after p, 0d
+    027P Spot Testnet tier and SPEC         :done,    p, after o, 2d
+    Phase 3 exit check                      :milestone, done, m3, after p, 0d
 ```
 
 ---
@@ -70,7 +70,7 @@ gantt
 | EPIC-027M | [Enable and Emergency Stop on Spot](completed/EPIC-027M_spot_session_enable_and_emergency_stop.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | ✅ Done | 2026-09-27 |
 | EPIC-027N | [Live strategy on Spot](completed/EPIC-027N_live_strategy_on_spot.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | 2026-09-28 |
 | EPIC-027O | [Live UI for Spot](completed/EPIC-027O_live_ui_for_spot.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Done | 2026-09-28 |
-| EPIC-027P | [Spot Testnet tier and SPEC](incomplete/EPIC-027P_spot_testnet_tier_and_spec.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-027P | [Spot Testnet tier and SPEC](completed/EPIC-027P_spot_testnet_tier_and_spec.md) | `claude/wizardly-cerf-fc5b5x` (tier+SPEC: [#289](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/289); AC5 fixes: [#290](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/290), [#291](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/291)) | 🟡 | ✅ Done | 2026-09-29 |
 
 ---
 
@@ -90,6 +90,7 @@ gantt
 | 2026-09-27 | EPIC-027H | Done, advancing Phase 2 (4/5) — `SpotAccountReader` implements `ITradingAccountReader` over Spot's own unprefixed session methods, never fabricating `LivePosition` mark price/leverage (ADR D7); new `SpotHolding`/`ISpotSessionFactory`/`SpotSessionFactory`. Venue-branching bind locked against a real `StdLibContainer`. `tests/unit/modules/trading` 798 passed, architecture 451 passed, sanity 32 passed, integration 13 passed; ruff/mypy clean. See its own task file for the full trace. |
 | 2026-09-27 | EPIC-027I | Done, closing Phase 2 (5/5) — a live Spot order now rounds against Spot's own `exchangeInfo` filters via `SpotMetadataProvider`/`spot_metadata_parser.py`; `FuturesSymbolMetadata` renamed in place to the market-neutral `SymbolOrderMetadata` with `step_size_for(order_type)`. Post-review correction: `PreviewOrderQueryHandler` was still rounding unconditionally with `LOT_SIZE`'s own step — fixed to call `step_size_for()`. 24 new tests pass; architecture 451 passed; mypy clean at the 584-error baseline. See its own task file for the full trace. |
 | 2026-09-27 | EPIC-027K | Done, opening Phase 3 (1/6) — `SpotTradingClient`/`SpotTradingClientFactory` implement `ITradingClient`/`ITradingClientFactory` for `SPOT_TESTNET`, mirroring `FuturesTradingClient`'s own shape; `spot_order_payload_mapper.py` never emits `reduceOnly`/`positionSide` and refuses `STOP_MARKET`/`TAKE_PROFIT_MARKET` before any network call. `TradingVenue.supports_order_submission` now covers both testnets, gating all three order-path safety checks and the `ITradingClient`/`ITradingClientFactory` binds with zero handler edits. `get_positions()` always `[]` (the true answer for Spot, not a port split — see the task file's revised §3). The ADR D4 SELL/`reduce_only=False` precondition was scoped out (redundant with Spot's own no-margin API, and out of this task's file list) — recorded explicitly in the task file rather than silently dropped. 35 new/changed tests pass; `tests/unit/architecture` 457 passed, `tests/unit/modules/trading` 849 passed, integration (binance) +4; mypy clean at the 584-error baseline. `EPIC-027L` (Spot user data stream) is next. |
+| 2026-09-29 | EPIC-027P | Done, closing Phase 3 (6/6) and the epic — the user ran the real Spot Testnet round-trip tier against their own account: MARKET BUY `0.0002 BTC` on `BTCUSDT`, holding appeared, MARKET SELL returned it to baseline within one lot step; the three pre-existing Futures Testnet tests stayed green. `SPEC-012` flips 🟡→✅. Two real defects surfaced and fixed along the way: `BUG-137` (PR #290, env-var credentials not stripped of whitespace — a shell-pasted trailing `\n` corrupted the signed request's API-key header and surfaced as a misleading generic `NETWORK` failure) and `BUG-138` (PR #291, `spot_metadata_parser.py` treated a live `"0.00000000"` `MARKET_LOT_SIZE` step — Binance's own "no restriction" convention — as a real zero step instead of falling back to `LOT_SIZE`, so an unrounded SELL quantity was rejected with `-1013 Filter failure: LOT_SIZE`). See `completed/EPIC-027P_spot_testnet_tier_and_spec.md` §5–6 for full evidence. |
 
 ---
 
@@ -101,5 +102,5 @@ gantt
 | O3 — how to tag legacy candles | EPIC-027A | the user | ✅ Resolved 2026-09-26 — tag as Spot |
 | O2, O4 — arming short-capable strategies; non-USDT quotes | EPIC-027N | the user | ✅ Resolved 2026-09-26 — refuse to arm; USDT-only |
 | O6 — Spot average entry price source | EPIC-027H | the user | ✅ Resolved 2026-09-26 — `GET /api/v3/myTrades` |
-| Spot Testnet API keys (`testnet.binance.vision`) | EPIC-027H, EPIC-027P | the user | 🟡 Open |
+| Spot Testnet API keys (`testnet.binance.vision`) | EPIC-027H, EPIC-027P | the user | ✅ Resolved 2026-09-29 |
 | Shared factory seam with `EPIC-026P` | EPIC-027F | whichever epic lands first builds it | 🟡 Open |

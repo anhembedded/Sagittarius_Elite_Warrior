@@ -1,6 +1,6 @@
 # EPIC-027P — A real Spot Testnet round trip is proven, and the Spot order lifecycle is a written SPEC
 
-**Status:** 🟡 In progress (2026-09-28) — blocked on the user's own Spot Testnet run (AC5)
+**Status:** ✅ Done (2026-09-29)
 **Source:** follows the user's *"giao dịch spot"* request, 2026-09-26; `testing-rule.md` §1 (`tests/testnet/`).
 **Risk:** 🟡 — touches a real exchange (testnet); must never make someone else's CI red.
 **Complexity:** M — an opt-in tier, a SPEC, the user's own confirmation run.
@@ -44,7 +44,7 @@
       Positions (Futures).
 - [x] `Docs/SPEC/SPEC-005_place_a_manual_order.md` §2's venue precondition reflects that Spot manual
       submission is a real, working path (BUY, and SELL gated on a real holding), not just Futures.
-- [ ] The user runs the tier once and the output is pasted into this task file.
+- [x] The user runs the tier once and the output is pasted into this task file.
 
 ## 3. Design
 - Mirror the Futures tier's structure and its opt-in gate. Keep separate credentials (ADR D8).
@@ -68,21 +68,39 @@
 - `mypy` at the real gate invocation (`src`/`scripts` only, from repo parent dir): unchanged at the
   584-error baseline; the new `tests/testnet/spot/` files are outside the gate's scanned paths
   (`tests/` is never part of it), matching the existing Futures testnet test's own pattern.
-- Not run: the tier itself against a real Spot Testnet account (needs the user's own
-  `BINANCE_SPOT_TESTNET_API_KEY`/`_SECRET`) — AC5.
+- **AC5 — run against the user's own real Spot Testnet account (2026-09-29):**
+  ```
+  tests\testnet\spot\test_spot_order_lifecycle.py::test_market_buy_then_sell_returns_the_holding_to_baseline PASSED
+  tests\testnet\test_connection.py::test_account_is_reachable PASSED
+  tests\testnet\test_order_lifecycle.py::test_dry_run_is_accepted PASSED
+  tests\testnet\test_order_lifecycle.py::test_market_order_fills_and_closes PASSED
+  4 passed in 9.99s
+  ```
+  A real MARKET BUY (`0.0002 BTC`) and MARKET SELL round-tripped on Binance Spot Testnet
+  (`BTCUSDT`), holding returned to baseline within one lot step, Futures Testnet tier unaffected.
+  Two real defects surfaced and fixed during this run, both merged to `master-warrior` before the
+  green run above:
+  - **`BUG-137`** (PR #290): `EnvFirstCredentialsProvider.resolve()` didn't strip whitespace from
+    env-var-sourced credentials — a trailing `\n` from a shell paste reached the signed request's
+    `X-MBX-APIKEY` header and surfaced as a misleading generic `NETWORK` failure.
+  - **`BUG-138`** (PR #291, alongside a NETWORK-failure logging fix): Binance's real `BTCUSDT`
+    `MARKET_LOT_SIZE` filter reports `stepSize`/`minQty` of `"0.00000000"` — Binance's own
+    convention for "no restriction, `LOT_SIZE` applies instead" — but `spot_metadata_parser.py`
+    only normalized to `None` (triggering the `LOT_SIZE` fallback) when the filter was entirely
+    *absent*, not when present-but-zero. The unrounded SELL quantity (a BUY fill net of its fee)
+    was sent with more decimal precision than the real `LOT_SIZE` step allows, and Binance rejected
+    it with `-1013 Filter failure: LOT_SIZE`. Confirmed live via the user's own
+    `Invoke-RestMethod` call against `testnet.binance.vision`'s `exchangeInfo`.
 
 ## 6. Resume
-- **Blocked on:** AC5 only — the tier's real round trip needs the user's own Binance Spot Testnet
-  API key/secret, which no amount of further autonomous work can substitute for.
-- **Everything else in scope is done and verified** (AC1–AC4, the HLD and SPEC-005 doc fixes):
-  see §5 above.
-- **Next executable action, once the user supplies credentials:** set
-  `BINANCE_SPOT_TESTNET_API_KEY`/`_SECRET` (env or `src/config/secrets.local.json`, the same
-  file the Futures tier already uses — `ADR D8` keeps the two venues' keys separate), set
-  `SEW_TESTNET_TESTS=1`, and run
-  `pwsh -NoProfile -File scripts/ci-local.ps1 -TestnetOnly`. Paste the resulting
-  `===END_CI_LOCAL_RESULT===` block (or the log file's relevant excerpt) into this section, check
-  off the final AC box, flip SPEC-012 (its own status line and its `Docs/SPEC/README.md` row)
-  from 🟡 to ✅, move this file to `completed/`, and update the epic's README/TRACKING and
-  `Tasks/ROADMAP.md` to close EPIC-027P (and, since it is the epic's last queued sub-task per
-  `README.md`'s dependency chain, review whether `EPIC-027` itself is ready to close).
+- **Done (2026-09-29).** All five acceptance criteria met; see §5 for the AC5 evidence.
+- Two real defects surfaced by the user's own troubleshooting of the live run were fixed and
+  merged ahead of the green run recorded in §5: `BUG-137` (PR #290) and `BUG-138` (PR #291).
+  Both are filed under `Tasks/bug_report/completed/` except `BUG-138`, which was fixed per the
+  user's explicit instruction to skip filing a separate report for that pass (its root cause and
+  fix are recorded in PR #291's description and this file's §5 instead).
+- SPEC-012 flipped back to ✅ built and proven (its own file and `Docs/SPEC/README.md`'s row) —
+  the real Spot Testnet round trip in its §8 is now proven, closing the one gap the independent
+  review of PR #289 had found.
+- This was `EPIC-027`'s last queued sub-task; the epic itself is now closed — see its own
+  `README.md`.

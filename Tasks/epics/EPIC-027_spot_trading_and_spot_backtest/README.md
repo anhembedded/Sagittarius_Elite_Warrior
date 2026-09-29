@@ -1,6 +1,6 @@
 # EPIC-027 — Spot beside Futures: truthful Spot backtests first, then live Spot on Testnet
 
-- **Status:** 🟢 Phase 1 done (5/5, 2026-09-27); Phase 2 done (5/5, 2026-09-27); Phase 3 in progress (5/6, 2026-09-28) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027M` are done, so `TradingVenue` now has a Spot Testnet member with its own credentials, capability-checked gates, an honest market-mismatch alignment state, the fake exchange answers the full Spot order lifecycle, the app reads a Spot account as balances/holdings/equity through the same `ITradingAccountReader` port Futures uses, a live Spot order rounds against Spot's own `exchangeInfo` filters rather than Futures', a Spot MARKET/LIMIT order can go end to end through `ExecuteOrderCommand` to Spot Testnet, `SpotUserDataStream` reports fills/fees and equity from Spot's own `executionReport`/`outboundAccountPosition`/`balanceUpdate` events, Enable trading on Spot records a holdings baseline instead of refusing on existing assets, and Emergency Stop sells only the surplus over that baseline. `EPIC-027N` is now also done: leverage is fixed at 1 on Spot, a SHORT-capable strategy is refused arming, and a strategy's own SELL signal sizes from the actual holding (never below the baseline) instead of a percent of balance. `EPIC-027O` (live UI for Spot) is now also done: both screens show a Holdings table instead of Positions on Spot, the manual order card reads BUY/SELL with SELL disabled without a real holding, leverage controls are hidden on Spot, the Dev Board market combo is wired to the chart's own requested market, and every message naming the venue names the market too. `EPIC-027P` (real Spot Testnet round trip + SPEC) is next.
+- **Status:** ✅ Done (2026-09-29) — Phase 1 done (5/5, 2026-09-27); Phase 2 done (5/5, 2026-09-27); Phase 3 done (6/6, 2026-09-29) — the user accepted the ADR (D1–D9) and every recommended answer (O1–O6) on 2026-09-26. `EPIC-027A` through `EPIC-027M` are done, so `TradingVenue` now has a Spot Testnet member with its own credentials, capability-checked gates, an honest market-mismatch alignment state, the fake exchange answers the full Spot order lifecycle, the app reads a Spot account as balances/holdings/equity through the same `ITradingAccountReader` port Futures uses, a live Spot order rounds against Spot's own `exchangeInfo` filters rather than Futures', a Spot MARKET/LIMIT order can go end to end through `ExecuteOrderCommand` to Spot Testnet, `SpotUserDataStream` reports fills/fees and equity from Spot's own `executionReport`/`outboundAccountPosition`/`balanceUpdate` events, Enable trading on Spot records a holdings baseline instead of refusing on existing assets, and Emergency Stop sells only the surplus over that baseline. `EPIC-027N` is also done: leverage is fixed at 1 on Spot, a SHORT-capable strategy is refused arming, and a strategy's own SELL signal sizes from the actual holding (never below the baseline) instead of a percent of balance. `EPIC-027O` (live UI for Spot) is also done: both screens show a Holdings table instead of Positions on Spot, the manual order card reads BUY/SELL with SELL disabled without a real holding, leverage controls are hidden on Spot, the Dev Board market combo is wired to the chart's own requested market, and every message naming the venue names the market too. `EPIC-027P` (real Spot Testnet round trip + SPEC) is now also done: the user's own real BUY-then-SELL round trip on Spot Testnet (`BTCUSDT`) proved the mechanism end to end, closing the epic.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-26): *"đánh giá xem giờ tui muốn giao dịch spot và back test theo
   spot thì app này cần những gì, lên plan và epic, sao đó report cho tôi"* ("assess what this app
@@ -106,7 +106,7 @@ request unless its file says otherwise.
 | [EPIC-027M](completed/EPIC-027M_spot_session_enable_and_emergency_stop.md) | Enable, Emergency Stop and limits mean the right thing on Spot | Elite | K, L | 🔴 | ✅ Done (2026-09-27) |
 | [EPIC-027N](completed/EPIC-027N_live_strategy_on_spot.md) | Armed strategy trades Spot long-only at 1× | Elite | M, O2, O4 | 🟡 | ✅ Done (2026-09-28) |
 | [EPIC-027O](completed/EPIC-027O_live_ui_for_spot.md) | Trading screen and Dev Board show Spot holdings, Buy/Sell only | Elite | L, N | 🟢 | ✅ Done (2026-09-28) |
-| [EPIC-027P](incomplete/EPIC-027P_spot_testnet_tier_and_spec.md) | Real Spot Testnet round trip proven; Spot order lifecycle SPEC | Elite | K–O | 🟡 | 🟡 In progress (2026-09-28) — blocked on the user's Spot Testnet run (AC5) |
+| [EPIC-027P](completed/EPIC-027P_spot_testnet_tier_and_spec.md) | Real Spot Testnet round trip proven; Spot order lifecycle SPEC | Elite | K–O | 🟡 | ✅ Done (2026-09-29) |
 
 ## 4. Phase exit criteria
 
@@ -114,7 +114,7 @@ request unless its file says otherwise.
 | :--- | :--- | :--- |
 | Phase 1 | A Spot backtest and a Futures backtest of the same symbol run on their own market's candles. The Spot one never shorts or liquidates. Both round quantities to exchange filters and state it in the report. | The golden Futures run unchanged byte-for-byte (except where `EPIC-027C`'s filters change it, and then recorded); the integration test of `EPIC-027D`; a saved report states its market and exchange filters (`EPIC-027E`); the full gate green on GitHub Actions. ✅ Closed 2026-09-27. |
 | Phase 2 | `exchange-status` against Spot Testnet shows balances with a Spot key and refuses a Futures key as a key error. No application-layer file constructs a trading client. | `EPIC-027F`'s architecture guard (closed 2026-09-27 — no file outside the one factory constructs `FuturesTradingClient`, in all of `src/`+`scripts/`, not just `application/`); `EPIC-027H`'s CLI output pasted into its task file; `EPIC-027I`'s parser/provider/composition tests (closed 2026-09-27). ✅ Closed 2026-09-27. |
-| Phase 3 | A human BUY and SELL, and an armed long-only strategy, each round-trip on Spot Testnet. Emergency Stop never sells a pre-existing holding. | `EPIC-027P`'s tier output from the user's run; `EPIC-027M`'s baseline test (closed — see below); the SPEC listed as ✅ in `Docs/SPEC/README.md`. `EPIC-027K` closed 2026-09-27 (a Spot MARKET/LIMIT order can be placed/canceled through `ITradingClient`); `EPIC-027L` closed 2026-09-27 (fills/fees and equity report through `SpotUserDataStream`); `EPIC-027M` closed 2026-09-27 (Enable records a baseline, Emergency Stop never sells it); `EPIC-027N` closed 2026-09-28 (leverage fixed at 1, a SHORT-capable strategy refused, SELL sized from the actual holding never below baseline); the rest of Phase 3 not run. |
+| Phase 3 | A human BUY and SELL, and an armed long-only strategy, each round-trip on Spot Testnet. Emergency Stop never sells a pre-existing holding. | `EPIC-027P`'s tier output from the user's run; `EPIC-027M`'s baseline test (closed — see below); the SPEC listed as ✅ in `Docs/SPEC/README.md`. `EPIC-027K` closed 2026-09-27 (a Spot MARKET/LIMIT order can be placed/canceled through `ITradingClient`); `EPIC-027L` closed 2026-09-27 (fills/fees and equity report through `SpotUserDataStream`); `EPIC-027M` closed 2026-09-27 (Enable records a baseline, Emergency Stop never sells it); `EPIC-027N` closed 2026-09-28 (leverage fixed at 1, a SHORT-capable strategy refused, SELL sized from the actual holding never below baseline); `EPIC-027P` closed 2026-09-29 (real Spot Testnet BUY-then-SELL round trip proven by the user's own run; SPEC-012 now ✅). ✅ Closed 2026-09-29. |
 
 ## 5. Out of scope
 
@@ -130,6 +130,24 @@ request unless its file says otherwise.
 - **Funding-rate modeling for Futures.** Still out of scope as in `BOT-049`.
 
 ## Notes (newest first)
+- **2026-09-29** — `EPIC-027P` done, closing Phase 3 (6/6) and the whole epic. The user ran
+  `tests/testnet/spot/test_spot_order_lifecycle.py` against their own real Binance Spot Testnet
+  account: a MARKET BUY of `0.0002 BTC` on `BTCUSDT`, holding appeared (read through
+  `SpotAccountReader.check_connection().holdings`, the same read the live Holdings table uses), a
+  MARKET SELL of the received amount returned it to baseline within one lot step; the three
+  pre-existing Futures Testnet tests stayed green alongside it. `SPEC-012` flips from 🟡 to ✅ —
+  its one unproven fact is now proven. Two real defects surfaced during the user's own
+  troubleshooting, both root-caused and fixed before this green run: `BUG-137` (PR #290) — env-var
+  credentials weren't stripped of whitespace, so a shell-pasted trailing `\n` corrupted the signed
+  request's `X-MBX-APIKEY` header and surfaced as a misleading generic `NETWORK` failure instead of
+  naming the credentials problem; `BUG-138` (PR #291, filed without a separate bug report per the
+  user's explicit instruction) — Binance's real `BTCUSDT` `MARKET_LOT_SIZE` filter reports a
+  `"0.00000000"` `stepSize`/`minQty` (Binance's own "no restriction, `LOT_SIZE` applies instead"
+  convention), which `spot_metadata_parser.py` only recognized when the filter was entirely
+  *absent*, not present-but-zero — the unrounded SELL quantity was sent with more decimal precision
+  than the real `LOT_SIZE` step allows and Binance rejected it with `-1013 Filter failure:
+  LOT_SIZE`; confirmed live via the user's own call to Spot Testnet's `exchangeInfo`. See
+  `completed/EPIC-027P_spot_testnet_tier_and_spec.md` §5–6 for the full evidence and root causes.
 - **2026-09-28** — `EPIC-027O` done, Phase 3 now 5/6. Both live screens (Dev Board, Trading) swap
   Positions for a Holdings table (asset/free/locked/value in USDT) on a Spot venue via a
   `QStackedWidget` switched once at construction by `market_type`; the manual order card reads

@@ -1,7 +1,8 @@
 # SPEC-012 — Place an order on Spot, and see it settle as a balance
 
-- **Status:** 🟡 built; proven at unit and integration level — the real Spot Testnet round trip
-  (§8's last row, `EPIC-027P` AC5) has not run yet, so this stays 🟡 until the user's run lands
+- **Status:** ✅ built and proven — the real Spot Testnet round trip (§8's last row, `EPIC-027P`
+  AC5) ran on 2026-09-29: a real MARKET BUY then SELL on Binance Spot Testnet (`BTCUSDT`), holding
+  returned to baseline within one lot step
 - **Actor:** trader
 - **Origin:** `EPIC-027K` (the Spot order path itself), `EPIC-027O` (Holdings table, BUY/SELL
   labels, SELL gated on a real holding), `EPIC-027P` (this SPEC, and the real Spot Testnet round
