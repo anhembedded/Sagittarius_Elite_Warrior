@@ -168,5 +168,5 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
                 block_reason=ArmStrategyBlockReason.INVALID_PARAMS,
                 error_message=str(exc),
             )
-        self._config_store.save(config)
+        self._config_store.save(command.venue, config)
         return ArmStrategyResult(armed=True)

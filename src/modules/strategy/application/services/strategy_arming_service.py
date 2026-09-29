@@ -79,7 +79,7 @@ class StrategyArmingService(IStrategyArming):
 
     def saved_selection(self) -> LiveStrategyConfig:
         try:
-            return self._config_store.load()
+            return self._config_store.load(self._venue)
         except ValueError:
             # A saved config the domain rejects (leverage 0, an unsupported
             # interval) restores as "nothing selected" rather than raising

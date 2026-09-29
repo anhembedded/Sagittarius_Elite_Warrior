@@ -144,12 +144,20 @@ def bind_published_ports(container: IContainer) -> None:
 
 def _the_strategy_arming(container: IContainer) -> IStrategyArming:
     """`EPIC-028B` — the primary venue's arming: what the single Trading
-    screen and Dev Board arm and disarm until each venue has its own desk.
-    Another venue arms through a `StrategyArmingService` built for it."""
+    screen and Dev Board arm and disarm until each venue has its own desk."""
+    return venue_strategy_arming(container, container.resolve(TradingVenue))
+
+
+def venue_strategy_arming(
+    container: IContainer, venue: TradingVenue
+) -> IStrategyArming:
+    """The arming of one venue: every command it sends is addressed to
+    `venue`, and what it restores is `venue`'s own saved configuration
+    (`EPIC-028C`)."""
     return StrategyArmingService(
         container.resolve(ICommandDispatcher),
         LiveStrategyConfigStore(container.resolve(IConfig)),
-        container.resolve(TradingVenue),
+        venue,
     )
 
 
