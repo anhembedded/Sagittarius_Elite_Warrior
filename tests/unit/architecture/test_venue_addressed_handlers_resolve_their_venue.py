@@ -52,6 +52,12 @@ _SINGLE_VENUE = frozenset(
         "IEquityCurve",
         "IStrategyArming",
         "LiveStrategySession",
+        # One venue's bundles: a handler built with one, wired to `primary()`
+        # by the composition root, acts on the primary venue whatever the
+        # command names (`PR #294` review, finding 2).
+        "VenueContext",
+        "VenueTradingPorts",
+        "VenueTradingScope",
     }
 )
 
@@ -103,8 +109,8 @@ def test_every_scanned_tree_has_handlers() -> None:
 
 def test_guard_actually_detects_a_violation() -> None:
     """Mutation-verify (`testing-rule.md` §2): fires on a single-venue
-    constructor parameter, including inside `Optional`, and on
-    `.primary()`; ignores a helper's parameter."""
+    constructor parameter, including inside `Optional`, on a single-venue
+    bundle, and on `.primary()`; ignores a helper's parameter."""
     assert _violations(
         "class H:\n    def __init__(self, state: TradingSessionState) -> None: ...\n",
         "<ctor-fixture>",
@@ -113,6 +119,10 @@ def test_guard_actually_detects_a_violation() -> None:
         "class H:\n    def __init__(self, v: TradingVenue | None) -> None: ...\n",
         "<optional-fixture>",
     ) == {"__init__(v: TradingVenue)"}
+    assert _violations(
+        "class H:\n    def __init__(self, ctx: VenueContext) -> None: ...\n",
+        "<bundle-fixture>",
+    ) == {"__init__(ctx: VenueContext)"}
     assert _violations("ctx = self._contexts.primary()\n", "<primary-fixture>") == {
         "line 1: .primary()"
     }

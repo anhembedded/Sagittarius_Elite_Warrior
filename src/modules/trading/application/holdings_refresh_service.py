@@ -34,11 +34,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.holdings_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
 )
-
-logger = logging.getLogger("App.HoldingsRefresh")
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+
+logger = logging.getLogger("App.HoldingsRefresh")
 
 
 class HoldingsRefreshService:

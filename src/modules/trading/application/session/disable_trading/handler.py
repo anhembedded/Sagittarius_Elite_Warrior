@@ -19,9 +19,11 @@ class DisableTradingCommandHandler(ICommandHandler[DisableTradingCommand, None])
     `disable()` directly, inline, as its own step 1 — see that handler's
     own docstring for why it does not dispatch this command instead.
 
-    @details Never gated on `TradingVenue` or connection readiness, unlike
-    enabling — turning trading off must always be possible, including as
-    the recovery step after a connection is lost mid-session. Stops
+    @details Never gated on the venue's order capability or connection
+    readiness, unlike enabling — turning trading off must always be
+    possible, including as the recovery step after a connection is lost
+    mid-session. The one refusal is a venue this process does not serve
+    (`VenueNotEnabledError`, `EPIC-028B`): there is no session to turn off. Stops
     `IUserDataStream` (a no-op, per its own contract, if it was never
     started — e.g. disabling right after a refused enable).
     """

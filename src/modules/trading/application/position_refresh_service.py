@@ -48,11 +48,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_clo
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
-
-logger = logging.getLogger("App.PositionRefresh")
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+
+logger = logging.getLogger("App.PositionRefresh")
 
 
 class PositionRefreshService:
