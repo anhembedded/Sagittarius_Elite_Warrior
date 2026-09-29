@@ -58,15 +58,17 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :--- |
-| 🔴 **Đang mở** | 0 |
+| 🔴 **Đang mở** | 1 |
 | ✅ **Đã sửa / đã đóng** | 135 |
-| 📈 **Tổng** | **135** |
+| 📈 **Tổng** | **136** |
 
 ---
 
 ## 🔴 Đang mở (Open)
 
-_Không có bug nào đang mở._
+| ID | Tên | Mức độ | Ngày báo | Ghi chú |
+| :--- | :--- | :---: | :---: | :--- |
+| [BUG-140](incomplete/BUG-140_ui_tier_segfault_gc_on_indicator_worker_thread.md) | UI tier đôi khi segfault khi Dev Board nạp lịch sử indicator (GC chạy trên worker thread trong `runner.py:268`) | 🟡 P2 | 2026-09-29 | Chưa rõ root cause; 1/4 lần chạy |
 
 > Hai hồ sơ cuối đóng cùng ngày theo hai đường khác hẳn nhau, và cặp đó đáng nhớ:
 > `BUG-068` đóng dạng **không tái hiện được từ môi trường hiện có** (cảnh báo Qt chỉ tồn tại trên

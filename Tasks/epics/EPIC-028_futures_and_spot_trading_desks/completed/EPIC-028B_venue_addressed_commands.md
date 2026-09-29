@@ -1,11 +1,11 @@
 # EPIC-028B — Every order, cancel, enable, emergency stop and arm names the venue it acts on
 
-**Status:** 🟡 Awaiting review (2026-09-29) — implemented and verified on the fast tier; code merge waits on the independent review (`ONBOARDING.md` §7)
+**Status:** ✅ Done (2026-09-29) — merged in PR #294 after an independent review (PASS; follow-ups in note 9)
 **Source:** the user, 2026-09-29 — *"cần có 2 cái chứ không phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng"* ("two trading screens, one Futures and one Spot; share what can be shared"). See the [ADR](../DECISION_2026-09-29_two_trading_desks.md).
 **Risk:** 🔴 — the safety gates move from a global venue to a per-command venue; a missed call site is an order on the wrong exchange
 **Complexity:** L — every trading handler, `OrderSubmissionService`, strategy arming
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028A](../completed/EPIC-028A_venue_context_and_registry.md)
+**Depends on:** [EPIC-028A](EPIC-028A_venue_context_and_registry.md)
 
 ---
 
@@ -48,3 +48,4 @@ Unit per handler (right context used, other untouched); integration: both venues
 6. **`ITradingClient` is no longer bound anywhere.** `TradingModule._bind_trading_client_if_enabled()` is deleted; `SubmitOrderCommandHandler` refuses a venue that cannot trade before it looks up any adapter, then creates the client from the venue's own factory. The sanity tier's `_NOT_DISPATCHED` entry for `SubmitOrderCommand` went with it, and `test_module_trading_client_binding.py` became `test_module_trading_client_per_venue.py`, which drives the refusal through a real container instead of an unbound type.
 7. **A verified fake for `IVenueContexts`.** `trade-once` (strategy) and the Settings presenter now read the primary venue's context; a test outside `trading` may not mock trading's ports, so `contracts/testing/` gained `FakeVenueContexts` (held to `VenueContextsContract` alongside the real registry) and `fake_venue_context()`, whose unarranged slots fail a test that reaches them instead of answering like a `Mock`.
 8. **Shutdown stops every enabled venue's user-data stream,** each in its own `try`, so one socket failing to close cannot leave the other open.
+9. **Review of PR #294 (independent session, 2026-09-29): PASS, four should-fix items, fixed in the next PR.** (1) the `TradingVenue` import in both refresh services moved into the import block (E402); (2) the handler guard also rejects the single-venue bundles `VenueContext`, `VenueTradingPorts`, `VenueTradingScope`; (3) the UI-tier segfault is filed as `BUG-140` and the oversized test files as `BOT-146`; (4) `DisableTradingCommandHandler`'s docstring names its one refusal. The review's question — a Spot kline must never drive the strategy armed on Futures before any surface arms a second venue — is `EPIC-028C`'s first criterion.

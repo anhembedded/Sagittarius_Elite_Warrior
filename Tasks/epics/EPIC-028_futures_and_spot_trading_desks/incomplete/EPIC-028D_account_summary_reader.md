@@ -5,7 +5,7 @@
 **Risk:** 🟡 — Futures `walletBalance` is shown today as if it were spendable
 **Complexity:** M — a new port, two adapters, a query and a refresh
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028B](EPIC-028B_venue_addressed_commands.md)
+**Depends on:** [EPIC-028B](../completed/EPIC-028B_venue_addressed_commands.md)
 
 ---
 

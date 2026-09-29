@@ -5,7 +5,7 @@
 **Risk:** 🟡 — two user data streams and two refresh schedulers share one event loop and one event bus
 **Complexity:** M — boot wiring, events gain a venue, Settings UI
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028A](../completed/EPIC-028A_venue_context_and_registry.md), [EPIC-028B](EPIC-028B_venue_addressed_commands.md)
+**Depends on:** [EPIC-028A](../completed/EPIC-028A_venue_context_and_registry.md), [EPIC-028B](../completed/EPIC-028B_venue_addressed_commands.md)
 
 ---
 

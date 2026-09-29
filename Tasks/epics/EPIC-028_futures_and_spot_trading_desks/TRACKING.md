@@ -25,8 +25,8 @@ gantt
 
     section Phase 1 - Both venues in one process
     028A VenueContext and registry         :crit, done, a, after s2, 1d
-    028B Venue-addressed commands          :crit, active, b, after a, 1d
-    028C Both venues concurrently          :         c, after b, 3d
+    028B Venue-addressed commands          :crit, done, b, after a, 1d
+    028C Both venues concurrently          :active,  c, after b, 3d
     Phase 1 exit check                     :milestone, m1, after c, 0d
 
     section Phase 2 - Account data
@@ -57,8 +57,8 @@ gantt
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-028A | [VenueContext and registry](completed/EPIC-028A_venue_context_and_registry.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | ✅ Done | [#293](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/293) merged 2026-09-29 |
-| EPIC-028B | [Venue-addressed commands](incomplete/EPIC-028B_venue_addressed_commands.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | 🟡 Awaiting review | [#293](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/293) |
-| EPIC-028C | [Both venues concurrently](incomplete/EPIC-028C_both_venues_running_concurrently.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-028B | [Venue-addressed commands](completed/EPIC-028B_venue_addressed_commands.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | ✅ Done | [#294](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/294) merged 2026-09-29 |
+| EPIC-028C | [Both venues concurrently](incomplete/EPIC-028C_both_venues_running_concurrently.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | 🟡 In progress | — |
 | EPIC-028D | [Account summary](incomplete/EPIC-028D_account_summary_reader.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-028E | [Open orders and history](incomplete/EPIC-028E_open_orders_and_history_readers.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-028F | [Commission, leverage, margin](incomplete/EPIC-028F_commission_and_futures_account_controls.md) | — | 🟡 | 🔵 Planned | — |

@@ -5,7 +5,7 @@
 **Risk:** 🟡 — history endpoints are weight-heavy; paging and symbol filter must be right first time
 **Complexity:** M — three readers × two venues, three queries
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028B](EPIC-028B_venue_addressed_commands.md), ADR O5
+**Depends on:** [EPIC-028B](../completed/EPIC-028B_venue_addressed_commands.md), ADR O5
 
 ---
 
