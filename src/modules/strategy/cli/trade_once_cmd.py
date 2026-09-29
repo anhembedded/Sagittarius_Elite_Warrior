@@ -42,14 +42,11 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.domain.policies.signal_actio
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
-    ITradingAccountReader,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.invalid_order_for_submission import (
     InvalidOrderForSubmissionError,
@@ -115,14 +112,15 @@ def execute_trade_once(app: App, args: argparse.Namespace) -> None:
     if signal is None:
         return
 
-    metadata_provider = app.container.resolve(IMarketMetadataProvider)
-    metadata = metadata_provider.get_or_fetch(args.symbol)
+    # `EPIC-028B` — the process's primary venue, the one `IOrderSubmission`
+    # below sends to: the CLI has no venue flag yet.
+    venue = app.container.resolve(IVenueContexts).primary()
+    metadata = venue.metadata_provider.get_or_fetch(args.symbol)
     if metadata is None:
         print(f"No futures metadata available for {args.symbol}.")
         return
 
-    account_reader = app.container.resolve(ITradingAccountReader)
-    status = account_reader.check_connection()
+    status = venue.account_reader.check_connection()
     if status.usdt_balance is None:
         print("USDT balance unknown (credentials not configured or connection lost).")
         return

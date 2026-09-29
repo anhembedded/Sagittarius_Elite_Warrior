@@ -25,10 +25,9 @@ logger = logging.getLogger("App.TradingVenues")
 
 class VenueContexts(IVenueContexts):
     """@details Also hands the composition root each venue's
-    `VenueAssembly`, so the single-venue bindings (`TradingSessionState`,
-    `EquityCurveRecorder`, and the ports `EPIC-028B` has not moved yet)
-    resolve to the primary venue's own instances — one object per venue,
-    whichever door a caller comes in by."""
+    `VenueAssembly` (`assembly()`), so a test of the wiring can see one
+    venue's parts together — one object per venue, whichever door a caller
+    comes in by."""
 
     def __init__(
         self,
@@ -53,8 +52,6 @@ class VenueContexts(IVenueContexts):
         return self._enabled
 
     def get(self, venue: TradingVenue) -> VenueContext:
-        if venue not in self._enabled:
-            raise VenueNotEnabledError(venue, self._enabled)
         return self.assembly(venue).context
 
     def primary(self) -> VenueContext:
@@ -71,6 +68,3 @@ class VenueContexts(IVenueContexts):
                 existing = self._build_assembly(venue)
                 self._assemblies[venue] = existing
             return existing
-
-    def primary_assembly(self) -> VenueAssembly:
-        return self.assembly(self.primary_venue)

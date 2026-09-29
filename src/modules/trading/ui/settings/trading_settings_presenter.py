@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
+)
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter import (
     format_exchange_connection_status,
 )
@@ -99,8 +102,10 @@ class TradingSettingsPresenter(BasePresenter):
 
     def __init__(self, view: TradingSettingsView, container: IContainer) -> None:
         super().__init__(view, container)
-        self._credentials_provider: IExchangeCredentialsProvider = container.resolve(
-            IExchangeCredentialsProvider
+        # `EPIC-028B` — the credentials of the venue this screen configures,
+        # the primary one, until each desk has its own settings (`EPIC-028C`).
+        self._credentials_provider: IExchangeCredentialsProvider = (
+            container.resolve(IVenueContexts).primary().credentials_provider
         )
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
         # `BOT-125` — read, never written: the venue combo is locked while a

@@ -35,14 +35,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ExchangeConnectionStatus,
     PositionMode,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
-    ITradingAccountReader,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
@@ -59,6 +56,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_account_reader import (
     FakeTradingAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
+    FakeVenueContexts,
+    fake_venue_context,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -166,10 +167,15 @@ def _app_ready_to_submit_an_order() -> tuple[Mock, FakeOrderSubmission]:
             return history
         if interface is StrategyRegistry:
             return strategy_registry
-        if interface is IMarketMetadataProvider:
-            return metadata_provider
-        if interface is ITradingAccountReader:
-            return account_reader
+        if interface is IVenueContexts:
+            # `EPIC-028B` — `trade-once` reads the primary venue's ports.
+            return FakeVenueContexts(
+                fake_venue_context(
+                    TradingVenue.FUTURES_TESTNET,
+                    metadata_provider=metadata_provider,
+                    account_reader=account_reader,
+                )
+            )
         if interface is IOrderSubmission:
             return submission
         return Mock()

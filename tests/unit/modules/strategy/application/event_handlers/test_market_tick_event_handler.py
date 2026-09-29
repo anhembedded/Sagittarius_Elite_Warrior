@@ -28,6 +28,12 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.event_handlers.market_tick_event_handler import (
     MarketTickEventHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
+    VenueStrategySessions,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 def _market_data(
@@ -55,7 +61,7 @@ def test_logs_at_debug_not_info():
     """`EPIC-021G` §2.5 / `BUG-042`: tick processing runs every candle,
     every symbol — it must never be `INFO`, or `SignalLogHandler` mirrors
     it to the UI's queued log model on every single tick."""
-    handler = MarketTickEventHandler(Mock())
+    handler = MarketTickEventHandler(VenueStrategySessions(lambda _venue: Mock()))
     handler.logger = Mock()
 
     handler.handle(MarketTickEvent(market_data=_market_data()))
@@ -74,9 +80,34 @@ def test_every_tick_is_handed_to_the_session_unfiltered():
     snapshot (`EPIC-022A`). A handler that filtered too would be a second
     copy of the rule, free to disagree with the first."""
     session = Mock()
-    handler = MarketTickEventHandler(session)
+    sessions = VenueStrategySessions(lambda _venue: session)
+    sessions.get(TradingVenue.FUTURES_TESTNET)
+    handler = MarketTickEventHandler(sessions)
     event = MarketTickEvent(market_data=_market_data("ETHUSDT"))
 
     handler.handle(event)
 
     session.dispatch_tick.assert_called_once_with(event.market_data)
+
+
+def test_every_venues_session_gets_the_tick_and_no_session_is_built_for_it():
+    """`EPIC-028B` — with a strategy session on each venue, each one decides
+    for itself whether the candle is its armed symbol and interval. A venue
+    that never had a session built gets none built by a tick."""
+    built: dict[TradingVenue, Mock] = {}
+
+    def _build(venue: TradingVenue) -> Mock:
+        built[venue] = Mock()
+        return built[venue]
+
+    sessions = VenueStrategySessions(_build)
+    sessions.get(TradingVenue.FUTURES_TESTNET)
+    sessions.get(TradingVenue.SPOT_TESTNET)
+    handler = MarketTickEventHandler(sessions)
+    event = MarketTickEvent(market_data=_market_data())
+
+    handler.handle(event)
+
+    for venue in (TradingVenue.FUTURES_TESTNET, TradingVenue.SPOT_TESTNET):
+        built[venue].dispatch_tick.assert_called_once_with(event.market_data)
+    assert set(built) == {TradingVenue.FUTURES_TESTNET, TradingVenue.SPOT_TESTNET}

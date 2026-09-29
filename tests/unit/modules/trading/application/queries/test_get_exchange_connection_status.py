@@ -10,8 +10,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ConnectionFailureKind,
     ExchangeConnectionStatus,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
+    FakeVenueContexts,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    venue_context,
 )
 
 
@@ -31,9 +37,15 @@ def test_execute_delegates_straight_to_the_reader():
     )
     reader = Mock()
     reader.check_connection.return_value = expected
-    handler = GetExchangeConnectionStatusQueryHandler(reader)
+    handler = GetExchangeConnectionStatusQueryHandler(
+        FakeVenueContexts(
+            venue_context(TradingVenue.FUTURES_TESTNET, account_reader=reader)
+        )
+    )
 
-    result = handler.execute(GetExchangeConnectionStatusQuery())
+    result = handler.execute(
+        GetExchangeConnectionStatusQuery(venue=TradingVenue.FUTURES_TESTNET)
+    )
 
     assert result is expected
     reader.check_connection.assert_called_once_with()
@@ -52,6 +64,15 @@ def test_execute_returns_a_failure_status_unchanged_too():
     )
     reader = Mock()
     reader.check_connection.return_value = expected
-    handler = GetExchangeConnectionStatusQueryHandler(reader)
+    handler = GetExchangeConnectionStatusQueryHandler(
+        FakeVenueContexts(
+            venue_context(TradingVenue.FUTURES_TESTNET, account_reader=reader)
+        )
+    )
 
-    assert handler.execute(GetExchangeConnectionStatusQuery()) is expected
+    assert (
+        handler.execute(
+            GetExchangeConnectionStatusQuery(venue=TradingVenue.FUTURES_TESTNET)
+        )
+        is expected
+    )

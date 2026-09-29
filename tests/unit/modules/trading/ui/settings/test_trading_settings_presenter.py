@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
     FakeAccountSnapshot,
 )
@@ -48,13 +51,13 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_cr
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
     SecretsFileSource,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
-    IExchangeCredentialsProvider,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.settings.primary_venue_contexts import (
+    primary_venue_contexts,
+)
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
@@ -106,8 +109,8 @@ def mock_container(mock_config, credentials_provider, session_state):
 
         if interface == IConfig:
             return mock_config
-        if interface == IExchangeCredentialsProvider:
-            return credentials_provider
+        if interface is IVenueContexts:
+            return primary_venue_contexts(credentials_provider)
         if interface is ITradingSession:
             return session_state
         if interface is IAccountSnapshot:
@@ -163,8 +166,8 @@ def test_an_env_var_locks_the_field_and_wins_over_the_file(
     container.resolve.side_effect = lambda interface: (
         mock_config
         if interface.__name__ == "IConfig"
-        else credentials_provider
-        if interface is IExchangeCredentialsProvider
+        else primary_venue_contexts(credentials_provider)
+        if interface is IVenueContexts
         else FakeTradingSession()
         if interface is ITradingSession
         else FakeAccountSnapshot()
@@ -194,8 +197,8 @@ def test_missing_credentials_load_safely(qapp, mock_config, tmp_path, request):
     container.resolve.side_effect = lambda interface: (
         mock_config
         if interface.__name__ == "IConfig"
-        else empty_provider
-        if interface is IExchangeCredentialsProvider
+        else primary_venue_contexts(empty_provider)
+        if interface is IVenueContexts
         else FakeTradingSession()
         if interface is ITradingSession
         else FakeAccountSnapshot()
@@ -245,8 +248,8 @@ def test_save_writes_a_new_key_to_the_real_secrets_file(qapp, tmp_path, request)
     container.resolve.side_effect = lambda interface: (
         config
         if interface.__name__ == "IConfig"
-        else credentials_provider
-        if interface is IExchangeCredentialsProvider
+        else primary_venue_contexts(credentials_provider)
+        if interface is IVenueContexts
         else FakeTradingSession()
         if interface is ITradingSession
         else FakeAccountSnapshot()
@@ -291,8 +294,8 @@ def test_save_does_not_touch_the_secrets_file_when_an_env_var_is_locking_it(
     container.resolve.side_effect = lambda interface: (
         mock_config
         if interface.__name__ == "IConfig"
-        else credentials_provider
-        if interface is IExchangeCredentialsProvider
+        else primary_venue_contexts(credentials_provider)
+        if interface is IVenueContexts
         else FakeTradingSession()
         if interface is ITradingSession
         else FakeAccountSnapshot()
@@ -362,8 +365,8 @@ def test_env_locked_credentials_disable_the_input_fields(
     container.resolve.side_effect = lambda interface: (
         mock_config
         if interface.__name__ == "IConfig"
-        else credentials_provider
-        if interface is IExchangeCredentialsProvider
+        else primary_venue_contexts(credentials_provider)
+        if interface is IVenueContexts
         else FakeTradingSession()
         if interface is ITradingSession
         else FakeAccountSnapshot()

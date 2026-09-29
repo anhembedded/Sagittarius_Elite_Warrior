@@ -8,8 +8,9 @@ calls `.start()`).
 
 Locks what ADR D2/D4 promise: two venues live at once, each with its own
 adapters, its own metadata cache and its own session state; one instance
-per venue whichever door a caller comes in by; and the single-venue ports
-`EPIC-028B` has not moved yet resolve to the primary venue's own parts.
+per venue whichever door a caller comes in by; and, since `EPIC-028B`, no
+per-venue port bound on its own, so no caller can reach one without naming
+its venue.
 """
 
 from __future__ import annotations
@@ -42,11 +43,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_tr
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_user_data_stream import (
     SpotUserDataStream,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
-    EquityCurveRecorder,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
+    VenueTradingScopes,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.adapter_bindings import (
     bind_adapters,
@@ -82,6 +80,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from sagittarius_engine.exceptions import DependencyResolutionError
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
@@ -163,12 +162,20 @@ def test_a_venue_that_is_not_enabled_raises() -> None:
         contexts.get(TradingVenue.SPOT_TESTNET)
 
 
-def test_disabled_is_never_a_gettable_venue() -> None:
-    contexts = _container({}).resolve(IVenueContexts)
+def test_disabled_is_served_only_while_it_is_the_primary_venue() -> None:
+    """`EPIC-028B`: with nothing enabled, a command addressed to the
+    process's own read-only venue still gets that venue's adapters (its
+    handler refuses it itself). Once a real venue is enabled, `DISABLED` is
+    not a venue anything may address."""
+    nothing_enabled = _container({}).resolve(IVenueContexts)
+    one_enabled = _container(
+        {ConfigKeys.EXCHANGE_TRADING_VENUES.value: ["futures_testnet"]}
+    ).resolve(IVenueContexts)
 
-    assert contexts.enabled() == ()
+    assert nothing_enabled.enabled() == ()
+    assert nothing_enabled.get(TradingVenue.DISABLED) is nothing_enabled.primary()
     with pytest.raises(VenueNotEnabledError):
-        contexts.get(TradingVenue.DISABLED)
+        one_enabled.get(TradingVenue.DISABLED)
 
 
 def test_with_nothing_enabled_primary_is_the_read_only_futures_shape() -> None:
@@ -195,20 +202,25 @@ def test_primary_is_the_first_enabled_venue() -> None:
     assert container.resolve(TradingVenue) is TradingVenue.SPOT_TESTNET
 
 
-def test_single_venue_ports_are_the_primary_venues_own_instances() -> None:
-    """One object per venue whichever door a caller comes in by: the legacy
-    single-venue bindings must not build a second, divergent copy."""
+@pytest.mark.parametrize(
+    "port",
+    [
+        IExchangeCredentialsProvider,
+        ISymbolOrderMetadataCache,
+        IMarketMetadataProvider,
+        ITradingClientFactory,
+        ITradingAccountReader,
+        IUserDataStream,
+    ],
+)
+def test_no_per_venue_port_is_bound_on_its_own(port: type) -> None:
+    """`EPIC-028B` AC5 — the single-venue doors are gone. A caller that
+    resolved one of these would silently act on whichever venue is primary,
+    so resolving one must fail, and the caller must name its venue."""
     container = _both_venues()
-    primary = container.resolve(IVenueContexts).primary()
 
-    assert (
-        container.resolve(IExchangeCredentialsProvider) is primary.credentials_provider
-    )
-    assert container.resolve(ISymbolOrderMetadataCache) is primary.metadata_cache
-    assert container.resolve(IMarketMetadataProvider) is primary.metadata_provider
-    assert container.resolve(ITradingClientFactory) is primary.client_factory
-    assert container.resolve(ITradingAccountReader) is primary.account_reader
-    assert container.resolve(IUserDataStream) is primary.user_data_stream
+    with pytest.raises(DependencyResolutionError):
+        container.resolve(port)
 
 
 def test_session_state_and_equity_recorder_are_owned_per_venue() -> None:
@@ -217,7 +229,16 @@ def test_session_state_and_equity_recorder_are_owned_per_venue() -> None:
     futures = venues.assembly(TradingVenue.FUTURES_TESTNET)
     spot = venues.assembly(TradingVenue.SPOT_TESTNET)
 
+    scopes = container.resolve(VenueTradingScopes)
+
     assert futures.session_state is not spot.session_state
     assert futures.equity_recorder is not spot.equity_recorder
-    assert container.resolve(TradingSessionState) is futures.session_state
-    assert container.resolve(EquityCurveRecorder) is futures.equity_recorder
+    # `EPIC-028B` — the state a venue's user data stream writes is the state
+    # every handler acting on that venue reads, one object per venue.
+    assert scopes.get(TradingVenue.FUTURES_TESTNET).session_state is (
+        futures.session_state
+    )
+    assert scopes.get(TradingVenue.SPOT_TESTNET).session_state is spot.session_state
+    assert scopes.get(TradingVenue.SPOT_TESTNET).equity_recorder is (
+        spot.equity_recorder
+    )

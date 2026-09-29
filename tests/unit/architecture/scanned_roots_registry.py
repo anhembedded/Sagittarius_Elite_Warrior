@@ -255,6 +255,13 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         (("src", "*.py"),),
     ),
     (
+        "tests/unit/architecture/test_venue_addressed_handlers_resolve_their_venue.py",
+        (
+            ("src/modules/trading/application", "handler.py"),
+            ("src/modules/strategy/application/use_cases", "handler.py"),
+        ),
+    ),
+    (
         "tests/unit/architecture/test_order_submission_mode_live_is_restricted.py",
         (("src", "*.py"), ("scripts", "*.py")),
     ),

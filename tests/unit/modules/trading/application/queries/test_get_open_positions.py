@@ -9,12 +9,21 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_
     GetOpenPositionsQuery,
     GetOpenPositionsQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
+    FakeVenueContexts,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
     ResolvedCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    venue_context,
 )
 
 _CREDENTIALS = ResolvedCredentials(
@@ -45,7 +54,13 @@ def _handler(raw_client: Mock) -> GetOpenPositionsQueryHandler:
     trading_client_factory = FuturesTradingClientFactory(
         session_factory, credentials_provider, metadata_provider
     )
-    return GetOpenPositionsQueryHandler(trading_client_factory)
+    return GetOpenPositionsQueryHandler(
+        FakeVenueContexts(
+            venue_context(
+                TradingVenue.FUTURES_TESTNET, client_factory=trading_client_factory
+            )
+        )
+    )
 
 
 def test_execute_reads_positions_through_a_freshly_built_trading_client() -> None:
@@ -59,7 +74,7 @@ def test_execute_reads_positions_through_a_freshly_built_trading_client() -> Non
     raw_client.futures_position_information.return_value = [_POSITION_PAYLOAD]
     handler = _handler(raw_client)
 
-    result = handler.execute(GetOpenPositionsQuery())
+    result = handler.execute(GetOpenPositionsQuery(venue=TradingVenue.FUTURES_TESTNET))
 
     assert len(result) == 1
     assert result[0].symbol == "BTCUSDT"
@@ -71,4 +86,6 @@ def test_execute_returns_empty_tuple_when_flat() -> None:
     raw_client.futures_position_information.return_value = []
     handler = _handler(raw_client)
 
-    assert handler.execute(GetOpenPositionsQuery()) == ()
+    assert (
+        handler.execute(GetOpenPositionsQuery(venue=TradingVenue.FUTURES_TESTNET)) == ()
+    )

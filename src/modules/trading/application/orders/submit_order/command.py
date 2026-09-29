@@ -5,6 +5,9 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.query import (
     PreviewOrderQuery,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 @dataclass(frozen=True)
@@ -28,3 +31,10 @@ class SubmitOrderCommand:
     """
 
     order_request: PreviewOrderQuery
+
+    @property
+    def venue(self) -> TradingVenue:
+        """`EPIC-028B` (ADR D3) — read from `order_request`, never stored a
+        second time: the order and the command acting on it cannot then
+        disagree about which venue they address."""
+        return self.order_request.venue

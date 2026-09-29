@@ -17,6 +17,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_st
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
+    VenueStrategySessions,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.arm_strategy import (
     ArmStrategyBlockReason,
     ArmStrategyCommand,
@@ -42,9 +45,18 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session i
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
+    FakeVenueTradingPorts,
+    fake_venue_ports,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
 _KEY = "ema_crossover"
+_FUTURES = TradingVenue.FUTURES_TESTNET
+_SPOT = TradingVenue.SPOT_TESTNET
 #: `EPIC-027N` — registered alongside `_KEY` so the SHORT-capable-strategy
 #: refusal (AC2) has a real strategy that actually calls `self.short()` to
 #: test against, not a stand-in that merely claims the capability.
@@ -105,8 +117,36 @@ def _config(**overrides) -> LiveStrategyConfig:
     return LiveStrategyConfig(**values)
 
 
+def _ports(state: FakeTradingSession, venue: TradingVenue) -> FakeVenueTradingPorts:
+    """`EPIC-028B` — the one venue a test arms on, with the trading session it
+    arranges."""
+    return FakeVenueTradingPorts(fake_venue_ports(venue, trading_session=state))
+
+
+def _sessions(session: LiveStrategySession) -> VenueStrategySessions:
+    return VenueStrategySessions(lambda _venue: session)
+
+
+def _arm(config: LiveStrategyConfig) -> ArmStrategyCommand:
+    return ArmStrategyCommand(config, venue=_FUTURES)
+
+
+def _arm_spot(config: LiveStrategyConfig) -> ArmStrategyCommand:
+    return ArmStrategyCommand(config, venue=_SPOT)
+
+
+def _disarm_handler(
+    session: LiveStrategySession,
+    state: FakeTradingSession,
+    venue: TradingVenue = TradingVenue.FUTURES_TESTNET,
+) -> DisarmStrategyCommandHandler:
+    return DisarmStrategyCommandHandler(_sessions(session), _ports(state, venue))
+
+
 def _arm_handler(
-    session: LiveStrategySession, state: FakeTradingSession
+    session: LiveStrategySession,
+    state: FakeTradingSession,
+    venue: TradingVenue = TradingVenue.FUTURES_TESTNET,
 ) -> ArmStrategyCommandHandler:
     """`EPIC-025` PR 4.3m: `ArmStrategyCommandHandler` now persists a
     successful arming itself (`O6`), so every test needs a store — a real
@@ -114,7 +154,7 @@ def _arm_handler(
     the config keys it reads and writes are what `LiveStrategyConfigStore`
     is for."""
     return ArmStrategyCommandHandler(
-        session, state, LiveStrategyConfigStore(DictConfig())
+        _sessions(session), _ports(state, venue), LiveStrategyConfigStore(DictConfig())
     )
 
 
@@ -122,7 +162,7 @@ def test_arming_a_valid_config_arms_the_session() -> None:
     session, state = _session(), FakeTradingSession()
     handler = _arm_handler(session, state)
 
-    result = handler.execute(ArmStrategyCommand(_config()))
+    result = handler.execute(_arm(_config()))
 
     assert result.armed is True
     assert result.block_reason is None
@@ -136,9 +176,7 @@ def test_declared_parameters_reach_the_strategy() -> None:
     session, state = _session(), FakeTradingSession()
     handler = _arm_handler(session, state)
 
-    result = handler.execute(
-        ArmStrategyCommand(_config(strategy_params={"fast_period": 5}))
-    )
+    result = handler.execute(_arm(_config(strategy_params={"fast_period": 5})))
 
     assert result.armed is True
     assert session.config is not None
@@ -151,13 +189,11 @@ def test_refuses_to_swap_the_strategy_while_trading_is_on() -> None:
     signal would never arrive."""
     session, state = _session(), FakeTradingSession()
     handler = _arm_handler(session, state)
-    handler.execute(ArmStrategyCommand(_config()))
+    handler.execute(_arm(_config()))
     first_generation = session.generation
     state.set_enabled(enabled=True)
 
-    result = handler.execute(
-        ArmStrategyCommand(_config(strategy_params={"fast_period": 9}))
-    )
+    result = handler.execute(_arm(_config(strategy_params={"fast_period": 9})))
 
     assert result.armed is False
     assert result.block_reason is ArmStrategyBlockReason.TRADING_IS_ENABLED
@@ -168,9 +204,7 @@ def test_an_unknown_strategy_key_is_named_not_crashed_on() -> None:
     session, state = _session(), FakeTradingSession()
     handler = _arm_handler(session, state)
 
-    result = handler.execute(
-        ArmStrategyCommand(_config(strategy_key="no_such_strategy"))
-    )
+    result = handler.execute(_arm(_config(strategy_key="no_such_strategy")))
 
     assert result.armed is False
     assert result.block_reason is ArmStrategyBlockReason.STRATEGY_NOT_FOUND
@@ -184,9 +218,7 @@ def test_an_undeclared_parameter_is_reported_with_the_strategys_own_words() -> N
     session, state = _session(), FakeTradingSession()
     handler = _arm_handler(session, state)
 
-    result = handler.execute(
-        ArmStrategyCommand(_config(strategy_params={"not_a_real_param": 1}))
-    )
+    result = handler.execute(_arm(_config(strategy_params={"not_a_real_param": 1})))
 
     assert result.armed is False
     assert result.block_reason is ArmStrategyBlockReason.INVALID_PARAMS
@@ -201,7 +233,7 @@ def test_a_missing_symbol_or_interval_is_refused_never_guessed(missing: str) -> 
     session, state = _session(), FakeTradingSession()
     handler = _arm_handler(session, state)
 
-    result = handler.execute(ArmStrategyCommand(_config(**{missing: ""})))
+    result = handler.execute(_arm(_config(**{missing: ""})))
 
     assert result.armed is False
     assert result.block_reason is ArmStrategyBlockReason.MISSING_SYMBOL_OR_INTERVAL
@@ -210,10 +242,10 @@ def test_a_missing_symbol_or_interval_is_refused_never_guessed(missing: str) -> 
 
 def test_disarming_clears_the_session() -> None:
     session, state = _session(), FakeTradingSession()
-    _arm_handler(session, state).execute(ArmStrategyCommand(_config()))
+    _arm_handler(session, state).execute(_arm(_config()))
 
-    result = DisarmStrategyCommandHandler(session, state).execute(
-        DisarmStrategyCommand()
+    result = _disarm_handler(session, state).execute(
+        DisarmStrategyCommand(venue=_FUTURES)
     )
 
     assert result.disarmed is True
@@ -227,11 +259,11 @@ def test_refuses_to_disarm_while_trading_is_on() -> None:
     longer requires an armed strategy to reach "trading on" at all
     (`BUG-112`)."""
     session, state = _session(), FakeTradingSession()
-    _arm_handler(session, state).execute(ArmStrategyCommand(_config()))
+    _arm_handler(session, state).execute(_arm(_config()))
     state.set_enabled(enabled=True)
 
-    result = DisarmStrategyCommandHandler(session, state).execute(
-        DisarmStrategyCommand()
+    result = _disarm_handler(session, state).execute(
+        DisarmStrategyCommand(venue=_FUTURES)
     )
 
     assert result.disarmed is False
@@ -250,7 +282,7 @@ def test_arming_claims_the_symbols_lease() -> None:
     (`PRO-003` §4.1.2), enforced on the order path instead of in one screen."""
     session, state = _session(), FakeTradingSession()
 
-    _arm_handler(session, state).execute(ArmStrategyCommand(_config()))
+    _arm_handler(session, state).execute(_arm(_config()))
 
     # Somebody else can no longer take it, which is the observable form of
     # "the strategy holds it".
@@ -262,9 +294,9 @@ def test_re_arming_onto_another_symbol_gives_the_first_one_back() -> None:
     ETHUSDT would leave BTCUSDT refused for a strategy nobody is running."""
     session, state = _session(), FakeTradingSession()
     handler = _arm_handler(session, state)
-    handler.execute(ArmStrategyCommand(_config(symbol="BTCUSDT")))
+    handler.execute(_arm(_config(symbol="BTCUSDT")))
 
-    handler.execute(ArmStrategyCommand(_config(symbol="ETHUSDT")))
+    handler.execute(_arm(_config(symbol="ETHUSDT")))
 
     assert state.claim_symbol("BTCUSDT", "someone_else") is True
     assert state.claim_symbol("ETHUSDT", "someone_else") is False
@@ -277,9 +309,7 @@ def test_a_refused_arming_does_not_keep_the_lease() -> None:
     session, state = _session(), FakeTradingSession()
     handler = _arm_handler(session, state)
 
-    result = handler.execute(
-        ArmStrategyCommand(_config(strategy_params={"nonexistent_param": 1}))
-    )
+    result = handler.execute(_arm(_config(strategy_params={"nonexistent_param": 1})))
 
     assert result.armed is False
     assert result.block_reason is ArmStrategyBlockReason.INVALID_PARAMS
@@ -293,7 +323,7 @@ def test_a_symbol_another_owner_holds_is_refused_and_nothing_is_armed() -> None:
     session, state = _session(), FakeTradingSession()
     state.claim_symbol("BTCUSDT", "someone_else")
 
-    result = _arm_handler(session, state).execute(ArmStrategyCommand(_config()))
+    result = _arm_handler(session, state).execute(_arm(_config()))
 
     assert result.armed is False
     assert result.block_reason is ArmStrategyBlockReason.SYMBOL_LEASED
@@ -302,9 +332,9 @@ def test_a_symbol_another_owner_holds_is_refused_and_nothing_is_armed() -> None:
 
 def test_disarming_releases_the_lease() -> None:
     session, state = _session(), FakeTradingSession()
-    _arm_handler(session, state).execute(ArmStrategyCommand(_config()))
+    _arm_handler(session, state).execute(_arm(_config()))
 
-    DisarmStrategyCommandHandler(session, state).execute(DisarmStrategyCommand())
+    _disarm_handler(session, state).execute(DisarmStrategyCommand(venue=_FUTURES))
 
     assert state.claim_symbol("BTCUSDT", "someone_else") is True
 
@@ -314,11 +344,11 @@ def test_a_refused_disarm_keeps_the_lease() -> None:
     would let a manual order onto the symbol of a strategy that is still
     running, which is the exact hazard the lease exists for."""
     session, state = _session(), FakeTradingSession()
-    _arm_handler(session, state).execute(ArmStrategyCommand(_config()))
+    _arm_handler(session, state).execute(_arm(_config()))
     state.set_enabled(enabled=True)
 
-    result = DisarmStrategyCommandHandler(session, state).execute(
-        DisarmStrategyCommand()
+    result = _disarm_handler(session, state).execute(
+        DisarmStrategyCommand(venue=_FUTURES)
     )
 
     assert result.disarmed is False
@@ -335,8 +365,8 @@ def test_spot_refuses_a_leverage_other_than_1x() -> None:
     else is refused, never silently clamped to 1x."""
     session, state = _session(), _spot_state()
 
-    result = _arm_handler(session, state).execute(
-        ArmStrategyCommand(_config(leverage=5.0))
+    result = _arm_handler(session, state, _SPOT).execute(
+        _arm_spot(_config(leverage=5.0))
     )
 
     assert result.armed is False
@@ -349,8 +379,8 @@ def test_spot_arms_at_the_default_1x_leverage() -> None:
     supports — a strategy could otherwise never be armed on Spot at all."""
     session, state = _session(), _spot_state()
 
-    result = _arm_handler(session, state).execute(
-        ArmStrategyCommand(_config(leverage=1.0))
+    result = _arm_handler(session, state, _SPOT).execute(
+        _arm_spot(_config(leverage=1.0))
     )
 
     assert result.armed is True
@@ -363,8 +393,8 @@ def test_spot_refuses_a_strategy_that_can_short() -> None:
     it does, so it is refused instead."""
     session, state = _session(), _spot_state()
 
-    result = _arm_handler(session, state).execute(
-        ArmStrategyCommand(_config(strategy_key=_SHORT_CAPABLE_KEY, leverage=1.0))
+    result = _arm_handler(session, state, _SPOT).execute(
+        _arm_spot(_config(strategy_key=_SHORT_CAPABLE_KEY, leverage=1.0))
     )
 
     assert result.armed is False
@@ -378,8 +408,8 @@ def test_spot_arms_a_long_only_strategy_that_cannot_short() -> None:
     default."""
     session, state = _session(), _spot_state()
 
-    result = _arm_handler(session, state).execute(
-        ArmStrategyCommand(_config(leverage=1.0))
+    result = _arm_handler(session, state, _SPOT).execute(
+        _arm_spot(_config(leverage=1.0))
     )
 
     assert result.armed is True
@@ -391,8 +421,8 @@ def test_spot_refuses_a_non_usdt_quoted_symbol() -> None:
     session limits and sizing are already USDT-denominated."""
     session, state = _session(), _spot_state()
 
-    result = _arm_handler(session, state).execute(
-        ArmStrategyCommand(_config(symbol="BTCBUSD", leverage=1.0))
+    result = _arm_handler(session, state, _SPOT).execute(
+        _arm_spot(_config(symbol="BTCBUSD", leverage=1.0))
     )
 
     assert result.armed is False
@@ -408,9 +438,7 @@ def test_futures_arming_is_unaffected_by_any_spot_only_refusal() -> None:
     session, state = _session(), FakeTradingSession()
 
     result = _arm_handler(session, state).execute(
-        ArmStrategyCommand(
-            _config(strategy_key=_SHORT_CAPABLE_KEY, symbol="BTCBUSD", leverage=20.0)
-        )
+        _arm(_config(strategy_key=_SHORT_CAPABLE_KEY, symbol="BTCBUSD", leverage=20.0))
     )
 
     assert result.armed is True

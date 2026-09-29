@@ -59,6 +59,10 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    single_venue_scopes,
+    venue_context,
+)
 
 _CREDENTIALS = ExchangeCredentials(api_key="key", api_secret="secret")
 
@@ -145,13 +149,20 @@ def _handler(
     trading_client_factory = FuturesTradingClientFactory(
         session_factory, credentials_provider, _metadata_provider()
     )
-    return EmergencyStopCommandHandler(
-        session_state if session_state is not None else TradingSessionState(),
-        user_data_stream or Mock(),
-        trading_client_factory,
+    context = venue_context(
         trading_venue,
-        account_reader if account_reader is not None else FakeTradingAccountReader(),
-        metadata_provider or _metadata_provider(),
+        account_reader=(
+            account_reader if account_reader is not None else FakeTradingAccountReader()
+        ),
+        client_factory=trading_client_factory,
+        metadata_provider=metadata_provider or _metadata_provider(),
+        user_data_stream=user_data_stream or Mock(),
+    )
+    return EmergencyStopCommandHandler(
+        single_venue_scopes(
+            context,
+            session_state if session_state is not None else TradingSessionState(),
+        )
     )
 
 
@@ -184,7 +195,7 @@ class TestOrdering:
         raw_client.futures_position_information.side_effect = _record_close
 
         handler = _handler(session_state=session_state, raw_client=raw_client)
-        handler.execute(EmergencyStopCommand())
+        handler.execute(EmergencyStopCommand(venue=TradingVenue.FUTURES_TESTNET))
 
         # `BUG-093`'s own final-state confirmation read reuses the same
         # two raw calls (`futures_position_information`/
@@ -207,7 +218,9 @@ class TestOrdering:
         raw_client = _quiet_raw_client()
 
         handler = _handler(session_state=session_state, raw_client=raw_client)
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(
+            EmergencyStopCommand(venue=TradingVenue.FUTURES_TESTNET)
+        )
 
         assert result.trading_disabled.succeeded is False
         # Called twice each: once by the step itself (2/3), once more by
@@ -228,7 +241,9 @@ class TestDisableTrading:
             raw_client=_quiet_raw_client(),
         )
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(
+            EmergencyStopCommand(venue=TradingVenue.FUTURES_TESTNET)
+        )
 
         assert session_state.enabled is False
         user_data_stream.stop.assert_called_once()
@@ -239,7 +254,9 @@ class TestCancelAllOrders:
     def test_no_open_orders_is_a_successful_no_op(self) -> None:
         handler = _handler(raw_client=_quiet_raw_client())
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(
+            EmergencyStopCommand(venue=TradingVenue.FUTURES_TESTNET)
+        )
 
         assert result.orders_cancelled.succeeded is True
         assert "No open orders" in result.orders_cancelled.detail
@@ -271,7 +288,9 @@ class TestCancelAllOrders:
         raw_client.futures_position_information.return_value = []
         handler = _handler(raw_client=raw_client)
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(
+            EmergencyStopCommand(venue=TradingVenue.FUTURES_TESTNET)
+        )
 
         assert result.orders_cancelled.succeeded is True
         assert "3" in result.orders_cancelled.detail
@@ -288,7 +307,9 @@ class TestCancelAllOrders:
         raw_client.futures_position_information.return_value = []
         handler = _handler(raw_client=raw_client)
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(
+            EmergencyStopCommand(venue=TradingVenue.FUTURES_TESTNET)
+        )
 
         assert result.orders_cancelled.succeeded is False
         assert "0/1" in result.orders_cancelled.detail
@@ -298,7 +319,9 @@ class TestClosePositions:
     def test_no_open_positions_is_a_successful_no_op(self) -> None:
         handler = _handler(raw_client=_quiet_raw_client())
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(
+            EmergencyStopCommand(venue=TradingVenue.FUTURES_TESTNET)
+        )
 
         assert result.positions_closed.succeeded is True
         assert "No open positions" in result.positions_closed.detail
@@ -312,7 +335,9 @@ class TestClosePositions:
         raw_client.futures_create_order.return_value = {}
         handler = _handler(raw_client=raw_client)
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(
+            EmergencyStopCommand(venue=TradingVenue.FUTURES_TESTNET)
+        )
 
         assert result.positions_closed.succeeded is True
         _, kwargs = raw_client.futures_create_order.call_args
@@ -330,7 +355,9 @@ class TestClosePositions:
         raw_client.futures_create_order.return_value = {}
         handler = _handler(raw_client=raw_client)
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(
+            EmergencyStopCommand(venue=TradingVenue.FUTURES_TESTNET)
+        )
 
         assert result.positions_closed.succeeded is True
         _, kwargs = raw_client.futures_create_order.call_args
@@ -351,7 +378,9 @@ class TestClosePositions:
         )
         handler = _handler(raw_client=raw_client)
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(
+            EmergencyStopCommand(venue=TradingVenue.FUTURES_TESTNET)
+        )
 
         assert result.positions_closed.succeeded is False
         assert result.fully_succeeded is False
@@ -398,7 +427,7 @@ class TestSpotClosePositions:
             account_reader=FakeTradingAccountReader(_spot_status(holdings)),
         )
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(EmergencyStopCommand(venue=TradingVenue.SPOT_TESTNET))
 
         assert result.positions_closed.succeeded is True
         _, kwargs = raw_client.futures_create_order.call_args
@@ -430,7 +459,7 @@ class TestSpotClosePositions:
             account_reader=FakeTradingAccountReader(_spot_status(holdings)),
         )
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(EmergencyStopCommand(venue=TradingVenue.SPOT_TESTNET))
 
         assert result.positions_closed.succeeded is True
         raw_client.futures_create_order.assert_not_called()
@@ -455,7 +484,7 @@ class TestSpotClosePositions:
             account_reader=FakeTradingAccountReader(_spot_status(holdings)),
         )
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(EmergencyStopCommand(venue=TradingVenue.SPOT_TESTNET))
 
         assert result.positions_closed.succeeded is True
         assert "No Spot holdings baseline recorded" in result.positions_closed.detail
@@ -481,7 +510,7 @@ class TestSpotClosePositions:
             account_reader=FakeTradingAccountReader(_spot_status(holdings)),
         )
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(EmergencyStopCommand(venue=TradingVenue.SPOT_TESTNET))
 
         assert result.positions_closed.succeeded is True
         assert "BTC" in result.positions_closed.detail
@@ -510,7 +539,7 @@ class TestSpotClosePositions:
             account_reader=FakeTradingAccountReader(_spot_status(holdings)),
         )
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(EmergencyStopCommand(venue=TradingVenue.SPOT_TESTNET))
 
         assert result.positions_closed.succeeded is True
         assert "No Spot holdings above the baseline" in result.positions_closed.detail
@@ -534,7 +563,7 @@ class TestSpotClosePositions:
             account_reader=FakeTradingAccountReader(_spot_status(holdings)),
         )
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(EmergencyStopCommand(venue=TradingVenue.SPOT_TESTNET))
 
         assert result.positions_closed.succeeded is True
         assert "No Spot holdings above the baseline" in result.positions_closed.detail
@@ -561,7 +590,7 @@ class TestSpotClosePositions:
             account_reader=FakeTradingAccountReader(_spot_status(holdings)),
         )
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(EmergencyStopCommand(venue=TradingVenue.SPOT_TESTNET))
 
         assert result.positions_closed.succeeded is False
         assert result.fully_succeeded is False
@@ -587,7 +616,7 @@ class TestSpotClosePositions:
             account_reader=FakeTradingAccountReader(unreachable_status),
         )
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(EmergencyStopCommand(venue=TradingVenue.SPOT_TESTNET))
 
         assert result.positions_closed.succeeded is False
 
@@ -596,7 +625,9 @@ class TestFullySucceeded:
     def test_true_only_when_all_three_steps_succeeded(self) -> None:
         handler = _handler(raw_client=_quiet_raw_client())
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(
+            EmergencyStopCommand(venue=TradingVenue.FUTURES_TESTNET)
+        )
 
         assert result.fully_succeeded is True
 
@@ -620,7 +651,9 @@ class TestFinalState:
         raw_client.futures_position_information.return_value = [_position_payload()]
         handler = _handler(raw_client=raw_client)
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(
+            EmergencyStopCommand(venue=TradingVenue.FUTURES_TESTNET)
+        )
 
         assert result.final_state_confirmed is True
         assert len(result.final_positions) == 1
@@ -643,7 +676,9 @@ class TestFinalState:
         ]
         handler = _handler(raw_client=raw_client)
 
-        result = handler.execute(EmergencyStopCommand())
+        result = handler.execute(
+            EmergencyStopCommand(venue=TradingVenue.FUTURES_TESTNET)
+        )
 
         assert result.final_state_confirmed is False
         assert result.final_positions == ()

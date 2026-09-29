@@ -35,18 +35,29 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming 
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     LiveStrategyConfig,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 class StrategyArmingService(IStrategyArming):
+    """@details One instance per venue (`EPIC-028B`): every command it sends
+    is addressed to its own venue, so the screen holding it arms and disarms
+    that venue's strategy only."""
+
     def __init__(
-        self, dispatcher: ICommandDispatcher, config_store: LiveStrategyConfigStore
+        self,
+        dispatcher: ICommandDispatcher,
+        config_store: LiveStrategyConfigStore,
+        venue: TradingVenue,
     ) -> None:
         self._dispatcher = dispatcher
         self._config_store = config_store
+        self._venue = venue
 
     def arm(self, config: LiveStrategyConfig) -> ArmStrategyResult:
         result = self._dispatcher.dispatch(
-            ArmStrategyCommandHandler, ArmStrategyCommand(config)
+            ArmStrategyCommandHandler, ArmStrategyCommand(config, venue=self._venue)
         )
         if not isinstance(result, ArmStrategyResult):
             raise TypeError(
@@ -57,7 +68,7 @@ class StrategyArmingService(IStrategyArming):
 
     def disarm(self) -> DisarmStrategyResult:
         result = self._dispatcher.dispatch(
-            DisarmStrategyCommandHandler, DisarmStrategyCommand()
+            DisarmStrategyCommandHandler, DisarmStrategyCommand(venue=self._venue)
         )
         if not isinstance(result, DisarmStrategyResult):
             raise TypeError(

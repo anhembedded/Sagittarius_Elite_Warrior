@@ -9,8 +9,8 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
     LiveStrategyConfigStore,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
-    LiveStrategySession,
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
+    VenueStrategySessions,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.use_cases.arm_strategy.command import (
     ArmStrategyCommand,
@@ -28,8 +28,8 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal_action impo
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.strategy_owner import (
     STRATEGY_OWNER,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
-    ITradingSession,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
+    IVenueTradingPorts,
 )
 
 logger = logging.getLogger("App.CommandHandler")
@@ -73,12 +73,12 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
 
     def __init__(
         self,
-        session: LiveStrategySession,
-        trading_session: ITradingSession,
+        sessions: VenueStrategySessions,
+        trading_ports: IVenueTradingPorts,
         config_store: LiveStrategyConfigStore,
     ) -> None:
-        self._session = session
-        self._trading_session = trading_session
+        self._sessions = sessions
+        self._trading_ports = trading_ports
         #: `EPIC-025` PR 4.3m — persisting a successful arming used to be the
         #: caller's job (`StrategyArmingCoordinator.on_arm_clicked()`), which
         #: only worked because that coordinator lived in the same legacy tree
@@ -89,9 +89,17 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
 
     def execute(self, command: ArmStrategyCommand) -> ArmStrategyResult:
         config = command.config
-        logger.debug("Handling ArmStrategyCommand for '%s'", config.strategy_key)
+        logger.debug(
+            "Handling ArmStrategyCommand for '%s' on %s",
+            config.strategy_key,
+            command.venue.value,
+        )
+        # `EPIC-028B` — the venue's own session and trading switch: arming on
+        # Spot is judged by Spot's rules and leaves Futures' strategy alone.
+        session = self._sessions.get(command.venue)
+        trading_session = self._trading_ports.get(command.venue).trading_session
 
-        snapshot = self._trading_session.snapshot()
+        snapshot = trading_session.snapshot()
         if snapshot.enabled:
             return ArmStrategyResult(
                 armed=False, block_reason=ArmStrategyBlockReason.TRADING_IS_ENABLED
@@ -105,7 +113,7 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
                 armed=False,
                 block_reason=ArmStrategyBlockReason.MISSING_SYMBOL_OR_INTERVAL,
             )
-        if config.strategy_key not in self._session.available_strategy_keys:
+        if config.strategy_key not in session.available_strategy_keys:
             return ArmStrategyResult(
                 armed=False, block_reason=ArmStrategyBlockReason.STRATEGY_NOT_FOUND
             )
@@ -118,9 +126,7 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
                     armed=False,
                     block_reason=ArmStrategyBlockReason.SPOT_LEVERAGE_NOT_SUPPORTED,
                 )
-            if SignalAction.SHORT in self._session.declared_directions(
-                config.strategy_key
-            ):
+            if SignalAction.SHORT in session.declared_directions(config.strategy_key):
                 return ArmStrategyResult(
                     armed=False,
                     block_reason=ArmStrategyBlockReason.SPOT_SHORT_NOT_SUPPORTED,
@@ -137,7 +143,7 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
         # to unwind. A claim cannot be refused today (one armed strategy means
         # one owner), which is exactly why the order has to be the one that
         # stays correct when ADR §7 item 15's second strategy arrives.
-        if not self._trading_session.claim_symbol(config.symbol, STRATEGY_OWNER):
+        if not trading_session.claim_symbol(config.symbol, STRATEGY_OWNER):
             logger.info(
                 "Refused to arm '%s': %s is managed by another owner.",
                 config.strategy_key,
@@ -148,7 +154,7 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
             )
 
         try:
-            self._session.arm(config)
+            session.arm(config)
         except ValueError as exc:
             logger.info(
                 "Refused to arm '%s': %s", config.strategy_key, exc, exc_info=False
@@ -156,7 +162,7 @@ class ArmStrategyCommandHandler(ICommandHandler[ArmStrategyCommand, ArmStrategyR
             # The claim was this call's, so this call gives it back. Leaving it
             # held would block the user's own next manual order on a symbol no
             # strategy is running.
-            self._trading_session.release_symbol(config.symbol, STRATEGY_OWNER)
+            trading_session.release_symbol(config.symbol, STRATEGY_OWNER)
             return ArmStrategyResult(
                 armed=False,
                 block_reason=ArmStrategyBlockReason.INVALID_PARAMS,

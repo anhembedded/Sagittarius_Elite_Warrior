@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.holdings_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 _HOLDING = SpotHolding(
     asset="BTC",
@@ -35,7 +38,9 @@ def _service(dispatcher=None, event_publisher=None, session_state=None):
     dispatcher = dispatcher or Mock()
     event_publisher = event_publisher or Mock()
     session_state = session_state or TradingSessionState()
-    service = HoldingsRefreshService(dispatcher, event_publisher, session_state)
+    service = HoldingsRefreshService(
+        dispatcher, event_publisher, session_state, TradingVenue.SPOT_TESTNET
+    )
     return service, dispatcher, event_publisher, session_state
 
 
@@ -59,7 +64,9 @@ def test_refresh_dispatches_get_holdings_and_publishes_the_whole_set() -> None:
 
     service.refresh_once()
 
-    dispatcher.dispatch.assert_called_once_with(GetHoldingsQuery, GetHoldingsQuery())
+    dispatcher.dispatch.assert_called_once_with(
+        GetHoldingsQuery, GetHoldingsQuery(venue=TradingVenue.SPOT_TESTNET)
+    )
     event_publisher.publish.assert_called_once_with(
         HoldingsChangedEvent(holdings=(_HOLDING,))
     )

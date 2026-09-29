@@ -37,7 +37,14 @@ class IVenueContexts(ABC):
     @abstractmethod
     def get(self, venue: TradingVenue) -> VenueContext:
         """The context of `venue`, the same instance on every call.
-        @raise VenueNotEnabledError `venue` is not in `enabled()`."""
+
+        `TradingVenue.DISABLED` is served only while nothing is enabled,
+        when it is the primary venue (`primary()`): a command addressed to
+        the process's own read-only venue still gets that venue's adapters,
+        and its handler refuses it through
+        `TradingVenue.supports_order_submission`, as it always has.
+        @raise VenueNotEnabledError `venue` is neither enabled nor the
+        primary venue."""
 
     @abstractmethod
     def primary(self) -> VenueContext:

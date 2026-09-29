@@ -10,28 +10,17 @@ user-data stream, and the trading-limits policy. Same shape as
 `market_data/composition/adapter_bindings.py`: one function, called from
 `TradingModule.register()`.
 
-**One binding did not fit here.** `ITradingClient` was registered
-*conditionally* in the legacy root — only when `TradingVenue != DISABLED`
-(EPIC-021F), because resolving it while trading is off must fail loudly
-(`DependencyResolutionError`, an unbound type) rather than hand back a
-client nobody asked to enable (`tests/sanity/test_composition_root.py`'s
-`_NOT_DISPATCHED` entry for `SubmitOrderCommand` depends on this). Deciding
-that conditional needs `TradingVenue`'s actual resolved value, and
-`register()` may not `resolve()` (`Docs/SDD/04_boot_and_configuration.md`'s
-register/boot table — the `RegisteringContainer` this module's `register()`
-sees raises on any `resolve()` call, config included, which the legacy
-`BaseModule.register(app)` never had to honour). `TradingModule.boot()` runs
-after every module has registered, `resolve()` is allowed there, and it is
-where this module's own `PositionRefreshService` scheduling already lived —
-so the conditional bind moved there too, alongside it. `TradingVenue` itself
-stays a plain lazy singleton here, matching every other binding in this file;
-only the *conditional bind of a second type* needed `boot()`.
-
 **`EPIC-028A` — venues are a set now.** Every per-venue adapter is built by
 `VenueAssembly` (one per enabled venue) and reached through `IVenueContexts`.
-The single-venue ports below still resolve, to the *primary* venue's own
-instances, so every existing caller keeps working unchanged until
-`EPIC-028B` makes each command name its venue and deletes them.
+
+**`EPIC-028B` — no single-venue door is left.** The per-venue ports
+(credentials, metadata cache and provider, client factory, account reader,
+user-data stream) are bound nowhere on their own: a caller names the venue
+it acts on and reads that venue's `VenueContext`. Only `TradingVenue`, the
+*primary* venue, is still bound, for the screens that show one venue until
+the two desks exist (`EPIC-028K`/`L`/`M`). `ITradingClient` was bound
+conditionally in `TradingModule.boot()` before this; each handler now
+creates it from the venue's own `client_factory`.
 """
 
 from __future__ import annotations
@@ -46,8 +35,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_sess
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_session_factory import (
     SpotSessionFactory,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
-    EquityCurveRecorder,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
+    VenueSessionStates,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly import (
     SharedVenueInputs,
@@ -55,21 +44,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly im
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_contexts import (
     VenueContexts,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_symbol_order_metadata_cache import (
-    ISymbolOrderMetadataCache,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
-    ITradingAccountReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
-    ITradingClientFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
-    IUserDataStream,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
@@ -82,9 +56,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
     resolve_trading_venues,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
-    IExchangeCredentialsProvider,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
     ITradingSessionFactory,
@@ -127,6 +98,7 @@ def bind_adapters(container: IContainer) -> None:
                 futures_session_factory=session_factory,
                 spot_session_factory=SpotSessionFactory(),
                 secrets_file_path=secrets_file_path,
+                session_states=c.resolve(VenueSessionStates),
             ),
         ),
     )
@@ -136,20 +108,6 @@ def bind_adapters(container: IContainer) -> None:
     # With only the legacy scalar `exchange.trading_venue` configured this is
     # exactly that value, as before `EPIC-028A`.
     container.singleton(TradingVenue, lambda c: c.resolve(VenueContexts).primary_venue)
-
-    # Single-venue doors, all onto the primary venue's own instances (see this
-    # file's module docstring). Deleted by `EPIC-028B`.
-    container.singleton(
-        IExchangeCredentialsProvider, lambda c: _primary(c).credentials_provider
-    )
-    container.singleton(ISymbolOrderMetadataCache, lambda c: _primary(c).metadata_cache)
-    container.singleton(
-        IMarketMetadataProvider, lambda c: _primary(c).metadata_provider
-    )
-    container.singleton(ITradingClientFactory, lambda c: _primary(c).client_factory)
-    container.singleton(ITradingAccountReader, lambda c: _primary(c).account_reader)
-    container.singleton(EquityCurveRecorder, lambda c: _primary(c).equity_recorder)
-    container.singleton(IUserDataStream, lambda c: _primary(c).user_data_stream)
 
     # EPIC-021G: the four trading limits, all on by default — see
     # TradingLimitPolicy's own docstring for why there is no "disable this
@@ -168,10 +126,6 @@ def _build_venue_contexts(
         resolve_trading_venues(container.resolve(IConfig)),
         lambda venue: VenueAssembly(venue, shared),
     )
-
-
-def _primary(container: IContainer) -> VenueAssembly:
-    return container.resolve(VenueContexts).primary_assembly()
 
 
 def _build_trading_limit_policy(container: IContainer) -> TradingLimitPolicy:

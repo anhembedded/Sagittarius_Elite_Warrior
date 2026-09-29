@@ -71,6 +71,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_r
     ITradingAccountReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
+    FakeVenueContexts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimits,
 )
@@ -90,6 +93,10 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    single_venue_scopes,
+    venue_context,
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests" / "sanity"))
@@ -162,11 +169,19 @@ def _submit_manual_order(direction: ManualOrderDirection) -> None:
         session_factory, credentials_provider, metadata_provider
     )
 
-    positions_handler = GetOpenPositionsQueryHandler(trading_client_factory)
+    positions_handler = GetOpenPositionsQueryHandler(
+        FakeVenueContexts(
+            venue_context(
+                TradingVenue.FUTURES_TESTNET, client_factory=trading_client_factory
+            )
+        )
+    )
     current_position = next(
         (
             p
-            for p in positions_handler.execute(GetOpenPositionsQuery())
+            for p in positions_handler.execute(
+                GetOpenPositionsQuery(venue=TradingVenue.FUTURES_TESTNET)
+            )
             if p.symbol == _SYMBOL
         ),
         None,
@@ -175,17 +190,21 @@ def _submit_manual_order(direction: ManualOrderDirection) -> None:
         direction, current_position, TradingVenue.FUTURES_TESTNET.market_type
     )
 
-    handler = ExecuteOrderCommandHandler(
+    context = venue_context(
         TradingVenue.FUTURES_TESTNET,
-        session_state,
-        account_reader,
-        PreviewOrderQueryHandler(metadata_provider),
+        account_reader=account_reader,
+        client_factory=trading_client_factory,
+        metadata_provider=metadata_provider,
+    )
+    handler = ExecuteOrderCommandHandler(
+        single_venue_scopes(context, session_state),
+        PreviewOrderQueryHandler(FakeVenueContexts(context)),
         TradingLimitPolicy(_LIMITS),
-        trading_client_factory,
     )
     result = handler.execute(
         ExecuteOrderCommand(
             order_request=PreviewOrderQuery(
+                venue=TradingVenue.FUTURES_TESTNET,
                 symbol=_SYMBOL,
                 side=intent.side,
                 order_type=OrderType.MARKET,

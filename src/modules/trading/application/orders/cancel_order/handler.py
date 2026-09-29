@@ -13,8 +13,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order.command import (
     CancelOrderCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
+    VenueTradingScope,
+    VenueTradingScopes,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
     CancelOrderResult,
@@ -22,63 +23,60 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderSafetyGate,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
-    ITradingAccountReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
-    ITradingClientFactory,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
 )
 
 logger = logging.getLogger("App.CommandHandler")
 
 
 class CancelOrderCommandHandler(ICommandHandler[CancelOrderCommand, CancelOrderResult]):
-    def __init__(
-        self,
-        trading_venue: TradingVenue,
-        session_state: TradingSessionState,
-        account_reader: ITradingAccountReader,
-        trading_client_factory: ITradingClientFactory,
-    ) -> None:
-        self._trading_venue = trading_venue
-        self._session_state = session_state
-        self._account_reader = account_reader
-        self._trading_client_factory = trading_client_factory
+    """@details `EPIC-028B` — cancels on `command.venue` only, through that
+    venue's own session state, connection and client."""
+
+    def __init__(self, scopes: VenueTradingScopes) -> None:
+        self._scopes = scopes
 
     def execute(self, command: CancelOrderCommand) -> CancelOrderResult:
         logger.debug(
-            "Handling CancelOrderCommand for %s %s",
+            "Handling CancelOrderCommand for %s %s on %s",
             command.symbol,
             command.client_order_id,
+            command.venue.value,
         )
-        gate = self._first_blocked_safety_gate()
+        if not command.venue.supports_order_submission:
+            return CancelOrderResult(
+                ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED, None
+            )
+        scope = self._scopes.get(command.venue)
+        gate = self._first_blocked_safety_gate(scope)
         if gate is not None:
             return CancelOrderResult(gate, None)
 
         # `OrderSubmissionMode` only gates `place_order()` — irrelevant to
         # a cancel, same reasoning `EnableTradingCommandHandler` already
         # gives for its own read-only calls through this same adapter.
-        trading_client = self._trading_client_factory.create(
+        trading_client = scope.ports.client_factory.create(
             OrderSubmissionMode.VALIDATE_ONLY
         )
         cancelled_order = trading_client.cancel_order(
             command.symbol, command.client_order_id
         )
-        logger.info("Order cancelled: %s %s", command.symbol, command.client_order_id)
+        logger.info(
+            "Order cancelled on %s: %s %s",
+            command.venue.value,
+            command.symbol,
+            command.client_order_id,
+        )
         return CancelOrderResult(None, cancelled_order)
 
-    def _first_blocked_safety_gate(self) -> ExecuteOrderSafetyGate | None:
-        if not self._trading_venue.supports_order_submission:
-            return ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
-        if not self._session_state.enabled:
+    @staticmethod
+    def _first_blocked_safety_gate(
+        scope: VenueTradingScope,
+    ) -> ExecuteOrderSafetyGate | None:
+        if not scope.session_state.enabled:
             return ExecuteOrderSafetyGate.TRADING_SWITCH_OFF
-        status = self._account_reader.check_connection()
+        status = scope.ports.account_reader.check_connection()
         if not status.reachable or status.failure is not None:
             return ExecuteOrderSafetyGate.CONNECTION_NOT_READY
         return None

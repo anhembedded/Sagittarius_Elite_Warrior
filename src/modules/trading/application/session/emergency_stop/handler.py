@@ -31,8 +31,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.command import (
     EmergencyStopCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
+    VenueTradingScope,
+    VenueTradingScopes,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     generate_client_order_id,
@@ -41,20 +42,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_resu
     EmergencyStopResult,
     EmergencyStopStepResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
-    IMarketMetadataProvider,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_reader import (
-    ITradingAccountReader,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_factory import (
-    ITradingClientFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
-    IUserDataStream,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
@@ -70,9 +59,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side impor
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holdings_close_policy import (
     sellable_spot_quantity,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
-    TradingVenue,
 )
 
 logger = logging.getLogger("App.CommandHandler")
@@ -106,7 +92,7 @@ class EmergencyStopCommandHandler(
     step's own `EmergencyStopStepResult`, not raised — one step failing
     must never prevent the next one from being attempted.
 
-    `EPIC-027M` — step 3 branches by `trading_venue.market_type`: Spot has
+    `EPIC-027M` — step 3 branches by the command venue's `market_type`: Spot has
     no `LivePosition` to close (`ITradingClient.get_positions()` always
     answers `[]` there), so "close" means selling each asset's surplus over
     the session's own baseline (`TradingSessionState.spot_baseline_holdings()`)
@@ -114,30 +100,20 @@ class EmergencyStopCommandHandler(
     venue checks, per `code/quality.md` §3.
     """
 
-    def __init__(
-        self,
-        session_state: TradingSessionState,
-        user_data_stream: IUserDataStream,
-        trading_client_factory: ITradingClientFactory,
-        trading_venue: TradingVenue,
-        account_reader: ITradingAccountReader,
-        metadata_provider: IMarketMetadataProvider,
-    ) -> None:
-        self._session_state = session_state
-        self._user_data_stream = user_data_stream
-        self._trading_client_factory = trading_client_factory
-        self._trading_venue = trading_venue
-        self._account_reader = account_reader
-        self._metadata_provider = metadata_provider
+    def __init__(self, scopes: VenueTradingScopes) -> None:
+        self._scopes = scopes
 
     def execute(self, command: EmergencyStopCommand) -> EmergencyStopResult:
-        logger.warning("Handling EmergencyStopCommand")
+        logger.warning("Handling EmergencyStopCommand on %s", command.venue.value)
+        # `EPIC-028B` — one venue's stop: its session, orders, positions and
+        # Spot baseline. Another venue's session is never read or touched.
+        scope = self._scopes.get(command.venue)
 
-        trading_disabled = self._disable_trading()
+        trading_disabled = self._disable_trading(scope)
 
-        trading_client = self._trading_client_factory.create(OrderSubmissionMode.LIVE)
+        trading_client = scope.ports.client_factory.create(OrderSubmissionMode.LIVE)
         orders_cancelled = self._cancel_all_orders(trading_client)
-        positions_closed = self._close_all_positions(trading_client)
+        positions_closed = self._close_all_positions(trading_client, scope)
         final_positions, final_open_orders, final_state_confirmed = (
             self._read_final_state(trading_client)
         )
@@ -152,17 +128,23 @@ class EmergencyStopCommandHandler(
         )
         if result.fully_succeeded:
             logger.warning(
-                "Emergency stop completed: trading disabled, all orders "
-                "cancelled, all positions closed."
+                "Emergency stop on %s completed: trading disabled, all orders "
+                "cancelled, all positions closed.",
+                command.venue.value,
             )
         else:
-            logger.error("Emergency stop completed with failures: %s", result)
+            logger.error(
+                "Emergency stop on %s completed with failures: %s",
+                command.venue.value,
+                result,
+            )
         return result
 
-    def _disable_trading(self) -> EmergencyStopStepResult:
+    @staticmethod
+    def _disable_trading(scope: VenueTradingScope) -> EmergencyStopStepResult:
         try:
-            self._session_state.disable()
-            self._user_data_stream.stop()
+            scope.session_state.disable()
+            scope.ports.user_data_stream.stop()
             return EmergencyStopStepResult(True, "Trading disabled.")
         except Exception as exc:  # noqa: BLE001 - report every failure, never let one abort the remaining steps
             return EmergencyStopStepResult(False, f"Error disabling trading: {exc}")
@@ -194,13 +176,13 @@ class EmergencyStopCommandHandler(
         )
 
     def _close_all_positions(
-        self, trading_client: ITradingClient
+        self, trading_client: ITradingClient, scope: VenueTradingScope
     ) -> EmergencyStopStepResult:
         """@brief Dispatches step 3 by venue market type — the one place
         this handler branches on it (`code/quality.md` §3), rather than a
         Futures/Spot check scattered across the step's own body."""
-        if self._trading_venue.market_type is MarketType.SPOT:
-            return self._sell_spot_surplus_holdings(trading_client)
+        if scope.venue.market_type is MarketType.SPOT:
+            return self._sell_spot_surplus_holdings(trading_client, scope)
         return self._close_all_futures_positions(trading_client)
 
     def _close_all_futures_positions(
@@ -238,8 +220,9 @@ class EmergencyStopCommandHandler(
                 )
         return EmergencyStopStepResult(True, f"Closed {closed_count} positions.")
 
+    @staticmethod
     def _sell_spot_surplus_holdings(
-        self, trading_client: ITradingClient
+        trading_client: ITradingClient, scope: VenueTradingScope
     ) -> EmergencyStopStepResult:
         """@brief Sells each Spot asset's surplus over the session's own
         baseline (`EPIC-027M` AC1-AC3) — never the baseline itself, and
@@ -255,14 +238,14 @@ class EmergencyStopCommandHandler(
         conservative answer is to sell nothing rather than guess a baseline
         of zero and offer up the user's entire pre-existing holdings.
         """
-        baseline = self._session_state.spot_baseline_holdings()
+        baseline = scope.session_state.spot_baseline_holdings()
         if baseline is None:
             return EmergencyStopStepResult(
                 True,
                 "No Spot holdings baseline recorded this session — nothing sold.",
             )
 
-        status = self._account_reader.check_connection()
+        status = scope.ports.account_reader.check_connection()
         if not status.reachable or status.holdings is None:
             return EmergencyStopStepResult(
                 False, "Could not read current Spot holdings."
@@ -275,7 +258,7 @@ class EmergencyStopCommandHandler(
             if holding.asset == _QUOTE_ASSET or holding.is_dust:
                 continue
             symbol = f"{holding.asset}{_QUOTE_ASSET}"
-            metadata = self._metadata_provider.get_or_fetch(symbol)
+            metadata = scope.ports.metadata_provider.get_or_fetch(symbol)
             if metadata is None:
                 # No exchange filters known for this symbol — cannot safely
                 # size an order without guessing a step size

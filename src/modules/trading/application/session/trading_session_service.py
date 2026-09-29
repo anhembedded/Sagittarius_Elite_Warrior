@@ -7,8 +7,8 @@ screen can show, and the CLI reaches two of them through the same dispatch. A
 port that skipped them would leave two paths to the same state the day either
 handler grows a rule.
 
-**What it adds.** The translation, and nothing else: three parameterless
-commands in, their own results out, and `read_all()`'s tuple mapped to the
+**What it adds.** The translation, and nothing else: three commands in,
+each addressed to this service's own venue, their own results out, and `read_all()`'s tuple mapped to the
 published `TradingSessionSnapshot`. It decides nothing — not whether trading
 may be enabled, not what a generation clash means.
 """
@@ -71,7 +71,9 @@ def _answered(response: object, expected: type) -> object:
 
 
 class TradingSessionService(ITradingSession):
-    """The module's answer to "is trading on, and turn it on or off"."""
+    """The module's answer to "is trading on, and turn it on or off", for
+    one venue (`EPIC-028B`: one instance per venue, over that venue's own
+    `TradingSessionState`)."""
 
     def __init__(
         self,
@@ -95,7 +97,7 @@ class TradingSessionService(ITradingSession):
 
     def enable(self) -> EnableTradingResult:
         response = self._dispatcher.dispatch(
-            EnableTradingCommand, EnableTradingCommand()
+            EnableTradingCommand, EnableTradingCommand(venue=self._trading_venue)
         )
         return _answered(response, EnableTradingResult)  # type: ignore[return-value]
 
@@ -103,7 +105,9 @@ class TradingSessionService(ITradingSession):
         # The one command that cannot refuse, so there is nothing to check:
         # `DisableTradingCommand`'s own docstring records that there is no
         # result type by design.
-        self._dispatcher.dispatch(DisableTradingCommand, DisableTradingCommand())
+        self._dispatcher.dispatch(
+            DisableTradingCommand, DisableTradingCommand(venue=self._trading_venue)
+        )
 
     def claim_symbol(self, symbol: str, owner_id: str) -> bool:
         """Straight to the state, not through a command: a lease claim is a
@@ -118,6 +122,6 @@ class TradingSessionService(ITradingSession):
 
     def emergency_stop(self) -> EmergencyStopResult:
         response = self._dispatcher.dispatch(
-            EmergencyStopCommand, EmergencyStopCommand()
+            EmergencyStopCommand, EmergencyStopCommand(venue=self._trading_venue)
         )
         return _answered(response, EmergencyStopResult)  # type: ignore[return-value]

@@ -7,8 +7,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     generate_client_order_id,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
-    IMarketMetadataProvider,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview import (
@@ -39,15 +39,21 @@ class PreviewOrderQueryHandler(IQueryHandler[PreviewOrderQuery, OrderPreview]):
     `exchange-status` already uses.
     """
 
-    def __init__(self, metadata_provider: IMarketMetadataProvider) -> None:
-        self._metadata_provider = metadata_provider
+    def __init__(self, contexts: IVenueContexts) -> None:
+        self._contexts = contexts
         self._rounding_policy = OrderQuantityRoundingPolicy()
 
     def execute(self, query: PreviewOrderQuery) -> OrderPreview:
-        logger.debug("Handling PreviewOrderQuery for %s", query.symbol)
-        metadata = self._metadata_provider.get_or_fetch(query.symbol)
+        """@details `EPIC-028B` — rounds against `query.venue`'s own rules:
+        a Futures and a Spot `BTCUSDT` are different instruments with
+        different lot sizes."""
+        logger.debug(
+            "Handling PreviewOrderQuery for %s on %s", query.symbol, query.venue.value
+        )
+        metadata_provider = self._contexts.get(query.venue).metadata_provider
+        metadata = metadata_provider.get_or_fetch(query.symbol)
         if metadata is None:
-            raise ValueError(f"Unknown futures symbol: {query.symbol}")
+            raise ValueError(f"Unknown symbol on {query.venue.value}: {query.symbol}")
 
         step_size = metadata.step_size_for(query.order_type)
         rounded_quantity = self._rounding_policy.round_quantity_down(

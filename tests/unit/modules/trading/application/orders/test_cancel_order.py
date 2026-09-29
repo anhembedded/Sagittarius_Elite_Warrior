@@ -38,6 +38,10 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
+    single_venue_scopes,
+    venue_context,
+)
 
 _CREDENTIALS = ResolvedCredentials(
     ExchangeCredentials(api_key="key", api_secret="secret"), CredentialsSource.FILE
@@ -80,18 +84,22 @@ def _handler(
         session_factory, credentials_provider, metadata_provider
     )
 
-    return CancelOrderCommandHandler(
+    context = venue_context(
         trading_venue,
-        state,
-        account_reader,
-        trading_client_factory,
+        account_reader=account_reader,
+        client_factory=trading_client_factory,
     )
+    return CancelOrderCommandHandler(single_venue_scopes(context, state))
+
+
+def _cancel(venue: TradingVenue = TradingVenue.FUTURES_TESTNET) -> CancelOrderCommand:
+    return CancelOrderCommand("BTCUSDT", "abc", venue=venue)
 
 
 class TestSafetyGates:
     def test_blocked_when_trading_venue_disabled(self) -> None:
         handler = _handler(trading_venue=TradingVenue.DISABLED)
-        result = handler.execute(CancelOrderCommand("BTCUSDT", "abc"))
+        result = handler.execute(_cancel(TradingVenue.DISABLED))
         assert result.blocked_by is ExecuteOrderSafetyGate.TRADING_VENUE_DISABLED
         assert result.cancelled_order is None
 
@@ -112,13 +120,13 @@ class TestSafetyGates:
         handler = _handler(
             trading_venue=TradingVenue.SPOT_TESTNET, raw_client=raw_client
         )
-        result = handler.execute(CancelOrderCommand("BTCUSDT", "abc"))
+        result = handler.execute(_cancel(TradingVenue.SPOT_TESTNET))
         assert result.blocked_by is None
         assert result.cancelled_order is not None
 
     def test_blocked_when_switch_is_off(self) -> None:
         handler = _handler(enabled=False)
-        result = handler.execute(CancelOrderCommand("BTCUSDT", "abc"))
+        result = handler.execute(_cancel())
         assert result.blocked_by is ExecuteOrderSafetyGate.TRADING_SWITCH_OFF
 
     def test_blocked_when_connection_not_ready(self) -> None:
@@ -133,7 +141,7 @@ class TestSafetyGates:
             open_position_count=None,
         )
         handler = _handler(status=bad_status)
-        result = handler.execute(CancelOrderCommand("BTCUSDT", "abc"))
+        result = handler.execute(_cancel())
         assert result.blocked_by is ExecuteOrderSafetyGate.CONNECTION_NOT_READY
 
 
@@ -158,7 +166,7 @@ class TestCancellation:
         }
         handler = _handler(raw_client=raw_client)
 
-        result = handler.execute(CancelOrderCommand("BTCUSDT", "abc"))
+        result = handler.execute(_cancel())
 
         assert result.blocked_by is None
         assert result.cancelled_order is not None

@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 def _position(symbol: str = "ETHUSDT") -> LivePosition:
@@ -53,7 +56,9 @@ def _service(dispatcher=None, event_publisher=None, session_state=None):
     dispatcher = dispatcher or Mock()
     event_publisher = event_publisher or Mock()
     session_state = session_state or TradingSessionState()
-    service = PositionRefreshService(dispatcher, event_publisher, session_state)
+    service = PositionRefreshService(
+        dispatcher, event_publisher, session_state, TradingVenue.FUTURES_TESTNET
+    )
     return service, dispatcher, event_publisher, session_state
 
 
@@ -79,7 +84,7 @@ def test_refresh_dispatches_get_open_positions_and_publishes_position_changed():
     service.refresh_once()
 
     dispatcher.dispatch.assert_called_once_with(
-        GetOpenPositionsQuery, GetOpenPositionsQuery()
+        GetOpenPositionsQuery, GetOpenPositionsQuery(venue=TradingVenue.FUTURES_TESTNET)
     )
     event_publisher.publish.assert_called_once_with(
         PositionChangedEvent(position=position)

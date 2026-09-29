@@ -50,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
 )
 
 logger = logging.getLogger("App.PositionRefresh")
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 class PositionRefreshService:
@@ -70,10 +73,14 @@ class PositionRefreshService:
         dispatcher: ICommandDispatcher,
         event_publisher: IEventPublisher,
         session_state: TradingSessionState,
+        venue: TradingVenue,
     ) -> None:
+        """`EPIC-028B` — one instance per venue: `session_state` is that
+        venue's own, and every read is addressed to `venue`."""
         self._dispatcher = dispatcher
         self._event_publisher = event_publisher
         self._session_state = session_state
+        self._venue = venue
         self._known_symbols: set[str] = set()
 
     def refresh_once(self) -> None:
@@ -88,7 +95,7 @@ class PositionRefreshService:
             positions = cast(
                 tuple[LivePosition, ...],
                 self._dispatcher.dispatch(
-                    GetOpenPositionsQuery, GetOpenPositionsQuery()
+                    GetOpenPositionsQuery, GetOpenPositionsQuery(venue=self._venue)
                 ),
             )
         except Exception as exc:  # noqa: BLE001 - worker boundary: a transient network hiccup must not kill the scheduler's job thread, and there is nothing user-facing to report for one missed tick — the next one simply tries again

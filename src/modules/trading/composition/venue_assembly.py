@@ -9,7 +9,8 @@ rounding rules may not have bound.
 Everything a venue owns is its own: credentials for its own env-var pair, its
 own metadata cache (a Futures and a Spot `BTCUSDT` are different
 instruments), its own `TradingSessionState` and `EquityCurveRecorder` wired
-into its own user data stream. `DISABLED` builds the Futures-shaped read-only
+into its own user data stream (the state itself is owned by
+`VenueSessionStates`, `EPIC-028B`). `DISABLED` builds the Futures-shaped read-only
 adapters the process has always bound while trading is off.
 """
 
@@ -59,6 +60,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_reco
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
+    VenueSessionStates,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -96,14 +100,16 @@ from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 
 @dataclass(frozen=True)
 class SharedVenueInputs:
-    """What every venue's assembly shares: the stateless session factories
-    and the secrets-file path. The container is only asked for
-    `IEventBus`/`ITaskManager`, and only when a user data stream is built."""
+    """What every venue's assembly shares: the stateless session factories,
+    the secrets-file path and the registry that owns each venue's session
+    state. The container is only asked for `IEventBus`/`ITaskManager`, and
+    only when a user data stream is built."""
 
     container: IContainer
     futures_session_factory: FuturesSessionFactory
     spot_session_factory: SpotSessionFactory
     secrets_file_path: str
+    session_states: VenueSessionStates
 
 
 class _LockedCachedProperty[T](cached_property[T]):
@@ -186,13 +192,15 @@ class VenueAssembly:
             self._shared.futures_session_factory, self.credentials_provider
         )
 
-    @_LockedCachedProperty
+    @property
     def session_state(self) -> TradingSessionState:
-        return TradingSessionState()
+        """Owned by `VenueSessionStates` (`EPIC-028B`), so the handlers that
+        act on this venue and its user data stream share one object."""
+        return self._shared.session_states.session_state(self._venue)
 
-    @_LockedCachedProperty
+    @property
     def equity_recorder(self) -> EquityCurveRecorder:
-        return EquityCurveRecorder()
+        return self._shared.session_states.equity_recorder(self._venue)
 
     @_LockedCachedProperty
     def user_data_stream(self) -> IUserDataStream:

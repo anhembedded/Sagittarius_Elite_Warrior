@@ -19,6 +19,11 @@ wiring `TradingModule.register()` calls. `ITaskManager` is a `Mock()`: an
 Engine interface (`test_no_foreign_port_is_mocked.py`'s own exemption list),
 never invoked here since `IUserDataStream` construction only stores it —
 `.spawn()` is called from `.start()`, which this test never calls.
+
+`EPIC-028B` — the single-venue binding is gone. The port is read from the
+primary venue's `VenueContext` (`IVenueContexts.primary()`), which the
+legacy scalar `exchange.trading_venue` still selects; the venue shape each
+configuration gets is what stays locked.
 """
 
 from __future__ import annotations
@@ -38,8 +43,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.adapter_bindings 
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.state_bindings import (
     bind_state,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
-    IUserDataStream,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -79,7 +84,7 @@ def test_user_data_stream_is_futures_by_default():
     resolve even though trading is not enabled."""
     container = _container_with_venue(None)
 
-    stream = container.resolve(IUserDataStream)
+    stream = container.resolve(IVenueContexts).primary().user_data_stream
 
     assert isinstance(stream, FuturesUserDataStream)
 
@@ -87,7 +92,7 @@ def test_user_data_stream_is_futures_by_default():
 def test_user_data_stream_is_futures_when_venue_is_explicitly_disabled():
     container = _container_with_venue(TradingVenue.DISABLED)
 
-    stream = container.resolve(IUserDataStream)
+    stream = container.resolve(IVenueContexts).primary().user_data_stream
 
     assert isinstance(stream, FuturesUserDataStream)
 
@@ -95,7 +100,7 @@ def test_user_data_stream_is_futures_when_venue_is_explicitly_disabled():
 def test_user_data_stream_is_futures_when_venue_is_futures_testnet():
     container = _container_with_venue(TradingVenue.FUTURES_TESTNET)
 
-    stream = container.resolve(IUserDataStream)
+    stream = container.resolve(IVenueContexts).primary().user_data_stream
 
     assert isinstance(stream, FuturesUserDataStream)
 
@@ -107,6 +112,6 @@ def test_user_data_stream_is_spot_when_venue_is_spot_testnet():
     the real Spot entry point (`bsm.user_socket()`)."""
     container = _container_with_venue(TradingVenue.SPOT_TESTNET)
 
-    stream = container.resolve(IUserDataStream)
+    stream = container.resolve(IVenueContexts).primary().user_data_stream
 
     assert isinstance(stream, SpotUserDataStream)
