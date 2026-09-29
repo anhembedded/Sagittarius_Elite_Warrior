@@ -2,8 +2,8 @@
 
 **Epic:** [EPIC-028](README.md)
 **Date:** 2026-09-29
-**Status:** 🔵 Proposed — awaiting the user's decision on D1–D8 and O1–O5
-**Decided by:** not yet. The request, 2026-09-29: *"giờ màn hình trading đang có vấn đề, cần có 2
+**Status:** Accepted (2026-09-29)
+**Decided by:** 🟢 User decision, 2026-09-29 — *"đồng ý các khuyến nghị, bắt đầu làm 028A đi"* ("I agree with the recommendations, start on 028A"), replying to the report generated from this ADR. This accepts D1–D8 as written and answers O1–O5 with each question's recommended option (§4). The request, 2026-09-29: *"giờ màn hình trading đang có vấn đề, cần có 2
 cái chứ không phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì
 riêng, 2 màn hình đó phải có vào lệnh thủ công, và chọn strategy … khi kết nối tới binance thì
 phải get các data về thông tin tài khoản, vị thế"* ("the trading screen has a problem: there must
@@ -49,7 +49,7 @@ Dev Board only, ADR D15").
    `ChartCard`, `EquityFeed`, `OrderSubmissionService` → `ExecuteOrderCommand`,
    `manual_order_intent_for()`, `OrderQuantityRoundingPolicy`, `SymbolOrderMetadata`.
 
-## 2. Decisions (🔵 all proposed)
+## 2. Decisions (🟢 all accepted 2026-09-29)
 
 - **D1 — Two screens, two routes.** `trading.futures` ("Futures") and `trading.spot` ("Spot")
   replace the single `"trading"` route. Each screen is permanently bound to one venue; a screen
@@ -105,9 +105,9 @@ Dev Board only, ADR D15").
 - HLD 04 §4.5 and HLD 11 §11.3 change: manual order entry moves onto both desks. The Dev Board keeps
   its F9 dialog, rebuilt on the shared order-entry panel.
 
-## 4. Open questions (❓)
+## 4. Questions (🟢 answered 2026-09-29 with the recommendation)
 
-| # | Question | Recommendation | Blocks |
+| # | Question | Answer (the recommendation) | Blocked |
 | :- | :--- | :--- | :--- |
 | O1 | Both venues in one process (D2) or keep one venue per process and just give each its own screen? | **One process, both venues** — two screens where one is always dead is not what was asked | Phase 1 |
 | O2 | Spot TP/SL: Binance Spot does it with OCO orders, which no code here builds. | **Futures TP/SL now** (`STOP_MARKET`/`TAKE_PROFIT_MARKET` reduce-only, already on `OrderType`); Spot TP/SL toggle visible but disabled, delivered with `EPIC-026K`'s protective orders | Phase 3 |
