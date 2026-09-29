@@ -113,3 +113,43 @@ def resolve_trading_venue(config: IConfig) -> TradingVenue:
             [venue.value for venue in TradingVenue],
         )
         return _DEFAULT_TRADING_VENUE
+
+
+def resolve_trading_venues(config: IConfig) -> tuple[TradingVenue, ...]:
+    """`EPIC-028A` — every venue live at once, in configuration order.
+
+    @details `exchange.trading_venues` (a list) wins when present. A config
+    that only has the scalar `exchange.trading_venue` reads exactly as before
+    through `resolve_trading_venue`: one venue, or none for `"disabled"`.
+    Unknown entries and `"disabled"` inside the list are dropped with a
+    warning, never mapped to a real venue, and a repeated venue counts once —
+    the same "a typo must never silently turn trading on" rule the scalar
+    reader follows.
+    """
+    raw = config.get(ConfigKeys.EXCHANGE_TRADING_VENUES.value, None)
+    if raw is None:
+        venue = resolve_trading_venue(config)
+        return () if venue is TradingVenue.DISABLED else (venue,)
+    if not isinstance(raw, list):
+        logger.warning(
+            "%s must be a list of venues, got %r; trading is off.",
+            ConfigKeys.EXCHANGE_TRADING_VENUES.value,
+            raw,
+        )
+        return ()
+    venues: list[TradingVenue] = []
+    for item in raw:
+        try:
+            venue = TradingVenue(item)
+        except ValueError:
+            logger.warning(
+                "Trading venue %r in %s is not known; ignoring it. Known venues: %s.",
+                item,
+                ConfigKeys.EXCHANGE_TRADING_VENUES.value,
+                [v.value for v in TradingVenue],
+            )
+            continue
+        if venue is TradingVenue.DISABLED or venue in venues:
+            continue
+        venues.append(venue)
+    return tuple(venues)

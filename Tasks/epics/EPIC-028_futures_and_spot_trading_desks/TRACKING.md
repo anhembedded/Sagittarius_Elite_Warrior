@@ -1,7 +1,7 @@
 # EPIC-028 — Tracking
 
 - **Epic:** [EPIC-028 — Two trading desks](README.md)
-- **Status:** 🔵 Planned — ADR proposed, awaiting the user's decision
+- **Status:** 🟡 In Progress — ADR accepted 2026-09-29; Phase 1 started
 - **Target Completion:** not committed; the bars below are relative estimates from the day the ADR is accepted.
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -21,10 +21,10 @@ gantt
 
     section Spec
     Survey, ADR and sub-tasks              :done,    s1, 2026-09-29, 1d
-    User decision on ADR D1-D8, O1-O5      :crit,    s2, after s1, 2d
+    User decision on ADR D1-D8, O1-O5      :done,    s2, after s1, 2d
 
     section Phase 1 - Both venues in one process
-    028A VenueContext and registry         :crit,    a, after s2, 4d
+    028A VenueContext and registry         :crit, active, a, after s2, 4d
     028B Venue-addressed commands          :crit,    b, after a, 4d
     028C Both venues concurrently          :         c, after b, 3d
     Phase 1 exit check                     :milestone, m1, after c, 0d
@@ -56,7 +56,7 @@ gantt
 
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
-| EPIC-028A | [VenueContext and registry](incomplete/EPIC-028A_venue_context_and_registry.md) | — | 🔴 | 🔵 Planned | — |
+| EPIC-028A | [VenueContext and registry](incomplete/EPIC-028A_venue_context_and_registry.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | 🟡 Awaiting review | [#293](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/293) |
 | EPIC-028B | [Venue-addressed commands](incomplete/EPIC-028B_venue_addressed_commands.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-028C | [Both venues concurrently](incomplete/EPIC-028C_both_venues_running_concurrently.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-028D | [Account summary](incomplete/EPIC-028D_account_summary_reader.md) | — | 🟡 | 🔵 Planned | — |
@@ -77,6 +77,8 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-09-29 | EPIC-028A | Implemented: `IVenueContexts` + per-venue `VenueAssembly`; single-venue ports are primary-venue shims. Fast tier green; awaiting independent review. |
+| 2026-09-29 | ADR | Accepted by the user — D1–D8, O1–O5 per recommendation; `EPIC-028A` started. |
 | 2026-09-29 | Spec | Epic scaffolded from a survey of `faf4a337`; ADR D1–D8 proposed, O1–O5 open; 14 sub-tasks in four phases. |
 
 ---
@@ -85,7 +87,7 @@ gantt
 
 | Blocker / Dependency | Impacted Tasks | Resolution / Owner | Status |
 | :--- | :--- | :--- | :--- |
-| ADR D1–D8 accepted, O1 answered | all | the user | 🟡 Open |
-| O2 Spot TP/SL, O3 stop-limit | EPIC-028H, EPIC-028I | the user | 🟡 Open |
-| O4 retire the old route, O5 history depth | EPIC-028E, EPIC-028M | the user | 🟡 Open |
+| ADR D1–D8 accepted, O1 answered | all | the user | ✅ Resolved 2026-09-29 |
+| O2 Spot TP/SL, O3 stop-limit | EPIC-028H, EPIC-028I | the user | ✅ Resolved 2026-09-29 |
+| O4 retire the old route, O5 history depth | EPIC-028E, EPIC-028M | the user | ✅ Resolved 2026-09-29 |
 | Spot OCO protective orders | Spot TP/SL (out of scope) | `EPIC-026K` | 🟡 Open |

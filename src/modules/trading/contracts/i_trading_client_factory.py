@@ -14,12 +14,12 @@ DISABLED`) cannot serve them, since `ExecuteOrderCommandHandler` and
 
 This factory owns those three raw collaborators instead, and hands back a
 client for whichever `OrderSubmissionMode` the caller needs. `venue` is not a
-parameter here: exactly one concrete factory is bound per process (today,
-always `FuturesTradingClientFactory` — `TradingVenue` has no second tradeable
-member yet), matching how `ITradingSessionFactory` itself is not
-venue-parameterized either. `EPIC-027K` adds Spot by binding a second
-concrete factory behind this same port when a Spot venue exists to select
-between (`architecture-rule.md` §7.2.1: the seam now, the variant later).
+parameter here: each concrete factory is bound to one venue's own
+collaborators (`FuturesTradingClientFactory`, `SpotTradingClientFactory` —
+`EPIC-027K`), and since `EPIC-028A` there is one factory per enabled venue,
+reached through `IVenueContexts.get(venue).client_factory`. The
+single-venue `ITradingClientFactory` binding is the primary venue's own
+instance until `EPIC-028B` has every caller name its venue.
 """
 
 from __future__ import annotations

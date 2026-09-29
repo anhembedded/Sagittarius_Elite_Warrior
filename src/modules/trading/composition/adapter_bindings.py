@@ -26,6 +26,12 @@ where this module's own `PositionRefreshService` scheduling already lived —
 so the conditional bind moved there too, alongside it. `TradingVenue` itself
 stays a plain lazy singleton here, matching every other binding in this file;
 only the *conditional bind of a second type* needed `boot()`.
+
+**`EPIC-028A` — venues are a set now.** Every per-venue adapter is built by
+`VenueAssembly` (one per enabled venue) and reached through `IVenueContexts`.
+The single-venue ports below still resolve, to the *primary* venue's own
+instances, so every existing caller keeps working unchanged until
+`EPIC-028B` makes each command name its venue and deletes them.
 """
 
 from __future__ import annotations
@@ -34,44 +40,21 @@ from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
-    InMemorySymbolOrderMetadataCache,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
-    FuturesAccountReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
-    FuturesMetadataProvider,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client_factory import (
-    FuturesTradingClientFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user_data_stream import (
-    FuturesUserDataStream,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_reader import (
-    SpotAccountReader,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_metadata_provider import (
-    SpotMetadataProvider,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_session_factory import (
     SpotSessionFactory,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_trading_client_factory import (
-    SpotTradingClientFactory,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_user_data_stream import (
-    SpotUserDataStream,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
-    TradingSessionState,
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly import (
+    SharedVenueInputs,
+    VenueAssembly,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_contexts import (
+    VenueContexts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
@@ -88,20 +71,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_fa
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimits,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitPolicy,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
-    EnvFirstCredentialsProvider,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
-    SecretsFileSource,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
-    resolve_trading_venue,
+    resolve_trading_venues,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
@@ -114,8 +94,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
-from sagittarius_engine.interfaces.i_event_bus import IEventBus
-from sagittarius_engine.interfaces.i_task_manager import ITaskManager
 from sagittarius_engine.utils.path_utils import PathUtils
 
 
@@ -127,168 +105,73 @@ def bind_adapters(container: IContainer) -> None:
     # the container silently constructing each of them a throwaway one.
     session_factory = FuturesSessionFactory()
     container.singleton(ITradingSessionFactory, session_factory)
-    # `EPIC-027H`: a Spot read session has different, unprefixed method
-    # names from Futures' `futures_*` ones (`ITradingSessionFactory`'s own
-    # docstring rules out widening it), so it is a second, parallel
-    # instance the `ITradingAccountReader` binding below chooses between —
-    # not published on any port itself, since its only consumer is this
-    # same file.
-    spot_session_factory = SpotSessionFactory()
-
-    # EPIC-021C: `FuturesMetadataProvider`/`SpotMetadataProvider` each take
-    # their own concrete session factory, not a port — `create_futures_
-    # metadata_client()`/`create_metadata_client()` are deliberately not on
-    # any port (see each factory's own docstring), and all four types are
-    # `trading`'s own adapters, so there is no boundary between them to put
-    # one across.
-    # `EPIC-027I`: venue-branches the same way `ITradingAccountReader` above
-    # does — one cache instance regardless of venue is safe because exactly
-    # one venue is ever active per process (`ISymbolOrderMetadataCache`'s own
-    # docstring).
-    container.singleton(ISymbolOrderMetadataCache, InMemorySymbolOrderMetadataCache)
-    container.singleton(
-        IMarketMetadataProvider,
-        lambda c: (
-            SpotMetadataProvider(
-                spot_session_factory, c.resolve(ISymbolOrderMetadataCache)
-            )
-            if c.resolve(TradingVenue) is TradingVenue.SPOT_TESTNET
-            else FuturesMetadataProvider(
-                session_factory, c.resolve(ISymbolOrderMetadataCache)
-            )
-        ),
-    )
 
     # EPIC-021B: `secrets.local.json` lives next to `user_config.json`
-    # (gitignored, unlike it) — same relative-path idiom `main.py` uses for
-    # the config files themselves. `EPIC-025E` PR 4.4f-4 moved this call out
-    # of `binance_bot_module.py`: `__file__` now points three directories
-    # deeper (`modules/trading/composition/`), so the walk-up needs three
-    # `..` segments to land back on `src/config/secrets.local.json` — the
-    # same file `scripts/epic021b_credentials_probe.py` and
-    # `tests/testnet/conftest.py` already resolve from their own locations.
+    # (gitignored, unlike it). `__file__` is three directories deep
+    # (`modules/trading/composition/`), so three `..` segments land back on
+    # `src/config/secrets.local.json` — the same file
+    # `scripts/epic021b_credentials_probe.py` and `tests/testnet/conftest.py`
+    # resolve from their own locations.
     secrets_file_path = PathUtils.get_relative_path(
         __file__, "..", "..", "..", "config", "secrets.local.json"
     )
-    # `EPIC-027G`: `EnvFirstCredentialsProvider` now reads a different env
-    # var pair per `TradingVenue` (Futures Testnet keys must never leak into
-    # a Spot Testnet resolution or vice versa), so the binding needs
-    # `TradingVenue`'s actual resolved value — which `register()` may not
-    # fetch (see this file's own module docstring). Lazy, matching
-    # `TradingVenue`'s own binding below; every consumer that used to close
-    # over a plain `credentials_provider` local now resolves this port
-    # instead.
+
+    # EPIC-028A: lazy, like every binding here — `register()` may not
+    # `resolve(IConfig)` (this file's own module docstring).
     container.singleton(
-        IExchangeCredentialsProvider,
-        lambda c: EnvFirstCredentialsProvider(
-            SecretsFileSource(secrets_file_path), c.resolve(TradingVenue)
+        VenueContexts,
+        lambda c: _build_venue_contexts(
+            c,
+            SharedVenueInputs(
+                container=c,
+                futures_session_factory=session_factory,
+                spot_session_factory=SpotSessionFactory(),
+                secrets_file_path=secrets_file_path,
+            ),
         ),
     )
+    container.singleton(IVenueContexts, lambda c: c.resolve(VenueContexts))
 
-    # `EPIC-027F`: the one place allowed to construct `FuturesTradingClient`
-    # (guarded by
-    # `test_only_the_factory_constructs_futures_trading_client.py`/
-    # `test_only_the_factory_constructs_spot_trading_client.py`).
-    # Registered unconditionally — like `ITradingAccountReader`/
-    # `IUserDataStream` below, not gated on `TradingVenue` the way
-    # `ITradingClient` itself is in `TradingModule.boot()` — so every
-    # handler that depends on it stays constructible regardless of whether
-    # trading is enabled.
-    # `EPIC-027K`: venue-branches exactly like `ITradingAccountReader`/
-    # `IMarketMetadataProvider` above — `SpotTradingClientFactory` for
-    # `SPOT_TESTNET`, unchanged `FuturesTradingClientFactory` otherwise.
+    # The primary venue — the first enabled one, `DISABLED` when none is.
+    # With only the legacy scalar `exchange.trading_venue` configured this is
+    # exactly that value, as before `EPIC-028A`.
+    container.singleton(TradingVenue, lambda c: c.resolve(VenueContexts).primary_venue)
+
+    # Single-venue doors, all onto the primary venue's own instances (see this
+    # file's module docstring). Deleted by `EPIC-028B`.
     container.singleton(
-        ITradingClientFactory,
-        lambda c: (
-            SpotTradingClientFactory(
-                spot_session_factory,
-                c.resolve(IExchangeCredentialsProvider),
-                c.resolve(IMarketMetadataProvider),
-            )
-            if c.resolve(TradingVenue) is TradingVenue.SPOT_TESTNET
-            else FuturesTradingClientFactory(
-                session_factory,
-                c.resolve(IExchangeCredentialsProvider),
-                c.resolve(IMarketMetadataProvider),
-            )
-        ),
+        IExchangeCredentialsProvider, lambda c: _primary(c).credentials_provider
     )
-
-    # EPIC-021D: read-only, does not require TradingVenue to be "enabled"
-    # anywhere — see FuturesAccountReader's own docstring for why this check
-    # works off credentials alone. Lazy since `EPIC-027G` made the
-    # credentials provider itself lazy.
-    # `EPIC-027H`: the first binding in this file to actually branch on
-    # `TradingVenue`'s resolved value rather than treat Futures as the only
-    # possibility — `SpotAccountReader` for `SPOT_TESTNET`, unchanged
-    # `FuturesAccountReader` for everything else (including `DISABLED`,
-    # matching this reader's own "credentials alone decide" reasoning).
+    container.singleton(ISymbolOrderMetadataCache, lambda c: _primary(c).metadata_cache)
     container.singleton(
-        ITradingAccountReader,
-        lambda c: (
-            SpotAccountReader(
-                spot_session_factory, c.resolve(IExchangeCredentialsProvider)
-            )
-            if c.resolve(TradingVenue) is TradingVenue.SPOT_TESTNET
-            else FuturesAccountReader(
-                session_factory, c.resolve(IExchangeCredentialsProvider)
-            )
-        ),
+        IMarketMetadataProvider, lambda c: _primary(c).metadata_provider
     )
-
-    # EPIC-021H: read-only like ITradingAccountReader — registered
-    # unconditionally (not gated on TradingVenue, unlike ITradingClient in
-    # `TradingModule.boot()`) so EnableTradingCommandHandler stays
-    # constructible regardless of trading being enabled. Nothing calls
-    # `.start()` on it except that handler's own successful-enable path —
-    # the app never opens this stream merely by booting.
-    # `EPIC-021M` — registered here, not lazily inside the lambda below, so
-    # the Trading screen's equity chart can resolve the *same* instance
-    # regardless of whether the stream has started yet (both sides
-    # read/write through one shared singleton).
-    container.singleton(EquityCurveRecorder, EquityCurveRecorder())
-
-    # `EPIC-027L`: venue-branches exactly like `ITradingAccountReader`/
-    # `ITradingClientFactory` above — `SpotUserDataStream` (no position-
-    # reconciliation deps, re-fetches equity via `ITradingAccountReader`)
-    # for `SPOT_TESTNET`, unchanged `FuturesUserDataStream` otherwise.
-    container.singleton(
-        IUserDataStream,
-        lambda c: (
-            SpotUserDataStream(
-                c.resolve(IEventBus),
-                c.resolve(ITaskManager),
-                c.resolve(IExchangeCredentialsProvider),
-                c.resolve(ITradingAccountReader),
-                c.resolve(EquityCurveRecorder),
-            )
-            if c.resolve(TradingVenue) is TradingVenue.SPOT_TESTNET
-            else FuturesUserDataStream(
-                c.resolve(IEventBus),
-                c.resolve(ITaskManager),
-                c.resolve(IExchangeCredentialsProvider),
-                c.resolve(ITradingClientFactory),
-                c.resolve(TradingSessionState),
-                c.resolve(EquityCurveRecorder),
-            )
-        ),
-    )
-
-    # EPIC-021A/EPIC-021F: a lazy singleton, matching every other binding in
-    # this file — `register()` may not `resolve(IConfig)`, so the factory
-    # below runs on first resolve rather than now. Unlike the legacy root,
-    # this alone does *not* decide whether `ITradingClient` gets bound (see
-    # this file's own module docstring); `TradingModule.boot()` resolves
-    # this same singleton to make that call.
-    container.singleton(
-        TradingVenue, lambda c: resolve_trading_venue(c.resolve(IConfig))
-    )
+    container.singleton(ITradingClientFactory, lambda c: _primary(c).client_factory)
+    container.singleton(ITradingAccountReader, lambda c: _primary(c).account_reader)
+    container.singleton(EquityCurveRecorder, lambda c: _primary(c).equity_recorder)
+    container.singleton(IUserDataStream, lambda c: _primary(c).user_data_stream)
 
     # EPIC-021G: the four trading limits, all on by default — see
     # TradingLimitPolicy's own docstring for why there is no "disable this
-    # one" toggle, only these numeric thresholds. Lazy for the same reason
-    # as `TradingVenue` above.
+    # one" toggle, only these numeric thresholds. Stateless thresholds, so one
+    # policy serves every venue; the per-venue counters it reads live in each
+    # venue's own `TradingSessionState`.
     container.singleton(TradingLimitPolicy, _build_trading_limit_policy)
+
+
+def _build_venue_contexts(
+    container: IContainer, shared: SharedVenueInputs
+) -> VenueContexts:
+    """Every venue's assembly gets the same `shared` inputs, so the
+    stateless session factories are built once per process, not per venue."""
+    return VenueContexts(
+        resolve_trading_venues(container.resolve(IConfig)),
+        lambda venue: VenueAssembly(venue, shared),
+    )
+
+
+def _primary(container: IContainer) -> VenueAssembly:
+    return container.resolve(VenueContexts).primary_assembly()
 
 
 def _build_trading_limit_policy(container: IContainer) -> TradingLimitPolicy:

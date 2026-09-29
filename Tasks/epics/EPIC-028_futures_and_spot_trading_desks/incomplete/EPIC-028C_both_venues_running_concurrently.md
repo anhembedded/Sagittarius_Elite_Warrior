@@ -20,6 +20,7 @@
 - [ ] With both venues enabled, both user data streams start, and each refresh service runs only for its own venue.
 - [ ] Every trading event carries `venue`; the `LiveOrderBookCoordinator` / feeds filter on it (test: a Spot fill never lands in a Futures table).
 - [ ] Settings shows one toggle per venue (Futures Testnet, Spot Testnet) and still says a restart applies it.
+- [ ] Saving those toggles writes `exchange.trading_venues` (the list) and drops the legacy scalar `exchange.trading_venue`, so a config migrates on its first save (moved here from `EPIC-028A`: the Settings page is the only writer of this key).
 - [ ] Disabling one venue in Settings leaves the other fully working after restart.
 
 ## 3. Design

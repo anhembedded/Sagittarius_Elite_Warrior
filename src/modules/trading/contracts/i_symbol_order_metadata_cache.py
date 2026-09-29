@@ -1,6 +1,5 @@
 """Application port for caching live order-rounding symbol metadata
-(`EPIC-021C`/`EPIC-027I`), for whichever market the active `TradingVenue`
-trades.
+(`EPIC-021C`/`EPIC-027I`), for one venue's market.
 
 @details Same shape as `ISymbolMarketMetadataCache` (`BOT-095E1`) — not a
 reuse of it. That port is hard-typed to `SymbolMarketMetadata`, the
@@ -8,14 +7,14 @@ backtest-side float entity; caching a genuinely different, `Decimal`
 entity (`SymbolOrderMetadata`) through it would be a type-level lie, not a
 saved abstraction.
 
-One instance serves whichever single market the active `TradingVenue`
-trades — never both at once, since exactly one venue is resolved at boot
-(`ONBOARDING.md` §7's authority table; `binance_bot_module.py`). A Futures
-symbol and a Spot symbol can share the same string (`BTCUSDT` names two
-different instruments), which would be a real collision in one shared
-cache keyed by bare `symbol` if both markets were ever live simultaneously
-in one process — they are not, so this cache does not key by market. If
-that ever changes, key by `(TradingVenue, symbol)` here first.
+One instance per venue (`EPIC-028A`, ADR D2): each `VenueAssembly` builds
+its own, and `VenueContext.metadata_cache` hands it out. A Futures symbol and
+a Spot symbol can share the same string (`BTCUSDT` names two different
+instruments), and both venues can now be live in one process — keeping the
+caches apart, rather than keying one shared cache by `(TradingVenue,
+symbol)`, is what keeps the bare `symbol` key safe. The guard
+`test_only_the_venue_assembly_constructs_venue_adapters.py` stops a second,
+shared instance from appearing.
 """
 
 from __future__ import annotations

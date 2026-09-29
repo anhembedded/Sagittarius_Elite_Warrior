@@ -1,6 +1,6 @@
 # EPIC-028 — Two trading desks: Futures and Spot side by side, each with manual orders, a strategy and live account data
 
-- **Status:** 🔵 Planned — ADR D1–D8 proposed, O1–O5 open; nothing implemented
+- **Status:** 🟡 Phase 1 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); `EPIC-028A` in progress
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-29): *"giờ màn hình trading đang có vấn đề, cần có 2 cái chứ không
   phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng, 2 màn hình
@@ -12,7 +12,7 @@
   (places, panels, dialogs) and [`Docs/HLD/04_surfaces_and_contribution_points.md`](../../../Docs/HLD/04_surfaces_and_contribution_points.md)
   (screen contributions). Both change in `EPIC-028M`.
 - **Decisions:** [`DECISION_2026-09-29_two_trading_desks.md`](DECISION_2026-09-29_two_trading_desks.md)
-  (D1–D8 🔵 Proposed, O1–O5 ❓ Open).
+  (D1–D8 and O1–O5 🟢 Accepted 2026-09-29).
 - **Tracking (Gantt, PR matrix):** [`TRACKING.md`](TRACKING.md).
 - **Dependencies:** builds on [`EPIC-027`](../EPIC-027_spot_trading_and_spot_backtest/README.md)
   (✅ Done — Spot adapters, holdings, Spot user data stream). Spot TP/SL waits on
@@ -21,7 +21,7 @@
 ---
 
 ## 1. Decisions already made
-None yet. The ADR proposes eight; the ones that shape the plan:
+All eight accepted by the user on 2026-09-29, and O1–O5 answered with the recommendation (one process for both venues; Futures TP/SL now, Spot TP/SL with `EPIC-026K`; Stop-limit included; the old route retired; 7 days / 50 rows of history). The ones that shape the plan:
 1. Two screens, two routes, each bound to one venue (D1).
 2. Both venues live in one process through a per-venue `VenueContext` (D2) — the riskiest change.
 3. Every venue-touching command and query names its venue (D3); config becomes a set (D4).
@@ -62,7 +62,7 @@ None yet. The ADR proposes eight; the ones that shape the plan:
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
 | **Phase 1 — Both venues in one process** | | | | | |
-| [EPIC-028A](incomplete/EPIC-028A_venue_context_and_registry.md) | Per-venue `VenueContext` + `IVenueContexts` registry; config becomes a set | Elite | ADR O1 | 🔴 | Planned |
+| [EPIC-028A](incomplete/EPIC-028A_venue_context_and_registry.md) | Per-venue `VenueContext` + `IVenueContexts` registry; config becomes a set | Elite | ADR O1 | 🔴 | Awaiting review |
 | [EPIC-028B](incomplete/EPIC-028B_venue_addressed_commands.md) | Every venue-touching command/query names its venue; gates per venue | Elite | A | 🔴 | Planned |
 | [EPIC-028C](incomplete/EPIC-028C_both_venues_running_concurrently.md) | Both streams, refresh services and sessions run concurrently; Settings toggles | Elite | A, B | 🟡 | Planned |
 | **Phase 2 — Account data** | | | | | |
@@ -99,5 +99,6 @@ None yet. The ADR proposes eight; the ones that shape the plan:
 - **Arming more than one strategy per desk.**
 
 ## Notes (newest first)
+- **2026-09-29** — ADR accepted by the user ("đồng ý các khuyến nghị, bắt đầu làm 028A đi"); `EPIC-028A` started.
 - **2026-09-29** — Epic scaffolded from a survey of the Trading screen, Dev Board, composition root
   and account ports on `faf4a337`; ADR proposed; 14 sub-tasks in four phases. Nothing accepted yet.
