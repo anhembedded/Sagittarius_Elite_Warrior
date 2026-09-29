@@ -33,11 +33,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
     IAccountSnapshot,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
-    ITradingSession,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
+    IVenueTradingPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
     FakeAccountSnapshot,
@@ -62,6 +62,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.settings.primary_venue_contexts import (
     primary_venue_contexts,
+    primary_venue_ports,
 )
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -143,8 +144,8 @@ def container(
             return mock_thread_manager
         if interface is IVenueContexts:
             return primary_venue_contexts(credentials_provider)
-        if interface is ITradingSession:
-            return session_state
+        if interface is IVenueTradingPorts:
+            return primary_venue_ports(session_state)
         if interface is IAccountSnapshot:
             return account
         return Mock()

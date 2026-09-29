@@ -27,11 +27,11 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
     IAccountSnapshot,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
-    ITradingSession,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
+    IVenueTradingPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
     FakeAccountSnapshot,
@@ -57,6 +57,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.settings.primary_venue_contexts import (
     primary_venue_contexts,
+    primary_venue_ports,
 )
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
@@ -111,8 +112,8 @@ def mock_container(mock_config, credentials_provider, session_state):
             return mock_config
         if interface is IVenueContexts:
             return primary_venue_contexts(credentials_provider)
-        if interface is ITradingSession:
-            return session_state
+        if interface is IVenueTradingPorts:
+            return primary_venue_ports(session_state)
         if interface is IAccountSnapshot:
             return FakeAccountSnapshot()
         return Mock()
@@ -168,8 +169,8 @@ def test_an_env_var_locks_the_field_and_wins_over_the_file(
         if interface.__name__ == "IConfig"
         else primary_venue_contexts(credentials_provider)
         if interface is IVenueContexts
-        else FakeTradingSession()
-        if interface is ITradingSession
+        else primary_venue_ports(FakeTradingSession())
+        if interface is IVenueTradingPorts
         else FakeAccountSnapshot()
         if interface is IAccountSnapshot
         else Mock()
@@ -199,8 +200,8 @@ def test_missing_credentials_load_safely(qapp, mock_config, tmp_path, request):
         if interface.__name__ == "IConfig"
         else primary_venue_contexts(empty_provider)
         if interface is IVenueContexts
-        else FakeTradingSession()
-        if interface is ITradingSession
+        else primary_venue_ports(FakeTradingSession())
+        if interface is IVenueTradingPorts
         else FakeAccountSnapshot()
         if interface is IAccountSnapshot
         else Mock()
@@ -250,8 +251,8 @@ def test_save_writes_a_new_key_to_the_real_secrets_file(qapp, tmp_path, request)
         if interface.__name__ == "IConfig"
         else primary_venue_contexts(credentials_provider)
         if interface is IVenueContexts
-        else FakeTradingSession()
-        if interface is ITradingSession
+        else primary_venue_ports(FakeTradingSession())
+        if interface is IVenueTradingPorts
         else FakeAccountSnapshot()
         if interface is IAccountSnapshot
         else Mock()
@@ -296,8 +297,8 @@ def test_save_does_not_touch_the_secrets_file_when_an_env_var_is_locking_it(
         if interface.__name__ == "IConfig"
         else primary_venue_contexts(credentials_provider)
         if interface is IVenueContexts
-        else FakeTradingSession()
-        if interface is ITradingSession
+        else primary_venue_ports(FakeTradingSession())
+        if interface is IVenueTradingPorts
         else FakeAccountSnapshot()
         if interface is IAccountSnapshot
         else Mock()
@@ -367,8 +368,8 @@ def test_env_locked_credentials_disable_the_input_fields(
         if interface.__name__ == "IConfig"
         else primary_venue_contexts(credentials_provider)
         if interface is IVenueContexts
-        else FakeTradingSession()
-        if interface is ITradingSession
+        else primary_venue_ports(FakeTradingSession())
+        if interface is IVenueTradingPorts
         else FakeAccountSnapshot()
         if interface is IAccountSnapshot
         else Mock()
