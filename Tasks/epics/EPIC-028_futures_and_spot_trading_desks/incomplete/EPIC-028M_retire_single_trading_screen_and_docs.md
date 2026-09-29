@@ -15,7 +15,7 @@
 ## 2. Acceptance criteria
 - [ ] Route `trading` and its view/presenter/view model are deleted and removed from `baseline_god_files.json`; a saved layout naming it opens the Futures desk.
 - [ ] The Dev Board's F9 dialog hosts the shared order-entry panel with the configured venue's profile.
-- [ ] HLD 04 §4.5, HLD 11 §11.2–11.3, `SPEC-005`, `SPEC-012` updated; a new SPEC "See my account on a desk" lists its proving tests.
+- [ ] HLD 04 §4.5, HLD 11 §11.2–11.3, `SPEC-004` (still single-venue: its precondition names Futures Testnet and it has no per-venue toggles; the PR #295 review's question 4), `SPEC-005`, `SPEC-012` updated; a new SPEC "See my account on a desk" lists its proving tests.
 - [ ] `test_spec_index_is_consistent.py`, reference checker and the full gate green.
 
 ## 3. Design
