@@ -90,15 +90,19 @@ class MarketTickEventHandler:
 
     def handle(self, event: MarketTickEvent) -> None:
         """
-        @brief Hands the tick to every venue's session (`EPIC-028B`); each
-        session keeps only the candles of the symbol and interval it armed.
+        @brief Hands the tick to the session of every venue trading the
+        tick's market (`EPIC-028C`); each session keeps only the candles of
+        the symbol and interval it armed.
 
-        @details A tick names no market: the process has one live market
-        stream. Routing a Spot candle to Spot's session only, and a Futures
-        candle to Futures', needs the stream to be per market, which
-        `EPIC-028C` adds with both venues running concurrently.
+        @details `BTCUSDT@1m` exists on Spot and on Futures at two prices, and
+        both streams publish onto one bus. Without the market a Spot candle
+        would drive the strategy armed on Futures, which then trades Futures
+        on a price that market never had.
         """
         md = event.market_data
-        self.logger.debug(f"Processing tick for {md.symbol} at {md.close_price}")
-        for session in self._sessions.built():
+        self.logger.debug(
+            f"Processing {event.market_type.value} tick for {md.symbol} "
+            f"at {md.close_price}"
+        )
+        for session in self._sessions.built_for(event.market_type):
             session.dispatch_tick(md)

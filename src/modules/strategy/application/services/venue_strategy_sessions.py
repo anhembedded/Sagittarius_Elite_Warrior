@@ -17,6 +17,7 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
@@ -43,8 +44,14 @@ class VenueStrategySessions:
                 self._sessions[venue] = session
             return session
 
-    def built(self) -> tuple[LiveStrategySession, ...]:
-        """Every session built so far. A venue never asked for has never had
-        a strategy armed, so it has nothing to receive a tick."""
+    def built_for(self, market: MarketType) -> tuple[LiveStrategySession, ...]:
+        """The sessions built so far whose venue trades `market` (`EPIC-028C`):
+        the ones a candle from that market's stream may feed. A venue never
+        asked for has never had a strategy armed, so it has nothing to
+        receive a tick."""
         with self._lock:
-            return tuple(self._sessions.values())
+            return tuple(
+                session
+                for venue, session in self._sessions.items()
+                if venue.market_type is market
+            )

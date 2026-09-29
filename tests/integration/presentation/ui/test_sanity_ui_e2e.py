@@ -7,6 +7,7 @@ import pytest
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
@@ -153,7 +154,9 @@ def test_sanity_dev_board_full_feature_walkthrough(
         is_closed=True,
     )
     with qtbot.waitSignal(presenter.ui_chart_update_signal, timeout=2000):
-        app_engine.event_bus.emit(MarketTickEvent(market_data=closed_tick))
+        app_engine.event_bus.emit(
+            MarketTickEvent(market_data=closed_tick, market_type=MarketType.SPOT)
+        )
 
     # A closed candle is appended to history, not held as the live candle.
     assert len(chart_card._raw_history) == history_before + 1

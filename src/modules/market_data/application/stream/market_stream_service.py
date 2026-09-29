@@ -24,6 +24,7 @@ from collections.abc import Sequence
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
@@ -51,14 +52,21 @@ class MarketStreamService(IMarketStream):
         self._dispatcher = dispatcher
 
     def start(
-        self, owner_id: str, symbols: Sequence[str], interval: TimeFrame
+        self,
+        owner_id: str,
+        market_type: MarketType,
+        symbols: Sequence[str],
+        interval: TimeFrame,
     ) -> StreamOutcome:
         # `StartLiveStreamCommand`'s own validators refuse an empty owner and
         # an empty symbol list, and upper-case the symbols — so the port's
         # promises are enforced by the command rather than re-implemented
         # here, where the two copies could drift.
         command = StartLiveStreamCommand(
-            owner=owner_id, symbols=list(symbols), interval=interval
+            owner=owner_id,
+            market_type=market_type,
+            symbols=list(symbols),
+            interval=interval,
         )
         return self._outcome(self._dispatcher.dispatch(StartLiveStreamCommand, command))
 

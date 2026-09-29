@@ -528,13 +528,13 @@ class StreamLifecycleController:
             )
         )
 
-    def _start_websocket_stream(self, symbols: list[str], interval: TimeFrame) -> None:
+    def _start_websocket_stream(
+        self, symbols: list[str], interval: TimeFrame, market: MarketType
+    ) -> None:
         self._emit_log("Opening Websocket stream...")
-        # `EPIC-025` PR 1.1b — one typed call. The
-        # `getattr(response, "success", True)` this replaces reported success
-        # for any object without that field, `None` included: a stream that
-        # never opened left the Dev Board saying it was running.
-        outcome = self._market_stream.start(_STREAM_OWNER, symbols, interval)
+        # `EPIC-025` PR 1.1b — a typed outcome, never `getattr(response,
+        # "success", True)`, which reported an unopened stream as running.
+        outcome = self._market_stream.start(_STREAM_OWNER, market, symbols, interval)
         if outcome.success:
             self._emit_stream_success(f"Live stream for {symbols} is running.")
         else:
@@ -587,7 +587,7 @@ class StreamLifecycleController:
             if token.is_cancelled():
                 return
 
-            self._start_websocket_stream(symbols, interval)
+            self._start_websocket_stream(symbols, interval, market)
 
         except Exception as exc:  # noqa: BLE001
             self._emit_stream_failed(f"System error: {exc}")

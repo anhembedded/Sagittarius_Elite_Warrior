@@ -1,6 +1,7 @@
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from sagittarius_engine.domain.base_event import BaseEvent
 
 
@@ -26,6 +27,15 @@ class MarketTickEvent(BaseEvent):
     Equality still works on payload: `BaseEvent` marks its `_event_id` /
     `_occurred_on` `compare=False`, without which a per-instance UUID would
     make two identical events compare unequal.
+
+    @par `market_type` (`EPIC-028C`)
+    Which market's stream the candle came from. `BTCUSDT` is two different
+    instruments on Spot and on USD-M Futures, with two different prices, so a
+    consumer filters on this before trusting the candle: a Spot kline must
+    never drive a Futures strategy or chart. Keyword-only with no default —
+    a producer that forgets it is a `TypeError`, never a candle silently
+    labelled Spot.
     """
 
     market_data: MarketData
+    market_type: MarketType = field(kw_only=True)

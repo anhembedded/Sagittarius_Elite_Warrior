@@ -31,6 +31,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
@@ -159,7 +160,11 @@ def test_a_market_tick_on_the_bus_reaches_the_live_session() -> None:
     session = _RecordingSession()
     _, event_bus = _booted(session)
 
-    event_bus.emit(MarketTickEvent(market_data=_market_data("ETHUSDT")))
+    event_bus.emit(
+        MarketTickEvent(
+            market_data=_market_data("ETHUSDT"), market_type=MarketType.FUTURES_USD_M
+        )
+    )
 
     assert [md.symbol for md in session.ticks] == ["ETHUSDT"], (
         "a MarketTickEvent published on the bus did not reach the live "
@@ -183,7 +188,9 @@ def test_boot_subscribes_the_session_the_container_already_holds() -> None:
     _, event_bus = _booted(session)
     tick = _market_data()
 
-    event_bus.emit(MarketTickEvent(market_data=tick))
+    event_bus.emit(
+        MarketTickEvent(market_data=tick, market_type=MarketType.FUTURES_USD_M)
+    )
 
     assert session.ticks and session.ticks[0] is tick
 

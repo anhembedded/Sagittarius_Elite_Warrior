@@ -12,6 +12,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_command_handler import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream import (
     StartLiveStreamCommand,
@@ -56,8 +57,12 @@ class StreamCliHandler(ICliCommandHandler):
     def _start(args: argparse.Namespace, app: App) -> None:
         symbols = [s.strip().upper() for s in args.symbols.split(",")]
         try:
+            # `EPIC-027A` — no market option on the CLI; it streams Spot.
             cmd = StartLiveStreamCommand(
-                owner=_CLI_OWNER, symbols=symbols, interval=TimeFrame(args.interval)
+                owner=_CLI_OWNER,
+                market_type=MarketType.SPOT,
+                symbols=symbols,
+                interval=TimeFrame(args.interval),
             )
             # Through this app's port, not `App.dispatch` — see
             # `sync_cli_handler.py` for why. The cast is sound because this

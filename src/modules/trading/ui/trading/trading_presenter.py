@@ -307,6 +307,7 @@ class TradingPresenter(BasePresenter):
             market_data_sync=container.resolve(IMarketDataSync),
             historical_klines=container.resolve(IHistoricalKlines),
             market_stream=container.resolve(IMarketStream),
+            market=screen_venue_feeds.chart_market(container),
             emit_history_ready=self.uiHistoryReadySignal.emit,
             emit_load_finished=self.uiLoadFinishedSignal.emit,
             emit_stream_started=self.uiStreamStartedSignal.emit,
@@ -437,13 +438,13 @@ class TradingPresenter(BasePresenter):
         self.cancelOrderCompleted.connect(self._on_cancel_order_completed)
 
     def _connect_engine_events(self) -> None:
-        # `MarketTickEvent` goes through `MarketTickFeed` — one place hears
-        # it, many screens display it (`architecture-rule.md` §6). Dev
-        # Board is the other subscriber; a raw `self.event_bus.on(...)`
-        # here would be the exact duplication
-        # `test_one_event_is_not_subscribed_by_two_presenters` exists to
-        # catch.
-        self._market_tick_feed = MarketTickFeed(self.event_bus, parent=self)
+        # One Feed hears `MarketTickEvent` (`architecture-rule.md` §6), passing
+        # only this chart's market (`EPIC-028C`); a raw `event_bus.on` is what
+        # `test_one_event_is_not_subscribed_by_two_presenters` catches.
+        chart_market = self._chart_coordinator.chart_market
+        self._market_tick_feed = MarketTickFeed(
+            self.event_bus, lambda: chart_market, parent=self
+        )
         self._market_tick_feed.marketTick.connect(self._handle_market_tick)
         # `EPIC-021H` — one subscriber, this Presenter, per
         # `architecture-rule.md` §6; the Positions/Open Orders tables are

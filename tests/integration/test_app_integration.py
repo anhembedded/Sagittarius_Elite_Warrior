@@ -2,6 +2,7 @@ import logging
 from unittest.mock import patch
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream import (
     StartLiveStreamCommand,
@@ -67,7 +68,10 @@ def test_app_boot_and_stream_use_case(app_instance):
 
         # Dispatch StartLiveStreamCommand
         cmd = StartLiveStreamCommand(
-            owner="test", symbols=["BTCUSDT"], interval=TimeFrame("1m")
+            owner="test",
+            market_type=MarketType.SPOT,
+            symbols=["BTCUSDT"],
+            interval=TimeFrame("1m"),
         )
         response = app.dispatch(StartLiveStreamCommand, cmd)
 

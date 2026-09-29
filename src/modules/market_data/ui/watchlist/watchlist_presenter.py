@@ -11,6 +11,7 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
@@ -43,6 +44,10 @@ _FALLBACK_SYMBOLS: tuple[str, ...] = ("BTCUSDT", "ETHUSDT", "BNBUSDT")
 #: docstring: "Another owner's subscriptions are untouched").
 _STREAM_OWNER_ID = "watchlist"
 
+#: `EPIC-027A` — this screen has no market selector; it watches Spot, as it
+#: always has.
+_MARKET = MarketType.SPOT
+
 logger = logging.getLogger("App.Watchlist")
 
 
@@ -62,11 +67,13 @@ class WatchlistPresenter(BasePresenter):
         # (`architecture-rule.md` §6) — this presenter constructs its own
         # `MarketTickFeed` instance, the same pattern Dashboard/Trading
         # already use, rather than calling `event_bus.on(...)` directly.
-        self._market_tick_feed = MarketTickFeed(self.event_bus, parent=self)
+        self._market_tick_feed = MarketTickFeed(
+            self.event_bus, lambda: _MARKET, parent=self
+        )
         self._market_tick_feed.marketTick.connect(self._handle_market_tick)
 
         outcome = self._market_stream.start(
-            _STREAM_OWNER_ID, symbols, TimeFrame.ONE_MINUTE
+            _STREAM_OWNER_ID, _MARKET, symbols, TimeFrame.ONE_MINUTE
         )
         if outcome.success:
             self.view.set_status(f"Live for {', '.join(symbols)}.", is_error=False)

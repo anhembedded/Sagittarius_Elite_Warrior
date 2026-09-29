@@ -321,6 +321,9 @@ def container(
             IMarketStream: market_stream,
             IHistoricalKlines: historical_klines,
             IMarketDataSync: market_data_sync,
+            # `EPIC-028C` — the venue this screen shows, so its chart's
+            # market is a real one (Futures) rather than an invented mock.
+            TradingVenue: TradingVenue.FUTURES_TESTNET,
         }
     )
 

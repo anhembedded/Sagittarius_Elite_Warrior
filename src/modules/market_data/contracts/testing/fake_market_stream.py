@@ -21,6 +21,7 @@ from __future__ import annotations
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
@@ -43,6 +44,7 @@ class Subscription:
     """One owner's current subscription set, as the caller asked for it."""
 
     owner_id: str
+    market_type: MarketType
     symbols: tuple[str, ...]
     interval: TimeFrame
 
@@ -60,7 +62,11 @@ class FakeMarketStream(IMarketStream):
     # -- IMarketStream -------------------------------------------------------
 
     def start(
-        self, owner_id: str, symbols: Sequence[str], interval: TimeFrame
+        self,
+        owner_id: str,
+        market_type: MarketType,
+        symbols: Sequence[str],
+        interval: TimeFrame,
     ) -> StreamOutcome:
         requested = tuple(symbol.upper() for symbol in symbols)
         if not requested:
@@ -75,7 +81,10 @@ class FakeMarketStream(IMarketStream):
         # Replaces, never adds (`BOT-126`) — the whole reason two screens can
         # stream at once without fighting.
         self._held[owner_id] = Subscription(
-            owner_id=owner_id, symbols=requested, interval=interval
+            owner_id=owner_id,
+            market_type=market_type,
+            symbols=requested,
+            interval=interval,
         )
         return StreamOutcome(success=True, message=_STARTED)
 

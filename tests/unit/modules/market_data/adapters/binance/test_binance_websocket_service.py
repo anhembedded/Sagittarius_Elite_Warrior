@@ -2,10 +2,14 @@ import logging
 from unittest.mock import Mock, patch
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
+
+_SPOT = MarketType.SPOT
+_FUTURES = MarketType.FUTURES_USD_M
 
 
 def test_subscribe_spawns_a_task_for_a_new_owner():
@@ -15,13 +19,13 @@ def test_subscribe_spawns_a_task_for_a_new_owner():
     task_manager.spawn.return_value = Mock()
 
     with patch.object(service, "_run_stream", new=Mock(return_value=Mock())):
-        result = service.subscribe("trading", ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+        result = service.subscribe("trading", _SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
 
     assert result is True
-    assert service._task_handle is task_manager.spawn.return_value
+    assert service._running[_SPOT].handle is task_manager.spawn.return_value
     assert task_manager.spawn.call_count == 1
     call_args = task_manager.spawn.call_args
-    assert call_args[1]["name"] == "BinanceStream[BTCUSDT@1m]"
+    assert call_args[1]["name"] == "BinanceStream[spot:BTCUSDT@1m]"
     assert call_args[1]["critical"] is True
 
 
@@ -35,11 +39,11 @@ def test_subscribe_replaces_the_same_owners_previous_subscription():
     service = BinanceWebsocketService(event_bus, task_manager)
 
     with patch.object(service, "_run_stream", new=Mock(return_value=Mock())):
-        service.subscribe("trading", ["BTCUSDT"], TimeFrame.ONE_MINUTE)
-        service.subscribe("trading", ["ETHUSDT"], TimeFrame.ONE_MINUTE)
+        service.subscribe("trading", _SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+        service.subscribe("trading", _SPOT, ["ETHUSDT"], TimeFrame.ONE_MINUTE)
 
     assert task_manager.spawn.call_count == 2
-    assert service._subscriptions == {("ETHUSDT", "1m"): {"trading"}}
+    assert service._subscriptions == {(_SPOT, "ETHUSDT", "1m"): {"trading"}}
 
 
 def test_second_owner_on_the_same_key_does_not_restart_the_task():
@@ -52,13 +56,15 @@ def test_second_owner_on_the_same_key_does_not_restart_the_task():
     task_manager.spawn.return_value = first_handle
 
     with patch.object(service, "_run_stream", new=Mock(return_value=Mock())):
-        service.subscribe("dashboard", ["BTCUSDT"], TimeFrame.ONE_MINUTE)
-        service.subscribe("trading", ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+        service.subscribe("dashboard", _SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+        service.subscribe("trading", _SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
 
     assert task_manager.spawn.call_count == 1
     assert first_handle.cancel.call_count == 0
-    assert service._task_handle is first_handle
-    assert service._subscriptions == {("BTCUSDT", "1m"): {"dashboard", "trading"}}
+    assert service._running[_SPOT].handle is first_handle
+    assert service._subscriptions == {
+        (_SPOT, "BTCUSDT", "1m"): {"dashboard", "trading"}
+    }
 
 
 def test_release_owner_keeps_the_other_owners_key_alive():
@@ -71,8 +77,8 @@ def test_release_owner_keeps_the_other_owners_key_alive():
     service = BinanceWebsocketService(event_bus, task_manager)
 
     with patch.object(service, "_run_stream", new=Mock(return_value=Mock())):
-        service.subscribe("dashboard", ["BTCUSDT"], TimeFrame.ONE_MINUTE)
-        service.subscribe("trading", ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+        service.subscribe("dashboard", _SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+        service.subscribe("trading", _SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
         result = service.release_owner("dashboard")
 
     assert result is True
@@ -80,7 +86,7 @@ def test_release_owner_keeps_the_other_owners_key_alive():
     # no restart, "trading" never loses a tick over "dashboard" leaving.
     assert task_manager.spawn.call_count == 1
     assert handles[0].cancel.call_count == 0
-    assert service._subscriptions == {("BTCUSDT", "1m"): {"trading"}}
+    assert service._subscriptions == {(_SPOT, "BTCUSDT", "1m"): {"trading"}}
 
 
 def test_release_owner_stops_the_task_once_no_owner_remains():
@@ -91,12 +97,12 @@ def test_release_owner_stops_the_task_once_no_owner_remains():
     service = BinanceWebsocketService(event_bus, task_manager)
 
     with patch.object(service, "_run_stream", new=Mock(return_value=Mock())):
-        service.subscribe("trading", ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+        service.subscribe("trading", _SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
         result = service.release_owner("trading")
 
     assert result is True
     assert handle.cancel.call_count == 1
-    assert service._task_handle is None
+    assert service._running == {}
     assert service._subscriptions == {}
 
 
@@ -128,13 +134,13 @@ def test_stop_all_tears_down_regardless_of_owner():
         # Same key for both owners -> exactly one spawn, so `handle.cancel`
         # below can only be `stop_all()`'s own teardown, not an earlier
         # subscribe-triggered restart reusing the same mock return value.
-        service.subscribe("dashboard", ["BTCUSDT"], TimeFrame.ONE_MINUTE)
-        service.subscribe("trading", ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+        service.subscribe("dashboard", _SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+        service.subscribe("trading", _SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
         result = service.stop_all()
 
     assert result is True
     assert handle.cancel.call_count == 1
-    assert service._task_handle is None
+    assert service._running == {}
     assert service._subscriptions == {}
 
 
@@ -143,31 +149,58 @@ def test_stop_all_with_nothing_running_is_a_no_op():
     assert service.stop_all() is False
 
 
-def test_create_socket_uses_plain_kline_socket_for_a_single_key():
-    """A single (symbol, interval) key should use the plain kline_socket,
-    not the multiplex one."""
-    bsm = Mock()
+def test_each_market_gets_its_own_connection():
+    """`EPIC-028C` — Spot and Futures klines come from two hosts, so the
+    Futures desk's `BTCUSDT@1m` is a second connection, not a key on
+    Spot's."""
+    task_manager = Mock()
+    task_manager.spawn.side_effect = [Mock(name="spot"), Mock(name="futures")]
+    service = BinanceWebsocketService(Mock(), task_manager)
 
-    socket = BinanceWebsocketService._create_socket(
-        bsm, [("BTCUSDT", "1m")], ["btcusdt@kline_1m"]
-    )
+    with patch.object(service, "_run_stream", new=Mock(return_value=Mock())):
+        service.subscribe("spot-desk", _SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+        service.subscribe("futures-desk", _FUTURES, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
 
-    bsm.kline_socket.assert_called_once_with("BTCUSDT", interval="1m")
-    bsm.multiplex_socket.assert_not_called()
-    assert socket is bsm.kline_socket.return_value
+    assert set(service._running) == {_SPOT, _FUTURES}
+    assert [call[1]["name"] for call in task_manager.spawn.call_args_list] == [
+        "BinanceStream[spot:BTCUSDT@1m]",
+        "BinanceStream[futures_usd_m:BTCUSDT@1m]",
+    ]
 
 
-def test_create_socket_uses_multiplex_socket_for_multiple_keys():
-    bsm = Mock()
-    streams = ["btcusdt@kline_1m", "ethusdt@kline_5m"]
+def test_a_change_on_one_market_leaves_the_other_markets_connection_alone():
+    """The Spot desk changing symbol reconnects Spot only: the Futures
+    strategy keeps receiving its candles through the change."""
+    task_manager = Mock()
+    futures_handle = Mock(name="futures")
+    task_manager.spawn.side_effect = [futures_handle, Mock(name="spot"), Mock()]
+    service = BinanceWebsocketService(Mock(), task_manager)
 
-    socket = BinanceWebsocketService._create_socket(
-        bsm, [("BTCUSDT", "1m"), ("ETHUSDT", "5m")], streams
-    )
+    with patch.object(service, "_run_stream", new=Mock(return_value=Mock())):
+        service.subscribe("futures-desk", _FUTURES, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+        service.subscribe("spot-desk", _SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+        service.subscribe("spot-desk", _SPOT, ["ETHUSDT"], TimeFrame.ONE_MINUTE)
+        service.release_owner("spot-desk")
 
-    bsm.multiplex_socket.assert_called_once_with(streams)
-    bsm.kline_socket.assert_not_called()
-    assert socket is bsm.multiplex_socket.return_value
+    assert futures_handle.cancel.call_count == 0
+    assert service._running[_FUTURES].handle is futures_handle
+    assert set(service._running) == {_FUTURES}
+
+
+def test_an_owner_moving_market_releases_the_market_it_left():
+    """Replace, never add, holds across markets too: a screen switched from
+    Spot to Futures stops holding Spot's stream open."""
+    task_manager = Mock()
+    spot_handle = Mock(name="spot")
+    task_manager.spawn.side_effect = [spot_handle, Mock(name="futures")]
+    service = BinanceWebsocketService(Mock(), task_manager)
+
+    with patch.object(service, "_run_stream", new=Mock(return_value=Mock())):
+        service.subscribe("desk", _SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+        service.subscribe("desk", _FUTURES, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+
+    assert spot_handle.cancel.call_count == 1
+    assert service._subscriptions == {(_FUTURES, "BTCUSDT", "1m"): {"desk"}}
 
 
 @pytest.mark.asyncio
@@ -181,7 +214,7 @@ async def test_process_socket_message_ignores_empty_message():
 
     tscm.recv = mock_recv
 
-    await service._process_socket_message(tscm)
+    await service._process_socket_message(tscm, _SPOT)
 
     event_bus.emit.assert_not_called()
 
@@ -197,7 +230,7 @@ async def test_process_socket_message_ignores_non_kline_events():
 
     tscm.recv = mock_recv
 
-    await service._process_socket_message(tscm)
+    await service._process_socket_message(tscm, _SPOT)
 
     event_bus.emit.assert_not_called()
 
@@ -235,12 +268,50 @@ async def test_process_socket_message_unwraps_multiplex_envelope_and_emits():
 
     tscm.recv = mock_recv
 
-    await service._process_socket_message(tscm)
+    await service._process_socket_message(tscm, _SPOT)
 
     assert event_bus.emit.call_count == 1
     emitted_event = event_bus.emit.call_args[0][0]
     assert emitted_event.market_data.symbol == "BTCUSDT"
     assert emitted_event.market_data.is_closed is True
+    assert emitted_event.market_type is _SPOT
+
+
+@pytest.mark.asyncio
+async def test_a_tick_is_labelled_with_the_market_its_connection_streams():
+    """The same `BTCUSDT@1m` payload read off the Futures connection is a
+    Futures candle: the label comes from the connection, never guessed from
+    the symbol."""
+    event_bus = Mock()
+    service = BinanceWebsocketService(event_bus, Mock())
+    tscm = Mock()
+
+    async def mock_recv():
+        return {
+            "e": "kline",
+            "k": {
+                "s": "BTCUSDT",
+                "i": "1m",
+                "t": 0,
+                "T": 0,
+                "o": "1",
+                "h": "1",
+                "l": "1",
+                "c": "1",
+                "v": "1",
+                "q": "1",
+                "n": 1,
+                "V": "1",
+                "Q": "1",
+                "x": True,
+            },
+        }
+
+    tscm.recv = mock_recv
+
+    await service._process_socket_message(tscm, _FUTURES)
+
+    assert event_bus.emit.call_args[0][0].market_type is _FUTURES
 
 
 @pytest.mark.asyncio
@@ -278,7 +349,7 @@ async def test_kline_tick_logs_at_debug_not_info(caplog) -> None:
     tscm.recv = mock_recv
 
     with caplog.at_level(logging.DEBUG, logger="App.LiveStream"):
-        await service._process_socket_message(tscm)
+        await service._process_socket_message(tscm, _SPOT)
 
     assert any(
         "[Live Stream]" in record.message and record.levelno == logging.DEBUG
@@ -418,7 +489,7 @@ async def test_websocket_auto_reconnect():
         ) as mock_bsm_class,
     ):
         mock_bsm_class.return_value = mock_bsm
-        await service._run_stream([("BTCUSDT", "1m")], token)
+        await service._run_stream(_SPOT, [("BTCUSDT", "1m")], token)
 
     assert mock_bsm.kline_socket.call_count >= 2
     assert event_bus.emit.call_count == 1
@@ -445,7 +516,7 @@ async def test_process_socket_message_handles_parsing_exceptions_gracefully():
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.binance_websocket_service.logger"
     ) as mock_logger:
-        await service._process_socket_message(tscm)
+        await service._process_socket_message(tscm, _SPOT)
 
         # Event should not be emitted due to parsing exception
         event_bus.emit.assert_not_called()
@@ -485,7 +556,7 @@ async def test_process_socket_message_handles_parsing_exceptions_gracefully():
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.binance_websocket_service.logger"
     ) as mock_logger:
-        await service._process_socket_message(tscm)
+        await service._process_socket_message(tscm, _SPOT)
 
         # Event should not be emitted due to parsing exception
         event_bus.emit.assert_not_called()

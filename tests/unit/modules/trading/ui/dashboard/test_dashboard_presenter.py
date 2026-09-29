@@ -2720,7 +2720,8 @@ def _tick_event(symbol: str = "BTCUSDT", interval: str = "1m"):
             taker_buy_base_asset_volume=500.0,
             taker_buy_quote_asset_volume=52500.0,
             is_closed=True,
-        )
+        ),
+        market_type=MarketType.SPOT,
     )
 
 
@@ -2732,6 +2733,18 @@ def test_a_tick_for_an_open_symbol_at_a_different_interval_is_ignored(presenter)
     presenter._handle_market_tick(_tick_event("BTCUSDT", "5m"))
 
     mock_card.append_closed_candle.assert_not_called()
+
+
+def test_the_tick_feed_passes_on_the_market_the_chart_shows_now(presenter):
+    """`EPIC-028C` — the market combo changes which market this chart draws
+    after the Feed exists; the Feed must ask each time, or a Spot candle would
+    be drawn on a chart switched to Futures."""
+    presenter._active_market = MarketType.SPOT
+    assert presenter._market_tick_feed._market() is MarketType.SPOT
+
+    presenter._active_market = MarketType.FUTURES_USD_M
+
+    assert presenter._market_tick_feed._market() is MarketType.FUTURES_USD_M
 
 
 def test_a_tick_for_an_open_symbol_at_the_active_interval_reaches_the_chart(presenter):

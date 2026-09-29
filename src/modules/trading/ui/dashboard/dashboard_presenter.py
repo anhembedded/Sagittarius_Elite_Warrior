@@ -739,13 +739,13 @@ class DashboardPresenter(BasePresenter):
 
     def _connect_engine_events(self) -> None:
         """Đăng ký lắng nghe sự kiện từ Engine EventBus."""
-        # `MarketTickEvent` giờ đi qua `MarketTickFeed` — một nơi nghe, nhiều
-        # màn hiển thị (`architecture-rule.md` §6), cùng lý do `HealthFeed`/
-        # `SyncProgressFeed` bên dưới tồn tại. Trước đây màn này tự
-        # `event_bus.on(MarketTickEvent, ...)`, và `EPIC-021I`'s Trading màn
-        # cũng tự làm y hệt — đúng lớp trùng lặp `test_event_flow_guards.py`
-        # bắt được (`EPIC-008G`'s `HealthUpdatedEvent` defect, tái diễn).
-        self._market_tick_feed = MarketTickFeed(self.event_bus, parent=self)
+        # One Feed hears `MarketTickEvent` (`architecture-rule.md` §6), passing
+        # only the chart's current market (`EPIC-028C`: Spot and Futures share
+        # the bus). A raw `event_bus.on` is what `test_event_flow_guards.py`
+        # catches.
+        self._market_tick_feed = MarketTickFeed(
+            self.event_bus, lambda: self._active_market, parent=self
+        )
         self._market_tick_feed.marketTick.connect(self._handle_market_tick)
         # Sức khoẻ hệ thống là sự thật của HỆ THỐNG, không riêng màn này, nên nó
         # đi qua HealthFeed — một nơi nghe, nhiều màn hiển thị
