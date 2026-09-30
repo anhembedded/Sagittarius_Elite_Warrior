@@ -10,10 +10,14 @@ Three guarantees, each one a consumer depends on:
    (`average_entry_price`) both rely on the order and the lower bound;
 3. **active symbols are sorted and name every symbol the history has
    rows for,** so "every pair" never silently leaves out a pair the reader
-   itself returned rows for.
+   itself returned rows for;
+4. **at most `MAX_HISTORY_LOOKBACK` back.** A `since` further back is refused
+   with `ValueError`; one exactly at the bound is read. A consumer test must
+   not pass on a span the real readers refuse.
 
 **One hook.** A subclass supplies `given_history`, because the fake is told
-directly and a real reader is told by the exchange. The real readers are
+directly and a real reader is told by the exchange. The reader it returns
+reads its clock as `CONTRACT_NOW`. The real readers are
 exercised against the fake exchange server in `tests/integration/`.
 """
 
@@ -28,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
     ClientOrderId,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
+    MAX_HISTORY_LOOKBACK,
     IAccountHistoryReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
@@ -50,6 +55,8 @@ type GivenHistory = Callable[
 ]
 
 _START = datetime(2026, 9, 20, tzinfo=UTC)
+#: The moment a reader under contract takes as now: a week after the start.
+CONTRACT_NOW = _START + timedelta(days=7)
 
 
 def contract_order(symbol: str, hours: int) -> OrderRecord:
@@ -156,3 +163,25 @@ class AccountHistoryReaderContract:
 
         assert list(active) == sorted(active)
         assert {"SOLUSDT", "BTCUSDT"} <= set(active)
+
+    def test_a_since_past_the_lookback_is_refused(
+        self, given_history: GivenHistory
+    ) -> None:
+        reader = given_history([], [])
+        too_far = CONTRACT_NOW - MAX_HISTORY_LOOKBACK - timedelta(seconds=1)
+
+        with pytest.raises(ValueError):
+            reader.order_history("BTCUSDT", too_far)
+        with pytest.raises(ValueError):
+            reader.trade_history("BTCUSDT", too_far)
+
+    def test_a_since_exactly_at_the_lookback_is_read(
+        self, given_history: GivenHistory
+    ) -> None:
+        reader = given_history(
+            [contract_order("BTCUSDT", 1)], [contract_trade("BTCUSDT", 1)]
+        )
+        oldest = CONTRACT_NOW - MAX_HISTORY_LOOKBACK
+
+        assert len(reader.order_history("BTCUSDT", oldest)) == 1
+        assert len(reader.trade_history("BTCUSDT", oldest)) == 1

@@ -16,6 +16,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import
     OrderRecord,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.contract_account_history_reader import (
+    CONTRACT_NOW,
     AccountHistoryReaderContract,
     GivenHistory,
 )
@@ -33,6 +34,6 @@ class TestFakeAccountHistoryReader(AccountHistoryReaderContract):
         def given(
             orders: Sequence[OrderRecord], trades: Sequence[TradeRecord]
         ) -> IAccountHistoryReader:
-            return FakeAccountHistoryReader(orders, trades)
+            return FakeAccountHistoryReader(orders, trades, now=CONTRACT_NOW)
 
         return given

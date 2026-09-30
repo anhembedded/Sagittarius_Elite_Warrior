@@ -25,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_page import
     HistoryPage,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.contract_account_history_reader import (
+    CONTRACT_NOW,
     contract_order,
     contract_trade,
 )
@@ -58,9 +59,12 @@ def test_order_history_is_newest_first_from_the_addressed_venue() -> None:
         orders=[
             *(contract_order("BTCUSDT", h) for h in (3, 1, 2)),
             contract_order("ETHUSDT", 4),
-        ]
+        ],
+        now=CONTRACT_NOW,
     )
-    futures = FakeAccountHistoryReader(orders=[contract_order("BTCUSDT", 9)])
+    futures = FakeAccountHistoryReader(
+        orders=[contract_order("BTCUSDT", 9)], now=CONTRACT_NOW
+    )
 
     page = GetOrderHistoryQueryHandler(_contexts(futures, spot)).execute(
         GetOrderHistoryQuery(venue=_SPOT, symbol="BTCUSDT", since=_SINCE)
@@ -76,7 +80,7 @@ def test_order_history_is_newest_first_from_the_addressed_venue() -> None:
 
 def test_a_page_holds_fifty_rows_and_the_total_counts_them_all() -> None:
     reader = FakeAccountHistoryReader(
-        orders=[contract_order("BTCUSDT", h) for h in range(1, 121)]
+        orders=[contract_order("BTCUSDT", h) for h in range(1, 121)], now=CONTRACT_NOW
     )
     handler = GetOrderHistoryQueryHandler(_contexts(reader, reader))
 
@@ -96,7 +100,9 @@ def test_a_page_holds_fifty_rows_and_the_total_counts_them_all() -> None:
 
 
 def test_a_page_past_the_last_is_empty_but_keeps_the_total() -> None:
-    reader = FakeAccountHistoryReader(orders=[contract_order("BTCUSDT", 1)])
+    reader = FakeAccountHistoryReader(
+        orders=[contract_order("BTCUSDT", 1)], now=CONTRACT_NOW
+    )
 
     page = GetOrderHistoryQueryHandler(_contexts(reader, reader)).execute(
         GetOrderHistoryQuery(venue=_FUTURES, symbol="BTCUSDT", since=_SINCE, page=4)
@@ -115,6 +121,7 @@ def test_every_symbol_means_the_readers_active_symbols_merged() -> None:
             contract_trade("BTCUSDT", 2),
         ],
         open_symbols=["SOLUSDT"],
+        now=CONTRACT_NOW,
     )
 
     page = GetTradeHistoryQueryHandler(_contexts(reader, reader)).execute(
@@ -131,7 +138,7 @@ def test_every_symbol_means_the_readers_active_symbols_merged() -> None:
 
 def test_rows_older_than_since_are_left_out() -> None:
     reader = FakeAccountHistoryReader(
-        trades=[contract_trade("BTCUSDT", h) for h in (1, 10)]
+        trades=[contract_trade("BTCUSDT", h) for h in (1, 10)], now=CONTRACT_NOW
     )
 
     page = GetTradeHistoryQueryHandler(_contexts(reader, reader)).execute(

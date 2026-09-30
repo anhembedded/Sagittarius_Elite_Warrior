@@ -45,6 +45,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 _SPOT = TradingVenue.SPOT_TESTNET
 _FUTURES = TradingVenue.FUTURES_TESTNET
 _SINCE = datetime(2026, 9, 23, tzinfo=UTC)
+_NOW = _SINCE + timedelta(days=7)
 _DUST = Decimal("0.00000001")
 
 
@@ -94,7 +95,7 @@ def _handler(
         fake_venue_context(
             venue, account_reader=FakeTradingAccountReader(_status(venue, holdings))
         ),
-        history_reader=FakeAccountHistoryReader(trades=fills),
+        history_reader=FakeAccountHistoryReader(trades=fills, now=_NOW),
     )
     return GetAverageEntryPriceQueryHandler(FakeVenueContexts(context))
 

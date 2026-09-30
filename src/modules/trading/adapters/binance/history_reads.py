@@ -19,8 +19,8 @@ from requests.exceptions import RequestException
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
     AccountHistoryUnavailableError,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
-    MAX_HISTORY_LOOKBACK,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_lookback import (
+    require_within_lookback,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
@@ -45,11 +45,7 @@ def from_ms(raw_ms: Any) -> datetime:
 def span_ms(since: datetime, now: datetime) -> tuple[int, int]:
     """@return `(since, now)` in milliseconds.
     @throws ValueError `since` is further back than `MAX_HISTORY_LOOKBACK`."""
-    if now - since > MAX_HISTORY_LOOKBACK:
-        raise ValueError(
-            f"since {since.isoformat()} is more than {MAX_HISTORY_LOOKBACK.days} "
-            "days back; read a shorter span"
-        )
+    require_within_lookback(since, now)
     return int(since.timestamp() * 1000), int(now.timestamp() * 1000)
 
 

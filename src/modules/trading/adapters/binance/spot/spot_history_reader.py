@@ -4,7 +4,7 @@
 symbol, accept at most twenty-four hours between `startTime` and `endTime`,
 and return at most 1 000 rows; `fetch_span` turns a seven-day request into
 seven or more requests within those limits (weight 20 each; the thirty-day
-`MAX_HISTORY_LOOKBACK` caps a read at 600 weight per symbol).
+`MAX_HISTORY_LOOKBACK` caps a read at 31 requests, 620 weight, per symbol).
 
 `active_symbols` is the USDT pair of every held asset other than USDT itself
 (ADR D9: USDT-quoted only) that the exchange actually lists, plus every

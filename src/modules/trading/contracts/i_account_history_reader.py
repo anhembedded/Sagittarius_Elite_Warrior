@@ -18,10 +18,17 @@ empty answer.
 `MAX_HISTORY_LOOKBACK` is refused with `ValueError` before any request. Spot
 reads a day per request at weight 20, so a year would cost about 7 300 weight
 per symbol, over Binance's 6 000 a minute, and repeated 429s end in an IP ban
-(the PR #297 review, finding 2). Thirty days is 600 weight per Spot symbol and
-endpoint, covers ADR O5's seven-day tabs, and gives the average entry price a
-month of fills to explain a holding; Futures keeps order history for 90 days,
-so the ceiling never asks for what the exchange has dropped.
+(the PR #297 review, finding 2). Thirty days is 31 requests, 620 weight, per
+Spot symbol and endpoint (both ends of the span are inclusive), covers ADR
+O5's seven-day tabs, and gives the average entry price a month of fills to
+explain a holding; Futures keeps order history for 90 days, so the ceiling
+never asks for what the exchange has dropped. The check itself is
+`history_lookback.require_within_lookback`, shared with the verified fake.
+
+The bound is per symbol and endpoint. A history of every active symbol reads
+each of them, and a page request reads the span again, so a caller that pages
+through "every symbol" owns the aggregate cost (the PR #297 re-review,
+finding 2; `EPIC-028J` carries it as an acceptance criterion).
 
 Plausible extensions, each one method or one implementation behind this
 port: a COIN-M reader; funding and income history (`/fapi/v1/income`);

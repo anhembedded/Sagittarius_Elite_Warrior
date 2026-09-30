@@ -17,6 +17,7 @@
 - [ ] Every tab loads from its query when the desk opens and updates from events of its own venue.
 - [ ] A "hide other pairs" toggle filters to the desk's symbol.
 - [ ] With "hide other pairs" off, the Order history and Trade history tabs name the pairs they show (`HistoryPage.scanned_symbols`, `EPIC-028E`): Binance needs a symbol per history request, so "every pair" is the venue's active symbols, and a pair closed out with nothing open is not among them. The tab never implies the list is the whole account (PR #297 review, finding 3).
+- [ ] Reading every pair stays inside Binance's request-weight limit (6 000 a minute): `IAccountHistoryReader`'s thirty-day bound is per symbol and endpoint, a Spot page of every pair re-reads the span for each active symbol (31 requests × weight 20 per symbol at thirty days, 8 at ADR O5's seven), and each page request reads again. The tabs cache a span behind the port (its listed caching decorator) or cap the pairs scanned with `symbol=None`, and a test shows flipping pages does not re-read the exchange (PR #297 re-review, finding 2).
 - [ ] The summary panel shows the `EPIC-028D` figures and refreshes on fills.
 
 ## 3. Design
