@@ -87,6 +87,13 @@ Dev Board only, ADR D15").
   equity), `IOrderHistoryReader` (`allOrders`), `ITradeHistoryReader` (`myTrades` / `userTrades`,
   also closing `EPIC-027` ADR O6's Spot average entry price), `ICommissionRateReader`, and an
   `IOpenOrdersQuery` so open orders load on screen open instead of waiting for an event.
+  - **Amended 2026-09-30 (`EPIC-028D`, PR #296): no `IAccountSummaryReader`.** Both
+    `ITradingAccountReader` implementations already fetch the whole account payload for
+    `check_connection()`; a separate reader would sign and send the same request again and add a
+    seventh member to `VenueContext`. The summary (`AccountSummary`, with `FuturesAccountSummary`
+    and `SpotAccountSummary`) travels on `ExchangeConnectionStatus.summary`, filled by each
+    reader, and `GetAccountSummaryQuery` reads it off the addressed venue — the seam
+    `GetHoldingsQuery` already uses. The other readers in D6 stand: each needs its own endpoint.
 - **D7 — Futures account controls are commands, not UI state.** `ChangeLeverageCommand` and
   `ChangeMarginTypeCommand` call the exchange (`change_leverage`, `change_margin_type`) and refuse
   while a position is open on that symbol, the same rule Binance enforces.

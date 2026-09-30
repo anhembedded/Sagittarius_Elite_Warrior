@@ -14,6 +14,10 @@ got nothing".
 error code mapping and payload shapes are written from Binance's documented
 Spot API, not re-verified against a live call — egress to every
 `*.binance.*` domain is policy-blocked in this sandbox.
+
+`EPIC-028D` — the same read answers what a desk shows
+(`SpotAccountSummary`): the quote asset's `free` (spendable) and `locked`
+(in open orders) parts, and the equity computed below. No extra request.
 """
 
 from __future__ import annotations
@@ -25,6 +29,9 @@ from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    SpotAccountSummary,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
@@ -167,6 +174,17 @@ class SpotAccountReader(ITradingAccountReader):
         quote_holding = next((h for h in holdings if h.asset == _QUOTE_ASSET), None)
         quote_balance = quote_holding.total if quote_holding is not None else Decimal(0)
         equity = self._compute_equity(client, quote_balance, holdings)
+        quote_free = quote_holding.free if quote_holding is not None else Decimal(0)
+        summary = SpotAccountSummary(
+            venue=TradingVenue.SPOT_TESTNET,
+            available_balance=quote_free,
+            equity=equity,
+            quote_asset=_QUOTE_ASSET,
+            quote_free=quote_free,
+            quote_locked=(
+                quote_holding.locked if quote_holding is not None else Decimal(0)
+            ),
+        )
 
         return self._status(
             reachable=True,
@@ -175,6 +193,7 @@ class SpotAccountReader(ITradingAccountReader):
             usdt_balance=quote_balance,
             holdings=holdings,
             equity=equity,
+            summary=summary,
         )
 
     def _compute_equity(
@@ -225,6 +244,7 @@ class SpotAccountReader(ITradingAccountReader):
         usdt_balance: Decimal | None = None,
         holdings: tuple[SpotHolding, ...] | None = None,
         equity: Decimal | None = None,
+        summary: SpotAccountSummary | None = None,
     ) -> ExchangeConnectionStatus:
         return ExchangeConnectionStatus(
             venue=TradingVenue.SPOT_TESTNET,
@@ -237,4 +257,5 @@ class SpotAccountReader(ITradingAccountReader):
             open_position_count=None,
             holdings=holdings,
             equity=equity,
+            summary=summary,
         )

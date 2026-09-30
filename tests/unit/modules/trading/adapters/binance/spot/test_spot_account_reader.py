@@ -17,6 +17,9 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_reader import (
     SpotAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    SpotAccountSummary,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
 )
@@ -309,3 +312,51 @@ def test_equity_is_none_when_the_ticker_payload_is_malformed():
     reader = _reader(client)
     status = reader.check_connection()
     assert status.equity is None
+
+
+# --- EPIC-028D — the account summary, read from the same payload -------------
+
+
+def test_the_summary_splits_the_quote_into_spendable_and_in_orders():
+    payload = _account_payload(
+        [{"asset": "USDT", "free": "900.00000000", "locked": "100.00000000"}]
+    )
+
+    summary = _reader(_happy_client(payload)).check_connection().summary
+
+    assert isinstance(summary, SpotAccountSummary)
+    assert summary.venue is TradingVenue.SPOT_TESTNET
+    assert summary.quote_asset == "USDT"
+    assert summary.quote_free == Decimal("900.00000000")
+    assert summary.quote_locked == Decimal("100.00000000")
+    assert summary.available_balance == summary.quote_free
+    assert summary.equity == Decimal("1000.00000000")
+
+
+def test_no_quote_holding_gives_a_zero_spendable_summary():
+    payload = _account_payload([{"asset": "BTC", "free": "0.1", "locked": "0"}])
+
+    summary = _reader(_happy_client(payload)).check_connection().summary
+
+    assert isinstance(summary, SpotAccountSummary)
+    assert summary.quote_free == Decimal(0)
+    assert summary.quote_locked == Decimal(0)
+    assert summary.equity == Decimal("5000.000")
+
+
+def test_an_unpriceable_holding_leaves_the_summarys_equity_unknown():
+    client = _happy_client(
+        _account_payload(
+            [
+                {"asset": "USDT", "free": "10", "locked": "0"},
+                {"asset": "XYZ", "free": "5", "locked": "0"},
+            ]
+        )
+    )
+    client.get_symbol_ticker.side_effect = _binance_api_exception(-1121)
+
+    summary = _reader(client).check_connection().summary
+
+    assert isinstance(summary, SpotAccountSummary)
+    assert summary.equity is None
+    assert summary.available_balance == Decimal(10)

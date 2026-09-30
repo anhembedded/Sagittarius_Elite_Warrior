@@ -1,6 +1,6 @@
 # EPIC-028 — Two trading desks: Futures and Spot side by side, each with manual orders, a strategy and live account data
 
-- **Status:** 🟡 Phase 1 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); `EPIC-028A`, `EPIC-028B` done; `EPIC-028C` implemented, awaiting review
+- **Status:** 🟡 Phase 2 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`); `EPIC-028D` in progress
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-29): *"giờ màn hình trading đang có vấn đề, cần có 2 cái chứ không
   phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng, 2 màn hình
@@ -64,9 +64,9 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 | **Phase 1 — Both venues in one process** | | | | | |
 | [EPIC-028A](completed/EPIC-028A_venue_context_and_registry.md) | Per-venue `VenueContext` + `IVenueContexts` registry; config becomes a set | Elite | ADR O1 | 🔴 | ✅ Done (2026-09-29) |
 | [EPIC-028B](completed/EPIC-028B_venue_addressed_commands.md) | Every venue-touching command/query names its venue; gates per venue | Elite | A | 🔴 | ✅ Done (2026-09-29) |
-| [EPIC-028C](incomplete/EPIC-028C_both_venues_running_concurrently.md) | Both streams, refresh services and sessions run concurrently; Settings toggles | Elite | A, B | 🟡 | 🟡 Implemented — awaiting review |
+| [EPIC-028C](completed/EPIC-028C_both_venues_running_concurrently.md) | Both streams, refresh services and sessions run concurrently; Settings toggles | Elite | A, B | 🟡 | ✅ Done (2026-09-30) |
 | **Phase 2 — Account data** | | | | | |
-| [EPIC-028D](incomplete/EPIC-028D_account_summary_reader.md) | Account summary (available, wallet, margin, uPnL / free, locked, equity) | Elite | B | 🟡 | Planned |
+| [EPIC-028D](incomplete/EPIC-028D_account_summary_reader.md) | Account summary (available, wallet, margin, uPnL / free, locked, equity) | Elite | B | 🟡 | 🟡 In progress |
 | [EPIC-028E](incomplete/EPIC-028E_open_orders_and_history_readers.md) | Open-orders query, order history, trade history | Elite | B, O5 | 🟡 | Planned |
 | [EPIC-028F](incomplete/EPIC-028F_commission_and_futures_account_controls.md) | Commission rates; change leverage / margin mode | Elite | B | 🟡 | Planned |
 | [EPIC-028G](incomplete/EPIC-028G_order_estimate_policies.md) | Max quantity, cost, fee, liquidation estimate as domain policies | Elite | D, F | 🟢 | Planned |
@@ -99,6 +99,8 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 - **Arming more than one strategy per desk.**
 
 ## Notes (newest first)
+- **2026-09-30** — `EPIC-028D` implemented: `AccountSummary` (Futures: available, wallet, margin, uPnL, mode; Spot: quote free/locked, equity) carried on the connection check both readers already make, so no new port and no second request; `GetAccountSummaryQuery`; a per-venue refresh on the account cadence and after each fill of that venue, off the stream's loop; `exchange-status` prints the Futures available balance. Awaiting independent review.
+- **2026-09-30** — `EPIC-028C` merged (PR #295) after an independent review (PASS, three should-fix items and one question, all addressed before merge). Phase 1 exit met: each venue's Emergency Stop, refresh, events, stream and saved strategy stay on that venue. `EPIC-028D` started.
 - **2026-09-29** — `EPIC-028C` implemented in four slices: per-venue refresh and venue-stamped events, per-venue Settings toggles, one live stream per market with ticks routed by market, per-venue saved strategy. Awaiting independent review.
 - **2026-09-29** — `EPIC-028B` merged (PR #294) after an independent review (PASS); its four should-fix items ride the `EPIC-028C` PR. `EPIC-028C` started.
 - **2026-09-29** — `EPIC-028A` merged (PR #293) after an independent review; its four fixes are recorded in the task file.

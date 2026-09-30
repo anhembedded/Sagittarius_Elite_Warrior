@@ -26,11 +26,11 @@ gantt
     section Phase 1 - Both venues in one process
     028A VenueContext and registry         :crit, done, a, after s2, 1d
     028B Venue-addressed commands          :crit, done, b, after a, 1d
-    028C Both venues concurrently          :active,  c, after b, 3d
+    028C Both venues concurrently          :crit, done, c, after b, 1d
     Phase 1 exit check                     :milestone, m1, after c, 0d
 
     section Phase 2 - Account data
-    028D Account summary                   :         d, after b, 2d
+    028D Account summary                   :active,  d, after c, 2d
     028E Open orders and history           :         e, after b, 3d
     028F Commission, leverage, margin      :         f, after b, 2d
     028G Estimate policies                 :         g, after f, 1d
@@ -58,8 +58,8 @@ gantt
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-028A | [VenueContext and registry](completed/EPIC-028A_venue_context_and_registry.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | ✅ Done | [#293](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/293) merged 2026-09-29 |
 | EPIC-028B | [Venue-addressed commands](completed/EPIC-028B_venue_addressed_commands.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | ✅ Done | [#294](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/294) merged 2026-09-29 |
-| EPIC-028C | [Both venues concurrently](incomplete/EPIC-028C_both_venues_running_concurrently.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | 🟡 Implemented — in review | [#295](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/295) (draft) |
-| EPIC-028D | [Account summary](incomplete/EPIC-028D_account_summary_reader.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-028C | [Both venues concurrently](completed/EPIC-028C_both_venues_running_concurrently.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | [#295](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/295) merged 2026-09-30 |
+| EPIC-028D | [Account summary](incomplete/EPIC-028D_account_summary_reader.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | 🟡 In progress | — |
 | EPIC-028E | [Open orders and history](incomplete/EPIC-028E_open_orders_and_history_readers.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-028F | [Commission, leverage, margin](incomplete/EPIC-028F_commission_and_futures_account_controls.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-028G | [Estimate policies](incomplete/EPIC-028G_order_estimate_policies.md) | — | 🟢 | 🔵 Planned | — |
@@ -78,6 +78,8 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-09-29 | EPIC-028A | Merged in PR #293 after the independent review (four fixes: per-part lock, single-venue reader follows the list, guard sees every spelling, docs). |
+| 2026-09-30 | EPIC-028D | Implemented: `AccountSummary` on the existing connection check (no new port), `GetAccountSummaryQuery`, per-venue refresh on cadence and on fill, CLI available balance. Fast tier green; awaiting independent review. |
+| 2026-09-30 | EPIC-028C | Merged in PR #295 after independent review (PASS); Phase 1 done. EPIC-028D started. |
 | 2026-09-29 | EPIC-028C | Implemented: per-venue refresh + venue on events; Settings toggles; per-market stream and tick routing; per-venue saved strategy. Fast tier green; awaiting independent review. |
 | 2026-09-29 | EPIC-028B | Implemented: commands/queries name their venue; `VenueTradingScopes`/`IVenueTradingPorts`/`VenueStrategySessions`; single-venue bindings deleted, guard added. Fast tier green; awaiting independent review. |
 | 2026-09-29 | EPIC-028A | Implemented: `IVenueContexts` + per-venue `VenueAssembly`; single-venue ports are primary-venue shims. Fast tier green; awaiting independent review. |

@@ -82,7 +82,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.state_bindings im
     bind_state,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_refresh_services import (
+    build_account_summary_refreshes,
     build_venue_refresh_services,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
+    OrderFilledEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
@@ -101,6 +105,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_screen imp
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.runtime.scheduler.scheduler import Scheduler
 
 logger = logging.getLogger("App.TradingModule")
@@ -266,6 +271,18 @@ class TradingModule(BoundedContextModule):
                 "Scheduled %s for %s every %.1fs.",
                 type(service).__name__,
                 service.venue.value,
+                interval_seconds,
+            )
+        # `EPIC-028D` — each venue's account summary, on the same cadence and
+        # straight after each of that venue's fills.
+        event_bus = container.resolve(IEventBus)
+        for summary in build_account_summary_refreshes(container):
+            scheduler.every(seconds=interval_seconds).do(summary.refresh_once)
+            event_bus.on(OrderFilledEvent, summary.on_order_filled)
+            logger.info(
+                "Scheduled the account summary refresh for %s every %.1fs, "
+                "and after each of its fills.",
+                summary.venue.value,
                 interval_seconds,
             )
 

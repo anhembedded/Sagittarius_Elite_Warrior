@@ -15,6 +15,11 @@ wasted request every interval). Plausible extensions, each one entry here
 (`architecture-rule.md` §7.2.1): a Futures balance refresh once the account
 summary reader exists (`EPIC-028D`); open orders once there is a query for
 them (`EPIC-028E`); a third market's own refresh.
+
+`build_account_summary_refreshes` (`EPIC-028D`) adds one account summary
+refresh per enabled venue, whatever its market: every desk shows its
+spendable balance and value. It is built separately because it also listens
+for that venue's fills, which the market refreshes do not.
 """
 
 from __future__ import annotations
@@ -28,6 +33,10 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.trading.application.account_summary_refresh_service import (
+    AccountSummaryRefreshPorts,
+    AccountSummaryRefreshService,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.holdings_refresh_service import (
     HoldingsRefreshService,
 )
@@ -47,6 +56,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 from sagittarius_engine.interfaces.i_container import IContainer
+from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 VenueRefreshService = PositionRefreshService | HoldingsRefreshService
 
@@ -73,5 +83,23 @@ def build_venue_refresh_services(
         _REFRESH_BY_MARKET[venue.market_type](
             dispatcher, publisher, states.session_state(venue), venue
         )
+        for venue in container.resolve(IVenueContexts).enabled()
+    )
+
+
+def build_account_summary_refreshes(
+    container: IContainer,
+) -> tuple[AccountSummaryRefreshService, ...]:
+    """One account summary refresh per enabled venue. A refresh asked for by
+    a fill runs on the app's worker pool (`IThreadManager`), never on the
+    user-data stream's own loop."""
+    ports = AccountSummaryRefreshPorts(
+        dispatcher=container.resolve(ICommandDispatcher),
+        event_publisher=container.resolve(IEventPublisher),
+        run_elsewhere=container.resolve(IThreadManager).submit,
+    )
+    states = container.resolve(VenueSessionStates)
+    return tuple(
+        AccountSummaryRefreshService(ports, states.session_state(venue), venue)
         for venue in container.resolve(IVenueContexts).enabled()
     )

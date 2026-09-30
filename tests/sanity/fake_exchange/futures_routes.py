@@ -113,9 +113,19 @@ _FUTURES_EXCHANGE_INFO = {
 #: `EPIC-021D` — a minimal, always-One-way, always-funded account snapshot.
 #: `futures_account()` hits `/fapi/v2/account` (version 2, not 1 — verified
 #: from `python-binance`'s own `_request_futures_api("get", "account", True,
-#: 2, ...)` call, not assumed).
+#: 2, ...)` call, not assumed). `EPIC-028D` — the USDT asset carries the four
+#: balance figures the real endpoint returns, because `FuturesAccountSummary`
+#: reads all of them; a flat, idle account has available = margin = wallet.
 _FUTURES_ACCOUNT = {
-    "assets": [{"asset": "USDT", "walletBalance": "15000.00000000"}],
+    "assets": [
+        {
+            "asset": "USDT",
+            "walletBalance": "15000.00000000",
+            "unrealizedProfit": "0.00000000",
+            "marginBalance": "15000.00000000",
+            "availableBalance": "15000.00000000",
+        }
+    ],
     "positions": [],
 }
 

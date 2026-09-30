@@ -1,6 +1,6 @@
 # EPIC-028C — Both venues stream, refresh and trade at the same time, and Settings turns each on separately
 
-**Status:** 🟡 Implemented (2026-09-29) — awaiting independent review
+**Status:** ✅ Done (2026-09-30)
 **Source:** the user, 2026-09-29 — *"cần có 2 cái chứ không phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng"* ("two trading screens, one Futures and one Spot; share what can be shared"). See the [ADR](../DECISION_2026-09-29_two_trading_desks.md).
 **Risk:** 🟡 — two user data streams and two refresh schedulers share one event loop and one event bus
 **Complexity:** M — boot wiring, events gain a venue, Settings UI

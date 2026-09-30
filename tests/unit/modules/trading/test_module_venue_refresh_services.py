@@ -10,7 +10,11 @@ query each refresh sends and for which venue, without running a handler.
 
 from __future__ import annotations
 
+import concurrent.futures
+from collections.abc import Callable
+from decimal import Decimal
 from types import SimpleNamespace
+from typing import Any
 from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
@@ -25,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.holdings_refresh_
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.position_refresh_service import (
     PositionRefreshService,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_account_summary import (
+    GetAccountSummaryQuery,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_holdings import (
     GetHoldingsQuery,
@@ -44,6 +51,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.state_bindings im
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_refresh_services import (
     build_venue_refresh_services,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    ClientOrderId,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
+    OrderFilledEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.module import TradingModule
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -54,6 +70,7 @@ from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryE
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.interfaces.i_task_manager import ITaskManager
+from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.scheduler.scheduler import ScheduledJob, Scheduler
 
 _FUTURES = TradingVenue.FUTURES_TESTNET
@@ -77,6 +94,25 @@ class _RecordingPublisher(IEventPublisher):
         self.published.append(event)
 
 
+class InlineThreadManager(IThreadManager):
+    """The engine's worker-pool port, running each task at once on the
+    caller's thread, so a test sees its effect without waiting on a pool."""
+
+    def __init__(self) -> None:
+        self.submitted: list[Callable[..., Any]] = []
+
+    def submit(
+        self, task: Callable[..., Any], *args: Any, **kwargs: Any
+    ) -> concurrent.futures.Future[Any]:
+        self.submitted.append(task)
+        future: concurrent.futures.Future[Any] = concurrent.futures.Future()
+        future.set_result(task(*args, **kwargs))
+        return future
+
+    def shutdown(self, wait: bool = True) -> None:
+        return None
+
+
 class _RecordingScheduler(Scheduler):
     """The engine's own `Scheduler`, with `add_job` recording instead of
     running: `every(...).do(fn)` goes through the real `JobBuilder`."""
@@ -86,6 +122,22 @@ class _RecordingScheduler(Scheduler):
 
     def add_job(self, job: ScheduledJob) -> None:
         self.jobs.append(job)
+
+
+def _spot_fill() -> OrderFilledEvent:
+    order = Order(
+        client_order_id=ClientOrderId("SEW-a91f4c72e0b8"),
+        symbol="BTCUSDT",
+        side=OrderSide.BUY,
+        order_type=OrderType.MARKET,
+        quantity=Decimal("0.05"),
+    )
+    return OrderFilledEvent(
+        order=order,
+        fill_price=Decimal(64000),
+        fill_quantity=Decimal("0.05"),
+        venue=_SPOT,
+    )
 
 
 def _container(
@@ -103,6 +155,7 @@ def _container(
     container.singleton(ITaskManager, Mock())
     container.singleton(ICommandDispatcher, dispatcher)
     container.singleton(IEventPublisher, _RecordingPublisher())
+    container.singleton(IThreadManager, InlineThreadManager())
     bind_adapters(container)
     bind_state(container)
     return container, dispatcher
@@ -137,7 +190,7 @@ def test_nothing_is_refreshed_while_no_venue_is_enabled() -> None:
     assert build_venue_refresh_services(container) == ()
 
 
-def test_boot_schedules_one_refresh_per_enabled_venue() -> None:
+def test_boot_schedules_each_venues_market_and_summary_refreshes() -> None:
     container, dispatcher = _container([_FUTURES, _SPOT])
     scheduler = _RecordingScheduler()
     container.singleton(Scheduler, scheduler)
@@ -151,4 +204,22 @@ def test_boot_schedules_one_refresh_per_enabled_venue() -> None:
     assert dispatcher.dispatched == [
         GetOpenPositionsQuery(venue=_FUTURES),
         GetHoldingsQuery(venue=_SPOT),
+        GetAccountSummaryQuery(venue=_FUTURES),
+        GetAccountSummaryQuery(venue=_SPOT),
     ]
+
+
+def test_after_boot_a_fill_refreshes_its_own_venues_summary_on_a_worker() -> None:
+    """The subscription is `TradingModule.boot()`'s, not the test's: a fill
+    emitted on the container's real bus reaches Spot's summary refresh,
+    which runs through `IThreadManager` (`BOT-145`), and Futures' does not."""
+    container, dispatcher = _container([_FUTURES, _SPOT])
+    container.singleton(Scheduler, _RecordingScheduler())
+    container.resolve(VenueSessionStates).session_state(_FUTURES).enable(set())
+    container.resolve(VenueSessionStates).session_state(_SPOT).enable(set())
+    TradingModule().boot(SimpleNamespace(container=container))
+
+    container.resolve(IEventBus).emit(_spot_fill())
+
+    assert dispatcher.dispatched == [GetAccountSummaryQuery(venue=_SPOT)]
+    assert len(container.resolve(IThreadManager).submitted) == 1

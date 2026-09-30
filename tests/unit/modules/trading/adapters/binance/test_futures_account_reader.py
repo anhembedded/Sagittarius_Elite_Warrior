@@ -16,6 +16,9 @@ from requests.exceptions import ConnectionError as RequestsConnectionError
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    FuturesAccountSummary,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     MarginType,
@@ -259,3 +262,101 @@ def test_no_open_positions_reports_none_margin_type_not_a_guess():
 
     assert status.margin_type is None
     assert status.open_position_count == 0
+
+
+# ---------------------------------------------------------------------------
+# EPIC-028D — the account summary, read from the same payload
+# ---------------------------------------------------------------------------
+
+
+def _usdt_asset(**overrides: str) -> dict:
+    """The USDT asset as `/fapi/v2/account` returns it: 3 000 USDT of
+    margin committed, so available sits below wallet."""
+    asset = {
+        "asset": "USDT",
+        "walletBalance": "15000.00000000",
+        "unrealizedProfit": "-125.50000000",
+        "marginBalance": "14874.50000000",
+        "availableBalance": "11874.50000000",
+    }
+    asset.update(overrides)
+    return asset
+
+
+def test_the_summary_reads_available_not_wallet_from_the_usdt_asset():
+    client = _happy_client({"assets": [_usdt_asset()], "positions": []})
+
+    summary = _reader(client).check_connection().summary
+
+    assert isinstance(summary, FuturesAccountSummary)
+    assert summary.venue is TradingVenue.FUTURES_TESTNET
+    assert summary.available_balance == Decimal("11874.50000000")
+    assert summary.wallet_balance == Decimal("15000.00000000")
+    assert summary.unrealized_pnl == Decimal("-125.50000000")
+    assert summary.margin_balance == Decimal("14874.50000000")
+    assert summary.equity == summary.margin_balance
+    assert summary.position_mode is PositionMode.ONE_WAY
+
+
+def test_a_hedge_mode_account_still_gets_a_summary_naming_its_mode():
+    client = _happy_client(
+        {"assets": [_usdt_asset()], "positions": []}, dual_side_position=True
+    )
+
+    summary = _reader(client).check_connection().summary
+
+    assert isinstance(summary, FuturesAccountSummary)
+    assert summary.position_mode is PositionMode.HEDGE
+
+
+def test_no_usdt_asset_means_no_summary_rather_than_zeros():
+    busd = {**_usdt_asset(), "asset": "BUSD"}
+    client = _happy_client({"assets": [busd], "positions": []})
+
+    status = _reader(client).check_connection()
+
+    assert status.reachable is True
+    assert status.summary is None
+
+
+@pytest.mark.parametrize(
+    "broken",
+    [{"availableBalance": "not-a-number"}, {"marginBalance": None}],
+)
+def test_a_malformed_figure_means_no_summary_and_a_warning(broken, caplog):
+    client = _happy_client({"assets": [_usdt_asset(**broken)], "positions": []})
+
+    with caplog.at_level("WARNING", logger="App.TradingAdapter"):
+        status = _reader(client).check_connection()
+
+    assert status.reachable is True
+    assert status.summary is None
+    assert any(r.levelname == "WARNING" for r in caplog.records)
+
+
+def test_a_missing_figure_means_no_summary():
+    asset = _usdt_asset()
+    del asset["availableBalance"]
+    client = _happy_client({"assets": [asset], "positions": []})
+
+    assert _reader(client).check_connection().summary is None
+
+
+def test_a_lasting_malformed_figure_warns_once_until_it_is_readable_again(caplog):
+    """The account is read every few seconds; one bad asset is one WARNING
+    per outage, not one per tick (the PR #296 review, Q4)."""
+    broken = {"assets": [_usdt_asset(availableBalance="?")], "positions": []}
+    healthy = {"assets": [_usdt_asset()], "positions": []}
+    client = _happy_client(broken)
+    reader = _reader(client)
+
+    with caplog.at_level("WARNING", logger="App.TradingAdapter"):
+        reader.check_connection()
+        reader.check_connection()
+        client.futures_account.return_value = healthy
+        assert reader.check_connection().summary is not None
+        client.futures_account.return_value = broken
+        reader.check_connection()
+
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 2

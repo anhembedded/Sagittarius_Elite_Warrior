@@ -5,6 +5,9 @@ the headless (`exchange_status_cmd.py`) and interactive
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    FuturesAccountSummary,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
@@ -141,13 +144,20 @@ def _format_success(status: ExchangeConnectionStatus) -> str:
     open_positions_text = (
         "?" if status.open_position_count is None else str(status.open_position_count)
     )
+    # `EPIC-028D` — the wallet balance includes margin already committed;
+    # what a new order can spend is the available balance.
+    summary = status.summary
+    futures = summary if isinstance(summary, FuturesAccountSummary) else None
+    available_text = "?" if futures is None else f"{futures.available_balance:,.2f}"
+    upnl_text = "?" if futures is None else f"{futures.unrealized_pnl:+,.2f}"
 
     return "\n".join(
         [
             f"Venue:            {status.venue.name:<25} Connection: ✔",
             f"Clock skew:       {skew_text:<25} {skew_safety}",
             f"Position mode:    {position_mode_text:<25} Margin type: {margin_type_text}",
-            f"USDT balance:     {balance_text:<25} Open positions: {open_positions_text}",
+            f"Wallet (USDT):    {balance_text:<25} Open positions: {open_positions_text}",
+            f"Available (USDT): {available_text:<25} Unrealized PnL: {upnl_text}",
         ]
     )
 
