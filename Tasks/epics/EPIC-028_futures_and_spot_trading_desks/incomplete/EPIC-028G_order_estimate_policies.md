@@ -35,7 +35,7 @@
   - The bracket's `maintenance_margin_rate` and `maintenance_amount` are inputs, because brackets are not read yet.
   - A long backed by at least its notional has no liquidation price (`price is None`; Binance shows `--`).
 - **One place for the input checks.** `contracts/estimate_inputs.py` holds the three checks (finite, not negative, positive).
-- **Placement.** All of it lives in `contracts/`, beside `OrderQuantityRoundingPolicy`, so the desks and `strategy` can reach it.
+- **Placement.** All of it lives in `contracts/`, beside `OrderQuantityRoundingPolicy`, the same kind of payload-free sizing arithmetic. Its consumer is the order panel (`EPIC-028H`, `028I`).
 
 ## 4. Changes, per file
 | File | Change |
