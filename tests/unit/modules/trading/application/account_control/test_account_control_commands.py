@@ -152,6 +152,7 @@ class _Desk:
     raw: Mock
     sessions: _Sessions
     account_reader: _CountingAccountReader
+    state: TradingSessionState
     leverage: ChangeLeverageCommandHandler
     margin: ChangeMarginTypeCommandHandler
 
@@ -184,6 +185,7 @@ def _desk(
         raw,
         sessions,
         account_reader,
+        state,
         ChangeLeverageCommandHandler(scopes),
         ChangeMarginTypeCommandHandler(scopes),
     )
@@ -387,3 +389,66 @@ def test_a_result_is_either_refused_or_applied() -> None:
         AccountControlResult(
             AccountControlRefusal.POSITION_OPEN, MarginType.CROSSED, None
         )
+
+
+@_EITHER_COMMAND
+def test_an_open_position_read_that_never_answers_raises_the_ports_error(
+    change: Change,
+) -> None:
+    """PR #299 review, finding 1: the position read failed outside the
+    translation and leaked `requests`' own exception."""
+    desk = _desk()
+    failure = RequestsConnectionError("down")
+    desk.raw.futures_position_information.side_effect = failure
+
+    with pytest.raises(AccountControlUnavailableError) as raised:
+        change(desk)
+
+    assert raised.value.__cause__ is failure
+    desk.raw.futures_change_leverage.assert_not_called()
+    desk.raw.futures_change_margin_type.assert_not_called()
+
+
+@_EITHER_COMMAND
+def test_an_open_position_read_the_exchange_refuses_comes_back_as_its_refusal(
+    change: Change,
+) -> None:
+    desk = _desk()
+    desk.raw.futures_position_information.side_effect = _api_error(
+        -1021, "Timestamp for this request is outside of the recvWindow."
+    )
+
+    result = change(desk)
+
+    assert result.blocked_by is AccountControlRefusal.EXCHANGE_REJECTED
+    assert result.detail == (
+        "-1021: Timestamp for this request is outside of the recvWindow."
+    )
+    desk.raw.futures_change_leverage.assert_not_called()
+    desk.raw.futures_change_margin_type.assert_not_called()
+
+
+def test_a_leverage_answer_that_cannot_be_read_raises_the_ports_error() -> None:
+    """PR #299 review, finding 2: the change was sent, so an unreadable answer
+    means "outcome unknown", never a raw `KeyError`."""
+    desk = _desk()
+    desk.raw.futures_change_leverage.return_value = {"symbol": "BTCUSDT"}
+
+    with pytest.raises(AccountControlUnavailableError, match="may have been"):
+        _to_ten_x(desk)
+
+
+@_EITHER_COMMAND
+def test_a_symbol_a_strategy_manages_is_refused_before_any_network_call(
+    change: Change,
+) -> None:
+    """A manual leverage change under an armed strategy would change the margin
+    its next order locks; the order path refuses the same lease."""
+    desk = _desk()
+    desk.state.claim_symbol("BTCUSDT", "strategy:ema-cross")
+
+    result = change(desk)
+
+    assert result.blocked_by is ExecuteOrderSafetyGate.SYMBOL_LEASED
+    assert desk.sessions.opened == 0
+    assert desk.account_reader.checks == 0

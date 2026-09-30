@@ -14,6 +14,7 @@ they promise nothing except that they are never reached.
 from __future__ import annotations
 
 from datetime import datetime
+from decimal import Decimal
 from typing import NoReturn
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate import (
@@ -122,6 +123,9 @@ class UnarrangedCommissionRateReader(ICommissionRateReader):
 
 
 class UnarrangedAccountControl(IFuturesAccountControl):
+    def open_position(self, symbol: str) -> Decimal:
+        _not_arranged("IFuturesAccountControl")
+
     def change_leverage(self, symbol: str, leverage: int) -> LeverageSetting:
         _not_arranged("IFuturesAccountControl")
 

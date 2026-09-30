@@ -36,6 +36,7 @@ _READ_FAILURES = (
     BinanceRequestException,
     RequestException,
     KeyError,
+    TypeError,
     InvalidOperation,
 )
 

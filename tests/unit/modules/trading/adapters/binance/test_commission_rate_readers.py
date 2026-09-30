@@ -173,6 +173,18 @@ def test_a_failed_futures_read_raises_the_readers_own_error(
     assert raised.value.__cause__ is failure
 
 
+def test_a_futures_answer_that_is_not_an_object_raises_the_readers_own_error() -> None:
+    """PR #299 review, finding 3: a list where an object belongs raised a raw
+    `TypeError`."""
+    client = Mock()
+    client.futures_commission_rate.return_value = []
+
+    with pytest.raises(CommissionRateUnavailableError):
+        FuturesCommissionRateReader(
+            _FuturesSessions(client), _Credentials()
+        ).commission_rate("BTCUSDT")
+
+
 def test_a_spot_account_without_commission_rates_raises_the_readers_own_error() -> None:
     client = Mock()
     client.get_account.return_value = {"balances": []}

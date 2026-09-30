@@ -34,9 +34,9 @@ class ChangeLeverageCommandHandler(
     ICommandHandler[ChangeLeverageCommand, AccountControlResult[LeverageSetting]]
 ):
     """@details An exchange refusal is an answer, returned as
-    `EXCHANGE_REJECTED`; an exchange that never answered raises
-    `AccountControlUnavailableError`, because nothing is known to have
-    changed."""
+    `EXCHANGE_REJECTED`; an unknown outcome (no answer, or one that could
+    not be read) raises `AccountControlUnavailableError`, whose message says
+    whether the change may have been applied."""
 
     def __init__(self, scopes: VenueTradingScopes) -> None:
         self._scopes = scopes

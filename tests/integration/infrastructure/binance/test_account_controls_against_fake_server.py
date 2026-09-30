@@ -120,3 +120,10 @@ def test_each_venue_reads_its_own_commission_rates() -> None:
 
     assert futures == CommissionRate("BTCUSDT", Decimal("0.0002"), Decimal("0.0005"))
     assert spot == CommissionRate("BTCUSDT", Decimal("0.001"), Decimal("0.001"))
+
+
+def test_a_flat_account_reads_back_no_open_position() -> None:
+    """The fake Futures account never holds a position (`futures_routes.py`),
+    so the read the gate makes before a change answers zero."""
+    with _fake_exchange():
+        assert _control().open_position("BTCUSDT") == 0
