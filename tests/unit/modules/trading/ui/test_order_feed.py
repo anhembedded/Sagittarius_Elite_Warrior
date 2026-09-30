@@ -12,6 +12,9 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.holdings_changed_event import (
+    HoldingsChangedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.live_order_blocked_event import (
     LiveOrderBlockedEvent,
 )
@@ -35,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 
 
@@ -64,7 +70,7 @@ def _position() -> LivePosition:
 
 def _feed(qapp):
     bus = MemoryEventBus()
-    feed = OrderFeed(bus)
+    feed = OrderFeed(bus, TradingVenue.FUTURES_TESTNET)
     return bus, feed
 
 
@@ -74,7 +80,10 @@ def test_order_filled_event_reaches_every_listener(qapp):
     feed.orderFilled.connect(seen.append)
 
     event = OrderFilledEvent(
-        order=_order(), fill_price=Decimal("64105.10"), fill_quantity=Decimal("0.001")
+        order=_order(),
+        fill_price=Decimal("64105.10"),
+        fill_quantity=Decimal("0.001"),
+        venue=TradingVenue.FUTURES_TESTNET,
     )
     bus.emit(event)
 
@@ -87,7 +96,9 @@ def test_position_changed_event_reaches_every_listener(qapp):
     seen: list = []
     feed.positionChanged.connect(seen.append)
 
-    event = PositionChangedEvent(position=_position())
+    event = PositionChangedEvent(
+        position=_position(), venue=TradingVenue.FUTURES_TESTNET
+    )
     bus.emit(event)
 
     assert len(seen) == 1
@@ -99,7 +110,7 @@ def test_position_closed_event_reaches_every_listener(qapp):
     seen: list = []
     feed.positionClosed.connect(seen.append)
 
-    event = PositionClosedEvent(symbol="BTCUSDT")
+    event = PositionClosedEvent(symbol="BTCUSDT", venue=TradingVenue.FUTURES_TESTNET)
     bus.emit(event)
 
     assert len(seen) == 1
@@ -114,7 +125,11 @@ def test_live_order_blocked_event_reaches_every_listener(qapp):
     seen: list = []
     feed.orderBlocked.connect(seen.append)
 
-    event = LiveOrderBlockedEvent(symbol="BTCUSDT", reason="max_notional_per_order")
+    event = LiveOrderBlockedEvent(
+        symbol="BTCUSDT",
+        reason="max_notional_per_order",
+        venue=TradingVenue.FUTURES_TESTNET,
+    )
     bus.emit(event)
 
     assert len(seen) == 1
@@ -138,13 +153,55 @@ def test_stop_unsubscribes_all_four(qapp):
             order=_order(),
             fill_price=Decimal("64105.10"),
             fill_quantity=Decimal("0.001"),
+            venue=TradingVenue.FUTURES_TESTNET,
         )
     )
-    bus.emit(PositionChangedEvent(position=_position()))
-    bus.emit(PositionClosedEvent(symbol="BTCUSDT"))
-    bus.emit(LiveOrderBlockedEvent(symbol="BTCUSDT", reason="max_notional_per_order"))
+    bus.emit(
+        PositionChangedEvent(position=_position(), venue=TradingVenue.FUTURES_TESTNET)
+    )
+    bus.emit(PositionClosedEvent(symbol="BTCUSDT", venue=TradingVenue.FUTURES_TESTNET))
+    bus.emit(
+        LiveOrderBlockedEvent(
+            symbol="BTCUSDT",
+            reason="max_notional_per_order",
+            venue=TradingVenue.FUTURES_TESTNET,
+        )
+    )
 
     assert filled == []
     assert changed == []
     assert closed == []
     assert blocked == []
+
+
+def test_another_venues_events_never_reach_this_feed(qapp):
+    """`EPIC-028C` — Futures and Spot share one bus: a Spot fill, position,
+    closure, holdings change or blocked order never reaches the Futures
+    screen's feed."""
+    bus, feed = _feed(qapp)
+    seen: list = []
+    for signal in (
+        feed.orderFilled,
+        feed.positionChanged,
+        feed.positionClosed,
+        feed.orderBlocked,
+        feed.holdingsChanged,
+    ):
+        signal.connect(seen.append)
+    spot = TradingVenue.SPOT_TESTNET
+
+    bus.emit(
+        OrderFilledEvent(
+            order=_order(),
+            fill_price=Decimal(64000),
+            fill_quantity=Decimal("0.002"),
+            venue=spot,
+        )
+    )
+    bus.emit(PositionChangedEvent(position=_position(), venue=spot))
+    bus.emit(PositionClosedEvent(symbol="BTCUSDT", venue=spot))
+    bus.emit(LiveOrderBlockedEvent(symbol="BTCUSDT", reason="limit", venue=spot))
+    bus.emit(HoldingsChangedEvent(holdings=(), venue=spot))
+    qapp.processEvents()
+
+    assert seen == []

@@ -117,6 +117,7 @@ def _coordinator(
         trading_session if trading_session is not None else _trading_session(),
         sizing_percent,
         leverage,
+        venue=TradingVenue.FUTURES_TESTNET,
     )
 
 
@@ -198,6 +199,7 @@ def test_no_known_balance_sends_nothing() -> None:
         _trading_session(),
         20.0,
         1.0,
+        venue=TradingVenue.FUTURES_TESTNET,
     )
 
     coordinator.handle(_signal())
@@ -275,6 +277,7 @@ def test_a_zero_computed_quantity_publishes_a_live_order_blocked_event() -> None
         _trading_session(),
         20.0,
         1.0,
+        venue=TradingVenue.FUTURES_TESTNET,
     )
 
     coordinator.handle(_signal())
@@ -337,6 +340,7 @@ def test_unknown_symbol_metadata_sends_nothing() -> None:
         _trading_session(),
         20.0,
         1.0,
+        venue=TradingVenue.FUTURES_TESTNET,
     )
 
     coordinator.handle(_signal())

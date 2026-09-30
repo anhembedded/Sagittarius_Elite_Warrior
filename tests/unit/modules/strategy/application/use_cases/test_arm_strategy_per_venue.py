@@ -79,12 +79,20 @@ def _trading_session(market_type: MarketType) -> FakeTradingSession:
     return session
 
 
-def _strategy_session() -> LiveStrategySession:
+def _strategy_session(venue: TradingVenue) -> LiveStrategySession:
     registry = StrategyRegistry()
     registry.register(_LONG_ONLY, EmaCrossoverStrategy)
     registry.register(_SHORT_CAPABLE, EmaTrendPullbackStrategy)
     return LiveStrategySession(
-        LiveStrategyFactory(registry, Mock(), Mock(), Mock(), Mock(), Mock())
+        LiveStrategyFactory(
+            registry,
+            Mock(),
+            Mock(),
+            Mock(),
+            Mock(),
+            Mock(),
+            venue=venue,
+        )
     )
 
 
@@ -92,7 +100,10 @@ class _Desk:
     """Both venues, with the handlers every venue's screen dispatches to."""
 
     def __init__(self) -> None:
-        by_venue = {_FUTURES: _strategy_session(), _SPOT: _strategy_session()}
+        by_venue = {
+            _FUTURES: _strategy_session(_FUTURES),
+            _SPOT: _strategy_session(_SPOT),
+        }
         self.sessions = VenueStrategySessions(lambda venue: by_venue[venue])
         ports = FakeVenueTradingPorts(
             fake_venue_ports(

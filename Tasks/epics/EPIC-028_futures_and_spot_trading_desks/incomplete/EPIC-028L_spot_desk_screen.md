@@ -16,6 +16,7 @@
 - [ ] Route `trading.spot`, nav "Spot"; same layout as the Futures desk with the Spot profile (Assets tab, Buy/Sell columns, no leverage).
 - [ ] With Spot not enabled, the disabled-venue state as in `EPIC-028K`.
 - [ ] Both desks open at once work independently (qtbot: an order on one never appears on the other).
+- [ ] Boot re-arms each desk's own saved strategy: `StrategyModule._restore_armed_strategies` widens from the primary venue to every enabled venue a desk shows (`EPIC-028C` restores the primary only, because until now no screen shows or disarms the other venue).
 
 ## 3. Design
 Same composition as `EPIC-028K`; the difference is only the `DeskProfile` passed in.

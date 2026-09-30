@@ -66,11 +66,6 @@ if TYPE_CHECKING:
 #: EPIC-021I's own scope decision).
 _HISTORY_CANDLE_LIMIT = 500
 
-#: `EPIC-027A` — the live trading chart's own market selector is a later
-#: phase's job (Phase 1 has no market to choose from yet). Pinned to Spot,
-#: what this screen has always synced and read.
-_MARKET = MarketType.SPOT
-
 #: `BOT-126` — this screen's own identity on `IMarketStream`. Exactly
 #: one `TradingPresenter`/`ChartCoordinator` is ever alive at once, so a
 #: fixed string is enough (no need for a per-instance id).
@@ -88,6 +83,7 @@ class ChartCoordinator:
         market_data_sync: IMarketDataSync,
         historical_klines: IHistoricalKlines,
         market_stream: IMarketStream,
+        market: MarketType,
         emit_history_ready: Callable[[str, list, list, list], None],
         emit_load_finished: Callable[[], None],
         emit_stream_started: Callable[[str], None],
@@ -98,11 +94,19 @@ class ChartCoordinator:
         self._market_data_sync = market_data_sync
         self._historical_klines = historical_klines
         self._market_stream = market_stream
+        self._market = market
         self._emit_history_ready = emit_history_ready
         self._emit_load_finished = emit_load_finished
         self._emit_stream_started = emit_stream_started
         self._emit_stream_failed = emit_stream_failed
         self._emit_log = emit_log
+
+    @property
+    def chart_market(self) -> MarketType:
+        """`EPIC-028C` — the market this chart syncs, reads and streams: the
+        screen's venue's, so the chart and the strategy armed from it see
+        that venue's prices (`screen_venue_feeds.chart_market`)."""
+        return self._market
 
     def start(
         self,
@@ -159,7 +163,7 @@ class ChartCoordinator:
                     MarketDataSyncRequest(
                         symbols=(symbol,),
                         interval=interval,
-                        market=_MARKET,
+                        market=self._market,
                         cancellation_requested=token.is_cancelled,
                     )
                 )
@@ -187,7 +191,11 @@ class ChartCoordinator:
         # runtime type (`architecture-rule.md` §2.1). The port asks for one
         # symbol and gets that symbol's rows.
         newest_first_rows = self._historical_klines.load(
-            _MARKET, symbol, interval, limit=_HISTORY_CANDLE_LIMIT, newest_first=True
+            self._market,
+            symbol,
+            interval,
+            limit=_HISTORY_CANDLE_LIMIT,
+            newest_first=True,
         )
         if not newest_first_rows:
             self._emit_log(f"No historical data for {symbol}.")
@@ -211,7 +219,9 @@ class ChartCoordinator:
         # The `getattr(response, "success", True)` this replaces reported
         # success for any object without that field, `None` included: a
         # stream that never opened told the user it was streaming.
-        outcome = self._market_stream.start(_STREAM_OWNER, [symbol], interval)
+        outcome = self._market_stream.start(
+            _STREAM_OWNER, self._market, [symbol], interval
+        )
         if outcome.success:
             self._emit_stream_started(f"Streaming live data for {symbol}.")
         else:

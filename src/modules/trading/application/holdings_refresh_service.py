@@ -5,10 +5,10 @@ Spot user-data stream's own account events.
 through the existing event pipe, no-op while trading is disabled) but
 publishes one `HoldingsChangedEvent` carrying the whole set — see that
 event's own docstring for why this never needs a changed/closed pair the
-way positions do. `TradingModule.boot()` only schedules this service's
-`refresh_once()` on a Spot venue (its own docstring explains why: a
-Futures venue always answers `None` here, so polling it would be a wasted
-network round trip on every tick).
+way positions do. Built only for a Spot venue (`composition/
+venue_refresh_services.py`, `EPIC-028C`): a Futures venue always answers
+`None` here, so polling it would be a wasted network round trip on every
+tick.
 """
 
 from __future__ import annotations
@@ -34,11 +34,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.holdings_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
 )
-
-logger = logging.getLogger("App.HoldingsRefresh")
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+
+logger = logging.getLogger("App.HoldingsRefresh")
 
 
 class HoldingsRefreshService:
@@ -64,6 +64,11 @@ class HoldingsRefreshService:
         self._session_state = session_state
         self._venue = venue
 
+    @property
+    def venue(self) -> TradingVenue:
+        """The one venue this service reads and republishes."""
+        return self._venue
+
     def refresh_once(self) -> None:
         if not self._session_state.enabled:
             return
@@ -79,4 +84,6 @@ class HoldingsRefreshService:
             logger.debug("Holdings refresh failed: %s", exc)
             return
 
-        self._event_publisher.publish(HoldingsChangedEvent(holdings=holdings))
+        self._event_publisher.publish(
+            HoldingsChangedEvent(holdings=holdings, venue=self._venue)
+        )

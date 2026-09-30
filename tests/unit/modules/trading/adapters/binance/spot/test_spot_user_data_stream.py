@@ -21,6 +21,9 @@ from binance.exceptions import ReadLoopClosed
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_user_data_stream import (
     SpotUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
+    VenueEventEmitter,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
@@ -104,7 +107,7 @@ def _stream(
 ) -> tuple[SpotUserDataStream, MemoryEventBus]:
     event_bus = MemoryEventBus()
     stream = SpotUserDataStream(
-        event_bus,
+        VenueEventEmitter(event_bus, TradingVenue.SPOT_TESTNET),
         Mock(),
         Mock(),
         account_reader if account_reader is not None else FakeTradingAccountReader(),
@@ -136,6 +139,8 @@ async def test_a_fill_publishes_order_filled_event_with_its_fee() -> None:
     assert seen[0].fill_quantity == Decimal("0.002")
     assert seen[0].fee_amount == Decimal("0.0013")
     assert seen[0].fee_asset == "USDT"
+    # `EPIC-028C` — stamped with the stream's own venue.
+    assert seen[0].venue is TradingVenue.SPOT_TESTNET
 
 
 async def test_execution_report_logs_at_debug_not_info(caplog) -> None:
@@ -378,7 +383,7 @@ async def test_run_stream_with_no_credentials_returns_without_crashing() -> None
         None, CredentialsSource.NONE
     )
     stream = SpotUserDataStream(
-        MemoryEventBus(),
+        VenueEventEmitter(MemoryEventBus(), TradingVenue.SPOT_TESTNET),
         Mock(),
         credentials_provider,
         FakeTradingAccountReader(),
@@ -397,7 +402,7 @@ async def test_read_loop_closed_triggers_a_reconnect_not_a_crash() -> None:
         CredentialsSource.FILE,
     )
     stream = SpotUserDataStream(
-        MemoryEventBus(),
+        VenueEventEmitter(MemoryEventBus(), TradingVenue.SPOT_TESTNET),
         Mock(),
         credentials_provider,
         FakeTradingAccountReader(),
@@ -462,7 +467,7 @@ async def test_a_superseded_generation_stops_handling_messages_mid_stream() -> N
         CredentialsSource.FILE,
     )
     stream = SpotUserDataStream(
-        MemoryEventBus(),
+        VenueEventEmitter(MemoryEventBus(), TradingVenue.SPOT_TESTNET),
         Mock(),
         credentials_provider,
         FakeTradingAccountReader(),

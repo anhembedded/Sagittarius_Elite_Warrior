@@ -58,6 +58,7 @@ import time
 from datetime import UTC, datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 
 
@@ -317,9 +318,13 @@ def test_duplicate_closed_tick_for_same_timestamp_overwrites_not_duplicates(
     )
 
     with qtbot.waitSignal(presenter.ui_chart_update_signal, timeout=2000):
-        presenter._handle_market_tick(MarketTickEvent(market_data=closed_tick))
+        presenter._handle_market_tick(
+            MarketTickEvent(market_data=closed_tick, market_type=MarketType.SPOT)
+        )
     with qtbot.waitSignal(presenter.ui_chart_update_signal, timeout=2000):
-        presenter._handle_market_tick(MarketTickEvent(market_data=closed_tick))
+        presenter._handle_market_tick(
+            MarketTickEvent(market_data=closed_tick, market_type=MarketType.SPOT)
+        )
 
     # Both deliveries share one timestamp — the second overwrites the
     # first in place, it does not append a duplicate bar.

@@ -220,6 +220,7 @@ def _build_pipeline() -> _Pipeline:
         Mock(),
         20.0,
         1.0,
+        venue=TradingVenue.FUTURES_TESTNET,
     )
     return _Pipeline(coordinator, dispatcher, session_state)
 

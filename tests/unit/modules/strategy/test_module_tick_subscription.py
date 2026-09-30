@@ -31,6 +31,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
@@ -41,19 +42,14 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.event_handlers.m
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
     VenueStrategySessions,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.arm_strategy_result import (
-    ArmStrategyResult,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.disarm_strategy_result import (
-    DisarmStrategyResult,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
-    IStrategyArming,
-)
-from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
-    LiveStrategyConfig,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.module import StrategyModule
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
+    FakeVenueContexts,
+    fake_venue_context,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -79,25 +75,6 @@ class _RecordingSession:
 
     def dispatch_tick(self, market_data: MarketData) -> None:
         self.ticks.append(market_data)
-
-
-class _UnusedArming(IStrategyArming):
-    """Stands in for `IStrategyArming` — `boot()` resolves it unconditionally
-    (`EPIC-027N` PR #287 review) but `_arm_from_config()` returns before
-    calling any of it once the config is empty, which is this file's whole
-    fixture. Every method raises so a regression that reaches into arming
-    from this test would fail loudly instead of silently returning a fake
-    success.
-    """
-
-    def arm(self, config: LiveStrategyConfig) -> ArmStrategyResult:
-        raise AssertionError("arm() should not run for an empty saved config")
-
-    def disarm(self) -> DisarmStrategyResult:
-        raise AssertionError("disarm() is not exercised by this test")
-
-    def saved_selection(self) -> LiveStrategyConfig:
-        raise AssertionError("saved_selection() is not exercised by this test")
 
 
 def _market_data(symbol: str = "BTCUSDT") -> MarketData:
@@ -127,13 +104,10 @@ def _booted(session: _RecordingSession) -> tuple[StrategyModule, MemoryEventBus]
     substitute for a Mock) since `EPIC-025E` PR 4.4f-2: `boot()` now also
     seeds the live strategy from config before subscribing the tick path,
     and an empty config answers "nothing saved" — `is_complete` is `False`,
-    so `_arm_from_config()` returns before ever calling `.arm()`.
-    `IStrategyArming` is bound to `_UnusedArming` (`EPIC-027N` PR #287
-    review): `boot()` resolves it unconditionally to pass to
-    `_arm_from_config()`, and its every method raises, so a regression that
-    reached past the empty-config guard would fail this test instead of
-    quietly using a fake session. What this file tests is still only the
-    subscription, untouched by that seeding.
+    so nothing is armed. Trading is off (`TradingVenue.DISABLED`, no venue
+    enabled), so `boot()` restores no venue's strategy at all (`EPIC-028C`);
+    what this file tests is only the subscription, untouched by that
+    seeding.
     """
     container = StdLibContainer()
     # `EPIC-028B` — `boot()` subscribes the tick path to every venue's
@@ -142,7 +116,10 @@ def _booted(session: _RecordingSession) -> tuple[StrategyModule, MemoryEventBus]
     sessions.get(TradingVenue.FUTURES_TESTNET)
     container.singleton(VenueStrategySessions, sessions)
     container.singleton(IConfig, DictConfig())
-    container.singleton(IStrategyArming, _UnusedArming())
+    container.singleton(TradingVenue, TradingVenue.DISABLED)
+    container.singleton(
+        IVenueContexts, FakeVenueContexts(fake_venue_context(TradingVenue.DISABLED))
+    )
     event_bus = MemoryEventBus()
 
     module = StrategyModule()
@@ -159,7 +136,11 @@ def test_a_market_tick_on_the_bus_reaches_the_live_session() -> None:
     session = _RecordingSession()
     _, event_bus = _booted(session)
 
-    event_bus.emit(MarketTickEvent(market_data=_market_data("ETHUSDT")))
+    event_bus.emit(
+        MarketTickEvent(
+            market_data=_market_data("ETHUSDT"), market_type=MarketType.FUTURES_USD_M
+        )
+    )
 
     assert [md.symbol for md in session.ticks] == ["ETHUSDT"], (
         "a MarketTickEvent published on the bus did not reach the live "
@@ -183,7 +164,9 @@ def test_boot_subscribes_the_session_the_container_already_holds() -> None:
     _, event_bus = _booted(session)
     tick = _market_data()
 
-    event_bus.emit(MarketTickEvent(market_data=tick))
+    event_bus.emit(
+        MarketTickEvent(market_data=tick, market_type=MarketType.FUTURES_USD_M)
+    )
 
     assert session.ticks and session.ticks[0] is tick
 

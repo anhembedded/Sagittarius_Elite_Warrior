@@ -1,15 +1,15 @@
-"""`BOT-125` — the Order Venue control on the Trading settings section.
+"""`BOT-125`/`EPIC-028C` — the trading venue toggles on the Trading settings
+section.
 
 Split off `tests/unit/presentation/ui/screens/test_settings_venue_controls.py`,
-keeping only what this module owns: the trading venue, backed by this
-module's own `ITradingSession`. `market_data`'s venue moved to
-`tests/unit/modules/market_data/ui/settings/test_market_data_settings_venue.py`
-and dropped the lock entirely (see that module's presenter docstring for why).
+keeping only what this module owns. `market_data`'s venue moved to
+`tests/unit/modules/market_data/ui/settings/test_market_data_settings_venue.py`.
 
-These tests hold the control to the two things that make it honest: it
-refuses rather than half-applies while a live session is running, and a
-broken saved value shows what the app is really running on rather than the
-unusable string that produced it.
+Since `EPIC-028C` the page shows one toggle per venue that can place orders,
+and Save writes `exchange.trading_venues`, the list boot reads. These tests
+hold the control to what makes it honest: it refuses rather than
+half-applies while any venue's live session runs; it shows what the app is
+really running on; what it saves is what the next boot serves.
 """
 
 from __future__ import annotations
@@ -18,20 +18,30 @@ from unittest.mock import Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.adapter_bindings import (
+    bind_adapters,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.composition.state_bindings import (
+    bind_state,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
     IAccountSnapshot,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
-    ITradingSession,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
+    IVenueTradingPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
     FakeAccountSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
     FakeTradingSession,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
+    FakeVenueTradingPorts,
+    fake_venue_ports,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_presenter import (
     TradingSettingsPresenter,
@@ -50,7 +60,17 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.settings.primary_venue_contexts import (
     primary_venue_contexts,
 )
+from sagittarius_engine.infrastructure.config.dict_config import DictConfig
+from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
+from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 from sagittarius_engine.interfaces import IConfig
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
+from sagittarius_engine.interfaces.i_task_manager import ITaskManager
+
+_FUTURES = TradingVenue.FUTURES_TESTNET
+_SPOT = TradingVenue.SPOT_TESTNET
+_LIST = ConfigKeys.EXCHANGE_TRADING_VENUES.value
+_SCALAR = ConfigKeys.EXCHANGE_TRADING_VENUE.value
 
 
 class _FakeConfig:
@@ -75,6 +95,20 @@ class _FakeConfig:
         self.save_count += 1
 
 
+class _Sessions:
+    """Each venue's trading session, as `IVenueTradingPorts` serves them."""
+
+    def __init__(self) -> None:
+        self.futures = FakeTradingSession()
+        self.spot = FakeTradingSession()
+
+    def ports(self) -> FakeVenueTradingPorts:
+        return FakeVenueTradingPorts(
+            fake_venue_ports(_FUTURES, trading_session=self.futures),
+            fake_venue_ports(_SPOT, trading_session=self.spot),
+        )
+
+
 @pytest.fixture
 def credentials_provider() -> Mock:
     provider = Mock(spec=IExchangeCredentialsProvider)
@@ -82,7 +116,7 @@ def credentials_provider() -> Mock:
     return provider
 
 
-def _presenter(request, config, session_state, credentials_provider):
+def _presenter(request, config, sessions, credentials_provider):
     container = Mock()
 
     def resolve(interface):
@@ -90,8 +124,8 @@ def _presenter(request, config, session_state, credentials_provider):
             return config
         if interface is IVenueContexts:
             return primary_venue_contexts(credentials_provider)
-        if interface is ITradingSession:
-            return session_state
+        if interface is IVenueTradingPorts:
+            return sessions.ports()
         if interface is IAccountSnapshot:
             return FakeAccountSnapshot()
         return Mock()
@@ -102,150 +136,144 @@ def _presenter(request, config, session_state, credentials_provider):
     return TradingSettingsPresenter(view, container), view
 
 
-def test_every_trading_venue_has_a_combo_label(qapp, request, credentials_provider):
-    """A member added without a label would render as an empty combo row —
-    the guard exists because `TradingVenue` is explicitly designed to gain
-    a `MAINNET` member one day (`EPIC-021` ADR §3)."""
+def test_every_orderable_venue_has_a_toggle_and_disabled_has_none(
+    qapp, request, credentials_provider
+):
+    """A venue gaining order submission (`TradingVenue` is designed to gain a
+    `MAINNET` member, `EPIC-021` ADR §3) gets a toggle; turning trading off is
+    unticking every box, not a `DISABLED` toggle."""
     _presenter_obj, view = _presenter(
-        request, _FakeConfig(), FakeTradingSession(), credentials_provider
+        request, _FakeConfig(), _Sessions(), credentials_provider
     )
 
-    labels = {
-        view._trading_venue_combo.itemText(index)
-        for index in range(view._trading_venue_combo.count())
+    assert set(view._venue_toggles) == {
+        venue for venue in TradingVenue if venue.supports_order_submission
     }
-
-    assert len(labels) == len(TradingVenue)
-    assert all(label.strip() for label in labels)
+    assert all(toggle.text().strip() for toggle in view._venue_toggles.values())
 
 
-def test_the_saved_venue_is_shown_on_load(qapp, request, credentials_provider):
-    config = _FakeConfig({ConfigKeys.EXCHANGE_TRADING_VENUE.value: "futures_testnet"})
-    presenter, _view = _presenter(
-        request, config, FakeTradingSession(), credentials_provider
-    )
+def test_the_configured_list_is_shown_on_load(qapp, request, credentials_provider):
+    config = _FakeConfig({_LIST: [_SPOT.value], _SCALAR: _FUTURES.value})
+    presenter, view = _presenter(request, config, _Sessions(), credentials_provider)
 
-    assert presenter._settings_view_model.tradingVenue == "futures_testnet"
+    assert presenter._settings_view_model.enabledVenues == [_SPOT.value]
+    assert view._venue_toggles[_SPOT].isChecked() is True
+    assert view._venue_toggles[_FUTURES].isChecked() is False
 
 
-def test_an_unreadable_saved_value_shows_what_is_actually_running(
+def test_a_legacy_scalar_config_shows_its_one_venue(
     qapp, request, credentials_provider
 ):
-    """`resolve_trading_venue` falls back to DISABLED for a value it cannot
-    parse — and never to the tradeable one. The screen must show that
-    fallback, since that is what the app booted with; echoing the broken
-    string would tell the user trading is configured when it is not."""
-    config = _FakeConfig({ConfigKeys.EXCHANGE_TRADING_VENUE.value: "mainnet_please"})
-    presenter, _view = _presenter(
-        request, config, FakeTradingSession(), credentials_provider
+    config = _FakeConfig({_SCALAR: _FUTURES.value})
+    presenter, _view = _presenter(request, config, _Sessions(), credentials_provider)
+
+    assert presenter._settings_view_model.enabledVenues == [_FUTURES.value]
+
+
+def test_an_unreadable_saved_value_shows_trading_off(
+    qapp, request, credentials_provider
+):
+    """`resolve_trading_venues` enables nothing for a value it cannot parse,
+    never the tradeable one. The screen shows that, since that is what the
+    app booted with."""
+    config = _FakeConfig({_SCALAR: "mainnet_please"})
+    presenter, _view = _presenter(request, config, _Sessions(), credentials_provider)
+
+    assert presenter._settings_view_model.enabledVenues == []
+
+
+def test_ticking_a_toggle_reaches_the_view_model(qapp, request, credentials_provider):
+    presenter, view = _presenter(
+        request, _FakeConfig(), _Sessions(), credentials_provider
     )
 
-    assert presenter._settings_view_model.tradingVenue == TradingVenue.DISABLED.value
+    view._venue_toggles[_SPOT].setChecked(True)
+
+    assert presenter._settings_view_model.enabledVenues == [_SPOT.value]
 
 
-def test_saving_writes_the_venue_key(qapp, request, credentials_provider):
-    config = _FakeConfig()
-    presenter, _view = _presenter(
-        request, config, FakeTradingSession(), credentials_provider
-    )
+def test_saving_writes_the_list_in_venue_order_and_keeps_the_scalar_in_step(
+    qapp, request, credentials_provider
+):
+    """Ticked Spot first, then Futures: the list follows `TradingVenue`'s own
+    order, so which venue is primary never depends on the click order."""
+    config = _FakeConfig({_SCALAR: "disabled"})
+    presenter, _view = _presenter(request, config, _Sessions(), credentials_provider)
     view_model = presenter._settings_view_model
-    view_model.requestTradingVenue("futures_testnet")
+    view_model.requestVenueEnabled(_SPOT.value, True)
+    view_model.requestVenueEnabled(_FUTURES.value, True)
 
     view_model.requestSave()
 
-    assert config.values[ConfigKeys.EXCHANGE_TRADING_VENUE.value] == "futures_testnet"
+    assert config.values[_LIST] == [_FUTURES.value, _SPOT.value]
+    assert config.values[_SCALAR] == _FUTURES.value
+    assert view_model.statusIsError is False
 
 
-def test_saving_is_refused_outright_while_trading_is_on(
-    qapp, request, credentials_provider
-):
-    """Refused, not partially applied: a Save that wrote the other fields
-    and silently dropped this one would be the "button appears to work"
-    failure `EPIC-022` was opened to remove."""
-    config = _FakeConfig({ConfigKeys.EXCHANGE_TRADING_VENUE.value: "disabled"})
-    session_state = FakeTradingSession()
-    presenter, _view = _presenter(request, config, session_state, credentials_provider)
-    session_state.set_enabled(enabled=True)
+def test_unticking_every_venue_saves_trading_off(qapp, request, credentials_provider):
+    config = _FakeConfig({_LIST: [_SPOT.value]})
+    presenter, _view = _presenter(request, config, _Sessions(), credentials_provider)
     view_model = presenter._settings_view_model
-    view_model.requestTradingVenue("futures_testnet")
+    view_model.requestVenueEnabled(_SPOT.value, False)
 
     view_model.requestSave()
 
-    assert config.values[ConfigKeys.EXCHANGE_TRADING_VENUE.value] == "disabled"
+    assert config.values[_LIST] == []
+    assert config.values[_SCALAR] == TradingVenue.DISABLED.value
+
+
+def test_saving_is_refused_while_any_venue_is_trading(
+    qapp, request, credentials_provider
+):
+    """Only Spot's session is live, and the primary venue's is not: the lock
+    still holds. Refused, not partially applied."""
+    config = _FakeConfig({_LIST: [_FUTURES.value, _SPOT.value]})
+    sessions = _Sessions()
+    presenter, _view = _presenter(request, config, sessions, credentials_provider)
+    sessions.spot.set_enabled(enabled=True)
+    view_model = presenter._settings_view_model
+    view_model.requestVenueEnabled(_SPOT.value, False)
+
+    view_model.requestSave()
+
+    assert config.values[_LIST] == [_FUTURES.value, _SPOT.value]
     assert view_model.statusIsError is True
     assert "Trading is active" in view_model.statusMessage
 
 
-def test_the_combo_is_disabled_while_trading_is_on(qapp, request, credentials_provider):
-    session_state = FakeTradingSession()
-    session_state.set_enabled(enabled=True)
+def test_the_toggles_are_disabled_while_trading_is_on(
+    qapp, request, credentials_provider
+):
+    sessions = _Sessions()
+    sessions.spot.set_enabled(enabled=True)
 
     _presenter_obj, view = _presenter(
-        request, _FakeConfig(), session_state, credentials_provider
+        request, _FakeConfig({_LIST: [_SPOT.value]}), sessions, credentials_provider
     )
 
-    assert view._trading_venue_combo.isEnabled() is False
+    assert not any(toggle.isEnabled() for toggle in view._venue_toggles.values())
     # `isVisible()` is False for any widget whose window was never shown,
     # so the meaningful assertion is that the explanation was set at all.
     assert view._venue_lock_label.text() != ""
 
 
-def test_the_combo_carries_the_config_value_not_the_label(
+def test_turning_one_venue_off_leaves_the_other_served_after_restart(
     qapp, request, credentials_provider
 ):
-    """The visible text is a human-readable sentence; the value written to
-    config must be the enum's own string. Deriving one from the other by
-    parsing the label would break the moment the wording changes."""
-    _presenter_obj, view = _presenter(
-        request, _FakeConfig(), FakeTradingSession(), credentials_provider
-    )
+    """What Settings saves is what the next boot serves: with Spot unticked,
+    the real registry enables Futures alone and refuses Spot."""
+    config = _FakeConfig({_LIST: [_FUTURES.value, _SPOT.value]})
+    presenter, _view = _presenter(request, config, _Sessions(), credentials_provider)
+    presenter._settings_view_model.requestVenueEnabled(_SPOT.value, False)
+    presenter._settings_view_model.requestSave()
 
-    values = {
-        view._trading_venue_combo.itemData(index)
-        for index in range(view._trading_venue_combo.count())
-    }
+    container = StdLibContainer()
+    container.singleton(IConfig, DictConfig(config.get_all()))
+    container.singleton(IEventBus, MemoryEventBus())
+    container.singleton(ITaskManager, Mock())
+    bind_adapters(container)
+    bind_state(container)
+    contexts = container.resolve(IVenueContexts)
 
-    assert values == {venue.value for venue in TradingVenue}
-
-
-def _list_configured() -> _FakeConfig:
-    return _FakeConfig(
-        {
-            ConfigKeys.EXCHANGE_TRADING_VENUES.value: ["spot_testnet"],
-            ConfigKeys.EXCHANGE_TRADING_VENUE.value: "disabled",
-        }
-    )
-
-
-def test_a_venue_list_in_config_is_what_settings_shows(
-    qapp, request, credentials_provider
-):
-    """Review F2: the list overrides the scalar at boot, so the combo names
-    the list's primary venue, not the scalar it overrode."""
-    presenter, _view = _presenter(
-        request, _list_configured(), FakeTradingSession(), credentials_provider
-    )
-
-    assert presenter._settings_view_model.tradingVenue == "spot_testnet"
-
-
-def test_a_venue_list_in_config_locks_the_combo_and_refuses_the_save(
-    qapp, request, credentials_provider
-):
-    """The Settings page writes only the scalar, which the list overrides, so
-    a saved "disabled" would leave trading on. Until per-venue toggles
-    (`EPIC-028C`) own the list, saving is refused and says why."""
-    config = _list_configured()
-    presenter, _view = _presenter(
-        request, config, FakeTradingSession(), credentials_provider
-    )
-    view_model = presenter._settings_view_model
-    view_model.requestTradingVenue("disabled")
-
-    view_model.requestSave()
-
-    assert view_model.venueLocked is True
-    assert config.values[ConfigKeys.EXCHANGE_TRADING_VENUE.value] == "disabled"
-    assert config.values[ConfigKeys.EXCHANGE_TRADING_VENUES.value] == ["spot_testnet"]
-    assert view_model.statusIsError is True
-    assert "exchange.trading_venues" in view_model.statusMessage
+    assert contexts.enabled() == (_FUTURES,)
+    assert contexts.primary().venue is _FUTURES

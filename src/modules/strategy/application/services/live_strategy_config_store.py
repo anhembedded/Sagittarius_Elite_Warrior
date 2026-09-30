@@ -16,6 +16,22 @@ happened to need them first.
 Boot has no Presenter. Putting this in `screens/trading/` would mean
 `binance_bot_module.py` importing a UI package to start the bot, which is
 the layering inversion `EPIC-021L` spent a whole task removing.
+
+@par One configuration per venue (`EPIC-028C`)
+Futures and Spot each arm their own strategy, so each keeps its own six
+keys: `trading.<venue>.live_symbol` and so on (`venue_config_key`). Arming on
+one venue saves that venue's keys only and never replaces what the other
+restores at boot.
+
+The unscoped `trading.live_*` keys are what a single-venue app wrote. They
+belong to the one venue that app ran on, which can be named for certain only
+while exactly one venue is enabled: with trading off there is no owner yet,
+and with two enabled the primary venue is not necessarily the one the keys
+were armed on (the PR #295 review: a Spot strategy would move to Futures).
+`adopt_legacy()` copies them to that one venue's own keys and then empties the
+legacy strategy key, so a venue enabled later never inherits a strategy armed
+on another market. In every other case it leaves the keys where they are and
+says so.
 """
 
 from __future__ import annotations
@@ -30,19 +46,91 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_conf
     DEFAULT_SIZING_PERCENT,
     LiveStrategyConfig,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.interfaces.i_config import IConfig
 
 logger = logging.getLogger("App.LiveStrategyConfigStore")
 
+_SECTION = "trading."
+
+#: The six keys one armed strategy is saved under, in the unscoped form a
+#: single-venue app wrote them.
+_LIVE_KEYS: tuple[ConfigKeys, ...] = (
+    ConfigKeys.TRADING_LIVE_STRATEGY_KEY,
+    ConfigKeys.TRADING_LIVE_SYMBOL,
+    ConfigKeys.TRADING_LIVE_INTERVAL,
+    ConfigKeys.TRADING_LIVE_STRATEGY_PARAMS,
+    ConfigKeys.TRADING_LIVE_SIZING_PERCENT,
+    ConfigKeys.TRADING_LIVE_LEVERAGE,
+)
+
+
+def venue_config_key(key: ConfigKeys, venue: TradingVenue) -> str:
+    """`trading.live_symbol` for Futures Testnet is
+    `trading.futures_testnet.live_symbol`."""
+    return f"{_SECTION}{venue.value}.{key.value.removeprefix(_SECTION)}"
+
 
 class LiveStrategyConfigStore:
-    """@brief Reads and writes the live strategy's `trading.live_*` keys."""
+    """@brief Reads and writes each venue's armed strategy keys."""
 
     def __init__(self, config: IConfig) -> None:
         self._config = config
 
-    def load(self) -> LiveStrategyConfig:
-        """@returns Whatever is saved, as a value object.
+    def adopt_legacy(self, enabled: tuple[TradingVenue, ...]) -> None:
+        """Moves a single-venue app's unscoped keys to the one enabled
+        venue's own keys, once.
+
+        Does nothing when no strategy was saved there, when the owner already
+        has its own (a later boot, or a venue armed since), or when the owner
+        cannot be named because not exactly one venue is enabled. The legacy
+        strategy key is emptied after a move, which is what makes a second
+        call a no-op.
+        """
+        legacy_strategy = self._config.get(
+            ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value, ""
+        )
+        if not legacy_strategy:
+            return
+        if not enabled:
+            logger.debug(
+                "Trading is off, so the saved live strategy '%s' has no venue "
+                "to move to yet.",
+                legacy_strategy,
+            )
+            return
+        if len(enabled) > 1:
+            logger.warning(
+                "The saved live strategy '%s' predates per-venue settings and "
+                "%d venues are enabled, so which one it belongs to is unknown "
+                "— left unadopted; arm it again on the venue you want.",
+                legacy_strategy,
+                len(enabled),
+            )
+            return
+        (owner,) = enabled
+        owned = self._config.get(
+            venue_config_key(ConfigKeys.TRADING_LIVE_STRATEGY_KEY, owner)
+        )
+        if owned is not None:
+            return
+        for key in _LIVE_KEYS:
+            value = self._config.get(key.value)
+            if value is not None:
+                self._config.set(venue_config_key(key, owner), value)
+        self._config.set(ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value, "")
+        self._persist()
+        logger.info(
+            "Moved the saved live strategy '%s' to %s's own keys.",
+            legacy_strategy,
+            owner.value,
+        )
+
+    def load(self, venue: TradingVenue) -> LiveStrategyConfig:
+        """@returns Whatever is saved for `venue`, as a value object; an
+        incomplete one (`is_complete` false) when nothing is.
 
         @raises ValueError If the saved values break `LiveStrategyConfig`'s
         own invariants (a leverage of 0, an interval live trading does not
@@ -53,57 +141,64 @@ class LiveStrategyConfigStore:
         believes is in effect.
         """
         return LiveStrategyConfig(
-            strategy_key=self._text(ConfigKeys.TRADING_LIVE_STRATEGY_KEY),
-            symbol=self._text(ConfigKeys.TRADING_LIVE_SYMBOL),
-            interval=self._text(ConfigKeys.TRADING_LIVE_INTERVAL),
-            strategy_params=self._params(),
+            strategy_key=self._text(ConfigKeys.TRADING_LIVE_STRATEGY_KEY, venue),
+            symbol=self._text(ConfigKeys.TRADING_LIVE_SYMBOL, venue),
+            interval=self._text(ConfigKeys.TRADING_LIVE_INTERVAL, venue),
+            strategy_params=self._params(venue),
             sizing_percent=self._number(
-                ConfigKeys.TRADING_LIVE_SIZING_PERCENT, DEFAULT_SIZING_PERCENT
+                venue_config_key(ConfigKeys.TRADING_LIVE_SIZING_PERCENT, venue),
+                DEFAULT_SIZING_PERCENT,
             ),
-            leverage=self._number(ConfigKeys.TRADING_LIVE_LEVERAGE, DEFAULT_LEVERAGE),
+            leverage=self._number(
+                venue_config_key(ConfigKeys.TRADING_LIVE_LEVERAGE, venue),
+                DEFAULT_LEVERAGE,
+            ),
         )
 
-    def save(self, config: LiveStrategyConfig) -> None:
-        """Writes every field, then persists if the config implementation
-        can (`save()` belongs to `ConfigManager`, not to the `IConfig`
-        port — the same duck-check `SettingsPresenter` documents)."""
-        self._config.set(
-            ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value, config.strategy_key
-        )
-        self._config.set(ConfigKeys.TRADING_LIVE_SYMBOL.value, config.symbol)
-        self._config.set(ConfigKeys.TRADING_LIVE_INTERVAL.value, config.interval)
-        self._config.set(
-            ConfigKeys.TRADING_LIVE_STRATEGY_PARAMS.value,
-            json.dumps(dict(config.strategy_params), sort_keys=True),
-        )
-        self._config.set(
-            ConfigKeys.TRADING_LIVE_SIZING_PERCENT.value, config.sizing_percent
-        )
-        self._config.set(ConfigKeys.TRADING_LIVE_LEVERAGE.value, config.leverage)
+    def save(self, venue: TradingVenue, config: LiveStrategyConfig) -> None:
+        """Writes every field of `venue`'s keys, then persists."""
+        values: dict[ConfigKeys, object] = {
+            ConfigKeys.TRADING_LIVE_STRATEGY_KEY: config.strategy_key,
+            ConfigKeys.TRADING_LIVE_SYMBOL: config.symbol,
+            ConfigKeys.TRADING_LIVE_INTERVAL: config.interval,
+            ConfigKeys.TRADING_LIVE_STRATEGY_PARAMS: json.dumps(
+                dict(config.strategy_params), sort_keys=True
+            ),
+            ConfigKeys.TRADING_LIVE_SIZING_PERCENT: config.sizing_percent,
+            ConfigKeys.TRADING_LIVE_LEVERAGE: config.leverage,
+        }
+        for key, value in values.items():
+            self._config.set(venue_config_key(key, venue), value)
+        self._persist()
+
+    # ------------------------------------------------------------------ #
+
+    def _persist(self) -> None:
+        """Persists if the config implementation can (`save()` belongs to
+        `ConfigManager`, not to the `IConfig` port — the same duck-check
+        `SettingsPresenter` documents)."""
         persist = getattr(self._config, "save", None)
         if callable(persist):
             persist()
 
-    # ------------------------------------------------------------------ #
+    def _text(self, key: ConfigKeys, venue: TradingVenue) -> str:
+        return str(self._config.get(venue_config_key(key, venue), ""))
 
-    def _text(self, key: ConfigKeys) -> str:
-        return str(self._config.get(key.value, ""))
-
-    def _number(self, key: ConfigKeys, fallback: float) -> float:
+    def _number(self, key: str, fallback: float) -> float:
         """@details A non-numeric saved value falls back rather than
         raising: unlike an out-of-range number (which the user chose and
         should be told about), a `"twenty"` where a float belongs is a
         corrupt file, and refusing to boot over it helps nobody."""
         try:
-            return float(self._config.get(key.value, fallback))
+            return float(self._config.get(key, fallback))
         except (TypeError, ValueError):
             logger.warning(
-                "Value for %s is not a number — using default %s.", key.value, fallback
+                "Value for %s is not a number — using default %s.", key, fallback
             )
             return float(fallback)
 
-    def _params(self) -> dict[str, Any]:
-        raw = self._text(ConfigKeys.TRADING_LIVE_STRATEGY_PARAMS)
+    def _params(self, venue: TradingVenue) -> dict[str, Any]:
+        raw = self._text(ConfigKeys.TRADING_LIVE_STRATEGY_PARAMS, venue)
         if not raw:
             return {}
         try:
@@ -111,7 +206,7 @@ class LiveStrategyConfigStore:
         except json.JSONDecodeError:
             logger.warning(
                 "Skipping %s — could not parse JSON.",
-                ConfigKeys.TRADING_LIVE_STRATEGY_PARAMS.value,
+                venue_config_key(ConfigKeys.TRADING_LIVE_STRATEGY_PARAMS, venue),
             )
             return {}
         return stored if isinstance(stored, dict) else {}

@@ -1,11 +1,14 @@
 """`trading`'s own slice of `SettingsViewModel` (`EPIC-025E` PR 4.4e).
 
-Carries exactly the fields this module owns: API credentials, the order
-venue, and the connection check. `market_data`'s venue and sync defaults
+Carries exactly the fields this module owns: API credentials, which
+trading venues are on (`EPIC-028C`: one toggle per venue), and the
+connection check. `market_data`'s venue and sync defaults
 moved to `modules/market_data/ui/settings/` instead.
 """
 
 from __future__ import annotations
+
+from collections.abc import Sequence
 
 from PySide6.QtCore import Property, Signal, Slot
 from Sagittarius_Elite_Warrior.src.support.ui_kit.status_view_model import (
@@ -39,7 +42,7 @@ class TradingSettingsViewModel(StatusMessageViewModel):
         self._connection_checking = False
         self._connection_result_text = ""
         self._connection_result_is_error = False
-        self._trading_venue = ""
+        self._enabled_venues: tuple[str, ...] = ()
         self._venue_locked = False
 
     def _get_api_key(self) -> str:
@@ -123,9 +126,11 @@ class TradingSettingsViewModel(StatusMessageViewModel):
     def requestCheckConnection(self) -> None:
         self.checkConnectionRequested.emit()
 
-    @Property(str, notify=venueChanged)
-    def tradingVenue(self) -> str:
-        return self._trading_venue
+    @Property(list, notify=venueChanged)
+    def enabledVenues(self) -> list[str]:
+        """The venues switched on, as `TradingVenue` values; empty means
+        trading is off."""
+        return list(self._enabled_venues)
 
     @Property(bool, notify=venueChanged)
     def venueLocked(self) -> bool:
@@ -134,21 +139,25 @@ class TradingSettingsViewModel(StatusMessageViewModel):
         means (`EPIC-022` §4.1, same reasoning)."""
         return self._venue_locked
 
-    @Slot(str)
-    def requestTradingVenue(self, venue: str) -> None:
-        if venue and venue != self._trading_venue:
-            self._trading_venue = venue
-            self.venueChanged.emit()
+    @Slot(str, bool)
+    def requestVenueEnabled(self, venue: str, enabled: bool) -> None:
+        if enabled and venue not in self._enabled_venues:
+            self._enabled_venues = (*self._enabled_venues, venue)
+        elif not enabled and venue in self._enabled_venues:
+            self._enabled_venues = tuple(v for v in self._enabled_venues if v != venue)
+        else:
+            return
+        self.venueChanged.emit()
 
     def load_fields(
         self,
         api_key: str,
         api_secret: str,
-        trading_venue: str,
+        enabled_venues: Sequence[str],
     ) -> None:
         self._set_api_key(api_key)
         self._set_api_secret(api_secret)
-        self._trading_venue = trading_venue
+        self._enabled_venues = tuple(enabled_venues)
         self.venueChanged.emit()
 
     @Slot(bool)

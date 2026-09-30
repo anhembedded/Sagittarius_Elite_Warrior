@@ -27,6 +27,7 @@ from __future__ import annotations
 from collections.abc import Callable
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
@@ -34,12 +35,14 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream
 
 _MINUTE = TimeFrame.ONE_MINUTE
 _DAY = TimeFrame.ONE_DAY
+_SPOT = MarketType.SPOT
+_FUTURES = MarketType.FUTURES_USD_M
 
-#: What a subclass's `holdings` fixture returns: for one owner, the symbols
-#: it currently streams paired with the interval, or `None` when it holds
-#: nothing at all. `None` and `()` are different answers and the suite
-#: checks both.
-type Holdings = Callable[[str], tuple[tuple[str, ...], TimeFrame] | None]
+#: What a subclass's `holdings` fixture returns: for one owner, the market,
+#: the symbols it currently streams and the interval, or `None` when it
+#: holds nothing at all. `None` and `()` are different answers and the
+#: suite checks both.
+type Holdings = Callable[[str], tuple[MarketType, tuple[str, ...], TimeFrame] | None]
 
 
 class MarketStreamContract:
@@ -64,30 +67,30 @@ class MarketStreamContract:
     def test_starting_makes_the_owner_hold_exactly_what_was_asked_for(
         self, impl: IMarketStream, holdings: Holdings
     ) -> None:
-        outcome = impl.start("trading", ["BTCUSDT", "ETHUSDT"], _MINUTE)
+        outcome = impl.start("trading", _SPOT, ["BTCUSDT", "ETHUSDT"], _MINUTE)
 
         assert outcome.success is True
-        assert holdings("trading") == (("BTCUSDT", "ETHUSDT"), _MINUTE)
+        assert holdings("trading") == (_SPOT, ("BTCUSDT", "ETHUSDT"), _MINUTE)
 
     def test_symbols_are_upper_cased(
         self, impl: IMarketStream, holdings: Holdings
     ) -> None:
         """Every symbol entry point in this app normalises, so a caller
         passing what a user typed is not a near miss that streams nothing."""
-        impl.start("trading", ["btcusdt"], _MINUTE)
+        impl.start("trading", _SPOT, ["btcusdt"], _MINUTE)
 
-        assert holdings("trading") == (("BTCUSDT",), _MINUTE)
+        assert holdings("trading") == (_SPOT, ("BTCUSDT",), _MINUTE)
 
     def test_an_empty_symbol_list_is_refused(self, impl: IMarketStream) -> None:
         """Not a quiet no-op: an empty subscription set cannot be told apart
         from a stream that stopped, so a screen that reached here with
         nothing selected must hear about it."""
         with pytest.raises(ValueError):
-            impl.start("trading", [], _MINUTE)
+            impl.start("trading", _SPOT, [], _MINUTE)
 
     def test_an_empty_owner_is_refused(self, impl: IMarketStream) -> None:
         with pytest.raises(ValueError):
-            impl.start("   ", ["BTCUSDT"], _MINUTE)
+            impl.start("   ", _SPOT, ["BTCUSDT"], _MINUTE)
 
     # -- replacing, which is the whole point of BOT-126 ----------------------
 
@@ -97,18 +100,29 @@ class MarketStreamContract:
         """How a screen changes symbol: it starts again. Adding instead would
         leave the old symbol streaming forever, which is the leak `BOT-126`
         replaced `start_stream()` to fix."""
-        impl.start("trading", ["BTCUSDT"], _MINUTE)
-        impl.start("trading", ["ETHUSDT"], _MINUTE)
+        impl.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
+        impl.start("trading", _SPOT, ["ETHUSDT"], _MINUTE)
 
-        assert holdings("trading") == (("ETHUSDT",), _MINUTE)
+        assert holdings("trading") == (_SPOT, ("ETHUSDT",), _MINUTE)
 
     def test_starting_again_replaces_the_interval_too(
         self, impl: IMarketStream, holdings: Holdings
     ) -> None:
-        impl.start("trading", ["BTCUSDT"], _MINUTE)
-        impl.start("trading", ["BTCUSDT"], _DAY)
+        impl.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
+        impl.start("trading", _SPOT, ["BTCUSDT"], _DAY)
 
-        assert holdings("trading") == (("BTCUSDT",), _DAY)
+        assert holdings("trading") == (_SPOT, ("BTCUSDT",), _DAY)
+
+    def test_starting_again_replaces_the_market_too(
+        self, impl: IMarketStream, holdings: Holdings
+    ) -> None:
+        """`EPIC-028C`: a screen switched from Spot to Futures streams
+        Futures' candles only; keeping Spot's would feed a Futures chart two
+        prices for one symbol."""
+        impl.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
+        impl.start("trading", _FUTURES, ["BTCUSDT"], _MINUTE)
+
+        assert holdings("trading") == (_FUTURES, ("BTCUSDT",), _MINUTE)
 
     # -- two owners, which is the other half ---------------------------------
 
@@ -118,30 +132,41 @@ class MarketStreamContract:
         """`BUG-085`: the trading chart and the Dev Board are two owners, and
         before `BOT-126` whichever started last decided what every screen
         received."""
-        impl.start("trading", ["BTCUSDT"], _MINUTE)
-        impl.start("dashboard", ["ETHUSDT"], _DAY)
+        impl.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
+        impl.start("dashboard", _SPOT, ["ETHUSDT"], _DAY)
 
-        assert holdings("trading") == (("BTCUSDT",), _MINUTE)
-        assert holdings("dashboard") == (("ETHUSDT",), _DAY)
+        assert holdings("trading") == (_SPOT, ("BTCUSDT",), _MINUTE)
+        assert holdings("dashboard") == (_SPOT, ("ETHUSDT",), _DAY)
 
     def test_two_owners_may_hold_the_same_symbol(
         self, impl: IMarketStream, holdings: Holdings
     ) -> None:
         """An owner id is a namespace, not a lease
         (`Docs/VOCABULARY/README.md`): the second caller is not refused."""
-        impl.start("trading", ["BTCUSDT"], _MINUTE)
-        outcome = impl.start("dashboard", ["BTCUSDT"], _MINUTE)
+        impl.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
+        outcome = impl.start("dashboard", _SPOT, ["BTCUSDT"], _MINUTE)
 
         assert outcome.success is True
-        assert holdings("trading") == (("BTCUSDT",), _MINUTE)
-        assert holdings("dashboard") == (("BTCUSDT",), _MINUTE)
+        assert holdings("trading") == (_SPOT, ("BTCUSDT",), _MINUTE)
+        assert holdings("dashboard") == (_SPOT, ("BTCUSDT",), _MINUTE)
+
+    def test_two_owners_may_hold_the_same_symbol_on_two_markets(
+        self, impl: IMarketStream, holdings: Holdings
+    ) -> None:
+        """The Futures desk and the Spot desk both chart `BTCUSDT`: two
+        streams, and neither replaces the other."""
+        impl.start("futures-desk", _FUTURES, ["BTCUSDT"], _MINUTE)
+        impl.start("spot-desk", _SPOT, ["BTCUSDT"], _MINUTE)
+
+        assert holdings("futures-desk") == (_FUTURES, ("BTCUSDT",), _MINUTE)
+        assert holdings("spot-desk") == (_SPOT, ("BTCUSDT",), _MINUTE)
 
     # -- stopping ------------------------------------------------------------
 
     def test_stopping_releases_that_owners_whole_set(
         self, impl: IMarketStream, holdings: Holdings
     ) -> None:
-        impl.start("trading", ["BTCUSDT", "ETHUSDT"], _MINUTE)
+        impl.start("trading", _SPOT, ["BTCUSDT", "ETHUSDT"], _MINUTE)
 
         outcome = impl.stop("trading")
 
@@ -153,13 +178,13 @@ class MarketStreamContract:
     ) -> None:
         """Even for the same pair — which is what reference counting buys and
         what a screen closing must not take from the other screen."""
-        impl.start("trading", ["BTCUSDT"], _MINUTE)
-        impl.start("dashboard", ["BTCUSDT"], _MINUTE)
+        impl.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
+        impl.start("dashboard", _SPOT, ["BTCUSDT"], _MINUTE)
 
         impl.stop("trading")
 
         assert holdings("trading") is None
-        assert holdings("dashboard") == (("BTCUSDT",), _MINUTE)
+        assert holdings("dashboard") == (_SPOT, ("BTCUSDT",), _MINUTE)
 
     def test_stopping_what_was_never_started_says_so_without_raising(
         self, impl: IMarketStream
@@ -175,7 +200,7 @@ class MarketStreamContract:
     def test_stopping_twice_is_idempotent(
         self, impl: IMarketStream, holdings: Holdings
     ) -> None:
-        impl.start("trading", ["BTCUSDT"], _MINUTE)
+        impl.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
 
         assert impl.stop("trading").success is True
         assert impl.stop("trading").success is False
@@ -186,12 +211,12 @@ class MarketStreamContract:
     ) -> None:
         """A screen the user closed and reopened, which is the ordinary
         lifecycle and must not need a new owner id."""
-        impl.start("trading", ["BTCUSDT"], _MINUTE)
+        impl.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
         impl.stop("trading")
 
-        impl.start("trading", ["ETHUSDT"], _MINUTE)
+        impl.start("trading", _SPOT, ["ETHUSDT"], _MINUTE)
 
-        assert holdings("trading") == (("ETHUSDT",), _MINUTE)
+        assert holdings("trading") == (_SPOT, ("ETHUSDT",), _MINUTE)
 
     # -- the outcome is a named type -----------------------------------------
 
@@ -199,7 +224,7 @@ class MarketStreamContract:
         """The reason this port exists at all: the callers used to read
         `getattr(response, "success", True)`, which reports success for an
         object that has no such field."""
-        started = impl.start("trading", ["BTCUSDT"], _MINUTE)
+        started = impl.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
         stopped = impl.stop("trading")
 
         for outcome in (started, stopped):

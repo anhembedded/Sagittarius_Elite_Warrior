@@ -68,7 +68,7 @@ def test_refresh_dispatches_get_holdings_and_publishes_the_whole_set() -> None:
         GetHoldingsQuery, GetHoldingsQuery(venue=TradingVenue.SPOT_TESTNET)
     )
     event_publisher.publish.assert_called_once_with(
-        HoldingsChangedEvent(holdings=(_HOLDING,))
+        HoldingsChangedEvent(holdings=(_HOLDING,), venue=TradingVenue.SPOT_TESTNET)
     )
 
 
@@ -86,7 +86,9 @@ def test_an_empty_holdings_set_still_publishes() -> None:
 
     service.refresh_once()
 
-    event_publisher.publish.assert_called_once_with(HoldingsChangedEvent(holdings=()))
+    event_publisher.publish.assert_called_once_with(
+        HoldingsChangedEvent(holdings=(), venue=TradingVenue.SPOT_TESTNET)
+    )
 
 
 def test_a_dispatch_failure_is_swallowed_and_does_not_publish() -> None:

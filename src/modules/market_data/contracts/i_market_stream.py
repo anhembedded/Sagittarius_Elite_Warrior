@@ -46,6 +46,11 @@ subscription set per owner they are the same sentence.
 owner*: a **namespace**, not an exclusive lease. Two owners may stream the
 same symbol; releasing one never touches the other. The command field is
 still `owner`; the published name is the vocabulary's.
+
+**`market_type` (`EPIC-028C`).** `BTCUSDT` on Spot and on USD-M Futures are
+two instruments with two prices, served by two Binance hosts. A screen says
+which one it charts, and every `MarketTickEvent` names the market it came
+from, so a Futures strategy never trades on a Spot candle.
 """
 
 from __future__ import annotations
@@ -54,6 +59,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Sequence
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
@@ -78,12 +84,17 @@ class IMarketStream(ABC):
 
     @abstractmethod
     def start(
-        self, owner_id: str, symbols: Sequence[str], interval: TimeFrame
+        self,
+        owner_id: str,
+        market_type: MarketType,
+        symbols: Sequence[str],
+        interval: TimeFrame,
     ) -> StreamOutcome:
-        """Make `symbols` at `interval` this owner's whole subscription set.
+        """Make `symbols` at `interval` on `market_type` this owner's whole
+        subscription set.
 
         **Replaces, never adds** (`BOT-126`): calling it again for the same
-        owner is how a screen changes symbol or timeframe, and it is safe
+        owner is how a screen changes symbol, timeframe or market, and it is safe
         without releasing first. Another owner's subscriptions are untouched
         even for the same `(symbol, interval)` pair, which is what keeps two
         screens from fighting over one stream (`BUG-085`).

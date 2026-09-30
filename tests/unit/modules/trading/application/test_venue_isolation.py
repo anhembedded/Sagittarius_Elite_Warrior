@@ -1,4 +1,4 @@
-"""`EPIC-028B` — with both venues live, a command addressed to one venue
+"""`EPIC-028B`/`028C` — with both venues live, a command addressed to one venue
 touches only that venue: its session state, its client, its user data stream.
 
 @details The acceptance criterion this pins: *"Emergency Stop on Futures
@@ -28,6 +28,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.disable_t
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop import (
     EmergencyStopCommand,
     EmergencyStopCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading import (
+    EnableTradingCommand,
+    EnableTradingCommandHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
@@ -129,6 +133,25 @@ def test_an_emergency_stop_on_one_venue_leaves_the_other_untouched(
     by_venue[stopped].stream.stop.assert_called_once_with()
     by_venue[stopped].client_factory.create.assert_called_once()
     _assert_untouched(by_venue[kept])
+
+
+def test_enabling_both_venues_starts_both_user_data_streams() -> None:
+    """`EPIC-028C` — two venues, two streams: enabling Futures then Spot
+    starts each venue's own stream once, and each venue's own session."""
+    futures, spot = _Venue(_FUTURES), _Venue(_SPOT)
+    states = {_FUTURES: TradingSessionState(), _SPOT: TradingSessionState()}
+    handler = EnableTradingCommandHandler(
+        venue_scopes(futures.context, spot.context, session_states=states)
+    )
+
+    handler.execute(EnableTradingCommand(venue=_FUTURES))
+    futures.stream.start.assert_called_once_with()
+    spot.stream.start.assert_not_called()
+    handler.execute(EnableTradingCommand(venue=_SPOT))
+
+    spot.stream.start.assert_called_once_with()
+    futures.stream.start.assert_called_once_with()
+    assert states[_FUTURES].enabled and states[_SPOT].enabled
 
 
 def test_disabling_one_venue_leaves_the_other_trading() -> None:

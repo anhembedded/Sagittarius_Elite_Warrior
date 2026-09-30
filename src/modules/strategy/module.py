@@ -157,6 +157,7 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.composition.command_bindings
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.composition.port_bindings import (
     bind_published_ports,
+    venue_strategy_arming,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.composition.state_bindings import (
     bind_state,
@@ -164,7 +165,14 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.composition.state_bindings i
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_strategy_arming import (
     IStrategyArming,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.interfaces.i_config import IConfig
+from sagittarius_engine.interfaces.i_container import IContainer
 
 logger = logging.getLogger("App.StrategyModule")
 
@@ -262,17 +270,36 @@ class StrategyModule(BoundedContextModule):
         process.
         """
         sessions = context.container.resolve(VenueStrategySessions)
-        self._arm_from_config(
-            context.container.resolve(IConfig),
-            context.container.resolve(IStrategyArming),
-        )
+        self._restore_armed_strategies(context.container)
 
         self._tick_handler = MarketTickEventHandler(sessions)
         context.event_bus.on(MarketTickEvent, self._tick_handler.handle)
 
+    @classmethod
+    def _restore_armed_strategies(cls, container: IContainer) -> None:
+        """`EPIC-028C` — re-arms the primary venue's own saved strategy
+        through its own arming. A single-venue app's unscoped keys first
+        become that one venue's (`LiveStrategyConfigStore.adopt_legacy`).
+
+        Only the primary venue, until each venue has its own desk
+        (`EPIC-028K`/`L`): every screen today shows and disarms the primary
+        venue alone, so re-arming another venue would hold an armed strategy
+        no screen mentions or can stop (the PR #295 review, F3). The other
+        venue's saved strategy stays saved and comes back once a desk shows
+        it; that is widening this to every enabled venue."""
+        store = LiveStrategyConfigStore(container.resolve(IConfig))
+        store.adopt_legacy(container.resolve(IVenueContexts).enabled())
+        primary = container.resolve(TradingVenue)
+        if primary is not TradingVenue.DISABLED:
+            cls._arm_from_config(
+                store, primary, venue_strategy_arming(container, primary)
+            )
+
     @staticmethod
-    def _arm_from_config(config: IConfig, arming: IStrategyArming) -> None:
-        """Seeds the live strategy from `trading.live_*` at startup.
+    def _arm_from_config(
+        store: LiveStrategyConfigStore, venue: TradingVenue, arming: IStrategyArming
+    ) -> None:
+        """Seeds `venue`'s live strategy from its saved keys at startup.
 
         `EPIC-025E` PR 4.4f-2 — moved out of `binance_bot_module.boot()`
         unchanged; see that file's own prior docstring (now removed) for the
@@ -293,10 +320,11 @@ class StrategyModule(BoundedContextModule):
         one.
         """
         try:
-            live_config = LiveStrategyConfigStore(config).load()
+            live_config = store.load(venue)
         except ValueError as exc:
             logger.warning(
-                "The saved strategy config is invalid (%s) — starting unarmed.",
+                "The saved strategy config for %s is invalid (%s) — starting unarmed.",
+                venue.value,
                 exc,
             )
             return
@@ -306,6 +334,7 @@ class StrategyModule(BoundedContextModule):
         result = arming.arm(live_config)
         if not result.armed:
             logger.warning(
-                "Could not arm the strategy saved in config (%s) — starting disarmed.",
+                "Could not arm the strategy saved for %s (%s) — starting disarmed.",
+                venue.value,
                 result.error_message or result.block_reason,
             )

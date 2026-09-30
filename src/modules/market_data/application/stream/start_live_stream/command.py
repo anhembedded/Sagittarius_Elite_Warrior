@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 
 from pydantic import BaseModel, field_validator
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
@@ -12,6 +13,8 @@ class StartLiveStreamCommand(BaseModel):
     """
 
     owner: str
+    #: Which market's stream (`EPIC-028C`); required, never assumed Spot.
+    market_type: MarketType
     symbols: list[str]
     interval: TimeFrame
 

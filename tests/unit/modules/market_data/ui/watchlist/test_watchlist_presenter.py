@@ -13,6 +13,7 @@ import pytest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
@@ -41,7 +42,11 @@ from sagittarius_engine.interfaces.i_logger import ILogger
 
 
 def _tick(
-    symbol: str, open_price: float, close_price: float, volume: float = 100.0
+    symbol: str,
+    open_price: float,
+    close_price: float,
+    volume: float = 100.0,
+    market_type: MarketType = MarketType.SPOT,
 ) -> MarketTickEvent:
     now = datetime(2026, 1, 1, tzinfo=UTC)
     return MarketTickEvent(
@@ -59,7 +64,8 @@ def _tick(
             number_of_trades=1,
             taker_buy_base_asset_volume=0.0,
             taker_buy_quote_asset_volume=0.0,
-        )
+        ),
+        market_type=market_type,
     )
 
 
@@ -76,7 +82,7 @@ class _FailingMarketStream(IMarketStream):
     directly from the ABC (`testing-rule.md`'s other sanctioned shape),
     not a bare `Mock(spec=...)` of a foreign port."""
 
-    def start(self, owner_id, symbols, interval) -> StreamOutcome:
+    def start(self, owner_id, market_type, symbols, interval) -> StreamOutcome:
         return StreamOutcome(success=False, message="Testnet unreachable.")
 
     def stop(self, owner_id) -> StreamOutcome:
@@ -161,6 +167,7 @@ def test_construction_starts_the_stream_for_its_own_owner_id(presenter, market_s
 
     assert held is not None
     assert held.interval == TimeFrame.ONE_MINUTE
+    assert held.market_type is MarketType.SPOT
 
 
 def test_construction_shows_a_live_status_when_the_stream_starts(presenter, view):
@@ -235,6 +242,17 @@ def test_market_tick_event_published_on_the_real_bus_reaches_the_table(
 
     row = next(r for r in view.model.rows if r.symbol == "BTCUSDT")
     assert row.last_price == 110.0
+
+
+def test_a_futures_tick_on_the_bus_never_reaches_the_spot_watchlist(
+    presenter, view, event_bus
+):
+    """`EPIC-028C` — the Futures desk streams `BTCUSDT` too, at another
+    price; this screen watches Spot and must not show it."""
+    event_bus.emit(_tick("BTCUSDT", 100.0, 110.0, market_type=MarketType.FUTURES_USD_M))
+
+    row = next(r for r in view.model.rows if r.symbol == "BTCUSDT")
+    assert row.last_price is None
 
 
 # ---------------------------------------------------------------------------

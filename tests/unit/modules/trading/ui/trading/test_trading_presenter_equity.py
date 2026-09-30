@@ -80,6 +80,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter impor
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_presenter import (
     TradingPresenter,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
@@ -214,7 +217,9 @@ def test_equity_sampled_event_appends_one_point_to_the_chart(qapp, view, contain
     view.equity_chart.reset_mock()
 
     sample = _sample(5)
-    presenter._on_equity_sampled(EquitySampledEvent(sample=sample))
+    presenter._on_equity_sampled(
+        EquitySampledEvent(sample=sample, venue=TradingVenue.FUTURES_TESTNET)
+    )
 
     view.equity_chart.append_closed_candle.assert_called_once_with(
         *equity_sample_to_candle(sample)

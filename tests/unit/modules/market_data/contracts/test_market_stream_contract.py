@@ -27,6 +27,7 @@ from __future__ import annotations
 from unittest.mock import Mock, patch
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.binance_websocket_service import (
     BinanceWebsocketService,
@@ -61,6 +62,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 )
 
 _MINUTE = TimeFrame.ONE_MINUTE
+_SPOT = MarketType.SPOT
 
 
 class _StreamCommandDispatcher:
@@ -98,11 +100,17 @@ class TestFakeMarketStream(MarketStreamContract):
     def holdings(self, impl: IMarketStream) -> Holdings:
         assert isinstance(impl, FakeMarketStream)
 
-        def read(owner_id: str) -> tuple[tuple[str, ...], TimeFrame] | None:
+        def read(
+            owner_id: str,
+        ) -> tuple[MarketType, tuple[str, ...], TimeFrame] | None:
             subscription = impl.held_by(owner_id)
             if subscription is None:
                 return None
-            return subscription.symbols, subscription.interval
+            return (
+                subscription.market_type,
+                subscription.symbols,
+                subscription.interval,
+            )
 
         return read
 
@@ -125,8 +133,11 @@ class TestTheRealServiceOverTheRealBookkeeping(MarketStreamContract):
 
     @pytest.fixture
     def holdings(self, websocket_service) -> Holdings:
-        def read(owner_id: str) -> tuple[tuple[str, ...], TimeFrame] | None:
-            """Read off the real registry: `{(symbol, interval): {owners}}`.
+        def read(
+            owner_id: str,
+        ) -> tuple[MarketType, tuple[str, ...], TimeFrame] | None:
+            """Read off the real registry: `{(market, symbol, interval):
+            {owners}}`.
 
             Insertion-ordered, so the symbols come back in the order the
             caller asked for them — the same order the fake reports.
@@ -138,13 +149,15 @@ class TestTheRealServiceOverTheRealBookkeeping(MarketStreamContract):
             ]
             if not held:
                 return None
-            intervals = {interval for _symbol, interval in held}
-            assert len(intervals) == 1, (
-                f"{owner_id} holds more than one interval: {intervals} — "
-                "`subscribe()` replaces an owner's whole set, so this cannot "
-                "happen and the contract's holdings hook would be lying"
+            markets_and_intervals = {(market, interval) for market, _, interval in held}
+            assert len(markets_and_intervals) == 1, (
+                f"{owner_id} holds more than one market or interval: "
+                f"{markets_and_intervals} — `subscribe()` replaces an owner's "
+                "whole set, so this cannot happen and the contract's holdings "
+                "hook would be lying"
             )
-            return tuple(symbol for symbol, _ in held), TimeFrame(intervals.pop())
+            market, interval = markets_and_intervals.pop()
+            return market, tuple(symbol for _, symbol, _ in held), TimeFrame(interval)
 
         return read
 
@@ -165,7 +178,7 @@ class TestTheFakesOwnHelpers:
     def test_held_by_says_nothing_for_an_owner_that_never_started(self) -> None:
         fake = FakeMarketStream()
 
-        fake.start("dashboard", ["BTCUSDT"], _MINUTE)
+        fake.start("dashboard", _SPOT, ["BTCUSDT"], _MINUTE)
 
         assert fake.held_by("trading") is None
 
@@ -175,21 +188,21 @@ class TestTheFakesOwnHelpers:
     def test_is_streaming_says_no_for_a_symbol_nobody_asked_for(self) -> None:
         fake = FakeMarketStream()
 
-        fake.start("trading", ["BTCUSDT"], _MINUTE)
+        fake.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
 
         assert fake.is_streaming("ETHUSDT") is False
 
     def test_is_streaming_says_yes_for_any_owners_symbol(self) -> None:
         fake = FakeMarketStream()
 
-        fake.start("dashboard", ["ETHUSDT"], _MINUTE)
+        fake.start("dashboard", _SPOT, ["ETHUSDT"], _MINUTE)
 
         assert fake.is_streaming("ETHUSDT") is True
 
     def test_is_streaming_ignores_the_case_the_caller_typed(self) -> None:
         fake = FakeMarketStream()
 
-        fake.start("trading", ["btcusdt"], _MINUTE)
+        fake.start("trading", _SPOT, ["btcusdt"], _MINUTE)
 
         assert fake.is_streaming("btcusdt") is True
         assert fake.is_streaming("BTCUSDT") is True
@@ -197,14 +210,14 @@ class TestTheFakesOwnHelpers:
     def test_the_interval_narrows_is_streaming(self) -> None:
         fake = FakeMarketStream()
 
-        fake.start("trading", ["BTCUSDT"], _MINUTE)
+        fake.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
 
         assert fake.is_streaming("BTCUSDT", _MINUTE) is True
         assert fake.is_streaming("BTCUSDT", TimeFrame.ONE_DAY) is False
 
     def test_is_streaming_says_no_after_the_owner_stopped(self) -> None:
         fake = FakeMarketStream()
-        fake.start("trading", ["BTCUSDT"], _MINUTE)
+        fake.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
 
         fake.stop("trading")
 
@@ -215,8 +228,8 @@ class TestTheFakesOwnHelpers:
         timeframe changed" against — a fact about the screen, not the socket."""
         fake = FakeMarketStream()
 
-        fake.start("trading", ["BTCUSDT"], _MINUTE)
-        fake.start("trading", ["BTCUSDT"], TimeFrame.ONE_DAY)
+        fake.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
+        fake.start("trading", _SPOT, ["BTCUSDT"], TimeFrame.ONE_DAY)
         fake.stop("trading")
 
         assert fake.calls == [
@@ -238,7 +251,7 @@ def test_an_unanswered_dispatch_is_reported_as_a_failure() -> None:
 
     service = MarketStreamService(_AnsweringNothing())
 
-    outcome = service.start("trading", ["BTCUSDT"], _MINUTE)
+    outcome = service.start("trading", _SPOT, ["BTCUSDT"], _MINUTE)
 
     assert outcome.success is False
     assert outcome.message

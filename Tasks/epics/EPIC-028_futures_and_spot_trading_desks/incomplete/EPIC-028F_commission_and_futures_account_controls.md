@@ -5,7 +5,7 @@
 **Risk:** 🟡 — a leverage change on an open position is refused by Binance; the app must refuse first
 **Complexity:** M — two commands, one reader
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028B](EPIC-028B_venue_addressed_commands.md)
+**Depends on:** [EPIC-028B](../completed/EPIC-028B_venue_addressed_commands.md)
 
 ---
 

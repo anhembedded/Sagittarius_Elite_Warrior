@@ -51,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_r
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 logger = logging.getLogger("App.LiveStrategyFactory")
 
@@ -67,7 +70,11 @@ class LiveStrategyFactory:
         account_reader: ITradingAccountReader,
         metadata_provider: IMarketMetadataProvider,
         trading_session: ITradingSession,
+        *,
+        venue: TradingVenue,
     ) -> None:
+        #: `EPIC-028C` — the venue every coordinator it builds trades on.
+        self._venue = venue
         self._registry = registry
         self._event_publisher = event_publisher
         self._order_submission = order_submission
@@ -110,6 +117,7 @@ class LiveStrategyFactory:
             self._trading_session,
             config.sizing_percent,
             config.leverage,
+            venue=self._venue,
         )
         logger.info(
             "Built live strategy '%s' for %s %s (sizing %.2f%%, leverage %.2fx).",

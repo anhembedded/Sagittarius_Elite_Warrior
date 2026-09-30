@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampl
     EquitySampledEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_feed import EquityFeed
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 
 
@@ -28,7 +31,7 @@ def _sample() -> EquitySample:
 
 def _feed(qapp):
     bus = MemoryEventBus()
-    feed = EquityFeed(bus)
+    feed = EquityFeed(bus, TradingVenue.FUTURES_TESTNET)
     return bus, feed
 
 
@@ -37,7 +40,7 @@ def test_equity_sampled_event_reaches_every_listener(qapp):
     seen: list = []
     feed.equitySampled.connect(seen.append)
 
-    event = EquitySampledEvent(sample=_sample())
+    event = EquitySampledEvent(sample=_sample(), venue=TradingVenue.FUTURES_TESTNET)
     bus.emit(event)
 
     assert len(seen) == 1
@@ -50,6 +53,19 @@ def test_stop_unsubscribes(qapp):
     feed.equitySampled.connect(seen.append)
 
     feed.stop()
-    bus.emit(EquitySampledEvent(sample=_sample()))
+    bus.emit(EquitySampledEvent(sample=_sample(), venue=TradingVenue.FUTURES_TESTNET))
+
+    assert seen == []
+
+
+def test_another_venues_equity_never_reaches_this_feed(qapp):
+    """`EPIC-028C` — the Futures screen's equity curve never plots a Spot
+    sample."""
+    bus, feed = _feed(qapp)
+    seen: list = []
+    feed.equitySampled.connect(seen.append)
+
+    bus.emit(EquitySampledEvent(sample=_sample(), venue=TradingVenue.SPOT_TESTNET))
+    qapp.processEvents()
 
     assert seen == []

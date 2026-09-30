@@ -5,7 +5,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import (
-    QComboBox,
+    QCheckBox,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -22,7 +22,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     StyledButton,
     StyledField,
@@ -42,20 +41,21 @@ _FIELD_FONT_FAMILY = "Consolas"
 #: `BOT-125` — carried over from the monolithic screen this section split off.
 _VENUE_LOCKED_TEXT = (
     "Trading is active — disable trading on the Trading screen before "
-    "changing the Order Venue."
+    "changing the trading venues."
 )
 
-_TRADING_VENUE_LABELS = EnumLabels(
-    TradingVenue,
-    {
-        TradingVenue.DISABLED: "OFF — no orders are sent anywhere (disabled)",
-        TradingVenue.FUTURES_TESTNET: (
-            "ON — Futures Testnet, simulated funds (futures_testnet)"
-        ),
-        TradingVenue.SPOT_TESTNET: (
-            "ON — Spot Testnet, simulated funds (spot_testnet)"
-        ),
-    },
+#: `EPIC-028C` — one toggle per venue that can place orders; `DISABLED` has
+#: none (nothing checked is trading off). A venue added to `TradingVenue`
+#: with order submission needs a label here, or the view refuses to build
+#: (`test_every_orderable_venue_has_a_toggle_label`).
+_VENUE_TOGGLE_LABELS: dict[TradingVenue, str] = {
+    TradingVenue.FUTURES_TESTNET: "Futures Testnet — simulated funds (futures_testnet)",
+    TradingVenue.SPOT_TESTNET: "Spot Testnet — simulated funds (spot_testnet)",
+}
+
+_VENUES_HINT_TEXT = (
+    "Nothing checked turns trading off. With both on, the Trading screen and "
+    "Dev Board show Futures until each venue has its own desk."
 )
 
 
@@ -81,20 +81,21 @@ class TradingSettingsView(BaseView):
             view_model.connectionResultText,
             view_model.connectionResultIsError,
         )
-        self._apply_venue(view_model.tradingVenue, view_model.venueLocked)
+        self._apply_venues(view_model.enabledVenues, view_model.venueLocked)
 
         self._api_key_field.textEdited.connect(self._on_api_key_edited)
         self._api_secret_field.textEdited.connect(self._on_api_secret_edited)
         self._save_button.clicked.connect(view_model.requestSave)
         self._check_connection_button.clicked.connect(view_model.requestCheckConnection)
-        self._trading_venue_combo.currentIndexChanged.connect(
-            lambda _index: view_model.requestTradingVenue(
-                self._trading_venue_combo.currentData() or ""
+        for venue, toggle in self._venue_toggles.items():
+            toggle.toggled.connect(
+                lambda checked, value=venue.value: view_model.requestVenueEnabled(
+                    value, checked
+                )
             )
-        )
 
         view_model.venueChanged.connect(
-            lambda: self._apply_venue(view_model.tradingVenue, view_model.venueLocked)
+            lambda: self._apply_venues(view_model.enabledVenues, view_model.venueLocked)
         )
         view_model.apiKeyChanged.connect(
             lambda: self._api_key_field.setText(view_model.apiKey)
@@ -150,13 +151,12 @@ class TradingSettingsView(BaseView):
         color = Palette.DANGER if result_is_error else Palette.SUCCESS
         self._connection_result_label.setStyleSheet(f"color: {color}; font-size: 11px;")
 
-    def _apply_venue(self, trading_venue: str, locked: bool) -> None:
-        index = self._trading_venue_combo.findData(trading_venue)
-        self._trading_venue_combo.blockSignals(True)
-        if index >= 0:
-            self._trading_venue_combo.setCurrentIndex(index)
-        self._trading_venue_combo.blockSignals(False)
-        self._trading_venue_combo.setEnabled(not locked)
+    def _apply_venues(self, enabled_venues: list[str], locked: bool) -> None:
+        for venue, toggle in self._venue_toggles.items():
+            toggle.blockSignals(True)
+            toggle.setChecked(venue.value in enabled_venues)
+            toggle.blockSignals(False)
+            toggle.setEnabled(not locked)
         self._venue_lock_label.setText(_VENUE_LOCKED_TEXT if locked else "")
         self._venue_lock_label.setVisible(locked)
 
@@ -180,8 +180,8 @@ class TradingSettingsView(BaseView):
 
         warning = QLabel(
             "API Key/Secret are written to secrets.local.json (not tracked "
-            "in git). API Key/Secret and Order Venue both require an app "
-            "restart to take effect — they are only read once, on app "
+            "in git). API Key/Secret and the trading venues both require an "
+            "app restart to take effect — they are only read once, on app "
             "startup."
         )
         warning.setObjectName("lblTradingSettingsWarning")
@@ -249,14 +249,23 @@ class TradingSettingsView(BaseView):
         return field
 
     def _add_venue_row(self, grid: QGridLayout, row: int) -> int:
-        grid.addWidget(QLabel("Order Venue:"), row, 0)
-        self._trading_venue_combo = QComboBox()
-        self._trading_venue_combo.setObjectName("cboTradingVenue")
-        for trading_venue in TradingVenue:
-            self._trading_venue_combo.addItem(
-                _TRADING_VENUE_LABELS[trading_venue], trading_venue.value
-            )
-        grid.addWidget(self._trading_venue_combo, row, 1)
+        grid.addWidget(QLabel("Trading venues:"), row, 0, Qt.AlignmentFlag.AlignTop)
+        toggles_widget = QWidget()
+        toggles_layout = QVBoxLayout(toggles_widget)
+        toggles_layout.setContentsMargins(0, 0, 0, 0)
+        self._venue_toggles: dict[TradingVenue, QCheckBox] = {}
+        for venue in TradingVenue:
+            if not venue.supports_order_submission:
+                continue
+            toggle = QCheckBox(_VENUE_TOGGLE_LABELS[venue])
+            toggle.setObjectName(f"chkTradingVenue_{venue.value}")
+            toggles_layout.addWidget(toggle)
+            self._venue_toggles[venue] = toggle
+        hint = QLabel(_VENUES_HINT_TEXT)
+        hint.setObjectName("lblTradingVenuesHint")
+        hint.setWordWrap(True)
+        toggles_layout.addWidget(hint)
+        grid.addWidget(toggles_widget, row, 1)
         row += 1
 
         self._venue_lock_label = QLabel()

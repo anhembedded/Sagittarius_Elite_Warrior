@@ -5,8 +5,9 @@ the hand-off to `LiveTradingCoordinator` into `LiveStrategySession`, so
 the assertions that used to live here (including `BUG-085`'s
 interleaved-interval regressions) moved with them, to
 `tests/unit/modules/strategy/application/services/test_live_strategy_session.py`.
-What stays here is what this class still owns: log level, and delegating
-every tick to the session unfiltered.
+What stays here is what this class still owns: log level, delegating every
+tick to the session with no symbol/interval filter, and routing each tick to
+the sessions of its own market only (`EPIC-028C`).
 
 `EPIC-025` PR 2.1c-2 moved this file from `tests/unit/application/
 event_handlers/` with its subject, tier unchanged. **That the handler is
@@ -21,6 +22,7 @@ from datetime import UTC, datetime
 from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
@@ -64,12 +66,14 @@ def test_logs_at_debug_not_info():
     handler = MarketTickEventHandler(VenueStrategySessions(lambda _venue: Mock()))
     handler.logger = Mock()
 
-    handler.handle(MarketTickEvent(market_data=_market_data()))
+    handler.handle(
+        MarketTickEvent(market_data=_market_data(), market_type=MarketType.SPOT)
+    )
 
     handler.logger.debug.assert_called_once()
     handler.logger.info.assert_not_called()
     call_args = handler.logger.debug.call_args[0][0]
-    assert "Processing tick for" in call_args
+    assert "Processing spot tick for" in call_args
     assert "BTCUSDT" in call_args
 
 
@@ -83,17 +87,16 @@ def test_every_tick_is_handed_to_the_session_unfiltered():
     sessions = VenueStrategySessions(lambda _venue: session)
     sessions.get(TradingVenue.FUTURES_TESTNET)
     handler = MarketTickEventHandler(sessions)
-    event = MarketTickEvent(market_data=_market_data("ETHUSDT"))
+    event = MarketTickEvent(
+        market_data=_market_data("ETHUSDT"), market_type=MarketType.FUTURES_USD_M
+    )
 
     handler.handle(event)
 
     session.dispatch_tick.assert_called_once_with(event.market_data)
 
 
-def test_every_venues_session_gets_the_tick_and_no_session_is_built_for_it():
-    """`EPIC-028B` — with a strategy session on each venue, each one decides
-    for itself whether the candle is its armed symbol and interval. A venue
-    that never had a session built gets none built by a tick."""
+def _sessions_on_both_venues() -> tuple[VenueStrategySessions, dict]:
     built: dict[TradingVenue, Mock] = {}
 
     def _build(venue: TradingVenue) -> Mock:
@@ -103,11 +106,51 @@ def test_every_venues_session_gets_the_tick_and_no_session_is_built_for_it():
     sessions = VenueStrategySessions(_build)
     sessions.get(TradingVenue.FUTURES_TESTNET)
     sessions.get(TradingVenue.SPOT_TESTNET)
-    handler = MarketTickEventHandler(sessions)
-    event = MarketTickEvent(market_data=_market_data())
+    return sessions, built
 
-    handler.handle(event)
 
-    for venue in (TradingVenue.FUTURES_TESTNET, TradingVenue.SPOT_TESTNET):
-        built[venue].dispatch_tick.assert_called_once_with(event.market_data)
-    assert set(built) == {TradingVenue.FUTURES_TESTNET, TradingVenue.SPOT_TESTNET}
+def test_a_spot_candle_never_drives_the_strategy_armed_on_futures():
+    """`EPIC-028C` — `BTCUSDT@1m` exists on both markets at two prices, and
+    both streams publish onto one bus. The Spot candle reaches Spot's session
+    and nothing else."""
+    sessions, built = _sessions_on_both_venues()
+    event = MarketTickEvent(market_data=_market_data(), market_type=MarketType.SPOT)
+
+    MarketTickEventHandler(sessions).handle(event)
+
+    built[TradingVenue.SPOT_TESTNET].dispatch_tick.assert_called_once_with(
+        event.market_data
+    )
+    built[TradingVenue.FUTURES_TESTNET].dispatch_tick.assert_not_called()
+
+
+def test_a_futures_candle_reaches_only_the_futures_session():
+    sessions, built = _sessions_on_both_venues()
+    event = MarketTickEvent(
+        market_data=_market_data(), market_type=MarketType.FUTURES_USD_M
+    )
+
+    MarketTickEventHandler(sessions).handle(event)
+
+    built[TradingVenue.FUTURES_TESTNET].dispatch_tick.assert_called_once_with(
+        event.market_data
+    )
+    built[TradingVenue.SPOT_TESTNET].dispatch_tick.assert_not_called()
+
+
+def test_a_tick_builds_no_session_for_a_venue_never_asked_for():
+    """A venue that never had a session built gets none built by a tick."""
+    built: dict[TradingVenue, Mock] = {}
+
+    def _build(venue: TradingVenue) -> Mock:
+        built[venue] = Mock()
+        return built[venue]
+
+    sessions = VenueStrategySessions(_build)
+    sessions.get(TradingVenue.FUTURES_TESTNET)
+
+    MarketTickEventHandler(sessions).handle(
+        MarketTickEvent(market_data=_market_data(), market_type=MarketType.SPOT)
+    )
+
+    assert set(built) == {TradingVenue.FUTURES_TESTNET}

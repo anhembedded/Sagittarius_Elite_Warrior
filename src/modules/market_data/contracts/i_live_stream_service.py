@@ -23,6 +23,7 @@ another owner's.
 
 from abc import ABC, abstractmethod
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
 
@@ -33,11 +34,18 @@ class ILiveStreamService(ABC):
     """
 
     @abstractmethod
-    def subscribe(self, owner: str, symbols: list[str], interval: TimeFrame) -> bool:
+    def subscribe(
+        self,
+        owner: str,
+        market_type: MarketType,
+        symbols: list[str],
+        interval: TimeFrame,
+    ) -> bool:
         """
         @brief Replaces `owner`'s entire set of active subscriptions with
-        `symbols`/`interval`. Safe to call again for the same `owner`
-        without releasing first — it replaces rather than adds.
+        `symbols`/`interval` on `market_type`'s stream. Safe to call again
+        for the same `owner` without releasing first — it replaces rather
+        than adds, the market included.
         @return True once the subscription set was applied.
         """
         ...
@@ -47,7 +55,7 @@ class ILiveStreamService(ABC):
         """
         @brief Drops every subscription held by `owner`, if any. Never
         affects another owner's subscriptions, even for the same
-        `(symbol, interval)` pair.
+        `(market, symbol, interval)`.
         @return True if `owner` had an active subscription that was
         removed, False if there was nothing to do.
         """

@@ -1,9 +1,10 @@
-"""`trading`'s own settings section: credentials, venue, connection check
-(`EPIC-025E` PR 4.4e).
+"""`trading`'s own settings section: credentials, which trading venues are
+on, connection check (`EPIC-025E` PR 4.4e; per-venue toggles `EPIC-028C`).
 
 Split off the old monolithic `SettingsPresenter` — this Presenter owns
 exactly the fields this module's own ports answer for: the account
-connection check (`IAccountSnapshot`), the venue lock (`ITradingSession`),
+connection check (`IAccountSnapshot`), the venue lock (every venue's
+`ITradingSession`, `IVenueTradingPorts`),
 and this account's credentials (`IExchangeCredentialsProvider`, this
 module's own `support/binance_gateway` dependency, unchanged from the
 monolith). `market_data`'s venue and sync defaults stay in
@@ -22,22 +23,25 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
     IAccountSnapshot,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
-    ITradingSession,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
+    IVenueTradingPorts,
 )
 from Sagittarius_Elite_Warrior.src.presentation.cli.exchange_status_formatter import (
     format_exchange_connection_status,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
-    resolve_trading_venue,
+    resolve_trading_venues,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
     IExchangeCredentialsProvider,
     ResolvedCredentials,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -70,13 +74,7 @@ _SAVED_IN_MEMORY_ONLY_MESSAGE = (
 #: `BOT-125` — Save is refused outright rather than partially applied.
 _VENUE_LOCKED_MESSAGE = (
     "Trading is active — disable trading on the Trading screen before "
-    "changing the Order Venue. Nothing was saved."
-)
-# `EPIC-028A` review F2 — removed by `EPIC-028C`, which gives the list its
-# own per-venue toggles on this page.
-_VENUE_LIST_MESSAGE = (
-    "The venues are set by exchange.trading_venues in the config file, which "
-    "overrides this control. Edit it there. Nothing was saved."
+    "changing the trading venues. Nothing was saved."
 )
 
 #: `EPIC-021B` §2.3 — human-readable label per `CredentialsSource`, and
@@ -108,9 +106,9 @@ class TradingSettingsPresenter(BasePresenter):
             container.resolve(IVenueContexts).primary().credentials_provider
         )
         self._thread_manager: IThreadManager = container.resolve(IThreadManager)
-        # `BOT-125` — read, never written: the venue combo is locked while a
-        # live session is on (see `_venue_locked()`).
-        self._trading_session: ITradingSession = container.resolve(ITradingSession)
+        # `BOT-125` — read, never written: the venue toggles are locked while
+        # any venue's live session is on (see `_venue_locked()`).
+        self._venue_ports: IVenueTradingPorts = container.resolve(IVenueTradingPorts)
         self._account: IAccountSnapshot = container.resolve(IAccountSnapshot)
         self._connection_check_tracker: ActionOwnershipTracker[str, None, None] = (
             ActionOwnershipTracker()
@@ -132,25 +130,21 @@ class TradingSettingsPresenter(BasePresenter):
         self._settings_view_model.load_fields(
             api_key=credentials.api_key if credentials else "",
             api_secret=credentials.api_secret if credentials else "",
-            trading_venue=resolve_trading_venue(self.config).value,
+            enabled_venues=[v.value for v in resolve_trading_venues(self.config)],
         )
         self._settings_view_model.set_venue_locked(self._venue_locked())
         self._apply_credentials_status(resolution)
 
     def _venue_locked(self) -> bool:
-        """Whether the venue combo may be edited right now.
+        """Whether the venue toggles may be edited right now.
 
-        @details Locked while live trading is on. Changing where orders go
-        in the middle of a running session would redefine what everything
-        already in flight means (`EPIC-022` §4.1, same reasoning as swapping
-        the strategy). Also locked while `exchange.trading_venues` is
-        configured: it overrides the scalar this page writes, so a Save
-        would look applied and change nothing."""
-        return self._trading_session.snapshot().enabled or self._venue_list_configured()
-
-    def _venue_list_configured(self) -> bool:
-        return (
-            self.config.get(ConfigKeys.EXCHANGE_TRADING_VENUES.value, None) is not None
+        @details Locked while live trading is on for any enabled venue.
+        Changing where orders go in the middle of a running session would
+        redefine what everything already in flight means (`EPIC-022` §4.1,
+        same reasoning as swapping the strategy)."""
+        return any(
+            self._venue_ports.get(venue).trading_session.snapshot().enabled
+            for venue in self._venue_ports.enabled()
         )
 
     @Slot()
@@ -177,16 +171,10 @@ class TradingSettingsPresenter(BasePresenter):
         # `BOT-125` — refuse rather than silently skip: a Save that wrote
         # every other field and quietly dropped this one would be the same
         # "button appears to work" failure `EPIC-022` removed.
-        if self._venue_list_configured():
-            view_model.set_status(_VENUE_LIST_MESSAGE, is_error=True)
-            return
         if self._venue_locked():
             view_model.set_status(_VENUE_LOCKED_MESSAGE, is_error=True)
             return
-
-        self.config.set(
-            ConfigKeys.EXCHANGE_TRADING_VENUE.value, view_model.tradingVenue
-        )
+        self._write_trading_venues(view_model.enabledVenues)
 
         if isinstance(self.config, ConfigManager):
             try:
@@ -200,6 +188,19 @@ class TradingSettingsPresenter(BasePresenter):
 
         self._refresh_credentials_status()
         view_model.set_status(_SAVED_MESSAGE, is_error=False)
+
+    def _write_trading_venues(self, enabled: list[str]) -> None:
+        """`EPIC-028C` — the list is what boot reads (`resolve_trading_venues`),
+        in `TradingVenue` order so the primary venue does not depend on the
+        order the boxes were ticked. `IConfig` cannot delete a key and the
+        defaults file always carries the legacy scalar, so it is kept in
+        step with the list's primary venue rather than left contradicting it."""
+        venues = [venue.value for venue in TradingVenue if venue.value in enabled]
+        self.config.set(ConfigKeys.EXCHANGE_TRADING_VENUES.value, venues)
+        self.config.set(
+            ConfigKeys.EXCHANGE_TRADING_VENUE.value,
+            venues[0] if venues else TradingVenue.DISABLED.value,
+        )
 
     def _refresh_credentials_status(self) -> None:
         """Re-resolves after a save — a first-time write to

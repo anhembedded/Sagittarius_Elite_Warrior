@@ -14,9 +14,10 @@ The fix routes `_arm_from_config()` through `IStrategyArming` — the same
 `ArmStrategyCommand` dispatch every other arming caller already goes
 through (`tests/unit/modules/strategy/contracts/test_strategy_arming_contract.
 py`'s `_DirectDispatcher` pattern is reused here for the same reason: real
-routing by handler class, no engine `IDispatcher` behind it). Delete the
-`context.container.resolve(IStrategyArming)` call from `boot()`, or revert
-`_arm_from_config()` to call `session.arm()` directly, and this test fails.
+routing by handler class, no engine `IDispatcher` behind it). Revert
+`_arm_from_config()` to call `session.arm()` directly and this test fails;
+that `boot()` arms each enabled venue through its own arming is
+`test_module_restores_each_venues_strategy.py`'s claim (`EPIC-028C`).
 """
 
 from __future__ import annotations
@@ -102,22 +103,30 @@ def test_boot_refuses_a_stale_short_capable_config_on_a_spot_venue() -> None:
         )
     )
     session = LiveStrategySession(
-        LiveStrategyFactory(registry, Mock(), Mock(), Mock(), Mock(), trading_session)
+        LiveStrategyFactory(
+            registry,
+            Mock(),
+            Mock(),
+            Mock(),
+            Mock(),
+            trading_session,
+            venue=TradingVenue.FUTURES_TESTNET,
+        )
     )
-    config = DictConfig()
-    config_store = LiveStrategyConfigStore(config)
+    venue = TradingVenue.SPOT_TESTNET
+    config_store = LiveStrategyConfigStore(DictConfig())
     # A config a Futures run could have saved: 1x leverage and a USDT symbol
     # pass the other two Spot-only refusals cleanly, isolating the
     # SHORT-capability one the reviewer's reproduction hit.
     config_store.save(
+        venue,
         LiveStrategyConfig(
             strategy_key=_SHORT_CAPABLE_KEY,
             symbol="BTCUSDT",
             interval="1m",
             leverage=1.0,
-        )
+        ),
     )
-    venue = TradingVenue.SPOT_TESTNET
     arming = StrategyArmingService(
         _DirectDispatcher(
             {
@@ -134,7 +143,7 @@ def test_boot_refuses_a_stale_short_capable_config_on_a_spot_venue() -> None:
         venue,
     )
 
-    StrategyModule._arm_from_config(config, arming)
+    StrategyModule._arm_from_config(config_store, venue, arming)
 
     assert not session.is_armed, (
         "boot armed a SHORT-capable strategy against a Spot venue — "

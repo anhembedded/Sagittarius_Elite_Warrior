@@ -1,13 +1,19 @@
 import asyncio
 import logging
 import threading
+from dataclasses import dataclass
 from datetime import UTC, datetime
 from typing import Any
 
 from binance import AsyncClient, BinanceSocketManager
 from binance.ws.reconnecting_websocket import ReconnectingWebsocket
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.kline_sockets import (
+    KlinePair,
+    open_kline_socket,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
@@ -29,34 +35,49 @@ logger = logging.getLogger("App.LiveStream")
 #: Delay before retrying the WebSocket connection after an `OSError`.
 _RECONNECT_DELAY_SECONDS = 5
 
-#: A subscription key: `(symbol, interval.value)` — plain `str` interval,
-#: not `TimeFrame`, so two owners on the same symbol/interval hash to the
-#: same key regardless of which one enters it first.
-_StreamKey = tuple[str, str]
+#: A subscription key: `(market, symbol, interval.value)` — plain `str`
+#: interval, not `TimeFrame`, so two owners on the same symbol/interval hash
+#: to the same key regardless of which one enters it first. The market is
+#: part of the key (`EPIC-028C`): `BTCUSDT@1m` on Spot and on Futures are
+#: two streams.
+_StreamKey = tuple[MarketType, str, str]
+
+
+@dataclass(frozen=True, slots=True)
+class _RunningStream:
+    """One market's live connection: the pairs it streams and how to stop it."""
+
+    pairs: frozenset[KlinePair]
+    handle: ITaskHandle
+    token: CancellationToken
 
 
 class BinanceWebsocketService(ILiveStreamService):
     """
     @brief Infrastructure implementation of `ILiveStreamService`.
-    @details Manages a single live Binance Kline WebSocket connection
-    (plain `kline_socket` for one active key, `multiplex_socket` for
-    several) via the injected `ITaskManager`, reference-counted per
-    `(symbol, interval)` key across every `owner` (`BOT-126`).
+    @details Manages one live Binance kline WebSocket connection **per
+    market** (`EPIC-028C`: Spot and Futures klines come from different
+    hosts, see `kline_sockets.py`) via the injected `ITaskManager`,
+    reference-counted per `(market, symbol, interval)` key across every
+    `owner` (`BOT-126`). Every tick is published with the market its
+    connection streams, so a consumer can refuse another market's candle.
 
     **Reconnect-on-change trade-off (`architecture-rule.md` §7 — a price
     knowingly paid, not a bug):** whenever the *set* of active keys changes
-    (an owner subscribes/releases/changes symbol), the whole underlying
-    task is cancelled and respawned with the new key set — every owner
-    sharing that connection loses ticks for the brief reconnect window
+    (an owner subscribes/releases/changes symbol), that market's
+    underlying task is cancelled and respawned with the new key set —
+    every owner sharing that connection loses ticks for the brief reconnect window
     (same latency already tolerated on a real network drop), even though
     none of them lose their *subscription*. Adding true incremental
     SUBSCRIBE/UNSUBSCRIBE frames on an already-open combined stream would
     avoid this, but `python-binance`'s `BinanceSocketManager` does not
     expose that conveniently — left as a follow-up if the reconnect gap
     ever proves disruptive in practice, not part of `BOT-126`'s scope.
-    `test_subscribe_does_not_restart_when_key_set_is_unchanged` locks the
-    one case that must NOT pay this price: a second owner joining a key
-    another owner already holds.
+    `test_second_owner_on_the_same_key_does_not_restart_the_task` locks
+    the one case that must NOT pay this price: a second owner joining a key
+    another owner already holds; and
+    `test_a_change_on_one_market_leaves_the_other_markets_connection_alone`
+    the other: a Spot screen changing symbol never drops Futures' ticks.
     """
 
     def __init__(
@@ -68,30 +89,33 @@ class BinanceWebsocketService(ILiveStreamService):
         self._event_bus = event_bus
         self._task_manager = task_manager
         self._market_data_venue = market_data_venue
-        self._task_handle: ITaskHandle | None = None
-        self._token: CancellationToken | None = None
-        #: Guards `_subscriptions`/`_active_keys` against concurrent
+        #: Guards `_subscriptions`/`_running` against concurrent
         #: `subscribe`/`release_owner` calls from different screens' own
         #: `IThreadManager.submit()` worker threads — same reasoning
         #: `InFlightSyncGuard` (`BOT-121`) gives its own lock.
         self._lock = threading.Lock()
         self._subscriptions: dict[_StreamKey, set[str]] = {}
-        self._active_keys: frozenset[_StreamKey] = frozenset()
+        self._running: dict[MarketType, _RunningStream] = {}
 
     # -- ILiveStreamService ----------------------------------------------------
 
-    def subscribe(self, owner: str, symbols: list[str], interval: TimeFrame) -> bool:
+    def subscribe(
+        self,
+        owner: str,
+        market_type: MarketType,
+        symbols: list[str],
+        interval: TimeFrame,
+    ) -> bool:
         """
-        @brief Replaces `owner`'s subscriptions with `symbols`/`interval`,
-        restarting the underlying connection only if the resulting set of
-        active keys actually changed.
+        @brief Replaces `owner`'s subscriptions with `symbols`/`interval` on
+        `market_type`, restarting a market's connection only if that
+        market's set of active keys actually changed.
         """
         with self._lock:
             self._drop_owner_locked(owner)
             for symbol in symbols:
-                self._subscriptions.setdefault((symbol, interval.value), set()).add(
-                    owner
-                )
+                key = (market_type, symbol, interval.value)
+                self._subscriptions.setdefault(key, set()).add(owner)
             self._apply_active_set_locked()
         return True
 
@@ -136,37 +160,44 @@ class BinanceWebsocketService(ILiveStreamService):
         return had_any
 
     def _apply_active_set_locked(self) -> None:
-        """Restarts the underlying task iff the desired key set changed."""
-        desired = frozenset(self._subscriptions)
-        if desired == self._active_keys:
-            return
+        """Restarts each market's task iff that market's desired pairs
+        changed; a market nobody streams any more is stopped."""
+        desired: dict[MarketType, set[KlinePair]] = {}
+        for market, symbol, interval in self._subscriptions:
+            desired.setdefault(market, set()).add((symbol, interval))
+        for market in set(desired) | set(self._running):
+            pairs = frozenset(desired.get(market, ()))
+            running = self._running.get(market)
+            if running is not None and running.pairs == pairs:
+                continue
+            if running is not None:
+                running.token.cancel()
+                running.handle.cancel()
+                del self._running[market]
+            if pairs:
+                self._running[market] = self._spawn_locked(market, pairs)
 
-        if self._task_handle is not None:
-            if self._token is not None:
-                self._token.cancel()
-            self._task_handle.cancel()
-            self._task_handle = None
-            self._token = None
-
-        self._active_keys = desired
-        if not desired:
-            return
-
-        keys = sorted(desired)
-        self._token = CancellationToken()
-        logger.info(f"Starting Binance WebSocket stream for {keys}")
-        self._task_handle = self._task_manager.spawn(
-            self._run_stream(keys, self._token),
-            name=f"BinanceStream[{','.join(f'{s}@{i}' for s, i in keys)}]",
-            token=self._token,
+    def _spawn_locked(
+        self, market: MarketType, pairs: frozenset[KlinePair]
+    ) -> _RunningStream:
+        ordered = sorted(pairs)
+        token = CancellationToken()
+        logger.info(f"Starting Binance {market.value} WebSocket stream for {ordered}")
+        handle = self._task_manager.spawn(
+            self._run_stream(market, ordered, token),
+            name=f"BinanceStream[{market.value}:"
+            f"{','.join(f'{s}@{i}' for s, i in ordered)}]",
+            token=token,
             critical=True,  # Đảm bảo Engine chờ task này close gracefully khi shutdown
         )
+        return _RunningStream(pairs=pairs, handle=handle, token=token)
 
     # -- Private: the stream loop ------------------------------------------------
 
     async def _run_stream(
         self,
-        keys: list[_StreamKey],
+        market: MarketType,
+        pairs: list[KlinePair],
         token: CancellationToken,
     ) -> None:
         """
@@ -180,16 +211,13 @@ class BinanceWebsocketService(ILiveStreamService):
                 testnet=resolve_testnet_flag(self._market_data_venue)
             )
             bsm = BinanceSocketManager(client)
-            streams = [
-                f"{symbol.lower()}@kline_{interval}" for symbol, interval in keys
-            ]
 
             while not token.is_cancelled():
                 try:
-                    socket = self._create_socket(bsm, keys, streams)
+                    socket = open_kline_socket(bsm, market, pairs)
                     async with socket as tscm:
                         while not token.is_cancelled():
-                            await self._process_socket_message(tscm)
+                            await self._process_socket_message(tscm, market)
 
                 except asyncio.CancelledError:
                     logger.info("Stream task was cancelled.")
@@ -212,21 +240,11 @@ class BinanceWebsocketService(ILiveStreamService):
                 except Exception as e:  # noqa: BLE001 - boundary: log and continue teardown
                     logger.warning(f"Error closing Binance client: {e}")
 
-    @staticmethod
-    def _create_socket(
-        bsm: BinanceSocketManager,
-        keys: list[_StreamKey],
-        streams: list[str],
-    ) -> ReconnectingWebsocket:
-        """@brief A single `(symbol, interval)` key uses the plain kline
-        socket; several share a multiplex socket."""
-        if len(keys) == 1:
-            symbol, interval = keys[0]
-            return bsm.kline_socket(symbol.upper(), interval=interval)
-        return bsm.multiplex_socket(streams)
-
-    async def _process_socket_message(self, tscm: ReconnectingWebsocket) -> None:
-        """@brief Receives one message, unwraps the multiplex envelope, and emits on a kline event."""
+    async def _process_socket_message(
+        self, tscm: ReconnectingWebsocket, market: MarketType
+    ) -> None:
+        """@brief Receives one message, unwraps the multiplex envelope, and
+        emits a kline event labelled with the market its connection streams."""
         res = await tscm.recv()
         if not res:
             return
@@ -251,7 +269,9 @@ class BinanceWebsocketService(ILiveStreamService):
                     market_data.volume,
                     market_data.is_closed,
                 )
-                self._event_bus.emit(MarketTickEvent(market_data=market_data))
+                self._event_bus.emit(
+                    MarketTickEvent(market_data=market_data, market_type=market)
+                )
             except (KeyError, ValueError, TypeError) as e:
                 logger.error(f"Error parsing kline message: {e} | Message: {res}")
 

@@ -5,6 +5,7 @@ from typing import cast
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream import (
     StartLiveStreamCommand,
@@ -49,7 +50,13 @@ def execute_stream(app: App, args):
         )
         sys.exit(1)
 
-    cmd = StartLiveStreamCommand(owner="cli", symbols=symbols_list, interval=timeframe)
+    # `EPIC-027A` — the CLI has no market option; it streams Spot, as it always has.
+    cmd = StartLiveStreamCommand(
+        owner="cli",
+        market_type=MarketType.SPOT,
+        symbols=symbols_list,
+        interval=timeframe,
+    )
     # `dispatch` returns `object`, deliberately: one port serves every command,
     # so it cannot know this one's response type. The cast is sound because the
     # caller chose the command, and `StartLiveStreamCommandHandler` declares

@@ -22,6 +22,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
     candle,
@@ -50,6 +51,7 @@ def _coordinator(
     sync: FakeMarketDataSync | None = None,
     history: FakeHistoricalKlines | None = None,
     stream: FakeMarketStream | None = None,
+    market: MarketType = MarketType.SPOT,
 ):
     """No dispatcher: `EPIC-025` PR 1.1b took the last one this coordinator
     held, so there is no bus left for a test to record."""
@@ -58,6 +60,7 @@ def _coordinator(
         market_data_sync=sync or FakeMarketDataSync(),
         historical_klines=history or FakeHistoricalKlines(),
         market_stream=stream or FakeMarketStream(),
+        market=market,
         emit_history_ready=MagicMock(),
         emit_load_finished=MagicMock(),
         emit_stream_started=MagicMock(),
@@ -97,6 +100,26 @@ def test_go_live_true_syncs_and_starts_the_stream() -> None:
     assert stream.is_streaming("BTCUSDT", TimeFrame.ONE_MINUTE) is True
 
 
+def test_a_futures_chart_syncs_reads_and_streams_futures() -> None:
+    """`EPIC-028C` — the chart's market is the screen's venue's. A Futures
+    screen drawing Spot candles would show, and arm its strategy on, prices
+    Futures never had."""
+    sync = FakeMarketDataSync()
+    history = FakeHistoricalKlines()
+    stream = FakeMarketStream()
+    coordinator = _coordinator(
+        sync, history=history, stream=stream, market=MarketType.FUTURES_USD_M
+    )
+
+    coordinator._run("BTCUSDT", "1m", _FakeToken(), True)
+
+    assert sync.requests[0].market is MarketType.FUTURES_USD_M
+    assert history.reads[0].market is MarketType.FUTURES_USD_M
+    held = stream.held_by(_STREAM_OWNER)
+    assert held is not None
+    assert held.market_type is MarketType.FUTURES_USD_M
+
+
 def test_the_sync_carries_the_screens_cancellation_check() -> None:
     """`async-ui-action-rule.md`: the caller owns the action. A sync started
     without the token's check cannot be stopped by the Cancel button, and
@@ -130,6 +153,7 @@ def test_the_chart_draws_the_stored_candles_oldest_first() -> None:
         market_data_sync=FakeMarketDataSync(),
         historical_klines=history,
         market_stream=FakeMarketStream(),
+        market=MarketType.SPOT,
         emit_history_ready=emit_history_ready,
         emit_load_finished=MagicMock(),
         emit_stream_started=MagicMock(),
@@ -171,7 +195,7 @@ def test_stop_releases_only_this_screens_subscription() -> None:
     bookkeeping can show that.
     """
     stream = FakeMarketStream()
-    stream.start("dashboard", ["BTCUSDT"], TimeFrame.ONE_MINUTE)
+    stream.start("dashboard", MarketType.SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE)
     coordinator = _coordinator(stream=stream)
     coordinator._run("BTCUSDT", "1m", _FakeToken(), True)
 
@@ -190,6 +214,7 @@ def test_start_defaults_to_local_history_only() -> None:
         market_data_sync=FakeMarketDataSync(),
         historical_klines=FakeHistoricalKlines(),
         market_stream=FakeMarketStream(),
+        market=MarketType.SPOT,
         emit_history_ready=MagicMock(),
         emit_load_finished=MagicMock(),
         emit_stream_started=MagicMock(),

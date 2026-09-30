@@ -1,5 +1,6 @@
 from unittest.mock import Mock
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
     StartLiveStreamCommand,
@@ -9,7 +10,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_
 )
 
 
-def test_execute_forwards_owner_symbols_and_interval_to_subscribe():
+def test_execute_forwards_owner_market_symbols_and_interval_to_subscribe():
     """`BOT-126` — the handler is the only place translating the command's
     `owner` into the port's `subscribe()` call; a typo/param-order slip here
     would silently scope every subscription wrong."""
@@ -19,12 +20,15 @@ def test_execute_forwards_owner_symbols_and_interval_to_subscribe():
 
     response = handler.execute(
         StartLiveStreamCommand(
-            owner="trading", symbols=["BTCUSDT"], interval=TimeFrame.ONE_MINUTE
+            owner="trading",
+            market_type=MarketType.SPOT,
+            symbols=["BTCUSDT"],
+            interval=TimeFrame.ONE_MINUTE,
         )
     )
 
     stream_service.subscribe.assert_called_once_with(
-        "trading", ["BTCUSDT"], TimeFrame.ONE_MINUTE
+        "trading", MarketType.SPOT, ["BTCUSDT"], TimeFrame.ONE_MINUTE
     )
     assert response.success is True
 
@@ -36,7 +40,10 @@ def test_execute_reports_failure_when_subscribe_returns_false():
 
     response = handler.execute(
         StartLiveStreamCommand(
-            owner="dashboard", symbols=["ETHUSDT"], interval=TimeFrame.FIVE_MINUTES
+            owner="dashboard",
+            market_type=MarketType.SPOT,
+            symbols=["ETHUSDT"],
+            interval=TimeFrame.FIVE_MINUTES,
         )
     )
 
