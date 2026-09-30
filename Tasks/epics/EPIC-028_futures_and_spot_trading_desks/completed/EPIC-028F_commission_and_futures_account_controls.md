@@ -1,6 +1,6 @@
 # EPIC-028F — The Futures desk can change leverage and margin mode, and both desks know their commission rates
 
-**Status:** 🟡 Implemented — awaiting review
+**Status:** ✅ Done (2026-09-30) — merged in PR #299
 **Source:** the user, 2026-09-29 — *"cần có 2 cái chứ không phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng"* ("two trading screens, one Futures and one Spot; share what can be shared"). See the [ADR](../DECISION_2026-09-29_two_trading_desks.md).
 **Risk:** 🟡 — a leverage change on an open position is refused by Binance; the app must refuse first
 **Complexity:** M — two commands, one query, one control port and one reader port (see Implementation notes)

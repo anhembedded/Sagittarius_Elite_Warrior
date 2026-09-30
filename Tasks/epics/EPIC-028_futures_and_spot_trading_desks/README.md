@@ -1,6 +1,6 @@
 # EPIC-028 — Two trading desks: Futures and Spot side by side, each with manual orders, a strategy and live account data
 
-- **Status:** 🟡 Phase 2 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`); `EPIC-028D` and `EPIC-028E` done; `EPIC-028F` in progress
+- **Status:** 🟡 Phase 2 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`); `EPIC-028D`–`028F` done; `EPIC-028G` next
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-29): *"giờ màn hình trading đang có vấn đề, cần có 2 cái chứ không
   phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng, 2 màn hình
@@ -68,7 +68,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 | **Phase 2 — Account data** | | | | | |
 | [EPIC-028D](completed/EPIC-028D_account_summary_reader.md) | Account summary (available, wallet, margin, uPnL / free, locked, equity) | Elite | B | 🟡 | ✅ Done |
 | [EPIC-028E](completed/EPIC-028E_open_orders_and_history_readers.md) | Open-orders query, order history, trade history | Elite | B, O5 | 🟡 | ✅ Done |
-| [EPIC-028F](incomplete/EPIC-028F_commission_and_futures_account_controls.md) | Commission rates; change leverage / margin mode | Elite | B | 🟡 | 🟡 In progress |
+| [EPIC-028F](completed/EPIC-028F_commission_and_futures_account_controls.md) | Commission rates; change leverage / margin mode | Elite | B | 🟡 | ✅ Done |
 | [EPIC-028G](incomplete/EPIC-028G_order_estimate_policies.md) | Max quantity, cost, fee, liquidation estimate as domain policies | Elite | D, F | 🟢 | Planned |
 | **Phase 3 — Shared desk kit** | | | | | |
 | [EPIC-028H](incomplete/EPIC-028H_order_entry_panel_core_and_spot.md) | `DeskProfile` + order-entry panel core + Spot variant | Elite | G | 🟡 | Planned |
@@ -99,6 +99,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 - **Arming more than one strategy per desk.**
 
 ## Notes (newest first)
+- **2026-09-30** — `EPIC-028F` merged (PR #299) after two independent reviews. The first review (NEEDS_REVISION) found the gate's open-position read outside the port's error translation: a network drop leaked as `requests.ConnectionError`. The read moved onto the port (`IFuturesAccountControl.open_position`), every answer is now read inside the translation, and a symbol a strategy manages is refused. The re-review passed. `EPIC-028G` is next.
 - **2026-09-30** — `EPIC-028F` implemented. Two narrow ports, `IFuturesAccountControl` (Spot's `VenueContext` holds `None`) and `ICommissionRateReader`. `ChangeLeverageCommand` and `ChangeMarginTypeCommand` pass one gate: a disabled venue, Spot or the switch off is refused with no request, then the connection is checked and an open position is refused before anything is sent. `GetCommissionRateQuery` answers per venue. Fast tier green; awaiting independent review.
 - **2026-09-30** — `EPIC-028E` merged (PR #297) after two independent reviews. The first found one blocking defect: Spot active symbols downloaded the whole `exchangeInfo` catalog once per unlisted asset, and a failed download leaked the SDK error. `ListedSymbols` fixed it with one refresh, a memo of unlisted pairs and failure translation. The same round added a 30-day `MAX_HISTORY_LOOKBACK`. The re-review passed; its follow-ups made the verified fake enforce the lookback through the contract and put the aggregate request-weight cost on `EPIC-028J`. `EPIC-028F` is next.
 - **2026-09-30** — `EPIC-028E` implemented: one `IAccountHistoryReader` per venue (orders, fills, active symbols; ADR D6 amended), reads split to the exchange's span and row limits and never truncated; `GetOpenOrdersQuery`, `GetOrderHistoryQuery` and `GetTradeHistoryQuery` (fifty rows a page, newest first); the Spot average entry price rebuilt from fills, `None` whenever they do not explain the holding (closes `EPIC-027` ADR O6). Awaiting independent review.
