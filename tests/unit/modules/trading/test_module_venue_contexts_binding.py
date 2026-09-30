@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_history_reader import (
+    FuturesHistoryReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
 )
@@ -33,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_reader import (
     SpotAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_history_reader import (
+    SpotHistoryReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_metadata_provider import (
     SpotMetadataProvider,
@@ -125,11 +131,13 @@ def test_each_venue_gets_its_own_venue_shaped_adapters() -> None:
     assert isinstance(futures.client_factory, FuturesTradingClientFactory)
     assert isinstance(futures.account_reader, FuturesAccountReader)
     assert isinstance(futures.user_data_stream, FuturesUserDataStream)
+    assert isinstance(futures.history_reader, FuturesHistoryReader)
     assert spot.venue is TradingVenue.SPOT_TESTNET
     assert isinstance(spot.metadata_provider, SpotMetadataProvider)
     assert isinstance(spot.client_factory, SpotTradingClientFactory)
     assert isinstance(spot.account_reader, SpotAccountReader)
     assert isinstance(spot.user_data_stream, SpotUserDataStream)
+    assert isinstance(spot.history_reader, SpotHistoryReader)
 
 
 def test_venues_share_no_credentials_and_no_metadata_cache() -> None:

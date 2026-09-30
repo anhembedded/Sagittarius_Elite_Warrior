@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metad
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_history_reader import (
+    FuturesHistoryReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
 )
@@ -39,8 +42,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trad
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user_data_stream import (
     FuturesUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.listed_symbols import (
+    ListedSymbols,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_reader import (
     SpotAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_history_reader import (
+    SpotHistoryReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_metadata_provider import (
     SpotMetadataProvider,
@@ -65,6 +74,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
+    IAccountHistoryReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
@@ -195,6 +207,18 @@ class VenueAssembly:
             self._shared.futures_session_factory, self.credentials_provider
         )
 
+    @_LockedCachedProperty
+    def history_reader(self) -> IAccountHistoryReader:
+        if self._is_spot:
+            return SpotHistoryReader(
+                self._shared.spot_session_factory,
+                self.credentials_provider,
+                ListedSymbols(self.metadata_provider, self.metadata_cache),
+            )
+        return FuturesHistoryReader(
+            self._shared.futures_session_factory, self.credentials_provider
+        )
+
     @property
     def session_state(self) -> TradingSessionState:
         """Owned by `VenueSessionStates` (`EPIC-028B`), so the handlers that
@@ -239,4 +263,5 @@ class VenueAssembly:
             client_factory=self.client_factory,
             account_reader=self.account_reader,
             user_data_stream=self.user_data_stream,
+            history_reader=self.history_reader,
         )

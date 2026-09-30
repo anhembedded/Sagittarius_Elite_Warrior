@@ -37,8 +37,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 class ISpotSessionClient(Protocol):
     """@brief Structural port for the raw signed session
     `create_account_client()`/`create_trading_client()` return. Lists only
-    the calls `SpotAccountReader`/`SpotTradingClient` actually make — not a
-    stand-in for the whole `python-binance` `Client` surface."""
+    the calls `SpotAccountReader`, `SpotTradingClient` and
+    `SpotHistoryReader` actually make — not a stand-in for the whole
+    `python-binance` `Client` surface."""
 
     def ping(self) -> dict[str, Any]: ...
 
@@ -57,6 +58,10 @@ class ISpotSessionClient(Protocol):
     def get_open_orders(self, **params: Any) -> list[dict[str, Any]]: ...
 
     def cancel_all_open_orders(self, **params: Any) -> list[dict[str, Any]]: ...
+
+    def get_all_orders(self, **params: Any) -> list[dict[str, Any]]: ...
+
+    def get_my_trades(self, **params: Any) -> list[dict[str, Any]]: ...
 
 
 class ISpotSessionFactory(ABC):

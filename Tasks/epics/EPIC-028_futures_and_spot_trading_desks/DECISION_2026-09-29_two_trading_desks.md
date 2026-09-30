@@ -94,6 +94,13 @@ Dev Board only, ADR D15").
     and `SpotAccountSummary`) travels on `ExchangeConnectionStatus.summary`, filled by each
     reader, and `GetAccountSummaryQuery` reads it off the addressed venue — the seam
     `GetHoldingsQuery` already uses. The other readers in D6 stand: each needs its own endpoint.
+  - **Amended 2026-09-30 (`EPIC-028E`): one `IAccountHistoryReader`, not `IOrderHistoryReader` and
+    `ITradeHistoryReader`.** Both histories share the signed session, Binance's symbol requirement
+    and its lookback rule, and every consumer so far (a desk's two history tabs, the Spot average
+    entry price) wants both from the same venue, so one port with `order_history`,
+    `trade_history` and `active_symbols` costs one `VenueContext` field instead of two. Open
+    orders needed no port: `GetOpenOrdersQuery` reads `ITradingClient.get_open_orders`, which
+    already existed.
 - **D7 — Futures account controls are commands, not UI state.** `ChangeLeverageCommand` and
   `ChangeMarginTypeCommand` call the exchange (`change_leverage`, `change_margin_type`) and refuse
   while a position is open on that symbol, the same rule Binance enforces.

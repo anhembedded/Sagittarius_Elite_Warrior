@@ -5,12 +5,18 @@ placed appears in `open_orders()`; canceled, it does not. That is the
 entire lifecycle `EPIC-021D`-`H`'s adapters need a fake to exercise;
 anything more would be a second implementation of Binance's real matching
 engine, with its own bugs to maintain.
+
+`EPIC-028E` — every accepted order is also remembered in `history`, with a
+real timestamp, for `GET /fapi/v1/allOrders`. There are still no fills, so
+`GET /fapi/v1/userTrades` answers an empty list.
 """
 
 from __future__ import annotations
 
 import itertools
 from typing import Any
+
+from .history_log import HistoryLog, now_ms
 
 _STATUS_NEW = "NEW"
 _STATUS_CANCELED = "CANCELED"
@@ -23,6 +29,7 @@ class OrderBookState:
     def __init__(self) -> None:
         self._orders: dict[str, dict[str, Any]] = {}
         self._order_ids = itertools.count(1_000_000)
+        self.history = HistoryLog()
 
     def place(self, params: dict[str, str]) -> dict[str, Any]:
         """@brief Stores a new `NEW` order from `POST /fapi/v1/order`'s
@@ -45,6 +52,10 @@ class OrderBookState:
             "reduceOnly": str(params.get("reduceOnly", "False")).lower() == "true",
         }
         self._orders[client_order_id] = order
+        placed_at = now_ms()
+        self.history.remember_order(
+            {**order, "time": placed_at, "updateTime": placed_at}
+        )
         return order
 
     def cancel(
@@ -67,6 +78,7 @@ class OrderBookState:
         if order is None or order["symbol"] != symbol:
             return None
         del self._orders[match_id]
+        self.history.mark_canceled(match_id)
         return {**order, "status": _STATUS_CANCELED}
 
     def cancel_all(self, symbol: str) -> None:
@@ -74,6 +86,7 @@ class OrderBookState:
             cid for cid, order in self._orders.items() if order["symbol"] == symbol
         ]:
             del self._orders[client_order_id]
+            self.history.mark_canceled(client_order_id)
 
     def open_orders(self, symbol: str | None) -> list[dict[str, Any]]:
         return [

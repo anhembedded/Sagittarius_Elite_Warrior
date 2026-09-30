@@ -63,6 +63,8 @@ _VENUE_ADAPTER_CLASSES = frozenset(
         "SpotTradingClientFactory",
         "FuturesAccountReader",
         "SpotAccountReader",
+        "FuturesHistoryReader",
+        "SpotHistoryReader",
         "FuturesUserDataStream",
         "SpotUserDataStream",
     }

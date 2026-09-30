@@ -1,0 +1,59 @@
+"""`EPIC-028E` — `GetOrderHistoryQueryHandler`.
+
+@details Reads the venue's own `IAccountHistoryReader`: the one symbol asked
+for, or every symbol the reader names as active. Binance's history endpoints
+need a symbol, so "every symbol" is that list, and the page carries it as
+`scanned_symbols` for the screen to show.
+"""
+
+from __future__ import annotations
+
+import logging
+
+from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
+from Sagittarius_Elite_Warrior.src.modules.trading.application.history_paging import (
+    PageRequest,
+    newest_first_page,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_order_history.query import (
+    GetOrderHistoryQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_page import (
+    HistoryPage,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
+    OrderRecord,
+)
+
+logger = logging.getLogger("App.QueryHandler")
+
+
+class GetOrderHistoryQueryHandler(
+    IQueryHandler[GetOrderHistoryQuery, HistoryPage[OrderRecord]]
+):
+    def __init__(self, contexts: IVenueContexts) -> None:
+        self._contexts = contexts
+
+    def execute(self, query: GetOrderHistoryQuery) -> HistoryPage[OrderRecord]:
+        reader = self._contexts.get(query.venue).history_reader
+        symbols = (query.symbol,) if query.symbol else reader.active_symbols()
+        logger.debug(
+            "Handling GetOrderHistoryQuery on %s: %s since %s, page %d",
+            query.venue.value,
+            ", ".join(symbols) or "no active symbol",
+            query.since.isoformat(),
+            query.page,
+        )
+        rows = [
+            row
+            for symbol in symbols
+            for row in reader.order_history(symbol, query.since)
+        ]
+        return newest_first_page(
+            rows,
+            lambda row: (row.created_at, row.order.client_order_id),
+            PageRequest(page=query.page, scanned_symbols=symbols),
+        )

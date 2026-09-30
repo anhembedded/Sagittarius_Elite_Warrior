@@ -8,6 +8,8 @@ future `EPIC-027K` order path) call, verified by reading `python-binance`'s
     GET    /api/v3/klines           spot kline fetch (`EPIC-027A`)
     GET    /api/v3/account          `get_account()` — balances
     GET    /api/v3/openOrders       `get_open_orders()`
+    GET    /api/v3/allOrders        `get_all_orders()` (`EPIC-028E`)
+    GET    /api/v3/myTrades         `get_my_trades()` (`EPIC-028E`)
     POST   /api/v3/order/test       `create_test_order()`
     POST   /api/v3/order            `create_order()` (`EPIC-027K`)
     DELETE /api/v3/order            `cancel_order()`
@@ -30,6 +32,7 @@ deterministic dict, same discipline as `futures_routes.py`.
 
 from __future__ import annotations
 
+from .history_log import HistoryQuery
 from .spot_account_state import SpotAccountState
 
 #: `EPIC-027J` — real Spot-shaped `exchangeInfo`: `baseAsset`/`quoteAsset`
@@ -169,7 +172,27 @@ def _handle_get(
         }
     if path == "/api/v3/openOrders":
         return 200, state.open_orders(params.get("symbol"))
+    if path in {"/api/v3/allOrders", "/api/v3/myTrades"}:
+        return _history(path, HistoryQuery.parse(params), state)
     return None
+
+
+#: Binance's Spot limit on `endTime - startTime` for both history endpoints.
+_SPOT_HISTORY_SPAN_MS = 24 * 60 * 60 * 1000
+
+
+def _history(
+    path: str, query: HistoryQuery, state: SpotAccountState
+) -> tuple[int, object]:
+    if query.end_ms - query.start_ms > _SPOT_HISTORY_SPAN_MS:
+        # Binance's real refusal for this exact case.
+        return 400, {
+            "code": -1127,
+            "msg": "More than 24 hours between startTime and endTime.",
+        }
+    if path == "/api/v3/allOrders":
+        return 200, state.history.orders(query)
+    return 200, state.history.trades(query)
 
 
 def _handle_post(

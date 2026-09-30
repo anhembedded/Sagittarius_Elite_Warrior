@@ -1,6 +1,6 @@
 # EPIC-028D — Each desk knows its available balance, wallet, margin and unrealized PnL (Futures) or free/locked and equity (Spot)
 
-**Status:** 🟡 Implemented — awaiting review
+**Status:** ✅ Done (2026-09-30) — merged in PR #296 after an independent review (PASS)
 **Source:** the user, 2026-09-29 — *"cần có 2 cái chứ không phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng"* ("two trading screens, one Futures and one Spot; share what can be shared"). See the [ADR](../DECISION_2026-09-29_two_trading_desks.md).
 **Risk:** 🟡 — Futures `walletBalance` is shown today as if it were spendable
 **Complexity:** M — two value types, both readers, a query and a refresh (no new port; see Implementation notes)

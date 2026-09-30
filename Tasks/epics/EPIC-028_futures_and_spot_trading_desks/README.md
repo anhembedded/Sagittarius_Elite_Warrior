@@ -1,6 +1,6 @@
 # EPIC-028 — Two trading desks: Futures and Spot side by side, each with manual orders, a strategy and live account data
 
-- **Status:** 🟡 Phase 2 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`); `EPIC-028D` in progress
+- **Status:** 🟡 Phase 2 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`); `EPIC-028D` done; `EPIC-028E` in progress
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-29): *"giờ màn hình trading đang có vấn đề, cần có 2 cái chứ không
   phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng, 2 màn hình
@@ -66,8 +66,8 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 | [EPIC-028B](completed/EPIC-028B_venue_addressed_commands.md) | Every venue-touching command/query names its venue; gates per venue | Elite | A | 🔴 | ✅ Done (2026-09-29) |
 | [EPIC-028C](completed/EPIC-028C_both_venues_running_concurrently.md) | Both streams, refresh services and sessions run concurrently; Settings toggles | Elite | A, B | 🟡 | ✅ Done (2026-09-30) |
 | **Phase 2 — Account data** | | | | | |
-| [EPIC-028D](incomplete/EPIC-028D_account_summary_reader.md) | Account summary (available, wallet, margin, uPnL / free, locked, equity) | Elite | B | 🟡 | 🟡 In progress |
-| [EPIC-028E](incomplete/EPIC-028E_open_orders_and_history_readers.md) | Open-orders query, order history, trade history | Elite | B, O5 | 🟡 | Planned |
+| [EPIC-028D](completed/EPIC-028D_account_summary_reader.md) | Account summary (available, wallet, margin, uPnL / free, locked, equity) | Elite | B | 🟡 | ✅ Done |
+| [EPIC-028E](incomplete/EPIC-028E_open_orders_and_history_readers.md) | Open-orders query, order history, trade history | Elite | B, O5 | 🟡 | 🟡 In progress |
 | [EPIC-028F](incomplete/EPIC-028F_commission_and_futures_account_controls.md) | Commission rates; change leverage / margin mode | Elite | B | 🟡 | Planned |
 | [EPIC-028G](incomplete/EPIC-028G_order_estimate_policies.md) | Max quantity, cost, fee, liquidation estimate as domain policies | Elite | D, F | 🟢 | Planned |
 | **Phase 3 — Shared desk kit** | | | | | |
@@ -99,6 +99,8 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 - **Arming more than one strategy per desk.**
 
 ## Notes (newest first)
+- **2026-09-30** — `EPIC-028E` implemented: one `IAccountHistoryReader` per venue (orders, fills, active symbols; ADR D6 amended), reads split to the exchange's span and row limits and never truncated; `GetOpenOrdersQuery`, `GetOrderHistoryQuery` and `GetTradeHistoryQuery` (fifty rows a page, newest first); the Spot average entry price rebuilt from fills, `None` whenever they do not explain the holding (closes `EPIC-027` ADR O6). Awaiting independent review.
+- **2026-09-30** — `EPIC-028D` merged (PR #296) after an independent review (PASS, three should-fix items and two questions, all addressed before merge: a ticket fence drops a stale summary, SPEC-003 and ADR D6 updated, a lasting unreadable figure warns once per outage). `EPIC-028E` is next.
 - **2026-09-30** — `EPIC-028D` implemented: `AccountSummary` (Futures: available, wallet, margin, uPnL, mode; Spot: quote free/locked, equity) carried on the connection check both readers already make, so no new port and no second request; `GetAccountSummaryQuery`; a per-venue refresh on the account cadence and after each fill of that venue, off the stream's loop; `exchange-status` prints the Futures available balance. Awaiting independent review.
 - **2026-09-30** — `EPIC-028C` merged (PR #295) after an independent review (PASS, three should-fix items and one question, all addressed before merge). Phase 1 exit met: each venue's Emergency Stop, refresh, events, stream and saved strategy stay on that venue. `EPIC-028D` started.
 - **2026-09-29** — `EPIC-028C` implemented in four slices: per-venue refresh and venue-stamped events, per-venue Settings toggles, one live stream per market with ticks routed by market, per-venue saved strategy. Awaiting independent review.
