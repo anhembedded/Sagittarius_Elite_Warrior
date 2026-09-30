@@ -13,38 +13,58 @@
 - The screenshots show *Max buy*, *Cost*, *Estimated fee*, *Liquidation price*; no code computes any of them.
 
 ## 2. Acceptance criteria
-- [x] `max_order_quantity(available, terms, step)` floors to the lot step and never exceeds what the available balance can pay including the fee. `terms` is `OrderTerms(price, leverage, fee_rate)`: five inputs would exceed the four-argument limit (`code/quality.md` §7).
-- [x] `order_cost` (Futures: initial margin = notional / leverage + fee; Spot: notional + fee, as leverage 1) and `estimated_fee`.
+- [x] The Futures maximum (`futures_max_quantity`) floors to the lot step and is never an order Binance refuses for margin or notional, given the balance, prices and headroom it is handed. Its cost is Binance's: initial margin at the assuming price plus open loss, with the taker fee on top.
+- [x] The Spot maximum (`spot_max_buy_quantity`) floors to the lot step and never exceeds the quote balance for a limit buy.
+- [x] `estimated_fee`, `futures_order_cost`, `spot_buy_cost`.
 - [x] `estimated_liquidation_price` for isolated/cross one-way positions, returned as `LiquidationPriceEstimate`, whose `is_estimate` is always `True` for the UI to display.
 - [x] Every policy rejects NaN/inf/negative input and is mutation-verified (`testing-rule.md` §2).
 
 ## 3. Design (as built)
-- **One set of formulas for both venues.** `contracts/order_estimates.py` holds `OrderTerms`, `estimated_fee`, `order_cost` and `max_order_quantity`. Spot is leverage 1, so the Spot numbers come from the same code ("share what can be shared", ADR D1). They live in `contracts/`, beside `OrderQuantityRoundingPolicy`, so the desks and `strategy` can reach them.
-- **Conservative by design.** The fee is always counted in the quote asset. On a Spot buy the fee is actually taken from the base asset received, so the Spot maximum reads at most one fee low. That is the safe side: a maximum that is too high is rejected by the exchange. The fee rate is the taker rate, and a negative rate is refused, because a maker rebate is never promised in advance.
-- **The liquidation estimate** (`contracts/liquidation_estimate.py`) uses Binance's one-way formula for a single position: `LP = (WB + cum − side × Q × EP) ÷ (Q × MMR − side × Q)`. The margin is the isolated margin, or for cross the wallet balance. The bracket's `maintenance_margin_rate` and `maintenance_amount` are inputs: brackets are not read yet, so a caller passes the first bracket. A long backed by at least its notional has no liquidation price (`price is None`; Binance shows `--`).
-- **One place for the input checks.** `contracts/estimate_inputs.py` holds the three checks (finite, not negative, positive) that every estimate uses.
+- **Shared where the rules are shared, separate where they differ** (ADR D1). `contracts/order_estimates.py` holds what both venues share: `estimated_fee` and `largest_fitting_quantity`, which rounds through `OrderQuantityRoundingPolicy` and corrects the one-step boundary error a non-terminating quotient can cause. The cost and the maximum are per venue, because Binance's rules differ.
+- **Futures follows Binance's published rules** (`contracts/futures_order_estimates.py`):
+  - cost = initial margin + open loss;
+  - initial margin = assuming price × quantity ÷ leverage. The assuming price is last × 1.0015 for a market order, the order's price for a limit long, and max(last × 1.0015, mark, order price) for a limit short;
+  - open loss = quantity × |min(0, direction × (mark − order price))|;
+  - the notional after the order may not exceed the bracket's limit. `FuturesOrderTerms.notional_headroom` is that limit less what is already open, and the maximum fits it at the higher of the assuming and mark prices.
+  - The fee is added to the cost when sizing, so the maximum can read up to one fee below Binance's own, never above it.
+- **Spot** (`contracts/spot_order_estimates.py`): a buy costs its notional plus the fee, both in the quote. Binance takes a Spot buy's fee from the base received, so the maximum reads at most one fee low. For a market buy the price is the caller's expectation (the best ask). A book that moves can still refuse it, and `EPIC-028H` should size market buys by quote amount (`quoteOrderQty`).
+- **The fee rate is the taker rate.** A negative rate (a maker rebate) is refused, because a rebate is never certain before the fill.
+- **The liquidation estimate** (`contracts/liquidation_estimate.py`) uses Binance's one-way formula for a single position: `LP = (WB + cum − side × Q × EP) ÷ (Q × MMR − side × Q)`.
+  - It is exact for isolated margin.
+  - For cross margin it is optimistic whenever other positions carry maintenance margin or losses: the real price is closer to entry.
+  - The bracket's `maintenance_margin_rate` and `maintenance_amount` are inputs, because brackets are not read yet.
+  - A long backed by at least its notional has no liquidation price (`price is None`; Binance shows `--`).
+- **One place for the input checks.** `contracts/estimate_inputs.py` holds the three checks (finite, not negative, positive).
+- **Placement.** All of it lives in `contracts/`, beside `OrderQuantityRoundingPolicy`, so the desks and `strategy` can reach it.
 
 ## 4. Changes, per file
 | File | Change |
 | :--- | :--- |
-| `src/modules/trading/contracts/order_estimates.py` | new: `OrderTerms`, fee, cost, maximum |
+| `src/modules/trading/contracts/order_estimates.py` | new: the shared fee and step-fitting |
+| `src/modules/trading/contracts/futures_order_estimates.py` | new: `FuturesOrderTerms`, assuming price, open loss, cost, fee, maximum |
+| `src/modules/trading/contracts/spot_order_estimates.py` | new: `SpotOrderTerms`, buy cost, maximum |
 | `src/modules/trading/contracts/liquidation_estimate.py` | new: `LiquidationTerms`, `LiquidationPriceEstimate`, the formula |
 | `src/modules/trading/contracts/estimate_inputs.py` | new: the shared input checks |
-| `tests/unit/modules/trading/contracts/test_order_estimates.py`, `test_liquidation_estimate.py` | boundary values, properties, refusals |
+| `tests/unit/modules/trading/contracts/test_order_estimates.py`, `test_futures_order_estimates.py`, `test_spot_order_estimates.py`, `test_liquidation_estimate.py` | worked examples, boundary values, properties, refusals |
 | `Docs/VOCABULARY/README.md` | the Order estimate row |
 
 ## 5. Testing
-- **Boundary values for the maximum:**
-  - a balance paying exactly the maximum's cost;
-  - one a hair short, which buys one step less;
-  - zero, and one step that does not fit.
-- **The maximum's defining property:** over four sets of terms, the maximum's cost fits and one more step does not. This is checked instead of hand-worked figures (`pitfalls/tests.md` #1).
-- **Liquidation, checked against its definition:** at the estimate, the margin plus unrealised PnL equals the maintenance margin. This covers long and short, thin margin and a maintenance amount. It is cross-checked against Binance's isolated closed forms.
-- **Boundary cases for liquidation:** margin equal to the notional and margin above it both give no price.
-- **Refusals:** NaN, infinity, negative values, a zero price, step or quantity, leverage 0, and a maintenance rate of 1 or below 0.
-- **Mutation check:** 22 targeted mutations, all killed. The first pass left one survivor (`price > 0` against `>= 0`); the margin-equals-notional case now covers it.
+- **Binance's worked example.** At 20× and 9 253.30, the limit long costs its initial margin, 462.66. The limit short costs initial margin 463.64 plus open loss 6.54, a total of 470.18.
+- **Each rule branch.**
+  - Each assuming-price branch.
+  - Open loss on a long above the mark and on a short below it, and none on the other side or on a market order.
+  - The fee at the assuming price.
+- **The Futures maximum's defining property.** An independently transcribed copy of the FAQ is the oracle. The maximum's cost plus fee fits the balance and its notional fits the headroom, and one more step breaks one of the two. The cases are the PR #300 review's rejections:
+  - a market order at 1×, 2× and 5×;
+  - a long above the mark and a short below it;
+  - 125× with and without a binding cap;
+  - the cap measured at the mark, and at the buffered last.
+- **Step fitting.** Exact and a-hair-short budgets both give the right quantity. So do the two rounding hazards, a quotient rounded up onto a step and one rounded down off a step, and the review's non-terminating budget.
+- **Liquidation, checked against its definition.** At the estimate, the margin plus unrealised PnL equals the maintenance margin. Margin equal to or above the notional gives no price.
+- **Refusals.** NaN, infinity, negative values, a zero price, step or unit cost, leverage 0, and a maintenance rate of 1 or below 0.
+- **Mutation check.** 43 targeted mutations, all killed: 32 on the order estimates and 11 on the liquidation and input checks. The first pass left the two step-boundary corrections and the notional price surviving, and the cases above were added to kill them.
 
 ## Implementation notes
-- **No screen shows these yet.** The order-entry panel (`EPIC-028H`, `028I`) is the first consumer. It reads the rates from `GetCommissionRateQuery` and the balance from the account summary.
+- **The review changed the design.** The first version (cost = notional ÷ leverage + fee) claimed to "err low, never high". The PR #300 review showed that the claim was false for Futures: it overshot at 1× and 2×, ignored open loss and ignored the bracket cap. The rewrite models Binance's own rules, above. They are transcribed from Binance's FAQ and not checked against a live order, because egress to Binance is blocked in the build environment.
+- **No screen shows these yet.** The order-entry panel (`EPIC-028H`, `028I`) is the first consumer. It reads the rates from `GetCommissionRateQuery`, the balance from the account summary, and the headroom from `LeverageSetting.max_notional` less the open notional.
 - **The leverage brackets are still an input.** `IFuturesAccountControl` names `GET /fapi/v1/leverageBracket` as its next read, and until then a caller passes the first bracket.
-- **Scope of the liquidation estimate.** It sees one position. Under cross margin the exchange's figure also counts the other positions' maintenance margin and unrealised PnL, which is why the type always says "estimate".

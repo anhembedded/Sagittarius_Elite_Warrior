@@ -9,9 +9,13 @@ estimate.
 - `MMR` is the bracket's maintenance-margin rate;
 - `side` is +1 for long and −1 for short.
 
-**Always an estimate, and the type says so.** The exchange's own figure
-also counts the other positions' maintenance margin and unrealised PnL under
-cross margin, and funding. This formula sees one position alone. The desk
+**Always an estimate, and the type says so.** Under isolated margin it is
+Binance's formula exactly (the other positions do not enter it). Under cross
+margin the exchange's figure also subtracts the other positions'
+maintenance margin and adds their unrealised PnL; this one sees one position
+alone, so whenever the others carry maintenance margin or losses it is
+**optimistic: the real liquidation price is closer to entry** (PR #300
+review). Funding is not counted either way. The desk
 shows `LiquidationPriceEstimate`, and its `is_estimate` is `True` by
 construction; it is never an exchange-reported `LiquidationPrice`
 (`live_position.py`).
@@ -70,7 +74,8 @@ class LiquidationTerms:
 @dataclass(frozen=True)
 class LiquidationPriceEstimate:
     """@details `price` is `None` when no price liquidates the position: a
-    long backed by more margin than its notional. Binance shows `--` then."""
+    long whose margin plus maintenance amount reaches its notional
+    (`margin + cum ≥ quantity × entry price`). Binance shows `--` then."""
 
     price: Decimal | None
 
