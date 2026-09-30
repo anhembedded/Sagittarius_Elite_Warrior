@@ -14,6 +14,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
+from typing import TYPE_CHECKING
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
@@ -21,6 +22,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+
+if TYPE_CHECKING:
+    # Type-only: `account_summary.py` names `PositionMode` from this module,
+    # so a runtime import in both directions would be a cycle.
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+        AccountSummary,
+    )
 
 
 class ConnectionFailureKind(str, Enum):
@@ -78,6 +86,11 @@ class ExchangeConnectionStatus:
     `equity` are the symmetric case (`EPIC-027H`): Spot concepts a Futures
     venue answers `None` for, same as `position_mode`/`margin_type` answer
     `None` for Spot — see `i_account_snapshot.py`'s own "@par The seam".
+
+    `summary` (`EPIC-028D`) is what a desk shows about the account, read
+    from the same account payload as everything above, so asking for it
+    costs no second request. `None` unless the check got far enough to read
+    the account (and, on Futures, its position mode).
     """
 
     venue: TradingVenue
@@ -90,3 +103,4 @@ class ExchangeConnectionStatus:
     open_position_count: int | None
     holdings: tuple[SpotHolding, ...] | None = None
     equity: Decimal | None = None
+    summary: AccountSummary | None = None

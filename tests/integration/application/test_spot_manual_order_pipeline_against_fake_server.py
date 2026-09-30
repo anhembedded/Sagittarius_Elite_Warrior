@@ -194,3 +194,8 @@ def test_a_manual_buy_click_reaches_the_wire_and_moves_the_reported_holding() ->
         # increase is the filled quantity minus that fee, never the raw qty.
         assert btc_after.free > btc_before.free
         assert btc_after.free <= btc_before.free + _QTY
+        # `EPIC-028D` — the same read's summary: the BUY spent quote, so
+        # what the desk can still spend went down.
+        assert before.summary is not None
+        assert after.summary is not None
+        assert after.summary.available_balance < before.summary.available_balance

@@ -2,6 +2,9 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    FuturesAccountSummary,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
@@ -226,3 +229,31 @@ def test_a_spot_clock_skew_failure_reuses_the_venue_agnostic_guidance():
     text = format_exchange_connection_status(status)
 
     assert "Resync the system" in text
+
+
+# --- EPIC-028D — what a new Futures order can spend ---------------------------
+
+
+def test_a_futures_success_shows_available_apart_from_the_wallet():
+    summary = FuturesAccountSummary(
+        venue=TradingVenue.FUTURES_TESTNET,
+        available_balance=Decimal("11874.50"),
+        equity=Decimal("14874.50"),
+        wallet_balance=Decimal("15000.00"),
+        margin_balance=Decimal("14874.50"),
+        unrealized_pnl=Decimal("-125.50"),
+        position_mode=PositionMode.ONE_WAY,
+    )
+
+    text = format_exchange_connection_status(_success_status(summary=summary))
+
+    assert "Available (USDT): 11,874.50" in text
+    assert "Unrealized PnL: -125.50" in text
+    assert "15,000.00" in text
+
+
+def test_a_futures_success_without_a_summary_shows_a_question_mark_not_zero():
+    text = format_exchange_connection_status(_success_status())
+
+    assert "Available (USDT): ?" in text
+    assert "Unrealized PnL: ?" in text

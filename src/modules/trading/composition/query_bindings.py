@@ -11,6 +11,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
     PreviewOrderQuery,
     PreviewOrderQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_account_summary import (
+    GetAccountSummaryQuery,
+    GetAccountSummaryQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_exchange_connection_status import (
     GetExchangeConnectionStatusQuery,
     GetExchangeConnectionStatusQueryHandler,
@@ -30,6 +34,7 @@ def bind_queries(container: IContainer) -> None:
     """Route each trading query type to the handler that answers it."""
     container.bind(GetOpenPositionsQuery, GetOpenPositionsQueryHandler)
     container.bind(GetHoldingsQuery, GetHoldingsQueryHandler)
+    container.bind(GetAccountSummaryQuery, GetAccountSummaryQueryHandler)
     container.bind(
         GetExchangeConnectionStatusQuery, GetExchangeConnectionStatusQueryHandler
     )

@@ -78,6 +78,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-09-29 | EPIC-028A | Merged in PR #293 after the independent review (four fixes: per-part lock, single-venue reader follows the list, guard sees every spelling, docs). |
+| 2026-09-30 | EPIC-028D | Implemented: `AccountSummary` on the existing connection check (no new port), `GetAccountSummaryQuery`, per-venue refresh on cadence and on fill, CLI available balance. Fast tier green; awaiting independent review. |
 | 2026-09-30 | EPIC-028C | Merged in PR #295 after independent review (PASS); Phase 1 done. EPIC-028D started. |
 | 2026-09-29 | EPIC-028C | Implemented: per-venue refresh + venue on events; Settings toggles; per-market stream and tick routing; per-venue saved strategy. Fast tier green; awaiting independent review. |
 | 2026-09-29 | EPIC-028B | Implemented: commands/queries name their venue; `VenueTradingScopes`/`IVenueTradingPorts`/`VenueStrategySessions`; single-venue bindings deleted, guard added. Fast tier green; awaiting independent review. |

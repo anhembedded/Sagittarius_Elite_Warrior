@@ -10,6 +10,10 @@ reporting every account as One-way, exactly the "assumption fails quietly"
 `EPIC-021D` §2.3 exists to prevent — so the extra call is made rather than
 guessed away.
 
+`EPIC-028D` — the same `futures_account()` payload also answers what a desk
+shows (`FuturesAccountSummary`): the USDT asset's `availableBalance`,
+`walletBalance`, `marginBalance` and `unrealizedProfit`. No extra request.
+
 **Verification note** (same disclosure as `EPIC-021A`/`EPIC-021C`): error
 code mapping (`-1021`/`-1022`/`-2015`) and the account/position-mode
 payload shapes are written from Binance's documented futures API, not
@@ -28,6 +32,9 @@ from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    FuturesAccountSummary,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ConnectionFailureKind,
     ExchangeConnectionStatus,
@@ -91,6 +98,41 @@ def _extract_usdt_balance(account: dict[str, Any]) -> Decimal | None:
             except (InvalidOperation, TypeError):
                 return None
     return None
+
+
+def _usdt_asset(account: dict[str, Any]) -> dict[str, Any] | None:
+    return next(
+        (a for a in account.get("assets", []) if a.get("asset") == _USDT_ASSET), None
+    )
+
+
+def _read_summary(
+    account: dict[str, Any], position_mode: PositionMode
+) -> FuturesAccountSummary | None:
+    """The desk's figures from the USDT asset; `None` when the account has
+    no USDT asset or one of its figures is not a number, rather than a
+    summary with an invented zero."""
+    asset = _usdt_asset(account)
+    if asset is None:
+        return None
+    try:
+        margin_balance = Decimal(str(asset["marginBalance"]))
+        return FuturesAccountSummary(
+            venue=TradingVenue.FUTURES_TESTNET,
+            available_balance=Decimal(str(asset["availableBalance"])),
+            equity=margin_balance,
+            wallet_balance=Decimal(str(asset["walletBalance"])),
+            margin_balance=margin_balance,
+            unrealized_pnl=Decimal(str(asset["unrealizedProfit"])),
+            position_mode=position_mode,
+        )
+    except (KeyError, InvalidOperation, TypeError):
+        logger.warning(
+            "Futures account's USDT asset is missing a balance figure — "
+            "no account summary this time: %s",
+            asset,
+        )
+        return None
 
 
 def _open_positions(account: dict[str, Any]) -> list[dict[str, Any]]:
@@ -196,6 +238,7 @@ class FuturesAccountReader(ITradingAccountReader):
             position_mode=position_mode,
             margin_type=margin_type,
             open_position_count=len(open_positions),
+            summary=_read_summary(account, position_mode),
         )
 
     @staticmethod
@@ -208,6 +251,7 @@ class FuturesAccountReader(ITradingAccountReader):
         position_mode: PositionMode | None = None,
         margin_type: MarginType | None = None,
         open_position_count: int | None = None,
+        summary: FuturesAccountSummary | None = None,
     ) -> ExchangeConnectionStatus:
         return ExchangeConnectionStatus(
             venue=TradingVenue.FUTURES_TESTNET,
@@ -218,4 +262,5 @@ class FuturesAccountReader(ITradingAccountReader):
             position_mode=position_mode,
             margin_type=margin_type,
             open_position_count=open_position_count,
+            summary=summary,
         )

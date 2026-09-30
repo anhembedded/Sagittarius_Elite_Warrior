@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_acco
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    FuturesAccountSummary,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     PositionMode,
 )
@@ -80,3 +83,7 @@ def test_check_connection_round_trips_the_fake_servers_account_snapshot():
         assert status.position_mode is PositionMode.ONE_WAY
         assert status.open_position_count == 0
         assert status.server_time_skew_ms is not None
+        # `EPIC-028D` — the summary comes out of the same account payload.
+        assert isinstance(status.summary, FuturesAccountSummary)
+        assert status.summary.available_balance == Decimal("15000.00000000")
+        assert status.summary.unrealized_pnl == Decimal(0)
