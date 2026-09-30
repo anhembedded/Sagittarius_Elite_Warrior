@@ -340,3 +340,23 @@ def test_a_missing_figure_means_no_summary():
     client = _happy_client({"assets": [asset], "positions": []})
 
     assert _reader(client).check_connection().summary is None
+
+
+def test_a_lasting_malformed_figure_warns_once_until_it_is_readable_again(caplog):
+    """The account is read every few seconds; one bad asset is one WARNING
+    per outage, not one per tick (the PR #296 review, Q4)."""
+    broken = {"assets": [_usdt_asset(availableBalance="?")], "positions": []}
+    healthy = {"assets": [_usdt_asset()], "positions": []}
+    client = _happy_client(broken)
+    reader = _reader(client)
+
+    with caplog.at_level("WARNING", logger="App.TradingAdapter"):
+        reader.check_connection()
+        reader.check_connection()
+        client.futures_account.return_value = healthy
+        assert reader.check_connection().summary is not None
+        client.futures_account.return_value = broken
+        reader.check_connection()
+
+    warnings = [r for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 2

@@ -249,7 +249,7 @@ def test_a_futures_success_shows_available_apart_from_the_wallet():
 
     assert "Available (USDT): 11,874.50" in text
     assert "Unrealized PnL: -125.50" in text
-    assert "15,000.00" in text
+    assert "Wallet (USDT):    15,000.00" in text
 
 
 def test_a_futures_success_without_a_summary_shows_a_question_mark_not_zero():

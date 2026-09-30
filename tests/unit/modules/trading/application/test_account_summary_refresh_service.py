@@ -89,11 +89,38 @@ class _RecordingPublisher(IEventPublisher):
         self.published.append(event)
 
 
+class _InterleavingDispatcher(_ScriptedDispatcher):
+    """The first read stays in flight while `during_first_read` runs: the
+    PR #296 review's interleaving, a fill's refresh starting and finishing
+    while a tick's request is still out, reproduced on one thread."""
+
+    def __init__(self, *replies: AccountSummary | Exception | None) -> None:
+        super().__init__(*replies)
+        self.during_first_read: Callable[[], None] = lambda: None
+
+    def dispatch(self, handler_class: type, input_dto: object | None = None) -> object:
+        if len(self.dispatched) == 0:
+            self.dispatched.append(input_dto)
+            first_reply = self._replies.pop(0)
+            self.during_first_read()
+            return first_reply
+        return super().dispatch(handler_class, input_dto)
+
+
+class _RefusingPublisher(IEventPublisher):
+    def publish(self, event: IDomainEvent) -> None:
+        raise RuntimeError("bus is gone")
+
+
 class _Service:
     """The service plus the doubles a test inspects."""
 
     def __init__(
-        self, dispatcher: _ScriptedDispatcher, *, enabled: bool = True
+        self,
+        dispatcher: _ScriptedDispatcher,
+        *,
+        enabled: bool = True,
+        publisher: IEventPublisher | None = None,
     ) -> None:
         self.dispatcher = dispatcher
         self.publisher = _RecordingPublisher()
@@ -104,7 +131,7 @@ class _Service:
         self.service = AccountSummaryRefreshService(
             AccountSummaryRefreshPorts(
                 dispatcher=dispatcher,
-                event_publisher=self.publisher,
+                event_publisher=publisher or self.publisher,
                 run_elsewhere=self.handed_off.append,
             ),
             session_state,
@@ -216,3 +243,34 @@ def test_another_venues_fill_asks_for_nothing() -> None:
     setup.service.on_order_filled(_fill(_FUTURES))
 
     assert setup.handed_off == []
+
+
+def test_a_tick_answering_after_a_later_fill_refresh_is_not_published() -> None:
+    """The tick's request left before the fill (it answers 1000), the fill's
+    refresh read after it (900) and published first. Publishing the tick's
+    answer would put the pre-fill balance back on screen."""
+    dispatcher = _InterleavingDispatcher(_summary("1000"), _summary("900"))
+    setup = _Service(dispatcher)
+    dispatcher.during_first_read = setup.service.refresh_once
+
+    setup.service.refresh_once()
+
+    assert setup.publisher.published == [
+        AccountSummaryChangedEvent(summary=_summary("900"))
+    ]
+
+
+def test_a_failed_refresh_after_a_fill_is_logged_not_lost(caplog) -> None:
+    """The worker pool keeps what a task raises on a `Future` no code reads."""
+    setup = _Service(
+        _ScriptedDispatcher(_summary("850")), publisher=_RefusingPublisher()
+    )
+    setup.service.on_order_filled(_fill(_SPOT))
+
+    with caplog.at_level("ERROR", logger="App.AccountSummaryRefresh"):
+        setup.handed_off[0]()
+
+    assert any(
+        record.levelname == "ERROR" and "after a fill" in record.getMessage()
+        for record in caplog.records
+    )

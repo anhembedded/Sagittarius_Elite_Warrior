@@ -14,11 +14,21 @@ arrives on the thread of the user-data stream that received it, an asyncio
 loop (`BOT-145`: no REST call may block that loop). `on_order_filled` hands
 `refresh_once` to `run_elsewhere`, which the composition root points at a
 worker pool, so the account read after a fill never stalls the stream.
+
+**A later read wins, whichever finishes first.** Two threads now run
+`refresh_once`: the scheduler's tick and the worker a fill started. A tick
+whose request left before the fill can answer after the fill's refresh
+published, and publishing it would show the pre-fill balance until the next
+tick (the PR #296 review, finding 1). Each refresh takes a ticket when it
+starts; a result whose ticket is older than the last one published is
+dropped. The ticket and the compare-and-publish are under one lock; the
+network read is not, so neither thread waits on the other's request.
 """
 
 from __future__ import annotations
 
 import logging
+import threading
 from collections.abc import Callable
 from dataclasses import dataclass
 from typing import cast
@@ -78,7 +88,10 @@ class AccountSummaryRefreshService:
         self._ports = ports
         self._session_state = session_state
         self._venue = venue
+        self._lock = threading.Lock()
+        self._next_ticket = 0
         self._last_published: AccountSummary | None = None
+        self._last_published_ticket = -1
 
     @property
     def venue(self) -> TradingVenue:
@@ -88,6 +101,9 @@ class AccountSummaryRefreshService:
     def refresh_once(self) -> None:
         if not self._session_state.enabled:
             return
+        with self._lock:
+            ticket = self._next_ticket
+            self._next_ticket += 1
 
         try:
             summary = cast(
@@ -101,14 +117,43 @@ class AccountSummaryRefreshService:
                 "Account summary refresh failed on %s: %s", self._venue.value, exc
             )
             return
+        if summary is not None:
+            self._publish_if_newest(ticket, summary)
 
-        if summary is None or summary == self._last_published:
-            return
-        self._last_published = summary
-        self._ports.event_publisher.publish(AccountSummaryChangedEvent(summary=summary))
+    def _publish_if_newest(self, ticket: int, summary: AccountSummary) -> None:
+        with self._lock:
+            if ticket < self._last_published_ticket:
+                logger.debug(
+                    "Dropped a stale account summary on %s: read %d started "
+                    "before read %d, which already published",
+                    self._venue.value,
+                    ticket,
+                    self._last_published_ticket,
+                )
+                return
+            self._last_published_ticket = ticket
+            if summary == self._last_published:
+                return
+            self._last_published = summary
+            self._ports.event_publisher.publish(
+                AccountSummaryChangedEvent(summary=summary)
+            )
 
     def on_order_filled(self, event: OrderFilledEvent) -> None:
         """A fill on this venue changes its balances now, not at the next
         tick; another venue's fill changes nothing here."""
         if event.venue is self._venue:
-            self._ports.run_elsewhere(self.refresh_once)
+            self._ports.run_elsewhere(self._refresh_after_fill)
+
+    def _refresh_after_fill(self) -> None:
+        """The worker pool keeps a task's exception on a `Future` nobody
+        reads, so a failure here is logged rather than lost."""
+        try:
+            self.refresh_once()
+        # Worker boundary: the pool discards what a task raises, so this is
+        # the only place a failure here can be seen; it is re-reported whole.
+        except Exception:
+            logger.exception(
+                "Account summary refresh after a fill failed on %s",
+                self._venue.value,
+            )

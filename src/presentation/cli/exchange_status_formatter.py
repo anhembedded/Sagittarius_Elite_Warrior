@@ -156,7 +156,7 @@ def _format_success(status: ExchangeConnectionStatus) -> str:
             f"Venue:            {status.venue.name:<25} Connection: ✔",
             f"Clock skew:       {skew_text:<25} {skew_safety}",
             f"Position mode:    {position_mode_text:<25} Margin type: {margin_type_text}",
-            f"USDT balance:     {balance_text:<25} Open positions: {open_positions_text}",
+            f"Wallet (USDT):    {balance_text:<25} Open positions: {open_positions_text}",
             f"Available (USDT): {available_text:<25} Unrealized PnL: {upnl_text}",
         ]
     )

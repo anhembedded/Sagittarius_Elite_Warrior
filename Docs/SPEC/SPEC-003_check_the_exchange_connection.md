@@ -31,7 +31,10 @@ cannot, tell me which part is wrong."*
    milliseconds.
 5. The app answers with one immutable status: the venue, whether it is reachable, the named
    failure if it is not, the clock skew, the USDT balance, the position mode, the margin type
-   and the number of open positions.
+   and the number of open positions — and, since `EPIC-028D`, the **account summary** read from
+   the same account payload (no extra request): on Futures the available balance, wallet,
+   margin balance, unrealized PnL and position mode; on Spot the quote asset's free and locked
+   parts and the equity.
 6. Each surface renders that one value: Settings as a label, the command line as a short
    report.
 
@@ -46,6 +49,12 @@ cannot, tell me which part is wrong."*
   never learned** — the check failed before reaching it, or, for the margin type, there is no
   open position to infer it from (margin type is per symbol on Binance Futures, not
   account-wide).
+- The command line tells spendable from held: on Futures it prints the wallet balance as
+  `Wallet (USDT)` and, beside it, `Available (USDT)` (what a new order can use; the wallet also
+  counts margin already committed) and the unrealized PnL. Either figure is `?` when it was not
+  learned, never `0`.
+- The summary is `None` when a figure it needs is missing or not a number — never a summary with
+  an invented zero — and a Spot summary's equity is `None` when a holding cannot be priced.
 - A successful check is not permission to trade. Turning trading on is SPEC-004, and it runs its
   own check.
 
@@ -87,5 +96,7 @@ resolution and the error translation.
 | Both implementations of the port answer the same way | `tests/unit/modules/trading/contracts/test_account_snapshot_contract.py` | contract |
 | The account reads behind it | `tests/unit/modules/trading/contracts/test_trading_account_reader_contract.py` | contract |
 | The command line's report for each outcome | `tests/unit/presentation/cli/test_exchange_status_formatter.py` | unit |
+| The account summary each reader builds from its payload, and `None` rather than a guess | `tests/unit/modules/trading/adapters/binance/test_futures_account_reader.py`, `tests/unit/modules/trading/adapters/binance/spot/test_spot_account_reader.py` | unit |
+| The summary over a real HTTP round trip | `tests/integration/infrastructure/binance/test_futures_account_reader_against_fake_server.py` | integration |
 | Settings renders the right label, and asks the port exactly once | `tests/unit/modules/trading/ui/settings/test_trading_settings_connection_check.py` | unit |
 | A real check against the real Futures Testnet | `tests/testnet/test_connection.py` — **the user runs it**: `SEW_TESTNET_TESTS=1` plus real credentials, via `ci-local.ps1 -TestnetOnly`; the ordinary gate never invokes this tier | human |

@@ -106,33 +106,21 @@ def _usdt_asset(account: dict[str, Any]) -> dict[str, Any] | None:
     )
 
 
-def _read_summary(
-    account: dict[str, Any], position_mode: PositionMode
-) -> FuturesAccountSummary | None:
-    """The desk's figures from the USDT asset; `None` when the account has
-    no USDT asset or one of its figures is not a number, rather than a
-    summary with an invented zero."""
-    asset = _usdt_asset(account)
-    if asset is None:
-        return None
-    try:
-        margin_balance = Decimal(str(asset["marginBalance"]))
-        return FuturesAccountSummary(
-            venue=TradingVenue.FUTURES_TESTNET,
-            available_balance=Decimal(str(asset["availableBalance"])),
-            equity=margin_balance,
-            wallet_balance=Decimal(str(asset["walletBalance"])),
-            margin_balance=margin_balance,
-            unrealized_pnl=Decimal(str(asset["unrealizedProfit"])),
-            position_mode=position_mode,
-        )
-    except (KeyError, InvalidOperation, TypeError):
-        logger.warning(
-            "Futures account's USDT asset is missing a balance figure — "
-            "no account summary this time: %s",
-            asset,
-        )
-        return None
+def _parse_summary(
+    asset: dict[str, Any], position_mode: PositionMode
+) -> FuturesAccountSummary:
+    """The desk's figures from the USDT asset. @throws KeyError,
+    InvalidOperation or TypeError when a figure is missing or not a number."""
+    margin_balance = Decimal(str(asset["marginBalance"]))
+    return FuturesAccountSummary(
+        venue=TradingVenue.FUTURES_TESTNET,
+        available_balance=Decimal(str(asset["availableBalance"])),
+        equity=margin_balance,
+        wallet_balance=Decimal(str(asset["walletBalance"])),
+        margin_balance=margin_balance,
+        unrealized_pnl=Decimal(str(asset["unrealizedProfit"])),
+        position_mode=position_mode,
+    )
 
 
 def _open_positions(account: dict[str, Any]) -> list[dict[str, Any]]:
@@ -167,6 +155,11 @@ class FuturesAccountReader(ITradingAccountReader):
     ) -> None:
         self._session_factory = session_factory
         self._credentials_provider = credentials_provider
+        #: `EPIC-028D` — whether the current run of unreadable summaries has
+        #: been reported. The account is read every few seconds; a USDT
+        #: asset that lacks a figure for good is one WARNING, not one per
+        #: tick, and a readable summary re-arms it (the PR #296 review, Q4).
+        self._summary_failure_reported = False
 
     def check_connection(self) -> ExchangeConnectionStatus:
         resolution = self._credentials_provider.resolve()
@@ -238,8 +231,35 @@ class FuturesAccountReader(ITradingAccountReader):
             position_mode=position_mode,
             margin_type=margin_type,
             open_position_count=len(open_positions),
-            summary=_read_summary(account, position_mode),
+            summary=self._read_summary(account, position_mode),
         )
+
+    def _read_summary(
+        self, account: dict[str, Any], position_mode: PositionMode
+    ) -> FuturesAccountSummary | None:
+        """`None` when the account has no USDT asset or one of its figures
+        is not a number, rather than a summary with an invented zero."""
+        asset = _usdt_asset(account)
+        if asset is None:
+            return None
+        try:
+            summary = _parse_summary(asset, position_mode)
+        except (KeyError, InvalidOperation, TypeError):
+            if not self._summary_failure_reported:
+                self._summary_failure_reported = True
+                logger.warning(
+                    "Futures account's USDT asset is missing a balance figure — "
+                    "no account summary until it is readable again (not "
+                    "logged again until then): %s",
+                    asset,
+                )
+            else:
+                logger.debug("Futures account summary still unreadable: %s", asset)
+            return None
+        if self._summary_failure_reported:
+            self._summary_failure_reported = False
+            logger.info("Futures account summary readable again")
+        return summary
 
     @staticmethod
     def _status(
