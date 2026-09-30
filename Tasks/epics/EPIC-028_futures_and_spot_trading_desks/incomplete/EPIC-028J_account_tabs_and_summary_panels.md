@@ -16,6 +16,7 @@
 - [ ] Tabs: Open orders (cancel one, cancel all — confirmed), Order history, Trade history, and Positions (Futures, with close-at-market) or Assets (Spot).
 - [ ] Every tab loads from its query when the desk opens and updates from events of its own venue.
 - [ ] A "hide other pairs" toggle filters to the desk's symbol.
+- [ ] With "hide other pairs" off, the Order history and Trade history tabs name the pairs they show (`HistoryPage.scanned_symbols`, `EPIC-028E`): Binance needs a symbol per history request, so "every pair" is the venue's active symbols, and a pair closed out with nothing open is not among them. The tab never implies the list is the whole account (PR #297 review, finding 3).
 - [ ] The summary panel shows the `EPIC-028D` figures and refreshes on fills.
 
 ## 3. Design

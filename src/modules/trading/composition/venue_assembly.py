@@ -42,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trad
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user_data_stream import (
     FuturesUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.listed_symbols import (
+    ListedSymbols,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_reader import (
     SpotAccountReader,
 )
@@ -210,7 +213,7 @@ class VenueAssembly:
             return SpotHistoryReader(
                 self._shared.spot_session_factory,
                 self.credentials_provider,
-                self.metadata_provider,
+                ListedSymbols(self.metadata_provider, self.metadata_cache),
             )
         return FuturesHistoryReader(
             self._shared.futures_session_factory, self.credentials_provider

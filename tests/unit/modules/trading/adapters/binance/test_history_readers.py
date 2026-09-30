@@ -19,8 +19,14 @@ from unittest.mock import Mock
 import pytest
 from binance.exceptions import BinanceAPIException
 from requests.exceptions import ConnectionError as RequestsConnectionError
+from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
+    InMemorySymbolOrderMetadataCache,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_history_reader import (
     FuturesHistoryReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.listed_symbols import (
+    ListedSymbols,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_history_reader import (
     SpotHistoryReader,
@@ -28,11 +34,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_hi
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
     AccountHistoryUnavailableError,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
+    IMarketMetadataProvider,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_market_metadata_provider import (
-    FakeMarketMetadataProvider,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
@@ -123,11 +129,36 @@ def _futures(client: Any, configured: bool = True) -> FuturesHistoryReader:
     )
 
 
-def _spot(client: Any, *listed: str) -> SpotHistoryReader:
+class _Catalog(IMarketMetadataProvider):
+    """The exchange's symbol catalog, behaving like `SpotMetadataProvider`:
+    `get_or_fetch` downloads the whole catalog on a cache miss, `refresh`
+    always does. Counts the downloads; can be told to fail."""
+
+    def __init__(self, *listed: str) -> None:
+        self.cache = InMemorySymbolOrderMetadataCache()
+        self._listed = listed
+        self.downloads = 0
+        self.failure: Exception | None = None
+
+    def get_or_fetch(self, symbol: str) -> SymbolOrderMetadata | None:
+        if not self.cache.has(symbol):
+            self.refresh()
+        return self.cache.get(symbol)
+
+    def refresh(self) -> None:
+        self.downloads += 1
+        if self.failure is not None:
+            raise self.failure
+        for symbol in self._listed:
+            self.cache.put(_listed(symbol))
+
+
+def _spot(client: Any, catalog: _Catalog | None = None) -> SpotHistoryReader:
+    catalog = catalog or _Catalog()
     return SpotHistoryReader(
         _SpotSessions(client),
         _Credentials(),
-        FakeMarketMetadataProvider(_listed(symbol) for symbol in listed),
+        ListedSymbols(catalog, catalog.cache),
         lambda: _NOW,
     )
 
@@ -159,9 +190,64 @@ def test_spot_active_symbols_are_listed_pairs_of_held_assets_and_open_orders() -
     }
     client.get_open_orders.return_value = [{"symbol": "SOLUSDT"}]
 
-    reader = _spot(client, "BTCUSDT", "BNBUSDT", "ETHUSDT", "SOLUSDT")
+    reader = _spot(client, _Catalog("BTCUSDT", "BNBUSDT", "ETHUSDT", "SOLUSDT"))
 
     assert reader.active_symbols() == ("BNBUSDT", "BTCUSDT", "SOLUSDT")
+
+
+def _unlisted_holdings_client() -> Mock:
+    """Holds USDT, BTC and two assets with no USDT pair (the PR #297 review's
+    probe)."""
+    client = Mock()
+    client.get_account.return_value = {
+        "balances": [
+            {"asset": asset, "free": "1", "locked": "0"}
+            for asset in ("USDT", "BTC", "XYZ", "ABC")
+        ]
+    }
+    client.get_open_orders.return_value = []
+    return client
+
+
+def test_unlisted_holdings_download_the_catalog_once_not_once_each() -> None:
+    catalog = _Catalog("BTCUSDT")
+    reader = _spot(_unlisted_holdings_client(), catalog)
+
+    first = reader.active_symbols()
+    reader.active_symbols()
+    reader.active_symbols()
+
+    assert first == ("BTCUSDT",)
+    assert catalog.downloads == 1
+
+
+def test_the_quote_asset_is_never_looked_up_as_a_pair() -> None:
+    """USDT and BTC held, BTCUSDT already cached: nothing is unknown, so no
+    download. Looking up `USDTUSDT` would have cost one."""
+    catalog = _Catalog("BTCUSDT")
+    catalog.refresh()
+    catalog.downloads = 0
+    client = Mock()
+    client.get_account.return_value = {
+        "balances": [
+            {"asset": "USDT", "free": "100", "locked": "0"},
+            {"asset": "BTC", "free": "1", "locked": "0"},
+        ]
+    }
+    client.get_open_orders.return_value = []
+
+    assert _spot(client, catalog).active_symbols() == ("BTCUSDT",)
+    assert catalog.downloads == 0
+
+
+def test_a_failed_catalog_download_raises_the_readers_own_error() -> None:
+    catalog = _Catalog("BTCUSDT")
+    catalog.failure = _api_error()
+
+    with pytest.raises(AccountHistoryUnavailableError) as raised:
+        _spot(_unlisted_holdings_client(), catalog).active_symbols()
+
+    assert raised.value.__cause__ is catalog.failure
 
 
 def test_a_read_asks_from_since_up_to_the_clock() -> None:
@@ -195,6 +281,29 @@ def test_a_failed_spot_read_raises_the_readers_own_error() -> None:
 
     with pytest.raises(AccountHistoryUnavailableError):
         _spot(client).trade_history("BTCUSDT", _NOW - timedelta(hours=2))
+
+
+@pytest.mark.parametrize("reader", ["futures", "spot"])
+def test_a_span_further_back_than_the_lookback_is_refused_unasked(
+    reader: str,
+) -> None:
+    client = Mock()
+    subject = _futures(client) if reader == "futures" else _spot(client)
+
+    with pytest.raises(ValueError, match="30 days"):
+        subject.trade_history("BTCUSDT", _NOW - timedelta(days=30, seconds=1))
+
+    assert client.method_calls == []
+
+
+def test_a_span_exactly_at_the_lookback_is_read() -> None:
+    client = Mock()
+    client.get_all_orders.return_value = []
+
+    _spot(client).order_history("BTCUSDT", _NOW - timedelta(days=30))
+
+    # Both ends are inclusive: thirty whole days, then the last millisecond.
+    assert client.get_all_orders.call_count == 31
 
 
 def test_no_credentials_raises_before_any_request() -> None:

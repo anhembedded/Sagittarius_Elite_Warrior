@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_sess
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
     FuturesTradingClient,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.listed_symbols import (
+    ListedSymbols,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_history_reader import (
     SpotHistoryReader,
 )
@@ -116,11 +119,14 @@ def _week_ago() -> datetime:
 
 def _spot() -> tuple[SpotTradingClient, SpotHistoryReader]:
     sessions = SpotSessionFactory()
-    metadata = SpotMetadataProvider(sessions, InMemorySymbolOrderMetadataCache())
+    cache = InMemorySymbolOrderMetadataCache()
+    metadata = SpotMetadataProvider(sessions, cache)
     trading = SpotTradingClient(
         sessions, _Credentials(), metadata, OrderSubmissionMode.LIVE
     )
-    return trading, SpotHistoryReader(sessions, _Credentials(), metadata)
+    return trading, SpotHistoryReader(
+        sessions, _Credentials(), ListedSymbols(metadata, cache)
+    )
 
 
 def test_a_week_of_spot_orders_reads_back_filled_and_canceled() -> None:

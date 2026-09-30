@@ -10,12 +10,14 @@ from Binance's documented USD-M API, with the same live-call disclosure as
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_order_payload_mapper import (
     map_futures_order_payload_to_order,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.history_reads import (
+    from_ms,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
@@ -26,10 +28,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import
 )
 
 
-def _time(raw_ms: Any) -> datetime:
-    return datetime.fromtimestamp(int(raw_ms) / 1000, tz=UTC)
-
-
 def map_futures_history_order(payload: dict[str, Any]) -> OrderRecord:
     """@raise KeyError A required field is missing."""
     executed = Decimal(str(payload["executedQty"]))
@@ -38,7 +36,7 @@ def map_futures_history_order(payload: dict[str, Any]) -> OrderRecord:
         order=map_futures_order_payload_to_order(payload),
         executed_quantity=executed,
         average_price=average if executed > 0 and average > 0 else None,
-        created_at=_time(payload["time"]),
+        created_at=from_ms(payload["time"]),
     )
 
 
@@ -54,6 +52,6 @@ def map_futures_trade(payload: dict[str, Any]) -> TradeRecord:
         quote_quantity=Decimal(str(payload["quoteQty"])),
         fee=Decimal(str(payload["commission"])),
         fee_asset=payload["commissionAsset"],
-        time=_time(payload["time"]),
+        time=from_ms(payload["time"]),
         realized_pnl=Decimal(str(payload["realizedPnl"])),
     )
