@@ -24,8 +24,14 @@ from typing import Any, Self, overload
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_control import (
+    FuturesAccountControl,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_commission_rate_reader import (
+    FuturesCommissionRateReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_history_reader import (
     FuturesHistoryReader,
@@ -47,6 +53,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.listed_symbo
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_reader import (
     SpotAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_commission_rate_reader import (
+    SpotCommissionRateReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_history_reader import (
     SpotHistoryReader,
@@ -77,6 +86,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_sta
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
     IAccountHistoryReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_commission_rate_reader import (
+    ICommissionRateReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_account_control import (
+    IFuturesAccountControl,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
@@ -219,6 +234,27 @@ class VenueAssembly:
             self._shared.futures_session_factory, self.credentials_provider
         )
 
+    @_LockedCachedProperty
+    def commission_reader(self) -> ICommissionRateReader:
+        if self._is_spot:
+            return SpotCommissionRateReader(
+                self._shared.spot_session_factory, self.credentials_provider
+            )
+        return FuturesCommissionRateReader(
+            self._shared.futures_session_factory, self.credentials_provider
+        )
+
+    @_LockedCachedProperty
+    def account_control(self) -> IFuturesAccountControl | None:
+        """`EPIC-028F` — Spot has no leverage or margin mode, so it has no
+        control; `DISABLED` keeps the Futures shape it has always had, and the
+        handlers refuse it before reaching here."""
+        if self._is_spot:
+            return None
+        return FuturesAccountControl(
+            self._shared.futures_session_factory, self.credentials_provider
+        )
+
     @property
     def session_state(self) -> TradingSessionState:
         """Owned by `VenueSessionStates` (`EPIC-028B`), so the handlers that
@@ -264,4 +300,6 @@ class VenueAssembly:
             account_reader=self.account_reader,
             user_data_stream=self.user_data_stream,
             history_reader=self.history_reader,
+            commission_reader=self.commission_reader,
+            account_control=self.account_control,
         )

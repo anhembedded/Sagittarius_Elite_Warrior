@@ -23,11 +23,15 @@ not always match a given library version's exact path/version number):
                                       "positionRisk", True, 3, ...)` is the
                                       actual source of truth (`EPIC-021J`
                                       §6.1 implementation notes).
+    POST   /fapi/v1/leverage        `futures_change_leverage()` (`EPIC-028F`)
+    POST   /fapi/v1/marginType      `futures_change_margin_type()` (`EPIC-028F`)
+    GET    /fapi/v1/commissionRate  `futures_commission_rate()` (`EPIC-028F`)
     POST   /fapi/v1/listenKey       `futures_stream_get_listen_key()` (`EPIC-021H`)
     PUT    /fapi/v1/listenKey       `futures_stream_keepalive()` (`EPIC-021H`)
 
-Order lifecycle is the only stateful part (`OrderBookState`) — everything
-else here is a fixed, deterministic dict, same discipline as the original
+Order lifecycle and the per-symbol leverage and margin mode
+(`OrderBookState.symbol_config`) are the stateful parts — everything else here
+is a fixed, deterministic dict, same discipline as the original
 `binance_fake_server.py`.
 """
 
@@ -186,6 +190,12 @@ def _handle_get(
         return 200, state.history.orders(HistoryQuery.parse(params))
     if path == "/fapi/v1/userTrades":
         return 200, state.history.trades(HistoryQuery.parse(params))
+    if path == "/fapi/v1/commissionRate":
+        return 200, {
+            "symbol": params.get("symbol", ""),
+            "makerCommissionRate": "0.0002",
+            "takerCommissionRate": "0.0005",
+        }
     return None
 
 
@@ -202,6 +212,10 @@ def _handle_post(
         return 200, state.place(params)
     if path == "/fapi/v1/listenKey":
         return 200, {"listenKey": _FAKE_LISTEN_KEY}
+    if path == "/fapi/v1/leverage":
+        return state.symbol_config.change_leverage(params)
+    if path == "/fapi/v1/marginType":
+        return state.symbol_config.change_margin_type(params)
     return None
 
 

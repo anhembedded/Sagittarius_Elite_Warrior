@@ -19,6 +19,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_avera
     GetAverageEntryPriceQuery,
     GetAverageEntryPriceQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_commission_rate import (
+    GetCommissionRateQuery,
+    GetCommissionRateQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_exchange_connection_status import (
     GetExchangeConnectionStatusQuery,
     GetExchangeConnectionStatusQueryHandler,
@@ -59,3 +63,4 @@ def bind_queries(container: IContainer) -> None:
     container.bind(GetOrderHistoryQuery, GetOrderHistoryQueryHandler)
     container.bind(GetTradeHistoryQuery, GetTradeHistoryQueryHandler)
     container.bind(GetAverageEntryPriceQuery, GetAverageEntryPriceQueryHandler)
+    container.bind(GetCommissionRateQuery, GetCommissionRateQueryHandler)

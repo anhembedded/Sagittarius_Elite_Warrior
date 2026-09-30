@@ -19,8 +19,14 @@ from unittest.mock import Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_control import (
+    FuturesAccountControl,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_commission_rate_reader import (
+    FuturesCommissionRateReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_history_reader import (
     FuturesHistoryReader,
@@ -36,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_reader import (
     SpotAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_commission_rate_reader import (
+    SpotCommissionRateReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_history_reader import (
     SpotHistoryReader,
@@ -132,12 +141,17 @@ def test_each_venue_gets_its_own_venue_shaped_adapters() -> None:
     assert isinstance(futures.account_reader, FuturesAccountReader)
     assert isinstance(futures.user_data_stream, FuturesUserDataStream)
     assert isinstance(futures.history_reader, FuturesHistoryReader)
+    assert isinstance(futures.commission_reader, FuturesCommissionRateReader)
+    assert isinstance(futures.account_control, FuturesAccountControl)
     assert spot.venue is TradingVenue.SPOT_TESTNET
     assert isinstance(spot.metadata_provider, SpotMetadataProvider)
     assert isinstance(spot.client_factory, SpotTradingClientFactory)
     assert isinstance(spot.account_reader, SpotAccountReader)
     assert isinstance(spot.user_data_stream, SpotUserDataStream)
     assert isinstance(spot.history_reader, SpotHistoryReader)
+    assert isinstance(spot.commission_reader, SpotCommissionRateReader)
+    # `EPIC-028F` — Spot has no leverage or margin mode, so no control.
+    assert spot.account_control is None
 
 
 def test_venues_share_no_credentials_and_no_metadata_cache() -> None:

@@ -29,6 +29,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_sco
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
     IAccountHistoryReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_commission_rate_reader import (
+    ICommissionRateReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_account_control import (
+    IFuturesAccountControl,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -65,7 +71,11 @@ def venue_context(
     client_factory: ITradingClientFactory | None = None,
     metadata_provider: IMarketMetadataProvider | None = None,
     user_data_stream: IUserDataStream | None = None,
+    account_control: IFuturesAccountControl | None = None,
 ) -> VenueContext:
+    """A Spot venue has no `account_control`, as `VenueAssembly` builds it."""
+    if venue is not TradingVenue.SPOT_TESTNET and account_control is None:
+        account_control = Mock(spec=IFuturesAccountControl)
     return VenueContext(
         venue=venue,
         credentials_provider=Mock(spec=IExchangeCredentialsProvider),
@@ -75,6 +85,8 @@ def venue_context(
         account_reader=account_reader or Mock(spec=ITradingAccountReader),
         user_data_stream=user_data_stream or Mock(spec=IUserDataStream),
         history_reader=Mock(spec=IAccountHistoryReader),
+        commission_reader=Mock(spec=ICommissionRateReader),
+        account_control=account_control,
     )
 
 

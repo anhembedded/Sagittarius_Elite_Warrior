@@ -165,6 +165,14 @@ def _handle_get(
             "takerCommission": 10,
             "buyerCommission": 0,
             "sellerCommission": 0,
+            # `EPIC-028F` — the decimal rates `SpotCommissionRateReader` reads;
+            # the integer basis-point fields above are their older spelling.
+            "commissionRates": {
+                "maker": "0.00100000",
+                "taker": "0.00100000",
+                "buyer": "0.00000000",
+                "seller": "0.00000000",
+            },
             "canTrade": True,
             "canWithdraw": True,
             "canDeposit": True,

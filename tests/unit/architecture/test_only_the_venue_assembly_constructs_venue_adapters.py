@@ -65,6 +65,9 @@ _VENUE_ADAPTER_CLASSES = frozenset(
         "SpotAccountReader",
         "FuturesHistoryReader",
         "SpotHistoryReader",
+        "FuturesCommissionRateReader",
+        "SpotCommissionRateReader",
+        "FuturesAccountControl",
         "FuturesUserDataStream",
         "SpotUserDataStream",
     }

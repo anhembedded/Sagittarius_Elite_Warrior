@@ -40,7 +40,8 @@ class ITradingSessionClient(Protocol):
     """@brief Structural port for the raw signed session
     `create_trading_client()` returns. Lists every
     `futures_*` call its consumers (`FuturesTradingClient`,
-    `FuturesAccountReader`, `FuturesHistoryReader`) actually make — not a
+    `FuturesAccountReader`, `FuturesHistoryReader`, `FuturesAccountControl`,
+    `FuturesCommissionRateReader`) actually make — not a
     stand-in for the whole
     `python-binance` `Client` surface."""
 
@@ -71,6 +72,12 @@ class ITradingSessionClient(Protocol):
     def futures_get_all_orders(self, **params: Any) -> list[dict[str, Any]]: ...
 
     def futures_account_trades(self, **params: Any) -> list[dict[str, Any]]: ...
+
+    def futures_change_leverage(self, **params: Any) -> dict[str, Any]: ...
+
+    def futures_change_margin_type(self, **params: Any) -> dict[str, Any]: ...
+
+    def futures_commission_rate(self, **params: Any) -> dict[str, Any]: ...
 
 
 class ITradingSessionFactory(ABC):

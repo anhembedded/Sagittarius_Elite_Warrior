@@ -44,6 +44,8 @@ _SINGLE_VENUE = frozenset(
         "ITradingClient",
         "ITradingAccountReader",
         "IAccountHistoryReader",
+        "ICommissionRateReader",
+        "IFuturesAccountControl",
         "IUserDataStream",
         "TradingSessionState",
         "EquityCurveRecorder",
