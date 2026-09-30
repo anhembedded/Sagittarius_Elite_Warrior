@@ -1,6 +1,6 @@
 # EPIC-028E — Each desk loads its open orders, order history and trade history from the exchange
 
-**Status:** 🟡 Implemented — awaiting review
+**Status:** ✅ Done (2026-09-30) — merged in PR #297
 **Source:** the user, 2026-09-29 — *"cần có 2 cái chứ không phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng"* ("two trading screens, one Futures and one Spot; share what can be shared"). See the [ADR](../DECISION_2026-09-29_two_trading_desks.md).
 **Risk:** 🟡 — history endpoints are weight-heavy; paging and symbol filter must be right first time
 **Complexity:** M — one reader port × two venues, four queries, one policy (see Implementation notes)
