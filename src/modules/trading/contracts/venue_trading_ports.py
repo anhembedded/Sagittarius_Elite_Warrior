@@ -10,7 +10,9 @@ Extension cases (`architecture-rule.md` §7.2.1). Each is one new port field
 here plus one line in `VenueTradingPortsRegistry`:
 - the account summary reader (`EPIC-028D`);
 - open orders and order/trade history (`EPIC-028E`);
-- leverage and margin mode commands (`EPIC-028F`).
+- a desk's leverage and margin-mode control, should a strategy ever need
+  it: `EPIC-028F` delivered it as venue-addressed commands, which a screen
+  dispatches, so no field was needed here.
 """
 
 from __future__ import annotations

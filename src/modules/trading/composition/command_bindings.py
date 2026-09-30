@@ -1,5 +1,6 @@
-"""trading's write side: the six commands that change the live trading
-session or place/cancel an order.
+"""trading's write side: the commands that change the live trading session,
+place or cancel an order, or change a Futures symbol's leverage or margin
+mode (`EPIC-028F`).
 
 `EPIC-025E` PR 4.4f-4 — moved out of `binance_bot_module.py`, same shape
 `backtesting/composition/command_bindings.py` (PR 4.4f-1) and `strategy/
@@ -8,6 +9,14 @@ composition/command_bindings.py` (PR 4.4f-2) already used.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.modules.trading.application.account_control.change_leverage import (
+    ChangeLeverageCommand,
+    ChangeLeverageCommandHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.account_control.change_margin_type import (
+    ChangeMarginTypeCommand,
+    ChangeMarginTypeCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order import (
     CancelOrderCommand,
     CancelOrderCommandHandler,
@@ -43,3 +52,5 @@ def bind_commands(container: IContainer) -> None:
     container.bind(ExecuteOrderCommand, ExecuteOrderCommandHandler)
     container.bind(EmergencyStopCommand, EmergencyStopCommandHandler)
     container.bind(CancelOrderCommand, CancelOrderCommandHandler)
+    container.bind(ChangeLeverageCommand, ChangeLeverageCommandHandler)
+    container.bind(ChangeMarginTypeCommand, ChangeMarginTypeCommandHandler)

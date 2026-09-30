@@ -13,10 +13,11 @@ module's public surface and does not import `application/`. The composition
 root owns that state per venue and wires it into the adapters below.
 
 Plausible extensions, each one new field filled by `VenueAssembly`
-(`architecture-rule.md` §7.2.1): a commission-rate reader and a Futures
-account-control port (`EPIC-028F`). The account summary needed no field — it
-rides on `account_reader`'s answer (`EPIC-028D`); the order and trade history
-reader is `history_reader` (`EPIC-028E`).
+(`architecture-rule.md` §7.2.1): a funding-rate reader; a leverage-bracket
+reader. The account summary needed no field — it rides on `account_reader`'s
+answer (`EPIC-028D`); the order and trade history reader is `history_reader`
+(`EPIC-028E`); commission rates and the Futures leverage and margin-mode
+control are `commission_reader` and `account_control` (`EPIC-028F`).
 """
 
 from __future__ import annotations
@@ -25,6 +26,12 @@ from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
     IAccountHistoryReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_commission_rate_reader import (
+    ICommissionRateReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_account_control import (
+    IFuturesAccountControl,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
@@ -62,3 +69,7 @@ class VenueContext:
     account_reader: ITradingAccountReader
     user_data_stream: IUserDataStream
     history_reader: IAccountHistoryReader
+    commission_reader: ICommissionRateReader
+    #: `None` on a venue with no leverage or margin mode (Spot): a handler
+    #: reads the absence, not a venue comparison (`EPIC-028F`).
+    account_control: IFuturesAccountControl | None

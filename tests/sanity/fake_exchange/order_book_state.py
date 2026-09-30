@@ -16,6 +16,7 @@ from __future__ import annotations
 import itertools
 from typing import Any
 
+from .futures_symbol_config import FuturesSymbolConfig
 from .history_log import HistoryLog, now_ms
 
 _STATUS_NEW = "NEW"
@@ -30,6 +31,9 @@ class OrderBookState:
         self._orders: dict[str, dict[str, Any]] = {}
         self._order_ids = itertools.count(1_000_000)
         self.history = HistoryLog()
+        #: `EPIC-028F` — the account's leverage and margin mode per symbol,
+        #: carried here because this is the one state the Futures routes get.
+        self.symbol_config = FuturesSymbolConfig()
 
     def place(self, params: dict[str, str]) -> dict[str, Any]:
         """@brief Stores a new `NEW` order from `POST /fapi/v1/order`'s

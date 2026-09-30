@@ -16,8 +16,20 @@ from __future__ import annotations
 from datetime import datetime
 from typing import NoReturn
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate import (
+    CommissionRate,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
+    MarginType,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
     IAccountHistoryReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_commission_rate_reader import (
+    ICommissionRateReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_account_control import (
+    IFuturesAccountControl,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_symbol_order_metadata_cache import (
     ISymbolOrderMetadataCache,
@@ -30,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_fa
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_setting import (
+    LeverageSetting,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
@@ -99,3 +114,16 @@ class UnarrangedHistoryReader(IAccountHistoryReader):
 
     def active_symbols(self) -> tuple[str, ...]:
         _not_arranged("IAccountHistoryReader")
+
+
+class UnarrangedCommissionRateReader(ICommissionRateReader):
+    def commission_rate(self, symbol: str) -> CommissionRate:
+        _not_arranged("ICommissionRateReader")
+
+
+class UnarrangedAccountControl(IFuturesAccountControl):
+    def change_leverage(self, symbol: str, leverage: int) -> LeverageSetting:
+        _not_arranged("IFuturesAccountControl")
+
+    def change_margin_type(self, symbol: str, margin_type: MarginType) -> MarginType:
+        _not_arranged("IFuturesAccountControl")
