@@ -43,6 +43,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_order
     GetOrderHistoryQuery,
     GetOrderHistoryQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_symbol_order_rules import (
+    GetSymbolOrderRulesQuery,
+    GetSymbolOrderRulesQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_trade_history import (
     GetTradeHistoryQuery,
     GetTradeHistoryQueryHandler,
@@ -64,3 +68,4 @@ def bind_queries(container: IContainer) -> None:
     container.bind(GetTradeHistoryQuery, GetTradeHistoryQueryHandler)
     container.bind(GetAverageEntryPriceQuery, GetAverageEntryPriceQueryHandler)
     container.bind(GetCommissionRateQuery, GetCommissionRateQueryHandler)
+    container.bind(GetSymbolOrderRulesQuery, GetSymbolOrderRulesQueryHandler)

@@ -16,6 +16,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
     IEquityCurve,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_entry_terms import (
+    IOrderEntryTerms,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
 )
@@ -33,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_accoun
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_equity_curve import (
     FakeEquityCurve,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
+    FakeOrderEntryTerms,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_submission import (
     FakeOrderSubmission,
@@ -55,6 +61,7 @@ def fake_venue_ports(
     order_submission: IOrderSubmission | None = None,
     account_snapshot: IAccountSnapshot | None = None,
     equity_curve: IEquityCurve | None = None,
+    order_entry_terms: IOrderEntryTerms | None = None,
 ) -> VenueTradingPorts:
     """One venue's bundle, every port a fake unless the test hands one in."""
     return VenueTradingPorts(
@@ -63,6 +70,7 @@ def fake_venue_ports(
         trading_session=trading_session or FakeTradingSession(),
         account_snapshot=account_snapshot or FakeAccountSnapshot(),
         equity_curve=equity_curve or FakeEquityCurve(),
+        order_entry_terms=order_entry_terms or FakeOrderEntryTerms(),
     )
 
 

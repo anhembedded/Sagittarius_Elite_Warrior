@@ -11,6 +11,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.modules.trading.application.account.account_snapshot_service import (
     AccountSnapshotService,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.order_entry_terms_service import (
+    OrderEntryTermsService,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.order_submission_service import (
     OrderSubmissionService,
 )
@@ -78,4 +81,5 @@ class VenueTradingPortsRegistry(IVenueTradingPorts):
             ),
             account_snapshot=AccountSnapshotService(self._dispatcher, venue),
             equity_curve=self._states.equity_recorder(venue),
+            order_entry_terms=OrderEntryTermsService(self._dispatcher, venue),
         )

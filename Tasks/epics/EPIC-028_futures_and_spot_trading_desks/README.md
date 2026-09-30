@@ -71,12 +71,13 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 | [EPIC-028F](completed/EPIC-028F_commission_and_futures_account_controls.md) | Commission rates; change leverage / margin mode | Elite | B | 🟡 | ✅ Done |
 | [EPIC-028G](completed/EPIC-028G_order_estimate_policies.md) | Max quantity, cost, fee, liquidation estimate as domain policies | Elite | D, F | 🟢 | ✅ Done (2026-10-01) |
 | **Phase 3 — Shared desk kit** | | | | | |
-| [EPIC-028H](incomplete/EPIC-028H_order_entry_panel_core_and_spot.md) | `DeskProfile` + order-entry panel core + Spot variant | Elite | G | 🟡 | Planned |
-| [EPIC-028I](incomplete/EPIC-028I_futures_order_entry_variant.md) | Futures variant: margin/leverage chips, reduce-only, TIF, TP/SL, stop-limit | Elite | F, H, O2, O3 | 🔴 | Planned |
+| [EPIC-028H](incomplete/EPIC-028H_order_entry_panel_core_and_spot.md) | `DeskProfile` + order-entry panel core + Spot variant | Elite | G | 🟡 | 🟡 In progress |
+| [EPIC-028O](incomplete/EPIC-028O_stop_limit_and_best_price.md) | Stop-limit orders on both venues; best bid/ask price fill | Elite | H, O3 | 🔴 | Planned |
+| [EPIC-028I](incomplete/EPIC-028I_futures_order_entry_variant.md) | Futures variant: margin/leverage chips, reduce-only, TIF, TP/SL, stop-limit tab | Elite | F, H, O, O2 | 🔴 | Planned |
 | [EPIC-028J](incomplete/EPIC-028J_account_tabs_and_summary_panels.md) | Bottom account tabs + account summary panel | Elite | D, E | 🟡 | Planned |
 | **Phase 4 — Two desks** | | | | | |
 | [EPIC-028K](incomplete/EPIC-028K_futures_desk_screen.md) | Futures desk screen | Elite | C, I, J | 🟡 | Planned |
-| [EPIC-028L](incomplete/EPIC-028L_spot_desk_screen.md) | Spot desk screen | Elite | C, H, J | 🟢 | Planned |
+| [EPIC-028L](incomplete/EPIC-028L_spot_desk_screen.md) | Spot desk screen | Elite | C, H, J, O | 🟢 | Planned |
 | [EPIC-028M](incomplete/EPIC-028M_retire_single_trading_screen_and_docs.md) | Retire the single Trading route; Dev Board F9 on the shared panel; HLD/SPEC | Elite | K, L, O4 | 🟢 | Planned |
 | [EPIC-028N](incomplete/EPIC-028N_dual_venue_testnet_tier.md) | Testnet tier: one round trip on each desk in the same process | Elite | K, L | 🟡 | Planned |
 
