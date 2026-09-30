@@ -13,15 +13,19 @@ module's public surface and does not import `application/`. The composition
 root owns that state per venue and wires it into the adapters below.
 
 Plausible extensions, each one new field filled by `VenueAssembly`
-(`architecture-rule.md` §7.2.1): an account-summary reader (`EPIC-028D`),
-order/trade history readers (`EPIC-028E`), a commission-rate reader and a
-Futures account-control port (`EPIC-028F`).
+(`architecture-rule.md` §7.2.1): a commission-rate reader and a Futures
+account-control port (`EPIC-028F`). The account summary needed no field — it
+rides on `account_reader`'s answer (`EPIC-028D`); the order and trade history
+reader is `history_reader` (`EPIC-028E`).
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
+    IAccountHistoryReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -57,3 +61,4 @@ class VenueContext:
     client_factory: ITradingClientFactory
     account_reader: ITradingAccountReader
     user_data_stream: IUserDataStream
+    history_reader: IAccountHistoryReader

@@ -39,8 +39,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_cr
 class ITradingSessionClient(Protocol):
     """@brief Structural port for the raw signed session
     `create_trading_client()` returns. Lists every
-    `futures_*` call its two consumers (`FuturesTradingClient`,
-    `FuturesAccountReader`) actually make — not a stand-in for the whole
+    `futures_*` call its consumers (`FuturesTradingClient`,
+    `FuturesAccountReader`, `FuturesHistoryReader`) actually make — not a
+    stand-in for the whole
     `python-binance` `Client` surface."""
 
     def futures_create_test_order(self, **params: Any) -> dict[str, Any]: ...
@@ -66,6 +67,10 @@ class ITradingSessionClient(Protocol):
     def futures_account(self, **params: Any) -> dict[str, Any]: ...
 
     def futures_get_position_mode(self, **params: Any) -> dict[str, Any]: ...
+
+    def futures_get_all_orders(self, **params: Any) -> list[dict[str, Any]]: ...
+
+    def futures_account_trades(self, **params: Any) -> list[dict[str, Any]]: ...
 
 
 class ITradingSessionFactory(ABC):

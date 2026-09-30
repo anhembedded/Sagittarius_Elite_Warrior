@@ -13,8 +13,12 @@ they promise nothing except that they are never reached.
 
 from __future__ import annotations
 
+from datetime import datetime
 from typing import NoReturn
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
+    IAccountHistoryReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_symbol_order_metadata_cache import (
     ISymbolOrderMetadataCache,
 )
@@ -27,11 +31,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_fa
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
+    OrderRecord,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
+    TradeRecord,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
@@ -78,3 +88,14 @@ class UnarrangedUserDataStream(IUserDataStream):
 
     def stop(self) -> bool:
         _not_arranged("IUserDataStream")
+
+
+class UnarrangedHistoryReader(IAccountHistoryReader):
+    def order_history(self, symbol: str, since: datetime) -> tuple[OrderRecord, ...]:
+        _not_arranged("IAccountHistoryReader")
+
+    def trade_history(self, symbol: str, since: datetime) -> tuple[TradeRecord, ...]:
+        _not_arranged("IAccountHistoryReader")
+
+    def active_symbols(self) -> tuple[str, ...]:
+        _not_arranged("IAccountHistoryReader")

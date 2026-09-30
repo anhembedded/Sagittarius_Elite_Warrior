@@ -24,6 +24,10 @@ docstring (`FULL` response, its own doc source cites
 https://developers.binance.com/docs/binance-spot-api-docs/rest-api/trading-endpoints#new-order-trade)
 and Binance's public Spot User Data Streams documentation
 (`Payload: Execution Report` / `Payload: Account Update`), not guessed.
+
+`EPIC-028E` — every accepted order and every fill is also remembered in
+`history`, with a real timestamp, for `GET /api/v3/allOrders` and
+`GET /api/v3/myTrades` (row shape from Binance's documented `myTrades`).
 """
 
 from __future__ import annotations
@@ -32,6 +36,8 @@ import itertools
 from dataclasses import dataclass
 from decimal import ROUND_DOWN, Decimal
 from typing import Any
+
+from .history_log import HistoryLog, now_ms
 
 _STATUS_NEW = "NEW"
 _STATUS_FILLED = "FILLED"
@@ -93,6 +99,8 @@ class SpotAccountState:
             "ETH": _Balance(Decimal(100)),
         }
         self._user_data_events: list[dict[str, Any]] = []
+        self._trade_ids = itertools.count(3_000_000)
+        self.history = HistoryLog()
 
     def place(self, params: dict[str, str]) -> dict[str, Any]:
         """@brief Places one order from `POST /api/v3/order`'s form-encoded
@@ -130,7 +138,38 @@ class SpotAccountState:
             self._orders[client_order_id] = {**order, "_order_id": order_id}
         else:
             self._emit_fill_events(order, fill)
+        self._remember(order, fill)
         return order
+
+    def _remember(self, order: dict[str, Any], fill: _Fill | None) -> None:
+        placed_at = now_ms()
+        self.history.remember_order(
+            {
+                key: value
+                for key, value in order.items()
+                if key not in {"fills", "transactTime"}
+            }
+            | {"time": placed_at, "updateTime": placed_at}
+        )
+        if fill is None:
+            return
+        self.history.remember_trade(
+            {
+                "symbol": order["symbol"],
+                "id": next(self._trade_ids),
+                "orderId": order["orderId"],
+                "orderListId": -1,
+                "price": _q(fill.price),
+                "qty": _q(fill.qty),
+                "quoteQty": _q(fill.quote_amount),
+                "commission": _q(fill.commission),
+                "commissionAsset": fill.commission_asset,
+                "time": placed_at,
+                "isBuyer": order["side"] == _SIDE_BUY,
+                "isMaker": False,
+                "isBestMatch": True,
+            }
+        )
 
     def cancel(
         self, symbol: str, client_order_id: str | None, order_id: str | None
@@ -154,6 +193,7 @@ class SpotAccountState:
         if order is None or order["symbol"] != symbol:
             return None
         del self._orders[match_id]
+        self.history.mark_canceled(match_id)
         return {
             "symbol": order["symbol"],
             "origClientOrderId": order["clientOrderId"],

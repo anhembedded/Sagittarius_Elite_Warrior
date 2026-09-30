@@ -14,6 +14,8 @@ not always match a given library version's exact path/version number):
     DELETE /fapi/v1/order           `futures_cancel_order()`
     DELETE /fapi/v1/allOpenOrders   `futures_cancel_all_open_orders()`
     GET    /fapi/v1/openOrders      `futures_get_open_orders()`
+    GET    /fapi/v1/allOrders       `futures_get_all_orders()` (`EPIC-028E`)
+    GET    /fapi/v1/userTrades      `futures_account_trades()` (`EPIC-028E`)
     GET    /fapi/v3/positionRisk    `futures_position_information()` — **version
                                       3**, not the v2 this task's own design
                                       draft assumed; `client.py`'s
@@ -33,6 +35,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from .history_log import HistoryQuery
 from .order_book_state import OrderBookState
 
 #: `EPIC-027A` — one fixed row, distinguishable from `spot_routes.py`'s own
@@ -179,6 +182,10 @@ def _handle_get(
         return 200, GET_ROUTES[path]
     if path == "/fapi/v1/openOrders":
         return 200, state.open_orders(params.get("symbol"))
+    if path == "/fapi/v1/allOrders":
+        return 200, state.history.orders(HistoryQuery.parse(params))
+    if path == "/fapi/v1/userTrades":
+        return 200, state.history.trades(HistoryQuery.parse(params))
     return None
 
 

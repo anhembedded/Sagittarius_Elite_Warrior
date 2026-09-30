@@ -31,7 +31,7 @@ gantt
 
     section Phase 2 - Account data
     028D Account summary                   :done,    d, after c, 1d
-    028E Open orders and history           :         e, after b, 3d
+    028E Open orders and history           :active,  e, after d, 1d
     028F Commission, leverage, margin      :         f, after b, 2d
     028G Estimate policies                 :         g, after f, 1d
     Phase 2 exit check                     :milestone, m2, after e, 0d
@@ -60,7 +60,7 @@ gantt
 | EPIC-028B | [Venue-addressed commands](completed/EPIC-028B_venue_addressed_commands.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | ✅ Done | [#294](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/294) merged 2026-09-29 |
 | EPIC-028C | [Both venues concurrently](completed/EPIC-028C_both_venues_running_concurrently.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | [#295](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/295) merged 2026-09-30 |
 | EPIC-028D | [Account summary](completed/EPIC-028D_account_summary_reader.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | [#296](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/296) merged 2026-09-30 |
-| EPIC-028E | [Open orders and history](incomplete/EPIC-028E_open_orders_and_history_readers.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-028E | [Open orders and history](incomplete/EPIC-028E_open_orders_and_history_readers.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | 🟡 In progress | — |
 | EPIC-028F | [Commission, leverage, margin](incomplete/EPIC-028F_commission_and_futures_account_controls.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-028G | [Estimate policies](incomplete/EPIC-028G_order_estimate_policies.md) | — | 🟢 | 🔵 Planned | — |
 | EPIC-028H | [Order entry core and Spot](incomplete/EPIC-028H_order_entry_panel_core_and_spot.md) | — | 🟡 | 🔵 Planned | — |
@@ -78,6 +78,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-09-29 | EPIC-028A | Merged in PR #293 after the independent review (four fixes: per-part lock, single-venue reader follows the list, guard sees every spelling, docs). |
+| 2026-09-30 | EPIC-028E | Implemented: `IAccountHistoryReader` per venue, never-truncated window splitting, open-orders/order-history/trade-history queries, Spot average entry price. Fast tier green; awaiting independent review. |
 | 2026-09-30 | EPIC-028D | Merged in PR #296 after independent review (PASS); review fixes (stale-summary fence, SPEC-003, ADR D6, warn-once) landed before merge. |
 | 2026-09-30 | EPIC-028D | Implemented: `AccountSummary` on the existing connection check (no new port), `GetAccountSummaryQuery`, per-venue refresh on cadence and on fill, CLI available balance. Fast tier green; awaiting independent review. |
 | 2026-09-30 | EPIC-028C | Merged in PR #295 after independent review (PASS); Phase 1 done. EPIC-028D started. |

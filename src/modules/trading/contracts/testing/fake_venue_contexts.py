@@ -34,6 +34,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_tradin
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.unarranged_venue_ports import (
     UnarrangedClientFactory,
     UnarrangedCredentialsProvider,
+    UnarrangedHistoryReader,
     UnarrangedMetadataCache,
     UnarrangedUserDataStream,
 )
@@ -56,7 +57,8 @@ def fake_venue_context(
     credentials_provider: IExchangeCredentialsProvider | None = None,
 ) -> VenueContext:
     """One venue's ports: the ones a test hands in, fakes or refusing
-    stand-ins for the rest."""
+    stand-ins for the rest. A port with no parameter here (the history
+    reader, say) is swapped in with `dataclasses.replace`."""
     return VenueContext(
         venue=venue,
         credentials_provider=credentials_provider or UnarrangedCredentialsProvider(),
@@ -65,6 +67,7 @@ def fake_venue_context(
         client_factory=UnarrangedClientFactory(),
         account_reader=account_reader or FakeTradingAccountReader(),
         user_data_stream=UnarrangedUserDataStream(),
+        history_reader=UnarrangedHistoryReader(),
     )
 
 

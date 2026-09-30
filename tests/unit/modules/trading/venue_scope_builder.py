@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_sta
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScopes,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
+    IAccountHistoryReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -71,6 +74,7 @@ def venue_context(
         client_factory=client_factory or Mock(spec=ITradingClientFactory),
         account_reader=account_reader or Mock(spec=ITradingAccountReader),
         user_data_stream=user_data_stream or Mock(spec=IUserDataStream),
+        history_reader=Mock(spec=IAccountHistoryReader),
     )
 
 
