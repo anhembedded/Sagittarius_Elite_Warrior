@@ -10,21 +10,32 @@ position"):
   - a limit long: the order's price;
   - a limit short: max(last × (1 + 0.15 %), mark, the order's price);
 - **open loss = quantity × |min(0, direction × (mark − order price))|**, with
-  direction +1 for a long and −1 for a short. A market order has no order
-  price and so no open loss.
+  direction +1 for a long and −1 for a short.
 
 Its margin FAQ adds the notional cap: **the notional after the order may not
 exceed the limit for the leverage**. `FuturesOrderTerms.notional_headroom`
 is that limit less what is already open on the symbol, and the caller works
 it out from the bracket (`LeverageSetting.max_notional`) and the position.
 
-**`futures_max_quantity` never returns an order the exchange refuses for
-margin or notional**, given the balance, prices and headroom it is handed. It sizes against Binance's cost plus the taker fee (the
+**What `futures_max_quantity` guarantees.** It sizes an order that opens or
+increases a position (a reducing order costs nothing in one-way mode, so this
+reads low for one). It sizes against Binance's cost plus the taker fee (the
 fee is charged from the same balance at the fill), and against the headroom
-at the higher of the assuming and the mark price. So it can read up to one
-fee below Binance's own maximum, never above it. The PR #300 review found the
-first version (cost = notional ÷ leverage + fee) overshooting at 1× and 2×,
-under open loss and past the cap.
+at the higher of the assuming and the mark price; the FAQ does not say which
+price the cap uses, so this is the conservative choice. Given the balance,
+prices and headroom it is handed:
+- **a limit order** at the maximum is never refused for margin or notional,
+  and the maximum reads at most one fee below Binance's own;
+- **a market order**'s open loss is **not modelled**. The FAQ does not say
+  what "order price" means for a market order, and a secondary source (a
+  Binance developer-forum thread, not verified here) says Binance charges it
+  against the best ask for a long (the best bid for a short). A market order
+  at the maximum can therefore be refused when the mark sits below the best
+  ask for a long, or above the best bid for a short. `EPIC-028I` must read
+  the book or leave that margin before offering a market maximum.
+
+The PR #300 review found the first version (cost = notional ÷ leverage + fee)
+overshooting at 1× and 2×, under open loss and past the cap.
 
 Payload-free and `Decimal` throughout; rules as Binance publishes them, not
 re-verified against a live order (egress to Binance is blocked here).
@@ -89,7 +100,8 @@ def assuming_price(terms: FuturesOrderTerms) -> Decimal:
 
 def open_loss(quantity: Decimal, terms: FuturesOrderTerms) -> Decimal:
     """@return The loss the order would open at today's mark: a long
-    priced above the mark, or a short below it. Zero for a market order."""
+    priced above the mark, or a short below it. Zero for a market order,
+    which this module does not model (see the module docstring)."""
     require_not_negative("quantity", quantity)
     if terms.order_price is None:
         return Decimal(0)

@@ -43,8 +43,9 @@ def largest_fitting_quantity(
     per unit does not exceed `budget`; zero when one step does not fit.
     @details The division is rounded to `Decimal`'s precision, which can land
     one step off either way at the boundary (the PR #300 review measured the
-    undershoot); the result is corrected against the exact product, so the
-    step above never fits and the answer itself always does."""
+    undershoot); the result is corrected by one step against the product, so
+    within the context's 28 significant digits the step above never fits and
+    the answer itself always does."""
     require_positive("unit_cost", unit_cost)
     require_not_negative("budget", budget)
     require_positive("step_size", step_size)

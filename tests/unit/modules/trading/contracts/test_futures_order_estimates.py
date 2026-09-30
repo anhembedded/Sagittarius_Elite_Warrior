@@ -2,7 +2,7 @@
 
 @details The oracle is Binance's cost FAQ, transcribed here on its own
 (`_binance_cost`) rather than shared with the code under test, plus the
-FAQ's worked BTC example. The maximum is then held to what the exchange
+FAQ's worked BTC short. The maximum is then held to what the exchange
 checks: its cost and fee fit the balance, its notional fits the headroom,
 and one more step breaks one of the two. The first version of this module
 failed exactly this for the PR #300 review's cases (a market order at 1× and
@@ -71,9 +71,10 @@ def _binance_cost(quantity: Decimal, terms: FuturesOrderTerms) -> Decimal:
     return quantity * assumed / terms.leverage + loss
 
 
-def test_binances_worked_limit_long_costs_its_initial_margin() -> None:
-    # FAQ: BTC at 20×, one contract at 9 253.30 → initial margin 462.66.
-    terms = _terms(_BUY, "9253.30", last="9258.91", mark="9259.84", leverage=20)
+def test_the_same_order_as_a_limit_long_costs_only_its_initial_margin() -> None:
+    # Derived from the FAQ's short below, not a FAQ figure: a long at
+    # 9 253.30 is below the mark, so no open loss; 9 253.30 ÷ 20 = 462.665.
+    terms = _terms(_BUY, "9253.30", last="9258.99", mark="9259.84", leverage=20)
 
     cost = futures_order_cost(Decimal(1), terms)
 
@@ -82,8 +83,10 @@ def test_binances_worked_limit_long_costs_its_initial_margin() -> None:
 
 
 def test_binances_worked_limit_short_adds_the_open_loss() -> None:
-    # FAQ: the same short → initial margin 463.64, open loss 6.54, cost 470.18.
-    terms = _terms(_SELL, "9253.30", last="9258.91", mark="9259.84", leverage=20)
+    # The FAQ's worked example: BTC at 20×, a short of one contract at
+    # 9 253.30, last 9 258.99, mark 9 259.84 → initial margin 463.64, open
+    # loss 6.54, cost 470.18.
+    terms = _terms(_SELL, "9253.30", last="9258.99", mark="9259.84", leverage=20)
 
     assert open_loss(Decimal(1), terms) == Decimal("6.54")
     assert futures_order_cost(Decimal(1), terms).quantize(_CENT) == Decimal("470.18")
