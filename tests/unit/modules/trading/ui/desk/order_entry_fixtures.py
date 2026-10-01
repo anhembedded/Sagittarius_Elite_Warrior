@@ -59,6 +59,7 @@ TERMS = OrderEntryTerms(
 def spot_context(
     available_quote: Decimal | None = Decimal(1000),
     free_base: Decimal | None = Decimal("0.5"),
+    notional_limit: Decimal | None = None,
 ) -> OrderEntryContext:
     return OrderEntryContext(
         symbol=SYMBOL,
@@ -67,6 +68,7 @@ def spot_context(
         terms=TERMS,
         available_quote=available_quote,
         free_base=free_base,
+        notional_limit=notional_limit,
     )
 
 

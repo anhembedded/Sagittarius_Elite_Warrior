@@ -10,8 +10,8 @@ Plausible extensions, each one entry in `_PROFILE_BUILDERS` plus whatever new
 data it names:
 - the Futures desk (`EPIC-028I`): one form with Buy/Long and Sell/Short
   buttons, sized by the Futures estimates;
-- Stop-limit on either desk (`EPIC-028O`): one more member of `order_types`
-  once the submission path can send it;
+- Stop-limit on the Futures desk: one more member of its `order_types`
+  (the Spot desk lists it since `EPIC-028O`);
 - a mainnet venue: a profile for the new `TradingVenue` member, the same
   layout.
 """
@@ -88,7 +88,7 @@ def _spot_profile(venue: TradingVenue) -> DeskProfile:
         market_type=MarketType.SPOT,
         title="Spot",
         quote_asset=_QUOTE_ASSET,
-        order_types=(OrderType.LIMIT, OrderType.MARKET),
+        order_types=(OrderType.LIMIT, OrderType.MARKET, OrderType.STOP_LIMIT),
         side_layout=SideLayout.TWO_COLUMNS,
         buy_label="Buy",
         sell_label="Sell",

@@ -2,8 +2,10 @@
 §5): the Spot desk's two columns on `BTCUSDT`, without an exchange.
 
 The Buy side has a limit price and an amount typed, so its total, fee and
-maximum show; the Sell side holds a little BTC and has nothing typed, so it
-shows "Enter an amount" and a disabled button."""
+maximum show, the maximum capped by the app's 500 USDT per-order limit
+(`EPIC-028O`); the Sell side holds a little BTC and has nothing typed, so it
+shows "Enter an amount" and a disabled button. A stop price and a market
+total are typed too, so the Stop-limit and Market tabs show them filled."""
 
 from __future__ import annotations
 
@@ -65,12 +67,15 @@ def build_preview() -> QWidget:
             terms=PREVIEW_TERMS,
             available_quote=Decimal("1234.56"),
             free_base=Decimal("0.0213"),
+            notional_limit=Decimal(500),
         )
     )
     view_model.set_last_price(Decimal("60123.45"))
     view_model.set_price(EntrySide.BUY, "60000")
-    view_model.set_quantity(EntrySide.BUY, "0.01")
+    view_model.set_quantity(EntrySide.BUY, "0.005")
     view_model.use_last_price(EntrySide.SELL)
+    view_model.set_stop_price(EntrySide.BUY, "60500")
+    view_model.set_total(EntrySide.BUY, "250")
     panel = OrderEntryPanel(view_model)
     panel.setWindowTitle("Order entry — Spot")
     return panel

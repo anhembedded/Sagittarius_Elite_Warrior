@@ -7,6 +7,12 @@ one form with two buttons. The form reads everything from the view model and
 writes every edit back to it; it keeps no state of its own beyond the text a
 user is typing. A field is only rewritten when the model's value differs from
 what the text already says, so typing is never interrupted mid-number.
+
+`EPIC-028O`: a stop-price row shows only on a stop-limit; a side sized by
+quote (a Spot market buy) shows a total field in place of the amount; the
+BBO button fills the best price on the side's own side of the book (a buy
+gets the best bid, a sell the best ask), so the order joins the queue and
+never crosses the spread.
 """
 
 from __future__ import annotations
@@ -32,6 +38,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.amount_te
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_rules import (
     EntrySide,
+    SideFigures,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
@@ -40,6 +47,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 
 _NONE_TEXT = NONE_TEXT
 _SLIDER_STEP = 25
+_BEST_PRICE_TIP = {
+    EntrySide.BUY: "Use the best bid: the order joins the front of the buy queue",
+    EntrySide.SELL: "Use the best ask: the order joins the front of the sell queue",
+}
 
 
 class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
@@ -66,8 +77,22 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._last.setText("Last")
         self._last.setToolTip("Use the last traded price")
         self._last.clicked.connect(lambda: view_model.use_last_price(side))
+        self._best = QToolButton()
+        self._best.setObjectName(f"btnBestPrice{name}")
+        self._best.setText("BBO")
+        self._best.setToolTip(_BEST_PRICE_TIP[side])
+        self._best.clicked.connect(lambda: view_model.use_best_price(side))
         self._market_price = QLabel("Market price")
         self._price_unit = QLabel()
+
+        self._stop = QLineEdit()
+        self._stop.setObjectName(f"txtStopPrice{name}")
+        self._stop.setPlaceholderText("Stop")
+        self._stop.setToolTip("The order is placed once the last price reaches this")
+        self._stop.textEdited.connect(
+            lambda text: view_model.set_stop_price(side, text)
+        )
+        self._stop_unit = QLabel()
 
         self._quantity = QLineEdit()
         self._quantity.setObjectName(f"txtAmount{name}")
@@ -76,6 +101,13 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
             lambda text: view_model.set_quantity(side, text)
         )
         self._quantity_unit = QLabel()
+
+        self._spend = QLineEdit()
+        self._spend.setObjectName(f"txtTotal{name}")
+        self._spend.setPlaceholderText("Total")
+        self._spend.setToolTip("How much to spend; the exchange decides the amount")
+        self._spend.textEdited.connect(lambda text: view_model.set_total(side, text))
+        self._spend_unit = QLabel()
 
         self._slider = QSlider(Qt.Orientation.Horizontal)
         self._slider.setObjectName(f"sldPercent{name}")
@@ -103,14 +135,20 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._submit.setObjectName(f"btnSubmit{name}")
         self._submit.clicked.connect(lambda: view_model.request_submit(side))
 
+        stop_row = QHBoxLayout()
+        stop_row.addWidget(self._stop, 1)
+        stop_row.addWidget(self._stop_unit)
         price_row = QHBoxLayout()
         price_row.addWidget(self._price, 1)
         price_row.addWidget(self._market_price, 1)
         price_row.addWidget(self._last)
+        price_row.addWidget(self._best)
         price_row.addWidget(self._price_unit)
         quantity_row = QHBoxLayout()
         quantity_row.addWidget(self._quantity, 1)
         quantity_row.addWidget(self._quantity_unit)
+        quantity_row.addWidget(self._spend, 1)
+        quantity_row.addWidget(self._spend_unit)
         figures = QFormLayout()
         figures.addRow("Available", self._available)
         self._maximum_label = QLabel()
@@ -120,6 +158,7 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.addLayout(stop_row)
         layout.addLayout(price_row)
         layout.addLayout(quantity_row)
         layout.addWidget(self._slider)
@@ -137,32 +176,41 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         figures = vm.figures(side)
         context = vm.context
         is_market = vm.order_type is OrderType.MARKET
+        is_stop = vm.order_type is OrderType.STOP_LIMIT
+        by_quote = figures is not None and figures.sized_by_quote
         base = context.base_asset if context else ""
         quote = context.quote_asset if context else vm.profile.quote_asset
 
+        for widget in (self._stop, self._stop_unit):
+            widget.setVisible(is_stop)
         self._price.setVisible(not is_market)
         self._last.setVisible(not is_market)
+        self._best.setVisible(not is_market)
         self._market_price.setVisible(is_market)
+        for widget in (self._quantity, self._quantity_unit):
+            widget.setVisible(not by_quote)
+        for widget in (self._spend, self._spend_unit):
+            widget.setVisible(by_quote)
+        self._stop_unit.setText(quote)
         self._price_unit.setText(quote)
         self._quantity_unit.setText(base)
+        self._spend_unit.setText(quote)
+        _show_value(self._stop, entry.stop_price)
         _show_value(self._price, entry.price)
         _show_value(self._quantity, entry.quantity)
+        _show_value(self._spend, entry.total)
         self._slider.blockSignals(True)
         self._slider.setValue(vm.percent(side))
         self._slider.blockSignals(False)
 
         label = vm.profile.side_label(side)
-        self._maximum_label.setText(f"Max {label.lower()}")
+        self._maximum_label.setText("Max total" if by_quote else f"Max {label.lower()}")
         self._available.setText(
             f"{format_amount(figures.available)} {figures.available_asset}"
             if figures is not None
             else _NONE_TEXT
         )
-        self._maximum.setText(
-            f"{format_amount(figures.max_quantity)} {base}"
-            if figures is not None
-            else _NONE_TEXT
-        )
+        self._maximum.setText(_maximum_text(figures, base, quote))
         self._total.setText(
             f"{format_amount(figures.total)} {quote}" if figures else _NONE_TEXT
         )
@@ -173,8 +221,27 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._submit.setText(f"{label} {base}".strip())
         ready = figures is not None and figures.can_submit
         self._submit.setEnabled(ready and not vm.busy)
-        for field in (self._price, self._last, self._quantity, self._slider):
+        editable = (
+            self._stop,
+            self._price,
+            self._last,
+            self._best,
+            self._quantity,
+            self._spend,
+            self._slider,
+        )
+        for field in editable:
             field.setEnabled(not vm.busy and figures is not None)
+
+
+def _maximum_text(figures: SideFigures | None, base: str, quote: str) -> str:
+    """The most a side may order: a quote total on a side sized by quote, a
+    base quantity otherwise."""
+    if figures is None:
+        return _NONE_TEXT
+    if figures.sized_by_quote:
+        return f"{format_amount(figures.max_total)} {quote}"
+    return f"{format_amount(figures.max_quantity)} {base}"
 
 
 def _show_value(field: QLineEdit, value: Decimal | None) -> None:

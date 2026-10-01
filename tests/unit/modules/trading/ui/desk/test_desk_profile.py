@@ -19,12 +19,16 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 )
 
 
-def test_the_spot_desk_offers_limit_and_market_in_two_columns() -> None:
+def test_the_spot_desk_offers_limit_market_and_stop_limit_in_two_columns() -> None:
     profile = desk_profile_for(TradingVenue.SPOT_TESTNET)
 
     assert profile.venue is TradingVenue.SPOT_TESTNET
     assert profile.market_type is MarketType.SPOT
-    assert profile.order_types == (OrderType.LIMIT, OrderType.MARKET)
+    assert profile.order_types == (
+        OrderType.LIMIT,
+        OrderType.MARKET,
+        OrderType.STOP_LIMIT,
+    )
     assert profile.side_layout is SideLayout.TWO_COLUMNS
     assert profile.figures is spot_side_figures
     assert profile.side_label(EntrySide.BUY) == "Buy"
