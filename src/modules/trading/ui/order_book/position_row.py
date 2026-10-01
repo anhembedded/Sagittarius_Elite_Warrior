@@ -15,6 +15,7 @@ string, unchanged — the rebuild is the renderer, not the numbers.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
     LivePosition,
@@ -31,6 +32,9 @@ class PositionRow:
     symbol: str
     side: PositionSide
     quantity_text: str
+    #: `EPIC-028J` — the size `quantity_text` shows, so a close can be
+    #: checked against the position the user confirmed (`ConfirmedClose`).
+    quantity: Decimal
     entry_price_text: str
     mark_price_text: str
     unrealized_pnl_text: str
@@ -53,6 +57,7 @@ def build_position_row(position: LivePosition) -> PositionRow:
         symbol=position.symbol,
         side=position.side,
         quantity_text=f"{abs(position.position_amt):,.4f}",
+        quantity=abs(position.position_amt),
         entry_price_text=f"{position.entry_price:,.2f}",
         mark_price_text=f"{position.mark_price:,.2f}",
         unrealized_pnl_text=f"{position.unrealized_pnl:+,.2f} USDT",

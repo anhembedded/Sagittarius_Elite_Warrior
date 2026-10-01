@@ -12,6 +12,9 @@ import pytest
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QCheckBox, QLabel, QPushButton
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.position_close_order import (
+    ConfirmedClose,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.account_tab_confirmations import (
     AccountTabConfirmations,
 )
@@ -162,7 +165,7 @@ def test_cancel_all_is_off_with_no_order_shown(qtbot) -> None:
 def test_close_at_market_needs_a_selected_position_and_a_yes(qtbot) -> None:
     panel, answers = _panel(qtbot)
     close = panel.findChild(QAction, "actClosePosition")
-    sent: list[str] = []
+    sent: list[ConfirmedClose] = []
     panel.closePositionRequested.connect(sent.append)
 
     assert not close.isEnabled()
@@ -170,7 +173,8 @@ def test_close_at_market_needs_a_selected_position_and_a_yes(qtbot) -> None:
     assert close.isEnabled()
     close.trigger()
 
-    assert sent == [answers.asked[0].symbol]
+    row = answers.asked[0]
+    assert sent == [ConfirmedClose(row.symbol, row.side, row.quantity)]
 
 
 def test_a_history_tab_shows_its_scope_notices_and_asks_for_the_next_page(

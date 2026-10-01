@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import timedelta
 from decimal import Decimal
 
+import pytest
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QCheckBox, QLabel
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
@@ -40,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
     fake_venue_ports,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.position_close_order import (
+    ConfirmedClose,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.account_tab_confirmations import (
     AccountTabConfirmations,
 )
@@ -57,6 +61,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.history_
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
     HeldTab,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
+    build_position_row,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
@@ -275,35 +282,67 @@ def test_a_safety_gate_refusal_stops_cancel_all_and_keeps_the_rows(qtbot) -> Non
     assert desk.message().startswith("Cancelled 0 of 2 orders.")
 
 
-def test_close_at_market_sizes_the_order_from_the_position_read_now(qtbot) -> None:
-    """The row said long 0.02; the venue now reports short 0.03."""
-    desk = _Desk(qtbot)
-    desk.snapshot.holding([position("BTCUSDT", "0.02")])
+def _confirmed(amount: str = "0.02") -> ConfirmedClose:
+    """The close the user confirmed, from the row of a position of `amount`."""
+    row = build_position_row(position("BTCUSDT", amount))
+    return ConfirmedClose(row.symbol, row.side, row.quantity)
+
+
+def _accepts_one_close(desk: _Desk) -> None:
     desk.submission.submit_answers(
         ExecuteOrderResult(
             blocked_by=None, preview=None, limit_checks=(), submitted_order=order()
         )
     )
-    desk.presenter.show_symbol("BTCUSDT")
-    desk.snapshot.holding([position("BTCUSDT", "-0.03")])
 
-    desk.panel.closePositionRequested.emit("BTCUSDT")
+
+def test_close_at_market_sizes_the_order_from_the_position_read_now(qtbot) -> None:
+    """The row said long 0.02; the venue now reports long 0.015."""
+    desk = _Desk(qtbot)
+    desk.snapshot.holding([position("BTCUSDT", "0.02")])
+    _accepts_one_close(desk)
+    desk.presenter.show_symbol("BTCUSDT")
+    desk.snapshot.holding([position("BTCUSDT", "0.015")])
+
+    desk.panel.closePositionRequested.emit(_confirmed("0.02"))
 
     (sent,) = desk.submission.submitted_live
     assert (sent.side, sent.quantity, sent.reduce_only) == (
-        OrderSide.BUY,
-        Decimal("0.03"),
+        OrderSide.SELL,
+        Decimal("0.015"),
         True,
     )
     assert sent.order_type is OrderType.MARKET
     assert desk.message() == "Close order sent for BTCUSDT."
 
 
+@pytest.mark.parametrize(
+    ("now", "says"),
+    [("-0.02", "turned SHORT 0.02"), ("0.03", "grew to LONG 0.03")],
+)
+def test_a_position_that_is_no_longer_the_one_confirmed_is_not_closed(
+    qtbot, now: str, says: str
+) -> None:
+    """The PR #307 review: the user confirmed closing long 0.02; a position
+    that flipped or grew meanwhile is one they never saw."""
+    desk = _Desk(qtbot)
+    desk.snapshot.holding([position("BTCUSDT", "0.02")])
+    _accepts_one_close(desk)
+    desk.presenter.show_symbol("BTCUSDT")
+    desk.snapshot.holding([position("BTCUSDT", now)])
+
+    desk.panel.closePositionRequested.emit(_confirmed("0.02"))
+
+    assert desk.submission.submitted_live == []
+    assert says in desk.message()
+    assert desk.message().endswith("Nothing was sent.")
+
+
 def test_closing_a_position_already_gone_sends_nothing(qtbot) -> None:
     desk = _Desk(qtbot)
     desk.presenter.show_symbol("BTCUSDT")
 
-    desk.panel.closePositionRequested.emit("BTCUSDT")
+    desk.panel.closePositionRequested.emit(_confirmed())
 
     assert desk.submission.submitted_live == []
     assert desk.message() == "No open BTCUSDT position to close."
@@ -322,7 +361,7 @@ def test_a_refused_close_names_the_gate(qtbot) -> None:
     )
     desk.presenter.show_symbol("BTCUSDT")
 
-    desk.panel.closePositionRequested.emit("BTCUSDT")
+    desk.panel.closePositionRequested.emit(_confirmed())
 
     assert "trading" in desk.message().lower()
 

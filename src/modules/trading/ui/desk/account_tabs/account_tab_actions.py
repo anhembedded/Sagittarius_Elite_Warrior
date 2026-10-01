@@ -13,7 +13,9 @@ refusal (trading off, no connection) stops the rest, since it would refuse
 each one the same way.
 
 **Close reads the position again first** (`market_close_order_for`): the
-row the user clicked may be a fill out of date.
+row the user clicked may be a fill out of date. It closes only if the read
+is still the position confirmed (`close_mismatch`): not turned to the other
+side, not grown past the size shown.
 
 One action at a time; a click while one runs is answered in words, never
 queued (`async-ui-action-rule.md` §1).
@@ -29,6 +31,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_trading_ports
     VenueTradingPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.position_close_order import (
+    ConfirmedClose,
+    close_mismatch,
     market_close_order_for,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
@@ -80,8 +84,8 @@ class AccountTabActions(QObject):
         orders = tuple((row.symbol, row.client_order_id) for row in rows)
         self._start(f"cancel {len(orders)} orders", self._run_cancel, orders)
 
-    def close_position(self, symbol: str) -> None:
-        self._start(f"close {symbol}", self._run_close, symbol)
+    def close_position(self, confirmed: ConfirmedClose) -> None:
+        self._start(f"close {confirmed.symbol}", self._run_close, confirmed)
 
     def _start[T](
         self, label: str, task: Callable[[int, T], None], argument: T
@@ -118,7 +122,8 @@ class AccountTabActions(QObject):
             )
         )
 
-    def _run_close(self, action_id: int, symbol: str) -> None:
+    def _run_close(self, action_id: int, confirmed: ConfirmedClose) -> None:
+        symbol = confirmed.symbol
         try:
             position = next(
                 (
@@ -132,6 +137,10 @@ class AccountTabActions(QObject):
                 self._done.emit(
                     (action_id, f"No open {symbol} position to close.", True, None)
                 )
+                return
+            mismatch = close_mismatch(confirmed, position)
+            if mismatch is not None:
+                self._done.emit((action_id, mismatch, True, None))
                 return
             result = self._ports.order_submission.submit(
                 market_close_order_for(position), live=True

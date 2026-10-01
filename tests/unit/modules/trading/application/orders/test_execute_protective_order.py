@@ -1,7 +1,8 @@
 """`EPIC-028I` — a protective order (a reduce-only take-profit or
-stop-loss) passes the app's trading limits and is not counted as a trade,
-and an order that claims to be protective but is not reduce-only is refused
-before it reaches the handler.
+stop-loss) and a close pass the app's trading limits and are not counted as
+trades, and an order that claims either purpose but could open a position
+(not reduce-only, on Spot, or a protective order that does not wait for a
+trigger) is refused before it reaches the handler.
 
 @details The handler is `test_execute_order.py`'s: the real
 `ExecuteOrderCommandHandler` over the real `FuturesTradingClient`, its raw
@@ -30,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.stop_price_check im
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitViolation,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
 from .test_execute_order import _handler, _order_request
@@ -107,12 +111,68 @@ def test_a_protective_order_is_not_counted_as_a_trade() -> None:
     assert state.time_since_last_order("BTCUSDT", datetime.now(UTC)) is None
 
 
-def test_a_protective_order_must_be_reduce_only() -> None:
+@pytest.mark.parametrize("purpose", [OrderPurpose.PROTECTIVE, OrderPurpose.CLOSE])
+def test_an_order_that_passes_the_limits_must_be_reduce_only(
+    purpose: OrderPurpose,
+) -> None:
     with pytest.raises(ValueError, match="must be reduce-only"):
+        ExecuteOrderCommand(order_request=_order_request(), purpose=purpose)
+
+
+@pytest.mark.parametrize(
+    ("purpose", "order_type", "stop_price"),
+    [
+        (OrderPurpose.PROTECTIVE, OrderType.STOP_MARKET, Decimal(63000)),
+        (OrderPurpose.CLOSE, OrderType.MARKET, None),
+    ],
+)
+def test_spot_gets_no_exemption_because_it_ignores_reduce_only(
+    purpose: OrderPurpose, order_type: OrderType, stop_price: Decimal | None
+) -> None:
+    """The PR #307 review: the Spot mapper never sends `reduceOnly`, so a
+    "reduce-only" Spot buy of any size would pass every limit."""
+    request = _order_request(
+        order_type=order_type,
+        reduce_only=True,
+        stop_price=stop_price,
+        last_price=_LAST,
+        venue=TradingVenue.SPOT_TESTNET,
+    )
+    with pytest.raises(ValueError, match="enforces reduce-only"):
+        ExecuteOrderCommand(order_request=request, live=True, purpose=purpose)
+
+
+def test_a_protective_order_must_wait_for_a_trigger() -> None:
+    with pytest.raises(ValueError, match="triggered type"):
+        _stop_loss(order_type=OrderType.MARKET, stop_price=None)
+
+
+def test_a_close_passes_every_limit_and_is_not_counted() -> None:
+    """The PR #307 review: a close sent as an entry could never close a
+    position larger than the per-order notional, nor any position in a
+    session at its order cap."""
+    raw_client = Mock()
+    state = _exhausted_session()
+    handler, _ = _handler(raw_client=raw_client, session_state=state)
+    request = _order_request(
+        side=OrderSide.SELL, quantity=Decimal("0.5"), reduce_only=True
+    )
+
+    result = handler.execute(
         ExecuteOrderCommand(
-            order_request=_order_request(),
-            purpose=OrderPurpose.PROTECTIVE,
+            order_request=request, live=True, purpose=OrderPurpose.CLOSE
         )
+    )
+
+    assert result.blocked_by is None
+    assert all(check.passed for check in result.limit_checks)
+    assert state.orders_sent_this_session == 20
+    params = raw_client.futures_create_order.call_args.kwargs
+    assert (params["type"], params["side"], params["reduceOnly"]) == (
+        "MARKET",
+        "SELL",
+        True,
+    )
 
 
 def test_a_stop_loss_the_market_already_crossed_is_never_sent() -> None:

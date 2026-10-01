@@ -30,9 +30,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderStopRejection,
     ExecuteOrderTypeRejection,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose import (
-    OrderPurpose,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
 )
@@ -171,9 +168,9 @@ class ExecuteOrderCommandHandler(
 
             trading_client = scope.ports.client_factory.create(OrderSubmissionMode.LIVE)
             submitted_order = trading_client.place_order(preview.order)
-            # `EPIC-028I` — a protective order is not a new trade: it neither
-            # uses up the session's orders nor delays the next entry.
-            if command.purpose is OrderPurpose.ENTRY:
+            # `EPIC-028I` — a protective order or a close is not a new trade:
+            # it neither uses up the session's orders nor delays the next entry.
+            if not command.purpose.only_reduces:
                 session_state.record_order_sent(symbol, now)
             logger.info(
                 "Live order submitted on %s: %s %s",

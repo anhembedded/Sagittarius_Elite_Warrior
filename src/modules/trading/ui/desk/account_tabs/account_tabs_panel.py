@@ -27,6 +27,9 @@ from typing import Any
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QCheckBox, QLabel, QTabWidget, QVBoxLayout, QWidget
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.position_close_order import (
+    ConfirmedClose,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.account_tab_confirmations import (
     AccountTabConfirmations,
     ask_with_message_box,
@@ -77,8 +80,8 @@ class AccountTabsPanel(QWidget):  # base-exempt: a container, not a surface
     cancelRequested = Signal(str, str)
     #: The `OpenOrderRow`s shown when "Cancel all" was confirmed.
     cancelAllRequested = Signal(object)
-    #: The symbol of the position to close at market, already confirmed.
-    closePositionRequested = Signal(str)
+    #: The `ConfirmedClose` of the position to close at market.
+    closePositionRequested = Signal(object)
     hideOtherPairsChanged = Signal(bool)
     #: `(HistoryKind value, zero-based page)`.
     historyPageRequested = Signal(str, int)
@@ -248,4 +251,6 @@ class AccountTabsPanel(QWidget):  # base-exempt: a container, not a surface
         row = self._positions_panel.selected_row()
         if row is None or not self._confirm_close(row):
             return
-        self.closePositionRequested.emit(row.symbol)
+        self.closePositionRequested.emit(
+            ConfirmedClose(row.symbol, row.side, row.quantity)
+        )

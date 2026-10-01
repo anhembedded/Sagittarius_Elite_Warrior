@@ -82,6 +82,6 @@ class OrderRequest:
     time_in_force: TimeInForce | None = None
     quote_quantity: Decimal | None = None
     last_price: Decimal | None = None
-    #: `EPIC-028I` — an entry, or a reduce-only order protecting a position
-    #: (`OrderPurpose`), which the trading limits pass.
+    #: `EPIC-028I` — an entry, or a reduce-only Futures order protecting or
+    #: closing a position (`OrderPurpose`), which the trading limits pass.
     purpose: OrderPurpose = OrderPurpose.ENTRY

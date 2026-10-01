@@ -19,9 +19,6 @@ decision.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose import (
-    OrderPurpose,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitCheck,
     TradingLimitContext,
@@ -46,12 +43,12 @@ class TradingLimitPolicy:
         preview display (`trade-once`'s own worked example shows all four
         with individual ✔ marks) wants the whole set.
 
-        `EPIC-028I` — a protective order passes all four: it is reduce-only
-        (`ExecuteOrderCommand` refuses one that is not), so it can open no
-        position, add no notional and is not a new trade to pace
-        (`OrderPurpose`).
+        `EPIC-028I` — a protective order or a close passes all four: it is
+        reduce-only on Futures (`ExecuteOrderCommand` refuses one that is
+        not), so it can open no position, add no notional and is not a new
+        trade to pace (`OrderPurpose`).
         """
-        if context.purpose is OrderPurpose.PROTECTIVE:
+        if context.purpose.only_reduces:
             return tuple(
                 TradingLimitCheck(violation, passed=True)
                 for violation in TradingLimitViolation

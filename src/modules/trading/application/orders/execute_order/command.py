@@ -1,5 +1,6 @@
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.query import (
     PreviewOrderQuery,
 )
@@ -8,6 +9,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose impor
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     MANUAL_OWNER,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
+    TRIGGERED_ORDER_TYPES,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -43,14 +47,30 @@ class ExecuteOrderCommand:
     purpose: OrderPurpose = OrderPurpose.ENTRY
 
     def __post_init__(self) -> None:
-        """@throws ValueError a protective order that is not reduce-only:
-        the limits pass a protective order only because it cannot open a
-        position."""
+        """@throws ValueError an order whose purpose passes the trading
+        limits (`OrderPurpose.only_reduces`) but that could open a position:
+        one that is not reduce-only, one on a venue whose exchange does not
+        enforce reduce-only (only Futures does; the Spot mapper never sends
+        the flag), or a protective order that is not a triggered type."""
+        if not self.purpose.only_reduces:
+            return
+        request = self.order_request
+        if not request.reduce_only:
+            raise ValueError(f"a {self.purpose.value} order must be reduce-only")
+        if request.venue.market_type is not MarketType.FUTURES_USD_M:
+            raise ValueError(
+                f"a {self.purpose.value} order passes the trading limits only "
+                f"where the exchange enforces reduce-only, not on "
+                f"{request.venue.value}"
+            )
         if (
             self.purpose is OrderPurpose.PROTECTIVE
-            and not self.order_request.reduce_only
+            and request.order_type not in TRIGGERED_ORDER_TYPES
         ):
-            raise ValueError("a protective order must be reduce-only")
+            raise ValueError(
+                f"a protective order must be a triggered type, not "
+                f"{request.order_type.value}"
+            )
 
     @property
     def venue(self) -> TradingVenue:
