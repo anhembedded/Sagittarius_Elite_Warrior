@@ -12,7 +12,15 @@ guessed away.
 
 `EPIC-028D` — the same `futures_account()` payload also answers what a desk
 shows (`FuturesAccountSummary`): the USDT asset's `availableBalance`,
-`walletBalance`, `marginBalance` and `unrealizedProfit`. No extra request.
+`walletBalance`, `marginBalance` and `unrealizedProfit`.
+
+`EPIC-028O` — which figures count depends on the account's Multi-Assets mode
+(`GET /fapi/v1/multiAssetsMargin`, one more signed request per check). In
+Multi-Assets mode the summary reads the account-wide `totalWalletBalance`,
+`totalMarginBalance`, `totalUnrealizedProfit` and `availableBalance` (USD,
+every margin asset) and says so in `asset_mode`. A mode that cannot be read
+leaves the summary `None`, like an unreadable figure: guessing the mode would
+label one figure as the other.
 
 **Verification note** (same disclosure as `EPIC-021A`/`EPIC-021C`): error
 code mapping (`-1021`/`-1022`/`-2015`) and the account/position-mode
@@ -33,6 +41,7 @@ from typing import Any
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    AssetMode,
     FuturesAccountSummary,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
@@ -48,6 +57,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
     IExchangeCredentialsProvider,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_session_factory import (
+    ITradingSessionClient,
     ITradingSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
@@ -64,6 +74,16 @@ _ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
 }
 
 _USDT_ASSET = "USDT"
+
+#: What reading the Multi-Assets mode can raise: the SDK, the network, or an
+#: answer of another shape.
+_SUMMARY_READ_FAILURES = (
+    BinanceAPIException,
+    BinanceRequestException,
+    RequestException,
+    KeyError,
+    TypeError,
+)
 
 logger = logging.getLogger("App.TradingAdapter")
 
@@ -106,20 +126,53 @@ def _usdt_asset(account: dict[str, Any]) -> dict[str, Any] | None:
     )
 
 
+#: The summary's four figures, by mode: `(available, wallet, margin,
+#: unrealized)` keys in the asset row (Single-Asset) or the account
+#: (Multi-Assets).
+_SUMMARY_KEYS = {
+    AssetMode.SINGLE_ASSET: (
+        "availableBalance",
+        "walletBalance",
+        "marginBalance",
+        "unrealizedProfit",
+    ),
+    AssetMode.MULTI_ASSETS: (
+        "availableBalance",
+        "totalWalletBalance",
+        "totalMarginBalance",
+        "totalUnrealizedProfit",
+    ),
+}
+
+
+def _asset_mode(answer: dict[str, Any]) -> AssetMode:
+    """@throws KeyError, TypeError The answer is not
+    `{"multiAssetsMargin": <bool>}`."""
+    multi = answer["multiAssetsMargin"]
+    if not isinstance(multi, bool):
+        raise TypeError(f"multiAssetsMargin is not a boolean: {multi!r}")
+    return AssetMode.MULTI_ASSETS if multi else AssetMode.SINGLE_ASSET
+
+
 def _parse_summary(
-    asset: dict[str, Any], position_mode: PositionMode
+    figures: dict[str, Any], position_mode: PositionMode, asset_mode: AssetMode
 ) -> FuturesAccountSummary:
-    """The desk's figures from the USDT asset. @throws KeyError,
-    InvalidOperation or TypeError when a figure is missing or not a number."""
-    margin_balance = Decimal(str(asset["marginBalance"]))
+    """The desk's figures from `figures`: the USDT asset row in Single-Asset
+    mode, the account itself in Multi-Assets mode. @throws KeyError,
+    InvalidOperation or TypeError when a figure is missing or not a
+    number."""
+    available, wallet, margin, unrealized = (
+        Decimal(str(figures[key])) for key in _SUMMARY_KEYS[asset_mode]
+    )
     return FuturesAccountSummary(
         venue=TradingVenue.FUTURES_TESTNET,
-        available_balance=Decimal(str(asset["availableBalance"])),
-        equity=margin_balance,
-        wallet_balance=Decimal(str(asset["walletBalance"])),
-        margin_balance=margin_balance,
-        unrealized_pnl=Decimal(str(asset["unrealizedProfit"])),
+        available_balance=available,
+        equity=margin,
+        wallet_balance=wallet,
+        margin_balance=margin,
+        unrealized_pnl=unrealized,
         position_mode=position_mode,
+        asset_mode=asset_mode,
     )
 
 
@@ -231,35 +284,52 @@ class FuturesAccountReader(ITradingAccountReader):
             position_mode=position_mode,
             margin_type=margin_type,
             open_position_count=len(open_positions),
-            summary=self._read_summary(account, position_mode),
+            summary=self._read_summary(client, account, position_mode),
         )
 
     def _read_summary(
-        self, account: dict[str, Any], position_mode: PositionMode
+        self,
+        client: ITradingSessionClient,
+        account: dict[str, Any],
+        position_mode: PositionMode,
     ) -> FuturesAccountSummary | None:
-        """`None` when the account has no USDT asset or one of its figures
-        is not a number, rather than a summary with an invented zero."""
-        asset = _usdt_asset(account)
-        if asset is None:
+        """`None` when the account's mode or one of its figures cannot be
+        read, or a Single-Asset account has no USDT asset, rather than a
+        summary with an invented zero or the wrong mode's figures."""
+        try:
+            asset_mode = _asset_mode(client.futures_get_multi_assets_mode())
+        except _SUMMARY_READ_FAILURES as exc:
+            self._report_unreadable_summary("its Multi-Assets mode", exc)
+            return None
+        figures = (
+            account if asset_mode is AssetMode.MULTI_ASSETS else _usdt_asset(account)
+        )
+        if figures is None:
             return None
         try:
-            summary = _parse_summary(asset, position_mode)
-        except (KeyError, InvalidOperation, TypeError):
-            if not self._summary_failure_reported:
-                self._summary_failure_reported = True
-                logger.warning(
-                    "Futures account's USDT asset is missing a balance figure — "
-                    "no account summary until it is readable again (not "
-                    "logged again until then): %s",
-                    asset,
-                )
-            else:
-                logger.debug("Futures account summary still unreadable: %s", asset)
+            summary = _parse_summary(figures, position_mode, asset_mode)
+        except (KeyError, InvalidOperation, TypeError) as exc:
+            self._report_unreadable_summary(
+                f"a balance figure ({asset_mode.value})", exc
+            )
             return None
         if self._summary_failure_reported:
             self._summary_failure_reported = False
             logger.info("Futures account summary readable again")
         return summary
+
+    def _report_unreadable_summary(self, what: str, cause: Exception) -> None:
+        if not self._summary_failure_reported:
+            self._summary_failure_reported = True
+            logger.warning(
+                "Futures account summary could not read %s — no account "
+                "summary until it is readable again (not logged again until "
+                "then): %r",
+                what,
+                cause,
+            )
+        else:
+            logger.debug("Futures account summary still unreadable: %r", cause)
 
     @staticmethod
     def _status(
