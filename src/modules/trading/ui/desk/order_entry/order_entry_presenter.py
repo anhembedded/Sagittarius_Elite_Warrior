@@ -17,6 +17,13 @@ Spot desk's panel cannot reach Futures. Each background read carries an
 action id from an `ActionOwnershipTracker`; an answer for a superseded load
 or order is logged and dropped (`async-ui-action-rule.md` §1).
 
+`EPIC-028I`: on a desk with leverage the load also reads the Futures
+context (`read_futures_context`) and shows its leverage and margin mode on
+the chips, which `FuturesSettingsChanger` sends; the request carries the
+chosen time in force and reduce-only; an entry placed with TP/SL on is
+announced on `entryPlaced` with its levels, for the desk's
+`ProtectiveOrderFollower` to protect once the fill is reported.
+
 `EPIC-028O`: the load also reads the app's per-order notional limit, which
 caps every maximum; the request carries a stop-limit's stop and last price
 and a quote-sized buy's total; the BBO button's book read is
@@ -40,19 +47,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_entry_terms import (
     OrderEntryTerms,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview import (
-    OrderPreview,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
-    NotionalCheck,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     OrderRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.stop_price_check import (
-    StopPriceCheck,
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.protective_levels import (
+    ProtectiveLevels,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_trading_ports import (
     VenueTradingPorts,
@@ -63,6 +64,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.best_price_filler import (
     BestPriceFiller,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.futures_context_reader import (
+    read_futures_context,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.futures_settings_changer import (
+    FuturesSettingsChanger,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_confirmation import (
     ConfirmOrder,
@@ -76,8 +83,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
-    format_execute_order_block_reason,
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_outcome_text import (
+    preview_refusal,
+    result_text,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -99,6 +107,10 @@ _DIRECTION = {
 
 class OrderEntryPresenter(QObject):
     """@brief One order panel's reads and its preview → confirm → submit."""
+
+    #: `(Order, ProtectiveLevels)`: an entry placed with TP/SL on, to be
+    #: protected once it fills (`EPIC-028I`).
+    entryPlaced = Signal(object)
 
     _loaded = Signal(object)
     _previewed = Signal(object)
@@ -126,6 +138,11 @@ class OrderEntryPresenter(QObject):
         self._best_price = BestPriceFiller(
             view_model, ports.order_entry_terms, thread_manager
         )
+        self._protection: ProtectiveLevels | None = None
+        if view_model.profile.futures_controls:
+            FuturesSettingsChanger(
+                view_model, ports.futures_settings, thread_manager, self.refresh
+            )
         self._loaded.connect(self._on_loaded)
         self._previewed.connect(self._on_previewed)
         self._submitted.connect(self._on_submitted)
@@ -158,7 +175,17 @@ class OrderEntryPresenter(QObject):
             status = self._ports.account_snapshot.check_connection()
             limit = self._ports.order_entry_terms.order_notional_limit()
             context = self._context_for(symbol, terms, status, limit)
-            self._loaded.emit((action_id, context, None))
+            futures = (
+                read_futures_context(
+                    self._ports.order_entry_terms,
+                    self._ports.account_snapshot,
+                    symbol,
+                    status,
+                )
+                if self._vm.profile.futures_controls
+                else None
+            )
+            self._loaded.emit((action_id, replace(context, futures=futures), None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
             self._loaded.emit((action_id, None, str(exc)))
 
@@ -201,6 +228,9 @@ class OrderEntryPresenter(QObject):
             return
         self._loads.finish_action(action_id, ActionOutcome.SUCCEEDED)
         self._vm.set_context(context)
+        self._vm.options.show_setting(
+            context.futures.setting if context.futures else None
+        )
 
     # -- preview → confirm → submit ------------------------------------ #
 
@@ -215,6 +245,9 @@ class OrderEntryPresenter(QObject):
             self._vm.show_result(reason or "Enter a price.", is_error=True)
             return
         request = self._request_for(side, figures, figures.price)
+        self._protection = (
+            None if self._vm.options.reduce_only else self._vm.options.protection(side)
+        )
         action = self._orders.begin_action(_ORDER, side.value, None)
         self._vm.set_busy(True, "Checking the order...")
         self._threads.submit(self._run_preview, action.action_id, side, request)
@@ -230,6 +263,7 @@ class OrderEntryPresenter(QObject):
         is_stop = order_type is OrderType.STOP_LIMIT
         quote = entry.total if figures.sized_by_quote else None
         quantity = quote / price if quote is not None else entry.quantity
+        resting = order_type in (OrderType.LIMIT, OrderType.STOP_LIMIT)
         return OrderRequest(
             symbol=self._vm.order_symbol,
             side=_ORDER_SIDE[side],
@@ -239,6 +273,7 @@ class OrderEntryPresenter(QObject):
             stop_price=entry.stop_price if is_stop else None,
             last_price=self._vm.last_price if is_stop else None,
             quote_quantity=quote,
+            time_in_force=self._vm.options.time_in_force if resting else None,
         )
 
     def _run_preview(
@@ -257,7 +292,7 @@ class OrderEntryPresenter(QObject):
             return
         context = self._vm.context
         limit = context.notional_limit if context else None
-        refusal = self._preview_refusal(preview, error, limit)
+        refusal = preview_refusal(preview, error, limit)
         if refusal is not None:
             self._orders.finish_action(action_id, ActionOutcome.FAILED)
             self._vm.show_result(refusal, is_error=True)
@@ -283,36 +318,6 @@ class OrderEntryPresenter(QObject):
         )
         self._threads.submit(self._run_submit, action_id, side, rounded)
 
-    @staticmethod
-    def _preview_refusal(
-        preview: OrderPreview | None, error: str | None, limit: Decimal | None
-    ) -> str | None:
-        if preview is None:
-            return f"The order could not be checked: {error}"
-        if preview.stop_check is StopPriceCheck.WRONG_SIDE:
-            return (
-                "The stop price has already been crossed; the order would "
-                "trigger at once."
-            )
-        # A quote-sized buy's quantity is only an estimate; the exchange
-        # sizes it from the quote, so only its notional is checked.
-        if preview.order.quote_quantity is None and preview.order.quantity <= 0:
-            return f"The amount is below one lot of {preview.step_size}."
-        if preview.notional_check is NotionalCheck.INSUFFICIENT:
-            return (
-                "The order is worth less than the symbol's minimum of "
-                f"{preview.min_notional}."
-            )
-        # The panel judged the order at the tick-rounded price too; this is
-        # the gate's own figure, so a confirmation never offers what
-        # `ExecuteOrderCommandHandler`'s limit refuses.
-        if limit is not None and preview.estimated_notional > limit:
-            return (
-                f"The order is worth {preview.estimated_notional}, more than the "
-                f"app's limit of {limit} per order."
-            )
-        return None
-
     def _run_submit(
         self, action_id: int, side: EntrySide, request: OrderRequest
     ) -> None:
@@ -333,38 +338,44 @@ class OrderEntryPresenter(QObject):
             intent = manual_order_intent_for(
                 _DIRECTION[side], position, market, holding
             )
+            # The box only ever narrows: an order the position makes reducing
+            # stays so, and a ticked box makes any order reduce-only.
+            reduce_only = intent.reduce_only or self._vm.options.reduce_only
             result = self._ports.order_submission.submit(
-                replace(request, side=intent.side, reduce_only=intent.reduce_only),
+                replace(request, side=intent.side, reduce_only=reduce_only),
                 live=True,
             )
-            self._submitted.emit((action_id, side, result, None))
+            self._submitted.emit((action_id, side, result, None, reduce_only))
         except Exception as exc:  # noqa: BLE001 - worker boundary
-            self._submitted.emit((action_id, side, None, str(exc)))
+            self._submitted.emit((action_id, side, None, str(exc), False))
 
     def _on_submitted(self, payload: tuple) -> None:
-        action_id, side, result, error = payload
+        action_id, side, result, error, reduced = payload
         if not self._orders.is_current_pending(action_id, _ORDER):
             self._orders.log_stale_callback("_on_submitted", action_id, _ORDER)
             return
-        message, placed = self._result_text(result, error)
+        message, placed = result_text(result, error)
         self._orders.finish_action(
             action_id, ActionOutcome.SUCCEEDED if placed else ActionOutcome.FAILED
         )
         logger.info("Order panel %s order: %s", side.value, message)
         self._vm.show_result(message, is_error=not placed)
         if placed:
+            self._announce_protection(result, reduced)
             self._vm.clear_amount(side)
             self.refresh()
 
-    @staticmethod
-    def _result_text(
-        result: ExecuteOrderResult | None, error: str | None
-    ) -> tuple[str, bool]:
-        if result is None:
-            return f"The order failed: {error}", False
-        if result.blocked:
-            return format_execute_order_block_reason(result.blocked_by), False
-        order = result.submitted_order
-        if order is None:
-            return "The order was not sent.", False
-        return f"Order placed ({order.client_order_id}).", True
+    def _announce_protection(
+        self, result: ExecuteOrderResult | None, reduced: bool
+    ) -> None:
+        """@param reduced Whether the order sent was reduce-only: it closes
+        a position, so there is no new one to protect."""
+        levels, self._protection = self._protection, None
+        order = result.submitted_order if result else None
+        if levels is None or order is None or reduced:
+            return
+        self.entryPlaced.emit((order, levels))
+        self._vm.show_result(
+            f"Order placed ({order.client_order_id}); TP/SL follow once it fills.",
+            is_error=False,
+        )
