@@ -10,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.stop_price_check import (
+    StopPriceCheck,
+)
 
 
 @dataclass(frozen=True)
@@ -29,3 +32,6 @@ class OrderPreview:
     min_notional: Decimal
     step_size: Decimal
     notional_check: NotionalCheck
+    #: `EPIC-028O` — for a stop-limit, whether its stop waits for the market
+    #: (`stop_trigger_side.py`); `None` for every other order type.
+    stop_check: StopPriceCheck | None = None

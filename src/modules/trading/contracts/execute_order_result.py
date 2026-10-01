@@ -55,6 +55,24 @@ class ExecuteOrderNotionalRejection(str, Enum):
     MIN_NOTIONAL = "min_notional"
 
 
+class ExecuteOrderStopRejection(str, Enum):
+    """@brief `EPIC-028O` — a stop-limit whose stop price is already crossed
+    (`stop_trigger_side.py`): Spot would reject it and Futures would trigger
+    it at once. Refused like `ExecuteOrderNotionalRejection`, before any
+    request, from the verdict the preview already holds."""
+
+    STOP_ON_WRONG_SIDE = "stop_on_wrong_side"
+
+
+class ExecuteOrderTypeRejection(str, Enum):
+    """@brief `EPIC-028O` — an order type the venue's client cannot send
+    today (`ITradingClientFactory.accepted_order_types`): a Futures
+    conditional order until `EPIC-028R`. Refused before any request, on the
+    dry run and the live path alike."""
+
+    NOT_SENDABLE_ON_VENUE = "not_sendable_on_venue"
+
+
 @dataclass(frozen=True)
 class ExecuteOrderResult:
     """@details `blocked_by` is a safety gate, a notional rejection, a
@@ -71,6 +89,8 @@ class ExecuteOrderResult:
     blocked_by: (
         ExecuteOrderSafetyGate
         | ExecuteOrderNotionalRejection
+        | ExecuteOrderStopRejection
+        | ExecuteOrderTypeRejection
         | TradingLimitViolation
         | None
     )

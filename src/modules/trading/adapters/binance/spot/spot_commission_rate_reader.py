@@ -3,7 +3,7 @@
 @details `GET /api/v3/account` carries `commissionRates: {maker, taker,
 buyer, seller}` as decimal strings (`"0.00100000"` is 0.1 %). These are the
 account's rates. The per-symbol `GET /api/v3/account/commission` is in the
-pinned `python-binance` 1.0.37 only as the auto-generated
+installed `python-binance` 1.0.37 only as the auto-generated
 `v3_get_account_commission`, which this reader does not call, so a
 symbol-specific discount is not seen (the port's docstring names reading it
 as an extension; `EPIC-028Q` corrected the claim that it was missing). The symbol is

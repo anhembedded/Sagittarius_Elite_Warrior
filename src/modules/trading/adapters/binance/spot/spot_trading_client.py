@@ -86,8 +86,8 @@ class SpotTradingClient(ITradingClient):
         """@raise ValueError No credentials configured, or `order.symbol`
         is not a known Spot symbol.
         @raise InvalidOrderForSubmissionError `order.order_type` is not
-        `MARKET`/`LIMIT`, or `order` is not already rounded to the
-        symbol's filters (see the mapper's own docstring).
+        `MARKET`/`LIMIT`/`STOP_LIMIT`, or `order` is not already rounded to
+        the symbol's filters (see the mapper's own docstring).
         @raise OrderRejectedByExchangeError The exchange refused the
         request — including a `VALIDATE_ONLY` refusal.
         @return `order` unchanged on acceptance, matching

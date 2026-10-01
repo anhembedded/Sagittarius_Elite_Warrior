@@ -172,14 +172,15 @@ class TestReverseOrderMapping:
     ) -> None:
         """`BUG-091` — the same "never lose an update" reasoning as
         `futures_order_payload_mapper.py`'s own equivalent test: a
-        manually-placed Spot order (e.g. `STOP_LOSS_LIMIT`, a real Spot
-        order type this app's own enum has no member for) must not vanish
+        manually-placed Spot order (e.g. `TAKE_PROFIT_LIMIT`, a real Spot
+        order type this app's own enum has no member for; `STOP_LOSS_LIMIT`
+        was the example until `EPIC-028O` made it `STOP_LIMIT`) must not vanish
         from `get_open_orders()` reconciliation just because its `type`/
         `status` isn't one of this app's own narrow set."""
         payload = {
             "symbol": "BTCUSDT",
             "side": "BUY",
-            "type": "STOP_LOSS_LIMIT",
+            "type": "TAKE_PROFIT_LIMIT",
             "origQty": "0.002",
             "status": "EXPIRED_IN_MATCH",
             "clientOrderId": "manually-placed-1",
@@ -229,3 +230,80 @@ class TestReverseOrderMapping:
         order = map_spot_order_payload_to_order(payload)
 
         assert order.order_time == datetime.fromtimestamp(1788967154080 / 1000, tz=UTC)
+
+
+class TestStopLimitAndQuoteSizedOrders:
+    """`EPIC-028O` — Spot's `STOP_LOSS_LIMIT` and `quoteOrderQty`."""
+
+    def test_a_stop_limit_is_sent_as_stop_loss_limit(self) -> None:
+        order = _order(
+            order_type=OrderType.STOP_LIMIT,
+            price=Decimal("64100.00"),
+            stop_price=Decimal("64050.00"),
+            time_in_force=TimeInForce.GTC,
+        )
+
+        params = map_order_to_spot_params(order, _metadata())
+
+        assert params["type"] == "STOP_LOSS_LIMIT"
+        assert params["quantity"] == "0.002"
+        assert params["price"] == "64100.00"
+        assert params["stopPrice"] == "64050.00"
+        assert params["timeInForce"] == "GTC"
+
+    def test_a_stop_limit_without_its_stop_price_is_refused(self) -> None:
+        order = _order(
+            order_type=OrderType.STOP_LIMIT,
+            price=Decimal("64100.00"),
+            time_in_force=TimeInForce.GTC,
+        )
+        with pytest.raises(InvalidOrderForSubmissionError, match="stop_price"):
+            map_order_to_spot_params(order, _metadata())
+
+    def test_a_quote_sized_market_buy_sends_quote_order_qty_and_no_quantity(
+        self,
+    ) -> None:
+        order = _order(quantity=Decimal("0.015"), quote_quantity=Decimal(1000))
+
+        params = map_order_to_spot_params(order, _metadata())
+
+        assert params["quoteOrderQty"] == "1000"
+        assert "quantity" not in params
+
+    @pytest.mark.parametrize(
+        "overrides",
+        [
+            {"side": OrderSide.SELL},
+            {
+                "order_type": OrderType.LIMIT,
+                "price": Decimal("64000.00"),
+                "time_in_force": TimeInForce.GTC,
+            },
+        ],
+        ids=["market-sell", "limit-buy"],
+    )
+    def test_quote_sizing_is_refused_on_anything_but_a_market_buy(
+        self, overrides: dict[str, object]
+    ) -> None:
+        order = _order(quote_quantity=Decimal(1000), **overrides)
+        with pytest.raises(InvalidOrderForSubmissionError, match="MARKET BUY"):
+            map_order_to_spot_params(order, _metadata())
+
+    def test_a_stop_loss_limit_payload_reads_back_with_its_stop_price(self) -> None:
+        payload = {
+            "symbol": "BTCUSDT",
+            "side": "SELL",
+            "type": "STOP_LOSS_LIMIT",
+            "origQty": "0.002",
+            "status": "NEW",
+            "clientOrderId": "SEW-a91f4c72e0b8",
+            "price": "63900.00",
+            "stopPrice": "63950.00",
+            "timeInForce": "GTC",
+        }
+
+        order = map_spot_order_payload_to_order(payload)
+
+        assert order.order_type is OrderType.STOP_LIMIT
+        assert order.stop_price == Decimal("63950.00")
+        assert order.price == Decimal("63900.00")

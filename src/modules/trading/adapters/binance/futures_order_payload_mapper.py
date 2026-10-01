@@ -50,7 +50,22 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metada
 #: never anything else in this epic (ADR §6, `EPIC-021D`).
 _ONE_WAY_POSITION_SIDE = "BOTH"
 
-_STOP_ORDER_TYPES = frozenset({OrderType.STOP_MARKET, OrderType.TAKE_PROFIT_MARKET})
+#: `EPIC-028O` — the conditional types this app's enum names. `python-binance`
+#: 1.0.37 sends every one of them to the Algo Order API
+#: (`POST /fapi/v1/algoOrder`, Binance's change of 2025-12-09), which drops
+#: `newClientOrderId` for a random `clientAlgoId` and keeps the order out of
+#: `openOrders` and out of `DELETE /fapi/v1/allOpenOrders`. Sent from here, such
+#: an order could be neither tracked by its client order id nor cancelled by
+#: Emergency Stop, so it is refused until `EPIC-028R` builds that path.
+_CONDITIONAL_ORDER_TYPES = frozenset(
+    {OrderType.STOP_MARKET, OrderType.TAKE_PROFIT_MARKET, OrderType.STOP_LIMIT}
+)
+#: What the Futures client can send today: everything else is refused
+#: (`FuturesTradingClientFactory.accepted_order_types` answers with this).
+FUTURES_SENDABLE_ORDER_TYPES = frozenset({OrderType.MARKET, OrderType.LIMIT})
+#: Futures' spelling of a member whose name is not Binance's, for the read
+#: direction: a stop-limit is `STOP` on USD-M.
+FUTURES_ORDER_TYPE_NAMES: dict[str, OrderType] = {"STOP": OrderType.STOP_LIMIT}
 
 
 def _require_step_aligned(quantity: Decimal, step_size: Decimal, label: str) -> None:
@@ -66,11 +81,24 @@ def map_order_to_futures_params(
 ) -> dict[str, Any]:
     """@brief Builds the `**params` dict `python-binance`'s
     `futures_create_order`/`futures_create_test_order` expects from `order`.
-    @raise InvalidOrderForSubmissionError If `order`'s quantity/price/stop
-    price is not already rounded to `metadata`'s filters, or a
-    type-required field (`price`+`time_in_force` for `LIMIT`, `stop_price`
-    for the stop types) is missing.
+    @raise InvalidOrderForSubmissionError If `order` is a conditional type
+    (`_CONDITIONAL_ORDER_TYPES`), is sized by quote amount, its quantity/
+    price is not already rounded to `metadata`'s filters, or a `LIMIT`
+    lacks its `price`/`time_in_force`.
     """
+    if order.order_type in _CONDITIONAL_ORDER_TYPES:
+        raise InvalidOrderForSubmissionError(
+            f"{order.order_type.name} on Futures goes through Binance's Algo Order "
+            "API, which this app cannot yet track or cancel (EPIC-028R)."
+        )
+    if order.order_type not in FUTURES_SENDABLE_ORDER_TYPES:
+        raise InvalidOrderForSubmissionError(
+            f"{order.order_type.name} is not an order type the Futures client sends."
+        )
+    if order.quote_quantity is not None:
+        raise InvalidOrderForSubmissionError(
+            "USD-M Futures has no quote-sized order; size it by quantity."
+        )
     _require_step_aligned(order.quantity, metadata.step_size, "quantity")
 
     params: dict[str, Any] = {
@@ -93,14 +121,6 @@ def map_order_to_futures_params(
         _require_step_aligned(order.price, metadata.tick_size, "price")
         params["price"] = str(order.price)
         params["timeInForce"] = order.time_in_force.value
-
-    if order.order_type in _STOP_ORDER_TYPES:
-        if order.stop_price is None:
-            raise InvalidOrderForSubmissionError(
-                f"{order.order_type.name} order is missing stop_price."
-            )
-        _require_step_aligned(order.stop_price, metadata.tick_size, "stop_price")
-        params["stopPrice"] = str(order.stop_price)
 
     return params
 
@@ -137,7 +157,7 @@ def map_futures_order_payload_to_order(payload: dict[str, Any]) -> Order:
     `get_open_orders()`, must not lose an order just because it wasn't
     placed by this app).
     """
-    order_type = order_type_or_unknown(payload["type"])
+    order_type = order_type_or_unknown(payload["type"], FUTURES_ORDER_TYPE_NAMES)
     return Order(
         client_order_id=ClientOrderId(payload["clientOrderId"]),
         symbol=payload["symbol"],

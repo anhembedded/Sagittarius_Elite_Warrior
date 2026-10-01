@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client im
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 
 
 class ITradingClientFactory(ABC):
@@ -46,3 +47,12 @@ class ITradingClientFactory(ABC):
         @details Returns a fresh client per call (matching every call site's
         pre-existing behaviour) — never a shared instance, since two callers
         wanting different `mode`s could otherwise observe each other's."""
+
+    @abstractmethod
+    def accepted_order_types(self) -> frozenset[OrderType]:
+        """@brief The order types this venue's client can send today.
+        @details `EPIC-028O` — asked before any request, so a type the venue
+        cannot send is refused by name (`ExecuteOrderTypeRejection`) on the
+        dry run and the live path alike, never as an exception from deep in
+        `place_order`. The answer is the client's payload mapper's own set:
+        adding a type is one entry there once the mapper can send it."""

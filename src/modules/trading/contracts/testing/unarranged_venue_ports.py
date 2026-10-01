@@ -56,6 +56,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
 )
@@ -97,6 +98,9 @@ class UnarrangedMetadataCache(ISymbolOrderMetadataCache):
 
 
 class UnarrangedClientFactory(ITradingClientFactory):
+    def accepted_order_types(self) -> frozenset[OrderType]:
+        _not_arranged("ITradingClientFactory")
+
     def create(self, mode: OrderSubmissionMode) -> ITradingClient:
         _not_arranged("ITradingClientFactory")
 

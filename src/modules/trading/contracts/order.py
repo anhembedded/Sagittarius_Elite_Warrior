@@ -64,3 +64,8 @@ class Order:
     #: exchange's time, never a locally-stamped `datetime.now()`, so it
     #: matches Binance's own order history exactly).
     order_time: datetime | None = None
+    #: `EPIC-028O` — the quote amount a Spot market buy spends
+    #: (`quoteOrderQty`). When set, the Spot mapper sends it instead of
+    #: `quantity`, which then holds the preview's estimate of what it buys;
+    #: Futures has no such parameter and refuses it.
+    quote_quantity: Decimal | None = None

@@ -35,6 +35,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderNotionalRejection,
     ExecuteOrderSafetyGate,
+    ExecuteOrderStopRejection,
+    ExecuteOrderTypeRejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
@@ -512,6 +514,56 @@ class TestNotionalRejection:
         assert result.limit_checks == ()
         assert result.submitted_order is None
         raw_client.futures_create_order.assert_not_called()
+        assert state.orders_sent_this_session == 0
+
+
+class TestStopRejection:
+    @staticmethod
+    def _stop_command(stop: str) -> ExecuteOrderCommand:
+        return ExecuteOrderCommand(
+            order_request=_order_request(
+                order_type=OrderType.STOP_LIMIT,
+                reference_price=Decimal(64100),
+                stop_price=Decimal(stop),
+                last_price=Decimal(64000),
+            ),
+            live=True,
+        )
+
+    @pytest.mark.parametrize("stop", ["63999.99", "64000.00"], ids=["below", "at"])
+    def test_a_buy_stop_not_above_the_last_price_is_never_sent(self, stop: str) -> None:
+        """`EPIC-028O` — refused like `MIN_NOTIONAL`, before any request: a
+        crossed stop would be rejected by Spot and triggered at once by
+        Futures."""
+        raw_client = Mock()
+        handler, state = _handler(raw_client=raw_client)
+
+        result = handler.execute(self._stop_command(stop))
+
+        assert result.blocked_by is ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE
+        assert result.preview is not None
+        raw_client.futures_create_order.assert_not_called()
+        assert state.orders_sent_this_session == 0
+
+    @pytest.mark.parametrize("live", [False, True], ids=["dry-run", "live"])
+    def test_a_type_the_venue_cannot_send_is_refused_by_name(self, live: bool) -> None:
+        """One tick above the last price clears the stop gate; the Futures
+        client cannot send a stop-limit until `EPIC-028R` (`python-binance`
+        would route it to the Algo Order API), so the dry run and the live
+        path both answer `NOT_SENDABLE_ON_VENUE` and nothing is sent — the
+        PR #302 review's should-fix 1: no clean dry run, no exception."""
+        raw_client = Mock()
+        handler, state = _handler(raw_client=raw_client)
+        command = self._stop_command("64000.01")
+
+        result = handler.execute(
+            ExecuteOrderCommand(order_request=command.order_request, live=live)
+        )
+
+        assert result.blocked_by is ExecuteOrderTypeRejection.NOT_SENDABLE_ON_VENUE
+        assert result.limit_checks == ()
+        raw_client.futures_create_order.assert_not_called()
+        raw_client.futures_create_test_order.assert_not_called()
         assert state.orders_sent_this_session == 0
 
 

@@ -1,6 +1,6 @@
 # EPIC-028H — One order-entry panel places Limit and Market orders; the Spot variant shows Buy and Sell side by side
 
-**Status:** 🟡 Implemented — awaiting review
+**Status:** ✅ Done (2026-10-01) — merged in PR #301
 **Source:** the user, 2026-09-29 — *"cần có 2 cái chứ không phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng"* ("two trading screens, one Futures and one Spot; share what can be shared"). See the [ADR](../DECISION_2026-09-29_two_trading_desks.md).
 **Risk:** 🟡 — the panel places real orders; its dispatch must stay the one `IOrderSubmission` path
 **Complexity:** L — new shared UI package, view model, presenter, Spot variant, preview
@@ -25,7 +25,7 @@
 - [x] Spot variant: two columns, Buy and Sell, each showing the available balance and max buy or max sell. Sell is disabled without a holding (the `EPIC-027O` rule is kept).
 - [x] Submitting goes preview → confirm → submit through the panel's own venue's `IOrderSubmission`. The quantity and price sent are the preview's, rounded to the symbol's filters. A money-moving submit confirms in a dialog that names the rounded order, its total and its fee (HLD 11 §11.5).
 - [x] `preview.py` renders the Spot variant.
-- **Moved to [`EPIC-028O`](EPIC-028O_order_contract_and_missing_reads.md):**
+- **Moved to [`EPIC-028O`](../incomplete/EPIC-028O_order_contract_and_missing_reads.md):**
   - the Stop-limit tab: the submission path cannot send a stop-limit order yet, and drawing the tab would offer something it refuses;
   - the BBO price fill: nothing reads the order book.
 

@@ -116,6 +116,11 @@ class TestParseOrderTradeUpdate:
         order = parse_order_trade_update(_order_trade_update(f="GTX"))
         assert order.time_in_force is None
 
+    def test_a_stop_order_reads_as_a_stop_limit(self) -> None:
+        """`EPIC-028O` — USD-M spells a stop-limit `STOP`."""
+        order = parse_order_trade_update(_order_trade_update(o="STOP"))
+        assert order.order_type is OrderType.STOP_LIMIT
+
 
 class TestIsFillExecution:
     def test_trade_execution_type_is_a_fill(self) -> None:

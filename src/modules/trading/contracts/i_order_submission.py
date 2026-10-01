@@ -77,7 +77,8 @@ class IOrderSubmission(ABC):
         limit is evaluated against live data, and nothing is sent. Always
         answers; a refusal is a named value on the result
         (`ExecuteOrderSafetyGate`, a `TradingLimitViolation`, or
-        `ExecuteOrderNotionalRejection`), never an exception a caller must
+        `ExecuteOrderNotionalRejection`, `ExecuteOrderStopRejection`,
+        `ExecuteOrderTypeRejection`), never an exception a caller must
         anticipate.
         """
 

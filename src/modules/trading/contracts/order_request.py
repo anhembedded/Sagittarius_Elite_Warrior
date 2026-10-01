@@ -8,7 +8,7 @@ publishing them is exactly the transitional dispatch surface `EPIC-025` is
 retiring, where a consumer builds another context's command object and hands
 it to the Engine's dispatcher.
 
-The six fields are `PreviewOrderQuery`'s, unchanged: measured, every caller
+The fields are `PreviewOrderQuery`'s, unchanged: measured, every caller
 sets all six or takes the `reduce_only` default, so there is nothing to trim
 (HLD §2.4). What changes is the name — a published contract does not speak the
 CQRS vocabulary of the module behind it.
@@ -35,6 +35,9 @@ from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
+    TimeInForce,
+)
 
 #: Who an order belongs to when the caller does not say: a human at a form.
 #:
@@ -69,3 +72,10 @@ class OrderRequest:
     #: to `MANUAL_OWNER` — see its own note for why the default is the one with
     #: the fewest privileges.
     owner_id: str = MANUAL_OWNER
+    #: `EPIC-028O` — what a stop-limit, a chosen time in force and a
+    #: quote-sized market buy need; `PreviewOrderQuery` documents and checks
+    #: each. All default to "not used", so an existing caller is unchanged.
+    stop_price: Decimal | None = None
+    time_in_force: TimeInForce | None = None
+    quote_quantity: Decimal | None = None
+    last_price: Decimal | None = None

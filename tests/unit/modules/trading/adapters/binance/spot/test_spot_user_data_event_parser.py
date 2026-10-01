@@ -110,6 +110,17 @@ class TestParseExecutionReport:
         order = parse_execution_report(_execution_report(f="GTX"))
         assert order.time_in_force is None
 
+    def test_a_stop_loss_limit_reads_as_a_stop_limit_with_its_stop_price(
+        self,
+    ) -> None:
+        """`EPIC-028O` — Spot spells a stop-limit `STOP_LOSS_LIMIT` and
+        carries its stop price as `P`."""
+        order = parse_execution_report(
+            _execution_report(o="STOP_LOSS_LIMIT", P="63950.00", p="63900.00")
+        )
+        assert order.order_type is OrderType.STOP_LIMIT
+        assert order.stop_price == Decimal("63950.00")
+
 
 class TestIsFillExecution:
     def test_trade_execution_type_is_a_fill(self) -> None:

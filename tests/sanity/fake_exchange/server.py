@@ -111,6 +111,9 @@ class FakeServerUrls:
     #: Every `(method, path)` the server answered (`EPIC-028P`). The same list
     #: the server appends to, so it grows while the `with` block runs.
     requests: list[tuple[str, str]] = field(default_factory=list)
+    #: `EPIC-028O` — the live Spot state, so a test can move a symbol's last
+    #: price (`SpotAccountState.set_last_price`) and watch a stop trigger.
+    spot_account: SpotAccountState = field(default_factory=SpotAccountState)
 
 
 @contextmanager
@@ -131,6 +134,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
             spot=f"http://{host}:{port}/api",
             futures=f"http://{host}:{port}/fapi",
             requests=_Handler.requests,
+            spot_account=_Handler.spot_account,
         )
     finally:
         server.shutdown()
