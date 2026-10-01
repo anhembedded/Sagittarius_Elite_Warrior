@@ -13,9 +13,13 @@ Field names follow Binance's USD-M documentation of the Algo Order API and
 verified them, because egress to `*.binance.*` is blocked in this sandbox.
 The same disclosure as `futures_account_reader.py`.
 
+`EPIC-028I` sends `STOP_MARKET` and `TAKE_PROFIT_MARKET` too, the desk's
+stop-loss and take-profit: a trigger and a quantity, no limit price and no
+time in force (they fill at market once triggered).
+
 Plausible extensions, each one entry in a table here:
-- `STOP_MARKET` / `TAKE_PROFIT_MARKET` sent (028I's TP/SL): one entry in
-  `_ALGO_TYPE_NAMES` plus their params (no limit price);
+- a take-profit limit (`TAKE_PROFIT`): a new `OrderType` member, sent like
+  the stop-limit;
 - a trailing stop: a new `OrderType` member and its `callbackRate`.
 """
 
@@ -57,7 +61,14 @@ _ONE_WAY_POSITION_SIDE = "BOTH"
 
 #: The app's order types sent through the Algo Order API, with their USD-M
 #: name. A stop-limit is `STOP`.
-_ALGO_TYPE_NAMES: dict[OrderType, str] = {OrderType.STOP_LIMIT: "STOP"}
+_ALGO_TYPE_NAMES: dict[OrderType, str] = {
+    OrderType.STOP_LIMIT: "STOP",
+    OrderType.STOP_MARKET: "STOP_MARKET",
+    OrderType.TAKE_PROFIT_MARKET: "TAKE_PROFIT_MARKET",
+}
+#: The types that fill at market once triggered: no limit price, no time in
+#: force.
+_MARKET_ON_TRIGGER = frozenset({OrderType.STOP_MARKET, OrderType.TAKE_PROFIT_MARKET})
 #: The read direction: Binance's conditional type names this app's enum
 #: spells differently. `TAKE_PROFIT` (a take-profit limit) has no member and
 #: reads as `OrderType.UNKNOWN`, the `BUG-091` idiom.
@@ -106,6 +117,8 @@ def map_order_to_futures_algo_params(
         raise InvalidOrderForSubmissionError(
             f"{order.order_type.name} is not sent through the Algo Order API."
         )
+    if order.order_type in _MARKET_ON_TRIGGER:
+        return _market_on_trigger_params(order, metadata, type_name)
     if order.stop_price is None or order.price is None:
         raise InvalidOrderForSubmissionError(
             "A stop-limit needs its stop price and its limit price."
@@ -125,6 +138,32 @@ def map_order_to_futures_algo_params(
         "price": str(order.price),
         "triggerPrice": str(order.stop_price),
         "timeInForce": order.time_in_force.value,
+        "workingType": _WORKING_TYPE_LAST_PRICE,
+        "reduceOnly": order.reduce_only,
+        "clientAlgoId": str(order.client_order_id),
+    }
+
+
+def _market_on_trigger_params(
+    order: Order, metadata: SymbolOrderMetadata, type_name: str
+) -> dict[str, Any]:
+    """A stop-market or take-profit-market: its trigger and quantity."""
+    if order.stop_price is None:
+        raise InvalidOrderForSubmissionError(
+            f"A {type_name} order needs its trigger price."
+        )
+    _require_multiple(
+        order.quantity, metadata.step_size_for(order.order_type), "quantity"
+    )
+    _require_multiple(order.stop_price, metadata.tick_size, "stop price")
+    return {
+        "algoType": ALGO_TYPE_CONDITIONAL,
+        "symbol": order.symbol,
+        "side": order.side.value,
+        "positionSide": _ONE_WAY_POSITION_SIDE,
+        "type": type_name,
+        "quantity": str(order.quantity),
+        "triggerPrice": str(order.stop_price),
         "workingType": _WORKING_TYPE_LAST_PRICE,
         "reduceOnly": order.reduce_only,
         "clientAlgoId": str(order.client_order_id),

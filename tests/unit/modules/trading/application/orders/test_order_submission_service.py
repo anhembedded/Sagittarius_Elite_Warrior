@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_preview import (
     OrderPreview,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose import (
+    OrderPurpose,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
 )
@@ -123,3 +126,30 @@ def test_a_quote_sized_request_reaches_the_query_whole() -> None:
     (query,) = dispatcher.dispatched
     assert isinstance(query, PreviewOrderQuery)
     assert query.quote_quantity == Decimal(1000)
+
+
+def test_a_protective_request_is_submitted_as_protective() -> None:
+    """`EPIC-028I` — the purpose is what exempts a take-profit or stop-loss
+    from the session limits; dropping it here would refuse the protection."""
+    dispatcher = _RecordingDispatcher()
+    service = OrderSubmissionService(dispatcher, TradingVenue.FUTURES_TESTNET)
+
+    service.submit(
+        OrderRequest(
+            symbol="BTCUSDT",
+            side=OrderSide.SELL,
+            order_type=OrderType.STOP_MARKET,
+            quantity=Decimal("0.01"),
+            reference_price=Decimal(63000),
+            reduce_only=True,
+            stop_price=Decimal(63000),
+            last_price=Decimal(64000),
+            purpose=OrderPurpose.PROTECTIVE,
+        ),
+        live=True,
+    )
+
+    (command,) = dispatcher.dispatched
+    assert isinstance(command, ExecuteOrderCommand)
+    assert command.purpose is OrderPurpose.PROTECTIVE
+    assert command.order_request.reduce_only is True

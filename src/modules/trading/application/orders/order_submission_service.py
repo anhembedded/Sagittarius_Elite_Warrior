@@ -106,6 +106,7 @@ class OrderSubmissionService(IOrderSubmission):
             order_request=_as_query(request, self._venue),
             live=live,
             owner_id=request.owner_id,
+            purpose=request.purpose,
         )
         response = self._dispatcher.dispatch(ExecuteOrderCommand, command)
         return _answered(response, ExecuteOrderResult)  # type: ignore[return-value]

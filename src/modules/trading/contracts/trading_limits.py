@@ -34,6 +34,10 @@ from datetime import timedelta
 from decimal import Decimal
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose import (
+    OrderPurpose,
+)
+
 
 class TradingLimitViolation(str, Enum):
     """@brief Which of the four limits blocked an order — named so a
@@ -68,6 +72,8 @@ class TradingLimitContext:
     order_notional: Decimal
     open_position_count_for_symbol: int
     time_since_last_order_for_symbol: timedelta | None
+    #: `EPIC-028I` — a protective order passes every limit (`OrderPurpose`).
+    purpose: OrderPurpose = OrderPurpose.ENTRY
 
 
 @dataclass(frozen=True)

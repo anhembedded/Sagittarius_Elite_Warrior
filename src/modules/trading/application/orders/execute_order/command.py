@@ -3,6 +3,9 @@ from dataclasses import dataclass
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_order.query import (
     PreviewOrderQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose import (
+    OrderPurpose,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     MANUAL_OWNER,
 )
@@ -35,6 +38,19 @@ class ExecuteOrderCommand:
     #: with the fewest privileges, so a command built without one is refused on
     #: a leased symbol instead of waved through.
     owner_id: str = MANUAL_OWNER
+    #: `EPIC-028I` — an execute-time concern like `owner_id`: whether the
+    #: trading limits apply (`OrderPurpose`).
+    purpose: OrderPurpose = OrderPurpose.ENTRY
+
+    def __post_init__(self) -> None:
+        """@throws ValueError a protective order that is not reduce-only:
+        the limits pass a protective order only because it cannot open a
+        position."""
+        if (
+            self.purpose is OrderPurpose.PROTECTIVE
+            and not self.order_request.reduce_only
+        ):
+            raise ValueError("a protective order must be reduce-only")
 
     @property
     def venue(self) -> TradingVenue:

@@ -547,16 +547,17 @@ class TestStopRejection:
 
     @pytest.mark.parametrize("live", [False, True], ids=["dry-run", "live"])
     def test_a_type_the_venue_cannot_send_is_refused_by_name(self, live: bool) -> None:
-        """The Futures client sends no `STOP_MARKET` (only the stop-limit goes
-        through the Algo Order API, `EPIC-028R`), so the dry run and the live
-        path both answer `NOT_SENDABLE_ON_VENUE` and nothing is sent — the
-        PR #302 review's should-fix 1: no clean dry run, no exception."""
+        """A type the Futures client cannot send (`UNKNOWN`, which only a
+        read produces; `STOP_MARKET` was this test's type until `EPIC-028I`
+        made it sendable) is refused on the dry run and the live path alike,
+        `NOT_SENDABLE_ON_VENUE`, and nothing is sent — the PR #302 review's
+        should-fix 1: no clean dry run, no exception."""
         raw_client = Mock()
         handler, state = _handler(raw_client=raw_client)
 
         result = handler.execute(
             ExecuteOrderCommand(
-                order_request=_order_request(order_type=OrderType.STOP_MARKET),
+                order_request=_order_request(order_type=OrderType.UNKNOWN),
                 live=live,
             )
         )

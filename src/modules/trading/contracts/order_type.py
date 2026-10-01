@@ -30,3 +30,10 @@ class OrderType(str, Enum):
     #: `OrderStatus.UNKNOWN` uses, for the same reason: a parser must
     #: never lose an update just because it can't name every field on it.
     UNKNOWN = "unknown"
+
+
+#: `EPIC-028I` — the types that wait for a trigger price (`stop_price`) and
+#: are judged against the last price before they are sent.
+TRIGGERED_ORDER_TYPES = frozenset(
+    {OrderType.STOP_LIMIT, OrderType.STOP_MARKET, OrderType.TAKE_PROFIT_MARKET}
+)
