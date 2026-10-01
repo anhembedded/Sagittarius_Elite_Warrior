@@ -47,10 +47,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_entry_terms i
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_rules_unavailable_error import (
     SymbolRulesUnavailableError,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
+    DEFAULT_TRADING_LIMITS,
+)
 
-#: The real default (`adapter_bindings.py`), so a test that does not care
-#: about the app's limit sees the figure a fresh install has.
-DEFAULT_ORDER_NOTIONAL_LIMIT = Decimal(500)
+#: The app's own fallback limit, so a test that does not care about the
+#: limit sees the figure the composition root would use.
+DEFAULT_ORDER_NOTIONAL_LIMIT = DEFAULT_TRADING_LIMITS.max_notional_per_order
 
 
 @dataclass(frozen=True)

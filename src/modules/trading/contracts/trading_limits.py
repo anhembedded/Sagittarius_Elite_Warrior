@@ -74,3 +74,15 @@ class TradingLimitContext:
 class TradingLimitCheck:
     violation: TradingLimitViolation
     passed: bool
+
+
+#: The thresholds the app falls back to when the configuration names none
+#: (`adapter_bindings.py`). One definition, so a test double that wants "the
+#: default limit" reads this instead of a copied literal (PR #303 review,
+#: finding 2).
+DEFAULT_TRADING_LIMITS = TradingLimits(
+    max_orders_per_session=20,
+    max_notional_per_order=Decimal(500),
+    max_positions_per_symbol=1,
+    min_order_interval=timedelta(seconds=60),
+)

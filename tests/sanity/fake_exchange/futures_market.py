@@ -31,6 +31,9 @@ _MARKS: dict[str, tuple[Decimal, Decimal]] = {
     "ETHUSDT": (Decimal("3200.00"), Decimal("0.01")),
 }
 
+#: The symbols the fake Futures market lists.
+LISTED_SYMBOLS = frozenset(_MARKS)
+
 #: Binance's answer for a symbol it does not list.
 INVALID_SYMBOL = (400, {"code": -1121, "msg": "Invalid symbol."})
 

@@ -14,7 +14,7 @@ The notional ceiling comes from the fake's bracket table
 
 from __future__ import annotations
 
-from .futures_market import max_notional
+from .futures_market import INVALID_SYMBOL, LISTED_SYMBOLS, max_notional
 
 _MAX_LEVERAGE = 125
 _DEFAULT_LEVERAGE = 20
@@ -42,17 +42,25 @@ class FuturesSymbolConfig:
         }
 
     def symbol_config(self, params: dict[str, str]) -> tuple[int, object]:
-        symbol = params["symbol"]
+        """`GET /fapi/v1/symbolConfig`: one row for `symbol`, every listed
+        symbol's row without one, Binance's `-1121` for an unlisted one
+        (PR #303 review, finding 3)."""
+        symbol = params.get("symbol")
+        if symbol is None:
+            return 200, [self._row(listed) for listed in sorted(LISTED_SYMBOLS)]
+        if symbol not in LISTED_SYMBOLS:
+            return INVALID_SYMBOL
+        return 200, [self._row(symbol)]
+
+    def _row(self, symbol: str) -> dict[str, object]:
         leverage = self._leverage.get(symbol, _DEFAULT_LEVERAGE)
-        return 200, [
-            {
-                "symbol": symbol,
-                "marginType": self._margin_type.get(symbol, _DEFAULT_MARGIN_TYPE),
-                "isAutoAddMargin": "false",
-                "leverage": leverage,
-                "maxNotionalValue": str(max_notional(leverage)),
-            }
-        ]
+        return {
+            "symbol": symbol,
+            "marginType": self._margin_type.get(symbol, _DEFAULT_MARGIN_TYPE),
+            "isAutoAddMargin": "false",
+            "leverage": leverage,
+            "maxNotionalValue": str(max_notional(leverage)),
+        }
 
     def change_margin_type(self, params: dict[str, str]) -> tuple[int, object]:
         symbol = params["symbol"]

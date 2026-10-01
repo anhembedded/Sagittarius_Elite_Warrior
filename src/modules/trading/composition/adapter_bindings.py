@@ -49,6 +49,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts im
     IVenueContexts,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
+    DEFAULT_TRADING_LIMITS,
     TradingLimits,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
@@ -130,19 +131,34 @@ def _build_venue_contexts(
 
 def _build_trading_limit_policy(container: IContainer) -> TradingLimitPolicy:
     config = container.resolve(IConfig)
+    defaults = DEFAULT_TRADING_LIMITS
     trading_limits = TradingLimits(
         max_orders_per_session=int(
-            config.get(ConfigKeys.TRADING_MAX_ORDERS_PER_SESSION.value, 20)
+            config.get(
+                ConfigKeys.TRADING_MAX_ORDERS_PER_SESSION.value,
+                defaults.max_orders_per_session,
+            )
         ),
         max_notional_per_order=Decimal(
-            str(config.get(ConfigKeys.TRADING_MAX_NOTIONAL_PER_ORDER_USDT.value, 500))
+            str(
+                config.get(
+                    ConfigKeys.TRADING_MAX_NOTIONAL_PER_ORDER_USDT.value,
+                    defaults.max_notional_per_order,
+                )
+            )
         ),
         max_positions_per_symbol=int(
-            config.get(ConfigKeys.TRADING_MAX_POSITIONS_PER_SYMBOL.value, 1)
+            config.get(
+                ConfigKeys.TRADING_MAX_POSITIONS_PER_SYMBOL.value,
+                defaults.max_positions_per_symbol,
+            )
         ),
         min_order_interval=timedelta(
             seconds=int(
-                config.get(ConfigKeys.TRADING_MIN_ORDER_INTERVAL_SECONDS.value, 60)
+                config.get(
+                    ConfigKeys.TRADING_MIN_ORDER_INTERVAL_SECONDS.value,
+                    int(defaults.min_order_interval.total_seconds()),
+                )
             )
         ),
     )

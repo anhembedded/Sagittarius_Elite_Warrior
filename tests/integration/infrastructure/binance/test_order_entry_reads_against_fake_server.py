@@ -63,6 +63,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "sanity"))
 from binance_fake_server import run_binance_fake_server
+from fake_exchange.server import FakeServerUrls
 
 
 class _Credentials(IExchangeCredentialsProvider):
@@ -77,13 +78,13 @@ class _Credentials(IExchangeCredentialsProvider):
 
 
 @contextmanager
-def _fake_exchange() -> Iterator[None]:
+def _fake_exchange() -> Iterator[FakeServerUrls]:
     with (
         run_binance_fake_server() as urls,
         patch.object(Client, "API_TESTNET_URL", urls.spot),
         patch.object(Client, "FUTURES_TESTNET_URL", urls.futures),
     ):
-        yield
+        yield urls
 
 
 def _control() -> FuturesAccountControl:
@@ -131,11 +132,35 @@ def test_the_brackets_arrive_in_order_with_their_maintenance_figures() -> None:
     assert brackets.bracket_for(Decimal(2_000_000)).initial_leverage == 10
 
 
-def test_brackets_for_an_unlisted_symbol_carry_the_exchanges_code() -> None:
+@pytest.mark.parametrize(
+    "read",
+    [
+        lambda control: control.symbol_setting("NOPEUSDT"),
+        lambda control: control.leverage_brackets("NOPEUSDT"),
+    ],
+    ids=["setting", "brackets"],
+)
+def test_an_unlisted_symbols_settings_carry_the_exchanges_code(read: object) -> None:
     with _fake_exchange(), pytest.raises(AccountControlRejectedError) as raised:
-        _control().leverage_brackets("NOPEUSDT")
+        read(_control())  # type: ignore[operator]
 
     assert raised.value.code == -1121
+
+
+def test_a_book_read_is_one_request_and_never_a_ping() -> None:
+    """PR #303 review, finding 1: the Spot public client pinged
+    `GET /api/v3/ping` on every construction, so every price-button click
+    was two round trips and failed on a ping failure."""
+    with _fake_exchange() as urls:
+        SpotBookTickerReader(SpotSessionFactory()).best_bid_ask("BTCUSDT")
+        FuturesBookTickerReader(FuturesSessionFactory()).best_bid_ask("BTCUSDT")
+        FuturesMarkPriceReader(FuturesSessionFactory()).mark_price("BTCUSDT")
+
+    assert urls.requests == [
+        ("GET", "/api/v3/ticker/bookTicker"),
+        ("GET", "/fapi/v1/ticker/bookTicker"),
+        ("GET", "/fapi/v1/premiumIndex"),
+    ]
 
 
 def test_the_futures_mark_price_is_read_for_a_flat_symbol() -> None:
