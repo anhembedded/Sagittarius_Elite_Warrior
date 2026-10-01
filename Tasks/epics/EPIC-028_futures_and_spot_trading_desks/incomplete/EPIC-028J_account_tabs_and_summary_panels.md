@@ -5,7 +5,7 @@
 **Risk:** 🟡 — reuses the existing tables; the change is loading them from queries, not only events
 **Complexity:** M — two panels, reuse `ui/order_book/`
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028D](EPIC-028D_account_summary_reader.md), [EPIC-028E](EPIC-028E_open_orders_and_history_readers.md)
+**Depends on:** [EPIC-028D](../completed/EPIC-028D_account_summary_reader.md), [EPIC-028E](../completed/EPIC-028E_open_orders_and_history_readers.md)
 
 ---
 

@@ -5,7 +5,7 @@
 **Risk:** 🟡 — a new route and surface; the old screen stays until `EPIC-028M`
 **Complexity:** M — composition only; every part exists by now
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028C](EPIC-028C_both_venues_running_concurrently.md), [EPIC-028I](EPIC-028I_futures_order_entry_variant.md), [EPIC-028J](EPIC-028J_account_tabs_and_summary_panels.md)
+**Depends on:** [EPIC-028C](../completed/EPIC-028C_both_venues_running_concurrently.md), [EPIC-028I](EPIC-028I_futures_order_entry_variant.md), [EPIC-028J](EPIC-028J_account_tabs_and_summary_panels.md)
 
 ---
 
