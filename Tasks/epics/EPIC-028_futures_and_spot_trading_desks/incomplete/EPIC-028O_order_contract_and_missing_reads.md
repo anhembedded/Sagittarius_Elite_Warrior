@@ -1,6 +1,6 @@
 # EPIC-028O — The order path carries every order the desks offer, and the panels can read every figure they show
 
-**Status:** 🟡 In progress (2026-10-01) — PR-1 merged in #302; PR-2 (the reads) in review; PR-3 and PR-4 to do
+**Status:** 🟡 In progress (2026-10-01) — PR-1 merged in #302, PR-2 merged in #303; PR-3 (fake Futures fills, Multi-Assets mode) in review; PR-4 to do
 **Source:**
 - ADR O3: the user, 2026-09-29, stop-limit on both desks (`STOP_LOSS_LIMIT` on Spot, `STOP` on Futures).
 - Split out of [EPIC-028H](../completed/EPIC-028H_order_entry_panel_core_and_spot.md) on 2026-09-30.
@@ -37,13 +37,13 @@ The epic-level review found that 028H–N cannot be executed as written, because
   Spot answers the leverage, bracket and mark reads with "not applicable", never an invented value.
 - [ ] Both desk profiles offer the Stop-limit tab with a stop-price field. The Spot market buy sizes by quote amount. The price button can fill the best bid or ask.
 - [ ] Every maximum also respects the app's per-order notional limit.
-- [ ] Moved from [EPIC-028Q](../completed/EPIC-028Q_phase_2_reader_fixes.md): the fake Futures exchange fills a market order and returns it from `userTrades`, so a Futures fill, its trade history and its average entry price are exercised end to end. Existing tests that rely on the fake never filling are updated in the same change.
-- [ ] Moved from EPIC-028Q: the Futures account reader reads Multi-Assets mode (`GET /fapi/v1/multiAssetsMargin`), and the desk's available balance names the margin it counts when the mode is on.
+- [x] Moved from [EPIC-028Q](../completed/EPIC-028Q_phase_2_reader_fixes.md): the fake Futures exchange fills a market order and returns it from `userTrades`, so a Futures fill, its trade history and its average entry price are exercised end to end. Existing tests that rely on the fake never filling are updated in the same change. *(PR-3)*
+- [x] Moved from EPIC-028Q: the Futures account reader reads Multi-Assets mode (`GET /fapi/v1/multiAssetsMargin`), and the desk's available balance names the margin it counts when the mode is on. *(PR-3; the summary carries `asset_mode` and the CLI status names it. The desk panel showing it is `EPIC-028J`.)*
 
 ## 3. Design
 **Four pull requests**, each reviewed on its own, because each changes a different layer and each is useful alone:
 1. **PR-1, the order contract** (acceptance criteria 1–4). Merged in #302.
-2. **PR-2, the reads** (criterion 5).
+2. **PR-2, the reads** (criterion 5). Merged in #303.
 3. **PR-3, the fake Futures fills and Multi-Assets mode** (criteria 8 and 9).
 4. **PR-4, the desk UI** (criteria 6 and 7).
 
@@ -86,6 +86,26 @@ The plan had three; on 2026-10-01 the reads were split from the fake's fills and
 - **Answer shapes.** `leverageBracket?symbol=` answers one object, and a list without a symbol; the parser accepts both and picks the asked symbol's row, so a list can never hand back another symbol's brackets. Every reader also checks the answer's symbol. Shapes follow Binance's documentation and the installed `python-binance` 1.0.37's paths; no live call verified them (egress to `*.binance.*` is blocked here).
 - **Fake exchange.** `GET /fapi/v1/symbolConfig` (Binance's defaults for a new account, 20x cross, until changed), `leverageBracket` (one five-bracket table shaped like Binance's `BTCUSDT` table), `premiumIndex` and `ticker/bookTicker` (fixed per symbol), and Spot `GET /api/v3/ticker/bookTicker` (a cent either side of the last price, so a test that moves the price moves the book). The leverage change now answers its `maxNotionalValue` from the same bracket table; leverage 10 still answers 10 000 000.
 
+### PR-3 — the fake's Futures fills and Multi-Assets mode (built)
+- **The fake Futures account** (`tests/sanity/fake_exchange/futures_account_state.py`) holds a USDT wallet (15 000), one-way positions and a Multi-Assets flag.
+  - A `MARKET` order fills at once at the fixed book: a buy at the ask, a sell at the bid. It answers `FILLED` with `avgPrice`, never rests, is remembered as filled for `allOrders`, and books one `userTrades` row with its fee and `realizedPnl`.
+  - A fill charges 0.05 % taker on its notional and opens, adds to (volume-weighted entry), reduces (realizing `(fill − entry) × closed`, sign flipped for a short) or flips the position.
+  - `account` and `positionRisk` (v3 shape, signed `notional`) report the wallet, the positions and the margin at the mark and the symbol's leverage.
+  - A reduce-only order with nothing to reduce is refused with Binance's `-2022`; one larger than the position closes it.
+  - Not modelled: liquidation, funding, maintenance checks, resting-order fills and the user-data stream's fill events.
+- **Tests that relied on the fake never filling** were changed to the behaviour they meant:
+  - the open-and-cancel lifecycle tests now use a resting limit order;
+  - the pipeline tests read what reached the exchange from `allOrders`, since a filled order is not in `openOrders`;
+  - the "a sell signal closes a long" test opens the long on the fake first, because a reduce-only order with nothing to reduce is now refused, as on Binance;
+  - "positions are always flat" became "a filled market order becomes a position".
+- **Found by the first short the fake filled:** `positionRisk` v3 signs `notional`, so `_leverage_from_margin` read a 20x short as -20x. It now takes the absolute value. A unit test covers it, and the integration test reads a short's leverage as 20.
+- **Multi-Assets mode.**
+  - `FuturesAccountReader` reads `GET /fapi/v1/multiAssetsMargin` with each check.
+  - In Multi-Assets mode the summary takes the account-wide `availableBalance`, `totalWalletBalance`, `totalMarginBalance` and `totalUnrealizedProfit` (USD, every margin asset) instead of the USDT row.
+  - `FuturesAccountSummary.asset_mode` (`AssetMode`) says which figures it holds. The default, `SINGLE_ASSET`, is the only mode the reader knew before.
+  - A mode that cannot be read leaves the summary `None` and warns once. The connection itself stays healthy, because guessing the mode would label one figure as the other.
+  - The CLI status says "Available (USD, all assets)" in that mode.
+
 ## 4. Changes, per file (PR-1)
 | File | Change |
 | :--- | :--- |
@@ -113,6 +133,14 @@ The plan had three; on 2026-10-01 the reads were split from the fake's fills and
 | `src/modules/trading/application/orders/order_entry_terms_service.py` · `composition/venue_assembly.py` · `query_bindings.py` | the service's five reads; the readers built per venue; the handlers bound |
 | `src/modules/trading/contracts/testing/` | `FakeOrderEntryTerms` seeded per symbol (`FuturesReads`); unarranged stand-ins for the new ports |
 | `tests/sanity/fake_exchange/futures_market.py` · `futures_symbol_config.py` · `futures_routes.py` · `spot_routes.py` · `spot_account_state.py` | the read routes |
+
+## 4c. Changes, per file (PR-3)
+| File | Change |
+| :--- | :--- |
+| `tests/sanity/fake_exchange/futures_account_state.py` (new) · `order_book_state.py` · `futures_routes.py` · `futures_market.py` · `futures_symbol_config.py` · `server.py` | market fills, wallet and positions; `account`, `positionRisk`, `multiAssetsMargin` from state; `-2022`; `FakeServerUrls.futures_book` |
+| `src/modules/trading/contracts/account_summary.py` · `adapters/binance/futures_account_reader.py` · `support/binance_gateway/contracts/i_trading_session_factory.py` | `AssetMode`, `asset_mode`; the Multi-Assets read and the account-wide figures |
+| `src/modules/trading/adapters/binance/futures_order_payload_mapper.py` | a short's leverage is positive |
+| `src/presentation/cli/exchange_status_formatter.py` | names the margin the available balance counts |
 
 ## 5. Testing (PR-1)
 - **Units.**
@@ -145,6 +173,22 @@ The plan had three; on 2026-10-01 the reads were split from the fake's fills and
 
   Four mutations of these fixes, all killed.
 - **Runs:** `tests/unit` + `tests/integration` green; ruff and mypy green.
+
+## 5c. Testing (PR-3)
+- **Units:**
+  - **The fake's account rules at chosen prices:** weighted entry, a partial close, closing a short at a loss, a flip, the fee and PnL in the wallet, and a short's signed notional.
+  - **The reader:** Multi-Assets figures, no USDT row needed in that mode, and an unreadable mode (no answer, not a boolean, missing field) giving no summary while the account stays reachable.
+  - **The mapper:** a short's leverage.
+  - **The CLI label.**
+- **Integration** (`test_futures_fills_against_fake_server.py`, the real adapters and `python-binance` over HTTP):
+  - a fill reads back `FILLED` with its trade and fee;
+  - two buys average their entry, and a reduce-only close is capped at the position and realizes the difference;
+  - the wallet moves by fees plus PnL;
+  - an open long shows its unrealized PnL and initial margin;
+  - a reduce-only order with nothing to reduce is refused;
+  - a Multi-Assets account is read from its account-wide figures.
+- **Mutation:** 15 mutations of the reader, mapper and fake (the mode flip and its boolean check, the figure keys, the absolute notional, the fill side, the weighted entry, the PnL sign, the flip, the fee, available less margin, the signed notional, the reduce-only refusal and cap, the trade row), all killed.
+- **Runs:** `tests/unit` + `tests/integration` + `tests/sanity` green; ruff and mypy green.
 
 ## Implementation notes (written when done)
 Not started.
