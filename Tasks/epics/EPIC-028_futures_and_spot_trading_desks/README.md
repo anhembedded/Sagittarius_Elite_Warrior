@@ -72,7 +72,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 | [EPIC-028G](completed/EPIC-028G_order_estimate_policies.md) | Max quantity, cost, fee, liquidation estimate as domain policies | Elite | D, F | 🟢 | ✅ Done (2026-10-01) |
 | **Phase 3 — Shared desk kit** | | | | | |
 | [EPIC-028H](completed/EPIC-028H_order_entry_panel_core_and_spot.md) | `DeskProfile` + order-entry panel core + Spot variant | Elite | G | 🟡 | ✅ Done (2026-10-01) |
-| [EPIC-028O](incomplete/EPIC-028O_order_contract_and_missing_reads.md) | Order contract end to end (stop price, TIF, quote quantity, stop-limit on both venues); reads for leverage, brackets, mark, best bid/ask, the app's notional limit | Elite | H, O3 | 🔴 | Planned |
+| [EPIC-028O](incomplete/EPIC-028O_order_contract_and_missing_reads.md) | Order contract end to end (stop price, TIF, quote quantity, stop-limit on both venues); reads for leverage, brackets, mark, best bid/ask, the app's notional limit | Elite | H, O3 | 🔴 | 🟡 PR-1 merged (#302), PR-2 in review |
 | [EPIC-028P](completed/EPIC-028P_dual_venue_isolation_test.md) | Phase 1 evidence: both venues in one process against one fake exchange | Elite | C | 🟢 | ✅ Done (2026-10-01) |
 | [EPIC-028Q](completed/EPIC-028Q_phase_2_reader_fixes.md) | Phase 2 reader fixes: history gaps disclosed, closed trades found, errors translated, stale balance marked | Elite | E, F | 🟡 | ✅ Done (2026-10-01) |
 | [EPIC-028R](incomplete/EPIC-028R_futures_conditional_orders_via_algo_api.md) | Futures conditional orders through Binance's Algo Order API: sent with the app's client id, listed, cancelled, cancelled by Emergency Stop | Elite | O | 🔴 | Planned |
