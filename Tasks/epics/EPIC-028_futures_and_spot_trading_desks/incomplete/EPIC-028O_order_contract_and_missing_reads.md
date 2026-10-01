@@ -138,6 +138,12 @@ The plan had three; on 2026-10-01 the reads were split from the fake's fills and
   - Wiring: each venue's `VenueContext` holds its own readers, Spot no mark-price reader; the architecture guard lists the three new adapters as built only by `VenueAssembly`.
 - **Integration** (`test_order_entry_reads_against_fake_server.py`, real adapters and `python-binance` over HTTP): the default setting, the setting read back after a change, the brackets in order with their maintenance figures, an unlisted symbol's brackets refused with `-1121`, the mark price of a flat symbol, each venue's own book, an unlisted symbol on each price read.
 - **Mutation:** 15 mutations of the new conditions (the three `NotApplicable` branches, the bracket boundary, the gap check, `max_leverage`, the parser's symbol pick and sort, both symbol checks, `has_bid`, the Spot mark-price absence, the service's pass-through, the fake's bracket rule, the symbol parameter sent), all killed.
+- **Review (PR #303, independent session): PASS, with two should-fix items and one nit, all fixed.**
+  1. The Spot public client pinged `GET /api/v3/ping` on every construction, which doubled a per-click book read and failed it whenever the ping failed. It is now built without the ping, mirroring `_futures_client` (`EPIC-028P`). An integration test asserts that the three price reads are exactly three requests. The client is still built per read, like every other adapter here: a cached `requests.Session` shared across worker threads is not documented as thread-safe.
+  2. The fake's default notional limit was a copied `500`. `DEFAULT_TRADING_LIMITS` in `trading_limits.py` is now the one definition: the composition root falls back to it, the fake reads it, and a test locks both.
+  3. The fake's `symbolConfig` answered a row for an unlisted symbol. It now answers `-1121` for one, as the bracket, mark and book routes do, and every listed symbol's row when no symbol is named.
+
+  Four mutations of these fixes, all killed.
 - **Runs:** `tests/unit` + `tests/integration` green; ruff and mypy green.
 
 ## Implementation notes (written when done)
