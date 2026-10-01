@@ -79,6 +79,8 @@ class ITradingSessionClient(Protocol):
 
     def futures_commission_rate(self, **params: Any) -> dict[str, Any]: ...
 
+    def futures_income_history(self, **params: Any) -> list[dict[str, Any]]: ...
+
 
 class ITradingSessionFactory(ABC):
     """Port for the one place allowed to mint a signed trading session for

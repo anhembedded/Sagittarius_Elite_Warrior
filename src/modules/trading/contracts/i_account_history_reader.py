@@ -30,6 +30,11 @@ each of them, and a page request reads the span again, so a caller that pages
 through "every symbol" owns the aggregate cost (the PR #297 re-review,
 finding 2; `EPIC-028J` carries it as an acceptance criterion).
 
+**Gaps are stated, not hidden** (`EPIC-028Q`). What the exchange does not
+return at all (Futures' 3-day purge of unfilled cancelled orders, Spot's lack
+of a traded-pairs index) is `known_gaps()`, which the history queries put on
+each page.
+
 Plausible extensions, each one method or one implementation behind this
 port: a COIN-M reader; funding and income history (`/fapi/v1/income`);
 Futures position history once Binance exposes one; a caching decorator for
@@ -41,6 +46,9 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import (
+    HistoryGaps,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
 )
@@ -68,7 +76,15 @@ class IAccountHistoryReader(ABC):
         first. Raises as `order_history` does."""
 
     @abstractmethod
-    def active_symbols(self) -> tuple[str, ...]:
-        """@brief The pairs the account holds or has an open order on, the
-        pairs a history of "every symbol" covers. Sorted.
+    def active_symbols(self, since: datetime) -> tuple[str, ...]:
+        """@brief The pairs a history of "every symbol" covers: those the
+        account holds or has an open order on, plus every pair the venue can
+        tell was traded from `since` on. Sorted. What a venue cannot tell is
+        in `known_gaps().every_symbol`.
+        @throws ValueError `since` is older than `MAX_HISTORY_LOOKBACK`.
         @throws AccountHistoryUnavailableError The exchange did not answer."""
+
+    @abstractmethod
+    def known_gaps(self) -> HistoryGaps:
+        """@brief What this venue's history cannot show (`HistoryGaps`). No
+        network read."""

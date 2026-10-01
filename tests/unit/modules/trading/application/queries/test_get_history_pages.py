@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_trade
     GetTradeHistoryQuery,
     GetTradeHistoryQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import (
+    HistoryGaps,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_page import (
     HISTORY_PAGE_SIZE,
     HistoryPage,
@@ -148,6 +151,59 @@ def test_rows_older_than_since_are_left_out() -> None:
     )
 
     assert [row.trade_id for row in page.rows] == [10]
+
+
+def test_every_symbol_finds_pairs_traded_since_the_requested_time_only() -> None:
+    """`EPIC-028Q` — the handler asks the reader for the pairs active since
+    the query's own `since`, so a pair traded before it is not scanned."""
+    reader = FakeAccountHistoryReader(
+        trades=[contract_trade("ETHUSDT", 1), contract_trade("BTCUSDT", 9)],
+        now=CONTRACT_NOW,
+    )
+
+    page = GetTradeHistoryQueryHandler(_contexts(reader, reader)).execute(
+        GetTradeHistoryQuery(
+            venue=_FUTURES, symbol=None, since=_SINCE + timedelta(hours=5)
+        )
+    )
+
+    assert page.scanned_symbols == ("BTCUSDT",)
+
+
+_GAPS = HistoryGaps(order_history=("orders gap",), every_symbol=("pairs gap",))
+
+
+@pytest.mark.parametrize(
+    ("symbol", "notices"),
+    [("BTCUSDT", ("orders gap",)), (None, ("orders gap", "pairs gap"))],
+)
+def test_order_pages_state_the_venues_gaps(
+    symbol: str | None, notices: tuple[str, ...]
+) -> None:
+    """`EPIC-028Q` — the every-pair gap is shown only on an every-pair page."""
+    reader = FakeAccountHistoryReader(now=CONTRACT_NOW, gaps=_GAPS)
+
+    page = GetOrderHistoryQueryHandler(_contexts(reader, reader)).execute(
+        GetOrderHistoryQuery(venue=_FUTURES, symbol=symbol, since=_SINCE)
+    )
+
+    assert page.notices == notices
+
+
+@pytest.mark.parametrize(
+    ("symbol", "notices"), [("BTCUSDT", ()), (None, ("pairs gap",))]
+)
+def test_trade_pages_state_only_the_every_symbol_gap(
+    symbol: str | None, notices: tuple[str, ...]
+) -> None:
+    """A fill is never purged, so a trade page carries no order gap."""
+    reader = FakeAccountHistoryReader(now=CONTRACT_NOW, gaps=_GAPS)
+
+    page = GetTradeHistoryQueryHandler(_contexts(reader, reader)).execute(
+        GetTradeHistoryQuery(venue=_SPOT, symbol=symbol, since=_SINCE)
+    )
+
+    assert page.notices == notices
 
 
 @pytest.mark.parametrize("query_type", [GetOrderHistoryQuery, GetTradeHistoryQuery])

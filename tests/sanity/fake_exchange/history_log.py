@@ -69,13 +69,37 @@ class HistoryLog:
     def remember_trade(self, trade: dict[str, Any]) -> None:
         self._trades.append(trade)
 
-    def orders(self, query: HistoryQuery) -> list[dict[str, Any]]:
+    def orders(
+        self, query: HistoryQuery, *, purge_unfilled_after_ms: int | None = None
+    ) -> list[dict[str, Any]]:
+        """@param purge_unfilled_after_ms `EPIC-028Q` — Binance's Futures
+        rule: a CANCELED or EXPIRED order with no fill, created longer ago
+        than this, is no longer returned. `None` (Spot) keeps every order."""
         rows = [
             order
             for order in self._orders.values()
-            if order["symbol"] == query.symbol and query.covers(order["time"])
+            if order["symbol"] == query.symbol
+            and query.covers(order["time"])
+            and not _purged(order, purge_unfilled_after_ms)
         ]
         return rows[: query.limit]
+
+    def income(self, start_ms: int, end_ms: int, limit: int) -> list[dict[str, Any]]:
+        """`EPIC-028Q` — `GET /fapi/v1/income`: one COMMISSION row per fill in
+        the span, every symbol, the shape Binance documents."""
+        rows = [
+            {
+                "symbol": trade["symbol"],
+                "incomeType": "COMMISSION",
+                "income": f"-{trade['commission']}",
+                "asset": trade.get("commissionAsset", "USDT"),
+                "time": trade["time"],
+                "tranId": trade["id"],
+            }
+            for trade in self._trades
+            if start_ms <= trade["time"] <= end_ms
+        ]
+        return rows[: min(limit, _MAX_LIMIT)]
 
     def trades(self, query: HistoryQuery) -> list[dict[str, Any]]:
         rows = [
@@ -84,3 +108,11 @@ class HistoryLog:
             if trade["symbol"] == query.symbol and query.covers(trade["time"])
         ]
         return rows[: query.limit]
+
+
+def _purged(order: dict[str, Any], purge_unfilled_after_ms: int | None) -> bool:
+    if purge_unfilled_after_ms is None:
+        return False
+    unfilled = float(order.get("executedQty", "0")) == 0
+    ended = order.get("status") in {"CANCELED", "EXPIRED"}
+    return unfilled and ended and now_ms() - order["time"] > purge_unfilled_after_ms

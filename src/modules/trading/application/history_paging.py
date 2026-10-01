@@ -22,10 +22,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_page import
 
 @dataclass(frozen=True)
 class PageRequest:
-    """Which page, and which symbols the rows were read from."""
+    """Which page, which symbols the rows were read from, and what the
+    history cannot show."""
 
     page: int
     scanned_symbols: tuple[str, ...]
+    notices: tuple[str, ...] = ()
 
 
 def newest_first_page[T](
@@ -40,4 +42,5 @@ def newest_first_page[T](
         page=request.page,
         total_rows=len(ordered),
         scanned_symbols=request.scanned_symbols,
+        notices=request.notices,
     )

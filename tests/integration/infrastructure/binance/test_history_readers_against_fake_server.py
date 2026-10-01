@@ -168,7 +168,7 @@ def test_spot_active_symbols_are_the_listed_pairs_of_what_the_account_holds() ->
     with _fake_exchange():
         _, history = _spot()
 
-        assert history.active_symbols() == ("BTCUSDT", "ETHUSDT")
+        assert history.active_symbols(_week_ago()) == ("BTCUSDT", "ETHUSDT")
 
 
 def test_a_canceled_futures_order_reads_back_and_there_are_no_fills() -> None:
@@ -182,7 +182,7 @@ def test_a_canceled_futures_order_reads_back_and_there_are_no_fills() -> None:
         )
         history = FuturesHistoryReader(sessions, _Credentials())
         trading.place_order(_order("SEW-hist-fut-lim01", OrderType.LIMIT))
-        active_while_open = history.active_symbols()
+        active_while_open = history.active_symbols(_week_ago())
         trading.cancel_order("BTCUSDT", "SEW-hist-fut-lim01")
 
         rows = history.order_history("BTCUSDT", _week_ago())

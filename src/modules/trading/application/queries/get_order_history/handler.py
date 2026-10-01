@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.history_paging im
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_order_history.query import (
     GetOrderHistoryQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import (
+    HistoryGaps,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_page import (
     HistoryPage,
 )
@@ -31,6 +34,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import
 logger = logging.getLogger("App.QueryHandler")
 
 
+def _notices(gaps: HistoryGaps, *, every_symbol: bool) -> tuple[str, ...]:
+    """`EPIC-028Q` — the venue's order-history gaps, and its every-symbol
+    gaps when the page covers every symbol."""
+    return gaps.order_history + (gaps.every_symbol if every_symbol else ())
+
+
 class GetOrderHistoryQueryHandler(
     IQueryHandler[GetOrderHistoryQuery, HistoryPage[OrderRecord]]
 ):
@@ -39,7 +48,9 @@ class GetOrderHistoryQueryHandler(
 
     def execute(self, query: GetOrderHistoryQuery) -> HistoryPage[OrderRecord]:
         reader = self._contexts.get(query.venue).history_reader
-        symbols = (query.symbol,) if query.symbol else reader.active_symbols()
+        symbols = (
+            (query.symbol,) if query.symbol else reader.active_symbols(query.since)
+        )
         logger.debug(
             "Handling GetOrderHistoryQuery on %s: %s since %s, page %d",
             query.venue.value,
@@ -55,5 +66,9 @@ class GetOrderHistoryQueryHandler(
         return newest_first_page(
             rows,
             lambda row: (row.created_at, row.order.client_order_id),
-            PageRequest(page=query.page, scanned_symbols=symbols),
+            PageRequest(
+                page=query.page,
+                scanned_symbols=symbols,
+                notices=_notices(reader.known_gaps(), every_symbol=not query.symbol),
+            ),
         )

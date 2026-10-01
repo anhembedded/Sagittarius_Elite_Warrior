@@ -8,9 +8,10 @@ Three guarantees, each one a consumer depends on:
 2. **from `since` on, oldest first.** Paging newest-first
    (`GetOrderHistoryQuery`) and the average-cost walk
    (`average_entry_price`) both rely on the order and the lower bound;
-3. **active symbols are sorted and name every symbol the history has
-   rows for,** so "every pair" never silently leaves out a pair the reader
-   itself returned rows for;
+3. **active symbols are sorted and name every symbol with a fill from
+   `since` on,** so "every pair" never silently leaves out a pair the reader
+   itself returned fills for. A pair with only unfilled orders may be
+   missing; a real venue says so in `known_gaps()` (`EPIC-028Q`);
 4. **at most `MAX_HISTORY_LOOKBACK` back.** A `since` further back is refused
    with `ValueError`; one exactly at the bound is read. A consumer test must
    not pass on a span the real readers refuse.
@@ -152,17 +153,28 @@ class AccountHistoryReaderContract:
             ("BTCUSDT", 20),
         ]
 
-    def test_active_symbols_are_sorted_and_cover_the_rows_it_returns(
+    def test_active_symbols_are_sorted_and_cover_the_fills_since(
         self, given_history: GivenHistory
     ) -> None:
         reader = given_history(
-            [contract_order("SOLUSDT", 1)], [contract_trade("BTCUSDT", 1)]
+            [contract_order("SOLUSDT", 1)],
+            [contract_trade("BTCUSDT", 10), contract_trade("ETHUSDT", 30)],
         )
 
-        active = reader.active_symbols()
+        active = reader.active_symbols(_START + timedelta(hours=5))
 
         assert list(active) == sorted(active)
-        assert {"SOLUSDT", "BTCUSDT"} <= set(active)
+        assert {"BTCUSDT", "ETHUSDT"} <= set(active)
+
+    def test_active_symbols_refuse_a_since_past_the_lookback(
+        self, given_history: GivenHistory
+    ) -> None:
+        reader = given_history([], [])
+
+        with pytest.raises(ValueError):
+            reader.active_symbols(
+                CONTRACT_NOW - MAX_HISTORY_LOOKBACK - timedelta(seconds=1)
+            )
 
     def test_a_since_past_the_lookback_is_refused(
         self, given_history: GivenHistory

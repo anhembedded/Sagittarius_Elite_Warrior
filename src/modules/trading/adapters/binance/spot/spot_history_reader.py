@@ -13,6 +13,10 @@ assets with no USDT pair, and asking `myTrades` for one is an error, not an
 empty answer. `ListedSymbols` answers it without downloading the catalog once
 per unlisted asset.
 
+No Spot endpoint lists the pairs an account traded, so a pair sold out
+completely, with no balance and no open order left, cannot be found; that
+limit is `known_gaps()` rather than a silent omission (`EPIC-028Q`).
+
 Payload shapes and limits follow Binance's documented Spot API, with the
 same live-call disclosure as `spot_account_reader.py`.
 """
@@ -41,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_hi
     map_spot_history_order,
     map_spot_trade,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import (
+    HistoryGaps,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
     IAccountHistoryReader,
 )
@@ -62,6 +69,14 @@ _QUOTE_ASSET = "USDT"
 _ROW_LIMIT = 1000
 _RULES = HistoryWindowRules(max_span_ms=24 * 60 * 60 * 1000, limit=_ROW_LIMIT)
 _VENUE = "Spot"
+_GAPS = HistoryGaps(
+    every_symbol=(
+        (
+            "A Spot pair sold out completely, with no balance and no open order "
+            "left, is not found when reading every pair; choose the pair to see it."
+        ),
+    ),
+)
 
 
 def _held_assets(account: dict[str, Any]) -> set[str]:
@@ -122,7 +137,10 @@ class SpotHistoryReader(IAccountHistoryReader):
             )
             return tuple(map_spot_trade(row) for row in rows)
 
-    def active_symbols(self) -> tuple[str, ...]:
+    def active_symbols(self, since: datetime) -> tuple[str, ...]:
+        # `since` is checked, not used: no Spot endpoint answers "traded
+        # since" (see `known_gaps`).
+        span_ms(since, self._clock())
         with history_read_failures(f"{_VENUE} active symbols could not be read"):
             client = self._client()
             account: dict[str, Any] = client.get_account()
@@ -131,6 +149,9 @@ class SpotHistoryReader(IAccountHistoryReader):
                 f"{asset}{_QUOTE_ASSET}" for asset in _held_assets(account)
             )
             return tuple(sorted(listed | {row["symbol"] for row in open_orders}))
+
+    def known_gaps(self) -> HistoryGaps:
+        return _GAPS
 
     def _client(self) -> ISpotSessionClient:
         return self._session_factory.create_account_client(
