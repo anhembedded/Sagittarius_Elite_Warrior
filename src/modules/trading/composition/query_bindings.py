@@ -19,6 +19,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_avera
     GetAverageEntryPriceQuery,
     GetAverageEntryPriceQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_best_bid_ask import (
+    GetBestBidAskQuery,
+    GetBestBidAskQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_commission_rate import (
     GetCommissionRateQuery,
     GetCommissionRateQueryHandler,
@@ -27,9 +31,21 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_excha
     GetExchangeConnectionStatusQuery,
     GetExchangeConnectionStatusQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_futures_symbol_setting import (
+    GetFuturesSymbolSettingQuery,
+    GetFuturesSymbolSettingQueryHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_holdings import (
     GetHoldingsQuery,
     GetHoldingsQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_leverage_brackets import (
+    GetLeverageBracketsQuery,
+    GetLeverageBracketsQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_mark_price import (
+    GetMarkPriceQuery,
+    GetMarkPriceQueryHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_orders import (
     GetOpenOrdersQuery,
@@ -42,6 +58,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_open_
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_order_history import (
     GetOrderHistoryQuery,
     GetOrderHistoryQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_order_notional_limit import (
+    GetOrderNotionalLimitQuery,
+    GetOrderNotionalLimitQueryHandler,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_symbol_order_rules import (
     GetSymbolOrderRulesQuery,
@@ -69,3 +89,9 @@ def bind_queries(container: IContainer) -> None:
     container.bind(GetAverageEntryPriceQuery, GetAverageEntryPriceQueryHandler)
     container.bind(GetCommissionRateQuery, GetCommissionRateQueryHandler)
     container.bind(GetSymbolOrderRulesQuery, GetSymbolOrderRulesQueryHandler)
+    # EPIC-028O: the reads the desks size orders and show figures with.
+    container.bind(GetFuturesSymbolSettingQuery, GetFuturesSymbolSettingQueryHandler)
+    container.bind(GetLeverageBracketsQuery, GetLeverageBracketsQueryHandler)
+    container.bind(GetMarkPriceQuery, GetMarkPriceQueryHandler)
+    container.bind(GetBestBidAskQuery, GetBestBidAskQueryHandler)
+    container.bind(GetOrderNotionalLimitQuery, GetOrderNotionalLimitQueryHandler)

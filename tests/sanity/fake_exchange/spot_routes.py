@@ -10,6 +10,7 @@ future `EPIC-027K` order path) call, verified by reading `python-binance`'s
     GET    /api/v3/openOrders       `get_open_orders()`
     GET    /api/v3/allOrders        `get_all_orders()` (`EPIC-028E`)
     GET    /api/v3/myTrades         `get_my_trades()` (`EPIC-028E`)
+    GET    /api/v3/ticker/bookTicker  `get_orderbook_ticker()` (`EPIC-028O`)
     POST   /api/v3/order/test       `create_test_order()`
     POST   /api/v3/order            `create_order()` (`EPIC-027K`)
     DELETE /api/v3/order            `cancel_order()`
@@ -182,6 +183,11 @@ def _handle_get(
         return 200, state.open_orders(params.get("symbol"))
     if path in {"/api/v3/allOrders", "/api/v3/myTrades"}:
         return _history(path, HistoryQuery.parse(params), state)
+    if path == "/api/v3/ticker/bookTicker":
+        book = state.book_ticker(params.get("symbol", ""))
+        if book is None:
+            return 400, {"code": -1121, "msg": "Invalid symbol."}
+        return 200, book
     return None
 
 

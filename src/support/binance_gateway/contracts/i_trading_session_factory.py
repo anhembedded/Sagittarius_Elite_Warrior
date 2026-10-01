@@ -81,6 +81,12 @@ class ITradingSessionClient(Protocol):
 
     def futures_income_history(self, **params: Any) -> list[dict[str, Any]]: ...
 
+    def futures_symbol_config(self, **params: Any) -> list[dict[str, Any]]: ...
+
+    def futures_leverage_bracket(
+        self, **params: Any
+    ) -> dict[str, Any] | list[dict[str, Any]]: ...
+
 
 class ITradingSessionFactory(ABC):
     """Port for the one place allowed to mint a signed trading session for

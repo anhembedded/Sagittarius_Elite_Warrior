@@ -10,8 +10,9 @@ arranges. The two ports a consumer outside `trading` reads default to their
 own verified fakes (`FakeMarketMetadataProvider`,
 `FakeTradingAccountReader`, both answering "nothing known" until seeded);
 every other slot holds a stand-in that fails the test if it is reached
-(`unarranged_venue_ports.py`). A Spot venue's `account_control` is `None`, as
-`VenueAssembly` builds it: Spot has no leverage or margin mode.
+(`unarranged_venue_ports.py`). A Spot venue's `account_control` and
+`mark_price_reader` are `None`, as `VenueAssembly` builds them: Spot has no
+leverage, margin mode or mark price.
 """
 
 from __future__ import annotations
@@ -34,10 +35,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_tradin
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.unarranged_venue_ports import (
     UnarrangedAccountControl,
+    UnarrangedBookTickerReader,
     UnarrangedClientFactory,
     UnarrangedCommissionRateReader,
     UnarrangedCredentialsProvider,
     UnarrangedHistoryReader,
+    UnarrangedMarkPriceReader,
     UnarrangedMetadataCache,
     UnarrangedUserDataStream,
 )
@@ -74,6 +77,10 @@ def fake_venue_context(
         commission_reader=UnarrangedCommissionRateReader(),
         account_control=(
             None if venue is TradingVenue.SPOT_TESTNET else UnarrangedAccountControl()
+        ),
+        book_ticker_reader=UnarrangedBookTickerReader(),
+        mark_price_reader=(
+            None if venue is TradingVenue.SPOT_TESTNET else UnarrangedMarkPriceReader()
         ),
     )
 

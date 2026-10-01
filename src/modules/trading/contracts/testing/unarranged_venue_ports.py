@@ -17,11 +17,17 @@ from datetime import datetime
 from decimal import Decimal
 from typing import NoReturn
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
+    BestBidAsk,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate import (
     CommissionRate,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
+    FuturesSymbolSetting,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import (
     HistoryGaps,
@@ -29,11 +35,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
     IAccountHistoryReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_book_ticker_reader import (
+    IBookTickerReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_commission_rate_reader import (
     ICommissionRateReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_account_control import (
     IFuturesAccountControl,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_mark_price_reader import (
+    IMarkPriceReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_symbol_order_metadata_cache import (
     ISymbolOrderMetadataCache,
@@ -47,8 +59,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_fa
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_brackets import (
+    LeverageBrackets,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_setting import (
     LeverageSetting,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.mark_price import (
+    MarkPrice,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
@@ -136,8 +154,24 @@ class UnarrangedAccountControl(IFuturesAccountControl):
     def open_position(self, symbol: str) -> Decimal:
         _not_arranged("IFuturesAccountControl")
 
+    def symbol_setting(self, symbol: str) -> FuturesSymbolSetting:
+        _not_arranged("IFuturesAccountControl")
+
+    def leverage_brackets(self, symbol: str) -> LeverageBrackets:
+        _not_arranged("IFuturesAccountControl")
+
     def change_leverage(self, symbol: str, leverage: int) -> LeverageSetting:
         _not_arranged("IFuturesAccountControl")
 
     def change_margin_type(self, symbol: str, margin_type: MarginType) -> MarginType:
         _not_arranged("IFuturesAccountControl")
+
+
+class UnarrangedBookTickerReader(IBookTickerReader):
+    def best_bid_ask(self, symbol: str) -> BestBidAsk:
+        _not_arranged("IBookTickerReader")
+
+
+class UnarrangedMarkPriceReader(IMarkPriceReader):
+    def mark_price(self, symbol: str) -> MarkPrice:
+        _not_arranged("IMarkPriceReader")

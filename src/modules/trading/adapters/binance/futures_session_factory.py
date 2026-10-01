@@ -105,10 +105,12 @@ class FuturesSessionFactory(ITradingSessionFactory):
     """
 
     def create_futures_metadata_client(self) -> Client:
-        """An unsigned Futures Testnet session for `/fapi/v1/exchangeInfo`
-        (`EPIC-021C`). No key: `exchangeInfo` is a public endpoint. Returns
-        the raw SDK type because the only caller is this module's own
-        `FuturesMetadataProvider` — see the module docstring for why that is
+        """An unsigned Futures Testnet session for the public endpoints:
+        `/fapi/v1/exchangeInfo` (`EPIC-021C`), and `ticker/bookTicker` and
+        `premiumIndex` (`EPIC-028O`). No key: all three are public. Returns
+        the raw SDK type because the only callers are this module's own
+        `FuturesMetadataProvider`, `FuturesBookTickerReader` and
+        `FuturesMarkPriceReader` — see the module docstring for why that is
         not a leak."""
         return _futures_client()
 

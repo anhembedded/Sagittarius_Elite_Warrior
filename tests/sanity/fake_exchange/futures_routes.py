@@ -27,6 +27,10 @@ not always match a given library version's exact path/version number):
     POST   /fapi/v1/leverage        `futures_change_leverage()` (`EPIC-028F`)
     POST   /fapi/v1/marginType      `futures_change_margin_type()` (`EPIC-028F`)
     GET    /fapi/v1/commissionRate  `futures_commission_rate()` (`EPIC-028F`)
+    GET    /fapi/v1/symbolConfig    `futures_symbol_config()` (`EPIC-028O`)
+    GET    /fapi/v1/leverageBracket `futures_leverage_bracket()` (`EPIC-028O`)
+    GET    /fapi/v1/premiumIndex    `futures_mark_price()` (`EPIC-028O`)
+    GET    /fapi/v1/ticker/bookTicker  `futures_orderbook_ticker()` (`EPIC-028O`)
     POST   /fapi/v1/listenKey       `futures_stream_get_listen_key()` (`EPIC-021H`)
     PUT    /fapi/v1/listenKey       `futures_stream_keepalive()` (`EPIC-021H`)
 
@@ -40,6 +44,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from . import futures_market
 from .history_log import HistoryQuery, now_ms
 from .order_book_state import OrderBookState
 
@@ -195,6 +200,14 @@ def _handle_get(
             "makerCommissionRate": "0.0002",
             "takerCommissionRate": "0.0005",
         }
+    if path == "/fapi/v1/symbolConfig":
+        return state.symbol_config.symbol_config(params)
+    if path == "/fapi/v1/leverageBracket":
+        return futures_market.leverage_bracket(params.get("symbol", ""))
+    if path == "/fapi/v1/premiumIndex":
+        return futures_market.premium_index(params.get("symbol", ""))
+    if path == "/fapi/v1/ticker/bookTicker":
+        return futures_market.book_ticker(params.get("symbol", ""))
     return None
 
 

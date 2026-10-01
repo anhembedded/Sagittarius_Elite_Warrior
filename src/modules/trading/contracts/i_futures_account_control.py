@@ -14,11 +14,16 @@ which is on this port so that the read fails the way the changes do: every
 failure is one of the port's two errors, never the SDK's (PR #299 review,
 finding 1).
 
-Plausible extensions, each one method here and one in the adapter: reading
-the current setting (`GET /fapi/v1/symbolConfig`, since `positionRisk` v3
-no longer carries it, `BUG-114`); the leverage brackets
-(`GET /fapi/v1/leverageBracket`) so a desk can cap its slider; adding or
-removing isolated margin (`POST /fapi/v1/positionMargin`).
+`EPIC-028O` adds the two reads a desk needs before it offers a change: the
+current setting (`GET /fapi/v1/symbolConfig`, since `positionRisk` v3 no
+longer carries it, `BUG-114`) and the leverage brackets
+(`GET /fapi/v1/leverageBracket`), which cap the leverage slider and give the
+liquidation estimate its maintenance rate. Both are signed reads of this
+account's settings, so they live here and fail the way the changes do.
+
+Plausible extensions, each one method here and one in the adapter: adding or
+removing isolated margin (`POST /fapi/v1/positionMargin`); the Multi-Assets
+mode (`GET /fapi/v1/multiAssetsMargin`).
 """
 
 from __future__ import annotations
@@ -28,6 +33,12 @@ from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
+    FuturesSymbolSetting,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_brackets import (
+    LeverageBrackets,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_setting import (
     LeverageSetting,
@@ -41,6 +52,20 @@ class IFuturesAccountControl(ABC):
     def open_position(self, symbol: str) -> Decimal:
         """@brief The signed size of `symbol`'s open position: positive long,
         negative short, zero when flat.
+        @throws AccountControlRejectedError The exchange refused the read.
+        @throws AccountControlUnavailableError The exchange never answered,
+        or its answer could not be read."""
+
+    @abstractmethod
+    def symbol_setting(self, symbol: str) -> FuturesSymbolSetting:
+        """@brief `symbol`'s leverage and margin mode now.
+        @throws AccountControlRejectedError The exchange refused the read.
+        @throws AccountControlUnavailableError The exchange never answered,
+        or its answer could not be read."""
+
+    @abstractmethod
+    def leverage_brackets(self, symbol: str) -> LeverageBrackets:
+        """@brief `symbol`'s notional and leverage brackets for this account.
         @throws AccountControlRejectedError The exchange refused the read.
         @throws AccountControlUnavailableError The exchange never answered,
         or its answer could not be read."""
