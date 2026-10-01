@@ -16,6 +16,8 @@
 - [ ] Route `trading.futures`, nav "Futures"; workspace chart, RAIL order entry + strategy card + summary, bottom tabs, EMERGENCY STOP and Enable for this venue only.
 - [ ] With Futures not enabled, the screen shows "Futures Testnet not enabled — Settings" and no controls that could send an order.
 - [ ] View, presenter and view model are each under 400 lines.
+- [ ] Each desk's chart streams under its own owner. `_STREAM_OWNER = "trading"` (`chart_coordinator.py`) is shared today, so opening one desk's chart would replace the other's subscription (the PR #300 epic review).
+- [ ] Signals reach only their venue's desk: `SignalGeneratedEvent` carries the venue and `SignalFeed` filters on it. The environment banner names both enabled venues, not the primary only.
 
 ## 3. Design
 A `WorkbenchSurface` like the Dev Board (HLD 11 §11.2): docks for RAIL, `QToolBar` for Enable/Emergency Stop.

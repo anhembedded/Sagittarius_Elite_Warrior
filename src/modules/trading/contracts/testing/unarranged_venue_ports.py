@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.commission_rate imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import (
+    HistoryGaps,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
     IAccountHistoryReader,
 )
@@ -113,7 +116,10 @@ class UnarrangedHistoryReader(IAccountHistoryReader):
     def trade_history(self, symbol: str, since: datetime) -> tuple[TradeRecord, ...]:
         _not_arranged("IAccountHistoryReader")
 
-    def active_symbols(self) -> tuple[str, ...]:
+    def active_symbols(self, since: datetime) -> tuple[str, ...]:
+        _not_arranged("IAccountHistoryReader")
+
+    def known_gaps(self) -> HistoryGaps:
         _not_arranged("IAccountHistoryReader")
 
 

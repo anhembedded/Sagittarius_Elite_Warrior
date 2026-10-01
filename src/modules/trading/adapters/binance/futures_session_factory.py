@@ -65,11 +65,33 @@ def _sync_timestamp_offset(client: Client) -> None:
     local_after_ms = int(time.time() * 1000)
     # Midpoint of the round trip is the best available estimate of "local
     # time at the moment the server actually read its own clock" — cheaper
-    # than it sounds: this is one extra HTTP call per already-freshly-built
-    # signing session, the same cost `Client(...)`'s own construction-time
-    # ping already pays (`BUG-045`).
+    # than it sounds: this is the one call a fresh signing session makes
+    # before its first real request, since `_futures_client()` turns off the
+    # construction-time ping (`EPIC-028P`).
     local_at_measurement_ms = (local_before_ms + local_after_ms) // 2
     client.timestamp_offset = server_time_ms - local_at_measurement_ms
+
+
+def _futures_client(credentials: ExchangeCredentials | None = None) -> Client:
+    """`EPIC-028P` — a `python-binance` client for the Futures testnet,
+    without the construction-time ping.
+
+    @details `Client(...)` pings `GET /api/v3/ping` by default, which is the
+    **Spot** API (`testnet.binance.vision` with `testnet=True`), whatever
+    the client is then used for. Every Futures session therefore reached
+    the Spot venue, and a Spot testnet outage failed Futures order, cancel
+    and Emergency Stop calls before they sent anything. The dual-venue
+    integration test (`test_two_venues_in_one_process_against_fake_server.
+    py`) caught it. The Futures session has its own first round trip,
+    `futures_time()` in `_sync_timestamp_offset`, so nothing is lost.
+    """
+    return Client(
+        api_key=credentials.api_key if credentials else None,
+        api_secret=credentials.api_secret if credentials else None,
+        requests_params={"timeout": REQUEST_TIMEOUT_SECONDS},
+        testnet=True,
+        ping=False,
+    )
 
 
 class FuturesSessionFactory(ITradingSessionFactory):
@@ -88,10 +110,7 @@ class FuturesSessionFactory(ITradingSessionFactory):
         the raw SDK type because the only caller is this module's own
         `FuturesMetadataProvider` — see the module docstring for why that is
         not a leak."""
-        return Client(
-            requests_params={"timeout": REQUEST_TIMEOUT_SECONDS},
-            testnet=True,
-        )
+        return _futures_client()
 
     def create_trading_client(
         self, credentials: ExchangeCredentials
@@ -106,11 +125,6 @@ class FuturesSessionFactory(ITradingSessionFactory):
         returning it as-is would fail `no-any-return` against this method's
         own declared return type.
         """
-        client = Client(
-            api_key=credentials.api_key,
-            api_secret=credentials.api_secret,
-            requests_params={"timeout": REQUEST_TIMEOUT_SECONDS},
-            testnet=True,
-        )
+        client = _futures_client(credentials)
         _sync_timestamp_offset(client)
         return cast(ITradingSessionClient, client)

@@ -5,7 +5,7 @@
 **Risk:** 🟢 — mirrors `EPIC-028K` with the Spot profile
 **Complexity:** M — composition only
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028C](../completed/EPIC-028C_both_venues_running_concurrently.md), [EPIC-028H](EPIC-028H_order_entry_panel_core_and_spot.md), [EPIC-028J](EPIC-028J_account_tabs_and_summary_panels.md)
+**Depends on:** [EPIC-028C](../completed/EPIC-028C_both_venues_running_concurrently.md), [EPIC-028H](EPIC-028H_order_entry_panel_core_and_spot.md), [EPIC-028J](EPIC-028J_account_tabs_and_summary_panels.md), [EPIC-028O](EPIC-028O_order_contract_and_missing_reads.md) (stop-limit)
 
 ---
 
@@ -15,7 +15,7 @@
 ## 2. Acceptance criteria
 - [ ] Route `trading.spot`, nav "Spot"; same layout as the Futures desk with the Spot profile (Assets tab, Buy/Sell columns, no leverage).
 - [ ] With Spot not enabled, the disabled-venue state as in `EPIC-028K`.
-- [ ] Both desks open at once work independently (qtbot: an order on one never appears on the other).
+- [ ] Both desks open at once work independently (qtbot: an order, a signal or a chart stream on one never reaches the other; the per-desk stream owner and signal filter come from `EPIC-028K`).
 - [ ] Boot re-arms each desk's own saved strategy: `StrategyModule._restore_armed_strategies` widens from the primary venue to every enabled venue a desk shows (`EPIC-028C` restores the primary only, because until now no screen shows or disarms the other venue).
 
 ## 3. Design

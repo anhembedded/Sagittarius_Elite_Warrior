@@ -6,8 +6,9 @@ which Spot implements too and would have to refuse (Interface Segregation,
 it, so "this venue has no leverage" is a type the handlers read, not a
 runtime error.
 
-Both changes are account settings, not orders, and Binance refuses them for
-a symbol with an open position. `ChangeLeverageCommandHandler` and
+Both changes are account settings, not orders. The app refuses both for a
+symbol with an open position, its own policy (`account_control_gate.py`
+says why and what Binance itself refuses). `ChangeLeverageCommandHandler` and
 `ChangeMarginTypeCommandHandler` check that first through `open_position`,
 which is on this port so that the read fails the way the changes do: every
 failure is one of the port's two errors, never the SDK's (PR #299 review,

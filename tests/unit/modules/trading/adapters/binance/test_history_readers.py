@@ -58,6 +58,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_s
 )
 
 _NOW = datetime(2026, 9, 30, tzinfo=UTC)
+_SINCE = _NOW - timedelta(days=7)
 
 
 class _Credentials(IExchangeCredentialsProvider):
@@ -171,8 +172,36 @@ def test_futures_active_symbols_are_open_positions_and_open_orders() -> None:
         {"symbol": "BTCUSDT", "positionAmt": "-0.01"},
     ]
     client.futures_get_open_orders.return_value = [{"symbol": "SOLUSDT"}]
+    client.futures_income_history.return_value = []
 
-    assert _futures(client).active_symbols() == ("BTCUSDT", "ETHUSDT", "SOLUSDT")
+    assert _futures(client).active_symbols(_SINCE) == ("BTCUSDT", "ETHUSDT", "SOLUSDT")
+
+
+def test_futures_active_symbols_include_pairs_traded_since_with_nothing_open() -> None:
+    """`EPIC-028Q` — a round trip closed inside the window books income
+    (its commission and realized PnL), so its pair is found although nothing
+    is open; a transfer, which has no symbol, adds none."""
+    client = Mock()
+    client.futures_position_information.return_value = []
+    client.futures_get_open_orders.return_value = []
+    client.futures_income_history.return_value = [
+        {"symbol": "ADAUSDT", "incomeType": "COMMISSION", "income": "-0.01"},
+        {"symbol": "ADAUSDT", "incomeType": "REALIZED_PNL", "income": "1.2"},
+        {"symbol": "", "incomeType": "TRANSFER", "income": "100"},
+    ]
+
+    assert _futures(client).active_symbols(_SINCE) == ("ADAUSDT",)
+    call = client.futures_income_history.call_args_list[0].kwargs
+    assert call["startTime"] == int(_SINCE.timestamp() * 1000)
+
+
+def test_each_reader_states_its_venues_gaps() -> None:
+    futures = _futures(Mock()).known_gaps()
+    spot = _spot(Mock()).known_gaps()
+
+    assert any("3 days" in gap for gap in futures.order_history)
+    assert futures.every_symbol and spot.every_symbol
+    assert spot.order_history == ()
 
 
 def test_spot_active_symbols_are_listed_pairs_of_held_assets_and_open_orders() -> None:
@@ -192,7 +221,7 @@ def test_spot_active_symbols_are_listed_pairs_of_held_assets_and_open_orders() -
 
     reader = _spot(client, _Catalog("BTCUSDT", "BNBUSDT", "ETHUSDT", "SOLUSDT"))
 
-    assert reader.active_symbols() == ("BNBUSDT", "BTCUSDT", "SOLUSDT")
+    assert reader.active_symbols(_SINCE) == ("BNBUSDT", "BTCUSDT", "SOLUSDT")
 
 
 def _unlisted_holdings_client() -> Mock:
@@ -213,9 +242,9 @@ def test_unlisted_holdings_download_the_catalog_once_not_once_each() -> None:
     catalog = _Catalog("BTCUSDT")
     reader = _spot(_unlisted_holdings_client(), catalog)
 
-    first = reader.active_symbols()
-    reader.active_symbols()
-    reader.active_symbols()
+    first = reader.active_symbols(_SINCE)
+    reader.active_symbols(_SINCE)
+    reader.active_symbols(_SINCE)
 
     assert first == ("BTCUSDT",)
     assert catalog.downloads == 1
@@ -236,7 +265,7 @@ def test_the_quote_asset_is_never_looked_up_as_a_pair() -> None:
     }
     client.get_open_orders.return_value = []
 
-    assert _spot(client, catalog).active_symbols() == ("BTCUSDT",)
+    assert _spot(client, catalog).active_symbols(_SINCE) == ("BTCUSDT",)
     assert catalog.downloads == 0
 
 
@@ -245,7 +274,7 @@ def test_a_failed_catalog_download_raises_the_readers_own_error() -> None:
     catalog.failure = _api_error()
 
     with pytest.raises(AccountHistoryUnavailableError) as raised:
-        _spot(_unlisted_holdings_client(), catalog).active_symbols()
+        _spot(_unlisted_holdings_client(), catalog).active_symbols(_SINCE)
 
     assert raised.value.__cause__ is catalog.failure
 
@@ -313,3 +342,51 @@ def test_no_credentials_raises_before_any_request() -> None:
         _futures(client, configured=False).order_history("BTCUSDT", _NOW)
 
     client.futures_get_all_orders.assert_not_called()
+
+
+#: `EPIC-028Q` — a row missing a field, and a row with a number Binance never
+#: sends. Before the fix the mapping ran outside the error translation, so
+#: these escaped as `KeyError` and `InvalidOperation`.
+_MALFORMED_ROWS = [{"symbol": "BTCUSDT"}, {"symbol": "BTCUSDT", "price": "abc"}]
+
+
+@pytest.mark.parametrize("row", _MALFORMED_ROWS)
+def test_a_malformed_futures_row_is_reported_as_unavailable_history(
+    row: dict[str, Any],
+) -> None:
+    client = Mock()
+    client.futures_get_all_orders.return_value = [row]
+    client.futures_account_trades.return_value = [row]
+    reader = _futures(client)
+
+    with pytest.raises(AccountHistoryUnavailableError, match="malformed"):
+        reader.order_history("BTCUSDT", _NOW - timedelta(days=1))
+    with pytest.raises(AccountHistoryUnavailableError, match="malformed"):
+        reader.trade_history("BTCUSDT", _NOW - timedelta(days=1))
+
+
+@pytest.mark.parametrize("row", _MALFORMED_ROWS)
+def test_a_malformed_spot_row_is_reported_as_unavailable_history(
+    row: dict[str, Any],
+) -> None:
+    client = Mock()
+    client.get_all_orders.return_value = [row]
+    client.get_my_trades.return_value = [row]
+    reader = _spot(client)
+
+    with pytest.raises(AccountHistoryUnavailableError, match="malformed"):
+        reader.order_history("BTCUSDT", _NOW - timedelta(hours=1))
+    with pytest.raises(AccountHistoryUnavailableError, match="malformed"):
+        reader.trade_history("BTCUSDT", _NOW - timedelta(hours=1))
+
+
+def test_a_malformed_futures_position_row_is_reported_as_unavailable() -> None:
+    client = Mock()
+    client.futures_position_information.return_value = [
+        {"symbol": "BTCUSDT", "positionAmt": "not a number"}
+    ]
+    client.futures_get_open_orders.return_value = []
+    client.futures_income_history.return_value = []
+
+    with pytest.raises(AccountHistoryUnavailableError, match="malformed"):
+        _futures(client).active_symbols(_SINCE)

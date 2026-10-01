@@ -39,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_changed_event import (
     AccountSummaryChangedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_stale_event import (
+    AccountSummaryStaleEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
 )
@@ -199,29 +202,102 @@ def test_a_changed_summary_is_republished() -> None:
     ]
 
 
-def test_an_unreadable_account_publishes_nothing_and_keeps_the_last_summary() -> None:
+_UNREADABLE = AccountSummaryStaleEvent(
+    reason="The account could not be read.", venue=_SPOT
+)
+
+
+def test_an_unreadable_account_marks_the_summary_stale_and_keeps_it() -> None:
     """`None` (the reader could not build a summary) must not replace the
-    last good one with nothing, and the next real read that matches it is
-    still recognised as unchanged."""
+    last good one with nothing; it says the one on screen is out of date
+    (`EPIC-028Q`), and the next good read says it is current again even
+    though it is the same summary."""
     setup = _Service(_ScriptedDispatcher(_summary("900"), None, _summary("900")))
 
     for _ in range(3):
         setup.service.refresh_once()
 
     assert setup.publisher.published == [
-        AccountSummaryChangedEvent(summary=_summary("900"))
+        AccountSummaryChangedEvent(summary=_summary("900")),
+        _UNREADABLE,
+        AccountSummaryChangedEvent(summary=_summary("900")),
     ]
 
 
-def test_a_failed_read_skips_the_tick_instead_of_raising() -> None:
+def test_a_failed_read_marks_the_summary_stale_instead_of_raising() -> None:
     setup = _Service(_ScriptedDispatcher(ConnectionError("reset"), _summary("900")))
 
     setup.service.refresh_once()
     setup.service.refresh_once()
 
     assert setup.publisher.published == [
+        AccountSummaryStaleEvent(reason="The account read failed: reset", venue=_SPOT),
+        AccountSummaryChangedEvent(summary=_summary("900")),
+    ]
+
+
+def test_a_run_of_failed_reads_marks_the_summary_stale_once(caplog) -> None:
+    setup = _Service(_ScriptedDispatcher(_summary("900"), None, None, None))
+
+    with caplog.at_level("DEBUG", logger="App.AccountSummaryRefresh"):
+        for _ in range(4):
+            setup.service.refresh_once()
+
+    assert setup.publisher.published == [
+        AccountSummaryChangedEvent(summary=_summary("900")),
+        _UNREADABLE,
+    ]
+    assert [r.levelname for r in caplog.records if "stale" in r.getMessage()] == [
+        "WARNING",
+        "DEBUG",
+        "DEBUG",
+    ]
+
+
+def test_after_recovering_unchanged_reads_are_quiet_and_a_new_failure_marks_again() -> (
+    None
+):
+    setup = _Service(
+        _ScriptedDispatcher(
+            _summary("900"), None, _summary("950"), _summary("950"), None
+        )
+    )
+
+    for _ in range(5):
+        setup.service.refresh_once()
+
+    assert setup.publisher.published == [
+        AccountSummaryChangedEvent(summary=_summary("900")),
+        _UNREADABLE,
+        AccountSummaryChangedEvent(summary=_summary("950")),
+        _UNREADABLE,
+    ]
+
+
+def test_a_failure_answering_after_a_later_good_read_is_not_published() -> None:
+    """The tick's read left first and failed last; the fill's later read
+    already published a current summary, so nothing is stale."""
+    dispatcher = _InterleavingDispatcher(None, _summary("900"))
+    setup = _Service(dispatcher)
+    dispatcher.during_first_read = setup.service.refresh_once
+
+    setup.service.refresh_once()
+
+    assert setup.publisher.published == [
         AccountSummaryChangedEvent(summary=_summary("900"))
     ]
+
+
+def test_a_good_read_older_than_a_failure_does_not_clear_the_marker() -> None:
+    """The tick's read left first and answered last, with figures from
+    before the fill's read failed: the marker stays."""
+    dispatcher = _InterleavingDispatcher(_summary("900"), None)
+    setup = _Service(dispatcher)
+    dispatcher.during_first_read = setup.service.refresh_once
+
+    setup.service.refresh_once()
+
+    assert setup.publisher.published == [_UNREADABLE]
 
 
 def test_a_fill_on_this_venue_hands_a_refresh_off_rather_than_reading_inline() -> None:

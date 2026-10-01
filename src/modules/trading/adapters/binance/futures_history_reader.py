@@ -8,7 +8,13 @@ days and trade history for six months, both beyond `MAX_HISTORY_LOOKBACK`.
 
 `active_symbols` is every symbol with an open position or an open order —
 `positionRisk` and `openOrders` without a symbol, the same two reads
-`EnableTradingCommandHandler` reconciles against.
+`EnableTradingCommandHandler` reconciles against — plus every symbol with
+income since `since` (`GET /fapi/v1/income`: a fill books a commission, and
+a closed round trip a realized PnL even when its fee is zero), so a round
+trip already closed inside the window is found
+(`EPIC-028Q`, the PR #300 epic review). What income cannot show, a pair whose
+orders were all cancelled unfilled, is in `known_gaps()`, with Binance's
+3-day purge of such orders from `allOrders`.
 
 Payload shapes and limits follow Binance's documented USD-M API; they were
 not re-verified against a live call (egress to `*.binance.*` is blocked in
@@ -36,6 +42,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.history_wind
     HistoryWindowRules,
     fetch_span,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_gaps import (
+    HistoryGaps,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
     IAccountHistoryReader,
 )
@@ -56,6 +65,20 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_s
 _ROW_LIMIT = 1000
 _RULES = HistoryWindowRules(max_span_ms=7 * 24 * 60 * 60 * 1000, limit=_ROW_LIMIT)
 _VENUE = "Futures"
+_GAPS = HistoryGaps(
+    order_history=(
+        (
+            "Binance keeps a Futures order that was cancelled or expired without "
+            "a fill for 3 days only; older ones are not listed."
+        ),
+    ),
+    every_symbol=(
+        (
+            "A pair whose orders were all cancelled without a fill, with nothing "
+            "open, is not found when reading every pair; choose the pair to see it."
+        ),
+    ),
+)
 
 
 class FuturesHistoryReader(IAccountHistoryReader):
@@ -83,7 +106,7 @@ class FuturesHistoryReader(IAccountHistoryReader):
                 end,
                 _RULES,
             )
-        return tuple(map_futures_history_order(row) for row in rows)
+            return tuple(map_futures_history_order(row) for row in rows)
 
     def trade_history(self, symbol: str, since: datetime) -> tuple[TradeRecord, ...]:
         start, end = span_ms(since, self._clock())
@@ -97,19 +120,32 @@ class FuturesHistoryReader(IAccountHistoryReader):
                 end,
                 _RULES,
             )
-        return tuple(map_futures_trade(row) for row in rows)
+            return tuple(map_futures_trade(row) for row in rows)
 
-    def active_symbols(self) -> tuple[str, ...]:
+    def active_symbols(self, since: datetime) -> tuple[str, ...]:
+        start, end = span_ms(since, self._clock())
         with history_read_failures(f"{_VENUE} active symbols could not be read"):
             client = self._client()
             positions: list[dict[str, Any]] = client.futures_position_information()
             open_orders: list[dict[str, Any]] = client.futures_get_open_orders()
-        held = {
-            row["symbol"]
-            for row in positions
-            if Decimal(str(row.get("positionAmt", "0"))) != 0
-        }
-        return tuple(sorted(held | {row["symbol"] for row in open_orders}))
+            income = fetch_span(
+                lambda s, e: client.futures_income_history(
+                    startTime=s, endTime=e, limit=_ROW_LIMIT
+                ),
+                start,
+                end,
+                _RULES,
+            )
+            held = {
+                row["symbol"]
+                for row in positions
+                if Decimal(str(row.get("positionAmt", "0"))) != 0
+            }
+            traded = {row["symbol"] for row in income if row["symbol"]}
+            return tuple(sorted(held | traded | {row["symbol"] for row in open_orders}))
+
+    def known_gaps(self) -> HistoryGaps:
+        return _GAPS
 
     def _client(self) -> ITradingSessionClient:
         return self._session_factory.create_trading_client(

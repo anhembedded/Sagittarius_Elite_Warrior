@@ -12,7 +12,8 @@ here plus one line in `VenueTradingPortsRegistry`:
 - open orders and order/trade history (`EPIC-028E`);
 - a desk's leverage and margin-mode control, should a strategy ever need
   it: `EPIC-028F` delivered it as venue-addressed commands, which a screen
-  dispatches, so no field was needed here.
+  dispatches, so no field was needed here;
+- the order panel's filters and fees (`EPIC-028H`): `order_entry_terms`.
 """
 
 from __future__ import annotations
@@ -24,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot 
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
     IEquityCurve,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_entry_terms import (
+    IOrderEntryTerms,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
     IOrderSubmission,
@@ -45,3 +49,4 @@ class VenueTradingPorts:
     trading_session: ITradingSession
     account_snapshot: IAccountSnapshot
     equity_curve: IEquityCurve
+    order_entry_terms: IOrderEntryTerms

@@ -16,6 +16,7 @@ not always match a given library version's exact path/version number):
     GET    /fapi/v1/openOrders      `futures_get_open_orders()`
     GET    /fapi/v1/allOrders       `futures_get_all_orders()` (`EPIC-028E`)
     GET    /fapi/v1/userTrades      `futures_account_trades()` (`EPIC-028E`)
+    GET    /fapi/v1/income          `futures_income_history()` (`EPIC-028Q`)
     GET    /fapi/v3/positionRisk    `futures_position_information()` — **version
                                       3**, not the v2 this task's own design
                                       draft assumed; `client.py`'s
@@ -39,7 +40,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .history_log import HistoryQuery
+from .history_log import HistoryQuery, now_ms
 from .order_book_state import OrderBookState
 
 #: `EPIC-027A` — one fixed row, distinguishable from `spot_routes.py`'s own
@@ -186,10 +187,8 @@ def _handle_get(
         return 200, GET_ROUTES[path]
     if path == "/fapi/v1/openOrders":
         return 200, state.open_orders(params.get("symbol"))
-    if path == "/fapi/v1/allOrders":
-        return 200, state.history.orders(HistoryQuery.parse(params))
-    if path == "/fapi/v1/userTrades":
-        return 200, state.history.trades(HistoryQuery.parse(params))
+    if path in {"/fapi/v1/allOrders", "/fapi/v1/userTrades", "/fapi/v1/income"}:
+        return _history(path, params, state)
     if path == "/fapi/v1/commissionRate":
         return 200, {
             "symbol": params.get("symbol", ""),
@@ -197,6 +196,33 @@ def _handle_get(
             "takerCommissionRate": "0.0005",
         }
     return None
+
+
+#: `EPIC-028Q` — Binance's Futures limit on `endTime - startTime` for the
+#: history endpoints, and how long it keeps an unfilled cancelled order.
+_FUTURES_HISTORY_SPAN_MS = 7 * 24 * 60 * 60 * 1000
+_FUTURES_UNFILLED_ORDER_KEPT_MS = 3 * 24 * 60 * 60 * 1000
+
+
+def _history(
+    path: str, params: dict[str, str], state: OrderBookState
+) -> tuple[int, object]:
+    start = int(params.get("startTime", 0))
+    end = int(params.get("endTime", now_ms()))
+    if "startTime" in params and end - start > _FUTURES_HISTORY_SPAN_MS:
+        # The Spot routes' refusal shape, with Futures' seven days.
+        return 400, {
+            "code": -1127,
+            "msg": "More than 7 days between startTime and endTime.",
+        }
+    if path == "/fapi/v1/income":
+        return 200, state.history.income(start, end, int(params.get("limit", 100)))
+    query = HistoryQuery.parse(params)
+    if path == "/fapi/v1/allOrders":
+        return 200, state.history.orders(
+            query, purge_unfilled_after_ms=_FUTURES_UNFILLED_ORDER_KEPT_MS
+        )
+    return 200, state.history.trades(query)
 
 
 def _handle_post(

@@ -1,6 +1,6 @@
 # EPIC-028 — Two trading desks: Futures and Spot side by side, each with manual orders, a strategy and live account data
 
-- **Status:** 🟡 Phase 2 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`); `EPIC-028D`–`028F` done; `EPIC-028G` in progress
+- **Status:** 🟡 Phase 2 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`); `EPIC-028D`–`028G` done; `EPIC-028Q` (reader fixes found by the epic review) gates the Phase 2 exit
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-29): *"giờ màn hình trading đang có vấn đề, cần có 2 cái chứ không
   phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng, 2 màn hình
@@ -69,21 +69,24 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 | [EPIC-028D](completed/EPIC-028D_account_summary_reader.md) | Account summary (available, wallet, margin, uPnL / free, locked, equity) | Elite | B | 🟡 | ✅ Done |
 | [EPIC-028E](completed/EPIC-028E_open_orders_and_history_readers.md) | Open-orders query, order history, trade history | Elite | B, O5 | 🟡 | ✅ Done |
 | [EPIC-028F](completed/EPIC-028F_commission_and_futures_account_controls.md) | Commission rates; change leverage / margin mode | Elite | B | 🟡 | ✅ Done |
-| [EPIC-028G](incomplete/EPIC-028G_order_estimate_policies.md) | Max quantity, cost, fee, liquidation estimate as domain policies | Elite | D, F | 🟢 | 🟡 In progress |
+| [EPIC-028G](completed/EPIC-028G_order_estimate_policies.md) | Max quantity, cost, fee, liquidation estimate as domain policies | Elite | D, F | 🟢 | ✅ Done (2026-10-01) |
 | **Phase 3 — Shared desk kit** | | | | | |
-| [EPIC-028H](incomplete/EPIC-028H_order_entry_panel_core_and_spot.md) | `DeskProfile` + order-entry panel core + Spot variant | Elite | G | 🟡 | Planned |
-| [EPIC-028I](incomplete/EPIC-028I_futures_order_entry_variant.md) | Futures variant: margin/leverage chips, reduce-only, TIF, TP/SL, stop-limit | Elite | F, H, O2, O3 | 🔴 | Planned |
+| [EPIC-028H](incomplete/EPIC-028H_order_entry_panel_core_and_spot.md) | `DeskProfile` + order-entry panel core + Spot variant | Elite | G | 🟡 | 🟡 In progress |
+| [EPIC-028O](incomplete/EPIC-028O_order_contract_and_missing_reads.md) | Order contract end to end (stop price, TIF, quote quantity, stop-limit on both venues); reads for leverage, brackets, mark, best bid/ask, the app's notional limit | Elite | H, O3 | 🔴 | Planned |
+| [EPIC-028P](incomplete/EPIC-028P_dual_venue_isolation_test.md) | Phase 1 evidence: both venues in one process against one fake exchange | Elite | C | 🟢 | 🟡 Awaiting review |
+| [EPIC-028Q](incomplete/EPIC-028Q_phase_2_reader_fixes.md) | Phase 2 reader fixes: history gaps disclosed, closed trades found, errors translated, stale balance marked | Elite | E, F | 🟡 | 🟡 Awaiting review |
+| [EPIC-028I](incomplete/EPIC-028I_futures_order_entry_variant.md) | Futures variant: margin/leverage chips, reduce-only, TIF, TP/SL, stop-limit tab | Elite | F, H, O, O2 | 🔴 | Planned |
 | [EPIC-028J](incomplete/EPIC-028J_account_tabs_and_summary_panels.md) | Bottom account tabs + account summary panel | Elite | D, E | 🟡 | Planned |
 | **Phase 4 — Two desks** | | | | | |
 | [EPIC-028K](incomplete/EPIC-028K_futures_desk_screen.md) | Futures desk screen | Elite | C, I, J | 🟡 | Planned |
-| [EPIC-028L](incomplete/EPIC-028L_spot_desk_screen.md) | Spot desk screen | Elite | C, H, J | 🟢 | Planned |
+| [EPIC-028L](incomplete/EPIC-028L_spot_desk_screen.md) | Spot desk screen | Elite | C, H, J, O | 🟢 | Planned |
 | [EPIC-028M](incomplete/EPIC-028M_retire_single_trading_screen_and_docs.md) | Retire the single Trading route; Dev Board F9 on the shared panel; HLD/SPEC | Elite | K, L, O4 | 🟢 | Planned |
 | [EPIC-028N](incomplete/EPIC-028N_dual_venue_testnet_tier.md) | Testnet tier: one round trip on each desk in the same process | Elite | K, L | 🟡 | Planned |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
-| Phase 1 | One process runs Futures and Spot at once; an order, cancel, Enable or Emergency Stop on one venue never touches the other. | Integration test against the fake exchange serving both `/fapi` and `/api` in one process; the four "one venue" docstrings rewritten; full gate green on GitHub Actions. Not run. |
+| Phase 1 | One process runs Futures and Spot at once; an order, cancel, Enable or Emergency Stop on one venue never touches the other. | Integration test against the fake exchange serving both `/fapi` and `/api` in one process (`EPIC-028P`: `test_two_venues_in_one_process_against_fake_server.py`); the four "one venue" docstrings rewritten; full gate green on GitHub Actions. The integration test was missing when Phase 1 was recorded as met (the PR #300 epic review); when added, it found Futures sessions pinging the Spot API, fixed in the same change. |
 | Phase 2 | Every account figure and history tab has a query that returns real exchange data for both venues. | Fake-exchange integration tests per reader; `exchange-status` CLI prints available balance. Not run. |
 | Phase 3 | The desk kit places Market / Limit / Stop-limit on both venues and Futures TP/SL, with estimates shown. | Panel unit tests (`qtbot`), `preview.py` for every new package, estimate policies mutation-verified. Not run. |
 | Phase 4 | Two desks in the nav, each with order entry, strategy card, account summary and tabs; the old route gone. | `tests/sanity` route scan shows two desks; the user's own Testnet run of `EPIC-028N` pasted into its task file. Not run. |
@@ -99,6 +102,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 - **Arming more than one strategy per desk.**
 
 ## Notes (newest first)
+- **2026-10-01** — `EPIC-028G` merged (PR #300) after two independent reviews (the second PASS). The epic-level review on the same PR re-planned the epic: `EPIC-028O` widened, `EPIC-028P` and `EPIC-028Q` added.
 - **2026-09-30** — `EPIC-028G` implemented, then redesigned after the first independent review (PR #300) showed the first version's "errs low, never high" claim false for Futures. The shared fee and step fitting stay common. Futures cost and maximum now follow Binance's rules: assuming price, open loss and the bracket's notional headroom. A limit order at the maximum is never refused for margin or notional, while a market order's open loss against the book is not modelled. Spot is sized by notional plus fee. The liquidation estimate uses Binance's one-way formula, exact for isolated margin and optimistic for cross. 43 targeted mutations, all killed. The re-review passed.
 - **2026-09-30** — `EPIC-028F` merged (PR #299) after two independent reviews. The first review (NEEDS_REVISION) found the gate's open-position read outside the port's error translation: a network drop leaked as `requests.ConnectionError`. The read moved onto the port (`IFuturesAccountControl.open_position`), every answer is now read inside the translation, and a symbol a strategy manages is refused. The re-review passed. `EPIC-028G` is next.
 - **2026-09-30** — `EPIC-028F` implemented. Two narrow ports, `IFuturesAccountControl` (Spot's `VenueContext` holds `None`) and `ICommissionRateReader`. `ChangeLeverageCommand` and `ChangeMarginTypeCommand` pass one gate: a disabled venue, Spot or the switch off is refused with no request, then the connection is checked and an open position is refused before anything is sent. `GetCommissionRateQuery` answers per venue. Fast tier green; awaiting independent review.
@@ -106,7 +110,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 - **2026-09-30** — `EPIC-028E` implemented: one `IAccountHistoryReader` per venue (orders, fills, active symbols; ADR D6 amended), reads split to the exchange's span and row limits and never truncated; `GetOpenOrdersQuery`, `GetOrderHistoryQuery` and `GetTradeHistoryQuery` (fifty rows a page, newest first); the Spot average entry price rebuilt from fills, `None` whenever they do not explain the holding (closes `EPIC-027` ADR O6). Awaiting independent review.
 - **2026-09-30** — `EPIC-028D` merged (PR #296) after an independent review (PASS, three should-fix items and two questions, all addressed before merge: a ticket fence drops a stale summary, SPEC-003 and ADR D6 updated, a lasting unreadable figure warns once per outage). `EPIC-028E` is next.
 - **2026-09-30** — `EPIC-028D` implemented: `AccountSummary` (Futures: available, wallet, margin, uPnL, mode; Spot: quote free/locked, equity) carried on the connection check both readers already make, so no new port and no second request; `GetAccountSummaryQuery`; a per-venue refresh on the account cadence and after each fill of that venue, off the stream's loop; `exchange-status` prints the Futures available balance. Awaiting independent review.
-- **2026-09-30** — `EPIC-028C` merged (PR #295) after an independent review (PASS, three should-fix items and one question, all addressed before merge). Phase 1 exit met: each venue's Emergency Stop, refresh, events, stream and saved strategy stay on that venue. `EPIC-028D` started.
+- **2026-09-30** — `EPIC-028C` merged (PR #295) after an independent review (PASS, three should-fix items and one question, all addressed before merge). Phase 1 exit recorded as met (correction, 2026-10-01: the integration-test evidence the exit row requires was missing; `EPIC-028P` supplies it): each venue's Emergency Stop, refresh, events, stream and saved strategy stay on that venue. `EPIC-028D` started.
 - **2026-09-29** — `EPIC-028C` implemented in four slices: per-venue refresh and venue-stamped events, per-venue Settings toggles, one live stream per market with ticks routed by market, per-venue saved strategy. Awaiting independent review.
 - **2026-09-29** — `EPIC-028B` merged (PR #294) after an independent review (PASS); its four should-fix items ride the `EPIC-028C` PR. `EPIC-028C` started.
 - **2026-09-29** — `EPIC-028A` merged (PR #293) after an independent review; its four fixes are recorded in the task file.

@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.cancel_order import (
     CancelOrderCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_symbol_order_rules import (
+    GetSymbolOrderRulesQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
 )
@@ -98,6 +101,23 @@ def test_each_venues_order_port_addresses_its_own_venue(venue: TradingVenue) -> 
     ports.get(venue).order_submission.cancel("BTCUSDT", "abc")
 
     assert dispatcher.dispatched == [CancelOrderCommand("BTCUSDT", "abc", venue=venue)]
+
+
+@pytest.mark.parametrize("venue", [_FUTURES, _SPOT])
+def test_each_venues_order_entry_terms_address_its_own_venue(
+    venue: TradingVenue,
+) -> None:
+    """`EPIC-028H` — the order panel's rules and fees read the desk's own
+    venue."""
+    dispatcher = _RecordingDispatcher()
+    ports = _container(dispatcher).resolve(IVenueTradingPorts)
+
+    with pytest.raises(TypeError):  # the recorder answers neither read
+        ports.get(venue).order_entry_terms.terms_for("BTCUSDT")
+
+    assert dispatcher.dispatched[0] == GetSymbolOrderRulesQuery(
+        venue=venue, symbol="BTCUSDT"
+    )
 
 
 def test_each_venues_session_port_reads_its_own_state() -> None:

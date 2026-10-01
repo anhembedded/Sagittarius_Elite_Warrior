@@ -19,6 +19,9 @@ from unittest.mock import Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.cached_history_reader import (
+    CachedAccountHistoryReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_control import (
     FuturesAccountControl,
 )
@@ -140,7 +143,8 @@ def test_each_venue_gets_its_own_venue_shaped_adapters() -> None:
     assert isinstance(futures.client_factory, FuturesTradingClientFactory)
     assert isinstance(futures.account_reader, FuturesAccountReader)
     assert isinstance(futures.user_data_stream, FuturesUserDataStream)
-    assert isinstance(futures.history_reader, FuturesHistoryReader)
+    assert isinstance(futures.history_reader, CachedAccountHistoryReader)
+    assert isinstance(futures.history_reader.source, FuturesHistoryReader)
     assert isinstance(futures.commission_reader, FuturesCommissionRateReader)
     assert isinstance(futures.account_control, FuturesAccountControl)
     assert spot.venue is TradingVenue.SPOT_TESTNET
@@ -148,7 +152,8 @@ def test_each_venue_gets_its_own_venue_shaped_adapters() -> None:
     assert isinstance(spot.client_factory, SpotTradingClientFactory)
     assert isinstance(spot.account_reader, SpotAccountReader)
     assert isinstance(spot.user_data_stream, SpotUserDataStream)
-    assert isinstance(spot.history_reader, SpotHistoryReader)
+    assert isinstance(spot.history_reader, CachedAccountHistoryReader)
+    assert isinstance(spot.history_reader.source, SpotHistoryReader)
     assert isinstance(spot.commission_reader, SpotCommissionRateReader)
     # `EPIC-028F` — Spot has no leverage or margin mode, so no control.
     assert spot.account_control is None

@@ -39,7 +39,9 @@ class GetTradeHistoryQueryHandler(
 
     def execute(self, query: GetTradeHistoryQuery) -> HistoryPage[TradeRecord]:
         reader = self._contexts.get(query.venue).history_reader
-        symbols = (query.symbol,) if query.symbol else reader.active_symbols()
+        symbols = (
+            (query.symbol,) if query.symbol else reader.active_symbols(query.since)
+        )
         logger.debug(
             "Handling GetTradeHistoryQuery on %s: %s since %s, page %d",
             query.venue.value,
@@ -55,5 +57,9 @@ class GetTradeHistoryQueryHandler(
         return newest_first_page(
             rows,
             lambda row: (row.time, row.trade_id),
-            PageRequest(page=query.page, scanned_symbols=symbols),
+            PageRequest(
+                page=query.page,
+                scanned_symbols=symbols,
+                notices=() if query.symbol else reader.known_gaps().every_symbol,
+            ),
         )
