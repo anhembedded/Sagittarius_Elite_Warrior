@@ -83,7 +83,7 @@ class FuturesHistoryReader(IAccountHistoryReader):
                 end,
                 _RULES,
             )
-        return tuple(map_futures_history_order(row) for row in rows)
+            return tuple(map_futures_history_order(row) for row in rows)
 
     def trade_history(self, symbol: str, since: datetime) -> tuple[TradeRecord, ...]:
         start, end = span_ms(since, self._clock())
@@ -97,19 +97,19 @@ class FuturesHistoryReader(IAccountHistoryReader):
                 end,
                 _RULES,
             )
-        return tuple(map_futures_trade(row) for row in rows)
+            return tuple(map_futures_trade(row) for row in rows)
 
     def active_symbols(self) -> tuple[str, ...]:
         with history_read_failures(f"{_VENUE} active symbols could not be read"):
             client = self._client()
             positions: list[dict[str, Any]] = client.futures_position_information()
             open_orders: list[dict[str, Any]] = client.futures_get_open_orders()
-        held = {
-            row["symbol"]
-            for row in positions
-            if Decimal(str(row.get("positionAmt", "0"))) != 0
-        }
-        return tuple(sorted(held | {row["symbol"] for row in open_orders}))
+            held = {
+                row["symbol"]
+                for row in positions
+                if Decimal(str(row.get("positionAmt", "0"))) != 0
+            }
+            return tuple(sorted(held | {row["symbol"] for row in open_orders}))
 
     def _client(self) -> ITradingSessionClient:
         return self._session_factory.create_trading_client(

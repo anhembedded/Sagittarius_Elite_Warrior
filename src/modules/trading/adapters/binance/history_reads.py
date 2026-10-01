@@ -31,6 +31,10 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 
 #: What a read can raise from the SDK or the network.
 READ_FAILURES = (BinanceAPIException, BinanceRequestException, RequestException)
+#: `EPIC-028Q` — what turning a row into a record can raise when the exchange
+#: answers with a row this app cannot read: a missing field, a number that is
+#: not one, a value outside an enum.
+MAPPING_FAILURES = (KeyError, TypeError, ValueError, ArithmeticError)
 
 
 def utc_now() -> datetime:
@@ -52,11 +56,18 @@ def span_ms(since: datetime, now: datetime) -> tuple[int, int]:
 @contextmanager
 def history_read_failures(what: str) -> Iterator[None]:
     """Raises `AccountHistoryUnavailableError("<what>: <cause>")` from any
-    SDK or network failure inside the block, the cause chained."""
+    SDK or network failure inside the block, and from a row the block could
+    not map (`"<what>: malformed row: <cause>"`), the cause chained.
+
+    @details Callers map their rows inside the block (`EPIC-028Q`, the PR
+    #300 epic review): a malformed row used to escape the port as a raw
+    `KeyError` or `InvalidOperation`."""
     try:
         yield
     except READ_FAILURES as exc:
         raise AccountHistoryUnavailableError(f"{what}: {exc}") from exc
+    except MAPPING_FAILURES as exc:
+        raise AccountHistoryUnavailableError(f"{what}: malformed row: {exc!r}") from exc
 
 
 def require_credentials(

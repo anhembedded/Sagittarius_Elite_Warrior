@@ -106,7 +106,7 @@ class SpotHistoryReader(IAccountHistoryReader):
                 end,
                 _RULES,
             )
-        return tuple(map_spot_history_order(row) for row in rows)
+            return tuple(map_spot_history_order(row) for row in rows)
 
     def trade_history(self, symbol: str, since: datetime) -> tuple[TradeRecord, ...]:
         start, end = span_ms(since, self._clock())
@@ -120,7 +120,7 @@ class SpotHistoryReader(IAccountHistoryReader):
                 end,
                 _RULES,
             )
-        return tuple(map_spot_trade(row) for row in rows)
+            return tuple(map_spot_trade(row) for row in rows)
 
     def active_symbols(self) -> tuple[str, ...]:
         with history_read_failures(f"{_VENUE} active symbols could not be read"):
@@ -130,7 +130,7 @@ class SpotHistoryReader(IAccountHistoryReader):
             listed = self._listed_symbols.among(
                 f"{asset}{_QUOTE_ASSET}" for asset in _held_assets(account)
             )
-        return tuple(sorted(listed | {row["symbol"] for row in open_orders}))
+            return tuple(sorted(listed | {row["symbol"] for row in open_orders}))
 
     def _client(self) -> ISpotSessionClient:
         return self._session_factory.create_account_client(

@@ -4,7 +4,9 @@
 @details Two differences from Futures, both from Binance's documented Spot
 API: an order row has no `avgPrice`, so the average is
 `cummulativeQuoteQty / executedQty` (the figure Binance's own order history
-shows); a trade row has no `side`, only `isBuyer`.
+shows); a trade row has no `side`, only `isBuyer`. A negative
+`cummulativeQuoteQty` is Binance's marker for "not available" (very old
+orders), so it gives no average rather than a negative one (`EPIC-028Q`).
 """
 
 from __future__ import annotations
@@ -34,7 +36,7 @@ def map_spot_history_order(payload: dict[str, Any]) -> OrderRecord:
     return OrderRecord(
         order=map_spot_order_payload_to_order(payload),
         executed_quantity=executed,
-        average_price=quote / executed if executed > 0 else None,
+        average_price=quote / executed if executed > 0 and quote >= 0 else None,
         created_at=from_ms(payload["time"]),
     )
 

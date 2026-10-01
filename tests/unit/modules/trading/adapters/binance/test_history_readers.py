@@ -313,3 +313,50 @@ def test_no_credentials_raises_before_any_request() -> None:
         _futures(client, configured=False).order_history("BTCUSDT", _NOW)
 
     client.futures_get_all_orders.assert_not_called()
+
+
+#: `EPIC-028Q` — a row missing a field, and a row with a number Binance never
+#: sends. Before the fix the mapping ran outside the error translation, so
+#: these escaped as `KeyError` and `InvalidOperation`.
+_MALFORMED_ROWS = [{"symbol": "BTCUSDT"}, {"symbol": "BTCUSDT", "price": "abc"}]
+
+
+@pytest.mark.parametrize("row", _MALFORMED_ROWS)
+def test_a_malformed_futures_row_is_reported_as_unavailable_history(
+    row: dict[str, Any],
+) -> None:
+    client = Mock()
+    client.futures_get_all_orders.return_value = [row]
+    client.futures_account_trades.return_value = [row]
+    reader = _futures(client)
+
+    with pytest.raises(AccountHistoryUnavailableError, match="malformed"):
+        reader.order_history("BTCUSDT", _NOW - timedelta(days=1))
+    with pytest.raises(AccountHistoryUnavailableError, match="malformed"):
+        reader.trade_history("BTCUSDT", _NOW - timedelta(days=1))
+
+
+@pytest.mark.parametrize("row", _MALFORMED_ROWS)
+def test_a_malformed_spot_row_is_reported_as_unavailable_history(
+    row: dict[str, Any],
+) -> None:
+    client = Mock()
+    client.get_all_orders.return_value = [row]
+    client.get_my_trades.return_value = [row]
+    reader = _spot(client)
+
+    with pytest.raises(AccountHistoryUnavailableError, match="malformed"):
+        reader.order_history("BTCUSDT", _NOW - timedelta(hours=1))
+    with pytest.raises(AccountHistoryUnavailableError, match="malformed"):
+        reader.trade_history("BTCUSDT", _NOW - timedelta(hours=1))
+
+
+def test_a_malformed_futures_position_row_is_reported_as_unavailable() -> None:
+    client = Mock()
+    client.futures_position_information.return_value = [
+        {"symbol": "BTCUSDT", "positionAmt": "not a number"}
+    ]
+    client.futures_get_open_orders.return_value = []
+
+    with pytest.raises(AccountHistoryUnavailableError, match="malformed"):
+        _futures(client).active_symbols()

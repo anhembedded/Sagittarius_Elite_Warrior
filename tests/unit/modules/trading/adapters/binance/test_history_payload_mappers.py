@@ -135,6 +135,15 @@ def test_an_unfilled_spot_order_has_no_average_price() -> None:
     assert record.average_price is None
 
 
+def test_a_spot_order_whose_quote_spent_is_unavailable_has_no_average() -> None:
+    """`EPIC-028Q` — Binance sends a negative `cummulativeQuoteQty` when the
+    figure is not available (very old orders); it used to become a negative
+    average price."""
+    record = map_spot_history_order(_spot_order(cummulativeQuoteQty="-1.00000000"))
+
+    assert record.average_price is None
+
+
 @pytest.mark.parametrize(
     ("is_buyer", "side"), [(True, OrderSide.BUY), (False, OrderSide.SELL)]
 )
