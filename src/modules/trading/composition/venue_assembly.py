@@ -24,6 +24,9 @@ from typing import Any, Self, overload
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.cached_history_reader import (
+    CachedAccountHistoryReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_control import (
     FuturesAccountControl,
 )
@@ -224,14 +227,20 @@ class VenueAssembly:
 
     @_LockedCachedProperty
     def history_reader(self) -> IAccountHistoryReader:
+        # `EPIC-028Q` — paging re-reads the whole span; the cache bounds the
+        # request weight that costs.
         if self._is_spot:
-            return SpotHistoryReader(
-                self._shared.spot_session_factory,
-                self.credentials_provider,
-                ListedSymbols(self.metadata_provider, self.metadata_cache),
+            return CachedAccountHistoryReader(
+                SpotHistoryReader(
+                    self._shared.spot_session_factory,
+                    self.credentials_provider,
+                    ListedSymbols(self.metadata_provider, self.metadata_cache),
+                )
             )
-        return FuturesHistoryReader(
-            self._shared.futures_session_factory, self.credentials_provider
+        return CachedAccountHistoryReader(
+            FuturesHistoryReader(
+                self._shared.futures_session_factory, self.credentials_provider
+            )
         )
 
     @_LockedCachedProperty

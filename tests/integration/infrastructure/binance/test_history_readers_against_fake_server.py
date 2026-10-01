@@ -24,6 +24,9 @@ from binance.client import Client
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.cached_history_reader import (
+    CachedAccountHistoryReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_history_reader import (
     FuturesHistoryReader,
 )
@@ -76,7 +79,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 )
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[4] / "tests" / "sanity"))
-from binance_fake_server import run_binance_fake_server
+from binance_fake_server import FakeServerUrls, run_binance_fake_server
 
 
 class _Credentials(IExchangeCredentialsProvider):
@@ -91,13 +94,13 @@ class _Credentials(IExchangeCredentialsProvider):
 
 
 @contextmanager
-def _fake_exchange() -> Iterator[None]:
+def _fake_exchange() -> Iterator[FakeServerUrls]:
     with (
         run_binance_fake_server() as urls,
         patch.object(Client, "API_TESTNET_URL", urls.spot),
         patch.object(Client, "FUTURES_TESTNET_URL", urls.futures),
     ):
-        yield
+        yield urls
 
 
 def _order(cid: str, order_type: OrderType) -> Order:
@@ -161,6 +164,26 @@ def test_a_spot_fill_reads_back_with_its_fee_in_the_received_asset() -> None:
     assert fills[0].price == Decimal(50000)
     assert fills[0].fee == Decimal("0.0001")
     assert fills[0].fee_asset == "BTC"
+
+
+def test_paging_a_spot_week_twice_sends_the_windows_once() -> None:
+    """`EPIC-028Q` — each page re-runs the query; behind the cache the second
+    run sends nothing, where the bare reader sends all eight windows again."""
+    since = _week_ago()
+    with _fake_exchange() as urls:
+        _, bare = _spot()
+        cached = CachedAccountHistoryReader(bare)
+
+        cached.trade_history("BTCUSDT", since)
+        first = urls.requests.count(("GET", "/api/v3/myTrades"))
+        cached.trade_history("BTCUSDT", since)
+        after_cached = urls.requests.count(("GET", "/api/v3/myTrades"))
+        bare.trade_history("BTCUSDT", since)
+        after_bare = urls.requests.count(("GET", "/api/v3/myTrades"))
+
+    assert first >= 7
+    assert after_cached == first
+    assert after_bare == 2 * first
 
 
 def test_spot_active_symbols_are_the_listed_pairs_of_what_the_account_holds() -> None:
