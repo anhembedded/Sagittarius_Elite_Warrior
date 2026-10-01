@@ -23,6 +23,11 @@ tick (the PR #296 review, finding 1). Each refresh takes a ticket when it
 starts; a result whose ticket is older than the last one published is
 dropped. The ticket and the compare-and-publish are under one lock; the
 network read is not, so neither thread waits on the other's request.
+
+**A failed read says so** (`EPIC-028Q`). A read that raises, or answers no
+summary, publishes `AccountSummaryStaleEvent` once, under the same ticket
+rule; the next good read republishes the summary even if it is unchanged,
+which tells the desk the figures are current again.
 """
 
 from __future__ import annotations
@@ -50,6 +55,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary imp
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_changed_event import (
     AccountSummaryChangedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_stale_event import (
+    AccountSummaryStaleEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
@@ -92,6 +100,7 @@ class AccountSummaryRefreshService:
         self._next_ticket = 0
         self._last_published: AccountSummary | None = None
         self._last_published_ticket = -1
+        self._stale = False
 
     @property
     def venue(self) -> TradingVenue:
@@ -113,31 +122,57 @@ class AccountSummaryRefreshService:
                 ),
             )
         except Exception as exc:  # noqa: BLE001 - worker boundary: a transient network hiccup must not kill the scheduler's job thread; the next tick tries again
-            logger.debug(
-                "Account summary refresh failed on %s: %s", self._venue.value, exc
-            )
+            self._mark_stale_if_newest(ticket, f"The account read failed: {exc}")
             return
-        if summary is not None:
-            self._publish_if_newest(ticket, summary)
+        if summary is None:
+            self._mark_stale_if_newest(ticket, "The account could not be read.")
+            return
+        self._publish_if_newest(ticket, summary)
 
     def _publish_if_newest(self, ticket: int, summary: AccountSummary) -> None:
         with self._lock:
-            if ticket < self._last_published_ticket:
-                logger.debug(
-                    "Dropped a stale account summary on %s: read %d started "
-                    "before read %d, which already published",
-                    self._venue.value,
-                    ticket,
-                    self._last_published_ticket,
-                )
+            if self._overtaken(ticket):
                 return
             self._last_published_ticket = ticket
-            if summary == self._last_published:
+            if summary == self._last_published and not self._stale:
                 return
             self._last_published = summary
+            self._stale = False
             self._ports.event_publisher.publish(
                 AccountSummaryChangedEvent(summary=summary)
             )
+
+    def _mark_stale_if_newest(self, ticket: int, reason: str) -> None:
+        with self._lock:
+            if self._overtaken(ticket):
+                return
+            # A failure is an answer too: a good read that started before it
+            # must not clear the marker with figures older than the failure.
+            self._last_published_ticket = ticket
+            if self._stale:
+                logger.debug(
+                    "Account summary on %s still stale: %s", self._venue.value, reason
+                )
+                return
+            self._stale = True
+            logger.warning(
+                "Account summary on %s is stale: %s", self._venue.value, reason
+            )
+            self._ports.event_publisher.publish(
+                AccountSummaryStaleEvent(reason=reason, venue=self._venue)
+            )
+
+    def _overtaken(self, ticket: int) -> bool:
+        if ticket < self._last_published_ticket:
+            logger.debug(
+                "Dropped account read %d on %s: read %d started later and "
+                "already answered",
+                ticket,
+                self._venue.value,
+                self._last_published_ticket,
+            )
+            return True
+        return False
 
     def on_order_filled(self, event: OrderFilledEvent) -> None:
         """A fill on this venue changes its balances now, not at the next
