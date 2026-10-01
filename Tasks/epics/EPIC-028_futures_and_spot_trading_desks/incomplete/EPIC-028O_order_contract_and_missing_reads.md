@@ -37,6 +37,8 @@ The epic-level review found that 028H–N cannot be executed as written, because
   Spot answers the leverage, bracket and mark reads with "not applicable", never an invented value.
 - [ ] Both desk profiles offer the Stop-limit tab with a stop-price field. The Spot market buy sizes by quote amount. The price button can fill the best bid or ask.
 - [ ] Every maximum also respects the app's per-order notional limit.
+- [ ] Moved from [EPIC-028Q](EPIC-028Q_phase_2_reader_fixes.md): the fake Futures exchange fills a market order and returns it from `userTrades`, so a Futures fill, its trade history and its average entry price are exercised end to end. Existing tests that rely on the fake never filling are updated in the same change.
+- [ ] Moved from EPIC-028Q: the Futures account reader reads Multi-Assets mode (`GET /fapi/v1/multiAssetsMargin`), and the desk's available balance names the margin it counts when the mode is on.
 
 ## 3. Design
 To be written when started.

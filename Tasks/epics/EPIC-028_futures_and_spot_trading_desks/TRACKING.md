@@ -35,7 +35,7 @@ gantt
     028E Open orders and history           :done,    e, after d, 1d
     028F Commission, leverage, margin      :done,    f, after e, 1d
     028G Estimate policies                 :done,    g, after f, 1d
-    028Q Phase 2 reader fixes              :         q, after g, 2d
+    028Q Phase 2 reader fixes              :active,  q, after g, 2d
     Phase 2 exit check                     :milestone, m2, after q, 0d
 
     section Phase 3 - Shared desk kit
@@ -69,7 +69,7 @@ gantt
 | EPIC-028H | [Order entry core and Spot](incomplete/EPIC-028H_order_entry_panel_core_and_spot.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | 🟡 In progress | — |
 | EPIC-028O | [Order contract and missing reads](incomplete/EPIC-028O_order_contract_and_missing_reads.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-028P | [Dual-venue isolation test](incomplete/EPIC-028P_dual_venue_isolation_test.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | 🟡 Awaiting review | — |
-| EPIC-028Q | [Phase 2 reader fixes](incomplete/EPIC-028Q_phase_2_reader_fixes.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-028Q | [Phase 2 reader fixes](incomplete/EPIC-028Q_phase_2_reader_fixes.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | 🟡 Awaiting review | — |
 | EPIC-028I | [Futures order entry](incomplete/EPIC-028I_futures_order_entry_variant.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-028J | [Account tabs and summary](incomplete/EPIC-028J_account_tabs_and_summary_panels.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-028K | [Futures desk](incomplete/EPIC-028K_futures_desk_screen.md) | — | 🟡 | 🔵 Planned | — |
@@ -83,6 +83,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-01 | EPIC-028Q | Phase 2 readers: mapping errors translated, history gaps carried on `HistoryPage.notices`, closed Futures pairs found through income, history cached for paging, stale account summary published; leverage gate restated as app policy. Desk display moved to 028J; fake fills and Multi-Assets to 028O. |
 | 2026-10-01 | EPIC-028P | Dual-venue integration test added; it found every Futures session pinging the Spot API (`python-binance`'s construction-time ping), fixed with `ping=False`. |
 | 2026-10-01 | EPIC-028 | Epic-level review on PR #300: plan gaps (028O widened), Phase 1 evidence missing (028P added), Phase 2 reader defects (028Q added), 028I/K/L/M acceptance criteria corrected. |
 | 2026-09-30 | EPIC-028H | Implemented: `DeskProfile`, the order-entry panel (Limit/Market, slider, total, fee, disabled Spot TP/SL), the Spot two-column variant, `IOrderEntryTerms`, preview → confirm → submit. Stop-limit and BBO split to `EPIC-028O`. Fast tier green. |
