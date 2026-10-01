@@ -246,7 +246,7 @@ class OrderEntryPresenter(QObject):
             return
         request = self._request_for(side, figures, figures.price)
         self._protection = (
-            None if self._vm.options.reduce_only else self._vm.options.protection(side)
+            None if request.reduce_only else self._vm.options.protection(side)
         )
         action = self._orders.begin_action(_ORDER, side.value, None)
         self._vm.set_busy(True, "Checking the order...")
@@ -257,7 +257,9 @@ class OrderEntryPresenter(QObject):
     ) -> OrderRequest:
         """The order a side asks for: a stop-limit carries its stop and the
         last price it is judged against; a side sized by quote carries its
-        total, and its quantity is only the estimate at `price`."""
+        total, and its quantity is only the estimate at `price`. The
+        reduce-only box is read here, on the UI thread, as the user asked
+        (the review of PR 307): the box stays enabled while the order is out."""
         entry = self._vm.entry(side)
         order_type = self._vm.order_type
         is_stop = order_type is OrderType.STOP_LIMIT
@@ -274,6 +276,7 @@ class OrderEntryPresenter(QObject):
             last_price=self._vm.last_price if is_stop else None,
             quote_quantity=quote,
             time_in_force=self._vm.options.time_in_force if resting else None,
+            reduce_only=self._vm.options.reduce_only,
         )
 
     def _run_preview(
@@ -340,7 +343,7 @@ class OrderEntryPresenter(QObject):
             )
             # The box only ever narrows: an order the position makes reducing
             # stays so, and a ticked box makes any order reduce-only.
-            reduce_only = intent.reduce_only or self._vm.options.reduce_only
+            reduce_only = intent.reduce_only or request.reduce_only
             result = self._ports.order_submission.submit(
                 replace(request, side=intent.side, reduce_only=reduce_only),
                 live=True,

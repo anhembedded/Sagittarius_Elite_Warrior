@@ -55,10 +55,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .account_tabs_fixtures import position
 from .futures_entry_fixtures import MARK, futures_status, futures_terms
-from .order_entry_fixtures import SYMBOL, InlineThreadManager
+from .order_entry_fixtures import SYMBOL, HeldThreadManager, InlineThreadManager
 from .order_entry_presenter_fixtures import Answers, canned_preview, placed
 
 _FUTURES = TradingVenue.FUTURES_TESTNET
@@ -75,7 +76,9 @@ class _Panel:
     announced: list[object]
 
 
-def _panel(position_amount: str | None = None) -> _Panel:
+def _panel(
+    position_amount: str | None = None, threads: IThreadManager | None = None
+) -> _Panel:
     submission = FakeOrderSubmission()
     control = FakeFuturesSettingsControl()
     terms = futures_terms()
@@ -89,7 +92,9 @@ def _panel(position_amount: str | None = None) -> _Panel:
         futures_settings=control,
     )
     vm = OrderEntryViewModel(desk_profile_for(_FUTURES))
-    presenter = OrderEntryPresenter(vm, ports, InlineThreadManager(), Answers(True))
+    presenter = OrderEntryPresenter(
+        vm, ports, threads or InlineThreadManager(), Answers(True)
+    )
     announced: list[object] = []
     presenter.entryPlaced.connect(announced.append)
     presenter.show_symbol(SYMBOL)
@@ -183,7 +188,7 @@ def test_the_leverage_chip_sends_the_change_and_reads_the_symbol_again() -> None
     panel.vm.options.request_leverage(20)
 
     assert panel.control.leverage_changes == [(SYMBOL, 20)]
-    assert panel.vm.message == "Set leverage 20x."
+    assert panel.vm.message == "Set leverage 20x on BTCUSDT."
     assert not panel.vm.message_is_error
     assert len(panel.terms.reads) == reads + 1
 
@@ -233,3 +238,26 @@ def test_an_order_that_closes_a_position_is_not_protected() -> None:
     (sent,) = panel.submission.submitted_live
     assert sent.reduce_only is True
     assert panel.announced == []
+
+
+def test_the_box_is_read_when_the_user_asks_not_when_the_order_leaves() -> None:
+    """The PR #307 review: the box stays enabled while the order is out, so
+    the worker must send the value the user confirmed, not the box's value
+    by the time it runs."""
+    threads = HeldThreadManager()
+    panel = _panel(position_amount="0.02", threads=threads)
+    for index in range(len(threads.pending)):
+        threads.run(index)
+    loaded = len(threads.pending)
+    panel.vm.options.set_reduce_only(True)
+    _type_limit(panel.vm, EntrySide.SELL, "0.005")
+    _answers_with_an_order(panel, OrderSide.SELL, "0.005")
+    panel.account.holding([])
+
+    panel.vm.request_submit(EntrySide.SELL)
+    threads.run(loaded)  # the preview, then the confirmation
+    panel.vm.options.set_reduce_only(False)
+    threads.run(loaded + 1)  # the submit
+
+    (sent,) = panel.submission.submitted_live
+    assert sent.reduce_only is True

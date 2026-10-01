@@ -7,7 +7,9 @@ on a worker, says what the exchange confirmed or why it refused (an open
 position, a safety gate, the exchange's code), and asks the panel to read
 the symbol again so the chips show the exchange's setting, not the request.
 One change at a time; an answer for a symbol the panel has left is dropped
-(`async-ui-action-rule.md` §1).
+(`async-ui-action-rule.md` §1): the change is finished, but neither shown
+on the new symbol's panel nor followed by a read of it. Every message names
+its symbol.
 """
 
 from __future__ import annotations
@@ -88,18 +90,23 @@ class FuturesSettingsChanger(QObject):
         action = self._changes.begin_action(_CHANGE, symbol, None)
         self._vm.set_busy(True, f"Setting {what} on {symbol}...")
         logger.info("Order panel asks for %s on %s", what, symbol)
-        self._threads.submit(self._run, action.action_id, what, send)
+        self._threads.submit(self._run, action.action_id, symbol, what, send)
 
     def _run(
-        self, action_id: int, what: str, send: Callable[[], AccountControlResult]
+        self,
+        action_id: int,
+        symbol: str,
+        what: str,
+        send: Callable[[], AccountControlResult],
     ) -> None:
+        what = f"{what} on {symbol}"
         try:
-            self._answered.emit((action_id, what, send(), None))
+            self._answered.emit((action_id, symbol, what, send(), None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self._answered.emit((action_id, what, None, str(exc)))
+            self._answered.emit((action_id, symbol, what, None, str(exc)))
 
     def _on_answered(self, payload: tuple) -> None:
-        action_id, what, result, error = payload
+        action_id, symbol, what, result, error = payload
         if not self._changes.is_current_pending(action_id, _CHANGE):
             self._changes.log_stale_callback("_on_answered", action_id, _CHANGE)
             return
@@ -108,6 +115,9 @@ class FuturesSettingsChanger(QObject):
             action_id, ActionOutcome.FAILED if failed else ActionOutcome.SUCCEEDED
         )
         logger.info("Order panel %s: %s", what, text)
+        if symbol != self._vm.order_symbol:
+            logger.info("Order panel left %s before its answer; not shown", symbol)
+            return
         self._vm.show_result(text, is_error=failed)
         self._reread()
 
