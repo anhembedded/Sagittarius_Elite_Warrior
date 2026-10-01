@@ -5,7 +5,7 @@
 **Risk:** 🔴 — TP/SL places extra reduce-only orders on a real exchange; a wrong side opens a position instead of protecting one
 **Complexity:** L — variant UI + TP/SL order construction
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028F](EPIC-028F_commission_and_futures_account_controls.md), [EPIC-028H](EPIC-028H_order_entry_panel_core_and_spot.md), ADR O2, O3
+**Depends on:** [EPIC-028F](../completed/EPIC-028F_commission_and_futures_account_controls.md), [EPIC-028H](EPIC-028H_order_entry_panel_core_and_spot.md), ADR O2, O3
 
 ---
 
