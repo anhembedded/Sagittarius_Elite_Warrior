@@ -290,6 +290,23 @@ class TestPositionMapping:
         assert position.position_amt == Decimal("0.010")
 
 
+def test_a_short_positions_leverage_is_positive() -> None:
+    """`positionRisk` v3 signs `notional` (negative for a short), so
+    `notional / initialMargin` read a 20x short as -20x. Found when
+    `EPIC-028O`'s fake started filling market orders."""
+    payload = {
+        **_REAL_V3_PAYLOAD_20X_CROSS,
+        "positionAmt": "-0.010",
+        "notional": "-24.92026492",
+        "unRealizedProfit": "-0.02146492",
+    }
+
+    position = map_futures_position_payload_to_live_position(payload)
+
+    assert position.leverage == 20
+    assert position.position_amt == Decimal("-0.010")
+
+
 class TestStopLimitOrder:
     """`EPIC-028O` — no quote sizing on USD-M; a `STOP` read back is a
     stop-limit."""
