@@ -156,16 +156,18 @@ class OrderEntryPresenter(QObject):
         try:
             terms = self._ports.order_entry_terms.terms_for(symbol)
             status = self._ports.account_snapshot.check_connection()
-            context = replace(
-                self._context_for(symbol, terms, status),
-                notional_limit=self._ports.order_entry_terms.order_notional_limit(),
-            )
+            limit = self._ports.order_entry_terms.order_notional_limit()
+            context = self._context_for(symbol, terms, status, limit)
             self._loaded.emit((action_id, context, None))
         except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
             self._loaded.emit((action_id, None, str(exc)))
 
     def _context_for(
-        self, symbol: str, terms: OrderEntryTerms, status: ExchangeConnectionStatus
+        self,
+        symbol: str,
+        terms: OrderEntryTerms,
+        status: ExchangeConnectionStatus,
+        notional_limit: Decimal,
     ) -> OrderEntryContext:
         quote = self._vm.profile.quote_asset
         base = symbol.removesuffix(quote)
@@ -182,6 +184,7 @@ class OrderEntryPresenter(QObject):
             terms=terms,
             available_quote=summary.available_balance if summary else None,
             free_base=free_base,
+            notional_limit=notional_limit,
         )
 
     def _on_loaded(self, payload: tuple) -> None:
@@ -252,13 +255,14 @@ class OrderEntryPresenter(QObject):
         if not self._orders.is_current_pending(action_id, _ORDER):
             self._orders.log_stale_callback("_on_previewed", action_id, _ORDER)
             return
-        refusal = self._preview_refusal(preview, error)
+        context = self._vm.context
+        limit = context.notional_limit if context else None
+        refusal = self._preview_refusal(preview, error, limit)
         if refusal is not None:
             self._orders.finish_action(action_id, ActionOutcome.FAILED)
             self._vm.show_result(refusal, is_error=True)
             return
         price = preview.order.price or request.reference_price
-        context = self._vm.context
         fee_rate = context.terms.commission.taker if context else Decimal(0)
         confirmation = build_confirmation(
             preview,
@@ -280,7 +284,9 @@ class OrderEntryPresenter(QObject):
         self._threads.submit(self._run_submit, action_id, side, rounded)
 
     @staticmethod
-    def _preview_refusal(preview: OrderPreview | None, error: str | None) -> str | None:
+    def _preview_refusal(
+        preview: OrderPreview | None, error: str | None, limit: Decimal | None
+    ) -> str | None:
         if preview is None:
             return f"The order could not be checked: {error}"
         if preview.stop_check is StopPriceCheck.WRONG_SIDE:
@@ -296,6 +302,14 @@ class OrderEntryPresenter(QObject):
             return (
                 "The order is worth less than the symbol's minimum of "
                 f"{preview.min_notional}."
+            )
+        # The panel judged the order at the tick-rounded price too; this is
+        # the gate's own figure, so a confirmation never offers what
+        # `ExecuteOrderCommandHandler`'s limit refuses.
+        if limit is not None and preview.estimated_notional > limit:
+            return (
+                f"The order is worth {preview.estimated_notional}, more than the "
+                f"app's limit of {limit} per order."
             )
         return None
 

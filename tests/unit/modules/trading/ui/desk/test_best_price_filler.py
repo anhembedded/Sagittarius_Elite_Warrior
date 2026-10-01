@@ -93,3 +93,15 @@ def test_no_book_is_read_before_a_symbol_is_shown() -> None:
 def test_the_queue_price_of_an_empty_side_is_none() -> None:
     assert queue_price(EntrySide.SELL, _book(ask="0")) is None
     assert queue_price(EntrySide.SELL, _book()) == Decimal("100.5")
+
+
+def test_a_side_with_a_price_but_no_quantity_counts_as_empty() -> None:
+    book = BestBidAsk(
+        symbol=SYMBOL,
+        bid_price=Decimal("99.5"),
+        bid_quantity=Decimal(0),
+        ask_price=Decimal("100.5"),
+        ask_quantity=Decimal(1),
+    )
+
+    assert queue_price(EntrySide.BUY, book) is None

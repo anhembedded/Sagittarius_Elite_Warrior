@@ -85,8 +85,10 @@ class OrderEntryContext:
     available_quote: Decimal | None
     #: The base asset the account can sell; zero when it holds none.
     free_base: Decimal | None
-    #: `EPIC-028O` — the app's per-order notional limit; `None` when it
-    #: could not be read, which leaves the maxima uncapped by it.
+    #: `EPIC-028O` — the app's per-order notional limit, which caps every
+    #: maximum. The presenter always reads it with the terms; `None` (a
+    #: preview or a test that builds a context by hand) leaves the maxima
+    #: uncapped, and the execute gate still applies the real limit.
     notional_limit: Decimal | None = None
 
 
@@ -108,7 +110,8 @@ class SideFigures:
     """What one side shows, and whether it may submit."""
 
     #: The price the figures are computed at: the typed limit price, or the
-    #: last price for a market order.
+    #: last price for a market order, rounded to the tick as the preview
+    #: rounds it (`EPIC-028O`).
     price: Decimal | None
     available: Decimal | None
     available_asset: str
@@ -141,7 +144,9 @@ def spot_side_figures(
         return _spot_quote_buy_figures(entry, context, last_price)
     step = context.terms.rules.step_size_for(order_type)
     fee_rate = context.terms.commission.taker
-    price = last_price if order_type is OrderType.MARKET else entry.price
+    price = _sent_price(
+        side, last_price if order_type is OrderType.MARKET else entry.price, context
+    )
     if side is EntrySide.BUY:
         available, asset = context.available_quote, context.quote_asset
         max_quantity = (
@@ -174,6 +179,20 @@ def spot_side_figures(
         total=total,
         fee=fee,
         problem=problem,
+    )
+
+
+def _sent_price(
+    side: EntrySide, price: Decimal | None, context: OrderEntryContext
+) -> Decimal | None:
+    """`price` rounded to the tick the way the order preview rounds it (a
+    buy down, a sell up), so the maximum, the minimum and the limit are
+    judged at the price that is sent, not the one typed."""
+    if price is None or price <= 0:
+        return price
+    order_side = OrderSide.BUY if side is EntrySide.BUY else OrderSide.SELL
+    return _ROUNDING.round_price_to_tick(
+        price, context.terms.rules.tick_size, order_side
     )
 
 

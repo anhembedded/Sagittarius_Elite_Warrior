@@ -339,3 +339,32 @@ def test_the_slider_follows_a_typed_amount(
 ) -> None:
     to_decimal = lambda text: None if text is None else Decimal(text)
     assert percent_of_max(to_decimal(quantity), to_decimal(maximum)) == expected
+
+
+# -- the price that is sent ------------------------------------------------- #
+
+
+def test_figures_are_judged_at_the_tick_rounded_price_a_sell_up() -> None:
+    # PR #305 review: a sell at 125.031 is sent at 125.04 (the preview
+    # rounds a sell up), so 3.999 would be worth 500.035, over the limit.
+    context = spot_context(free_base=Decimal(10), notional_limit=Decimal(500))
+
+    at_max = spot_side_figures(_SELL, _LIMIT, _entry("125.031"), context, None)
+    over = spot_side_figures(_SELL, _LIMIT, _entry("125.031", "3.999"), context, None)
+
+    assert at_max.price == Decimal("125.04")
+    assert at_max.max_quantity == Decimal("3.998")
+    assert over.problem == (
+        "The order is worth more than the app's limit of 500 USDT per order."
+    )
+
+
+def test_a_buy_is_judged_at_its_price_rounded_down() -> None:
+    # 0.1 at 100.009 reads as 10.0009, but is sent at 100.00: exactly 10.
+    figures = spot_side_figures(
+        _BUY, _LIMIT, _entry("100.009", "0.1"), spot_context(), None
+    )
+
+    assert figures.price == 100
+    assert figures.total == 10
+    assert figures.can_submit

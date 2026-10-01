@@ -156,3 +156,22 @@ def test_a_stop_crossed_by_the_time_of_the_preview_is_not_confirmed() -> None:
     assert panel.submission.submitted_live == []
     assert panel.vm.message_is_error
     assert "already been crossed" in panel.vm.message
+
+
+def test_a_preview_worth_more_than_the_limit_is_not_confirmed() -> None:
+    # The gate's own figure (rounded quantity x rounded price) decides.
+    panel = _loaded("100")
+    panel.vm.set_price(_BUY, "100")
+    panel.vm.set_quantity(_BUY, "1")
+    panel.submission.preview_answers(
+        replace(
+            canned_preview(OrderSide.BUY, "1", "100"),
+            estimated_notional=DEFAULT_ORDER_NOTIONAL_LIMIT + Decimal("0.01"),
+        )
+    )
+
+    panel.vm.request_submit(_BUY)
+
+    assert panel.confirm.asked == []
+    assert panel.vm.message_is_error
+    assert "more than the app's limit" in panel.vm.message

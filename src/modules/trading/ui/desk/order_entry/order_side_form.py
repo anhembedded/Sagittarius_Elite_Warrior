@@ -12,7 +12,7 @@ what the text already says, so typing is never interrupted mid-number.
 quote (a Spot market buy) shows a total field in place of the amount; the
 BBO button fills the best price on the side's own side of the book (a buy
 gets the best bid, a sell the best ask), so the order joins the queue and
-never crosses the spread.
+never crosses the spread; it shows on the Limit tab only.
 """
 
 from __future__ import annotations
@@ -47,6 +47,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 
 _NONE_TEXT = NONE_TEXT
 _SLIDER_STEP = 25
+
+
+def order_type_joins_queue_now(order_type: OrderType) -> bool:
+    """Whether an order of this type rests on the book as soon as it is
+    placed, so the front of the queue (BBO) is a meaningful price for it."""
+    return order_type is OrderType.LIMIT
+
+
 _BEST_PRICE_TIP = {
     EntrySide.BUY: "Use the best bid: the order joins the front of the buy queue",
     EntrySide.SELL: "Use the best ask: the order joins the front of the sell queue",
@@ -185,7 +193,9 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
             widget.setVisible(is_stop)
         self._price.setVisible(not is_market)
         self._last.setVisible(not is_market)
-        self._best.setVisible(not is_market)
+        # A stop-limit's limit price is where it rests once triggered, not
+        # the queue it joins now, so BBO offers the wrong price there.
+        self._best.setVisible(order_type_joins_queue_now(vm.order_type))
         self._market_price.setVisible(is_market)
         for widget in (self._quantity, self._quantity_unit):
             widget.setVisible(not by_quote)

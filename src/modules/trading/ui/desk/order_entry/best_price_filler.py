@@ -42,8 +42,9 @@ _QUEUE_NAME = {EntrySide.BUY: "bid", EntrySide.SELL: "ask"}
 def queue_price(side: EntrySide, book: BestBidAsk) -> Decimal | None:
     """@return The front of `side`'s own queue, or `None` when that side of
     the book is empty."""
-    price = book.bid_price if side is EntrySide.BUY else book.ask_price
-    return price if price > 0 else None
+    if side is EntrySide.BUY:
+        return book.bid_price if book.has_bid else None
+    return book.ask_price if book.has_ask else None
 
 
 class BestPriceFiller(QObject):

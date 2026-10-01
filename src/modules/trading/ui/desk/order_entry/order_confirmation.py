@@ -56,7 +56,9 @@ def build_confirmation(
     order = preview.order
     if order.quote_quantity is not None:
         return _quote_buy_confirmation(
-            preview, side_label, venue_label, base_asset, quote_asset, fee_rate
+            preview,
+            _QuoteBuyLabels(side_label, venue_label, base_asset, quote_asset),
+            fee_rate,
         )
     is_market = order.order_type is OrderType.MARKET
     kind = _KIND.get(order.order_type, "limit")
@@ -96,17 +98,24 @@ _KIND = {
 }
 
 
+@dataclass(frozen=True)
+class _QuoteBuyLabels:
+    """The words a quote-sized buy's confirmation names it by."""
+
+    side_label: str
+    venue_label: str
+    base_asset: str
+    quote_asset: str
+
+
 def _quote_buy_confirmation(
-    preview: OrderPreview,
-    side_label: str,
-    venue_label: str,
-    base_asset: str,
-    quote_asset: str,
-    fee_rate: Decimal,
+    preview: OrderPreview, labels: _QuoteBuyLabels, fee_rate: Decimal
 ) -> OrderConfirmation:
     """`EPIC-028O` — a market buy sized by the quote it spends: the spend is
     exact, the amount bought is the exchange's to decide."""
     order = preview.order
+    side_label, venue_label = labels.side_label, labels.venue_label
+    base_asset, quote_asset = labels.base_asset, labels.quote_asset
     spend = order.quote_quantity or Decimal(0)
     lines = [
         f"Spend: {format_amount(spend)} {quote_asset}",

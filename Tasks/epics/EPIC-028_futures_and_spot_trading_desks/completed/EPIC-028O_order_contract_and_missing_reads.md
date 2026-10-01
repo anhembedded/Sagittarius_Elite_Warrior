@@ -124,6 +124,7 @@ The plan had three; on 2026-10-01 the reads were split from the fake's fills and
   - The confirmation names the stop ("… once the price reaches 51,000 USDT, as a stop-limit order").
 - **The BBO button** (`best_price_filler.py`).
   - It fills a side's price with the front of its own queue: a buy gets the best bid, a sell the best ask (Binance's "Queue 1"). The order rests at the front of its queue and never crosses the spread; a user who wants to cross picks Market.
+  - It is offered on the Limit tab only. A stop-limit's limit price is where it rests once triggered, not the queue it would join now.
   - The book read runs on a worker under its own `ActionOwnershipTracker`. It is dropped when the panel switches symbol. An empty side of the book or a failed read is named, and the typed price is kept.
   - It lives in its own class because the presenter would otherwise pass 400 lines, and the read shares no state with preview → confirm → submit.
 
@@ -244,6 +245,16 @@ The plan had three; on 2026-10-01 the reads were split from the fake's fills and
   - a stop-limit buy above the market is placed and rests, leaving the holding unchanged.
 - **Mutation:** 30 mutations (the limit cap and both over-limit checks, the quote buy branch, its cent flooring and balance check, the stop check and its side, the slider's total, the clear, each request field, the limit read, the crossed-stop refusal, the quote lot exemption, the symbol-switch drop, the book side, the empty-side check, the no-symbol guard, each visibility switch, "Max total", the tab text, the profile's types, both confirmation branches), all killed.
 - **Runs:** `tests/unit` + `tests/integration` + `tests/sanity`: 6948 passed, 4 skipped. ruff, mypy and `ci-local.ps1 -SkipTests` green.
+- **Review (PR #305, independent session): PASS with should-fix. All fixed:**
+  1. **The cap was judged at the typed price, the gate at the sent one.** The preview rounds a limit price to the tick (a sell up, a buy down), and the gate judges that rounded notional. A sell at 125.031 was therefore offered 3.999 BTC, which is 500.035 at 125.04 and over a 500 limit.
+     - The figures now use the tick-rounded price (`_sent_price`), which fixes the maximum, the minimum-notional check and the limit check alike.
+     - As a second net, the presenter refuses a preview whose `estimated_notional` is over the limit, so a confirmation never offers what the gate refuses.
+     - Both new tests failed on the previous rules file.
+  2. The vocabulary gains **Quote-sized market buy** and **BBO**. The Order estimate row now names the quote-sized buy as the way the Spot desk avoids an expected price.
+  3. `queue_price` uses `BestBidAsk.has_bid` / `has_ask`, so a side with a price but no quantity counts as empty.
+  4. The limit is passed into `_context_for`, and `notional_limit`'s comment says when it is `None`.
+  5. Question answered: BBO is now hidden on the Stop-limit tab (see "the BBO button" above).
+  6. The quote-buy confirmation helper takes a frozen labels object (D12).
 
 ## Implementation notes (written when done)
 - PR-1 to PR-3 notes are in §3; PR-4's design is "PR-4 — the desk UI".

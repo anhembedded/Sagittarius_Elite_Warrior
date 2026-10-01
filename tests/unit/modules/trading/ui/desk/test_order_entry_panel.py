@@ -203,3 +203,14 @@ def test_the_maximum_respects_the_app_notional_limit(qtbot) -> None:
     assert _child(panel, QLabel, "lblMaxBuy").text() == "5 BTC"
     assert "app's limit of 500 USDT" in _child(panel, QLabel, "lblProblemBuy").text()
     assert not _child(panel, QPushButton, "btnSubmitBuy").isEnabled()
+
+
+def test_the_best_price_button_is_not_offered_on_a_stop_limit(qtbot) -> None:
+    # A stop-limit's limit price is where it rests once triggered; the
+    # queue's front now is the wrong price for it (PR #305 review).
+    _vm, panel = _panel(qtbot)
+
+    _child(panel, QTabBar, "tabOrderType").setCurrentIndex(2)
+
+    assert not _child(panel, QToolButton, "btnBestPriceBuy").isVisibleTo(panel)
+    assert _child(panel, QToolButton, "btnLastPriceBuy").isVisibleTo(panel)
