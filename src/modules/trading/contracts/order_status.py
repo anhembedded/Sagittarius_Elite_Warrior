@@ -30,6 +30,11 @@ class OrderStatus(str, Enum):
     CANCELED = "canceled"
     REJECTED = "rejected"
     EXPIRED = "expired"
+    #: `EPIC-028R` — a conditional order whose trigger price traded: it
+    #: placed its regular order, which carries on under its own id. Neither
+    #: filled nor cancelled; the conditional order's own life is over.
+    #: Binance's algo statuses `TRIGGERED` and `FINISHED` both read as this.
+    TRIGGERED = "triggered"
     #: `BUG-091` — the honest answer for a Binance status this app's
     #: parsers (`user_data_event_parser.py`, `futures_order_payload_
     #: mapper.py`) don't have a narrower name for, e.g. `EXPIRED_IN_MATCH`
@@ -40,7 +45,7 @@ class OrderStatus(str, Enum):
     UNKNOWN = "unknown"
 
 
-#: `FILLED`/`CANCELED`/`REJECTED`/`EXPIRED` are terminal — empty target sets.
+#: `FILLED`/`CANCELED`/`REJECTED`/`EXPIRED`/`TRIGGERED` are terminal — empty target sets.
 #: An exchange order that reached one of these cannot un-happen; there is no
 #: real-world event that would justify e.g. `FILLED` -> `NEW`.
 _VALID_TRANSITIONS: dict[OrderStatus, frozenset[OrderStatus]] = {
@@ -51,6 +56,7 @@ _VALID_TRANSITIONS: dict[OrderStatus, frozenset[OrderStatus]] = {
             OrderStatus.CANCELED,
             OrderStatus.REJECTED,
             OrderStatus.EXPIRED,
+            OrderStatus.TRIGGERED,
         }
     ),
     OrderStatus.PARTIALLY_FILLED: frozenset(
@@ -60,6 +66,7 @@ _VALID_TRANSITIONS: dict[OrderStatus, frozenset[OrderStatus]] = {
     OrderStatus.CANCELED: frozenset(),
     OrderStatus.REJECTED: frozenset(),
     OrderStatus.EXPIRED: frozenset(),
+    OrderStatus.TRIGGERED: frozenset(),
     #: Not terminal — the opposite of the four above: an `UNKNOWN` status
     #: means this app couldn't name what the exchange reported, not that
     #: the order is actually done. A later update carrying a real status
@@ -72,6 +79,7 @@ _VALID_TRANSITIONS: dict[OrderStatus, frozenset[OrderStatus]] = {
             OrderStatus.CANCELED,
             OrderStatus.REJECTED,
             OrderStatus.EXPIRED,
+            OrderStatus.TRIGGERED,
         }
     ),
 }

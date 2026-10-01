@@ -1,6 +1,7 @@
 """`EPIC-021H` — `IUserDataStream` implementation: the exchange's own
 account of what happened to an order, over Binance Futures' User Data
-Stream (`ORDER_TRADE_UPDATE`/`ACCOUNT_UPDATE`).
+Stream (`ORDER_TRADE_UPDATE`/`ACCOUNT_UPDATE`, and `ALGO_UPDATE` since
+`EPIC-028R`).
 
 @details Same `ITaskManager.spawn`/`CancellationToken` shape as
 `BinanceWebsocketService` (`EPIC-021A`) — cooperative exit, client closed
@@ -47,6 +48,12 @@ from typing import Any
 
 from binance import AsyncClient, BinanceSocketManager
 from binance.exceptions import ReadLoopClosed
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.algo_update_parser import (
+    ALGO_UPDATE,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_order_updates import (
+    FuturesOrderUpdates,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_event_parser import (
     ACCOUNT_UPDATE,
     ORDER_TRADE_UPDATE,
@@ -54,9 +61,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_ev
     account_update_changed_symbols,
     account_update_position_pnls,
     account_update_wallet_balance,
-    fill_details,
-    is_fill_execution,
-    parse_order_trade_update,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
     VenueEventEmitter,
@@ -171,6 +175,8 @@ class FuturesUserDataStream(IUserDataStream):
         #: the account is flat, so an empty dict is always the correct
         #: starting point, never a stale carryover from a previous session.
         self._unrealized_pnl_by_symbol: dict[str, Decimal] = {}
+        #: `ORDER_TRADE_UPDATE` and, since `EPIC-028R`, `ALGO_UPDATE`.
+        self._order_updates = FuturesOrderUpdates(events)
 
     def start(self) -> bool:
         if self._task_handle is not None:
@@ -289,9 +295,11 @@ class FuturesUserDataStream(IUserDataStream):
     async def _handle_message(self, payload: dict[str, Any]) -> None:
         event_type = payload.get("e")
         if event_type == ORDER_TRADE_UPDATE:
-            self._handle_order_trade_update(payload)
+            self._order_updates.on_order_trade_update(payload)
         elif event_type == ACCOUNT_UPDATE:
             await self._handle_account_update(payload)
+        elif event_type == ALGO_UPDATE:
+            self._order_updates.on_algo_update(payload)
         elif event_type == _LIBRARY_ERROR_EVENT:
             # `BUG-096` — before this branch existed, a connection blip
             # produced this sentinel and `_handle_message` silently
@@ -303,30 +311,6 @@ class FuturesUserDataStream(IUserDataStream):
                 payload.get("m"),
                 payload.get("type"),
             )
-
-    def _handle_order_trade_update(self, payload: dict[str, Any]) -> None:
-        try:
-            order = parse_order_trade_update(payload)
-        except (KeyError, ValueError) as exc:
-            logger.error("Could not parse ORDER_TRADE_UPDATE: %s | %s", exc, payload)
-            return
-
-        # `BUG-095` — `DEBUG`, not `INFO`: this fires per order-status
-        # transition, the exact "838 trades -> 5,028 INFO lines froze the
-        # UI" hot-path class `BUG-042` already named (`SignalLogHandler`
-        # still mirrors every `"App"` `INFO+` line to the UI's log model
-        # via a queued Qt signal — `MarketTickEventHandler`'s own
-        # docstring documents the same fix for the same reason).
-        logger.debug(
-            "ORDER_TRADE_UPDATE  %s  %s  qty %s",
-            order.client_order_id,
-            order.status.name,
-            order.quantity,
-        )
-
-        if is_fill_execution(payload):
-            fill_price, fill_quantity = fill_details(payload)
-            self._events.order_filled(order, (fill_price, fill_quantity))
 
     async def _handle_account_update(self, payload: dict[str, Any]) -> None:
         if self._trading_client is None:

@@ -67,8 +67,9 @@ class ExecuteOrderStopRejection(str, Enum):
 class ExecuteOrderTypeRejection(str, Enum):
     """@brief `EPIC-028O` — an order type the venue's client cannot send
     today (`ITradingClientFactory.accepted_order_types`): a Futures
-    conditional order until `EPIC-028R`. Refused before any request, on the
-    dry run and the live path alike."""
+    `STOP_MARKET` or `TAKE_PROFIT_MARKET`, say (only the stop-limit is sent,
+    through the Algo Order API, since `EPIC-028R`). Refused before any
+    request, on the dry run and the live path alike."""
 
     NOT_SENDABLE_ON_VENUE = "not_sendable_on_venue"
 

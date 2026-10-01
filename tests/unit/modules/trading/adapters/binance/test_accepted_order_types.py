@@ -19,6 +19,10 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_algo_order_mapper import (
+    is_algo_routed,
+    map_order_to_futures_algo_params,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_order_payload_mapper import (
     map_order_to_futures_params,
 )
@@ -63,11 +67,20 @@ _METADATA = SymbolOrderMetadata(
 
 type Mapper = Callable[[Order, SymbolOrderMetadata], dict[str, Any]]
 
+
+def _futures_request(order: Order, metadata: SymbolOrderMetadata) -> dict[str, Any]:
+    """What `FuturesTradingClient.place_order` sends: a conditional type
+    through the Algo Order API (`EPIC-028R`), the rest as a regular order."""
+    if is_algo_routed(order.order_type):
+        return map_order_to_futures_algo_params(order, metadata)
+    return map_order_to_futures_params(order, metadata)
+
+
 _VENUES: list[tuple[str, ITradingClientFactory, Mapper]] = [
     (
         "futures",
         FuturesTradingClientFactory(Mock(), Mock(), Mock()),
-        map_order_to_futures_params,
+        _futures_request,
     ),
     (
         "spot",

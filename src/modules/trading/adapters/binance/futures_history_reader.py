@@ -19,6 +19,11 @@ orders were all cancelled unfilled, is in `known_gaps()`, with Binance's
 Payload shapes and limits follow Binance's documented USD-M API; they were
 not re-verified against a live call (egress to `*.binance.*` is blocked in
 this sandbox), the same disclosure as `futures_account_reader.py`.
+
+`EPIC-028R` — order history also lists conditional orders
+(`GET /fapi/v1/allAlgoOrders`: seven-day spans, 100 rows), and
+`active_symbols` counts open ones (`openAlgoOrders`). A triggered algo order
+shows no fill of its own; its fill is on the regular order it placed.
 """
 
 from __future__ import annotations
@@ -28,6 +33,9 @@ from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_algo_order_mapper import (
+    map_futures_algo_history_order,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_history_payload_mapper import (
     map_futures_history_order,
     map_futures_trade,
@@ -63,7 +71,10 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_trading_s
 )
 
 _ROW_LIMIT = 1000
-_RULES = HistoryWindowRules(max_span_ms=7 * 24 * 60 * 60 * 1000, limit=_ROW_LIMIT)
+_SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000
+_RULES = HistoryWindowRules(max_span_ms=_SEVEN_DAYS_MS, limit=_ROW_LIMIT)
+#: `allAlgoOrders` answers at most 100 rows per request.
+_ALGO_RULES = HistoryWindowRules(max_span_ms=_SEVEN_DAYS_MS, limit=100)
 _VENUE = "Futures"
 _GAPS = HistoryGaps(
     order_history=(
@@ -106,7 +117,17 @@ class FuturesHistoryReader(IAccountHistoryReader):
                 end,
                 _RULES,
             )
-            return tuple(map_futures_history_order(row) for row in rows)
+            algo_rows = fetch_span(
+                lambda s, e: client.futures_get_all_algo_orders(
+                    symbol=symbol, startTime=s, endTime=e, limit=_ALGO_RULES.limit
+                ),
+                start,
+                end,
+                _ALGO_RULES,
+            )
+            return tuple(map_futures_history_order(row) for row in rows) + tuple(
+                map_futures_algo_history_order(row) for row in algo_rows
+            )
 
     def trade_history(self, symbol: str, since: datetime) -> tuple[TradeRecord, ...]:
         start, end = span_ms(since, self._clock())
@@ -128,6 +149,9 @@ class FuturesHistoryReader(IAccountHistoryReader):
             client = self._client()
             positions: list[dict[str, Any]] = client.futures_position_information()
             open_orders: list[dict[str, Any]] = client.futures_get_open_orders()
+            open_algo_orders: list[dict[str, Any]] = (
+                client.futures_get_open_algo_orders()
+            )
             income = fetch_span(
                 lambda s, e: client.futures_income_history(
                     startTime=s, endTime=e, limit=_ROW_LIMIT
@@ -142,7 +166,8 @@ class FuturesHistoryReader(IAccountHistoryReader):
                 if Decimal(str(row.get("positionAmt", "0"))) != 0
             }
             traded = {row["symbol"] for row in income if row["symbol"]}
-            return tuple(sorted(held | traded | {row["symbol"] for row in open_orders}))
+            waiting = {row["symbol"] for row in open_orders + open_algo_orders}
+            return tuple(sorted(held | traded | waiting))
 
     def known_gaps(self) -> HistoryGaps:
         return _GAPS

@@ -32,6 +32,12 @@ not always match a given library version's exact path/version number):
     GET    /fapi/v1/premiumIndex    `futures_mark_price()` (`EPIC-028O`)
     GET    /fapi/v1/ticker/bookTicker  `futures_orderbook_ticker()` (`EPIC-028O`)
     GET    /fapi/v1/multiAssetsMargin  `futures_get_multi_assets_mode()` (`EPIC-028O`)
+    POST   /fapi/v1/algoOrder       `futures_create_algo_order()` (`EPIC-028R`)
+    GET    /fapi/v1/algoOrder       `futures_get_algo_order()` (`EPIC-028R`)
+    GET    /fapi/v1/openAlgoOrders  `futures_get_open_algo_orders()` (`EPIC-028R`)
+    GET    /fapi/v1/allAlgoOrders   `futures_get_all_algo_orders()` (`EPIC-028R`)
+    DELETE /fapi/v1/algoOrder       `futures_cancel_algo_order()` (`EPIC-028R`)
+    DELETE /fapi/v1/algoOpenOrders  `futures_cancel_all_algo_open_orders()` (`EPIC-028R`)
     POST   /fapi/v1/listenKey       `futures_stream_get_listen_key()` (`EPIC-021H`)
     PUT    /fapi/v1/listenKey       `futures_stream_keepalive()` (`EPIC-021H`)
 
@@ -171,8 +177,17 @@ def _handle_get(
         return 200, state.account.position_risk(params.get("symbol"))
     if path == "/fapi/v1/multiAssetsMargin":
         return 200, {"multiAssetsMargin": state.account.multi_assets}
-    if path in {"/fapi/v1/allOrders", "/fapi/v1/userTrades", "/fapi/v1/income"}:
+    if path in {
+        "/fapi/v1/allOrders",
+        "/fapi/v1/userTrades",
+        "/fapi/v1/income",
+        "/fapi/v1/allAlgoOrders",
+    }:
         return _history(path, params, state)
+    if path == "/fapi/v1/algoOrder":
+        return state.algo.get(params)
+    if path == "/fapi/v1/openAlgoOrders":
+        return 200, state.algo.open_orders(params.get("symbol"))
     if path == "/fapi/v1/commissionRate":
         return 200, {
             "symbol": params.get("symbol", ""),
@@ -210,6 +225,8 @@ def _history(
     if path == "/fapi/v1/income":
         return 200, state.history.income(start, end, int(params.get("limit", 100)))
     query = HistoryQuery.parse(params)
+    if path == "/fapi/v1/allAlgoOrders":
+        return 200, state.algo.all_orders(query)
     if path == "/fapi/v1/allOrders":
         return 200, state.history.orders(
             query, purge_unfilled_after_ms=_FUTURES_UNFILLED_ORDER_KEPT_MS
@@ -228,6 +245,8 @@ def _handle_post(
         return 200, {}
     if path == "/fapi/v1/order":
         return state.place(params)
+    if path == "/fapi/v1/algoOrder":
+        return state.algo.place(params)
     if path == "/fapi/v1/listenKey":
         return 200, {"listenKey": _FAKE_LISTEN_KEY}
     if path == "/fapi/v1/leverage":
@@ -258,6 +277,10 @@ def _handle_delete(
             # parsing (a JSON body carrying `code`/`msg`, non-2xx status).
             return 400, {"code": -2011, "msg": "Unknown order sent."}
         return 200, canceled
+    if path == "/fapi/v1/algoOrder":
+        return state.algo.cancel(params)
+    if path == "/fapi/v1/algoOpenOrders":
+        return state.algo.cancel_all(params.get("symbol", ""))
     if path == "/fapi/v1/allOpenOrders":
         state.cancel_all(params.get("symbol", ""))
         return 200, {

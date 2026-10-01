@@ -12,6 +12,10 @@ position and wallet `positionRisk` and `account` report. A reduce-only order
 that would open or add to a position is refused with Binance's `-2022`; one
 larger than the position closes it, reporting the capped fill in
 `executedQty` while `origQty` stays what was sent.
+
+`EPIC-028R` — conditional orders live apart, in `algo` (Binance's Algo Order
+API); `move_price` triggers the ones a price crosses, placing their regular
+orders here.
 """
 
 from __future__ import annotations
@@ -21,6 +25,7 @@ from decimal import Decimal
 from typing import Any
 
 from .futures_account_state import FuturesAccountState, FuturesFill
+from .futures_algo_orders import FuturesAlgoOrders
 from .futures_symbol_config import FuturesSymbolConfig
 from .history_log import HistoryLog, now_ms
 
@@ -50,6 +55,13 @@ class OrderBookState:
         #: `EPIC-028O` — the wallet and positions market fills move.
         self.account = FuturesAccountState(self.symbol_config)
         self._trade_ids = itertools.count(5_000_000)
+        #: `EPIC-028R` — the account's conditional orders.
+        self.algo = FuturesAlgoOrders()
+
+    def move_price(self, symbol: str, price: Decimal) -> None:
+        """`EPIC-028R` — the market trades at `price`: every conditional
+        order it crosses triggers and places its regular order."""
+        self.algo.trigger(symbol, price, self.place)
 
     def place(self, params: dict[str, str]) -> tuple[int, dict[str, Any]]:
         """@brief Accepts one order from `POST /fapi/v1/order`'s
