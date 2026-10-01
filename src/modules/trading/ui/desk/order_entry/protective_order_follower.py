@@ -15,7 +15,7 @@ not.
 stream's fill and the submit's answer reach the UI thread by separate
 queued signals, and a market order often fills before its REST answer
 returns. So the follower keeps what the feed reported about the last
-`_REMEMBERED` orders, and `expect` settles at once on an entry already
+`REMEMBERED_ORDERS` orders, and `expect` settles at once on an entry already
 over.
 
 **How an entry ends decides what is protected.** Filled whole: its whole
@@ -80,7 +80,7 @@ _KIND = {"take_profit_market": "Take-profit", "stop_market": "Stop-loss"}
 
 #: How many orders' reported progress is kept for an `expect` still to come.
 #: Its answer and its fill arrive moments apart, so a few dozen is plenty.
-_REMEMBERED = 64
+REMEMBERED_ORDERS = 64
 
 
 @dataclass(frozen=True)
@@ -160,7 +160,7 @@ class ProtectiveOrderFollower(QObject):
     def _remember(self, key: str, progress: _Progress) -> None:
         self._progress[key] = progress
         self._progress.move_to_end(key)
-        while len(self._progress) > _REMEMBERED:
+        while len(self._progress) > REMEMBERED_ORDERS:
             oldest = next((k for k in self._progress if k not in self._expected), None)
             if oldest is None:
                 break

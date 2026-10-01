@@ -41,6 +41,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_
     FakeOrderSubmission,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.protective_order_follower import (
+    REMEMBERED_ORDERS,
     ProtectiveOrderFollower,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
@@ -149,6 +150,39 @@ def test_an_early_fill_outlives_other_orders_reported_meanwhile(qapp) -> None:
     desk.follower.expect(desk.entry, _LEVELS)
 
     assert len(desk.submission.submitted_live) == 2
+
+
+def test_an_early_fill_is_forgotten_once_enough_other_orders_follow(qapp) -> None:
+    """The memory is bounded: an entry nobody asked about is dropped after
+    `REMEMBERED_ORDERS` other orders, so a long session does not grow it."""
+    desk = _Desk(qapp)
+    desk.report(OrderStatus.FILLED)
+    for n in range(REMEMBERED_ORDERS):
+        desk.report(OrderStatus.FILLED, client_order_id=f"SEW-other-{n}")
+
+    desk.follower.expect(desk.entry, _LEVELS)
+
+    assert desk.submission.submitted_live == []
+    assert desk.follower.waiting == ("SEW-entry",)
+
+
+def test_an_entry_still_waiting_keeps_its_fills_however_many_orders_follow(
+    qapp,
+) -> None:
+    """The review of PR 307: evicting an expected entry's progress would
+    protect too little once it ends."""
+    desk = _Desk(qapp)
+    desk.follower.expect(desk.entry, _LEVELS)
+    desk.report(OrderStatus.PARTIALLY_FILLED, quantity=Decimal("0.003"))
+    for n in range(REMEMBERED_ORDERS + 5):
+        desk.report(OrderStatus.FILLED, client_order_id=f"SEW-other-{n}")
+
+    desk.end(OrderStatus.CANCELED)
+
+    assert [sent.quantity for sent in desk.submission.submitted_live] == [
+        Decimal("0.003"),
+        Decimal("0.003"),
+    ]
 
 
 def test_nothing_is_placed_before_the_fill(qapp) -> None:
