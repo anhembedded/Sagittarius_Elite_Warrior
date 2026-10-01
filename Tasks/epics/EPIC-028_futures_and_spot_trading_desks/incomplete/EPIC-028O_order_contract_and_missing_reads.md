@@ -64,11 +64,12 @@ The epic-level review found that 028H–N cannot be executed as written, because
 - **The trigger-side rule is a domain policy** (`stop_trigger_side.py`). A buy stop must be above the last price and a sell stop below it, on both venues. Otherwise the exchange either rejects the order (Spot `-2010 would trigger immediately`) or fills it at once.
   - Preview records the verdict as `OrderPreview.stop_check`.
   - `ExecuteOrderCommandHandler` refuses with `ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE` before any request is sent. This is the `MIN_NOTIONAL` pattern (`BUG-090`).
+- **A type the venue cannot send is refused by name** (the PR #302 review, should-fix 1). `ITradingClientFactory.accepted_order_types()` answers with the venue's payload mapper's own set (`FUTURES_SENDABLE_ORDER_TYPES`, `SPOT_SENDABLE_ORDER_TYPES`). `ExecuteOrderCommandHandler` refuses anything outside it with `ExecuteOrderTypeRejection.NOT_SENDABLE_ON_VENUE`, before any request and on the dry run too, after the stop-side check. Before this, a Futures stop-limit dry run answered clean and the live path raised from inside `place_order`, against `IOrderSubmission`'s "a refusal is a named value" promise. A test keeps each factory's set equal to what its mapper sends, for every `OrderType`.
 - **Futures conditional orders are refused (found while building).** `python-binance` 1.0.37's `futures_create_order` sends every conditional type to `POST /fapi/v1/algoOrder` (Binance's change of 2025-12-09). It replaces `newClientOrderId` with a random `clientAlgoId`, and the order then lives outside `openOrders` and outside `allOpenOrders`, so Emergency Stop does not reach it. The Futures mapper now refuses `STOP_MARKET`, `TAKE_PROFIT_MARKET` and `STOP_LIMIT` with that reason. None was reachable before: nothing upstream set a stop price. Doing it properly is [EPIC-028R](EPIC-028R_futures_conditional_orders_via_algo_api.md).
 - **Fake exchange.**
   - Spot accepts a stop-limit and keeps it as `NEW`.
   - A test sets a symbol's last price through the fake's state. A stop the new price crosses becomes a resting limit order, and Spot fills it at the limit as its matching rule does.
-  - Spot accepts `quoteOrderQty` on a market buy and fills `quote ÷ price` rounded down to the step.
+  - Spot accepts `quoteOrderQty` on a market buy and fills `quote ÷ price` truncated to 8 decimals (the fake does not apply `LOT_SIZE`).
 
 ## 4. Changes, per file (PR-1)
 | File | Change |
@@ -96,7 +97,7 @@ The epic-level review found that 028H–N cannot be executed as written, because
   - a crossed Spot stop sends no `POST /api/v3/order`;
   - a 1 000 USDT market buy fills 0.02 BTC at 50 000;
   - a Futures stop-limit is refused with no `POST` to `/fapi/v1/order` or `/fapi/v1/algoOrder`.
-- **Mutation:** 31 mutations of the new conditions, all killed.
+- **Mutation:** 31 mutations of the new conditions, all killed; after the review's should-fix 1, six more on the type gate, both factories, the mapper's last guard and both refusal texts, all killed.
 - **Runs:** `tests/unit` + `tests/integration` 6724 passed, 4 skipped; ruff and mypy green.
 
 ## Implementation notes (written when done)

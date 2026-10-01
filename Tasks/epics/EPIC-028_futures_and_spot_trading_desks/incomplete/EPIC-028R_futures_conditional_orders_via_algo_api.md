@@ -10,7 +10,7 @@
 ---
 
 ## 1. Context and problem
-Since 2025-12-09 Binance serves USD-M conditional orders through the Algo Order API, and the pinned `python-binance` 1.0.37 follows. Its `futures_create_order` sends every conditional type to `POST /fapi/v1/algoOrder`: `STOP`, `STOP_MARKET`, `TAKE_PROFIT`, `TAKE_PROFIT_MARKET` and `TRAILING_STOP_MARKET`. Three consequences:
+Since 2025-12-09 Binance serves USD-M conditional orders through the Algo Order API, and the installed `python-binance` 1.0.37 follows. `requirements.txt` does not pin its version, so a later install may route these orders differently; whether to pin it is the user's decision. Its `futures_create_order` sends every conditional type to `POST /fapi/v1/algoOrder`: `STOP`, `STOP_MARKET`, `TAKE_PROFIT`, `TAKE_PROFIT_MARKET` and `TRAILING_STOP_MARKET`. Three consequences:
 - **The client order id is lost.** The library drops `newClientOrderId` and generates a random `clientAlgoId`, unless one is passed. The app tracks every order by its own client order id.
 - **The order is invisible to today's reads.** An algo order is listed by `GET /fapi/v1/openAlgoOrders`, not `openOrders`. Enable's reconciliation and the open-orders query never see it.
 - **Emergency Stop does not cancel it.** `DELETE /fapi/v1/allOpenOrders` leaves algo orders alone, and they are cancelled by `DELETE /fapi/v1/algoOpenOrders`. This holds today for a conditional order placed outside the app, for example in Binance's own UI.
@@ -25,7 +25,8 @@ Since 2025-12-09 Binance serves USD-M conditional orders through the Algo Order 
 - [ ] The user-data stream's `ALGO_UPDATE` events are parsed, and the regular order a triggered algo order creates is matched back to it.
 - [ ] Order history includes algo orders (`GET /fapi/v1/allAlgoOrders`).
 - [ ] The fake Futures exchange serves the algo routes and triggers a conditional order by price.
-- [ ] Payload shapes are taken from the pinned library and Binance's documentation, and the remaining gap (no live Testnet check) is stated.
+- [ ] `FUTURES_SENDABLE_ORDER_TYPES` gains `STOP_LIMIT` (the type gate then lets it through), and `src/config/cli_commands.json`'s `--type` choices list only types a venue can send.
+- [ ] Payload shapes are taken from the installed library (its version recorded) and Binance's documentation, and the remaining gap (no live Testnet check) is stated.
 
 ## 3. Design
 To be written when started.
