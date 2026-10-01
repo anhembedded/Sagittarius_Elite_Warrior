@@ -11,8 +11,13 @@ before anything is sent.
    lock a different margin than it sized for; the order path refuses the
    same lease (PR #299 review, finding 4);
 5. the connection check fails → `CONNECTION_NOT_READY`;
-6. the symbol has an open position → `POSITION_OPEN`: Binance refuses both
-   changes then, and the app says so first, with the position in `detail`.
+6. the symbol has an open position → `POSITION_OPEN`, with the position in
+   `detail`. This is the app's own policy, not a claim about the exchange
+   (`EPIC-028Q`): Binance refuses a margin-mode change with a position open,
+   but may accept a leverage change, raising it at least; the app refuses
+   both, so a position's margin and its liquidation estimate never change
+   under it from the desk. Not yet checked against Testnet, which this
+   repository's sessions cannot reach.
    The read goes through the control port, so it fails as the change does:
    a refusal of the read is `EXCHANGE_REJECTED`, an unknown outcome raises
    `AccountControlUnavailableError` (PR #299 review, finding 1).

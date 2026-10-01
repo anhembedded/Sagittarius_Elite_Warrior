@@ -103,7 +103,9 @@ Dev Board only, ADR D15").
     already existed.
 - **D7 — Futures account controls are commands, not UI state.** `ChangeLeverageCommand` and
   `ChangeMarginTypeCommand` call the exchange (`change_leverage`, `change_margin_type`) and refuse
-  while a position is open on that symbol, the same rule Binance enforces.
+  while a position is open on that symbol. This is the app's own policy: Binance refuses the
+  margin-mode change then, but may accept a leverage change. The app refuses both so a position's
+  margin never changes under it from the desk. Corrected by `EPIC-028Q`; not yet checked on Testnet.
 - **D8 — Money-moving estimates are domain policies, tested without Qt:** max quantity from
   available balance and leverage, order cost, estimated fee from commission rates, and a Futures
   liquidation-price estimate labelled "estimate" (never presented as the exchange's number).
