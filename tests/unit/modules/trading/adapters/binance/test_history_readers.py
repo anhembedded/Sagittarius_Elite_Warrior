@@ -172,9 +172,16 @@ def test_futures_active_symbols_are_open_positions_and_open_orders() -> None:
         {"symbol": "BTCUSDT", "positionAmt": "-0.01"},
     ]
     client.futures_get_open_orders.return_value = [{"symbol": "SOLUSDT"}]
+    # `EPIC-028R` — an open conditional order lives in the Algo Order API.
+    client.futures_get_open_algo_orders.return_value = [{"symbol": "DOGEUSDT"}]
     client.futures_income_history.return_value = []
 
-    assert _futures(client).active_symbols(_SINCE) == ("BTCUSDT", "ETHUSDT", "SOLUSDT")
+    assert _futures(client).active_symbols(_SINCE) == (
+        "BTCUSDT",
+        "DOGEUSDT",
+        "ETHUSDT",
+        "SOLUSDT",
+    )
 
 
 def test_futures_active_symbols_include_pairs_traded_since_with_nothing_open() -> None:
@@ -184,6 +191,7 @@ def test_futures_active_symbols_include_pairs_traded_since_with_nothing_open() -
     client = Mock()
     client.futures_position_information.return_value = []
     client.futures_get_open_orders.return_value = []
+    client.futures_get_open_algo_orders.return_value = []
     client.futures_income_history.return_value = [
         {"symbol": "ADAUSDT", "incomeType": "COMMISSION", "income": "-0.01"},
         {"symbol": "ADAUSDT", "incomeType": "REALIZED_PNL", "income": "1.2"},
@@ -282,6 +290,7 @@ def test_a_failed_catalog_download_raises_the_readers_own_error() -> None:
 def test_a_read_asks_from_since_up_to_the_clock() -> None:
     client = Mock()
     client.futures_get_all_orders.return_value = []
+    client.futures_get_all_algo_orders.return_value = []
 
     _futures(client).order_history("BTCUSDT", _NOW - timedelta(hours=1))
 

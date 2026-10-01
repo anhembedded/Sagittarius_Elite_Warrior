@@ -17,6 +17,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import
         (OrderStatus.PARTIALLY_FILLED, OrderStatus.FILLED),
         (OrderStatus.PARTIALLY_FILLED, OrderStatus.CANCELED),
         (OrderStatus.PARTIALLY_FILLED, OrderStatus.EXPIRED),
+        (OrderStatus.NEW, OrderStatus.TRIGGERED),
+        (OrderStatus.UNKNOWN, OrderStatus.TRIGGERED),
     ],
 )
 def test_valid_transitions_are_allowed(
@@ -38,6 +40,8 @@ def test_valid_transitions_are_allowed(
         (OrderStatus.PARTIALLY_FILLED, OrderStatus.REJECTED),
         (OrderStatus.NEW, OrderStatus.NEW),
         (OrderStatus.FILLED, OrderStatus.FILLED),
+        # A conditional order never partly fills itself: its regular order does.
+        (OrderStatus.PARTIALLY_FILLED, OrderStatus.TRIGGERED),
     ],
 )
 def test_invalid_transitions_are_blocked(
@@ -53,6 +57,7 @@ def test_invalid_transitions_are_blocked(
         OrderStatus.CANCELED,
         OrderStatus.REJECTED,
         OrderStatus.EXPIRED,
+        OrderStatus.TRIGGERED,
     ],
 )
 def test_terminal_statuses_have_no_outgoing_transition(terminal: OrderStatus) -> None:
@@ -66,6 +71,7 @@ def test_terminal_statuses_have_no_outgoing_transition(terminal: OrderStatus) ->
         OrderStatus.CANCELED,
         OrderStatus.REJECTED,
         OrderStatus.EXPIRED,
+        OrderStatus.TRIGGERED,
     ],
 )
 def test_is_terminal_true_for_terminal_statuses(status: OrderStatus) -> None:

@@ -547,24 +547,42 @@ class TestStopRejection:
 
     @pytest.mark.parametrize("live", [False, True], ids=["dry-run", "live"])
     def test_a_type_the_venue_cannot_send_is_refused_by_name(self, live: bool) -> None:
-        """One tick above the last price clears the stop gate; the Futures
-        client cannot send a stop-limit until `EPIC-028R` (`python-binance`
-        would route it to the Algo Order API), so the dry run and the live
+        """The Futures client sends no `STOP_MARKET` (only the stop-limit goes
+        through the Algo Order API, `EPIC-028R`), so the dry run and the live
         path both answer `NOT_SENDABLE_ON_VENUE` and nothing is sent — the
         PR #302 review's should-fix 1: no clean dry run, no exception."""
         raw_client = Mock()
         handler, state = _handler(raw_client=raw_client)
-        command = self._stop_command("64000.01")
 
         result = handler.execute(
-            ExecuteOrderCommand(order_request=command.order_request, live=live)
+            ExecuteOrderCommand(
+                order_request=_order_request(order_type=OrderType.STOP_MARKET),
+                live=live,
+            )
         )
 
         assert result.blocked_by is ExecuteOrderTypeRejection.NOT_SENDABLE_ON_VENUE
         assert result.limit_checks == ()
         raw_client.futures_create_order.assert_not_called()
-        raw_client.futures_create_test_order.assert_not_called()
+        raw_client.futures_create_algo_order.assert_not_called()
         assert state.orders_sent_this_session == 0
+
+    def test_a_futures_stop_limit_is_sent_through_the_algo_order_api(self) -> None:
+        """`EPIC-028R` — one tick above the last price clears the stop gate,
+        and the stop-limit is placed as a conditional order under the app's
+        client order id."""
+        raw_client = Mock()
+        handler, state = _handler(raw_client=raw_client)
+
+        result = handler.execute(self._stop_command("64000.01"))
+
+        assert result.blocked_by is None
+        assert result.submitted_order is not None
+        params = raw_client.futures_create_algo_order.call_args.kwargs
+        assert params["clientAlgoId"] == str(result.submitted_order.client_order_id)
+        assert params["triggerPrice"] == "64000.01"
+        raw_client.futures_create_order.assert_not_called()
+        assert state.orders_sent_this_session == 1
 
 
 class TestLiveSubmission:

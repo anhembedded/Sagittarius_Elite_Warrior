@@ -50,19 +50,21 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metada
 #: never anything else in this epic (ADR §6, `EPIC-021D`).
 _ONE_WAY_POSITION_SIDE = "BOTH"
 
-#: `EPIC-028O` — the conditional types this app's enum names. `python-binance`
-#: 1.0.37 sends every one of them to the Algo Order API
-#: (`POST /fapi/v1/algoOrder`, Binance's change of 2025-12-09), which drops
-#: `newClientOrderId` for a random `clientAlgoId` and keeps the order out of
-#: `openOrders` and out of `DELETE /fapi/v1/allOpenOrders`. Sent from here, such
-#: an order could be neither tracked by its client order id nor cancelled by
-#: Emergency Stop, so it is refused until `EPIC-028R` builds that path.
+#: `EPIC-028O` — the conditional types this app's enum names. Binance serves
+#: every one of them through the Algo Order API (`POST /fapi/v1/algoOrder`,
+#: its change of 2025-12-09), never through `POST /fapi/v1/order`, so this
+#: mapper refuses them all. `EPIC-028R` sends the stop-limit through
+#: `futures_algo_order_mapper.py`, with the app's client id as `clientAlgoId`;
+#: `STOP_MARKET` and `TAKE_PROFIT_MARKET` stay unsent until a desk needs them.
 _CONDITIONAL_ORDER_TYPES = frozenset(
     {OrderType.STOP_MARKET, OrderType.TAKE_PROFIT_MARKET, OrderType.STOP_LIMIT}
 )
-#: What the Futures client can send today: everything else is refused
+#: What the Futures client can send: `MARKET` and `LIMIT` here, `STOP_LIMIT`
+#: through the Algo Order API (`EPIC-028R`); everything else is refused
 #: (`FuturesTradingClientFactory.accepted_order_types` answers with this).
-FUTURES_SENDABLE_ORDER_TYPES = frozenset({OrderType.MARKET, OrderType.LIMIT})
+FUTURES_SENDABLE_ORDER_TYPES = frozenset(
+    {OrderType.MARKET, OrderType.LIMIT, OrderType.STOP_LIMIT}
+)
 #: Futures' spelling of a member whose name is not Binance's, for the read
 #: direction: a stop-limit is `STOP` on USD-M.
 FUTURES_ORDER_TYPE_NAMES: dict[str, OrderType] = {"STOP": OrderType.STOP_LIMIT}
@@ -89,7 +91,7 @@ def map_order_to_futures_params(
     if order.order_type in _CONDITIONAL_ORDER_TYPES:
         raise InvalidOrderForSubmissionError(
             f"{order.order_type.name} on Futures goes through Binance's Algo Order "
-            "API, which this app cannot yet track or cancel (EPIC-028R)."
+            "API, not POST /fapi/v1/order (futures_algo_order_mapper.py)."
         )
     if order.order_type not in FUTURES_SENDABLE_ORDER_TYPES:
         raise InvalidOrderForSubmissionError(

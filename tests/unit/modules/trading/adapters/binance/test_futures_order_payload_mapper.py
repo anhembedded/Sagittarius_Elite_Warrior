@@ -109,11 +109,12 @@ class TestLimitOrder:
 
 
 class TestConditionalOrdersAreRefused:
-    """`EPIC-028O` — `python-binance` 1.0.37 sends every conditional type to
-    Binance's Algo Order API, where the app's client order id is dropped and
-    `allOpenOrders` (Emergency Stop) does not reach. Refused until
-    `EPIC-028R`; this replaced a test that mapped `STOP_MARKET`'s
-    `stopPrice` for an order nothing upstream could build."""
+    """`EPIC-028O` — Binance serves every conditional type through its Algo
+    Order API, never `POST /fapi/v1/order`, so this regular-order mapper
+    refuses them all. `EPIC-028R` sends the stop-limit through
+    `futures_algo_order_mapper.py` instead
+    (`test_futures_algo_order_mapper.py`); this replaced a test that mapped
+    `STOP_MARKET`'s `stopPrice` for an order nothing upstream could build."""
 
     @pytest.mark.parametrize(
         "order_type",

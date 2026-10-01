@@ -82,8 +82,8 @@
           "name": "--type",
           "type": "str",
           "default": "MARKET",
-          "help": "Order type",
-          "choices": ["MARKET", "LIMIT", "STOP_MARKET", "TAKE_PROFIT_MARKET"]
+          "help": "Order type (a stop-limit needs a stop price, which this command does not take)",
+          "choices": ["MARKET", "LIMIT"]
         },
         {
           "name": "--price",
@@ -124,8 +124,8 @@
           "name": "--type",
           "type": "str",
           "default": "MARKET",
-          "help": "Order type",
-          "choices": ["MARKET", "LIMIT", "STOP_MARKET", "TAKE_PROFIT_MARKET"]
+          "help": "Order type (a stop-limit needs a stop price, which this command does not take)",
+          "choices": ["MARKET", "LIMIT"]
         },
         {
           "name": "--price",

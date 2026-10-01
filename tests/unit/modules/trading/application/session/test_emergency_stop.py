@@ -141,7 +141,9 @@ def _handler(
     metadata_provider: IMarketMetadataProvider | None = None,
 ) -> EmergencyStopCommandHandler:
     session_factory = Mock()
-    session_factory.create_trading_client.return_value = raw_client or Mock()
+    session_factory.create_trading_client.return_value = _without_algo_orders(
+        raw_client or Mock()
+    )
     credentials_provider = Mock()
     credentials_provider.resolve.return_value = ResolvedCredentials(
         _CREDENTIALS, CredentialsSource.FILE
@@ -164,6 +166,16 @@ def _handler(
             session_state if session_state is not None else TradingSessionState(),
         )
     )
+
+
+def _without_algo_orders(raw_client: Mock) -> Mock:
+    """`EPIC-028R` — the account holds no conditional order (Binance's Algo
+    Order API) unless a test arranges one, so a test about regular orders
+    keeps reading only what it arranged."""
+    algo = raw_client.futures_get_open_algo_orders
+    if algo.side_effect is None and not isinstance(algo.return_value, list):
+        algo.return_value = []
+    return raw_client
 
 
 def _quiet_raw_client() -> Mock:

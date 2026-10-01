@@ -21,6 +21,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
     ExchangeConnectionStatus,
     PositionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
 )
@@ -78,6 +79,7 @@ def _handler(
     status: ExchangeConnectionStatus | None = None,
     position_payloads: list[dict] | None = None,
     open_order_payloads: list[dict] | None = None,
+    algo_order_payloads: list[dict] | None = None,
 ) -> tuple[EnableTradingCommandHandler, TradingSessionState, Mock, Mock]:
     account_reader = Mock()
     account_reader.check_connection.return_value = status or _ready_status()
@@ -85,6 +87,8 @@ def _handler(
     raw_client = Mock()
     raw_client.futures_position_information.return_value = position_payloads or []
     raw_client.futures_get_open_orders.return_value = open_order_payloads or []
+    # `EPIC-028R` — conditional orders live in Binance's Algo Order API.
+    raw_client.futures_get_open_algo_orders.return_value = algo_order_payloads or []
     session_factory = Mock()
     session_factory.create_trading_client.return_value = raw_client
     credentials_provider = Mock()
@@ -328,3 +332,30 @@ def test_does_not_record_a_spot_baseline_on_futures() -> None:
 
     assert result.enabled is True
     assert session_state.spot_baseline_holdings() is None
+
+
+def test_reconciliation_sees_a_conditional_order_in_the_algo_order_api() -> None:
+    """`EPIC-028R` — a stop-limit resting in Binance's Algo Order API is part
+    of what Enable reconciles, beside the regular open orders."""
+    handler, _state, _raw, _factory = _handler(
+        algo_order_payloads=[
+            {
+                "clientAlgoId": "SEW-a91f4c72e0b8",
+                "orderType": "STOP",
+                "symbol": "BTCUSDT",
+                "side": "SELL",
+                "quantity": "0.01",
+                "algoStatus": "NEW",
+                "triggerPrice": "49000",
+                "price": "48900",
+                "timeInForce": "GTC",
+            }
+        ]
+    )
+
+    result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
+
+    assert [o.client_order_id for o in result.reconciled_open_orders] == [
+        "SEW-a91f4c72e0b8"
+    ]
+    assert result.reconciled_open_orders[0].order_type is OrderType.STOP_LIMIT
