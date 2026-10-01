@@ -64,6 +64,9 @@ _SYMBOLS: dict[str, tuple[str, str, Decimal]] = {
     "ETHUSDT": ("ETH", "USDT", Decimal(3000)),
 }
 
+#: `EPIC-028O` — the fake book's distance from the last price on each side.
+_BOOK_HALF_SPREAD = Decimal("0.01")
+
 #: Binance's real spot base commission rate (`EPIC-027`'s own README §1.1
 #: measured this as the default rate the fee simulator already assumes).
 _FEE_RATE = Decimal("0.001")
@@ -266,6 +269,21 @@ class SpotAccountState:
         `OrderBookState` is exercised through."""
         events, self._user_data_events = self._user_data_events, []
         return events
+
+    def book_ticker(self, symbol: str) -> dict[str, str] | None:
+        """@brief `EPIC-028O` — the best bid and ask: one cent either side of
+        the last price, so a test that moves the price moves the book.
+        @return `None` for a symbol the fake does not list."""
+        price = self._last_prices.get(symbol)
+        if price is None:
+            return None
+        return {
+            "symbol": symbol,
+            "bidPrice": f"{price - _BOOK_HALF_SPREAD:.8f}",
+            "bidQty": "1.50000000",
+            "askPrice": f"{price + _BOOK_HALF_SPREAD:.8f}",
+            "askQty": "0.75000000",
+        }
 
     def set_last_price(self, symbol: str, price: Decimal) -> None:
         """@brief `EPIC-028O` — moves `symbol`'s last price, triggers every

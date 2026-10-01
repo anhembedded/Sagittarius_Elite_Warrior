@@ -5,14 +5,20 @@ mode, and the error bodies Binance answers a change with.
 Testnet account. `POST /fapi/v1/leverage` accepts 1 to 125 and answers
 `{symbol, leverage, maxNotionalValue}`, refusing anything else with `-4028`;
 `POST /fapi/v1/marginType` refuses the mode already in effect with `-4046`.
-The notional ceiling is one fixed figure: the fake keeps no leverage
-brackets.
+
+`EPIC-028O` — `GET /fapi/v1/symbolConfig` answers the current setting; a
+symbol never changed is at Binance's defaults for a new account (20x, cross).
+The notional ceiling comes from the fake's bracket table
+(`futures_market.max_notional`).
 """
 
 from __future__ import annotations
 
+from .futures_market import INVALID_SYMBOL, LISTED_SYMBOLS, max_notional
+
 _MAX_LEVERAGE = 125
-_MAX_NOTIONAL = "10000000"
+_DEFAULT_LEVERAGE = 20
+_DEFAULT_MARGIN_TYPE = "CROSSED"
 
 
 class FuturesSymbolConfig:
@@ -32,13 +38,34 @@ class FuturesSymbolConfig:
         return 200, {
             "symbol": symbol,
             "leverage": leverage,
-            "maxNotionalValue": _MAX_NOTIONAL,
+            "maxNotionalValue": str(max_notional(leverage)),
+        }
+
+    def symbol_config(self, params: dict[str, str]) -> tuple[int, object]:
+        """`GET /fapi/v1/symbolConfig`: one row for `symbol`, every listed
+        symbol's row without one, Binance's `-1121` for an unlisted one
+        (PR #303 review, finding 3)."""
+        symbol = params.get("symbol")
+        if symbol is None:
+            return 200, [self._row(listed) for listed in sorted(LISTED_SYMBOLS)]
+        if symbol not in LISTED_SYMBOLS:
+            return INVALID_SYMBOL
+        return 200, [self._row(symbol)]
+
+    def _row(self, symbol: str) -> dict[str, object]:
+        leverage = self._leverage.get(symbol, _DEFAULT_LEVERAGE)
+        return {
+            "symbol": symbol,
+            "marginType": self._margin_type.get(symbol, _DEFAULT_MARGIN_TYPE),
+            "isAutoAddMargin": "false",
+            "leverage": leverage,
+            "maxNotionalValue": str(max_notional(leverage)),
         }
 
     def change_margin_type(self, params: dict[str, str]) -> tuple[int, object]:
         symbol = params["symbol"]
         wanted = params["marginType"]
-        if self._margin_type.get(symbol, "CROSSED") == wanted:
+        if self._margin_type.get(symbol, _DEFAULT_MARGIN_TYPE) == wanted:
             return 400, {"code": -4046, "msg": "No need to change margin type."}
         self._margin_type[symbol] = wanted
         return 200, {"code": 200, "msg": "success"}

@@ -29,11 +29,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_sco
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
     IAccountHistoryReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_book_ticker_reader import (
+    IBookTickerReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_commission_rate_reader import (
     ICommissionRateReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_account_control import (
     IFuturesAccountControl,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_mark_price_reader import (
+    IMarkPriceReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
@@ -87,6 +93,10 @@ def venue_context(
         history_reader=Mock(spec=IAccountHistoryReader),
         commission_reader=Mock(spec=ICommissionRateReader),
         account_control=account_control,
+        book_ticker_reader=Mock(spec=IBookTickerReader),
+        mark_price_reader=(
+            None if venue is TradingVenue.SPOT_TESTNET else Mock(spec=IMarkPriceReader)
+        ),
     )
 
 

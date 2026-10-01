@@ -6,7 +6,9 @@ maxNotionalValue}`. `POST /fapi/v1/marginType` answers `{code: 200, msg:
 `-4046 "No need to change margin type."`; the port promises that asking for
 the current mode is not an error, so `-4046` is read as success.
 `open_position` reads `GET /fapi/v3/positionRisk?symbol=`, one row in One-way
-mode.
+mode. `symbol_setting` and `leverage_brackets` read `GET /fapi/v1/symbolConfig`
+and `GET /fapi/v1/leverageBracket` (`EPIC-028O`,
+`futures_account_settings_parser.py`).
 
 Every request and the reading of its answer run inside one translation
 (`_exchange_answer`), so nothing but the port's two errors leaves this class
@@ -32,6 +34,10 @@ from typing import Any
 
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import RequestException
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_settings_parser import (
+    parse_leverage_brackets,
+    parse_symbol_setting,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_control_rejected_error import (
     AccountControlRejectedError,
 )
@@ -41,8 +47,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_control_una
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     MarginType,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_symbol_setting import (
+    FuturesSymbolSetting,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_account_control import (
     IFuturesAccountControl,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_brackets import (
+    LeverageBrackets,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.leverage_setting import (
     LeverageSetting,
@@ -110,6 +122,24 @@ class FuturesAccountControl(IFuturesAccountControl):
                     if row["symbol"] == symbol
                 ),
                 Decimal(0),
+            ),
+        )
+
+    def symbol_setting(self, symbol: str) -> FuturesSymbolSetting:
+        return self._call(
+            f"{symbol} leverage and margin-mode read",
+            _READ_OUTCOME,
+            lambda client: parse_symbol_setting(
+                client.futures_symbol_config(symbol=symbol), symbol
+            ),
+        )
+
+    def leverage_brackets(self, symbol: str) -> LeverageBrackets:
+        return self._call(
+            f"{symbol} leverage-bracket read",
+            _READ_OUTCOME,
+            lambda client: parse_leverage_brackets(
+                client.futures_leverage_bracket(symbol=symbol), symbol
             ),
         )
 

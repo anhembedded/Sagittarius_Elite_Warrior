@@ -28,11 +28,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_acco
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_book_ticker_reader import (
+    FuturesBookTickerReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_commission_rate_reader import (
     FuturesCommissionRateReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_history_reader import (
     FuturesHistoryReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_mark_price_reader import (
+    FuturesMarkPriceReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
@@ -45,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_user
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_reader import (
     SpotAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_book_ticker_reader import (
+    SpotBookTickerReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_commission_rate_reader import (
     SpotCommissionRateReader,
@@ -147,6 +156,8 @@ def test_each_venue_gets_its_own_venue_shaped_adapters() -> None:
     assert isinstance(futures.history_reader.source, FuturesHistoryReader)
     assert isinstance(futures.commission_reader, FuturesCommissionRateReader)
     assert isinstance(futures.account_control, FuturesAccountControl)
+    assert isinstance(futures.book_ticker_reader, FuturesBookTickerReader)
+    assert isinstance(futures.mark_price_reader, FuturesMarkPriceReader)
     assert spot.venue is TradingVenue.SPOT_TESTNET
     assert isinstance(spot.metadata_provider, SpotMetadataProvider)
     assert isinstance(spot.client_factory, SpotTradingClientFactory)
@@ -157,6 +168,9 @@ def test_each_venue_gets_its_own_venue_shaped_adapters() -> None:
     assert isinstance(spot.commission_reader, SpotCommissionRateReader)
     # `EPIC-028F` — Spot has no leverage or margin mode, so no control.
     assert spot.account_control is None
+    # `EPIC-028O` — Spot reads its own book, and has no mark price.
+    assert isinstance(spot.book_ticker_reader, SpotBookTickerReader)
+    assert spot.mark_price_reader is None
 
 
 def test_venues_share_no_credentials_and_no_metadata_cache() -> None:

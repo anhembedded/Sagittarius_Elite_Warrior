@@ -94,12 +94,19 @@ class SpotSessionFactory(ISpotSessionFactory):
         return cast(ISpotSessionClient, client)
 
     def create_metadata_client(self) -> Client:
-        """An unsigned Spot Testnet session for `GET /api/v3/exchangeInfo`
-        (`EPIC-027I`). No key: `exchangeInfo` is a public endpoint. Returns
-        the raw SDK type because the only caller is this module's own
-        `SpotMetadataProvider` — see the module docstring for why that is
-        not a leak."""
+        """An unsigned Spot Testnet session for the public endpoints:
+        `GET /api/v3/exchangeInfo` (`EPIC-027I`) and
+        `GET /api/v3/ticker/bookTicker` (`EPIC-028O`). No key: both are
+        public. Returns the raw SDK type because the only callers are this
+        module's own `SpotMetadataProvider` and `SpotBookTickerReader` — see
+        the module docstring for why that is not a leak.
+
+        Built without the construction-time `GET /api/v3/ping` (PR #303
+        review, finding 1): the book is read per price-button click, and a
+        ping per read doubled its round trips and failed the read on a ping
+        failure, for nothing the read itself does not already prove."""
         return Client(
             requests_params={"timeout": REQUEST_TIMEOUT_SECONDS},
             testnet=True,
+            ping=False,
         )

@@ -33,11 +33,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_acco
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
     FuturesAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_book_ticker_reader import (
+    FuturesBookTickerReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_commission_rate_reader import (
     FuturesCommissionRateReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_history_reader import (
     FuturesHistoryReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_mark_price_reader import (
+    FuturesMarkPriceReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_metadata_provider import (
     FuturesMetadataProvider,
@@ -56,6 +62,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.listed_symbo
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_reader import (
     SpotAccountReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_book_ticker_reader import (
+    SpotBookTickerReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_commission_rate_reader import (
     SpotCommissionRateReader,
@@ -90,11 +99,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_sta
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_history_reader import (
     IAccountHistoryReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_book_ticker_reader import (
+    IBookTickerReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_commission_rate_reader import (
     ICommissionRateReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_account_control import (
     IFuturesAccountControl,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_mark_price_reader import (
+    IMarkPriceReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
@@ -264,6 +279,20 @@ class VenueAssembly:
             self._shared.futures_session_factory, self.credentials_provider
         )
 
+    @_LockedCachedProperty
+    def book_ticker_reader(self) -> IBookTickerReader:
+        if self._is_spot:
+            return SpotBookTickerReader(self._shared.spot_session_factory)
+        return FuturesBookTickerReader(self._shared.futures_session_factory)
+
+    @_LockedCachedProperty
+    def mark_price_reader(self) -> IMarkPriceReader | None:
+        """`EPIC-028O` — Spot has no mark price, so it has no reader, as it
+        has no `account_control`."""
+        if self._is_spot:
+            return None
+        return FuturesMarkPriceReader(self._shared.futures_session_factory)
+
     @property
     def session_state(self) -> TradingSessionState:
         """Owned by `VenueSessionStates` (`EPIC-028B`), so the handlers that
@@ -311,4 +340,6 @@ class VenueAssembly:
             history_reader=self.history_reader,
             commission_reader=self.commission_reader,
             account_control=self.account_control,
+            book_ticker_reader=self.book_ticker_reader,
+            mark_price_reader=self.mark_price_reader,
         )
