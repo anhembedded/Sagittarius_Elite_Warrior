@@ -1,6 +1,6 @@
 # EPIC-028P — An integration test proves Phase 1: two venues in one process, against one fake exchange, never touch each other
 
-**Status:** 🟡 Implemented — awaiting review
+**Status:** ✅ Done (2026-10-01) — merged in PR #301
 **Source:** the epic-level review on PR #300 (§2, should-fix), 2026-10-01: *"'Phase 1 exit met' is claimed without the required evidence … add the dual-venue fake-exchange test, or reopen the phase."* The user agreed on 2026-10-01: *"đồng ý, làm theo đề xuất của bạn"* ("agreed, do as you propose").
 **Risk:** 🟢 — a test, a request log on the fake exchange, and the one-line fix the test found
 **Complexity:** S — one integration test file

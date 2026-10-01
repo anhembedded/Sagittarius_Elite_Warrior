@@ -3,14 +3,14 @@
 **Status:** 🔵 Backlog
 **Source:**
 - ADR O3: the user, 2026-09-29, stop-limit on both desks (`STOP_LOSS_LIMIT` on Spot, `STOP` on Futures).
-- Split out of [EPIC-028H](EPIC-028H_order_entry_panel_core_and_spot.md) on 2026-09-30.
+- Split out of [EPIC-028H](../completed/EPIC-028H_order_entry_panel_core_and_spot.md) on 2026-09-30.
 - Widened on 2026-10-01 after the epic-level review on PR #300 (§1, "Plan 028H–N — missing inputs"); the user agreed: *"đồng ý, làm theo đề xuất của bạn"* ("agreed, do as you propose").
 - See the [ADR](../DECISION_2026-09-29_two_trading_desks.md).
 
 **Risk:** 🔴 — new order shapes on a real exchange; a wrong trigger direction fills at once instead of waiting
 **Complexity:** L — the order model end to end, two payload mappers, the fake exchange, four reads
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028H](EPIC-028H_order_entry_panel_core_and_spot.md)
+**Depends on:** [EPIC-028H](../completed/EPIC-028H_order_entry_panel_core_and_spot.md)
 
 ---
 
@@ -37,7 +37,7 @@ The epic-level review found that 028H–N cannot be executed as written, because
   Spot answers the leverage, bracket and mark reads with "not applicable", never an invented value.
 - [ ] Both desk profiles offer the Stop-limit tab with a stop-price field. The Spot market buy sizes by quote amount. The price button can fill the best bid or ask.
 - [ ] Every maximum also respects the app's per-order notional limit.
-- [ ] Moved from [EPIC-028Q](EPIC-028Q_phase_2_reader_fixes.md): the fake Futures exchange fills a market order and returns it from `userTrades`, so a Futures fill, its trade history and its average entry price are exercised end to end. Existing tests that rely on the fake never filling are updated in the same change.
+- [ ] Moved from [EPIC-028Q](../completed/EPIC-028Q_phase_2_reader_fixes.md): the fake Futures exchange fills a market order and returns it from `userTrades`, so a Futures fill, its trade history and its average entry price are exercised end to end. Existing tests that rely on the fake never filling are updated in the same change.
 - [ ] Moved from EPIC-028Q: the Futures account reader reads Multi-Assets mode (`GET /fapi/v1/multiAssetsMargin`), and the desk's available balance names the margin it counts when the mode is on.
 
 ## 3. Design

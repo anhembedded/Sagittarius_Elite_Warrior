@@ -5,7 +5,7 @@
 **Risk:** 🟢 — mirrors `EPIC-028K` with the Spot profile
 **Complexity:** M — composition only
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028C](../completed/EPIC-028C_both_venues_running_concurrently.md), [EPIC-028H](EPIC-028H_order_entry_panel_core_and_spot.md), [EPIC-028J](EPIC-028J_account_tabs_and_summary_panels.md), [EPIC-028O](EPIC-028O_order_contract_and_missing_reads.md) (stop-limit)
+**Depends on:** [EPIC-028C](../completed/EPIC-028C_both_venues_running_concurrently.md), [EPIC-028H](../completed/EPIC-028H_order_entry_panel_core_and_spot.md), [EPIC-028J](EPIC-028J_account_tabs_and_summary_panels.md), [EPIC-028O](EPIC-028O_order_contract_and_missing_reads.md) (stop-limit)
 
 ---
 

@@ -1,7 +1,7 @@
 # EPIC-028 — Tracking
 
 - **Epic:** [EPIC-028 — Two trading desks](README.md)
-- **Status:** 🟡 In Progress — ADR accepted 2026-09-29; Phase 1 done (`028A`–`028C`); Phase 2: `028D`–`028G` merged; `028Q` open
+- **Status:** 🟡 In Progress — ADR accepted 2026-09-29; Phase 1 done (`028A`–`028C`, `028P`); Phase 2 readers merged (`028D`–`028G`, `028Q`), exit check pending; Phase 3: `028H` merged, `028O` next
 - **Target Completion:** not committed; the bars below are relative estimates from the day the ADR is accepted.
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -27,7 +27,7 @@ gantt
     028A VenueContext and registry         :crit, done, a, after s2, 1d
     028B Venue-addressed commands          :crit, done, b, after a, 1d
     028C Both venues concurrently          :crit, done, c, after b, 1d
-    028P Dual-venue isolation test         :active,  p, after c, 1d
+    028P Dual-venue isolation test         :done,    p, after c, 1d
     Phase 1 exit check                     :milestone, m1, after p, 0d
 
     section Phase 2 - Account data
@@ -35,11 +35,11 @@ gantt
     028E Open orders and history           :done,    e, after d, 1d
     028F Commission, leverage, margin      :done,    f, after e, 1d
     028G Estimate policies                 :done,    g, after f, 1d
-    028Q Phase 2 reader fixes              :active,  q, after g, 2d
+    028Q Phase 2 reader fixes              :done,    q, after g, 2d
     Phase 2 exit check                     :milestone, m2, after q, 0d
 
     section Phase 3 - Shared desk kit
-    028H Order entry core and Spot         :active,  h, after g, 4d
+    028H Order entry core and Spot         :done,    h, after g, 4d
     028O Order contract and reads          :crit,    o, after h, 3d
     028I Futures order entry variant       :crit,    i, after o, 4d
     028J Account tabs and summary          :         j, after e, 3d
@@ -66,10 +66,10 @@ gantt
 | EPIC-028E | [Open orders and history](completed/EPIC-028E_open_orders_and_history_readers.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | [#297](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/297) merged 2026-09-30 |
 | EPIC-028F | [Commission, leverage, margin](completed/EPIC-028F_commission_and_futures_account_controls.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | [#299](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/299) merged 2026-09-30 |
 | EPIC-028G | [Estimate policies](completed/EPIC-028G_order_estimate_policies.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Merged | [#300](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/300) |
-| EPIC-028H | [Order entry core and Spot](incomplete/EPIC-028H_order_entry_panel_core_and_spot.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | 🟡 In progress | — |
+| EPIC-028H | [Order entry core and Spot](completed/EPIC-028H_order_entry_panel_core_and_spot.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Merged | [#301](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/301) |
 | EPIC-028O | [Order contract and missing reads](incomplete/EPIC-028O_order_contract_and_missing_reads.md) | — | 🔴 | 🔵 Planned | — |
-| EPIC-028P | [Dual-venue isolation test](incomplete/EPIC-028P_dual_venue_isolation_test.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | 🟡 Awaiting review | — |
-| EPIC-028Q | [Phase 2 reader fixes](incomplete/EPIC-028Q_phase_2_reader_fixes.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | 🟡 Awaiting review | — |
+| EPIC-028P | [Dual-venue isolation test](completed/EPIC-028P_dual_venue_isolation_test.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Merged | [#301](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/301) |
+| EPIC-028Q | [Phase 2 reader fixes](completed/EPIC-028Q_phase_2_reader_fixes.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Merged | [#301](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/301) |
 | EPIC-028I | [Futures order entry](incomplete/EPIC-028I_futures_order_entry_variant.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-028J | [Account tabs and summary](incomplete/EPIC-028J_account_tabs_and_summary_panels.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-028K | [Futures desk](incomplete/EPIC-028K_futures_desk_screen.md) | — | 🟡 | 🔵 Planned | — |
@@ -83,6 +83,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-01 | EPIC-028H, 028P, 028Q | Merged in PR #301 after an independent review (PASS; two should-fix items fixed before merge). |
 | 2026-10-01 | EPIC-028Q | Phase 2 readers: mapping errors translated, history gaps carried on `HistoryPage.notices`, closed Futures pairs found through income, history cached for paging, stale account summary published; leverage gate restated as app policy. Desk display moved to 028J; fake fills and Multi-Assets to 028O. |
 | 2026-10-01 | EPIC-028P | Dual-venue integration test added; it found every Futures session pinging the Spot API (`python-binance`'s construction-time ping), fixed with `ping=False`. |
 | 2026-10-01 | EPIC-028 | Epic-level review on PR #300: plan gaps (028O widened), Phase 1 evidence missing (028P added), Phase 2 reader defects (028Q added), 028I/K/L/M acceptance criteria corrected. |

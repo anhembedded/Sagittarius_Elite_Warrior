@@ -1,6 +1,6 @@
 # EPIC-028Q — The Phase 2 readers tell the truth about what they could not read
 
-**Status:** 🟡 Implemented — awaiting review
+**Status:** ✅ Done (2026-10-01) — merged in PR #301
 **Source:** the epic-level review on PR #300 (§3), 2026-10-01. The user agreed on 2026-10-01: *"đồng ý, làm theo đề xuất của bạn"* ("agreed, do as you propose").
 **Risk:** 🟡 — history and balance figures shown as complete when they are not
 **Complexity:** M — two readers, one refresh service, one gate's wording, fake routes
@@ -28,9 +28,9 @@ The review found these defects in merged Phase 2 code:
 - [x] Every row mapping runs inside the port's error translation, with a test feeding a malformed row to each reader.
 - [x] The leverage gate's rule is documented as the app's own policy. The Testnet check is not possible from this repository's sessions (egress to `*.binance.*` is blocked), so the policy is stated as unverified against the exchange.
 - [x] A negative `cummulativeQuoteQty` gives no average price.
-- [x] A failed summary read publishes a stale marker. *The desk showing it* moves to [EPIC-028J](EPIC-028J_account_tabs_and_summary_panels.md), whose summary panel is the first consumer of either summary event.
+- [x] A failed summary read publishes a stale marker. *The desk showing it* moves to [EPIC-028J](../incomplete/EPIC-028J_account_tabs_and_summary_panels.md), whose summary panel is the first consumer of either summary event.
 - [x] The Spot history cost is bounded by caching the span per page, and a test counts the requests.
-- [x] The fake Futures routes enforce the 7-day span and the 3-day purge. *Non-empty `userTrades`* moves to [EPIC-028O](EPIC-028O_order_contract_and_missing_reads.md): it needs the fake to fill market orders, which existing tests rely on it not doing. Reading Multi-Assets mode moves there too.
+- [x] The fake Futures routes enforce the 7-day span and the 3-day purge. *Non-empty `userTrades`* moves to [EPIC-028O](../incomplete/EPIC-028O_order_contract_and_missing_reads.md): it needs the fake to fill market orders, which existing tests rely on it not doing. Reading Multi-Assets mode moves there too.
 
 ## 3. Design (as built)
 - **Mapping inside the translation.** `history_reads.MAPPING_FAILURES` (`KeyError`, `TypeError`, `ValueError`, `ArithmeticError`) is translated by `history_read_failures` as `"<what>: malformed row: …"`. Both readers map inside the `with` block, and `active_symbols` does too.
