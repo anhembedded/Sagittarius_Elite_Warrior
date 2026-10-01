@@ -26,15 +26,17 @@ cannot, tell me which part is wrong."*
 2. The app resolves credentials. If there are none, it stops here and answers
    `NOT_CONFIGURED` **without any network call**.
 3. The app makes a small number of read-only requests: server time, account balance, position
-   mode, open positions.
+   mode, open positions — and, on Futures since `EPIC-028O`, the account's Multi-Assets mode,
+   read at most once every five minutes (it changes only when the actor changes it).
 4. The app compares its own clock with the exchange's and keeps the difference in
    milliseconds.
 5. The app answers with one immutable status: the venue, whether it is reachable, the named
    failure if it is not, the clock skew, the USDT balance, the position mode, the margin type
    and the number of open positions — and, since `EPIC-028D`, the **account summary** read from
-   the same account payload (no extra request): on Futures the available balance, wallet,
-   margin balance, unrealized PnL and position mode; on Spot the quote asset's free and locked
-   parts and the equity.
+   the same account payload: on Futures the available balance, wallet, margin balance,
+   unrealized PnL, position mode and asset mode; on Spot the quote asset's free and locked parts
+   and the equity. A Futures account in Single-Asset mode is summarised from its USDT asset; in
+   Multi-Assets mode, from the account-wide totals, in USD across every margin asset.
 6. Each surface renders that one value: Settings as a label, the command line as a short
    report.
 
@@ -52,9 +54,12 @@ cannot, tell me which part is wrong."*
 - The command line tells spendable from held: on Futures it prints the wallet balance as
   `Wallet (USDT)` and, beside it, `Available (USDT)` (what a new order can use; the wallet also
   counts margin already committed) and the unrealized PnL. Either figure is `?` when it was not
-  learned, never `0`.
+  learned, never `0`. In Multi-Assets mode the line reads `Available (USD)` and one more line
+  names the mode, so a USD total across every margin asset is never labelled USDT.
 - The summary is `None` when a figure it needs is missing or not a number — never a summary with
   an invented zero — and a Spot summary's equity is `None` when a holding cannot be priced.
+  A Futures summary is also `None` when the asset mode cannot be read: guessing it would label
+  one mode's figures as the other's.
 - A successful check is not permission to trade. Turning trading on is SPEC-004, and it runs its
   own check.
 
@@ -68,6 +73,7 @@ cannot, tell me which part is wrong."*
 | A Spot Testnet or mainnet key was pasted in | `KEY_EXPIRED` | Binance `-2015` covers invalid key, IP allowlist and permissions; the name is the most common real cause here |
 | DNS, TCP, TLS or a timeout — or any error code without a narrower name | `NETWORK` | The honest bucket. It is named `NETWORK` rather than `UNKNOWN` because that is what it is from the actor's side |
 | The account is in Hedge mode | `HEDGE_MODE_UNSUPPORTED` — reachable, but not usable | This app's order model assumes One-way. "Connected fine, but this account cannot trade here" is not one of the other five, so it is its own answer |
+| The Futures asset mode cannot be read (no answer, or an answer of another shape) | Reachable, no failure, and no account summary; one WARNING until it is readable again | The connection is fine; only which figures to show is unknown, and a guessed mode would mislabel them (`EPIC-028O`) |
 
 ## 6. What this use case does NOT promise
 

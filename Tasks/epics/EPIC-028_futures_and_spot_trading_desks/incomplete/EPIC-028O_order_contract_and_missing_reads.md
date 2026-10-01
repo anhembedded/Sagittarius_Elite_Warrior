@@ -188,6 +188,15 @@ The plan had three; on 2026-10-01 the reads were split from the fake's fills and
   - a reduce-only order with nothing to reduce is refused;
   - a Multi-Assets account is read from its account-wide figures.
 - **Mutation:** 15 mutations of the reader, mapper and fake (the mode flip and its boolean check, the figure keys, the absolute notional, the fill side, the weighted entry, the PnL sign, the flip, the fee, available less margin, the signed notional, the reduce-only refusal and cap, the trade row), all killed.
+- **Review (PR #304, independent session): PASS, no blocking finding. Fixed:**
+  1. The Multi-Assets read costs weight 30 and ran on every summary check (every 5 s, as often as every 1 s), which would add 360 to 1 800 weight a minute. It is now read at most once per five minutes (`ASSET_MODE_TTL_SECONDS`, about 6 a minute), a failed read is not cached, and the budget is recorded in the reader and beside `BUG-117`'s in `module.py`.
+  2. SPEC-003 now lists the mode read, the account-wide figures, the `Available (USD)` line and the unreadable-mode outcome.
+  3. The fake kept a capped reduce-only order's `origQty` as the cap. It now stays what was sent; the cap shows in `executedQty`, and the integration test checks both.
+  4. In Multi-Assets mode the fake also holds 600 USD of BNB margin, so the totals differ from the USDT row and the integration test tells the two apart.
+  5. A docstring cited a test file that does not exist.
+  6. The CLI's Multi-Assets label kept the column width (`Available (USD):`), and a separate line names the mode.
+
+  The `fix:` commit carries no bug id: the user's standing instruction is that a quick fix needs no bug report.
 - **Runs:** `tests/unit` + `tests/integration` + `tests/sanity` green; ruff and mypy green.
 
 ## Implementation notes (written when done)
