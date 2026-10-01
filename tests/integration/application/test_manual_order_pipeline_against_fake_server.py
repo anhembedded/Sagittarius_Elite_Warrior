@@ -8,9 +8,9 @@ and `python-binance`'s own form encoding — the exact layers a caller-level
 mock can't see past.
 
 @par What this proves, and what it deliberately does not
-`GetOpenPositionsQueryHandler` reads the fake server's fixed, always-flat
-`/fapi/v3/positionRisk` (`futures_routes.py`'s own docstring: no matching
-engine, no position tracking) — so this covers the "flat account, Long
+`GetOpenPositionsQueryHandler` reads the fake server's `/fapi/v3/positionRisk`,
+flat until a market order fills (`EPIC-028O`), and each test starts flat — so
+this covers the "flat account, Long
 click opens a real BUY" half of `manual_order_intent_for()`'s table. The
 "closing an existing position" half (`reduce_only=True`) is already covered
 at the unit level (`test_manual_order_intent.py`'s 7 cases,
@@ -146,7 +146,7 @@ def _orders_the_exchange_received(futures_url: str) -> list[dict[str, Any]]:
     uses: read the fixture's own order book over plain HTTP, not through
     this app's adapters."""
     with urllib.request.urlopen(  # noqa: S310 — fixed localhost fixture URL
-        f"{futures_url}/v1/openOrders?symbol={_SYMBOL}"
+        f"{futures_url}/v1/allOrders?symbol={_SYMBOL}"
     ) as response:
         payload: list[dict[str, Any]] = json.loads(response.read().decode())
     return payload

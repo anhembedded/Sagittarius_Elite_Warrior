@@ -195,8 +195,8 @@ def test_spot_active_symbols_are_the_listed_pairs_of_what_the_account_holds() ->
 
 
 def test_a_canceled_futures_order_reads_back_and_there_are_no_fills() -> None:
-    """The Futures fake has no matching engine: an order is placed and
-    canceled, never filled."""
+    """A resting Futures order is placed and canceled, never filled (a
+    market fill's history is `test_futures_fills_against_fake_server.py`)."""
     with _fake_exchange():
         sessions = FuturesSessionFactory()
         metadata = FuturesMetadataProvider(sessions, InMemorySymbolOrderMetadataCache())

@@ -29,6 +29,10 @@ class FuturesSymbolConfig:
         self._leverage: dict[str, int] = {}
         self._margin_type: dict[str, str] = {}
 
+    def leverage(self, symbol: str) -> int:
+        """`EPIC-028O` — the leverage `symbol`'s position margin uses."""
+        return self._leverage.get(symbol, _DEFAULT_LEVERAGE)
+
     def change_leverage(self, params: dict[str, str]) -> tuple[int, object]:
         symbol = params["symbol"]
         leverage = int(params["leverage"])
@@ -53,7 +57,7 @@ class FuturesSymbolConfig:
         return 200, [self._row(symbol)]
 
     def _row(self, symbol: str) -> dict[str, object]:
-        leverage = self._leverage.get(symbol, _DEFAULT_LEVERAGE)
+        leverage = self.leverage(symbol)
         return {
             "symbol": symbol,
             "marginType": self._margin_type.get(symbol, _DEFAULT_MARGIN_TYPE),

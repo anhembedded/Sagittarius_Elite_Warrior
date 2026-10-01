@@ -62,7 +62,9 @@ def test_order_lifecycle_over_raw_http() -> None:
             data={
                 "symbol": "BTCUSDT",
                 "side": "BUY",
-                "type": "MARKET",
+                "type": "LIMIT",
+                "price": "50000",
+                "timeInForce": "GTC",
                 "quantity": "0.002",
                 "newClientOrderId": "SEW-httptest01",
             },

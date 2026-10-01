@@ -232,7 +232,7 @@ def _orders_the_exchange_received(futures_url: str) -> list[dict[str, Any]]:
     fixture records `side`/`reduceOnly`/`positionSide` straight from the
     submitted form body (`order_book_state.place()`)."""
     with urllib.request.urlopen(  # noqa: S310 — fixed localhost fixture URL
-        f"{futures_url}/v1/openOrders?symbol={_SYMBOL}"
+        f"{futures_url}/v1/allOrders?symbol={_SYMBOL}"
     ) as response:
         payload: list[dict[str, Any]] = json.loads(response.read().decode())
     return payload
@@ -357,15 +357,29 @@ def test_a_short_signal_opens_a_short_instead_of_closing_a_long() -> None:
 def test_a_sell_signal_closes_a_long_instead_of_opening_a_short() -> None:
     """The other half of the pair above — same `side=SELL` on the wire,
     opposite `reduceOnly`. Asserting only the SHORT case would pass just as
-    well against an implementation that hardcoded `reduceOnly=False`."""
+    well against an implementation that hardcoded `reduceOnly=False`.
+
+    `EPIC-028O` — the fake now fills market orders and, like Binance,
+    refuses a reduce-only order with no position to reduce (`-2022`), so the
+    long it closes is opened on the fake first, outside the app."""
     with (
         run_binance_fake_server() as urls,
         patch.object(Client, "API_TESTNET_URL", urls.spot),
         patch.object(Client, "FUTURES_TESTNET_URL", urls.futures),
     ):
+        status, _ = urls.futures_book.place(
+            {
+                "symbol": _SYMBOL,
+                "side": "BUY",
+                "type": "MARKET",
+                "quantity": "0.01",
+                "newClientOrderId": "seed-long-0000001",
+            }
+        )
+        assert status == 200
         _build_pipeline().coordinator.handle(_signal(SignalAction.SELL))
 
-        (received,) = _orders_the_exchange_received(urls.futures)
+        _, received = _orders_the_exchange_received(urls.futures)
         assert received["side"] == "SELL"
         assert received["reduceOnly"] is True
         assert received["positionSide"] == "BOTH"

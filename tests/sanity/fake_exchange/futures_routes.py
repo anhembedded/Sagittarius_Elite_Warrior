@@ -31,18 +31,19 @@ not always match a given library version's exact path/version number):
     GET    /fapi/v1/leverageBracket `futures_leverage_bracket()` (`EPIC-028O`)
     GET    /fapi/v1/premiumIndex    `futures_mark_price()` (`EPIC-028O`)
     GET    /fapi/v1/ticker/bookTicker  `futures_orderbook_ticker()` (`EPIC-028O`)
+    GET    /fapi/v1/multiAssetsMargin  `futures_get_multi_assets_mode()` (`EPIC-028O`)
     POST   /fapi/v1/listenKey       `futures_stream_get_listen_key()` (`EPIC-021H`)
     PUT    /fapi/v1/listenKey       `futures_stream_keepalive()` (`EPIC-021H`)
 
-Order lifecycle and the per-symbol leverage and margin mode
-(`OrderBookState.symbol_config`) are the stateful parts — everything else here
+Order lifecycle, the per-symbol leverage and margin mode
+(`OrderBookState.symbol_config`) and, since `EPIC-028O`, the wallet and
+positions market fills move (`OrderBookState.account`, which `account` and
+`positionRisk` report) are the stateful parts — everything else here
 is a fixed, deterministic dict, same discipline as the original
 `binance_fake_server.py`.
 """
 
 from __future__ import annotations
-
-from typing import Any
 
 from . import futures_market
 from .history_log import HistoryQuery, now_ms
@@ -123,32 +124,6 @@ _FUTURES_EXCHANGE_INFO = {
     ],
 }
 
-#: `EPIC-021D` — a minimal, always-One-way, always-funded account snapshot.
-#: `futures_account()` hits `/fapi/v2/account` (version 2, not 1 — verified
-#: from `python-binance`'s own `_request_futures_api("get", "account", True,
-#: 2, ...)` call, not assumed). `EPIC-028D` — the USDT asset carries the four
-#: balance figures the real endpoint returns, because `FuturesAccountSummary`
-#: reads all of them; a flat, idle account has available = margin = wallet.
-_FUTURES_ACCOUNT = {
-    "assets": [
-        {
-            "asset": "USDT",
-            "walletBalance": "15000.00000000",
-            "unrealizedProfit": "0.00000000",
-            "marginBalance": "15000.00000000",
-            "availableBalance": "15000.00000000",
-        }
-    ],
-    "positions": [],
-}
-
-#: Deliberately never populated by order placement (`order_book_state.py`'s
-#: own docstring: no matching engine, no fills, no position tracking) — a
-#: fixed, always-flat account. Any test needing a real open position sizes
-#: its own fixture payload directly rather than expecting this fake to
-#: derive one from an order.
-_POSITION_RISK: list[dict[str, Any]] = []
-
 #: `EPIC-021H` never validates this key's contents — it round-trips it back
 #: unchanged on `PUT`. A fixed string is enough to prove the stream adapter
 #: calls the right two endpoints in the right order.
@@ -160,9 +135,7 @@ GET_ROUTES: dict[str, object] = {
     "/fapi/v1/exchangeInfo": _FUTURES_EXCHANGE_INFO,
     "/fapi/v1/klines": [_FUTURES_KLINE_ROW],
     "/fapi/v1/time": {"serverTime": 0},
-    "/fapi/v2/account": _FUTURES_ACCOUNT,
     "/fapi/v1/positionSide/dual": {"dualSidePosition": False},
-    "/fapi/v3/positionRisk": _POSITION_RISK,
 }
 
 
@@ -192,6 +165,12 @@ def _handle_get(
         return 200, GET_ROUTES[path]
     if path == "/fapi/v1/openOrders":
         return 200, state.open_orders(params.get("symbol"))
+    if path == "/fapi/v2/account":
+        return 200, state.account.account()
+    if path == "/fapi/v3/positionRisk":
+        return 200, state.account.position_risk(params.get("symbol"))
+    if path == "/fapi/v1/multiAssetsMargin":
+        return 200, {"multiAssetsMargin": state.account.multi_assets}
     if path in {"/fapi/v1/allOrders", "/fapi/v1/userTrades", "/fapi/v1/income"}:
         return _history(path, params, state)
     if path == "/fapi/v1/commissionRate":
@@ -248,7 +227,7 @@ def _handle_post(
         # an empty object.
         return 200, {}
     if path == "/fapi/v1/order":
-        return 200, state.place(params)
+        return state.place(params)
     if path == "/fapi/v1/listenKey":
         return 200, {"listenKey": _FAKE_LISTEN_KEY}
     if path == "/fapi/v1/leverage":
