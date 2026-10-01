@@ -13,8 +13,8 @@ until `EPIC-021G` — guarded by
 Only `BinanceAPIException` (a response the exchange actually sent back,
 carrying a code) is translated into a named `OrderRejectedByExchangeError`
 here. A network-level failure (`BinanceRequestException`,
-`requests.exceptions.RequestException`, or the construction-time ping
-`Client(...)` performs itself — same trigger as `BUG-045`) is left to
+`requests.exceptions.RequestException`; `Client(...)` no longer pings on
+construction, `EPIC-028P`) is left to
 propagate: `ITradingClient` makes no "never raises" promise the way
 `ITradingAccountReader` (`EPIC-021D`) does, and a caller two frames up
 already has to decide what "no connection" means for its own UI/CLI —

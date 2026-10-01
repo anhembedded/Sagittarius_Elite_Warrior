@@ -7,7 +7,9 @@ a desk's two history tabs, the Spot average entry price — wants both from the
 same venue. It is still its own port, apart from `ITradingClient`, because
 that one places orders and this one only reads (Interface Segregation).
 
-**Complete or raise, never truncated.** Binance caps each request's time
+**Complete or raise, never truncated at a span or row limit.** What the
+exchange keeps, a read returns in full; what it never returns is stated
+below under gaps. Binance caps each request's time
 span (Futures seven days, Spot twenty-four hours) and its row count. An
 implementation splits the requested span into windows the exchange accepts,
 and splits a window again when it comes back full, so a busy day is read in
@@ -37,8 +39,8 @@ each page.
 
 Plausible extensions, each one method or one implementation behind this
 port: a COIN-M reader; funding and income history (`/fapi/v1/income`);
-Futures position history once Binance exposes one; a caching decorator for
-repeated page requests.
+Futures position history once Binance exposes one. The caching decorator for
+repeated page requests is built (`CachedAccountHistoryReader`, `EPIC-028Q`).
 """
 
 from __future__ import annotations

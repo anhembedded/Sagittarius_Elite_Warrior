@@ -9,8 +9,9 @@ days and trade history for six months, both beyond `MAX_HISTORY_LOOKBACK`.
 `active_symbols` is every symbol with an open position or an open order —
 `positionRisk` and `openOrders` without a symbol, the same two reads
 `EnableTradingCommandHandler` reconciles against — plus every symbol with
-income since `since` (`GET /fapi/v1/income`: a fill always books a
-commission), so a round trip already closed inside the window is found
+income since `since` (`GET /fapi/v1/income`: a fill books a commission, and
+a closed round trip a realized PnL even when its fee is zero), so a round
+trip already closed inside the window is found
 (`EPIC-028Q`, the PR #300 epic review). What income cannot show, a pair whose
 orders were all cancelled unfilled, is in `known_gaps()`, with Binance's
 3-day purge of such orders from `allOrders`.
