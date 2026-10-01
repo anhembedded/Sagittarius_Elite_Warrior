@@ -10,7 +10,7 @@ fake exchange server counts real requests in
 from __future__ import annotations
 
 from collections import Counter
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from datetime import datetime, timedelta
 
 import pytest
@@ -136,18 +136,25 @@ def test_a_later_since_is_served_from_the_wider_read_with_older_rows_dropped() -
     assert (inner.reads["orders"], inner.reads["trades"]) == (1, 1)
 
 
-def test_an_earlier_since_goes_to_the_exchange() -> None:
+@pytest.mark.parametrize(
+    ("kind", "read", "row_hours"),
+    [
+        ("orders", "order_history", lambda row: row.created_at - _START),
+        ("trades", "trade_history", lambda row: row.time - _START),
+    ],
+)
+def test_an_earlier_since_goes_to_the_exchange(
+    kind: str, read: str, row_hours: Callable[[object], timedelta]
+) -> None:
+    """A read further back than the entry is never served from it: the
+    entry holds nothing older than its own `since` (the PR #301 review)."""
     reader, inner, _ = _cached()
-    reader.order_history("BTCUSDT", _START + timedelta(hours=4))
+    getattr(reader, read)("BTCUSDT", _START + timedelta(hours=4))
 
-    rows = reader.order_history("BTCUSDT", _START)
+    rows = getattr(reader, read)("BTCUSDT", _START)
 
-    assert [row.created_at - _START for row in rows] == [
-        timedelta(hours=1),
-        timedelta(hours=5),
-        timedelta(hours=9),
-    ]
-    assert inner.reads["orders"] == 2
+    assert row_hours(rows[0]) < timedelta(hours=4)
+    assert inner.reads[kind] == 2
 
 
 @pytest.mark.parametrize(

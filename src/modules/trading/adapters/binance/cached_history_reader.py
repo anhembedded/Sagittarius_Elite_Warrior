@@ -58,6 +58,52 @@ class _Entry[T]:
     value: T
 
 
+class _SymbolHistoryCache[T]:
+    """One history kind's entries, one per symbol: the reuse rule lives
+    here once for orders and trades alike."""
+
+    def __init__(
+        self,
+        kind: str,
+        read: Callable[[str, datetime], tuple[T, ...]],
+        row_time: Callable[[T], datetime],
+    ) -> None:
+        self._kind = kind
+        self._read = read
+        self._row_time = row_time
+        self._entries: dict[str, _Entry[tuple[T, ...]]] = {}
+
+    def rows(
+        self, symbol: str, since: datetime, freshness: _Freshness
+    ) -> tuple[T, ...]:
+        with freshness.lock:
+            entry = self._entries.get(symbol)
+        if entry is not None and entry.since <= since and freshness.fresh(entry):
+            logger.debug(
+                "[history-cache] %s %s since %s: cached", self._kind, symbol, since
+            )
+            return tuple(row for row in entry.value if self._row_time(row) >= since)
+        logger.debug("[history-cache] %s %s since %s: read", self._kind, symbol, since)
+        rows = self._read(symbol, since)
+        with freshness.lock:
+            self._entries[symbol] = _Entry(since, freshness.now, rows)
+        return rows
+
+
+@dataclass(frozen=True)
+class _Freshness:
+    """The moment one call started, the TTL it judges entries by, and the
+    lock every entry is read and written under."""
+
+    now: datetime
+    ttl: timedelta
+    lock: threading.Lock
+
+    def fresh[T](self, entry: _Entry[T]) -> bool:
+        # A clock stepped back counts as stale, never as fresh forever.
+        return timedelta(0) <= self.now - entry.read_at < self.ttl
+
+
 class CachedAccountHistoryReader(IAccountHistoryReader):
     """Serves repeated history reads from the last exchange read."""
 
@@ -72,8 +118,12 @@ class CachedAccountHistoryReader(IAccountHistoryReader):
         self._ttl = ttl
         self._clock = clock
         self._lock = threading.Lock()
-        self._orders: dict[str, _Entry[tuple[OrderRecord, ...]]] = {}
-        self._trades: dict[str, _Entry[tuple[TradeRecord, ...]]] = {}
+        self._orders = _SymbolHistoryCache[OrderRecord](
+            "orders", inner.order_history, lambda row: row.created_at
+        )
+        self._trades = _SymbolHistoryCache[TradeRecord](
+            "trades", inner.trade_history, lambda row: row.time
+        )
         self._symbols: _Entry[tuple[str, ...]] | None = None
 
     @property
@@ -82,52 +132,28 @@ class CachedAccountHistoryReader(IAccountHistoryReader):
         return self._inner
 
     def order_history(self, symbol: str, since: datetime) -> tuple[OrderRecord, ...]:
-        now = self._checked_now(since)
-        with self._lock:
-            entry = self._orders.get(symbol)
-        if entry is not None and entry.since <= since and self._fresh(entry, now):
-            logger.debug("[history-cache] orders %s since %s: cached", symbol, since)
-            return tuple(row for row in entry.value if row.created_at >= since)
-        logger.debug("[history-cache] orders %s since %s: read", symbol, since)
-        rows = self._inner.order_history(symbol, since)
-        with self._lock:
-            self._orders[symbol] = _Entry(since, now, rows)
-        return rows
+        return self._orders.rows(symbol, since, self._freshness(since))
 
     def trade_history(self, symbol: str, since: datetime) -> tuple[TradeRecord, ...]:
-        now = self._checked_now(since)
-        with self._lock:
-            entry = self._trades.get(symbol)
-        if entry is not None and entry.since <= since and self._fresh(entry, now):
-            logger.debug("[history-cache] trades %s since %s: cached", symbol, since)
-            return tuple(row for row in entry.value if row.time >= since)
-        logger.debug("[history-cache] trades %s since %s: read", symbol, since)
-        rows = self._inner.trade_history(symbol, since)
-        with self._lock:
-            self._trades[symbol] = _Entry(since, now, rows)
-        return rows
+        return self._trades.rows(symbol, since, self._freshness(since))
 
     def active_symbols(self, since: datetime) -> tuple[str, ...]:
-        now = self._checked_now(since)
+        freshness = self._freshness(since)
         with self._lock:
             entry = self._symbols
-        if entry is not None and entry.since == since and self._fresh(entry, now):
+        if entry is not None and entry.since == since and freshness.fresh(entry):
             logger.debug("[history-cache] active symbols since %s: cached", since)
             return entry.value
         logger.debug("[history-cache] active symbols since %s: read", since)
         symbols = self._inner.active_symbols(since)
         with self._lock:
-            self._symbols = _Entry(since, now, symbols)
+            self._symbols = _Entry(since, freshness.now, symbols)
         return symbols
 
     def known_gaps(self) -> HistoryGaps:
         return self._inner.known_gaps()
 
-    def _checked_now(self, since: datetime) -> datetime:
+    def _freshness(self, since: datetime) -> _Freshness:
         now = self._clock()
         require_within_lookback(since, now)
-        return now
-
-    def _fresh[T](self, entry: _Entry[T], now: datetime) -> bool:
-        # A clock stepped back counts as stale, never as fresh forever.
-        return timedelta(0) <= now - entry.read_at < self._ttl
+        return _Freshness(now, self._ttl, self._lock)

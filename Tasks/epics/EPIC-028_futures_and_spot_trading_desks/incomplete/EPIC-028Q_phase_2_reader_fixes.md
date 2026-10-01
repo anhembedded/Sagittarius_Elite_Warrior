@@ -72,7 +72,7 @@ The review found these defects in merged Phase 2 code:
 | `tests/sanity/fake_exchange/futures_routes.py` · `history_log.py` | income, span, purge |
 
 ## 5. Testing
-Each new condition was mutated and a test turned red. The only survivor was `<` → `<=` on the refresh ticket, which is equivalent because tickets are unique.
+Each new condition was mutated and a test turned red, with two exceptions. `<` → `<=` on the refresh ticket survives but is equivalent, because tickets are unique. The PR #301 review found one more survivor: the cache's `since` guard on trades, whose test covered orders only. That guard now lives in one helper shared by orders and trades (`_SymbolHistoryCache`), and the earlier-`since` test runs on both kinds.
 - **Malformed rows.** Each reader is fed a malformed row and raises `AccountHistoryUnavailableError` naming it (`test_history_readers.py`).
 - **Income and gaps.**
   - Futures `active_symbols` includes a pair traded since `since` with nothing open, and reads income from the first window's start.
