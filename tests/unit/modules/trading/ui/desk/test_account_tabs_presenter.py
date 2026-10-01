@@ -8,6 +8,7 @@ pool runs inline (or held, to supersede a read)."""
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import timedelta
 from decimal import Decimal
 
@@ -16,6 +17,9 @@ from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QCheckBox, QLabel
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
     CancelOrderResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
+    OrderEndedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
@@ -28,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_request imp
     HistoryRequest,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
+    OrderStatus,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_activity import (
     FakeAccountActivity,
@@ -229,6 +236,29 @@ def test_an_order_of_this_venue_joins_the_table_and_rereads_the_histories(
     assert desk.open_order_ids() == ["SEW-futures"]
     assert len(desk.activity.order_requests) == reads + 1
     assert desk.activity.order_requests[-1].since == NOW - DESK_HISTORY_SPAN
+
+
+def test_an_order_ended_elsewhere_leaves_open_orders(qtbot, qapp) -> None:
+    """The review of PR 307: an order cancelled from the other desk, from
+    Binance's site or by the exchange stayed listed until the desk reloaded.
+    Another venue's ending touches nothing."""
+    desk = _Desk(qtbot)
+    desk.activity.holding_open_orders(
+        [order("BTCUSDT", "SEW-btc"), order("ETHUSDT", "SEW-eth")]
+    )
+    desk.presenter.show_symbol("BTCUSDT")
+    reads = len(desk.activity.order_requests)
+
+    ended = replace(order("BTCUSDT", "SEW-btc"), status=OrderStatus.CANCELED)
+    desk.bus.emit(OrderEndedEvent(order=ended, venue=TradingVenue.SPOT_TESTNET))
+    qapp.processEvents()
+    assert desk.open_order_ids() == ["SEW-btc", "SEW-eth"]
+
+    desk.bus.emit(OrderEndedEvent(order=ended, venue=_FUTURES))
+    qapp.processEvents()
+
+    assert desk.open_order_ids() == ["SEW-eth"]
+    assert len(desk.activity.order_requests) == reads + 1
 
 
 # -- actions --------------------------------------------------------------- #

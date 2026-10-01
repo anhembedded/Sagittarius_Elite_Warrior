@@ -7,7 +7,9 @@ an order was placed elsewhere (the other desk, Binance's own UI) must still
 list it, so opening reads the account (`IAccountActivity.open_orders`,
 `IAccountSnapshot`) and hands the snapshot to `LiveOrderBookCoordinator`'s
 full reconciliation. From then on the `OrderFeed` of the desk's venue keeps
-the live tables current, as on the older screens; a Spot fill never reaches
+the live tables current, as on the older screens: a fill adds or updates a
+row, an order that ended anywhere without filling leaves Open orders
+(`OrderEndedEvent`); a Spot fill never reaches
 a Futures desk because the feed filters by venue (`EPIC-028C`).
 
 **Histories** are `HistoryTabsLoader`'s; "hide other pairs" reopens them
@@ -26,6 +28,9 @@ from decimal import Decimal
 
 from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
+    OrderEndedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
 )
@@ -107,6 +112,7 @@ class AccountTabsPresenter(QObject):
         self._actions.finished.connect(lambda text, _failed: view.show_message(text))
         self._actions.positionCloseSent.connect(lambda _symbol: self.refresh())
         feed.orderFilled.connect(self._on_order_event)
+        feed.orderEnded.connect(self._on_order_ended)
         feed.positionChanged.connect(
             lambda event: self._book.on_position_changed(event.position)
         )
@@ -181,6 +187,13 @@ class AccountTabsPresenter(QObject):
 
     def _on_order_event(self, event: OrderFilledEvent) -> None:
         self._book.on_order_filled(event.order)
+        self._histories.reread()
+
+    def _on_order_ended(self, event: OrderEndedEvent) -> None:
+        """An order cancelled, rejected or expired anywhere (the other desk,
+        Binance's site, a strategy, the exchange) leaves Open orders and
+        joins Order history (the review of PR 307)."""
+        self._book.on_order_cancelled(str(event.order.client_order_id))
         self._histories.reread()
 
     def _reopen_histories(self, hide_other_pairs: bool) -> None:
