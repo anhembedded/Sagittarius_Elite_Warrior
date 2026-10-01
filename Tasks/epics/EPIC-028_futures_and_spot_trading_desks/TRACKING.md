@@ -40,8 +40,9 @@ gantt
 
     section Phase 3 - Shared desk kit
     028H Order entry core and Spot         :done,    h, after g, 4d
-    028O Order contract and reads          :crit,    o, after h, 3d
-    028I Futures order entry variant       :crit,    i, after o, 4d
+    028O Order contract and reads          :active, crit, o, after h, 3d
+    028R Futures algo orders               :crit,    r, after o, 2d
+    028I Futures order entry variant       :crit,    i, after r, 4d
     028J Account tabs and summary          :         j, after e, 3d
     Phase 3 exit check                     :milestone, m3, after i, 0d
 
@@ -67,7 +68,8 @@ gantt
 | EPIC-028F | [Commission, leverage, margin](completed/EPIC-028F_commission_and_futures_account_controls.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | [#299](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/299) merged 2026-09-30 |
 | EPIC-028G | [Estimate policies](completed/EPIC-028G_order_estimate_policies.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Merged | [#300](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/300) |
 | EPIC-028H | [Order entry core and Spot](completed/EPIC-028H_order_entry_panel_core_and_spot.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Merged | [#301](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/301) |
-| EPIC-028O | [Order contract and missing reads](incomplete/EPIC-028O_order_contract_and_missing_reads.md) | — | 🔴 | 🔵 Planned | — |
+| EPIC-028O | [Order contract and missing reads](incomplete/EPIC-028O_order_contract_and_missing_reads.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | 🟡 PR-1 of 3 in review | — |
+| EPIC-028R | [Futures conditional orders via the Algo Order API](incomplete/EPIC-028R_futures_conditional_orders_via_algo_api.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-028P | [Dual-venue isolation test](completed/EPIC-028P_dual_venue_isolation_test.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Merged | [#301](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/301) |
 | EPIC-028Q | [Phase 2 reader fixes](completed/EPIC-028Q_phase_2_reader_fixes.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Merged | [#301](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/301) |
 | EPIC-028I | [Futures order entry](incomplete/EPIC-028I_futures_order_entry_variant.md) | — | 🔴 | 🔵 Planned | — |
@@ -83,6 +85,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-01 | EPIC-028O | PR-1: stop-limit, time in force and quote sizing end to end; a crossed stop refused before sending. Found that `python-binance` routes every Futures conditional order to the Algo Order API (client id lost, Emergency Stop does not reach); Futures conditional types refused, `EPIC-028R` added. |
 | 2026-10-01 | EPIC-028H, 028P, 028Q | Merged in PR #301 after an independent review (PASS; two should-fix items fixed before merge). |
 | 2026-10-01 | EPIC-028Q | Phase 2 readers: mapping errors translated, history gaps carried on `HistoryPage.notices`, closed Futures pairs found through income, history cached for paging, stale account summary published; leverage gate restated as app policy. Desk display moved to 028J; fake fills and Multi-Assets to 028O. |
 | 2026-10-01 | EPIC-028P | Dual-venue integration test added; it found every Futures session pinging the Spot API (`python-binance`'s construction-time ping), fixed with `ping=False`. |
