@@ -25,7 +25,7 @@
 - [x] Spot variant: two columns, Buy and Sell, each showing the available balance and max buy or max sell. Sell is disabled without a holding (the `EPIC-027O` rule is kept).
 - [x] Submitting goes preview → confirm → submit through the panel's own venue's `IOrderSubmission`. The quantity and price sent are the preview's, rounded to the symbol's filters. A money-moving submit confirms in a dialog that names the rounded order, its total and its fee (HLD 11 §11.5).
 - [x] `preview.py` renders the Spot variant.
-- **Moved to [`EPIC-028O`](../incomplete/EPIC-028O_order_contract_and_missing_reads.md):**
+- **Moved to [`EPIC-028O`](EPIC-028O_order_contract_and_missing_reads.md):**
   - the Stop-limit tab: the submission path cannot send a stop-limit order yet, and drawing the tab would offer something it refuses;
   - the BBO price fill: nothing reads the order book.
 
