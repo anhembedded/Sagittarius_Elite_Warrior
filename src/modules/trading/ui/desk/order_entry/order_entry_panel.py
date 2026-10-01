@@ -4,8 +4,8 @@ out as the desk's profile says, and one status line.
 @details The core is the same on both desks; `DeskProfile.side_layout`
 picks the layout from `_SIDE_LAYOUTS`, so a new desk adds one entry there
 and never a branch here (ADR D5). Every order type the profile offers gets a
-tab; one the submission path cannot yet send (Stop-limit, `EPIC-028O`) is
-not drawn, rather than drawn and refused. The TP/SL toggle is the one
+tab, so a desk offers Stop-limit (`EPIC-028O`) by listing it in its profile,
+never by a branch here. The TP/SL toggle is the one
 exception, by ADR O2: it is drawn on every desk and disabled, with the
 reason as its tooltip, where the desk cannot place protective orders.
 """
@@ -37,7 +37,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.two_colum
     TwoColumnSides,
 )
 
-_TAB_TEXT = {OrderType.LIMIT: "Limit", OrderType.MARKET: "Market"}
+_TAB_TEXT = {
+    OrderType.LIMIT: "Limit",
+    OrderType.MARKET: "Market",
+    OrderType.STOP_LIMIT: "Stop-limit",
+}
 
 _SIDE_LAYOUTS: dict[SideLayout, Callable[[OrderEntryViewModel], QWidget]] = {
     SideLayout.TWO_COLUMNS: TwoColumnSides,

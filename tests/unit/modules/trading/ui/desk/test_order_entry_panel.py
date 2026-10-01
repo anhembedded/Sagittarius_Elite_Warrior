@@ -1,6 +1,7 @@
 """`EPIC-028H` — the panel's widgets write every edit to the view model and
 show what it computes; the submit button is only live when the side may
-submit."""
+submit. `EPIC-028O`: the stop field, the total field of a market buy, the
+BBO button and the notional cap."""
 
 from __future__ import annotations
 
@@ -13,6 +14,7 @@ from PySide6.QtWidgets import (
     QPushButton,
     QSlider,
     QTabBar,
+    QToolButton,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
@@ -56,7 +58,11 @@ def test_one_tab_per_offered_order_type_and_switching_changes_the_type(
     vm, panel = _panel(qtbot)
     tabs = _child(panel, QTabBar, "tabOrderType")
 
-    assert [tabs.tabText(i) for i in range(tabs.count())] == ["Limit", "Market"]
+    assert [tabs.tabText(i) for i in range(tabs.count())] == [
+        "Limit",
+        "Market",
+        "Stop-limit",
+    ]
     tabs.setCurrentIndex(1)
 
     assert vm.order_type is OrderType.MARKET
@@ -133,3 +139,78 @@ def test_the_spot_tp_sl_toggle_is_shown_disabled_with_its_reason(qtbot) -> None:
     assert toggle.isVisibleTo(panel)
     assert not toggle.isEnabled()
     assert "OCO" in toggle.toolTip()
+
+
+# -- EPIC-028O -------------------------------------------------------------- #
+
+
+def test_the_stop_price_field_shows_only_on_the_stop_limit_tab(qtbot) -> None:
+    vm, panel = _panel(qtbot)
+    stop = _child(panel, QLineEdit, "txtStopPriceBuy")
+    assert not stop.isVisibleTo(panel)
+
+    _child(panel, QTabBar, "tabOrderType").setCurrentIndex(2)
+    qtbot.keyClicks(stop, "105")
+
+    assert vm.order_type is OrderType.STOP_LIMIT
+    assert stop.isVisibleTo(panel)
+    assert vm.entry(EntrySide.BUY).stop_price == 105
+
+
+def test_a_market_buy_takes_a_total_and_a_market_sell_an_amount(qtbot) -> None:
+    vm, panel = _panel(qtbot)
+    vm.set_last_price(Decimal(250))
+    _child(panel, QTabBar, "tabOrderType").setCurrentIndex(1)
+
+    total = _child(panel, QLineEdit, "txtTotalBuy")
+    qtbot.keyClicks(total, "500")
+
+    assert total.isVisibleTo(panel)
+    assert not _child(panel, QLineEdit, "txtAmountBuy").isVisibleTo(panel)
+    assert _child(panel, QLineEdit, "txtAmountSell").isVisibleTo(panel)
+    assert not _child(panel, QLineEdit, "txtTotalSell").isVisibleTo(panel)
+    assert vm.entry(EntrySide.BUY).total == 500
+    assert _child(panel, QLabel, "lblMaxBuy").text() == "1,000 USDT"
+    assert _child(panel, QSlider, "sldPercentBuy").value() == 50
+    assert _child(panel, QPushButton, "btnSubmitBuy").isEnabled()
+
+
+def test_the_best_price_button_asks_for_its_side_and_hides_on_market(qtbot) -> None:
+    vm, panel = _panel(qtbot)
+    requested: list[str] = []
+    vm.bestPriceRequested.connect(requested.append)
+    button = _child(panel, QToolButton, "btnBestPriceBuy")
+
+    button.click()
+    _child(panel, QTabBar, "tabOrderType").setCurrentIndex(1)
+
+    assert requested == ["BUY"]
+    assert "best bid" in button.toolTip()
+    assert "best ask" in _child(panel, QToolButton, "btnBestPriceSell").toolTip()
+    assert not button.isVisibleTo(panel)
+
+
+def test_the_maximum_respects_the_app_notional_limit(qtbot) -> None:
+    vm = OrderEntryViewModel(desk_profile_for(TradingVenue.SPOT_TESTNET))
+    vm.begin_symbol(SYMBOL)
+    vm.set_context(spot_context(notional_limit=Decimal(500)))
+    panel = OrderEntryPanel(vm)
+    qtbot.addWidget(panel)
+
+    qtbot.keyClicks(_child(panel, QLineEdit, "txtPriceBuy"), "100")
+    qtbot.keyClicks(_child(panel, QLineEdit, "txtAmountBuy"), "6")
+
+    assert _child(panel, QLabel, "lblMaxBuy").text() == "5 BTC"
+    assert "app's limit of 500 USDT" in _child(panel, QLabel, "lblProblemBuy").text()
+    assert not _child(panel, QPushButton, "btnSubmitBuy").isEnabled()
+
+
+def test_the_best_price_button_is_not_offered_on_a_stop_limit(qtbot) -> None:
+    # A stop-limit's limit price is where it rests once triggered; the
+    # queue's front now is the wrong price for it (PR #305 review).
+    _vm, panel = _panel(qtbot)
+
+    _child(panel, QTabBar, "tabOrderType").setCurrentIndex(2)
+
+    assert not _child(panel, QToolButton, "btnBestPriceBuy").isVisibleTo(panel)
+    assert _child(panel, QToolButton, "btnLastPriceBuy").isVisibleTo(panel)

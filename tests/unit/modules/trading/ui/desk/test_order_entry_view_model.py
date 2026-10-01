@@ -145,3 +145,77 @@ def test_submit_names_the_side() -> None:
     vm.request_submit(_SELL)
 
     assert requested == ["SELL"]
+
+
+# -- EPIC-028O -------------------------------------------------------------- #
+
+
+def test_a_stop_price_and_a_total_are_kept_per_side() -> None:
+    vm = _loaded()
+
+    vm.set_stop_price(_BUY, "105")
+    vm.set_total(_BUY, "250.5")
+    vm.set_stop_price(_SELL, "abc")
+
+    assert vm.entry(_BUY).stop_price == 105
+    assert vm.entry(_BUY).total == Decimal("250.5")
+    assert vm.entry(_SELL).stop_price is None
+
+
+def test_on_a_quote_sized_buy_the_slider_moves_the_total() -> None:
+    vm = _loaded()
+    vm.set_order_type(OrderType.MARKET)
+    vm.set_last_price(Decimal(300))
+
+    vm.set_percent(_BUY, 33)
+
+    # 33 % of the 1000 USDT available, floored to a cent; no quantity typed.
+    assert vm.entry(_BUY).total == Decimal("330.00")
+    assert vm.entry(_BUY).quantity is None
+    assert vm.percent(_BUY) == 33
+
+
+def test_a_typed_total_moves_the_slider() -> None:
+    vm = _loaded()
+    vm.set_order_type(OrderType.MARKET)
+    vm.set_last_price(Decimal(300))
+
+    vm.set_total(_BUY, "250")
+
+    assert vm.percent(_BUY) == 25
+
+
+def test_the_total_slider_does_nothing_while_the_balance_is_unknown() -> None:
+    vm = _loaded()
+    vm.set_context(spot_context(available_quote=None))
+    vm.set_order_type(OrderType.MARKET)
+    vm.set_last_price(Decimal(300))
+
+    vm.set_percent(_BUY, 50)
+
+    assert vm.entry(_BUY).total is None
+
+
+def test_the_best_price_button_asks_for_the_side_and_takes_the_answer() -> None:
+    vm = _loaded()
+    requested: list[str] = []
+    vm.bestPriceRequested.connect(requested.append)
+
+    vm.use_best_price(_SELL)
+    vm.set_price_value(_SELL, Decimal("101.25"))
+
+    assert requested == ["SELL"]
+    assert vm.entry(_SELL).price == Decimal("101.25")
+
+
+def test_clearing_after_a_fill_clears_the_amount_and_the_total() -> None:
+    vm = _loaded()
+    vm.set_price(_BUY, "100")
+    vm.set_quantity(_BUY, "1")
+    vm.set_total(_BUY, "50")
+
+    vm.clear_amount(_BUY)
+
+    assert vm.entry(_BUY).quantity is None
+    assert vm.entry(_BUY).total is None
+    assert vm.entry(_BUY).price == 100

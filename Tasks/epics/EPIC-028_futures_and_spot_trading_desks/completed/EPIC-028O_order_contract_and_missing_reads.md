@@ -1,6 +1,6 @@
 # EPIC-028O — The order path carries every order the desks offer, and the panels can read every figure they show
 
-**Status:** 🟡 In progress (2026-10-01) — PR-1 merged in #302, PR-2 merged in #303; PR-3 (fake Futures fills, Multi-Assets mode) in review; PR-4 to do
+**Status:** ✅ Done (2026-10-01) — PR-1 merged in #302, PR-2 in #303, PR-3 in #304; PR-4 (the desk UI) closes the task
 **Source:**
 - ADR O3: the user, 2026-09-29, stop-limit on both desks (`STOP_LOSS_LIMIT` on Spot, `STOP` on Futures).
 - Split out of [EPIC-028H](../completed/EPIC-028H_order_entry_panel_core_and_spot.md) on 2026-09-30.
@@ -24,7 +24,7 @@ The epic-level review found that 028H–N cannot be executed as written, because
 
 ## 2. Acceptance criteria
 - [x] `OrderRequest` and `PreviewOrderQuery` carry an optional stop price, a time-in-force and an optional quote quantity. Preview rounds the stop price to the tick, and the handler no longer hard-codes GTC. *(PR-1)*
-- [x] `OrderType` gains stop-limit. The Spot mapper sends `STOP_LOSS_LIMIT` with `stopPrice`, and `quoteOrderQty` for a market buy sized by quote. *(PR-1)* *Deviation:* the Futures mapper does **not** send `STOP`. `python-binance` 1.0.37 routes every USD-M conditional order to Binance's Algo Order API, where the client order id is lost and Emergency Stop does not reach, so the mapper refuses all conditional types. Sending them is moved to [EPIC-028R](EPIC-028R_futures_conditional_orders_via_algo_api.md).
+- [x] `OrderType` gains stop-limit. The Spot mapper sends `STOP_LOSS_LIMIT` with `stopPrice`, and `quoteOrderQty` for a market buy sized by quote. *(PR-1)* *Deviation:* the Futures mapper does **not** send `STOP`. `python-binance` 1.0.37 routes every USD-M conditional order to Binance's Algo Order API, where the client order id is lost and Emergency Stop does not reach, so the mapper refuses all conditional types. Sending them is moved to [EPIC-028R](../incomplete/EPIC-028R_futures_conditional_orders_via_algo_api.md).
 - [x] A stop price on the wrong side of the last price for its direction is refused before it is sent, with the reason named. It is never sent to trigger at once. *(PR-1)*
 - [x] The fake exchange accepts both stop orders and fills them when triggered by price, and accepts a quote-quantity market buy. An integration test places each on its venue. *(PR-1, Spot; the Futures side moves to 028R with the algo routes.)*
 - [x] Reads on `IOrderEntryTerms`, each a venue-addressed query: *(PR-2)*
@@ -35,8 +35,8 @@ The epic-level review found that 028H–N cannot be executed as written, because
   - the app's per-order notional limit.
 
   Spot answers the leverage, bracket and mark reads with "not applicable", never an invented value.
-- [ ] Both desk profiles offer the Stop-limit tab with a stop-price field. The Spot market buy sizes by quote amount. The price button can fill the best bid or ask.
-- [ ] Every maximum also respects the app's per-order notional limit.
+- [x] Both desk profiles offer the Stop-limit tab with a stop-price field. The Spot market buy sizes by quote amount. The price button can fill the best bid or ask. *(PR-4.)* *Deviation:* only the Spot desk has a profile today. The panel draws a tab for every order type a profile lists, so the Futures desk ([EPIC-028I](../incomplete/EPIC-028I_futures_order_entry_variant.md)) offers Stop-limit by listing it, once [EPIC-028R](../incomplete/EPIC-028R_futures_conditional_orders_via_algo_api.md) can send a Futures stop.
+- [x] Every maximum also respects the app's per-order notional limit. *(PR-4)*
 - [x] Moved from [EPIC-028Q](../completed/EPIC-028Q_phase_2_reader_fixes.md): the fake Futures exchange fills a market order and returns it from `userTrades`, so a Futures fill, its trade history and its average entry price are exercised end to end. Existing tests that rely on the fake never filling are updated in the same change. *(PR-3)*
 - [x] Moved from EPIC-028Q: the Futures account reader reads Multi-Assets mode (`GET /fapi/v1/multiAssetsMargin`), and the desk's available balance names the margin it counts when the mode is on. *(PR-3; the summary carries `asset_mode` and the CLI status names it. The desk panel showing it is `EPIC-028J`.)*
 
@@ -44,7 +44,7 @@ The epic-level review found that 028H–N cannot be executed as written, because
 **Four pull requests**, each reviewed on its own, because each changes a different layer and each is useful alone:
 1. **PR-1, the order contract** (acceptance criteria 1–4). Merged in #302.
 2. **PR-2, the reads** (criterion 5). Merged in #303.
-3. **PR-3, the fake Futures fills and Multi-Assets mode** (criteria 8 and 9).
+3. **PR-3, the fake Futures fills and Multi-Assets mode** (criteria 8 and 9). Merged in #304.
 4. **PR-4, the desk UI** (criteria 6 and 7).
 
 The plan had three; on 2026-10-01 the reads were split from the fake's fills and Multi-Assets mode. The reads alone touch the port, five queries, four adapters and the fake's read routes. The fills change the fake's order lifecycle, which existing tests rely on, and are reviewed better on their own.
@@ -68,7 +68,7 @@ The plan had three; on 2026-10-01 the reads were split from the fake's fills and
   - Preview records the verdict as `OrderPreview.stop_check`.
   - `ExecuteOrderCommandHandler` refuses with `ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE` before any request is sent. This is the `MIN_NOTIONAL` pattern (`BUG-090`).
 - **A type the venue cannot send is refused by name** (the PR #302 review, should-fix 1). `ITradingClientFactory.accepted_order_types()` answers with the venue's payload mapper's own set (`FUTURES_SENDABLE_ORDER_TYPES`, `SPOT_SENDABLE_ORDER_TYPES`). `ExecuteOrderCommandHandler` refuses anything outside it with `ExecuteOrderTypeRejection.NOT_SENDABLE_ON_VENUE`, before any request and on the dry run too, after the stop-side check. Before this, a Futures stop-limit dry run answered clean and the live path raised from inside `place_order`, against `IOrderSubmission`'s "a refusal is a named value" promise. A test keeps each factory's set equal to what its mapper sends, for every `OrderType`.
-- **Futures conditional orders are refused (found while building).** `python-binance` 1.0.37's `futures_create_order` sends every conditional type to `POST /fapi/v1/algoOrder` (Binance's change of 2025-12-09). It replaces `newClientOrderId` with a random `clientAlgoId`, and the order then lives outside `openOrders` and outside `allOpenOrders`, so Emergency Stop does not reach it. The Futures mapper now refuses `STOP_MARKET`, `TAKE_PROFIT_MARKET` and `STOP_LIMIT` with that reason. None was reachable before: nothing upstream set a stop price. Doing it properly is [EPIC-028R](EPIC-028R_futures_conditional_orders_via_algo_api.md).
+- **Futures conditional orders are refused (found while building).** `python-binance` 1.0.37's `futures_create_order` sends every conditional type to `POST /fapi/v1/algoOrder` (Binance's change of 2025-12-09). It replaces `newClientOrderId` with a random `clientAlgoId`, and the order then lives outside `openOrders` and outside `allOpenOrders`, so Emergency Stop does not reach it. The Futures mapper now refuses `STOP_MARKET`, `TAKE_PROFIT_MARKET` and `STOP_LIMIT` with that reason. None was reachable before: nothing upstream set a stop price. Doing it properly is [EPIC-028R](../incomplete/EPIC-028R_futures_conditional_orders_via_algo_api.md).
 - **Fake exchange.**
   - Spot accepts a stop-limit and keeps it as `NEW`.
   - A test sets a symbol's last price through the fake's state. A stop the new price crosses becomes a resting limit order, and Spot fills it at the limit as its matching rule does.
@@ -106,7 +106,29 @@ The plan had three; on 2026-10-01 the reads were split from the fake's fills and
   - A mode that cannot be read leaves the summary `None` and warns once. The connection itself stays healthy, because guessing the mode would label one figure as the other.
   - The CLI status says "Available (USD, all assets)" in that mode.
 
-## 4. Changes, per file (PR-1)
+### PR-4 — the desk UI (built)
+- **The app's notional limit caps every maximum.**
+  - The panel reads `order_notional_limit()` with the symbol's terms, into `OrderEntryContext.notional_limit`.
+  - A base-sized side's maximum is the lower of the balance's maximum and `limit / price`, floored to the lot step. A quote-sized side's maximum is the lower of the balance and the limit.
+  - An order over the limit names it ("worth more than the app's limit of 500 USDT per order") before the balance check. So the panel refuses what `ExecuteOrderCommandHandler` would refuse, and says why.
+  - An unread limit leaves the maxima uncapped. The gate still applies it.
+- **A Spot market buy is sized by quote (`quoteOrderQty`).**
+  - The Buy column on the Market tab shows a total field instead of the amount. The slider moves the total, and "Max total" is the available quote floored to a cent, capped by the limit.
+  - The figures show what the total buys at the last price. The request carries `quote_quantity`, with that quantity as the estimate.
+  - The confirmation reads "Spend 250 USDT to buy BTC". A quote order is never refused for a zero lot: the exchange sizes it from the quote, so only its notional is checked.
+  - A market sell stays sized by base quantity.
+- **Stop-limit.**
+  - The Spot profile lists `STOP_LIMIT`, so the panel draws a "Stop-limit" tab. A stop-price row shows only on that tab.
+  - The side checks, in order: a stop price, a last price to judge it by, and the stop on its waiting side (`check_stop_trigger_side`, the execute gate's own rule). Only then do the limit order's checks run.
+  - The request carries the stop and the last price. A preview whose `stop_check` is `WRONG_SIDE` (the market moved past the stop) is not offered for confirmation.
+  - The confirmation names the stop ("… once the price reaches 51,000 USDT, as a stop-limit order").
+- **The BBO button** (`best_price_filler.py`).
+  - It fills a side's price with the front of its own queue: a buy gets the best bid, a sell the best ask (Binance's "Queue 1"). The order rests at the front of its queue and never crosses the spread; a user who wants to cross picks Market.
+  - It is offered on the Limit tab only. A stop-limit's limit price is where it rests once triggered, not the queue it would join now.
+  - The book read runs on a worker under its own `ActionOwnershipTracker`. It is dropped when the panel switches symbol. An empty side of the book or a failed read is named, and the typed price is kept.
+  - It lives in its own class because the presenter would otherwise pass 400 lines, and the read shares no state with preview → confirm → submit.
+
+
 | File | Change |
 | :--- | :--- |
 | `src/modules/trading/contracts/order_type.py` · `order.py` | `STOP_LIMIT`; `Order.quote_quantity` |
@@ -141,6 +163,15 @@ The plan had three; on 2026-10-01 the reads were split from the fake's fills and
 | `src/modules/trading/contracts/account_summary.py` · `adapters/binance/futures_account_reader.py` · `support/binance_gateway/contracts/i_trading_session_factory.py` | `AssetMode`, `asset_mode`; the Multi-Assets read and the account-wide figures |
 | `src/modules/trading/adapters/binance/futures_order_payload_mapper.py` | a short's leverage is positive |
 | `src/presentation/cli/exchange_status_formatter.py` | names the margin the available balance counts |
+
+## 4d. Changes, per file (PR-4)
+| File | Change |
+| :--- | :--- |
+| `src/modules/trading/ui/desk/order_entry/order_entry_rules.py` | `notional_limit`, `stop_price`, `total`, `sized_by_quote`, `max_total`; the limit cap, the quote-sized buy, the stop checks |
+| `src/modules/trading/ui/desk/order_entry/order_entry_view_model.py` | `set_stop_price`, `set_total`, `use_best_price` / `bestPriceRequested`, `set_price_value`; the slider moves the total on a quote-sized side |
+| `src/modules/trading/ui/desk/order_entry/order_side_form.py` · `order_entry_panel.py` · `desk_profile.py` | stop row, total field, BBO button, "Max total"; the Stop-limit tab; Spot lists `STOP_LIMIT` |
+| `src/modules/trading/ui/desk/order_entry/order_entry_presenter.py` · `best_price_filler.py` (new) | the limit read, the request per order kind, the crossed-stop refusal; the book read |
+| `src/modules/trading/ui/desk/order_entry/order_confirmation.py` · `preview.py` | the stop and the spend in words; the preview shows the cap, a stop and a total |
 
 ## 5. Testing (PR-1)
 - **Units.**
@@ -199,5 +230,33 @@ The plan had three; on 2026-10-01 the reads were split from the fake's fills and
   The `fix:` commit carries no bug id: the user's standing instruction is that a quick fix needs no bug report.
 - **Runs:** `tests/unit` + `tests/integration` + `tests/sanity` green; ruff and mypy green.
 
+## 5d. Testing (PR-4)
+- **Units** (`tests/unit/modules/trading/ui/desk/`):
+  - **Rules:** the limit cap on a limit buy, a sell and a quote buy; a maximum under the limit left alone; the over-limit message on each kind, and an order exactly at the limit accepted; the quote buy's maximum, cent flooring, unknown balance and each problem; a market sell still sized by base quantity; each stop problem in order (none, zero, no last price, wrong side per direction, exactly at the last price) ahead of the balance's; a good stop still running the limit order's checks.
+  - **View model:** the stop and the total kept per side; the slider moving the total and following a typed one; the BBO request and answer; clearing after a fill.
+  - **Panel:** the three tabs; the stop row only on Stop-limit; the total field only on the market buy; the BBO button's tooltips and hiding on Market; the capped maximum and its refusal.
+  - **Presenter:** the limit read at load; the quote buy's request, send and confirmation; a quote buy under one lot still confirmed; the stop-limit's stop and last price; a limit order carrying neither even after a stop was typed on another tab; a crossed stop at preview time refused.
+  - **BBO:** each side's queue, an unreadable book, an empty side, a read dropped after a symbol switch, no read before a symbol.
+  - **Confirmation:** the stop, and the spend.
+- **Integration** (`test_spot_order_panel_against_fake_server.py`, the real handlers, `SpotTradingClient` and `python-binance` on the fake exchange):
+  - a 500 USDT market buy spends exactly 500 and grows the BTC holding;
+  - the panel reads the app's limit and caps "Max total" by it;
+  - BBO fills 49 999.99 and 50 000.01 from the venue's book;
+  - a stop-limit buy above the market is placed and rests, leaving the holding unchanged.
+- **Mutation:** 30 mutations (the limit cap and both over-limit checks, the quote buy branch, its cent flooring and balance check, the stop check and its side, the slider's total, the clear, each request field, the limit read, the crossed-stop refusal, the quote lot exemption, the symbol-switch drop, the book side, the empty-side check, the no-symbol guard, each visibility switch, "Max total", the tab text, the profile's types, both confirmation branches), all killed.
+- **Runs:** `tests/unit` + `tests/integration` + `tests/sanity`: 6948 passed, 4 skipped. ruff, mypy and `ci-local.ps1 -SkipTests` green.
+- **Review (PR #305, independent session): PASS with should-fix. All fixed:**
+  1. **The cap was judged at the typed price, the gate at the sent one.** The preview rounds a limit price to the tick (a sell up, a buy down), and the gate judges that rounded notional. A sell at 125.031 was therefore offered 3.999 BTC, which is 500.035 at 125.04 and over a 500 limit.
+     - The figures now use the tick-rounded price (`_sent_price`), which fixes the maximum, the minimum-notional check and the limit check alike.
+     - As a second net, the presenter refuses a preview whose `estimated_notional` is over the limit, so a confirmation never offers what the gate refuses.
+     - Both new tests failed on the previous rules file.
+  2. The vocabulary gains **Quote-sized market buy** and **BBO**. The Order estimate row now names the quote-sized buy as the way the Spot desk avoids an expected price.
+  3. `queue_price` uses `BestBidAsk.has_bid` / `has_ask`, so a side with a price but no quantity counts as empty.
+  4. The limit is passed into `_context_for`, and `notional_limit`'s comment says when it is `None`.
+  5. Question answered: BBO is now hidden on the Stop-limit tab (see "the BBO button" above).
+  6. The quote-buy confirmation helper takes a frozen labels object (D12).
+
 ## Implementation notes (written when done)
-Not started.
+- PR-1 to PR-3 notes are in §3; PR-4's design is "PR-4 — the desk UI".
+- The Futures half of criteria 4 and 6 lives in EPIC-028R (sending a Futures stop through the Algo Order API) and EPIC-028I (the Futures desk's profile). Neither needs a change here: 028R adds a type the client accepts, and 028I lists `STOP_LIMIT` in its profile.
+- Not built: the time-in-force choice in the panel. The order path carries it (PR-1) and the panel sends GTC; a TIF selector is one more field on the Limit and Stop-limit tabs when a desk needs it.

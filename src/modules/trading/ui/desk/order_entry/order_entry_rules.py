@@ -8,9 +8,19 @@ side shows: what it can spend, the most it can order, the order's total and
 fee, and the first thing that stops it, in the order a user fixes them.
 
 The maximum comes from `EPIC-028G`'s estimates, never a formula of its own,
-so the panel and the estimates cannot disagree. A Spot market buy is sized at
-the last price; the estimate's docstring says what that means when the book
-moves.
+so the panel and the estimates cannot disagree.
+
+`EPIC-028O` adds three things:
+- **every maximum also respects the app's per-order notional limit**
+  (`OrderEntryContext.notional_limit`, the figure `ExecuteOrderCommandHandler`
+  refuses an order over), so a 100 % slider never asks for an order the app's
+  own gate would refuse;
+- **a Spot market buy is sized by the quote it spends** (`quoteOrderQty`):
+  the user types a total, and the base quantity is the exchange's to decide.
+  Its maximum is the available quote, capped by the limit;
+- **a stop-limit** needs a stop price on the waiting side of the last price
+  (`check_stop_trigger_side`, the rule the execute gate applies), and is
+  otherwise a limit order at its limit price.
 
 The Futures side (`EPIC-028I`) is a second function beside this one,
 reading the Futures estimates; `DeskProfile` picks which one a desk uses.
@@ -31,15 +41,25 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_estimates imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     OrderQuantityRoundingPolicy,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_order_estimates import (
     SpotOrderTerms,
     spot_max_buy_quantity,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.stop_price_check import (
+    StopPriceCheck,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.stop_trigger_side import (
+    check_stop_trigger_side,
+)
 
 _ROUNDING = OrderQuantityRoundingPolicy()
 _MAX_PERCENT = 100
 _HUNDRED = Decimal(_MAX_PERCENT)
+#: What a quote total is floored to: a cent, coarser than any Spot pair's
+#: quote precision, so a total the panel offers is one the exchange takes.
+QUOTE_STEP = Decimal("0.01")
 
 
 class EntrySide(str, Enum):
@@ -65,6 +85,11 @@ class OrderEntryContext:
     available_quote: Decimal | None
     #: The base asset the account can sell; zero when it holds none.
     free_base: Decimal | None
+    #: `EPIC-028O` — the app's per-order notional limit, which caps every
+    #: maximum. The presenter always reads it with the terms; `None` (a
+    #: preview or a test that builds a context by hand) leaves the maxima
+    #: uncapped, and the execute gate still applies the real limit.
+    notional_limit: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -74,6 +99,10 @@ class SideInput:
 
     price: Decimal | None = None
     quantity: Decimal | None = None
+    #: `EPIC-028O` — a stop-limit's trigger price.
+    stop_price: Decimal | None = None
+    #: `EPIC-028O` — what a quote-sized market buy spends.
+    total: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -81,7 +110,8 @@ class SideFigures:
     """What one side shows, and whether it may submit."""
 
     #: The price the figures are computed at: the typed limit price, or the
-    #: last price for a market order.
+    #: last price for a market order, rounded to the tick as the preview
+    #: rounds it (`EPIC-028O`).
     price: Decimal | None
     available: Decimal | None
     available_asset: str
@@ -90,6 +120,12 @@ class SideFigures:
     fee: Decimal | None
     #: Why this side cannot submit; `None` when it can.
     problem: str | None
+    #: `EPIC-028O` — whether the side's amount is a quote total (a Spot
+    #: market buy) rather than a base quantity.
+    sized_by_quote: bool = False
+    #: `EPIC-028O` — the most quote a side sized by quote may spend; `None`
+    #: on a side sized by base quantity, or when the balance is unknown.
+    max_total: Decimal | None = None
 
     @property
     def can_submit(self) -> bool:
@@ -104,9 +140,13 @@ def spot_side_figures(
     last_price: Decimal | None,
 ) -> SideFigures:
     """@return One Spot side's figures and the first problem, if any."""
+    if side is EntrySide.BUY and order_type is OrderType.MARKET:
+        return _spot_quote_buy_figures(entry, context, last_price)
     step = context.terms.rules.step_size_for(order_type)
     fee_rate = context.terms.commission.taker
-    price = last_price if order_type is OrderType.MARKET else entry.price
+    price = _sent_price(
+        side, last_price if order_type is OrderType.MARKET else entry.price, context
+    )
     if side is EntrySide.BUY:
         available, asset = context.available_quote, context.quote_asset
         max_quantity = (
@@ -121,12 +161,16 @@ def spot_side_figures(
             if available is not None
             else None
         )
+    max_quantity = _capped_by_limit(max_quantity, price, step, context.notional_limit)
     quantity = entry.quantity
     total: Decimal | None = None
     fee: Decimal | None = None
     if quantity is not None and quantity > 0 and price is not None and price > 0:
         total = quantity * price
         fee = estimated_fee(quantity, price, fee_rate)
+    problem = _stop_problem(side, order_type, entry, last_price) or _first_problem(
+        side, order_type, entry, context, price, max_quantity
+    )
     return SideFigures(
         price=price,
         available=available,
@@ -134,8 +178,74 @@ def spot_side_figures(
         max_quantity=max_quantity,
         total=total,
         fee=fee,
-        problem=_first_problem(side, order_type, entry, context, price, max_quantity),
+        problem=problem,
     )
+
+
+def _sent_price(
+    side: EntrySide, price: Decimal | None, context: OrderEntryContext
+) -> Decimal | None:
+    """`price` rounded to the tick the way the order preview rounds it (a
+    buy down, a sell up), so the maximum, the minimum and the limit are
+    judged at the price that is sent, not the one typed."""
+    if price is None or price <= 0:
+        return price
+    order_side = OrderSide.BUY if side is EntrySide.BUY else OrderSide.SELL
+    return _ROUNDING.round_price_to_tick(
+        price, context.terms.rules.tick_size, order_side
+    )
+
+
+def _spot_quote_buy_figures(
+    entry: SideInput, context: OrderEntryContext, last_price: Decimal | None
+) -> SideFigures:
+    """A Spot market buy, sized by the quote it spends (`quoteOrderQty`).
+    The base quantity it buys is the exchange's to decide; the figures show
+    it at the last price."""
+    available = context.available_quote
+    max_total = (
+        _ROUNDING.round_quantity_down(available, QUOTE_STEP)
+        if available is not None
+        else None
+    )
+    if max_total is not None and context.notional_limit is not None:
+        max_total = min(max_total, context.notional_limit)
+    priced = last_price is not None and last_price > 0
+    step = context.terms.rules.step_size_for(OrderType.MARKET)
+    max_quantity = (
+        _ROUNDING.round_quantity_down(max_total / last_price, step)
+        if max_total is not None and priced and last_price is not None
+        else None
+    )
+    spend = entry.total
+    fee = (
+        spend * context.terms.commission.taker
+        if spend is not None and spend > 0
+        else None
+    )
+    return SideFigures(
+        price=last_price,
+        available=available,
+        available_asset=context.quote_asset,
+        max_quantity=max_quantity,
+        total=spend if spend is not None and spend > 0 else None,
+        fee=fee,
+        problem=_quote_buy_problem(spend, context, priced, max_total),
+        sized_by_quote=True,
+        max_total=max_total,
+    )
+
+
+def _capped_by_limit(
+    max_quantity: Decimal | None,
+    price: Decimal | None,
+    step: Decimal,
+    limit: Decimal | None,
+) -> Decimal | None:
+    """`max_quantity`, lowered to what `limit` allows at `price`."""
+    if max_quantity is None or limit is None or price is None or price <= 0:
+        return max_quantity
+    return min(max_quantity, _ROUNDING.round_quantity_down(limit / price, step))
 
 
 def quantity_at_percent(percent: int, max_quantity: Decimal, step: Decimal) -> Decimal:
@@ -180,6 +290,9 @@ def _first_problem(
             f"The order is worth less than the minimum of "
             f"{rules.min_notional} {context.quote_asset}."
         )
+    limit = context.notional_limit
+    if limit is not None and rounded * price > limit:
+        return _over_limit(limit, context.quote_asset)
     if max_quantity is None:
         return "The balance could not be read. Check the connection."
     if rounded > max_quantity:
@@ -190,3 +303,63 @@ def _first_problem(
             )
         return f"Not enough {context.base_asset}: at most {max_quantity}."
     return None
+
+
+def _quote_buy_problem(
+    spend: Decimal | None,
+    context: OrderEntryContext,
+    priced: bool,
+    max_total: Decimal | None,
+) -> str | None:
+    if not priced:
+        return "No market price yet. Wait for live data."
+    if spend is None or spend <= 0:
+        return "Enter a total."
+    if spend < context.terms.rules.min_notional:
+        return (
+            f"The order is worth less than the minimum of "
+            f"{context.terms.rules.min_notional} {context.quote_asset}."
+        )
+    limit = context.notional_limit
+    if limit is not None and spend > limit:
+        return _over_limit(limit, context.quote_asset)
+    if max_total is None:
+        return "The balance could not be read. Check the connection."
+    if spend > max_total:
+        return f"Not enough {context.quote_asset}: at most {max_total}."
+    return None
+
+
+def _stop_problem(
+    side: EntrySide,
+    order_type: OrderType,
+    entry: SideInput,
+    last_price: Decimal | None,
+) -> str | None:
+    """A stop-limit's own problems, before the limit order's: no stop, no
+    last price to judge it by, or a stop already crossed."""
+    if order_type is not OrderType.STOP_LIMIT:
+        return None
+    stop = entry.stop_price
+    if stop is None or stop <= 0:
+        return "Enter a stop price."
+    if last_price is None or last_price <= 0:
+        return "No market price yet. Wait for live data."
+    order_side = OrderSide.BUY if side is EntrySide.BUY else OrderSide.SELL
+    if (
+        check_stop_trigger_side(order_side, stop, last_price)
+        is StopPriceCheck.ON_TRIGGER_SIDE
+    ):
+        return None
+    where = "above" if side is EntrySide.BUY else "below"
+    return (
+        f"A {side.value.lower()} stop must be {where} the last price "
+        f"({last_price}); this one would trigger at once."
+    )
+
+
+def _over_limit(limit: Decimal, quote_asset: str) -> str:
+    return (
+        f"The order is worth more than the app's limit of {limit} {quote_asset} "
+        "per order."
+    )

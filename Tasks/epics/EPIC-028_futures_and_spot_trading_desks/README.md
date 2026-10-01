@@ -1,6 +1,6 @@
 # EPIC-028 — Two trading desks: Futures and Spot side by side, each with manual orders, a strategy and live account data
 
-- **Status:** 🟡 Phase 3 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`, evidence `EPIC-028P`); Phase 2 readers done (`EPIC-028D`–`028G`, `028Q`), its exit check (the `exchange-status` CLI) not yet run; `EPIC-028H` done, `028O` next
+- **Status:** 🟡 Phase 3 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`, evidence `EPIC-028P`); Phase 2 readers done (`EPIC-028D`–`028G`, `028Q`), its exit check (the `exchange-status` CLI) not yet run; `EPIC-028H` and `028O` done; `028R`, `028I` and `028J` next
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-29): *"giờ màn hình trading đang có vấn đề, cần có 2 cái chứ không
   phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng, 2 màn hình
@@ -72,7 +72,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 | [EPIC-028G](completed/EPIC-028G_order_estimate_policies.md) | Max quantity, cost, fee, liquidation estimate as domain policies | Elite | D, F | 🟢 | ✅ Done (2026-10-01) |
 | **Phase 3 — Shared desk kit** | | | | | |
 | [EPIC-028H](completed/EPIC-028H_order_entry_panel_core_and_spot.md) | `DeskProfile` + order-entry panel core + Spot variant | Elite | G | 🟡 | ✅ Done (2026-10-01) |
-| [EPIC-028O](incomplete/EPIC-028O_order_contract_and_missing_reads.md) | Order contract end to end (stop price, TIF, quote quantity, stop-limit on both venues); reads for leverage, brackets, mark, best bid/ask, the app's notional limit | Elite | H, O3 | 🔴 | 🟡 PR-1, PR-2 merged (#302, #303), PR-3 in review |
+| [EPIC-028O](completed/EPIC-028O_order_contract_and_missing_reads.md) | Order contract end to end (stop price, TIF, quote quantity, stop-limit on both venues); reads for leverage, brackets, mark, best bid/ask, the app's notional limit | Elite | H, O3 | 🔴 | ✅ Done (2026-10-01) |
 | [EPIC-028P](completed/EPIC-028P_dual_venue_isolation_test.md) | Phase 1 evidence: both venues in one process against one fake exchange | Elite | C | 🟢 | ✅ Done (2026-10-01) |
 | [EPIC-028Q](completed/EPIC-028Q_phase_2_reader_fixes.md) | Phase 2 reader fixes: history gaps disclosed, closed trades found, errors translated, stale balance marked | Elite | E, F | 🟡 | ✅ Done (2026-10-01) |
 | [EPIC-028R](incomplete/EPIC-028R_futures_conditional_orders_via_algo_api.md) | Futures conditional orders through Binance's Algo Order API: sent with the app's client id, listed, cancelled, cancelled by Emergency Stop | Elite | O | 🔴 | Planned |
@@ -103,6 +103,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 - **Arming more than one strategy per desk.**
 
 ## Notes (newest first)
+- **2026-10-01** — `EPIC-028O` done: PR-1 to PR-3 merged (#302, #303, #304), and PR-4 adds the desk UI: the Spot Stop-limit tab, the quote-sized market buy, the BBO button, and every maximum capped by the app's per-order notional limit. The Futures half of stop-limit waits on `028R` (sending) and `028I` (the Futures profile).
 - **2026-10-01** — `EPIC-028H`, `028P` and `028Q` merged (PR #301) after an independent review (PASS; two should-fix items fixed before merge: the cache's `since` guard on trades had no test, and the Active symbols vocabulary row was stale). Phase 1's exit now has its integration evidence. Phase 2's readers are done; its exit row still asks for the `exchange-status` CLI check. `EPIC-028O` is next.
 - **2026-10-01** — `EPIC-028G` merged (PR #300) after two independent reviews (the second PASS). The epic-level review on the same PR re-planned the epic: `EPIC-028O` widened, `EPIC-028P` and `EPIC-028Q` added.
 - **2026-09-30** — `EPIC-028G` implemented, then redesigned after the first independent review (PR #300) showed the first version's "errs low, never high" claim false for Futures. The shared fee and step fitting stay common. Futures cost and maximum now follow Binance's rules: assuming price, open loss and the bracket's notional headroom. A limit order at the maximum is never refused for margin or notional, while a market order's open loss against the book is not modelled. Spot is sized by notional plus fee. The liquidation estimate uses Binance's one-way formula, exact for isolated margin and optimistic for cross. 43 targeted mutations, all killed. The re-review passed.

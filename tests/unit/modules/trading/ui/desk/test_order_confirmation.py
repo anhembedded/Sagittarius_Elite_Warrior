@@ -1,5 +1,6 @@
 """`EPIC-028H` — the confirmation names what will be sent: the rounded
-order, its total and fee, and any rounding the typed amount went through."""
+order, its total and fee, and any rounding the typed amount went through;
+`EPIC-028O` adds a stop-limit's stop and a quote-sized buy's spend."""
 
 from __future__ import annotations
 
@@ -82,3 +83,47 @@ def test_a_rounded_amount_is_said() -> None:
     assert "rounded down from 0.01239 to the lot step of 0.0001" in (
         confirmation.details
     )
+
+
+def test_a_stop_limit_names_its_stop() -> None:
+    stop = replace(
+        _PREVIEW,
+        order=replace(
+            _PREVIEW.order,
+            order_type=OrderType.STOP_LIMIT,
+            stop_price=Decimal("59900.00"),
+        ),
+    )
+
+    confirmation = _confirm(stop)
+
+    assert confirmation.question == (
+        "Buy 0.012 BTC at 60,000 USDT once the price reaches 59,900 USDT, as a "
+        "stop-limit order on Spot Testnet?"
+    )
+    assert "only when the last price reaches 59,900 USDT" in confirmation.details
+
+
+def test_a_quote_sized_buy_names_what_it_spends() -> None:
+    quote = replace(
+        _PREVIEW,
+        order=replace(
+            _PREVIEW.order,
+            order_type=OrderType.MARKET,
+            price=None,
+            quantity=Decimal("0.0041"),
+            quote_quantity=Decimal(250),
+        ),
+        raw_quantity=Decimal("0.004166"),
+    )
+
+    confirmation = _confirm(quote, "60000")
+
+    assert confirmation.question == (
+        "Spend 250 USDT to buy BTC, as a market order on Spot Testnet?"
+    )
+    assert "Spend: 250 USDT" in confirmation.details
+    assert "Estimated amount: about 0.0041 BTC" in confirmation.details
+    assert "Estimated fee: 0.25 USDT" in confirmation.details
+    # The exchange sizes it from the quote, so no lot rounding is claimed.
+    assert "rounded" not in confirmation.details
