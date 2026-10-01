@@ -5,7 +5,7 @@
 **Risk:** 🔴 — TP/SL places extra reduce-only orders on a real exchange; a wrong side opens a position instead of protecting one
 **Complexity:** L — variant UI + TP/SL order construction
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028F](../completed/EPIC-028F_commission_and_futures_account_controls.md), [EPIC-028H](EPIC-028H_order_entry_panel_core_and_spot.md), [EPIC-028O](EPIC-028O_stop_limit_and_best_price.md) (stop-limit), ADR O2, O3
+**Depends on:** [EPIC-028F](../completed/EPIC-028F_commission_and_futures_account_controls.md), [EPIC-028H](EPIC-028H_order_entry_panel_core_and_spot.md), [EPIC-028O](EPIC-028O_order_contract_and_missing_reads.md) (stop-limit), ADR O2, O3
 
 ---
 
@@ -18,6 +18,7 @@
 - [ ] With TP/SL on, a filled entry is followed by `TAKE_PROFIT_MARKET` and `STOP_MARKET` reduce-only orders on the opposite side (test asserts side and `reduce_only`).
 - [ ] The Futures profile offers the Stop-limit tab that `EPIC-028O` adds to the submission path (ADR O3).
 - [ ] A market maximum accounts for the open loss against the book, or leaves that margin (`EPIC-028G` §3: not modelled there).
+- [ ] TP/SL has one owner with `EPIC-026K`, which builds the same protective orders. The TP and SL placed after an entry are exempt from `MAX_ORDERS_PER_SESSION` and `MIN_ORDER_INTERVAL` (`trading_limits.py`), or they hit the app's own limits (the PR #300 epic review).
 - [ ] Liquidation price, cost and max show from `EPIC-028G`, the liquidation value labelled estimate.
 
 ## 3. Design
