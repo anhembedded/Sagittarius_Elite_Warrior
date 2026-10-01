@@ -18,7 +18,7 @@ import json
 import threading
 from collections.abc import Iterator
 from contextlib import contextmanager
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from urllib.parse import parse_qsl
 
@@ -36,6 +36,10 @@ class _Handler(BaseHTTPRequestHandler):
     #: contextmanager's own `try`/`finally` instead.
     order_book: OrderBookState
     spot_account: SpotAccountState
+    #: `EPIC-028P` — every `(method, path)` this server answered, in order,
+    #: so a test can prove a command addressed to one venue sent nothing to
+    #: the other's API family.
+    requests: list[tuple[str, str]]
 
     def log_message(self, format: str, *args: object) -> None:
         pass  # Silence per-request access logs — this is a test fixture,
@@ -63,6 +67,7 @@ class _Handler(BaseHTTPRequestHandler):
     def _dispatch(
         self, method: str, path: str, params: dict[str, str]
     ) -> tuple[int, object] | None:
+        self.requests.append((method, path))
         if path.startswith("/api/"):
             return handle_spot(method, path, params, self.spot_account)
         return handle_futures(method, path, params, self.order_book)
@@ -103,6 +108,9 @@ class FakeServerUrls:
 
     spot: str
     futures: str
+    #: Every `(method, path)` the server answered (`EPIC-028P`). The same list
+    #: the server appends to, so it grows while the `with` block runs.
+    requests: list[tuple[str, str]] = field(default_factory=list)
 
 
 @contextmanager
@@ -113,6 +121,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
     one `with` block."""
     _Handler.order_book = OrderBookState()
     _Handler.spot_account = SpotAccountState()
+    _Handler.requests = []
     server = HTTPServer(("127.0.0.1", 0), _Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()
@@ -121,6 +130,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
         yield FakeServerUrls(
             spot=f"http://{host}:{port}/api",
             futures=f"http://{host}:{port}/fapi",
+            requests=_Handler.requests,
         )
     finally:
         server.shutdown()

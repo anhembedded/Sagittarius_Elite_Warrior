@@ -68,7 +68,7 @@ gantt
 | EPIC-028G | [Estimate policies](completed/EPIC-028G_order_estimate_policies.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Merged | [#300](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/300) |
 | EPIC-028H | [Order entry core and Spot](incomplete/EPIC-028H_order_entry_panel_core_and_spot.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | 🟡 In progress | — |
 | EPIC-028O | [Order contract and missing reads](incomplete/EPIC-028O_order_contract_and_missing_reads.md) | — | 🔴 | 🔵 Planned | — |
-| EPIC-028P | [Dual-venue isolation test](incomplete/EPIC-028P_dual_venue_isolation_test.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | 🟡 In progress | — |
+| EPIC-028P | [Dual-venue isolation test](incomplete/EPIC-028P_dual_venue_isolation_test.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | 🟡 Awaiting review | — |
 | EPIC-028Q | [Phase 2 reader fixes](incomplete/EPIC-028Q_phase_2_reader_fixes.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-028I | [Futures order entry](incomplete/EPIC-028I_futures_order_entry_variant.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-028J | [Account tabs and summary](incomplete/EPIC-028J_account_tabs_and_summary_panels.md) | — | 🟡 | 🔵 Planned | — |
@@ -83,6 +83,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-01 | EPIC-028P | Dual-venue integration test added; it found every Futures session pinging the Spot API (`python-binance`'s construction-time ping), fixed with `ping=False`. |
 | 2026-10-01 | EPIC-028 | Epic-level review on PR #300: plan gaps (028O widened), Phase 1 evidence missing (028P added), Phase 2 reader defects (028Q added), 028I/K/L/M acceptance criteria corrected. |
 | 2026-09-30 | EPIC-028H | Implemented: `DeskProfile`, the order-entry panel (Limit/Market, slider, total, fee, disabled Spot TP/SL), the Spot two-column variant, `IOrderEntryTerms`, preview → confirm → submit. Stop-limit and BBO split to `EPIC-028O`. Fast tier green. |
 | 2026-09-29 | EPIC-028A | Merged in PR #293 after the independent review (four fixes: per-part lock, single-venue reader follows the list, guard sees every spelling, docs). |

@@ -73,7 +73,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 | **Phase 3 — Shared desk kit** | | | | | |
 | [EPIC-028H](incomplete/EPIC-028H_order_entry_panel_core_and_spot.md) | `DeskProfile` + order-entry panel core + Spot variant | Elite | G | 🟡 | 🟡 In progress |
 | [EPIC-028O](incomplete/EPIC-028O_order_contract_and_missing_reads.md) | Order contract end to end (stop price, TIF, quote quantity, stop-limit on both venues); reads for leverage, brackets, mark, best bid/ask, the app's notional limit | Elite | H, O3 | 🔴 | Planned |
-| [EPIC-028P](incomplete/EPIC-028P_dual_venue_isolation_test.md) | Phase 1 evidence: both venues in one process against one fake exchange | Elite | C | 🟢 | 🟡 In progress |
+| [EPIC-028P](incomplete/EPIC-028P_dual_venue_isolation_test.md) | Phase 1 evidence: both venues in one process against one fake exchange | Elite | C | 🟢 | 🟡 Awaiting review |
 | [EPIC-028Q](incomplete/EPIC-028Q_phase_2_reader_fixes.md) | Phase 2 reader fixes: history gaps disclosed, closed trades found, errors translated, stale balance marked | Elite | E, F | 🟡 | Planned |
 | [EPIC-028I](incomplete/EPIC-028I_futures_order_entry_variant.md) | Futures variant: margin/leverage chips, reduce-only, TIF, TP/SL, stop-limit tab | Elite | F, H, O, O2 | 🔴 | Planned |
 | [EPIC-028J](incomplete/EPIC-028J_account_tabs_and_summary_panels.md) | Bottom account tabs + account summary panel | Elite | D, E | 🟡 | Planned |
@@ -86,7 +86,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
-| Phase 1 | One process runs Futures and Spot at once; an order, cancel, Enable or Emergency Stop on one venue never touches the other. | Integration test against the fake exchange serving both `/fapi` and `/api` in one process (`EPIC-028P`); the four "one venue" docstrings rewritten; full gate green on GitHub Actions. The integration test was missing when Phase 1 was recorded as met (the PR #300 epic review). |
+| Phase 1 | One process runs Futures and Spot at once; an order, cancel, Enable or Emergency Stop on one venue never touches the other. | Integration test against the fake exchange serving both `/fapi` and `/api` in one process (`EPIC-028P`: `test_two_venues_in_one_process_against_fake_server.py`); the four "one venue" docstrings rewritten; full gate green on GitHub Actions. The integration test was missing when Phase 1 was recorded as met (the PR #300 epic review); when added, it found Futures sessions pinging the Spot API, fixed in the same change. |
 | Phase 2 | Every account figure and history tab has a query that returns real exchange data for both venues. | Fake-exchange integration tests per reader; `exchange-status` CLI prints available balance. Not run. |
 | Phase 3 | The desk kit places Market / Limit / Stop-limit on both venues and Futures TP/SL, with estimates shown. | Panel unit tests (`qtbot`), `preview.py` for every new package, estimate policies mutation-verified. Not run. |
 | Phase 4 | Two desks in the nav, each with order entry, strategy card, account summary and tabs; the old route gone. | `tests/sanity` route scan shows two desks; the user's own Testnet run of `EPIC-028N` pasted into its task file. Not run. |
