@@ -25,10 +25,21 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force impor
     TimeInForce,
 )
 
+#: Binance statuses whose meaning is one of `OrderStatus`'s own members under
+#: another name. `EXPIRED_IN_MATCH` is an order the exchange expired to
+#: prevent a self-trade (Spot and USD-M): it is over, and read as `UNKNOWN`
+#: (not terminal) it would never be reported as ended, leaving a desk
+#: waiting to protect it for ever (the review of PR 307).
+_STATUS_ALIASES: dict[str, OrderStatus] = {"EXPIRED_IN_MATCH": OrderStatus.EXPIRED}
+
 
 def order_status_or_unknown(raw: str) -> OrderStatus:
     """@brief `OrderStatus[raw]`, falling back to `OrderStatus.UNKNOWN`
-    instead of raising `KeyError` on a status this app has no member for."""
+    instead of raising `KeyError` on a status this app has no member for.
+    A Binance name for one of its members (`_STATUS_ALIASES`) is that
+    member."""
+    if raw in _STATUS_ALIASES:
+        return _STATUS_ALIASES[raw]
     try:
         return OrderStatus[raw]
     except KeyError:

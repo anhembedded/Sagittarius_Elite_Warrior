@@ -182,7 +182,7 @@ class TestReverseOrderMapping:
             "side": "BUY",
             "type": "TAKE_PROFIT_LIMIT",
             "origQty": "0.002",
-            "status": "EXPIRED_IN_MATCH",
+            "status": "PENDING_NEW",
             "clientOrderId": "manually-placed-1",
             "price": "0",
             "timeInForce": "GTC",
