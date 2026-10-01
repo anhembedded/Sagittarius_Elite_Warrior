@@ -5,6 +5,9 @@ from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
+    TimeInForce,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -41,3 +44,33 @@ class PreviewOrderQuery:
     #: required: a caller that forgets it fails at construction, never
     #: silently addresses some default venue.
     venue: TradingVenue = field(kw_only=True)
+    #: `EPIC-028O` — the price a `STOP_LIMIT` waits for; `reference_price`
+    #: is then its limit price. Required for a stop-limit, refused otherwise.
+    stop_price: Decimal | None = field(default=None, kw_only=True)
+    #: How long a resting order lives; `None` means GTC. Only for the
+    #: resting types (`LIMIT`, `STOP_LIMIT`).
+    time_in_force: TimeInForce | None = field(default=None, kw_only=True)
+    #: The quote amount a market buy spends instead of a base quantity
+    #: (Spot `quoteOrderQty`); `quantity` is then only the estimate shown.
+    quote_quantity: Decimal | None = field(default=None, kw_only=True)
+    #: The market's last price, which a stop-limit's stop is judged against
+    #: (`stop_trigger_side.py`). Required for a stop-limit.
+    last_price: Decimal | None = field(default=None, kw_only=True)
+
+    def __post_init__(self) -> None:
+        """@throws ValueError a field this order type cannot use, or one it
+        needs, so an inconsistent order never reaches the exchange."""
+        is_stop = self.order_type is OrderType.STOP_LIMIT
+        if is_stop and (self.stop_price is None or self.last_price is None):
+            raise ValueError("a stop-limit needs a stop price and the last price")
+        if not is_stop and self.stop_price is not None:
+            raise ValueError(f"{self.order_type.name} takes no stop price")
+        resting = self.order_type in (OrderType.LIMIT, OrderType.STOP_LIMIT)
+        if self.time_in_force is not None and not resting:
+            raise ValueError(f"{self.order_type.name} takes no time in force")
+        if self.quote_quantity is not None and (
+            self.order_type is not OrderType.MARKET or self.side is not OrderSide.BUY
+        ):
+            raise ValueError("only a market buy can be sized by quote amount")
+        if self.quote_quantity is not None and self.quote_quantity <= 0:
+            raise ValueError("a quote amount must be positive")

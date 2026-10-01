@@ -13,6 +13,15 @@ task requires). A `LIMIT` order is stored open (`NEW`) and never fills on
 its own, same as the Futures side — there is no price feed here to decide
 when a limit order would actually trade.
 
+`EPIC-028O` — a test moves a symbol's last price with `set_last_price`.
+A `STOP_LOSS_LIMIT` the new price crosses (a buy stop at or below it, a
+sell stop at or above it) is triggered; once triggered it fills, in full
+at its own limit price, as soon as that limit is marketable at the last
+price (a buy limit at or above it, a sell limit at or below it). A market
+order fills at the current last price, and a market buy may be sized by
+`quoteOrderQty`: it buys as much as the quote amount pays for, truncated
+to 8 decimals.
+
 Fee convention ("fee in the received asset", this task's own acceptance
 criterion): a BUY receives the base asset, so its fee is charged in the
 base asset; a SELL receives the quote asset, so its fee is charged in the
@@ -45,6 +54,7 @@ _STATUS_CANCELED = "CANCELED"
 
 _SIDE_BUY = "BUY"
 _ORDER_TYPE_MARKET = "MARKET"
+_ORDER_TYPE_STOP_LIMIT = "STOP_LOSS_LIMIT"
 
 #: symbol -> (base asset, quote asset, fixed reference price used to
 #: "fill" a MARKET order). Matches the two symbols `spot_routes.py`'s own
@@ -101,6 +111,11 @@ class SpotAccountState:
         self._user_data_events: list[dict[str, Any]] = []
         self._trade_ids = itertools.count(3_000_000)
         self.history = HistoryLog()
+        #: `EPIC-028O` — each symbol's last price: what a market order fills
+        #: at and what a stop-limit is triggered by.
+        self._last_prices = {
+            symbol: price for symbol, (_, _, price) in _SYMBOLS.items()
+        }
 
     def place(self, params: dict[str, str]) -> dict[str, Any]:
         """@brief Places one order from `POST /api/v3/order`'s form-encoded
@@ -109,12 +124,12 @@ class SpotAccountState:
         symbol = params["symbol"]
         side = params["side"]
         order_type = params["type"]
-        quantity = Decimal(params["quantity"])
+        quantity = self._quantity(symbol, params)
         client_order_id = params["newClientOrderId"]
         order_id = next(self._order_ids)
 
         fill = (
-            self._fill_market_order(symbol, side, quantity)
+            self._fill(symbol, side, quantity, self._last_prices[symbol])
             if order_type == _ORDER_TYPE_MARKET
             else None
         )
@@ -125,7 +140,7 @@ class SpotAccountState:
             "clientOrderId": client_order_id,
             "transactTime": 0,
             "price": params.get("price", "0.00000000"),
-            "origQty": params["quantity"],
+            "origQty": _q(quantity),
             "executedQty": _q(fill.qty) if fill else "0.00000000",
             "cummulativeQuoteQty": _q(fill.quote_amount) if fill else "0.00000000",
             "status": _STATUS_FILLED if fill else _STATUS_NEW,
@@ -134,8 +149,14 @@ class SpotAccountState:
             "side": side,
             "fills": [self._fill_entry(fill)] if fill else [],
         }
+        if order_type == _ORDER_TYPE_STOP_LIMIT:
+            order["stopPrice"] = params["stopPrice"]
         if fill is None:
-            self._orders[client_order_id] = {**order, "_order_id": order_id}
+            self._orders[client_order_id] = {
+                **order,
+                "_order_id": order_id,
+                "_triggered": False,
+            }
         else:
             self._emit_fill_events(order, fill)
         self._remember(order, fill)
@@ -151,8 +172,10 @@ class SpotAccountState:
             }
             | {"time": placed_at, "updateTime": placed_at}
         )
-        if fill is None:
-            return
+        if fill is not None:
+            self._remember_trade(order, fill, placed_at)
+
+    def _remember_trade(self, order: dict[str, Any], fill: _Fill, at_ms: int) -> None:
         self.history.remember_trade(
             {
                 "symbol": order["symbol"],
@@ -164,7 +187,7 @@ class SpotAccountState:
                 "quoteQty": _q(fill.quote_amount),
                 "commission": _q(fill.commission),
                 "commissionAsset": fill.commission_asset,
-                "time": placed_at,
+                "time": at_ms,
                 "isBuyer": order["side"] == _SIDE_BUY,
                 "isMaker": False,
                 "isBestMatch": True,
@@ -223,7 +246,7 @@ class SpotAccountState:
 
     def open_orders(self, symbol: str | None) -> list[dict[str, Any]]:
         return [
-            {key: value for key, value in order.items() if key != "_order_id"}
+            {key: value for key, value in order.items() if not key.startswith("_")}
             for order in self._orders.values()
             if symbol is None or order["symbol"] == symbol
         ]
@@ -244,8 +267,53 @@ class SpotAccountState:
         events, self._user_data_events = self._user_data_events, []
         return events
 
-    def _fill_market_order(self, symbol: str, side: str, quantity: Decimal) -> _Fill:
-        base_asset, quote_asset, price = _SYMBOLS[symbol]
+    def set_last_price(self, symbol: str, price: Decimal) -> None:
+        """@brief `EPIC-028O` — moves `symbol`'s last price, triggers every
+        stop-limit the move crosses and fills every triggered one whose limit
+        is now marketable (the module docstring states the rule)."""
+        self._last_prices[symbol] = price
+        for order in list(self._orders.values()):
+            if order["symbol"] != symbol or order["type"] != _ORDER_TYPE_STOP_LIMIT:
+                continue
+            buy = order["side"] == _SIDE_BUY
+            stop = Decimal(order["stopPrice"])
+            if price >= stop if buy else price <= stop:
+                order["_triggered"] = True
+            limit = Decimal(order["price"])
+            if order["_triggered"] and (price <= limit if buy else price >= limit):
+                self._fill_resting(order, limit)
+
+    def _fill_resting(self, order: dict[str, Any], price: Decimal) -> None:
+        fill = self._fill(
+            order["symbol"], order["side"], Decimal(order["origQty"]), price
+        )
+        del self._orders[order["clientOrderId"]]
+        filled = {
+            key: value for key, value in order.items() if not key.startswith("_")
+        } | {
+            "orderId": order["_order_id"],
+            "status": _STATUS_FILLED,
+            "executedQty": _q(fill.qty),
+            "cummulativeQuoteQty": _q(fill.quote_amount),
+        }
+        self._emit_fill_events(filled, fill)
+        self.history.mark_filled(
+            order["clientOrderId"], _q(fill.qty), _q(fill.quote_amount)
+        )
+        self._remember_trade(filled, fill, now_ms())
+
+    def _quantity(self, symbol: str, params: dict[str, str]) -> Decimal:
+        """The base quantity, or, for a market buy sized by `quoteOrderQty`,
+        what that amount buys at the last price (truncated to 8 decimals)."""
+        if "quoteOrderQty" in params:
+            spend = Decimal(params["quoteOrderQty"])
+            return (spend / self._last_prices[symbol]).quantize(
+                _EIGHT_DP, rounding=ROUND_DOWN
+            )
+        return Decimal(params["quantity"])
+
+    def _fill(self, symbol: str, side: str, quantity: Decimal, price: Decimal) -> _Fill:
+        base_asset, quote_asset, _ = _SYMBOLS[symbol]
         quote_amount = quantity * price
         if side == _SIDE_BUY:
             commission = quantity * _FEE_RATE

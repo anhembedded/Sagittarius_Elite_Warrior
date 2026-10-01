@@ -17,6 +17,9 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_order_payload_mapper import (
+    FUTURES_ORDER_TYPE_NAMES,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_enum_parsing import (
     order_status_or_unknown,
     order_type_or_unknown,
@@ -66,7 +69,7 @@ def parse_order_trade_update(payload: dict[str, Any]) -> Order:
         client_order_id=ClientOrderId(o["c"]),
         symbol=o["s"],
         side=OrderSide[o["S"]],
-        order_type=order_type_or_unknown(o["o"]),
+        order_type=order_type_or_unknown(o["o"], FUTURES_ORDER_TYPE_NAMES),
         quantity=Decimal(str(o["q"])),
         status=order_status_or_unknown(o["X"]),
         price=_decimal_or_none(o.get("p")),

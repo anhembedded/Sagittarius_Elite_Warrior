@@ -27,12 +27,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderNotionalRejection,
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
+    ExecuteOrderStopRejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.stop_price_check import (
+    StopPriceCheck,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitContext,
@@ -92,6 +96,12 @@ class ExecuteOrderCommandHandler(
         if preview.notional_check is NotionalCheck.INSUFFICIENT:
             return ExecuteOrderResult(
                 ExecuteOrderNotionalRejection.MIN_NOTIONAL, preview, (), None
+            )
+        # `EPIC-028O` — the same before-the-network refusal for a stop that
+        # would trigger at once.
+        if preview.stop_check is StopPriceCheck.WRONG_SIDE:
+            return ExecuteOrderResult(
+                ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE, preview, (), None
             )
 
         symbol = command.order_request.symbol

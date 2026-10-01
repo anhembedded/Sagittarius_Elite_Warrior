@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import
     OrderStatus,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.stop_price_check import (
+    StopPriceCheck,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
     SymbolOrderMetadata,
 )
@@ -260,3 +263,132 @@ def test_unknown_symbol_raises_value_error() -> None:
                 reference_price=Decimal(1),
             )
         )
+
+
+def _stop_query(
+    direction: OrderSide, stop: str, **overrides: object
+) -> PreviewOrderQuery:
+    fields: dict[str, object] = {
+        "venue": TradingVenue.FUTURES_TESTNET,
+        "symbol": "BTCUSDT",
+        "side": direction,
+        "order_type": OrderType.STOP_LIMIT,
+        "quantity": Decimal("0.01"),
+        "reference_price": Decimal(64100),
+        "stop_price": Decimal(stop),
+        "last_price": Decimal(64000),
+    }
+    return PreviewOrderQuery(**(fields | overrides))  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize(
+    ("side", "stop", "rounded"),
+    [
+        (OrderSide.BUY, "64050.001", "64050.01"),
+        (OrderSide.SELL, "63950.009", "63950.00"),
+    ],
+)
+def test_a_stop_rounds_to_the_tick_away_from_the_market(
+    side: OrderSide, stop: str, rounded: str
+) -> None:
+    """`EPIC-028O` — the opposite of a limit price: up for a buy stop, down
+    for a sell stop, so rounding never moves a stop onto the crossed side."""
+    preview = _handler().execute(_stop_query(side, stop))
+
+    assert preview.order.stop_price == Decimal(rounded)
+    assert preview.stop_check is StopPriceCheck.ON_TRIGGER_SIDE
+    assert preview.order.price is not None
+    assert preview.order.time_in_force is TimeInForce.GTC
+
+
+def test_a_buy_stop_below_the_last_price_is_marked_wrong_side() -> None:
+    preview = _handler().execute(_stop_query(OrderSide.BUY, "63999.99"))
+
+    assert preview.stop_check is StopPriceCheck.WRONG_SIDE
+
+
+def test_a_chosen_time_in_force_replaces_gtc_and_other_orders_have_no_stop_check() -> (
+    None
+):
+    preview = _handler().execute(
+        PreviewOrderQuery(
+            venue=TradingVenue.FUTURES_TESTNET,
+            symbol="BTCUSDT",
+            side=OrderSide.BUY,
+            order_type=OrderType.LIMIT,
+            quantity=Decimal("0.01"),
+            reference_price=Decimal(64000),
+            time_in_force=TimeInForce.IOC,
+        )
+    )
+
+    assert preview.order.time_in_force is TimeInForce.IOC
+    assert preview.stop_check is None
+
+
+def test_a_quote_sized_market_buy_spends_its_quote_and_estimates_the_quantity() -> None:
+    preview = _handler().execute(
+        PreviewOrderQuery(
+            venue=TradingVenue.FUTURES_TESTNET,
+            symbol="BTCUSDT",
+            side=OrderSide.BUY,
+            order_type=OrderType.MARKET,
+            quantity=Decimal(0),
+            reference_price=Decimal(64000),
+            quote_quantity=Decimal(1000),
+        )
+    )
+
+    assert preview.order.quote_quantity == Decimal(1000)
+    assert preview.estimated_notional == Decimal(1000)
+    # 1000 / 64000 = 0.015625, rounded down to the 0.001 step.
+    assert preview.order.quantity == Decimal("0.015")
+    assert preview.notional_check is NotionalCheck.SUFFICIENT
+
+
+@pytest.mark.parametrize(
+    ("overrides", "message"),
+    [
+        ({"stop_price": None}, "stop price and the last price"),
+        ({"last_price": None}, "stop price and the last price"),
+        ({"order_type": OrderType.LIMIT}, "takes no stop price"),
+        (
+            {
+                "order_type": OrderType.MARKET,
+                "stop_price": None,
+                "time_in_force": TimeInForce.GTC,
+            },
+            "takes no time in force",
+        ),
+        (
+            {
+                "order_type": OrderType.LIMIT,
+                "stop_price": None,
+                "quote_quantity": Decimal(5),
+            },
+            "market buy",
+        ),
+        (
+            {
+                "order_type": OrderType.MARKET,
+                "stop_price": None,
+                "side": OrderSide.SELL,
+                "quote_quantity": Decimal(5),
+            },
+            "market buy",
+        ),
+        (
+            {
+                "order_type": OrderType.MARKET,
+                "stop_price": None,
+                "quote_quantity": Decimal(0),
+            },
+            "positive",
+        ),
+    ],
+)
+def test_an_inconsistent_order_is_refused_at_construction(
+    overrides: dict[str, object], message: str
+) -> None:
+    with pytest.raises(ValueError, match=message):
+        _stop_query(OrderSide.BUY, "64050", **overrides)

@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.order_enum_p
     order_type_or_unknown,
     time_in_force_or_none,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_order_payload_mapper import (
+    SPOT_ORDER_TYPE_NAMES,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
 )
@@ -67,10 +70,11 @@ def parse_execution_report(payload: dict[str, Any]) -> Order:
         client_order_id=ClientOrderId(payload["c"]),
         symbol=payload["s"],
         side=OrderSide[payload["S"]],
-        order_type=order_type_or_unknown(payload["o"]),
+        order_type=order_type_or_unknown(payload["o"], SPOT_ORDER_TYPE_NAMES),
         quantity=Decimal(str(payload["q"])),
         status=order_status_or_unknown(payload["X"]),
         price=_decimal_or_none(payload.get("p")),
+        stop_price=_decimal_or_none(payload.get("P")),
         time_in_force=time_in_force_or_none(payload.get("f")),
         order_time=_captured_at_or_none(payload.get("T")),
     )

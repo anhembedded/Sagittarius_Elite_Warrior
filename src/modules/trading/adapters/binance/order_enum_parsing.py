@@ -15,6 +15,8 @@ blind about a real order/position change; `OrderStatus.UNKNOWN`/
 
 from __future__ import annotations
 
+from collections.abc import Mapping
+
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     OrderStatus,
 )
@@ -33,9 +35,16 @@ def order_status_or_unknown(raw: str) -> OrderStatus:
         return OrderStatus.UNKNOWN
 
 
-def order_type_or_unknown(raw: str) -> OrderType:
+def order_type_or_unknown(
+    raw: str, venue_names: Mapping[str, OrderType] | None = None
+) -> OrderType:
     """@brief `OrderType[raw]`, falling back to `OrderType.UNKNOWN` instead
-    of raising `KeyError` on a type this app has no member for."""
+    of raising `KeyError` on a type this app has no member for.
+    @param venue_names A venue's own spelling of a member whose name is not
+    Binance's (`EPIC-028O`: Futures `STOP` and Spot `STOP_LOSS_LIMIT` are
+    both `OrderType.STOP_LIMIT`); looked up first."""
+    if venue_names and raw in venue_names:
+        return venue_names[raw]
     try:
         return OrderType[raw]
     except KeyError:

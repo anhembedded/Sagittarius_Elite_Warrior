@@ -10,6 +10,7 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderNotionalRejection,
     ExecuteOrderSafetyGate,
+    ExecuteOrderStopRejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitViolation,
@@ -69,6 +70,7 @@ _LIMIT_VIOLATION_MESSAGES = EnumLabels(
 def format_execute_order_block_reason(
     blocked_by: ExecuteOrderSafetyGate
     | ExecuteOrderNotionalRejection
+    | ExecuteOrderStopRejection
     | TradingLimitViolation
     | None,
 ) -> str:
@@ -81,4 +83,9 @@ def format_execute_order_block_reason(
         return _LIMIT_VIOLATION_MESSAGES[blocked_by]
     if blocked_by is ExecuteOrderNotionalRejection.MIN_NOTIONAL:
         return "Order value (after rounding) is below the symbol's minimum notional."
+    if blocked_by is ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE:
+        return (
+            "The stop price is already crossed: a buy stop must be above the "
+            "last price and a sell stop below it, or the order would trigger at once."
+        )
     return "Unknown reason."  # pragma: no cover - blocked_by is None handled by callers first

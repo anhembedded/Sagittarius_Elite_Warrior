@@ -11,6 +11,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderNotionalRejection,
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
+    ExecuteOrderStopRejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     TradingLimitCheck,
@@ -121,6 +122,14 @@ def format_result(result: ExecuteOrderResult, live_requested: bool) -> str:
             f"{preview.estimated_notional:,.2f} USDT < "
             f"{preview.min_notional:,.2f} USDT\n"
             "No order was sent."
+        )
+
+    if result.blocked_by is ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE:
+        # `EPIC-028O` — like `MIN_NOTIONAL`, a preview exists, so this must
+        # come before the DRY-RUN/LIVE branches.
+        return (
+            "Status       : ✘ REJECTED STOP_ON_WRONG_SIDE — the stop price is "
+            "already crossed\nNo order was sent."
         )
 
     if not live_requested:

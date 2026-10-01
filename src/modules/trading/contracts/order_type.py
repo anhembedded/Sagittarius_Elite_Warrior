@@ -18,6 +18,11 @@ class OrderType(str, Enum):
     LIMIT = "limit"
     STOP_MARKET = "stop_market"
     TAKE_PROFIT_MARKET = "take_profit_market"
+    #: `EPIC-028O` (ADR O3) — a limit order that rests only once the stop
+    #: price trades. Binance spells it per venue (Futures `STOP`, Spot
+    #: `STOP_LOSS_LIMIT`), so each payload mapper owns its wire name rather
+    #: than sending this member's name.
+    STOP_LIMIT = "stop_limit"
     #: `BUG-091` — the honest answer for a Binance order type this app's
     #: own construction never sends (`LIQUIDATION`, `TRAILING_STOP_MARKET`,
     #: ...) but the account-wide user data stream can still report for an

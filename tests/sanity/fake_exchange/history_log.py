@@ -66,6 +66,20 @@ class HistoryLog:
             order["status"] = "CANCELED"
             order["updateTime"] = now_ms()
 
+    def mark_filled(
+        self, client_order_id: str, executed_qty: str, quote_qty: str
+    ) -> None:
+        """`EPIC-028O` — a resting order (a triggered stop-limit) that filled
+        after it was placed."""
+        order = self._orders.get(client_order_id)
+        if order is not None:
+            order.update(
+                status="FILLED",
+                executedQty=executed_qty,
+                cummulativeQuoteQty=quote_qty,
+                updateTime=now_ms(),
+            )
+
     def remember_trade(self, trade: dict[str, Any]) -> None:
         self._trades.append(trade)
 

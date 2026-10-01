@@ -19,6 +19,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
+    ExecuteOrderStopRejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
@@ -125,6 +126,21 @@ def test_format_result_blocked_by_trading_limit() -> None:
     text = format_result(result, live_requested=False)
     assert "BLOCKED" in text
     assert "max_positions_per_symbol" in text
+
+
+def test_format_result_blocked_by_a_crossed_stop_never_reads_as_dry_run() -> None:
+    """`EPIC-028O` — a preview exists, so this must not fall through to the
+    DRY-RUN text as if the order went through."""
+    result = ExecuteOrderResult(
+        blocked_by=ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE,
+        preview=object(),
+        limit_checks=(),
+        submitted_order=None,
+    )
+    text = format_result(result, live_requested=False)
+    assert "STOP_ON_WRONG_SIDE" in text
+    assert "DRY-RUN" not in text
+    assert "No order was sent." in text
 
 
 def test_format_result_blocked_by_safety_gate() -> None:

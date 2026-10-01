@@ -35,9 +35,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderNotionalRejection,
     ExecuteOrderSafetyGate,
+    ExecuteOrderStopRejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.invalid_order_for_submission import (
+    InvalidOrderForSubmissionError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
@@ -511,6 +515,48 @@ class TestNotionalRejection:
         assert result.preview is not None
         assert result.limit_checks == ()
         assert result.submitted_order is None
+        raw_client.futures_create_order.assert_not_called()
+        assert state.orders_sent_this_session == 0
+
+
+class TestStopRejection:
+    @staticmethod
+    def _stop_command(stop: str) -> ExecuteOrderCommand:
+        return ExecuteOrderCommand(
+            order_request=_order_request(
+                order_type=OrderType.STOP_LIMIT,
+                reference_price=Decimal(64100),
+                stop_price=Decimal(stop),
+                last_price=Decimal(64000),
+            ),
+            live=True,
+        )
+
+    @pytest.mark.parametrize("stop", ["63999.99", "64000.00"], ids=["below", "at"])
+    def test_a_buy_stop_not_above_the_last_price_is_never_sent(self, stop: str) -> None:
+        """`EPIC-028O` — refused like `MIN_NOTIONAL`, before any request: a
+        crossed stop would be rejected by Spot and triggered at once by
+        Futures."""
+        raw_client = Mock()
+        handler, state = _handler(raw_client=raw_client)
+
+        result = handler.execute(self._stop_command(stop))
+
+        assert result.blocked_by is ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE
+        assert result.preview is not None
+        raw_client.futures_create_order.assert_not_called()
+        assert state.orders_sent_this_session == 0
+
+    def test_a_stop_on_its_trigger_side_passes_the_gate_to_the_venue(self) -> None:
+        """One tick above the last price clears the gate; the Futures mapper
+        then refuses it, because `python-binance` would route it to the Algo
+        Order API (`EPIC-028R`). Still nothing is sent."""
+        raw_client = Mock()
+        handler, state = _handler(raw_client=raw_client)
+
+        with pytest.raises(InvalidOrderForSubmissionError, match="Algo Order API"):
+            handler.execute(self._stop_command("64000.01"))
+
         raw_client.futures_create_order.assert_not_called()
         assert state.orders_sent_this_session == 0
 

@@ -66,8 +66,7 @@ def _answered(response: object, expected: type) -> object:
 
 def _as_query(request: OrderRequest, venue: TradingVenue) -> PreviewOrderQuery:
     """The one translation this class performs. Field for field on purpose:
-    `OrderRequest` was given `PreviewOrderQuery`'s exact shape (HLD §2.4 —
-    every caller sets all six), so a mismatch here would be a typo rather
+    `OrderRequest` was given `PreviewOrderQuery`'s exact shape (HLD §2.4), so a mismatch here would be a typo rather
     than a design decision. The venue is the service's own (`EPIC-028B`),
     never the caller's: a screen holds the service of the venue it trades."""
     return PreviewOrderQuery(
@@ -78,6 +77,10 @@ def _as_query(request: OrderRequest, venue: TradingVenue) -> PreviewOrderQuery:
         quantity=request.quantity,
         reference_price=request.reference_price,
         reduce_only=request.reduce_only,
+        stop_price=request.stop_price,
+        time_in_force=request.time_in_force,
+        quote_quantity=request.quote_quantity,
+        last_price=request.last_price,
     )
 
 

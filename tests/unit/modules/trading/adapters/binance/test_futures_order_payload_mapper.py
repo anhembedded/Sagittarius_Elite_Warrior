@@ -108,20 +108,27 @@ class TestLimitOrder:
             map_order_to_futures_params(order, _metadata())
 
 
-class TestStopMarketOrder:
-    def test_generates_stop_price_not_price_or_time_in_force(self) -> None:
+class TestConditionalOrdersAreRefused:
+    """`EPIC-028O` — `python-binance` 1.0.37 sends every conditional type to
+    Binance's Algo Order API, where the app's client order id is dropped and
+    `allOpenOrders` (Emergency Stop) does not reach. Refused until
+    `EPIC-028R`; this replaced a test that mapped `STOP_MARKET`'s
+    `stopPrice` for an order nothing upstream could build."""
+
+    @pytest.mark.parametrize(
+        "order_type",
+        [OrderType.STOP_MARKET, OrderType.TAKE_PROFIT_MARKET, OrderType.STOP_LIMIT],
+    )
+    def test_a_conditional_type_is_refused_before_anything_is_sent(
+        self, order_type: OrderType
+    ) -> None:
         order = _market_order(
-            order_type=OrderType.STOP_MARKET, stop_price=Decimal("63000.00")
+            order_type=order_type,
+            price=Decimal("64100.00"),
+            stop_price=Decimal("63000.00"),
+            time_in_force=TimeInForce.GTC,
         )
-        params = map_order_to_futures_params(order, _metadata())
-
-        assert params["stopPrice"] == "63000.00"
-        assert "price" not in params
-        assert "timeInForce" not in params
-
-    def test_missing_stop_price_is_rejected(self) -> None:
-        order = _market_order(order_type=OrderType.STOP_MARKET)
-        with pytest.raises(InvalidOrderForSubmissionError, match="stop_price"):
+        with pytest.raises(InvalidOrderForSubmissionError, match="Algo Order API"):
             map_order_to_futures_params(order, _metadata())
 
 
@@ -281,3 +288,32 @@ class TestPositionMapping:
         assert position.margin_type is MarginType.CROSSED
         assert position.symbol == "ETHUSDT"
         assert position.position_amt == Decimal("0.010")
+
+
+class TestStopLimitOrder:
+    """`EPIC-028O` — no quote sizing on USD-M; a `STOP` read back is a
+    stop-limit."""
+
+    def test_a_quote_sized_order_is_refused(self) -> None:
+        order = _market_order(quote_quantity=Decimal(100))
+        with pytest.raises(InvalidOrderForSubmissionError, match="quote-sized"):
+            map_order_to_futures_params(order, _metadata())
+
+    def test_a_stop_payload_reads_back_as_a_stop_limit(self) -> None:
+        payload = {
+            "symbol": "BTCUSDT",
+            "side": "BUY",
+            "type": "STOP",
+            "origQty": "0.002",
+            "status": "NEW",
+            "clientOrderId": "SEW-a91f4c72e0b8",
+            "price": "64100.00",
+            "stopPrice": "64050.00",
+            "timeInForce": "GTC",
+            "reduceOnly": False,
+        }
+
+        order = map_futures_order_payload_to_order(payload)
+
+        assert order.order_type is OrderType.STOP_LIMIT
+        assert order.stop_price == Decimal("64050.00")
