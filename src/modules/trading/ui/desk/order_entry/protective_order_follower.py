@@ -5,30 +5,47 @@ entry has filled.
 Futures market order is acknowledged `NEW`; its fill arrives later on the
 user-data stream (`OrderFilledEvent`, found on the fake exchange), and a
 limit entry may rest for hours. So the panel hands the entry to `expect`,
-and the follower waits for its own venue's `OrderFeed` to report it
-`FILLED`, then builds the two orders with `protective_orders_for` (opposite
-side, reduce-only, `OrderPurpose.PROTECTIVE`) and sends them through the
-desk's `IOrderSubmission`, so every gate still applies but the session
-limits do not.
+and the follower waits for its own venue's `OrderFeed` to report it, then
+builds the two orders with `protective_orders_for` (opposite side,
+reduce-only, `OrderPurpose.PROTECTIVE`) and sends them through the desk's
+`IOrderSubmission`, so every gate still applies but the session limits do
+not.
 
-An entry that ends any other way (cancelled, expired, rejected) is
-forgotten and the desk says no TP/SL was placed; a partly filled entry that
-is then cancelled is not protected either, which the desk says too. The
-quantity protected is the entry's whole quantity, judged against the fill
-price.
+**The fill may be reported before `expect`** (the review of PR 307): the
+stream's fill and the submit's answer reach the UI thread by separate
+queued signals, and a market order often fills before its REST answer
+returns. So the follower keeps what the feed reported about the last
+`_REMEMBERED` orders, and `expect` settles at once on an entry already
+over.
 
-Plausible extensions: protect each partial fill as it lands; cancel the
-other protective order when one triggers (Binance does not link them; the
-reduce-only one left over is refused when it triggers on a flat position).
+**How an entry ends decides what is protected.** Filled whole: its whole
+quantity. Cancelled or expired after a partial fill (`OrderEndedEvent`):
+the quantity that filled, and the desk says so. Ended with nothing filled:
+nothing, and the desk says so. Each is judged against the last fill price.
+
+**A leftover protective order is a risk this does not remove.** Binance
+does not link the take-profit and the stop-loss: when one closes the
+position, the other keeps resting. It is reduce-only, so it is refused
+while the account is flat; but if a new position on the same side opens
+before it triggers, it closes part of that position at the old level. The
+desk screen (`EPIC-028K`) lists it in Open orders, and cancelling the
+sibling once one triggers is that task's to decide.
+
+Plausible extension: protect each partial fill as it lands.
 """
 
 from __future__ import annotations
 
 import logging
+from collections import OrderedDict
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
+from decimal import Decimal
 
 from PySide6.QtCore import QObject, Signal
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
+    OrderEndedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
 )
@@ -41,7 +58,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request impor
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     OrderStatus,
-    is_terminal,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.protective_levels import (
     ProtectiveLevels,
@@ -62,11 +78,25 @@ type ReportOutcome = Callable[[str, bool], None]
 
 _KIND = {"take_profit_market": "Take-profit", "stop_market": "Stop-loss"}
 
+#: How many orders' reported progress is kept for an `expect` still to come.
+#: Its answer and its fill arrive moments apart, so a few dozen is plenty.
+_REMEMBERED = 64
+
 
 @dataclass(frozen=True)
 class _Expected:
     entry: Order
     levels: ProtectiveLevels
+
+
+@dataclass(frozen=True)
+class _Progress:
+    """What the feed reported about one order so far."""
+
+    filled: Decimal = Decimal(0)
+    last_price: Decimal | None = None
+    #: `FILLED`, or how it ended unfilled; `None` while it may still fill.
+    ended: OrderStatus | None = None
 
 
 class ProtectiveOrderFollower(QObject):
@@ -86,47 +116,86 @@ class ProtectiveOrderFollower(QObject):
         self._threads = thread_manager
         self._report = report
         self._expected: dict[str, _Expected] = {}
+        self._progress: OrderedDict[str, _Progress] = OrderedDict()
         self._placed.connect(self._on_placed)
-        feed.orderFilled.connect(self._on_order_event)
+        feed.orderFilled.connect(self._on_order_filled)
+        feed.orderEnded.connect(self._on_order_ended)
 
     def expect(self, entry: Order, levels: ProtectiveLevels) -> None:
-        """Protects `entry` with `levels` once its fill is reported."""
-        self._expected[str(entry.client_order_id)] = _Expected(entry, levels)
-        logger.info(
-            "TP/SL waits for %s %s to fill", entry.symbol, entry.client_order_id
-        )
+        """Protects `entry` with `levels` once its fill is reported, or at
+        once if it already was."""
+        key = str(entry.client_order_id)
+        self._expected[key] = _Expected(entry, levels)
+        logger.info("TP/SL waits for %s %s to fill", entry.symbol, key)
+        self._settle(key)
 
     @property
     def waiting(self) -> tuple[str, ...]:
         """The client order ids still waiting for their fill."""
         return tuple(self._expected)
 
-    def _on_order_event(self, event: OrderFilledEvent) -> None:
-        order = event.order
-        key = str(order.client_order_id)
-        expected = self._expected.get(key)
-        if expected is None:
-            return
-        if order.status is OrderStatus.FILLED:
-            del self._expected[key]
-            requests = protective_orders_for(
-                order.symbol,
-                expected.entry.side,
-                expected.entry.quantity,
-                expected.levels,
-                event.fill_price,
-            )
-            self._threads.submit(self._run_place, requests)
-        elif is_terminal(order.status):
-            del self._expected[key]
-            self._report(
-                f"The entry ended {order.status.value.replace('_', ' ')}; "
-                "no TP/SL was placed.",
-                True,
-            )
+    def _on_order_filled(self, event: OrderFilledEvent) -> None:
+        key = str(event.order.client_order_id)
+        progress = self._progress.get(key, _Progress())
+        self._remember(
+            key,
+            _Progress(
+                filled=progress.filled + event.fill_quantity,
+                last_price=event.fill_price,
+                ended=(
+                    OrderStatus.FILLED
+                    if event.order.status is OrderStatus.FILLED
+                    else None
+                ),
+            ),
+        )
+        self._settle(key)
 
-    def _run_place(self, requests: tuple[OrderRequest, ...]) -> None:
-        outcomes: list[tuple[str, bool]] = []
+    def _on_order_ended(self, event: OrderEndedEvent) -> None:
+        key = str(event.order.client_order_id)
+        progress = self._progress.get(key, _Progress())
+        self._remember(key, replace(progress, ended=event.order.status))
+        self._settle(key)
+
+    def _remember(self, key: str, progress: _Progress) -> None:
+        self._progress[key] = progress
+        self._progress.move_to_end(key)
+        while len(self._progress) > _REMEMBERED:
+            oldest = next((k for k in self._progress if k not in self._expected), None)
+            if oldest is None:
+                break
+            del self._progress[oldest]
+
+    def _settle(self, key: str) -> None:
+        """Places or gives up on `key`'s TP/SL once it is both expected and
+        over."""
+        expected = self._expected.get(key)
+        progress = self._progress.get(key)
+        if expected is None or progress is None or progress.ended is None:
+            return
+        del self._expected[key]
+        del self._progress[key]
+        entry = expected.entry
+        ended = progress.ended.value.replace("_", " ")
+        price = progress.last_price
+        if price is None:  # no fill was reported: nothing to protect
+            self._report(f"The entry ended {ended}; no TP/SL was placed.", True)
+            return
+        if progress.ended is OrderStatus.FILLED:
+            quantity, note = entry.quantity, None
+        else:
+            quantity = progress.filled
+            note = (
+                f"The entry ended {ended} after {progress.filled} of "
+                f"{entry.quantity} filled; TP/SL protect {progress.filled}."
+            )
+        requests = protective_orders_for(
+            entry.symbol, entry.side, quantity, expected.levels, price
+        )
+        self._threads.submit(self._run_place, requests, note)
+
+    def _run_place(self, requests: tuple[OrderRequest, ...], note: str | None) -> None:
+        outcomes: list[tuple[str, bool]] = [] if note is None else [(note, False)]
         for request in requests:
             kind = _KIND.get(request.order_type.value, request.order_type.value)
             try:

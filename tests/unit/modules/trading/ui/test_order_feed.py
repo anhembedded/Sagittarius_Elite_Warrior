@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.holdings_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.live_order_blocked_event import (
     LiveOrderBlockedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
+    OrderEndedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
 )
@@ -245,3 +248,18 @@ def test_the_account_summary_of_this_venue_reaches_the_desk_and_no_other(qapp):
 
     assert changed == [mine]
     assert stale == [my_stale]
+
+
+def test_an_ended_order_of_this_venue_reaches_the_desk_and_no_other(qapp):
+    """`EPIC-028I` — the TP/SL follower learns an entry ended unfilled
+    through this Feed, filtered by venue like every other trading event."""
+    bus, feed = _feed(qapp)
+    ended: list = []
+    feed.orderEnded.connect(ended.append)
+    mine = OrderEndedEvent(order=_order(), venue=TradingVenue.FUTURES_TESTNET)
+
+    bus.emit(OrderEndedEvent(order=_order(), venue=TradingVenue.SPOT_TESTNET))
+    bus.emit(mine)
+    qapp.processEvents()
+
+    assert ended == [mine]

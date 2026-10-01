@@ -1,6 +1,8 @@
 """`EPIC-028R` — the Futures user-data stream's order messages:
 `ORDER_TRADE_UPDATE` (a regular order's state and fills) and `ALGO_UPDATE`
-(a conditional order's state).
+(a conditional order's state). Each fill is an `order_filled`; an order
+cancelled, rejected or expired, regular or conditional, is an `order_ended`
+(`EPIC-028I`).
 
 @details Split out of `futures_user_data_stream.py`, which keeps the
 connection, its reconnects and `ACCOUNT_UPDATE`. A conditional order that
@@ -33,12 +35,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.user_data_ev
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
     VenueEventEmitter,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
+    ended_without_filling,
+)
 
 logger = logging.getLogger("App.UserDataStream")
 
 
 class FuturesOrderUpdates:
-    """@brief Turns one venue's order messages into `order_filled` events."""
+    """@brief Turns one venue's order messages into `order_filled` and
+    `order_ended` events."""
 
     def __init__(self, events: VenueEventEmitter) -> None:
         self._events = events
@@ -61,6 +67,8 @@ class FuturesOrderUpdates:
         )
         if update.placed_order_id is not None:
             self._algo_links.remember(update.placed_order_id, order.client_order_id)
+        if ended_without_filling(order.status):
+            self._events.order_ended(order)
 
     def on_order_trade_update(self, payload: dict[str, Any]) -> None:
         try:
@@ -95,3 +103,5 @@ class FuturesOrderUpdates:
         if is_fill_execution(payload):
             fill_price, fill_quantity = fill_details(payload)
             self._events.order_filled(order, (fill_price, fill_quantity))
+        elif ended_without_filling(order.status):
+            self._events.order_ended(order)

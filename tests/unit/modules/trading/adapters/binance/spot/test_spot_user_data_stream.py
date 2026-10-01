@@ -30,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_reco
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
+    OrderEndedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
 )
@@ -169,6 +172,25 @@ async def test_a_new_acknowledgement_does_not_publish_order_filled_event() -> No
     await stream._handle_message(_execution_report(X="NEW", x="NEW", z="0", l="0"))
 
     assert seen == []
+
+
+async def test_a_cancelled_order_publishes_order_ended_and_no_fill() -> None:
+    """`EPIC-028I` — an order that ends without filling is reported, so a
+    desk waiting to protect it is told."""
+    stream, event_bus = _stream()
+    fills: list = []
+    ended: list = []
+    event_bus.on(OrderFilledEvent, fills.append)
+    event_bus.on(OrderEndedEvent, ended.append)
+
+    await stream._handle_message(_execution_report())
+    await stream._handle_message(
+        _execution_report(X="CANCELED", x="CANCELED", l="0", z="0.001")
+    )
+
+    assert [e.order.status.name for e in ended] == ["CANCELED"]
+    assert ended[0].venue is TradingVenue.SPOT_TESTNET
+    assert len(fills) == 1
 
 
 async def test_a_fill_with_no_fee_fields_publishes_none_not_a_fabricated_zero() -> None:

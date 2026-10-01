@@ -105,3 +105,17 @@ def is_terminal(status: OrderStatus) -> bool:
     out of sync with it.
     """
     return not _VALID_TRANSITIONS[status]
+
+
+def ended_without_filling(status: OrderStatus) -> bool:
+    """@brief Whether an order in `status` is over without having filled
+    whole: cancelled, rejected or expired.
+
+    @details `EPIC-028I` — what `OrderEndedEvent` reports. `FILLED` is not
+    (its fill is the event), nor `TRIGGERED`: the regular order a triggered
+    conditional order placed carries on under the same client order id.
+    """
+    return is_terminal(status) and status not in (
+        OrderStatus.FILLED,
+        OrderStatus.TRIGGERED,
+    )

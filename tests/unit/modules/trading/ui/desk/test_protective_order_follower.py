@@ -1,12 +1,24 @@
 """`EPIC-028I` — an entry's TP/SL is placed when its own venue reports it
-filled, on the opposite side and reduce-only; an entry that ends any other
-way is not protected, and the desk is told either way."""
+filled, on the opposite side and reduce-only, even when the fill was
+reported before the desk asked; an entry cancelled after a partial fill is
+protected for what filled; one that ends with nothing filled is not; the
+desk is told each time.
+
+@details Events are the ones the streams really emit: `OrderFilledEvent`
+for each trade, `OrderEndedEvent` for an order over unfilled (the PR #307
+review: an `OrderFilledEvent` with `CANCELED` is never produced)."""
 
 from __future__ import annotations
 
 from dataclasses import replace
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    ClientOrderId,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
+    OrderEndedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
 )
@@ -62,14 +74,33 @@ class _Desk:
         )
         self.entry = order("BTCUSDT", "SEW-entry")
 
-    def report(self, status: OrderStatus, venue: TradingVenue = _FUTURES) -> None:
+    def report(
+        self,
+        status: OrderStatus,
+        venue: TradingVenue = _FUTURES,
+        quantity: Decimal | None = None,
+        client_order_id: str = "SEW-entry",
+    ) -> None:
+        """One trade of the entry (or of `client_order_id`), as the stream
+        reports it."""
         self.bus.emit(
             OrderFilledEvent(
-                order=replace(self.entry, status=status),
+                order=replace(
+                    self.entry,
+                    status=status,
+                    client_order_id=ClientOrderId(client_order_id),
+                ),
                 fill_price=Decimal(60010),
-                fill_quantity=self.entry.quantity,
+                fill_quantity=quantity or self.entry.quantity,
                 venue=venue,
             )
+        )
+        self.qapp.processEvents()
+
+    def end(self, status: OrderStatus) -> None:
+        """The entry over without having filled whole."""
+        self.bus.emit(
+            OrderEndedEvent(order=replace(self.entry, status=status), venue=_FUTURES)
         )
         self.qapp.processEvents()
 
@@ -97,27 +128,68 @@ def test_a_filled_entry_is_protected_on_the_opposite_side(qapp) -> None:
     ]
 
 
+def test_a_fill_reported_before_the_desk_asks_is_still_protected(qapp) -> None:
+    """The PR #307 review: the stream's fill and the submit's answer reach
+    the UI thread separately, and a market order often fills first."""
+    desk = _Desk(qapp)
+
+    desk.report(OrderStatus.FILLED)
+    desk.follower.expect(desk.entry, _LEVELS)
+
+    assert len(desk.submission.submitted_live) == 2
+    assert desk.follower.waiting == ()
+
+
+def test_an_early_fill_outlives_other_orders_reported_meanwhile(qapp) -> None:
+    desk = _Desk(qapp)
+    desk.report(OrderStatus.FILLED)
+    for n in range(10):
+        desk.report(OrderStatus.FILLED, client_order_id=f"SEW-other-{n}")
+
+    desk.follower.expect(desk.entry, _LEVELS)
+
+    assert len(desk.submission.submitted_live) == 2
+
+
 def test_nothing_is_placed_before_the_fill(qapp) -> None:
     desk = _Desk(qapp)
     desk.follower.expect(desk.entry, _LEVELS)
 
-    desk.report(OrderStatus.NEW)
-    desk.report(OrderStatus.PARTIALLY_FILLED)
+    desk.report(OrderStatus.PARTIALLY_FILLED, quantity=Decimal("0.004"))
     desk.report(OrderStatus.FILLED, venue=TradingVenue.SPOT_TESTNET)
 
     assert desk.submission.submitted_live == []
     assert desk.follower.waiting == ("SEW-entry",)
 
 
-def test_an_entry_that_ends_unfilled_is_forgotten_and_said(qapp) -> None:
+def test_an_entry_that_ends_with_nothing_filled_is_forgotten_and_said(qapp) -> None:
     desk = _Desk(qapp)
     desk.follower.expect(desk.entry, _LEVELS)
 
-    desk.report(OrderStatus.CANCELED)
+    desk.end(OrderStatus.CANCELED)
 
     assert desk.submission.submitted_live == []
     assert desk.follower.waiting == ()
     assert desk.reports == [("The entry ended canceled; no TP/SL was placed.", True)]
+
+
+def test_an_entry_cancelled_after_a_partial_fill_protects_what_filled(qapp) -> None:
+    desk = _Desk(qapp)
+    desk.follower.expect(desk.entry, _LEVELS)
+
+    desk.report(OrderStatus.PARTIALLY_FILLED, quantity=Decimal("0.003"))
+    desk.report(OrderStatus.PARTIALLY_FILLED, quantity=Decimal("0.001"))
+    desk.end(OrderStatus.CANCELED)
+
+    assert [sent.quantity for sent in desk.submission.submitted_live] == [
+        Decimal("0.004"),
+        Decimal("0.004"),
+    ]
+    ((text, failed),) = desk.reports
+    assert not failed
+    assert text.startswith(
+        "The entry ended canceled after 0.004 of 0.01 filled; TP/SL protect 0.004."
+    )
 
 
 def test_a_refused_protective_order_is_named(qapp) -> None:
