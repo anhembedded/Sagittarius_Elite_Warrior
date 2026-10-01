@@ -1,7 +1,7 @@
 # EPIC-028 — Tracking
 
 - **Epic:** [EPIC-028 — Two trading desks](README.md)
-- **Status:** 🟡 In Progress — ADR accepted 2026-09-29; Phase 1 done (`028A`–`028C`); Phase 2: `028D`–`028F` merged, `028G` in review (PR #300)
+- **Status:** 🟡 In Progress — ADR accepted 2026-09-29; Phase 1 done (`028A`–`028C`); Phase 2: `028D`–`028G` merged; `028Q` open
 - **Target Completion:** not committed; the bars below are relative estimates from the day the ADR is accepted.
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -33,7 +33,7 @@ gantt
     028D Account summary                   :done,    d, after c, 1d
     028E Open orders and history           :done,    e, after d, 1d
     028F Commission, leverage, margin      :done,    f, after e, 1d
-    028G Estimate policies                 :active,  g, after f, 1d
+    028G Estimate policies                 :done,    g, after f, 1d
     Phase 2 exit check                     :milestone, m2, after g, 0d
 
     section Phase 3 - Shared desk kit
@@ -62,7 +62,7 @@ gantt
 | EPIC-028D | [Account summary](completed/EPIC-028D_account_summary_reader.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | [#296](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/296) merged 2026-09-30 |
 | EPIC-028E | [Open orders and history](completed/EPIC-028E_open_orders_and_history_readers.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | [#297](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/297) merged 2026-09-30 |
 | EPIC-028F | [Commission, leverage, margin](completed/EPIC-028F_commission_and_futures_account_controls.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | [#299](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/299) merged 2026-09-30 |
-| EPIC-028G | [Estimate policies](incomplete/EPIC-028G_order_estimate_policies.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | 🟡 In review | [#300](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/300) |
+| EPIC-028G | [Estimate policies](completed/EPIC-028G_order_estimate_policies.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Merged | [#300](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/300) |
 | EPIC-028H | [Order entry core and Spot](incomplete/EPIC-028H_order_entry_panel_core_and_spot.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-028I | [Futures order entry](incomplete/EPIC-028I_futures_order_entry_variant.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-028J | [Account tabs and summary](incomplete/EPIC-028J_account_tabs_and_summary_panels.md) | — | 🟡 | 🔵 Planned | — |
@@ -78,6 +78,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-09-29 | EPIC-028A | Merged in PR #293 after the independent review (four fixes: per-part lock, single-venue reader follows the list, guard sees every spelling, docs). |
+| 2026-10-01 | EPIC-028G | Merged in PR #300. |
 | 2026-09-30 | EPIC-028G | Implemented, then redesigned after the PR #300 review: Futures cost and maximum by Binance's rules (assuming price, open loss, notional headroom), Spot by notional plus fee, a liquidation estimate typed as an estimate. Re-review PASS. |
 | 2026-09-30 | EPIC-028F | Merged in PR #299 after two independent reviews: NEEDS_REVISION (the position read leaked SDK errors; fixed by moving it onto the port), then PASS. |
 | 2026-09-30 | EPIC-028F | Implemented: `IFuturesAccountControl` (none on Spot), `ICommissionRateReader`, leverage and margin-mode commands behind one gate, commission-rate query. Fast tier green; awaiting independent review. |

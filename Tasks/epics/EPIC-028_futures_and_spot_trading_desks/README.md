@@ -1,6 +1,6 @@
 # EPIC-028 — Two trading desks: Futures and Spot side by side, each with manual orders, a strategy and live account data
 
-- **Status:** 🟡 Phase 2 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`); `EPIC-028D`–`028F` done; `EPIC-028G` in progress
+- **Status:** 🟡 Phase 2 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`); `EPIC-028D`–`028G` done; `EPIC-028Q` (reader fixes found by the epic review) gates the Phase 2 exit
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-29): *"giờ màn hình trading đang có vấn đề, cần có 2 cái chứ không
   phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng, 2 màn hình
@@ -69,7 +69,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 | [EPIC-028D](completed/EPIC-028D_account_summary_reader.md) | Account summary (available, wallet, margin, uPnL / free, locked, equity) | Elite | B | 🟡 | ✅ Done |
 | [EPIC-028E](completed/EPIC-028E_open_orders_and_history_readers.md) | Open-orders query, order history, trade history | Elite | B, O5 | 🟡 | ✅ Done |
 | [EPIC-028F](completed/EPIC-028F_commission_and_futures_account_controls.md) | Commission rates; change leverage / margin mode | Elite | B | 🟡 | ✅ Done |
-| [EPIC-028G](incomplete/EPIC-028G_order_estimate_policies.md) | Max quantity, cost, fee, liquidation estimate as domain policies | Elite | D, F | 🟢 | 🟡 In progress |
+| [EPIC-028G](completed/EPIC-028G_order_estimate_policies.md) | Max quantity, cost, fee, liquidation estimate as domain policies | Elite | D, F | 🟢 | ✅ Done (2026-10-01) |
 | **Phase 3 — Shared desk kit** | | | | | |
 | [EPIC-028H](incomplete/EPIC-028H_order_entry_panel_core_and_spot.md) | `DeskProfile` + order-entry panel core + Spot variant | Elite | G | 🟡 | Planned |
 | [EPIC-028I](incomplete/EPIC-028I_futures_order_entry_variant.md) | Futures variant: margin/leverage chips, reduce-only, TIF, TP/SL, stop-limit | Elite | F, H, O2, O3 | 🔴 | Planned |
@@ -99,6 +99,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 - **Arming more than one strategy per desk.**
 
 ## Notes (newest first)
+- **2026-10-01** — `EPIC-028G` merged (PR #300) after two independent reviews (the second PASS). The epic-level review on the same PR re-planned the epic: `EPIC-028O` widened, `EPIC-028P` and `EPIC-028Q` added.
 - **2026-09-30** — `EPIC-028G` implemented, then redesigned after the first independent review (PR #300) showed the first version's "errs low, never high" claim false for Futures. The shared fee and step fitting stay common. Futures cost and maximum now follow Binance's rules: assuming price, open loss and the bracket's notional headroom. A limit order at the maximum is never refused for margin or notional, while a market order's open loss against the book is not modelled. Spot is sized by notional plus fee. The liquidation estimate uses Binance's one-way formula, exact for isolated margin and optimistic for cross. 43 targeted mutations, all killed. The re-review passed.
 - **2026-09-30** — `EPIC-028F` merged (PR #299) after two independent reviews. The first review (NEEDS_REVISION) found the gate's open-position read outside the port's error translation: a network drop leaked as `requests.ConnectionError`. The read moved onto the port (`IFuturesAccountControl.open_position`), every answer is now read inside the translation, and a symbol a strategy manages is refused. The re-review passed. `EPIC-028G` is next.
 - **2026-09-30** — `EPIC-028F` implemented. Two narrow ports, `IFuturesAccountControl` (Spot's `VenueContext` holds `None`) and `ICommissionRateReader`. `ChangeLeverageCommand` and `ChangeMarginTypeCommand` pass one gate: a disabled venue, Spot or the switch off is refused with no request, then the connection is checked and an open position is refused before anything is sent. `GetCommissionRateQuery` answers per venue. Fast tier green; awaiting independent review.

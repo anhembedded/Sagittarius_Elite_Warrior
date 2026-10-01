@@ -5,7 +5,7 @@
 **Risk:** 🟡 — the panel replaces the Dev Board card later; its dispatch must stay the one `ExecuteOrderCommand` path
 **Complexity:** L — new shared UI package, view model, Spot variant, preview
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028G](EPIC-028G_order_estimate_policies.md)
+**Depends on:** [EPIC-028G](../completed/EPIC-028G_order_estimate_policies.md)
 
 ---
 

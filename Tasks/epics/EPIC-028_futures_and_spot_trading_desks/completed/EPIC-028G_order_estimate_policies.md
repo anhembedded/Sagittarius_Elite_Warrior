@@ -1,6 +1,6 @@
 # EPIC-028G — Max quantity, cost, fee and liquidation estimates are pure, tested domain policies
 
-**Status:** 🟡 Implemented — awaiting review
+**Status:** ✅ Done (2026-10-01) — merged in PR #300
 **Source:** the user, 2026-09-29 — *"cần có 2 cái chứ không phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng"* ("two trading screens, one Futures and one Spot; share what can be shared"). See the [ADR](../DECISION_2026-09-29_two_trading_desks.md).
 **Risk:** 🟢 — pure functions; the risk is a wrong number shown as if exact
 **Complexity:** S — four policies, no I/O
