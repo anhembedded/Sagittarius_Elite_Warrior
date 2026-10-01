@@ -164,6 +164,12 @@ class OpenOrdersPanel(QWidget):  # base-exempt: a container, not a surface
         one `QAction` per user action, wherever it is shown."""
         return self._cancel_action
 
+    def add_action(self, action: QAction) -> None:
+        """Puts a host's own action beside "Cancel order", in the toolbar
+        and the row's context menu (`EPIC-028J`'s "Cancel all")."""
+        self._toolbar.addAction(action)
+        self._table.addAction(action)
+
     def selected_row(self) -> OpenOrderRow | None:
         indexes = self._table.selectionModel().selectedRows()
         if not indexes:

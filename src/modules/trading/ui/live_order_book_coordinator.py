@@ -83,8 +83,9 @@ class LiveOrderBookCoordinator:
         self, positions: Iterable[LivePosition], open_orders: Iterable[Order]
     ) -> None:
         """Full reconciliation — `EnableTradingCommand`/`EmergencyStopCommand`
-        are the only callers with a fresh, authoritative snapshot from the
-        exchange; every other update is the smaller incremental
+        and a desk opening (`AccountTabsPresenter`'s read of the account,
+        `EPIC-028J`) are the callers with a fresh, authoritative snapshot
+        from the exchange; every other update is the smaller incremental
         `on_*` methods below."""
         self._positions = {position.symbol: position for position in positions}
         self._open_orders = {order.client_order_id: order for order in open_orders}

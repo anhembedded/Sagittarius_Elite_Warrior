@@ -8,6 +8,9 @@ import threading
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.account.account_activity_service import (
+    AccountActivityService,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.account.account_snapshot_service import (
     AccountSnapshotService,
 )
@@ -82,4 +85,5 @@ class VenueTradingPortsRegistry(IVenueTradingPorts):
             account_snapshot=AccountSnapshotService(self._dispatcher, venue),
             equity_curve=self._states.equity_recorder(venue),
             order_entry_terms=OrderEntryTermsService(self._dispatcher, venue),
+            account_activity=AccountActivityService(self._dispatcher, venue),
         )

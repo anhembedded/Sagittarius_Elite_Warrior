@@ -1,7 +1,7 @@
 # EPIC-028 — Tracking
 
 - **Epic:** [EPIC-028 — Two trading desks](README.md)
-- **Status:** 🟡 In Progress — ADR accepted 2026-09-29; Phase 1 done (`028A`–`028C`, `028P`); Phase 2 readers merged (`028D`–`028G`, `028Q`), exit check pending; Phase 3: `028H` and `028O` merged (#301–#305); `028R` done, in review
+- **Status:** 🟡 In Progress — ADR accepted 2026-09-29; Phase 1 done (`028A`–`028C`, `028P`); Phase 2 readers merged (`028D`–`028G`, `028Q`), exit check pending; Phase 3: `028H` and `028O` merged (#301–#305); `028R` merged (#306); `028J` done
 - **Target Completion:** not committed; the bars below are relative estimates from the day the ADR is accepted.
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -43,7 +43,7 @@ gantt
     028O Order contract and reads          :done, crit, o, after h, 3d
     028R Futures algo orders               :done, crit, r, after o, 2d
     028I Futures order entry variant       :crit,    i, after r, 4d
-    028J Account tabs and summary          :         j, after e, 3d
+    028J Account tabs and summary          :done,    j, after e, 3d
     Phase 3 exit check                     :milestone, m3, after i, 0d
 
     section Phase 4 - Two desks
@@ -73,7 +73,7 @@ gantt
 | EPIC-028P | [Dual-venue isolation test](completed/EPIC-028P_dual_venue_isolation_test.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Merged | [#301](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/301) |
 | EPIC-028Q | [Phase 2 reader fixes](completed/EPIC-028Q_phase_2_reader_fixes.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Merged | [#301](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/301) |
 | EPIC-028I | [Futures order entry](incomplete/EPIC-028I_futures_order_entry_variant.md) | — | 🔴 | 🔵 Planned | — |
-| EPIC-028J | [Account tabs and summary](incomplete/EPIC-028J_account_tabs_and_summary_panels.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-028J | [Account tabs and summary](completed/EPIC-028J_account_tabs_and_summary_panels.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | — |
 | EPIC-028K | [Futures desk](incomplete/EPIC-028K_futures_desk_screen.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-028L | [Spot desk](incomplete/EPIC-028L_spot_desk_screen.md) | — | 🟢 | 🔵 Planned | — |
 | EPIC-028M | [Retire old screen, docs](incomplete/EPIC-028M_retire_single_trading_screen_and_docs.md) | — | 🟢 | 🔵 Planned | — |
@@ -85,6 +85,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-01 | EPIC-028J | Account tabs and summary as desk parts: `IAccountActivity` port on `VenueTradingPorts`; tabs loaded from queries then kept by the venue's `OrderFeed`; histories page over a fixed `since`; cancel all shown and close at market ask first; summary stale mark. Integration: orders placed on the fake elsewhere are listed and cancelled. |
 | 2026-10-01 | EPIC-028R | Futures stop-limit through the Algo Order API with the app's client id; algo orders listed, cancelled (fallback on `-2011`), in history, cancelled by Emergency Stop; `ALGO_UPDATE` links a triggered stop's fill to the app's id; fake serves the algo routes and triggers by price. |
 | 2026-10-01 | EPIC-028O | PR-4: the desk UI — Spot Stop-limit tab, quote-sized market buy, BBO button (a buy joins the best bid, a sell the best ask), every maximum capped by the app's notional limit. Task done. |
 | 2026-10-01 | EPIC-028O | PR-3: the fake fills Futures market orders (trades, positions, wallet; `-2022` on a reduce-only with nothing to reduce); the Futures summary reads Multi-Assets mode. Found and fixed: a short's leverage read as negative. |

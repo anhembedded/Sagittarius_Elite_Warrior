@@ -47,6 +47,15 @@ type SideFiguresRule = Callable[
 ]
 
 
+class HeldTab(str, Enum):
+    """What the desk's account tabs list as held (`EPIC-028J`)."""
+
+    #: Futures: open positions, each closable at market.
+    POSITIONS = "positions"
+    #: Spot: the assets the account holds.
+    ASSETS = "assets"
+
+
 class SideLayout(str, Enum):
     """How the order panel lays out its two sides."""
 
@@ -73,6 +82,8 @@ class DeskProfile:
     #: ADR O2: the toggle stays visible, so the missing feature is named
     #: rather than hidden.
     tp_sl_unavailable_reason: str | None
+    #: Positions on Futures, Assets on Spot (`EPIC-028J`).
+    held_tab: HeldTab
 
     def side_label(self, side: EntrySide) -> str:
         return self.buy_label if side is EntrySide.BUY else self.sell_label
@@ -97,6 +108,7 @@ def _spot_profile(venue: TradingVenue) -> DeskProfile:
             "TP/SL on Spot needs OCO orders, which arrive with the exchange-side "
             "protective orders (EPIC-026K)."
         ),
+        held_tab=HeldTab.ASSETS,
     )
 
 
