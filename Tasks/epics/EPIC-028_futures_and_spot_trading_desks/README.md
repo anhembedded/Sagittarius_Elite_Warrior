@@ -1,6 +1,6 @@
 # EPIC-028 — Two trading desks: Futures and Spot side by side, each with manual orders, a strategy and live account data
 
-- **Status:** 🟡 Phase 3 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`, evidence `EPIC-028P`); Phase 2 readers done (`EPIC-028D`–`028G`, `028Q`), its exit check (the `exchange-status` CLI) not yet run; `EPIC-028H` and `028O` done; `028R`, `028I` and `028J` next
+- **Status:** 🟡 Phase 3 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`, evidence `EPIC-028P`); Phase 2 readers done (`EPIC-028D`–`028G`, `028Q`), its exit check (the `exchange-status` CLI) not yet run; `EPIC-028H`, `028O` and `028R` done; `028I` and `028J` next
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-29): *"giờ màn hình trading đang có vấn đề, cần có 2 cái chứ không
   phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng, 2 màn hình
@@ -75,7 +75,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 | [EPIC-028O](completed/EPIC-028O_order_contract_and_missing_reads.md) | Order contract end to end (stop price, TIF, quote quantity, stop-limit on both venues); reads for leverage, brackets, mark, best bid/ask, the app's notional limit | Elite | H, O3 | 🔴 | ✅ Done (2026-10-01) |
 | [EPIC-028P](completed/EPIC-028P_dual_venue_isolation_test.md) | Phase 1 evidence: both venues in one process against one fake exchange | Elite | C | 🟢 | ✅ Done (2026-10-01) |
 | [EPIC-028Q](completed/EPIC-028Q_phase_2_reader_fixes.md) | Phase 2 reader fixes: history gaps disclosed, closed trades found, errors translated, stale balance marked | Elite | E, F | 🟡 | ✅ Done (2026-10-01) |
-| [EPIC-028R](incomplete/EPIC-028R_futures_conditional_orders_via_algo_api.md) | Futures conditional orders through Binance's Algo Order API: sent with the app's client id, listed, cancelled, cancelled by Emergency Stop | Elite | O | 🔴 | Planned |
+| [EPIC-028R](completed/EPIC-028R_futures_conditional_orders_via_algo_api.md) | Futures conditional orders through Binance's Algo Order API: sent with the app's client id, listed, cancelled, cancelled by Emergency Stop | Elite | O | 🔴 | ✅ Done (2026-10-01) |
 | [EPIC-028I](incomplete/EPIC-028I_futures_order_entry_variant.md) | Futures variant: margin/leverage chips, reduce-only, TIF, TP/SL, stop-limit tab | Elite | F, H, O, R, O2 | 🔴 | Planned |
 | [EPIC-028J](incomplete/EPIC-028J_account_tabs_and_summary_panels.md) | Bottom account tabs + account summary panel | Elite | D, E | 🟡 | Planned |
 | **Phase 4 — Two desks** | | | | | |
@@ -103,6 +103,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 - **Arming more than one strategy per desk.**
 
 ## Notes (newest first)
+- **2026-10-01** — `EPIC-028O` merged (PR #305). `EPIC-028R` done: a Futures stop-limit goes through Binance's Algo Order API under the app's client order id, and conditional orders are listed, cancelled, kept in history and cancelled by Emergency Stop wherever they were placed. A triggered stop's fill reaches the app as the order it placed. No live Testnet call verified the algo shapes (`EPIC-028N`).
 - **2026-10-01** — `EPIC-028O` done: PR-1 to PR-3 merged (#302, #303, #304), and PR-4 adds the desk UI: the Spot Stop-limit tab, the quote-sized market buy, the BBO button, and every maximum capped by the app's per-order notional limit. The Futures half of stop-limit waits on `028R` (sending) and `028I` (the Futures profile).
 - **2026-10-01** — `EPIC-028H`, `028P` and `028Q` merged (PR #301) after an independent review (PASS; two should-fix items fixed before merge: the cache's `since` guard on trades had no test, and the Active symbols vocabulary row was stale). Phase 1's exit now has its integration evidence. Phase 2's readers are done; its exit row still asks for the `exchange-status` CLI check. `EPIC-028O` is next.
 - **2026-10-01** — `EPIC-028G` merged (PR #300) after two independent reviews (the second PASS). The epic-level review on the same PR re-planned the epic: `EPIC-028O` widened, `EPIC-028P` and `EPIC-028Q` added.

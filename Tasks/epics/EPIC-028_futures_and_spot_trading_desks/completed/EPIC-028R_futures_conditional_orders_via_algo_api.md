@@ -1,11 +1,11 @@
 # EPIC-028R — Futures conditional orders go through Binance's Algo Order API, tracked and cancellable
 
 **Status:** ✅ Done (2026-10-01)
-**Source:** found while building [EPIC-028O](../completed/EPIC-028O_order_contract_and_missing_reads.md) PR-1, 2026-10-01: the integration test that placed a Futures stop-limit on the fake exchange was answered `404 /fapi/v1/algoOrder`.
+**Source:** found while building [EPIC-028O](EPIC-028O_order_contract_and_missing_reads.md) PR-1, 2026-10-01: the integration test that placed a Futures stop-limit on the fake exchange was answered `404 /fapi/v1/algoOrder`.
 **Risk:** 🔴 — an order the app cannot see or cancel; Emergency Stop's reach
 **Complexity:** M — one adapter path end to end, the user-data parser, the fake exchange
 **Epic:** [EPIC-028](../README.md)
-**Depends on:** [EPIC-028O](../completed/EPIC-028O_order_contract_and_missing_reads.md) PR-1 (the stop-limit order contract)
+**Depends on:** [EPIC-028O](EPIC-028O_order_contract_and_missing_reads.md) PR-1 (the stop-limit order contract)
 
 ---
 
