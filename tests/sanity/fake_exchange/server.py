@@ -114,6 +114,9 @@ class FakeServerUrls:
     #: `EPIC-028O` — the live Spot state, so a test can move a symbol's last
     #: price (`SpotAccountState.set_last_price`) and watch a stop trigger.
     spot_account: SpotAccountState = field(default_factory=SpotAccountState)
+    #: `EPIC-028O` — the live Futures state, so a test can switch the account
+    #: to Multi-Assets mode or read its positions.
+    futures_book: OrderBookState = field(default_factory=OrderBookState)
 
 
 @contextmanager
@@ -135,6 +138,7 @@ def run_binance_fake_server() -> Iterator[FakeServerUrls]:
             futures=f"http://{host}:{port}/fapi",
             requests=_Handler.requests,
             spot_account=_Handler.spot_account,
+            futures_book=_Handler.order_book,
         )
     finally:
         server.shutdown()

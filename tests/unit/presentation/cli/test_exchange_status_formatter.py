@@ -3,6 +3,7 @@ from __future__ import annotations
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    AssetMode,
     FuturesAccountSummary,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
@@ -250,6 +251,33 @@ def test_a_futures_success_shows_available_apart_from_the_wallet():
     assert "Available (USDT): 11,874.50" in text
     assert "Unrealized PnL: -125.50" in text
     assert "Wallet (USDT):    15,000.00" in text
+
+
+def test_a_multi_assets_futures_success_names_the_margin_its_available_counts():
+    """`EPIC-028O` — a Multi-Assets figure is every margin asset in USD, so
+    it is never labelled USDT."""
+    summary = FuturesAccountSummary(
+        venue=TradingVenue.FUTURES_TESTNET,
+        available_balance=Decimal("15084.90"),
+        equity=Decimal("18084.90"),
+        wallet_balance=Decimal("18210.40"),
+        margin_balance=Decimal("18084.90"),
+        unrealized_pnl=Decimal("-125.50"),
+        position_mode=PositionMode.ONE_WAY,
+        asset_mode=AssetMode.MULTI_ASSETS,
+    )
+
+    text = format_exchange_connection_status(_success_status(summary=summary))
+
+    assert "Available (USD):  15,084.90" in text
+    assert "MULTI_ASSETS (every margin asset, in USD)" in text
+    assert "Available (USDT)" not in text
+
+
+def test_a_single_asset_futures_success_has_no_asset_mode_line():
+    text = format_exchange_connection_status(_success_status())
+
+    assert "Asset mode" not in text
 
 
 def test_a_futures_success_without_a_summary_shows_a_question_mark_not_zero():

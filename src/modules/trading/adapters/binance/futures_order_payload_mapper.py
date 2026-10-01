@@ -186,7 +186,9 @@ def _leverage_from_margin(payload: dict[str, Any]) -> int:
     this app depended on for years turned out to not exist on the wire at
     all, and no other already-verified field reports it directly.
     """
-    notional = Decimal(str(payload["notional"]))
+    # `notional` is signed (negative for a short); leverage is not. A 20x
+    # short read as -20x before `EPIC-028O`'s fake filled one.
+    notional = abs(Decimal(str(payload["notional"])))
     initial_margin = Decimal(str(payload["initialMargin"]))
     if initial_margin == 0:
         # A real open position (`positionAmt != 0`, already filtered by

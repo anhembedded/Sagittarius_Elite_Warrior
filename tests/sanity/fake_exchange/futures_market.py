@@ -8,7 +8,7 @@ the notional, and each `cum` is the previous one plus the floor times the
 rate step, so the table is internally consistent. Leverage 10 allows up to
 10 000 000 USDT, the figure `POST /fapi/v1/leverage` has always answered for
 it. Prices are fixed per symbol; the book is one tick either side of the
-mark. Shapes per Binance's documented USD-M API.
+mark, and a market order fills against it (`futures_account_state.py`). Shapes per Binance's documented USD-M API.
 """
 
 from __future__ import annotations
@@ -39,6 +39,18 @@ INVALID_SYMBOL = (400, {"code": -1121, "msg": "Invalid symbol."})
 
 #: A fixed `time` field, so an answer is the same on every call.
 _TIME_MS = 1_700_000_000_000
+
+
+def mark_price(symbol: str) -> Decimal:
+    """@return `symbol`'s fixed mark price."""
+    return _MARKS[symbol][0]
+
+
+def best_bid_ask(symbol: str) -> tuple[Decimal, Decimal]:
+    """@return `(bid, ask)`: one tick either side of the mark, what a market
+    sell and buy fill at."""
+    mark, tick = _MARKS[symbol]
+    return mark - tick, mark + tick
 
 
 def max_notional(leverage: int) -> Decimal:
@@ -86,12 +98,12 @@ def premium_index(symbol: str) -> tuple[int, object]:
 def book_ticker(symbol: str) -> tuple[int, object]:
     if symbol not in _MARKS:
         return INVALID_SYMBOL
-    mark, tick = _MARKS[symbol]
+    bid, ask = best_bid_ask(symbol)
     return 200, {
         "symbol": symbol,
-        "bidPrice": str(mark - tick),
+        "bidPrice": str(bid),
         "bidQty": "2.500",
-        "askPrice": str(mark + tick),
+        "askPrice": str(ask),
         "askQty": "1.750",
         "time": _TIME_MS,
     }

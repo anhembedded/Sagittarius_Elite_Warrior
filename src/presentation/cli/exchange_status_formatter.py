@@ -6,6 +6,7 @@ the headless (`exchange_status_cmd.py`) and interactive
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    AssetMode,
     FuturesAccountSummary,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
@@ -150,6 +151,17 @@ def _format_success(status: ExchangeConnectionStatus) -> str:
     futures = summary if isinstance(summary, FuturesAccountSummary) else None
     available_text = "?" if futures is None else f"{futures.available_balance:,.2f}"
     upnl_text = "?" if futures is None else f"{futures.unrealized_pnl:+,.2f}"
+    # `EPIC-028O` — in Multi-Assets mode the figure counts every margin
+    # asset, in USD; labelling it USDT would misstate it. The label keeps the
+    # column width, and one more line names the mode (PR #304 review,
+    # finding 6).
+    multi_assets = futures is not None and futures.asset_mode is AssetMode.MULTI_ASSETS
+    available_label = "Available (USD): " if multi_assets else "Available (USDT):"
+    asset_mode_lines = (
+        ["Asset mode:       MULTI_ASSETS (every margin asset, in USD)"]
+        if multi_assets
+        else []
+    )
 
     return "\n".join(
         [
@@ -157,7 +169,8 @@ def _format_success(status: ExchangeConnectionStatus) -> str:
             f"Clock skew:       {skew_text:<25} {skew_safety}",
             f"Position mode:    {position_mode_text:<25} Margin type: {margin_type_text}",
             f"Wallet (USDT):    {balance_text:<25} Open positions: {open_positions_text}",
-            f"Available (USDT): {available_text:<25} Unrealized PnL: {upnl_text}",
+            f"{available_label} {available_text:<25} Unrealized PnL: {upnl_text}",
+            *asset_mode_lines,
         ]
     )
 

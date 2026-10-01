@@ -1,5 +1,6 @@
 """`EPIC-021J` — `FuturesTradingClient`'s full order lifecycle (place →
-appears in `get_open_orders()` → cancel → gone) against a real HTTP round
+appears in `get_open_orders()` → cancel → gone, for a resting order; a
+market order fills, `EPIC-028O`) against a real HTTP round
 trip through the fake server's new stateful futures routes.
 
 @details Same "what this proves" boundary as the other `EPIC-021`
@@ -48,6 +49,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mo
     OrderSubmissionMode,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
+    TimeInForce,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
@@ -72,12 +76,26 @@ class _FakeCredentialsProvider:
 
 
 def _order(client_order_id: str = "SEW-lifecycle0001") -> Order:
+    """A resting order: `EPIC-028O`'s fake fills a market order at once, so
+    the open-and-cancel lifecycle is a limit order's."""
     return Order(
         client_order_id=ClientOrderId(client_order_id),
         symbol="BTCUSDT",
         side=OrderSide.BUY,
-        order_type=OrderType.MARKET,
+        order_type=OrderType.LIMIT,
         quantity=Decimal("0.002"),
+        price=Decimal(50000),
+        time_in_force=TimeInForce.GTC,
+    )
+
+
+def _market_order(client_order_id: str, side: OrderSide, quantity: str) -> Order:
+    return Order(
+        client_order_id=ClientOrderId(client_order_id),
+        symbol="BTCUSDT",
+        side=side,
+        order_type=OrderType.MARKET,
+        quantity=Decimal(quantity),
     )
 
 
@@ -137,9 +155,10 @@ def test_cancel_all_orders_returns_what_was_open_and_clears_the_book() -> None:
         assert client.get_open_orders("BTCUSDT") == []
 
 
-def test_positions_are_always_flat_no_matching_engine() -> None:
-    """`order_book_state.py`'s own docstring: no fills, no position
-    tracking — placing an order never makes `get_positions()` non-empty."""
+def test_a_filled_market_order_becomes_a_position_and_never_rests() -> None:
+    """`EPIC-028O` — the fake now fills a market order at the book: a buy
+    at the ask (64 000.1). The order never rests, and the position it opens
+    is read back through `positionRisk` v3, whose notional is signed."""
     with (
         run_binance_fake_server() as urls,
         patch.object(Client, "API_TESTNET_URL", urls.spot),
@@ -155,6 +174,18 @@ def test_positions_are_always_flat_no_matching_engine() -> None:
             metadata_provider,
             OrderSubmissionMode.LIVE,
         )
-        client.place_order(_order())
+        client.place_order(_market_order("SEW-fill00000001", OrderSide.BUY, "0.002"))
+        long_positions = client.get_positions("BTCUSDT")
+        open_orders = client.get_open_orders("BTCUSDT")
+        client.place_order(_market_order("SEW-fill00000002", OrderSide.SELL, "0.005"))
+        short_positions = client.get_positions("BTCUSDT")
 
-        assert client.get_positions("BTCUSDT") == []
+    assert open_orders == []
+    (long_position,) = long_positions
+    assert long_position.position_amt == Decimal("0.002")
+    assert long_position.entry_price == Decimal("64000.1")
+    assert long_position.leverage == 20
+    (short_position,) = short_positions
+    assert short_position.position_amt == Decimal("-0.003")
+    assert short_position.entry_price == Decimal("63999.9")
+    assert short_position.leverage == 20

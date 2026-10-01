@@ -1,22 +1,35 @@
 """`EPIC-021J` §4 — `OrderBookState`'s own lifecycle, isolated from HTTP:
 place → open, cancel → gone, `cancel_all` clears only the requested
 symbol, `open_orders(symbol=None)` returns everything.
+
+`EPIC-028O` — the lifecycle is a resting (`LIMIT`) order's: a `MARKET` order
+now fills at once and never rests (`test_futures_account_state.py` and
+`tests/integration/infrastructure/binance/test_futures_fills_against_fake_server.py`).
 """
 
 from __future__ import annotations
 
 import sys
 from pathlib import Path
+from typing import Any
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[3] / "tests" / "sanity"))
 from fake_exchange.order_book_state import OrderBookState
+
+
+def _place(state: OrderBookState, params: dict[str, str]) -> dict[str, Any]:
+    status, body = state.place(params)
+    assert status == 200
+    return body
 
 
 def _params(client_order_id: str, symbol: str = "BTCUSDT") -> dict[str, str]:
     return {
         "symbol": symbol,
         "side": "BUY",
-        "type": "MARKET",
+        "type": "LIMIT",
+        "price": "50000",
+        "timeInForce": "GTC",
         "quantity": "0.002",
         "newClientOrderId": client_order_id,
         "positionSide": "BOTH",
@@ -27,7 +40,7 @@ def _params(client_order_id: str, symbol: str = "BTCUSDT") -> dict[str, str]:
 def test_placed_order_is_new_and_open() -> None:
     state = OrderBookState()
 
-    order = state.place(_params("SEW-a"))
+    order = _place(state, _params("SEW-a"))
 
     assert order["status"] == "NEW"
     assert order["clientOrderId"] == "SEW-a"
@@ -37,15 +50,15 @@ def test_placed_order_is_new_and_open() -> None:
 def test_two_placed_orders_get_distinct_order_ids() -> None:
     state = OrderBookState()
 
-    first = state.place(_params("SEW-a"))
-    second = state.place(_params("SEW-b"))
+    first = _place(state, _params("SEW-a"))
+    second = _place(state, _params("SEW-b"))
 
     assert first["orderId"] != second["orderId"]
 
 
 def test_cancel_by_client_order_id_removes_it_from_open_orders() -> None:
     state = OrderBookState()
-    state.place(_params("SEW-a"))
+    _place(state, _params("SEW-a"))
 
     canceled = state.cancel("BTCUSDT", client_order_id="SEW-a", order_id=None)
 
@@ -56,7 +69,7 @@ def test_cancel_by_client_order_id_removes_it_from_open_orders() -> None:
 
 def test_cancel_by_order_id_removes_it_from_open_orders() -> None:
     state = OrderBookState()
-    placed = state.place(_params("SEW-a"))
+    placed = _place(state, _params("SEW-a"))
 
     canceled = state.cancel(
         "BTCUSDT", client_order_id=None, order_id=str(placed["orderId"])
@@ -78,7 +91,7 @@ def test_cancel_of_known_order_wrong_symbol_returns_none() -> None:
     caller claimed matches — a mismatched symbol is a caller bug, not a
     reason to cancel the wrong book's order."""
     state = OrderBookState()
-    state.place(_params("SEW-a", symbol="BTCUSDT"))
+    _place(state, _params("SEW-a", symbol="BTCUSDT"))
 
     result = state.cancel("ETHUSDT", client_order_id="SEW-a", order_id=None)
 
@@ -88,8 +101,8 @@ def test_cancel_of_known_order_wrong_symbol_returns_none() -> None:
 
 def test_cancel_all_clears_only_the_requested_symbol() -> None:
     state = OrderBookState()
-    state.place(_params("SEW-a", symbol="BTCUSDT"))
-    state.place(_params("SEW-b", symbol="ETHUSDT"))
+    _place(state, _params("SEW-a", symbol="BTCUSDT"))
+    _place(state, _params("SEW-b", symbol="ETHUSDT"))
 
     state.cancel_all("BTCUSDT")
 
@@ -99,7 +112,7 @@ def test_cancel_all_clears_only_the_requested_symbol() -> None:
 
 def test_open_orders_with_no_symbol_returns_everything() -> None:
     state = OrderBookState()
-    state.place(_params("SEW-a", symbol="BTCUSDT"))
-    state.place(_params("SEW-b", symbol="ETHUSDT"))
+    _place(state, _params("SEW-a", symbol="BTCUSDT"))
+    _place(state, _params("SEW-b", symbol="ETHUSDT"))
 
     assert len(state.open_orders(None)) == 2

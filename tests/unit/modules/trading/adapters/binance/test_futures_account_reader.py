@@ -7,6 +7,8 @@ the classification, not re-testing `EnvFirstCredentialsProvider` or
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from decimal import Decimal
 from unittest.mock import Mock
 
@@ -14,9 +16,11 @@ import pytest
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
+    ASSET_MODE_TTL_SECONDS,
     FuturesAccountReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    AssetMode,
     FuturesAccountSummary,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
@@ -48,13 +52,17 @@ def _binance_api_exception(code: int) -> BinanceAPIException:
     return exc
 
 
-def _reader(raw_client: Mock, credentials: ExchangeCredentials | None = _CREDENTIALS):
+def _reader(
+    raw_client: Mock,
+    credentials: ExchangeCredentials | None = _CREDENTIALS,
+    clock: Callable[[], float] = time.monotonic,
+):
     session_factory = Mock()
     session_factory.create_trading_client.return_value = raw_client
     credentials_provider = Mock()
     source = CredentialsSource.NONE if credentials is None else CredentialsSource.FILE
     credentials_provider.resolve.return_value = ResolvedCredentials(credentials, source)
-    return FuturesAccountReader(session_factory, credentials_provider)
+    return FuturesAccountReader(session_factory, credentials_provider, clock)
 
 
 def _account_payload(
@@ -68,7 +76,9 @@ def _account_payload(
 
 
 def _happy_client(
-    account_payload: dict | None = None, dual_side_position: bool = False
+    account_payload: dict | None = None,
+    dual_side_position: bool = False,
+    multi_assets: object = False,
 ) -> Mock:
     client = Mock()
     client.futures_ping.return_value = {}
@@ -76,6 +86,9 @@ def _happy_client(
     client.futures_account.return_value = account_payload or _account_payload()
     client.futures_get_position_mode.return_value = {
         "dualSidePosition": dual_side_position
+    }
+    client.futures_get_multi_assets_mode.return_value = {
+        "multiAssetsMargin": multi_assets
     }
     return client
 
@@ -296,6 +309,73 @@ def test_the_summary_reads_available_not_wallet_from_the_usdt_asset():
     assert summary.margin_balance == Decimal("14874.50000000")
     assert summary.equity == summary.margin_balance
     assert summary.position_mode is PositionMode.ONE_WAY
+    assert summary.asset_mode is AssetMode.SINGLE_ASSET
+
+
+def _multi_assets_account() -> dict:
+    """USDT plus BNB margin: the totals count both, the USDT row only USDT."""
+    return {
+        "totalWalletBalance": "18210.40000000",
+        "totalMarginBalance": "18084.90000000",
+        "totalUnrealizedProfit": "-125.50000000",
+        "availableBalance": "15084.90000000",
+        "assets": [_usdt_asset()],
+        "positions": [],
+    }
+
+
+def test_a_multi_assets_account_reads_the_account_wide_figures():
+    """`EPIC-028O` — in Multi-Assets mode every margin asset counts, so the
+    USDT row would understate what a new order can spend."""
+    client = _happy_client(_multi_assets_account(), multi_assets=True)
+
+    summary = _reader(client).check_connection().summary
+
+    assert isinstance(summary, FuturesAccountSummary)
+    assert summary.asset_mode is AssetMode.MULTI_ASSETS
+    assert summary.available_balance == Decimal("15084.90000000")
+    assert summary.wallet_balance == Decimal("18210.40000000")
+    assert summary.margin_balance == Decimal("18084.90000000")
+    assert summary.unrealized_pnl == Decimal("-125.50000000")
+
+
+def test_a_multi_assets_account_needs_no_usdt_row():
+    account = {**_multi_assets_account(), "assets": []}
+    client = _happy_client(account, multi_assets=True)
+
+    summary = _reader(client).check_connection().summary
+
+    assert summary is not None
+    assert summary.available_balance == Decimal("15084.90000000")
+
+
+@pytest.mark.parametrize(
+    "answer",
+    [
+        BinanceRequestException("timeout"),
+        {"multiAssetsMargin": "true"},
+        {},
+    ],
+    ids=["no-answer", "not-a-boolean", "missing-field"],
+)
+def test_an_unreadable_asset_mode_means_no_summary_and_a_reachable_account(
+    answer: object, caplog
+):
+    """Guessing the mode would show one mode's figures labelled as the
+    other's; the connection itself is still fine."""
+    client = _happy_client({"assets": [_usdt_asset()], "positions": []})
+    if isinstance(answer, Exception):
+        client.futures_get_multi_assets_mode.side_effect = answer
+    else:
+        client.futures_get_multi_assets_mode.return_value = answer
+
+    with caplog.at_level("WARNING", logger="App.TradingAdapter"):
+        status = _reader(client).check_connection()
+
+    assert status.summary is None
+    assert status.reachable is True
+    assert status.failure is None
+    assert "Multi-Assets mode" in caplog.text
 
 
 def test_a_hedge_mode_account_still_gets_a_summary_naming_its_mode():
@@ -360,3 +440,52 @@ def test_a_lasting_malformed_figure_warns_once_until_it_is_readable_again(caplog
 
     warnings = [r for r in caplog.records if r.levelname == "WARNING"]
     assert len(warnings) == 2
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+@pytest.mark.parametrize(
+    ("elapsed", "reads"),
+    [
+        (ASSET_MODE_TTL_SECONDS - 0.001, 1),
+        (ASSET_MODE_TTL_SECONDS, 2),
+        (-1.0, 2),
+    ],
+    ids=["inside-ttl", "at-ttl", "clock-stepped-back"],
+)
+def test_the_asset_mode_is_read_at_most_once_per_ttl(elapsed: float, reads: int):
+    """PR #304 review, finding 1 — the mode costs weight 30 and changes only
+    when the user changes it, so a check every few seconds must not re-read
+    it."""
+    client = _happy_client({"assets": [_usdt_asset()], "positions": []})
+    clock = _Clock()
+    reader = _reader(client, clock=clock)
+    reader.check_connection()
+
+    clock.now += elapsed
+    summary = reader.check_connection().summary
+
+    assert summary is not None
+    assert client.futures_get_multi_assets_mode.call_count == reads
+
+
+def test_a_failed_asset_mode_read_is_not_cached():
+    client = _happy_client({"assets": [_usdt_asset()], "positions": []})
+    client.futures_get_multi_assets_mode.side_effect = [
+        BinanceRequestException("timeout"),
+        {"multiAssetsMargin": False},
+    ]
+    reader = _reader(client, clock=_Clock())
+
+    first = reader.check_connection().summary
+    second = reader.check_connection().summary
+
+    assert first is None
+    assert second is not None
+    assert client.futures_get_multi_assets_mode.call_count == 2
