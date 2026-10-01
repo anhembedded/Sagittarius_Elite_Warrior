@@ -191,8 +191,9 @@ class AccountTabsPresenter(QObject):
 
     def _on_order_ended(self, event: OrderEndedEvent) -> None:
         """An order cancelled, rejected or expired anywhere (the other desk,
-        Binance's site, a strategy, the exchange) leaves Open orders and
-        joins Order history (the review of PR 307)."""
+        Binance's site, a strategy, the exchange) leaves Open orders, and
+        Order history is read again, and shows it at most
+        `HISTORY_CACHE_TTL` late, as for a fill (the review of PR 307)."""
         self._book.on_order_cancelled(str(event.order.client_order_id))
         self._histories.reread()
 
