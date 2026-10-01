@@ -14,9 +14,11 @@ Figures follow Binance's single-asset rules: margin balance is wallet plus
 unrealized PnL at the mark, a position's initial margin is its notional at
 the mark over its leverage, and available is margin balance less initial
 margin. In Multi-Assets mode Binance reports the account-wide `total*`
-figures and `availableBalance` in USD across every asset; this account holds
-USDT only, so they equal the USDT figures, and the mode changes only what the
-app must read. There is no liquidation, no funding and no maintenance check.
+figures and `availableBalance` in USD across every margin asset: the account
+then also holds a fixed BNB margin balance worth `_BNB_MARGIN_USD`, in its own
+asset row and in the totals, so a reader that took the USDT row instead of the
+totals is told apart (PR #304 review, finding 4). There is no liquidation, no
+funding and no maintenance check.
 """
 
 from __future__ import annotations
@@ -30,6 +32,8 @@ from .futures_symbol_config import FuturesSymbolConfig
 
 _TAKER_FEE_RATE = Decimal("0.0005")
 _STARTING_WALLET = Decimal(15000)
+#: The BNB margin a Multi-Assets account also counts, in USD.
+_BNB_MARGIN_USD = Decimal(600)
 _SIDE_BUY = "BUY"
 
 
@@ -89,22 +93,35 @@ class FuturesAccountState:
         )
         margin = self._wallet + unrealized
         available = margin - initial
-        return {
-            "totalWalletBalance": _q(self._wallet),
-            "totalUnrealizedProfit": _q(unrealized),
-            "totalMarginBalance": _q(margin),
-            "totalInitialMargin": _q(initial),
-            "availableBalance": _q(available),
-            "assets": [
+        other = _BNB_MARGIN_USD if self.multi_assets else Decimal(0)
+        assets = [
+            {
+                "asset": "USDT",
+                "walletBalance": _q(self._wallet),
+                "unrealizedProfit": _q(unrealized),
+                "marginBalance": _q(margin),
+                "initialMargin": _q(initial),
+                "availableBalance": _q(available),
+            }
+        ]
+        if self.multi_assets:
+            assets.append(
                 {
-                    "asset": "USDT",
-                    "walletBalance": _q(self._wallet),
-                    "unrealizedProfit": _q(unrealized),
-                    "marginBalance": _q(margin),
-                    "initialMargin": _q(initial),
-                    "availableBalance": _q(available),
+                    "asset": "BNB",
+                    "walletBalance": "1.00000000",
+                    "unrealizedProfit": "0.00000000",
+                    "marginBalance": "1.00000000",
+                    "initialMargin": "0.00000000",
+                    "availableBalance": "1.00000000",
                 }
-            ],
+            )
+        return {
+            "totalWalletBalance": _q(self._wallet + other),
+            "totalUnrealizedProfit": _q(unrealized),
+            "totalMarginBalance": _q(margin + other),
+            "totalInitialMargin": _q(initial),
+            "availableBalance": _q(available + other),
+            "assets": assets,
             "positions": [
                 {
                     "symbol": symbol,

@@ -164,6 +164,7 @@ def test_two_buys_average_their_entry_and_a_close_realizes_the_difference() -> N
         flat = trading.get_positions("BTCUSDT")
         history = FuturesHistoryReader(FuturesSessionFactory(), _Credentials())
         trades = history.trade_history("BTCUSDT", _week_ago())
+        orders = history.order_history("BTCUSDT", _week_ago())
         summary = _summary()
 
     # Both buys fill at the ask, so the weighted entry is the ask.
@@ -171,8 +172,12 @@ def test_two_buys_average_their_entry_and_a_close_realizes_the_difference() -> N
     assert position.entry_price == _ASK
     assert flat == []
     closing = trades[-1]
-    # Reduce-only caps the sell at the 0.040 held.
+    # Reduce-only caps the sell at the 0.040 held; the order still shows the
+    # 0.100 sent.
     assert (closing.side, closing.quantity) == (OrderSide.SELL, Decimal("0.040"))
+    closing_order = orders[-1]
+    assert closing_order.order.quantity == Decimal("0.100")
+    assert closing_order.executed_quantity == Decimal("0.040")
     # (63 999.9 − 64 000.1) × 0.040 = −0.008
     assert closing.realized_pnl == Decimal("-0.00800000")
     fees = sum((trade.fee for trade in trades), Decimal(0))
@@ -214,5 +219,8 @@ def test_a_multi_assets_account_is_read_from_its_account_wide_figures() -> None:
         urls.futures_book.account.multi_assets = True
         summary = _summary()
 
+    # 15 000 USDT plus the fake's 600 USD of BNB margin; the USDT row alone
+    # would read 15 000.
     assert summary.asset_mode is AssetMode.MULTI_ASSETS
-    assert summary.wallet_balance == Decimal(15000)
+    assert summary.wallet_balance == Decimal(15600)
+    assert summary.available_balance == Decimal(15600)

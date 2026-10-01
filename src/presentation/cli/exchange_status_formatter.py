@@ -152,11 +152,15 @@ def _format_success(status: ExchangeConnectionStatus) -> str:
     available_text = "?" if futures is None else f"{futures.available_balance:,.2f}"
     upnl_text = "?" if futures is None else f"{futures.unrealized_pnl:+,.2f}"
     # `EPIC-028O` — in Multi-Assets mode the figure counts every margin
-    # asset, in USD; labelling it USDT would misstate it.
-    available_label = (
-        "Available (USD, all assets):"
-        if futures is not None and futures.asset_mode is AssetMode.MULTI_ASSETS
-        else "Available (USDT):"
+    # asset, in USD; labelling it USDT would misstate it. The label keeps the
+    # column width, and one more line names the mode (PR #304 review,
+    # finding 6).
+    multi_assets = futures is not None and futures.asset_mode is AssetMode.MULTI_ASSETS
+    available_label = "Available (USD): " if multi_assets else "Available (USDT):"
+    asset_mode_lines = (
+        ["Asset mode:       MULTI_ASSETS (every margin asset, in USD)"]
+        if multi_assets
+        else []
     )
 
     return "\n".join(
@@ -166,6 +170,7 @@ def _format_success(status: ExchangeConnectionStatus) -> str:
             f"Position mode:    {position_mode_text:<25} Margin type: {margin_type_text}",
             f"Wallet (USDT):    {balance_text:<25} Open positions: {open_positions_text}",
             f"{available_label} {available_text:<25} Unrealized PnL: {upnl_text}",
+            *asset_mode_lines,
         ]
     )
 

@@ -3,7 +3,8 @@ place → open, cancel → gone, `cancel_all` clears only the requested
 symbol, `open_orders(symbol=None)` returns everything.
 
 `EPIC-028O` — the lifecycle is a resting (`LIMIT`) order's: a `MARKET` order
-now fills at once and never rests (`test_futures_market_fills.py`).
+now fills at once and never rests (`test_futures_account_state.py` and
+`tests/integration/infrastructure/binance/test_futures_fills_against_fake_server.py`).
 """
 
 from __future__ import annotations

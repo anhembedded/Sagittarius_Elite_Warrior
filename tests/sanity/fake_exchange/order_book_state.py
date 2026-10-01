@@ -10,7 +10,8 @@ real timestamp, for `GET /fapi/v1/allOrders`.
 as filled, books one trade for `GET /fapi/v1/userTrades` and moves the
 position and wallet `positionRisk` and `account` report. A reduce-only order
 that would open or add to a position is refused with Binance's `-2022`; one
-larger than the position closes it.
+larger than the position closes it, reporting the capped fill in
+`executedQty` while `origQty` stays what was sent.
 """
 
 from __future__ import annotations
@@ -78,9 +79,10 @@ class OrderBookState:
             if quantity is None:
                 return _REDUCE_ONLY_REJECTED
             fill = self.account.fill_market(order["symbol"], order["side"], quantity)
+            # `origQty` stays what was sent; a capped reduce-only fill shows
+            # only in `executedQty` (PR #304 review, finding 3).
             order.update(
                 status=_STATUS_FILLED,
-                origQty=str(quantity),
                 executedQty=str(quantity),
                 avgPrice=str(fill.price),
                 cumQuote=str(fill.price * fill.quantity),

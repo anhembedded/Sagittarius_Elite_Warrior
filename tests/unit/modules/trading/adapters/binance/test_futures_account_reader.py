@@ -7,6 +7,8 @@ the classification, not re-testing `EnvFirstCredentialsProvider` or
 
 from __future__ import annotations
 
+import time
+from collections.abc import Callable
 from decimal import Decimal
 from unittest.mock import Mock
 
@@ -14,6 +16,7 @@ import pytest
 from binance.exceptions import BinanceAPIException, BinanceRequestException
 from requests.exceptions import ConnectionError as RequestsConnectionError
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_account_reader import (
+    ASSET_MODE_TTL_SECONDS,
     FuturesAccountReader,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
@@ -49,13 +52,17 @@ def _binance_api_exception(code: int) -> BinanceAPIException:
     return exc
 
 
-def _reader(raw_client: Mock, credentials: ExchangeCredentials | None = _CREDENTIALS):
+def _reader(
+    raw_client: Mock,
+    credentials: ExchangeCredentials | None = _CREDENTIALS,
+    clock: Callable[[], float] = time.monotonic,
+):
     session_factory = Mock()
     session_factory.create_trading_client.return_value = raw_client
     credentials_provider = Mock()
     source = CredentialsSource.NONE if credentials is None else CredentialsSource.FILE
     credentials_provider.resolve.return_value = ResolvedCredentials(credentials, source)
-    return FuturesAccountReader(session_factory, credentials_provider)
+    return FuturesAccountReader(session_factory, credentials_provider, clock)
 
 
 def _account_payload(
@@ -433,3 +440,52 @@ def test_a_lasting_malformed_figure_warns_once_until_it_is_readable_again(caplog
 
     warnings = [r for r in caplog.records if r.levelname == "WARNING"]
     assert len(warnings) == 2
+
+
+class _Clock:
+    def __init__(self) -> None:
+        self.now = 1000.0
+
+    def __call__(self) -> float:
+        return self.now
+
+
+@pytest.mark.parametrize(
+    ("elapsed", "reads"),
+    [
+        (ASSET_MODE_TTL_SECONDS - 0.001, 1),
+        (ASSET_MODE_TTL_SECONDS, 2),
+        (-1.0, 2),
+    ],
+    ids=["inside-ttl", "at-ttl", "clock-stepped-back"],
+)
+def test_the_asset_mode_is_read_at_most_once_per_ttl(elapsed: float, reads: int):
+    """PR #304 review, finding 1 — the mode costs weight 30 and changes only
+    when the user changes it, so a check every few seconds must not re-read
+    it."""
+    client = _happy_client({"assets": [_usdt_asset()], "positions": []})
+    clock = _Clock()
+    reader = _reader(client, clock=clock)
+    reader.check_connection()
+
+    clock.now += elapsed
+    summary = reader.check_connection().summary
+
+    assert summary is not None
+    assert client.futures_get_multi_assets_mode.call_count == reads
+
+
+def test_a_failed_asset_mode_read_is_not_cached():
+    client = _happy_client({"assets": [_usdt_asset()], "positions": []})
+    client.futures_get_multi_assets_mode.side_effect = [
+        BinanceRequestException("timeout"),
+        {"multiAssetsMargin": False},
+    ]
+    reader = _reader(client, clock=_Clock())
+
+    first = reader.check_connection().summary
+    second = reader.check_connection().summary
+
+    assert first is None
+    assert second is not None
+    assert client.futures_get_multi_assets_mode.call_count == 2

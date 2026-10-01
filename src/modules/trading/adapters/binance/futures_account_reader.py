@@ -15,7 +15,13 @@ shows (`FuturesAccountSummary`): the USDT asset's `availableBalance`,
 `walletBalance`, `marginBalance` and `unrealizedProfit`.
 
 `EPIC-028O` — which figures count depends on the account's Multi-Assets mode
-(`GET /fapi/v1/multiAssetsMargin`, one more signed request per check). In
+(`GET /fapi/v1/multiAssetsMargin`). The mode changes only when the user
+changes it, so it is read at most once per `ASSET_MODE_TTL_SECONDS`, not on
+every check: the summary refresh runs a check every 5 s (as often as every
+second, `module.py`), and at weight 30 per read (Binance's published USD-M
+table) reading it per check would add 360 to 1 800 weight a minute against
+Binance's 2 400 a minute IP budget (the PR #304 review, finding 1). Once per
+five minutes costs 6 a minute; a change of mode shows within five minutes. In
 Multi-Assets mode the summary reads the account-wide `totalWalletBalance`,
 `totalMarginBalance`, `totalUnrealizedProfit` and `availableBalance` (USD,
 every margin asset) and says so in `asset_mode`. A mode that cannot be read
@@ -35,6 +41,7 @@ from __future__ import annotations
 
 import logging
 import time
+from collections.abc import Callable
 from decimal import Decimal, InvalidOperation
 from typing import Any
 
@@ -74,6 +81,9 @@ _ERROR_CODE_TO_FAILURE_KIND: dict[int, ConnectionFailureKind] = {
 }
 
 _USDT_ASSET = "USDT"
+
+#: How long a read Multi-Assets mode is trusted before it is read again.
+ASSET_MODE_TTL_SECONDS = 300.0
 
 #: What reading the Multi-Assets mode can raise: the SDK, the network, or an
 #: answer of another shape.
@@ -205,9 +215,14 @@ class FuturesAccountReader(ITradingAccountReader):
         self,
         session_factory: ITradingSessionFactory,
         credentials_provider: IExchangeCredentialsProvider,
+        clock: Callable[[], float] = time.monotonic,
     ) -> None:
         self._session_factory = session_factory
         self._credentials_provider = credentials_provider
+        self._clock = clock
+        #: `EPIC-028O` — the last mode read and when; a failed read is never
+        #: cached.
+        self._asset_mode_read: tuple[AssetMode, float] | None = None
         #: `EPIC-028D` — whether the current run of unreadable summaries has
         #: been reported. The account is read every few seconds; a USDT
         #: asset that lacks a figure for good is one WARNING, not one per
@@ -297,7 +312,7 @@ class FuturesAccountReader(ITradingAccountReader):
         read, or a Single-Asset account has no USDT asset, rather than a
         summary with an invented zero or the wrong mode's figures."""
         try:
-            asset_mode = _asset_mode(client.futures_get_multi_assets_mode())
+            asset_mode = self._asset_mode(client)
         except _SUMMARY_READ_FAILURES as exc:
             self._report_unreadable_summary("its Multi-Assets mode", exc)
             return None
@@ -317,6 +332,17 @@ class FuturesAccountReader(ITradingAccountReader):
             self._summary_failure_reported = False
             logger.info("Futures account summary readable again")
         return summary
+
+    def _asset_mode(self, client: ITradingSessionClient) -> AssetMode:
+        """The mode read at most `ASSET_MODE_TTL_SECONDS` ago, or read now."""
+        now = self._clock()
+        cached = self._asset_mode_read
+        if cached is not None and 0 <= now - cached[1] < ASSET_MODE_TTL_SECONDS:
+            return cached[0]
+        mode = _asset_mode(client.futures_get_multi_assets_mode())
+        self._asset_mode_read = (mode, now)
+        logger.debug("[account-summary] Futures asset mode read: %s", mode.value)
+        return mode
 
     def _report_unreadable_summary(self, what: str, cause: Exception) -> None:
         if not self._summary_failure_reported:

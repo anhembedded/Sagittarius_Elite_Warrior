@@ -126,6 +126,9 @@ _DEFAULT_POSITION_REFRESH_INTERVAL_SECONDS: float = 5.0
 #: weight/min (12.5% of that budget), leaving headroom for every other
 #: request this app makes. Below 1s the app would be trading budget for a
 #: number that does not need sub-second freshness.
+#: `EPIC-028O` — the account-summary check on the same cadence reads the
+#: Futures Multi-Assets mode (weight 30) only every five minutes
+#: (`futures_account_reader.ASSET_MODE_TTL_SECONDS`), about 6 weight/min.
 _MIN_POSITION_REFRESH_INTERVAL_SECONDS: float = 1.0
 
 

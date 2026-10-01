@@ -269,8 +269,15 @@ def test_a_multi_assets_futures_success_names_the_margin_its_available_counts():
 
     text = format_exchange_connection_status(_success_status(summary=summary))
 
-    assert "Available (USD, all assets): 15,084.90" in text
+    assert "Available (USD):  15,084.90" in text
+    assert "MULTI_ASSETS (every margin asset, in USD)" in text
     assert "Available (USDT)" not in text
+
+
+def test_a_single_asset_futures_success_has_no_asset_mode_line():
+    text = format_exchange_connection_status(_success_status())
+
+    assert "Asset mode" not in text
 
 
 def test_a_futures_success_without_a_summary_shows_a_question_mark_not_zero():
