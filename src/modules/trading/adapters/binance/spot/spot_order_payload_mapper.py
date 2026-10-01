@@ -47,7 +47,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metada
 
 #: The only two order types Binance Spot's `create_order` accepts that this
 #: app's `OrderType` enum also has a member for.
-_SUPPORTED_SPOT_ORDER_TYPES = frozenset(
+SPOT_SENDABLE_ORDER_TYPES = frozenset(
     {OrderType.MARKET, OrderType.LIMIT, OrderType.STOP_LIMIT}
 )
 #: `EPIC-028O` — the order types that rest with a limit price and a time in
@@ -81,7 +81,7 @@ def map_order_to_spot_params(
     on anything but a market buy. Never `positionSide`/`reduceOnly` on the returned dict — Spot's
     API has no such fields.
     """
-    if order.order_type not in _SUPPORTED_SPOT_ORDER_TYPES:
+    if order.order_type not in SPOT_SENDABLE_ORDER_TYPES:
         raise InvalidOrderForSubmissionError(
             f"{order.order_type.name} is not a Spot order type — Spot "
             "supports MARKET, LIMIT and STOP_LIMIT only."

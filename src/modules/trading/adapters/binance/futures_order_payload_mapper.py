@@ -60,6 +60,9 @@ _ONE_WAY_POSITION_SIDE = "BOTH"
 _CONDITIONAL_ORDER_TYPES = frozenset(
     {OrderType.STOP_MARKET, OrderType.TAKE_PROFIT_MARKET, OrderType.STOP_LIMIT}
 )
+#: What the Futures client can send today: everything else is refused
+#: (`FuturesTradingClientFactory.accepted_order_types` answers with this).
+FUTURES_SENDABLE_ORDER_TYPES = frozenset({OrderType.MARKET, OrderType.LIMIT})
 #: Futures' spelling of a member whose name is not Binance's, for the read
 #: direction: a stop-limit is `STOP` on USD-M.
 FUTURES_ORDER_TYPE_NAMES: dict[str, OrderType] = {"STOP": OrderType.STOP_LIMIT}
@@ -87,6 +90,10 @@ def map_order_to_futures_params(
         raise InvalidOrderForSubmissionError(
             f"{order.order_type.name} on Futures goes through Binance's Algo Order "
             "API, which this app cannot yet track or cancel (EPIC-028R)."
+        )
+    if order.order_type not in FUTURES_SENDABLE_ORDER_TYPES:
+        raise InvalidOrderForSubmissionError(
+            f"{order.order_type.name} is not an order type the Futures client sends."
         )
     if order.quote_quantity is not None:
         raise InvalidOrderForSubmissionError(

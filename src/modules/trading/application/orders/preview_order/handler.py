@@ -87,6 +87,8 @@ class PreviewOrderQueryHandler(IQueryHandler[PreviewOrderQuery, OrderPreview]):
             if query.quote_quantity is not None
             else rounded_quantity * rounded_price
         )
+        # The policy multiplies quantity by price; the notional is already
+        # that product, so it goes in at a price of 1.
         notional_check = self._rounding_policy.is_notional_sufficient(
             notional, Decimal(1), metadata.min_notional
         )

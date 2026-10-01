@@ -82,6 +82,9 @@ class _Factory(ITradingClientFactory):
     def __init__(self, client: ITradingClient) -> None:
         self._client = client
 
+    def accepted_order_types(self) -> frozenset[OrderType]:
+        return frozenset({OrderType.MARKET, OrderType.LIMIT})
+
     def create(self, mode: OrderSubmissionMode) -> ITradingClient:
         return self._client
 

@@ -5,7 +5,7 @@ the fee depends on the account's tier, so it is read, not assumed. Futures
 answers per symbol (`GET /fapi/v1/commissionRate`). Spot answers per account
 (`GET /api/v3/account`'s `commissionRates`), so a symbol-specific discount
 is not seen. The per-symbol `GET /api/v3/account/commission` is in the
-pinned `python-binance` only as the auto-generated
+installed `python-binance` only as the auto-generated
 `v3_get_account_commission` (`EPIC-028Q` corrected an earlier "not wrapped").
 
 Plausible extensions, each one implementation behind this port: a Spot

@@ -36,12 +36,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderNotionalRejection,
     ExecuteOrderSafetyGate,
     ExecuteOrderStopRejection,
+    ExecuteOrderTypeRejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.invalid_order_for_submission import (
-    InvalidOrderForSubmissionError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_rejection_reason import (
     OrderRejectedByExchangeError,
@@ -547,17 +545,25 @@ class TestStopRejection:
         raw_client.futures_create_order.assert_not_called()
         assert state.orders_sent_this_session == 0
 
-    def test_a_stop_on_its_trigger_side_passes_the_gate_to_the_venue(self) -> None:
-        """One tick above the last price clears the gate; the Futures mapper
-        then refuses it, because `python-binance` would route it to the Algo
-        Order API (`EPIC-028R`). Still nothing is sent."""
+    @pytest.mark.parametrize("live", [False, True], ids=["dry-run", "live"])
+    def test_a_type_the_venue_cannot_send_is_refused_by_name(self, live: bool) -> None:
+        """One tick above the last price clears the stop gate; the Futures
+        client cannot send a stop-limit until `EPIC-028R` (`python-binance`
+        would route it to the Algo Order API), so the dry run and the live
+        path both answer `NOT_SENDABLE_ON_VENUE` and nothing is sent — the
+        PR #302 review's should-fix 1: no clean dry run, no exception."""
         raw_client = Mock()
         handler, state = _handler(raw_client=raw_client)
+        command = self._stop_command("64000.01")
 
-        with pytest.raises(InvalidOrderForSubmissionError, match="Algo Order API"):
-            handler.execute(self._stop_command("64000.01"))
+        result = handler.execute(
+            ExecuteOrderCommand(order_request=command.order_request, live=live)
+        )
 
+        assert result.blocked_by is ExecuteOrderTypeRejection.NOT_SENDABLE_ON_VENUE
+        assert result.limit_checks == ()
         raw_client.futures_create_order.assert_not_called()
+        raw_client.futures_create_test_order.assert_not_called()
         assert state.orders_sent_this_session == 0
 
 

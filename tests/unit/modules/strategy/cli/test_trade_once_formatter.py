@@ -20,6 +20,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
     ExecuteOrderStopRejection,
+    ExecuteOrderTypeRejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
@@ -141,6 +142,18 @@ def test_format_result_blocked_by_a_crossed_stop_never_reads_as_dry_run() -> Non
     assert "STOP_ON_WRONG_SIDE" in text
     assert "DRY-RUN" not in text
     assert "No order was sent." in text
+
+
+def test_format_result_blocked_by_a_type_the_venue_cannot_send() -> None:
+    result = ExecuteOrderResult(
+        blocked_by=ExecuteOrderTypeRejection.NOT_SENDABLE_ON_VENUE,
+        preview=object(),
+        limit_checks=(),
+        submitted_order=None,
+    )
+    text = format_result(result, live_requested=False)
+    assert "NOT_SENDABLE_ON_VENUE" in text
+    assert "DRY-RUN" not in text
 
 
 def test_format_result_blocked_by_safety_gate() -> None:

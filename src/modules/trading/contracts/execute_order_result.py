@@ -64,6 +64,15 @@ class ExecuteOrderStopRejection(str, Enum):
     STOP_ON_WRONG_SIDE = "stop_on_wrong_side"
 
 
+class ExecuteOrderTypeRejection(str, Enum):
+    """@brief `EPIC-028O` — an order type the venue's client cannot send
+    today (`ITradingClientFactory.accepted_order_types`): a Futures
+    conditional order until `EPIC-028R`. Refused before any request, on the
+    dry run and the live path alike."""
+
+    NOT_SENDABLE_ON_VENUE = "not_sendable_on_venue"
+
+
 @dataclass(frozen=True)
 class ExecuteOrderResult:
     """@details `blocked_by` is a safety gate, a notional rejection, a
@@ -81,6 +90,7 @@ class ExecuteOrderResult:
         ExecuteOrderSafetyGate
         | ExecuteOrderNotionalRejection
         | ExecuteOrderStopRejection
+        | ExecuteOrderTypeRejection
         | TradingLimitViolation
         | None
     )

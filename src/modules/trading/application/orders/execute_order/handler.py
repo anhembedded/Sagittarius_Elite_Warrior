@@ -28,6 +28,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
     ExecuteOrderStopRejection,
+    ExecuteOrderTypeRejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
@@ -97,11 +98,18 @@ class ExecuteOrderCommandHandler(
             return ExecuteOrderResult(
                 ExecuteOrderNotionalRejection.MIN_NOTIONAL, preview, (), None
             )
-        # `EPIC-028O` — the same before-the-network refusal for a stop that
-        # would trigger at once.
+        # `EPIC-028O` — the same before-the-network refusals: first a stop
+        # that would trigger at once (wrong on any venue), then an order type
+        # this venue's client cannot send. Named answers on the dry run and
+        # the live path alike, never an exception from inside `place_order`.
         if preview.stop_check is StopPriceCheck.WRONG_SIDE:
             return ExecuteOrderResult(
                 ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE, preview, (), None
+            )
+        accepted = scope.ports.client_factory.accepted_order_types()
+        if preview.order.order_type not in accepted:
+            return ExecuteOrderResult(
+                ExecuteOrderTypeRejection.NOT_SENDABLE_ON_VENUE, preview, (), None
             )
 
         symbol = command.order_request.symbol

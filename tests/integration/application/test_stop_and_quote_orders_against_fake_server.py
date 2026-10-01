@@ -4,15 +4,16 @@ request to the wire and back, against the fake exchange.
 @details Each order goes through the real `ExecuteOrderCommandHandler`:
 the preview rounds it, the venue's real trading client maps it, and
 `python-binance` form-encodes it to the fake server. What comes back is read
-through the real payload mappers, so a Spot `STOP_LOSS_LIMIT` and a Futures
-`STOP` are each proven to round-trip as `OrderType.STOP_LIMIT`.
+through the real payload mappers, so a Spot `STOP_LOSS_LIMIT` is proven to
+round-trip as `OrderType.STOP_LIMIT` (a Futures `STOP` read back is proven
+at the unit level only, since nothing sends one yet).
 
 The Spot fake triggers a stop-limit when a test moves the last price
 (`SpotAccountState.set_last_price`) and fills it at its limit.
 A stop already crossed is refused before any request, which the server's
-request log proves. A Futures stop-limit is refused before any request too:
-`python-binance` 1.0.37 routes it to Binance's Algo Order API, which the app
-cannot track or cancel until `EPIC-028R`.
+request log proves. A Futures stop-limit is refused by name before any
+request too: `python-binance` 1.0.37 routes it to Binance's Algo Order API,
+which the app cannot track or cancel until `EPIC-028R`.
 """
 
 from __future__ import annotations
@@ -24,7 +25,6 @@ from decimal import Decimal
 from pathlib import Path
 from unittest.mock import patch
 
-import pytest
 from binance.client import Client
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
@@ -71,9 +71,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
     ExecuteOrderStopRejection,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.invalid_order_for_submission import (
-    InvalidOrderForSubmissionError,
+    ExecuteOrderTypeRejection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
@@ -257,17 +255,17 @@ def test_a_quote_sized_spot_market_buy_spends_the_quote_amount() -> None:
     _with_fake_exchange(body)
 
 
-def test_a_futures_stop_limit_is_refused_before_any_request() -> None:
+def test_a_futures_stop_limit_is_refused_by_name_before_any_request() -> None:
     """`python-binance` 1.0.37 would send it to the Algo Order API, which the
-    app cannot track or cancel yet (`EPIC-028R`); nothing reaches the wire."""
+    app cannot track or cancel yet (`EPIC-028R`): the real Futures factory
+    says so, the handler answers by name, and nothing reaches the wire."""
 
     def body(urls: FakeServerUrls) -> None:
-        with pytest.raises(InvalidOrderForSubmissionError, match="Algo Order API"):
-            _execute(
-                _futures_context(),
-                _stop_limit(_FUTURES, OrderSide.SELL, "49000", "48900"),
-            )
+        result = _execute(
+            _futures_context(), _stop_limit(_FUTURES, OrderSide.SELL, "49000", "48900")
+        )
 
+        assert result.blocked_by is ExecuteOrderTypeRejection.NOT_SENDABLE_ON_VENUE
         posted = {path for method, path in urls.requests if method == "POST"}
         assert not posted & {"/fapi/v1/order", "/fapi/v1/algoOrder"}
 

@@ -13,6 +13,9 @@ Spot implementation of `ITradingClientFactory` alongside this one.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_order_payload_mapper import (
+    FUTURES_SENDABLE_ORDER_TYPES,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trading_client import (
     FuturesTradingClient,
 )
@@ -28,6 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client_fa
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
 )
@@ -48,6 +52,9 @@ class FuturesTradingClientFactory(ITradingClientFactory):
         self._session_factory = session_factory
         self._credentials_provider = credentials_provider
         self._metadata_provider = metadata_provider
+
+    def accepted_order_types(self) -> frozenset[OrderType]:
+        return FUTURES_SENDABLE_ORDER_TYPES
 
     def create(self, mode: OrderSubmissionMode) -> ITradingClient:
         return FuturesTradingClient(
