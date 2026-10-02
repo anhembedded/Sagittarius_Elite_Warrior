@@ -50,32 +50,35 @@ def flush_qt_deferred_deletes() -> None:
     qt_core.QCoreApplication.sendPostedEvents(None, qt_core.QEvent.Type.DeferredDelete)
 
 
-@pytest.fixture(autouse=True)
-def _flush_qt_deferred_deletes() -> Iterator[None]:
-    """Runs `flush_qt_deferred_deletes()` after every test, so no test pays
-    for another test's widget cleanup.
+def release_finished_test_objects() -> None:
+    """Collects due garbage on the main thread, then flushes deferred deletes.
 
-    Its teardown runs inside pytest-qt's own `pytest_runtest_teardown`
-    wrapper, after that wrapper has already `deleteLater()`-ed the test's
-    widgets, so this is the point where they are actually destroyed.
+    In this order, as plain code: the collection (`BUG-140`) drops the
+    wrappers of the test's reference cycles and queues their deletions, and
+    the flush then delivers them. Flushing first would carry them into the
+    next test (`qt_object_release.py`, `BUG-056`). Two fixtures could not
+    hold the order: pytest orders same-scope autouse fixtures by name (the
+    `PR #311` re-review). `test_garbage_is_collected_on_the_main_thread.py`
+    pins it.
     """
-    yield
+    collect_due_generations()
     flush_qt_deferred_deletes()
 
 
 @pytest.fixture(autouse=True)
-def _collect_garbage_on_the_main_thread() -> Iterator[None]:
-    """Collects what is due after every test, on the main thread (`BUG-140`).
+def _release_finished_test_objects() -> Iterator[None]:
+    """Runs `release_finished_test_objects()` after every test, so no test
+    pays for another test's cleanup.
 
-    Re-applies the policy first, in case a test turned automatic collection
-    back on. Defined after `_flush_qt_deferred_deletes` on purpose: it tears
-    down first, so the collection drops the cycles' wrappers and queues their
-    deletions before that flush delivers them (`qt_object_release.py`).
-    `test_garbage_is_collected_on_the_main_thread.py` pins it.
+    Re-applies the `BUG-140` policy first, in case a test turned automatic
+    collection back on. Its teardown runs inside pytest-qt's own
+    `pytest_runtest_teardown` wrapper, after that wrapper has already
+    `deleteLater()`-ed the test's widgets, so this is the point where they
+    are actually destroyed.
     """
     stop_automatic_collection()
     yield
-    collect_due_generations()
+    release_finished_test_objects()
 
 
 @pytest.fixture(scope="session", autouse=True)

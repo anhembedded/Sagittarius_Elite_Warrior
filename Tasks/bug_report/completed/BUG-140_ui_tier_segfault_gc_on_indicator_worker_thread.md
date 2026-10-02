@@ -50,7 +50,8 @@ Automatic collection is off for the whole process, and the main thread collects 
 - `src/support/ui_kit/main_thread_garbage_collector.py`: `MainThreadGarbageCollector`, a 100 ms `QTimer` owned by the `QApplication`. `app_bootstrapper.build()` starts it right after the `QApplication` exists and logs `[gc-policy]` at INFO. It has no `stop()`: turning collection back on while a worker lives is the hazard.
 - `tests/conftest.py`:
   - `pytest_configure` stops automatic collection in every test process, so it is already off when collection-time imports run.
-  - The autouse fixture `_collect_garbage_on_the_main_thread` re-applies the policy before each test and collects what is due after it, before `_flush_qt_deferred_deletes` delivers the deletions.
+  - The autouse fixture `_release_finished_test_objects` re-applies the policy before each test. After it, the fixture calls `release_finished_test_objects()`, which collects what is due and then flushes deferred deletes, in that order, as plain code. It replaces `_flush_qt_deferred_deletes`.
+  - The first version used two fixtures, and pytest ordered them by name: the flush ran before the collection, so the deletions the collection queued were carried into the next test. The `PR #311` re-review caught this with `pytest --setup-plan`.
   - The `qapp` fixture starts the same timer.
 - `test_qt_object_release.py`'s `_no_automatic_gc` fixture restores the previous state instead of turning collection on.
 
@@ -59,7 +60,8 @@ Automatic collection is off for the whole process, and the main thread collects 
   - a worker-thread allocation burst finalizes nothing;
   - the main thread's `collect_due_generations()` finalizes the cycle;
   - a call off the main thread is refused;
-  - the fixture is autouse and automatic collection is off.
+  - the fixture is autouse and automatic collection is off;
+  - a cycle whose finalizer queues a widget's `deleteLater()` is destroyed by `release_finished_test_objects()`; it fails with the two calls swapped.
 
   With the `conftest.py` wiring removed, three of the four fail on the assertion, not on an import.
 - `tests/unit/support/ui_kit/test_main_thread_garbage_collector.py`: the timer collects a cycle on the main thread. With `self._timer.start()` removed, `waitUntil` times out.

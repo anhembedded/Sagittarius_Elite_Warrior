@@ -22,9 +22,12 @@ import gc
 import threading
 
 import pytest
+import shiboken6
+from PySide6.QtWidgets import QWidget
 from Sagittarius_Elite_Warrior.src.support.ui_kit.main_thread_collection import (
     collect_due_generations,
 )
+from Sagittarius_Elite_Warrior.tests.conftest import release_finished_test_objects
 
 #: Far past CPython's first threshold (700) and its tenfold second one, so an
 #: enabled collector would run every generation the cycle could be in.
@@ -107,5 +110,35 @@ def test_automatic_collection_stays_off_for_every_test(
     request: pytest.FixtureRequest,
 ) -> None:
     """Remove the fixture's `autouse=True`, or the policy, and this fails."""
-    assert "_collect_garbage_on_the_main_thread" in request.fixturenames
+    assert "_release_finished_test_objects" in request.fixturenames
     assert not gc.isenabled()
+
+
+class _DeletesLaterWhenFinalized:
+    """One half of a cycle whose finalizer queues a widget's deletion, as a
+    collected view's wrapper does for the Qt objects it owned."""
+
+    def __init__(self, widget: QWidget) -> None:
+        self.widget = widget
+        self.partner: object = None
+
+    def __del__(self) -> None:
+        self.widget.deleteLater()
+
+
+def test_a_finished_tests_cycles_are_destroyed_by_its_own_release(qapp) -> None:
+    """Collect, then flush: in the other order the deletion the collection
+    queues stays pending into the next test. Swap the two lines of
+    `release_finished_test_objects()` and this fails."""
+    widget = QWidget()
+    first = _DeletesLaterWhenFinalized(widget)
+    first.partner = _DeletesLaterWhenFinalized(widget)
+    first.partner.partner = first
+    del first
+    # Make the youngest generation due, as a test's own allocation does.
+    padding = [[] for _ in range(gc.get_threshold()[0] + 1)]
+
+    release_finished_test_objects()
+
+    assert not shiboken6.isValid(widget)
+    del padding

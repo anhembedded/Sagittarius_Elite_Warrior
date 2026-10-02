@@ -30,7 +30,9 @@ def stop_automatic_collection() -> None:
 def collect_due_generations() -> None:
     """Collect each generation whose count passed CPython's own threshold.
 
-    The same schedule the automatic collector keeps, so memory behaves as
+    A close approximation of CPython's own schedule: it compares each
+    generation's count with its threshold, but does not apply CPython's
+    25% long-lived rule before collecting the oldest. Memory behaves as
     before; only the thread changes.
 
     @throws RuntimeError Called off the main thread, which is the hazard
