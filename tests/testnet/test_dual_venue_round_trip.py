@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts im
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
+    ExchangeCredentials,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -46,7 +49,9 @@ _VENUES = (TradingVenue.FUTURES_TESTNET, TradingVenue.SPOT_TESTNET)
 
 @pytest.fixture
 def venue_contexts(
-    testnet_credentials: object, spot_testnet_credentials: object, tmp_path: Path
+    testnet_credentials: ExchangeCredentials,
+    spot_testnet_credentials: ExchangeCredentials,
+    tmp_path: Path,
 ) -> Iterator[IVenueContexts]:
     """The composed app's venue registry with both Testnets enabled. The two
     credential fixtures are the gates; the app resolves the keys itself."""
