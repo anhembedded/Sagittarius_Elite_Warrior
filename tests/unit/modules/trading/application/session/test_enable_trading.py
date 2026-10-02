@@ -127,6 +127,7 @@ def test_enables_when_account_is_flat() -> None:
 
     assert result.enabled is True
     assert result.block_reason is None
+    assert result.account_was_read is True
     assert session_state.enabled is True
     user_data_stream.start.assert_called_once()
 
@@ -140,6 +141,7 @@ def test_blocked_when_trading_venue_disabled() -> None:
 
     assert result.enabled is False
     assert result.block_reason is EnableTradingBlockReason.TRADING_VENUE_DISABLED
+    assert result.account_was_read is False  # nothing was asked of the venue
     assert session_state.enabled is False
     user_data_stream.start.assert_not_called()
 
@@ -179,6 +181,7 @@ def test_blocked_when_connection_not_reachable() -> None:
     result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
 
     assert result.block_reason is EnableTradingBlockReason.CONNECTION_NOT_READY
+    assert result.account_was_read is False  # positions were never read
     assert session_state.enabled is False
     user_data_stream.start.assert_not_called()
 
@@ -201,6 +204,7 @@ def test_blocked_when_hedge_mode() -> None:
     result = handler.execute(EnableTradingCommand(venue=TradingVenue.FUTURES_TESTNET))
 
     assert result.block_reason is EnableTradingBlockReason.CONNECTION_NOT_READY
+    assert result.account_was_read is False
     assert session_state.enabled is False
     user_data_stream.start.assert_not_called()
 
@@ -231,6 +235,7 @@ def test_a_concurrent_emergency_stop_during_reconciliation_is_not_overridden() -
         result.block_reason
         is EnableTradingBlockReason.SUPERSEDED_BY_CONCURRENT_STATE_CHANGE
     )
+    assert result.account_was_read is True  # read before the stop landed
     assert session_state.enabled is False
     user_data_stream.start.assert_not_called()
 
@@ -246,6 +251,7 @@ def test_refuses_and_does_not_enable_when_unexpected_position_exists() -> None:
 
     assert result.enabled is False
     assert result.block_reason is EnableTradingBlockReason.UNEXPECTED_POSITIONS
+    assert result.account_was_read is True
     assert len(result.reconciled_positions) == 1
     assert result.reconciled_positions[0].symbol == "BTCUSDT"
     assert session_state.enabled is False

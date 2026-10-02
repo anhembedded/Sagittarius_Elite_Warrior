@@ -2069,9 +2069,8 @@ def test_order_filled_for_a_symbol_with_no_open_chart_is_a_no_op(presenter):
 
 
 # ---------------------------------------------------------------------------
-# `EPIC-023A` — OrderFeed -> Vị thế/Lệnh chờ khớp tables (account-wide, same
-# behaviour `TradingPresenter`'s own OrderFeed handlers already have — see
-# `test_trading_presenter_toggle.py`'s mirror-image tests).
+# `EPIC-023A` — OrderFeed -> Vị thế/Lệnh chờ khớp tables (account-wide, the
+# behaviour `LiveOrderBookCoordinator` gives every screen that shows them).
 # ---------------------------------------------------------------------------
 
 
@@ -2547,6 +2546,38 @@ def test_refused_enable_shows_the_block_reason_and_seeds_positions(
     positions_spy.assert_called_once_with([build_position_row(position)])
 
 
+def test_an_enable_refused_before_reading_the_venue_leaves_the_tables(
+    presenter, trading_session, view, monkeypatch, mock_thread_mgr
+):
+    """`EPIC-028M` (the PR 309 review) — `CONNECTION_NOT_READY` is decided
+    before the venue is read: its empty tuples are not "flat", so the rows
+    the board shows stay."""
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
+        EnableTradingBlockReason,
+        EnableTradingResult,
+    )
+
+    trading_session.enable_answers(
+        EnableTradingResult(
+            enabled=False,
+            block_reason=EnableTradingBlockReason.CONNECTION_NOT_READY,
+            reconciled_positions=(),
+            reconciled_open_orders=(),
+        )
+    )
+    open_orders_spy = MagicMock()
+    positions_spy = MagicMock()
+    monkeypatch.setattr(view, "set_open_orders", open_orders_spy)
+    monkeypatch.setattr(view, "set_positions", positions_spy)
+    presenter._view_model.toggleRequested.emit()
+
+    _run_last_submitted(mock_thread_mgr)
+
+    assert presenter._view_model.enabled is False
+    open_orders_spy.assert_not_called()
+    positions_spy.assert_not_called()
+
+
 def test_an_enable_exception_from_the_session_port_is_reported_not_raised(
     presenter, trading_session, mock_thread_mgr
 ):
@@ -2961,3 +2992,42 @@ def test_the_boards_live_price_reaches_the_dialog_for_its_symbol_only(spot_board
 
     spot_board._on_ui_chart_update(symbol, 1.0, 1.0, 1.0, 1.0, 101.5, 1.0, True)
     assert spot_board._order_entry.view_model.last_price == Decimal("101.5")
+
+
+def test_the_dialog_rereads_its_balances_when_the_session_changed_the_account(
+    spot_board, mock_thread_mgr
+):
+    """The PR 309 review — after an enable or an Emergency Stop the board
+    asked for no re-read, and F9 kept the earlier available balance."""
+    from decimal import Decimal
+
+    from ..desk.order_entry_fixtures import SYMBOL, spot_status
+
+    spot_board._order_entry.show_symbol(SYMBOL)  # the symbol the terms are for
+    ports = spot_board.container.resolve(IVenueTradingPorts)
+    ports.get(TradingVenue.SPOT_TESTNET).account_snapshot.answer_with(
+        spot_status(quote_free=Decimal(900))
+    )
+
+    mock_thread_mgr.submit.reset_mock()
+    spot_board._session_controls.accountChanged.emit()
+    for task, *args in (call.args for call in mock_thread_mgr.submit.call_args_list):
+        task(*args)
+
+    assert spot_board._order_entry.view_model.context.available_quote == 900
+
+
+def test_charting_another_market_clears_the_dialogs_price(spot_board):
+    """The PR 309 review — a Spot venue's price stays out of date while the
+    board charts Futures, so it is cleared rather than kept unmarked."""
+    from decimal import Decimal
+
+    spot_board._active_market = MarketType.SPOT
+    symbol = spot_board._active_symbol
+    spot_board._on_ui_chart_update(symbol, 1.0, 1.0, 1.0, 1.0, 101.5, 1.0, True)
+    assert spot_board._order_entry.view_model.last_price == Decimal("101.5")
+
+    spot_board._view_model.market = MarketType.FUTURES_USD_M.value
+    spot_board._on_load_history()
+
+    assert spot_board._order_entry.view_model.last_price is None

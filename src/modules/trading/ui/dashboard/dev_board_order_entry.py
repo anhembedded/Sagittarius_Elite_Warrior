@@ -19,6 +19,10 @@ What the board passes the panel, and what it takes back:
 - on Futures, each entry placed with TP/SL, for the follower that places them
   once it fills (`EPIC-028I`), as a desk does.
 
+Its balances are read again after each of the venue's fills (the feed is the
+venue's own) and when the board asks, after the session reconciled the
+account (an enable, an Emergency Stop), as a desk does.
+
 Extension cases, each local: a venue picker in the dialog (one argument
 here); a second board (one more instance).
 """
@@ -78,6 +82,7 @@ class DevBoardOrderEntry(QObject):
             self.view_model, ports, thread_manager, confirm
         )
         self._presenter.orderAccepted.connect(self.orderAccepted)
+        feed.orderFilled.connect(self.refresh)
         self._follower: ProtectiveOrderFollower | None = None
         if profile.futures_controls:
             follower = ProtectiveOrderFollower(
@@ -99,6 +104,13 @@ class DevBoardOrderEntry(QObject):
         if market is self._market:
             self._presenter.update_last_price(price)
 
+    def show_market(self, market: MarketType) -> None:
+        """The market the board now charts. Another market's price never
+        reaches the panel, so the last one would sit there unmarked as old:
+        it is cleared, and a Market estimate waits for this venue's price."""
+        if market is not self._market:
+            self._presenter.update_last_price(None)
+
     def refresh(self) -> None:
-        """Re-reads the panel's balances, after a fill for instance."""
+        """Re-reads the panel's balances."""
         self._presenter.refresh()

@@ -20,8 +20,9 @@ per kind of host: `accountChanged` asks a host to read its tables again (a
 desk's account tabs read the venue), and `accountReconciled` hands over the
 positions and open orders the session itself confirmed, for a host that
 keeps its tables from events and these answers alone (the Dev Board). An
-unconfirmed final state hands over nothing: an empty answer from a failed
-read is not "flat".
+unconfirmed final state hands over nothing, and nor does an enable refused
+before the venue was read: an empty answer from a failed or skipped read is
+not "flat".
 """
 
 from __future__ import annotations
@@ -157,11 +158,12 @@ class DeskSessionControls(QObject):
 
     def _show_enable_result(self, result: EnableTradingResult) -> None:
         self.stateChanged.emit(result.enabled, False)
-        self.accountReconciled.emit(
-            ReconciledAccount(
-                result.reconciled_positions, result.reconciled_open_orders
+        if result.account_was_read:
+            self.accountReconciled.emit(
+                ReconciledAccount(
+                    result.reconciled_positions, result.reconciled_open_orders
+                )
             )
-        )
         if result.enabled:
             self.statusChanged.emit("Trading enabled.", False)
             self.tradingEnabled.emit()

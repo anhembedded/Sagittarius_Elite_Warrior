@@ -72,17 +72,17 @@ class Board:
     bus: MemoryEventBus
     accepted: list[Order]
     log: list[str]
+    snapshot: FakeAccountSnapshot
 
 
 def _board(qapp, venue: TradingVenue) -> Board:
     submission = FakeOrderSubmission()
     futures = venue is FUTURES
+    snapshot = FakeAccountSnapshot(futures_status() if futures else spot_status())
     ports = fake_venue_ports(
         venue,
         order_submission=submission,
-        account_snapshot=FakeAccountSnapshot(
-            futures_status() if futures else spot_status()
-        ),
+        account_snapshot=snapshot,
         order_entry_terms=futures_terms() if futures else FakeOrderEntryTerms(TERMS),
     )
     bus = MemoryEventBus()
@@ -95,7 +95,17 @@ def _board(qapp, venue: TradingVenue) -> Board:
     accepted: list[Order] = []
     entry.orderAccepted.connect(accepted.append)
     entry.show_symbol(SYMBOL)
-    return Board(entry, submission, bus, accepted, log)
+    return Board(entry, submission, bus, accepted, log, snapshot)
+
+
+def _spot_fill() -> OrderFilledEvent:
+    preview = canned_preview(OrderSide.BUY, "1", "100")
+    return OrderFilledEvent(
+        order=replace(preview.order, status=OrderStatus.FILLED),
+        fill_price=Decimal(100),
+        fill_quantity=Decimal(1),
+        venue=SPOT,
+    )
 
 
 def _type_limit_buy(board: Board, quantity: str, price: str) -> Order:
@@ -162,6 +172,34 @@ def test_the_boards_price_counts_only_from_the_venues_market(qapp) -> None:
 
     board.entry.update_last_price(MarketType.FUTURES_USD_M, MARK)
     assert board.entry.view_model.last_price == MARK
+
+
+def test_switching_the_board_to_another_market_clears_the_venues_price(
+    qapp,
+) -> None:
+    """The PR 309 review — the venue's last price would otherwise stay, with
+    nothing marking it old, under every Market estimate."""
+    board = _board(qapp, FUTURES)
+    board.entry.update_last_price(MarketType.FUTURES_USD_M, MARK)
+
+    board.entry.show_market(MarketType.FUTURES_USD_M)
+    assert board.entry.view_model.last_price == MARK
+
+    board.entry.show_market(MarketType.SPOT)
+    assert board.entry.view_model.last_price is None
+
+
+def test_a_fill_on_the_venue_rereads_the_panels_balances(qapp) -> None:
+    """The PR 309 review — a fill changes what is available and what can be
+    sold; the panel reads them again rather than keep the earlier figures."""
+    board = _board(qapp, SPOT)
+    assert board.entry.view_model.context.available_quote == 1000
+    board.snapshot.answer_with(spot_status(quote_free=Decimal(900)))
+
+    board.bus.emit(_spot_fill())
+    qapp.processEvents()
+
+    assert board.entry.view_model.context.available_quote == 900
 
 
 def test_a_futures_entry_with_tp_sl_is_protected_once_it_fills(qapp) -> None:

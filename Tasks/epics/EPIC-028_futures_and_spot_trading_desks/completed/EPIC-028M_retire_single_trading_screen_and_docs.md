@@ -64,3 +64,8 @@ Delete, don't deprecate (no compatibility shims). The PR #300 epic review correc
   - `dashboard_view.py` stays under 400 lines by hosting the panel in `OrderEntryHost`, which is based on the kit `Panel` because of the bare-Qt-base guard.
 - **Kept:** the `"trading"` surface in `src/shell/surfaces.py`. It declares a workbench place family, not a route, and the desks move onto it when `EPIC-025` converts the remaining `PageShell`s.
 - **Not changed, needs the user (settings rule):** `pyproject.toml`'s mypy exclude list still names five `ui/trading/` paths that no longer exist (`trading_view.py`, `trading_presenter.py`, `trading_view_model.py`, `module.py`, `preview.py`). They match nothing now, and removing them is pure shrink, but editing `pyproject.toml` needs the user's approval.
+- **Follow-up from the PR 309 review.**
+  - An enable refused before the venue was read (`TRADING_VENUE_DISABLED`, `CONNECTION_NOT_READY`) hands over nothing, so the Dev Board keeps its tables. `EnableTradingResult.account_was_read` states this in the contract, and the handler's tests pin it on every path.
+  - F9 reads its balances again after each of the venue's fills and when the session changed the account (an enable, an Emergency Stop), as a desk does.
+  - When the board switches to the other market, F9 clears its price rather than keep an old one unmarked.
+  - Comments and Settings text that named the deleted screen as if it still existed now use the past tense or name the desk class that replaced it.

@@ -35,9 +35,27 @@ class EnableTradingBlockReason(str, Enum):
     SUPERSEDED_BY_CONCURRENT_STATE_CHANGE = "superseded_by_concurrent_state_change"
 
 
+#: `EPIC-028M` (the PR 309 review) — the refusals decided before the venue was
+#: read: their empty `reconciled_*` tuples say nothing about the account.
+_REFUSED_BEFORE_READING = frozenset(
+    {
+        EnableTradingBlockReason.TRADING_VENUE_DISABLED,
+        EnableTradingBlockReason.CONNECTION_NOT_READY,
+    }
+)
+
+
 @dataclass(frozen=True)
 class EnableTradingResult:
     enabled: bool
     block_reason: EnableTradingBlockReason | None
     reconciled_positions: tuple[LivePosition, ...]
     reconciled_open_orders: tuple[Order, ...]
+
+    @property
+    def account_was_read(self) -> bool:
+        """Whether `reconciled_positions`/`reconciled_open_orders` are the
+        venue's answer. A refusal decided before any read (the venue off, the
+        connection not ready) carries empty tuples, and "nothing came back"
+        is not "flat" (`BUG-093`'s principle)."""
+        return self.block_reason not in _REFUSED_BEFORE_READING

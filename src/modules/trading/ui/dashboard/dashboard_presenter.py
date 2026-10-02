@@ -212,8 +212,8 @@ _MAX_SYMBOL_LENGTH = 20
 _LOAD_MORE_BATCH_CANDLES_CONFIG_KEY: str = "CHART_CARD_LOAD_MORE_BATCH_CANDLES"
 _DEFAULT_LOAD_MORE_BATCH_CANDLES: int = 75
 
-#: `EPIC-021K` §2.3/§3 — live-fill trade markers, same key `TradingPresenter`
-#: uses (separate `MarkerLayer` per `ChartCard`, so no collision between screens).
+#: `EPIC-021K` §2.3/§3 — live-fill trade markers, the key `DeskChart` uses too
+#: (separate `MarkerLayer` per `ChartCard`, so no collision between screens).
 _FILL_MARKERS_KEY = "live_fills"
 
 #: `PRO-003` §4.1.2's message for the hard block on the strategy's armed
@@ -653,8 +653,8 @@ class DashboardPresenter(BasePresenter):
         self._symbolOptionsReadySignal.connect(self._on_symbol_options_ready)
         self._symbolOptionsFailedSignal.connect(self._on_symbol_options_failed)
 
-        # `EPIC-023C` — strategy card, same connections `TradingPresenter`
-        # makes for the identical ViewModel signals.
+        # `EPIC-023C` — strategy card, the connections the retired Trading
+        # screen made for the identical ViewModel signals (`EPIC-028M`).
         view_model.strategy.strategyConfigChanged.connect(
             self._on_strategy_selection_changed
         )
@@ -733,7 +733,7 @@ class DashboardPresenter(BasePresenter):
         self._sync_feed.progressUpdated.connect(self._on_sync_progress)
         # `EPIC-021K` §2.3/§3 — live fills as chart markers; `EPIC-023A` (Vị
         # thế/Lệnh chờ khớp tables) and `EPIC-027O` (`holdingsChanged`) widened
-        # this same `OrderFeed` (`TradingPresenter`'s own, `EPIC-021H`) as
+        # this same `OrderFeed` (`EPIC-021H`; the desks read it too) as
         # further consumers, not a new subscription shape.
         feeds = screen_venue_feeds.build(self.event_bus, self.container, self)
         self._order_feed = feeds.orders
@@ -742,12 +742,11 @@ class DashboardPresenter(BasePresenter):
         self._order_feed.positionClosed.connect(self._on_position_closed)
         self._order_feed.orderBlocked.connect(self._on_order_blocked)
         self._order_feed.holdingsChanged.connect(self._on_holdings_changed)  # EPIC-027O
-        # `EPIC-023B` — same one-place-subscribes Feed `TradingPresenter`
-        # already uses (`EPIC-021M`); a second consumer, not a new shape.
+        # `EPIC-023B` — the one-place-subscribes Feed `DeskEquity` also uses
+        # (`EPIC-021M`); another consumer, not a new shape.
         self._equity_feed = feeds.equity
         self._equity_feed.equitySampled.connect(self._on_equity_sampled)
-        # `EPIC-023C` — same shared bus `TradingPresenter` reads
-        # `SignalGeneratedEvent` from (`EPIC-022E`); a second consumer.
+        # `EPIC-023C` — `SignalGeneratedEvent` from the shared bus (`EPIC-022E`).
         self._signal_feed = feeds.signals
         self._signal_feed.signalGenerated.connect(
             self._arming_coordinator.on_signal_generated
@@ -775,6 +774,7 @@ class DashboardPresenter(BasePresenter):
             self,
         )
         entry.orderAccepted.connect(self._order_book.on_order_filled)
+        self._session_controls.accountChanged.connect(entry.refresh)
         self.view.order_entry_host.attach(entry.view_model)
         entry.show_symbol(self._active_symbol)
         return entry
@@ -792,12 +792,12 @@ class DashboardPresenter(BasePresenter):
     def _on_order_filled(self, event: OrderFilledEvent) -> None:
         """`OrderFeed.orderFilled` handler — already on the main thread.
         Three effects: (1) table bookkeeping via `LiveOrderBookCoordinator`
-        (`EPIC-023A` — pulled out after this duplicated `TradingPresenter`'s
-        own dict/render logic a second time); (2) a chart marker, only when
-        that symbol's chart is open (`active_charts`) — a fill Dev Board
-        isn't showing has nowhere to draw, same guard
-        `TradingPresenter._record_fill_marker` uses for its one chart, and
-        stays here since it is genuinely screen-specific; (3) `EPIC-023D` —
+        (`EPIC-023A` — pulled out after this duplicated the retired Trading
+        screen's dict/render logic a second time); (2) a chart marker, only
+        when that symbol's chart is open (`active_charts`) — a fill Dev Board
+        isn't showing has nowhere to draw, the guard `DeskChart` keeps for
+        its one chart, and stays here since it is genuinely
+        screen-specific; (3) `EPIC-023D` —
         refreshes the session-stats card."""
         self._order_book.on_order_filled(event.order)
         self._refresh_session_stats()
@@ -841,8 +841,7 @@ class DashboardPresenter(BasePresenter):
 
     def _on_equity_sampled(self, event: EquitySampledEvent) -> None:
         """`EquityFeed.equitySampled` handler — already on the main thread.
-        Account-wide (no per-symbol filtering), same as `TradingPresenter`'s
-        own handler."""
+        Account-wide (no per-symbol filtering), as `DeskEquity` draws it."""
         self.view.equity_chart.append_closed_candle(
             *equity_sample_to_candle(event.sample)
         )
@@ -886,7 +885,7 @@ class DashboardPresenter(BasePresenter):
     # ================================================================== #
     # Strategy card (`EPIC-023C`) — the button handlers live in
     # `StrategyArmingCoordinator`; what stays here is what this Presenter
-    # genuinely owns, same split `TradingPresenter` documents for itself.
+    # genuinely owns, the split `DeskStrategy` keeps on the desks.
     # ================================================================== #
 
     @Slot()

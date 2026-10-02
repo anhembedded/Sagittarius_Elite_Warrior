@@ -9,7 +9,7 @@
  "src/modules/market_data/ui/data_management_presenter.py": 671,
  "src/modules/market_data/ui/data_management_view.py": 725,
  "src/modules/market_data/ui/data_management_view_model.py": 525,
- "src/modules/trading/ui/dashboard/dashboard_presenter.py": 1250,
+ "src/modules/trading/ui/dashboard/dashboard_presenter.py": 1249,
  "src/modules/trading/ui/dashboard/dashboard_view_model.py": 406,
  "src/modules/trading/ui/dashboard/dev_board_panel.py": 653,
  "src/modules/trading/ui/dashboard/stream_lifecycle_controller.py": 601,

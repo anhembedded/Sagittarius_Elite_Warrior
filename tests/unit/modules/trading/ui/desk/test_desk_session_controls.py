@@ -302,3 +302,48 @@ def test_an_unconfirmed_stop_hands_over_nothing(rig: Rig) -> None:
     rig.threads.run(0)
 
     assert rig.seen.reconciled == []
+
+
+@pytest.mark.parametrize(
+    "reason",
+    [
+        EnableTradingBlockReason.TRADING_VENUE_DISABLED,
+        EnableTradingBlockReason.CONNECTION_NOT_READY,
+    ],
+)
+def test_an_enable_refused_before_any_read_hands_over_nothing(
+    rig: Rig, reason: EnableTradingBlockReason
+) -> None:
+    """The PR 309 review — these refusals never read the venue: handing their
+    empty tuples over would wipe the tables of what they show."""
+    rig.session.enable_answers(
+        EnableTradingResult(
+            enabled=False,
+            block_reason=reason,
+            reconciled_positions=(),
+            reconciled_open_orders=(),
+        )
+    )
+
+    rig.controls.toggle()
+    rig.threads.run(0)
+
+    assert rig.seen.reconciled == []
+    assert rig.seen.last_status == (ENABLE_BLOCK_MESSAGES[reason], True)
+
+
+def test_a_refusal_after_reading_still_hands_over_what_it_read(rig: Rig) -> None:
+    left = order("BTCUSDT", "SEW-unexpected")
+    rig.session.enable_answers(
+        EnableTradingResult(
+            enabled=False,
+            block_reason=EnableTradingBlockReason.UNEXPECTED_POSITIONS,
+            reconciled_positions=(),
+            reconciled_open_orders=(left,),
+        )
+    )
+
+    rig.controls.toggle()
+    rig.threads.run(0)
+
+    assert rig.seen.reconciled == [ReconciledAccount((), (left,))]
