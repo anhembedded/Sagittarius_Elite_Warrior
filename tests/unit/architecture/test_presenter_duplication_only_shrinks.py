@@ -29,8 +29,9 @@ answer in Phase 4. Until then this file's job is the other direction.
 by 9 names — exactly the pattern this guard exists to catch, since it was
 new duplication, not debt carried through a move. Fixed at the root per
 this guard's own §"the one amendment": `set_status`/`_get_status_message`/
-`_get_status_is_error` were byte-identical to what `DeskViewModel`
-(`modules/trading/ui/trading/`) already defined, so all three now subclass
+`_get_status_is_error` were byte-identical to what the Trading screen's
+view model (now `DeskViewModel`, `modules/trading/ui/desk/desk_screen/`)
+already defined, so all three now subclass
 one new `support/ui_kit/status_view_model.py::StatusMessageViewModel` —
 inherited names the tool's own documented exclusion rule does not count,
 removing 3 of the 9. The remaining 6

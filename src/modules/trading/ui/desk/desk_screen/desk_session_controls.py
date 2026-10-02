@@ -1,13 +1,11 @@
 """`EPIC-028K` — a desk's Enable/Disable toggle and its Emergency Stop, for
 the desk's own venue only.
 
-@details The behaviour the single Trading screen's presenter and the Dev Board
-each still carry (`EPIC-021I`, `EPIC-021K`), written once here for the desks
-so a desk's presenter stays a composition, and addressed to one venue's
-`ITradingSession`: the Spot desk's Emergency Stop stops Spot and nothing else
-(`EPIC-028B`). The two older copies are not yet replaced: the Trading
-screen's leaves with that screen and the Dev Board moves onto this class in
-`EPIC-028M` (the PR 308 review).
+@details Written once for every screen that turns one venue's trading on and
+off (`EPIC-021I`, `EPIC-021K`), so a screen's presenter stays a composition,
+and addressed to one venue's `ITradingSession`: the Spot desk's Emergency Stop
+stops Spot and nothing else (`EPIC-028B`). The single Trading screen's copy
+left with that screen (`EPIC-028M`).
 
 Two trackers, never one (`BUG-089`): an `ActionOwnershipTracker` holds one
 active action whatever its kind, so a toggle click landing while Emergency

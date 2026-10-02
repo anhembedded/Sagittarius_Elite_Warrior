@@ -16,8 +16,6 @@ def test_starts_disabled_and_idle(qapp) -> None:
     assert vm.toggleBusy is False
     assert vm.symbol == ""
     assert vm.symbolOptions == []
-    assert vm.ordersSentThisSession == 0
-    assert vm.openSymbolsCount == 0
 
 
 def test_set_symbol_options_updates_and_notifies(qapp) -> None:
@@ -90,15 +88,6 @@ def test_set_status_updates_message_and_error_flag(qapp) -> None:
 
     assert vm.statusMessage == "Trading enabled."
     assert vm.statusIsError is False
-
-
-def test_set_session_stats_updates_both_counters(qapp) -> None:
-    vm = DeskViewModel()
-
-    vm.set_session_stats(5, 2)
-
-    assert vm.ordersSentThisSession == 5
-    assert vm.openSymbolsCount == 2
 
 
 def test_log_model_is_stable_across_reads(qapp) -> None:

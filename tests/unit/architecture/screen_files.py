@@ -17,8 +17,8 @@ stays each guard's own.
 `ScreenContribution(..., route=<ROUTE_CONSTANT>, ...)`. A screen's directory
 depth varies with how many screens its module owns — `backtesting/ui/
 backtest_screen.py` sits at the module's `ui/` root (the module's only
-screen), `trading/ui/trading/trading_screen.py` and `trading/ui/dashboard/
-dashboard_screen.py` each own a subdirectory (the module has two) — so
+screen), `trading/ui/dashboard/dashboard_screen.py` owns a subdirectory and
+the two desks share one (`trading/ui/desk/desk_screen/`) — so
 "screen package" is derived from the file, not guessed from a directory name
 matching its route (`database_screen.py`'s own route is `"data_management"`,
 which no name-matching scheme would find).

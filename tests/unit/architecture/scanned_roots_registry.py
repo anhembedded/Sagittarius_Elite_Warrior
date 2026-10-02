@@ -203,10 +203,6 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/modules/backtesting/ui/test_backtest_view_contract.py",
         (("src/modules/backtesting/ui", "*.py"),),
     ),
-    (
-        "tests/unit/modules/trading/ui/trading/test_trading_view_contract.py",
-        (("src/modules/trading/ui/trading", "*.py"),),
-    ),
     ("tests/unit/presentation/test_enum_labels.py", (("src/presentation", "*.py"),)),
     # --- application / domain / infrastructure ------------------------------
     # PR 3.1c retargeted this guard: `src/application/` is **empty** now, and a

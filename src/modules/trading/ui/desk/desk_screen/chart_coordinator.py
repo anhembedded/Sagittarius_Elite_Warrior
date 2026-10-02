@@ -1,5 +1,5 @@
-"""Historical load + live-stream lifecycle for the Trading screen's single
-chart (`EPIC-021I`).
+"""Historical load + live-stream lifecycle for one desk's chart (born as the
+single Trading screen's, `EPIC-021I`; a desk's since `EPIC-028M`).
 
 @details Mirrors `dashboard/stream_lifecycle_controller.py`'s shape,
 narrowed: one chart, one symbol/interval at a time, no auto-sync progress
@@ -7,16 +7,16 @@ bar (this screen has none — plain log lines instead), no Load History /
 Start Live distinction (the chart is always live while this screen is
 open).
 
-Never touches `TradingPresenter.view` — every method here runs on a
-background thread (submitted via `IThreadManager`), and `ChartCard` is a
-`QWidget`; mutating it off the Qt main thread is the exact class of defect
-`BUG-031` documents. Results are reported back only through the
-`emit_*` callables, each bound to one of `TradingPresenter`'s own Qt
-signals — the same boundary `StreamLifecycleController` uses.
+Never touches the desk's view — every method here runs on a background
+thread (submitted via `IThreadManager`), and `ChartCard` is a `QWidget`;
+mutating it off the Qt main thread is the exact class of defect `BUG-031`
+documents. Results are reported back only through the `emit_*` callables,
+each bound to one of `DeskChart`'s own Qt signals — the same boundary
+`StreamLifecycleController` uses.
 
 Owns no async action-id/cancellation bookkeeping of its own
 (`async-ui-action-rule.md` §2): the `CancellationToken` is created and
-reset by `TradingPresenter`, passed in on every call.
+reset by `DeskChart`, passed in on every call.
 
 **No dispatcher.** `EPIC-025` PR 1.1a moved the candle read onto
 `IHistoricalKlines` and 1.1b the stream onto `IMarketStream`, which between
@@ -26,8 +26,8 @@ that this class talks to the bus.
 
 **Ownership (`BOT-126`).** `IMarketStream` is reference-counted per
 `(symbol, interval)` across owners — this coordinator always identifies
-itself as its `stream_owner` ("trading" for the Trading screen), so `stop()` here only ever releases
-THIS screen's own subscription, never Dev Board's, even if both are live
+itself as its `stream_owner` (one per desk, `desk.<venue>`), so `stop()` here only ever
+releases THIS desk's own subscription, never Dev Board's, even if both are live
 on the same or different symbols at once. Stop-then-start on a
 symbol/interval change (`start()`/`stop()` below) is kept for clarity, not
 because it is required — the port already replaces this owner's prior
@@ -66,13 +66,6 @@ if TYPE_CHECKING:
 #: EPIC-021I's own scope decision).
 _HISTORY_CANDLE_LIMIT = 500
 
-#: `BOT-126` — the Trading screen's identity on `IMarketStream`. Exactly
-#: one `TradingPresenter`/`ChartCoordinator` is ever alive at once, so a
-#: fixed string is enough for it. `EPIC-028K` — each desk passes its own
-#: (`stream_owner`): with one shared owner, opening one desk's chart would
-#: replace the other's subscription (the PR #300 epic review).
-TRADING_STREAM_OWNER = "trading"
-
 
 class ChartCoordinator:
     """@brief Loads history and keeps the Trading screen's one `ChartCard`
@@ -91,8 +84,12 @@ class ChartCoordinator:
         emit_stream_started: Callable[[str], None],
         emit_stream_failed: Callable[[str], None],
         emit_log: Callable[[str], None],
-        stream_owner: str = TRADING_STREAM_OWNER,
+        stream_owner: str,
     ) -> None:
+        """@param stream_owner This chart's identity on `IMarketStream`
+        (`BOT-126`), one per desk and required: with one shared owner,
+        opening one desk's chart replaced the other's subscription (the
+        PR 300 epic review)."""
         self._stream_owner = stream_owner
         self._thread_manager = thread_manager
         self._market_data_sync = market_data_sync
