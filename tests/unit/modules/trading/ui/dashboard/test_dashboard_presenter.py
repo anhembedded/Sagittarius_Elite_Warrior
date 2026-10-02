@@ -20,6 +20,7 @@ import os
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from unittest.mock import MagicMock, Mock
 
 import pytest
@@ -46,6 +47,10 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
     IArmedStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
+    EnableTradingBlockReason,
+    EnableTradingResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
@@ -78,6 +83,8 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_pre
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_KEY
+
+from ..desk.order_entry_fixtures import SYMBOL, TERMS, spot_status
 
 # ---------------------------------------------------------------------------
 # Shared fixtures
@@ -127,8 +134,8 @@ def mock_config():
 @pytest.fixture
 def equity_curve():
     """`EPIC-023B`, moved onto `IEquityCurve` by `EPIC-025` PR 1.3c-3 — an
-    empty curve by default (the same shape `test_trading_presenter_equity.py`
-    uses): `samples()` must answer a real iterable, not a `MagicMock`
+    empty curve by default (the desks' `test_desk_equity.py` uses the same
+    fake): `samples()` must answer a real iterable, not a `MagicMock`
     attribute, for `equity_samples_to_candles()` to accept it."""
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_equity_curve import (
         FakeEquityCurve,
@@ -139,8 +146,7 @@ def equity_curve():
 
 @pytest.fixture
 def strategy_registry():
-    """`EPIC-023C` — a real registry, same shape
-    `test_trading_presenter_toggle.py`'s own fixture has: `restore_into_
+    """`EPIC-023C` — a real registry: `restore_into_
     view_model()` calls `sorted(self._available_strategies())`, which a bare
     `MagicMock` cannot satisfy."""
     from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
@@ -2006,8 +2012,6 @@ def test_presenter_shutdown_cancels_cancellation_token_and_shuts_down_autostart(
 
 
 def _fill_event(symbol="ETHUSDT", order_time=None, status=None):
-    from decimal import Decimal
-
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
         ClientOrderId,
     )
@@ -2075,9 +2079,6 @@ def test_order_filled_for_a_symbol_with_no_open_chart_is_a_no_op(presenter):
 
 
 def _position(symbol="BTCUSDT"):
-    from datetime import UTC, datetime
-    from decimal import Decimal
-
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
         MarginType,
     )
@@ -2213,17 +2214,14 @@ def test_order_blocked_appears_in_the_screens_own_log_panel(presenter):
 
 # ---------------------------------------------------------------------------
 # `EPIC-023B` — live equity chart: seeded from `IEquityCurve`'s
-# backlog on construction, appended to live via `EquityFeed`. Mirrors
-# `test_trading_presenter_equity.py` (`view` there is a `MagicMock`; here
-# `view` is a real `DashboardView`, so assertions spy on `view.equity_chart`'s
-# real methods via `monkeypatch` — same style the OrderFeed tests above use).
+# backlog on construction, appended to live via `EquityFeed` (the desks'
+# version is `test_desk_equity.py`). `view` is a real `DashboardView`, so
+# assertions spy on `view.equity_chart`'s real methods via `monkeypatch` —
+# same style the OrderFeed tests above use).
 # ---------------------------------------------------------------------------
 
 
 def _equity_sample(minute: int = 0):
-    from datetime import datetime
-    from decimal import Decimal
-
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample import (
         EquitySample,
     )
@@ -2552,11 +2550,6 @@ def test_an_enable_refused_before_reading_the_venue_leaves_the_tables(
     """`EPIC-028M` (the PR 309 review) — `CONNECTION_NOT_READY` is decided
     before the venue is read: its empty tuples are not "flat", so the rows
     the board shows stay."""
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
-        EnableTradingBlockReason,
-        EnableTradingResult,
-    )
-
     trading_session.enable_answers(
         EnableTradingResult(
             enabled=False,
@@ -2787,8 +2780,6 @@ def test_a_tick_for_an_open_symbol_at_the_active_interval_reaches_the_chart(pres
 
 
 def _live_position(symbol: str, signed_amount: str):
-    from decimal import Decimal
-
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
         MarginType,
     )
@@ -2910,8 +2901,6 @@ def spot_board(view, mock_container, mock_thread_mgr, order_submission):
         FakeOrderEntryTerms,
     )
 
-    from ..desk.order_entry_fixtures import TERMS, spot_status
-
     registry = FakeVenueTradingPorts(
         fake_venue_ports(
             TradingVenue.SPOT_TESTNET,
@@ -2980,8 +2969,6 @@ def test_the_dialog_follows_the_boards_symbol(spot_board):
 
 
 def test_the_boards_live_price_reaches_the_dialog_for_its_symbol_only(spot_board):
-    from decimal import Decimal
-
     spot_board._active_market = MarketType.SPOT
     symbol = spot_board._active_symbol
 
@@ -2998,21 +2985,26 @@ def test_the_dialog_rereads_its_balances_when_the_session_changed_the_account(
     spot_board, mock_thread_mgr
 ):
     """The PR 309 review — after an enable or an Emergency Stop the board
-    asked for no re-read, and F9 kept the earlier available balance."""
-    from decimal import Decimal
+    asked for no re-read, and F9 kept the earlier available balance. The
+    panel reads once first, so the re-read is seen replacing a figure."""
 
-    from ..desk.order_entry_fixtures import SYMBOL, spot_status
+    def run_submitted() -> None:
+        calls = list(mock_thread_mgr.submit.call_args_list)
+        mock_thread_mgr.submit.reset_mock()
+        for task, *args in (call.args for call in calls):
+            task(*args)
 
+    mock_thread_mgr.submit.reset_mock()
     spot_board._order_entry.show_symbol(SYMBOL)  # the symbol the terms are for
+    run_submitted()
+    assert spot_board._order_entry.view_model.context.available_quote == 1000
     ports = spot_board.container.resolve(IVenueTradingPorts)
     ports.get(TradingVenue.SPOT_TESTNET).account_snapshot.answer_with(
         spot_status(quote_free=Decimal(900))
     )
 
-    mock_thread_mgr.submit.reset_mock()
     spot_board._session_controls.accountChanged.emit()
-    for task, *args in (call.args for call in mock_thread_mgr.submit.call_args_list):
-        task(*args)
+    run_submitted()
 
     assert spot_board._order_entry.view_model.context.available_quote == 900
 
@@ -3020,8 +3012,6 @@ def test_the_dialog_rereads_its_balances_when_the_session_changed_the_account(
 def test_charting_another_market_clears_the_dialogs_price(spot_board):
     """The PR 309 review — a Spot venue's price stays out of date while the
     board charts Futures, so it is cleared rather than kept unmarked."""
-    from decimal import Decimal
-
     spot_board._active_market = MarketType.SPOT
     symbol = spot_board._active_symbol
     spot_board._on_ui_chart_update(symbol, 1.0, 1.0, 1.0, 1.0, 101.5, 1.0, True)

@@ -35,8 +35,8 @@ I did, and how the account is doing."*
    **Positions** (Futures, with close at market) or **Assets** (Spot holdings).
 5. Below the chart, the **Equity** chart draws the venue's equity curve, the session's backlog first
    and then each new sample.
-6. While the desk is open, the venue's events keep it current: a fill updates Open orders and
-   re-reads the histories; a position change updates Positions; a holdings change updates Assets;
+6. While the desk is open, the venue's events keep it current: a fill updates Open orders,
+   re-reads the histories and the order panel's balances; a position change updates Positions; a holdings change updates Assets;
    each fill is marked on the chart of its symbol; a strategy's order the app blocked is said in
    the tabs' message line.
 7. An order the trader places on the desk joins Open orders as soon as the venue accepts it.
@@ -83,7 +83,7 @@ I did, and how the account is doing."*
 | Cancel one, cancel all, close at market, each refused in words by a gate | `tests/unit/modules/trading/ui/desk/test_account_tab_actions_presenter.py` | unit |
 | A history tab names what it read and pages honestly | `tests/unit/modules/trading/ui/desk/test_history_view.py` | unit |
 | The equity chart: backlog, live samples, a sample during the read not lost (`BUG-100`) | `tests/unit/modules/trading/ui/desk/test_desk_equity.py` | unit |
-| Fills marked per symbol, equity per venue, a blocked order said, only the desk's market's candles | `tests/unit/modules/trading/ui/desk/test_desk_live_feeds.py` | unit |
+| Fills marked per symbol, the order panel re-read after a fill, equity per venue, a blocked order said, only the desk's market's candles | `tests/unit/modules/trading/ui/desk/test_desk_live_feeds.py` | unit |
 | An order placed on the desk is listed, then cancelled; a filled one is never listed open | `tests/unit/modules/trading/ui/desk/test_desk_journeys.py` | unit |
 | Two desks open at once stay apart | `tests/unit/modules/trading/ui/desk/test_two_desks_stay_apart.py` | unit |
 | A disabled venue's desk says so and holds nothing that sends | `tests/unit/modules/trading/ui/desk/test_desk_screen.py` | unit |

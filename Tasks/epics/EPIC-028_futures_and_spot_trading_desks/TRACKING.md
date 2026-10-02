@@ -76,7 +76,8 @@ gantt
 | EPIC-028J | [Account tabs and summary](completed/EPIC-028J_account_tabs_and_summary_panels.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Merged | [#307](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/307) |
 | EPIC-028K | [Futures desk](completed/EPIC-028K_futures_desk_screen.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | — |
 | EPIC-028L | [Spot desk](completed/EPIC-028L_spot_desk_screen.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Done | — |
-| EPIC-028M | [Retire old screen, docs](completed/EPIC-028M_retire_single_trading_screen_and_docs.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Done (awaiting review) | [PR 309](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/309) |
+| EPIC-028M | [Retire old screen, docs](completed/EPIC-028M_retire_single_trading_screen_and_docs.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Merged | [#309](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/309) |
+| EPIC-028S | [PR 309 review follow-ups](completed/EPIC-028S_desk_follow_ups_from_pr_309_review.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Done (awaiting review) | — |
 | EPIC-028N | [Dual-venue Testnet tier](incomplete/EPIC-028N_dual_venue_testnet_tier.md) | — | 🟡 | 🔵 Planned | — |
 
 ---
@@ -85,6 +86,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-02 | EPIC-028S | PR 309 review follow-ups: reconciliation fails closed for an unclassified block reason; a desk re-reads its order panel after a fill; F9 tested in the composed app against the fake server. |
 | 2026-10-02 | EPIC-028M | The single Trading screen retired (Start opens the Futures desk); its view model and chart coordinators moved to the desk package; the desks took its equity chart and fill markers; the Dev Board's toggle and Emergency Stop are `DeskSessionControls` and its F9 dialog hosts the desks' order panel; HLD/SPEC updated, SPEC-013 new. |
 | 2026-10-02 | EPIC-028L | The Spot desk (`trading.spot`) from the same composition with Spot's profile; both desks open at once stay apart (orders, signals, chart streams, Enable, Emergency Stop); boot re-arms every enabled venue's own saved strategy. |
 | 2026-10-02 | EPIC-028K | The Futures desk (`trading.futures`): one desk package composing the kit for a venue; per-desk chart stream owner, venue-stamped signals, `IVenueStrategyControls`, banner naming every enabled venue. Found by the journey: a resting Limit never reached Open orders (the stream announces fills and ends only); the desk now lists what the venue accepted. |

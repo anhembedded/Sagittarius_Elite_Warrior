@@ -20,9 +20,9 @@ root, and compare that resolved set against the guard's registered rows by
 confirmed if the guard actually scans it or somewhere under it; a resolved
 scan is explained if it falls under some registered root. Containment, not
 equality, because a guard legitimately scanning a subdirectory of its
-declared root for one purpose (`test_trading_view_contract.py`'s only
-`.glob()` call targets `.../trading/coordinators`, a child of its registered
-`.../trading`) is not the defect this file exists to catch — a scan landing
+declared root for one purpose (the retired `test_trading_view_contract.py`'s
+only `.glob()` call targeted `.../trading/coordinators`, a child of its
+registered `.../trading`) is not the defect this file exists to catch — a scan landing
 somewhere with **no relationship at all** to any registered row is
 (`BUG-131`'s exact shape: `src/domain/...` registered as
 `src/support/indicators/...`). The glob **pattern** is deliberately not
