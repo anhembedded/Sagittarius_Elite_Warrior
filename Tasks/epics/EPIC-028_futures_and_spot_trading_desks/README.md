@@ -83,7 +83,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 | [EPIC-028L](completed/EPIC-028L_spot_desk_screen.md) | Spot desk screen | Elite | C, H, J, O | 🟢 | ✅ Done (2026-10-02) |
 | [EPIC-028M](completed/EPIC-028M_retire_single_trading_screen_and_docs.md) | Retire the single Trading route; Dev Board F9 on the shared panel; HLD/SPEC | Elite | K, L, O4 | 🟢 | ✅ Done (2026-10-02) |
 | [EPIC-028S](completed/EPIC-028S_desk_follow_ups_from_pr_309_review.md) | PR 309 review follow-ups: reconciliation fails closed, a desk re-reads its order panel after a fill, F9 proven in the composed app | Elite | M | 🟢 | ✅ Done (2026-10-02) |
-| [EPIC-028N](incomplete/EPIC-028N_dual_venue_testnet_tier.md) | Testnet tier: one round trip on each desk in the same process | Elite | K, L | 🟡 | Planned |
+| [EPIC-028N](incomplete/EPIC-028N_dual_venue_testnet_tier.md) | Testnet tier: one round trip on each desk in the same process | Elite | K, L | 🟡 | In progress — code rehearsed on the fake server; awaits the user's Testnet run |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |

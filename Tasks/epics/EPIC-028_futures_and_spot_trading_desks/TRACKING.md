@@ -78,7 +78,7 @@ gantt
 | EPIC-028L | [Spot desk](completed/EPIC-028L_spot_desk_screen.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Done | — |
 | EPIC-028M | [Retire old screen, docs](completed/EPIC-028M_retire_single_trading_screen_and_docs.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Merged | [#309](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/309) |
 | EPIC-028S | [PR 309 review follow-ups](completed/EPIC-028S_desk_follow_ups_from_pr_309_review.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Done (awaiting review) | — |
-| EPIC-028N | [Dual-venue Testnet tier](incomplete/EPIC-028N_dual_venue_testnet_tier.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-028N | [Dual-venue Testnet tier](incomplete/EPIC-028N_dual_venue_testnet_tier.md) | — | 🟡 | 🟡 In progress — awaits the user's run | — |
 
 ---
 

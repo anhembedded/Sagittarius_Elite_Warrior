@@ -13,16 +13,14 @@ tier actually needs — the fill/close assertion cares about the exchange's
 authoritative *position*, and `get_positions()` is that same authority
 (`ADR §4`), whichever channel reports it first.
 
-Minimal quantity throughout (`EPIC-021` epic's own worked example, `0.002`
+The round trip itself is `round_trips.futures_open_and_close`, shared with
+`test_dual_venue_round_trip.py` (`EPIC-028N`). Minimal quantity throughout (`EPIC-021` epic's own worked example, `0.002`
 BTC — comfortably above `MIN_NOTIONAL` at any real BTCUSDT price, aligned
 to its real `0.001` step size). Cleans up in `finally`: a test that leaves
 a position open corrupts every run after it.
 """
 
 from __future__ import annotations
-
-import time
-from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
@@ -39,9 +37,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_trad
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     generate_client_order_id,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
-    LivePosition,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
@@ -56,11 +51,11 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
     IExchangeCredentialsProvider,
     ResolvedCredentials,
 )
-
-_SYMBOL = "BTCUSDT"
-_QUANTITY = Decimal("0.002")
-_POLL_INTERVAL_S = 1.0
-_TIMEOUT_S = 30.0
+from Sagittarius_Elite_Warrior.tests.testnet.round_trips import (
+    FUTURES_QUANTITY,
+    SYMBOL,
+    futures_open_and_close,
+)
 
 
 class _StaticCredentialsProvider(IExchangeCredentialsProvider):
@@ -72,21 +67,6 @@ class _StaticCredentialsProvider(IExchangeCredentialsProvider):
 
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         raise NotImplementedError("not used by this tier")
-
-
-def _wait_until_position(client: FuturesTradingClient, predicate) -> list[LivePosition]:
-    """@brief Polls `get_positions()` until `predicate` accepts the
-    result, or raises `TimeoutError` — the named condition this file's own
-    docstring describes, not a blind sleep."""
-    deadline = time.monotonic() + _TIMEOUT_S
-    while time.monotonic() < deadline:
-        positions = client.get_positions(_SYMBOL)
-        if predicate(positions):
-            return positions
-        time.sleep(_POLL_INTERVAL_S)
-    raise TimeoutError(
-        f"{_SYMBOL} position did not reach the expected state within {_TIMEOUT_S}s"
-    )
 
 
 def _build_client(
@@ -109,14 +89,14 @@ def test_dry_run_is_accepted(testnet_credentials: ExchangeCredentials) -> None:
     client, metadata_provider = _build_client(
         testnet_credentials, OrderSubmissionMode.VALIDATE_ONLY
     )
-    assert metadata_provider.get_or_fetch(_SYMBOL) is not None
+    assert metadata_provider.get_or_fetch(SYMBOL) is not None
 
     order = Order(
         client_order_id=generate_client_order_id(),
-        symbol=_SYMBOL,
+        symbol=SYMBOL,
         side=OrderSide.BUY,
         order_type=OrderType.MARKET,
-        quantity=_QUANTITY,
+        quantity=FUTURES_QUANTITY,
     )
 
     # Raises OrderRejectedByExchangeError on rejection — a plain return
@@ -129,41 +109,4 @@ def test_market_order_fills_and_closes(
 ) -> None:
     client, _ = _build_client(testnet_credentials, OrderSubmissionMode.LIVE)
 
-    entry = Order(
-        client_order_id=generate_client_order_id(),
-        symbol=_SYMBOL,
-        side=OrderSide.BUY,
-        order_type=OrderType.MARKET,
-        quantity=_QUANTITY,
-    )
-    try:
-        client.place_order(entry)
-        positions = _wait_until_position(client, lambda p: len(p) == 1)
-        assert positions[0].position_amt == _QUANTITY
-
-        close = Order(
-            client_order_id=generate_client_order_id(),
-            symbol=_SYMBOL,
-            side=OrderSide.SELL,
-            order_type=OrderType.MARKET,
-            quantity=_QUANTITY,
-            reduce_only=True,
-        )
-        client.place_order(close)
-        _wait_until_position(client, lambda p: len(p) == 0)
-    finally:
-        # Safety net: never leave a real position open for the next run,
-        # regardless of which assertion above failed.
-        remaining = client.get_positions(_SYMBOL)
-        if remaining:
-            position = remaining[0]
-            client.place_order(
-                Order(
-                    client_order_id=generate_client_order_id(),
-                    symbol=_SYMBOL,
-                    side=OrderSide.SELL if position.position_amt > 0 else OrderSide.BUY,
-                    order_type=OrderType.MARKET,
-                    quantity=abs(position.position_amt),
-                    reduce_only=True,
-                )
-            )
+    futures_open_and_close(client)

@@ -16,7 +16,8 @@ table itself is driven by, so a green run here is real evidence the same
 mechanism the UI depends on moves for real money's worth on Spot Testnet
 credentials.
 
-Asserts invariants (the order left no open remainder — the real MARKET-
+The round trip itself is `round_trips.spot_buy_and_sell`, shared with
+`test_dual_venue_round_trip.py` (`EPIC-028N`). Asserts invariants (the order left no open remainder — the real MARKET-
 fills-immediately-on-Spot fact `test_fake_exchange_spot_routes.py`'s
 fixture already encodes — and the holding returns to within one lot step
 of its baseline), never prices. Cleans up in `finally`: a run that leaves a
@@ -35,9 +36,6 @@ the real, current Testnet filters.
 
 from __future__ import annotations
 
-import time
-from decimal import Decimal
-
 from Sagittarius_Elite_Warrior.src.infrastructure.persistence.symbol_order_metadata_cache import (
     InMemorySymbolOrderMetadataCache,
 )
@@ -53,21 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_se
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_trading_client import (
     SpotTradingClient,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
-    generate_client_order_id,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
-    ExchangeConnectionStatus,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
-    OrderQuantityRoundingPolicy,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
@@ -76,14 +62,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
     IExchangeCredentialsProvider,
     ResolvedCredentials,
 )
-
-_SYMBOL = "BTCUSDT"
-_ASSET = "BTC"
-_QUANTITY = Decimal("0.0002")
-_POLL_INTERVAL_S = 1.0
-_TIMEOUT_S = 30.0
-
-_ROUNDING = OrderQuantityRoundingPolicy()
+from Sagittarius_Elite_Warrior.tests.testnet.round_trips import spot_buy_and_sell
 
 
 class _StaticCredentialsProvider(IExchangeCredentialsProvider):
@@ -95,41 +74,6 @@ class _StaticCredentialsProvider(IExchangeCredentialsProvider):
 
     def save_to_file(self, api_key: str, api_secret: str) -> None:
         raise NotImplementedError("not used by this tier")
-
-
-def _holding_free(status: ExchangeConnectionStatus, asset: str) -> Decimal:
-    holding = next((h for h in status.holdings or () if h.asset == asset), None)
-    return holding.free if holding is not None else Decimal(0)
-
-
-def _is_back_to_baseline(free: Decimal, baseline: Decimal, step: Decimal) -> bool:
-    """@brief The round trip's exact residue bound, derived rather than
-    guessed: the SELL quantity is the BUY's *net* fill (after its fee,
-    charged in the asset received) floored to the lot step, so what it
-    cannot sell is strictly less than one `step`; the SELL's own fee is
-    charged in the quote asset and never touches this holding. A fee-sized
-    tolerance is smaller than that floor remainder (0.1 % of 0.0002 BTC vs
-    a 0.00001 step) and would time out on every run that pays fees in BTC."""
-    return abs(free - baseline) < step
-
-
-def _wait_until_holding_free(
-    account_reader: SpotAccountReader, asset: str, predicate
-) -> Decimal:
-    """@brief Polls `check_connection()` until `predicate(free)` accepts
-    the result, or raises `TimeoutError` — the named condition this file's
-    own docstring describes, not a blind sleep."""
-    deadline = time.monotonic() + _TIMEOUT_S
-    while time.monotonic() < deadline:
-        status = account_reader.check_connection()
-        assert status.reachable, status.failure
-        free = _holding_free(status, asset)
-        if predicate(free):
-            return free
-        time.sleep(_POLL_INTERVAL_S)
-    raise TimeoutError(
-        f"{asset} holding did not reach the expected state within {_TIMEOUT_S}s"
-    )
 
 
 def _build_collaborators(
@@ -153,73 +97,4 @@ def _build_collaborators(
 def test_market_buy_then_sell_returns_the_holding_to_baseline(
     spot_testnet_credentials: ExchangeCredentials,
 ) -> None:
-    client, account_reader, metadata_provider = _build_collaborators(
-        spot_testnet_credentials
-    )
-    metadata = metadata_provider.get_or_fetch(_SYMBOL)
-    assert metadata is not None
-    step = metadata.step_size_for(OrderType.MARKET)
-
-    baseline_status = account_reader.check_connection()
-    assert baseline_status.reachable, baseline_status.failure
-    baseline = _holding_free(baseline_status, _ASSET)
-
-    buy = Order(
-        client_order_id=generate_client_order_id(),
-        symbol=_SYMBOL,
-        side=OrderSide.BUY,
-        order_type=OrderType.MARKET,
-        quantity=_QUANTITY,
-    )
-    try:
-        client.place_order(buy)
-        # A filled MARKET order leaves no open remainder — the real,
-        # fills-immediately-on-Spot fact this tier's own module docstring
-        # names — so its absence here is the FILLED proof, not a status
-        # field on `place_order()`'s own return (its contract says the
-        # returned `Order` is unchanged; the authoritative lifecycle is
-        # what this account read, and the Spot User Data Stream in the
-        # live app, report — `EPIC-027L`).
-        assert buy.client_order_id not in {
-            o.client_order_id for o in client.get_open_orders(_SYMBOL)
-        }
-        after_buy = _wait_until_holding_free(
-            account_reader, _ASSET, lambda f: f > baseline
-        )
-
-        received = _ROUNDING.round_quantity_down(after_buy - baseline, step)
-        assert received > 0, (
-            "the BUY fill was too small to round to a sellable quantity"
-        )
-
-        sell = Order(
-            client_order_id=generate_client_order_id(),
-            symbol=_SYMBOL,
-            side=OrderSide.SELL,
-            order_type=OrderType.MARKET,
-            quantity=received,
-        )
-        client.place_order(sell)
-        assert sell.client_order_id not in {
-            o.client_order_id for o in client.get_open_orders(_SYMBOL)
-        }
-        final = _wait_until_holding_free(
-            account_reader, _ASSET, lambda f: _is_back_to_baseline(f, baseline, step)
-        )
-        assert _is_back_to_baseline(final, baseline, step)
-    finally:
-        # Safety net: never leave a real surplus holding for the next run,
-        # regardless of which assertion above failed.
-        surplus_status = account_reader.check_connection()
-        surplus = _holding_free(surplus_status, _ASSET) - baseline
-        rounded_surplus = _ROUNDING.round_quantity_down(surplus, step)
-        if rounded_surplus > 0:
-            client.place_order(
-                Order(
-                    client_order_id=generate_client_order_id(),
-                    symbol=_SYMBOL,
-                    side=OrderSide.SELL,
-                    order_type=OrderType.MARKET,
-                    quantity=rounded_surplus,
-                )
-            )
+    spot_buy_and_sell(*_build_collaborators(spot_testnet_credentials))
