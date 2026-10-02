@@ -78,6 +78,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner.banner_from
     environment_banner_content_for,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import PageShell
+from Sagittarius_Elite_Warrior.src.support.ui_kit.main_thread_garbage_collector import (
+    MainThreadGarbageCollector,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.qt_platform import (
     is_headless_qt_platform,
 )
@@ -183,6 +186,8 @@ def build() -> AppRuntime:
         "QT_LOGGING_RULES", "qt.qpa.fonts.warning=false;qt.qpa.window=false"
     )
     app = QApplication(sys.argv)
+    # BUG-140: collection never runs on a worker thread; the timer is the app's.
+    MainThreadGarbageCollector(app).start()
 
     _install_exception_handler(app_engine)
     sig_timer = setup_qt_signal_handling(app)

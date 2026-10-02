@@ -8,6 +8,21 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.support.ui_kit.main_thread_collection import (
+    collect_due_generations,
+    stop_automatic_collection,
+)
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """`BUG-140` — no thread but the main one runs the cyclic collector.
+
+    Earliest hook, so even collection-time imports run under the policy.
+    xdist's execnet receiver thread allocates on every command it receives;
+    with automatic collection on, it finalized an earlier test's widget
+    cycles while the main thread was inside Qt, and the worker segfaulted.
+    """
+    stop_automatic_collection()
 
 
 def flush_qt_deferred_deletes() -> None:
@@ -46,6 +61,21 @@ def _flush_qt_deferred_deletes() -> Iterator[None]:
     """
     yield
     flush_qt_deferred_deletes()
+
+
+@pytest.fixture(autouse=True)
+def _collect_garbage_on_the_main_thread() -> Iterator[None]:
+    """Collects what is due after every test, on the main thread (`BUG-140`).
+
+    Re-applies the policy first, in case a test turned automatic collection
+    back on. Defined after `_flush_qt_deferred_deletes` on purpose: it tears
+    down first, so the collection drops the cycles' wrappers and queues their
+    deletions before that flush delivers them (`qt_object_release.py`).
+    `test_garbage_is_collected_on_the_main_thread.py` pins it.
+    """
+    stop_automatic_collection()
+    yield
+    collect_due_generations()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -164,10 +194,15 @@ def qapp():
         import sys
 
         from PySide6.QtWidgets import QApplication
+        from Sagittarius_Elite_Warrior.src.support.ui_kit.main_thread_garbage_collector import (
+            MainThreadGarbageCollector,
+        )
 
         app = QApplication.instance()
         if app is None:
             app = QApplication(sys.argv)
+        # BUG-140: as the app does, so a long event-loop wait still collects.
+        MainThreadGarbageCollector(app).start()
         yield app
     except ImportError:
         pytest.skip("PySide6 not installed — skipping UI tests")

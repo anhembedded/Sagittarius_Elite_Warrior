@@ -37,9 +37,11 @@ def _no_automatic_gc():
     allocation crossing a threshold, so the test could pass for a reason that
     has nothing to do with `release_qt_objects()`.
     """
+    was_enabled = gc.isenabled()
     gc.disable()
     yield
-    gc.enable()
+    if was_enabled:  # off for the whole suite since BUG-140 (tests/conftest.py)
+        gc.enable()
 
 
 def test_a_reference_cycle_holding_a_widget_survives_refcounting(_no_automatic_gc):

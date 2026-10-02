@@ -121,6 +121,10 @@ def test_the_real_process_reports_a_clean_boot_and_shutdown_sequence() -> None:
     assert "App booted successfully" in combined, (
         f"--self-check's own log never confirmed a successful boot:\n{combined}"
     )
+    assert "[gc-policy] automatic collection off" in combined, (
+        f"--self-check booted without the main-thread garbage collector "
+        f"(BUG-140, MainThreadGarbageCollector in build()):\n{combined}"
+    )
     assert "App stopped." in combined, (
         f"--self-check's own log never confirmed the Engine finished "
         f"stopping — teardown() may have exited early:\n{combined}"
