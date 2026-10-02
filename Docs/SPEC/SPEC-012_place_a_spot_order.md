@@ -7,9 +7,10 @@
 - **Origin:** `EPIC-027K` (the Spot order path itself), `EPIC-027O` (Holdings table, BUY/SELL
   labels, SELL gated on a real holding), `EPIC-027P` (this SPEC, and the real Spot Testnet round
   trip that proves it).
-- **Surfaces:** the Dev Board's and the Trading screen's manual order card (BUY/SELL on a Spot
-  venue) · `trade-once --live` at the command line, venue-agnostic like every other caller of
-  `ExecuteOrderCommand`.
+- **Surfaces:** the Spot desk's order panel (`EPIC-028H`/`028L`) · the Dev Board's order dialog
+  (`F9`), which hosts the same panel when the board trades Spot (`EPIC-028M`; both replaced the
+  manual-order card of `EPIC-027O`) · `trade-once --live` at the command line, venue-agnostic like
+  every other caller of `ExecuteOrderCommand`.
 
 ## 1. Trigger
 
@@ -18,9 +19,9 @@ afterwards — not pretend I opened a leveraged position."*
 
 ## 2. Preconditions
 
-1. The configured `TradingVenue` is `SPOT_TESTNET` (ADR D8 — Spot mainnet is out of scope,
-   `EPIC-026`'s gates own it). This is a boot-time choice, not a per-order one: `MarketType.SPOT`
-   follows from the venue everywhere this use case reads it (`ADR D1`).
+1. Spot Testnet is enabled in Settings (ADR D8 — Spot mainnet is out of scope, `EPIC-026`'s
+   gates own it). This is a boot-time choice, not a per-order one: on the Spot desk
+   `MarketType.SPOT` follows from its venue everywhere this use case reads it (`ADR D1`).
 2. Live trading is on (SPEC-004) — for a **live** submission only, same as SPEC-005.
 3. Credentials resolve (`BINANCE_SPOT_TESTNET_API_KEY`/`_SECRET`, or the shared
    `secrets.local.json` fallback) and the connection is reachable.
@@ -29,14 +30,14 @@ afterwards — not pretend I opened a leveraged position."*
 
 ## 3. Main flow
 
-1. The actor opens the manual order card and picks a symbol, a quantity and a direction. On a
-   Spot venue the two buttons read **BUY** and **SELL**, not Long and Short — the same domain
-   direction (`ManualOrderDirection.LONG`/`SHORT`) `manual_order_intent_for()` already keys off,
-   relabeled to what the actor is actually doing (a Spot account has no position to open or
-   close).
-2. The card preemptively disables SELL the moment it has no cached evidence of a holding to sell
-   (`LiveOrderBookCoordinator.has_holding()`), so the actor is not invited to click a button that
-   will only be refused.
+1. The actor uses the Spot desk's order panel (or the Dev Board's `F9` dialog on a Spot board) for
+   the symbol shown, and types a Buy or a Sell: Limit, Market or Stop-limit. The sides read
+   **Buy** and **Sell**, not Long and Short — the same domain direction
+   (`ManualOrderDirection.LONG`/`SHORT`) `manual_order_intent_for()` keys off, named for what the
+   actor is actually doing (a Spot account has no position to open or close).
+2. The panel shows each side what it can spend — the quote asset for Buy, the base asset for
+   Sell — and disables Sell while the account it last read holds none of the base asset, so the
+   actor is not invited to click a button that will only be refused.
 3. BUY needs no such check: a flat Spot account can always buy more of an asset, the same as
    Futures' unconditional Long-when-flat case.
 4. On submit, the app re-reads the account's real holdings (never the UI's own cache) and maps
@@ -55,8 +56,8 @@ afterwards — not pretend I opened a leveraged position."*
    a MARKET order): the base asset for a BUY, the quote asset for a SELL, each net of the
    exchange's own commission, charged in the asset received.
 7. The next read of `ITradingAccountReader.check_connection().holdings` — polled by
-   `HoldingsRefreshService`, republished as `HoldingsChangedEvent`, rendered by the Holdings table
-   on both screens — reflects the new balance. There is no position to reconcile: the balance
+   `HoldingsRefreshService`, republished as `HoldingsChangedEvent`, rendered by the Spot desk's
+   Assets tab and the Dev Board's Holdings table — reflects the new balance. There is no position to reconcile: the balance
    itself **is** the truth (ADR D7).
 
 ## 4. What must be true afterwards
@@ -102,16 +103,18 @@ SPEC-005 names, now with `SpotTradingClient`/`SpotMetadataProvider` bound behind
 domain policy SPEC-005 exercises, extended rather than duplicated. `ITradingAccountReader.
 check_connection().holdings` — the read this whole use case's "afterwards" section depends on,
 unchanged from `EPIC-027H` — and `HoldingsChangedEvent`/`HoldingsRefreshService`/
-`LiveOrderBookCoordinator.has_holding()` (`EPIC-027O`), which carry that read to the Holdings
-table and the manual order card's SELL enablement.
+`LiveOrderBookCoordinator` (`EPIC-027O`), which carry that read to the Assets tab; the order
+panel reads the same holdings for its Sell side.
 
 ## 8. Proven by
 
 | Evidence | Where | Tier |
 | :--- | :--- | :--- |
 | `manual_order_intent_for()`'s Spot rows: BUY always allowed, SELL refused without a real or non-dust holding, SELL allowed with one, independent of `current_position` | `tests/unit/modules/trading/domain/policies/test_manual_order_intent.py` | unit |
-| The manual order card reads BUY/SELL on Spot, hides leverage, and disables SELL without a cached holding | `tests/unit/modules/trading/ui/dashboard/test_dev_board_panel.py` | unit |
-| `HoldingsChangedEvent` updates the manual order card's SELL enablement | `tests/unit/modules/trading/ui/dashboard/test_dashboard_presenter.py` | unit |
+| The Spot panel disables Sell without a holding and offers its own order types | `tests/unit/modules/trading/ui/desk/test_order_entry_panel.py` | unit |
+| A Sell is sent as a sell of the held asset; one whose holding is gone at submit time is refused | `tests/unit/modules/trading/ui/desk/test_order_entry_presenter.py` | unit |
+| A Buy on the Spot desk shows the bought asset in Assets | `tests/unit/modules/trading/ui/desk/test_spot_desk_journey.py` | unit |
+| The strategy card hides leverage on Spot | `tests/unit/modules/trading/ui/dashboard/test_dev_board_panel.py` | unit |
 | The Spot order path's own mapping, rounding and Futures-only-type refusal | `tests/unit/modules/trading/adapters/binance/spot/test_spot_order_payload_mapper.py` | unit |
 | A real BUY click's mapped `ExecuteOrderCommand`, dispatched through the real handler, reaches the wire and moves the exact balance `SpotAccountReader.check_connection()` reports afterwards | `tests/integration/application/test_spot_manual_order_pipeline_against_fake_server.py` | integration |
 | The Spot order lifecycle (place → open → cancel → gone, a MARKET order fills immediately, positions always empty) against a real HTTP round trip through the fake exchange | `tests/integration/infrastructure/binance/test_spot_trading_client_order_lifecycle_against_fake_server.py` | integration |

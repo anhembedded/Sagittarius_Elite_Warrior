@@ -1,6 +1,6 @@
 # EPIC-028 — Two trading desks: Futures and Spot side by side, each with manual orders, a strategy and live account data
 
-- **Status:** 🟡 Phase 3 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`, evidence `EPIC-028P`); Phase 2 readers done (`EPIC-028D`–`028G`, `028Q`), its exit check (the `exchange-status` CLI) not yet run; `EPIC-028H`, `028O`, `028R`, `028J` and `028I` done (Phase 3 parts built); Phase 4 in progress: `028K` and `028L` done (both desks); `028M` next
+- **Status:** 🟡 Phase 3 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`, evidence `EPIC-028P`); Phase 2 readers done (`EPIC-028D`–`028G`, `028Q`), its exit check (the `exchange-status` CLI) not yet run; `EPIC-028H`, `028O`, `028R`, `028J` and `028I` done (Phase 3 parts built); Phase 4 in progress: `028K`, `028L` and `028M` done (both desks, the single Trading screen retired, the Dev Board on the desks' session controls and order panel); `028N` (the user's dual-venue Testnet run) remains
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-29): *"giờ màn hình trading đang có vấn đề, cần có 2 cái chứ không
   phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng, 2 màn hình
@@ -10,7 +10,7 @@
   fetch account information, positions, etc."), with four Binance screenshots as the reference.
 - **North star:** [`Docs/HLD/11_desktop_workbench.md`](../../../Docs/HLD/11_desktop_workbench.md)
   (places, panels, dialogs) and [`Docs/HLD/04_surfaces_and_contribution_points.md`](../../../Docs/HLD/04_surfaces_and_contribution_points.md)
-  (screen contributions). Both change in `EPIC-028M`.
+  (screen contributions). Both describe the two desks since `EPIC-028M`.
 - **Decisions:** [`DECISION_2026-09-29_two_trading_desks.md`](DECISION_2026-09-29_two_trading_desks.md)
   (D1–D8 and O1–O5 🟢 Accepted 2026-09-29).
 - **Tracking (Gantt, PR matrix):** [`TRACKING.md`](TRACKING.md).
@@ -81,7 +81,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 | **Phase 4 — Two desks** | | | | | |
 | [EPIC-028K](completed/EPIC-028K_futures_desk_screen.md) | Futures desk screen | Elite | C, I, J | 🟡 | ✅ Done (2026-10-02) |
 | [EPIC-028L](completed/EPIC-028L_spot_desk_screen.md) | Spot desk screen | Elite | C, H, J, O | 🟢 | ✅ Done (2026-10-02) |
-| [EPIC-028M](incomplete/EPIC-028M_retire_single_trading_screen_and_docs.md) | Retire the single Trading route; Dev Board F9 on the shared panel; HLD/SPEC | Elite | K, L, O4 | 🟢 | Planned |
+| [EPIC-028M](completed/EPIC-028M_retire_single_trading_screen_and_docs.md) | Retire the single Trading route; Dev Board F9 on the shared panel; HLD/SPEC | Elite | K, L, O4 | 🟢 | ✅ Done (2026-10-02) |
 | [EPIC-028N](incomplete/EPIC-028N_dual_venue_testnet_tier.md) | Testnet tier: one round trip on each desk in the same process | Elite | K, L | 🟡 | Planned |
 
 ## 4. Phase exit criteria
@@ -103,6 +103,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 - **Arming more than one strategy per desk.**
 
 ## Notes (newest first)
+- **2026-10-02** — `EPIC-028M` done: the single Trading screen (route `trading`) is deleted and Start opens the Futures desk. First, its view model and chart coordinators moved into the desk package, and the desks took over its equity chart and fill markers, with its regressions. The Dev Board's Enable/Disable and Emergency Stop are the desks' `DeskSessionControls`, and its F9 dialog hosts the desks' order panel for the venue it trades, so a resting order placed there now joins Open orders. HLD 04/11 and SPEC-004/005/012 describe two desks; SPEC-013 is new. Awaiting independent review.
 - **2026-10-02** — `EPIC-028L` done: the Spot desk (`trading.spot`) is the same composition with Spot's profile. With both desks open, an order, a signal, a chart stream, an Enable or an Emergency Stop on one never reaches the other. Boot re-arms every enabled venue's own saved strategy, now that each desk shows and stops its own.
 - **2026-10-02** — `EPIC-028K` done: the Futures desk is a route (`trading.futures`) composing the kit with Futures' own ports, feeds, strategy controls and chart stream. Found by its journey and fixed: a resting Limit placed from the desk never appeared in Open orders, since the venue's stream announces an order only when it fills or ends; the desk now lists what the venue accepted.
 - **2026-10-01** — `EPIC-028I` done: the Futures order panel sizes Buy/Long and Sell/Short by Binance's cost within the leverage's cap (a market order also pays its open loss against the book), shows cost and a liquidation estimate, and offers time in force, reduce-only and the margin and leverage chips. TP/SL places a reduce-only take-profit and stop-loss once the entry's fill is reported; the app's limits pass them because they are reduce-only. Built as parts; `028K` puts them on the Futures desk.

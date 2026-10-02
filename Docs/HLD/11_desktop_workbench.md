@@ -72,7 +72,8 @@ cards. Two things replace it:
   a model), a form, or a read-only summary. It has a title, a close button, and nothing else of its
   own. One panel = one factory in `module.contribute()`; the module's `ui/panels/` package holds it.
 - A **dialog** is the desktop way to *do* something that needs input and confirmation: place a
-  manual order (shortcut F9, as in MT5 — and on Dev Board also reachable from a toolbar action),
+  manual order on Dev Board (shortcut F9, as in MT5, also reachable from a toolbar action; the
+  desks keep their order panel in the rail, where it is the screen's purpose — `EPIC-028`),
   arm a strategy with parameters, pick a time range, edit settings. Every dialog has Cancel, states
   what OK will do, validates before enabling OK, and reports the result in the status bar.
 
@@ -81,8 +82,8 @@ Which former widgets become what:
 | Former | Now | Where |
 | :--- | :--- | :--- |
 | positions table, open orders table (QML tables) | panels (`QTableView` + `QAbstractTableModel`; the existing view models keep their role) | `trading/ui/panels/` |
-| session card | a status-bar tile (enabled / orders this session) plus the Enable / Disable / Emergency-stop actions on the toolbar | `trading/ui/` |
-| manual order card | the **Order** dialog (F9) | `trading/ui/dialogs/` — Dev Board only (ADR D15), one line to add the action to Trading later |
+| session card | a status-bar tile (enabled / orders this session) plus the Enable / Disable / Emergency-stop actions on the toolbar; one `DeskSessionControls` behind every screen's actions, each for one venue (`EPIC-028M`) | `trading/ui/` |
+| manual order card | the desks' **order panel** (`trading/ui/desk/order_entry/`): in each desk's rail, and in Dev Board's **Order** dialog (F9) for the venue the board trades | `EPIC-028H`/`028I`; the card left in `EPIC-028M` |
 | equity chart | a panel hosting the chart widget | `trading/ui/panels/` |
 | strategy card, last-signal card | the Strategy panel (armed strategy, parameters button, last signal) | `strategy/ui/panels/` |
 | strategy parameters dialog | a `QDialog` | `strategy/ui/dialogs/` |

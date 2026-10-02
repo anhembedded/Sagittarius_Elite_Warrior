@@ -43,8 +43,8 @@ that lives inside the widgets that modules own.
 
 | Surface | Slots | Gate | Default route |
 | :--- | :--- | :--- | :--- |
-| `welcome` 🔵 (ADR D13) | `HEADER` (environment banner, developer-mode switch — ADR D14) · `WORKSPACE` (app name and version, **Start**) | always | ✅ **default**; Start navigates to `trading` |
-| `trading` | `HEADER` (+ `STATUS_TILE`) · `CONTEXT_BAR` · `WORKSPACE` (chart) · `RAIL` (panels) · `CONSOLE` · `MODAL` | always | no (reached from Welcome) |
+| `welcome` 🔵 (ADR D13) | `HEADER` (environment banner, developer-mode switch — ADR D14) · `WORKSPACE` (app name and version, **Start**) | always | ✅ **default**; Start opens the Futures desk (`trading.futures`, since `EPIC-028M`) |
+| `trading` | `HEADER` (+ `STATUS_TILE`) · `CONTEXT_BAR` · `WORKSPACE` (chart) · `RAIL` (panels) · `CONSOLE` · `MODAL` | always | no. The declared place family of the two desks (`trading.futures`, `trading.spot`, `EPIC-028K`/`028L`), which are still `PageShell` screens: they move onto this surface when `EPIC-025` converts the remaining `PageShell`s. The single Trading screen that once rendered it left in `EPIC-028M` |
 | `dev_board` | the same as `trading` plus `DEV_PROBE`; the system controls (market, symbol, date range, load, start/stop) are a `HEADER` contribution by `market_data` at `order = 20` — not a place of their own | **`dev.mode` at boot** (ADR D14; today it is **not gated** — measured, `dev.mode` is read by the asset validator, the log filter, and the chart FPS overlay on the backtest screen (`backtest_view.py:204`), so the restart in D14 changes that overlay too — declared) | no (today it is `is_default=True`) |
 | `settings` | `SETTINGS_SECTION` (one per module, by `order`) | always | no |
 
@@ -101,21 +101,28 @@ The user's definition: *"khi bạn dev nếu API nào của sàn chưa rõ, thì
 - No probe is loaded when `dev.mode` is false: the `dev_board` surface does not exist, so its
   factories never run.
 
-## 4.5 Who owns which widget (Trading and Dev Board)
+## 4.5 Who owns which widget (the desks and Dev Board)
 
-The same table as a picture: [`hld-05b_trading_devboard_slots.puml`](diagrams/hld-05b_trading_devboard_slots.puml).
+The single Trading screen became two **desks** in `EPIC-028` (the
+[ADR](../../Tasks/epics/EPIC-028_futures_and_spot_trading_desks/DECISION_2026-09-29_two_trading_desks.md)):
+the Futures desk and the Spot desk, one composition (`ui/desk/desk_screen/`) built for one venue
+each, differing only in their `DeskProfile` (ADR D5). Every widget on a desk is its own venue's.
+The picture of the older two-surface layout is
+[`hld-05b_trading_devboard_slots.puml`](diagrams/hld-05b_trading_devboard_slots.puml).
 
-| Widget | Owning module | Trading | Dev Board |
+| Widget | Owning module | Each desk | Dev Board |
 | :--- | :--- | :-: | :-: |
-| Chart panel (one symbol) / chart list (n symbols) | `charting` (host) + `market_data` (feed) | 1 | n |
-| Positions table, open orders table (with cancel-one-order) | `trading` | ✅ | ✅ |
-| Manual order panel | `trading` | ❌ (user decision 2026-09-13, ADR D15: Dev Board only; adding `trading.rail` later is one line in `contribute()`, and the panel depends only on trading's own ports so that line is all it takes) | ✅ |
-| Session panel, Enable/Disable, Emergency stop, websocket pill | `trading` | ✅ | ✅ |
-| Equity chart | `trading` (adapter) + `charting` | ✅ | ✅ |
-| Strategy panel, last-signal panel, parameters dialog | `strategy` | ✅ | ✅ |
+| Chart panel (one symbol) / chart list (n symbols) | `charting` (host) + `market_data` (feed) | 1, its venue's market | n |
+| Positions table, open orders table (with cancel-one-order) | `trading` | ✅ account tabs: open orders (cancel one, cancel all), order and trade history, positions (close at market) or assets | ✅ |
+| Account summary (available, wallet, margin, uPnL / quote free, locked, equity) | `trading` | ✅ | — |
+| Order panel (every order type the venue takes, estimates, TP/SL on Futures) | `trading` | ✅ in the rail | ✅ the same panel, in the `F9` dialog, for the venue the board trades (`EPIC-028M`; ADR D15's "Dev Board only" manual-order card is retired) |
+| Enable/Disable, Emergency stop | `trading` | ✅ for its venue only | ✅ the same `DeskSessionControls`, for the venue the board trades |
+| Session panel, websocket pill | `trading` | — | ✅ |
+| Equity chart | `trading` (adapter) + `charting` | ✅ its venue's curve | ✅ |
+| Strategy panel, last-signal panel, parameters dialog | `strategy` | ✅ its venue's arming | ✅ |
 | Strategy overlay on the chart | `strategy` | ✅ | 🔵 |
 | Indicator script checklist | `indicators` | — | ✅ |
-| System controls (market / symbol / date range / load / start / stop), symbol picker | `market_data` | a reduced context bar | ✅ |
+| System controls (market / symbol / date range / load / start / stop), symbol picker | `market_data` | a reduced context bar (symbol) | ✅ |
 | API probes | each module | — | ✅ |
 | Log console | `ui_kit` | ✅ | ✅ |
 
