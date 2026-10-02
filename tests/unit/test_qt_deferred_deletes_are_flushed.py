@@ -11,7 +11,7 @@ tracing. That cost landed inside its own timeout, and
 `test_preferred_height_scroll_area.py::test_content_that_grows_later_becomes_scrollable`
 failed twice on PR #293 for it, depending on which worker xdist gave it to.
 
-The root `tests/conftest.py` fixture `_flush_qt_deferred_deletes` fixes that
+The root `tests/conftest.py` fixture `_release_finished_test_objects` fixes that
 at the mechanism: it runs after pytest-qt has closed the widgets and
 delivers their deferred deletes, so no test pays for another's cleanup.
 """
@@ -51,4 +51,4 @@ def test_the_flush_destroys_a_deleted_later_widget(qapp) -> None:
 def test_the_flush_is_wired_into_every_test(request: pytest.FixtureRequest) -> None:
     """The helper does nothing unless every test gets the fixture that
     calls it; remove `autouse=True` and this fails."""
-    assert "_flush_qt_deferred_deletes" in request.fixturenames
+    assert "_release_finished_test_objects" in request.fixturenames

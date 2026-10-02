@@ -8,6 +8,21 @@ from typing import Any
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.support.ui_kit.main_thread_collection import (
+    collect_due_generations,
+    stop_automatic_collection,
+)
+
+
+def pytest_configure(config: pytest.Config) -> None:
+    """`BUG-140` — no thread but the main one runs the cyclic collector.
+
+    Earliest hook, so even collection-time imports run under the policy.
+    xdist's execnet receiver thread allocates on every command it receives;
+    with automatic collection on, it finalized an earlier test's widget
+    cycles while the main thread was inside Qt, and the worker segfaulted.
+    """
+    stop_automatic_collection()
 
 
 def flush_qt_deferred_deletes() -> None:
@@ -35,17 +50,35 @@ def flush_qt_deferred_deletes() -> None:
     qt_core.QCoreApplication.sendPostedEvents(None, qt_core.QEvent.Type.DeferredDelete)
 
 
-@pytest.fixture(autouse=True)
-def _flush_qt_deferred_deletes() -> Iterator[None]:
-    """Runs `flush_qt_deferred_deletes()` after every test, so no test pays
-    for another test's widget cleanup.
+def release_finished_test_objects() -> None:
+    """Collects due garbage on the main thread, then flushes deferred deletes.
 
-    Its teardown runs inside pytest-qt's own `pytest_runtest_teardown`
-    wrapper, after that wrapper has already `deleteLater()`-ed the test's
-    widgets, so this is the point where they are actually destroyed.
+    In this order, as plain code: the collection (`BUG-140`) drops the
+    wrappers of the test's reference cycles and queues their deletions, and
+    the flush then delivers them. Flushing first would carry them into the
+    next test (`qt_object_release.py`, `BUG-056`). Two fixtures could not
+    hold the order: pytest orders same-scope autouse fixtures by name (the
+    `PR #311` re-review). `test_garbage_is_collected_on_the_main_thread.py`
+    pins it.
     """
-    yield
+    collect_due_generations()
     flush_qt_deferred_deletes()
+
+
+@pytest.fixture(autouse=True)
+def _release_finished_test_objects() -> Iterator[None]:
+    """Runs `release_finished_test_objects()` after every test, so no test
+    pays for another test's cleanup.
+
+    Re-applies the `BUG-140` policy first, in case a test turned automatic
+    collection back on. Its teardown runs inside pytest-qt's own
+    `pytest_runtest_teardown` wrapper, after that wrapper has already
+    `deleteLater()`-ed the test's widgets, so this is the point where they
+    are actually destroyed.
+    """
+    stop_automatic_collection()
+    yield
+    release_finished_test_objects()
 
 
 @pytest.fixture(scope="session", autouse=True)
@@ -164,10 +197,15 @@ def qapp():
         import sys
 
         from PySide6.QtWidgets import QApplication
+        from Sagittarius_Elite_Warrior.src.support.ui_kit.main_thread_garbage_collector import (
+            MainThreadGarbageCollector,
+        )
 
         app = QApplication.instance()
         if app is None:
             app = QApplication(sys.argv)
+        # BUG-140: as the app does, so a long event-loop wait still collects.
+        MainThreadGarbageCollector(app).start()
         yield app
     except ImportError:
         pytest.skip("PySide6 not installed — skipping UI tests")
