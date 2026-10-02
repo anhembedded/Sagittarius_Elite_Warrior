@@ -1,10 +1,10 @@
-"""`EPIC-028K`/`028L` — one desk's screen: the chart, the account tabs below
-it, and a rail holding the order panel, the strategy card and the account
+"""`EPIC-028K`/`028L` — one desk's screen: the chart, the venue's equity
+curve and the account tabs below it, and a rail holding the order panel, the strategy card and the account
 summary; Enable/Disable and Emergency Stop for this venue only.
 
-@details A `PageShell`, like the single Trading screen it replaces (the
-workbench conversion of every remaining `PageShell` is `EPIC-025`'s, and the
-old screen leaves in `EPIC-028M`). Plain QtWidgets in the OS theme (ADR
+@details A `PageShell`, like the single Trading screen it replaced in
+`EPIC-028M` (the workbench conversion of every remaining `PageShell` is
+`EPIC-025`'s). Plain QtWidgets in the OS theme (ADR
 D20–D22): no stylesheet, no colour; an error in the status line reads
 "Error: …", as the order panel's does.
 
@@ -64,6 +64,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import AppLogPan
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import PageShell
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
+#: The equity chart's title: the curve is the venue's account, not a symbol.
+EQUITY_CHART_TITLE = "Equity"
 _TOGGLE_TEXT = {(False, False): "Enable Trading", (True, False): "Disable Trading"}
 _BUSY_TEXT = "Processing..."
 
@@ -92,6 +94,7 @@ class DeskView(BaseView):
         self.setObjectName(f"desk_{profile.venue.value}")
         self._profile = profile
         self.chart = ChartCard(FALLBACK_SYMBOL)
+        self.equity_chart = _equity_chart()
         self.account_tabs = AccountTabsPanel(profile.held_tab, confirmations)
         self.account_summary = AccountSummaryPanel()
         self._toggle = QPushButton(_TOGGLE_TEXT[(False, False)])
@@ -184,9 +187,11 @@ class DeskView(BaseView):
         workspace = QSplitter(Qt.Orientation.Vertical)
         workspace.setObjectName("deskWorkspace")
         workspace.addWidget(self.chart)
+        workspace.addWidget(self.equity_chart)
         workspace.addWidget(self.account_tabs)
         workspace.setStretchFactor(0, 3)
-        workspace.setStretchFactor(1, 2)
+        workspace.setStretchFactor(1, 1)
+        workspace.setStretchFactor(2, 2)
         rail = QWidget()
         rail.setLayout(self._rail)
         self._rail.setContentsMargins(0, 0, 0, 0)
@@ -216,3 +221,14 @@ class DeskView(BaseView):
         notice.setWordWrap(True)
         notice.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._shell.set_workspace(notice)
+
+
+def _equity_chart() -> ChartCard:
+    """A plain `ChartCard` drawn as a line (`EPIC-021M` §3): equity has no
+    OHLC, volume or timeframe of its own, so those are hidden, not removed."""
+    card = ChartCard(EQUITY_CHART_TITLE)
+    card.setObjectName("deskEquityChart")
+    card.set_chart_type("line")
+    card.set_volume_visible(False)
+    card.toolbar.setVisible(False)
+    return card
