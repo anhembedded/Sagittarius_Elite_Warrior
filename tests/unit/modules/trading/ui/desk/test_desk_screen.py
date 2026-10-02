@@ -71,6 +71,19 @@ def test_enabling_trading_puts_this_desks_chart_live_under_its_own_owner(
     assert world.sync.was_asked_for("BTCUSDT")
 
 
+def test_a_desk_opened_with_its_venues_trading_on_goes_live(qtbot) -> None:
+    """The PR #308 review: trading turned on before the desk opened left its
+    chart on local history, so the order panel valued orders at the last
+    stored candle. Opening with trading off stays local (`BUG-107`, above)."""
+    world = DeskWorld()
+
+    build_desk(qtbot, SPOT, world, trading_on=True)
+
+    held = world.stream.held_by("desk.spot_testnet")
+    assert held is not None
+    assert held.market_type is market_of(SPOT)
+
+
 def test_a_refused_enable_reads_as_an_error_and_leaves_the_chart_local(
     qtbot,
 ) -> None:

@@ -145,9 +145,12 @@ class AccountTabsPresenter(QObject):
         """`EPIC-028K` — an order this desk just placed joins Open orders as
         the venue accepted it. The venue's stream announces an order only
         when it fills or ends, so a resting Limit would otherwise stay off
-        the table, uncancellable from the desk, until the next read; an order
-        that filled at once is already terminal and is not listed. Its own
-        later fill or end updates the row as for any other order."""
+        the table, uncancellable from the desk, until the next read. Both
+        trading adapters answer an accepted order `NEW`, a filled Market
+        order included, and the fill can reach this thread before or after
+        that answer: the book applies a status only when it moves forward
+        and never re-lists an order it saw end (`LiveOrderBookCoordinator.
+        on_order_filled`, the PR 308 review)."""
         self._book.on_order_filled(order)
 
     def update_last_price(self, price: Decimal | None) -> None:

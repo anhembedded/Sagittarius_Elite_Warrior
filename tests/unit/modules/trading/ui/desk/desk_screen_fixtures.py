@@ -145,6 +145,7 @@ def build_desk(
     ports_venue: TradingVenue | None = None,
     account_snapshot: FakeAccountSnapshot | None = None,
     order_entry_terms: FakeOrderEntryTerms | None = None,
+    trading_on: bool = False,
 ) -> Desk:
     """`venue`'s desk, every order confirmed Yes. `ports_venue` hands it
     another venue's ports, which the desk must refuse."""
@@ -153,6 +154,7 @@ def build_desk(
     market = venue.market_type
     assert market is not None
     session, submission = FakeTradingSession(), FakeOrderSubmission()
+    session.set_enabled(enabled=trading_on)
     activity = FakeAccountActivity()
     arming, armed = FakeStrategyArming(), FakeArmedStrategy()
     registry = StrategyRegistry()

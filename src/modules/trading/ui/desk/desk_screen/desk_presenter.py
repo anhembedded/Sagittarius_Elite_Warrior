@@ -11,7 +11,9 @@ what passes between them:
   and the tabs;
 - the chart's last price values the order panel's figures and the tabs'
   holdings;
-- trading enabled on this desk puts its chart live (`BUG-107`);
+- trading enabled on this desk puts its chart live, and so does opening the
+  desk while its venue's trading is already on; opening a desk with trading
+  off never touches the network (`BUG-107`);
 - an Emergency Stop, or an enable that reconciled, re-reads the tables;
 - an order the venue accepted joins Open orders at once;
 - an entry placed with TP/SL is handed to the follower (Futures only: the
@@ -116,10 +118,10 @@ class DeskPresenter(BasePresenter):
             view.account_summary, ports.account_activity, feeds.orders, threads
         )
         self.chart = DeskChart(view.chart, deps.chart, self.event_bus, self)
-        self.session = DeskSessionControls(ports.trading_session, threads, self)
-        self.strategy = DeskStrategy(
-            self.desk, deps.strategy, deps.catalog, lambda: self.chart.shown_symbol
+        self.session = DeskSessionControls(
+            ports.trading_session, threads, profile.venue, self
         )
+        self.strategy = DeskStrategy(self.desk, deps.strategy, deps.catalog, self.chart)
         self.follower: ProtectiveOrderFollower | None = None
         if profile.futures_controls:
             self.follower = ProtectiveOrderFollower(
@@ -131,6 +133,11 @@ class DeskPresenter(BasePresenter):
             )
         self._wire(feeds.signals)
         self.desk.set_trading_state(self.session.is_enabled, False)
+        if self.session.is_enabled:
+            # Trading was turned on before this desk opened (another visit, or
+            # the old screen): its chart is live, as after the toggle, so the
+            # order panel values orders at the live price (the PR 308 review).
+            self.chart.go_live()
         self.strategy.refresh()
         self.summary.refresh()
         self.show_symbol(default_symbol(config, FALLBACK_SYMBOL))
@@ -162,7 +169,6 @@ class DeskPresenter(BasePresenter):
         session.accountChanged.connect(self._reread_account)
         chart.logged.connect(self._log)
         chart.lastPriceChanged.connect(self._on_last_price)
-        self.strategy.on_armed_changed = chart.set_armed_config
         self.strategy.listen(signals)
 
     def _on_last_price(self, price: Decimal) -> None:

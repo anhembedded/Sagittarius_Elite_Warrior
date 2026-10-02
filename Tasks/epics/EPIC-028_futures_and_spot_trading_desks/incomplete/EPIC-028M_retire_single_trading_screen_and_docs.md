@@ -3,7 +3,7 @@
 **Status:** 🔵 Backlog
 **Source:** the user, 2026-09-29 — *"cần có 2 cái chứ không phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng"* ("two trading screens, one Futures and one Spot; share what can be shared"). See the [ADR](../DECISION_2026-09-29_two_trading_desks.md).
 **Risk:** 🟢 — deletion plus docs; a saved layout pointing at the old route must still open
-**Complexity:** M — delete two god files, rewire Dev Board F9, HLD/SPEC
+**Complexity:** M — move the desks' dependencies out, delete two god files, rewire Dev Board F9 and its session controls, HLD/SPEC
 **Epic:** [EPIC-028](../README.md)
 **Depends on:** [EPIC-028K](EPIC-028K_futures_desk_screen.md), [EPIC-028L](EPIC-028L_spot_desk_screen.md), ADR O4
 
@@ -13,6 +13,8 @@
 - `trading_view.py`, `trading_presenter.py` are on the god-file baseline; HLD 04 §4.5 and HLD 11 §11.3 say manual order is Dev Board only.
 
 ## 2. Acceptance criteria
+- [ ] **First, move what the desks use out of `ui/trading/`** (the PR #308 review): `TradingViewModel` (`desk_presenter.py`, `desk_view.py`, `desk_strategy.py`), `ChartCoordinator` and `StrategyOverlayCoordinator` (`ui/trading/coordinators/`). They move to the desk package or a shared trading UI address, with their tests, before anything is deleted. Deleting `ui/trading/` as it stands would break both desks.
+- [ ] The Dev Board's Enable/Disable and Emergency Stop move onto `DeskSessionControls` (`ui/desk/desk_screen/`). Today the Dev Board (`dashboard_presenter.py`) and the single screen each carry their own copy of that flow, beside the desks' (the PR #308 review). Only the texts are already shared (`session_outcome_text.py`).
 - [ ] Route `trading` and its view/presenter/view model are deleted and removed from `baseline_god_files.json`. The route's real consumer, Welcome's Start (`app_bootstrapper.py`), opens the Futures desk instead. There is no layout loader keyed by route to change: `BUG-104` deliberately does not remember the route (`main_window.py`).
 - [ ] The Dev Board's F9 dialog hosts the shared order-entry panel with the configured venue's profile.
 - [ ] HLD 04 §4.5, HLD 11 §11.2–11.3, `SPEC-004` (still single-venue: its precondition names Futures Testnet and it has no per-venue toggles; the PR #295 review's question 4), `SPEC-005`, `SPEC-012` updated; a new SPEC "See my account on a desk" lists its proving tests.
@@ -24,7 +26,9 @@ Delete, don't deprecate (no compatibility shims). The PR #300 epic review correc
 ## 4. Changes, per file
 | File | Change |
 | :--- | :--- |
-| `src/modules/trading/ui/trading/` | deleted |
+| `src/modules/trading/ui/trading/trading_view_model.py`, `coordinators/chart_coordinator.py`, `coordinators/strategy_overlay_coordinator.py` | moved first, out of `ui/trading/` (the desks use them) |
+| `src/modules/trading/ui/trading/` | the rest deleted |
+| `src/modules/trading/ui/dashboard/dashboard_presenter.py` | toggle and Emergency Stop through `DeskSessionControls` |
 | `src/modules/trading/ui/dashboard/…` | F9 dialog on the shared panel |
 | `Docs/HLD/04_*.md`, `Docs/HLD/11_*.md`, `Docs/SPEC/*` | updated / new SPEC |
 

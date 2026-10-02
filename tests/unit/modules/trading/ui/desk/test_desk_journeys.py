@@ -20,6 +20,9 @@ from PySide6.QtWidgets import QLineEdit, QPushButton, QTableView
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
     CancelOrderResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
+    OrderFilledEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     OrderStatus,
@@ -103,18 +106,55 @@ def test_a_limit_placed_on_the_desk_is_listed_then_cancelled(qtbot) -> None:
     assert _open_order_ids(desk) == []
 
 
-def test_a_market_order_that_filled_at_once_is_not_listed_as_open(qtbot) -> None:
-    desk = _spot_desk(qtbot)
-    preview = canned_preview(OrderSide.BUY, "0.005", "59000")
+def _place_buy_answered_new(qtbot, desk: Desk, preview) -> None:
+    """Clicks Buy with the venue accepting the order as both trading
+    adapters answer: the order unchanged, `NEW`."""
     desk.submission.preview_answers(preview)
     desk.submission.submit_answers(
-        placed(replace(preview.order, status=OrderStatus.FILLED))
+        placed(replace(preview.order, status=OrderStatus.NEW))
     )
-
     _type_buy(qtbot, desk, price="59000", amount="0.005")
     qtbot.mouseClick(
         desk.view.findChild(QPushButton, "btnSubmitBuy"), Qt.MouseButton.LeftButton
     )
 
+
+def _fill(world: DeskWorld, preview) -> None:
+    world.bus.emit(
+        OrderFilledEvent(
+            order=replace(preview.order, status=OrderStatus.FILLED),
+            fill_price=Decimal(59000),
+            fill_quantity=Decimal("0.005"),
+            venue=SPOT,
+        )
+    )
+
+
+def test_a_fill_reported_before_the_acceptance_leaves_nothing_open(qtbot, qapp) -> None:
+    """The PR #308 review, blocking: the fill (the venue's stream) and the
+    acceptance (the REST answer) reach the UI thread in either order. A
+    fill first used to leave the filled order listed as open by the late
+    `NEW`."""
+    world = DeskWorld()
+    desk = _spot_desk(qtbot, world)
+    preview = canned_preview(OrderSide.BUY, "0.005", "59000")
+    _fill(world, preview)
+    qapp.processEvents()
+
+    _place_buy_answered_new(qtbot, desk, preview)
+
     assert desk.submission.submitted_live
+    assert _open_order_ids(desk) == []
+
+
+def test_a_fill_reported_after_the_acceptance_removes_the_row(qtbot, qapp) -> None:
+    world = DeskWorld()
+    desk = _spot_desk(qtbot, world)
+    preview = canned_preview(OrderSide.BUY, "0.005", "59000")
+    _place_buy_answered_new(qtbot, desk, preview)
+    assert _open_order_ids(desk) == [str(preview.order.client_order_id)]
+
+    _fill(world, preview)
+    qapp.processEvents()
+
     assert _open_order_ids(desk) == []

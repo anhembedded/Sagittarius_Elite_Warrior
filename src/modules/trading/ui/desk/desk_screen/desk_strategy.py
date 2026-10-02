@@ -10,8 +10,6 @@ that venue's armed state. Signals reach the card from the desk's own
 
 from __future__ import annotations
 
-from collections.abc import Callable
-
 from PySide6.QtCore import QObject
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
     SUPPORTED_LIVE_INTERVALS,
@@ -22,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_strategy_controls import (
     VenueStrategyControls,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_chart import (
+    DeskChart,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.signal_feed import SignalFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.strategy_arming_coordinator import (
@@ -45,15 +46,15 @@ class DeskStrategy(QObject):
         desk: TradingViewModel,
         controls: VenueStrategyControls,
         catalog: IStrategyCatalogReader,
-        get_symbol: Callable[[], str],
+        chart: DeskChart,
     ) -> None:
+        """@param chart The desk's chart: what is armed applies to its symbol,
+        and its strategy lines follow what is armed. Given at construction,
+        so the first restore already draws them (the PR 308 review, D14)."""
         super().__init__(desk)
         self._desk = desk
         self._armed = controls.armed
-        #: Told whenever what is armed may have changed (the chart's lines).
-        self.on_armed_changed: Callable[[ArmedStrategyConfig | None], None] = (
-            lambda _config: None
-        )
+        self._chart = chart
         self._coordinator = StrategyArmingCoordinator(
             # The card's `@Property`s read as the Qt descriptor to `mypy`,
             # not as the values the coordinator's Protocol names: the same
@@ -61,7 +62,7 @@ class DeskStrategy(QObject):
             view_model=desk.strategy_card,  # type: ignore[arg-type]
             catalog=catalog,
             arming=controls.arming,
-            get_active_symbol=get_symbol,
+            get_active_symbol=lambda: chart.shown_symbol,
             get_armed_config=lambda: self._armed.armed().config,
             tracker=ActionOwnershipTracker(),
             arm_action_kind=_ARM,
@@ -90,7 +91,7 @@ class DeskStrategy(QObject):
         self._desk.strategy_card.set_armed_summary(
             self._coordinator.armed_summary(config), busy
         )
-        self.on_armed_changed(config)
+        self._chart.set_armed_config(config)
 
     def _save_params(self, values: dict) -> None:
         if self._coordinator.apply_params(values):

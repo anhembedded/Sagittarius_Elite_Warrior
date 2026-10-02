@@ -1,10 +1,13 @@
 """`EPIC-028K` — a desk's Enable/Disable toggle and its Emergency Stop, for
 the desk's own venue only.
 
-@details The same behaviour the single Trading screen's presenter has
-(`EPIC-021I`, `EPIC-021K`), moved out of the presenter so a desk's presenter
-stays a composition, and addressed to one venue's `ITradingSession`: the Spot
-desk's Emergency Stop stops Spot and nothing else (`EPIC-028B`).
+@details The behaviour the single Trading screen's presenter and the Dev Board
+each still carry (`EPIC-021I`, `EPIC-021K`), written once here for the desks
+so a desk's presenter stays a composition, and addressed to one venue's
+`ITradingSession`: the Spot desk's Emergency Stop stops Spot and nothing else
+(`EPIC-028B`). The two older copies are not yet replaced: the Trading
+screen's leaves with that screen and the Dev Board moves onto this class in
+`EPIC-028M` (the PR 308 review).
 
 Two trackers, never one (`BUG-089`): an `ActionOwnershipTracker` holds one
 active action whatever its kind, so a toggle click landing while Emergency
@@ -34,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session i
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.session_outcome_text import (
     ENABLE_BLOCK_MESSAGES,
     emergency_stop_log_lines,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
@@ -69,10 +75,14 @@ class DeskSessionControls(QObject):
         self,
         session: ITradingSession,
         thread_manager: IThreadManager,
+        venue: TradingVenue,
         parent: QObject | None = None,
     ) -> None:
+        """@param venue The venue `session` trades, named in this desk's log
+        lines: with two desks open, a log must say which one stopped."""
         super().__init__(parent)
         self._session = session
+        self._venue = venue
         self._threads = thread_manager
         self._toggles: ActionOwnershipTracker[str, None, None] = (
             ActionOwnershipTracker()
@@ -169,7 +179,7 @@ class DeskSessionControls(QObject):
         action = self._stops.begin_action(_STOP, None, None)
         self.stateChanged.emit(self.is_enabled, True)
         self.statusChanged.emit("Emergency stop in progress...", False)
-        logger.warning("Desk emergency stop requested")
+        logger.warning("Desk emergency stop requested for %s", self._venue.value)
         self._threads.submit(self._run_stop, action.action_id)
 
     def _run_stop(self, action_id: int) -> None:
