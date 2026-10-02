@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
     VenueAlignment,
 )
@@ -59,3 +62,19 @@ def test_each_alignment_state_maps_to_its_documented_severity() -> None:
     assert set(expected_severity) == set(VenueAlignment)
     for alignment, severity in expected_severity.items():
         assert venue_alignment_banner_content(alignment).severity is severity
+
+
+def test_an_aligned_banner_names_every_enabled_venue() -> None:
+    """`EPIC-028K` — both desks may be open at once; the banner said
+    "FUTURES TESTNET" even when only Spot was enabled."""
+    content = venue_alignment_banner_content(
+        VenueAlignment.ALIGNED,
+        (TradingVenue.FUTURES_TESTNET, TradingVenue.SPOT_TESTNET),
+    )
+    assert content.message == "FUTURES TESTNET · SPOT TESTNET — simulated funds."
+
+    spot_only = venue_alignment_banner_content(
+        VenueAlignment.ALIGNED, (TradingVenue.SPOT_TESTNET,)
+    )
+    assert "FUTURES" not in spot_only.message
+    assert "SPOT TESTNET" in spot_only.message

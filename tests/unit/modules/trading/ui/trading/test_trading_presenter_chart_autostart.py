@@ -23,7 +23,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_resu
     EnableTradingResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.coordinators.chart_coordinator import (
-    _STREAM_OWNER,
+    TRADING_STREAM_OWNER,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_presenter import (
     _CHART_AUTOSTART_CONFIG_KEY,
@@ -197,5 +197,5 @@ def test_a_symbol_change_after_going_live_does_stop_and_restart_live(
 
     # One release, for this screen's own owner id — and then the reload is
     # submitted with `go_live=True`, which is the "restart live" half.
-    assert market_stream.calls == [("stop", _STREAM_OWNER)]
+    assert market_stream.calls == [("stop", TRADING_STREAM_OWNER)]
     assert _submitted_go_live_flags(mock_thread_manager) == [True]

@@ -47,7 +47,7 @@ gantt
     Phase 3 exit check                     :milestone, m3, after i, 0d
 
     section Phase 4 - Two desks
-    028K Futures desk                      :         k, after m3, 2d
+    028K Futures desk                      :done,    k, after m3, 2d
     028L Spot desk                         :         l, after m3, 2d
     028M Retire old screen, docs           :         mm, after k, 2d
     028N Dual-venue Testnet tier           :         n, after l, 1d
@@ -72,9 +72,9 @@ gantt
 | EPIC-028R | [Futures conditional orders via the Algo Order API](completed/EPIC-028R_futures_conditional_orders_via_algo_api.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | ✅ Done; in review | — |
 | EPIC-028P | [Dual-venue isolation test](completed/EPIC-028P_dual_venue_isolation_test.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Merged | [#301](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/301) |
 | EPIC-028Q | [Phase 2 reader fixes](completed/EPIC-028Q_phase_2_reader_fixes.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Merged | [#301](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/301) |
-| EPIC-028I | [Futures order entry](completed/EPIC-028I_futures_order_entry_variant.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | ✅ Done | — |
-| EPIC-028J | [Account tabs and summary](completed/EPIC-028J_account_tabs_and_summary_panels.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | — |
-| EPIC-028K | [Futures desk](incomplete/EPIC-028K_futures_desk_screen.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-028I | [Futures order entry](completed/EPIC-028I_futures_order_entry_variant.md) | `claude/wizardly-cerf-fc5b5x` | 🔴 | ✅ Merged | [#307](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/307) |
+| EPIC-028J | [Account tabs and summary](completed/EPIC-028J_account_tabs_and_summary_panels.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Merged | [#307](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/307) |
+| EPIC-028K | [Futures desk](completed/EPIC-028K_futures_desk_screen.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done | — |
 | EPIC-028L | [Spot desk](incomplete/EPIC-028L_spot_desk_screen.md) | — | 🟢 | 🔵 Planned | — |
 | EPIC-028M | [Retire old screen, docs](incomplete/EPIC-028M_retire_single_trading_screen_and_docs.md) | — | 🟢 | 🔵 Planned | — |
 | EPIC-028N | [Dual-venue Testnet tier](incomplete/EPIC-028N_dual_venue_testnet_tier.md) | — | 🟡 | 🔵 Planned | — |
@@ -85,6 +85,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-02 | EPIC-028K | The Futures desk (`trading.futures`): one desk package composing the kit for a venue; per-desk chart stream owner, venue-stamped signals, `IVenueStrategyControls`, banner naming every enabled venue. Found by the journey: a resting Limit never reached Open orders (the stream announces fills and ends only); the desk now lists what the venue accepted. |
 | 2026-10-01 | EPIC-028I | Futures panel: estimates-sized maxima (book open loss for market), cost, liquidation estimate, TIF, reduce-only, margin and leverage chips through a new `IFuturesSettingsControl` port; TP/SL as reduce-only conditional orders, purpose-exempt from the limits, placed when the entry's fill is reported. |
 | 2026-10-01 | EPIC-028J | Account tabs and summary as desk parts: `IAccountActivity` port on `VenueTradingPorts`; tabs loaded from queries then kept by the venue's `OrderFeed`; histories page over a fixed `since`; cancel all shown and close at market ask first; summary stale mark. Integration: orders placed on the fake elsewhere are listed and cancelled. |
 | 2026-10-01 | EPIC-028R | Futures stop-limit through the Algo Order API with the app's client id; algo orders listed, cancelled (fallback on `-2011`), in history, cancelled by Emergency Stop; `ALGO_UPDATE` links a triggered stop's fill to the app's id; fake serves the algo routes and triggers by price. |

@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_gener
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicators.rsi import RSI
 
 RSI_OVERSOLD_THRESHOLD = 30.0
@@ -323,3 +326,37 @@ def test_on_forming_bar_tick_forwards_current_position_side_into_the_context():
     engine.on_forming_bar_tick(forming_candle, current_position_side=PositionSide.LONG)
 
     assert spy.seen_sides == [PositionSide.LONG]
+
+
+def _published_venues(event_publisher: Mock) -> set[TradingVenue | None]:
+    return {call.args[0].venue for call in event_publisher.publish.call_args_list}
+
+
+def test_a_live_engine_stamps_its_venue_on_every_signal_it_publishes():
+    """`EPIC-028K` — the desk's `SignalFeed` forwards only its own venue's
+    signals; an engine that forgot its venue would reach no desk at all."""
+    event_publisher = Mock()
+    engine = StrategyEngine(
+        indicators={"rsi": RSI(period=14)},
+        strategy=_StubRsiThresholdStrategy(),
+        event_publisher=event_publisher,
+        venue=TradingVenue.SPOT_TESTNET,
+    )
+    klines = _build_klines(FULL_CLOSES)
+
+    for kline in klines[:-1]:
+        engine.on_tick(kline)
+    forming = engine.on_forming_bar_tick(replace(klines[-1], is_closed=False))
+
+    # Both publishing paths, the closed bar's and the forming bar's.
+    assert forming is not None
+    assert _published_venues(event_publisher) == {TradingVenue.SPOT_TESTNET}
+
+
+def test_a_backtests_engine_publishes_signals_no_venue_claims():
+    engine, event_publisher = _build_engine()
+
+    engine.run_batch(_build_klines(FULL_CLOSES))
+
+    assert event_publisher.publish.call_count > 0
+    assert _published_venues(event_publisher) == {None}

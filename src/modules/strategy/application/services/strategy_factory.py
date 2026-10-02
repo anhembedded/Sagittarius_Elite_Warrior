@@ -10,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strateg
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 
 
 def build_engine(
@@ -17,6 +20,8 @@ def build_engine(
     key: str,
     event_publisher: IEventPublisher,
     params: Mapping[str, Any] | None = None,
+    *,
+    venue: TradingVenue | None = None,
 ) -> StrategyEngine:
     """
     @brief Builds a ready-to-run `StrategyEngine` for a registered strategy key.
@@ -29,10 +34,13 @@ def build_engine(
     is called only after `registry.create()` returns, i.e. after `setup()`
     has already resolved every declared input — a strategy reading
     `self._fast_period` there sees the caller-supplied value, not the default.
+    @param venue The venue a live engine trades on, stamped on its signals
+    (`EPIC-028K`); `None` for a backtest or a preview.
     """
     strategy = registry.create(key, params)
     return StrategyEngine(
         indicators=strategy.build_indicators(),
         strategy=strategy,
         event_publisher=event_publisher,
+        venue=venue,
     )

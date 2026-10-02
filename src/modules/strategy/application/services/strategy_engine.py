@@ -24,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_gener
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
     PositionSide,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicators.i_indicator import (
     IIndicator,
 )
@@ -63,7 +66,12 @@ class StrategyEngine(IStrategyEngine):
         indicators: dict[str, IIndicator[IndicatorValue]],
         strategy: IStrategy,
         event_publisher: IEventPublisher,
+        *,
+        venue: TradingVenue | None = None,
     ) -> None:
+        #: `EPIC-028K` — stamped on every `SignalGeneratedEvent` this engine
+        #: publishes; `None` for an engine no venue runs (a backtest).
+        self._venue = venue
         self._indicators = indicators
         self._strategy = strategy
         self._event_publisher = event_publisher
@@ -121,7 +129,9 @@ class StrategyEngine(IStrategyEngine):
         if signal.action is SignalAction.HOLD:
             return None
 
-        self._event_publisher.publish(SignalGeneratedEvent(signal=signal))
+        self._event_publisher.publish(
+            SignalGeneratedEvent(signal=signal, venue=self._venue)
+        )
         return signal
 
     def _process_one(
@@ -142,7 +152,9 @@ class StrategyEngine(IStrategyEngine):
         if signal.action is SignalAction.HOLD:
             return None
 
-        self._event_publisher.publish(SignalGeneratedEvent(signal=signal))
+        self._event_publisher.publish(
+            SignalGeneratedEvent(signal=signal, venue=self._venue)
+        )
         return signal
 
     def _update_indicators(

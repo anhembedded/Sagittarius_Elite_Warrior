@@ -37,30 +37,50 @@ from a backtest run). Displaying a line of text is a different matter, but
 not a free one: a backtest running while a live screen is open would
 otherwise scribble its signals into a card that claims to describe live
 trading. Each Presenter therefore filters to its own armed symbol before
-showing anything — the filter belongs at the consumer, since the event
-itself cannot know which engine produced it.
+showing anything.
+
+`EPIC-028K` — the event now names the venue whose live strategy produced it
+(`None` for a backtest), and a Feed forwards only its own venue's, the same
+way `OrderFeed` filters: two desks share one bus, and a Spot signal must not
+reach the Futures desk's card. A backtest's signal (`venue=None`) reaches no
+Feed at all.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.base_feed import BaseFeed
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 
 class SignalFeed(BaseFeed):
     """@brief Forwards `SignalGeneratedEvent`, already marshaled onto the
     main Qt thread."""
 
-    #: Carries a `SignalGeneratedEvent`.
+    #: Carries a `SignalGeneratedEvent` of this Feed's venue.
     signalGenerated = Signal(object)
+
+    def __init__(
+        self,
+        event_bus: IEventBus,
+        venue: TradingVenue,
+        parent: QObject | None = None,
+    ) -> None:
+        # Set before `super().__init__`: `BaseFeed.__init__` subscribes.
+        self._venue = venue
+        super().__init__(event_bus, parent)
 
     def _subscribe(self) -> None:
         self._events.on(SignalGeneratedEvent, self._on_signal_generated)
 
     def _on_signal_generated(self, event: Any) -> None:
-        self.signalGenerated.emit(event)
+        if event.venue is self._venue:
+            self.signalGenerated.emit(event)

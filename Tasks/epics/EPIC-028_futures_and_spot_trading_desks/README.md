@@ -1,6 +1,6 @@
 # EPIC-028 — Two trading desks: Futures and Spot side by side, each with manual orders, a strategy and live account data
 
-- **Status:** 🟡 Phase 3 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`, evidence `EPIC-028P`); Phase 2 readers done (`EPIC-028D`–`028G`, `028Q`), its exit check (the `exchange-status` CLI) not yet run; `EPIC-028H`, `028O`, `028R`, `028J` and `028I` done (Phase 3 parts built); `028K` next
+- **Status:** 🟡 Phase 3 in progress — ADR accepted 2026-09-29 (D1–D8, O1–O5 per recommendation); Phase 1 done (`EPIC-028A`–`028C`, evidence `EPIC-028P`); Phase 2 readers done (`EPIC-028D`–`028G`, `028Q`), its exit check (the `exchange-status` CLI) not yet run; `EPIC-028H`, `028O`, `028R`, `028J` and `028I` done (Phase 3 parts built); Phase 4 in progress: `028K` done (the Futures desk)
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** the user (2026-09-29): *"giờ màn hình trading đang có vấn đề, cần có 2 cái chứ không
   phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng, 2 màn hình
@@ -79,7 +79,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 | [EPIC-028I](completed/EPIC-028I_futures_order_entry_variant.md) | Futures variant: margin/leverage chips, reduce-only, TIF, TP/SL, stop-limit tab | Elite | F, H, O, R, O2 | 🔴 | ✅ Done (2026-10-01) |
 | [EPIC-028J](completed/EPIC-028J_account_tabs_and_summary_panels.md) | Bottom account tabs + account summary panel | Elite | D, E | 🟡 | ✅ Done (2026-10-01) |
 | **Phase 4 — Two desks** | | | | | |
-| [EPIC-028K](incomplete/EPIC-028K_futures_desk_screen.md) | Futures desk screen | Elite | C, I, J | 🟡 | Planned |
+| [EPIC-028K](completed/EPIC-028K_futures_desk_screen.md) | Futures desk screen | Elite | C, I, J | 🟡 | ✅ Done (2026-10-02) |
 | [EPIC-028L](incomplete/EPIC-028L_spot_desk_screen.md) | Spot desk screen | Elite | C, H, J, O | 🟢 | Planned |
 | [EPIC-028M](incomplete/EPIC-028M_retire_single_trading_screen_and_docs.md) | Retire the single Trading route; Dev Board F9 on the shared panel; HLD/SPEC | Elite | K, L, O4 | 🟢 | Planned |
 | [EPIC-028N](incomplete/EPIC-028N_dual_venue_testnet_tier.md) | Testnet tier: one round trip on each desk in the same process | Elite | K, L | 🟡 | Planned |
@@ -103,6 +103,7 @@ All eight accepted by the user on 2026-09-29, and O1–O5 answered with the reco
 - **Arming more than one strategy per desk.**
 
 ## Notes (newest first)
+- **2026-10-02** — `EPIC-028K` done: the Futures desk is a route (`trading.futures`) composing the kit with Futures' own ports, feeds, strategy controls and chart stream. Found by its journey and fixed: a resting Limit placed from the desk never appeared in Open orders, since the venue's stream announces an order only when it fills or ends; the desk now lists what the venue accepted.
 - **2026-10-01** — `EPIC-028I` done: the Futures order panel sizes Buy/Long and Sell/Short by Binance's cost within the leverage's cap (a market order also pays its open loss against the book), shows cost and a liquidation estimate, and offers time in force, reduce-only and the margin and leverage chips. TP/SL places a reduce-only take-profit and stop-loss once the entry's fill is reported; the app's limits pass them because they are reduce-only. Built as parts; `028K` puts them on the Futures desk.
 - **2026-10-01** — `EPIC-028J` done: each desk's account tabs (open orders, order and trade history, positions or assets) load from the venue when the desk opens and keep current from its events; cancel all and close at market ask first; the histories name the pairs they read and page over a fixed span. The summary panel marks stale figures with the reason. Built as parts; `EPIC-028K`/`028L` put them on the desks.
 - **2026-10-01** — `EPIC-028O` merged (PR #305). `EPIC-028R` done: a Futures stop-limit goes through Binance's Algo Order API under the app's client order id, and conditional orders are listed, cancelled, kept in history and cancelled by Emergency Stop wherever they were placed. A triggered stop's fill reaches the app as the order it placed. No live Testnet call verified the algo shapes (`EPIC-028N`).

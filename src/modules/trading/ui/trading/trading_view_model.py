@@ -88,6 +88,23 @@ class TradingViewModel(StatusMessageViewModel):
 
     symbol = Property(str, _get_symbol, _set_symbol, notify=symbolChanged)
 
+    @property
+    def symbol_list(self) -> list[str]:
+        """Pythonic accessor for the desks (`EPIC-028K`), as `log_model`
+        mirrors `logModel`: `mypy` reads `symbolOptions` as the Qt
+        descriptor, not the list it returns."""
+        return list(self._symbol_options)
+
+    @property
+    def current_symbol(self) -> str:
+        """Pythonic accessor for the desks, mirroring `symbol`."""
+        return self._symbol
+
+    @Slot(str)
+    def set_symbol(self, symbol: str) -> None:
+        """Pythonic setter for the desks, writing `symbol`."""
+        self._set_symbol(symbol)
+
     @Slot(str)
     def requestSymbolChange(self, symbol: str) -> None:
         """Called from the View's symbol combo on selection change."""
@@ -171,6 +188,12 @@ class TradingViewModel(StatusMessageViewModel):
     # ------------------------------------------------------------------ #
     # Console log (same shape as DashboardQmlViewModel.log_model)
     # ------------------------------------------------------------------ #
+
+    @property
+    def strategy_card(self) -> StrategyCardViewModel:
+        """Pythonic accessor for the desks (`EPIC-028K`), mirroring
+        `strategy`."""
+        return self._strategy
 
     @Property(QObject, constant=True)
     def logModel(self) -> LogListModel:

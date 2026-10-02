@@ -60,6 +60,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_catalog_re
 from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.strategy_chart_overlay_reader_adapter import (
     StrategyChartOverlayReaderAdapter,
 )
+from Sagittarius_Elite_Warrior.src.modules.strategy.adapters.venue_strategy_controls_adapter import (
+    VenueStrategyControlsAdapter,
+)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
     LiveStrategyConfigStore,
 )
@@ -80,6 +83,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strateg
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_registry import (
     StrategyRegistry,
+)
+from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
+    VenueStrategySessions,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
     IArmedStrategy,
@@ -114,6 +120,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_overlay_reader import (
     IStrategyChartOverlayReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_strategy_controls import (
+    IVenueStrategyControls,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -129,7 +138,9 @@ def bind_published_ports(container: IContainer) -> None:
     `ui/`/`application/`/`contracts/` directly and read/write through
     these instead. The four §8 ports bind adapters, never the services
     themselves: `trading`'s own contract, implemented on this side of the
-    boundary, is what keeps `trading.dependencies` free of `"strategy"`."""
+    boundary, is what keeps `trading.dependencies` free of `"strategy"`.
+    `EPIC-028K` adds `IVenueStrategyControls`: the same arming and reader
+    ports, one pair per venue, for the desks."""
     container.singleton(IArmedStrategy, _the_live_session)
     container.singleton(IStrategyEngineFactory, _the_engine_factory)
     container.singleton(ISizingPolicy, MarginSizingPolicy)
@@ -140,6 +151,7 @@ def bind_published_ports(container: IContainer) -> None:
     container.singleton(IStrategyCatalogReader, _the_strategy_catalog_reader)
     container.singleton(IStrategyArmingControl, _the_strategy_arming_control)
     container.singleton(IStrategyChartOverlayReader, _the_strategy_chart_overlay_reader)
+    container.singleton(IVenueStrategyControls, _the_venue_strategy_controls)
 
 
 def _the_strategy_arming(container: IContainer) -> IStrategyArming:
@@ -158,6 +170,16 @@ def venue_strategy_arming(
         container.resolve(ICommandDispatcher),
         LiveStrategyConfigStore(container.resolve(IConfig)),
         venue,
+    )
+
+
+def _the_venue_strategy_controls(container: IContainer) -> IVenueStrategyControls:
+    """`EPIC-028K` — each desk's own venue's arming and armed state, over
+    the same per-venue sessions the tick path drives (one session per venue,
+    never a second one)."""
+    return VenueStrategyControlsAdapter(
+        lambda venue: venue_strategy_arming(container, venue),
+        container.resolve(VenueStrategySessions),
     )
 
 

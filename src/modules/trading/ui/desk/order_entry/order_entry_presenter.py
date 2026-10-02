@@ -111,6 +111,8 @@ class OrderEntryPresenter(QObject):
     #: `(Order, ProtectiveLevels)`: an entry placed with TP/SL on, to be
     #: protected once it fills (`EPIC-028I`).
     entryPlaced = Signal(object)
+    #: `Order`: every order the venue accepted, as it answered (`EPIC-028K`).
+    orderAccepted = Signal(object)
 
     _loaded = Signal(object)
     _previewed = Signal(object)
@@ -364,6 +366,8 @@ class OrderEntryPresenter(QObject):
         logger.info("Order panel %s order: %s", side.value, message)
         self._vm.show_result(message, is_error=not placed)
         if placed:
+            if result is not None and result.submitted_order is not None:
+                self.orderAccepted.emit(result.submitted_order)
             self._announce_protection(result, reduced)
             self._vm.clear_amount(side)
             self.refresh()
