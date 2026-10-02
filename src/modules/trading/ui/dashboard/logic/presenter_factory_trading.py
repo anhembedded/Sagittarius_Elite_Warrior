@@ -1,7 +1,7 @@
 """`BOT-144` — `DashboardPresenter`'s trading-card construction: the live
 order book, the strategy-arming coordinator, the Enable/Disable and
 Emergency Stop controls (`DeskSessionControls`, `EPIC-028M`) and the
-manual-order/cancel `TradingActionsCoordinator`. Split out of
+per-order cancel `TradingActionsCoordinator`. Split out of
 `presenter_factory.py` once that file itself crossed the 400-line ceiling
 (`architecture-rule.md` §5.4) — see that file's own docstring for why this
 whole construction sequence is a Builder over `presenter`, not an
@@ -40,10 +40,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOwnershipTracker,
 )
 
-from ..coordinators.trading_actions_coordinator import (
-    CompletionEmitters,
-    TradingActionsCoordinator,
-)
+from ..coordinators.trading_actions_coordinator import TradingActionsCoordinator
 from ..history_pagination_controller import HistoryPaginationController
 
 if TYPE_CHECKING:
@@ -57,17 +54,12 @@ if TYPE_CHECKING:
 #: strings here do not collide.
 _ARM_ACTION = "arm_strategy"
 
-#: `EPIC-024B` — manual trading card. One tracker for the whole card (like
-#: a toggle): the form represents exactly one pending attempt
-#: at a time, never two concurrent Long/Short clicks from the same card.
-_MANUAL_ORDER_ACTION = "manual_order"
-
 
 def build_trading_presenter_state(
     presenter: DashboardPresenter, container: IContainer
 ) -> None:
     """The order book, strategy-arming coordinator, and the toggle/emergency-
-    stop/manual-order `TradingActionsCoordinator` (plus the pagination
+    stop controls, the per-order cancel coordinator (plus the pagination
     controller, which has no better home). Call second, from
     `build_dashboard_presenter_state()` only, after
     `build_core_presenter_state()`."""
@@ -121,35 +113,19 @@ def build_trading_presenter_state(
         container.resolve(TradingVenue),
         presenter,
     )
-    # `EPIC-024B` — manual trading card. Own tracker (a manual order attempt
-    # must not fence, or be fenced by, an unrelated toggle/stop/arm click).
-    presenter._manual_order_tracker = ActionOwnershipTracker()
-    # `EPIC-024B` — last live close price per symbol, the manual order
-    # card's `reference_price` for a MARKET order (a LIMIT order's own
-    # price field is the reference instead — see `_on_manual_order_requested`).
-    # Updated on every `_on_ui_chart_update` tick; `Decimal`, not the
-    # `float` the tick itself carries — `OrderRequest` requires it.
+    # `EPIC-028M` — the F9 order panel, built with the venue feeds in
+    # `_connect_engine_events()` (`DashboardPresenter._build_order_entry`).
+    presenter._order_entry = None
+    # Last live close price per symbol: values the board's Spot holdings and
+    # feeds the order panel (`DevBoardOrderEntry`). Updated on every
+    # `_on_ui_chart_update` tick; `Decimal`, not the tick's `float`.
     presenter._last_price_by_symbol = {}
     # `BOT-144` — trackers stay Presenter-owned (`async-ui-action-rule.md` §2).
     presenter._trading_actions = TradingActionsCoordinator(
         thread_manager=presenter._thread_manager,
         order_submission=presenter._order_submission,
-        account=presenter._account,
-        # `EPIC-027K` post-review fix (PR #284) — `manual_order_intent_for()`
-        # refuses a Short click on a market with no short capability; the
-        # venue is resolved once here, like every other venue-branched bind
-        # in `adapter_bindings.py`, not re-read per click.
-        market_type=container.resolve(TradingVenue).market_type,
-        manual_order_tracker=presenter._manual_order_tracker,
-        manual_order_action_kind=_MANUAL_ORDER_ACTION,
-        completion_emitters=CompletionEmitters(
-            manual_order=presenter.manualOrderCompleted.emit,
-            cancel_order=presenter.cancelOrderCompleted.emit,
-        ),
-        set_manual_order_state=presenter._view_model.set_manual_order_state,
+        emit_cancel_completed=presenter.cancelOrderCompleted.emit,
         append_log=presenter._append_log,
-        get_active_symbol=lambda: presenter._active_symbol,
-        get_last_price=lambda symbol: presenter._last_price_by_symbol.get(symbol),
     )
     # Seeds from whatever the session already says — if Trading enabled it
     # first, opening Dev Board must show "đang BẬT", never a default "TẮT"

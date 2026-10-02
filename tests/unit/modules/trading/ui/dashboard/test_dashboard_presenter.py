@@ -47,6 +47,13 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.i_armed_strategy import (
     IArmedStrategy,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
+    IVenueTradingPorts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
+    FakeVenueTradingPorts,
+    fake_venue_ports,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_presenter import (
     DashboardPresenter,
 )
@@ -75,6 +82,12 @@ from sagittarius_engine.extensions.pyside_mvc.base_view import DEV_MODE_CONFIG_K
 # ---------------------------------------------------------------------------
 # Shared fixtures
 # ---------------------------------------------------------------------------
+
+
+#: `EPIC-028M` — a run with no trading venue on: the F9 dialog says so
+#: instead of hosting the order panel. The tests that need the panel build
+#: their own registry (`venue_container`).
+_NO_VENUE_ENABLED = FakeVenueTradingPorts(fake_venue_ports(TradingVenue.DISABLED))
 
 
 @pytest.fixture
@@ -367,6 +380,8 @@ def mock_container(
             return fake_market_stream
         if interface == IMarketDataSync:
             return fake_market_data_sync
+        if interface == IVenueTradingPorts:
+            return _NO_VENUE_ENABLED
         return MagicMock()
 
     container.resolve.side_effect = resolve_side_effect
@@ -567,6 +582,8 @@ def test_boot_wires_the_container_registered_store_into_the_view(
             return fake_market_stream
         if interface == IMarketDataSync:
             return fake_market_data_sync
+        if interface == IVenueTradingPorts:
+            return _NO_VENUE_ENABLED
         return Mock()
 
     container.resolve.side_effect = resolve_side_effect
@@ -2158,37 +2175,6 @@ def test_position_closed_removes_it_from_the_positions_table(
     spy.assert_called_once_with([])
 
 
-def test_holdings_changed_updates_the_manual_order_sell_button(
-    presenter, view, monkeypatch
-):
-    """`EPIC-027O` — `_on_holdings_changed` is also where the manual order
-    card's SELL button learns whether `_active_symbol` has anything to
-    sell (`has_holding`)."""
-    from decimal import Decimal
-
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.holdings_changed_event import (
-        HoldingsChangedEvent,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
-        SpotHolding,
-    )
-
-    presenter._active_symbol = "BTCUSDT"
-    holding = SpotHolding(
-        asset="BTC", free=Decimal("0.5"), locked=Decimal(0), dust_threshold=Decimal(0)
-    )
-
-    presenter._on_holdings_changed(
-        HoldingsChangedEvent(holdings=(holding,), venue=TradingVenue.FUTURES_TESTNET)
-    )
-    assert presenter._view_model.manualOrderSellEnabled is True
-
-    presenter._on_holdings_changed(
-        HoldingsChangedEvent(holdings=(), venue=TradingVenue.FUTURES_TESTNET)
-    )
-    assert presenter._view_model.manualOrderSellEnabled is False
-
-
 def test_position_closed_for_an_unknown_symbol_is_a_no_op(presenter, view, monkeypatch):
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
         PositionClosedEvent,
@@ -2792,180 +2778,6 @@ def _live_position(symbol: str, signed_amount: str):
     )
 
 
-def test_manual_order_requested_submits_background_worker_for_a_market_order(
-    presenter, mock_thread_mgr
-):
-    from decimal import Decimal
-
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
-        OrderType,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
-        ManualOrderDirection,
-    )
-
-    presenter._active_symbol = "BTCUSDT"
-    presenter._last_price_by_symbol["BTCUSDT"] = Decimal(64000)
-
-    presenter._view_model.requestManualOrder("LONG", 0.01, "MARKET", 0.0)
-
-    mock_thread_mgr.submit.assert_called_once()
-    args = mock_thread_mgr.submit.call_args[0]
-    assert args[0] == presenter._trading_actions.run_manual_order
-    assert args[2] == "BTCUSDT"
-    assert args[3] is ManualOrderDirection.LONG
-    assert args[4] == Decimal("0.01")
-    assert args[5] is OrderType.MARKET
-    assert args[6] == Decimal(64000)
-    assert presenter._view_model.manualOrderBusy is True
-
-
-def test_manual_order_requested_rejects_a_market_order_with_no_known_price(
-    presenter, mock_thread_mgr
-):
-    presenter._active_symbol = "BTCUSDT"
-    presenter._last_price_by_symbol.clear()
-
-    presenter._view_model.requestManualOrder("LONG", 0.01, "MARKET", 0.0)
-
-    mock_thread_mgr.submit.assert_not_called()
-    log_entries = presenter._view_model.log_model.entries
-    assert any("market price" in entry.message for entry in log_entries)
-
-
-def test_manual_order_requested_blocked_while_already_pending(
-    presenter, mock_thread_mgr
-):
-    presenter._active_symbol = "BTCUSDT"
-    presenter._last_price_by_symbol["BTCUSDT"] = 64000
-    presenter._manual_order_tracker.begin_action("manual_order", None, None)
-
-    presenter._view_model.requestManualOrder("LONG", 0.01, "MARKET", 0.0)
-
-    mock_thread_mgr.submit.assert_not_called()
-
-
-def test_run_manual_order_submits_one_live_order_with_the_mapped_intent(
-    presenter, account_snapshot, order_submission
-):
-    from decimal import Decimal
-
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
-        ExecuteOrderResult,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import (
-        OrderSide,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
-        OrderType,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
-        ManualOrderDirection,
-    )
-
-    # `EPIC-025` PR 1.3c-3 — the card reads the REAL current position through
-    # `IAccountSnapshot.open_positions()`, so the situation is stated on that
-    # port's fake rather than on a dispatch stub.
-    account_snapshot.holding([_live_position("BTCUSDT", "-0.01")])  # currently SHORT
-    order_submission.submit_answers(
-        ExecuteOrderResult(
-            blocked_by=None, preview=None, limit_checks=(), submitted_order=None
-        )
-    )
-
-    presenter._trading_actions.run_manual_order(
-        1,
-        "BTCUSDT",
-        ManualOrderDirection.LONG,
-        Decimal("0.01"),
-        OrderType.MARKET,
-        Decimal(64000),
-    )
-
-    # In `submitted_live`, not `submitted_dry`: a manual order card that lost
-    # `live=True` would have looked the same to the mocked dispatcher this
-    # replaces.
-    (request,) = order_submission.submitted_live
-    assert order_submission.submitted_dry == []
-    assert request.symbol == "BTCUSDT"
-    # Currently SHORT + Long click -> BUY, reduce_only=True (closes the
-    # short) — `manual_order_intent_for()`'s own table, row 2.
-    assert request.side is OrderSide.BUY
-    assert request.reduce_only is True
-    # Read once, fresh, per attempt — never remembered from a prior click
-    # (`manual_order_intent_for()`'s own docstring).
-    assert account_snapshot.position_reads == 1
-
-
-def test_a_leased_symbol_is_reported_to_the_card_in_the_operators_own_words(
-    presenter, order_submission
-):
-    """`PRO-003` §4.1.2's hard block, after `EPIC-025` PR 2.1f moved the rule
-    onto the order path.
-
-    @par What the two tests this replaces asserted, and where each half went
-    They were `test_run_manual_order_hard_blocks_when_strategy_owns_the_symbol
-    _with_a_position` and `..._even_while_flat`, and between them they pinned
-    three things:
-
-      1. *an armed symbol refuses a manual order* — now
-         `tests/unit/modules/trading/application/orders/test_execute_order.py::
-         test_blocked_when_another_owner_holds_the_symbols_lease`, where the
-         refusal lives, plus `test_arm_strategy.py::
-         test_arming_claims_the_symbols_lease` for the claim that makes it
-         true;
-      2. *it fires on "armed" alone, with no position read needed to decide* —
-         the same execute-order test: the gate reads only the lease;
-      3. *the refusal is free* — `test_execute_order.py::
-         test_the_lease_is_refused_before_any_network_call`, which makes
-         `check_connection()` fail the test if it is reached.
-
-    What is left for this Presenter is the half that is genuinely its own: it
-    reports the refusal, with the words the user chose. Deliberately **not**
-    kept is the old "no dispatch happens at all" assertion — the click now
-    goes through `IOrderSubmission` like every other order, which is the point
-    of moving the rule to where every caller inherits it, and it costs one
-    `open_positions()` read on a refused attempt. The user decision was that
-    the block is hard and what it says; the free-ness was an implementation
-    note on where the check sat.
-    """
-    from decimal import Decimal
-
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
-        ExecuteOrderResult,
-        ExecuteOrderSafetyGate,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
-        OrderType,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
-        ManualOrderDirection,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
-        format_execute_order_block_reason,
-    )
-
-    order_submission.submit_answers(
-        ExecuteOrderResult(ExecuteOrderSafetyGate.SYMBOL_LEASED, None, (), None)
-    )
-    context = presenter._manual_order_tracker.begin_action("manual_order", None, None)
-
-    presenter._trading_actions.run_manual_order(
-        context.action_id,
-        "BTCUSDT",
-        ManualOrderDirection.LONG,
-        Decimal("0.01"),
-        OrderType.MARKET,
-        Decimal(64000),
-    )
-
-    shown = presenter._view_model.manualOrderMessage
-    assert "managed by an armed strategy" in shown
-    assert (
-        format_execute_order_block_reason(ExecuteOrderSafetyGate.SYMBOL_LEASED) in shown
-    )
-
-
 def test_cancel_order_requested_submits_background_worker(presenter, mock_thread_mgr):
     presenter._on_cancel_order_requested("BTCUSDT", "abc123")
 
@@ -3048,3 +2860,104 @@ def test_trading_state_requires_thread_manager_from_core(presenter, mock_contain
     del presenter._thread_manager
     with pytest.raises(AttributeError):
         build_trading_presenter_state(presenter, mock_container)
+
+
+# ---------------------------------------------------------------------------
+# `EPIC-028M` — the F9 dialog is the desks' order panel for the board's venue
+# (`DevBoardOrderEntry`, whose own tests place orders through it); these pin
+# the board's side of the wiring.
+# ---------------------------------------------------------------------------
+
+
+@pytest.fixture
+def spot_board(view, mock_container, mock_thread_mgr, order_submission):
+    """The board with Spot Testnet on, its venue registry real."""
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
+        FakeAccountSnapshot,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
+        FakeOrderEntryTerms,
+    )
+
+    from ..desk.order_entry_fixtures import TERMS, spot_status
+
+    registry = FakeVenueTradingPorts(
+        fake_venue_ports(
+            TradingVenue.SPOT_TESTNET,
+            order_submission=order_submission,
+            account_snapshot=FakeAccountSnapshot(spot_status()),
+            order_entry_terms=FakeOrderEntryTerms(TERMS),
+        )
+    )
+    resolve = mock_container.resolve.side_effect
+
+    def with_spot(interface):
+        if interface == IVenueTradingPorts:
+            return registry
+        if interface == TradingVenue:
+            return TradingVenue.SPOT_TESTNET
+        return resolve(interface)
+
+    mock_container.resolve.side_effect = with_spot
+    presenter = DashboardPresenter(view, mock_container)
+    mock_thread_mgr.submit.reset_mock()
+    return presenter
+
+
+def test_the_dialog_holds_the_panel_of_the_venue_the_board_trades(spot_board, view):
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_panel import (
+        MANUAL_ORDER_DIALOG,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_panel import (
+        OrderEntryPanel,
+    )
+
+    entry = spot_board._order_entry
+    assert entry is not None
+    assert entry.view_model.profile.venue is TradingVenue.SPOT_TESTNET
+    assert entry.view_model.order_symbol == spot_board._active_symbol
+    dialog = view._surface.show_modal(MANUAL_ORDER_DIALOG)
+    assert len(dialog.findChildren(OrderEntryPanel)) == 1
+
+
+def test_an_order_accepted_in_the_dialog_joins_the_boards_open_orders(
+    spot_board, view, monkeypatch
+):
+    """The gap `EPIC-028K` found: a resting Limit placed from the board never
+    reached Open orders, because the venue's stream announces an order only
+    when it fills or ends."""
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row import (
+        build_open_order_row,
+    )
+
+    open_orders_spy = MagicMock()
+    monkeypatch.setattr(view, "set_open_orders", open_orders_spy)
+    order = _fill_event("BTCUSDT").order
+
+    spot_board._order_entry.orderAccepted.emit(order)
+
+    open_orders_spy.assert_called_once_with([build_open_order_row(order)])
+
+
+def test_the_dialog_follows_the_boards_symbol(spot_board):
+    picked = "SOLUSDT" if spot_board._active_symbol != "SOLUSDT" else "XRPUSDT"
+    spot_board._view_model.symbol = picked
+
+    spot_board._on_load_history()
+
+    assert spot_board._order_entry.view_model.order_symbol == picked
+
+
+def test_the_boards_live_price_reaches_the_dialog_for_its_symbol_only(spot_board):
+    from decimal import Decimal
+
+    spot_board._active_market = MarketType.SPOT
+    symbol = spot_board._active_symbol
+
+    other = "SOLUSDT" if symbol != "SOLUSDT" else "XRPUSDT"
+
+    spot_board._on_ui_chart_update(other, 1.0, 1.0, 1.0, 1.0, 9.0, 1.0, True)
+    assert spot_board._order_entry.view_model.last_price is None
+
+    spot_board._on_ui_chart_update(symbol, 1.0, 1.0, 1.0, 1.0, 101.5, 1.0, True)
+    assert spot_board._order_entry.view_model.last_price == Decimal("101.5")

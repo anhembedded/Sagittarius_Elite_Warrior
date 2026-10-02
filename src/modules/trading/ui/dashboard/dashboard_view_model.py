@@ -80,14 +80,6 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     toggleRequested = Signal()
     emergencyStopRequested = Signal()
 
-    #: `EPIC-024B` — the manual trading card. `manualOrderRequested` mirrors
-    #: `botParamsSaveRequested`'s shape: one atomic attempt per click, not a
-    #: value reacted to on every keystroke. Direction/order type travel as
-    #: `str` ("LONG"/"SHORT", "MARKET"/"LIMIT"), not the domain enums this
-    #: card's own `ManualOrderDirection`/`OrderType` use — a Qt boundary
-    #: type must not import `domain/` (`architecture-rule.md` §3).
-    manualOrderChanged = Signal()
-    manualOrderRequested = Signal(str, float, str, float)
     cancelOrderRequested = Signal(str, str)
 
     def __init__(self, parent=None) -> None:
@@ -135,12 +127,6 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self._toggle_busy = False
         self._orders_sent_this_session = 0
         self._open_symbols_count = 0
-
-        # `EPIC-024B` — manual trading card.
-        self._manual_order_busy = False
-        self._manual_order_message = ""
-        #: `EPIC-027O` — Spot Sell only; stays `True` on Futures.
-        self._manual_order_sell_enabled = True
 
     # Log model — exposed to LogPanel.qml, mutated by the Presenter's
     # ui_log_signal (main thread only, same contract as every other screen).
@@ -397,39 +383,9 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self.sessionStatsChanged.emit()
 
     # ------------------------------------------------------------------ #
-    # Manual trading card (`EPIC-024B`) — Long/Short buttons submit
-    # directly, no separate arm/submit split like the strategy card above.
+    # Per-order cancel (`EPIC-024B` §0). The manual-order card that sat here
+    # left for the desks' order panel behind F9 (`EPIC-028M`).
     # ------------------------------------------------------------------ #
-    @Property(bool, notify=manualOrderChanged)
-    def manualOrderBusy(self) -> bool:
-        return self._manual_order_busy
-
-    @Property(str, notify=manualOrderChanged)
-    def manualOrderMessage(self) -> str:
-        return self._manual_order_message
-
-    @Slot(bool, str)
-    def set_manual_order_state(self, busy: bool, message: str) -> None:
-        self._manual_order_busy = busy
-        self._manual_order_message = message
-        self.manualOrderChanged.emit()
-
-    @Property(bool, notify=manualOrderChanged)
-    def manualOrderSellEnabled(self) -> bool:
-        return self._manual_order_sell_enabled
-
-    @Slot(bool)
-    def set_manual_order_sell_enabled(self, enabled: bool) -> None:
-        """`EPIC-027O` — pushed only from Spot's `HoldingsChangedEvent`."""
-        self._manual_order_sell_enabled = enabled
-        self.manualOrderChanged.emit()
-
-    @Slot(str, float, str, float)
-    def requestManualOrder(
-        self, direction: str, quantity: float, order_type: str, price: float
-    ) -> None:
-        self.manualOrderRequested.emit(direction, quantity, order_type, price)
-
     @Slot(str, str)
     def requestCancelOrder(self, symbol: str, client_order_id: str) -> None:
         self.cancelOrderRequested.emit(symbol, client_order_id)

@@ -89,6 +89,9 @@ def build_stream_presenter_state(
 
     def _set_active_symbol(val: str):
         presenter._active_symbol = val
+        if presenter._order_entry is not None:
+            # `EPIC-028M` — the F9 order panel follows the board's symbol.
+            presenter._order_entry.show_symbol(val)
 
     def _get_active_market():
         return presenter._active_market

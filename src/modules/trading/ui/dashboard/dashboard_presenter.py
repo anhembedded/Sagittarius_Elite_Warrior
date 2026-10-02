@@ -33,10 +33,19 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
+    IVenueTradingPorts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui import screen_venue_feeds
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_order_entry import (
+    DevBoardOrderEntry,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_session_controls import (
     DeskSessionControls,
     ReconciledAccount,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_panel import (
+    confirm_with_message_box,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
     equity_sample_to_candle,
@@ -50,15 +59,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market_ticks import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_prices import (
     holding_prices_from_symbol_prices,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
     order_filled_marker,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
-    ActionOutcome,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_INTERVAL,
@@ -81,7 +91,6 @@ from .dashboard_view_model import (
 )
 from .logic.chart_zoom_limits import max_visible_x_range
 from .logic.presenter_factory import (
-    _MANUAL_ORDER_ACTION,
     build_dashboard_presenter_state,
 )
 
@@ -427,13 +436,7 @@ class DashboardPresenter(BasePresenter):
     ui_script_info_signal = Signal(str, list)
     ui_script_marker_signal = Signal(str, list)
 
-    #: `EPIC-024B` — manual trading card + per-order cancel.
-    #: `(action_id, ExecuteOrderResult | None, error_message | None)`. The
-    #: `strategy_conflict: bool` that used to sit third is gone with the
-    #: screen's own hard block (PR 2.1f): an armed symbol now comes back as
-    #: `ExecuteOrderSafetyGate.SYMBOL_LEASED` on the result, which is the same
-    #: shape every other refusal already used.
-    manualOrderCompleted = Signal(tuple)
+    #: `EPIC-024B` — per-order cancel.
     #: `(symbol, client_order_id, CancelOrderResult | None,
     #: error_message | None)`.
     cancelOrderCompleted = Signal(tuple)
@@ -468,7 +471,7 @@ class DashboardPresenter(BasePresenter):
     _arm_tracker: ActionOwnershipTracker[str, None, None]
     _arming_coordinator: StrategyArmingCoordinator
     _session_controls: DeskSessionControls
-    _manual_order_tracker: ActionOwnershipTracker[str, None, None]
+    _order_entry: DevBoardOrderEntry | None
     _last_price_by_symbol: dict[str, Decimal]
     _trading_actions: TradingActionsCoordinator
     _pagination: HistoryPaginationController
@@ -678,9 +681,7 @@ class DashboardPresenter(BasePresenter):
         session.accountReconciled.connect(self._apply_reconciled_account)
         session.accountChanged.connect(self._refresh_session_stats)
 
-        # `EPIC-024B` — manual trading card + per-order cancel.
-        view_model.manualOrderRequested.connect(self._on_manual_order_requested)
-        self.manualOrderCompleted.connect(self._on_manual_order_completed)
+        # `EPIC-024B` — per-order cancel.
         self.view.cancelOrderRequested.connect(self._on_cancel_order_requested)
         self.cancelOrderCompleted.connect(self._on_cancel_order_completed)
 
@@ -751,6 +752,32 @@ class DashboardPresenter(BasePresenter):
         self._signal_feed.signalGenerated.connect(
             self._arming_coordinator.on_signal_generated
         )
+        self._order_entry = self._build_order_entry(feeds.orders)
+
+    def _build_order_entry(self, feed: OrderFeed) -> DevBoardOrderEntry | None:
+        """`EPIC-028M` — the F9 dialog's order panel, for the venue this
+        board trades; `None`, and a notice in the dialog, when no venue is
+        enabled (the panel needs a venue's ports and profile)."""
+        venue = self.container.resolve(TradingVenue)
+        registry = self.container.resolve(IVenueTradingPorts)
+        if venue not in registry.enabled():
+            self.view.order_entry_host.show_unavailable(
+                "No trading venue is enabled — turn one on in Settings, then "
+                "restart the app."
+            )
+            return None
+        entry = DevBoardOrderEntry(
+            registry.get(venue),
+            self._thread_manager,
+            confirm_with_message_box(self.view),
+            feed,
+            self._append_log,
+            self,
+        )
+        entry.orderAccepted.connect(self._order_book.on_order_filled)
+        self.view.order_entry_host.attach(entry.view_model)
+        entry.show_symbol(self._active_symbol)
+        return entry
 
     def _trigger_initial_health_check(self) -> None:
         self._health_check_coordinator.request_initial_check()
@@ -792,14 +819,10 @@ class DashboardPresenter(BasePresenter):
         self._order_book.on_position_closed(event.symbol)
 
     def _on_holdings_changed(self, event: HoldingsChangedEvent) -> None:
-        """`OrderFeed.holdingsChanged` — Spot only, also where the manual
-        order card's SELL button learns `_active_symbol`'s sellability."""
+        """`OrderFeed.holdingsChanged` — Spot only."""
         self._order_book.replace_holdings(
             event.holdings,
             holding_prices_from_symbol_prices(self._last_price_by_symbol),
-        )
-        self._view_model.set_manual_order_sell_enabled(
-            self._order_book.has_holding(self._active_symbol)
         )
 
     def _on_order_blocked(self, event: LiveOrderBlockedEvent) -> None:
@@ -834,64 +857,11 @@ class DashboardPresenter(BasePresenter):
         )
 
     # ================================================================== #
-    # Manual trading card (`EPIC-024B`) — the first UI path that dispatches
-    # `IOrderSubmission.submit()` from a human click rather than a strategy tick
-    # (`LiveTradingCoordinator`). Deliberately reuses that exact command/
-    # handler — see `PRO-003`/`EPIC-024B` §4: this task exists to prove the
-    # mechanism generalizes to a second caller, not to build a second path.
-    # ================================================================== #
-
-    @Slot(str, float, str, float)
-    @safe_ui_action
-    def _on_manual_order_requested(
-        self, direction_text: str, quantity: float, order_type_text: str, price: float
-    ) -> None:
-        self._trading_actions.request_manual_order(
-            direction_text, quantity, order_type_text, price
-        )
-
-    @Slot(tuple)
-    def _on_manual_order_completed(self, payload: tuple) -> None:
-        action_id, result, error = payload
-        if not self._manual_order_tracker.is_current_pending(
-            action_id, _MANUAL_ORDER_ACTION
-        ):
-            self._manual_order_tracker.log_stale_callback(
-                "manual_order", action_id, _MANUAL_ORDER_ACTION
-            )
-            return
-
-        if error is not None or result is None:
-            self._manual_order_tracker.finish_action(action_id, ActionOutcome.FAILED)
-            message = f"Error placing manual order: {error}"
-            self._view_model.set_manual_order_state(False, message)
-            self._append_log(message)
-            return
-
-        if result.blocked:
-            self._manual_order_tracker.finish_action(action_id, ActionOutcome.FAILED)
-            message = (
-                f"Manual order blocked: "
-                f"{format_execute_order_block_reason(result.blocked_by)}"
-            )
-            self._view_model.set_manual_order_state(False, message)
-            self._append_log(message)
-            return
-
-        self._manual_order_tracker.finish_action(action_id, ActionOutcome.SUCCEEDED)
-        order = result.submitted_order
-        message = f"Manual order placed: {order.client_order_id if order else '—'}"
-        self._view_model.set_manual_order_state(False, message)
-        self._append_log(message)
-        self._refresh_session_stats()
-
-    # ================================================================== #
     # Per-order cancel (`EPIC-024B` §0) — the Open Orders table's "Huỷ"
-    # button. No `ActionOwnershipTracker`: unlike the manual order card
-    # (one card, one pending attempt at a time), cancelling order A and
-    # cancelling a different order B on another row are genuinely
-    # independent actions — fencing them through one tracker would let a
-    # second row's cancel wrongly invalidate the first row's.
+    # button. No `ActionOwnershipTracker`: cancelling order A and cancelling
+    # a different order B on another row are genuinely independent actions
+    # — fencing them through one tracker would let a second row's cancel
+    # wrongly invalidate the first row's.
     # ================================================================== #
 
     @Slot(str, str)
@@ -1246,8 +1216,10 @@ class DashboardPresenter(BasePresenter):
         is_bullish = c >= o
         price_color = BULL_COLOR if is_bullish else BEAR_COLOR
         self._view_model.set_price_ticker(f"{symbol}  {c:,.2f}", price_color)
-        # `EPIC-024B` — manual order card's MARKET reference price.
-        self._last_price_by_symbol[symbol] = Decimal(str(c))
+        price = Decimal(str(c))
+        self._last_price_by_symbol[symbol] = price
+        if self._order_entry is not None and symbol == self._active_symbol:
+            self._order_entry.update_last_price(self._active_market, price)
 
         card = self.active_charts.get(symbol)
         if card:

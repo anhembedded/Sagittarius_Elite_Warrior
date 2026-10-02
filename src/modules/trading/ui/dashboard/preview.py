@@ -42,8 +42,7 @@ def build_preview() -> QWidget:
         }
     )
 
-    # `EPIC-027O` — Spot: BUY/SELL labels on the manual order card, leverage
-    # hidden on the strategy card. Futures' LONG/SHORT + leverage stays the
+    # `EPIC-027O` — Spot: leverage hidden on the strategy card. Futures' LONG/SHORT + leverage stays the
     # default everywhere `market_type` is not passed.
     panel = DevBoardPanel(view_model, market_type=MarketType.SPOT)
 
@@ -53,7 +52,6 @@ def build_preview() -> QWidget:
         column.addWidget(widget)
     for _title, card in panel.dock_panels:
         column.addWidget(card)
-    column.addWidget(panel.manual_order_card)
     column.addWidget(panel.console_widget)
     # The preview owns the controller for as long as the widget lives: every
     # card and every signal connection belongs to it, and a `QObject` with no

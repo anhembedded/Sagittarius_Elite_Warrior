@@ -1,222 +1,50 @@
-"""`BOT-144` — manual order submission and per-order cancel, pulled out of
-`DashboardPresenter`. (Enable/Disable and Emergency Stop left for the desks'
-shared `DeskSessionControls` in `EPIC-028M`.)
+"""`BOT-144` — the Dev Board's per-order cancel, pulled out of
+`DashboardPresenter`.
 
-@details Shape-matches this same screen's other Coordinators
-(`SymbolOptionsCoordinator`/`LiveOrderBookCoordinator`/
-`StrategyArmingCoordinator`/`IndicatorCoordinator`): a plain class, narrow
+@details It used to hold four action families. Enable/Disable and Emergency
+Stop left for the desks' shared `DeskSessionControls`, and the manual order
+for the desks' order panel behind F9 (both `EPIC-028M`); the Open orders
+table's per-row cancel is what remains.
+
+Shape-matches this screen's other Coordinators: a plain class, narrow
 constructor-injected callables rather than the whole Presenter, no FSM state
-and no action-id bookkeeping of its own (`async-ui-action-rule.md` §2) — the
-manual order's `ActionOwnershipTracker` is constructed and owned by
-`DashboardPresenter`, handed in here exactly like `StrategyArmingCoordinator`
-already receives `tracker=self._arm_tracker`.
+and no action-id bookkeeping (`async-ui-action-rule.md` §2). The completion
+handler stays on `DashboardPresenter`, which owns the order book it updates.
 
-Only the synchronous `request_*` orchestration (validate → track → submit to
-`IThreadManager`) and the `run_*` background workers live here. The
-`_on_x_completed` handlers stay on `DashboardPresenter` — not for a Qt
-threading reason (`Tasks/backlog/BOT-144_...md` §3.2 corrects an earlier,
-disproven claim to that effect), but because each one calls
-`tracker.finish_action(...)`/`is_current_pending(...)` and then touches
-several more Presenter-owned collaborators
-(`_view_model`/`_order_book`/`_append_log`/`_refresh_session_stats`) whose
-combination is specific to *this* screen's completion handling, not a
-reusable action shape — `async-ui-action-rule.md` §2's "one owner" rule
-reads more naturally as the Presenter keeping the bookkeeping's read side too,
-not just its construction.
+No tracker, on purpose: cancelling order A and cancelling order B on another
+row are independent actions, and fencing them through one tracker would let
+the second row's cancel invalidate the first's.
 """
 
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
-from decimal import Decimal
 from typing import TYPE_CHECKING
 
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
-    OrderRequest,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
-from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
-    ManualOrderDirection,
-    manual_order_intent_for,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
-    ActionOutcome,
-    ActionOwnershipTracker,
-)
-
 if TYPE_CHECKING:
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
-        IAccountSnapshot,
-    )
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_submission import (
         IOrderSubmission,
     )
-    from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
-        SpotHolding,
-    )
     from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
-
-#: `EPIC-027N` AC5 — the same literal every Spot-asset-parsing call site
-#: already carries (`live_order_book_coordinator.py`, `holding_prices.py`, …).
-_QUOTE_ASSET = "USDT"
-
-
-@dataclass(frozen=True)
-class CompletionEmitters:
-    """The two `Signal.emit` bindings a `run_*` worker reports its result
-    through — `DashboardPresenter` connects each signal to its own
-    `_on_x_completed` handler (this coordinator's own module docstring
-    explains why those handlers stay Presenter-owned)."""
-
-    manual_order: Callable[[tuple], None]
-    cancel_order: Callable[[tuple], None]
 
 
 class TradingActionsCoordinator:
-    """Manual order submission and per-order cancel — the two action
-    families `DashboardPresenter` still runs through this coordinator."""
+    """Cancels one open order off the UI thread and reports the outcome."""
 
     def __init__(
         self,
         thread_manager: IThreadManager,
         order_submission: IOrderSubmission,
-        account: IAccountSnapshot,
-        market_type: MarketType,
-        manual_order_tracker: ActionOwnershipTracker[str, None, None],
-        manual_order_action_kind: str,
-        completion_emitters: CompletionEmitters,
-        set_manual_order_state: Callable[[bool, str], None],
+        emit_cancel_completed: Callable[[tuple], None],
         append_log: Callable[[str], None],
-        get_active_symbol: Callable[[], str],
-        get_last_price: Callable[[str], Decimal | None],
     ) -> None:
+        """@param emit_cancel_completed Bound to the presenter's queued
+        signal: `(symbol, client_order_id, CancelOrderResult | None,
+        error_message | None)`."""
         self._thread_manager = thread_manager
         self._order_submission = order_submission
-        self._account = account
-        self._market_type = market_type
-        self._manual_order_tracker = manual_order_tracker
-        self._manual_order_action_kind = manual_order_action_kind
-        self._set_manual_order_state = set_manual_order_state
+        self._emit_cancel_completed = emit_cancel_completed
         self._append_log = append_log
-        self._get_active_symbol = get_active_symbol
-        self._get_last_price = get_last_price
-        self._emit_manual_order_completed = completion_emitters.manual_order
-        self._emit_cancel_order_completed = completion_emitters.cancel_order
-
-    # ------------------------------------------------------------------ #
-    # Manual trading card (`EPIC-024B`)
-    # ------------------------------------------------------------------ #
-
-    def request_manual_order(
-        self, direction_text: str, quantity: float, order_type_text: str, price: float
-    ) -> None:
-        if self._manual_order_tracker.active_outcome is ActionOutcome.PENDING:
-            self._append_log("Already processing a manual order — please wait.")
-            return
-        try:
-            direction = ManualOrderDirection(direction_text)
-            order_type = OrderType[order_type_text]
-        except (ValueError, KeyError):
-            self._append_log(
-                f"Invalid manual order parameters: {direction_text}/{order_type_text}"
-            )
-            return
-        quantity_decimal = Decimal(str(quantity))
-        if quantity_decimal <= 0:
-            self._append_log("Manual order quantity must be greater than 0.")
-            return
-
-        symbol = self._get_active_symbol()
-        reference_price: Decimal | None
-        if order_type is OrderType.LIMIT:
-            reference_price = Decimal(str(price))
-            if reference_price <= 0:
-                self._append_log("Limit order price must be greater than 0.")
-                return
-        else:
-            reference_price = self._get_last_price(symbol)
-            if reference_price is None:
-                self._append_log(
-                    "No market price available for this symbol yet — wait for "
-                    "live data and try again."
-                )
-                return
-
-        action = self._manual_order_tracker.begin_action(
-            self._manual_order_action_kind, None, None
-        )
-        self._set_manual_order_state(True, "Sending order...")
-        self._thread_manager.submit(
-            self.run_manual_order,
-            action.action_id,
-            symbol,
-            direction,
-            quantity_decimal,
-            order_type,
-            reference_price,
-        )
-
-    def run_manual_order(
-        self,
-        action_id: int,
-        symbol: str,
-        direction: ManualOrderDirection,
-        quantity: Decimal,
-        order_type: OrderType,
-        reference_price: Decimal,
-    ) -> None:
-        try:
-            # `PRO-003` §4.1.2's hard block on the strategy's armed symbol is
-            # **not** here any more (`EPIC-025` PR 2.1f) — see this method's
-            # pre-extraction history in `dashboard_presenter.py`'s own git
-            # log for the full reasoning; the rule now lives on the order
-            # path itself (`ExecuteOrderSafetyGate.SYMBOL_LEASED`), so every
-            # caller inherits it.
-            #
-            # `EPIC-024B` §2 — read the REAL current position fresh, every
-            # attempt; never guessed, never remembered from a prior click
-            # (see `manual_order_intent_for()`'s own docstring).
-            positions = self._account.open_positions()
-            current_position = next((p for p in positions if p.symbol == symbol), None)
-            spot_holding = (
-                self._spot_holding_for_symbol(symbol)
-                if self._market_type is MarketType.SPOT
-                else None
-            )
-            intent = manual_order_intent_for(
-                direction, current_position, self._market_type, spot_holding
-            )
-            result = self._order_submission.submit(
-                OrderRequest(
-                    symbol=symbol,
-                    side=intent.side,
-                    order_type=order_type,
-                    quantity=quantity,
-                    reference_price=reference_price,
-                    reduce_only=intent.reduce_only,
-                ),
-                live=True,
-            )
-            self._emit_manual_order_completed((action_id, result, None))
-        except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
-            self._emit_manual_order_completed((action_id, None, str(exc)))
-
-    def _spot_holding_for_symbol(self, symbol: str) -> SpotHolding | None:
-        """`EPIC-027O` — freshly read, same reasoning as `current_position`
-        above: never the UI's own cached `LiveOrderBookCoordinator._holdings`
-        (that copy only drives the SELL button's preemptive enabled state)."""
-        asset = symbol.removesuffix(_QUOTE_ASSET)
-        holdings = self._account.check_connection().holdings or ()
-        return next((holding for holding in holdings if holding.asset == asset), None)
-
-    # ------------------------------------------------------------------ #
-    # Per-order cancel (`EPIC-024B` §0) — no tracker: unlike the manual
-    # order card (one card, one pending attempt at a time), cancelling
-    # order A and cancelling a different order B on another row are
-    # genuinely independent actions.
-    # ------------------------------------------------------------------ #
 
     def request_cancel_order(self, symbol: str, client_order_id: str) -> None:
         self._append_log(f"Cancelling order {client_order_id} ({symbol})...")
@@ -225,6 +53,6 @@ class TradingActionsCoordinator:
     def run_cancel_order(self, symbol: str, client_order_id: str) -> None:
         try:
             result = self._order_submission.cancel(symbol, client_order_id)
-            self._emit_cancel_order_completed((symbol, client_order_id, result, None))
-        except Exception as exc:  # noqa: BLE001 - worker boundary
-            self._emit_cancel_order_completed((symbol, client_order_id, None, str(exc)))
+            self._emit_cancel_completed((symbol, client_order_id, result, None))
+        except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
+            self._emit_cancel_completed((symbol, client_order_id, None, str(exc)))
