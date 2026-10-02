@@ -1,6 +1,6 @@
 """`BOT-144` — the Dev Board's Latest Signal card, split out of
-`dev_board_panel.py`. `EPIC-023C` — mirrors
-`TradingView._build_last_signal_card()`.
+`dev_board_panel.py`. `EPIC-023C` — mirrored the Trading screen's last
+signal card (retired in `EPIC-028M`).
 """
 
 from __future__ import annotations

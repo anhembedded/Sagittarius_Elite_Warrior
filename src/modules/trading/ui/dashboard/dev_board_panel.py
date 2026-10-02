@@ -99,7 +99,7 @@ from .ws_status_pill import WsStatusPill
 _FALLBACK_TIMEFRAME_SECONDS = TimeFrame.ONE_MINUTE.to_seconds()
 _FALLBACK_TIMEFRAME_LABEL = TimeFrame.ONE_MINUTE.value
 
-# --- `EPIC-023D` toggle/Emergency Stop — same fixed text `TradingView` uses. --- #
+# --- `EPIC-023D` toggle/Emergency Stop — the fixed text the desks use. --- #
 _TOGGLE_ON_TEXT = "Disable Trading"
 _TOGGLE_OFF_TEXT = "Enable Trading"
 _TOGGLE_BUSY_TEXT = "Processing..."
@@ -301,9 +301,9 @@ class DevBoardPanel(QObject):
         self._btn_reload.setFixedHeight(26)
         self._btn_reload.clicked.connect(self._view_model.requestLoadHistory)
 
-        # `EPIC-023D` — same header placement `TradingView` gives its own
-        # toggle button; Dev Board has no separate context bar for
-        # "DỪNG KHẨN CẤP" the way Trading does, so it goes in `header_actions`
+        # `EPIC-023D` — the header placement the retired Trading screen gave
+        # its toggle; Dev Board has no separate context bar for
+        # "DỪNG KHẨN CẤP" the way Trading had, so it goes in `header_actions`
         # too, right beside the toggle — both must stay visible regardless
         # of which System Controls card state the panel is scrolled to.
         self._btn_toggle_trading = StyledButton(
@@ -354,8 +354,8 @@ class DevBoardPanel(QObject):
         workbench, which decides the initial tab order and nothing else —
         after that the user's perspective wins (HLD §11.2).
 
-        Ordered by how often a user acts on them, the same ordering
-        `TradingView._build_rail` documents for its own column: what you set
+        Ordered by how often a user acts on them, the ordering the retired
+        Trading screen's rail had (`EPIC-028M`): what you set
         up a run with, then what the run is doing, then what it did.
         """
         return [

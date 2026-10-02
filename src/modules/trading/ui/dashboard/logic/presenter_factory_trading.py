@@ -48,9 +48,9 @@ if TYPE_CHECKING:
 
     from ..dashboard_presenter import DashboardPresenter
 
-#: `EPIC-023C` — same action-kind string `TradingPresenter` uses for its own
-#: `ActionOwnershipTracker`; the two trackers are separate instances (each
-#: Presenter owns its own, `async-ui-action-rule.md` §2), so identical
+#: `EPIC-023C` — the action-kind string the desks' strategy controls use for
+#: their own `ActionOwnershipTracker`; the trackers are separate instances
+#: (each Presenter owns its own, `async-ui-action-rule.md` §2), so identical
 #: strings here do not collide.
 _ARM_ACTION = "arm_strategy"
 
@@ -65,18 +65,15 @@ def build_trading_presenter_state(
     `build_core_presenter_state()`."""
     # `EPIC-023A` — Vị thế/Lệnh chờ khớp, account-wide state read via
     # `OrderFeed`. Empty until the next successful `ITradingSession.enable()`
-    # reconciles them (bấm ở Dev Board hoặc Trading đều được — cả hai
-    # đi qua cùng một `ITradingSession` singleton) — same starting shape
-    # `TradingPresenter`'s own `LiveOrderBookCoordinator` has, not a gap
-    # introduced here.
+    # reconciles them (from the Dev Board or a desk — both go through the
+    # same `ITradingSession` singleton), or until an event arrives.
     presenter._order_book = LiveOrderBookCoordinator(
         view=presenter.view, emit_log=presenter._append_log
     )
 
     # `EPIC-023C` — the strategy card. Constructed before
-    # `_connect_ui_signals()` so its signals have something to reach,
-    # same reasoning `TradingPresenter` documents for its own identical
-    # construction. `_active_symbol` is not read until the user actually
+    # `_connect_ui_signals()` so its signals have something to reach.
+    # `_active_symbol` is not read until the user actually
     # arms (the lambda below), well after it is assigned further down
     # this constructor.
     presenter._armed_strategy = container.resolve(IArmedStrategyReader)

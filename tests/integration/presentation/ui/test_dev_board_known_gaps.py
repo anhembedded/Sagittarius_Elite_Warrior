@@ -180,8 +180,8 @@ def test_strategy_dropdown_arms_the_selected_strategy(qtbot, main_window, naviga
     """TC-GAP-04: FIXED by `EPIC-023C` — the cosmetic `_cbo_strategy`
     (named a strategy, "SMA Crossover", that was never built) is gone;
     `dev_board_panel.py` now carries a real "Chiến lược" card wired to
-    `StrategyArmingCoordinator`, the exact collaborator `TradingPresenter`
-    already used. Picking a real registered strategy and clicking "Nạp
+    `StrategyArmingCoordinator`, the exact collaborator the Trading screen
+    (retired in `EPIC-028M`) already used. Picking a real registered strategy and clicking "Nạp
     chiến lược" must actually arm it — not just repaint a combo."""
     qtbot.addWidget(main_window)
     presenter, view = _open_dashboard(navigate)

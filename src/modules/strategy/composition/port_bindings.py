@@ -155,8 +155,8 @@ def bind_published_ports(container: IContainer) -> None:
 
 
 def _the_strategy_arming(container: IContainer) -> IStrategyArming:
-    """`EPIC-028B` — the primary venue's arming: what the single Trading
-    screen and Dev Board arm and disarm until each venue has its own desk."""
+    """`EPIC-028B` — the primary venue's arming: what the Dev Board arms and
+    disarms (each desk arms its own venue through `IVenueStrategyControls`)."""
     return venue_strategy_arming(container, container.resolve(TradingVenue))
 
 

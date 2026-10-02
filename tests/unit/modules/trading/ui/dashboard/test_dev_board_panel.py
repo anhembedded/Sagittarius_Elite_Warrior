@@ -90,8 +90,8 @@ def test_strategy_card_shows_leverage_by_default(qapp, panel):
 
 
 def test_strategy_card_hides_leverage_on_spot(qapp, spot_panel):
-    """`EPIC-027O` AC3 — same Futures-only concept `TradingView`'s own
-    strategy card hides; Spot has no margin to lever."""
+    """`EPIC-027O` AC3 — leverage is a Futures-only concept; Spot has no
+    margin to lever."""
     assert spot_panel._strategy_card._row_leverage.isVisible() is False
 
 

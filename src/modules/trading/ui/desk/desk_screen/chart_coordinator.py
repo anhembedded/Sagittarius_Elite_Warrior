@@ -68,7 +68,7 @@ _HISTORY_CANDLE_LIMIT = 500
 
 
 class ChartCoordinator:
-    """@brief Loads history and keeps the Trading screen's one `ChartCard`
+    """@brief Loads history and keeps a desk's one `ChartCard`
     live for whatever symbol/interval is currently selected."""
 
     def __init__(

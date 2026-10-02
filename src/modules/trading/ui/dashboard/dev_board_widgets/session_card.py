@@ -1,6 +1,6 @@
 """`BOT-144` — the Dev Board's Trading Session card, split out of
-`dev_board_panel.py`. `EPIC-023D` — mirrors
-`TradingView._build_session_card()`.
+`dev_board_panel.py`. `EPIC-023D` — mirrored the Trading screen's session
+card (retired in `EPIC-028M`).
 """
 
 from __future__ import annotations

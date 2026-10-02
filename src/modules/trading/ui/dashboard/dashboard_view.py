@@ -51,8 +51,8 @@ from .dev_board_widgets.order_entry_host import OrderEntryHost
 _TITLE = "Developer Board (Live Testbed)"
 _SUBTITLE = "Test indicators & scripts on live data"
 
-#: `EPIC-023B` — the equity chart's `ChartCard(symbol=...)` title, same
-#: constant `TradingView` uses for its own equity chart.
+#: `EPIC-023B` — the equity chart's `ChartCard(symbol=...)` title, the one
+#: the desks' equity chart shows too.
 _EQUITY_CHART_TITLE = "Equity"
 
 #: An empty `ChartCard`'s own `sizeHint()` is tiny — no candles and no toolbar
@@ -206,8 +206,8 @@ class DashboardView(BaseView):
         self.scroll_area.setWidget(self.charts_container)
         self._surface.place_widget(Place.WORKSPACE, self.scroll_area)
 
-        # `EPIC-023A` — positions and open orders, account-wide, the same
-        # widgets `TradingView` embeds (`components/order_book/`). Docks now,
+        # `EPIC-023A` — positions and open orders, account-wide, the
+        # widgets in `components/order_book/`. Docks now,
         # each as wide as the user drags it, which is what the old fixed rail
         # column could not offer and HLD §11.2 assigns them.
         #
@@ -234,8 +234,8 @@ class DashboardView(BaseView):
             Place.RAIL, self._open_orders_panel, title=OPEN_ORDERS_DOCK
         )
 
-        # `EPIC-023B` — same construction recipe as
-        # `TradingView._build_equity_chart`: a dedicated `ChartCard`
+        # `EPIC-023B` — the desks' equity chart recipe
+        # (`DeskView`): a dedicated `ChartCard`
         # (account-level, not per-symbol — must not react to Dev Board's
         # own per-chart-card symbol list), line type, no volume/toolbar.
         self.equity_chart = ChartCard(_EQUITY_CHART_TITLE)

@@ -100,7 +100,7 @@ class MainWindow(QMainWindow):
     @par BUG-104 — the active route is deliberately NOT remembered
     `EPIC-010C` originally also persisted `last_route` and navigated straight
     into it on boot. That silently combined with screens whose own design is
-    "being open means live" (`TradingPresenter` — `EPIC-021I`: opening it
+    "being open means live" (the Trading screen — `EPIC-021I`: opening it
     unconditionally dispatches `SyncMarketDataCommand`/`StartLiveStreamCommand`,
     no separate Start step, by its own documented intent) to make **launching
     the app** — no click, no user action at all — start a real network stream

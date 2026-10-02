@@ -1,8 +1,8 @@
 """`BOT-144` — the Dev Board's Strategy card, split out of
 `dev_board_panel.py`. `EPIC-023C` — a real "Nạp chiến lược" card, driven by
 the same `StrategyArmingCoordinator` instance `DashboardPresenter` owns.
-Wiring mirrors `TradingView._build_strategy_card()` exactly — same fixed
-domain terms, same objectNames.
+Both desks show this same card (`EPIC-028L`), each bound to its own view
+model: one set of domain terms and objectNames.
 """
 
 from __future__ import annotations
@@ -42,7 +42,7 @@ class StrategyCard(Panel):
     `_sync_armed_summary()` disables the whole card while
     `strategyBusy` OR while trading is on (`EPIC-023D`) — the same
     pre-emptive, visible-before-click half of `EPIC-022` §4.1's rule
-    `TradingView`'s own `_apply_armed_summary` enforces; the command
+    (on the board and on both desks alike); the command
     handler refuses the swap server-side regardless either way. Subscribing
     to `binding.trading_state_changed` directly (rather than requiring
     `DevBoardPanel` to call back in after its own toggle handling) keeps
@@ -94,9 +94,8 @@ class StrategyCard(Panel):
         self._spn_leverage.setStyleSheet(field_style())
         self._row_leverage = field_row("Leverage", self._spn_leverage)
         layout.addWidget(self._row_leverage)
-        # `EPIC-027O` AC3 — same Futures-only leverage concept
-        # `TradingView._build_strategy_card()` hides; the venue never
-        # changes mid-process (`self._is_spot`'s own reasoning there).
+        # `EPIC-027O` AC3 — leverage is a Futures-only concept, hidden on
+        # Spot; a card's market never changes mid-process.
         if self._is_spot:
             self._row_leverage.setVisible(False)
 
@@ -166,8 +165,8 @@ class StrategyCard(Panel):
         self._sync_armed_summary()
 
     def _open_strategy_params_dialog(self) -> None:
-        """Built fresh per opening — same reasoning `TradingView`'s own
-        method documents. Imported lazily for the same reason: the dialog
+        """Built fresh per opening, so it always shows the current
+        parameters. Imported lazily for a related reason: the dialog
         pulls in `QScrollArea`/`Overlay` chrome no user who never opens it
         should pay for at card construction. Parented to `self.window()`
         — the window behind whichever dock the workbench put this card in,
@@ -193,9 +192,8 @@ class StrategyCard(Panel):
 
     def _sync_strategy_options(self) -> None:
         """@details Each row's registry key rides on `setItemData`, never
-        on the visible text — same reasoning `TradingView`'s own method
-        documents (a renamed strategy silently stops being armable
-        otherwise)."""
+        on the visible text (a renamed strategy silently stops being
+        armable otherwise)."""
         self._cbo_live_strategy.blockSignals(True)
         self._cbo_live_strategy.clear()
         # `strategyOptions`/`intervalOptions`/`liveInterval`/`sizingPercent`/

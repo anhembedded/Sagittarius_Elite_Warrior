@@ -2,8 +2,8 @@
 @brief `MarketTickFeed` — one subscriber to `MarketTickEvent`, many screens
 display it (`architecture-rule.md` §6).
 
-@details Before this existed, `DashboardPresenter` and `TradingPresenter`
-(`EPIC-021I`) each called `self.event_bus.on(MarketTickEvent, ...)`
+@details Before this existed, `DashboardPresenter` and the Trading screen's
+presenter (`EPIC-021I`, retired in `EPIC-028M`) each called `self.event_bus.on(MarketTickEvent, ...)`
 directly — the exact duplication `tests/unit/test_event_flow_guards.py`'s
 `test_one_event_is_not_subscribed_by_two_presenters` exists to catch
 (named after the real `HealthUpdatedEvent` defect `EPIC-008G` had to fix,

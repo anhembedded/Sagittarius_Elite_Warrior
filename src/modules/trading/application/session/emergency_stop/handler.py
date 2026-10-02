@@ -310,7 +310,7 @@ class EmergencyStopCommandHandler(
     ) -> tuple[tuple[LivePosition, ...], tuple[Order, ...], bool]:
         """@brief `BUG-093` — a best-effort read of the account's true
         state after the three steps above, regardless of their own
-        outcome: `TradingPresenter` seeded its Positions/Open Orders
+        outcome: a screen seeded its Positions/Open Orders
         tables before this command ran and has no other way to learn what
         actually happened — the user-data stream this screen otherwise
         relies on was already stopped in step 1.

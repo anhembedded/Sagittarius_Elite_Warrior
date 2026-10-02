@@ -1,6 +1,6 @@
 """`EPIC-027O` — asset -> last-known USDT price, derived from whatever
 symbol prices a screen has already seen (a chart's own last close). Shared
-by `DashboardPresenter`/`TradingPresenter` so the same USDT-quoted-only
+by `DashboardPresenter`/`AccountTabsPresenter` so the same USDT-quoted-only
 stripping rule (ADR D9) is not maintained twice.
 """
 
@@ -26,7 +26,7 @@ def holding_prices_from_symbol_prices(
 
 
 def holding_price_for_symbol(symbol: str, price: Decimal | None) -> dict[str, Decimal]:
-    """`TradingPresenter`'s own wrapper — it only ever knows one symbol's price."""
+    """`AccountTabsPresenter`'s wrapper — it only ever knows one symbol's price."""
     return holding_prices_from_symbol_prices(
         {symbol: price} if price is not None else {}
     )

@@ -5,7 +5,7 @@
 @details Same reasoning `OrderFeed` documents for its own single early
 subscriber (`EPIC-021H`): `FuturesUserDataStream` is a shared
 infrastructure singleton, not a Presenter's own background worker, so it
-has no private-Qt-signal path to reach the Trading screen safely — it must
+has no private-Qt-signal path to reach a screen safely — it must
 emit onto `IEventBus`, and anything reached that way needs the
 `QtEventBridge` hop `BaseFeed` provides (`architecture-rule.md` §6). A
 distinct Feed from `OrderFeed`, not a fourth signal bolted onto it:

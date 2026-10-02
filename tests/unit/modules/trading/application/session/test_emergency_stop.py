@@ -645,7 +645,7 @@ class TestFullySucceeded:
 
 
 class TestFinalState:
-    """`BUG-093` — `TradingPresenter` has no other way to learn the
+    """`BUG-093` — a screen has no other way to learn the
     account's true post-stop state: the user-data stream is already
     stopped by step 1, so nothing will emit further events for whatever
     steps 2-3 did."""

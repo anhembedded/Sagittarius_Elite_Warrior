@@ -262,7 +262,7 @@ class LiveTradingCoordinator:
             # `BUG-084` — a blocked order used to be a log line only; the
             # Trading screen had no way to show why the strategy's signal
             # never became an order. Reaches `OrderFeed.orderBlocked` ->
-            # `TradingPresenter`'s own log panel.
+            # each screen's message line (a desk's account tabs).
             self._event_publisher.publish(
                 LiveOrderBlockedEvent(
                     symbol=signal.symbol,

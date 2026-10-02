@@ -73,8 +73,8 @@ _SAVED_IN_MEMORY_ONLY_MESSAGE = (
 )
 #: `BOT-125` — Save is refused outright rather than partially applied.
 _VENUE_LOCKED_MESSAGE = (
-    "Trading is active — disable trading on the Trading screen before "
-    "changing the trading venues. Nothing was saved."
+    "Trading is active — disable trading on its desk or the Dev Board "
+    "before changing the trading venues. Nothing was saved."
 )
 
 #: `EPIC-021B` §2.3 — human-readable label per `CredentialsSource`, and
