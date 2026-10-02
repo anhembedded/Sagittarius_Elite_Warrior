@@ -22,8 +22,8 @@ nothing to normalize away without losing information a subscriber needs.
 **Moved from `modules/trading/ui/` (`BOT-019`).** `MarketTickEvent` is
 `market_data`'s own contract; a Feed normalizing one module's own event
 belongs in that module's `ui/`, the same call `EPIC-025` PR 4.4a already
-made for `sync_progress_feed.py`. `trading`'s two consumers
-(`dashboard_presenter.py`, `trading_presenter.py`) read it from here via an
+made for `sync_progress_feed.py`. `trading`'s consumers (the Dev Board's
+`dashboard_presenter.py`, the desks' `market_ticks.py`) read it from here via an
 explicit `allowlist_module_boundaries.txt` entry, mirroring that same
 precedent, rather than a copy living in each module.
 

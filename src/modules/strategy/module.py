@@ -103,11 +103,11 @@ about threading, not a preference.
 @par `contribute()`, `declare_cli()` and `subscribe()` are still not implemented
 Each absence is a measurement, not an omission:
 
-  · **no contribution** — the card's *state* is this module's since PR 2.1e; the
-    card's *widget* is still built twice, once in `TradingView` and once in
-    `DevBoardPanel`, under identical object names. `EPIC-025C` §1 item 4 makes
-    one contributed widget of them, and it is a rewrite with two deletions
-    rather than a move: ADR D18 wants an assertion inventory first, and §2's
+  · **no contribution** — the card's *state* is this module's since PR 2.1e; its
+    *widget* is one class, `StrategyCard`, which the Dev Board and each desk
+    build for themselves (`EPIC-028L`; the Trading screen's own copy left
+    with that screen in `EPIC-028M`). `EPIC-025C` §1 item 4 makes it one
+    contributed widget: ADR D18 wants an assertion inventory first, and §2's
     done-when wants the user on Testnet. It travels with the screens.
   · **no `declare_cli()`, and `trade-once` still does not need one** —
     `modules/strategy/cli/{trade_once_cmd,trade_once_formatter}.py` since PR
