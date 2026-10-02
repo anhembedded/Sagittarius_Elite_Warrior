@@ -4,7 +4,7 @@ Testnet enabled, against the fake Binance server.
 @details The PR 309 review found that no test exercised F9 with a venue on in
 the real app any more: `test_dev_board_order_dialog.py` boots with trading off
 and can only assert the notice. Here `create_app()` builds everything,
-including the venue registry, the real dispatcher and the real handlers. Three
+including the venue registry, the real dispatcher and the real handlers. Four
 boundaries are substituted, at configuration:
 - the network: `python-binance` points at `run_binance_fake_server()` and
   the venue's key pair comes from the environment;
@@ -12,21 +12,30 @@ boundaries are substituted, at configuration:
   directory uses;
 - the "Place this order?" dialog, a recorded Yes;
 - `python-binance`'s `get_loop()`, which hands each worker thread a new event
-  loop and never closes it (`BUG-075`): here every `Client` gets one loop the
-  fixture owns and closes, so no orphaned loop is collected in a later test.
+  loop and never closes it (`BUG-075`). Each module binds the name itself
+  (`Client.__init__` reaches it through `base_client` and, via `WebsocketAPI`,
+  `ws.reconnecting_websocket`), so every binding (`_GET_LOOP_BINDINGS`) returns
+  one loop the fixture owns and closes. The PR 310 review measured the leak
+  with only `base_client` patched; `test_no_event_loop_is_left_unclosed` now
+  fails if one comes back.
 
 A click in F9 therefore runs through the composed panel and the real
 `ExecuteOrderCommandHandler` to the wire and back. Only the "trading on" test
 seeds the session as enabled directly: the toggle would also start the
-venue's user-data websocket, which the fake server does not speak.
+venue's user-data websocket, which the fake server does not speak. So the
+composed path from the toggle through `EnableTradingCommandHandler` to F9 is
+proven at unit level only (`EPIC-028S` §3 records it as deferred).
 """
 
 from __future__ import annotations
 
 import asyncio
+import gc
 import json
 import sys
+import warnings
 from collections.abc import Iterator
+from contextlib import ExitStack, contextmanager
 from dataclasses import dataclass
 from decimal import Decimal
 from pathlib import Path
@@ -36,6 +45,7 @@ import pytest
 from binance.client import Client
 from PySide6.QtCore import QEvent, Qt
 from PySide6.QtWidgets import QApplication, QPushButton
+from pytestqt.qtbot import QtBot
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
@@ -100,6 +110,15 @@ _FAKE_USDT = Decimal(100000)
 _RESTING_PRICE = "30000"
 _QUANTITY = "0.001"
 _WAIT_MS = 10_000
+#: Every `python-binance` module that imports `get_loop` under its own name.
+_GET_LOOP_BINDINGS = (
+    "binance.base_client.get_loop",
+    "binance.async_client.get_loop",
+    "binance.ws.reconnecting_websocket.get_loop",
+    "binance.ws.streams.get_loop",
+    "binance.ws.threaded_stream.get_loop",
+    "binance.ws.depthcache.get_loop",
+)
 
 
 @dataclass
@@ -117,8 +136,22 @@ def _yes(_parent: object) -> ConfirmOrder:
     return confirm
 
 
+@dataclass
+class _Boot:
+    """What booting the app here needs from pytest and this directory."""
+
+    qapp: QApplication
+    qtbot: QtBot
+    monkeypatch: pytest.MonkeyPatch
+    tmp_path: Path
+    seeded_history: object
+    market_stream: object
+    range_coverage: object
+    symbol_catalog: object
+
+
 @pytest.fixture
-def spot_board(
+def boot(
     qapp,
     qtbot,
     monkeypatch,
@@ -127,8 +160,36 @@ def spot_board(
     market_stream,
     range_coverage,
     symbol_catalog,
-) -> Iterator[_Board]:
+) -> _Boot:
+    return _Boot(
+        qapp,
+        qtbot,
+        monkeypatch,
+        tmp_path,
+        seeded_history,
+        market_stream,
+        range_coverage,
+        symbol_catalog,
+    )
+
+
+@pytest.fixture
+def spot_board(boot: _Boot) -> Iterator[_Board]:
+    with _spot_board_running(boot) as board:
+        yield board
+
+
+@contextmanager
+def _spot_board_running(boot: _Boot) -> Iterator[_Board]:
     """The real app with Spot Testnet on, its Dev Board open."""
+    qapp, qtbot, monkeypatch, tmp_path = (
+        boot.qapp,
+        boot.qtbot,
+        boot.monkeypatch,
+        boot.tmp_path,
+    )
+    seeded_history, market_stream = boot.seeded_history, boot.market_stream
+    range_coverage, symbol_catalog = boot.range_coverage, boot.symbol_catalog
     monkeypatch.setenv(SPOT_ENV_API_KEY, "fake-key")
     monkeypatch.setenv(SPOT_ENV_API_SECRET, "fake-secret")
     monkeypatch.setattr(dashboard_presenter, "confirm_with_message_box", _yes)
@@ -148,8 +209,10 @@ def spot_board(
     with (
         run_binance_fake_server() as urls,
         patch.object(Client, "API_TESTNET_URL", urls.spot),
-        patch("binance.base_client.get_loop", lambda: loop),
+        ExitStack() as owned_loop,
     ):
+        for binding in _GET_LOOP_BINDINGS:
+            owned_loop.enter_context(patch(binding, lambda: loop))
         engine = create_app(config)
         container = engine.context.container
         container.singleton(IHistoricalKlines, lambda _c: seeded_history)
@@ -198,9 +261,9 @@ def _type_resting_limit_buy(board: _Board, qtbot) -> None:
 
 
 def _order_posts(urls: FakeServerUrls) -> list[tuple[str, str]]:
-    return [
-        r for r in urls.requests if r[0] == "POST" and r[1].startswith("/api/v3/order")
-    ]
+    """Live order placements only: not `/order/test` (validate-only) nor
+    `/orderList`."""
+    return [r for r in urls.requests if r == ("POST", "/api/v3/order")]
 
 
 def test_f9_holds_the_spot_panel_read_from_the_venue(spot_board, qtbot) -> None:
@@ -254,3 +317,26 @@ def test_a_resting_limit_placed_in_f9_reaches_the_venue_and_open_orders(
     qtbot.waitUntil(lambda: rows.rowCount() == 1, timeout=_WAIT_MS)
     cells = [rows.index(0, column).data() for column in range(rows.columnCount())]
     assert cells[:3] == [spot_board.presenter._active_symbol, "BUY", "LIMIT"]
+    assert "NEW" in cells  # resting on the exchange, not a validate-only echo
+
+
+def test_no_event_loop_is_left_unclosed(boot: _Boot, qtbot) -> None:
+    """The PR 310 review — `python-binance` gives each worker thread an event
+    loop and never closes it (`BUG-075`). Patching one of its `get_loop`
+    bindings left the leak in place; an orphaned loop is collected later and
+    fails whichever test is running. Booting, reading F9 and shutting down
+    leaves no unclosed loop behind."""
+    gc.collect()  # what earlier tests left is not this file's
+    with warnings.catch_warnings(record=True) as caught:
+        warnings.simplefilter("always", ResourceWarning)
+        with _spot_board_running(boot) as board:
+            _open_f9(board)
+            entry = board.presenter._order_entry
+            assert entry is not None
+            qtbot.waitUntil(
+                lambda: entry.view_model.context is not None, timeout=_WAIT_MS
+            )
+        gc.collect()
+
+    leaks = [w for w in caught if "unclosed event loop" in str(w.message)]
+    assert leaks == []

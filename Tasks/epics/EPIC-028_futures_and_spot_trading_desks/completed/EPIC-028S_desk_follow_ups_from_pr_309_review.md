@@ -37,7 +37,8 @@ The independent re-review of PR 309 (head `661ec14`) passed with five optional f
 - **F9 integration.** A fixture in the new test file boots `create_app()` with `exchange.trading_venues = ["spot_testnet"]`, the venue's key pair in the environment, and `Client.API_TESTNET_URL` on `run_binance_fake_server()`. The chart's market data uses this directory's seeded fakes, and the order dialog is a recorded Yes. The real dispatcher, handlers and adapters run.
   - Two seams are set directly rather than driven, each said in the file:
     - the "trading on" test enables the session state, because the toggle would also start the user-data websocket, which the fake server does not speak;
-    - `binance.base_client.get_loop` returns one fixture-owned loop. `BUG-075`: `python-binance` gives each worker thread a new loop and never closes it. The orphan surfaced as an unraisable exception on the first run.
+    - every `python-binance` module that binds `get_loop` returns one fixture-owned loop (`_GET_LOOP_BINDINGS`). `BUG-075`: `python-binance` gives each worker thread a new loop and never closes it. `Client.__init__` reaches it through `base_client` and, via `WebsocketAPI`, `ws.reconnecting_websocket`. `test_no_event_loop_is_left_unclosed` fails if a loop is left open.
+  - **Deferred, not covered: the composed path from the Enable toggle through `EnableTradingCommandHandler` to F9.** Reconcile, the Spot baseline from `status.holdings`, `enable`, then an order: this chain is proven at unit level only. No integration test dispatches `EnableTradingCommand` against the fake server, because it starts the venue's user-data websocket and the fake server has none. It returns when the fake server speaks the user-data stream, or when `EPIC-028N` runs it against Testnet.
 
 ## 4. Changes, per file
 | File | Change |
@@ -60,10 +61,14 @@ The independent re-review of PR 309 (head `661ec14`) passed with five optional f
 | desk fill re-read | `test_desk_live_feeds.py::test_a_fill_of_the_venue_rereads_the_order_panels_balances` | unit | the connection removed: 1000 ≠ 900 |
 | re-read replaces | `test_dashboard_presenter.py::test_the_dialog_rereads_…` | unit | `accountChanged → entry.refresh` removed: 1000 ≠ 900 (previously `AttributeError`) |
 | F9 composed | `test_dev_board_f9_against_fake_server.py` (3 tests) | integration | `orderAccepted → on_order_filled` removed: the Open orders wait times out after the POST reached the exchange |
+| no orphaned loop | `test_dev_board_f9_against_fake_server.py::test_no_event_loop_is_left_unclosed` | integration | bindings back to `base_client` only: one "unclosed event loop" recorded |
 
 ## Implementation notes (written when done)
 - **The first F9 run found two wrong assumptions in the test, not in the app.**
   - The gate is `TRADING_SWITCH_OFF`; there is no `TRADING_DISABLED`.
   - The board's default symbol is ETHUSDT, so the row assertion uses the board's own symbol.
-- **`BUG-075` appeared as an unraisable `BaseEventLoop.__del__` ("Invalid file descriptor").** It is fixed in this fixture by owning the clients' loop. The file passes with `-W error::pytest.PytestUnraisableExceptionWarning`.
+- **`BUG-075` appeared as an unraisable `BaseEventLoop.__del__` ("Invalid file descriptor").**
+  - The first version patched only `binance.base_client.get_loop`, and the commit claimed the leak was fixed. The PR 310 review measured it unchanged: one unclosed loop per run, raised as `ResourceWarning` by a `gc.collect()` probe placed after the file. The earlier `-W error::pytest.PytestUnraisableExceptionWarning` runs had passed only because no collection ran inside the file.
+  - Every binding is patched now. The same probe reports 0 unclosed loops in 3 runs out of 3. `test_no_event_loop_is_left_unclosed` fails when the bindings go back to `base_client` alone.
+- **The live-order check is exact:** `_order_posts` counts `POST /api/v3/order` only, not `/order/test` or `/orderList`. The row also shows `NEW`.
 - **Verification:** the fast gate, architecture guards, the trading and strategy unit suites, and the presentation integration tests. Results are in the PR.
