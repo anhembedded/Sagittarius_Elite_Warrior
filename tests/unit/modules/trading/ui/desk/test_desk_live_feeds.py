@@ -40,6 +40,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled
     OrderFilledEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
+    FakeAccountSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
+    FakeOrderEntryTerms,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_chart import (
     FILL_MARKERS_KEY,
 )
@@ -55,6 +61,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 
 from .account_tabs_fixtures import order
 from .desk_screen_fixtures import DeskWorld, build_desk, market_of
+from .order_entry_fixtures import TERMS, spot_status
 
 FUTURES = TradingVenue.FUTURES_TESTNET
 SPOT = TradingVenue.SPOT_TESTNET
@@ -139,6 +146,32 @@ def test_each_equity_sample_of_the_venue_is_drawn(qtbot, qapp, monkeypatch) -> N
     qapp.processEvents()
 
     assert drawn == [equity_sample_to_candle(spot)]
+
+
+def test_a_fill_of_the_venue_rereads_the_order_panels_balances(qtbot, qapp) -> None:
+    """`EPIC-028S` (the PR 309 re-review) — the desk re-read its panel only on
+    `accountChanged`, so after a strategy's fill the panel kept the balance
+    from before it. The other venue's fill reads nothing."""
+    world = DeskWorld()
+    snapshot = FakeAccountSnapshot(spot_status())
+    desk = build_desk(
+        qtbot,
+        SPOT,
+        world,
+        account_snapshot=snapshot,
+        order_entry_terms=FakeOrderEntryTerms(TERMS),
+    )
+    panel = desk.presenter.orders
+    assert panel.context.available_quote == 1000
+    snapshot.answer_with(spot_status(quote_free=Decimal(900)))
+
+    world.bus.emit(_fill("BTCUSDT", FUTURES))
+    qapp.processEvents()
+    assert panel.context.available_quote == 1000
+
+    world.bus.emit(_fill("BTCUSDT", SPOT))
+    qapp.processEvents()
+    assert panel.context.available_quote == 900
 
 
 def test_a_blocked_order_of_the_venue_is_said_on_the_desk(qtbot, qapp) -> None:

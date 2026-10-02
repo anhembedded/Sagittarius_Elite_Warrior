@@ -124,6 +124,8 @@ class DeskPresenter(BasePresenter):
         )
         self.chart = DeskChart(view.chart, deps.chart, self.event_bus, self)
         feeds.orders.orderFilled.connect(self.chart.record_fill)
+        # A fill moves what is available and what can be sold (`EPIC-028S`).
+        feeds.orders.orderFilled.connect(self.order_entry.refresh)
         self.equity = DeskEquity(
             view.equity_chart, ports.equity_curve, feeds.equity, self
         )
