@@ -27,7 +27,7 @@ Load `CLAUDE.md`, `.claude/CONSTITUTION.md`, `.claude/ONBOARDING.md` §7, and `.
 | Uncommitted Working Tree | `git status --short`, `git diff -M HEAD`, and `git ls-files --others --exclude-standard` |
 | Staged Changes Only | `git diff --cached` |
 
-- **Mandatory Rubric Ingestion:** You MUST explicitly load and read [references/rubric.md](references/rubric.md) (all 97 Check IDs) into context before evaluating any diff. Reviewing without reading [references/rubric.md](references/rubric.md) is strictly forbidden; a review conducted from memory or without loading the active rubric is counterfeit, invalid, and void.
+- **Mandatory Rubric Ingestion:** You MUST explicitly load and read [references/rubric.md](references/rubric.md) (all 100 Check IDs) into context before evaluating any diff. Reviewing without reading [references/rubric.md](references/rubric.md) is strictly forbidden; a review conducted from memory or without loading the active rubric is counterfeit, invalid, and void.
 
 Read the entire diff and surrounding production code. Execute verification in an isolated environment; never mutate or switch the active working tree. To run gate verification safely without mutating the working tree:
 ```bash
@@ -65,7 +65,7 @@ cd - && git worktree remove "$REVIEW_TMP/Sagittarius_Elite_Warrior" && rm -rf "$
 Consult `.claude/rules/pitfalls/` for area-specific traps, `Docs/CASE_STUDIES/README.md` for green-gate escapes, and `Docs/VOCABULARY/README.md` for domain terms.
 
 ## 4. Inspection Rubric (Stable Check IDs)
-Detailed 1-ID-per-row checklist is defined in [references/rubric.md](references/rubric.md) (97 IDs). Review applicable groups per Section 3:
+Detailed 1-ID-per-row checklist is defined in [references/rubric.md](references/rubric.md) (100 IDs). Review applicable groups per Section 3:
 | Group | Focus Area | IDs | Key Verification Invariant |
 | :--- | :--- | :--- | :--- |
 | **Group A** | Scope & Authority | A1–A6 | Bounded outcome, P5 technical hierarchy, authority limits. |
