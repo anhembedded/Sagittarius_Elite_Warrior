@@ -51,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_sess
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_strategy import (
     DeskStrategy,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
+    DeskViewModel,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_panel import (
     confirm_with_message_box,
 )
@@ -64,9 +67,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.protectiv
     ProtectiveOrderFollower,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.signal_feed import SignalFeed
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_view_model import (
-    TradingViewModel,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_SYMBOL,
     FALLBACK_SYMBOL_OPTIONS,
@@ -98,7 +98,7 @@ class DeskPresenter(BasePresenter):
             )
         self._profile = profile
         config = self.config.get_all()
-        self.desk = TradingViewModel(self)
+        self.desk = DeskViewModel(self)
         self.desk.set_symbol_options(
             default_symbol_options(config, FALLBACK_SYMBOL_OPTIONS)
         )

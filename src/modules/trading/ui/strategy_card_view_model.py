@@ -1,7 +1,7 @@
 """The strategy card's own state, owned once (`EPIC-025` PR 2.1e, kept
 shared by PR 4.3m).
 
-@details `TradingViewModel` and `DashboardViewModel` each carried this block —
+@details `DeskViewModel` and `DashboardViewModel` each carried this block —
 **nineteen members, name for name**: six signals, six setters the Presenter
 calls, and seven `request*` slots the widgets call. Both copies were written
 from the same design (`EPIC-022D` for Trading, `EPIC-023C` for the Dev Board)
@@ -15,7 +15,7 @@ still `strategy`'s vocabulary, not a reusable widget's — but a module's
 `ui/` may not be imported by another module the instant `strategy` becomes a
 real module boundary (`architecture-rule.md` §3, `EPIC-025` PR 4.4). `PR
 4.3m`'s first draft answered that by deleting this class and flattening its
-members directly onto `TradingViewModel`/`DashboardViewModel` — which
+members directly onto `DeskViewModel`/`DashboardViewModel` — which
 undid the whole point of `EPIC-025`'s Phase 1 criterion: the nineteen names
 came right back as duplicates, just spelled without a `.strategy.` prefix
 (`tests/unit/architecture/test_presenter_duplication_only_shrinks.py`

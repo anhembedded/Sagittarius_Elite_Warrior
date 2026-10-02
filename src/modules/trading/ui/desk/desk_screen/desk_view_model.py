@@ -10,12 +10,13 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.status_view_model import (
 from sagittarius_engine.extensions.pyside_mvc import LogListModel
 
 
-class TradingViewModel(StatusMessageViewModel):
+class DeskViewModel(StatusMessageViewModel):
     """
-    @brief State behind the Trading screen (`EPIC-021I`) — the same
+    @brief State behind a desk (`EPIC-028K`; born as the single Trading
+    screen's, `EPIC-021I`, and moved here in `EPIC-028M`) — the same
     Presenter/ViewModel split `SettingsViewModel` uses: this class carries
     only what the widgets show and turns a click/selection into a signal
-    for `TradingPresenter` to act on. No business logic (whether the
+    for the desk's presenter to act on. No business logic (whether the
     toggle may turn on, what a session stat means) lives here.
 
     @details The Positions/Open Orders tables are NOT modelled here —
@@ -69,7 +70,7 @@ class TradingViewModel(StatusMessageViewModel):
     # which is account-wide, not per-symbol; see EnableTradingCommand).
     # ------------------------------------------------------------------ #
 
-    @Property("QStringList", notify=symbolOptionsChanged)
+    @Property(list, notify=symbolOptionsChanged)
     def symbolOptions(self) -> list[str]:
         return self._symbol_options
 

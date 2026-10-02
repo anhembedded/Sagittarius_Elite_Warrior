@@ -28,11 +28,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.ui.settings.market_data_s
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_view_model import (
     DashboardQmlViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
+    DeskViewModel,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_view_model import (
     TradingSettingsViewModel,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_view_model import (
-    TradingViewModel,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.status_view_model import (
     StatusMessageViewModel,
@@ -47,7 +47,7 @@ from sagittarius_engine.extensions.pyside_mvc import unprotected_mutators
 #: `EPIC-025E` PR 4.4e retired `SettingsViewModel` (split into
 #: `TradingSettingsViewModel`/`MarketDataSettingsViewModel`) and added
 #: `StatusMessageViewModel` — the shared base both of those and
-#: `TradingViewModel` now subclass for their status-message trio,
+#: `DeskViewModel` now subclass for their status-message trio,
 #: extracted per `test_presenter_duplication_only_shrinks.py`'s own ratchet.
 #: It ships its own `@Slot`-protected `set_status()`, so it belongs in this
 #: list like any other `BaseQmlViewModel` subclass this app defines.
@@ -58,7 +58,7 @@ _ALL_VIEW_MODELS = [
     MarketDataSettingsViewModel,
     StatusMessageViewModel,
     TradingSettingsViewModel,
-    TradingViewModel,
+    DeskViewModel,
 ]
 
 

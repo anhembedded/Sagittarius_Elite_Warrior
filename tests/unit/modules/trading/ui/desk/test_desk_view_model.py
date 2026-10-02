@@ -4,13 +4,13 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_view_model import (
-    TradingViewModel,
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
+    DeskViewModel,
 )
 
 
 def test_starts_disabled_and_idle(qapp) -> None:
-    vm = TradingViewModel()
+    vm = DeskViewModel()
 
     assert vm.enabled is False
     assert vm.toggleBusy is False
@@ -21,7 +21,7 @@ def test_starts_disabled_and_idle(qapp) -> None:
 
 
 def test_set_symbol_options_updates_and_notifies(qapp) -> None:
-    vm = TradingViewModel()
+    vm = DeskViewModel()
     seen = []
     vm.symbolOptionsChanged.connect(lambda: seen.append(vm.symbolOptions))
 
@@ -32,7 +32,7 @@ def test_set_symbol_options_updates_and_notifies(qapp) -> None:
 
 
 def test_symbol_property_only_emits_on_real_change(qapp) -> None:
-    vm = TradingViewModel()
+    vm = DeskViewModel()
     vm.symbol = "BTCUSDT"
     count = 0
     vm.symbolChanged.connect(lambda: None)
@@ -49,7 +49,7 @@ def test_symbol_property_only_emits_on_real_change(qapp) -> None:
 
 
 def test_request_symbol_change_emits_only_for_a_real_new_symbol(qapp) -> None:
-    vm = TradingViewModel()
+    vm = DeskViewModel()
     vm.symbol = "BTCUSDT"
     seen = []
     vm.symbolChangeRequested.connect(seen.append)
@@ -65,7 +65,7 @@ def test_request_symbol_change_emits_only_for_a_real_new_symbol(qapp) -> None:
 
 
 def test_request_toggle_emits_toggle_requested(qapp) -> None:
-    vm = TradingViewModel()
+    vm = DeskViewModel()
     seen = []
     vm.toggleRequested.connect(lambda: seen.append(True))
 
@@ -75,7 +75,7 @@ def test_request_toggle_emits_toggle_requested(qapp) -> None:
 
 
 def test_set_trading_state_updates_both_fields_together(qapp) -> None:
-    vm = TradingViewModel()
+    vm = DeskViewModel()
 
     vm.set_trading_state(True, False)
 
@@ -84,7 +84,7 @@ def test_set_trading_state_updates_both_fields_together(qapp) -> None:
 
 
 def test_set_status_updates_message_and_error_flag(qapp) -> None:
-    vm = TradingViewModel()
+    vm = DeskViewModel()
 
     vm.set_status("Trading enabled.", False)
 
@@ -93,7 +93,7 @@ def test_set_status_updates_message_and_error_flag(qapp) -> None:
 
 
 def test_set_session_stats_updates_both_counters(qapp) -> None:
-    vm = TradingViewModel()
+    vm = DeskViewModel()
 
     vm.set_session_stats(5, 2)
 
@@ -102,7 +102,7 @@ def test_set_session_stats_updates_both_counters(qapp) -> None:
 
 
 def test_log_model_is_stable_across_reads(qapp) -> None:
-    vm = TradingViewModel()
+    vm = DeskViewModel()
 
     assert vm.log_model is vm.log_model
     assert vm.logModel is vm.log_model

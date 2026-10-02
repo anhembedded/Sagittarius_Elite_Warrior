@@ -36,7 +36,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.coordinators.chart_coordinator import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.chart_coordinator import (
     TRADING_STREAM_OWNER,
     ChartCoordinator,
 )

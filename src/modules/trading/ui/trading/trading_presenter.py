@@ -62,6 +62,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session i
     ITradingSession,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui import screen_venue_feeds
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.chart_coordinator import (
+    ChartCoordinator,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
+    DeskViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.strategy_overlay_coordinator import (
+    StrategyOverlayCoordinator,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
     equity_sample_to_candle,
     equity_samples_to_candles,
@@ -103,12 +112,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
-
-from .coordinators.chart_coordinator import ChartCoordinator
-from .coordinators.strategy_overlay_coordinator import (
-    StrategyOverlayCoordinator,
-)
-from .trading_view_model import TradingViewModel
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -227,7 +230,7 @@ class TradingPresenter(BasePresenter):
         #: `EPIC-027O` — active symbol's last close, for the Holdings table.
         self._last_price: Decimal | None = None
 
-        self._view_model = TradingViewModel()
+        self._view_model = DeskViewModel()
         self._view_model.set_symbol_options(
             default_symbol_options(config_values, FALLBACK_SYMBOL_OPTIONS)
         )
@@ -307,7 +310,7 @@ class TradingPresenter(BasePresenter):
             # PR 2.1e gave the card one shared owner; PR 4.3m kept it that
             # way, just relocated out of `modules/strategy/ui/`; PR 4.4c
             # (§8) rewires it onto trading's own reader/control ports (see
-            # `TradingViewModel`'s docstring) — the card's own view model,
+            # `DeskViewModel`'s docstring) — the card's own view model,
             # not the screen's, satisfying the Coordinator's narrower
             # Protocol.
             view_model=self._view_model.strategy,

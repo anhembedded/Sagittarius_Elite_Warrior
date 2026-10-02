@@ -49,14 +49,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.account_
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
     DeskProfile,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
+    DeskViewModel,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_panel import (
     OrderEntryPanel,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_view_model import (
-    TradingViewModel,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import FALLBACK_SYMBOL
@@ -123,7 +123,7 @@ class DeskView(BaseView):
     def status_text(self) -> str:
         return self._status.text()
 
-    def attach(self, desk: TradingViewModel, order: OrderEntryViewModel) -> None:
+    def attach(self, desk: DeskViewModel, order: OrderEntryViewModel) -> None:
         """Lays the desk out: builds the rail's bound widgets and binds the
         header and the context bar to `desk`."""
         self._build_desk()
@@ -152,7 +152,7 @@ class DeskView(BaseView):
         desk.tradingStateChanged.connect(lambda: self._apply_state(desk))
         desk.statusChanged.connect(lambda: self._apply_status(desk))
 
-    def _apply_symbols(self, desk: TradingViewModel) -> None:
+    def _apply_symbols(self, desk: DeskViewModel) -> None:
         self._symbol.blockSignals(True)
         options = desk.symbol_list
         if [self._symbol.itemText(i) for i in range(self._symbol.count())] != options:
@@ -162,14 +162,14 @@ class DeskView(BaseView):
             self._symbol.setCurrentText(desk.current_symbol)
         self._symbol.blockSignals(False)
 
-    def _apply_state(self, desk: TradingViewModel) -> None:
+    def _apply_state(self, desk: DeskViewModel) -> None:
         busy = bool(desk.toggleBusy)
         self._toggle.setEnabled(not busy)
         self._toggle.setText(
             _BUSY_TEXT if busy else _TOGGLE_TEXT[(bool(desk.enabled), False)]
         )
 
-    def _apply_status(self, desk: TradingViewModel) -> None:
+    def _apply_status(self, desk: DeskViewModel) -> None:
         text = str(desk.statusMessage)
         prefix = "Error: " if desk.statusIsError and text else ""
         self._status.setText(prefix + text)

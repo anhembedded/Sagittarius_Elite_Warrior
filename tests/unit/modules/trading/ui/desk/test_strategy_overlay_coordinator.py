@@ -31,7 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_conf
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_overlay_reader import (
     IStrategyChartOverlayReader,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.coordinators.strategy_overlay_coordinator import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.strategy_overlay_coordinator import (
     TREND_ZONE_KEY,
     StrategyOverlayCoordinator,
 )

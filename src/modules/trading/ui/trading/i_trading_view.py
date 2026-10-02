@@ -12,7 +12,7 @@ implementer (`TradingView`) is a `QWidget` subclass via `BaseView`, where
 Deliberately small: this screen's chart is single-symbol (unlike Dev
 Board's per-symbol `active_charts` dict), and every other piece of state
 (current symbol, toggle busy/enabled, status text, session stats) lives on
-`TradingViewModel`, which is not a View member — the View is handed it
+`DeskViewModel`, which is not a View member — the View is handed it
 once via `set_view_model()` and binds its own widgets to its signals, the
 same split `SettingsView`/`SettingsViewModel` uses.
 
@@ -28,6 +28,9 @@ from __future__ import annotations
 from typing import Protocol, runtime_checkable
 
 from PySide6.QtCore import SignalInstance
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
+    DeskViewModel,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_row import (
     HoldingRow,
 )
@@ -38,8 +41,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row im
     PositionRow,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
-
-from .trading_view_model import TradingViewModel
 
 #: `set_view_model`'s second argument — kept for the same reason
 #: `IBacktestView` keeps it: `BaseView.set_view_model` still accepts it.
@@ -69,7 +70,7 @@ class ITradingView(Protocol):
 
     def set_view_model(
         self,
-        view_model: TradingViewModel,
+        view_model: DeskViewModel,
         context_name: str = DEFAULT_VIEW_MODEL_CONTEXT_NAME,
     ) -> None:
         """Registers the ViewModel and builds every child that needs it."""
@@ -94,7 +95,7 @@ class ITradingView(Protocol):
 
     #: `EPIC-024B` §0 — the Open Orders table's per-row "Huỷ" button,
     #: re-exposed from the shared `OpenOrdersPanel`/`OpenOrdersVM`
-    #: (`(symbol, client_order_id)`). Not on `TradingViewModel` — this is a
+    #: (`(symbol, client_order_id)`). Not on `DeskViewModel` — this is a
     #: signal from a QML-embedding widget the View owns directly, the same
     #: split `chart`/`equity_chart` above document.
     cancelOrderRequested: SignalInstance

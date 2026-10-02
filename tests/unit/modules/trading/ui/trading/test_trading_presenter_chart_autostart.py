@@ -22,7 +22,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_resu
     EnableTradingBlockReason,
     EnableTradingResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.coordinators.chart_coordinator import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.chart_coordinator import (
     TRADING_STREAM_OWNER,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_presenter import (

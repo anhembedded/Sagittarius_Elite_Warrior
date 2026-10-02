@@ -71,7 +71,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     startStreamRequested = Signal()
     stopStreamRequested = Signal()
 
-    #: `EPIC-023D` — same shape `TradingViewModel` carries for its own
+    #: `EPIC-023D` — same shape `DeskViewModel` carries for its own
     #: Enable/Disable toggle + session stats (duplicated for the same
     #: Shiboken reason the strategy-card block above documents).
     tradingStateChanged = Signal()
@@ -130,7 +130,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
         self._strategy = StrategyCardViewModel(self)
 
         # `EPIC-023D` — Enable/Disable toggle + session stats, same fields
-        # `TradingViewModel.__init__` carries.
+        # `DeskViewModel.__init__` carries.
         self._enabled = False
         self._toggle_busy = False
         self._orders_sent_this_session = 0
@@ -168,7 +168,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
     # The strategy card (`EPIC-023C`, one owner since PR 2.1e)
     @Property(QObject, constant=True)
     def strategy(self) -> StrategyCardViewModel:
-        """@brief The card's own state — see `TradingViewModel.strategy`'s
+        """@brief The card's own state — see `DeskViewModel.strategy`'s
         docstring for the full reasoning behind one shared owner."""
         return self._strategy
 
@@ -357,7 +357,7 @@ class DashboardQmlViewModel(BaseQmlViewModel):
 
     # ------------------------------------------------------------------ #
     # Enable/Disable trading toggle + session stats (`EPIC-023D`) — same
-    # shape as `TradingViewModel`'s own (written from Python only, except
+    # shape as `DeskViewModel`'s own (written from Python only, except
     # the click itself).
     # ------------------------------------------------------------------ #
     @Property(bool, notify=tradingStateChanged)

@@ -54,7 +54,9 @@ from sagittarius_engine.extensions.pyside_mvc import BaseView
 from .strategy_card_widgets import build_strategy_card
 
 if TYPE_CHECKING:
-    from .trading_view_model import TradingViewModel
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
+        DeskViewModel,
+    )
 
 _TITLE = "Live Trading (Testnet)"
 _SUBTITLE = "Monitor positions, pending orders, and the live chart"
@@ -118,7 +120,7 @@ class TradingView(BaseView):
         market_type: MarketType | None = None,
     ) -> None:
         super().__init__(parent)
-        self._view_model: TradingViewModel | None = None
+        self._view_model: DeskViewModel | None = None
         # `EPIC-027O` — decided once, at construction, never re-read: same
         # reasoning `DashboardView._is_spot` documents (the venue does not
         # change without a restart). `None` (a bare `TradingView()` — a
@@ -146,7 +148,7 @@ class TradingView(BaseView):
 
     def set_view_model(
         self,
-        view_model: TradingViewModel,
+        view_model: DeskViewModel,
         context_name: str = DEFAULT_VIEW_MODEL_CONTEXT_NAME,
     ) -> None:
         self._view_model = view_model
@@ -278,7 +280,7 @@ class TradingView(BaseView):
 
     # --- `EPIC-022D` strategy card ------------------------------------- #
 
-    def _on_strategy_config_changed(self, view_model: TradingViewModel) -> None:
+    def _on_strategy_config_changed(self, view_model: DeskViewModel) -> None:
         self._apply_strategy_options(
             view_model.strategy.strategyOptions, view_model.strategy.intervalOptions
         )
@@ -308,7 +310,7 @@ class TradingView(BaseView):
         self._interval_combo.addItems(interval_options)
         self._interval_combo.blockSignals(False)
 
-    def _apply_strategy_selection(self, view_model: TradingViewModel) -> None:
+    def _apply_strategy_selection(self, view_model: DeskViewModel) -> None:
         self._strategy_combo.blockSignals(True)
         index = self._strategy_combo.findData(view_model.strategy.selectedStrategyKey)
         if index >= 0:

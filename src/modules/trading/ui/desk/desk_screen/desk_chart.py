@@ -30,17 +30,17 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
     ArmedStrategyConfig,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.chart_coordinator import (
+    ChartCoordinator,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_chart_ports import (
     DeskChartPorts,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.strategy_overlay_coordinator import (
+    StrategyOverlayCoordinator,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market_ticks import (
     market_tick_feed,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.coordinators.chart_coordinator import (
-    ChartCoordinator,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.coordinators.strategy_overlay_coordinator import (
-    StrategyOverlayCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from sagittarius_engine.interfaces.i_event_bus import IEventBus

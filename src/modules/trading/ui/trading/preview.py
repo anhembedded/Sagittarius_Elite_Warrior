@@ -18,6 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
+    DeskViewModel,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_row import (
     build_holding_row,
 )
@@ -26,9 +29,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row 
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_view import (
     TradingView,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_view_model import (
-    TradingViewModel,
 )
 
 
@@ -40,7 +40,7 @@ def build_preview() -> QWidget:
     hidden, and the manual-order buttons read BUY/SELL. Futures' own
     Positions/leverage/LONG-SHORT preview lives in `dev_board`'s own
     `preview.py`, so this file does not need to show both venues."""
-    view_model = TradingViewModel()
+    view_model = DeskViewModel()
     view_model.set_symbol_options(["BTCUSDT", "ETHUSDT", "SOLUSDT"])
     view_model.symbol = "BTCUSDT"
     view_model.set_trading_state(True, False)
