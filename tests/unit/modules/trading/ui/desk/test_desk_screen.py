@@ -82,6 +82,13 @@ def test_a_desk_opened_with_its_venues_trading_on_goes_live(qtbot) -> None:
     held = world.stream.held_by("desk.spot_testnet")
     assert held is not None
     assert held.market_type is market_of(SPOT)
+    assert held.symbols == ("BTCUSDT",)
+    # The re-review of PR 308: going live before a symbol was shown started a
+    # sync and a stream for "" — a request the user never made.
+    assert [request.symbols for request in world.sync.requests] == [("BTCUSDT",)]
+    assert [owner for call, owner in world.stream.calls if call == "start"] == [
+        "desk.spot_testnet"
+    ]
 
 
 def test_a_refused_enable_reads_as_an_error_and_leaves_the_chart_local(

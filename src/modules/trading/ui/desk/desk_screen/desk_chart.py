@@ -112,11 +112,16 @@ class DeskChart(QObject):
         self._restart()
 
     def go_live(self) -> None:
-        """Asks for the live stream, once (trading enabled on this desk)."""
+        """Asks for the live stream, once (trading enabled on this desk).
+
+        Before a symbol is shown it only marks the chart live, and the first
+        `show_symbol` starts live: restarting here would sync and stream the
+        empty symbol, a request nobody made (the re-review of PR 308)."""
         if self._live:
             return
         self._live = True
-        self._restart()
+        if self._symbol:
+            self._restart()
 
     def set_armed_config(self, config: ArmedStrategyConfig | None) -> None:
         """Draws the armed strategy's own lines over the candles."""
