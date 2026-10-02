@@ -7,7 +7,8 @@ so the dialog must say so and hold nothing that sends an order — the same
 rule a disabled desk follows. It replaces the manual-order card's click test:
 the card is gone, and with no venue on there is no panel to click. The panel
 itself, placed against a venue, is proven in
-`tests/unit/modules/trading/ui/dashboard/test_dev_board_order_entry.py`.
+`tests/unit/modules/trading/ui/dashboard/test_dev_board_order_entry.py`, and
+in the real app with a venue on in `test_dev_board_f9_against_fake_server.py`.
 """
 
 from PySide6.QtWidgets import QLabel, QPushButton
