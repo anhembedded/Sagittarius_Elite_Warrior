@@ -1,8 +1,9 @@
 """Positions/Open Orders table bookkeeping, shared by every screen that
-displays them (`TradingPresenter`, `DashboardPresenter`).
+displays them (`DashboardPresenter`, the desks' `AccountTabsPresenter`).
 
 @details `EPIC-021H`/`BUG-086`/`BUG-084` built the four `OrderFeed` handlers
-and the two render methods once, for `TradingPresenter`. `EPIC-023A` needed
+and the two render methods once, for the Trading screen (retired in
+`EPIC-028M`). `EPIC-023A` needed
 the identical behaviour on Dev Board and copy-pasted all six methods plus
 the two backing dicts — the exact class of defect `health_check_coordinator.
 py`'s own docstring (`EPIC-019B`) already names ("both screens independently

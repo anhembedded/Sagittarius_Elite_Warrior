@@ -96,6 +96,6 @@ consumer-facing port.
 | A transport error mid-stream reconnects, and the next candle still arrives | `tests/unit/modules/market_data/adapters/binance/test_binance_websocket_service.py` | unit |
 | The stream's state reaches the actor as a status pill, every UI mode | `tests/unit/modules/trading/ui/dashboard/test_dev_board_panel.py` | unit |
 | The Dev Board actually streams end to end | `tests/integration/modules/trading/ui/test_dashboard_live_stream.py` | integration |
-| The Trading chart goes live on its own when the screen opens | `tests/unit/modules/trading/ui/trading/test_trading_presenter_chart_autostart.py` | unit |
-| Live candles reach the chart and rewrite the forming one | `tests/unit/modules/trading/ui/trading/test_trading_presenter_chart_ticks.py` | unit |
+| A desk's chart reads local history on open and goes live when its venue's trading is on | `tests/unit/modules/trading/ui/desk/test_desk_screen.py` | unit |
+| Only the desk's market's candles at its interval reach its chart | `tests/unit/modules/trading/ui/desk/test_desk_live_feeds.py` | unit |
 | A real socket against the real venue | **the user runs it**: `stream start --symbols BTCUSDT --interval 1m`, watch the chart advance for a minute, then `stream stop` and see it settle | human |

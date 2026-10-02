@@ -84,8 +84,7 @@ def build_core_presenter_state(
     presenter._account = container.resolve(IAccountSnapshot)
     # `EPIC-023B` — the recorder outlives this screen (a DI singleton
     # written by `FuturesUserDataStream` regardless of whether Dev Board
-    # is even open), same reasoning `TradingPresenter` documents for its
-    # own `_equity_curve`.
+    # is even open), as the desks' `DeskEquity` reads it.
     presenter._equity_curve = container.resolve(IEquityCurve)
 
     # EPIC-019A: shared with BackTestPresenter — `None` means "never

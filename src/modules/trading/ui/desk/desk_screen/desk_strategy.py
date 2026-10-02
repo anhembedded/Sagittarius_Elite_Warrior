@@ -24,12 +24,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_strategy_cont
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_chart import (
     DeskChart,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
+    DeskViewModel,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.signal_feed import SignalFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.strategy_arming_coordinator import (
     StrategyArmingCoordinator,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_view_model import (
-    TradingViewModel,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOwnershipTracker,
@@ -43,7 +43,7 @@ class DeskStrategy(QObject):
 
     def __init__(
         self,
-        desk: TradingViewModel,
+        desk: DeskViewModel,
         controls: VenueStrategyControls,
         catalog: IStrategyCatalogReader,
         chart: DeskChart,

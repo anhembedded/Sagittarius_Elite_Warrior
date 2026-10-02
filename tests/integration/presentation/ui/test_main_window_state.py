@@ -185,34 +185,36 @@ def test_restores_sidebar_and_geometry_but_never_the_route(windows, tmp_path):
     assert window._sidebar.is_collapsed is True
 
 
+@pytest.mark.parametrize("stored_route", ["trading", "trading.futures"])
 def test_boot_never_constructs_a_non_default_screen_even_with_a_stored_route(
-    windows, tmp_path
+    windows, tmp_path, stored_route
 ):
     """Proves the lazy-loading guarantee end to end, not just by reading
-    `_current_route`: a stored `last_route` of `"trading"` must not make
-    `PresenterManager` construct `TradingPresenter` at boot — it stays
-    lazily un-built exactly as it would for a route nobody ever visited.
-    This is the literal reported shape of `BUG-104`: `TradingPresenter.
-    __init__` unconditionally starts a real `SyncMarketDataCommand`/
-    `StartLiveStreamCommand` sequence (`EPIC-021I` — no separate Start
-    step, by that screen's own documented design), so merely *constructing*
-    it is the observable harm — a prior session leaving `"trading"` stored
-    must never cause that construction to happen at boot."""
+    `_current_route`: a stored `last_route` must not make `PresenterManager`
+    construct a trading screen's presenter at boot — it stays lazily
+    un-built exactly as it would for a route nobody ever visited.
+
+    This is the literal reported shape of `BUG-104`: the single Trading
+    screen's presenter started a real sync and live stream in `__init__`
+    (`EPIC-021I`), so merely *constructing* it was the observable harm.
+    `EPIC-028M` retired that screen for the two desks: `"trading"` is what a
+    session from before then left stored, `"trading.futures"` what one after
+    may leave; neither builds a desk at boot."""
     coordinator = _coordinator_over(tmp_path)
-    coordinator._store.write(StateScope(key="shell"), {"last_route": "trading"})
+    coordinator._store.write(StateScope(key="shell"), {"last_route": stored_route})
 
     window = windows.open(coordinator)
 
     # PR 1.5a made this a stronger guarantee than it was: the default route
-    # is the shell's Welcome screen, so booting now constructs *neither*
-    # trading screen — and the Dev Board, whose Presenter opens feeds of its
-    # own, is no longer built just because the app started.
-    welcome_entry = window._router._registry["welcome"]
-    dashboard_entry = window._router._registry["dashboard"]
-    trading_entry = window._router._registry["trading"]
-    assert welcome_entry["presenter_instance"] is not None
-    assert dashboard_entry["presenter_instance"] is None
-    assert trading_entry["presenter_instance"] is None
+    # is the shell's Welcome screen, so booting now constructs *no* trading
+    # screen — and the Dev Board, whose Presenter opens feeds of its own, is
+    # no longer built just because the app started.
+    assert window._current_route == "welcome"
+    registry = window._router._registry
+    assert registry["welcome"]["presenter_instance"] is not None
+    for route in ("dashboard", "trading.futures", "trading.spot"):
+        assert registry[route]["presenter_instance"] is None, route
+    assert "trading" not in registry
 
 
 def test_sidebar_toggle_survives_a_restart_but_the_route_resets_to_default(

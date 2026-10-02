@@ -40,8 +40,8 @@ _FIELD_FONT_FAMILY = "Consolas"
 
 #: `BOT-125` — carried over from the monolithic screen this section split off.
 _VENUE_LOCKED_TEXT = (
-    "Trading is active — disable trading on the Trading screen before "
-    "changing the trading venues."
+    "Trading is active — disable trading on its desk or the Dev Board "
+    "before changing the trading venues."
 )
 
 #: `EPIC-028C` — one toggle per venue that can place orders; `DISABLED` has
@@ -54,8 +54,8 @@ _VENUE_TOGGLE_LABELS: dict[TradingVenue, str] = {
 }
 
 _VENUES_HINT_TEXT = (
-    "Nothing checked turns trading off. With both on, the Trading screen and "
-    "Dev Board show Futures until each venue has its own desk."
+    "Nothing checked turns trading off. Each venue trades on its own desk; "
+    "the Dev Board trades the first one enabled."
 )
 
 

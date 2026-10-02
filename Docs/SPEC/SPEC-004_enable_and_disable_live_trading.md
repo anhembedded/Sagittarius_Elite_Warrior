@@ -3,9 +3,12 @@
 - **Status:** ✅ built and proven
 - **Actor:** trader
 - **Origin:** `EPIC-021G`, with `BUG-088` (a concurrent state change mid-reconciliation) and
-  `BUG-089` (a second click landing on an in-flight toggle).
-- **Surfaces:** the Trading screen's Enable/Disable toggle. The Settings screen only **reads**
-  this state — it refuses a venue change while trading is on and says where to turn it off.
+  `BUG-089` (a second click landing on an in-flight toggle). Per venue since `EPIC-028B`/`028C`;
+  the single Trading screen's toggle became each desk's in `EPIC-028K`/`028L`/`028M`.
+- **Surfaces:** each desk's Enable/Disable toggle, for the desk's own venue (the Futures desk for
+  Futures Testnet, the Spot desk for Spot Testnet), and the Dev Board's, for the venue it trades.
+  All of them are one class (`DeskSessionControls`). The Settings screen only **reads** this
+  state — it refuses a venue change while trading is on and says where to turn it off.
 
 ## 1. Trigger
 
@@ -14,8 +17,10 @@ holds before it does."*
 
 ## 2. Preconditions
 
-1. The configured trading venue is Futures Testnet. Any other venue means trading is off at the
-   configuration level and no toggle can override it.
+1. The desk's venue (Futures Testnet or Spot Testnet) is enabled in Settings, and the app was
+   restarted after the change. A venue that is not enabled has no session to turn on: its desk
+   says so and holds no toggle. Each enabled venue's trading is on or off on its own; turning
+   one on or off never touches the other.
 2. Credentials resolve and the exchange is reachable — SPEC-003's check, which this use case runs
    again itself rather than trusting an earlier answer.
 3. Live trading is **off**. It always is at start-up: this state is never persisted across runs.
@@ -23,7 +28,7 @@ holds before it does."*
 
 ## 3. Main flow
 
-1. The actor clicks Enable on the Trading screen.
+1. The actor clicks Enable on a desk.
 2. The app disables the toggle for the duration — a second click cannot begin a second attempt.
 3. The app runs the connection check. Not reachable, or reachable-but-unusable, ends it.
 4. The app reads the account back: open positions, and open orders.
@@ -32,8 +37,9 @@ holds before it does."*
 6. The app re-checks that nothing else changed the session while steps 3–5 were on the network.
    If something did — most importantly an Emergency Stop — this attempt loses and answers
    refused.
-7. On success the app allows live submission, records what it reconciled, and the toggle reads
-   Enabled.
+7. On success the app allows live submission on that venue, records what it reconciled, and the
+   toggle reads Enabled. On a desk, the chart goes live (`BUG-107`: until then it shows stored
+   candles); the Dev Board's chart keeps its own Start Live button.
 8. Disabling is the mirror and is simpler: it always succeeds, immediately, and needs no network.
 
 ## 4. What must be true afterwards
@@ -56,7 +62,7 @@ holds before it does."*
 
 | What goes wrong | What the actor sees | Why it is this and not a crash |
 | :--- | :--- | :--- |
-| The venue is not Futures Testnet | Refused: `TRADING_VENUE_DISABLED` | The configuration-level gate, checked here and again at every submission |
+| The venue is not enabled | The desk says so and holds no toggle; anything else that tries is refused with `TRADING_VENUE_DISABLED` | The configuration-level gate, checked here and again at every submission |
 | The connection check does not come back ready | Refused: `CONNECTION_NOT_READY` | Includes Hedge mode — "reachable but not usable" is already a named connection failure (SPEC-003) |
 | The exchange holds a position this app never sent | Refused: `UNEXPECTED_POSITIONS`, with what was found | The actor decides what to do about it. Adopting it silently would make the app's limits meaningless; closing it silently would trade without being asked |
 | An Emergency Stop, a disable, or another enable lands mid-reconciliation | Refused: `SUPERSEDED_BY_CONCURRENT_STATE_CHANGE` | `BUG-088`. Reconciliation succeeding does not mean nothing else happened while it ran |
@@ -94,6 +100,9 @@ reads through `ITradingAccountReader`; the connection gate is SPEC-003's `IAccou
 | Every block reason, including the concurrent-change generation check | `tests/unit/modules/trading/application/session/test_enable_trading.py` | unit |
 | Disable always succeeds and needs no network | `tests/unit/modules/trading/application/session/test_disable_trading.py` | unit |
 | Both implementations of the port answer the same way | `tests/unit/modules/trading/contracts/test_trading_session_contract.py` | contract |
-| The toggle's async ownership: one action at a time, stale results fenced | `tests/unit/modules/trading/ui/trading/test_trading_presenter_toggle.py` | unit |
+| One venue's session never moves the other's | `tests/unit/modules/trading/application/test_venue_isolation.py` | unit |
+| A desk's toggle turns on its own venue only and puts its chart live | `tests/unit/modules/trading/ui/desk/test_desk_screen.py`, `tests/unit/modules/trading/ui/desk/test_two_desks_stay_apart.py` | unit |
+| The Dev Board's toggle is the same controls, and never puts its chart live | `tests/unit/modules/trading/ui/dashboard/test_dashboard_presenter.py` | unit |
+| The toggle's async ownership: one action at a time, stale results fenced, never superseding an Emergency Stop | `tests/unit/modules/trading/ui/desk/test_desk_session_controls.py` | unit |
 | Settings refuses a venue change while trading is on | `tests/unit/modules/trading/ui/settings/test_trading_settings_venue.py` | unit |
-| Turning it on against a real account | **the user runs it**: with Futures Testnet credentials, click Enable on the Trading screen and confirm the reconciled positions shown match the Testnet web UI | human |
+| Turning it on against a real account | **the user runs it**: with Futures Testnet credentials, click Enable on the Futures desk and confirm the reconciled positions shown match the Testnet web UI | human |

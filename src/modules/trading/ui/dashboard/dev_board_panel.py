@@ -26,9 +26,9 @@ If this screen ever does want its own identity, the way to have one is a
 named token in `Palette`, not a module constant a reader has to diff
 against another file to discover is shared.
 
-`BOT-144` — the five cards (System Controls, Strategy, Last Signal, Session,
-Manual Order) that used to be built and synced directly on this class now
-live under `dev_board_widgets/`, each owning its own widgets and wiring.
+`BOT-144` — the cards (System Controls, Strategy, Last Signal, Session) that
+used to be built and synced directly on this class now live under
+`dev_board_widgets/`, each owning its own widgets and wiring.
 This class keeps the header, the Indicators checklist (still entangled with
 this panel's own script-catalog/symbol-preferences state), the dialogs a
 card cannot parent itself, and the handful of cross-cutting syncs
@@ -78,7 +78,6 @@ from .dashboard_symbol_picker_dialog import DashboardSymbolPickerDialog
 from .dashboard_view_model import DashboardQmlViewModel
 from .dev_board_widgets.last_signal_card import LastSignalCard
 from .dev_board_widgets.layout_helpers import section_row
-from .dev_board_widgets.manual_order_card import ManualOrderCard
 from .dev_board_widgets.session_card import SessionCard
 from .dev_board_widgets.strategy_card import StrategyCard, dev_board_card_binding
 from .dev_board_widgets.system_controls_card import (
@@ -100,7 +99,7 @@ from .ws_status_pill import WsStatusPill
 _FALLBACK_TIMEFRAME_SECONDS = TimeFrame.ONE_MINUTE.to_seconds()
 _FALLBACK_TIMEFRAME_LABEL = TimeFrame.ONE_MINUTE.value
 
-# --- `EPIC-023D` toggle/Emergency Stop — same fixed text `TradingView` uses. --- #
+# --- `EPIC-023D` toggle/Emergency Stop — the fixed text the desks use. --- #
 _TOGGLE_ON_TEXT = "Disable Trading"
 _TOGGLE_OFF_TEXT = "Enable Trading"
 _TOGGLE_BUSY_TEXT = "Processing..."
@@ -116,8 +115,9 @@ LAST_SIGNAL_DOCK = "Last signal"
 SESSION_DOCK = "Session"
 INDICATORS_DOCK = "Indicators"
 
-#: The manual-order dialog's title, which is also how `WorkbenchSurface`
-#: identifies it: `show_modal(MANUAL_ORDER_DIALOG)`.
+#: The order dialog's title (F9), which is also how `WorkbenchSurface`
+#: identifies it: `show_modal(MANUAL_ORDER_DIALOG)`. Its content is the desks'
+#: order panel, which `DashboardView` hosts (`EPIC-028M`).
 MANUAL_ORDER_DIALOG = "Place order"
 
 
@@ -129,14 +129,14 @@ class DevBoardPanel(QObject):
     It is no longer a widget: it builds the cards, owns every field and
     button, and wires them to the ViewModel, while *where they go* is
     `DashboardView`'s to decide — five docks the user can hide or tab
-    independently, plus the manual-order card as a dialog. A `QWidget` had
+    independently; the order dialog is `DashboardView`'s. A `QWidget` had
     to be the region the cards sat on (painting the app background with its
     own stylesheet, `Palette.BG`); a `QObject` paints nothing.
 
     Every private attribute stays where it was — `panel._btn_start`,
     `panel._txt_start_date`, `panel._script_checkboxes` — because that is
     what tests and the Presenter key off. New: the public read side,
-    `dock_panels`/`manual_order_card`/`header_actions`/`status_tiles`/
+    `dock_panels`/`header_actions`/`status_tiles`/
     `console_widget`.
     """
 
@@ -184,7 +184,6 @@ class DevBoardPanel(QObject):
         self._strategy_card = StrategyCard(card, market_type=market_type)
         self._last_signal_card = LastSignalCard(view_model)
         self._session_card = SessionCard(view_model)
-        self._manual_order_card = ManualOrderCard(view_model, market_type=market_type)
         self._indicators_card = self._build_indicators()
 
         self._log_panel = AppLogPanel("SYSTEM MONITOR")
@@ -246,12 +245,11 @@ class DevBoardPanel(QObject):
         return self._system_controls_card._progress_banner
 
     # ------------------------------------------------------------------ #
-    # Strategy/Manual Order card pass-through — same reasoning as the System
+    # Strategy card pass-through — same reasoning as the System
     # Controls block above. Found missing by a real GitHub Actions run
     # (`ci-local.ps1 -Full`, not the narrower local test selection this
     # split was first verified against): `tests/integration/presentation/ui/
-    # test_dev_board_known_gaps.py`/`test_dev_board_manual_order_qt_click.py`
-    # drive these widgets directly with real `qtbot` clicks, and were not
+    # test_dev_board_known_gaps.py` drives these widgets directly with real `qtbot` clicks, and were not
     # part of the grepped 16-attribute contract `BOT-144` §3.4 recorded
     # (that grep covered `test_dev_board_panel.py` and `DashboardView`/
     # `DashboardPresenter` only, not `tests/integration/`).
@@ -272,30 +270,6 @@ class DevBoardPanel(QObject):
     @property
     def _lbl_armed_strategy(self) -> QWidget:
         return self._strategy_card._lbl_armed_strategy
-
-    @property
-    def _cbo_manual_order_type(self) -> QWidget:
-        return self._manual_order_card._cbo_manual_order_type
-
-    @property
-    def _spn_manual_quantity(self) -> QWidget:
-        return self._manual_order_card._spn_manual_quantity
-
-    @property
-    def _spn_manual_price(self) -> QWidget:
-        return self._manual_order_card._spn_manual_price
-
-    @property
-    def _btn_manual_long(self) -> QWidget:
-        return self._manual_order_card._btn_manual_long
-
-    @property
-    def _btn_manual_short(self) -> QWidget:
-        return self._manual_order_card._btn_manual_short
-
-    @property
-    def _lbl_manual_order_status(self) -> QWidget:
-        return self._manual_order_card._lbl_manual_order_status
 
     # ------------------------------------------------------------------ #
     # Layout
@@ -327,9 +301,9 @@ class DevBoardPanel(QObject):
         self._btn_reload.setFixedHeight(26)
         self._btn_reload.clicked.connect(self._view_model.requestLoadHistory)
 
-        # `EPIC-023D` — same header placement `TradingView` gives its own
-        # toggle button; Dev Board has no separate context bar for
-        # "DỪNG KHẨN CẤP" the way Trading does, so it goes in `header_actions`
+        # `EPIC-023D` — the header placement the retired Trading screen gave
+        # its toggle; Dev Board has no separate context bar for
+        # "DỪNG KHẨN CẤP" the way Trading had, so it goes in `header_actions`
         # too, right beside the toggle — both must stay visible regardless
         # of which System Controls card state the panel is scrolled to.
         self._btn_toggle_trading = StyledButton(
@@ -380,8 +354,8 @@ class DevBoardPanel(QObject):
         workbench, which decides the initial tab order and nothing else —
         after that the user's perspective wins (HLD §11.2).
 
-        Ordered by how often a user acts on them, the same ordering
-        `TradingView._build_rail` documents for its own column: what you set
+        Ordered by how often a user acts on them, the ordering the retired
+        Trading screen's rail had (`EPIC-028M`): what you set
         up a run with, then what the run is doing, then what it did.
         """
         return [
@@ -391,19 +365,6 @@ class DevBoardPanel(QObject):
             (SESSION_DOCK, self._session_card),
             (INDICATORS_DOCK, self._indicators_card),
         ]
-
-    @property
-    def manual_order_card(self) -> QWidget:
-        """The manual-order form, for `DashboardView` to contribute as a
-        dialog rather than a panel.
-
-        A dialog because that is what order entry is: something the user
-        does occasionally, with input and a confirmation, not something that
-        must occupy the screen while they watch a chart (HLD §11.3, and
-        MetaTrader's own F9). As a card in a scrolling column it was
-        permanently in the way of everything below it.
-        """
-        return self._manual_order_card
 
     def _build_indicators(self) -> Panel:
         card = Panel()

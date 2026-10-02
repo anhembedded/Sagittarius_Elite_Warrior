@@ -1,10 +1,10 @@
-"""`EPIC-028K`/`028L` — one desk's screen: the chart, the account tabs below
-it, and a rail holding the order panel, the strategy card and the account
+"""`EPIC-028K`/`028L` — one desk's screen: the chart, the venue's equity
+curve and the account tabs below it, and a rail holding the order panel, the strategy card and the account
 summary; Enable/Disable and Emergency Stop for this venue only.
 
-@details A `PageShell`, like the single Trading screen it replaces (the
-workbench conversion of every remaining `PageShell` is `EPIC-025`'s, and the
-old screen leaves in `EPIC-028M`). Plain QtWidgets in the OS theme (ADR
+@details A `PageShell`, like the single Trading screen it replaced in
+`EPIC-028M` (the workbench conversion of every remaining `PageShell` is
+`EPIC-025`'s). Plain QtWidgets in the OS theme (ADR
 D20–D22): no stylesheet, no colour; an error in the status line reads
 "Error: …", as the order panel's does.
 
@@ -49,14 +49,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.account_tabs.account_
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
     DeskProfile,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
+    DeskViewModel,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_panel import (
     OrderEntryPanel,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_view_model import (
-    TradingViewModel,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import FALLBACK_SYMBOL
@@ -64,6 +64,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import AppLogPan
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import PageShell
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
+#: The equity chart's title: the curve is the venue's account, not a symbol.
+EQUITY_CHART_TITLE = "Equity"
 _TOGGLE_TEXT = {(False, False): "Enable Trading", (True, False): "Disable Trading"}
 _BUSY_TEXT = "Processing..."
 
@@ -92,6 +94,7 @@ class DeskView(BaseView):
         self.setObjectName(f"desk_{profile.venue.value}")
         self._profile = profile
         self.chart = ChartCard(FALLBACK_SYMBOL)
+        self.equity_chart = _equity_chart()
         self.account_tabs = AccountTabsPanel(profile.held_tab, confirmations)
         self.account_summary = AccountSummaryPanel()
         self._toggle = QPushButton(_TOGGLE_TEXT[(False, False)])
@@ -123,7 +126,7 @@ class DeskView(BaseView):
     def status_text(self) -> str:
         return self._status.text()
 
-    def attach(self, desk: TradingViewModel, order: OrderEntryViewModel) -> None:
+    def attach(self, desk: DeskViewModel, order: OrderEntryViewModel) -> None:
         """Lays the desk out: builds the rail's bound widgets and binds the
         header and the context bar to `desk`."""
         self._build_desk()
@@ -152,7 +155,7 @@ class DeskView(BaseView):
         desk.tradingStateChanged.connect(lambda: self._apply_state(desk))
         desk.statusChanged.connect(lambda: self._apply_status(desk))
 
-    def _apply_symbols(self, desk: TradingViewModel) -> None:
+    def _apply_symbols(self, desk: DeskViewModel) -> None:
         self._symbol.blockSignals(True)
         options = desk.symbol_list
         if [self._symbol.itemText(i) for i in range(self._symbol.count())] != options:
@@ -162,14 +165,14 @@ class DeskView(BaseView):
             self._symbol.setCurrentText(desk.current_symbol)
         self._symbol.blockSignals(False)
 
-    def _apply_state(self, desk: TradingViewModel) -> None:
+    def _apply_state(self, desk: DeskViewModel) -> None:
         busy = bool(desk.toggleBusy)
         self._toggle.setEnabled(not busy)
         self._toggle.setText(
             _BUSY_TEXT if busy else _TOGGLE_TEXT[(bool(desk.enabled), False)]
         )
 
-    def _apply_status(self, desk: TradingViewModel) -> None:
+    def _apply_status(self, desk: DeskViewModel) -> None:
         text = str(desk.statusMessage)
         prefix = "Error: " if desk.statusIsError and text else ""
         self._status.setText(prefix + text)
@@ -184,9 +187,11 @@ class DeskView(BaseView):
         workspace = QSplitter(Qt.Orientation.Vertical)
         workspace.setObjectName("deskWorkspace")
         workspace.addWidget(self.chart)
+        workspace.addWidget(self.equity_chart)
         workspace.addWidget(self.account_tabs)
         workspace.setStretchFactor(0, 3)
-        workspace.setStretchFactor(1, 2)
+        workspace.setStretchFactor(1, 1)
+        workspace.setStretchFactor(2, 2)
         rail = QWidget()
         rail.setLayout(self._rail)
         self._rail.setContentsMargins(0, 0, 0, 0)
@@ -216,3 +221,14 @@ class DeskView(BaseView):
         notice.setWordWrap(True)
         notice.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._shell.set_workspace(notice)
+
+
+def _equity_chart() -> ChartCard:
+    """A plain `ChartCard` drawn as a line (`EPIC-021M` §3): equity has no
+    OHLC, volume or timeframe of its own, so those are hidden, not removed."""
+    card = ChartCard(EQUITY_CHART_TITLE)
+    card.setObjectName("deskEquityChart")
+    card.set_chart_type("line")
+    card.set_volume_visible(False)
+    card.toolbar.setVisible(False)
+    return card

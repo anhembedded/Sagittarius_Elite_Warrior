@@ -25,8 +25,9 @@ holding once `TradingVenue.supports_order_submission` started admitting
 Spot orders. Refused here, before an `OrderIntent` is ever built, rather
 than silently reinterpreted as a Sell the user did not ask for.
 
-`EPIC-027O` — the Dev Board's Manual Order card now shows this same button
-as "SELL" on Spot (`ManualOrderCard`'s own docstring), so the outright
+`EPIC-027O` — a Spot order panel shows this same button as "Sell" (once the
+Dev Board's manual-order card, now the desks' order panel, `EPIC-028M`), so
+the outright
 refusal above softens to "refused unless a real, freshly-read `spot_holding`
 backs it": `reduce_only` stays meaningless for Spot either way (Binance's
 Spot `create_order` rejects the field outright —

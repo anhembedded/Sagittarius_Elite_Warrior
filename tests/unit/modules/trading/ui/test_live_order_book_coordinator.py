@@ -1,5 +1,6 @@
 """`EPIC-023A` follow-up — `LiveOrderBookCoordinator`, extracted out of
-`TradingPresenter` and `DashboardPresenter` after both carried a
+the Trading screen's presenter (retired in `EPIC-028M`) and
+`DashboardPresenter` after both carried a
 byte-for-byte copy of the same six methods."""
 
 from __future__ import annotations

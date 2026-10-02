@@ -48,9 +48,6 @@ from .presenter_factory_indicators import build_indicator_presenter_state
 from .presenter_factory_stream import build_stream_presenter_state
 from .presenter_factory_trading import (
     _ARM_ACTION,
-    _EMERGENCY_STOP_ACTION,
-    _MANUAL_ORDER_ACTION,
-    _TOGGLE_ACTION,
     build_trading_presenter_state,
 )
 
@@ -61,14 +58,11 @@ if TYPE_CHECKING:
     from ..dashboard_view import DashboardView
 
 #: Re-exported for `dashboard_presenter.py`'s own later methods
-#: (`_on_enable_trading_completed` etc.) — the action-kind strings are
+#: — the action-kind strings are
 #: defined once, in `presenter_factory_trading.py`, where they are also
 #: consumed at construction time.
 __all__ = [
     "_ARM_ACTION",
-    "_EMERGENCY_STOP_ACTION",
-    "_MANUAL_ORDER_ACTION",
-    "_TOGGLE_ACTION",
     "build_dashboard_presenter_state",
 ]
 

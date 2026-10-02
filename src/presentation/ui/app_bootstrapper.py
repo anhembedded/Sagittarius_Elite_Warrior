@@ -109,11 +109,13 @@ from sagittarius_engine.extensions.pyside_mvc import (
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 
-#: Where **Start** goes. Named here, in *Main*, because that is the
+#: Where **Start** goes: the Futures desk (`EPIC-028M`, which retired the
+#: single Trading screen). Named here, in *Main*, because that is the
 #: decision this entry point owns — the same value as
-#: `TradingScreenModule.route`, not read from it, so the Welcome screen
-#: depends on neither.
-TRADING_ROUTE = "trading"
+#: `futures_desk_screen.FUTURES_DESK_ROUTE`, not read from it, so the Welcome
+#: screen depends on neither. No layout is keyed by the route (`BUG-104`), so
+#: nothing saved under the old one needs migrating.
+START_ROUTE = "trading.futures"
 
 #: `python -m ...app_bootstrapper --self-check`: boot for real, let the event
 #: loop turn once, exit with a real process exit code. See the module
@@ -336,11 +338,12 @@ def build() -> AppRuntime:
     # shell owns that screen and cannot navigate: a route change is
     # `MainWindow`'s, which lives in this tree, and a navigation port with one
     # caller would pre-empt the Engine's `NavigationService` (Phase 5). So the
-    # screen raises an intent and *Main* — here — decides it means Trading. A
+    # screen raises an intent and *Main* — here — decides it means the
+    # Futures desk. A
     # real login can replace the button without touching anything else
     # (HLD §4.6).
     app_engine.context.event_bus.on(
-        StartRequested, lambda _event: window.switch_screen(TRADING_ROUTE)
+        StartRequested, lambda _event: window.switch_screen(START_ROUTE)
     )
 
     # Start UI Watchdog to monitor main-thread responsiveness during runtime

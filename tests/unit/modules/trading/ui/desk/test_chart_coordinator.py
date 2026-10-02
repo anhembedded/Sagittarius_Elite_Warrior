@@ -2,9 +2,9 @@
 
 Before this, `_run()` unconditionally dispatched `SyncMarketDataCommand`
 and `StartLiveStreamCommand`, so submitting `start()` at all — which
-`TradingPresenter` did unconditionally at construction — opened a real
-Binance connection the instant the Trading screen was navigated to, no
-click, no opt-in. This module pins the two halves `start()` now offers,
+the single Trading screen's presenter did unconditionally at construction —
+opened a real Binance connection the instant the screen was navigated to, no
+click, no opt-in. The desks inherited the coordinator (`EPIC-028M`). This module pins the two halves `start()` now offers,
 run synchronously (no `IThreadManager`, no `CancellationToken` real
 threading involved — same style as the module's own docstring calls out
 for background workers with no bookkeeping of their own).
@@ -36,10 +36,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.coordinators.chart_coordinator import (
-    TRADING_STREAM_OWNER,
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.chart_coordinator import (
     ChartCoordinator,
 )
+
+_OWNER = "desk.spot_testnet"
 
 
 class _FakeToken:
@@ -52,7 +53,7 @@ def _coordinator(
     history: FakeHistoricalKlines | None = None,
     stream: FakeMarketStream | None = None,
     market: MarketType = MarketType.SPOT,
-    owner: str | None = None,
+    owner: str = _OWNER,
 ):
     """No dispatcher: `EPIC-025` PR 1.1b took the last one this coordinator
     held, so there is no bus left for a test to record."""
@@ -67,7 +68,7 @@ def _coordinator(
         emit_stream_started=MagicMock(),
         emit_stream_failed=MagicMock(),
         emit_log=MagicMock(),
-        **({} if owner is None else {"stream_owner": owner}),
+        stream_owner=owner,
     )
 
 
@@ -117,7 +118,7 @@ def test_a_futures_chart_syncs_reads_and_streams_futures() -> None:
 
     assert sync.requests[0].market is MarketType.FUTURES_USD_M
     assert history.reads[0].market is MarketType.FUTURES_USD_M
-    held = stream.held_by(TRADING_STREAM_OWNER)
+    held = stream.held_by(_OWNER)
     assert held is not None
     assert held.market_type is MarketType.FUTURES_USD_M
 
@@ -161,6 +162,7 @@ def test_the_chart_draws_the_stored_candles_oldest_first() -> None:
         emit_stream_started=MagicMock(),
         emit_stream_failed=MagicMock(),
         emit_log=MagicMock(),
+        stream_owner=_OWNER,
     )
 
     coordinator._run("BTCUSDT", "1m", _FakeToken(), False)
@@ -189,7 +191,7 @@ def test_the_chart_asks_for_the_newest_candles_not_the_first() -> None:
 
 def test_stop_releases_only_this_screens_subscription() -> None:
     """`stop()` itself is unconditional — callers decide whether it is safe
-    to call at all (`TradingPresenter._restart_chart`'s own guard).
+    to call at all (`DeskChart._restart`'s own guard).
 
     Asserted on what the stream holds afterwards, not on a dispatched
     command: `BOT-126`'s whole point is that this screen releasing its own
@@ -203,7 +205,7 @@ def test_stop_releases_only_this_screens_subscription() -> None:
 
     coordinator.stop()
 
-    assert stream.held_by(TRADING_STREAM_OWNER) is None
+    assert stream.held_by(_OWNER) is None
     assert stream.held_by("dashboard") is not None
 
 
@@ -222,6 +224,7 @@ def test_start_defaults_to_local_history_only() -> None:
         emit_stream_started=MagicMock(),
         emit_stream_failed=MagicMock(),
         emit_log=MagicMock(),
+        stream_owner=_OWNER,
     )
 
     coordinator.start("BTCUSDT", "1m", _FakeToken())

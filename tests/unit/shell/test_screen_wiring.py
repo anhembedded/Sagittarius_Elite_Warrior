@@ -28,9 +28,8 @@ from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import welcome_s
 
 _EXPECTED_ROUTES = (
     "dashboard",
-    "trading",
-    # `EPIC-028K`/`028L` — one desk per venue, beside the single screen
-    # until `EPIC-028M` retires it.
+    # `EPIC-028K`/`028L` — one desk per venue; `EPIC-028M` retired the
+    # single Trading screen (`"trading"`) they replace.
     "trading.futures",
     "trading.spot",
     "data_management",
@@ -40,7 +39,7 @@ _EXPECTED_ROUTES = (
 
 
 def _real_modules(container: object) -> tuple[object, object, object]:
-    """The three module instances that own these seven screens (`BOT-019`
+    """The three module instances that own these six screens (`BOT-019`
     added `watchlist` as `market_data`'s second screen), each with
     `_container` stashed the way `boot()` would (`TradingModule.__init__`
     and `BacktestingModule.__init__`'s own docstrings explain why this is
@@ -68,7 +67,7 @@ def test_every_module_screen_is_contributed() -> None:
 
 
 def test_each_screen_is_contributed_by_its_own_module_not_the_shell() -> None:
-    """`contributor_id` is what a log line shows — each of these seven is
+    """`contributor_id` is what a log line shows — each of these six is
     its module's own now, unlike the legacy mechanism's shared
     `LEGACY_CONTRIBUTOR_ID`."""
     registry = ContributionRegistry(dev_mode=False)
@@ -77,7 +76,6 @@ def test_each_screen_is_contributed_by_its_own_module_not_the_shell() -> None:
     by_route = {screen.route: screen.contributor_id for screen in registry.screens()}
     assert by_route == {
         "dashboard": "trading",
-        "trading": "trading",
         "trading.futures": "trading",
         "trading.spot": "trading",
         "data_management": "market_data",
@@ -87,7 +85,7 @@ def test_each_screen_is_contributed_by_its_own_module_not_the_shell() -> None:
 
 
 def test_the_default_route_survives_the_round_trip() -> None:
-    """`welcome` (ADR D13), not any of the seven module screens — none of
+    """`welcome` (ADR D13), not any of the six module screens — none of
     them declares `is_default`. The round trip is the point: a default
     declared on a contribution has to still be the default after
     `ScreenRegistry` has it."""
@@ -133,7 +131,6 @@ def test_the_sidebar_matches_the_legacy_layout() -> None:
     navigation_routes = [item.route for item in sections[0].items]
     assert navigation_routes == [
         "dashboard",
-        "trading",
         "trading.futures",
         "trading.spot",
         "data_management",

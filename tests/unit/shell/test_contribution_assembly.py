@@ -126,7 +126,7 @@ def test_a_modules_own_screen_is_collected_too(qapp) -> None:
     contributions = assemble_contributions(container, dev_mode=True)
 
     routes = {screen.route for screen in contributions.screens()}
-    assert {"dashboard", "trading", "settings"} <= routes
+    assert {"dashboard", "trading.futures", "trading.spot", "settings"} <= routes
 
 
 def test_a_container_with_no_modules_still_collects_the_screens(qapp) -> None:

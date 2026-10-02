@@ -3,10 +3,10 @@ and the market its chart streams.
 
 @details Futures and Spot publish onto one event bus. A screen builds its
 `OrderFeed` and `EquityFeed` here, for the venue it shows, so neither the Dev
-Board nor the Trading screen has to know how that venue is chosen, and a Spot
-fill never reaches a Futures table.
+Board nor a desk has to know how that venue is chosen, and a Spot fill never
+reaches a Futures table.
 
-The single Trading screen and the Dev Board show the primary venue
+The Dev Board shows the primary venue
 (`TradingVenue`, the first enabled one; `build`). Each desk (`EPIC-028K`/`L`)
 passes its own venue (`build_for`). The signal feed joined the bundle in
 `EPIC-028K`: a strategy's signal names its venue too.

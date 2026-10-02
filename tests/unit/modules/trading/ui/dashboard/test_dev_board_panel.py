@@ -62,7 +62,6 @@ def panel(qapp, view_model, request):
         layout.addWidget(widget)
     for _title, card in controls.dock_panels:
         layout.addWidget(card)
-    layout.addWidget(controls.manual_order_card)
     layout.addWidget(controls.console_widget)
     host.resize(380, 700)
     host.show()
@@ -80,7 +79,6 @@ def spot_panel(qapp, view_model, request):
     layout = QVBoxLayout(host)
     for _title, card in controls.dock_panels:
         layout.addWidget(card)
-    layout.addWidget(controls.manual_order_card)
     host.show()
     qapp.processEvents()
     request.addfinalizer(host.deleteLater)
@@ -92,57 +90,9 @@ def test_strategy_card_shows_leverage_by_default(qapp, panel):
 
 
 def test_strategy_card_hides_leverage_on_spot(qapp, spot_panel):
-    """`EPIC-027O` AC3 — same Futures-only concept `TradingView`'s own
-    strategy card hides; Spot has no margin to lever."""
+    """`EPIC-027O` AC3 — leverage is a Futures-only concept; Spot has no
+    margin to lever."""
     assert spot_panel._strategy_card._row_leverage.isVisible() is False
-
-
-def test_manual_order_buttons_read_long_short_by_default(qapp, panel):
-    card = panel.manual_order_card
-    assert card._btn_manual_long.text() == "LONG"
-    assert card._btn_manual_short.text() == "SHORT"
-
-
-def test_manual_order_buttons_read_buy_sell_on_spot(qapp, spot_panel):
-    """`EPIC-027O` — label only; `_on_manual_order_clicked` still dispatches
-    `ManualOrderDirection.LONG`/`SHORT` underneath (see the click test
-    below)."""
-    card = spot_panel.manual_order_card
-    assert card._btn_manual_long.text() == "BUY"
-    assert card._btn_manual_short.text() == "SELL"
-
-
-def test_manual_order_sell_disabled_without_a_spot_holding(
-    qapp, spot_panel, view_model
-):
-    card = spot_panel.manual_order_card
-    assert card._btn_manual_short.isEnabled() is True
-
-    view_model.set_manual_order_sell_enabled(False)
-    qapp.processEvents()
-    assert card._btn_manual_short.isEnabled() is False
-    assert card._btn_manual_long.isEnabled() is True, (
-        "only Sell is holding-gated — Buy stays available"
-    )
-
-    view_model.set_manual_order_sell_enabled(True)
-    qapp.processEvents()
-    assert card._btn_manual_short.isEnabled() is True
-
-
-def test_manual_order_sell_click_still_requests_the_short_direction(
-    qapp, spot_panel, view_model
-):
-    """The button reads "SELL", but the domain enum stays `SHORT`
-    (`ManualOrderDirection`) — `manual_order_intent.py` is what maps a real
-    Spot holding onto a plain `OrderSide.SELL`, not this card."""
-    requested = []
-    view_model.manualOrderRequested.connect(lambda *args: requested.append(args))
-
-    spot_panel.manual_order_card._btn_manual_short.click()
-    qapp.processEvents()
-
-    assert requested[0][0] == "SHORT"
 
 
 def test_price_ticker_reflects_the_view_model(qapp, panel, view_model):

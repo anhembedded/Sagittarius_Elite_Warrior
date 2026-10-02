@@ -4,10 +4,12 @@
 - **Actor:** trader
 - **Origin:** `EPIC-021F` (preview and dry run), `EPIC-021G` (live submission and the safety
   pipeline), `EPIC-024B` (the Dev Board panel), with `BUG-090` (the exchange's own minimum
-  notional was never wired into the live path).
-- **Surfaces:** the Dev Board's order dialog, opened with `F9` or from the header (a panel in
-  the controls column until `EPIC-025` PR 1.4c-3 made it a dialog — order entry is occasional,
-  and a form that sits in the layout is permanently in the way of what is not) ·
+  notional was never wired into the live path). The desks' order panel (`EPIC-028H`/`028I`)
+  replaced the Dev Board's own card in `EPIC-028M`.
+- **Surfaces:** each desk's order panel (the Futures desk for Futures Testnet, the Spot desk for
+  Spot Testnet) · the Dev Board's order dialog, opened with `F9` or from the header, which hosts
+  that same panel for the venue the board trades (a card in the controls column until `EPIC-025`
+  PR 1.4c-3 made it a dialog, the board's own form until `EPIC-028M`) ·
   `order-preview` · `order-dry-run` · `trade-once --live` at the command line and the
   interactive prompt.
 
@@ -30,9 +32,11 @@ goes."*
 
 ## 3. Main flow
 
-1. The actor opens the order dialog — `F9`, or the header's *Place order* button — and names
-   the symbol, the side, the quantity, the order type and the reference price. The dialog is
-   modeless: the charts behind it keep ticking while the actor decides.
+1. The actor uses a desk's order panel, or opens the Dev Board's order dialog — `F9`, or the
+   header's *Place order* button — and names the order type, the price where it takes one, and
+   the quantity, for the symbol the screen shows; the panel takes the last price as the
+   reference for a market order. The dialog is modeless: the charts behind it keep ticking
+   while the actor decides.
 2. The app fetches that symbol's exchange filters and **normalises** the order: the quantity is
    rounded to the venue's step size, the price to its tick size.
 3. The app computes the notional from the normalised quantity and the reference price, and
@@ -43,7 +47,8 @@ goes."*
 5. To go further without sending anything, the actor runs `order-dry-run`: the app sends the
    normalised order to the exchange's **test** endpoint, which validates the signature,
    permissions and payload and creates nothing.
-6. To submit, the actor asks for a live order — the dialog's Long or Short, or
+6. To submit, the actor confirms a live order — the panel's Buy/Long or Sell/Short, then Yes in
+   the confirmation that names the order, or
    `trade-once --live`. The
    app then runs, in order and under one guard held across the whole decision:
    1. **three safety gates** — the venue is enabled, the trading switch is on, the connection is
@@ -111,7 +116,7 @@ are the four things step 3–6 do, and they are genuinely four: `preview()` make
 every gate against live data and sends nothing, `submit(live=True)` sends.
 `OrderIntent` is what step 6's Long or Short resolves to before any of that runs: the
 `(side, reduce_only)` pair, which is the whole of what One-way mode lets a caller decide. It is
-published rather than internal because the Dev Board reads the pair `manual_order_intent_for()`
+published rather than internal because the order panel reads the pair `manual_order_intent_for()`
 returns — *Long* against a short position and *Short* against a long one come back
 `reduce_only=True`, and that flag is the difference between closing a position and opening the
 opposite one.
@@ -135,7 +140,8 @@ open order is SPEC-006 (planned) and is the same port's `cancel()`.
 | The command line's preview report, text and JSON | `tests/unit/presentation/cli/test_order_preview_formatter.py` | unit |
 | `order-preview` reaches the venue by neither route, and `order-dry-run` validates the order it previewed and submits nothing | `tests/unit/presentation/cli/test_order_cmds.py` | unit |
 | Preview → dry run → submit against a fake Binance server | `tests/integration/application/test_manual_order_pipeline_against_fake_server.py` | integration |
-| The Dev Board's order form, driven by real Qt clicks | `tests/integration/presentation/ui/test_dev_board_manual_order_qt_click.py` | integration |
+| The Dev Board's F9 dialog is the desks' order panel for its venue: an order placed there joins Open orders, a leased symbol is refused in words, a Futures TP/SL is followed | `tests/unit/modules/trading/ui/dashboard/test_dev_board_order_entry.py` | unit |
+| In the real app with no venue on, F9 says so and holds no order panel | `tests/integration/presentation/ui/test_dev_board_order_dialog.py` | integration |
 | The form is a dialog `F9` opens, not a panel in the layout | `tests/unit/modules/trading/ui/dashboard/test_dashboard_view.py` | unit |
 | One order's real life cycle on the real Futures Testnet | `tests/testnet/test_order_lifecycle.py` — **the user runs it**: `SEW_TESTNET_TESTS=1` plus real credentials, via `ci-local.ps1 -TestnetOnly`; the ordinary gate never invokes this tier | human |
-| Submitting one order by hand | **the user runs it**: enable trading, press `F9` on the Dev Board, submit a small order, and confirm it appears in the Testnet web UI with the quantity the preview showed | human |
+| Submitting one order by hand | **the user runs it**: enable trading on the Futures desk, submit a small order from its panel (or press `F9` on the Dev Board), and confirm it appears in the Testnet web UI with the quantity the confirmation showed | human |

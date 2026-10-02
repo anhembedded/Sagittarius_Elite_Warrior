@@ -1,7 +1,7 @@
 """A ViewModel's status line — one message plus whether it reads as an
 error — and the property/signal wiring every consumer needed identically.
 
-`TradingViewModel`, `TradingSettingsViewModel` and `MarketDataSettingsViewModel`
+`DeskViewModel`, `TradingSettingsViewModel` and `MarketDataSettingsViewModel`
 all defined `set_status()`/`_get_status_message()`/`_get_status_is_error()`
 byte-for-byte before this class existed — three copies of a four-line
 pattern, exactly the class of duplication

@@ -15,9 +15,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.sync_progress_feed import (
     SyncProgressFeed,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
-    EmergencyStopResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
 )
@@ -36,7 +33,20 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_cha
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.position_closed_event import (
     PositionClosedEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
+    IVenueTradingPorts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui import screen_venue_feeds
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_order_entry import (
+    DevBoardOrderEntry,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_session_controls import (
+    DeskSessionControls,
+    ReconciledAccount,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_panel import (
+    confirm_with_message_box,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter import (
     equity_sample_to_candle,
 )
@@ -49,19 +59,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market_ticks import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_prices import (
     holding_prices_from_symbol_prices,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_feed import OrderFeed
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
     order_filled_marker,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.session_outcome_text import (
-    ENABLE_BLOCK_MESSAGES,
-    emergency_stop_log_lines,
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
-    ActionOutcome,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_INTERVAL,
@@ -84,9 +91,6 @@ from .dashboard_view_model import (
 )
 from .logic.chart_zoom_limits import max_visible_x_range
 from .logic.presenter_factory import (
-    _EMERGENCY_STOP_ACTION,
-    _MANUAL_ORDER_ACTION,
-    _TOGGLE_ACTION,
     build_dashboard_presenter_state,
 )
 
@@ -208,8 +212,8 @@ _MAX_SYMBOL_LENGTH = 20
 _LOAD_MORE_BATCH_CANDLES_CONFIG_KEY: str = "CHART_CARD_LOAD_MORE_BATCH_CANDLES"
 _DEFAULT_LOAD_MORE_BATCH_CANDLES: int = 75
 
-#: `EPIC-021K` §2.3/§3 — live-fill trade markers, same key `TradingPresenter`
-#: uses (separate `MarkerLayer` per `ChartCard`, so no collision between screens).
+#: `EPIC-021K` §2.3/§3 — live-fill trade markers, the key `DeskChart` uses too
+#: (separate `MarkerLayer` per `ChartCard`, so no collision between screens).
 _FILL_MARKERS_KEY = "live_fills"
 
 #: `PRO-003` §4.1.2's message for the hard block on the strategy's armed
@@ -432,22 +436,7 @@ class DashboardPresenter(BasePresenter):
     ui_script_info_signal = Signal(str, list)
     ui_script_marker_signal = Signal(str, list)
 
-    #: `EPIC-023D` — Enable/Disable trading + Emergency Stop, same worker-
-    #: boundary shape `TradingPresenter` uses for its own three signals.
-    #: `(action_id, EnableTradingResult | None, error_message | None)`.
-    enableTradingCompleted = Signal(tuple)
-    #: `(action_id, error_message | None)`.
-    disableTradingCompleted = Signal(tuple)
-    #: `(action_id, EmergencyStopResult | None, error_message | None)`.
-    emergencyStopCompleted = Signal(tuple)
-
-    #: `EPIC-024B` — manual trading card + per-order cancel.
-    #: `(action_id, ExecuteOrderResult | None, error_message | None)`. The
-    #: `strategy_conflict: bool` that used to sit third is gone with the
-    #: screen's own hard block (PR 2.1f): an armed symbol now comes back as
-    #: `ExecuteOrderSafetyGate.SYMBOL_LEASED` on the result, which is the same
-    #: shape every other refusal already used.
-    manualOrderCompleted = Signal(tuple)
+    #: `EPIC-024B` — per-order cancel.
     #: `(symbol, client_order_id, CancelOrderResult | None,
     #: error_message | None)`.
     cancelOrderCompleted = Signal(tuple)
@@ -481,9 +470,8 @@ class DashboardPresenter(BasePresenter):
     _armed_strategy: IArmedStrategyReader
     _arm_tracker: ActionOwnershipTracker[str, None, None]
     _arming_coordinator: StrategyArmingCoordinator
-    _toggle_tracker: ActionOwnershipTracker[str, None, None]
-    _emergency_stop_tracker: ActionOwnershipTracker[str, None, None]
-    _manual_order_tracker: ActionOwnershipTracker[str, None, None]
+    _session_controls: DeskSessionControls
+    _order_entry: DevBoardOrderEntry | None
     _last_price_by_symbol: dict[str, Decimal]
     _trading_actions: TradingActionsCoordinator
     _pagination: HistoryPaginationController
@@ -665,8 +653,8 @@ class DashboardPresenter(BasePresenter):
         self._symbolOptionsReadySignal.connect(self._on_symbol_options_ready)
         self._symbolOptionsFailedSignal.connect(self._on_symbol_options_failed)
 
-        # `EPIC-023C` — strategy card, same connections `TradingPresenter`
-        # makes for the identical ViewModel signals.
+        # `EPIC-023C` — strategy card, the connections the retired Trading
+        # screen made for the identical ViewModel signals (`EPIC-028M`).
         view_model.strategy.strategyConfigChanged.connect(
             self._on_strategy_selection_changed
         )
@@ -676,18 +664,24 @@ class DashboardPresenter(BasePresenter):
         view_model.strategy.armRequested.connect(self._on_arm_requested)
         view_model.strategy.disarmRequested.connect(self._on_disarm_requested)
 
-        # `EPIC-023D` — Enable/Disable trading + Emergency Stop, same
-        # connections `TradingPresenter` makes for the identical ViewModel
-        # signals.
-        view_model.toggleRequested.connect(self._on_toggle_requested)
-        view_model.emergencyStopRequested.connect(self._on_emergency_stop_requested)
-        self.enableTradingCompleted.connect(self._on_enable_trading_completed)
-        self.disableTradingCompleted.connect(self._on_disable_trading_completed)
-        self.emergencyStopCompleted.connect(self._on_emergency_stop_completed)
+        # `EPIC-023D` — Enable/Disable trading + Emergency Stop, through the
+        # desks' own `DeskSessionControls` since `EPIC-028M`: one copy of
+        # that behaviour, not one per screen. Unlike a desk, enabling here
+        # never puts the chart live (`tradingEnabled` is not connected): the
+        # Dev Board's chart is governed by its own Load History/Start Live
+        # buttons and `DEV_BOARD_AUTOSTART_ENABLED`. Its tables are kept from
+        # events and the session's confirmed answers (`accountReconciled`),
+        # not re-read.
+        session = self._session_controls
+        view_model.toggleRequested.connect(session.toggle)
+        view_model.emergencyStopRequested.connect(session.emergency_stop)
+        session.stateChanged.connect(view_model.set_trading_state)
+        session.statusChanged.connect(lambda text, _is_error: self._append_log(text))
+        session.logged.connect(self._append_log)
+        session.accountReconciled.connect(self._apply_reconciled_account)
+        session.accountChanged.connect(self._refresh_session_stats)
 
-        # `EPIC-024B` — manual trading card + per-order cancel.
-        view_model.manualOrderRequested.connect(self._on_manual_order_requested)
-        self.manualOrderCompleted.connect(self._on_manual_order_completed)
+        # `EPIC-024B` — per-order cancel.
         self.view.cancelOrderRequested.connect(self._on_cancel_order_requested)
         self.cancelOrderCompleted.connect(self._on_cancel_order_completed)
 
@@ -739,7 +733,7 @@ class DashboardPresenter(BasePresenter):
         self._sync_feed.progressUpdated.connect(self._on_sync_progress)
         # `EPIC-021K` §2.3/§3 — live fills as chart markers; `EPIC-023A` (Vị
         # thế/Lệnh chờ khớp tables) and `EPIC-027O` (`holdingsChanged`) widened
-        # this same `OrderFeed` (`TradingPresenter`'s own, `EPIC-021H`) as
+        # this same `OrderFeed` (`EPIC-021H`; the desks read it too) as
         # further consumers, not a new subscription shape.
         feeds = screen_venue_feeds.build(self.event_bus, self.container, self)
         self._order_feed = feeds.orders
@@ -748,16 +742,42 @@ class DashboardPresenter(BasePresenter):
         self._order_feed.positionClosed.connect(self._on_position_closed)
         self._order_feed.orderBlocked.connect(self._on_order_blocked)
         self._order_feed.holdingsChanged.connect(self._on_holdings_changed)  # EPIC-027O
-        # `EPIC-023B` — same one-place-subscribes Feed `TradingPresenter`
-        # already uses (`EPIC-021M`); a second consumer, not a new shape.
+        # `EPIC-023B` — the one-place-subscribes Feed `DeskEquity` also uses
+        # (`EPIC-021M`); another consumer, not a new shape.
         self._equity_feed = feeds.equity
         self._equity_feed.equitySampled.connect(self._on_equity_sampled)
-        # `EPIC-023C` — same shared bus `TradingPresenter` reads
-        # `SignalGeneratedEvent` from (`EPIC-022E`); a second consumer.
+        # `EPIC-023C` — `SignalGeneratedEvent` from the shared bus (`EPIC-022E`).
         self._signal_feed = feeds.signals
         self._signal_feed.signalGenerated.connect(
             self._arming_coordinator.on_signal_generated
         )
+        self._order_entry = self._build_order_entry(feeds.orders)
+
+    def _build_order_entry(self, feed: OrderFeed) -> DevBoardOrderEntry | None:
+        """`EPIC-028M` — the F9 dialog's order panel, for the venue this
+        board trades; `None`, and a notice in the dialog, when no venue is
+        enabled (the panel needs a venue's ports and profile)."""
+        venue = self.container.resolve(TradingVenue)
+        registry = self.container.resolve(IVenueTradingPorts)
+        if venue not in registry.enabled():
+            self.view.order_entry_host.show_unavailable(
+                "No trading venue is enabled — turn one on in Settings, then "
+                "restart the app."
+            )
+            return None
+        entry = DevBoardOrderEntry(
+            registry.get(venue),
+            self._thread_manager,
+            confirm_with_message_box(self.view),
+            feed,
+            self._append_log,
+            self,
+        )
+        entry.orderAccepted.connect(self._order_book.on_order_filled)
+        self._session_controls.accountChanged.connect(entry.refresh)
+        self.view.order_entry_host.attach(entry.view_model)
+        entry.show_symbol(self._active_symbol)
+        return entry
 
     def _trigger_initial_health_check(self) -> None:
         self._health_check_coordinator.request_initial_check()
@@ -772,12 +792,12 @@ class DashboardPresenter(BasePresenter):
     def _on_order_filled(self, event: OrderFilledEvent) -> None:
         """`OrderFeed.orderFilled` handler — already on the main thread.
         Three effects: (1) table bookkeeping via `LiveOrderBookCoordinator`
-        (`EPIC-023A` — pulled out after this duplicated `TradingPresenter`'s
-        own dict/render logic a second time); (2) a chart marker, only when
-        that symbol's chart is open (`active_charts`) — a fill Dev Board
-        isn't showing has nowhere to draw, same guard
-        `TradingPresenter._record_fill_marker` uses for its one chart, and
-        stays here since it is genuinely screen-specific; (3) `EPIC-023D` —
+        (`EPIC-023A` — pulled out after this duplicated the retired Trading
+        screen's dict/render logic a second time); (2) a chart marker, only
+        when that symbol's chart is open (`active_charts`) — a fill Dev Board
+        isn't showing has nowhere to draw, the guard `DeskChart` keeps for
+        its one chart, and stays here since it is genuinely
+        screen-specific; (3) `EPIC-023D` —
         refreshes the session-stats card."""
         self._order_book.on_order_filled(event.order)
         self._refresh_session_stats()
@@ -799,14 +819,10 @@ class DashboardPresenter(BasePresenter):
         self._order_book.on_position_closed(event.symbol)
 
     def _on_holdings_changed(self, event: HoldingsChangedEvent) -> None:
-        """`OrderFeed.holdingsChanged` — Spot only, also where the manual
-        order card's SELL button learns `_active_symbol`'s sellability."""
+        """`OrderFeed.holdingsChanged` — Spot only."""
         self._order_book.replace_holdings(
             event.holdings,
             holding_prices_from_symbol_prices(self._last_price_by_symbol),
-        )
-        self._view_model.set_manual_order_sell_enabled(
-            self._order_book.has_holding(self._active_symbol)
         )
 
     def _on_order_blocked(self, event: LiveOrderBlockedEvent) -> None:
@@ -825,214 +841,26 @@ class DashboardPresenter(BasePresenter):
 
     def _on_equity_sampled(self, event: EquitySampledEvent) -> None:
         """`EquityFeed.equitySampled` handler — already on the main thread.
-        Account-wide (no per-symbol filtering), same as `TradingPresenter`'s
-        own handler."""
+        Account-wide (no per-symbol filtering), as `DeskEquity` draws it."""
         self.view.equity_chart.append_closed_candle(
             *equity_sample_to_candle(event.sample)
         )
 
-    # ================================================================== #
-    # Enable/Disable trading toggle (`EPIC-023D`) — a single async action,
-    # fenced with `ActionOwnershipTracker`, same pattern `TradingPresenter`
-    # uses for its own identical toggle. `ITradingSession.enable()`/`disable()`
-    # are account-wide (the port is a DI singleton over one session state),
-    # so a click here has the exact same effect a click on
-    # Trading's own toggle would — deliberately: see `EPIC-023`'s README §2.
-    #
-    # Unlike Trading, there is no `_go_live_if_not_already()` call on a
-    # successful enable: Dev Board's chart liveness is already governed
-    # independently by its own Load History/Start Live buttons (and
-    # `DEV_BOARD_AUTOSTART_ENABLED`), so enabling trading here must not
-    # also force the chart into live mode as a side effect.
-    # ================================================================== #
-
-    @Slot()
-    @safe_ui_action
-    def _on_toggle_requested(self) -> None:
-        self._trading_actions.request_toggle()
-
-    @Slot(tuple)
-    def _on_enable_trading_completed(self, payload: tuple) -> None:
-        action_id, result, error = payload
-        if not self._toggle_tracker.is_current_pending(action_id, _TOGGLE_ACTION):
-            self._toggle_tracker.log_stale_callback(
-                "enable_trading", action_id, _TOGGLE_ACTION
-            )
-            return
-
-        if error is not None or result is None:
-            self._toggle_tracker.finish_action(action_id, ActionOutcome.FAILED)
-            self._view_model.set_trading_state(
-                self._trading_session.snapshot().enabled, False
-            )
-            self._append_log(f"Error enabling trading: {error}")
-            return
-
-        self._toggle_tracker.finish_action(action_id, ActionOutcome.SUCCEEDED)
-        self._view_model.set_trading_state(result.enabled, False)
-        if result.enabled:
-            self._append_log("Trading enabled.")
-            # A refusal is the only path that ever returns a non-empty
-            # `reconciled_positions` (see `ITradingSession.enable()`) —
-            # a successful enable therefore always starts with none open.
-            self._order_book.replace_all(
-                positions=[], open_orders=result.reconciled_open_orders
-            )
-        else:
-            self._append_log(ENABLE_BLOCK_MESSAGES[result.block_reason])
-            self._order_book.replace_all(
-                positions=result.reconciled_positions,
-                open_orders=result.reconciled_open_orders,
-            )
-        self._refresh_session_stats()
-
-    @Slot(tuple)
-    def _on_disable_trading_completed(self, payload: tuple) -> None:
-        action_id, error = payload
-        if not self._toggle_tracker.is_current_pending(action_id, _TOGGLE_ACTION):
-            self._toggle_tracker.log_stale_callback(
-                "disable_trading", action_id, _TOGGLE_ACTION
-            )
-            return
-
-        if error is not None:
-            self._toggle_tracker.finish_action(action_id, ActionOutcome.FAILED)
-            self._view_model.set_trading_state(
-                self._trading_session.snapshot().enabled, False
-            )
-            self._append_log(f"Error disabling trading: {error}")
-            return
-
-        self._toggle_tracker.finish_action(action_id, ActionOutcome.SUCCEEDED)
-        self._view_model.set_trading_state(False, False)
-        self._append_log("Trading disabled.")
-
-    # ================================================================== #
-    # Emergency Stop (`EPIC-023D`) — the request/run halves live on
-    # `TradingActionsCoordinator` now (`BOT-144`); deliberately NOT
-    # `@safe_ui_action` here (that decorator swallows exceptions; this
-    # button's whole point is that a failure must be seen, never silently
-    # dropped mid-flow — ONBOARDING.md §8, bẫy 8), same reasoning
-    # `TradingPresenter` documents for its own identical button.
-    # ================================================================== #
-
-    @Slot()
-    def _on_emergency_stop_requested(self) -> None:
-        self._trading_actions.request_emergency_stop()
-
-    @Slot(tuple)
-    def _on_emergency_stop_completed(self, payload: tuple) -> None:
-        action_id, result, error = payload
-        if not self._emergency_stop_tracker.is_current_pending(
-            action_id, _EMERGENCY_STOP_ACTION
-        ):
-            self._emergency_stop_tracker.log_stale_callback(
-                "emergency_stop", action_id, _EMERGENCY_STOP_ACTION
-            )
-            return
-
-        if error is not None or result is None:
-            self._emergency_stop_tracker.finish_action(action_id, ActionOutcome.FAILED)
-            self._view_model.set_trading_state(
-                self._trading_session.snapshot().enabled, False
-            )
-            self._append_log(f"[ERROR] Emergency stop failed: {error}")
-            return
-
-        self._emergency_stop_tracker.finish_action(
-            action_id,
-            ActionOutcome.SUCCEEDED if result.fully_succeeded else ActionOutcome.FAILED,
-        )
-        self._view_model.set_trading_state(
-            self._trading_session.snapshot().enabled, False
-        )
-        self._log_emergency_stop_result(result)
-        self._apply_emergency_stop_final_state(result)
-        if result.fully_succeeded:
-            self._append_log("Emergency stop completed.")
-        else:
-            self._append_log("EMERGENCY STOP — PARTIALLY FAILED. See the log.")
-
-    def _apply_emergency_stop_final_state(self, result: EmergencyStopResult) -> None:
-        """`BUG-093` (Trading's own precedent) — the user-data stream is
-        already stopped by Emergency Stop's own step 1, so
-        `_on_order_filled`/`_on_position_changed`/`_on_position_closed`
-        never fire for whatever steps 2-3 did; without this the tables
-        would keep showing stale pre-button state."""
-        if not result.final_state_confirmed:
-            self._append_log(
-                "[WARNING] Could not confirm account state after the emergency "
-                "stop — the positions/open orders table below may no longer be "
-                "accurate. Run `exchange-status` to check directly."
-            )
-            return
+    def _apply_reconciled_account(self, account: ReconciledAccount) -> None:
+        """The positions and open orders the session confirmed in an enable
+        or an Emergency Stop. `BUG-093`: the stopped stream reports nothing
+        of a stop's later steps, so without this the tables would keep the
+        state from before the button."""
         self._order_book.replace_all(
-            positions=result.final_positions, open_orders=result.final_open_orders
+            positions=account.positions, open_orders=account.open_orders
         )
-
-    def _log_emergency_stop_result(self, result: EmergencyStopResult) -> None:
-        for line in emergency_stop_log_lines(result):
-            self._append_log(line)
-
-    # ================================================================== #
-    # Manual trading card (`EPIC-024B`) — the first UI path that dispatches
-    # `IOrderSubmission.submit()` from a human click rather than a strategy tick
-    # (`LiveTradingCoordinator`). Deliberately reuses that exact command/
-    # handler — see `PRO-003`/`EPIC-024B` §4: this task exists to prove the
-    # mechanism generalizes to a second caller, not to build a second path.
-    # ================================================================== #
-
-    @Slot(str, float, str, float)
-    @safe_ui_action
-    def _on_manual_order_requested(
-        self, direction_text: str, quantity: float, order_type_text: str, price: float
-    ) -> None:
-        self._trading_actions.request_manual_order(
-            direction_text, quantity, order_type_text, price
-        )
-
-    @Slot(tuple)
-    def _on_manual_order_completed(self, payload: tuple) -> None:
-        action_id, result, error = payload
-        if not self._manual_order_tracker.is_current_pending(
-            action_id, _MANUAL_ORDER_ACTION
-        ):
-            self._manual_order_tracker.log_stale_callback(
-                "manual_order", action_id, _MANUAL_ORDER_ACTION
-            )
-            return
-
-        if error is not None or result is None:
-            self._manual_order_tracker.finish_action(action_id, ActionOutcome.FAILED)
-            message = f"Error placing manual order: {error}"
-            self._view_model.set_manual_order_state(False, message)
-            self._append_log(message)
-            return
-
-        if result.blocked:
-            self._manual_order_tracker.finish_action(action_id, ActionOutcome.FAILED)
-            message = (
-                f"Manual order blocked: "
-                f"{format_execute_order_block_reason(result.blocked_by)}"
-            )
-            self._view_model.set_manual_order_state(False, message)
-            self._append_log(message)
-            return
-
-        self._manual_order_tracker.finish_action(action_id, ActionOutcome.SUCCEEDED)
-        order = result.submitted_order
-        message = f"Manual order placed: {order.client_order_id if order else '—'}"
-        self._view_model.set_manual_order_state(False, message)
-        self._append_log(message)
-        self._refresh_session_stats()
 
     # ================================================================== #
     # Per-order cancel (`EPIC-024B` §0) — the Open Orders table's "Huỷ"
-    # button. No `ActionOwnershipTracker`: unlike the manual order card
-    # (one card, one pending attempt at a time), cancelling order A and
-    # cancelling a different order B on another row are genuinely
-    # independent actions — fencing them through one tracker would let a
-    # second row's cancel wrongly invalidate the first row's.
+    # button. No `ActionOwnershipTracker`: cancelling order A and cancelling
+    # a different order B on another row are genuinely independent actions
+    # — fencing them through one tracker would let a second row's cancel
+    # wrongly invalidate the first row's.
     # ================================================================== #
 
     @Slot(str, str)
@@ -1057,7 +885,7 @@ class DashboardPresenter(BasePresenter):
     # ================================================================== #
     # Strategy card (`EPIC-023C`) — the button handlers live in
     # `StrategyArmingCoordinator`; what stays here is what this Presenter
-    # genuinely owns, same split `TradingPresenter` documents for itself.
+    # genuinely owns, the split `DeskStrategy` keeps on the desks.
     # ================================================================== #
 
     @Slot()
@@ -1387,8 +1215,10 @@ class DashboardPresenter(BasePresenter):
         is_bullish = c >= o
         price_color = BULL_COLOR if is_bullish else BEAR_COLOR
         self._view_model.set_price_ticker(f"{symbol}  {c:,.2f}", price_color)
-        # `EPIC-024B` — manual order card's MARKET reference price.
-        self._last_price_by_symbol[symbol] = Decimal(str(c))
+        price = Decimal(str(c))
+        self._last_price_by_symbol[symbol] = price
+        if self._order_entry is not None and symbol == self._active_symbol:
+            self._order_entry.update_last_price(self._active_market, price)
 
         card = self.active_charts.get(symbol)
         if card:

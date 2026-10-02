@@ -265,9 +265,9 @@ def test_the_cards_are_tabbed_rather_than_stacked(qapp):
 
 
 def test_the_order_form_is_a_dialog_the_user_opens_not_a_panel_in_the_way(qapp):
-    """`EPIC-024B`'s manual-order card used to sit in the scrolling column,
-    permanently occupying the space of something done occasionally (HLD
-    §11.3). It is a dialog now, and the same `QAction` that raises it carries
+    """Order entry (once `EPIC-024B`'s card in the scrolling column) is a
+    dialog, not a panel permanently occupying the space of something done
+    occasionally (HLD §11.3), and the same `QAction` that raises it carries
     `F9` — the key MetaTrader has used for "new order" for twenty years."""
     view = DashboardView()
     view.set_view_model(DashboardQmlViewModel())
@@ -278,8 +278,36 @@ def test_the_order_form_is_a_dialog_the_user_opens_not_a_panel_in_the_way(qapp):
 
     dialog = view._surface.show_modal(MANUAL_ORDER_DIALOG)
 
-    assert dialog.isAncestorOf(view._panel.manual_order_card)
+    assert dialog.isAncestorOf(view._order_entry_host)
     assert dialog.windowTitle() == MANUAL_ORDER_DIALOG
+
+
+def test_the_dialog_hosts_the_desks_order_panel_once_attached(qapp):
+    """`EPIC-028M` — the presenter hands the dialog the desks' order panel
+    for the board's venue; the board's own card is gone."""
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
+        desk_profile_for,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_panel import (
+        OrderEntryPanel,
+    )
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
+        OrderEntryViewModel,
+    )
+    from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+        TradingVenue,
+    )
+
+    view = DashboardView()
+    view.set_view_model(DashboardQmlViewModel())
+
+    view.order_entry_host.attach(
+        OrderEntryViewModel(desk_profile_for(TradingVenue.FUTURES_TESTNET))
+    )
+
+    dialog = view._surface.show_modal(MANUAL_ORDER_DIALOG)
+    (panel,) = dialog.findChildren(OrderEntryPanel)
+    assert dialog.isAncestorOf(panel)
 
 
 def test_the_action_opens_the_dialog_without_freezing_the_chart(qapp):

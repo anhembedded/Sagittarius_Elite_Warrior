@@ -70,7 +70,7 @@ behaviour), `signal_feed` (the `SignalGeneratedEvent` normaliser),
 `strategy_display`, `strategy_params/` (the parameter form, its fields and its
 dialog), `strategy_overlay/` (the chart's indicator lines and trend zones), and
 `strategy_card_view_model` — the one file that was not a move, extracting a
-card `TradingViewModel` and `DashboardViewModel` had each carried as nineteen
+card `DeskViewModel` and `DashboardViewModel` had each carried as nineteen
 byte-identical members (duplicated-member census **132 → 115**, Phase 1 pair
 **59 → 39**, `PRO-004`'s first fall since it was measured).
 

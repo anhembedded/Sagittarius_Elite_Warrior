@@ -16,6 +16,8 @@ what passes between them:
   off never touches the network (`BUG-107`);
 - an Emergency Stop, or an enable that reconciled, re-reads the tables;
 - an order the venue accepted joins Open orders at once;
+- each of the venue's fills is marked on the chart, and its equity curve is
+  drawn below (both moved here from the single Trading screen, `EPIC-028M`);
 - an entry placed with TP/SL is handed to the follower (Futures only: the
   Spot desk's TP/SL waits on `EPIC-026K`, ADR O2).
 
@@ -45,11 +47,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_char
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_dependencies import (
     DeskDependencies,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_equity import (
+    DeskEquity,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_session_controls import (
     DeskSessionControls,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_strategy import (
     DeskStrategy,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
+    DeskViewModel,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_panel import (
     confirm_with_message_box,
@@ -64,9 +72,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.protectiv
     ProtectiveOrderFollower,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.signal_feed import SignalFeed
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_view_model import (
-    TradingViewModel,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_SYMBOL,
     FALLBACK_SYMBOL_OPTIONS,
@@ -98,7 +103,7 @@ class DeskPresenter(BasePresenter):
             )
         self._profile = profile
         config = self.config.get_all()
-        self.desk = TradingViewModel(self)
+        self.desk = DeskViewModel(self)
         self.desk.set_symbol_options(
             default_symbol_options(config, FALLBACK_SYMBOL_OPTIONS)
         )
@@ -118,6 +123,10 @@ class DeskPresenter(BasePresenter):
             view.account_summary, ports.account_activity, feeds.orders, threads
         )
         self.chart = DeskChart(view.chart, deps.chart, self.event_bus, self)
+        feeds.orders.orderFilled.connect(self.chart.record_fill)
+        self.equity = DeskEquity(
+            view.equity_chart, ports.equity_curve, feeds.equity, self
+        )
         self.session = DeskSessionControls(
             ports.trading_session, threads, profile.venue, self
         )

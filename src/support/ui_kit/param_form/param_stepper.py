@@ -9,7 +9,7 @@ one screen.
 
 `architecture-rule.md` requires explicit contracts rather than implicit
 duck-typing, so this is a `Protocol` and not "any object with the right
-method": `BackTestViewModel` and `TradingViewModel` both satisfy it
+method": `BackTestViewModel` and `DeskViewModel` both satisfy it
 structurally, and a third screen adding its own is told by the type
 checker exactly what it owes.
 """

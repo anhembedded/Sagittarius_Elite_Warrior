@@ -1,6 +1,7 @@
 """`BOT-144` — `DashboardPresenter`'s trading-card construction: the live
-order book, the strategy-arming coordinator, and the Enable/Disable/
-Emergency-Stop/manual-order `TradingActionsCoordinator`. Split out of
+order book, the strategy-arming coordinator, the Enable/Disable and
+Emergency Stop controls (`DeskSessionControls`, `EPIC-028M`) and the
+per-order cancel `TradingActionsCoordinator`. Split out of
 `presenter_factory.py` once that file itself crossed the 400-line ceiling
 (`architecture-rule.md` §5.4) — see that file's own docstring for why this
 whole construction sequence is a Builder over `presenter`, not an
@@ -23,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_arming_c
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
     IStrategyCatalogReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_session_controls import (
+    DeskSessionControls,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.live_order_book_coordinator import (
     LiveOrderBookCoordinator,
 )
@@ -36,11 +40,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOwnershipTracker,
 )
 
-from ..coordinators.trading_actions_coordinator import (
-    ActionTrackers,
-    CompletionEmitters,
-    TradingActionsCoordinator,
-)
+from ..coordinators.trading_actions_coordinator import TradingActionsCoordinator
 from ..history_pagination_controller import HistoryPaginationController
 
 if TYPE_CHECKING:
@@ -48,45 +48,32 @@ if TYPE_CHECKING:
 
     from ..dashboard_presenter import DashboardPresenter
 
-#: `EPIC-023C` — same action-kind string `TradingPresenter` uses for its own
-#: `ActionOwnershipTracker`; the two trackers are separate instances (each
-#: Presenter owns its own, `async-ui-action-rule.md` §2), so identical
+#: `EPIC-023C` — the action-kind string the desks' strategy controls use for
+#: their own `ActionOwnershipTracker`; the trackers are separate instances
+#: (each Presenter owns its own, `async-ui-action-rule.md` §2), so identical
 #: strings here do not collide.
 _ARM_ACTION = "arm_strategy"
-
-#: `EPIC-023D` — same action-kind strings `TradingPresenter` uses for its own
-#: toggle/Emergency Stop trackers; again separate instances, so no collision.
-_TOGGLE_ACTION = "toggle_trading"
-_EMERGENCY_STOP_ACTION = "emergency_stop"
-
-#: `EPIC-024B` — manual trading card. One tracker for the whole card (like
-#: `_TOGGLE_ACTION` above): the form represents exactly one pending attempt
-#: at a time, never two concurrent Long/Short clicks from the same card.
-_MANUAL_ORDER_ACTION = "manual_order"
 
 
 def build_trading_presenter_state(
     presenter: DashboardPresenter, container: IContainer
 ) -> None:
     """The order book, strategy-arming coordinator, and the toggle/emergency-
-    stop/manual-order `TradingActionsCoordinator` (plus the pagination
+    stop controls, the per-order cancel coordinator (plus the pagination
     controller, which has no better home). Call second, from
     `build_dashboard_presenter_state()` only, after
     `build_core_presenter_state()`."""
     # `EPIC-023A` — Vị thế/Lệnh chờ khớp, account-wide state read via
     # `OrderFeed`. Empty until the next successful `ITradingSession.enable()`
-    # reconciles them (bấm ở Dev Board hoặc Trading đều được — cả hai
-    # đi qua cùng một `ITradingSession` singleton) — same starting shape
-    # `TradingPresenter`'s own `LiveOrderBookCoordinator` has, not a gap
-    # introduced here.
+    # reconciles them (from the Dev Board or a desk — both go through the
+    # same `ITradingSession` singleton), or until an event arrives.
     presenter._order_book = LiveOrderBookCoordinator(
         view=presenter.view, emit_log=presenter._append_log
     )
 
     # `EPIC-023C` — the strategy card. Constructed before
-    # `_connect_ui_signals()` so its signals have something to reach,
-    # same reasoning `TradingPresenter` documents for its own identical
-    # construction. `_active_symbol` is not read until the user actually
+    # `_connect_ui_signals()` so its signals have something to reach.
+    # `_active_symbol` is not read until the user actually
     # arms (the lambda below), well after it is assigned further down
     # this constructor.
     presenter._armed_strategy = container.resolve(IArmedStrategyReader)
@@ -113,54 +100,29 @@ def build_trading_presenter_state(
     )
     presenter._refresh_armed_summary(busy=False)
 
-    # `EPIC-023D` — Enable/Disable trading + Emergency Stop. Own tracker
-    # instances, not shared with `_arm_tracker` or Trading's own
-    # (`async-ui-action-rule.md` §2: one tracker holds one active
-    # action, so sharing would let either screen's own click fence the
-    # other's result as stale).
-    presenter._toggle_tracker = ActionOwnershipTracker()
-    presenter._emergency_stop_tracker = ActionOwnershipTracker()
-    # `EPIC-024B` — manual trading card. Own tracker, same reasoning as
-    # the two just above (a manual order attempt must not fence, or be
-    # fenced by, an unrelated toggle/emergency-stop/arm click).
-    presenter._manual_order_tracker = ActionOwnershipTracker()
-    # `EPIC-024B` — last live close price per symbol, the manual order
-    # card's `reference_price` for a MARKET order (a LIMIT order's own
-    # price field is the reference instead — see `_on_manual_order_requested`).
-    # Updated on every `_on_ui_chart_update` tick; `Decimal`, not the
-    # `float` the tick itself carries — `OrderRequest` requires it.
+    # `EPIC-023D` — Enable/Disable trading + Emergency Stop for the venue
+    # this board shows, through the desks' own controls (`EPIC-028M`). Each
+    # instance holds its own two trackers (`BUG-089`), never shared with
+    # `_arm_tracker` or a desk's (`async-ui-action-rule.md` §2).
+    presenter._session_controls = DeskSessionControls(
+        presenter._trading_session,
+        presenter._thread_manager,
+        container.resolve(TradingVenue),
+        presenter,
+    )
+    # `EPIC-028M` — the F9 order panel, built with the venue feeds in
+    # `_connect_engine_events()` (`DashboardPresenter._build_order_entry`).
+    presenter._order_entry = None
+    # Last live close price per symbol: values the board's Spot holdings and
+    # feeds the order panel (`DevBoardOrderEntry`). Updated on every
+    # `_on_ui_chart_update` tick; `Decimal`, not the tick's `float`.
     presenter._last_price_by_symbol = {}
     # `BOT-144` — trackers stay Presenter-owned (`async-ui-action-rule.md` §2).
     presenter._trading_actions = TradingActionsCoordinator(
         thread_manager=presenter._thread_manager,
-        trading_session=presenter._trading_session,
         order_submission=presenter._order_submission,
-        account=presenter._account,
-        # `EPIC-027K` post-review fix (PR #284) — `manual_order_intent_for()`
-        # refuses a Short click on a market with no short capability; the
-        # venue is resolved once here, like every other venue-branched bind
-        # in `adapter_bindings.py`, not re-read per click.
-        market_type=container.resolve(TradingVenue).market_type,
-        trackers=ActionTrackers(
-            toggle=presenter._toggle_tracker,
-            emergency_stop=presenter._emergency_stop_tracker,
-            manual_order=presenter._manual_order_tracker,
-        ),
-        toggle_action_kind=_TOGGLE_ACTION,
-        emergency_stop_action_kind=_EMERGENCY_STOP_ACTION,
-        manual_order_action_kind=_MANUAL_ORDER_ACTION,
-        completion_emitters=CompletionEmitters(
-            enable=presenter.enableTradingCompleted.emit,
-            disable=presenter.disableTradingCompleted.emit,
-            emergency_stop=presenter.emergencyStopCompleted.emit,
-            manual_order=presenter.manualOrderCompleted.emit,
-            cancel_order=presenter.cancelOrderCompleted.emit,
-        ),
-        set_trading_state=presenter._view_model.set_trading_state,
-        set_manual_order_state=presenter._view_model.set_manual_order_state,
+        emit_cancel_completed=presenter.cancelOrderCompleted.emit,
         append_log=presenter._append_log,
-        get_active_symbol=lambda: presenter._active_symbol,
-        get_last_price=lambda symbol: presenter._last_price_by_symbol.get(symbol),
     )
     # Seeds from whatever the session already says — if Trading enabled it
     # first, opening Dev Board must show "đang BẬT", never a default "TẮT"

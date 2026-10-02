@@ -31,7 +31,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_conf
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_chart_overlay_reader import (
     IStrategyChartOverlayReader,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.coordinators.strategy_overlay_coordinator import (
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.strategy_overlay_coordinator import (
     TREND_ZONE_KEY,
     StrategyOverlayCoordinator,
 )
@@ -128,7 +128,7 @@ def test_lines_are_registered_once_and_only_updated_afterwards(coordinator, char
 
 
 def test_an_unclosed_tick_never_reaches_the_overlay(coordinator, chart):
-    """The rule is enforced by `TradingPresenter` (it only forwards closed
+    """The rule is enforced by `DeskChart` (it only forwards closed
     candles); this asserts the coordinator's own redraw cost is what makes
     that rule worth having — one redraw per call, so a per-tick caller
     would pay a full replay per tick."""

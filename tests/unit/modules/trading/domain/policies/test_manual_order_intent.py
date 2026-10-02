@@ -145,7 +145,7 @@ class TestSpotRefusesShort:
 
 class TestSpotSellsWithHolding:
     """`EPIC-027O` — a Spot "Sell" click (still `ManualOrderDirection.SHORT`
-    under the hood, see `ManualOrderCard`'s own docstring) is allowed once a
+    under the hood, as the order panel sends it) is allowed once a
     real, non-dust holding backs it."""
 
     def test_real_holding_sells_not_reduce_only(self) -> None:

@@ -10,20 +10,20 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.status_view_model import (
 from sagittarius_engine.extensions.pyside_mvc import LogListModel
 
 
-class TradingViewModel(StatusMessageViewModel):
+class DeskViewModel(StatusMessageViewModel):
     """
-    @brief State behind the Trading screen (`EPIC-021I`) — the same
+    @brief State behind a desk (`EPIC-028K`; born as the single Trading
+    screen's, `EPIC-021I`, and moved here in `EPIC-028M`) — the same
     Presenter/ViewModel split `SettingsViewModel` uses: this class carries
     only what the widgets show and turns a click/selection into a signal
-    for `TradingPresenter` to act on. No business logic (whether the
+    for the desk's presenter to act on. No business logic (whether the
     toggle may turn on, what a session stat means) lives here.
 
-    @details The Positions/Open Orders tables are NOT modelled here —
-    each owns its own `QAbstractTableModel`
-    (`components/order_book/table_models.py`), pushed to directly by
-    `TradingPresenter` through `ITradingView.set_positions`/
-    `set_open_orders` — a panel owning its own rows, pushed to from the
-    Presenter, rather than a screen view model holding them.
+    @details The account tables are NOT modelled here — the account tabs own
+    their rows (`AccountTabsPanel`), pushed to by their own presenter: a panel
+    owning its rows rather than a screen view model holding them. The session
+    counters the single Trading screen showed left with it (`EPIC-028M`); the
+    desks show the account summary instead.
 
     @par The strategy card, composed (`EPIC-025` PR 2.1e, still true after PR 4.3m)
     `StrategyCardViewModel` (`presentation/ui/common/`) is the card's one
@@ -41,7 +41,6 @@ class TradingViewModel(StatusMessageViewModel):
     symbolOptionsChanged = Signal()
     symbolChanged = Signal()
     tradingStateChanged = Signal()
-    sessionStatsChanged = Signal()
     #: Emitted when the user picks a different symbol for the chart.
     symbolChangeRequested = Signal(str)
     #: Emitted when the user clicks the "Bật/Tắt giao dịch" header button.
@@ -55,8 +54,6 @@ class TradingViewModel(StatusMessageViewModel):
         self._symbol = ""
         self._enabled = False
         self._toggle_busy = False
-        self._orders_sent_this_session = 0
-        self._open_symbols_count = 0
         self._log_model = LogListModel(self)
         #: `EPIC-025` PR 2.1e — the strategy card is one object owned once
         #: (`presentation/ui/common/`), not nineteen members copied into
@@ -69,7 +66,7 @@ class TradingViewModel(StatusMessageViewModel):
     # which is account-wide, not per-symbol; see EnableTradingCommand).
     # ------------------------------------------------------------------ #
 
-    @Property("QStringList", notify=symbolOptionsChanged)
+    @Property(list, notify=symbolOptionsChanged)
     def symbolOptions(self) -> list[str]:
         return self._symbol_options
 
@@ -141,30 +138,6 @@ class TradingViewModel(StatusMessageViewModel):
     def requestEmergencyStop(self) -> None:
         """Called from the View's "DỪNG KHẨN CẤP" button (`EPIC-021K`)."""
         self.emergencyStopRequested.emit()
-
-    # ------------------------------------------------------------------ #
-    # Session stats (`TradingSessionState`, written from Python only)
-    # ------------------------------------------------------------------ #
-
-    def _get_orders_sent_this_session(self) -> int:
-        return self._orders_sent_this_session
-
-    ordersSentThisSession = Property(
-        int, _get_orders_sent_this_session, notify=sessionStatsChanged
-    )
-
-    def _get_open_symbols_count(self) -> int:
-        return self._open_symbols_count
-
-    openSymbolsCount = Property(
-        int, _get_open_symbols_count, notify=sessionStatsChanged
-    )
-
-    @Slot(int, int)
-    def set_session_stats(self, orders_sent: int, open_symbols_count: int) -> None:
-        self._orders_sent_this_session = orders_sent
-        self._open_symbols_count = open_symbols_count
-        self.sessionStatsChanged.emit()
 
     # ------------------------------------------------------------------ #
     # The strategy card (`EPIC-022D`, one owner since PR 2.1e)

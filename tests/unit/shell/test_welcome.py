@@ -240,7 +240,7 @@ class TestTheContribution:
         assert contribution.route == WELCOME_ROUTE
         assert contribution.is_default is True
 
-    def test_it_has_a_sidebar_entry_before_the_trading_screens(self) -> None:
+    def test_it_has_a_sidebar_entry_before_the_trading_desks(self) -> None:
         nav = welcome_screen().nav
 
         assert nav is not None

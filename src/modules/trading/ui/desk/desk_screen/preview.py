@@ -17,11 +17,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view import (
     DeskView,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view_model import (
+    DeskViewModel,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_view_model import (
-    TradingViewModel,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -42,7 +42,7 @@ def _enabled_desk(venue: TradingVenue) -> QWidget:
     profile = desk_profile_for(venue)
     view = DeskView(profile)
     view.chart.set_symbol_title("BTCUSDT")
-    desk = TradingViewModel(view)
+    desk = DeskViewModel(view)
     desk.set_symbol_options(["BTCUSDT", "ETHUSDT"])
     desk.set_symbol("BTCUSDT")
     desk.set_status("Trading is off for this venue.", False)

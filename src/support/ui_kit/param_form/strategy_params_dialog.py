@@ -18,7 +18,7 @@ Backtest dialog renders, from the same `ParamGroup`/`ParamField` shape
 look and validate identically wherever they are edited.
 
 `EPIC-023C` moved this out of `screens/trading/` and replaced the
-`TradingViewModel` type hint with `BotParamsSink` below: every screen's
+`DeskViewModel` type hint with `BotParamsSink` below: every screen's
 ViewModel that carries the `EPIC-022D` strategy-card Qt Property/Signal
 block satisfies it structurally, the same `ParamStepper` precedent
 `param_stepper.py` already set for `BotParamFieldWidget`.

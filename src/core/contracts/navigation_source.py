@@ -1,7 +1,7 @@
 """Why a navigation happened — the distinction `BUG-104`/`BUG-107` needed and
 never had. `EPIC-010C` restoring `last_route` and a real sidebar click both
 called `MainWindow.switch_screen()` the same way; a screen whose own design
-is "being open means live" (`TradingPresenter`, `EPIC-021I`) could not tell
+is "being open means live" (the Trading screen, `EPIC-021I`) could not tell
 the two apart, so a restored route silently re-triggered live side effects.
 `core/contracts` is where the shell and `NavigationService` (`EPIC-025F`)
 agree on this vocabulary (HLD §2.4), mirroring `nav_metadata.py`'s

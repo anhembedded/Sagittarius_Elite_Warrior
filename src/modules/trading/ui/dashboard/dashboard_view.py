@@ -46,12 +46,13 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
 from sagittarius_engine.extensions.pyside_mvc import BaseView
 
 from .dev_board_panel import MANUAL_ORDER_DIALOG, DevBoardPanel
+from .dev_board_widgets.order_entry_host import OrderEntryHost
 
 _TITLE = "Developer Board (Live Testbed)"
 _SUBTITLE = "Test indicators & scripts on live data"
 
-#: `EPIC-023B` — the equity chart's `ChartCard(symbol=...)` title, same
-#: constant `TradingView` uses for its own equity chart.
+#: `EPIC-023B` — the equity chart's `ChartCard(symbol=...)` title, the one
+#: the desks' equity chart shows too.
 _EQUITY_CHART_TITLE = "Equity"
 
 #: An empty `ChartCard`'s own `sizeHint()` is tiny — no candles and no toolbar
@@ -128,17 +129,13 @@ class DashboardView(BaseView):
     column of `ChartCard`s, with everything else in a `QDockWidget` the user
     can move, tab, float, hide and have remembered — Positions, Open orders,
     Equity and the five control cards on the right, the System Monitor log at
-    the bottom, the price ticker and websocket pill in the status bar. Before
-    `BOT-128` this was a `PageShell`/`QSplitter` with two fixed, un-hideable
-    panes, which is why the account tables used to sit squeezed above the
-    charts instead of beside them.
+    the bottom, the price ticker and websocket pill in the status bar (before
+    `BOT-128`, a `PageShell`/`QSplitter` of two fixed panes).
 
-    PR 1.4c-3 split the controls: `DevBoardPanel` stopped being a widget and
-    became the builder of five cards this View places in five docks, with
-    the manual-order card contributed as a **dialog** on `F9` — order entry
-    is occasional, with input and a confirmation, and as a card in a
-    scrolling column it was permanently in the way (HLD §11.3, MetaTrader's
-    own F9).
+    PR 1.4c-3 split the controls: `DevBoardPanel` builds five cards this View
+    places in five docks; order entry is a **dialog** on `F9`, occasional
+    input with a confirmation (HLD §11.3, MetaTrader's own F9), hosting the
+    desks' order panel since `EPIC-028M` (`OrderEntryHost`).
 
     The controls are still built lazily at `set_view_model()` time (they
     need a real ViewModel to construct against), the chart column is still
@@ -209,8 +206,8 @@ class DashboardView(BaseView):
         self.scroll_area.setWidget(self.charts_container)
         self._surface.place_widget(Place.WORKSPACE, self.scroll_area)
 
-        # `EPIC-023A` — positions and open orders, account-wide, the same
-        # widgets `TradingView` embeds (`components/order_book/`). Docks now,
+        # `EPIC-023A` — positions and open orders, account-wide, the
+        # widgets in `components/order_book/`. Docks now,
         # each as wide as the user drags it, which is what the old fixed rail
         # column could not offer and HLD §11.2 assigns them.
         #
@@ -237,8 +234,8 @@ class DashboardView(BaseView):
             Place.RAIL, self._open_orders_panel, title=OPEN_ORDERS_DOCK
         )
 
-        # `EPIC-023B` — same construction recipe as
-        # `TradingView._build_equity_chart`: a dedicated `ChartCard`
+        # `EPIC-023B` — the desks' equity chart recipe
+        # (`DeskView`): a dedicated `ChartCard`
         # (account-level, not per-symbol — must not react to Dev Board's
         # own per-chart-card symbol list), line type, no volume/toolbar.
         self.equity_chart = ChartCard(_EQUITY_CHART_TITLE)
@@ -271,8 +268,9 @@ class DashboardView(BaseView):
             self._surface.place_widget(Place.STATUS_TILE, tile)
         for title, card in self._panel.dock_panels:
             self._surface.place_widget(Place.RAIL, card, title=title)
+        self._order_entry_host = OrderEntryHost()
         self._surface.place_widget(
-            Place.MODAL, self._panel.manual_order_card, title=MANUAL_ORDER_DIALOG
+            Place.MODAL, self._order_entry_host, title=MANUAL_ORDER_DIALOG
         )
         self._surface.place_widget(
             Place.CONSOLE, self._panel.console_widget, title=MONITOR_DOCK
@@ -298,12 +296,9 @@ class DashboardView(BaseView):
         fill_surface(self._surface, self._contributions, self._container)
 
     def _add_manual_order_action(self) -> None:
-        """`F9` raises the order dialog; the same `QAction` sits in the
-        header toolbar — one `QAction` per user action carries the
-        shortcut, button and enabled state together (HLD §11.2's
-        Consistency/Efficiency pair). `F9` because MetaTrader has used it
-        for "new order" for twenty years (HLD §11.2's "apply before you
-        invent")."""
+        """`F9` raises the order dialog; the same `QAction` sits in the header
+        toolbar, one `QAction` per user action (HLD §11.2). `F9` because
+        MetaTrader has used it for "new order" for twenty years."""
         self._manual_order_action = QAction(MANUAL_ORDER_DIALOG, self)
         self._manual_order_action.setObjectName("actManualOrder")
         self._manual_order_action.setShortcut(QKeySequence("F9"))
@@ -313,6 +308,10 @@ class DashboardView(BaseView):
         self._surface.place_widget(
             Place.HEADER, _action_button(self._manual_order_action)
         )
+
+    @property
+    def order_entry_host(self) -> OrderEntryHost:
+        return self._order_entry_host
 
     def open_manual_order_dialog(self) -> None:
         """Non-modal: a user placing an order by hand is watching the chart

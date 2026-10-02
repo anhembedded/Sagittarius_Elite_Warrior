@@ -89,12 +89,17 @@ def build_stream_presenter_state(
 
     def _set_active_symbol(val: str):
         presenter._active_symbol = val
+        if presenter._order_entry is not None:
+            # `EPIC-028M` — the F9 order panel follows the board's symbol.
+            presenter._order_entry.show_symbol(val)
 
     def _get_active_market():
         return presenter._active_market
 
     def _set_active_market(val: MarketType):
         presenter._active_market = val
+        if presenter._order_entry is not None:
+            presenter._order_entry.show_market(val)
 
     presenter._stream_controller = StreamLifecycleController(
         thread_manager=presenter._thread_manager,
@@ -140,8 +145,8 @@ def build_stream_presenter_state(
     # `EPIC-023B` — read *after* `_connect_engine_events()` has already
     # subscribed `_equity_feed`, not before: a live sample recorded in
     # between subscribing and reading is otherwise missed entirely
-    # (subscribed-after-read order), same reasoning `TradingPresenter`
-    # documents for its own identical seed call.
+    # (subscribed-after-read order), the reasoning `DeskEquity` documents
+    # for its own seed (`BUG-100`).
     presenter.view.equity_chart.render_historical_data(
         equity_samples_to_candles(presenter._equity_curve.samples())
     )

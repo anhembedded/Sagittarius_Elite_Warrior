@@ -365,8 +365,8 @@ class StrategyArmingCoordinator:
 
     def on_signal_generated(self, event: Any) -> None:
         """`SignalFeed.signalGenerated`'s handler — connected directly to
-        that signal by the constructing Presenter, so `TradingPresenter`
-        and `DashboardPresenter` need no `_on_signal_generated` method of
+        that signal by the constructing Presenter, so `DeskStrategy` and
+        `DashboardPresenter` need no `_on_signal_generated` method of
         their own to define identically (`tests/unit/architecture/
         test_presenter_duplication_only_shrinks.py`).
 

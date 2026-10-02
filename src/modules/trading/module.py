@@ -106,9 +106,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.probes import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings_contribution import (
     build_trading_settings_section,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.trading_screen import (
-    trading_screen,
-)
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
@@ -202,11 +199,9 @@ class TradingModule(BoundedContextModule):
         boot for every run, a headless `sync` included, and a probe nobody
         opened must not cost a Qt import.
 
-        `dashboard_screen(self._container)`/`trading_screen(self._container)`
-        both need the container `boot()` stashed (see `__init__`'s
-        docstring) — `EPIC-027O` gave `TradingView` a `market_type`
-        constructor argument too, so this is no longer Dashboard's own
-        special case (`trading_screen.py`'s own docstring has the story).
+        `dashboard_screen(self._container)` and the two desks' screens need
+        the container `boot()` stashed (see `__init__`'s docstring): each
+        desk reads which venues are enabled when its presenter is built.
         """
         if self._container is None:
             raise RuntimeError("TradingModule.contribute() called before boot()")
@@ -233,9 +228,8 @@ class TradingModule(BoundedContextModule):
             )
         )
         registry.contribute_screen(dashboard_screen(self._container))
-        registry.contribute_screen(trading_screen(self._container))
-        # `EPIC-028K`/`028L` — one desk per venue, beside the single screen
-        # until `EPIC-028M` retires it.
+        # `EPIC-028K`/`028L` — one desk per venue; `EPIC-028M` retired the
+        # single Trading screen they replace.
         registry.contribute_screen(futures_desk_screen(self._container))
         registry.contribute_screen(spot_desk_screen(self._container))
 
