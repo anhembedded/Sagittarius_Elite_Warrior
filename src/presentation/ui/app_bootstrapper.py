@@ -46,7 +46,6 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
@@ -69,19 +68,14 @@ from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_regis
 from Sagittarius_Elite_Warrior.src.shell.welcome.start_requested_event import (
     StartRequested,
 )
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.binance_endpoints import (
-    resolve_market_data_venue,
-    resolve_trading_venue,
-)
-from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
-    compute_venue_alignment,
-)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner import (
     EnvironmentBanner,
-    venue_alignment_banner_content,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.environment_banner.banner_from_config import (
+    environment_banner_content_for,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import PageShell
 from Sagittarius_Elite_Warrior.src.support.ui_kit.qt_platform import (
@@ -207,23 +201,16 @@ def build() -> AppRuntime:
     seed_app_theme()
 
     # EPIC-021K — the global "which venue am I in" banner, computed once
-    # here from the same config `binance_bot_module.py` reads
-    # (`resolve_market_data_venue`/`resolve_trading_venue`) — safe since
-    # neither has a Settings UI control. `set_environment_banner_factory`
-    # is the *one* place this reaches every screen.
+    # from the boot config. `set_environment_banner_factory` is the *one*
+    # place this reaches every screen.
     #
     # Registered on **both** shells (a screen not yet converted is a
     # `PageShell`, a converted one a `WorkbenchSurface`, `EPIC-025` PR
     # 1.4c-2) — goes back to one registration when the last `PageShell` is
     # gone in Phase 4; `test_environment_banner_all_screens.py` fails if a
     # screen changes shell and its banner does not come along.
-    banner_content = venue_alignment_banner_content(
-        compute_venue_alignment(
-            resolve_market_data_venue(config_manager),
-            resolve_trading_venue(config_manager),
-            MarketType.SPOT,  # EPIC-027G — see `compute_venue_alignment`'s docstring.
-        )
-    )
+    # `EPIC-028K` — names every enabled venue (`banner_from_config.py`).
+    banner_content = environment_banner_content_for(config_manager)
     PageShell.set_environment_banner_factory(lambda: EnvironmentBanner(banner_content))
     WorkbenchSurface.set_environment_banner_factory(
         lambda: EnvironmentBanner(banner_content)

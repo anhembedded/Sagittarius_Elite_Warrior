@@ -28,6 +28,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
 
 from ..dashboard_view_model import DashboardQmlViewModel
 from .layout_helpers import field_row, field_style, section_row
+from .strategy_card_binding import StrategyCardBinding
 
 _PARAMS_BUTTON_TEXT = "Strategy Parameters…"
 _ARM_TEXT = "Arm Strategy"
@@ -36,37 +37,28 @@ _NOT_ARMED_TEXT = "No strategy armed."
 
 
 class StrategyCard(Panel):
-    """Fully self-contained: reads only `view_model` (both
-    `view_model.strategy` and `view_model.enabled` — the Enable/Disable
-    toggle's own state — are reachable through the one `view_model`
-    reference this card already holds, so no second collaborator is
-    needed). `_sync_armed_summary()` disables the whole card while
+    """Fully self-contained: reads only its `binding` (the card's own view
+    model and the Enable/Disable toggle's state, `EPIC-028K`).
+    `_sync_armed_summary()` disables the whole card while
     `strategyBusy` OR while trading is on (`EPIC-023D`) — the same
     pre-emptive, visible-before-click half of `EPIC-022` §4.1's rule
     `TradingView`'s own `_apply_armed_summary` enforces; the command
     handler refuses the swap server-side regardless either way. Subscribing
-    to `view_model.tradingStateChanged` directly (rather than requiring
+    to `binding.trading_state_changed` directly (rather than requiring
     `DevBoardPanel` to call back in after its own toggle handling) keeps
     this reaction owned by the card whose state it actually changes."""
 
     def __init__(
         self,
-        view_model: DashboardQmlViewModel,
+        binding: StrategyCardBinding,
         parent: QWidget | None = None,
         *,
         market_type: MarketType | None = None,
     ) -> None:
         super().__init__(parent)
-        self._view_model = view_model
+        self._binding = binding
         self._is_spot = market_type is MarketType.SPOT
-        # `DashboardQmlViewModel.strategy` is a PySide6 `@Property`; mypy
-        # reads the descriptor itself (`Property`) rather than the
-        # `StrategyCardViewModel` it actually holds at runtime — the same
-        # systemic false positive `pyproject.toml`'s `[tool.mypy]` exclude
-        # list documents for `presentation/` (needs a stub/plugin decision,
-        # not a per-line fix). Narrowed once here rather than ignored at
-        # every call site below.
-        self._strategy_vm: StrategyCardViewModel = view_model.strategy  # type: ignore[assignment]
+        self._strategy_vm = binding.strategy
         layout = self.body_layout
         layout.setContentsMargins(14, 14, 14, 14)
         layout.setSpacing(10)
@@ -168,7 +160,7 @@ class StrategyCard(Panel):
         self._strategy_vm.strategyConfigChanged.connect(
             self._on_strategy_config_changed
         )
-        view_model.tradingStateChanged.connect(self._sync_armed_summary)
+        binding.trading_state_changed.connect(self._sync_armed_summary)
         self._sync_strategy_options()
         self._sync_strategy_selection()
         self._sync_armed_summary()
@@ -251,6 +243,23 @@ class StrategyCard(Panel):
         self._lbl_armed_strategy.setStyleSheet(
             f"color: {Palette.SUCCESS if summary else Palette.MUTED}; font-size: 11px;"
         )
-        editable = not vm.strategyBusy and not self._view_model.enabled
+        editable = not vm.strategyBusy and not self._binding.is_trading_enabled()
         for widget in self._strategy_controls:
             widget.setEnabled(editable)
+
+
+def dev_board_card_binding(view_model: DashboardQmlViewModel) -> StrategyCardBinding:
+    """The Dev Board's card binding.
+
+    @details `DashboardQmlViewModel.strategy` is a PySide6 `@Property`;
+    `mypy` reads the descriptor itself (`Property`) rather than the
+    `StrategyCardViewModel` it holds at runtime, the systemic false positive
+    `pyproject.toml`'s `[tool.mypy]` exclude list documents for
+    `presentation/` (a stub/plugin decision, not a per-line fix). Narrowed
+    once here."""
+    strategy: StrategyCardViewModel = view_model.strategy  # type: ignore[assignment]
+    return StrategyCardBinding(
+        strategy=strategy,
+        is_trading_enabled=lambda: bool(view_model.enabled),
+        trading_state_changed=view_model.tradingStateChanged,
+    )

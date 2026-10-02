@@ -26,7 +26,7 @@ that this class talks to the bus.
 
 **Ownership (`BOT-126`).** `IMarketStream` is reference-counted per
 `(symbol, interval)` across owners — this coordinator always identifies
-itself as `_STREAM_OWNER` ("trading"), so `stop()` here only ever releases
+itself as its `stream_owner` ("trading" for the Trading screen), so `stop()` here only ever releases
 THIS screen's own subscription, never Dev Board's, even if both are live
 on the same or different symbols at once. Stop-then-start on a
 symbol/interval change (`start()`/`stop()` below) is kept for clarity, not
@@ -66,10 +66,12 @@ if TYPE_CHECKING:
 #: EPIC-021I's own scope decision).
 _HISTORY_CANDLE_LIMIT = 500
 
-#: `BOT-126` — this screen's own identity on `IMarketStream`. Exactly
+#: `BOT-126` — the Trading screen's identity on `IMarketStream`. Exactly
 #: one `TradingPresenter`/`ChartCoordinator` is ever alive at once, so a
-#: fixed string is enough (no need for a per-instance id).
-_STREAM_OWNER = "trading"
+#: fixed string is enough for it. `EPIC-028K` — each desk passes its own
+#: (`stream_owner`): with one shared owner, opening one desk's chart would
+#: replace the other's subscription (the PR #300 epic review).
+TRADING_STREAM_OWNER = "trading"
 
 
 class ChartCoordinator:
@@ -89,7 +91,9 @@ class ChartCoordinator:
         emit_stream_started: Callable[[str], None],
         emit_stream_failed: Callable[[str], None],
         emit_log: Callable[[str], None],
+        stream_owner: str = TRADING_STREAM_OWNER,
     ) -> None:
+        self._stream_owner = stream_owner
         self._thread_manager = thread_manager
         self._market_data_sync = market_data_sync
         self._historical_klines = historical_klines
@@ -139,7 +143,7 @@ class ChartCoordinator:
         # The outcome is deliberately ignored: `success=False` here means
         # "this screen held no subscription", which is the ordinary case for
         # an unconditional `stop()` and not something to tell the user about.
-        self._market_stream.stop(_STREAM_OWNER)
+        self._market_stream.stop(self._stream_owner)
 
     def _run(
         self,
@@ -220,7 +224,7 @@ class ChartCoordinator:
         # success for any object without that field, `None` included: a
         # stream that never opened told the user it was streaming.
         outcome = self._market_stream.start(
-            _STREAM_OWNER, self._market, [symbol], interval
+            self._stream_owner, self._market, [symbol], interval
         )
         if outcome.success:
             self._emit_stream_started(f"Streaming live data for {symbol}.")

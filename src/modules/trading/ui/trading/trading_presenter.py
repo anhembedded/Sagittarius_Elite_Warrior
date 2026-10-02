@@ -16,17 +16,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_s
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.ui.market_tick_feed import (
-    MarketTickFeed,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
     SUPPORTED_LIVE_INTERVALS,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
-    EnableTradingBlockReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
@@ -78,13 +72,19 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.live_order_book_coordinator import (
     LiveOrderBookCoordinator,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market_ticks import (
+    market_tick_feed,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_prices import (
     holding_price_for_symbol,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
     order_filled_marker,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.signal_feed import SignalFeed
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.session_outcome_text import (
+    ENABLE_BLOCK_MESSAGES,
+    emergency_stop_log_lines,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.strategy_arming_coordinator import (
     StrategyArmingCoordinator,
 )
@@ -100,7 +100,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     default_symbol,
     default_symbol_options,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
@@ -143,32 +142,6 @@ _ARM_ACTION = "arm_strategy"
 #: separate UI list could only ever drift into offering a value that
 #: arming would then refuse.
 
-#: `EnumLabels`, not a bare dict: the table was already missing
-#: `SUPERSEDED_BY_CONCURRENT_STATE_CHANGE`, and the `.get(..., generic)`
-#: below hid that — the one refusal a user most needs explained (an
-#: Emergency Stop landing mid-enable, `BUG-088`) read as "Không thể bật
-#: giao dịch." Construction now refuses an incomplete table at import.
-_BLOCK_REASON_MESSAGES = EnumLabels(
-    EnableTradingBlockReason,
-    {
-        EnableTradingBlockReason.TRADING_VENUE_DISABLED: (
-            "Trading venue is disabled in configuration — set it to Futures Testnet "
-            "or Spot Testnet to enable trading."
-        ),
-        EnableTradingBlockReason.CONNECTION_NOT_READY: (
-            "Connection to the exchange is not ready — check your API key/network connection."
-        ),
-        EnableTradingBlockReason.UNEXPECTED_POSITIONS: (
-            "The account has unexpected open positions — please handle them manually "
-            "on the exchange before enabling trading."
-        ),
-        EnableTradingBlockReason.SUPERSEDED_BY_CONCURRENT_STATE_CHANGE: (
-            "Another operation (usually EMERGENCY STOP) changed the state while "
-            "reconciliation was in progress — trading was not enabled. Check the "
-            "state and try again if you still want to enable it."
-        ),
-    },
-)
 
 #: `ActionOwnershipTracker`'s `TKind` for the Emergency Stop button —
 #: tracked on its own `_emergency_stop_tracker` (`BUG-089`), never shared
@@ -442,8 +415,8 @@ class TradingPresenter(BasePresenter):
         # only this chart's market (`EPIC-028C`); a raw `event_bus.on` is what
         # `test_one_event_is_not_subscribed_by_two_presenters` catches.
         chart_market = self._chart_coordinator.chart_market
-        self._market_tick_feed = MarketTickFeed(
-            self.event_bus, lambda: chart_market, parent=self
+        self._market_tick_feed = market_tick_feed(
+            self.event_bus, lambda: chart_market, self
         )
         self._market_tick_feed.marketTick.connect(self._handle_market_tick)
         # `EPIC-021H` — one subscriber, this Presenter, per
@@ -467,7 +440,7 @@ class TradingPresenter(BasePresenter):
         self._equity_feed = feeds.equity
         # `EPIC-022E` — `SignalGeneratedEvent` has been published since
         # `BOT-020` with nothing in the UI listening.
-        self._signal_feed = SignalFeed(self.event_bus, parent=self)
+        self._signal_feed = feeds.signals
         self._signal_feed.signalGenerated.connect(
             self._arming_coordinator.on_signal_generated
         )
@@ -696,7 +669,7 @@ class TradingPresenter(BasePresenter):
             )
         else:
             self._view_model.set_status(
-                _BLOCK_REASON_MESSAGES[result.block_reason], True
+                ENABLE_BLOCK_MESSAGES[result.block_reason], True
             )
             self._order_book.replace_all(
                 positions=result.reconciled_positions,
@@ -864,17 +837,8 @@ class TradingPresenter(BasePresenter):
         )
 
     def _log_emergency_stop_result(self, result: EmergencyStopResult) -> None:
-        self._append_log("EMERGENCY STOP")
-        for index, (label, step) in enumerate(
-            (
-                ("Disable trading", result.trading_disabled),
-                ("Cancel pending orders", result.orders_cancelled),
-                ("Close positions", result.positions_closed),
-            ),
-            start=1,
-        ):
-            mark = "✔" if step.succeeded else "✘"
-            self._append_log(f"  {index}. {label} ... {mark} {step.detail}")
+        for line in emergency_stop_log_lines(result):
+            self._append_log(line)
 
     # ================================================================== #
     # Positions/Open Orders tables — bookkeeping delegated to

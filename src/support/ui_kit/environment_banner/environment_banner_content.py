@@ -15,6 +15,9 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.venue_alignment import (
     VenueAlignment,
 )
@@ -31,7 +34,7 @@ _CONTENT: dict[VenueAlignment, tuple[str, str, StyleRole]] = {
     ),
     VenueAlignment.ALIGNED: (
         "ⓘ",
-        "FUTURES TESTNET — simulated funds.",
+        "TESTNET — simulated funds.",
         Severity.WARN,
     ),
     VenueAlignment.MARKET_MISMATCH: (
@@ -59,7 +62,13 @@ class EnvironmentBannerContent:
 
 
 def venue_alignment_banner_content(
-    alignment: VenueAlignment,
+    alignment: VenueAlignment, venues: tuple[TradingVenue, ...] = ()
 ) -> EnvironmentBannerContent:
+    """@param venues The enabled venues (`EPIC-028K`). While aligned, the
+    banner names every one of them, since both desks may be open at once;
+    it used to say "FUTURES TESTNET" even when only Spot was enabled."""
     icon, message, severity = _CONTENT[alignment]
+    if alignment is VenueAlignment.ALIGNED and venues:
+        names = " · ".join(venue.value.replace("_", " ").upper() for venue in venues)
+        message = f"{names} — simulated funds."
     return EnvironmentBannerContent(icon=icon, message=message, severity=severity)

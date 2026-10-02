@@ -216,3 +216,55 @@ def test_has_holding_is_false_after_the_holding_is_sold_out():
     coordinator.replace_holdings([], {})
 
     assert coordinator.has_holding("BTCUSDT") is False
+
+
+def _shown_open_orders(view: Mock) -> list:
+    """The rows the table shows now: the last ones rendered, or none."""
+    call = view.set_open_orders.call_args
+    return [] if call is None else list(call.args[0])
+
+
+def test_an_order_seen_filled_is_not_listed_again_by_a_late_acceptance():
+    """PR #308 review, blocking: the venue's fill (user-data stream) and the
+    desk's own acceptance (REST answer, always `NEW`) reach the UI thread
+    from two threads, in either order. A `NEW` arriving after the fill used
+    to list a filled order as open, with a Cancel that can only fail."""
+    coordinator, view, _ = _coordinator()
+    coordinator.on_order_filled(_order(status=OrderStatus.FILLED))
+
+    coordinator.on_order_filled(_order(status=OrderStatus.NEW))
+
+    assert _shown_open_orders(view) == []
+
+
+def test_an_order_seen_cancelled_is_not_listed_again():
+    coordinator, view, _ = _coordinator()
+    coordinator.on_order_cancelled("SEW-a91f4c72e0b8")
+
+    coordinator.on_order_filled(_order(status=OrderStatus.NEW))
+
+    assert _shown_open_orders(view) == []
+
+
+def test_a_late_new_never_overwrites_a_partial_fill():
+    """`order_status.is_valid_transition` owns the order of statuses: a
+    stale `NEW` after `PARTIALLY_FILLED` would show the filled part as
+    unfilled."""
+    coordinator, view, _ = _coordinator()
+    partial = _order(status=OrderStatus.PARTIALLY_FILLED)
+    coordinator.on_order_filled(partial)
+
+    coordinator.on_order_filled(_order(status=OrderStatus.NEW))
+
+    assert _shown_open_orders(view) == [build_open_order_row(partial)]
+
+
+def test_a_partial_fill_still_updates_a_listed_new_order():
+    coordinator, view, _ = _coordinator()
+    coordinator.on_order_filled(_order(status=OrderStatus.NEW))
+    partial = _order(status=OrderStatus.PARTIALLY_FILLED)
+    view.set_open_orders.reset_mock()
+
+    coordinator.on_order_filled(partial)
+
+    view.set_open_orders.assert_called_once_with([build_open_order_row(partial)])

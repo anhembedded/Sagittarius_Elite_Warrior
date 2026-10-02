@@ -12,17 +12,11 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.ui.market_tick_feed import (
-    MarketTickFeed,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.sync_progress_feed import (
     SyncProgressFeed,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
-    EnableTradingBlockReason,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
@@ -49,13 +43,19 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.equity_chart_adapter impor
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.execute_order_block_reason import (
     format_execute_order_block_reason,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market_ticks import (
+    market_tick_feed,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.holding_prices import (
     holding_prices_from_symbol_prices,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
     order_filled_marker,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.signal_feed import SignalFeed
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.session_outcome_text import (
+    ENABLE_BLOCK_MESSAGES,
+    emergency_stop_log_lines,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BEAR_COLOR,
     BULL_COLOR,
@@ -69,7 +69,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
-from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
 from Sagittarius_Elite_Warrior.src.support.ui_kit.health_check_coordinator import (
     HealthCheckCoordinator,
 )
@@ -220,31 +219,6 @@ _FILL_MARKERS_KEY = "live_fills"
 #: `ui/common/execute_order_block_reason.py`, word for word. The user's
 #: decision did not change; the layer that enforces it did.
 
-#: `EnumLabels`, not a bare dict — same reasoning `TradingPresenter`'s own
-#: `_BLOCK_REASON_MESSAGES` documents: construction refuses an incomplete
-#: table rather than letting a `.get(..., generic)` silently hide a missing
-#: refusal message.
-_BLOCK_REASON_MESSAGES = EnumLabels(
-    EnableTradingBlockReason,
-    {
-        EnableTradingBlockReason.TRADING_VENUE_DISABLED: (
-            "Trading venue is disabled in configuration — set it to Futures Testnet "
-            "or Spot Testnet to enable trading."
-        ),
-        EnableTradingBlockReason.CONNECTION_NOT_READY: (
-            "Connection to the exchange is not ready — check your API key/network connection."
-        ),
-        EnableTradingBlockReason.UNEXPECTED_POSITIONS: (
-            "The account has unexpected open positions — please handle them manually "
-            "on the exchange before enabling trading."
-        ),
-        EnableTradingBlockReason.SUPERSEDED_BY_CONCURRENT_STATE_CHANGE: (
-            "Another operation (usually EMERGENCY STOP) changed the state while "
-            "reconciliation was in progress — trading was not enabled. Check the "
-            "state and try again if you still want to enable it."
-        ),
-    },
-)
 
 # WS status badge (top bar) text/color/tone per FSM state — presentational
 # only, derived from the state DashboardPresenter already tracks.
@@ -743,8 +717,8 @@ class DashboardPresenter(BasePresenter):
         # only the chart's current market (`EPIC-028C`: Spot and Futures share
         # the bus). A raw `event_bus.on` is what `test_event_flow_guards.py`
         # catches.
-        self._market_tick_feed = MarketTickFeed(
-            self.event_bus, lambda: self._active_market, parent=self
+        self._market_tick_feed = market_tick_feed(
+            self.event_bus, lambda: self._active_market, self
         )
         self._market_tick_feed.marketTick.connect(self._handle_market_tick)
         # Sức khoẻ hệ thống là sự thật của HỆ THỐNG, không riêng màn này, nên nó
@@ -780,7 +754,7 @@ class DashboardPresenter(BasePresenter):
         self._equity_feed.equitySampled.connect(self._on_equity_sampled)
         # `EPIC-023C` — same shared bus `TradingPresenter` reads
         # `SignalGeneratedEvent` from (`EPIC-022E`); a second consumer.
-        self._signal_feed = SignalFeed(self.event_bus, parent=self)
+        self._signal_feed = feeds.signals
         self._signal_feed.signalGenerated.connect(
             self._arming_coordinator.on_signal_generated
         )
@@ -905,7 +879,7 @@ class DashboardPresenter(BasePresenter):
                 positions=[], open_orders=result.reconciled_open_orders
             )
         else:
-            self._append_log(_BLOCK_REASON_MESSAGES[result.block_reason])
+            self._append_log(ENABLE_BLOCK_MESSAGES[result.block_reason])
             self._order_book.replace_all(
                 positions=result.reconciled_positions,
                 open_orders=result.reconciled_open_orders,
@@ -997,17 +971,8 @@ class DashboardPresenter(BasePresenter):
         )
 
     def _log_emergency_stop_result(self, result: EmergencyStopResult) -> None:
-        self._append_log("EMERGENCY STOP")
-        for index, (label, step) in enumerate(
-            (
-                ("Disable trading", result.trading_disabled),
-                ("Cancel pending orders", result.orders_cancelled),
-                ("Close positions", result.positions_closed),
-            ),
-            start=1,
-        ):
-            mark = "✔" if step.succeeded else "✘"
-            self._append_log(f"  {index}. {label} ... {mark} {step.detail}")
+        for line in emergency_stop_log_lines(result):
+            self._append_log(line)
 
     # ================================================================== #
     # Manual trading card (`EPIC-024B`) — the first UI path that dispatches

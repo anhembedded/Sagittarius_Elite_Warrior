@@ -27,9 +27,12 @@ dataclass inheriting it cannot be either. Treat as read-only by convention.
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
 from sagittarius_engine.domain.base_event import BaseEvent
 
 if TYPE_CHECKING:
@@ -41,3 +44,7 @@ class SignalGeneratedEvent(BaseEvent):
     """@brief Domain event: a strategy produced one `Signal`."""
 
     signal: Signal
+    #: `EPIC-028K` — the venue whose live strategy produced it, so each desk
+    #: shows only its own venue's signals (`SignalFeed`). `None` for an
+    #: engine no venue runs: a backtest, a preview, `trade-once`.
+    venue: TradingVenue | None = field(default=None, kw_only=True)

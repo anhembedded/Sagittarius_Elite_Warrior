@@ -107,6 +107,7 @@ class LiveStrategyFactory:
             config.strategy_key,
             self._event_publisher,
             config.strategy_params,
+            venue=self._venue,
         )
         coordinator = LiveTradingCoordinator(
             config.symbol,

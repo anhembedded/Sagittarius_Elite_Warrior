@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
     is_terminal,
+    is_valid_transition,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
@@ -77,6 +78,9 @@ class LiveOrderBookCoordinator:
         self._emit_log = emit_log
         self._positions: dict[str, LivePosition] = {}
         self._open_orders: dict[str, Order] = {}
+        #: Orders seen ended (terminal or cancelled) this session. Client
+        #: order ids are never reused, so one seen ended stays ended.
+        self._ended: set[str] = set()
         self._holdings: dict[str, SpotHolding] = {}
 
     def replace_all(
@@ -93,10 +97,31 @@ class LiveOrderBookCoordinator:
         self._render_open_orders()
 
     def on_order_filled(self, order: Order) -> None:
+        """One order's latest known state, from a fill or from the desk's own
+        acceptance (`EPIC-028K`).
+
+        @details The two arrive from different threads, in either order: the
+        venue's stream reports a fill, the REST answer reports the order as
+        accepted (`NEW`, which both trading adapters return unchanged). A
+        status is applied only when it moves forward
+        (`order_status.is_valid_transition`), and an order seen ended is
+        never listed again, so a late `NEW` neither re-lists a filled order
+        nor hides a partial fill (the PR 308 review)."""
+        order_id = order.client_order_id
+        if order_id in self._ended:
+            return
+        known = self._open_orders.get(order_id)
+        if (
+            known is not None
+            and known.status is not order.status
+            and not is_valid_transition(known.status, order.status)
+        ):
+            return
         if is_terminal(order.status):
-            self._open_orders.pop(order.client_order_id, None)
+            self._ended.add(order_id)
+            self._open_orders.pop(order_id, None)
         else:
-            self._open_orders[order.client_order_id] = order
+            self._open_orders[order_id] = order
         self._render_open_orders()
 
     def on_position_changed(self, position: LivePosition) -> None:
@@ -117,6 +142,7 @@ class LiveOrderBookCoordinator:
         reasoning `on_position_closed` above documents: harmless if this
         table never held the order (e.g. it filled between the click and
         the cancel actually landing)."""
+        self._ended.add(client_order_id)
         self._open_orders.pop(client_order_id, None)
         self._render_open_orders()
 

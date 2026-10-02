@@ -37,7 +37,7 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
     FakeMarketStream,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.trading.coordinators.chart_coordinator import (
-    _STREAM_OWNER,
+    TRADING_STREAM_OWNER,
     ChartCoordinator,
 )
 
@@ -52,6 +52,7 @@ def _coordinator(
     history: FakeHistoricalKlines | None = None,
     stream: FakeMarketStream | None = None,
     market: MarketType = MarketType.SPOT,
+    owner: str | None = None,
 ):
     """No dispatcher: `EPIC-025` PR 1.1b took the last one this coordinator
     held, so there is no bus left for a test to record."""
@@ -66,6 +67,7 @@ def _coordinator(
         emit_stream_started=MagicMock(),
         emit_stream_failed=MagicMock(),
         emit_log=MagicMock(),
+        **({} if owner is None else {"stream_owner": owner}),
     )
 
 
@@ -115,7 +117,7 @@ def test_a_futures_chart_syncs_reads_and_streams_futures() -> None:
 
     assert sync.requests[0].market is MarketType.FUTURES_USD_M
     assert history.reads[0].market is MarketType.FUTURES_USD_M
-    held = stream.held_by(_STREAM_OWNER)
+    held = stream.held_by(TRADING_STREAM_OWNER)
     assert held is not None
     assert held.market_type is MarketType.FUTURES_USD_M
 
@@ -201,7 +203,7 @@ def test_stop_releases_only_this_screens_subscription() -> None:
 
     coordinator.stop()
 
-    assert stream.held_by(_STREAM_OWNER) is None
+    assert stream.held_by(TRADING_STREAM_OWNER) is None
     assert stream.held_by("dashboard") is not None
 
 
@@ -226,3 +228,23 @@ def test_start_defaults_to_local_history_only() -> None:
 
     thread_manager.submit.assert_called_once()
     assert thread_manager.submit.call_args.args[-1] is False
+
+
+def test_two_desks_stream_under_their_own_owners() -> None:
+    """`EPIC-028K` — one shared owner made a second desk's chart replace the
+    first's subscription (the PR #300 epic review). Each desk streams under
+    its own, and stopping one leaves the other streaming."""
+    stream = FakeMarketStream()
+    futures = _coordinator(
+        stream=stream, market=MarketType.FUTURES_USD_M, owner="desk.futures"
+    )
+    spot = _coordinator(stream=stream, market=MarketType.SPOT, owner="desk.spot")
+
+    futures._run("BTCUSDT", "1m", _FakeToken(), True)
+    spot._run("ETHUSDT", "1m", _FakeToken(), True)
+    futures.stop()
+
+    assert stream.held_by("desk.futures") is None
+    held = stream.held_by("desk.spot")
+    assert held is not None
+    assert held.market_type is MarketType.SPOT

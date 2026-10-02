@@ -48,6 +48,9 @@
 #    two pre-existing `trading` consumers now read it via an allowlisted
 #    cross-module line each, same shape as the two `symbol_options_
 #    coordinator`/`sync_progress_feed` lines this same file already carries).
+# -> 9 after PR EPIC-028K (10 - 2 retired + 1 new: the Trading screen's and
+#    the Dev Board's `market_tick_feed` lines fold into one seam,
+#    `modules/trading/ui/market_ticks.py`, which the desks use too).
 #
 # THE LAST NUMBER ON THAT LINE IS CHECKED against the entries below, by
 # `test_the_documented_count_is_the_real_count` in the guard. It stopped at 56
@@ -826,9 +829,11 @@ modules.trading.composition.venue_assembly -> support.binance_gateway.adapters.s
 # module's `ui/` -- the exact call `EPIC-025` PR 4.4a already made for
 # `symbol_options_coordinator`/`sync_progress_feed`, two lines above this
 # same file's own precedent for it. `trading`'s two pre-existing consumers
-# now read it from its new address, same shape as those two lines. Exits
-# when/if a per-module `MarketTickFeed` variant removes the direct read --
-# not planned, since the whole point of one Feed is that a second copy is
-# the defect this exists to prevent.
-modules.trading.ui.dashboard.dashboard_presenter -> modules.market_data.ui.market_tick_feed
-modules.trading.ui.trading.trading_presenter -> modules.market_data.ui.market_tick_feed
+# read it from its new address. `EPIC-028K` folded those two lines into one:
+# every trading screen (the Trading screen, the Dev Board, both desks) now
+# builds its Feed through `modules/trading/ui/market_ticks.py`, so the
+# crossing is one seam however many screens chart. Exits when/if a
+# per-module `MarketTickFeed` variant removes the direct read -- not planned,
+# since the whole point of one Feed is that a second copy is the defect this
+# exists to prevent.
+modules.trading.ui.market_ticks -> modules.market_data.ui.market_tick_feed

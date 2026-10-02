@@ -34,6 +34,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holding import (
     SpotHolding,
 )
@@ -139,6 +140,18 @@ class AccountTabsPresenter(QObject):
         action = self._loads.begin_action(_LOAD, self._symbol, None)
         self._threads.submit(self._run_load, action.action_id)
         self._reopen_histories(self._view.hides_other_pairs)
+
+    def list_accepted_order(self, order: Order) -> None:
+        """`EPIC-028K` — an order this desk just placed joins Open orders as
+        the venue accepted it. The venue's stream announces an order only
+        when it fills or ends, so a resting Limit would otherwise stay off
+        the table, uncancellable from the desk, until the next read. Both
+        trading adapters answer an accepted order `NEW`, a filled Market
+        order included, and the fill can reach this thread before or after
+        that answer: the book applies a status only when it moves forward
+        and never re-lists an order it saw end (`LiveOrderBookCoordinator.
+        on_order_filled`, the PR 308 review)."""
+        self._book.on_order_filled(order)
 
     def update_last_price(self, price: Decimal | None) -> None:
         """The desk symbol's last price, which values its base asset."""
