@@ -35,12 +35,16 @@ class EnableTradingBlockReason(str, Enum):
     SUPERSEDED_BY_CONCURRENT_STATE_CHANGE = "superseded_by_concurrent_state_change"
 
 
-#: `EPIC-028M` (the PR 309 review) — the refusals decided before the venue was
-#: read: their empty `reconciled_*` tuples say nothing about the account.
-_REFUSED_BEFORE_READING = frozenset(
+#: `EPIC-028M`/`028S` (the PR 309 reviews) — the outcomes whose
+#: `reconciled_*` tuples are the venue's answer: a success (`None`) and the
+#: refusals decided after the read. An allow-list, so a block reason added
+#: later counts as "not read" until someone says otherwise: an empty tuple
+#: from a skipped read would read as "flat" and wipe a screen's tables.
+_DECIDED_AFTER_READING: frozenset[EnableTradingBlockReason | None] = frozenset(
     {
-        EnableTradingBlockReason.TRADING_VENUE_DISABLED,
-        EnableTradingBlockReason.CONNECTION_NOT_READY,
+        None,
+        EnableTradingBlockReason.UNEXPECTED_POSITIONS,
+        EnableTradingBlockReason.SUPERSEDED_BY_CONCURRENT_STATE_CHANGE,
     }
 )
 
@@ -58,4 +62,4 @@ class EnableTradingResult:
         venue's answer. A refusal decided before any read (the venue off, the
         connection not ready) carries empty tuples, and "nothing came back"
         is not "flat" (`BUG-093`'s principle)."""
-        return self.block_reason not in _REFUSED_BEFORE_READING
+        return self.block_reason in _DECIDED_AFTER_READING
