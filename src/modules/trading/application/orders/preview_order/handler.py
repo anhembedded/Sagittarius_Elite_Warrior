@@ -27,7 +27,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force impor
     TimeInForce,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.stop_trigger_side import (
-    check_stop_trigger_side,
+    check_trigger_side,
+    waits_above_market,
 )
 
 #: The order types that rest on the book and so carry a price and a time in
@@ -129,8 +130,16 @@ class PreviewOrderQueryHandler(IQueryHandler[PreviewOrderQuery, OrderPreview]):
         and whether it then waits for the market."""
         if query.stop_price is None or query.last_price is None:
             return None, None
-        away = OrderSide.SELL if query.side is OrderSide.BUY else OrderSide.BUY
+        # `EPIC-028I` — away from the market whichever side it waits on: up
+        # for a buy stop or a sell take-profit, down otherwise.
+        away = (
+            OrderSide.SELL
+            if waits_above_market(query.order_type, query.side)
+            else OrderSide.BUY
+        )
         stop = self._rounding_policy.round_price_to_tick(
             query.stop_price, tick_size, away
         )
-        return stop, check_stop_trigger_side(query.side, stop, query.last_price)
+        return stop, check_trigger_side(
+            query.order_type, query.side, stop, query.last_price
+        )

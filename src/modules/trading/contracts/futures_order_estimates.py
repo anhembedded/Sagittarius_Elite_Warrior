@@ -31,8 +31,9 @@ prices and headroom it is handed:
   Binance developer-forum thread, not verified here) says Binance charges it
   against the best ask for a long (the best bid for a short). A market order
   at the maximum can therefore be refused when the mark sits below the best
-  ask for a long, or above the best bid for a short. `EPIC-028I` must read
-  the book or leave that margin before offering a market maximum.
+  ask for a long, or above the best bid for a short. `EPIC-028I` reads the
+  book: `futures_market_max_quantity` charges that open loss against the
+  best ask (long) or best bid (short) as well.
 
 The PR #300 review found the first version (cost = notional ÷ leverage + fee)
 overshooting at 1× and 2×, under open loss and past the cap.
@@ -139,3 +140,39 @@ def futures_max_quantity(
         notional_price, terms.notional_headroom, step_size
     )
     return min(by_balance, by_notional)
+
+
+def book_open_loss(
+    quantity: Decimal, side: OrderSide, mark_price: Decimal, book_price: Decimal
+) -> Decimal:
+    """@return The open loss a market order is charged against the book
+    (`EPIC-028I`): a long filling at the best ask above the mark, or a short
+    at the best bid below it. Not Binance-documented (see the module
+    docstring); the panel charges it so a market maximum is not refused."""
+    require_not_negative("quantity", quantity)
+    require_positive("book_price", book_price)
+    direction = 1 if side is OrderSide.BUY else -1
+    return quantity * abs(min(Decimal(0), direction * (mark_price - book_price)))
+
+
+def futures_market_max_quantity(
+    available: Decimal,
+    terms: FuturesOrderTerms,
+    book_price: Decimal,
+    step_size: Decimal,
+) -> Decimal:
+    """@return `futures_max_quantity` for a market order, with the open loss
+    against `book_price` (the best ask for a long, the best bid for a short)
+    paid from `available` too.
+    @raise ValueError `terms` is a limit order's."""
+    if terms.order_price is not None:
+        raise ValueError("a market maximum is sized for a market order")
+    require_not_negative("available", available)
+    one = Decimal(1)
+    unit_cost = (
+        futures_order_cost(one, terms)
+        + futures_order_fee(one, terms)
+        + book_open_loss(one, terms.side, terms.mark_price, book_price)
+    )
+    by_balance = largest_fitting_quantity(unit_cost, available, step_size)
+    return min(by_balance, futures_max_quantity(available, terms, step_size))

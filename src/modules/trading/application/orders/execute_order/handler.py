@@ -153,6 +153,7 @@ class ExecuteOrderCommandHandler(
                 time_since_last_order_for_symbol=session_state.time_since_last_order(
                     symbol, now
                 ),
+                purpose=command.purpose,
             )
             checks = self._limits_policy.evaluate(context)
             violation = next((c.violation for c in checks if not c.passed), None)
@@ -167,7 +168,10 @@ class ExecuteOrderCommandHandler(
 
             trading_client = scope.ports.client_factory.create(OrderSubmissionMode.LIVE)
             submitted_order = trading_client.place_order(preview.order)
-            session_state.record_order_sent(symbol, now)
+            # `EPIC-028I` — a protective order or a close is not a new trade:
+            # it neither uses up the session's orders nor delays the next entry.
+            if not command.purpose.only_reduces:
+                session_state.record_order_sent(symbol, now)
             logger.info(
                 "Live order submitted on %s: %s %s",
                 command.venue.value,

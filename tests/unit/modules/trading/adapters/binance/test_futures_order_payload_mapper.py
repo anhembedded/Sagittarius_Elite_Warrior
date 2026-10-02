@@ -188,7 +188,7 @@ class TestReverseOrderMapping:
             "side": "BUY",
             "type": "TRAILING_STOP_MARKET",
             "origQty": "0.002",
-            "status": "EXPIRED_IN_MATCH",
+            "status": "NEW_ADL",
             "clientOrderId": "manually-placed-1",
             "price": "0",
             "stopPrice": "0",

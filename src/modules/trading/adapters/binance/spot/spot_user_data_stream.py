@@ -58,6 +58,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_account_r
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_user_data_stream import (
     IUserDataStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_status import (
+    ended_without_filling,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     IExchangeCredentialsProvider,
 )
@@ -227,6 +230,9 @@ class SpotUserDataStream(IUserDataStream):
             fill_price, fill_quantity = fill_details(payload)
             fee = fill_fee(payload)
             self._events.order_filled(order, (fill_price, fill_quantity), fee)
+        elif ended_without_filling(order.status):
+            # `EPIC-028I` — cancelled, rejected or expired.
+            self._events.order_ended(order)
 
     async def _refresh_equity(self, payload: dict[str, Any]) -> None:
         """@brief Handles both `OUTBOUND_ACCOUNT_POSITION` (every fill) and

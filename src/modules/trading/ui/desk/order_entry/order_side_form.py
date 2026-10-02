@@ -13,6 +13,9 @@ quote (a Spot market buy) shows a total field in place of the amount; the
 BBO button fills the best price on the side's own side of the book (a buy
 gets the best bid, a sell the best ask), so the order joins the queue and
 never crosses the spread; it shows on the Limit tab only.
+
+`EPIC-028I`: the side's TP/SL fields (`ProtectionFields`), and on a desk
+with leverage its cost and the liquidation estimate, labelled as one.
 """
 
 from __future__ import annotations
@@ -35,6 +38,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.amount_text import (
     NONE_TEXT,
     format_amount,
+    parse_amount,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_rules import (
     EntrySide,
@@ -42,11 +46,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
-    parse_amount,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.protection_fields import (
+    ProtectionFields,
 )
 
 _NONE_TEXT = NONE_TEXT
 _SLIDER_STEP = 25
+_CENT = Decimal("0.01")
 
 
 def order_type_joins_queue_now(order_type: OrderType) -> bool:
@@ -136,6 +143,15 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._total.setObjectName(f"lblTotal{name}")
         self._fee = QLabel(_NONE_TEXT)
         self._fee.setObjectName(f"lblFee{name}")
+        self._cost = QLabel(_NONE_TEXT)
+        self._cost.setObjectName(f"lblCost{name}")
+        self._liquidation = QLabel(_NONE_TEXT)
+        self._liquidation.setObjectName(f"lblLiquidation{name}")
+        self._liquidation.setToolTip(
+            "An estimate for this order's position alone; the exchange's own "
+            "figure also counts your other positions"
+        )
+        self._protection = ProtectionFields(view_model.options, side)
         self._problem = QLabel()
         self._problem.setObjectName(f"lblProblem{name}")
         self._problem.setWordWrap(True)
@@ -163,12 +179,16 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         figures.addRow(self._maximum_label, self._maximum)
         figures.addRow("Total", self._total)
         figures.addRow("Est. fee", self._fee)
+        if view_model.profile.futures_controls:
+            figures.addRow("Cost", self._cost)
+            figures.addRow("Liq. price (est.)", self._liquidation)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addLayout(stop_row)
         layout.addLayout(price_row)
         layout.addLayout(quantity_row)
+        layout.addWidget(self._protection)
         layout.addWidget(self._slider)
         layout.addLayout(figures)
         layout.addWidget(self._problem)
@@ -227,6 +247,12 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         self._fee.setText(
             f"{format_amount(figures.fee)} {quote}" if figures else _NONE_TEXT
         )
+        self._cost.setText(
+            f"{format_amount(figures.cost)} {quote}"
+            if figures and figures.cost is not None
+            else _NONE_TEXT
+        )
+        self._liquidation.setText(_liquidation_text(figures))
         self._problem.setText((figures.problem or "") if figures else "")
         self._submit.setText(f"{label} {base}".strip())
         ready = figures is not None and figures.can_submit
@@ -242,6 +268,13 @@ class OrderSideForm(QWidget):  # base-exempt: a container, not a surface
         )
         for field in editable:
             field.setEnabled(not vm.busy and figures is not None)
+
+
+def _liquidation_text(figures: SideFigures | None) -> str:
+    estimate = figures.liquidation if figures else None
+    if estimate is None or estimate.price is None:
+        return _NONE_TEXT
+    return format_amount(estimate.price.quantize(_CENT))
 
 
 def _maximum_text(figures: SideFigures | None, base: str, quote: str) -> str:

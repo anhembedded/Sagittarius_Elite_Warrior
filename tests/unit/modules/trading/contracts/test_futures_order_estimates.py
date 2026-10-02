@@ -19,6 +19,8 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.futures_order_estimates import (
     FuturesOrderTerms,
     assuming_price,
+    book_open_loss,
+    futures_market_max_quantity,
     futures_max_quantity,
     futures_order_cost,
     futures_order_fee,
@@ -224,3 +226,48 @@ def test_a_rate_or_headroom_that_is_not_a_real_non_negative_number_is_refused(
 def test_a_leverage_below_one_is_refused() -> None:
     with pytest.raises(ValueError, match="leverage"):
         replace(_terms(_BUY, "100"), leverage=0)
+
+
+# -- EPIC-028I: the market maximum charges the open loss against the book -- #
+
+
+@pytest.mark.parametrize(
+    ("side", "mark", "book"),
+    [(_BUY, "100", "100.5"), (_SELL, "100", "99.5")],
+    ids=["long-ask-above-mark", "short-bid-below-mark"],
+)
+def test_a_market_maximum_pays_the_open_loss_against_the_book(
+    side: OrderSide, mark: str, book: str
+) -> None:
+    """At the maximum, Binance's cost plus the open loss at the book plus
+    the fee fits the balance, and one more step does not."""
+    terms = _terms(side, None, mark=mark)
+    available = Decimal(1000)
+    book_price = Decimal(book)
+
+    def spend(quantity: Decimal) -> Decimal:
+        loss = quantity * abs(Decimal(mark) - book_price)
+        return (
+            _binance_cost(quantity, terms) + loss + futures_order_fee(quantity, terms)
+        )
+
+    maximum = futures_market_max_quantity(available, terms, book_price, _STEP)
+
+    assert spend(maximum) <= available < spend(maximum + _STEP)
+    assert maximum < futures_max_quantity(available, terms, _STEP)
+
+
+def test_a_book_on_the_good_side_of_the_mark_costs_nothing_extra() -> None:
+    terms = _terms(_BUY, None, mark="100")
+
+    assert book_open_loss(Decimal(5), _BUY, Decimal(100), Decimal("99.5")) == 0
+    assert futures_market_max_quantity(
+        Decimal(1000), terms, Decimal("99.5"), _STEP
+    ) == futures_max_quantity(Decimal(1000), terms, _STEP)
+
+
+def test_a_market_maximum_is_only_for_a_market_order() -> None:
+    with pytest.raises(ValueError, match="market order"):
+        futures_market_max_quantity(
+            Decimal(1000), _terms(_BUY, "100"), Decimal(100), _STEP
+        )

@@ -37,9 +37,12 @@ class OrderStatus(str, Enum):
     TRIGGERED = "triggered"
     #: `BUG-091` — the honest answer for a Binance status this app's
     #: parsers (`user_data_event_parser.py`, `futures_order_payload_
-    #: mapper.py`) don't have a narrower name for, e.g. `EXPIRED_IN_MATCH`
+    #: mapper.py`) don't have a narrower name for, e.g. Futures' `NEW_ADL`
     #: on an order this app did not itself construct (a manually-placed
     #: testnet order the account-wide user data stream still reports).
+    #: Never a status that ends an order: `UNKNOWN` is not terminal, so an
+    #: end read as `UNKNOWN` would never be reported (`EXPIRED_IN_MATCH`
+    #: reads as `EXPIRED`, `order_enum_parsing.py`).
     #: Same "named catch-all, never a raised/lost update" idiom
     #: `OrderRejectionReason.UNKNOWN` already established in this app.
     UNKNOWN = "unknown"
@@ -105,3 +108,17 @@ def is_terminal(status: OrderStatus) -> bool:
     out of sync with it.
     """
     return not _VALID_TRANSITIONS[status]
+
+
+def ended_without_filling(status: OrderStatus) -> bool:
+    """@brief Whether an order in `status` is over without having filled
+    whole: cancelled, rejected or expired.
+
+    @details `EPIC-028I` — what `OrderEndedEvent` reports. `FILLED` is not
+    (its fill is the event), nor `TRIGGERED`: the regular order a triggered
+    conditional order placed carries on under the same client order id.
+    """
+    return is_terminal(status) and status not in (
+        OrderStatus.FILLED,
+        OrderStatus.TRIGGERED,
+    )

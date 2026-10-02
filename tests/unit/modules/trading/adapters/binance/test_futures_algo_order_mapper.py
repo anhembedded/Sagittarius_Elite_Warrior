@@ -110,8 +110,65 @@ def test_a_stop_limit_is_sent_with_the_apps_id_as_its_client_algo_id() -> None:
     }
 
 
-def test_only_the_stop_limit_is_algo_routed() -> None:
-    assert [t for t in OrderType if is_algo_routed(t)] == [OrderType.STOP_LIMIT]
+def test_exactly_the_conditional_types_are_algo_routed() -> None:
+    assert {t for t in OrderType if is_algo_routed(t)} == {
+        OrderType.STOP_LIMIT,
+        OrderType.STOP_MARKET,
+        OrderType.TAKE_PROFIT_MARKET,
+    }
+
+
+@pytest.mark.parametrize(
+    ("order_type", "wire"),
+    [
+        (OrderType.STOP_MARKET, "STOP_MARKET"),
+        (OrderType.TAKE_PROFIT_MARKET, "TAKE_PROFIT_MARKET"),
+    ],
+)
+def test_a_protective_order_is_sent_with_its_trigger_and_no_limit_price(
+    order_type: OrderType, wire: str
+) -> None:
+    """`EPIC-028I` — a stop-loss or take-profit fills at market once
+    triggered: no `price`, no `timeInForce`, and reduce-only as built."""
+    protective = replace(
+        _STOP,
+        side=OrderSide.SELL,
+        order_type=order_type,
+        price=None,
+        time_in_force=None,
+        reduce_only=True,
+    )
+
+    assert map_order_to_futures_algo_params(protective, _METADATA) == {
+        "algoType": "CONDITIONAL",
+        "symbol": "BTCUSDT",
+        "side": "SELL",
+        "positionSide": "BOTH",
+        "type": wire,
+        "quantity": "0.002",
+        "triggerPrice": "65000.0",
+        "workingType": "CONTRACT_PRICE",
+        "reduceOnly": True,
+        "clientAlgoId": "SEW-a91f4c72e0b8",
+    }
+
+
+@pytest.mark.parametrize(
+    ("changes", "message"),
+    [
+        ({"stop_price": None}, "needs its trigger price"),
+        ({"stop_price": Decimal("65000.05")}, "stop price 65000.05 is not a multiple"),
+        ({"quantity": Decimal("0.0025")}, "quantity 0.0025 is not a multiple"),
+    ],
+)
+def test_an_incomplete_or_unrounded_protective_order_is_refused(
+    changes: dict[str, Any], message: str
+) -> None:
+    protective = replace(
+        _STOP, order_type=OrderType.STOP_MARKET, price=None, time_in_force=None
+    )
+    with pytest.raises(InvalidOrderForSubmissionError, match=message):
+        map_order_to_futures_algo_params(replace(protective, **changes), _METADATA)
 
 
 @pytest.mark.parametrize(

@@ -4,7 +4,10 @@ from dataclasses import dataclass, field
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
+    TRIGGERED_ORDER_TYPES,
+    OrderType,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
 )
@@ -60,9 +63,12 @@ class PreviewOrderQuery:
     def __post_init__(self) -> None:
         """@throws ValueError a field this order type cannot use, or one it
         needs, so an inconsistent order never reaches the exchange."""
-        is_stop = self.order_type is OrderType.STOP_LIMIT
+        is_stop = self.order_type in TRIGGERED_ORDER_TYPES
         if is_stop and (self.stop_price is None or self.last_price is None):
-            raise ValueError("a stop-limit needs a stop price and the last price")
+            raise ValueError(
+                f"a {self.order_type.value.replace('_', '-')} needs a stop price "
+                "and the last price"
+            )
         if not is_stop and self.stop_price is not None:
             raise ValueError(f"{self.order_type.name} takes no stop price")
         resting = self.order_type in (OrderType.LIMIT, OrderType.STOP_LIMIT)

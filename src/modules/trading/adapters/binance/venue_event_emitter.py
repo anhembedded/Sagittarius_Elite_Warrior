@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.equity_sample impor
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.equity_sampled_event import (
     EquitySampledEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
+    OrderEndedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
 )
@@ -70,6 +73,11 @@ class VenueEventEmitter:
                 venue=self._venue,
             )
         )
+
+    def order_ended(self, order: Order) -> None:
+        """`EPIC-028I` — `order` is over without having filled whole
+        (`ended_without_filling`)."""
+        self._event_bus.emit(OrderEndedEvent(order=order, venue=self._venue))
 
     def equity_sampled(self, sample: EquitySample) -> None:
         self._event_bus.emit(EquitySampledEvent(sample=sample, venue=self._venue))

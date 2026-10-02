@@ -1,8 +1,9 @@
 """The Positions panel — a `QTableView` over every position the account holds.
 
-@details Read-only: a position is closed by placing an order, not by acting on
-a row, so this panel has no actions and (unlike `OpenOrdersPanel` next door) no
-toolbar. What it gains over the `PositionsTable.qml` it replaces is what the
+@details A position is closed by placing an order, not by acting on a row,
+so this panel has no action of its own. A host that offers one (the desk's
+"Close at market", `EPIC-028J`) adds it with `add_action()`, which shows the
+toolbar it otherwise keeps hidden, and reads `selected_row()`. What it gains over the `PositionsTable.qml` it replaces is what the
 platform's table brings: column sorting (click "Unrealized PnL" to bring the
 worst position to the top), keyboard navigation, native selection and a header
 the user can reorder.
@@ -16,13 +17,15 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtCore import QSortFilterProxyModel, Qt
+from PySide6.QtCore import QSortFilterProxyModel, Qt, Signal
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHeaderView,
     QLabel,
     QStackedWidget,
     QTableView,
+    QToolBar,
     QVBoxLayout,
     QWidget,
 )
@@ -39,6 +42,9 @@ _EMPTY_TEXT = "No open positions."
 
 class PositionsPanel(QWidget):  # base-exempt: a container, not a surface
     """@brief The account's open positions, as the platform's own table."""
+
+    #: The selected row changed, or the rows were replaced.
+    selectionChanged = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -86,8 +92,14 @@ class PositionsPanel(QWidget):  # base-exempt: a container, not a surface
         self._body.addWidget(self._empty)
         self._body.addWidget(self._table)
 
+        self._table.selectionModel().selectionChanged.connect(self.selectionChanged)
+        self._toolbar = QToolBar()
+        self._toolbar.setObjectName("tbrPositions")
+        self._toolbar.hide()
+
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
+        layout.addWidget(self._toolbar)
         layout.addWidget(self._body)
         self._show_body()
 
@@ -96,6 +108,21 @@ class PositionsPanel(QWidget):  # base-exempt: a container, not a surface
         the whole set (`EPIC-021H`)."""
         self._model.set_rows(rows)
         self._show_body()
+        # A reset clears the selection without a `selectionChanged`.
+        self.selectionChanged.emit()
+
+    def add_action(self, action: QAction) -> None:
+        """Shows a host's action in the toolbar and the row's context menu."""
+        self._toolbar.addAction(action)
+        self._toolbar.show()
+        self._table.setContextMenuPolicy(Qt.ContextMenuPolicy.ActionsContextMenu)
+        self._table.addAction(action)
+
+    def selected_row(self) -> PositionRow | None:
+        indexes = self._table.selectionModel().selectedRows()
+        if not indexes:
+            return None
+        return self._model.row_for(self._proxy.mapToSource(indexes[0]))
 
     @property
     def table(self) -> QTableView:

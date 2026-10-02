@@ -10,11 +10,17 @@ alongside the real registry.
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_activity import (
+    IAccountActivity,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
     IAccountSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
     IEquityCurve,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_settings_control import (
+    IFuturesSettingsControl,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_entry_terms import (
     IOrderEntryTerms,
@@ -31,11 +37,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts im
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_activity import (
+    FakeAccountActivity,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_account_snapshot import (
     FakeAccountSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_equity_curve import (
     FakeEquityCurve,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_futures_settings_control import (
+    FakeFuturesSettingsControl,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
     FakeOrderEntryTerms,
@@ -62,6 +74,8 @@ def fake_venue_ports(
     account_snapshot: IAccountSnapshot | None = None,
     equity_curve: IEquityCurve | None = None,
     order_entry_terms: IOrderEntryTerms | None = None,
+    account_activity: IAccountActivity | None = None,
+    futures_settings: IFuturesSettingsControl | None = None,
 ) -> VenueTradingPorts:
     """One venue's bundle, every port a fake unless the test hands one in."""
     return VenueTradingPorts(
@@ -71,6 +85,8 @@ def fake_venue_ports(
         account_snapshot=account_snapshot or FakeAccountSnapshot(),
         equity_curve=equity_curve or FakeEquityCurve(),
         order_entry_terms=order_entry_terms or FakeOrderEntryTerms(),
+        account_activity=account_activity or FakeAccountActivity(),
+        futures_settings=futures_settings or FakeFuturesSettingsControl(),
     )
 
 

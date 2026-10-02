@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_con
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_view_model import (
     OrderEntryViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_options_bar import (
+    OrderOptionsBar,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.two_column_sides import (
     TwoColumnSides,
 )
@@ -87,8 +90,12 @@ class OrderEntryPanel(QWidget):  # base-exempt: a container, not a surface
         self._tp_sl = QCheckBox("TP/SL")
         self._tp_sl.setObjectName("chkTpSl")
         reason = view_model.profile.tp_sl_unavailable_reason
-        self._tp_sl.setToolTip(reason or "")
+        self._tp_sl.setToolTip(
+            reason or "Place a take-profit and a stop-loss once the entry fills"
+        )
         self._tp_sl_available = reason is None
+        self._tp_sl.toggled.connect(view_model.options.set_tp_sl_enabled)
+        self._options = OrderOptionsBar(view_model)
         self.sides = _SIDE_LAYOUTS[view_model.profile.side_layout](view_model)
         self._status = QLabel()
         self._status.setObjectName("lblOrderEntryStatus")
@@ -96,6 +103,7 @@ class OrderEntryPanel(QWidget):  # base-exempt: a container, not a surface
 
         layout = QVBoxLayout(self)
         layout.addWidget(self._tabs)
+        layout.addWidget(self._options)
         layout.addWidget(self._tp_sl)
         layout.addWidget(self.sides, 1)
         layout.addWidget(self._status)

@@ -55,15 +55,16 @@ _ONE_WAY_POSITION_SIDE = "BOTH"
 #: its change of 2025-12-09), never through `POST /fapi/v1/order`, so this
 #: mapper refuses them all. `EPIC-028R` sends the stop-limit through
 #: `futures_algo_order_mapper.py`, with the app's client id as `clientAlgoId`;
-#: `STOP_MARKET` and `TAKE_PROFIT_MARKET` stay unsent until a desk needs them.
+#: `EPIC-028I` sends `STOP_MARKET` and `TAKE_PROFIT_MARKET` the same way.
 _CONDITIONAL_ORDER_TYPES = frozenset(
     {OrderType.STOP_MARKET, OrderType.TAKE_PROFIT_MARKET, OrderType.STOP_LIMIT}
 )
-#: What the Futures client can send: `MARKET` and `LIMIT` here, `STOP_LIMIT`
-#: through the Algo Order API (`EPIC-028R`); everything else is refused
-#: (`FuturesTradingClientFactory.accepted_order_types` answers with this).
+#: What the Futures client can send: `MARKET` and `LIMIT` here, the
+#: conditional types through the Algo Order API (`EPIC-028R`, `EPIC-028I`);
+#: everything else is refused (`FuturesTradingClientFactory.
+#: accepted_order_types` answers with this).
 FUTURES_SENDABLE_ORDER_TYPES = frozenset(
-    {OrderType.MARKET, OrderType.LIMIT, OrderType.STOP_LIMIT}
+    {OrderType.MARKET, OrderType.LIMIT} | _CONDITIONAL_ORDER_TYPES
 )
 #: Futures' spelling of a member whose name is not Binance's, for the read
 #: direction: a stop-limit is `STOP` on USD-M.

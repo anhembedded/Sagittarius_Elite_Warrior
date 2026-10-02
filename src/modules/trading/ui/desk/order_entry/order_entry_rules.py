@@ -22,8 +22,10 @@ so the panel and the estimates cannot disagree.
   (`check_stop_trigger_side`, the rule the execute gate applies), and is
   otherwise a limit order at its limit price.
 
-The Futures side (`EPIC-028I`) is a second function beside this one,
-reading the Futures estimates; `DeskProfile` picks which one a desk uses.
+The Futures side (`EPIC-028I`) is `futures_side_figures` in
+`futures_entry_rules.py`, reading the Futures estimates and reusing the
+helpers here (`sent_price`, `capped_by_limit`, `stop_problem`);
+`DeskProfile` picks which one a desk uses.
 """
 
 from __future__ import annotations
@@ -32,6 +34,9 @@ from dataclasses import dataclass
 from decimal import Decimal
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.liquidation_estimate import (
+    LiquidationPriceEstimate,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_entry_terms import (
     OrderEntryTerms,
 )
@@ -52,6 +57,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.stop_price_check im
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.stop_trigger_side import (
     check_stop_trigger_side,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.futures_entry_context import (
+    FuturesEntryContext,
 )
 
 _ROUNDING = OrderQuantityRoundingPolicy()
@@ -90,6 +98,9 @@ class OrderEntryContext:
     #: preview or a test that builds a context by hand) leaves the maxima
     #: uncapped, and the execute gate still applies the real limit.
     notional_limit: Decimal | None = None
+    #: `EPIC-028I` — the Futures reads (leverage, brackets, mark price, book,
+    #: position); `None` on Spot.
+    futures: FuturesEntryContext | None = None
 
 
 @dataclass(frozen=True)
@@ -103,6 +114,12 @@ class SideInput:
     stop_price: Decimal | None = None
     #: `EPIC-028O` — what a quote-sized market buy spends.
     total: Decimal | None = None
+    #: `EPIC-028I` — the Futures desk's reduce-only box (one for the panel,
+    #: copied to each side) and this side's take-profit and stop-loss, set
+    #: only while the panel's TP/SL is on.
+    reduce_only: bool = False
+    take_profit: Decimal | None = None
+    stop_loss: Decimal | None = None
 
 
 @dataclass(frozen=True)
@@ -126,6 +143,10 @@ class SideFigures:
     #: `EPIC-028O` — the most quote a side sized by quote may spend; `None`
     #: on a side sized by base quantity, or when the balance is unknown.
     max_total: Decimal | None = None
+    #: `EPIC-028I` — a Futures order's cost (initial margin plus open loss)
+    #: and where the position it opens would be liquidated, an estimate.
+    cost: Decimal | None = None
+    liquidation: LiquidationPriceEstimate | None = None
 
     @property
     def can_submit(self) -> bool:
@@ -144,7 +165,7 @@ def spot_side_figures(
         return _spot_quote_buy_figures(entry, context, last_price)
     step = context.terms.rules.step_size_for(order_type)
     fee_rate = context.terms.commission.taker
-    price = _sent_price(
+    price = sent_price(
         side, last_price if order_type is OrderType.MARKET else entry.price, context
     )
     if side is EntrySide.BUY:
@@ -161,14 +182,14 @@ def spot_side_figures(
             if available is not None
             else None
         )
-    max_quantity = _capped_by_limit(max_quantity, price, step, context.notional_limit)
+    max_quantity = capped_by_limit(max_quantity, price, step, context.notional_limit)
     quantity = entry.quantity
     total: Decimal | None = None
     fee: Decimal | None = None
     if quantity is not None and quantity > 0 and price is not None and price > 0:
         total = quantity * price
         fee = estimated_fee(quantity, price, fee_rate)
-    problem = _stop_problem(side, order_type, entry, last_price) or _first_problem(
+    problem = stop_problem(side, order_type, entry, last_price) or _first_problem(
         side, order_type, entry, context, price, max_quantity
     )
     return SideFigures(
@@ -182,7 +203,7 @@ def spot_side_figures(
     )
 
 
-def _sent_price(
+def sent_price(
     side: EntrySide, price: Decimal | None, context: OrderEntryContext
 ) -> Decimal | None:
     """`price` rounded to the tick the way the order preview rounds it (a
@@ -236,7 +257,7 @@ def _spot_quote_buy_figures(
     )
 
 
-def _capped_by_limit(
+def capped_by_limit(
     max_quantity: Decimal | None,
     price: Decimal | None,
     step: Decimal,
@@ -292,7 +313,7 @@ def _first_problem(
         )
     limit = context.notional_limit
     if limit is not None and rounded * price > limit:
-        return _over_limit(limit, context.quote_asset)
+        return over_limit_text(limit, context.quote_asset)
     if max_quantity is None:
         return "The balance could not be read. Check the connection."
     if rounded > max_quantity:
@@ -322,7 +343,7 @@ def _quote_buy_problem(
         )
     limit = context.notional_limit
     if limit is not None and spend > limit:
-        return _over_limit(limit, context.quote_asset)
+        return over_limit_text(limit, context.quote_asset)
     if max_total is None:
         return "The balance could not be read. Check the connection."
     if spend > max_total:
@@ -330,7 +351,7 @@ def _quote_buy_problem(
     return None
 
 
-def _stop_problem(
+def stop_problem(
     side: EntrySide,
     order_type: OrderType,
     entry: SideInput,
@@ -358,7 +379,7 @@ def _stop_problem(
     )
 
 
-def _over_limit(limit: Decimal, quote_asset: str) -> str:
+def over_limit_text(limit: Decimal, quote_asset: str) -> str:
     return (
         f"The order is worth more than the app's limit of {limit} {quote_asset} "
         "per order."

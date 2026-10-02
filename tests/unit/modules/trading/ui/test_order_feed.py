@@ -9,14 +9,26 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
+    AccountSummary,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_changed_event import (
+    AccountSummaryChangedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_stale_event import (
+    AccountSummaryStaleEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.holdings_changed_event import (
     HoldingsChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.live_order_blocked_event import (
     LiveOrderBlockedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
+    OrderEndedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
@@ -205,3 +217,49 @@ def test_another_venues_events_never_reach_this_feed(qapp):
     qapp.processEvents()
 
     assert seen == []
+
+
+def test_the_account_summary_of_this_venue_reaches_the_desk_and_no_other(qapp):
+    """`EPIC-028J` — the summary panel's two events come through this Feed,
+    filtered by venue like every other trading event."""
+    bus, feed = _feed(qapp)
+    changed: list = []
+    stale: list = []
+    feed.accountSummaryChanged.connect(changed.append)
+    feed.accountSummaryStale.connect(stale.append)
+    mine = AccountSummaryChangedEvent(
+        summary=AccountSummary(
+            venue=TradingVenue.FUTURES_TESTNET,
+            available_balance=Decimal(10),
+            equity=Decimal(12),
+        )
+    )
+    spot_stale = AccountSummaryStaleEvent(
+        reason="timeout", venue=TradingVenue.SPOT_TESTNET
+    )
+    my_stale = AccountSummaryStaleEvent(
+        reason="timeout", venue=TradingVenue.FUTURES_TESTNET
+    )
+
+    bus.emit(mine)
+    bus.emit(spot_stale)
+    bus.emit(my_stale)
+    qapp.processEvents()
+
+    assert changed == [mine]
+    assert stale == [my_stale]
+
+
+def test_an_ended_order_of_this_venue_reaches_the_desk_and_no_other(qapp):
+    """`EPIC-028I` — the TP/SL follower learns an entry ended unfilled
+    through this Feed, filtered by venue like every other trading event."""
+    bus, feed = _feed(qapp)
+    ended: list = []
+    feed.orderEnded.connect(ended.append)
+    mine = OrderEndedEvent(order=_order(), venue=TradingVenue.FUTURES_TESTNET)
+
+    bus.emit(OrderEndedEvent(order=_order(), venue=TradingVenue.SPOT_TESTNET))
+    bus.emit(mine)
+    qapp.processEvents()
+
+    assert ended == [mine]

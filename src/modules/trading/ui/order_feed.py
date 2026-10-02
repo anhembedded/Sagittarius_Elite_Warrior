@@ -21,6 +21,12 @@ cùng một bus, nên mỗi màn dựng Feed với venue của chính nó và ev
 kia không bao giờ tới bảng của màn này (một lệnh Spot khớp không hiện trong
 bảng Futures).
 
+`EPIC-028J` — the account summary (`AccountSummaryChangedEvent`/
+`AccountSummaryStaleEvent`) goes through this same Feed: it is the same
+venue's account truth under the same venue filter, so a desk builds no
+second Feed. `EPIC-028I` — so does `OrderEndedEvent`, an order over without
+having filled whole, which the desk's TP/SL follower waits on.
+
 Phát lại nguyên vẹn `OrderFilledEvent`/`PositionChangedEvent`/
 `PositionClosedEvent` (không chuẩn hoá thành DTO riêng): cả ba đã là kiểu
 miền ổn định, có tên rõ ràng (`EPIC-021E`/`BUG-086`) — khác
@@ -33,11 +39,20 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import QObject, Signal
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_changed_event import (
+    AccountSummaryChangedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.account_summary_stale_event import (
+    AccountSummaryStaleEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.holdings_changed_event import (
     HoldingsChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.live_order_blocked_event import (
     LiveOrderBlockedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
+    OrderEndedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
@@ -60,6 +75,8 @@ class OrderFeed(BaseFeed):
 
     #: Mang một `OrderFilledEvent`.
     orderFilled = Signal(object)
+    #: Carries an `OrderEndedEvent` (`EPIC-028I`).
+    orderEnded = Signal(object)
     #: Mang một `PositionChangedEvent`.
     positionChanged = Signal(object)
     #: Mang một `PositionClosedEvent` (`BUG-086`).
@@ -68,6 +85,10 @@ class OrderFeed(BaseFeed):
     orderBlocked = Signal(object)
     #: Mang một `HoldingsChangedEvent` (`EPIC-027O`).
     holdingsChanged = Signal(object)
+    #: Mang một `AccountSummaryChangedEvent` (`EPIC-028J`).
+    accountSummaryChanged = Signal(object)
+    #: Mang một `AccountSummaryStaleEvent` (`EPIC-028J`).
+    accountSummaryStale = Signal(object)
 
     def __init__(
         self,
@@ -81,14 +102,21 @@ class OrderFeed(BaseFeed):
 
     def _subscribe(self) -> None:
         self._events.on(OrderFilledEvent, self._on_order_filled)
+        self._events.on(OrderEndedEvent, self._on_order_ended)
         self._events.on(PositionChangedEvent, self._on_position_changed)
         self._events.on(PositionClosedEvent, self._on_position_closed)
         self._events.on(LiveOrderBlockedEvent, self._on_order_blocked)
         self._events.on(HoldingsChangedEvent, self._on_holdings_changed)
+        self._events.on(AccountSummaryChangedEvent, self._on_summary_changed)
+        self._events.on(AccountSummaryStaleEvent, self._on_summary_stale)
 
     def _on_order_filled(self, event: Any) -> None:
         if event.venue is self._venue:
             self.orderFilled.emit(event)
+
+    def _on_order_ended(self, event: OrderEndedEvent) -> None:
+        if event.venue is self._venue:
+            self.orderEnded.emit(event)
 
     def _on_position_changed(self, event: Any) -> None:
         if event.venue is self._venue:
@@ -105,3 +133,11 @@ class OrderFeed(BaseFeed):
     def _on_holdings_changed(self, event: Any) -> None:
         if event.venue is self._venue:
             self.holdingsChanged.emit(event)
+
+    def _on_summary_changed(self, event: Any) -> None:
+        if event.venue is self._venue:
+            self.accountSummaryChanged.emit(event)
+
+    def _on_summary_stale(self, event: Any) -> None:
+        if event.venue is self._venue:
+            self.accountSummaryStale.emit(event)

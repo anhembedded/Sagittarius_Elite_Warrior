@@ -99,12 +99,18 @@ class TestParseOrderTradeUpdate:
         itself) raised `KeyError` and the whole `ORDER_TRADE_UPDATE` was
         dropped — the order stayed stuck at whatever stale status this app
         last knew, forever."""
-        order = parse_order_trade_update(_order_trade_update(X="EXPIRED_IN_MATCH"))
+        order = parse_order_trade_update(_order_trade_update(X="NEW_ADL"))
         assert order.status is OrderStatus.UNKNOWN
         # Every other field still parses — only the unrecognized one falls
         # back, nothing else is lost.
         assert str(order.client_order_id) == "SEW-a91f4c72e0b8"
         assert order.quantity == Decimal("0.002")
+
+    def test_an_order_expired_to_prevent_a_self_trade_is_expired(self) -> None:
+        """The review of PR 307: `EXPIRED_IN_MATCH` ends an order; read as
+        `UNKNOWN` (not terminal) it would never be reported as ended."""
+        order = parse_order_trade_update(_order_trade_update(X="EXPIRED_IN_MATCH"))
+        assert order.status is OrderStatus.EXPIRED
 
     def test_an_unrecognized_order_type_falls_back_to_unknown_not_a_raise(self) -> None:
         order = parse_order_trade_update(_order_trade_update(o="TRAILING_STOP_MARKET"))

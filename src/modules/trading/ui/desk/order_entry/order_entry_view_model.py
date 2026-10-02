@@ -8,6 +8,10 @@ of its own. What the user typed is kept parsed; an unreadable field is
 `None`, which `order_entry_rules` reports as "Enter a price" rather than
 treating it as zero.
 
+`EPIC-028I`: `options` holds time in force, reduce-only, TP/SL and the
+Futures chips (`OrderOptionsViewModel`); the figures see a side's entry with
+those options folded in, and every change there repaints the panel too.
+
 `EPIC-028O`: a side sized by quote (a Spot market buy) keeps a typed total
 instead of a quantity, and its slider moves the total; a stop-limit side keeps
 a stop price; the best-price button asks the presenter for the book through
@@ -17,12 +21,15 @@ a stop price; the best-price button asks the presenter for the book through
 from __future__ import annotations
 
 from dataclasses import replace
-from decimal import Decimal, InvalidOperation
+from decimal import Decimal
 
 from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
     DeskProfile,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.amount_text import (
+    parse_amount,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_rules import (
     QUOTE_STEP,
@@ -33,18 +40,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
     percent_of_max,
     quantity_at_percent,
 )
-
-
-def parse_amount(text: str) -> Decimal | None:
-    """@return `text` as a finite, non-negative `Decimal`, or `None`.
-    Thousands separators are accepted, because the panel shows them."""
-    try:
-        value = Decimal(text.replace(",", "").strip())
-    except InvalidOperation:
-        return None
-    if not value.is_finite() or value < 0:
-        return None
-    return value
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_options_view_model import (
+    OrderOptionsViewModel,
+)
 
 
 class OrderEntryViewModel(QObject):
@@ -69,6 +67,10 @@ class OrderEntryViewModel(QObject):
         self._busy = False
         self._message = ""
         self._message_is_error = False
+        self._loading = False
+        #: `EPIC-028I` — how this panel's orders are sent.
+        self.options = OrderOptionsViewModel(self)
+        self.options.changed.connect(self.changed)
 
     # -- read ---------------------------------------------------------- #
 
@@ -115,7 +117,7 @@ class OrderEntryViewModel(QObject):
         return self._profile.figures(
             side,
             self._order_type,
-            self._entries[side],
+            self.options.apply_to(side, self._entries[side]),
             self._context,
             self._last_price,
         )
@@ -184,11 +186,21 @@ class OrderEntryViewModel(QObject):
         self._context = None
         self._last_price = None
         self._entries = {side: SideInput() for side in EntrySide}
+        self.options.clear_levels()
+        self.options.show_setting(None)
+        self._loading = True
         self._set_message(f"Loading {symbol}...", is_error=False)
 
     def set_context(self, context: OrderEntryContext) -> None:
+        """The symbol's terms, read. Clears the "Loading" line of a new
+        symbol only: a re-read after an order or a leverage change keeps
+        what the panel said about it (`EPIC-028I`)."""
         self._context = context
-        self._set_message("", is_error=False)
+        if self._loading:
+            self._loading = False
+            self._set_message("", is_error=False)
+        else:
+            self.changed.emit()
 
     def set_last_price(self, price: Decimal | None) -> None:
         if price != self._last_price:

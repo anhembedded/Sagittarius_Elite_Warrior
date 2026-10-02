@@ -33,6 +33,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose import (
+    OrderPurpose,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
@@ -79,3 +82,6 @@ class OrderRequest:
     time_in_force: TimeInForce | None = None
     quote_quantity: Decimal | None = None
     last_price: Decimal | None = None
+    #: `EPIC-028I` — an entry, or a reduce-only Futures order protecting or
+    #: closing a position (`OrderPurpose`), which the trading limits pass.
+    purpose: OrderPurpose = OrderPurpose.ENTRY

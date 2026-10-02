@@ -8,11 +8,10 @@ the Futures desk holds the Futures bundle and nothing it calls reaches Spot.
 
 Extension cases (`architecture-rule.md` §7.2.1). Each is one new port field
 here plus one line in `VenueTradingPortsRegistry`:
-- the account summary reader (`EPIC-028D`);
-- open orders and order/trade history (`EPIC-028E`);
-- a desk's leverage and margin-mode control, should a strategy ever need
-  it: `EPIC-028F` delivered it as venue-addressed commands, which a screen
-  dispatches, so no field was needed here;
+- the account summary, open orders and order/trade history (`EPIC-028D`,
+  `EPIC-028E`): `account_activity` (`EPIC-028J`);
+- a desk's leverage and margin-mode chips: `futures_settings`
+  (`EPIC-028I`), a façade over `EPIC-028F`'s venue-addressed commands;
 - the order panel's filters and fees (`EPIC-028H`): `order_entry_terms`.
 """
 
@@ -20,11 +19,17 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_activity import (
+    IAccountActivity,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_account_snapshot import (
     IAccountSnapshot,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_equity_curve import (
     IEquityCurve,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_futures_settings_control import (
+    IFuturesSettingsControl,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_order_entry_terms import (
     IOrderEntryTerms,
@@ -50,3 +55,5 @@ class VenueTradingPorts:
     account_snapshot: IAccountSnapshot
     equity_curve: IEquityCurve
     order_entry_terms: IOrderEntryTerms
+    account_activity: IAccountActivity
+    futures_settings: IFuturesSettingsControl

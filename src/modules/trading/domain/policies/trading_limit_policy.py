@@ -42,7 +42,17 @@ class TradingLimitPolicy:
         the first failure (`first_violation`); a caller building a
         preview display (`trade-once`'s own worked example shows all four
         with individual ✔ marks) wants the whole set.
+
+        `EPIC-028I` — a protective order or a close passes all four: it is
+        reduce-only on Futures (`ExecuteOrderCommand` refuses one that is
+        not), so it can open no position, add no notional and is not a new
+        trade to pace (`OrderPurpose`).
         """
+        if context.purpose.only_reduces:
+            return tuple(
+                TradingLimitCheck(violation, passed=True)
+                for violation in TradingLimitViolation
+            )
         return (
             TradingLimitCheck(
                 TradingLimitViolation.MAX_ORDERS_PER_SESSION,
