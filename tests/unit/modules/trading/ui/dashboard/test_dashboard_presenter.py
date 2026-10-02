@@ -2424,10 +2424,10 @@ def test_armed_config_changed_updates_the_summary(presenter, strategy_session):
 
 
 # ---------------------------------------------------------------------------
-# `EPIC-023D` — Enable/Disable trading toggle + Emergency Stop, same
-# behaviour `TradingPresenter`'s own toggle/Emergency Stop have — see
-# `test_trading_presenter_toggle.py`/`test_trading_presenter_emergency_stop.py`
-# for the mirror-image tests.
+# `EPIC-023D` — Enable/Disable trading toggle + Emergency Stop, through the
+# desks' `DeskSessionControls` since `EPIC-028M`; its own tests
+# (`desk/test_desk_session_controls.py`) hold the full matrix, these the
+# Dev Board's wiring.
 # ---------------------------------------------------------------------------
 
 
@@ -2448,16 +2448,28 @@ def test_construction_when_already_enabled_reflects_that_too(
     assert presenter._view_model.enabled is True
 
 
-def test_toggle_when_disabled_submits_enable(presenter, mock_thread_mgr):
+def _run_last_submitted(mock_thread_mgr) -> None:
+    """Runs the task the controls last handed the (mocked) thread manager,
+    as its worker would."""
+    task, *args = mock_thread_mgr.submit.call_args[0]
+    task(*args)
+
+
+def test_toggle_when_disabled_enables_through_the_shared_controls(
+    presenter, mock_thread_mgr, trading_session
+):
+    """`EPIC-028M` — the Dev Board's toggle is the desks' own
+    `DeskSessionControls`, not a copy of it."""
     presenter._view_model.toggleRequested.emit()
 
-    mock_thread_mgr.submit.assert_called_once()
-    submitted_callable = mock_thread_mgr.submit.call_args[0][0]
-    assert submitted_callable == presenter._trading_actions.run_enable
     assert presenter._view_model.toggleBusy is True
+    _run_last_submitted(mock_thread_mgr)
+    assert trading_session.enables == 1
+    assert presenter._view_model.enabled is True
+    assert presenter._view_model.toggleBusy is False
 
 
-def test_toggle_when_enabled_submits_disable(
+def test_toggle_when_enabled_disables(
     view, mock_container, trading_session, mock_thread_mgr
 ):
     trading_session.set_enabled(enabled=True)
@@ -2465,29 +2477,26 @@ def test_toggle_when_enabled_submits_disable(
     mock_thread_mgr.submit.reset_mock()
 
     presenter._view_model.toggleRequested.emit()
+    _run_last_submitted(mock_thread_mgr)
 
-    mock_thread_mgr.submit.assert_called_once()
-    submitted_callable = mock_thread_mgr.submit.call_args[0][0]
-    assert submitted_callable == presenter._trading_actions.run_disable
+    assert trading_session.disables == 1
+    assert presenter._view_model.enabled is False
+    assert presenter._view_model.toggleBusy is False
 
 
 def test_toggle_is_blocked_while_emergency_stop_is_pending(presenter, mock_thread_mgr):
-    """`BUG-089`'s precedent, Dev Board's own copy — a toggle click must
-    never race an Emergency Stop already in flight."""
-    from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
-        ActionOutcome,
-    )
-
-    presenter._emergency_stop_tracker.begin_action("emergency_stop", None, None)
+    """`BUG-089` — a toggle click must never race an Emergency Stop already
+    in flight (the controls' own tests hold the full matrix)."""
+    presenter._view_model.emergencyStopRequested.emit()
+    mock_thread_mgr.submit.reset_mock()
 
     presenter._view_model.toggleRequested.emit()
 
     mock_thread_mgr.submit.assert_not_called()
-    assert presenter._emergency_stop_tracker.active_outcome is ActionOutcome.PENDING
 
 
 def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
-    presenter, trading_session, view, monkeypatch
+    presenter, trading_session, view, monkeypatch, mock_thread_mgr
 ):
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
         EnableTradingResult,
@@ -2510,19 +2519,18 @@ def test_successful_enable_turns_the_toggle_on_and_seeds_open_orders(
     monkeypatch.setattr(view, "set_open_orders", open_orders_spy)
     monkeypatch.setattr(view, "set_positions", positions_spy)
     presenter._view_model.toggleRequested.emit()
-    action_id = presenter._toggle_tracker.active_action.action_id
 
-    presenter._trading_actions.run_enable(action_id)
+    _run_last_submitted(mock_thread_mgr)
 
-    assert trading_session.enables == 1
     assert presenter._view_model.enabled is True
-    assert presenter._view_model.toggleBusy is False
     open_orders_spy.assert_called_once_with([build_open_order_row(order)])
     positions_spy.assert_called_once_with([])
+    log_entries = presenter._view_model.log_model.entries
+    assert any("Trading enabled." in entry.message for entry in log_entries)
 
 
 def test_refused_enable_shows_the_block_reason_and_seeds_positions(
-    presenter, trading_session, view, monkeypatch
+    presenter, trading_session, view, monkeypatch, mock_thread_mgr
 ):
     from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
         EnableTradingBlockReason,
@@ -2544,9 +2552,8 @@ def test_refused_enable_shows_the_block_reason_and_seeds_positions(
     positions_spy = MagicMock()
     monkeypatch.setattr(view, "set_positions", positions_spy)
     presenter._view_model.toggleRequested.emit()
-    action_id = presenter._toggle_tracker.active_action.action_id
 
-    presenter._trading_actions.run_enable(action_id)
+    _run_last_submitted(mock_thread_mgr)
 
     assert presenter._view_model.enabled is False
     log_entries = presenter._view_model.log_model.entries
@@ -2555,29 +2562,15 @@ def test_refused_enable_shows_the_block_reason_and_seeds_positions(
 
 
 def test_an_enable_exception_from_the_session_port_is_reported_not_raised(
-    presenter, trading_session
+    presenter, trading_session, mock_thread_mgr
 ):
     trading_session.enable_raises(RuntimeError("boom"))
     presenter._view_model.toggleRequested.emit()
-    action_id = presenter._toggle_tracker.active_action.action_id
 
-    presenter._trading_actions.run_enable(action_id)  # must not raise
+    _run_last_submitted(mock_thread_mgr)  # must not raise
 
     log_entries = presenter._view_model.log_model.entries
     assert any("boom" in entry.message for entry in log_entries)
-
-
-def test_successful_disable_turns_the_toggle_off(view, mock_container, trading_session):
-    trading_session.set_enabled(enabled=True)
-    presenter = DashboardPresenter(view, mock_container)
-    presenter._view_model.toggleRequested.emit()
-    action_id = presenter._toggle_tracker.active_action.action_id
-
-    presenter._trading_actions.run_disable(action_id)
-
-    assert trading_session.disables == 1
-    assert presenter._view_model.enabled is False
-    assert presenter._view_model.toggleBusy is False
 
 
 def _emergency_stop_result(
@@ -2602,17 +2595,17 @@ def _emergency_stop_result(
 
 
 def test_emergency_stop_success_reconciles_the_tables_and_logs(
-    presenter, trading_session, view, monkeypatch
+    presenter, trading_session, view, monkeypatch, mock_thread_mgr
 ):
+    trading_session.set_enabled(enabled=True)
     trading_session.emergency_stop_answers(_emergency_stop_result(fully_succeeded=True))
     open_orders_spy = MagicMock()
     positions_spy = MagicMock()
     monkeypatch.setattr(view, "set_open_orders", open_orders_spy)
     monkeypatch.setattr(view, "set_positions", positions_spy)
 
-    presenter._on_emergency_stop_requested()
-    action_id = presenter._emergency_stop_tracker.active_action.action_id
-    presenter._trading_actions.run_emergency_stop(action_id)
+    presenter._view_model.emergencyStopRequested.emit()
+    _run_last_submitted(mock_thread_mgr)
 
     assert trading_session.emergency_stops == 1
     assert presenter._view_model.enabled is False
@@ -2623,24 +2616,25 @@ def test_emergency_stop_success_reconciles_the_tables_and_logs(
     assert any("EMERGENCY STOP" in entry.message for entry in log_entries)
 
 
-def test_emergency_stop_partial_failure_is_reported(presenter, trading_session):
+def test_emergency_stop_partial_failure_is_reported(
+    presenter, trading_session, mock_thread_mgr
+):
     trading_session.emergency_stop_answers(
         _emergency_stop_result(fully_succeeded=False)
     )
 
-    presenter._on_emergency_stop_requested()
-    action_id = presenter._emergency_stop_tracker.active_action.action_id
-    presenter._trading_actions.run_emergency_stop(action_id)
+    presenter._view_model.emergencyStopRequested.emit()
+    _run_last_submitted(mock_thread_mgr)
 
     log_entries = presenter._view_model.log_model.entries
     assert any("PARTIALLY FAILED" in entry.message for entry in log_entries)
 
 
 def test_emergency_stop_with_unconfirmed_final_state_does_not_touch_the_tables(
-    presenter, trading_session, view, monkeypatch
+    presenter, trading_session, view, monkeypatch, mock_thread_mgr
 ):
-    """`BUG-093`'s precedent, Dev Board's own copy — a failed reconciliation
-    read must never be treated as "confirmed flat"."""
+    """`BUG-093` — a failed reconciliation read must never be treated as
+    "confirmed flat"."""
     trading_session.emergency_stop_answers(
         _emergency_stop_result(fully_succeeded=True, final_state_confirmed=False)
     )
@@ -2649,14 +2643,25 @@ def test_emergency_stop_with_unconfirmed_final_state_does_not_touch_the_tables(
     monkeypatch.setattr(view, "set_open_orders", open_orders_spy)
     monkeypatch.setattr(view, "set_positions", positions_spy)
 
-    presenter._on_emergency_stop_requested()
-    action_id = presenter._emergency_stop_tracker.active_action.action_id
-    presenter._trading_actions.run_emergency_stop(action_id)
+    presenter._view_model.emergencyStopRequested.emit()
+    _run_last_submitted(mock_thread_mgr)
 
     open_orders_spy.assert_not_called()
     positions_spy.assert_not_called()
     log_entries = presenter._view_model.log_model.entries
     assert any("[WARNING]" in entry.message for entry in log_entries)
+
+
+def test_enabling_on_the_dev_board_never_puts_its_chart_live(
+    presenter, trading_session, mock_thread_mgr
+):
+    """Unlike a desk (`BUG-107`'s opt-in is the toggle there), the Dev
+    Board's chart is driven by its own Start Live button."""
+    presenter._view_model.toggleRequested.emit()
+    _run_last_submitted(mock_thread_mgr)
+
+    assert presenter._view_model.enabled is True
+    assert mock_thread_mgr.submit.call_count == 1  # the enable, nothing else
 
 
 def test_order_filled_refreshes_the_session_stats_card(presenter, trading_session):

@@ -48,9 +48,7 @@ from .presenter_factory_indicators import build_indicator_presenter_state
 from .presenter_factory_stream import build_stream_presenter_state
 from .presenter_factory_trading import (
     _ARM_ACTION,
-    _EMERGENCY_STOP_ACTION,
     _MANUAL_ORDER_ACTION,
-    _TOGGLE_ACTION,
     build_trading_presenter_state,
 )
 
@@ -66,9 +64,7 @@ if TYPE_CHECKING:
 #: consumed at construction time.
 __all__ = [
     "_ARM_ACTION",
-    "_EMERGENCY_STOP_ACTION",
     "_MANUAL_ORDER_ACTION",
-    "_TOGGLE_ACTION",
     "build_dashboard_presenter_state",
 ]
 

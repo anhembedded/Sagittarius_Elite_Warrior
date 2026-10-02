@@ -22,13 +22,6 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.cancel_order_result import (
     CancelOrderResult,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
-    EmergencyStopResult,
-    EmergencyStopStepResult,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
-    EnableTradingResult,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ExchangeConnectionStatus,
     MarginType,
@@ -50,14 +43,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_accoun
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_submission import (
     FakeOrderSubmission,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
-    FakeTradingSession,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.manual_order_intent import (
     ManualOrderDirection,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.coordinators.trading_actions_coordinator import (
-    ActionTrackers,
     CompletionEmitters,
     TradingActionsCoordinator,
 )
@@ -65,12 +54,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
-    ActionOutcome,
     ActionOwnershipTracker,
 )
 
-_TOGGLE = "toggle_trading"
-_EMERGENCY_STOP = "emergency_stop"
 _MANUAL_ORDER = "manual_order"
 
 
@@ -109,11 +95,6 @@ def thread_manager() -> MagicMock:
 
 
 @pytest.fixture
-def trading_session() -> FakeTradingSession:
-    return FakeTradingSession()
-
-
-@pytest.fixture
 def order_submission() -> FakeOrderSubmission:
     return FakeOrderSubmission()
 
@@ -132,16 +113,6 @@ def market_type() -> MarketType:
 
 
 @pytest.fixture
-def toggle_tracker() -> ActionOwnershipTracker:
-    return ActionOwnershipTracker()
-
-
-@pytest.fixture
-def emergency_stop_tracker() -> ActionOwnershipTracker:
-    return ActionOwnershipTracker()
-
-
-@pytest.fixture
 def manual_order_tracker() -> ActionOwnershipTracker:
     return ActionOwnershipTracker()
 
@@ -152,27 +123,7 @@ def append_log() -> _Recorder:
 
 
 @pytest.fixture
-def set_trading_state() -> _Recorder:
-    return _Recorder()
-
-
-@pytest.fixture
 def set_manual_order_state() -> _Recorder:
-    return _Recorder()
-
-
-@pytest.fixture
-def emit_enable_completed() -> _Recorder:
-    return _Recorder()
-
-
-@pytest.fixture
-def emit_disable_completed() -> _Recorder:
-    return _Recorder()
-
-
-@pytest.fixture
-def emit_emergency_stop_completed() -> _Recorder:
     return _Recorder()
 
 
@@ -189,49 +140,31 @@ def emit_cancel_order_completed() -> _Recorder:
 def _build_coordinator(
     *,
     thread_manager,
-    trading_session,
     order_submission,
     account,
     market_type,
-    toggle_tracker,
-    emergency_stop_tracker,
     manual_order_tracker,
     append_log,
-    set_trading_state,
     set_manual_order_state,
     get_last_price,
-    emit_enable_completed,
-    emit_disable_completed,
-    emit_emergency_stop_completed,
     emit_manual_order_completed,
     emit_cancel_order_completed,
 ) -> TradingActionsCoordinator:
     """Shared construction for the default fixture and the one test that
     needs a non-default `get_last_price` — keeps the grouping into
-    `ActionTrackers`/`CompletionEmitters` (`code/quality.md` §7) written in
+    `CompletionEmitters` (`code/quality.md` §7) written in
     exactly one place."""
     return TradingActionsCoordinator(
         thread_manager=thread_manager,
-        trading_session=trading_session,
         order_submission=order_submission,
         account=account,
         market_type=market_type,
-        trackers=ActionTrackers(
-            toggle=toggle_tracker,
-            emergency_stop=emergency_stop_tracker,
-            manual_order=manual_order_tracker,
-        ),
-        toggle_action_kind=_TOGGLE,
-        emergency_stop_action_kind=_EMERGENCY_STOP,
+        manual_order_tracker=manual_order_tracker,
         manual_order_action_kind=_MANUAL_ORDER,
         completion_emitters=CompletionEmitters(
-            enable=emit_enable_completed,
-            disable=emit_disable_completed,
-            emergency_stop=emit_emergency_stop_completed,
             manual_order=emit_manual_order_completed,
             cancel_order=emit_cancel_order_completed,
         ),
-        set_trading_state=set_trading_state,
         set_manual_order_state=set_manual_order_state,
         append_log=append_log,
         get_active_symbol=lambda: "BTCUSDT",
@@ -242,211 +175,27 @@ def _build_coordinator(
 @pytest.fixture
 def coordinator(
     thread_manager,
-    trading_session,
     order_submission,
     account,
     market_type,
-    toggle_tracker,
-    emergency_stop_tracker,
     manual_order_tracker,
     append_log,
-    set_trading_state,
     set_manual_order_state,
-    emit_enable_completed,
-    emit_disable_completed,
-    emit_emergency_stop_completed,
     emit_manual_order_completed,
     emit_cancel_order_completed,
 ) -> TradingActionsCoordinator:
     return _build_coordinator(
         thread_manager=thread_manager,
-        trading_session=trading_session,
         order_submission=order_submission,
         account=account,
         market_type=market_type,
-        toggle_tracker=toggle_tracker,
-        emergency_stop_tracker=emergency_stop_tracker,
         manual_order_tracker=manual_order_tracker,
         append_log=append_log,
-        set_trading_state=set_trading_state,
         set_manual_order_state=set_manual_order_state,
         get_last_price=lambda _symbol: Decimal(64000),
-        emit_enable_completed=emit_enable_completed,
-        emit_disable_completed=emit_disable_completed,
-        emit_emergency_stop_completed=emit_emergency_stop_completed,
         emit_manual_order_completed=emit_manual_order_completed,
         emit_cancel_order_completed=emit_cancel_order_completed,
     )
-
-
-# ---------------------------------------------------------------------------
-# Enable/Disable toggle
-# ---------------------------------------------------------------------------
-
-
-def test_request_toggle_when_disabled_submits_enable(coordinator, thread_manager):
-    coordinator.request_toggle()
-
-    thread_manager.submit.assert_called_once()
-    submitted_callable, action_id = thread_manager.submit.call_args[0]
-    assert submitted_callable == coordinator.run_enable
-    assert isinstance(action_id, int)
-
-
-def test_request_toggle_when_enabled_submits_disable(
-    coordinator, thread_manager, trading_session
-):
-    trading_session.set_enabled(enabled=True)
-
-    coordinator.request_toggle()
-
-    thread_manager.submit.assert_called_once()
-    submitted_callable = thread_manager.submit.call_args[0][0]
-    assert submitted_callable == coordinator.run_disable
-
-
-def test_request_toggle_is_blocked_while_emergency_stop_is_pending(
-    coordinator, thread_manager, emergency_stop_tracker
-):
-    """`BUG-089`'s precedent — a toggle click must never race an Emergency
-    Stop already in flight."""
-    emergency_stop_tracker.begin_action(_EMERGENCY_STOP, None, None)
-
-    coordinator.request_toggle()
-
-    thread_manager.submit.assert_not_called()
-    assert emergency_stop_tracker.active_outcome is ActionOutcome.PENDING
-
-
-def test_run_enable_reports_success(
-    coordinator, trading_session, emit_enable_completed
-):
-    trading_session.enable_answers(
-        EnableTradingResult(
-            enabled=True,
-            block_reason=None,
-            reconciled_positions=(),
-            reconciled_open_orders=(),
-        )
-    )
-
-    coordinator.run_enable(7)
-
-    assert trading_session.enables == 1
-    (call,) = emit_enable_completed.calls
-    action_id, result, error = call[0]
-    assert action_id == 7
-    assert result.enabled is True
-    assert error is None
-
-
-def test_run_enable_reports_an_exception_rather_than_raising(
-    coordinator, trading_session, emit_enable_completed
-):
-    trading_session.enable_raises(RuntimeError("boom"))
-
-    coordinator.run_enable(3)  # must not raise
-
-    (call,) = emit_enable_completed.calls
-    action_id, result, error = call[0]
-    assert action_id == 3
-    assert result is None
-    assert error == "boom"
-
-
-def test_run_disable_reports_completion(
-    coordinator, trading_session, emit_disable_completed
-):
-    coordinator.run_disable(5)
-
-    assert trading_session.disables == 1
-    (call,) = emit_disable_completed.calls
-    action_id, error = call[0]
-    assert action_id == 5
-    assert error is None
-
-
-# ---------------------------------------------------------------------------
-# Emergency Stop
-# ---------------------------------------------------------------------------
-
-
-def test_request_emergency_stop_submits_the_worker_and_locks_the_toggle(
-    coordinator, thread_manager, set_trading_state
-):
-    coordinator.request_emergency_stop()
-
-    thread_manager.submit.assert_called_once()
-    submitted_callable = thread_manager.submit.call_args[0][0]
-    assert submitted_callable == coordinator.run_emergency_stop
-    assert set_trading_state.calls[-1] == (False, True)  # (enabled, busy)
-
-
-def test_request_emergency_stop_is_blocked_while_one_is_already_pending(
-    coordinator, thread_manager, emergency_stop_tracker, append_log
-):
-    emergency_stop_tracker.begin_action(_EMERGENCY_STOP, None, None)
-
-    coordinator.request_emergency_stop()
-
-    thread_manager.submit.assert_not_called()
-    assert any("already been sent" in call[0] for call in append_log.calls)
-
-
-def test_request_emergency_stop_reports_a_session_exception_and_unlocks(
-    coordinator, thread_manager, trading_session, set_trading_state, append_log
-):
-    """Deliberately not `@safe_ui_action`-shaped: a failure here must be
-    seen, not swallowed — see this coordinator's own module docstring."""
-
-    def _raise_on_submit(*_args, **_kwargs):
-        raise RuntimeError("network down")
-
-    thread_manager.submit.side_effect = _raise_on_submit
-
-    coordinator.request_emergency_stop()
-
-    assert any("network down" in call[0] for call in append_log.calls)
-    # Unlocked again after the failure — never left stuck busy.
-    assert set_trading_state.calls[-1] == (False, False)
-
-
-def test_run_emergency_stop_reports_success(
-    coordinator, trading_session, emit_emergency_stop_completed
-):
-    ok = EmergencyStopStepResult(succeeded=True, detail="OK")
-    result = EmergencyStopResult(
-        trading_disabled=ok,
-        orders_cancelled=ok,
-        positions_closed=ok,
-        final_positions=(),
-        final_open_orders=(),
-        final_state_confirmed=True,
-    )
-    trading_session.emergency_stop_answers(result)
-
-    coordinator.run_emergency_stop(9)
-
-    assert trading_session.emergency_stops == 1
-    (call,) = emit_emergency_stop_completed.calls
-    action_id, returned_result, error = call[0]
-    assert action_id == 9
-    assert returned_result is result
-    assert error is None
-
-
-def test_run_emergency_stop_reports_an_exception_rather_than_raising(
-    coordinator, trading_session, emit_emergency_stop_completed
-):
-    trading_session.emergency_stop_raises(RuntimeError("timeout"))
-
-    coordinator.run_emergency_stop(4)  # must not raise
-
-    (call,) = emit_emergency_stop_completed.calls
-    action_id, result, error = call[0]
-    assert action_id == 4
-    assert result is None
-    assert error == "timeout"
 
 
 # ---------------------------------------------------------------------------
@@ -483,38 +232,24 @@ def test_request_manual_order_rejects_a_non_positive_limit_price(
 
 def test_request_manual_order_rejects_a_market_order_with_no_known_price(
     thread_manager,
-    trading_session,
     order_submission,
     account,
     market_type,
-    toggle_tracker,
-    emergency_stop_tracker,
     manual_order_tracker,
     append_log,
-    set_trading_state,
     set_manual_order_state,
-    emit_enable_completed,
-    emit_disable_completed,
-    emit_emergency_stop_completed,
     emit_manual_order_completed,
     emit_cancel_order_completed,
 ):
     coordinator = _build_coordinator(
         thread_manager=thread_manager,
-        trading_session=trading_session,
         order_submission=order_submission,
         account=account,
         market_type=market_type,
-        toggle_tracker=toggle_tracker,
-        emergency_stop_tracker=emergency_stop_tracker,
         manual_order_tracker=manual_order_tracker,
         append_log=append_log,
-        set_trading_state=set_trading_state,
         set_manual_order_state=set_manual_order_state,
         get_last_price=lambda _symbol: None,  # no live data yet
-        emit_enable_completed=emit_enable_completed,
-        emit_disable_completed=emit_disable_completed,
-        emit_emergency_stop_completed=emit_emergency_stop_completed,
         emit_manual_order_completed=emit_manual_order_completed,
         emit_cancel_order_completed=emit_cancel_order_completed,
     )
@@ -621,18 +356,11 @@ def test_run_manual_order_reports_an_exception_rather_than_raising(
 
 def test_run_manual_order_refuses_a_short_click_on_spot_without_submitting(
     thread_manager,
-    trading_session,
     order_submission,
     account,
-    toggle_tracker,
-    emergency_stop_tracker,
     manual_order_tracker,
     append_log,
-    set_trading_state,
     set_manual_order_state,
-    emit_enable_completed,
-    emit_disable_completed,
-    emit_emergency_stop_completed,
     emit_manual_order_completed,
     emit_cancel_order_completed,
 ):
@@ -644,20 +372,13 @@ def test_run_manual_order_refuses_a_short_click_on_spot_without_submitting(
     own `market_type` must refuse it before any order is built."""
     coordinator = _build_coordinator(
         thread_manager=thread_manager,
-        trading_session=trading_session,
         order_submission=order_submission,
         account=account,
         market_type=MarketType.SPOT,
-        toggle_tracker=toggle_tracker,
-        emergency_stop_tracker=emergency_stop_tracker,
         manual_order_tracker=manual_order_tracker,
         append_log=append_log,
-        set_trading_state=set_trading_state,
         set_manual_order_state=set_manual_order_state,
         get_last_price=lambda _symbol: Decimal(64000),
-        emit_enable_completed=emit_enable_completed,
-        emit_disable_completed=emit_disable_completed,
-        emit_emergency_stop_completed=emit_emergency_stop_completed,
         emit_manual_order_completed=emit_manual_order_completed,
         emit_cancel_order_completed=emit_cancel_order_completed,
     )
@@ -682,18 +403,11 @@ def test_run_manual_order_refuses_a_short_click_on_spot_without_submitting(
 
 def test_run_manual_order_sells_a_real_spot_holding(
     thread_manager,
-    trading_session,
     order_submission,
     account,
-    toggle_tracker,
-    emergency_stop_tracker,
     manual_order_tracker,
     append_log,
-    set_trading_state,
     set_manual_order_state,
-    emit_enable_completed,
-    emit_disable_completed,
-    emit_emergency_stop_completed,
     emit_manual_order_completed,
     emit_cancel_order_completed,
 ):
@@ -703,20 +417,13 @@ def test_run_manual_order_sells_a_real_spot_holding(
     outright — `manual_order_intent_for()`'s own docstring)."""
     coordinator = _build_coordinator(
         thread_manager=thread_manager,
-        trading_session=trading_session,
         order_submission=order_submission,
         account=account,
         market_type=MarketType.SPOT,
-        toggle_tracker=toggle_tracker,
-        emergency_stop_tracker=emergency_stop_tracker,
         manual_order_tracker=manual_order_tracker,
         append_log=append_log,
-        set_trading_state=set_trading_state,
         set_manual_order_state=set_manual_order_state,
         get_last_price=lambda _symbol: Decimal(64000),
-        emit_enable_completed=emit_enable_completed,
-        emit_disable_completed=emit_disable_completed,
-        emit_emergency_stop_completed=emit_emergency_stop_completed,
         emit_manual_order_completed=emit_manual_order_completed,
         emit_cancel_order_completed=emit_cancel_order_completed,
     )

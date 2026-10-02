@@ -4,8 +4,9 @@ the desk's own venue only.
 @details Written once for every screen that turns one venue's trading on and
 off (`EPIC-021I`, `EPIC-021K`), so a screen's presenter stays a composition,
 and addressed to one venue's `ITradingSession`: the Spot desk's Emergency Stop
-stops Spot and nothing else (`EPIC-028B`). The single Trading screen's copy
-left with that screen (`EPIC-028M`).
+stops Spot and nothing else (`EPIC-028B`). Its two hosts are the desks and the
+Dev Board (`EPIC-028M`, which retired the single Trading screen's copy and the
+Dev Board's own).
 
 Two trackers, never one (`BUG-089`): an `ActionOwnershipTracker` holds one
 active action whatever its kind, so a toggle click landing while Emergency
@@ -14,13 +15,19 @@ Stop is never disabled and never `@safe_ui_action` (a failure must be seen);
 a second click while one runs is answered in words, never sent twice.
 
 Emergency Stop stops the venue's user-data stream in its first step, so no
-event reports what its later steps did: `accountChanged` asks the desk to
-read its tables again (`BUG-093`).
+event reports what its later steps did (`BUG-093`). Two signals say so, one
+per kind of host: `accountChanged` asks a host to read its tables again (a
+desk's account tabs read the venue), and `accountReconciled` hands over the
+positions and open orders the session itself confirmed, for a host that
+keeps its tables from events and these answers alone (the Dev Board). An
+unconfirmed final state hands over nothing: an empty answer from a failed
+read is not "flat".
 """
 
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 
 from PySide6.QtCore import QObject, Signal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
@@ -32,6 +39,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_resu
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.live_position import (
+    LivePosition,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.session_outcome_text import (
     ENABLE_BLOCK_MESSAGES,
     emergency_stop_log_lines,
@@ -51,6 +62,15 @@ _TOGGLE = "toggle_trading"
 _STOP = "emergency_stop"
 
 
+@dataclass(frozen=True)
+class ReconciledAccount:
+    """What the venue holds, as the session confirmed it in an enable or an
+    Emergency Stop."""
+
+    positions: tuple[LivePosition, ...]
+    open_orders: tuple[Order, ...]
+
+
 class DeskSessionControls(QObject):
     """@brief Enables, disables and emergency-stops one venue's trading."""
 
@@ -64,6 +84,8 @@ class DeskSessionControls(QObject):
     tradingEnabled = Signal()
     #: The account changed in ways no event reports: read the tables again.
     accountChanged = Signal()
+    #: A `ReconciledAccount` the session confirmed: the tables' new content.
+    accountReconciled = Signal(object)
 
     _enabled = Signal(object)
     _disabled = Signal(object)
@@ -135,6 +157,11 @@ class DeskSessionControls(QObject):
 
     def _show_enable_result(self, result: EnableTradingResult) -> None:
         self.stateChanged.emit(result.enabled, False)
+        self.accountReconciled.emit(
+            ReconciledAccount(
+                result.reconciled_positions, result.reconciled_open_orders
+            )
+        )
         if result.enabled:
             self.statusChanged.emit("Trading enabled.", False)
             self.tradingEnabled.emit()
@@ -207,7 +234,11 @@ class DeskSessionControls(QObject):
         self.stateChanged.emit(self.is_enabled, False)
         for line in emergency_stop_log_lines(result):
             self.logged.emit(line)
-        if not result.final_state_confirmed:
+        if result.final_state_confirmed:
+            self.accountReconciled.emit(
+                ReconciledAccount(result.final_positions, result.final_open_orders)
+            )
+        else:
             self.logged.emit(
                 "[WARNING] Could not confirm the account after the emergency "
                 "stop; the tables are read again but may lag."

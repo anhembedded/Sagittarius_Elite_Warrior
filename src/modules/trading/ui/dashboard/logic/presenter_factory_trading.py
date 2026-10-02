@@ -1,6 +1,7 @@
 """`BOT-144` — `DashboardPresenter`'s trading-card construction: the live
-order book, the strategy-arming coordinator, and the Enable/Disable/
-Emergency-Stop/manual-order `TradingActionsCoordinator`. Split out of
+order book, the strategy-arming coordinator, the Enable/Disable and
+Emergency Stop controls (`DeskSessionControls`, `EPIC-028M`) and the
+manual-order/cancel `TradingActionsCoordinator`. Split out of
 `presenter_factory.py` once that file itself crossed the 400-line ceiling
 (`architecture-rule.md` §5.4) — see that file's own docstring for why this
 whole construction sequence is a Builder over `presenter`, not an
@@ -23,6 +24,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_arming_c
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_strategy_catalog_reader import (
     IStrategyCatalogReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_session_controls import (
+    DeskSessionControls,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.live_order_book_coordinator import (
     LiveOrderBookCoordinator,
 )
@@ -37,7 +41,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
 )
 
 from ..coordinators.trading_actions_coordinator import (
-    ActionTrackers,
     CompletionEmitters,
     TradingActionsCoordinator,
 )
@@ -54,13 +57,8 @@ if TYPE_CHECKING:
 #: strings here do not collide.
 _ARM_ACTION = "arm_strategy"
 
-#: `EPIC-023D` — same action-kind strings `TradingPresenter` uses for its own
-#: toggle/Emergency Stop trackers; again separate instances, so no collision.
-_TOGGLE_ACTION = "toggle_trading"
-_EMERGENCY_STOP_ACTION = "emergency_stop"
-
 #: `EPIC-024B` — manual trading card. One tracker for the whole card (like
-#: `_TOGGLE_ACTION` above): the form represents exactly one pending attempt
+#: a toggle): the form represents exactly one pending attempt
 #: at a time, never two concurrent Long/Short clicks from the same card.
 _MANUAL_ORDER_ACTION = "manual_order"
 
@@ -113,16 +111,18 @@ def build_trading_presenter_state(
     )
     presenter._refresh_armed_summary(busy=False)
 
-    # `EPIC-023D` — Enable/Disable trading + Emergency Stop. Own tracker
-    # instances, not shared with `_arm_tracker` or Trading's own
-    # (`async-ui-action-rule.md` §2: one tracker holds one active
-    # action, so sharing would let either screen's own click fence the
-    # other's result as stale).
-    presenter._toggle_tracker = ActionOwnershipTracker()
-    presenter._emergency_stop_tracker = ActionOwnershipTracker()
-    # `EPIC-024B` — manual trading card. Own tracker, same reasoning as
-    # the two just above (a manual order attempt must not fence, or be
-    # fenced by, an unrelated toggle/emergency-stop/arm click).
+    # `EPIC-023D` — Enable/Disable trading + Emergency Stop for the venue
+    # this board shows, through the desks' own controls (`EPIC-028M`). Each
+    # instance holds its own two trackers (`BUG-089`), never shared with
+    # `_arm_tracker` or a desk's (`async-ui-action-rule.md` §2).
+    presenter._session_controls = DeskSessionControls(
+        presenter._trading_session,
+        presenter._thread_manager,
+        container.resolve(TradingVenue),
+        presenter,
+    )
+    # `EPIC-024B` — manual trading card. Own tracker (a manual order attempt
+    # must not fence, or be fenced by, an unrelated toggle/stop/arm click).
     presenter._manual_order_tracker = ActionOwnershipTracker()
     # `EPIC-024B` — last live close price per symbol, the manual order
     # card's `reference_price` for a MARKET order (a LIMIT order's own
@@ -133,7 +133,6 @@ def build_trading_presenter_state(
     # `BOT-144` — trackers stay Presenter-owned (`async-ui-action-rule.md` §2).
     presenter._trading_actions = TradingActionsCoordinator(
         thread_manager=presenter._thread_manager,
-        trading_session=presenter._trading_session,
         order_submission=presenter._order_submission,
         account=presenter._account,
         # `EPIC-027K` post-review fix (PR #284) — `manual_order_intent_for()`
@@ -141,22 +140,12 @@ def build_trading_presenter_state(
         # venue is resolved once here, like every other venue-branched bind
         # in `adapter_bindings.py`, not re-read per click.
         market_type=container.resolve(TradingVenue).market_type,
-        trackers=ActionTrackers(
-            toggle=presenter._toggle_tracker,
-            emergency_stop=presenter._emergency_stop_tracker,
-            manual_order=presenter._manual_order_tracker,
-        ),
-        toggle_action_kind=_TOGGLE_ACTION,
-        emergency_stop_action_kind=_EMERGENCY_STOP_ACTION,
+        manual_order_tracker=presenter._manual_order_tracker,
         manual_order_action_kind=_MANUAL_ORDER_ACTION,
         completion_emitters=CompletionEmitters(
-            enable=presenter.enableTradingCompleted.emit,
-            disable=presenter.disableTradingCompleted.emit,
-            emergency_stop=presenter.emergencyStopCompleted.emit,
             manual_order=presenter.manualOrderCompleted.emit,
             cancel_order=presenter.cancelOrderCompleted.emit,
         ),
-        set_trading_state=presenter._view_model.set_trading_state,
         set_manual_order_state=presenter._view_model.set_manual_order_state,
         append_log=presenter._append_log,
         get_active_symbol=lambda: presenter._active_symbol,

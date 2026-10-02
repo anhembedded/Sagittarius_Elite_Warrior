@@ -27,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_tradin
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_session_controls import (
     DeskSessionControls,
+    ReconciledAccount,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.session_outcome_text import (
     ENABLE_BLOCK_MESSAGES,
@@ -35,6 +36,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 
+from .account_tabs_fixtures import order
 from .order_entry_fixtures import HeldThreadManager
 
 _DONE = EmergencyStopStepResult(succeeded=True, detail="done")
@@ -50,6 +52,7 @@ class Seen:
     logs: list[str] = field(default_factory=list)
     enabled: int = 0
     rereads: int = 0
+    reconciled: list[ReconciledAccount] = field(default_factory=list)
 
     @property
     def last_status(self) -> tuple[str, bool]:
@@ -80,16 +83,21 @@ def rig(qapp) -> Rig:
 
     controls.tradingEnabled.connect(count_enable)
     controls.accountChanged.connect(count_reread)
+    controls.accountReconciled.connect(seen.reconciled.append)
     return Rig(controls, session, threads, seen)
 
 
 def _stop(
-    *, orders: EmergencyStopStepResult = _DONE, confirmed: bool = True
+    *,
+    orders: EmergencyStopStepResult = _DONE,
+    confirmed: bool = True,
+    still_open: tuple = (),
 ) -> EmergencyStopResult:
     return EmergencyStopResult(
         trading_disabled=_DONE,
         orders_cancelled=orders,
         positions_closed=_DONE,
+        final_open_orders=still_open,
         final_state_confirmed=confirmed,
     )
 
@@ -252,3 +260,45 @@ def test_a_second_stop_while_one_runs_is_not_sent_twice(rig: Rig) -> None:
         "Emergency stop in progress — the request was already sent.",
         False,
     )
+
+
+# -- what the session confirmed ------------------------------------------ #
+
+
+def test_an_enable_hands_over_the_orders_it_reconciled(rig: Rig) -> None:
+    resting = order("BTCUSDT", "SEW-resting")
+    rig.session.enable_answers(
+        EnableTradingResult(
+            enabled=True,
+            block_reason=None,
+            reconciled_positions=(),
+            reconciled_open_orders=(resting,),
+        )
+    )
+
+    rig.controls.toggle()
+    rig.threads.run(0)
+
+    assert rig.seen.reconciled == [ReconciledAccount((), (resting,))]
+
+
+def test_a_confirmed_stop_hands_over_what_is_left(rig: Rig) -> None:
+    """`BUG-093` — the stream is stopped, so this answer is the only report
+    of what the stop's later steps left open."""
+    left = order("ETHUSDT", "SEW-left")
+    rig.session.emergency_stop_answers(_stop(orders=_FAILED, still_open=(left,)))
+
+    rig.controls.emergency_stop()
+    rig.threads.run(0)
+
+    assert rig.seen.reconciled == [ReconciledAccount((), (left,))]
+
+
+def test_an_unconfirmed_stop_hands_over_nothing(rig: Rig) -> None:
+    """An empty answer from a read that failed is not "flat"."""
+    rig.session.emergency_stop_answers(_stop(confirmed=False))
+
+    rig.controls.emergency_stop()
+    rig.threads.run(0)
+
+    assert rig.seen.reconciled == []
