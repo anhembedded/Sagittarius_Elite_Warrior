@@ -1,5 +1,6 @@
-"""`EPIC-028C` — at boot, the primary venue re-arms its own saved strategy,
-and only that venue until each venue has its own desk (`EPIC-028K`/`L`).
+"""`EPIC-028C`/`028L` — at boot, each enabled venue re-arms its own saved
+strategy (`EPIC-028L` widened this from the primary venue once each venue had
+a desk that shows and stops it).
 
 @details Driven through `StrategyModule.boot()` itself, so removing the
 per-venue restore from it fails here (`CS-002`: a test that built its own
@@ -57,17 +58,39 @@ _SPOT_CONFIG = LiveStrategyConfig(
 
 
 class _RecordingDispatcher(ICommandDispatcher):
-    def __init__(self) -> None:
+    """Answers every arm with success, except for `refused`'s, which it
+    refuses the way `ArmStrategyCommandHandler` refuses a config that no
+    longer validates."""
+
+    def __init__(self, refused: TradingVenue | None = None) -> None:
         self.armed: list[ArmStrategyCommand] = []
+        self.accepted: list[TradingVenue] = []
+        self._refused = refused
 
     def dispatch(self, handler_class: type, input_dto: object | None = None) -> object:
         assert isinstance(input_dto, ArmStrategyCommand)
         self.armed.append(input_dto)
+        if input_dto.venue is self._refused:
+            return ArmStrategyResult(armed=False, error_message="no longer valid")
+        self.accepted.append(input_dto.venue)
         return ArmStrategyResult(armed=True)
 
 
 def _boot(config: DictConfig, *venues: TradingVenue) -> _RecordingDispatcher:
-    dispatcher = _RecordingDispatcher()
+    return _boot_with(_RecordingDispatcher(), config, venues)
+
+
+def _boot_refusing(
+    config: DictConfig, refused: TradingVenue, *venues: TradingVenue
+) -> _RecordingDispatcher:
+    return _boot_with(_RecordingDispatcher(refused), config, venues)
+
+
+def _boot_with(
+    dispatcher: _RecordingDispatcher,
+    config: DictConfig,
+    venues: tuple[TradingVenue, ...],
+) -> _RecordingDispatcher:
     container = StdLibContainer()
     container.singleton(IConfig, config)
     container.singleton(ICommandDispatcher, dispatcher)
@@ -87,10 +110,10 @@ def _armed(dispatcher: _RecordingDispatcher) -> dict[TradingVenue, LiveStrategyC
     return {command.venue: command.config for command in dispatcher.armed}
 
 
-def test_the_primary_venue_rearms_its_own_saved_strategy_not_the_others() -> None:
-    """Both venues saved a strategy. No screen shows or disarms Spot yet (the
-    PR #295 review, F3), so Futures comes back armed with its own and Spot's
-    stays saved, untouched."""
+def test_each_enabled_venue_rearms_its_own_saved_strategy() -> None:
+    """Both venues saved a strategy and both have a desk (`EPIC-028L`): each
+    comes back armed with its own, addressed to its own venue — Spot's never
+    lands on Futures, nor the other way round."""
     config = DictConfig()
     store = LiveStrategyConfigStore(config)
     store.save(_FUTURES, _FUTURES_CONFIG)
@@ -98,8 +121,20 @@ def test_the_primary_venue_rearms_its_own_saved_strategy_not_the_others() -> Non
 
     dispatcher = _boot(config, _FUTURES, _SPOT)
 
-    assert _armed(dispatcher) == {_FUTURES: _FUTURES_CONFIG}
-    assert store.load(_SPOT) == _SPOT_CONFIG
+    assert _armed(dispatcher) == {_FUTURES: _FUTURES_CONFIG, _SPOT: _SPOT_CONFIG}
+
+
+def test_one_venues_bad_saved_config_leaves_the_other_venue_armed() -> None:
+    """A strategy Spot saved that no longer validates is logged and left
+    disarmed; it must not keep Futures from coming back."""
+    config = DictConfig()
+    store = LiveStrategyConfigStore(config)
+    store.save(_FUTURES, _FUTURES_CONFIG)
+    store.save(_SPOT, _SPOT_CONFIG)
+    dispatcher = _boot_refusing(config, _SPOT, _FUTURES, _SPOT)
+
+    assert _armed(dispatcher) == {_FUTURES: _FUTURES_CONFIG, _SPOT: _SPOT_CONFIG}
+    assert dispatcher.accepted == [_FUTURES]
 
 
 def test_a_spot_only_app_rearms_spots_own_strategy() -> None:

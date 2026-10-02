@@ -277,23 +277,21 @@ class StrategyModule(BoundedContextModule):
 
     @classmethod
     def _restore_armed_strategies(cls, container: IContainer) -> None:
-        """`EPIC-028C` — re-arms the primary venue's own saved strategy
-        through its own arming. A single-venue app's unscoped keys first
-        become that one venue's (`LiveStrategyConfigStore.adopt_legacy`).
+        """`EPIC-028C` — re-arms each enabled venue's own saved strategy
+        through that venue's own arming. A single-venue app's unscoped keys
+        first become that one venue's (`LiveStrategyConfigStore.adopt_legacy`).
 
-        Only the primary venue, until each venue has its own desk
-        (`EPIC-028K`/`L`): every screen today shows and disarms the primary
-        venue alone, so re-arming another venue would hold an armed strategy
-        no screen mentions or can stop (the PR #295 review, F3). The other
-        venue's saved strategy stays saved and comes back once a desk shows
-        it; that is widening this to every enabled venue."""
+        `EPIC-028L` widened this from the primary venue to every enabled
+        one: each venue now has a desk that shows its armed strategy and can
+        stop it (`trading.futures`, `trading.spot`), which is what the
+        primary-only restore waited for (the PR #295 review, F3). One venue's
+        bad saved config is logged and left disarmed by `_arm_from_config`;
+        it never keeps the other venue from coming back."""
         store = LiveStrategyConfigStore(container.resolve(IConfig))
-        store.adopt_legacy(container.resolve(IVenueContexts).enabled())
-        primary = container.resolve(TradingVenue)
-        if primary is not TradingVenue.DISABLED:
-            cls._arm_from_config(
-                store, primary, venue_strategy_arming(container, primary)
-            )
+        enabled = container.resolve(IVenueContexts).enabled()
+        store.adopt_legacy(enabled)
+        for venue in enabled:
+            cls._arm_from_config(store, venue, venue_strategy_arming(container, venue))
 
     @staticmethod
     def _arm_from_config(

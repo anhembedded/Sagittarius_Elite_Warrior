@@ -97,6 +97,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_screen
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.futures_desk_screen import (
     futures_desk_screen,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.spot_desk_screen import (
+    spot_desk_screen,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.probes import (
     build_trading_session_probe,
 )
@@ -231,9 +234,10 @@ class TradingModule(BoundedContextModule):
         )
         registry.contribute_screen(dashboard_screen(self._container))
         registry.contribute_screen(trading_screen(self._container))
-        # `EPIC-028K` — the Futures desk, beside the single screen until
-        # `EPIC-028M` retires it.
+        # `EPIC-028K`/`028L` — one desk per venue, beside the single screen
+        # until `EPIC-028M` retires it.
         registry.contribute_screen(futures_desk_screen(self._container))
+        registry.contribute_screen(spot_desk_screen(self._container))
 
     def boot(self, context: Any) -> None:
         """Two things `register()` could not decide or start.
