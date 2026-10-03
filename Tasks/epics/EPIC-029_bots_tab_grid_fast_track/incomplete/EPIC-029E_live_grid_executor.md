@@ -75,14 +75,23 @@ All criteria are proven against the fake exchange (`EPIC-029A` makes resting LIM
 - [ ] **Stop.** The bot cancels every order carrying its tag, then keeps the base or sells it at
   market by the user's choice in the dialog (O3).
   - It becomes STOPPED **only after a read shows zero open orders carrying its tag**
-    (`stop_confirmed`). Then it clears the budget and releases the lease.
+    (`stop_confirmed`). Then it clears its budget and releases the lease.
+  - Before any cancel or sell, including a STOPPING retry after a switch-off, the bot re-registers
+    its budget, which re-derives the inventory (ADR D6, review round 2). Without a budget its tagged
+    orders are refused (`OWNER_BUDGET_MISSING`).
   - While the switch is off, cancels are refused (`cancel_order/handler.py:78`), so the bot waits
     in STOPPING and retries when trading is enabled. A test shows STOPPING survives a disable and
     an app restart.
-- [ ] **ERROR can be left.** From ERROR, Stop runs the same sequence. ERROR keeps the lease until
-  STOPPED.
+- [ ] **ERROR can be left.** From ERROR, Stop runs the same sequence, re-registering first. ERROR
+  keeps the lease until STOPPED.
+- [ ] **Leases come back after a restart.** A restored bot that is not DRAFT or STOPPED reclaims its
+  lease when trading is enabled (ADR D12). A manual order on its symbol is then refused again.
 - [ ] **Stop loss and take profit.** When a `MarketTickEvent` crosses the stop loss or the take
   profit, the bot runs Stop with *sell base* forced. The stop reason is recorded and shown.
+  - Every market exit (stop loss, take profit, Stop with *sell base*) is **sliced** at or below
+    `max_notional_per_order`, spaced by the budget's `min_order_spacing` (ADR D21, §3.4).
+  - A test exits 5,000 USDT of base in 10 tagged slices, 250 ms apart.
+  - A refused or failed exit slice halts the bot, naming the unsold remainder.
 
 **Emergency Stop, restart and crashes:**
 
@@ -100,9 +109,11 @@ All criteria are proven against the fake exchange (`EPIC-029A` makes resting LIM
 
   These cases are proven: resuming after a disable with the old ladder still resting, and after an
   Emergency Stop that left the inventory sold, partly sold or untouched (bought before the latest
-  enable, ADR §1.4).
-- [ ] **Restart.** A bot that was RUNNING or PAUSED when the app closed loads as RECOVERING and
-  places nothing. When the user enables trading on its venue, the bot reconciles in the order of
+  enable, ADR §1.4). The sold case is proven **while the user also holds the asset**: the
+  re-derived inventory is zero, because Emergency Stop tagged the bot's share (ADR D6, round 2).
+- [ ] **Restart.** A bot that was STARTING loads as HALTED, because it may hold a half-sliced
+  opening buy. A bot that was RUNNING or PAUSED when the app closed loads as RECOVERING and places
+  nothing. When the user enables trading on its venue, the bot reconciles in the order of
   ADR §3.3 and returns to its prior state. These cases are proven:
   - a fill that happened while the app was closed is applied from order history, before any
     adoption;

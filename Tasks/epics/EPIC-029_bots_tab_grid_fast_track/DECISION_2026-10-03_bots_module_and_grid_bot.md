@@ -10,7 +10,8 @@ design that follows from it. Each one is 🤖 proposed by the agent under `ONBOA
 waits for an independent review and then the user. D6, D21 and the open questions O1–O5 need the user
 specifically: D6 changes a safety gate, D21 keeps one, and O1 adds configuration. Review round 1
 (PR #317, comment 5970257684) found five blocking defects and eleven others. This revision
-addresses all of them; the changes are marked **(r1)**.
+addresses all of them; the changes are marked **(r1)**. Review round 2 (comment 5970554633)
+found three more holes in D6's guarantee and five smaller items; those changes are marked **(r2)**.
 
 | Label | Meaning |
 | :--- | :--- |
@@ -97,6 +98,10 @@ to verify in `EPIC-029A`; it is not fixed by this ADR.
     baseline, so it is **not** sold.
 
   After an Emergency Stop, a bot may therefore be flat, partly flat or still fully invested.
+- **Its liquidation sells are untagged.** Each sell gets a fresh `generate_client_order_id()` and is
+  placed directly through `trading_client.place_order` (T/application/session/emergency_stop/handler.py:276-284).
+  Any inventory derived from tagged executions alone would therefore still count the coins
+  Emergency Stop sold **(r2)**.
 - It publishes nothing. Its result goes only to the caller (T/contracts/emergency_stop_result.py:49-54).
 
 ### 1.5 Charting and data (✅)
@@ -157,13 +162,13 @@ Revised after the review of PR #317 (round 1). Changes from the first draft carr
 | D4 | **Store:** one JSON file per bot under `state/bots/<bot_id>.json`, schema-versioned and written atomically (tmp + `replace`). It holds the definition and the bot's runtime ladder state. The store is **never** the source of the bot's inventory for any safety check; D6 derives that from the exchange **(r1)**. | 🔵 Proposed | 🤖 agent | Survives restarts. A corrupted or hand-edited file can mislead the bot's display, but not a safety gate. |
 | D5 | **Client order ids carry a bot tag.** `OrderRequest` gains an optional `client_order_tag`. Trading generates `SEW-{tag}-{hex10}`, where the tag is 6 characters of `[a-z0-9]` (21 of Binance's 36 characters). Untagged ids stay `SEW-{hex12}`. | 🔵 Proposed | 🤖 agent | A bot recognises its own orders in account-wide reads and in history. Trading still owns id generation. |
 | D6 | **Owner budget with a trading-owned owner book**, replacing the signal limits for a budgeted owner's orders. The budget, the book, and how the book is seeded and kept current are set out below this table **(r1)**. | 🔵 Proposed, **needs the user** | Pending | Ladders become possible while trading still bounds every bot. A bot cannot sell what it did not buy (the PR #284 class), even after a restart or a corrupted store, because its inventory always comes from exchange evidence. A runaway loop is bounded by the order-rate window. Manual and strategy orders are unchanged. |
-| D21 | **`max_notional_per_order` keeps applying to bots (r1).** The opening buy is split into slices at or below the cap, spaced by the budget. The planner refuses a level whose capital exceeds the cap. With today's 500 USDT, a Grid's capital per level is at most 500, and the opening buy is not limited (it is sliced). | 🔵 Proposed, **needs the user (O5)** | Pending | No safety knob is loosened for the fast track, and the implied limit is stated up front instead of discovered at Start. A partial-slice failure is defined in §3.4. |
+| D21 | **`max_notional_per_order` keeps applying to bots (r1).** Every market order a bot sends is split into slices at or below the cap and spaced by the budget **(r2)**: the opening buy, stop-loss and take-profit exits, and Stop with *sell base*. The planner refuses a level whose capital exceeds the cap. With today's 500 USDT, a Grid's capital per level is at most 500, and neither the opening buy nor an exit is limited, because each is sliced. | 🔵 Proposed, **needs the user (O5)** | Pending | No safety knob is loosened for the fast track, and the implied limit is stated up front instead of discovered at Start. A partial-slice failure is defined in §3.4. An exit of N × 500 USDT takes about N × `min_order_spacing` (5,000 USDT is about 2.5 s at 250 ms); the planner shows that figure. |
 | D7 | **Trading publishes `TradingSwitchChangedEvent(venue, enabled, cause)` at the moment the switch changes (r1).** `cause` is ENABLED, DISABLED or EMERGENCY_STOP. For an Emergency Stop it is published at step 1, the disable, **before** the cancels and sells. | 🔵 Proposed | 🤖 agent | Bots learn of a stop before their next submit. There is no window in which the bot misreads a switch-off refusal as a fault. |
 | D8 | **The Spot cancel event carries the original id.** When `X` is CANCELED and `"C"` is present, the parser uses `"C"`. Proven red first, then on Testnet. | 🔵 Proposed | 🤖 agent | A cancelled ladder order is recognised. If confirmed, the defect is filed as a `BUG-`; it affects the desks too. |
 | D9 | **One serial worker per running bot (actor).** Events are copied off the websocket thread into the bot's queue, and only the worker submits, cancels and writes the store. **Refusals are classified (r1):** `TRADING_SWITCH_OFF` and `CONNECTION_NOT_READY` are `switch_off`, never `fault`. | 🔵 Proposed | 🤖 agent | One writer for the ladder state. A switch-off during an Emergency Stop leads to HALTED, not ERROR. |
 | D10 | **Fills are accumulated by the bot.** The event carries only this fill's quantity, so the executor keeps an executed quantity per order. The counter order is placed only on a full fill. | 🔵 Proposed | 🤖 agent | Correct when Binance splits fills. The book is already updated when the bot sees the fill (D6), so the counter SELL is never refused for inventory. |
 | D11 | **Stop loss and take profit are watched by the app** on `MarketTickEvent`. An exchange-side stop waits for `EPIC-026K`. | 🔵 Proposed | 🤖 agent | A stop works only while the app runs. The UI says so, and closing the app warns (O4). |
-| D12 | **A bot never places an order at app start.** A Running or Paused bot restores as RECOVERING. A Stopping bot restores as STOPPING. A Halted bot restores as HALTED. A RECOVERING bot reconciles (§3.3) when the user enables trading on its venue **(r1)**. | 🔵 Proposed | 🤖 agent | Enabling trading stays the one human act that lets orders flow. A stop interrupted by a crash finishes; it is never reported as done. |
+| D12 | **A bot never places an order at app start.** On restart:<br>• a Running or Paused bot restores as RECOVERING;<br>• a Starting bot restores as HALTED **(r2)**: it may hold a half-sliced opening buy and part of a ladder, so it resumes only through D13;<br>• a Stopping bot restores as STOPPING;<br>• a Halted bot restores as HALTED.<br>When the user enables trading, every restored bot that is not DRAFT or STOPPED first **reclaims its lease** **(r2)**, because leases live in memory (T/application/trading_session_state.py:92). A RECOVERING bot then reconciles (§3.3) **(r1)**. | 🔵 Proposed | 🤖 agent | Enabling trading stays the one human act that lets orders flow. A stop interrupted by a crash finishes; it is never reported as done. |
 | D13 | **Any switch-off halts the venue's bots, and resuming a Halted bot always starts by cancelling every order carrying its tag (r1).** It then derives the inventory (D6) and proposes a new plan from the current price and that inventory, for the user to confirm (O2). | 🔵 Proposed | 🤖 agent | Correct after both a disable (orders still resting) and an Emergency Stop (flat, partly flat or invested, §1.4). No ladder is ever laid over orphans. |
 | D14 | **Grid backtest fill rule.** A resting order fills only when price trades **through** its level by at least one tick. Which levels a candle reached comes from 1-second klines. A level fills at most once per 1-second kline. **Every ladder fill pays the maker fee; the opening buy and stop-loss and take-profit exits pay the taker fee.** Every result names its rule. | 🔵 Proposed | 🤖 agent | Conservative against the report's fill-on-touch. The planner's break-even uses the same fee model: `2 × maker` **(r1)**. |
 | D15 | **One live candle chart, shared.** `ChartCoordinator` moves to `src/support/charting/live_chart/` behind a support-owned `CandleFeed` ABC with three operations: `load_history`, `sync(…)` and `start_stream`. The worker runner is injected **(r1)**. trading and bots adapt `IHistoricalKlines`, `IMarketDataSync` and `IMarketStream` to it. Horizontal lines come from a new `PriceLevelLayer` that leaves `chart_card.py` unchanged. | 🔵 Proposed | 🤖 agent | Moves shared logic up instead of copying 229 lines. The desks keep their sync-then-read behaviour, so their tests run unmodified. |
@@ -184,25 +189,43 @@ Revised after the review of PR #317 (round 1). Changes from the first draft carr
 - **The book is updated inside trading's user-data path, before the event is published.** A fill
   is applied to the book by the venue's event-emission path, and only then published on the bus.
   So any subscriber, the bot included, sees a book that already contains that fill.
-- **Seeding.** When a budget is registered, trading **derives** the inventory from exchange
-  evidence. It takes the executions of the owner's tagged orders since the bot's creation, minus
-  their base-asset fees.
+- **Seeding, per run (r2).** When a budget is registered, trading **derives** the inventory from
+  exchange evidence: the executions of the owner's tagged orders **since the bot's current run
+  started** (`run_started_at`, set on each `start` from DRAFT or STOPPED, and kept across HALTED,
+  RECOVERING and STOPPING), minus their base-asset fees.
   - It uses order history with the exchange order id, plus trade history for the fees. `EPIC-029A`
     adds the order id to `OrderRecord`.
   - To bound the cost of history, trading may persist a checkpoint it computed itself.
-  - The caller supplies only the owner id, the tag and the creation time. **It never supplies the
+  - The caller supplies only the owner id, the tag and `run_started_at`. **It never supplies the
     inventory.**
-- **Lifetime.** Budgets and books are cleared when the session is disabled or Emergency-Stopped,
-  and re-derived on the next registration.
-- **The five checks.** For that owner's orders, trading does **not** apply
-  `max_positions_per_symbol`, `min_order_interval` or `max_orders_per_session`. It enforces these
-  instead:
+  - Base the user kept after a Stop belongs to the user. A new run does not count it.
+- **Every sell of a bot's coins carries the bot's tag (r2).** This is what makes the tagged
+  derivation complete.
+  - Emergency Stop takes a snapshot of the owner books **before** its step-1 clear.
+  - Its liquidation sells are split per budgeted owner: each owner's share, up to its inventory,
+    goes out with that owner's tag. Only the surplus beyond every bot's inventory stays untagged
+    (§1.4).
+  - The same rule binds any later path that sells a bot's coins, such as `EPIC-029I`'s takeover.
+- **Lifetime (r2).** Trading clears every budget and book on a disable or an Emergency Stop. The
+  bot clears its own on entering STOPPED.
+  - A bot holds a budget only after registering it.
+  - It registers again, which re-derives the inventory, **before any order in any state**:
+    reconciliation (§3.3), resume from HALTED (D13), a STOPPING retry, and ERROR → `stop`.
+- **The checks.** For a budgeted owner's orders, trading does **not** apply
+  `max_positions_per_symbol`, `min_order_interval` or `max_orders_per_session`. It enforces five
+  checks instead, **whatever the order's `purpose`** **(r2)**. The budget branch runs before the
+  `only_reduces` early return (T/domain/policies/trading_limit_policy.py:51-55), because Spot has no
+  reduce-only and a Spot SELL marked CLOSE must still pass check 3. The five checks:
   1. open orders at or below `max_open_orders`;
   2. exposure at or below `max_exposure_quote`, where exposure is the open BUY quote plus the
      inventory at cost;
   3. open SELL quantity at or below the inventory;
   4. orders at least `min_order_spacing` apart;
   5. orders within the window at or below the rate cap.
+
+  A sixth gate, **`OWNER_BUDGET_MISSING`** **(r2)**, refuses any order carrying a
+  `client_order_tag` when no budget is registered for that tag. A bot can never fall back to the
+  signal limits, which have no inventory check.
 
   The cap on notional per order (D21), the lease, the switch and the minimum notional still apply
   to every order.
@@ -214,7 +237,7 @@ Revised after the review of PR #317 (round 1). Changes from the first draft carr
 | From \ event | `edit` | `delete` | `start` | `ladder_ready` | `start_refused` | `pause` | `resume` | `stop` | `stop_confirmed` | `switch_off` | `reconcile_ok` | `reconcile_mismatch` | `fault` | `app_restart` |
 | :--- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- |
 | DRAFT | DRAFT | (removed) | STARTING | — | — | — | — | — | — | — | — | — | — | DRAFT |
-| STARTING | — | — | — | RUNNING | HALTED | — | — | STOPPING | — | HALTED | — | — | ERROR | RECOVERING |
+| STARTING | — | — | — | RUNNING | HALTED | — | — | STOPPING | — | HALTED | — | — | ERROR | HALTED **(r2)** |
 | RUNNING | — | — | — | — | — | PAUSED | — | STOPPING | — | HALTED | — | — | ERROR | RECOVERING |
 | PAUSED | — | — | — | — | — | — | RUNNING | STOPPING | — | HALTED | — | — | ERROR | RECOVERING |
 | RECOVERING | — | — | — | — | — | — | — | STOPPING | — | RECOVERING | prior (RUNNING or PAUSED) | HALTED | ERROR | RECOVERING |
@@ -229,7 +252,11 @@ The rules behind the table:
   tag**, after the base asset has been handled per O3.
   - While the switch is off, cancels are refused (§1.2), so STOPPING waits.
   - It retries when the switch comes back. It is never reported as STOPPED early.
-- **The lease and the budget are released only on entering STOPPED.**
+- **The lease is released only on entering STOPPED (r2).** It is reclaimed on enable after a restart
+  (D12). The bot clears its budget on entering STOPPED, and trading clears every budget on a disable
+  or an Emergency Stop, so a bot re-registers before any order (D6).
+- **STOPPING after a switch-off (r2)** re-registers (D6), cancels its tagged orders, then handles the
+  base. **ERROR → `stop`** does the same.
 - **`start_refused`** is a refusal after the opening buy. The bot cancels what it placed and halts
   with the reason, keeping its inventory accounted, so the user can resume (re-plan) or stop.
   Start's preconditions (the venue enabled, no REFUSED verdict, the lease, the budget) are checked
@@ -237,7 +264,8 @@ The rules behind the table:
   (DRAFT or STOPPED), with nothing to clean up.
 - **`pause` while STARTING is not declared.** The UI disables it, and a call raises.
 - **ERROR → `stop` → STOPPING** is the exit from ERROR. ERROR keeps the lease until then, so no
-  manual order can hit the bot's symbol while its state is unknown.
+  manual order can hit the bot's symbol while its state is unknown. After a restart the lease comes
+  back on enable (D12) **(r2)**.
 
 ### 3.2 Grid level lifecycle (D3, D10)
 
@@ -275,13 +303,18 @@ The rules behind the table:
    - It is never an equality with the account's holding, which includes the user's own coins.
 7. **Persist,** then transition: `reconcile_ok` or `reconcile_mismatch`.
 
-### 3.4 The sliced opening buy (D21)
+### 3.4 Sliced market orders: the opening buy and every exit (D21)
 
 - **Slicing.** The opening quote is split into ⌈quote / cap⌉ market BUY slices, each at most the
   cap, spaced by `min_order_spacing`.
 - **A slice refused or failed** stops the opening. Nothing of the ladder has been placed yet. The
   bot raises `start_refused`, which leads to HALTED with the acquired inventory derived.
 - **Resuming** re-plans with that inventory. The SELL side is sized to what was actually bought.
+- **Exits (r2).** A stop-loss or take-profit exit, and Stop with *sell base*, sell the inventory in
+  slices at or below the cap, spaced by `min_order_spacing`.
+  - A refused or failed exit slice halts the bot, naming the unsold remainder; nothing is retried
+    silently.
+  - Every exit slice carries the bot's tag and passes check 3.
 
 ## 4. Alternatives considered
 
@@ -292,6 +325,9 @@ The rules behind the table:
 - **Seed the owner book from the bot's store (first draft).** Rejected in review round 1. The
   account's holding includes the user's coins, so any store error could unlock selling them.
   Exchange evidence filtered by tag is the only trustworthy source (D6).
+- **An Emergency Stop checkpoint instead of tagged liquidation (r2).** Emergency Stop would write a
+  trading-computed debit per owner. It is viable, and D6 allows checkpoints. It lost because tagging
+  keeps the inventory provable from exchange evidence alone.
 - **One HALTED for both causes, without cancelling (first draft).** Rejected in review round 1. A
   disable leaves orders resting, so a re-plan without cancelling first laid a second ladder over
   them (D13).

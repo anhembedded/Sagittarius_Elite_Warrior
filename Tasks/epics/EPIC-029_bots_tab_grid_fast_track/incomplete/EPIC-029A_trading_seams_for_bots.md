@@ -40,20 +40,22 @@ Revised after the review of PR #317 (round 1); see ADR D6, D7 and D21.
   - Without a tag, the id still matches `^SEW-[0-9a-f]{12}$`.
   - A tag outside `^[a-z0-9]{6}$` is refused by `validate()` with a named error, and never reaches
     the exchange.
-- [ ] **Registering a budget.** `register_owner_budget(owner_id, tag, created_at, budget)` and
+- [ ] **Registering a budget.** `register_owner_budget(owner_id, tag, run_started_at, budget)` and
   `clear_owner_budget(owner_id)` exist on `ITradingSession`.
   - A budget above the global caps (ADR O1) is refused, naming the cap it exceeds.
   - **The caller never supplies inventory.**
 - [ ] **The inventory comes from the exchange.** On registration, trading derives the owner's
   inventory from exchange evidence:
-  - the executions of orders carrying the tag since `created_at`, from order history;
+  - the executions of orders carrying the tag since `run_started_at` (the bot's current run, ADR D6
+    r2), from order history;
   - minus their base-asset fees, from trade history, joined by the exchange order id that this task
     adds to `OrderRecord`.
 
   These cases are proven with the fake exchange:
   - a store that claims more inventory than the exchange shows has no effect on check 3;
   - a fee charged in the base asset is subtracted;
-  - a fee charged in BNB is not.
+  - a fee charged in BNB is not;
+  - base kept by a previous run (Stop with *keep base*) is not counted by a new run.
 - [ ] **The checkpoint.** Trading may persist an inventory checkpoint it computed itself, and
   re-derives only from the checkpoint onward. A checkpoint whose recorded tag or creation time does
   not match is discarded and the inventory is re-derived in full.
@@ -67,6 +69,13 @@ Revised after the review of PR #317 (round 1); see ADR D6, D7 and D21.
      of the asset (`OWNER_BUDGET_SELL_EXCEEDS_INVENTORY`);
   4. two orders closer than `min_order_spacing` are refused (`OWNER_BUDGET_SPACING`);
   5. an order beyond the rate window is refused (`OWNER_BUDGET_RATE`).
+
+  The five checks run **whatever the order's `purpose`**: a Spot SELL marked CLOSE beyond the
+  inventory is refused by check 3, because the budget branch runs before the `only_reduces` return
+  (`trading_limit_policy.py:51-55`).
+- [ ] **A tagged order needs a budget.** Any order carrying a `client_order_tag` with no budget
+  registered for that tag is refused with `OWNER_BUDGET_MISSING`. This holds after a disable has
+  cleared the budgets, too.
 - [ ] **Everyone else is unchanged.** For an owner without a budget (manual, strategy), every
   existing limit test passes unmodified.
   - `max_notional_per_order` (D21), the lease, the switch and the minimum notional still refuse a
@@ -77,6 +86,13 @@ Revised after the review of PR #317 (round 1); see ADR D6, D7 and D21.
   expiries and partial fills update the book the same way.
 - [ ] **A budget lasts one session.** Disabling or Emergency-Stopping the venue clears every
   budget and owner book. Registering again re-derives the inventory.
+- [ ] **Emergency Stop tags the coins it sells for a bot.** Emergency Stop takes a snapshot of the
+  owner books before its step-1 clear. It splits each asset's liquidation per budgeted owner: each
+  share, up to that owner's inventory, carries the owner's tag, and only the surplus beyond every
+  bot's inventory is untagged.
+  - Case proven: an Emergency Stop in the session that bought the inventory, **while the user also
+    holds the asset**, leaves a re-derived inventory of zero for the bot. The user's coins are
+    untouched.
 - [ ] **The venue's rate limits.** The O1 caps (spacing and orders per minute) are checked against
   the venue's `exchangeInfo.rateLimits` of type `ORDERS`, not only `REQUEST_WEIGHT`. The values are
   recorded in the implementation notes.
@@ -145,13 +161,15 @@ Revised after the review of PR #317 (round 1); see ADR D6, D7 and D21.
 | `trading/contracts/owner_budget.py` (new) | `OwnerBudget` |
 | `trading/contracts/order_record.py` | the exchange order id, for joining fees |
 | `trading/contracts/i_trading_session.py` | `register_owner_budget`, `clear_owner_budget` |
-| `trading/contracts/trading_limits.py` | the five new gate names |
+| `trading/contracts/trading_limits.py` | the six new gate names (five checks plus `OWNER_BUDGET_MISSING`) |
 | `trading/contracts/events/trading_switch_changed_event.py` (new) | the event |
 | `trading/application/owner_book.py` (new) | the book |
 | `trading/application/owner_inventory_deriver.py` (new) | inventory from exchange evidence, checkpoint |
 | `trading/application/trading_session_state.py` | books by owner; cleared on disable |
 | `trading/adapters/binance/venue_event_emitter.py` | apply to the book before publishing |
-| `trading/adapters/binance/spot/spot_order_payload_mapper.py` | map `orderId` into `OrderRecord` |
+| `trading/adapters/binance/spot/spot_history_payload_mapper.py` | map `orderId` into `OrderRecord` (the Spot history mapper, not the order-payload mapper) |
+| `trading/adapters/binance/futures_history_payload_mapper.py`, `futures_algo_order_mapper.py`, `trading/contracts/testing/contract_account_history_reader.py`, `trading/ui/desk/account_tabs/preview.py` | every other `OrderRecord(...)` constructor gains the field; no default is used, so a missing one fails loudly (`BUG-026`) |
+| `trading/application/session/emergency_stop/handler.py` | snapshot the books before the clear; tag each owner's liquidation share |
 | `trading/domain/policies/trading_limit_policy.py` | the budget branch |
 | `trading/application/orders/execute_order/handler.py` | pass the budget into the context; record against the book |
 | `trading/application/orders/preview_order/handler.py` | pass the tag to the generator |
@@ -168,7 +186,8 @@ Revised after the review of PR #317 (round 1); see ADR D6, D7 and D21.
 Unit tests:
 
 - tag formatting and refusal, mutation-checked (format, length, alphabet);
-- budget policy: each of the five gates red and green;
+- budget policy: each of the five gates red and green, a CLOSE-purpose Spot SELL beyond inventory
+  refused, and `OWNER_BUDGET_MISSING` for a tagged order with no budget;
 - the owner book updated on fill, partial fill and end, before publication;
 - inventory derivation, including base-asset fees, BNB fees, a checkpoint mismatch, and a store that
   claims more than the exchange shows;

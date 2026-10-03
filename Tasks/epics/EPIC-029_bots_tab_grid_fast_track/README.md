@@ -52,9 +52,9 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 | Capability | Where |
 | :--- | :--- |
 | LIMIT GTC and quote-sized market buy on Spot | `trading/adapters/binance/spot/spot_order_payload_mapper.py:50-52,98-104` |
-| Per-venue order submission and cancel | `trading/contracts/i_order_submission.py:243-306` |
-| Fill and end events with fees | `trading/contracts/events/order_filled_event.py:41-56`, `order_ended_event.py:82-85` |
-| Symbol filters and maker/taker rates | `trading/contracts/i_order_entry_terms.py:117`, `commission_rate.py:44-46` |
+| Per-venue order submission and cancel | `trading/contracts/i_order_submission.py:71-83,111-118` |
+| Fill and end events with fees | `trading/contracts/events/order_filled_event.py:41-56`, `order_ended_event.py:10-29` |
+| Symbol filters and maker/taker rates | `trading/contracts/i_order_entry_terms.py:53`, `commission_rate.py:18-19` |
 | Symbol lease by owner | `trading/contracts/i_trading_session.py:134-153` |
 | History and live candles for a chart | `market_data/contracts/i_historical_klines.py:48-95`, `IMarketStream` |
 | 1-second klines (the finest stored data) | `backtesting/application/run_historical_tick_backtest/handler.py:118-143` |
@@ -133,6 +133,16 @@ The same graph is drawn in `TRACKING.md`.
 - **More than one bot on one symbol.**
 
 ## Notes (newest first)
+
+- **2026-10-03** — Review round 2 (NEEDS_REVISION, narrower) addressed:
+  - Emergency Stop tags each bot's share of its liquidation, so the tagged derivation is complete;
+  - inventory is derived per run;
+  - every market exit is sliced under the cap;
+  - the budget checks run whatever the `purpose`;
+  - `OWNER_BUDGET_MISSING` refuses a tagged order without a budget;
+  - STARTING restores as HALTED;
+  - leases are reclaimed on enable;
+  - the README citations and the `OrderRecord` constructors are corrected.
 
 - **2026-10-03** — Review round 1 (PR #317, NEEDS_REVISION) addressed. The changes:
   - the owner book is derived from exchange evidence, never from the bot's store;

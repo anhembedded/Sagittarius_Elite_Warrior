@@ -72,6 +72,7 @@ gantt
 | :--- | :--- | :--- |
 | 2026-10-03 | Plan | `PRO-006` accepted by the user. Epic, ADR (D1–D20, O1–O4) and 12 sub-tasks written, for an independent review (PR #317). |
 | 2026-10-03 | Review r1 | NEEDS_REVISION: 5 blocking, 11 should-fix. All addressed; the ADR is now D1–D21 and O1–O5. Re-review requested. |
+| 2026-10-03 | Review r2 | NEEDS_REVISION, narrower: 3 blocking (untagged Emergency Stop sells, unsliced exits, orders without a budget), 5 should-fix. All addressed. Re-review requested. |
 
 ---
 

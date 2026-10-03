@@ -25,8 +25,10 @@ whatever the chart shows (`desk_strategy.py:65`). It has no lifecycle beyond arm
   listed in `MODULES` (`src/shell/modules.py`).
   - Its `dependencies` equal the contracts it imports.
   - Every architecture guard passes, the list in ADR §1.6 among them.
-- [ ] **The aggregate.** `Bot` holds `BotId`, `name`, `kind`, `venue`, `symbol`, `config` and
-  `state`, and is immutable; each change returns a new value.
+- [ ] **The aggregate.** `Bot` holds `BotId`, `name`, `kind`, `venue`, `symbol`, `config`, `state`,
+  `created_at` and `run_started_at`, and is immutable; each change returns a new value.
+  - `run_started_at` is set on each `start` from DRAFT or STOPPED, and kept across HALTED,
+    RECOVERING and STOPPING (ADR D6, review round 2). Trading derives the inventory per run from it.
   - `BotId` is 6 characters of `[a-z0-9]` and is unique across the store. A collision on creation
     retries.
 - [ ] **The kind seam.** `IBotKind` is an ABC with:
@@ -47,6 +49,7 @@ whatever the chart shows (`desk_strategy.py:65`). It has no lifecycle beyond arm
     dropped.
 - [ ] **Restart** follows ADR D12:
   - a bot saved as RUNNING or PAUSED loads as RECOVERING;
+  - a bot saved as STARTING loads as HALTED (review round 2);
   - a bot saved as STOPPING loads as STOPPING;
   - a bot saved as HALTED loads as HALTED.
 - [ ] **Every event the tasks use is declared.** `edit` (DRAFT and STOPPED) and `delete` (DRAFT
