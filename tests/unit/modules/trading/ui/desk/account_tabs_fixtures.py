@@ -64,6 +64,7 @@ def order_record(symbol: str = "BTCUSDT") -> OrderRecord:
         executed_quantity=Decimal(0),
         average_price=None,
         created_at=NOW,
+        exchange_order_id=1,
     )
 
 

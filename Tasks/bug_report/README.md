@@ -58,9 +58,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :--- |
-| 🔴 **Đang mở** | 0 |
-| ✅ **Đã sửa / đã đóng** | 136 |
-| 📈 **Tổng** | **136** |
+| 🔴 **Đang mở** | 1 |
+| ✅ **Đã sửa / đã đóng** | 137 |
+| 📈 **Tổng** | **138** |
 
 ---
 
@@ -68,6 +68,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tên | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-142](incomplete/BUG-142_manual_spot_order_blocks_its_symbol_until_re_enable.md)** | Sau một lệnh Spot thủ công, mọi lệnh sau trên cùng symbol bị `MAX_POSITIONS_PER_SYMBOL` chặn cho tới khi bật lại giao dịch: `record_order_sent` đánh dấu symbol "đang mở" và trên Spot không gì xoá dấu đó (Spot không có vị thế). Đã tái hiện; chưa sửa vì là cơ chế khác với owner budget của `EPIC-029A`, và hướng sửa đổi một safety gate nên cần người dùng quyết. | 🟡 P2 | 2026-10-03 | Tái hiện trong `EPIC-029A` (ADR §1.3) |
 
 > Hai hồ sơ cuối đóng cùng ngày theo hai đường khác hẳn nhau, và cặp đó đáng nhớ:
 > `BUG-068` đóng dạng **không tái hiện được từ môi trường hiện có** (cảnh báo Qt chỉ tồn tại trên
@@ -85,6 +86,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-141](completed/BUG-141_spot_cancel_report_names_the_cancel_request.md)** | Lệnh Spot bị hủy được báo dưới id của *yêu cầu hủy* thay vì id của chính lệnh: `executionReport` của Binance Spot ghi `"c"` là id của request hiện tại (lúc hủy là id Binance tự sinh hoặc `web_…`), id gốc nằm ở `"C"`; parser luôn đọc `"c"`, nên `OrderEndedEvent` mang id app chưa từng đặt. Sửa ở parser duy nhất: hủy thì đọc `"C"` (ADR D8 của `EPIC-029`). | 🟡 P2 | 2026-10-03 | `EPIC-029A` |
 | **[BUG-140](completed/BUG-140_ui_tier_segfault_gc_on_indicator_worker_thread.md)** | UI tests segfault khi garbage collector chạy trên worker thread (indicator feed; execnet receiver của xdist trên `PR #311`) và hủy widget Qt trong lúc main thread đang ở trong Qt. Đã sửa ở cơ chế: tắt collection tự động cho cả process, chỉ main thread collect theo đúng lịch của CPython (`main_thread_collection.py`); app chạy bằng timer do `QApplication` sở hữu trong `build()`, bộ test chạy sau mỗi test. 4 test hồi quy đỏ đúng lý do trước khi sửa | 🟡 P2 | 2026-09-29 | ✅ 2026-10-02 |
 | **[BUG-137](completed/BUG-137_env_credential_trailing_newline_misreported_as_network_failure.md)** | Chạy `EPIC-027P` AC5 (round-trip Spot Testnet thật), `BINANCE_SPOT_TESTNET_API_KEY`/`_SECRET` set qua PowerShell dính thêm `\n` cuối chuỗi (paste thừa Enter) — key lọt nguyên vẹn vào header `X-MBX-APIKEY` gửi lên Binance, `requests` từ chối, và `spot_account_reader._classify_exception()` (không phải `BinanceAPIException` có mã lỗi) gộp mọi exception dạng này vào `ConnectionFailureKind.NETWORK` chung chung, làm người dùng đi sai hướng tưởng do mạng/exchange chứ không phải do định dạng key. Đã sửa: `EnvFirstCredentialsProvider.resolve()` thêm `_stripped_env()`, `.strip()` cả key lẫn secret đọc từ biến môi trường trước khi dùng; giá trị chỉ toàn khoảng trắng strip về `""` thì rơi đúng vào nhánh fallback file có sẵn (không đổi hành vi trường hợp thiếu biến thật). 2 test mới, cả hai đỏ đúng lý do trước khi sửa | 🟡 P2 | 2026-09-29 | ✅ 2026-09-29 |
 | **[BUG-136](completed/BUG-136_ci_local_silently_wrong_target_in_named_worktree.md)** | `ci-local.ps1` âm thầm test sai checkout khi chạy trong worktree không tên `Sagittarius_Elite_Warrior` (đúng tên `pr-review/SKILL.md` §3 tự khuyên dùng trước đây) — pytest resolve target hardcode-tương-đối vào một sibling bất kỳ trùng tên, không báo lỗi. Sửa 2 lớp: (1) `ci-local.ps1` thêm precondition check tên checkout, fail rõ ràng qua đúng cơ chế `$failed`/khối `===CI_LOCAL_RESULT===` sẵn có thay vì `exit` trần (tránh treo caller đang chờ marker đó); (2) `pr-review/SKILL.md` §3 đổi sang tạo worktree tên đúng `Sagittarius_Elite_Warrior` trong 1 thư mục tạm mới (`mktemp -d`), cùng pattern đã có sẵn ở `scripts/verify_against_base.py`/`worktree_path()` cho đúng lớp lỗi này (`CS-006`). 2 test mới invoke script thật, mutation-verified | 🟡 P2 | 2026-09-25 | ✅ 2026-09-25 |

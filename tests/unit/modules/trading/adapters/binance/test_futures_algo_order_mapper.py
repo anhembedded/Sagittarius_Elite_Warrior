@@ -252,6 +252,7 @@ def test_an_algo_history_row_carries_no_fill_of_its_own() -> None:
     assert record.executed_quantity == 0
     assert record.average_price is None
     assert record.created_at == datetime.fromtimestamp(1759320000, tz=UTC)
+    assert record.exchange_order_id == 2146760
 
 
 def test_an_algo_history_row_without_a_creation_time_is_malformed() -> None:

@@ -7,7 +7,7 @@ screen can show, and the CLI reaches two of them through the same dispatch. A
 port that skipped them would leave two paths to the same state the day either
 handler grows a rule.
 
-**What it adds.** The translation, and nothing else: three commands in,
+**What it adds.** The translation, and nothing else: four commands in,
 each addressed to this service's own venue, their own results out, and `read_all()`'s tuple mapped to the
 published `TradingSessionSnapshot`. It decides nothing — not whether trading
 may be enabled, not what a generation clash means.
@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading.command import (
     EnableTradingCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_owner_budget.command import (
+    RegisterOwnerBudgetCommand,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -39,6 +42,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_resu
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
     TradingSessionSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    OwnerBudgetRegistration,
+    OwnerBudgetRegistrationResult,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -119,6 +126,22 @@ class TradingSessionService(ITradingSession):
 
     def release_symbol(self, symbol: str, owner_id: str) -> None:
         self._session_state.release_symbol(symbol, owner_id)
+
+    def register_owner_budget(
+        self, registration: OwnerBudgetRegistration
+    ) -> OwnerBudgetRegistrationResult:
+        """Dispatched: the registration reads the venue's history, the same
+        reason `enable()` goes through its handler."""
+        response = self._dispatcher.dispatch(
+            RegisterOwnerBudgetCommand,
+            RegisterOwnerBudgetCommand(registration, venue=self._trading_venue),
+        )
+        return _answered(response, OwnerBudgetRegistrationResult)  # type: ignore[return-value]
+
+    def clear_owner_budget(self, owner_id: str) -> None:
+        """Straight to the state, as the lease is: a dict removal with nothing
+        to reconcile."""
+        self._session_state.owner_books.clear_owner(owner_id)
 
     def emergency_stop(self) -> EmergencyStopResult:
         response = self._dispatcher.dispatch(

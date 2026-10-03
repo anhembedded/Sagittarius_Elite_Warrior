@@ -9,9 +9,8 @@ order book, no partial fills, no slippage) — enough to exercise a filled
 order's balance movement (`EPIC-027J`'s own acceptance criterion) without
 a second implementation of Binance's real engine to maintain
 (`order_book_state.py`'s own reasoning, extended only as far as this
-task requires). A `LIMIT` order is stored open (`NEW`) and never fills on
-its own, same as the Futures side — there is no price feed here to decide
-when a limit order would actually trade.
+task requires). A `LIMIT` order is stored open (`NEW`) in `SpotOrderBook`
+and fills when a test moves the last price across it (`EPIC-029A`).
 
 `EPIC-028O` — a test moves a symbol's last price with `set_last_price`.
 A `STOP_LOSS_LIMIT` the new price crosses (a buy stop at or below it, a
@@ -47,6 +46,7 @@ from decimal import ROUND_DOWN, Decimal
 from typing import Any
 
 from .history_log import HistoryLog, now_ms
+from .spot_order_book import SpotOrderBook
 
 _STATUS_NEW = "NEW"
 _STATUS_FILLED = "FILLED"
@@ -55,6 +55,9 @@ _STATUS_CANCELED = "CANCELED"
 _SIDE_BUY = "BUY"
 _ORDER_TYPE_MARKET = "MARKET"
 _ORDER_TYPE_STOP_LIMIT = "STOP_LOSS_LIMIT"
+#: `EPIC-029A` (`BUG-141`) — the prefix of the id a cancel request is given
+#: when it names none, as Binance gives one; the report's `"c"`.
+_CANCEL_ID_PREFIX = "fakecxl"
 
 #: symbol -> (base asset, quote asset, fixed reference price used to
 #: "fill" a MARKET order). Matches the two symbols `spot_routes.py`'s own
@@ -104,8 +107,9 @@ class SpotAccountState:
     block."""
 
     def __init__(self) -> None:
-        self._orders: dict[str, dict[str, Any]] = {}
+        self._book = SpotOrderBook()
         self._order_ids = itertools.count(2_000_000)
+        self._cancel_ids = itertools.count(1)
         self._balances: dict[str, _Balance] = {
             "USDT": _Balance(Decimal(100000)),
             "BTC": _Balance(Decimal(10)),
@@ -155,11 +159,7 @@ class SpotAccountState:
         if order_type == _ORDER_TYPE_STOP_LIMIT:
             order["stopPrice"] = params["stopPrice"]
         if fill is None:
-            self._orders[client_order_id] = {
-                **order,
-                "_order_id": order_id,
-                "_triggered": False,
-            }
+            self._book.rest(order, order_id)
         else:
             self._emit_fill_events(order, fill)
         self._remember(order, fill)
@@ -205,21 +205,11 @@ class SpotAccountState:
         `-2011 Unknown order sent` shape, not this module's job. A filled
         `MARKET` order was never stored here, so it is correctly
         uncancellable, same as real Binance."""
-        match_id = client_order_id
-        if match_id is None and order_id is not None:
-            match_id = next(
-                (
-                    cid
-                    for cid, order in self._orders.items()
-                    if str(order["_order_id"]) == str(order_id)
-                ),
-                None,
-            )
-        order = self._orders.get(match_id) if match_id else None
-        if order is None or order["symbol"] != symbol:
+        order = self._book.take(symbol, client_order_id, order_id)
+        if order is None:
             return None
-        del self._orders[match_id]
-        self.history.mark_canceled(match_id)
+        self.history.mark_canceled(order["clientOrderId"])
+        self._emit_cancel_report(order)
         return {
             "symbol": order["symbol"],
             "origClientOrderId": order["clientOrderId"],
@@ -242,16 +232,14 @@ class SpotAccountState:
         reading Binance's documented response for this exact endpoint."""
         canceled = [
             self.cancel(symbol, order["clientOrderId"], None)
-            for order in list(self._orders.values())
-            if order["symbol"] == symbol
+            for order in self._book.resting(symbol)
         ]
         return [order for order in canceled if order is not None]
 
     def open_orders(self, symbol: str | None) -> list[dict[str, Any]]:
         return [
             {key: value for key, value in order.items() if not key.startswith("_")}
-            for order in self._orders.values()
-            if symbol is None or order["symbol"] == symbol
+            for order in self._book.resting(symbol)
         ]
 
     def account_balances(self) -> list[dict[str, str]]:
@@ -286,26 +274,16 @@ class SpotAccountState:
         }
 
     def set_last_price(self, symbol: str, price: Decimal) -> None:
-        """@brief `EPIC-028O` — moves `symbol`'s last price, triggers every
-        stop-limit the move crosses and fills every triggered one whose limit
-        is now marketable (the module docstring states the rule)."""
+        """@brief `EPIC-028O` — moves `symbol`'s last price and fills every
+        resting order the move makes trade (`SpotOrderBook.trade_at`)."""
         self._last_prices[symbol] = price
-        for order in list(self._orders.values()):
-            if order["symbol"] != symbol or order["type"] != _ORDER_TYPE_STOP_LIMIT:
-                continue
-            buy = order["side"] == _SIDE_BUY
-            stop = Decimal(order["stopPrice"])
-            if price >= stop if buy else price <= stop:
-                order["_triggered"] = True
-            limit = Decimal(order["price"])
-            if order["_triggered"] and (price <= limit if buy else price >= limit):
-                self._fill_resting(order, limit)
+        for order, trade_price in self._book.trade_at(symbol, price):
+            self._fill_resting(order, trade_price)
 
     def _fill_resting(self, order: dict[str, Any], price: Decimal) -> None:
         fill = self._fill(
             order["symbol"], order["side"], Decimal(order["origQty"]), price
         )
-        del self._orders[order["clientOrderId"]]
         filled = {
             key: value for key, value in order.items() if not key.startswith("_")
         } | {
@@ -358,6 +336,27 @@ class SpotAccountState:
             "commission": _q(fill.commission),
             "commissionAsset": fill.commission_asset,
         }
+
+    def _emit_cancel_report(self, order: dict[str, Any]) -> None:
+        """A cancel's executionReport: `"c"` names the cancel request, `"C"`
+        the order, as on the real venue (`BUG-141`)."""
+        self._user_data_events.append(
+            {
+                "e": "executionReport",
+                "s": order["symbol"],
+                "c": f"{_CANCEL_ID_PREFIX}{next(self._cancel_ids)}",
+                "C": order["clientOrderId"],
+                "S": order["side"],
+                "o": order["type"],
+                "x": _STATUS_CANCELED,
+                "X": _STATUS_CANCELED,
+                "i": order["_order_id"],
+                "q": order["origQty"],
+                "p": order["price"],
+                "z": order["executedQty"],
+                "T": 0,
+            }
+        )
 
     def _emit_fill_events(self, order: dict[str, Any], fill: _Fill) -> None:
         base_asset, quote_asset, _ = _SYMBOLS[order["symbol"]]

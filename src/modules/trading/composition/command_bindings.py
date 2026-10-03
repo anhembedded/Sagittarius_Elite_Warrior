@@ -41,6 +41,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_tr
     EnableTradingCommand,
     EnableTradingCommandHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_owner_budget import (
+    RegisterOwnerBudgetCommand,
+    RegisterOwnerBudgetCommandHandler,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
@@ -51,6 +55,7 @@ def bind_commands(container: IContainer) -> None:
     container.bind(DisableTradingCommand, DisableTradingCommandHandler)
     container.bind(ExecuteOrderCommand, ExecuteOrderCommandHandler)
     container.bind(EmergencyStopCommand, EmergencyStopCommandHandler)
+    container.bind(RegisterOwnerBudgetCommand, RegisterOwnerBudgetCommandHandler)
     container.bind(CancelOrderCommand, CancelOrderCommandHandler)
     container.bind(ChangeLeverageCommand, ChangeLeverageCommandHandler)
     container.bind(ChangeMarginTypeCommand, ChangeMarginTypeCommandHandler)

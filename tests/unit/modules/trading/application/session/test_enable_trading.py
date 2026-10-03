@@ -35,6 +35,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     single_venue_scopes,
     venue_context,
@@ -80,6 +83,7 @@ def _handler(
     position_payloads: list[dict] | None = None,
     open_order_payloads: list[dict] | None = None,
     algo_order_payloads: list[dict] | None = None,
+    publisher: RecordingPublisher | None = None,
 ) -> tuple[EnableTradingCommandHandler, TradingSessionState, Mock, Mock]:
     account_reader = Mock()
     account_reader.check_connection.return_value = status or _ready_status()
@@ -112,7 +116,8 @@ def _handler(
                     user_data_stream=user_data_stream,
                 ),
                 session_state,
-            )
+            ),
+            publisher or RecordingPublisher(),
         ),
         session_state,
         user_data_stream,

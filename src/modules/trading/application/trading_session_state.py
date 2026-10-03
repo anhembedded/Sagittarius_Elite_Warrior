@@ -61,6 +61,13 @@ from collections.abc import Mapping
 from datetime import datetime, timedelta
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_book import (
+    OwnerBook,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_books import (
+    OwnerBooks,
+)
+
 
 class TradingSessionState:
     """Plain mutable service, one instance per app process (a DI
@@ -105,6 +112,12 @@ class TradingSessionState:
         #: real, distinct baseline — "enabled while holding nothing" — and
         #: makes every unit later held fair game to sell.
         self._spot_baseline_holdings: dict[str, Decimal] | None = None
+        #: `EPIC-029` ADR D6 — the budgeted owners' books. A budget lasts one
+        #: session, so every enable and disable clears them, and
+        #: `_switch_epoch` (bumped by both) lets a registration that read
+        #: the venue's history meanwhile tell that its session is gone.
+        self.owner_books = OwnerBooks()
+        self._switch_epoch = 0
 
     @property
     def generation(self) -> int:
@@ -158,6 +171,8 @@ class TradingSessionState:
             ):
                 return False
             self.enabled = True
+            self.owner_books.clear()
+            self._switch_epoch += 1
             self.known_open_symbols = set(open_symbols)
             self._spot_baseline_holdings = (
                 dict(spot_baseline_holdings)
@@ -185,7 +200,28 @@ class TradingSessionState:
     def disable(self) -> None:
         with self._lock:
             self.enabled = False
+            self.owner_books.clear()
+            self._switch_epoch += 1
             self._generation += 1
+
+    @property
+    def switch_epoch(self) -> int:
+        """@brief Bumped by every enable and disable; read before a
+        registration's history reads, checked by `install_owner_book`."""
+        return self._switch_epoch
+
+    def install_owner_book(
+        self, tag: str, book: OwnerBook, *, expected_switch_epoch: int
+    ) -> bool:
+        """@brief Installs `book` for `tag` if trading is on and the switch
+        has not moved since `expected_switch_epoch` was read.
+        @return Whether it was installed; `False` means the session it was
+        derived for is over, and nothing changed."""
+        with self._lock:
+            if not self.enabled or self._switch_epoch != expected_switch_epoch:
+                return False
+            self.owner_books.install(tag, book)
+            return True
 
     def read_all(self) -> tuple[bool, int, tuple[str, ...]]:
         """@brief The three facts a reader outside this module needs, read as

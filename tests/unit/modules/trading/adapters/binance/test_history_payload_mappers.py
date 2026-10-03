@@ -74,6 +74,7 @@ def test_a_futures_order_row_keeps_the_exchanges_own_fill_figures() -> None:
     record = map_futures_history_order(_futures_order())
 
     assert record.order.client_order_id == "web_abc"
+    assert record.exchange_order_id == 1
     assert record.order.status is OrderStatus.PARTIALLY_FILLED
     assert record.executed_quantity == Decimal("0.004")
     assert record.average_price == Decimal("64000.5")
@@ -125,6 +126,8 @@ def test_a_spot_order_average_is_quote_spent_over_quantity_filled() -> None:
 
     assert record.average_price == Decimal("3000.5")
     assert record.executed_quantity == Decimal(2)
+    # `EPIC-029` ADR D6 — the id a fill's `orderId` names.
+    assert record.exchange_order_id == 7
 
 
 def test_an_unfilled_spot_order_has_no_average_price() -> None:

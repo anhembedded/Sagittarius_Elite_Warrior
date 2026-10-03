@@ -81,6 +81,7 @@ def _as_query(request: OrderRequest, venue: TradingVenue) -> PreviewOrderQuery:
         time_in_force=request.time_in_force,
         quote_quantity=request.quote_quantity,
         last_price=request.last_price,
+        client_order_tag=request.client_order_tag,
     )
 
 

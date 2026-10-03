@@ -117,15 +117,18 @@ async def _run(seconds: float) -> None:
     event_bus.on(OrderFilledEvent, _on_order_filled)
     event_bus.on(PositionChangedEvent, _on_position_changed)
 
+    session_state = TradingSessionState()
     stream = FuturesUserDataStream(
-        VenueEventEmitter(event_bus, TradingVenue.FUTURES_TESTNET),
+        VenueEventEmitter(
+            event_bus, TradingVenue.FUTURES_TESTNET, session_state.owner_books
+        ),
         # `_run_stream()` is awaited directly below, never through
         # `.start()`/`.stop()` — those are the only methods that touch
         # `task_manager`, so this probe never needs a real one.
         None,  # type: ignore[arg-type]
         credentials_provider,
         trading_client_factory,
-        TradingSessionState(),
+        session_state,
         EquityCurveRecorder(),
     )
 

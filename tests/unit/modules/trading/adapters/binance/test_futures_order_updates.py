@@ -22,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_books import (
+    OwnerBooks,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
@@ -88,7 +91,9 @@ def _updates() -> tuple[FuturesOrderUpdates, list[OrderFilledEvent]]:
     fills: list[OrderFilledEvent] = []
     bus.on(OrderFilledEvent, fills.append)
     return (
-        FuturesOrderUpdates(VenueEventEmitter(bus, TradingVenue.FUTURES_TESTNET)),
+        FuturesOrderUpdates(
+            VenueEventEmitter(bus, TradingVenue.FUTURES_TESTNET, OwnerBooks())
+        ),
         fills,
     )
 
@@ -109,7 +114,7 @@ async def test_the_stream_routes_algo_updates_to_the_order_updates() -> None:
     fills: list[OrderFilledEvent] = []
     bus.on(OrderFilledEvent, fills.append)
     stream = FuturesUserDataStream(
-        VenueEventEmitter(bus, TradingVenue.FUTURES_TESTNET),
+        VenueEventEmitter(bus, TradingVenue.FUTURES_TESTNET, OwnerBooks()),
         Mock(),
         Mock(),
         Mock(),
@@ -149,7 +154,9 @@ def _ended_updates() -> tuple[FuturesOrderUpdates, list[OrderEndedEvent]]:
     ended: list[OrderEndedEvent] = []
     bus.on(OrderEndedEvent, ended.append)
     return (
-        FuturesOrderUpdates(VenueEventEmitter(bus, TradingVenue.FUTURES_TESTNET)),
+        FuturesOrderUpdates(
+            VenueEventEmitter(bus, TradingVenue.FUTURES_TESTNET, OwnerBooks())
+        ),
         ended,
     )
 

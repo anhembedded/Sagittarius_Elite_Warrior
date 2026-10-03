@@ -30,11 +30,20 @@ by enabling through its own command handler.
 from __future__ import annotations
 
 from collections.abc import Callable
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session import (
     ITradingSession,
     TradingSessionSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerBudget,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    OwnerBudgetRefusal,
+    OwnerBudgetRegistration,
 )
 
 #: How a subclass puts its implementation into a known session state.
@@ -216,3 +225,47 @@ class TradingSessionContract(SymbolLeaseContract):
         impl.emergency_stop()
 
         assert impl.snapshot().enabled is False
+
+
+def contract_registration(owner_id: str = "bot-1") -> OwnerBudgetRegistration:
+    """A registration that fits the default caps, for the suites below."""
+    return OwnerBudgetRegistration(
+        owner_id=owner_id,
+        tag="a3f9c1",
+        symbol="BTCUSDT",
+        run_started_at=datetime(2026, 10, 1, tzinfo=UTC),
+        budget=OwnerBudget(
+            max_open_orders=10,
+            max_exposure_quote=Decimal(1000),
+            min_order_spacing=timedelta(milliseconds=250),
+            max_orders_per_window=60,
+            window=timedelta(minutes=1),
+        ),
+    )
+
+
+class OwnerBudgetContract:
+    """`EPIC-029` ADR D6 — what every `ITradingSession` promises about
+    budgets without a venue behind it: none while trading is off, and
+    clearing never refuses."""
+
+    @pytest.fixture
+    def impl(self) -> ITradingSession:
+        raise NotImplementedError(
+            "an OwnerBudgetContract subclass must provide an `impl` fixture"
+        )
+
+    def test_a_budget_is_refused_while_trading_is_off(
+        self, impl: ITradingSession
+    ) -> None:
+        impl.disable()
+
+        result = impl.register_owner_budget(contract_registration())
+
+        assert result.refusal is OwnerBudgetRefusal.TRADING_SWITCH_OFF
+        assert result.registered is False
+
+    def test_clearing_a_budget_nobody_holds_is_a_no_op(
+        self, impl: ITradingSession
+    ) -> None:
+        impl.clear_owner_budget("nobody")

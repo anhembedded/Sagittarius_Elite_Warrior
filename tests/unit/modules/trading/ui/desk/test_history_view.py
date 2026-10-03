@@ -50,6 +50,7 @@ def _record(average: Decimal | None) -> OrderRecord:
         executed_quantity=Decimal(0),
         average_price=average,
         created_at=_AT,
+        exchange_order_id=1,
     )
 
 

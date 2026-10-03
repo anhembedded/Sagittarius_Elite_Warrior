@@ -74,6 +74,7 @@ def contract_order(symbol: str, hours: int) -> OrderRecord:
         executed_quantity=Decimal(1),
         average_price=Decimal(100),
         created_at=_START + timedelta(hours=hours),
+        exchange_order_id=hours,
     )
 
 

@@ -11,6 +11,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
+import pytest
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
@@ -25,6 +26,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.preview_or
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     ClientOrderId,
+    InvalidClientOrderTagError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderResult,
@@ -153,3 +155,36 @@ def test_a_protective_request_is_submitted_as_protective() -> None:
     assert isinstance(command, ExecuteOrderCommand)
     assert command.purpose is OrderPurpose.PROTECTIVE
     assert command.order_request.reduce_only is True
+
+
+def test_a_tagged_request_reaches_the_query_with_its_tag() -> None:
+    """`EPIC-029A` (ADR D5): the bot tag survives the one translation."""
+    dispatcher = _RecordingDispatcher()
+    service = OrderSubmissionService(dispatcher, TradingVenue.SPOT_TESTNET)
+
+    service.preview(
+        OrderRequest(
+            symbol="BTCUSDT",
+            side=OrderSide.BUY,
+            order_type=OrderType.LIMIT,
+            quantity=Decimal("0.01"),
+            reference_price=Decimal(64000),
+            client_order_tag="a3f9c1",
+        )
+    )
+
+    (query,) = dispatcher.dispatched
+    assert isinstance(query, PreviewOrderQuery)
+    assert query.client_order_tag == "a3f9c1"
+
+
+def test_a_request_with_a_malformed_tag_cannot_be_built() -> None:
+    with pytest.raises(InvalidClientOrderTagError):
+        OrderRequest(
+            symbol="BTCUSDT",
+            side=OrderSide.BUY,
+            order_type=OrderType.LIMIT,
+            quantity=Decimal("0.01"),
+            reference_price=Decimal(64000),
+            client_order_tag="a3f9c",
+        )

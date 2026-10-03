@@ -31,3 +31,9 @@ class OrderRecord:
     #: When the order was created (`time`); `order.order_time` is when it
     #: last changed.
     created_at: datetime
+    #: The exchange's own id for the order (`orderId`; `algoId` for a
+    #: Futures conditional order), which a `TradeRecord.order_id` names.
+    #: `EPIC-029` ADR D6 joins an owner's tagged orders to their fills, and
+    #: so to their fees, by it. No default: every constructor reads it off
+    #: the wire, and one that forgets fails loudly (`BUG-026`).
+    exchange_order_id: int

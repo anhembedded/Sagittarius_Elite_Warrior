@@ -307,7 +307,9 @@ class VenueAssembly:
     def user_data_stream(self) -> IUserDataStream:
         # `EPIC-028C` — the stream emits through its own venue's emitter.
         events = VenueEventEmitter(
-            self._shared.container.resolve(IEventBus), self._venue
+            self._shared.container.resolve(IEventBus),
+            self._venue,
+            self.session_state.owner_books,
         )
         task_manager = self._shared.container.resolve(ITaskManager)
         if self._is_spot:

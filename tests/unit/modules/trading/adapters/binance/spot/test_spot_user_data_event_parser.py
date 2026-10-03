@@ -53,6 +53,39 @@ def _execution_report(**overrides: object) -> dict:
     return payload
 
 
+class TestCancelCarriesTheOriginalId:
+    """`EPIC-029A` (ADR D8). Binance's Spot executionReport documents `"c"` as
+    the client order id of *this* request and `"C"` as the original order's
+    id; on a cancel, `"c"` is the cancel request's own id. A cancel report
+    shaped that way (`x`/`X` CANCELED, `c` a `web_…`/`and_…` cancel id, `C`
+    the order's `SEW-…` id) must yield the order's own id, or the bot that
+    placed it never learns the order ended."""
+
+    def test_a_cancel_reads_the_original_id(self) -> None:
+        payload = _execution_report(
+            x="CANCELED",
+            X="CANCELED",
+            c="web_3f9a1c2b7d4e4b0c",
+            C="SEW-a3f9c1-0123456789",
+        )
+        assert str(parse_execution_report(payload).client_order_id) == (
+            "SEW-a3f9c1-0123456789"
+        )
+
+    def test_an_empty_original_id_falls_back(self) -> None:
+        """Binance sends `"C": ""` on every report that is not a cancel."""
+        payload = _execution_report(x="CANCELED", X="CANCELED", C="")
+        assert str(parse_execution_report(payload).client_order_id) == (
+            "SEW-a91f4c72e0b8"
+        )
+
+    def test_a_fill_ignores_the_original_id_field(self) -> None:
+        payload = _execution_report(C="SEW-should-not-win")
+        assert str(parse_execution_report(payload).client_order_id) == (
+            "SEW-a91f4c72e0b8"
+        )
+
+
 class TestParseExecutionReport:
     def test_parses_a_full_fill(self) -> None:
         order = parse_execution_report(_execution_report())

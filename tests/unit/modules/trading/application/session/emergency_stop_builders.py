@@ -45,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     single_venue_scopes,
     venue_context,
@@ -123,6 +126,7 @@ def make_handler(
     trading_venue: TradingVenue = TradingVenue.FUTURES_TESTNET,
     account_reader: FakeTradingAccountReader | None = None,
     metadata_provider: IMarketMetadataProvider | None = None,
+    publisher: RecordingPublisher | None = None,
 ) -> EmergencyStopCommandHandler:
     session_factory = Mock()
     session_factory.create_trading_client.return_value = without_algo_orders(
@@ -148,7 +152,8 @@ def make_handler(
         single_venue_scopes(
             context,
             session_state if session_state is not None else TradingSessionState(),
-        )
+        ),
+        publisher or RecordingPublisher(),
     )
 
 

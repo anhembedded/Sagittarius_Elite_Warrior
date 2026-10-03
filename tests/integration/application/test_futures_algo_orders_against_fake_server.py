@@ -93,6 +93,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     single_venue_scopes,
     venue_context,
@@ -256,7 +259,7 @@ def test_emergency_stop_cancels_a_conditional_order_placed_anywhere() -> None:
         state.enable(set())
 
         result = EmergencyStopCommandHandler(
-            single_venue_scopes(context, state)
+            single_venue_scopes(context, state), RecordingPublisher()
         ).execute(EmergencyStopCommand(venue=_FUTURES))
 
         assert result.orders_cancelled.succeeded, result.orders_cancelled.detail

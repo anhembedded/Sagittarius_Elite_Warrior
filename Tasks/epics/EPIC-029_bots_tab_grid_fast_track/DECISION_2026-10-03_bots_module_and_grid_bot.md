@@ -368,7 +368,7 @@ Every recommendation below was accepted. O1's caps and O5's per-order cap are co
 
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
-| D5, D6, D7, D8, D21 (the trading half) | [`EPIC-029A`](incomplete/EPIC-029A_trading_seams_for_bots.md) | Not started | Not yet verified |
+| D5, D6, D7, D8, D21 (the trading half) | [`EPIC-029A`](completed/EPIC-029A_trading_seams_for_bots.md) | Built in PR2 | Unit, contract and fake-exchange integration tests (task notes); the live `ORDERS` limits and the Testnet cancel wait for `029H` |
 | D1, D2, D3 (bot lifecycle), D4, D20 | [`EPIC-029B`](completed/EPIC-029B_bots_module_entity_and_store.md) | Built in PR1 | Unit, contract and integration tests (task notes); D1's `market_data` arrow waits for `EPIC-029G` |
 | D17, D21 (the planner refusal), the planner | [`EPIC-029C`](completed/EPIC-029C_grid_planner.md) | Built in PR1 | Known answers, boundary tests and a mutation run (task notes) |
 | D14, D18 | [`EPIC-029D`](incomplete/EPIC-029D_grid_backtest.md) | Not started | Not yet verified |
