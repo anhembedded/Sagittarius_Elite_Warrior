@@ -95,7 +95,7 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 | [EPIC-029A](incomplete/EPIC-029A_trading_seams_for_bots.md) | Trading seams: client order tag, owner budget with an owner book derived from exchange evidence, switch event, Spot cancel id, fake exchange LIMIT matching | Elite | D6, O1, O5 (for the budget) | 🔴 | Planned |
 | [EPIC-029E](incomplete/EPIC-029E_live_grid_executor.md) | The live Grid executor: actor, levels, start, fill, stop, stop loss and take profit, Halted, reconciliation | Elite | 029A, 029B, 029C, O2, O3 | 🔴 | Planned |
 | [EPIC-029K](incomplete/EPIC-029K_grid_on_futures.md) | Grid on Futures: leverage, liquidation guard, modes *(after the fast track)* | Elite | 029H | 🔴 | Planned |
-| [EPIC-029B](incomplete/EPIC-029B_bots_module_entity_and_store.md) | The `bots` module: entity, kind seam, lifecycle FSM, store | Elite | None | 🟡 | Planned |
+| [EPIC-029B](completed/EPIC-029B_bots_module_entity_and_store.md) | The `bots` module: entity, kind seam, lifecycle FSM, store | Elite | None | 🟡 | ✅ Done (2026-10-03), PR1 |
 | [EPIC-029D](incomplete/EPIC-029D_grid_backtest.md) | Grid backtest: ladder simulator, fill rule, buy-and-hold *(parallel)* | Elite | 029C, 029G | 🟡 | Planned |
 | [EPIC-029F](incomplete/EPIC-029F_bots_tab.md) | The Bots tab: list, shell, Grid panel with verdicts, dialogs, SPEC-014 | Elite | 029B, 029C, 029G, O4 (built against the use-case commands; the end-to-end run with 029E is checked in 029H) | 🟡 | Planned |
 | [EPIC-029G](incomplete/EPIC-029G_bot_chart.md) | The bot chart: shared live chart, price levels, one Grid overlay for three surfaces | Elite | 029C | 🟡 | Planned |
@@ -103,7 +103,7 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 | [EPIC-029I](incomplete/EPIC-029I_desks_manual_only.md) | Desks manual only, bot badge, takeover, SPEC-010 *(after the fast track)* | Elite | 029H | 🟡 | Planned |
 | [EPIC-029J](incomplete/EPIC-029J_many_bots.md) | Many bots, one per symbol *(after the fast track)* | Elite | 029H | 🟡 | Planned |
 | [EPIC-029L](incomplete/EPIC-029L_signal_and_dca_kinds.md) | Signal and DCA kinds *(after the fast track)* | Elite | 029I, 029J | 🟡 | Planned |
-| [EPIC-029C](incomplete/EPIC-029C_grid_planner.md) | The Grid planner: plan, derived values, verdicts, ATR and Bollinger | Elite | 029B | 🟢 | Planned |
+| [EPIC-029C](completed/EPIC-029C_grid_planner.md) | The Grid planner: plan, derived values, verdicts, ATR and Bollinger | Elite | 029B | 🟢 | ✅ Done (2026-10-03), PR1 |
 
 **Critical path of the fast track:** 029B → 029C, then two branches that meet at 029H:
 
@@ -134,7 +134,7 @@ and the user's merge (`ONBOARDING.md` §7).
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
 | F0 — seams (029A, 029B) | A budgeted owner keeps 10 resting LIMIT orders on one symbol on the fake exchange. Bots persist and survive a restart. Every module guard passes. | Unit and integration tests; architecture guards; the red-then-green parser test for D8. Not run. |
-| F1 — planner (029C) | The report's worked example reproduced as known answers, and every check's boundary tested | Unit tests and a mutation run. Not run. |
+| F1 — planner (029C) | The report's worked example reproduced as known answers, and every check's boundary tested | Unit tests and a mutation run: done in PR1 (`EPIC-029C` notes) |
 | F2 — live bot, tab, chart (029E, 029F, 029G) and backtest (029D) | A 6-level grid cycles, halts on an Emergency Stop and reconciles after a restart on the fake exchange. The tab drives it. One overlay draws three surfaces. The backtest states its fill rule. | Integration tests, `qtbot` tests, the preview, the sanity route scan. Not run. |
 | F3 — Testnet (029H) | One Grid bot on Spot Testnet for 24 hours or more, through two restarts and an Emergency Stop. Its record is reconciled with the exchange and with the backtest of the same period. | The gated Testnet test run by the user, and the soak report. Not run. |
 | After the fast track (029I–029L) | Desks manual only; many bots; Grid on Futures; signal and DCA kinds | Per task. Not run. |

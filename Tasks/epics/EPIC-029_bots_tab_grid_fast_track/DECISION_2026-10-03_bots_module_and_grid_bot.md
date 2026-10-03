@@ -369,8 +369,8 @@ Every recommendation below was accepted. O1's caps and O5's per-order cap are co
 | Decision | Delivery task | State | Evidence |
 | :--- | :--- | :--- | :--- |
 | D5, D6, D7, D8, D21 (the trading half) | [`EPIC-029A`](incomplete/EPIC-029A_trading_seams_for_bots.md) | Not started | Not yet verified |
-| D1, D2, D3 (bot lifecycle), D4, D20 | [`EPIC-029B`](incomplete/EPIC-029B_bots_module_entity_and_store.md) | Not started | Not yet verified |
-| D17, D21 (the planner refusal), the planner | [`EPIC-029C`](incomplete/EPIC-029C_grid_planner.md) | Not started | Not yet verified |
+| D1, D2, D3 (bot lifecycle), D4, D20 | [`EPIC-029B`](completed/EPIC-029B_bots_module_entity_and_store.md) | Built in PR1 | Unit, contract and integration tests (task notes); D1's `market_data` arrow waits for `EPIC-029G` |
+| D17, D21 (the planner refusal), the planner | [`EPIC-029C`](completed/EPIC-029C_grid_planner.md) | Built in PR1 | Known answers, boundary tests and a mutation run (task notes) |
 | D14, D18 | [`EPIC-029D`](incomplete/EPIC-029D_grid_backtest.md) | Not started | Not yet verified |
 | D3 (level lifecycle), D9–D13, §3.3, §3.4 | [`EPIC-029E`](incomplete/EPIC-029E_live_grid_executor.md) | Not started | Not yet verified |
 | D19 | [`EPIC-029F`](incomplete/EPIC-029F_bots_tab.md) | Not started | Not yet verified |
