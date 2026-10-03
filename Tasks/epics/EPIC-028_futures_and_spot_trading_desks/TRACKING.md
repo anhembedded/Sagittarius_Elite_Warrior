@@ -1,7 +1,7 @@
 # EPIC-028 — Tracking
 
 - **Epic:** [EPIC-028 — Two trading desks](README.md)
-- **Status:** 🟡 In Progress — ADR accepted 2026-09-29; Phase 1 done (`028A`–`028C`, `028P`); Phase 2 readers merged (`028D`–`028G`, `028Q`), exit check pending; Phase 3: `028H` and `028O` merged (#301–#305); `028R` merged (#306); `028J` and `028I` done
+- **Status:** ✅ Done (2026-10-03) — every sub-task merged; all four phase exits met (README §4).
 - **Target Completion:** not committed; the bars below are relative estimates from the day the ADR is accepted.
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
@@ -86,6 +86,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-03 | EPIC-028 | Epic done: the user's `exchange-status` run printed the Futures Testnet available balance (Phase 2's last check); Phases 2–3 evidence recorded. |
 | 2026-10-03 | EPIC-028N | Dual-venue Testnet tier: one process trades Futures and Spot Testnet through `IVenueContexts`; round trips shared in `tests/testnet/round_trips.py`; the user's run passed 5/5 (PR #312). |
 | 2026-10-02 | EPIC-028S | PR 309 review follow-ups: reconciliation fails closed for an unclassified block reason; a desk re-reads its order panel after a fill; F9 tested in the composed app against the fake server. |
 | 2026-10-02 | EPIC-028M | The single Trading screen retired (Start opens the Futures desk); its view model and chart coordinators moved to the desk package; the desks took its equity chart and fill markers; the Dev Board's toggle and Emergency Stop are `DeskSessionControls` and its F9 dialog hosts the desks' order panel; HLD/SPEC updated, SPEC-013 new. |
