@@ -1,6 +1,6 @@
 # EPIC-028N — One real round trip on each desk, in the same process, on Testnet
 
-**Status:** 🟡 In progress — code done and rehearsed; awaiting the user's run on the real Testnets (criterion 3)
+**Status:** ✅ Done (2026-10-03)
 **Source:** the user, 2026-09-29 — *"cần có 2 cái chứ không phải 1, 1 cái là future, 1 cái là spot … cái nào chung được thì chung, riêng thì riêng"* ("two trading screens, one Futures and one Spot; share what can be shared"). See the [ADR](../DECISION_2026-09-29_two_trading_desks.md).
 **Risk:** 🟡 — touches two real testnets at once; must never make regular CI red
 **Complexity:** S — extends the existing opt-in tier
@@ -13,9 +13,9 @@
 - `tests/testnet/` proves Futures and Spot round trips separately, each in a single-venue process (EPIC-027P).
 
 ## 2. Acceptance criteria
-- [ ] With `SEW_TESTNET_TESTS=1` and both key pairs, one test process opens a Futures position and closes it and buys then sells Spot, through `IVenueContexts`, and both return to baseline. *Written and rehearsed against the fake Binance server (Implementation notes); the real run is criterion 3.*
+- [x] With `SEW_TESTNET_TESTS=1` and both key pairs, one test process opens a Futures position and closes it and buys then sells Spot, through `IVenueContexts`, and both return to baseline. The user's run on 2026-10-03 passed: `test_one_process_trades_both_venues_back_to_baseline PASSED` (§5).
 - [x] Without the flag or either key pair it skips with a stated reason: `missing SEW_TESTNET_TESTS=1 …`, or `… no futures_testnet credentials were found` / `… no spot_testnet credentials were found`.
-- [ ] The user's run is pasted into this task file.
+- [x] The user's run is pasted into this task file (§5).
 
 ## 3. Design
 - **The composed path, not hand-built adapters.** The test builds `create_app()` with `exchange.trading_venues = ["futures_testnet", "spot_testnet"]` and takes both venues from the container's `IVenueContexts`: client factory, account reader and metadata provider. The app reads the keys itself (environment first, then `src/config/secrets.local.json`). The app is built but not booted: `create_app()` already binds every venue's ports, and booting would start market streams and user-data websockets the test does not need.
@@ -35,14 +35,25 @@
 The user runs `ci-local.ps1 -TestnetOnly`; output pasted here.
 - **Skip paths (this sandbox):** without the flag, all 5 tests of the tree skip with `missing SEW_TESTNET_TESTS=1`. With the flag and no Futures key, they skip naming `futures_testnet`.
 - **Rehearsal (this sandbox, not committed):** a scratch pytest plugin pointed `Client.API_TESTNET_URL` / `FUTURES_TESTNET_URL` at `run_binance_fake_server()` with fake keys. `test_dual_venue_round_trip.py`, `test_order_lifecycle.py` and `spot/test_spot_order_lifecycle.py` then gave **4 passed**. This proves the test code and the composed wiring, not Binance's real filters.
-- **Real run:** not run yet. This sandbox cannot reach `*.binance.*` and holds no keys.
+- **Real run (the user, 2026-10-03, Windows, `master-warrior` after PR #312):** `pwsh -NoProfile -File scripts/ci-local.ps1 -TestnetOnly`, with both key pairs in the environment.
+  ```
+  ===CI_LOCAL_RESULT===
+  RESULT: PASS
+  FAILED_STEPS: none
+  LOG_FILE: ...\logs\ci-local-20261003-140941.log
+  ===END_CI_LOCAL_RESULT===
+
+  tests\testnet\spot\test_spot_order_lifecycle.py::test_market_buy_then_sell_returns_the_holding_to_baseline PASSED [ 20%]
+  tests\testnet\test_connection.py::test_account_is_reachable PASSED [ 40%]
+  tests\testnet\test_dual_venue_round_trip.py::test_one_process_trades_both_venues_back_to_baseline PASSED [ 60%]
+  tests\testnet\test_order_lifecycle.py::test_dry_run_is_accepted PASSED [ 80%]
+  tests\testnet\test_order_lifecycle.py::test_market_order_fills_and_closes PASSED [100%]
+  ============================= 5 passed in 17.36s ==============================
+  ```
+  All five ran rather than skipped: the run log lists each as `PASSED`. `RESULT: PASS` alone would not show this, because a skipped tier also passes. This is also the first real run of the Spot round trip since `EPIC-027P`, so its quantity (`0.0002` BTC) and step bound hold against the live Testnet filters.
 
 ## Implementation notes (written when done)
 - The composed app resolves `IVenueContexts` before `boot()`, and logs `Trading venues enabled: ['futures_testnet', 'spot_testnet']; primary venue: futures_testnet.` `app.stop()` without a boot is clean.
 
 ## Resume
-- **Next action: the user's run.**
-  1. Set both key pairs and the flag in the shell.
-  2. Run `pwsh -NoProfile -File scripts/ci-local.ps1 -TestnetOnly`.
-  3. Paste the `===CI_LOCAL_RESULT===` block and the pytest summary here.
-- **Then:** tick criteria 1 and 3, move this file to `completed/`, and close `EPIC-028` on the boards.
+Done. Nothing to resume.

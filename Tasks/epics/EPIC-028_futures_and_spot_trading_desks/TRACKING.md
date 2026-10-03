@@ -78,7 +78,7 @@ gantt
 | EPIC-028L | [Spot desk](completed/EPIC-028L_spot_desk_screen.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Done | — |
 | EPIC-028M | [Retire old screen, docs](completed/EPIC-028M_retire_single_trading_screen_and_docs.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Merged | [#309](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/309) |
 | EPIC-028S | [PR 309 review follow-ups](completed/EPIC-028S_desk_follow_ups_from_pr_309_review.md) | `claude/wizardly-cerf-fc5b5x` | 🟢 | ✅ Merged | [#310](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/310) |
-| EPIC-028N | [Dual-venue Testnet tier](incomplete/EPIC-028N_dual_venue_testnet_tier.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | 🟡 In progress — awaits the user's run | [#312](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/312) |
+| EPIC-028N | [Dual-venue Testnet tier](completed/EPIC-028N_dual_venue_testnet_tier.md) | `claude/wizardly-cerf-fc5b5x` | 🟡 | ✅ Done (2026-10-03) | [#312](https://github.com/anhembedded/Sagittarius_Elite_Warrior/pull/312) |
 
 ---
 
@@ -86,6 +86,7 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
+| 2026-10-03 | EPIC-028N | Dual-venue Testnet tier: one process trades Futures and Spot Testnet through `IVenueContexts`; round trips shared in `tests/testnet/round_trips.py`; the user's run passed 5/5 (PR #312). |
 | 2026-10-02 | EPIC-028S | PR 309 review follow-ups: reconciliation fails closed for an unclassified block reason; a desk re-reads its order panel after a fill; F9 tested in the composed app against the fake server. |
 | 2026-10-02 | EPIC-028M | The single Trading screen retired (Start opens the Futures desk); its view model and chart coordinators moved to the desk package; the desks took its equity chart and fill markers; the Dev Board's toggle and Emergency Stop are `DeskSessionControls` and its F9 dialog hosts the desks' order panel; HLD/SPEC updated, SPEC-013 new. |
 | 2026-10-02 | EPIC-028L | The Spot desk (`trading.spot`) from the same composition with Spot's profile; both desks open at once stay apart (orders, signals, chart streams, Enable, Emergency Stop); boot re-arms every enabled venue's own saved strategy. |
