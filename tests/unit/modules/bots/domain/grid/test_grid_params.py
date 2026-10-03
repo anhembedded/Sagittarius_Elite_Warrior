@@ -91,6 +91,7 @@ def test_exit_levels_resolve_against_their_edge(
         {"lower": "Infinity"},
         {"stop_loss": "price:0"},
         {"stop_loss": "off:5"},
+        {"stop_loss": "percent:100"},
     ],
 )
 def test_invalid_values_are_refused(changes: dict[str, str]) -> None:

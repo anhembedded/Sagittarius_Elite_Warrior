@@ -63,12 +63,13 @@ def evaluate_grid(inputs: BotKindInputs, thresholds: GridThresholds) -> GridEval
     try:
         grid_plan = plan(params, inputs.terms, inputs.market.last_price)
         derived = derive(params, inputs.terms, grid_plan)
+        check_inputs = GridCheckInputs(
+            params, grid_plan, derived, inputs.terms, inputs.market, thresholds
+        )
+        verdicts = run_checks(check_inputs)
     except ArithmeticError as exc:
         return _unreadable(f"a value is out of range ({type(exc).__name__})")
-    check_inputs = GridCheckInputs(
-        params, grid_plan, derived, inputs.terms, inputs.market, thresholds
-    )
-    return GridEvaluation(run_checks(check_inputs), params, grid_plan, derived)
+    return GridEvaluation(verdicts, params, grid_plan, derived)
 
 
 def _unreadable(reason: str) -> GridEvaluation:

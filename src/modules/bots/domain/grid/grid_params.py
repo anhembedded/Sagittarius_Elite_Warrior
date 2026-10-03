@@ -98,6 +98,8 @@ class GridParams:
             raise GridParamsError("grid_count must be at least 1")
         if self.capital_quote <= 0:
             raise GridParamsError("capital_quote must be positive")
+        if self.stop_loss.kind is ExitKind.PERCENT and self.stop_loss.value >= _HUNDRED:
+            raise GridParamsError("a stop_loss percent must be below 100")
 
     @classmethod
     def from_config(cls, config: Mapping[str, str]) -> GridParams:

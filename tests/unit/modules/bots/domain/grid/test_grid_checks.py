@@ -328,6 +328,9 @@ def test_thresholds_are_the_reports_defaults() -> None:
         {"capital_quote": "NaN"},
         {"grid_count": "²"},
         {"upper": "1e999999999"},
+        {"stop_loss": "percent:1e999999999"},
+        {"take_profit": "percent:1e999999999"},
+        {"stop_loss": "percent:100"},
     ],
 )
 def test_unreadable_parameters_are_one_refusal_and_no_plan(
@@ -359,3 +362,9 @@ def test_a_grid_exactly_at_two_maker_fees_counts_as_losing() -> None:
 def test_a_zero_atr_is_treated_as_no_candles() -> None:
     verdict = _verdict(_evaluate(daily_atr=Decimal(0)), "RANGE_ATR_NOT_CHECKED")
     assert verdict.severity is OK
+
+
+def test_an_extreme_market_value_is_unreadable_not_a_crash() -> None:
+    """PR #318 review round 2: the checks ran outside the arithmetic guard."""
+    evaluation = _evaluate(daily_atr=Decimal("1e-999999999"))
+    assert [v.code for v in evaluation.verdicts] == ["PARAMETERS_UNREADABLE"]

@@ -116,7 +116,7 @@ Unit tests only:
 | Inputs | `test_grid_params.py`: every key required and named when missing, a lossless round trip, invalid values refused |
 | Levels | `test_grid_plan.py`: sides, the EMPTY level (ties, both edges, half the edge grid beyond an edge, the geometric grid the price sits in), BUY rounds down and SELL up to the tick, quantities rounded down to the step, opening purchase = Σ SELL |
 | Known answers | `test_grid_known_answers.py`: step 1,000; 1.467% / 1.249%; ratio 1.01553; 9,457 / 9,231; ≈40 cycles; and the upper edge, +2.3% (10,231) against +7.7% (10,769) |
-| Three refusals | `test_grid_checks.py`: each at its threshold and one tick or cent either side; `test_the_three_refusals_are_the_only_refusals` |
+| Three refusals | `test_grid_checks.py`: each at its threshold and one tick or cent either side; `test_the_four_refusals_are_the_only_refusals` |
 | Warnings | `test_grid_checks.py`: every warning at and around its boundary, with its threshold and measured value |
 | Verdicts | `domain/verdict.py` (`EPIC-029B`); every check returns severity, code, reason and numbers |
 | Suggestions | `test_volatility.py`, `test_bands.py` |
