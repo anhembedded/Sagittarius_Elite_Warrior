@@ -1,6 +1,6 @@
 """`EPIC-029C` — one verdict per check on a Grid's parameters (PRO-006 §4.2; ADR D14, D21).
 
-**Three refusals, and no others** — each a certain loss or a certain rejection:
+**Four refusals, and no others** — each a certain loss or a certain rejection:
 
   · `EVERY_CYCLE_LOSES` — even the widest grid's step is at or below
     `2 × maker`, so every completed cycle loses money (both legs rest, so both
@@ -10,7 +10,12 @@
     venue's minimum, which the exchange rejects;
   · `LEVEL_ABOVE_MAX_NOTIONAL` — a level's order is worth more than trading's
     per-order cap (ADR D21, O5), which trading rejects. It names the cap and
-    the largest capital that would pass.
+    the largest capital that would pass;
+  · `TOO_MANY_LEVELS` — more orders than the bot may hold open
+    (`ExchangeTerms.max_open_orders`: the venue's `MAX_NUM_ORDERS` and
+    trading's per-owner cap, ADR O1, whichever is lower), which the exchange
+    or trading rejects. Checked before the ladder is built, so a huge
+    `grid_count` costs nothing (`grid_evaluation.py`; PR #318 review).
 
 **Warnings** carry the threshold and the measured value. A check that cannot
 run (no candles for the ATR) says so as OK, never as a silent pass.
@@ -20,7 +25,7 @@ from __future__ import annotations
 
 from collections.abc import Callable
 from dataclasses import dataclass
-from decimal import Decimal
+from decimal import ROUND_FLOOR, Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
@@ -41,6 +46,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.verdict import (
     Verdict,
     VerdictSeverity,
 )
+
+_CENT = Decimal("0.01")
 
 OK = VerdictSeverity.OK
 WARNING = VerdictSeverity.WARNING
@@ -101,7 +108,7 @@ def check_min_notional(inputs: GridCheckInputs) -> Verdict:
 def check_max_notional(inputs: GridCheckInputs) -> Verdict:
     largest = max(level.notional for level in inputs.plan.order_levels)
     cap = inputs.terms.max_notional_per_order
-    largest_capital = cap * len(inputs.plan.order_levels)
+    largest_capital = largest_capital_within_cap(inputs.plan, cap)
     numbers = {"largest_order": largest, "cap": cap, "largest_capital": largest_capital}
     if largest > cap:
         return Verdict(
@@ -112,6 +119,40 @@ def check_max_notional(inputs: GridCheckInputs) -> Verdict:
             numbers,
         )
     return Verdict(OK, "MAX_NOTIONAL", "Every order is within trading's cap", numbers)
+
+
+def check_open_orders(inputs: GridCheckInputs) -> Verdict:
+    """The exact count, after the plan: a price outside the range leaves no
+    level EMPTY, so `grid_count + 1` orders (`grid_evaluation.py` has already
+    refused anything with more than `max_open_orders` grids)."""
+    orders = len(inputs.plan.order_levels)
+    allowed = inputs.terms.max_open_orders
+    numbers = {"orders": Decimal(orders), "max_open_orders": Decimal(allowed)}
+    if orders > allowed:
+        return Verdict(
+            REFUSED,
+            "TOO_MANY_LEVELS",
+            f"The plan places {orders} orders; at most {allowed} may be open",
+            numbers,
+        )
+    return Verdict(OK, "OPEN_ORDERS", "The plan fits the open-order limit", numbers)
+
+
+def largest_capital_within_cap(plan: GridPlan, cap: Decimal) -> Decimal:
+    """The largest capital whose every order stays at or under `cap`.
+
+    A BUY level's order is worth at most its capital. A SELL level's base was
+    bought at the last price, so it sells for `capital × price / last_price`,
+    more than its capital: the highest SELL level is the binding one. Rounding
+    quantities down only shrinks an order, so the answer, floored to a cent,
+    always passes this check (PR #318 review: `cap × levels` did not).
+    """
+    markup = max(
+        (level.price / plan.last_price for level in plan.sell_levels),
+        default=Decimal(1),
+    )
+    capital = cap * len(plan.order_levels) / max(markup, Decimal(1))
+    return capital.quantize(_CENT, rounding=ROUND_FLOOR)
 
 
 def check_min_step(inputs: GridCheckInputs) -> Verdict:
@@ -203,6 +244,7 @@ CHECKS: tuple[Callable[[GridCheckInputs], Verdict], ...] = (
     check_break_even,
     check_min_notional,
     check_max_notional,
+    check_open_orders,
     check_min_step,
     check_range_against_atr,
     check_stop_loss,

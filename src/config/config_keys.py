@@ -92,6 +92,10 @@ class ConfigKeys(str, Enum):
     #: Blocks a live order once this many have been sent this session —
     #: the one limit that stops a runaway signal loop outright.
     TRADING_MAX_ORDERS_PER_SESSION = "trading.max_orders_per_session"
+    #: `EPIC-029B` — where bots are stored, one JSON file each. Unset means
+    #: `<repo root>/state/bots`; the sanity tier points it at a temporary
+    #: directory so a test boot never rewrites a real bot (PR #318 review).
+    BOTS_STATE_DIR = "bots.state_dir"
     #: Blocks a single order whose notional exceeds this many USDT.
     TRADING_MAX_NOTIONAL_PER_ORDER_USDT = "trading.max_notional_per_order_usdt"
     #: Blocks a new order on a symbol that already has this many open

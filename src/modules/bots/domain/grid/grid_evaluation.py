@@ -5,12 +5,15 @@ One function, so the Bots tab (`EPIC-029F`), the backtest (`EPIC-029D`) and
 
 Parameters that cannot be read are not a check's verdict but the absence of a
 plan: they come back as a single REFUSED `PARAMETERS_UNREADABLE` naming the
-key, and no plan. `validate` never raises on bad input.
+key (or, for a number too large to compute with, the arithmetic error), and no
+plan. More grids than may be open is `TOO_MANY_LEVELS`, judged before the
+ladder is built. `validate` never raises on bad input.
 """
 
 from __future__ import annotations
 
 from dataclasses import dataclass
+from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     BotKindInputs,
@@ -54,18 +57,39 @@ def evaluate_grid(inputs: BotKindInputs, thresholds: GridThresholds) -> GridEval
     try:
         params = GridParams.from_config(inputs.config)
     except GridParamsError as exc:
-        return GridEvaluation(
-            (
-                Verdict(
-                    VerdictSeverity.REFUSED,
-                    "PARAMETERS_UNREADABLE",
-                    f"The Grid parameters cannot be read: {exc}",
-                ),
-            )
-        )
-    grid_plan = plan(params, inputs.terms, inputs.market.last_price)
-    derived = derive(params, inputs.terms, grid_plan)
+        return _unreadable(str(exc))
+    if params.grid_count > inputs.terms.max_open_orders:
+        return GridEvaluation((_too_many_levels(params, inputs),), params)
+    try:
+        grid_plan = plan(params, inputs.terms, inputs.market.last_price)
+        derived = derive(params, inputs.terms, grid_plan)
+    except ArithmeticError as exc:
+        return _unreadable(f"a value is out of range ({type(exc).__name__})")
     check_inputs = GridCheckInputs(
         params, grid_plan, derived, inputs.terms, inputs.market, thresholds
     )
     return GridEvaluation(run_checks(check_inputs), params, grid_plan, derived)
+
+
+def _unreadable(reason: str) -> GridEvaluation:
+    return GridEvaluation(
+        (
+            Verdict(
+                VerdictSeverity.REFUSED,
+                "PARAMETERS_UNREADABLE",
+                f"The Grid parameters cannot be read: {reason}",
+            ),
+        )
+    )
+
+
+def _too_many_levels(params: GridParams, inputs: BotKindInputs) -> Verdict:
+    """At least `grid_count` levels hold an order (one may stay EMPTY)."""
+    allowed = inputs.terms.max_open_orders
+    return Verdict(
+        VerdictSeverity.REFUSED,
+        "TOO_MANY_LEVELS",
+        f"{params.grid_count} grids place at least {params.grid_count} orders; "
+        f"at most {allowed} may be open",
+        {"orders": Decimal(params.grid_count), "max_open_orders": Decimal(allowed)},
+    )

@@ -155,7 +155,7 @@ def _parse_decimal(text: str, key: str) -> Decimal:
 
 def _integer(config: Mapping[str, str], key: str) -> int:
     text = _text(config, key)
-    if not text.isdigit():
+    if not (text.isascii() and text.isdigit()):
         raise GridParamsError(f"{key} is not a whole number: {text!r}")
     return int(text)
 

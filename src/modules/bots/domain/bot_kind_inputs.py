@@ -32,10 +32,15 @@ class ExchangeTerms:
     taker_fee: Decimal
     #: Trading's per-order cap (ADR D21, O5): configurable, read at runtime.
     max_notional_per_order: Decimal
+    #: The most orders the bot may hold open: the venue's `MAX_NUM_ORDERS`
+    #: and trading's per-owner cap (ADR O1), whichever is lower.
+    max_open_orders: int
 
     def __post_init__(self) -> None:
         if self.tick_size <= 0 or self.step_size <= 0:
             raise ValueError("tick_size and step_size must be positive")
+        if self.max_open_orders < 1:
+            raise ValueError("max_open_orders must be at least 1")
 
 
 @dataclass(frozen=True, slots=True)

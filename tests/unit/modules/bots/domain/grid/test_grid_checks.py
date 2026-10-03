@@ -67,6 +67,7 @@ def test_a_step_one_tick_below_two_maker_fees_refuses() -> None:
 def test_thin_upper_grids_only_warn() -> None:
     """Arithmetic over 100–200 in 400 grids: 0.25% at the bottom, 0.125% at the top."""
     evaluation = _evaluate(
+        terms=replace(TERMS, max_open_orders=1000),
         last_price=Decimal(150),
         lower="100",
         upper="200",
@@ -112,11 +113,62 @@ def test_cap_at_the_largest_order_passes_and_a_cent_less_refuses_naming_the_cap(
     refused = _verdict(below, "MAX_NOTIONAL", "LEVEL_ABOVE_MAX_NOTIONAL")
     assert refused.code == "LEVEL_ABOVE_MAX_NOTIONAL"
     assert refused.numbers["cap"] == largest - CENT
-    assert refused.numbers["largest_capital"] == (largest - CENT) * 10
     assert str(largest - CENT) in refused.reason
 
 
-def test_the_three_refusals_are_the_only_refusals() -> None:
+@pytest.mark.parametrize("cap", [Decimal(500), Decimal(1000), Decimal("1076.5")])
+def test_the_suggested_largest_capital_passes_and_a_dollar_more_does_not(
+    cap: Decimal,
+) -> None:
+    """PR #318 review: a SELL level is worth `capital × price / last_price`, more
+    than its capital, so `cap × levels` was itself refused. The suggestion must
+    round-trip to OK, and be the largest such capital to the dollar."""
+    terms = replace(TERMS, max_notional_per_order=cap)
+    refused = _verdict(
+        _evaluate(terms=terms), "MAX_NOTIONAL", "LEVEL_ABOVE_MAX_NOTIONAL"
+    )
+    assert refused.code == "LEVEL_ABOVE_MAX_NOTIONAL"
+    suggested = refused.numbers["largest_capital"]
+    at = _evaluate(terms=terms, capital_quote=str(suggested))
+    above = _evaluate(terms=terms, capital_quote=str(suggested + 1))
+    assert (
+        _verdict(at, "MAX_NOTIONAL", "LEVEL_ABOVE_MAX_NOTIONAL").code == "MAX_NOTIONAL"
+    )
+    assert _verdict(above, "MAX_NOTIONAL", "LEVEL_ABOVE_MAX_NOTIONAL").refuses
+
+
+def test_the_largest_capital_is_bound_by_the_highest_sell_level() -> None:
+    """Cap 1,000 over 10 orders, the 70,000 SELL bought at 65,000: 10,000 × 65/70."""
+    terms = replace(TERMS, max_notional_per_order=Decimal(1000))
+    refused = _verdict(_evaluate(terms=terms), "LEVEL_ABOVE_MAX_NOTIONAL")
+    assert refused.numbers["largest_capital"] == Decimal("9285.71")
+
+
+def test_more_grids_than_may_be_open_is_refused_before_any_plan() -> None:
+    evaluation = _evaluate(grid_count="200000")
+    assert [v.code for v in evaluation.verdicts] == ["TOO_MANY_LEVELS"]
+    assert evaluation.verdicts[0].refuses
+    assert evaluation.plan is None
+
+
+@pytest.mark.parametrize(
+    ("last_price", "grid_count", "code"),
+    [
+        (Decimal(65000), "100", "OPEN_ORDERS"),  # one level EMPTY: 100 orders
+        (Decimal(50000), "100", "TOO_MANY_LEVELS"),  # outside the range: 101
+        (Decimal(50000), "99", "OPEN_ORDERS"),  # outside the range: 100
+    ],
+)
+def test_the_exact_order_count_meets_the_open_order_limit(
+    last_price: Decimal, grid_count: str, code: str
+) -> None:
+    evaluation = _evaluate(
+        last_price=last_price, grid_count=grid_count, capital_quote="1000000"
+    )
+    assert _verdict(evaluation, "OPEN_ORDERS", "TOO_MANY_LEVELS").code == code
+
+
+def test_the_four_refusals_are_the_only_refusals() -> None:
     codes = {
         v.code
         for kwargs in (
@@ -128,6 +180,8 @@ def test_the_three_refusals_are_the_only_refusals() -> None:
                 "take_profit": "price:65000",
                 "grid_count": "1000",
             },
+            {"grid_count": "101"},
+            {"last_price": Decimal(50000), "grid_count": "100"},
         )
         for v in _evaluate(**kwargs).verdicts
         if v.refuses
@@ -136,6 +190,7 @@ def test_the_three_refusals_are_the_only_refusals() -> None:
         "EVERY_CYCLE_LOSES",
         "LEVEL_BELOW_MIN_NOTIONAL",
         "LEVEL_ABOVE_MAX_NOTIONAL",
+        "TOO_MANY_LEVELS",
     }
 
 
@@ -271,6 +326,8 @@ def test_thresholds_are_the_reports_defaults() -> None:
         {"stop_loss": "percent:-1"},
         {"take_profit": "ticks:5"},
         {"capital_quote": "NaN"},
+        {"grid_count": "²"},
+        {"upper": "1e999999999"},
     ],
 )
 def test_unreadable_parameters_are_one_refusal_and_no_plan(

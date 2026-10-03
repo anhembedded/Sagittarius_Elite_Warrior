@@ -117,6 +117,12 @@ whatever the chart shows (`desk_strategy.py:65`). It has no lifecycle beyond arm
 | One running bot | `test_bot_use_cases.py::test_a_second_bot_cannot_start_while_one_is_active` over all seven active states |
 | Documentation | `Docs/VOCABULARY/README.md` (five modules, a `bots` section), HLD 02 (diagram, distillation, integration row), HLD 03 (`bots` contracts) |
 
+**Review round 1 (PR #318), fixed:**
+
+- **The store directory is configurable** (`bots.state_dir`, `ConfigKeys.BOTS_STATE_DIR`; unset means `<repo>/state/bots`). The sanity tier boots the real composition root, and the restore at `boot()` rewrites RUNNING bots, so the sanity boot now points the store at a temporary directory and can never touch a live bot's file.
+- **`BotsModule` wiring is tested** (`tests/integration/modules/bots/test_bots_module_wiring.py`): every command and query resolves from a real `StdLibContainer` after `register()`, the store writes to the configured directory, and `boot()` turns a RUNNING bot into RECOVERING. Removing `bind_commands` or the restore call makes 8 of its tests fail, which was checked.
+- **D20's check-then-act** is recorded in `EPIC-029E` as a requirement: the check and the transition must be atomic once something dispatches start.
+
 **Decisions made while building, and why:**
 
 - **`app_restart` is the restart rule.** Restoring a bot is applying the table's `app_restart` cell, so D12 is declared in the matrix, not in a second `if` chain. `BotRestoreService` runs it at `boot()` and saves only changed bots.

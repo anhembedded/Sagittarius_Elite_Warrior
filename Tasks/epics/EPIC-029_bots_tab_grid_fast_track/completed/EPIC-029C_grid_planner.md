@@ -131,6 +131,12 @@ Unit tests only:
   - `nearest - 1` → `nearest + 1` for the half-step neighbour: inside the range the nearest level is always within half its own grid, and below the range both pick level 1;
   - `price < last_price` → `<=` in `_side`: a level equal to the price is always the EMPTY one.
 
+**Review round 1 (PR #318), fixed:**
+
+- **The suggested "largest capital that passes" was itself refused.** A SELL level's base is bought at the last price, so it sells for `capital × price / last_price`, more than its capital. `largest_capital_within_cap()` now divides by the highest SELL markup and floors to a cent. A test feeds the suggestion back (OK) and adds a dollar (refused) at three caps, and pins 10,000 × 65/70 = 9,285.71 for the report at a 1,000 cap. The old test had asserted the wrong formula.
+- **A fourth refusal, `TOO_MANY_LEVELS`, a certain rejection.** `ExchangeTerms.max_open_orders` is the venue's `MAX_NUM_ORDERS` and trading's per-owner cap (O1), whichever is lower, filled by the executor. More grids than that is refused before any ladder is built, so `grid_count=200000` costs nothing (it took 3 s). `check_open_orders` then counts the plan's exact orders, because a price outside the range leaves no level EMPTY (`grid_count + 1`).
+- **`validate` never raises, now in fact.** `grid_count='²'` passed `isdigit()` and then `int()` raised; the check is `isascii() and isdigit()`. A number too large to compute with (`upper='1e999999999'`) is caught as `ArithmeticError` and becomes `PARAMETERS_UNREADABLE`.
+
 **Decisions made while building, and why:**
 
 - **The fees live in `ExchangeTerms`, not `GridParams`.** The task lists `maker_fee` and `taker_fee` under the inputs. They are a fact of the account (`CommissionRate`), not a choice, so they travel with the venue's filters. The live executor reads them from the account and the backtest records them. No constant fee exists anywhere.

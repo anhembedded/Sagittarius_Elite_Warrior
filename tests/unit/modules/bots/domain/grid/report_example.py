@@ -21,6 +21,7 @@ TERMS = ExchangeTerms(
     maker_fee=Decimal("0.001"),
     taker_fee=Decimal("0.001"),
     max_notional_per_order=Decimal(5000),
+    max_open_orders=100,
 )
 
 CONFIG: dict[str, str] = {
