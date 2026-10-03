@@ -1,8 +1,8 @@
 # EPIC-029 — A Bots tab, and one Grid bot trading on Spot Testnet as fast as it can be done right
 
-- **Status:** 🔵 Planned. `PRO-006` was accepted by the user on 2026-10-03. The ADR is Proposed and
-  revised after review round 1. It waits for the re-review and the user's answers to D6, D21 and
-  O1–O5.
+- **Status:** 🟡 In progress. `PRO-006` was accepted by the user on 2026-10-03, and so was the ADR:
+  D6, D21 and O1–O5 were answered with the recommendations, and the per-order cap stays
+  configurable.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** [`PRO-006`](../../proposal/PRO-006.md). The user's acceptance, 2026-10-03: *"Oki,
   duyệt, nhớ design đúng nha, ko lazy design"* ("OK, approved; get the design right, no lazy
@@ -11,7 +11,7 @@
   [`Docs/HLD/11_desktop_workbench.md`](../../../Docs/HLD/11_desktop_workbench.md) for the place a new
   tab takes.
 - **Decisions:** [`DECISION_2026-10-03_bots_module_and_grid_bot.md`](DECISION_2026-10-03_bots_module_and_grid_bot.md)
-  (D1–D21, O1–O5; Proposed; revised after review round 1).
+  (D1–D21, O1–O5; Accepted 2026-10-03, after review rounds 1 and 2).
 - **Tracking (Gantt, PR matrix):** [`TRACKING.md`](TRACKING.md).
 - **Dependencies:**
   - Builds on [`EPIC-027`](../EPIC-027_spot_trading_and_spot_backtest/README.md) and
@@ -83,7 +83,7 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 | Resting LIMIT orders one owner can keep on one symbol | 1 | grid_count + 1, within its budget | the same, per bot |
 | Bots that can run at once | 0 | 1 | one per symbol |
 | Grid bots trading on Spot Testnet | 0 | 1, soaked for 24 h or more with restarts and an Emergency Stop | Spot and Futures |
-| Parameter checks with a verdict and a reason | 0 | about 9 Grid checks: 3 refusals (certain loss or certain rejection), the rest warnings | per kind |
+| Parameter checks with a verdict and a reason | 0 | about 10 Grid checks: 4 refusals (certain loss or certain rejection), the rest warnings | per kind |
 | Charts drawing a bot's own indicators | 0 | 1 overlay drawing 3 surfaces | per kind |
 | Grid backtests on real data, stating their fill rule | 0 | yes, in parallel | required before mainnet |
 | Desks with a strategy card | 2 | 2 | 0 (manual only) |
@@ -95,7 +95,7 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 | [EPIC-029A](incomplete/EPIC-029A_trading_seams_for_bots.md) | Trading seams: client order tag, owner budget with an owner book derived from exchange evidence, switch event, Spot cancel id, fake exchange LIMIT matching | Elite | D6, O1, O5 (for the budget) | 🔴 | Planned |
 | [EPIC-029E](incomplete/EPIC-029E_live_grid_executor.md) | The live Grid executor: actor, levels, start, fill, stop, stop loss and take profit, Halted, reconciliation | Elite | 029A, 029B, 029C, O2, O3 | 🔴 | Planned |
 | [EPIC-029K](incomplete/EPIC-029K_grid_on_futures.md) | Grid on Futures: leverage, liquidation guard, modes *(after the fast track)* | Elite | 029H | 🔴 | Planned |
-| [EPIC-029B](incomplete/EPIC-029B_bots_module_entity_and_store.md) | The `bots` module: entity, kind seam, lifecycle FSM, store | Elite | None | 🟡 | Planned |
+| [EPIC-029B](completed/EPIC-029B_bots_module_entity_and_store.md) | The `bots` module: entity, kind seam, lifecycle FSM, store | Elite | None | 🟡 | ✅ Done (2026-10-03), PR1 |
 | [EPIC-029D](incomplete/EPIC-029D_grid_backtest.md) | Grid backtest: ladder simulator, fill rule, buy-and-hold *(parallel)* | Elite | 029C, 029G | 🟡 | Planned |
 | [EPIC-029F](incomplete/EPIC-029F_bots_tab.md) | The Bots tab: list, shell, Grid panel with verdicts, dialogs, SPEC-014 | Elite | 029B, 029C, 029G, O4 (built against the use-case commands; the end-to-end run with 029E is checked in 029H) | 🟡 | Planned |
 | [EPIC-029G](incomplete/EPIC-029G_bot_chart.md) | The bot chart: shared live chart, price levels, one Grid overlay for three surfaces | Elite | 029C | 🟡 | Planned |
@@ -103,7 +103,7 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 | [EPIC-029I](incomplete/EPIC-029I_desks_manual_only.md) | Desks manual only, bot badge, takeover, SPEC-010 *(after the fast track)* | Elite | 029H | 🟡 | Planned |
 | [EPIC-029J](incomplete/EPIC-029J_many_bots.md) | Many bots, one per symbol *(after the fast track)* | Elite | 029H | 🟡 | Planned |
 | [EPIC-029L](incomplete/EPIC-029L_signal_and_dca_kinds.md) | Signal and DCA kinds *(after the fast track)* | Elite | 029I, 029J | 🟡 | Planned |
-| [EPIC-029C](incomplete/EPIC-029C_grid_planner.md) | The Grid planner: plan, derived values, verdicts, ATR and Bollinger | Elite | 029B | 🟢 | Planned |
+| [EPIC-029C](completed/EPIC-029C_grid_planner.md) | The Grid planner: plan, derived values, verdicts, ATR and Bollinger | Elite | 029B | 🟢 | ✅ Done (2026-10-03), PR1 |
 
 **Critical path of the fast track:** 029B → 029C, then two branches that meet at 029H:
 
@@ -114,12 +114,27 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 
 The same graph is drawn in `TRACKING.md`.
 
+## 3.1 Pull requests (the user's rule, 2026-10-03: two small tasks per PR)
+
+| PR | Tasks | Why grouped this way |
+| :--- | :--- | :--- |
+| 1 | `029B` + `029C` | Two small, pure additions: the `bots` module and the Grid planner. No order is sent. |
+| 2 | `029A` | 🔴 It changes trading's safety gates, so it stands alone. |
+| 3 | `029G` | It moves the desks' chart, so it stands alone with the desks as the regression surface. |
+| 4 | `029E` | 🔴 The live executor. |
+| 5 | `029F` | The Bots tab. |
+| 6 | `029D` | The Grid backtest, a large task. |
+| — | `029H` | The user runs it on Testnet; it adds a gated test and a report. |
+
+The PRs go one after another on the session branch. Each code PR waits for an independent review
+and the user's merge (`ONBOARDING.md` §7).
+
 ## 4. Phase exit criteria
 
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
 | F0 — seams (029A, 029B) | A budgeted owner keeps 10 resting LIMIT orders on one symbol on the fake exchange. Bots persist and survive a restart. Every module guard passes. | Unit and integration tests; architecture guards; the red-then-green parser test for D8. Not run. |
-| F1 — planner (029C) | The report's worked example reproduced as known answers, and every check's boundary tested | Unit tests and a mutation run. Not run. |
+| F1 — planner (029C) | The report's worked example reproduced as known answers, and every check's boundary tested | Unit tests and a mutation run: done in PR1 (`EPIC-029C` notes) |
 | F2 — live bot, tab, chart (029E, 029F, 029G) and backtest (029D) | A 6-level grid cycles, halts on an Emergency Stop and reconciles after a restart on the fake exchange. The tab drives it. One overlay draws three surfaces. The backtest states its fill rule. | Integration tests, `qtbot` tests, the preview, the sanity route scan. Not run. |
 | F3 — Testnet (029H) | One Grid bot on Spot Testnet for 24 hours or more, through two restarts and an Emergency Stop. Its record is reconciled with the exchange and with the backtest of the same period. | The gated Testnet test run by the user, and the soak report. Not run. |
 | After the fast track (029I–029L) | Desks manual only; many bots; Grid on Futures; signal and DCA kinds | Per task. Not run. |

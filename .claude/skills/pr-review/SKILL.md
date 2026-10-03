@@ -29,7 +29,7 @@ Load `CLAUDE.md`, `.claude/CONSTITUTION.md`, `.claude/ONBOARDING.md` §7, and `.
 
 - **Mandatory Rubric Ingestion:** You MUST explicitly load and read [references/rubric.md](references/rubric.md) (all 108 Check IDs) into context before evaluating any diff. Reviewing without reading [references/rubric.md](references/rubric.md) is strictly forbidden; a review conducted from memory or without loading the active rubric is counterfeit, invalid, and void.
 
-Read the entire diff and surrounding production code. Execute verification in an isolated environment; never mutate or switch the active working tree. To run gate verification safely without mutating the working tree:
+Read the entire diff and surrounding production code. **The full gate is GitHub Actions' `ci-local.ps1 -Full` check run on the reviewed head sha** (`.claude/rules/ci-rule.md` §1): verify it passed and read its job log (rubric B1, B2); do not re-run the full gate locally (user decision 2026-10-03). Run focused checks only where a finding needs proof — a targeted test, a mutation of one line — and run them in an isolated environment; never mutate or switch the active working tree:
 ```bash
 # Named to match this repository exactly, inside a fresh temp parent
 # (BUG-136 / CS-006, same fix `scripts/verify_against_base.py` already
@@ -42,7 +42,7 @@ Read the entire diff and surrounding production code. Execute verification in an
 REVIEW_TMP="$(mktemp -d)"
 git worktree add "$REVIEW_TMP/Sagittarius_Elite_Warrior" <COMMIT_SHA>
 cd "$REVIEW_TMP/Sagittarius_Elite_Warrior"
-# Run gate inside worktree using repo venv:
+# Run the focused tests a finding needs, inside the worktree, using the repo venv:
 PYTHONPATH="$REVIEW_TMP" .venv/bin/pytest <TARGET_TESTS>
 # Clean up when done:
 cd - && git worktree remove "$REVIEW_TMP/Sagittarius_Elite_Warrior" && rm -rf "$REVIEW_TMP"
@@ -70,7 +70,7 @@ Detailed 1-ID-per-row checklist is defined in [references/rubric.md](references/
 | Group | Focus Area | IDs | Key Verification Invariant |
 | :--- | :--- | :--- | :--- |
 | **Group A** | Scope & Authority | A1–A6 | Bounded outcome, P5 technical hierarchy, authority limits. |
-| **Group B** | Gate & Verification | B1–B6 | Gate execution log, positive proof, matching commit SHA. |
+| **Group B** | Gate & Verification | B1–B6 | The GitHub Actions gate run and its job log, positive proof, matching commit SHA. |
 | **Group C** | Architecture & Contracts | C1–C10 | Module boundaries, CQRS, seams (P7), size thresholds. |
 | **Group D** | Code Quality & Hygiene | D1–D14 | Top-level imports only, no bare `# noqa`, FSM matrix cohesion. |
 | **Group E** | Tests & Regressions | E1–E15 | Tier contracts, deterministic waits, red-before proof, ratchets (P8). |

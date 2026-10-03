@@ -130,6 +130,12 @@ All criteria are proven against the fake exchange (`EPIC-029A` makes resting LIM
 - [ ] **Off the websocket thread.** Every submit, cancel and store write runs on the bot's worker,
   never on the websocket thread. A test asserts the thread identity.
 
+- **D20 is checked and applied atomically (PR #318 review).** `StartBotCommandHandler` reads
+  every bot, checks that none is active, then saves the transition, with no lock between the two:
+  two concurrent starts could both pass. Harmless while nothing dispatches start; this task must
+  make the check and the `start` transition one step, under one store lock or on the single
+  dispatcher thread that owns bot commands, and test two starts racing.
+
 ## 3. Design
 
 - **The actor (D9).** Each running bot has one `BotWorker` with a single queue.
