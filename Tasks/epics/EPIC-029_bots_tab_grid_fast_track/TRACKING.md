@@ -1,7 +1,7 @@
 # EPIC-029 — Tracking
 
 - **Epic:** [EPIC-029](README.md)
-- **Status:** 🔵 Planned
+- **Status:** 🟡 In progress (PR1: 029B + 029C)
 - **Target completion:** the fast track (029A–029H) is estimated in working days below. The dates are
   a plan, not a commitment.
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
@@ -19,14 +19,14 @@ gantt
 
     section Plan
     PRO-006 accepted                         :done,    s1, 2026-10-03, 1d
-    ADR review and user answers D6 O1-O5     :crit,    s2, after s1, 2d
+    ADR review and user answers D6 O1-O5     :done,    s2, after s1, 1d
 
     section F0 Seams
     029A Trading seams for bots              :crit,    a, after s2, 4d
-    029B bots module, entity, store          :         b, after s2, 3d
+    029B bots module, entity, store          :done,    b, after s2, 1d
 
     section F1 Planner
-    029C Grid planner and indicators         :crit,    c, after b, 3d
+    029C Grid planner and indicators         :done,    c, after b, 1d
 
     section F2 Live bot and backtest
     029G Bot chart and shared live chart     :crit,    g, after c, 3d
@@ -52,8 +52,8 @@ gantt
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
 | EPIC-029A | [Trading seams for bots](incomplete/EPIC-029A_trading_seams_for_bots.md) | — | 🔴 | 🔵 Planned | — |
-| EPIC-029B | [bots module, entity, store](incomplete/EPIC-029B_bots_module_entity_and_store.md) | — | 🟡 | 🔵 Planned | — |
-| EPIC-029C | [Grid planner](incomplete/EPIC-029C_grid_planner.md) | — | 🟢 | 🔵 Planned | — |
+| EPIC-029B | [bots module, entity, store](completed/EPIC-029B_bots_module_entity_and_store.md) | PR1 (`claude/wizardly-cerf-fc5b5x`) | 🟡 | ✅ Done, in review | — |
+| EPIC-029C | [Grid planner](completed/EPIC-029C_grid_planner.md) | PR1 (`claude/wizardly-cerf-fc5b5x`) | 🟢 | ✅ Done, in review | — |
 | EPIC-029D | [Grid backtest](incomplete/EPIC-029D_grid_backtest.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-029E | [Live Grid executor](incomplete/EPIC-029E_live_grid_executor.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-029F | [Bots tab](incomplete/EPIC-029F_bots_tab.md) | — | 🟡 | 🔵 Planned | — |
@@ -73,6 +73,8 @@ gantt
 | 2026-10-03 | Plan | `PRO-006` accepted by the user. Epic, ADR (D1–D20, O1–O4) and 12 sub-tasks written, for an independent review (PR #317). |
 | 2026-10-03 | Review r1 | NEEDS_REVISION: 5 blocking, 11 should-fix. All addressed; the ADR is now D1–D21 and O1–O5. Re-review requested. |
 | 2026-10-03 | Review r2 | NEEDS_REVISION, narrower: 3 blocking (untagged Emergency Stop sells, unsliced exits, orders without a budget), 5 should-fix. All addressed. Re-review requested. |
+| 2026-10-03 | Design merged | PR #317 merged by the user. The user answered D6 (own budget), O5 (keep the cap, configurable), O1–O4; the ADR is Accepted. Rule: two small tasks per PR. |
+| 2026-10-03 | PR1 | `029B` (the `bots` module) and `029C` (the Grid planner) built; the report's example reproduced as known answers; a mutation run left 4 equivalent mutants. Sent for an independent review. |
 
 ---
 
@@ -80,7 +82,7 @@ gantt
 
 | Blocker / Dependency | Impacted Tasks | Resolution / Owner | Status |
 | :--- | :--- | :--- | :--- |
-| ADR D6 changes a safety gate; D21 keeps one (O5); O1 adds configuration | 029A, and everything after it | The user, after the independent review | 🟡 Open |
-| O2 (resuming after Halted), O3 (stop default) | 029E | The user | 🟡 Open |
-| O4 (warning on app close) | 029F | The user | 🟡 Open |
+| ADR D6 changes a safety gate; D21 keeps one (O5); O1 adds configuration | 029A, and everything after it | The user, 2026-10-03: D6 own budget, O5 cap kept and configurable, O1 accepted | ✅ Resolved |
+| O2 (resuming after Halted), O3 (stop default) | 029E | The user, 2026-10-03: accepted as proposed | ✅ Resolved |
+| O4 (warning on app close) | 029F | The user, 2026-10-03: accepted as proposed | ✅ Resolved |
 | Spot Testnet keys on the user's machine | 029H | The user (keys are never pasted into chat) | 🟡 Open |

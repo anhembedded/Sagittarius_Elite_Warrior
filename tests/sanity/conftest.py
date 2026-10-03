@@ -89,7 +89,7 @@ def qapp():
 
 
 @pytest.fixture(scope="session")
-def booted_app(qapp):
+def booted_app(qapp, tmp_path_factory):
     """The real composition root, booted once, exactly as production loads it.
 
     Mirrors `app_bootstrapper.main()`'s configuration step (`app_config.json`,
@@ -124,6 +124,13 @@ def booted_app(qapp):
     config_manager = ConfigManager()
     config_manager.load_json(str(_CONFIG_DIR / "app_config.json"))
     config_manager.load_json(str(_CONFIG_DIR / "user_config.json"), writable=True)
+    # `EPIC-029B` (PR #318 review): the bots store is the one piece of state
+    # this boot *writes* — the restore turns RUNNING bots into RECOVERING — so
+    # it points at a fresh directory, never the developer's `state/bots/`.
+    # A configuration value, like the network boundary below.
+    config_manager.load_dict(
+        {"bots.state_dir": str(tmp_path_factory.mktemp("bots_state"))}
+    )
 
     app = create_app(config_manager)
 

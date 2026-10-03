@@ -10,7 +10,7 @@ You are the verification gate controller for Sagittarius Elite Warrior. Verifica
 | Cadence | Command / Actions | Purpose |
 | :--- | :--- | :--- |
 | **Every Commit** | `.\scripts\ci-local.ps1 -SkipTests` + `pytest tests/unit/architecture -q` + touched tests | Static lint, types, reference check, architecture rules |
-| **Pre-PR / Done** | Push the final commit tree; GitHub Actions' `ci-local.ps1 -Full` check run is the full-gate authority (`ONBOARDING.md` §7's spawned reviewer still runs it locally, independently, and does not trust this citation) | End-to-end full verification gate, run once by CI rather than duplicated on the author's machine (user decision 2026-09-18) |
+| **Pre-PR / Done** | Push the final commit tree; GitHub Actions' `ci-local.ps1 -Full` check run is the full-gate authority, for the author and for `ONBOARDING.md` §7's reviewer alike. The reviewer verifies that run on the reviewed head sha by reading its job log, and does not re-run the full gate locally | End-to-end full verification gate, run once by CI rather than duplicated on the author's or the reviewer's machine (user decisions 2026-09-18 and 2026-10-03) |
 | **Doc-Only** | Reference checker (`python3 scripts/check_skill_prompt_references.py`) + doc guards | Fast doc verification (`ONBOARDING.md` §7) |
 
 - **Log Inspection:** Never evaluate verification by `| tail` on console. For a local run, grep the generated log file path (`LOG_FILE:`) directly for `FAILED|ERROR|Traceback|ResourceWarning`. For the GitHub Actions run, read its job log the same way (never the green/red badge alone) before citing it as evidence.
