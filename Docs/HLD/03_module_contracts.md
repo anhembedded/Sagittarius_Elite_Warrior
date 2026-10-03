@@ -223,6 +223,17 @@ second automated caller (another bot, copy-trading) uses the same mechanism with
 | `CommissionType`, `Currency`, `BrokerSimulationConfig` | DTO | the Backtest screen's configuration form | **published PR 3.1c**, and they came from `src/domain/value_objects/` — the legacy tree. Measured, every consumer is this context or its screen, so they were never shared vocabulary; `core/vo` admits a type only with two consumers in two *modules* (HLD §2.4) and these have one |
 | **Internal** | | | `PaperExchange`, `FillPricing`, `OpenPosition`, the three fill policies (`fee_calculator`, `margin_risk`, `order_matching`), `out_of_sample_split`'s helpers, `progress_throttle`, and **both command/handler pairs** — the runners stay internal, which is why the screen's three dispatches are allowlisted rather than legal: HLD's own answer is `IBacktestRunner`, *"if a CLI `backtest` command appears"*. `Trade` and the metrics left this row for `contracts/` in PR 3.1c (see above). PR 3.1c-2 split `paper_exchange.py` (472 lines, 72 over the ceiling) into the three things it was holding — the books, `FillPricing`'s arithmetic against the run's configuration, and the `OpenPosition` record — all three still internal |
 
+### `bots` (Supporting — a Customer of `trading` and `market_data`, `EPIC-029`)
+
+| Contract | Kind | Consumers | Note |
+| :--- | :--- | :--- | :--- |
+| `IBotKind` | port | the module itself; the Bots tab (`EPIC-029F`) | **built, `EPIC-029B`.** The seam every kind plugs into (ADR D2): `kind_id`, `validate(inputs) -> tuple[Verdict, ...]`, `overlay(inputs) -> BotOverlay`, `executor_factory()`. Only Grid implements it (`EPIC-029C`). Not bound yet: Grid needs its executor factory, which is `EPIC-029E` |
+| `IBotExecutor`, `IBotExecutorFactory` | port | the use cases, from `EPIC-029E` | **seam only, `EPIC-029B`.** Each method asks the per-bot actor to begin; the outcome arrives as a lifecycle event, never a return value (ADR D9) |
+| `IBotStore` | port | the use cases, the restore service | **built, `EPIC-029B`.** `JsonBotStore` writes `state/bots/<id>.json` atomically; `load_all()` names every refused file instead of dropping it. Verified fake + contract suite per §10.3, run over the real store in the integration tier |
+| `IBotClock` | port | the use cases | **built, `EPIC-029B`.** UTC-aware; verified fake + contract suite |
+| `BotSnapshot`, `BotCommandResult`, `BotRefusal` | DTO | the Bots tab (`EPIC-029F`) | **built, `EPIC-029B`.** A refusal is a value, like every other refusal in this application |
+| **Internal** | | | `Bot`, `BotId`, the lifecycle table (`bot_lifecycle_fsm_matrix.py`), `Verdict`, the Grid planner (`domain/grid/`), the seven command handlers, the two query handlers, `BotRestoreService` (ADR D12 at boot) |
+
 ### `support/*` (Generic)
 
 | Package | Contracts | Consumers |

@@ -23,7 +23,10 @@ order `register()` runs in. `backtesting` is **last**, and that is the same rule
 one step further: HLD §02 gives it three suppliers (`market_data`, `strategy`,
 `trading`) and **no customer at all** — nothing in the app consumes a backtest
 except the screen that displays one — so it can only register after every
-context it reads. The rest of the app is still carried by
+context it reads. `bots` (`EPIC-029`) comes after it: it is a customer of
+`trading` and `market_data` (ADR D1) and nothing consumes it but its own
+screen, so it registers after every context it may read. The rest of the app
+is still carried by
 `binance_bot_module.py` during the strangler period and joins this list one
 context per phase.
 """
@@ -36,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.module import BacktestingModule
+from Sagittarius_Elite_Warrior.src.modules.bots.module import BotsModule
 from Sagittarius_Elite_Warrior.src.modules.market_data.module import MarketDataModule
 from Sagittarius_Elite_Warrior.src.modules.strategy.module import StrategyModule
 from Sagittarius_Elite_Warrior.src.modules.trading.module import TradingModule
@@ -45,6 +49,7 @@ MODULES: tuple[type[BoundedContextModule], ...] = (
     TradingModule,
     StrategyModule,
     BacktestingModule,
+    BotsModule,
 )
 
 
