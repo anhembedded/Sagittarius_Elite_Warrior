@@ -12,6 +12,10 @@ finding that recurs needs a guard, not another split.
 `baseline_test_god_files.json` for `tests/`), and every check below runs once
 per tree.
 
+**Every entry equals its file's measured count.** A file that shrinks
+tightens its entry in the same commit, so no entry leaves room to grow back
+into (the PR #316 review found two padded `src/` entries).
+
 **Two different failure modes, on purpose.** A file already in its tree's
 baseline may shrink freely but never grow past its recorded count — that is
 the ratchet, mirroring `test_app_styling_only_shrinks.py`. A file crossing 400
@@ -97,4 +101,22 @@ def test_baseline_entries_still_exceed_the_ceiling(root: str) -> None:
         f"deleted): {stale}. Remove them from the baseline in the same "
         "commit that fixed them — a ratchet that is never tightened stops "
         "being one."
+    )
+
+
+@pytest.mark.parametrize("root", MEASURED_ROOTS)
+def test_baseline_entries_match_their_measurement(root: str) -> None:
+    """An entry recorded above its file's current count is room the file can
+    silently grow back into. The commit that shrinks a file tightens its entry
+    in the same change (the PR #316 review found two `src/` entries left loose)."""
+    measured = measure(root)
+    loose = {
+        path: (baseline_lines, measured[path])
+        for path, baseline_lines in _baseline(root).items()
+        if path in measured and baseline_lines > measured[path]
+    }
+    assert not loose, (
+        f"these {_BASELINE_FILES[root].name} entries are above their files' "
+        f"measured counts (baseline -> measured): {loose}. Lower each to its "
+        "measured count: a padded entry defeats the ratchet."
     )

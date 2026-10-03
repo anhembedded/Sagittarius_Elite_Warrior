@@ -9,7 +9,7 @@
 ---
 
 ## 1. Context and problem
-`architecture-rule.md` §5.4 sets a 400-line ceiling that applies to `tests/` as well as `src/`. Two files are over it:
+`architecture-rule.md` §5.4 sets a 400-line ceiling that applies to `tests/` as well as `src/`. Three files are over it:
 - `tests/unit/modules/trading/application/orders/test_execute_order.py`: 632 lines before `EPIC-028B`, 677 after.
 - `tests/unit/modules/trading/application/session/test_emergency_stop.py`: 654 lines before `EPIC-028B`, 689 after.
 - `tests/unit/modules/market_data/adapters/binance/test_binance_websocket_service.py`: 496 lines before `EPIC-028C`, 567 after (per-market connections). Its socket-choice tests already moved to `test_kline_sockets.py`.
@@ -46,4 +46,5 @@ Compare collected test IDs before and after; run the trading unit tests.
 - **Classes moved, not assertions.** A scratch script cut the files at class boundaries. The private helpers became public names in the builders modules (`_handler` became `make_handler`, `_metadata_provider` became `static_metadata_provider`, and so on), and unused imports were removed with `ruff --fix`. No test body changed apart from those names.
 - **The split exposed one copy:** `test_execute_protective_order.py` imported its handler from another test module. That is exactly the coupling a builders module removes.
 - **`tools/measure_god_files.py` takes a root** (`src` or `tests`, `--root` on the command line). `tools/` stays unmeasured: it is small and has not grown.
-- **Docs that cited the old file now name the new ones:** HLD 10 (`TestConcurrentDispatch`) and SPEC-005's proof table. Closed task and bug records keep their historical paths.
+- **Baselines must equal their measurements (PR #316 review, finding 2).** A fourth check, `test_baseline_entries_match_their_measurement`, fails an entry recorded above its file's current count, so the commit that shrinks a file also tightens its baseline. It found two loose `src/` entries, `app_bootstrapper.py` (550, measured 543) and `backtest_presenter.py` (2260, measured 2259), now tightened.
+- **Docs that cited the old file now name the new ones:** HLD 10 (`TestConcurrentDispatch`) and SPEC-005's proof table. Closed task and bug records keep their historical paths; the open `EPIC-026I` plan now names `test_execute_order_submission.py`.
