@@ -4,7 +4,7 @@ trades, and an order that claims either purpose but could open a position
 (not reduce-only, on Spot, or a protective order that does not wait for a
 trigger) is refused before it reaches the handler.
 
-@details The handler is `test_execute_order.py`'s: the real
+@details The handler is `execute_order_builders.py`'s: the real
 `ExecuteOrderCommandHandler` over the real `FuturesTradingClient`, its raw
 session a `Mock`."""
 
@@ -36,7 +36,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
     TradingVenue,
 )
 
-from .test_execute_order import _handler, _order_request
+from .execute_order_builders import make_handler, order_request
 
 _LAST = Decimal(64000)
 
@@ -53,7 +53,7 @@ def _stop_loss(**overrides: object) -> ExecuteOrderCommand:
         "last_price": _LAST,
         "reduce_only": True,
     }
-    request = _order_request(**(fields | overrides))
+    request = order_request(**(fields | overrides))
     return ExecuteOrderCommand(
         order_request=request, live=True, purpose=OrderPurpose.PROTECTIVE
     )
@@ -73,7 +73,7 @@ def _exhausted_session() -> TradingSessionState:
 def test_a_protective_order_passes_every_limit_and_is_sent() -> None:
     raw_client = Mock()
     state = _exhausted_session()
-    handler, _ = _handler(raw_client=raw_client, session_state=state)
+    handler, _ = make_handler(raw_client=raw_client, session_state=state)
 
     result = handler.execute(_stop_loss())
 
@@ -91,7 +91,7 @@ def test_the_same_order_as_an_entry_is_refused_by_the_limits() -> None:
     """The exemption is the purpose, not the order: the same stop-market
     sent as an entry meets every limit it breaks."""
     state = _exhausted_session()
-    handler, _ = _handler(raw_client=Mock(), session_state=state)
+    handler, _ = make_handler(raw_client=Mock(), session_state=state)
     entry = _stop_loss()
     command = ExecuteOrderCommand(order_request=entry.order_request, live=True)
 
@@ -103,7 +103,7 @@ def test_the_same_order_as_an_entry_is_refused_by_the_limits() -> None:
 def test_a_protective_order_is_not_counted_as_a_trade() -> None:
     state = TradingSessionState()
     state.enable(set())
-    handler, _ = _handler(raw_client=Mock(), session_state=state)
+    handler, _ = make_handler(raw_client=Mock(), session_state=state)
 
     handler.execute(_stop_loss())
 
@@ -116,7 +116,7 @@ def test_an_order_that_passes_the_limits_must_be_reduce_only(
     purpose: OrderPurpose,
 ) -> None:
     with pytest.raises(ValueError, match="must be reduce-only"):
-        ExecuteOrderCommand(order_request=_order_request(), purpose=purpose)
+        ExecuteOrderCommand(order_request=order_request(), purpose=purpose)
 
 
 @pytest.mark.parametrize(
@@ -131,7 +131,7 @@ def test_spot_gets_no_exemption_because_it_ignores_reduce_only(
 ) -> None:
     """The PR #307 review: the Spot mapper never sends `reduceOnly`, so a
     "reduce-only" Spot buy of any size would pass every limit."""
-    request = _order_request(
+    request = order_request(
         order_type=order_type,
         reduce_only=True,
         stop_price=stop_price,
@@ -153,8 +153,8 @@ def test_a_close_passes_every_limit_and_is_not_counted() -> None:
     session at its order cap."""
     raw_client = Mock()
     state = _exhausted_session()
-    handler, _ = _handler(raw_client=raw_client, session_state=state)
-    request = _order_request(
+    handler, _ = make_handler(raw_client=raw_client, session_state=state)
+    request = order_request(
         side=OrderSide.SELL, quantity=Decimal("0.5"), reduce_only=True
     )
 
@@ -177,7 +177,7 @@ def test_a_close_passes_every_limit_and_is_not_counted() -> None:
 
 def test_a_stop_loss_the_market_already_crossed_is_never_sent() -> None:
     raw_client = Mock()
-    handler, _ = _handler(raw_client=raw_client)
+    handler, _ = make_handler(raw_client=raw_client)
 
     result = handler.execute(
         _stop_loss(stop_price=Decimal(64500), reference_price=Decimal(64500))
@@ -192,7 +192,7 @@ def test_a_take_profit_waits_on_the_other_side_of_the_market() -> None:
     """A long's take-profit is a sell above the last price; the stop rule
     would call it crossed."""
     raw_client = Mock()
-    handler, _ = _handler(raw_client=raw_client)
+    handler, _ = make_handler(raw_client=raw_client)
 
     result = handler.execute(
         _stop_loss(

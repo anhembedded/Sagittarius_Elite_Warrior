@@ -918,7 +918,7 @@ inside it lands in exactly the window. The window is where the call is, so there
 wrong. Re-probed: the new test is the only one that fails when the re-check is deleted, and it
 passes with it.
 
-One finding recorded rather than fixed:
+One finding recorded rather than fixed (since done: `BOT-146` split the file and extended the 400-line ratchet to `tests/`):
 `tests/unit/modules/trading/application/orders/test_execute_order.py` is **487 lines** against
 `architecture-rule.md` §5 rule 4's 400, and this pull request grew it from **425** — the ceiling was
 already breached, and 62 of the overage are mine. §5 rule 6 is explicit that the rule covers tests,

@@ -63,7 +63,7 @@ lock) read by `_first_blocked_safety_gate()`. `recvWindow` is a parameter of
 | `src/modules/trading/application/trading_session_state.py` | `VenueBackoff` |
 | `src/config/config_keys.py`, `app_config.json` | `trading.recv_window_ms` |
 | `tests/sanity/binance_fake_server.py` | Fake `GET /fapi/v1/order` and a `-1003` mode |
-| `tests/unit/modules/trading/application/orders/test_execute_order.py` | Timeout found / not found; backoff; at-most-once guard |
+| `tests/unit/modules/trading/application/orders/test_execute_order_submission.py` (builders in `execute_order_builders.py`) | Timeout found / not found; backoff; at-most-once guard |
 | `tests/unit/modules/trading/contracts/test_trading_client_contract.py` | `get_order()` on both implementations |
 | `Docs/SPEC/SPEC-005_place_a_manual_order.md` | §5 network row split in two |
 
