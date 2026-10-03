@@ -84,12 +84,12 @@ _NOT_A_LITERAL_PATH = re.compile(r"""[\s*?<>|$"'()\[\]{}]|::|https?:""")
 _BACKTICKED = re.compile(r"`([^`\n]+)`")
 _MARKDOWN_LINK = re.compile(r"\[[^\]\n]*\]\(([^)\n]+)\)")
 
-#: Path to the inspection rubric defining all valid review IDs (A1-M6).
+#: Path to the inspection rubric defining all valid review IDs (A1-N8).
 RUBRIC_PATH = Path(".claude") / "skills" / "pr-review" / "references" / "rubric.md"
 
 _BRACKETED_CLAUSE = re.compile(r"\[([^\]\n]+)\]")
 _REVIEW_TAG = re.compile(r"\breview:\s*([^;\]\n]+)")
-_RUBRIC_ID_PATTERN = re.compile(r"^\|\s*\*\*([A-M]\d+)\*\*", re.MULTILINE)
+_RUBRIC_ID_PATTERN = re.compile(r"^\|\s*\*\*([A-N]\d+)\*\*", re.MULTILINE)
 _IGNORED_REVIEW_TAGS = {"row"}
 
 
