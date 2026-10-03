@@ -83,7 +83,7 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 | Resting LIMIT orders one owner can keep on one symbol | 1 | grid_count + 1, within its budget | the same, per bot |
 | Bots that can run at once | 0 | 1 | one per symbol |
 | Grid bots trading on Spot Testnet | 0 | 1, soaked for 24 h or more with restarts and an Emergency Stop | Spot and Futures |
-| Parameter checks with a verdict and a reason | 0 | about 9 Grid checks: 3 refusals (certain loss or certain rejection), the rest warnings | per kind |
+| Parameter checks with a verdict and a reason | 0 | about 10 Grid checks: 4 refusals (certain loss or certain rejection), the rest warnings | per kind |
 | Charts drawing a bot's own indicators | 0 | 1 overlay drawing 3 surfaces | per kind |
 | Grid backtests on real data, stating their fill rule | 0 | yes, in parallel | required before mainnet |
 | Desks with a strategy card | 2 | 2 | 0 (manual only) |

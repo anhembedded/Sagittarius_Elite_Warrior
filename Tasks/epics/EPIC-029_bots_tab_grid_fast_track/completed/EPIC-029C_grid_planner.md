@@ -48,13 +48,16 @@ computes them, and there is no ATR or Bollinger Bands indicator
   | Value at the lower limit | 9,457 |
   | Buy-and-hold at the lower limit | 9,231 |
   | Cycles to recover | ≈40 |
-- [x] **Three refusals, each a certain loss or a certain rejection,** and no others (🟢 decision 5,
-  PRO-006 §4.2; ADR D14, D21):
+- [x] **Four refusals, each a certain loss or a certain rejection,** and no others (🟢 decision 5,
+  PRO-006 §4.2; ADR D14, D21; the fourth confirmed by the user on 2026-10-03, after the PR #318
+  review):
   - `step% ≤ 2 × maker`. Both ladder legs pay the maker fee, so every cycle loses money; this is
     the report's `2×fee` with the fee model of ADR D14;
   - a capital per level below the venue's `min_notional`, which the exchange rejects;
   - a capital per level above `max_notional_per_order`, which trading rejects (ADR D21, O5). The
-    verdict names the cap and the largest capital that would pass.
+    verdict names the cap and the largest capital that would pass;
+  - more orders than the bot may hold open (`TOO_MANY_LEVELS`): the venue's `MAX_NUM_ORDERS` and
+    trading's per-owner cap (ADR O1), whichever is lower, which the exchange or trading rejects.
 - [x] **Warnings,** each carrying its threshold as an editable default and the measured value:
   - a step below 0.5%;
   - a range outside 2–4× ATR(14) on the daily timeframe, when candles are available;
@@ -116,7 +119,7 @@ Unit tests only:
 | Inputs | `test_grid_params.py`: every key required and named when missing, a lossless round trip, invalid values refused |
 | Levels | `test_grid_plan.py`: sides, the EMPTY level (ties, both edges, half the edge grid beyond an edge, the geometric grid the price sits in), BUY rounds down and SELL up to the tick, quantities rounded down to the step, opening purchase = Σ SELL |
 | Known answers | `test_grid_known_answers.py`: step 1,000; 1.467% / 1.249%; ratio 1.01553; 9,457 / 9,231; ≈40 cycles; and the upper edge, +2.3% (10,231) against +7.7% (10,769) |
-| Three refusals | `test_grid_checks.py`: each at its threshold and one tick or cent either side; `test_the_four_refusals_are_the_only_refusals` |
+| Four refusals | `test_grid_checks.py`: each at its threshold and one tick or cent either side; `test_the_four_refusals_are_the_only_refusals` |
 | Warnings | `test_grid_checks.py`: every warning at and around its boundary, with its threshold and measured value |
 | Verdicts | `domain/verdict.py` (`EPIC-029B`); every check returns severity, code, reason and numbers |
 | Suggestions | `test_volatility.py`, `test_bands.py` |
@@ -134,7 +137,7 @@ Unit tests only:
 **Review round 1 (PR #318), fixed:**
 
 - **The suggested "largest capital that passes" was itself refused.** A SELL level's base is bought at the last price, so it sells for `capital × price / last_price`, more than its capital. `largest_capital_within_cap()` now divides by the highest SELL markup and floors to a cent. A test feeds the suggestion back (OK) and adds a dollar (refused) at three caps, and pins 10,000 × 65/70 = 9,285.71 for the report at a 1,000 cap. The old test had asserted the wrong formula.
-- **A fourth refusal, `TOO_MANY_LEVELS`, a certain rejection.** `ExchangeTerms.max_open_orders` is the venue's `MAX_NUM_ORDERS` and trading's per-owner cap (O1), whichever is lower, filled by the executor. More grids than that is refused before any ladder is built, so `grid_count=200000` costs nothing (it took 3 s). `check_open_orders` then counts the plan's exact orders, because a price outside the range leaves no level EMPTY (`grid_count + 1`).
+- **A fourth refusal, `TOO_MANY_LEVELS`, a certain rejection (confirmed by the user, 2026-10-03).** `ExchangeTerms.max_open_orders` is the venue's `MAX_NUM_ORDERS` and trading's per-owner cap (O1), whichever is lower, filled by the executor. More grids than that is refused before any ladder is built, so `grid_count=200000` costs nothing (it took 3 s). `check_open_orders` then counts the plan's exact orders, because a price outside the range leaves no level EMPTY (`grid_count + 1`).
 - **`validate` never raises, now in fact.** `grid_count='²'` passed `isdigit()` and then `int()` raised; the check is `isascii() and isdigit()`. A number too large to compute with (`upper='1e999999999'`) is caught as `ArithmeticError` and becomes `PARAMETERS_UNREADABLE`.
 
 **Decisions made while building, and why:**
