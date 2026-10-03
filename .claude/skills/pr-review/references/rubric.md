@@ -1,4 +1,4 @@
-# PR Review Inspection Rubric (A1–M6)
+# PR Review Inspection Rubric (A1–N8)
 
 Stable inspection checklist for `.claude/skills/pr-review/SKILL.md`. Every item defines a concrete, non-overlapping inspection directive.
 
@@ -104,3 +104,11 @@ Stable inspection checklist for `.claude/skills/pr-review/SKILL.md`. Every item 
 | **M4** | Constitutional alignment: prompt/rule edits do not contradict, waive, or weaken any Constitutional invariant. |
 | **M5** | Verify always-loaded line budget: always-loaded text stays strictly under ceiling (≤380 lines). |
 | **M6** | Verify frontmatter schema: every skill/rule/agent declares valid `description`, `name`, and `paths` if scoped. |
+| **N1** | Problem fit: restate the problem from the spec, ADR or task in your own words, then judge whether the design solves *that* problem — not only whether the acceptance list is ticked. A criterion met by a design that misses the problem is a finding. |
+| **N2** | Alternatives and trade-offs: the ADR or task notes name at least one rejected approach and why; judge whether a simpler design would meet the same criteria (`CONSTITUTION.md` P5, P6). A departure from the task text is judged on its merits, never waved through as recorded. |
+| **N3** | Domain invariants, verified independently: re-derive each consequential rule or calculation (a known answer, a closed form, a round trip such as "a value the code suggests must itself pass the code's check") with your own probe; the author's tests are not the evidence. |
+| **N4** | Adversarial inputs and failure modes: drive the change with extreme, malformed, boundary and non-ASCII input, and with each collaborator failing; a documented "never raises" or "never refuses silently" contract must hold under every one. |
+| **N5** | Concurrency, ordering and interruption: find shared state, check-then-act sequences, event-order assumptions and crash or restart mid-operation; each is guarded, or recorded with the task that will guard it before anything can race. |
+| **N6** | Performance budget: every size a user or the exchange controls is bounded before work proportional to it begins; a path that runs on the UI thread or per tick is measured at its largest legal input. |
+| **N7** | Seams and the next task: the seams admit the extension cases the ADR names without speculative implementations (P7), and the next planned task can land without rewriting this one; name the task you checked against. |
+| **N8** | Design documents (ADR, proposal, epic): every decision traces to a user decision or a stated rationale, states its consequence, and agrees across the ADR, task files and README; open questions are explicit and owned; every `file:line` citation resolves to what it claims. |
