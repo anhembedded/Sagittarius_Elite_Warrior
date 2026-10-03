@@ -1,8 +1,8 @@
 # EPIC-029 — A Bots tab, and one Grid bot trading on Spot Testnet as fast as it can be done right
 
-- **Status:** 🔵 Planned. `PRO-006` was accepted by the user on 2026-10-03. The ADR is Proposed and
-  revised after review round 1. It waits for the re-review and the user's answers to D6, D21 and
-  O1–O5.
+- **Status:** 🟡 In progress. `PRO-006` was accepted by the user on 2026-10-03, and so was the ADR:
+  D6, D21 and O1–O5 were answered with the recommendations, and the per-order cap stays
+  configurable.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** [`PRO-006`](../../proposal/PRO-006.md). The user's acceptance, 2026-10-03: *"Oki,
   duyệt, nhớ design đúng nha, ko lazy design"* ("OK, approved; get the design right, no lazy
@@ -11,7 +11,7 @@
   [`Docs/HLD/11_desktop_workbench.md`](../../../Docs/HLD/11_desktop_workbench.md) for the place a new
   tab takes.
 - **Decisions:** [`DECISION_2026-10-03_bots_module_and_grid_bot.md`](DECISION_2026-10-03_bots_module_and_grid_bot.md)
-  (D1–D21, O1–O5; Proposed; revised after review round 1).
+  (D1–D21, O1–O5; Accepted 2026-10-03, after review rounds 1 and 2).
 - **Tracking (Gantt, PR matrix):** [`TRACKING.md`](TRACKING.md).
 - **Dependencies:**
   - Builds on [`EPIC-027`](../EPIC-027_spot_trading_and_spot_backtest/README.md) and
@@ -113,6 +113,21 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 029D (after 029C and 029G) runs beside both branches. 029H needs 029D, 029E, 029F and 029G.
 
 The same graph is drawn in `TRACKING.md`.
+
+## 3.1 Pull requests (the user's rule, 2026-10-03: two small tasks per PR)
+
+| PR | Tasks | Why grouped this way |
+| :--- | :--- | :--- |
+| 1 | `029B` + `029C` | Two small, pure additions: the `bots` module and the Grid planner. No order is sent. |
+| 2 | `029A` | 🔴 It changes trading's safety gates, so it stands alone. |
+| 3 | `029G` | It moves the desks' chart, so it stands alone with the desks as the regression surface. |
+| 4 | `029E` | 🔴 The live executor. |
+| 5 | `029F` | The Bots tab. |
+| 6 | `029D` | The Grid backtest, a large task. |
+| — | `029H` | The user runs it on Testnet; it adds a gated test and a report. |
+
+The PRs go one after another on the session branch. Each code PR waits for an independent review
+and the user's merge (`ONBOARDING.md` §7).
 
 ## 4. Phase exit criteria
 
