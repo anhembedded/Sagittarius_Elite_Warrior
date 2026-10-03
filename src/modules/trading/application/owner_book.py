@@ -39,6 +39,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRegistration,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.owner_inventory_policy import (
+    OwnerFill,
+    inventory_after,
+)
 
 _ZERO = Decimal(0)
 
@@ -74,8 +78,7 @@ class OwnerBook:
         self, registration: OwnerBudgetRegistration, inventory: OwnerInventory
     ) -> None:
         self._registration = registration
-        self._quantity = inventory.quantity
-        self._cost = inventory.cost
+        self._inventory = inventory
         self._open: dict[str, _OpenOrder] = {}
         self._sends: deque[datetime] = deque()
 
@@ -93,7 +96,7 @@ class OwnerBook:
 
     @property
     def inventory(self) -> OwnerInventory:
-        return OwnerInventory(self._quantity, self._cost)
+        return self._inventory
 
     def facts(
         self, side: OrderSide, quantity: Decimal, now: datetime
@@ -143,11 +146,9 @@ class OwnerBook:
         owner holding less than it bought (ADR D6)."""
         price, quantity = fill
         base_fee = fee[0] if fee is not None and fee[1] == self._base_asset else _ZERO
-        if order.side is OrderSide.BUY:
-            self._quantity += quantity - base_fee
-            self._cost += price * quantity
-        else:
-            self._take_out(quantity + base_fee)
+        self._inventory = inventory_after(
+            self._inventory, OwnerFill(order.side, quantity, price * quantity, base_fee)
+        )
         key = str(order.client_order_id)
         open_order = self._open.get(key)
         if open_order is not None:
@@ -163,13 +164,6 @@ class OwnerBook:
     @property
     def _base_asset(self) -> str:
         return self._registration.base_asset
-
-    def _take_out(self, sold: Decimal) -> None:
-        if self._quantity > 0:
-            self._cost -= self._cost * min(sold, self._quantity) / self._quantity
-        self._quantity -= sold
-        if self._quantity <= 0:
-            self._cost = _ZERO
 
     def _forget_sends_before(self, now: datetime) -> None:
         horizon = now - self.budget.window

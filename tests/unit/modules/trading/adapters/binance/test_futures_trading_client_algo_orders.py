@@ -119,6 +119,7 @@ def _client(
 
 def _algo_row(status: str = "NEW", **changes: Any) -> dict[str, Any]:
     return {
+        "algoId": 2146760,
         "clientAlgoId": _ID,
         "orderType": "STOP",
         "symbol": "BTCUSDT",

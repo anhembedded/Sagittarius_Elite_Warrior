@@ -205,6 +205,7 @@ def map_futures_algo_history_order(payload: dict[str, Any]) -> OrderRecord:
         executed_quantity=Decimal(0),
         average_price=None,
         created_at=created,
+        exchange_order_id=int(payload["algoId"]),
     )
 
 
