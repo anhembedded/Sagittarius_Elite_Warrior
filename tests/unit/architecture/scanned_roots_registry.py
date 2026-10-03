@@ -52,8 +52,11 @@ EMPTY_BY_DESIGN: tuple[tuple[str, str, str], ...] = (
 GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     # --- tests/unit/architecture (EPIC-025) --------------------------------
     ("tests/unit/architecture/test_module_boundaries.py", (("src", "*.py"),)),
-    # `BOT-144` — the 400-line-ceiling ratchet; src/ only, see its own docstring.
-    ("tests/unit/architecture/test_god_files_only_shrink.py", (("src", "*.py"),)),
+    # `BOT-144` / `BOT-146` — the 400-line-ceiling ratchet, one baseline per tree.
+    (
+        "tests/unit/architecture/test_god_files_only_shrink.py",
+        (("src", "*.py"), ("tests", "*.py")),
+    ),
     # `BUG-127` / `CS-003` — every type the app resolves must be bound. Scans
     # both roots for both halves of the question: `scripts/` probes resolve real
     # ports and bind their own doubles, so leaving them out would miss
