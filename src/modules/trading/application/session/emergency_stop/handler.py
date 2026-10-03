@@ -27,6 +27,9 @@ import logging
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.command import (
     EmergencyStopCommand,
@@ -41,6 +44,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
     EmergencyStopStepResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchCause,
+    TradingSwitchChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,
@@ -98,10 +105,17 @@ class EmergencyStopCommandHandler(
     the session's own baseline (`TradingSessionState.spot_baseline_holdings()`)
     instead. One dispatch point (`_close_all_positions`), not scattered
     venue checks, per `code/quality.md` §3.
+
+    `EPIC-029` ADR D7 — step 1 publishes `TradingSwitchChangedEvent
+    (EMERGENCY_STOP)` right after the disable, before any order is read or
+    cancelled, so a bot learns of the stop before its cancels reach it. It
+    publishes even when trading was already off: the stop cancels and sells
+    regardless. A disable that raised publishes nothing.
     """
 
-    def __init__(self, scopes: VenueTradingScopes) -> None:
+    def __init__(self, scopes: VenueTradingScopes, publisher: IEventPublisher) -> None:
         self._scopes = scopes
+        self._publisher = publisher
 
     def execute(self, command: EmergencyStopCommand) -> EmergencyStopResult:
         logger.warning("Handling EmergencyStopCommand on %s", command.venue.value)
@@ -140,10 +154,14 @@ class EmergencyStopCommandHandler(
             )
         return result
 
-    @staticmethod
-    def _disable_trading(scope: VenueTradingScope) -> EmergencyStopStepResult:
+    def _disable_trading(self, scope: VenueTradingScope) -> EmergencyStopStepResult:
         try:
             scope.session_state.disable()
+            self._publisher.publish(
+                TradingSwitchChangedEvent(
+                    False, TradingSwitchCause.EMERGENCY_STOP, venue=scope.venue
+                )
+            )
             scope.ports.user_data_stream.stop()
             return EmergencyStopStepResult(True, "Trading disabled.")
         except Exception as exc:  # noqa: BLE001 - report every failure, never let one abort the remaining steps

@@ -62,6 +62,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     venue_context,
     venue_scopes,
@@ -124,7 +127,8 @@ def test_an_emergency_stop_on_one_venue_leaves_the_other_untouched(
     futures, spot, states = _both()
     by_venue = {_FUTURES: futures, _SPOT: spot}
     handler = EmergencyStopCommandHandler(
-        venue_scopes(futures.context, spot.context, session_states=states)
+        venue_scopes(futures.context, spot.context, session_states=states),
+        RecordingPublisher(),
     )
 
     handler.execute(EmergencyStopCommand(venue=stopped))
@@ -141,7 +145,8 @@ def test_enabling_both_venues_starts_both_user_data_streams() -> None:
     futures, spot = _Venue(_FUTURES), _Venue(_SPOT)
     states = {_FUTURES: TradingSessionState(), _SPOT: TradingSessionState()}
     handler = EnableTradingCommandHandler(
-        venue_scopes(futures.context, spot.context, session_states=states)
+        venue_scopes(futures.context, spot.context, session_states=states),
+        RecordingPublisher(),
     )
 
     handler.execute(EnableTradingCommand(venue=_FUTURES))
@@ -157,7 +162,8 @@ def test_enabling_both_venues_starts_both_user_data_streams() -> None:
 def test_disabling_one_venue_leaves_the_other_trading() -> None:
     futures, spot, states = _both()
     handler = DisableTradingCommandHandler(
-        venue_scopes(futures.context, spot.context, session_states=states)
+        venue_scopes(futures.context, spot.context, session_states=states),
+        RecordingPublisher(),
     )
 
     handler.execute(DisableTradingCommand(venue=_SPOT))
@@ -171,7 +177,8 @@ def test_a_command_for_a_venue_that_is_not_served_is_refused() -> None:
     fails before any state is created for Spot."""
     futures = _Venue(_FUTURES)
     handler = DisableTradingCommandHandler(
-        venue_scopes(futures.context, session_states={_FUTURES: futures.state})
+        venue_scopes(futures.context, session_states={_FUTURES: futures.state}),
+        RecordingPublisher(),
     )
 
     with pytest.raises(VenueNotEnabledError, match="spot_testnet"):

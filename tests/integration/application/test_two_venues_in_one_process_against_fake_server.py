@@ -106,6 +106,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     venue_context,
     venue_scopes,
@@ -231,7 +234,7 @@ def process():
                 scopes, preview, TradingLimitPolicy(_LIMITS)
             ),
             cancel=CancelOrderCommandHandler(scopes),
-            emergency_stop=EmergencyStopCommandHandler(scopes),
+            emergency_stop=EmergencyStopCommandHandler(scopes, RecordingPublisher()),
         )
 
 

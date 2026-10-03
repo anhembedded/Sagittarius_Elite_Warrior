@@ -1,6 +1,9 @@
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading.command import (
     EnableTradingCommand,
@@ -11,6 +14,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_sco
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
     EnableTradingBlockReason,
     EnableTradingResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchCause,
+    TradingSwitchChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
@@ -62,10 +69,15 @@ class EnableTradingCommandHandler(
     baseline, so `EmergencyStopCommandHandler` later knows exactly how much
     of each asset this app itself is responsible for, never the balance the
     user already held before enabling.
+
+    `EPIC-029` ADR D7 — once the enable has committed (and the stream has
+    started), publishes `TradingSwitchChangedEvent(ENABLED)`. A refused or
+    superseded enable changed nothing and publishes nothing.
     """
 
-    def __init__(self, scopes: VenueTradingScopes) -> None:
+    def __init__(self, scopes: VenueTradingScopes, publisher: IEventPublisher) -> None:
         self._scopes = scopes
+        self._publisher = publisher
 
     def execute(self, command: EnableTradingCommand) -> EnableTradingResult:
         logger.debug("Handling EnableTradingCommand on %s", command.venue.value)
@@ -132,6 +144,11 @@ class EnableTradingCommandHandler(
             )
 
         scope.ports.user_data_stream.start()
+        self._publisher.publish(
+            TradingSwitchChangedEvent(
+                True, TradingSwitchCause.ENABLED, venue=command.venue
+            )
+        )
         if spot_baseline_holdings is not None:
             logger.info(
                 "Spot holdings baseline recorded for this session: %d asset(s).",

@@ -12,6 +12,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.recording_publisher import (
+    RecordingPublisher,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder import (
     single_venue_scopes,
     venue_context,
@@ -20,6 +23,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.trading.venue_scope_builder im
 
 def _handler(
     session_state: TradingSessionState | None = None,
+    publisher: RecordingPublisher | None = None,
 ) -> tuple[DisableTradingCommandHandler, TradingSessionState, Mock]:
     session_state = session_state or TradingSessionState()
     user_data_stream = Mock()
@@ -30,7 +34,8 @@ def _handler(
                     TradingVenue.FUTURES_TESTNET, user_data_stream=user_data_stream
                 ),
                 session_state,
-            )
+            ),
+            publisher or RecordingPublisher(),
         ),
         session_state,
         user_data_stream,
