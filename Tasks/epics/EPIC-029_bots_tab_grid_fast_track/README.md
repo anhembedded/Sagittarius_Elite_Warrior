@@ -92,7 +92,7 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
-| [EPIC-029A](incomplete/EPIC-029A_trading_seams_for_bots.md) | Trading seams: client order tag, owner budget with an owner book derived from exchange evidence, switch event, Spot cancel id, fake exchange LIMIT matching | Elite | D6, O1, O5 (for the budget) | 🔴 | Planned |
+| [EPIC-029A](completed/EPIC-029A_trading_seams_for_bots.md) | Trading seams: client order tag, owner budget with an owner book derived from exchange evidence, switch event, Spot cancel id, fake exchange LIMIT matching | Elite | D6, O1, O5 (for the budget) | 🔴 | ✅ Done (2026-10-03), PR2 |
 | [EPIC-029E](incomplete/EPIC-029E_live_grid_executor.md) | The live Grid executor: actor, levels, start, fill, stop, stop loss and take profit, Halted, reconciliation | Elite | 029A, 029B, 029C, O2, O3 | 🔴 | Planned |
 | [EPIC-029K](incomplete/EPIC-029K_grid_on_futures.md) | Grid on Futures: leverage, liquidation guard, modes *(after the fast track)* | Elite | 029H | 🔴 | Planned |
 | [EPIC-029B](completed/EPIC-029B_bots_module_entity_and_store.md) | The `bots` module: entity, kind seam, lifecycle FSM, store | Elite | None | 🟡 | ✅ Done (2026-10-03), PR1 |
