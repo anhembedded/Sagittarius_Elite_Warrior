@@ -29,11 +29,18 @@ from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.repo_root import repo_root
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_session_factory import (
     SpotSessionFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.persistence.json_owner_inventory_checkpoints import (
+    JsonOwnerInventoryCheckpoints,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_inventory_deriver import (
+    OwnerInventoryDeriver,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_session_states import (
     VenueSessionStates,
@@ -45,8 +52,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_assembly im
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.venue_contexts import (
     VenueContexts,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_inventory_checkpoints import (
+    IOwnerInventoryCheckpoints,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
     IVenueContexts,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    DEFAULT_OWNER_BUDGET_CAPS,
+    OwnerBudgetCaps,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits import (
     DEFAULT_TRADING_LIMITS,
@@ -116,6 +130,19 @@ def bind_adapters(container: IContainer) -> None:
     # policy serves every venue; the per-venue counters it reads live in each
     # venue's own `TradingSessionState`.
     container.singleton(TradingLimitPolicy, _build_trading_limit_policy)
+    # `EPIC-029` ADR D6/O1 — the caps on any owner budget, the checkpoints
+    # under `<repo root>/state/trading/`, and the deriver that reads them.
+    container.singleton(OwnerBudgetCaps, _build_owner_budget_caps)
+    container.singleton(
+        IOwnerInventoryCheckpoints,
+        lambda _c: JsonOwnerInventoryCheckpoints(
+            repo_root() / "state" / "trading" / "owner_inventory"
+        ),
+    )
+    container.singleton(
+        OwnerInventoryDeriver,
+        lambda c: OwnerInventoryDeriver(c.resolve(IOwnerInventoryCheckpoints)),
+    )
 
 
 def _build_venue_contexts(
@@ -163,3 +190,30 @@ def _build_trading_limit_policy(container: IContainer) -> TradingLimitPolicy:
         ),
     )
     return TradingLimitPolicy(trading_limits)
+
+
+def _build_owner_budget_caps(container: IContainer) -> OwnerBudgetCaps:
+    config = container.resolve(IConfig)
+    defaults = DEFAULT_OWNER_BUDGET_CAPS
+    return OwnerBudgetCaps(
+        max_open_orders=int(
+            config.get(
+                ConfigKeys.TRADING_BOT_LIMITS_MAX_OPEN_ORDERS.value,
+                defaults.max_open_orders,
+            )
+        ),
+        min_order_spacing=timedelta(
+            milliseconds=int(
+                config.get(
+                    ConfigKeys.TRADING_BOT_LIMITS_MIN_ORDER_SPACING_MS.value,
+                    defaults.min_order_spacing // timedelta(milliseconds=1),
+                )
+            )
+        ),
+        max_orders_per_minute=int(
+            config.get(
+                ConfigKeys.TRADING_BOT_LIMITS_MAX_ORDERS_PER_MINUTE.value,
+                defaults.max_orders_per_minute,
+            )
+        ),
+    )

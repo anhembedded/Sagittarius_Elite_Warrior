@@ -80,6 +80,10 @@ class OwnerBook:
         self._registration = registration
         self._inventory = inventory
         self._open: dict[str, _OpenOrder] = {}
+        #: Fills and ends the venue reported before `record_sent` ran: a
+        #: market order can fill while `place_order` is still returning.
+        #: The base filled so far, and whether the order is already over.
+        self._early: dict[str, tuple[Decimal, bool]] = {}
         self._sends: deque[datetime] = deque()
 
     @property
@@ -128,12 +132,17 @@ class OwnerBook:
 
     def record_sent(self, order: Order, notional: Decimal, when: datetime) -> None:
         """@brief `order` reached the venue at `when`; `notional` is the
-        quote it commits (the preview's estimate)."""
-        self._open[str(order.client_order_id)] = _OpenOrder(
-            order.side, order.quantity, notional
-        )
+        quote it commits (the preview's estimate). A fill or an end the
+        venue already reported for it is taken into account."""
         self._sends.append(when)
         self._forget_sends_before(when)
+        self._open_unless_over(order, notional)
+
+    def adopt_open(self, order: Order, notional: Decimal) -> None:
+        """@brief `order` was already resting on the venue when the budget
+        was registered (a restart, a reconciliation): it commits as if sent,
+        but takes no place in the send window."""
+        self._open_unless_over(order, notional)
 
     def apply_fill(
         self,
@@ -150,16 +159,29 @@ class OwnerBook:
             self._inventory, OwnerFill(order.side, quantity, price * quantity, base_fee)
         )
         key = str(order.client_order_id)
+        over = order.status is OrderStatus.FILLED
         open_order = self._open.get(key)
-        if open_order is not None:
-            open_order.filled += quantity
-        if order.status is OrderStatus.FILLED:
-            self._open.pop(key, None)
+        if open_order is None:
+            filled, _ = self._early.get(key, (_ZERO, False))
+            self._early[key] = (filled + quantity, over)
+            return
+        open_order.filled += quantity
+        if over:
+            del self._open[key]
 
     def apply_end(self, order: Order) -> None:
         """@brief `order` is over without filling whole (cancelled, rejected,
         expired): it commits nothing any more."""
-        self._open.pop(str(order.client_order_id), None)
+        key = str(order.client_order_id)
+        if self._open.pop(key, None) is None:
+            filled, _ = self._early.get(key, (_ZERO, False))
+            self._early[key] = (filled, True)
+
+    def _open_unless_over(self, order: Order, notional: Decimal) -> None:
+        key = str(order.client_order_id)
+        filled, over = self._early.pop(key, (_ZERO, False))
+        if not over:
+            self._open[key] = _OpenOrder(order.side, order.quantity, notional, filled)
 
     @property
     def _base_asset(self) -> str:

@@ -1,0 +1,120 @@
+"""`EPIC-029` ADR D6 — every budgeted owner's book on one venue, by tag.
+
+@details Reached from three threads: the order pool (an owner's order is
+judged and recorded), the venue's websocket (a fill or an end is applied
+before it is published) and the session handlers (a budget is registered,
+or every budget cleared). One lock guards the books; nothing here makes a
+network call, so it is held only for the dict and the arithmetic.
+
+`TradingSessionState` holds one instance per venue and clears it whenever
+the switch moves: a budget lasts one session (ADR D6 r2). A fill whose
+client order id carries no tag, or a tag with no book, is not an owner's
+and is ignored here.
+"""
+
+from __future__ import annotations
+
+import threading
+from dataclasses import dataclass
+from datetime import datetime
+from decimal import Decimal
+
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_book import (
+    OwnerBook,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    tag_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerBudgetFacts,
+    OwnerInventory,
+)
+
+
+@dataclass(frozen=True)
+class OwnerShare:
+    """One owner's inventory on its symbol, as Emergency Stop reads it
+    before it clears the books."""
+
+    tag: str
+    symbol: str
+    inventory: OwnerInventory
+
+
+class OwnerBooks:
+    """The budgeted owners' books on one venue."""
+
+    def __init__(self) -> None:
+        self._lock = threading.Lock()
+        self._by_tag: dict[str, OwnerBook] = {}
+
+    def install(self, tag: str, book: OwnerBook) -> None:
+        """@brief Makes `book` the book for `tag`, replacing any before it."""
+        with self._lock:
+            self._by_tag[tag] = book
+
+    def clear(self) -> None:
+        with self._lock:
+            self._by_tag.clear()
+
+    def clear_owner(self, owner_id: str) -> None:
+        """@brief Drops `owner_id`'s books; another owner's stay."""
+        with self._lock:
+            for tag in [t for t, b in self._by_tag.items() if b.owner_id == owner_id]:
+                del self._by_tag[tag]
+
+    def holder_of(self, tag: str) -> str | None:
+        with self._lock:
+            book = self._by_tag.get(tag)
+            return None if book is None else book.owner_id
+
+    def facts(
+        self, tag: str, owner_id: str, order: Order, now: datetime
+    ) -> OwnerBudgetFacts | None:
+        """@brief What `order` from `owner_id` is judged against, or `None`
+        when `tag` has no book or another owner holds it."""
+        with self._lock:
+            book = self._by_tag.get(tag)
+            if book is None or book.owner_id != owner_id:
+                return None
+            return book.facts(order.side, order.quantity, now)
+
+    def record_sent(
+        self, tag: str, order: Order, notional: Decimal, when: datetime
+    ) -> None:
+        with self._lock:
+            book = self._by_tag.get(tag)
+            if book is not None:
+                book.record_sent(order, notional, when)
+
+    def apply_fill(
+        self,
+        order: Order,
+        fill: tuple[Decimal, Decimal],
+        fee: tuple[Decimal, str] | None,
+    ) -> None:
+        """@brief Applies one fill to the book of the owner whose tag the
+        order carries, if any."""
+        with self._lock:
+            book = self._book_of(order)
+            if book is not None:
+                book.apply_fill(order, fill, fee)
+
+    def apply_end(self, order: Order) -> None:
+        with self._lock:
+            book = self._book_of(order)
+            if book is not None:
+                book.apply_end(order)
+
+    def shares(self) -> tuple[OwnerShare, ...]:
+        """@brief Every owner's inventory, frozen, sorted by tag."""
+        with self._lock:
+            return tuple(
+                OwnerShare(tag, book.symbol, book.inventory)
+                for tag, book in sorted(self._by_tag.items())
+            )
+
+    def _book_of(self, order: Order) -> OwnerBook | None:
+        tag = tag_of(str(order.client_order_id))
+        return None if tag is None else self._by_tag.get(tag)

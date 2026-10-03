@@ -144,6 +144,9 @@ class ExecuteOrderCommandHandler(
                 )
 
             now = datetime.now(UTC)
+            # `EPIC-029` ADR D6 — a tagged order is judged by its owner's
+            # budget and book, read inside this lock like everything else.
+            tag = command.order_request.client_order_tag
             context = TradingLimitContext(
                 orders_sent_this_session=session_state.orders_sent_this_session,
                 order_notional=preview.estimated_notional,
@@ -154,6 +157,14 @@ class ExecuteOrderCommandHandler(
                     symbol, now
                 ),
                 purpose=command.purpose,
+                client_order_tag=tag,
+                owner_budget=(
+                    None
+                    if tag is None
+                    else session_state.owner_books.facts(
+                        tag, command.owner_id, preview.order, now
+                    )
+                ),
             )
             checks = self._limits_policy.evaluate(context)
             violation = next((c.violation for c in checks if not c.passed), None)
@@ -168,9 +179,16 @@ class ExecuteOrderCommandHandler(
 
             trading_client = scope.ports.client_factory.create(OrderSubmissionMode.LIVE)
             submitted_order = trading_client.place_order(preview.order)
+            # `EPIC-029` ADR D6 — a budgeted owner's order goes to its book,
+            # not to the signal limits' bookkeeping: it neither marks the
+            # symbol open nor delays another owner's next order.
+            if tag is not None:
+                session_state.owner_books.record_sent(
+                    tag, submitted_order, preview.estimated_notional, now
+                )
             # `EPIC-028I` — a protective order or a close is not a new trade:
             # it neither uses up the session's orders nor delays the next entry.
-            if not command.purpose.only_reduces:
+            elif not command.purpose.only_reduces:
                 session_state.record_order_sent(symbol, now)
             logger.info(
                 "Live order submitted on %s: %s %s",

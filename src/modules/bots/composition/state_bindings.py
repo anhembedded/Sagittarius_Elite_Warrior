@@ -6,9 +6,8 @@ would each lock their own copy of a bot and serialise nothing.
 @par Where the files go
 `bots.state_dir` (`ConfigKeys.BOTS_STATE_DIR`) when set, else
 `<repo root>/state/bots/`, beside `ui_state.json` in the gitignored `state/`
-(`repo_state_store_locator.py`). The root is found by its landmark,
-`pyproject.toml`, not by counting parent directories
-(`test_no_root_is_found_by_counting.py`). The key exists so a test boot of the
+(`repo_state_store_locator.py`). The root is found by its landmark
+(`core/repo_root.py`). The key exists so a test boot of the
 real composition root (the sanity tier) can point the store elsewhere: the
 restore at `boot()` rewrites RUNNING and PAUSED bots, and must never touch a
 live bot's file (PR #318 review).
@@ -19,6 +18,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.repo_root import repo_root
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
 )
@@ -33,16 +33,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBo
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotIdGenerator
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
-
-_LANDMARK = "pyproject.toml"
-
-
-def repo_root() -> Path:
-    """The directory holding `pyproject.toml`, searching up from this file."""
-    for candidate in Path(__file__).resolve().parents:
-        if (candidate / _LANDMARK).is_file():
-            return candidate
-    raise FileNotFoundError(f"No {_LANDMARK} above {__file__}")
 
 
 def bots_directory(config: IConfig) -> Path:
