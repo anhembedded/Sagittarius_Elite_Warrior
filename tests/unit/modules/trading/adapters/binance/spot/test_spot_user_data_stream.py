@@ -21,9 +21,6 @@ from binance.exceptions import ReadLoopClosed
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_user_data_stream import (
     SpotUserDataStream,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.venue_event_emitter import (
-    VenueEventEmitter,
-)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.equity_curve_recorder import (
     EquityCurveRecorder,
 )
@@ -52,6 +49,9 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.trading.adapters.binance.emitter_builder import (
+    venue_emitter,
 )
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
@@ -110,7 +110,7 @@ def _stream(
 ) -> tuple[SpotUserDataStream, MemoryEventBus]:
     event_bus = MemoryEventBus()
     stream = SpotUserDataStream(
-        VenueEventEmitter(event_bus, TradingVenue.SPOT_TESTNET),
+        venue_emitter(event_bus, TradingVenue.SPOT_TESTNET),
         Mock(),
         Mock(),
         account_reader if account_reader is not None else FakeTradingAccountReader(),
@@ -405,7 +405,7 @@ async def test_run_stream_with_no_credentials_returns_without_crashing() -> None
         None, CredentialsSource.NONE
     )
     stream = SpotUserDataStream(
-        VenueEventEmitter(MemoryEventBus(), TradingVenue.SPOT_TESTNET),
+        venue_emitter(MemoryEventBus(), TradingVenue.SPOT_TESTNET),
         Mock(),
         credentials_provider,
         FakeTradingAccountReader(),
@@ -424,7 +424,7 @@ async def test_read_loop_closed_triggers_a_reconnect_not_a_crash() -> None:
         CredentialsSource.FILE,
     )
     stream = SpotUserDataStream(
-        VenueEventEmitter(MemoryEventBus(), TradingVenue.SPOT_TESTNET),
+        venue_emitter(MemoryEventBus(), TradingVenue.SPOT_TESTNET),
         Mock(),
         credentials_provider,
         FakeTradingAccountReader(),
@@ -489,7 +489,7 @@ async def test_a_superseded_generation_stops_handling_messages_mid_stream() -> N
         CredentialsSource.FILE,
     )
     stream = SpotUserDataStream(
-        VenueEventEmitter(MemoryEventBus(), TradingVenue.SPOT_TESTNET),
+        venue_emitter(MemoryEventBus(), TradingVenue.SPOT_TESTNET),
         Mock(),
         credentials_provider,
         FakeTradingAccountReader(),
