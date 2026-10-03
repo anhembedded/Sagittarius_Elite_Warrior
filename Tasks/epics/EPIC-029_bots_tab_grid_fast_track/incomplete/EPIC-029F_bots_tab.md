@@ -11,8 +11,11 @@ actions must be fenced.
 UI FSM and a SPEC.
 **Epic:** [EPIC-029](../README.md)
 **SPEC:** `Docs/SPEC/SPEC-014_run_a_grid_bot.md`, written by this task.
-**Depends on:** `EPIC-029B` (queries, commands), `EPIC-029C` (verdicts), `EPIC-029G` (the chart)
-and `EPIC-029E` (lifecycle behind the buttons).
+**Depends on:** `EPIC-029B` (queries and commands), `EPIC-029C` (verdicts) and `EPIC-029G` (the
+chart). The buttons drive bots through `EPIC-029B`'s use-case commands. `EPIC-029E` implements the
+behaviour behind those same commands, so this task is built and tested with a fake executor. The
+end-to-end run with the real executor is checked when both are merged, in `EPIC-029H`'s
+preconditions.
 
 ---
 
@@ -26,7 +29,11 @@ ENGINE section.
 ## 2. Acceptance criteria
 
 - [ ] **Route.** The `bots` route appears as NAVIGATION item 18, "Bots", with a Lucide icon.
-  `test_screen_wiring.py` gains exactly that row, and `contribute()` stays lazy.
+  `contribute()` stays lazy.
+  `tests/unit/shell/test_screen_wiring.py` changes in all three places that pin the routes:
+  - `_EXPECTED_ROUTES`, in contribution order, not NAVIGATION order;
+  - `_real_modules`, which builds `BotsModule`;
+  - the `by_route` map.
 - [ ] **The list.** Each row shows the name, the kind, the venue, the symbol, a state pill
   (Draft, Running, Paused, Recovering, Halted, Stopped or Error) and the PnL. The pill's text
   names the state; colour is never the only signal.
@@ -78,7 +85,7 @@ ENGINE section.
 | :--- | :--- |
 | `src/modules/bots/ui/**` (new) | screen, MVP, coordinators, kinds/grid panel, dialogs, preview |
 | `src/modules/bots/module.py` | `contribute()` the screen |
-| `tests/unit/shell/test_screen_wiring.py` | the `bots` route row |
+| `tests/unit/shell/test_screen_wiring.py` | `_EXPECTED_ROUTES`, `_real_modules`, `by_route` |
 | `tests/unit/modules/bots/ui/**` (new) | below |
 | `Docs/SPEC/SPEC-014_run_a_grid_bot.md`, `Docs/SPEC/README.md` | the use case |
 | `Docs/HLD/11_desktop_workbench.md`, `04_surfaces_and_contribution_points.md` | the new place and route |

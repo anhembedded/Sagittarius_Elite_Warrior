@@ -37,14 +37,20 @@ whatever the chart shows (`desk_strategy.py:65`). It has no lifecycle beyond arm
 
   Its docstring lists the extension cases: signal, DCA, Futures Grid and trailing Grid. Only Grid
   implements it, in `EPIC-029C` and `EPIC-029E`.
-- [ ] **The lifecycle table.** `bot_lifecycle_fsm_matrix.py` declares every transition of ADR §3.1.
+- [ ] **The lifecycle table.** `bot_lifecycle_fsm_matrix.py` declares every transition of ADR §3.1, as
+  revised in round 1.
   - A table-driven test walks every declared transition.
   - Every undeclared pair raises `InvalidBotTransition`, naming the state and the event.
 - [ ] **The store.** `JsonBotStore` writes `state/bots/<id>.json` atomically (tmp + `replace`).
   - A crash simulated between the write and the `replace` leaves the previous file intact.
   - A file with an unknown `schema_version` is refused with a named error. It is never silently
     dropped.
-- [ ] **Restart.** A bot saved as RUNNING loads as PAUSED_RECOVERING (ADR D12).
+- [ ] **Restart** follows ADR D12:
+  - a bot saved as RUNNING or PAUSED loads as RECOVERING;
+  - a bot saved as STOPPING loads as STOPPING;
+  - a bot saved as HALTED loads as HALTED.
+- [ ] **Every event the tasks use is declared.** `edit` (DRAFT and STOPPED) and `delete` (DRAFT
+  and STOPPED only) are in the table. A test proves that `delete` from any other state raises.
 - [ ] **One running bot.** Starting a second bot while one is RUNNING is refused with
   `ONE_RUNNING_BOT_DURING_FAST_TRACK` (D20).
 - [ ] **Documentation.** The documents name the new module:
@@ -87,7 +93,7 @@ whatever the chart shows (`desk_strategy.py:65`). It has no lifecycle beyond arm
   - round trip;
   - an atomic write with a failure injected before `replace`;
   - an unknown schema refused;
-  - RUNNING loads as PAUSED_RECOVERING.
+  - restart restoration per ADR D12 (RUNNING or PAUSED → RECOVERING, STOPPING → STOPPING, HALTED → HALTED).
 - **Use cases:** the one-running-bot refusal, and every handler going through the FSM, tested with
   a fake store.
 - **Guards:** the architecture guards on the first commit.

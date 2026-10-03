@@ -26,6 +26,8 @@ user with their own keys.
 
 ## 2. Acceptance criteria
 
+- [ ] **Precondition: the tab drives the real executor.** On the fake exchange, an integration test
+  drives the Bots tab's Start, Pause, Stop and Resume through the real `EPIC-029E` executor.
 - [ ] **Gated Testnet test.** `tests/testnet/test_grid_bot_round_trip.py` runs a narrow grid (4
   levels, around the last price, at the minimum notional). It asserts:
   - every level is RESTING on the exchange, with the bot's tag;

@@ -33,7 +33,9 @@ computes them, and there is no ATR or Bollinger Bands indicator
 - [ ] **Levels.** `plan(params, terms, last_price)` returns a `GridPlan` whose levels are rounded to
   `tick_size`, BUY down and SELL up, the same rule as `order_quantity_rounding_policy.py:69-83`.
   - Quantities are rounded to `step_size`.
-  - Levels at or below `last_price` start as BUY and levels above it as SELL.
+  - Levels strictly below `last_price` start as BUY and levels strictly above it as SELL.
+  - The level nearest the price (within half a step) stays EMPTY, so no order is marketable at the
+    taker fee (ADR §3.2).
   - The opening base purchase is the total quantity of the SELL levels.
 - [ ] **Known answers.** Against the report's example (60,000–70,000, 10 grids, 0.1% fee, 10,000
   USDT at 65,000):
@@ -46,9 +48,13 @@ computes them, and there is no ATR or Bollinger Bands indicator
   | Value at the lower limit | 9,457 |
   | Buy-and-hold at the lower limit | 9,231 |
   | Cycles to recover | ≈40 |
-- [ ] **Two refusals, and only two** (ADR D6 context, PRO-006 §4.2):
-  - `step% ≤ maker + taker` (every cycle loses money; the report's `2×fee`);
-  - a capital per level below the venue's `min_notional`.
+- [ ] **Three refusals, each a certain loss or a certain rejection,** and no others (🟢 decision 5,
+  PRO-006 §4.2; ADR D14, D21):
+  - `step% ≤ 2 × maker`. Both ladder legs pay the maker fee, so every cycle loses money; this is
+    the report's `2×fee` with the fee model of ADR D14;
+  - a capital per level below the venue's `min_notional`, which the exchange rejects;
+  - a capital per level above `max_notional_per_order`, which trading rejects (ADR D21, O5). The
+    verdict names the cap and the largest capital that would pass.
 - [ ] **Warnings,** each carrying its threshold as an editable default and the measured value:
   - a step below 0.5%;
   - a range outside 2–4× ATR(14) on the daily timeframe, when candles are available;

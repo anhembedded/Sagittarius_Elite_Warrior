@@ -19,7 +19,7 @@ gantt
 
     section Plan
     PRO-006 accepted                         :done,    s1, 2026-10-03, 1d
-    ADR review and user answers O1-O4        :crit,    s2, after s1, 2d
+    ADR review and user answers D6 O1-O5     :crit,    s2, after s1, 2d
 
     section F0 Seams
     029A Trading seams for bots              :crit,    a, after s2, 4d
@@ -30,12 +30,12 @@ gantt
 
     section F2 Live bot and backtest
     029G Bot chart and shared live chart     :crit,    g, after c, 3d
-    029E Live Grid executor                  :crit,    e, after a g, 5d
+    029E Live Grid executor                  :crit,    e, after a c, 5d
     029F Bots tab                            :crit,    f, after g, 5d
     029D Grid backtest (parallel)            :         d, after g, 4d
 
     section F3 Testnet
-    029H Spot Testnet soak and report        :crit,    h, after e f, 3d
+    029H Spot Testnet soak and report        :crit,    h, after e f d, 3d
     Fast track done                          :milestone, m1, after h, 0d
 
     section After the fast track
@@ -71,6 +71,7 @@ gantt
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
 | 2026-10-03 | Plan | `PRO-006` accepted by the user. Epic, ADR (D1–D20, O1–O4) and 12 sub-tasks written, for an independent review (PR #317). |
+| 2026-10-03 | Review r1 | NEEDS_REVISION: 5 blocking, 11 should-fix. All addressed; the ADR is now D1–D21 and O1–O5. Re-review requested. |
 
 ---
 
@@ -78,7 +79,7 @@ gantt
 
 | Blocker / Dependency | Impacted Tasks | Resolution / Owner | Status |
 | :--- | :--- | :--- | :--- |
-| ADR D6 changes a safety gate; O1 adds configuration | 029A, and everything after it | The user, after the independent review | 🟡 Open |
+| ADR D6 changes a safety gate; D21 keeps one (O5); O1 adds configuration | 029A, and everything after it | The user, after the independent review | 🟡 Open |
 | O2 (resuming after Halted), O3 (stop default) | 029E | The user | 🟡 Open |
 | O4 (warning on app close) | 029F | The user | 🟡 Open |
 | Spot Testnet keys on the user's machine | 029H | The user (keys are never pasted into chat) | 🟡 Open |

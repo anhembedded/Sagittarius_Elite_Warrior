@@ -1,7 +1,8 @@
 # EPIC-029 — A Bots tab, and one Grid bot trading on Spot Testnet as fast as it can be done right
 
 - **Status:** 🔵 Planned. `PRO-006` was accepted by the user on 2026-10-03. The ADR is Proposed and
-  waits for an independent review and the user's answers to O1–O4.
+  revised after review round 1. It waits for the re-review and the user's answers to D6, D21 and
+  O1–O5.
 - **Repositories:** Elite. No Engine change is expected.
 - **Origin:** [`PRO-006`](../../proposal/PRO-006.md). The user's acceptance, 2026-10-03: *"Oki,
   duyệt, nhớ design đúng nha, ko lazy design"* ("OK, approved; get the design right, no lazy
@@ -10,7 +11,7 @@
   [`Docs/HLD/11_desktop_workbench.md`](../../../Docs/HLD/11_desktop_workbench.md) for the place a new
   tab takes.
 - **Decisions:** [`DECISION_2026-10-03_bots_module_and_grid_bot.md`](DECISION_2026-10-03_bots_module_and_grid_bot.md)
-  (D1–D20, O1–O4; Proposed).
+  (D1–D21, O1–O5; Proposed; revised after review round 1).
 - **Tracking (Gantt, PR matrix):** [`TRACKING.md`](TRACKING.md).
 - **Dependencies:**
   - Builds on [`EPIC-027`](../EPIC-027_spot_trading_and_spot_backtest/README.md) and
@@ -82,7 +83,7 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 | Resting LIMIT orders one owner can keep on one symbol | 1 | grid_count + 1, within its budget | the same, per bot |
 | Bots that can run at once | 0 | 1 | one per symbol |
 | Grid bots trading on Spot Testnet | 0 | 1, soaked for 24 h or more with restarts and an Emergency Stop | Spot and Futures |
-| Parameter checks with a verdict and a reason | 0 | about 8 Grid checks; 2 refusals, the rest warnings | per kind |
+| Parameter checks with a verdict and a reason | 0 | about 9 Grid checks: 3 refusals (certain loss or certain rejection), the rest warnings | per kind |
 | Charts drawing a bot's own indicators | 0 | 1 overlay drawing 3 surfaces | per kind |
 | Grid backtests on real data, stating their fill rule | 0 | yes, in parallel | required before mainnet |
 | Desks with a strategy card | 2 | 2 | 0 (manual only) |
@@ -91,12 +92,12 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
-| [EPIC-029A](incomplete/EPIC-029A_trading_seams_for_bots.md) | Trading seams: client order tag, owner budget, switch event, Spot cancel id, fake exchange LIMIT matching | Elite | O1 (for the budget caps) | 🔴 | Planned |
+| [EPIC-029A](incomplete/EPIC-029A_trading_seams_for_bots.md) | Trading seams: client order tag, owner budget with an owner book derived from exchange evidence, switch event, Spot cancel id, fake exchange LIMIT matching | Elite | D6, O1, O5 (for the budget) | 🔴 | Planned |
 | [EPIC-029E](incomplete/EPIC-029E_live_grid_executor.md) | The live Grid executor: actor, levels, start, fill, stop, stop loss and take profit, Halted, reconciliation | Elite | 029A, 029B, 029C, O2, O3 | 🔴 | Planned |
 | [EPIC-029K](incomplete/EPIC-029K_grid_on_futures.md) | Grid on Futures: leverage, liquidation guard, modes *(after the fast track)* | Elite | 029H | 🔴 | Planned |
 | [EPIC-029B](incomplete/EPIC-029B_bots_module_entity_and_store.md) | The `bots` module: entity, kind seam, lifecycle FSM, store | Elite | None | 🟡 | Planned |
 | [EPIC-029D](incomplete/EPIC-029D_grid_backtest.md) | Grid backtest: ladder simulator, fill rule, buy-and-hold *(parallel)* | Elite | 029C, 029G | 🟡 | Planned |
-| [EPIC-029F](incomplete/EPIC-029F_bots_tab.md) | The Bots tab: list, shell, Grid panel with verdicts, dialogs, SPEC-014 | Elite | 029B, 029C, 029E, 029G, O4 | 🟡 | Planned |
+| [EPIC-029F](incomplete/EPIC-029F_bots_tab.md) | The Bots tab: list, shell, Grid panel with verdicts, dialogs, SPEC-014 | Elite | 029B, 029C, 029G, O4 (built against the use-case commands; the end-to-end run with 029E is checked in 029H) | 🟡 | Planned |
 | [EPIC-029G](incomplete/EPIC-029G_bot_chart.md) | The bot chart: shared live chart, price levels, one Grid overlay for three surfaces | Elite | 029C | 🟡 | Planned |
 | [EPIC-029H](incomplete/EPIC-029H_spot_testnet_grid_soak.md) | Spot Testnet soak and report *(the fast track's goal)* | Elite | 029D, 029E, 029F, 029G | 🟡 | Planned |
 | [EPIC-029I](incomplete/EPIC-029I_desks_manual_only.md) | Desks manual only, bot badge, takeover, SPEC-010 *(after the fast track)* | Elite | 029H | 🟡 | Planned |
@@ -104,8 +105,14 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 | [EPIC-029L](incomplete/EPIC-029L_signal_and_dca_kinds.md) | Signal and DCA kinds *(after the fast track)* | Elite | 029I, 029J | 🟡 | Planned |
 | [EPIC-029C](incomplete/EPIC-029C_grid_planner.md) | The Grid planner: plan, derived values, verdicts, ATR and Bollinger | Elite | 029B | 🟢 | Planned |
 
-**Critical path of the fast track:** 029A and 029B → 029C → 029G → 029E and 029F → 029H. 029D runs
-beside 029E and 029F.
+**Critical path of the fast track:** 029B → 029C, then two branches that meet at 029H:
+
+- 029A and 029C → 029E;
+- 029C → 029G → 029F.
+
+029D (after 029C and 029G) runs beside both branches. 029H needs 029D, 029E, 029F and 029G.
+
+The same graph is drawn in `TRACKING.md`.
 
 ## 4. Phase exit criteria
 
@@ -126,6 +133,15 @@ beside 029E and 029F.
 - **More than one bot on one symbol.**
 
 ## Notes (newest first)
+
+- **2026-10-03** — Review round 1 (PR #317, NEEDS_REVISION) addressed. The changes:
+  - the owner book is derived from exchange evidence, never from the bot's store;
+  - STOPPING ends only on zero tagged orders;
+  - ERROR has an exit;
+  - reconciliation checks holding ≥ inventory;
+  - `max_notional_per_order` is kept and the opening buy is sliced (D21, O5);
+  - seven citations are corrected;
+  - the order-rate window, the level FSM file and a single dependency graph are added.
 
 - **2026-10-03** — Epic scaffolded from the accepted `PRO-006`. The two code surveys behind the ADR
   found the session limits refusing a ladder's second order, and Emergency Stop selling a Spot

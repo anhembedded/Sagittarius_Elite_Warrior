@@ -30,7 +30,9 @@ Three things stand in the way of a bot chart:
 ## 2. Acceptance criteria
 
 - [ ] **The move.** `ChartCoordinator` lives in `src/support/charting/live_chart/`, behind a
-  support-owned `CandleFeed` ABC with `load_history(...)` and `start_stream(owner_id, ...)`.
+  support-owned `CandleFeed` ABC with three operations: `load_history(...)`, `sync(...)` (the desks
+  sync before reading today, `chart_coordinator.py:47-50,163`) and `start_stream(owner_id, ...)`.
+  The worker runner, today the engine's `IThreadManager`, is injected (ADR D15, review round 1).
   - The trading desks use it through a small adapter over `IHistoricalKlines` and `IMarketStream`.
   - Every existing desk chart test passes unmodified.
   - The old path is deleted, with no duplicate left behind.
