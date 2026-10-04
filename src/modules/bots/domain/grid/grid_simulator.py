@@ -152,7 +152,11 @@ def _data_window(inputs: GridBacktestInputs) -> DataWindow | None:
         start=start,
         end=end,
         expected_candles=_closed_candles(start, end, inputs.bar_length),
-        stored_candles=len(inputs.bars),
+        stored_candles=sum(
+            1
+            for bar in inputs.bars
+            if start <= bar.time and bar.time + inputs.bar_length <= end
+        ),
     )
 
 
@@ -162,7 +166,9 @@ def _closed_candles(start: datetime, end: datetime, length: timedelta) -> int:
     Candles open on epoch-aligned boundaries (Binance klines up to a day do),
     so a period off the boundaries (13:01 to 13:29 on 15m) expects none and
     never reads as short; a candle still open at `end` is not expected, since
-    no sync could have stored it closed (the PR #338 re-review).
+    no sync could have stored it closed (the PR #338 re-review). The stored
+    bars are counted in the same set, so the candle opening at `end` (stored,
+    perhaps still forming) never hides a real gap (round 3).
     """
     seconds = length.total_seconds()
     first = math.ceil(start.timestamp() / seconds)

@@ -170,15 +170,18 @@ def test_the_result_says_how_much_of_the_period_asked_for_was_stored() -> None:
         (0, 240, (0, 1, 2, 3), 4),  # on candle boundaries at both ends
         (10, 110, (1,), 0),  # 00:10-01:50: no candle opens and closes inside
         (30, 270, (1, 2, 3), 3),  # 00:30-04:30: the 04:00 candle closes after it
+        (0, 240, (0, 1, 3, 4), 4),  # 00:02 missing, while the 04:00 one is stored
     ],
 )
-def test_the_period_expects_only_candles_that_open_and_close_inside_it(
+def test_the_period_counts_only_candles_that_open_and_close_inside_it(
     start_s: int, end_s: int, minutes: tuple[int, ...], expected: int
 ) -> None:
     """A period off the candle boundaries (13:01 to 13:29 on 15m) must not
     report as missing a candle no sync could store (the PR #338 re-review):
     it expects the candles that open at or after its start and close by its
-    end, so a fully stored period never reads as short."""
+    end, so a fully stored period never reads as short; and it counts the
+    stored ones in the same set, so a candle opening at the end (stored,
+    perhaps still forming) never hides a real gap (round 3)."""
     bars = tuple(_bar(m, "65000", "65010", "64990", "65000") for m in minutes)
     window = (START + timedelta(seconds=start_s), START + timedelta(seconds=end_s))
     result = simulate_grid(
@@ -191,7 +194,8 @@ def test_the_period_expects_only_candles_that_open_and_close_inside_it(
     stored = result.provenance.window
     assert stored is not None
     assert stored.expected_candles == expected
-    assert stored.missing_candles == 0
+    inside = sum(1 for m in minutes if start_s <= m * 60 and (m + 1) * 60 <= end_s)
+    assert stored.missing_candles == expected - inside
 
 
 def test_a_red_kline_visits_its_high_before_its_low() -> None:
