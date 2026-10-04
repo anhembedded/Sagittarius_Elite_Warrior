@@ -48,7 +48,7 @@ gantt
 | EPIC-033H | [Market mode: watch the market — chart central, Watchlist, Order book and Indicators panels](incomplete/EPIC-033H_market_mode.md) | — | 🟢 | 🔵 Planned | — |
 | EPIC-033I | [Trade mode: one mode for both venues — chart central, Order entry, Positions or Holdings, Open orders, History and Account panels](incomplete/EPIC-033I_trade_mode.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-033J | [Data mode: what is stored — stored-data table central, Coverage and Candle inspector panels, a Data menu](incomplete/EPIC-033J_data_mode.md) | — | 🟡 | 🔵 Planned | — |
-| EPIC-033K | [Strategies mode: run strategies and bots — strategy and bot list central, Parameters, Signals, Bot chart and Performance panels](incomplete/EPIC-033K_strategies_mode.md) | — | 🔴 | 🔵 Planned | — |
+| EPIC-033K | [Bots mode: create, judge, run and watch bots, laid out as HLD §11.2.1 designs it](incomplete/EPIC-033K_bots_mode.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-033L | [Backtest mode: test a strategy on stored history — result chart central, Run setup, Trades, Metrics and Compare panels](incomplete/EPIC-033L_backtest_mode.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-033P | [Developer mode: the testbed, only when developer mode is on](incomplete/EPIC-033P_developer_mode.md) | — | 🟢 | 🔵 Planned | — |
 | EPIC-033M | [The kit, the palette and the theme bootstrap are deleted; every ratchet becomes a ban](incomplete/EPIC-033M_retire_kit.md) | — | 🟢 | 🔵 Planned | — |
