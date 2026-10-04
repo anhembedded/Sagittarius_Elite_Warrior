@@ -40,7 +40,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trading_limits impo
 )
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
     BOT,
-    CAP,
     LAST_PRICE,
     grid_world,
 )
@@ -55,7 +54,7 @@ def test_the_opening_buy_goes_in_slices_under_the_cap_then_the_ladder_outward() 
 
     requests = world.book.requests
     market = [r for r in requests if r.order_type is OrderType.MARKET]
-    assert [r.quote_quantity for r in market] == [CAP, Decimal("199.972")]
+    assert [r.quote_quantity for r in market] == [Decimal("249.986")] * 2
     assert all(r.side is OrderSide.BUY for r in market)
     ladder = [(r.side, r.reference_price) for r in requests[len(market) :]]
     assert ladder == [

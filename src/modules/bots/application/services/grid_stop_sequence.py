@@ -97,6 +97,15 @@ class GridStopSequence:
         inventory = (
             registration.inventory.quantity if registration.inventory else Decimal(0)
         )
+        if inventory * price < self._context.terms.min_notional:
+            logger.info(
+                "Bot %s: %s %s kept as dust, worth less than the %s minimum",
+                self._context.state.bot_id,
+                inventory,
+                self._context.base_asset,
+                self._context.terms.min_notional,
+            )
+            return True
         slices = base_slices(
             inventory, price, self._context.cap, self._context.terms.step_size
         )

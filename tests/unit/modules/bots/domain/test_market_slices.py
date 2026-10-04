@@ -9,6 +9,7 @@ from decimal import Decimal
 
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.market_slices import (
+    QUOTE_UNIT,
     base_slices,
     quote_slices,
 )
@@ -16,12 +17,25 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.market_slices import (
 CAP = Decimal(500)
 
 
-def test_a_quote_amount_is_cut_into_slices_no_larger_than_the_cap() -> None:
+def test_a_quote_amount_is_cut_into_even_slices_no_larger_than_the_cap() -> None:
     assert quote_slices(Decimal(5000), CAP) == (CAP,) * 10
-    assert quote_slices(Decimal(1250), CAP) == (CAP, CAP, Decimal(250))
+    assert quote_slices(Decimal(1250), CAP) == (Decimal("416.66666667"),) * 2 + (
+        Decimal("416.66666666"),
+    )
     assert quote_slices(Decimal(500), CAP) == (CAP,)
-    assert quote_slices(Decimal("500.01"), CAP) == (CAP, Decimal("0.01"))
     assert quote_slices(Decimal(0), CAP) == ()
+
+
+@pytest.mark.parametrize("quote", ["500.01", "1001", "1250", "2999.99999999"])
+def test_no_quote_slice_is_a_tail_below_the_exchange_minimum(quote: str) -> None:
+    """Binance refuses an order worth less than the symbol's NOTIONAL
+    minimum. Cut greedily, 500.01 at a 500 cap left a 0.01 tail; cut evenly,
+    every slice is at least half the cap (less one unit), and the slices
+    add up exactly."""
+    slices = quote_slices(Decimal(quote), CAP)
+
+    assert sum(slices) == Decimal(quote)
+    assert all(CAP / 2 - QUOTE_UNIT <= piece <= CAP for piece in slices)
 
 
 def test_an_exit_of_5000_usdt_is_ten_slices_each_within_the_cap() -> None:
@@ -38,7 +52,18 @@ def test_a_slice_is_rounded_down_so_it_never_exceeds_the_cap() -> None:
 
     assert all(piece * price <= CAP for piece in slices)
     assert sum(slices) == Decimal("0.05")
-    assert slices[0] == Decimal("0.0166")
+    assert slices[0] == Decimal("0.0125")
+
+
+def test_no_base_slice_is_a_tail_below_the_exchange_minimum() -> None:
+    """0.0101 BTC at 50,000 under a 500 cap: greedily 0.01 then a 0.0001 tail
+    worth 5 USDT; evenly two slices of about 252 each."""
+    price = Decimal(50000)
+
+    slices = base_slices(Decimal("0.0101"), price, CAP, Decimal("0.0001"))
+
+    assert slices == (Decimal("0.0051"), Decimal("0.0050"))
+    assert all(CAP / 2 - Decimal(5) <= piece * price <= CAP for piece in slices)
 
 
 def test_a_remainder_below_one_step_is_not_sent() -> None:

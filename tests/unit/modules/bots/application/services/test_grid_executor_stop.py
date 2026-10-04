@@ -103,15 +103,15 @@ def test_stop_registers_the_budget_again_before_any_cancel() -> None:
 
 def test_stop_selling_the_base_sells_the_derived_inventory_in_slices() -> None:
     """At the 300 cap and a price of 121 a slice is at most 2.479 BTC, so 4.9
-    BTC goes as 2.479 then 2.421 (the ten-slice figure of the task is
-    `test_market_slices.py`'s)."""
+    BTC goes as two even slices of 2.45, never a small tail (the ten-slice
+    figure of the task is `test_market_slices.py`'s)."""
     world = _running()
     _derived(world, "4.9")
 
     world.executor.stop(BaseHandling.SELL_AT_MARKET)
 
     sells = [r for r in world.book.requests if r.order_type is OrderType.MARKET]
-    assert [r.quantity for r in sells] == [Decimal("2.479"), Decimal("2.421")]
+    assert [r.quantity for r in sells] == [Decimal("2.450"), Decimal("2.450")]
     assert all(
         r.side is OrderSide.SELL and r.quantity * LAST_PRICE <= CAP for r in sells
     )
@@ -132,7 +132,20 @@ def test_a_refused_exit_slice_halts_naming_the_unsold_remainder() -> None:
     assert world.state() is S.HALTED
     runtime = _runtime(world)
     assert runtime.reason is GridReason.EXIT_SLICE_FAILED
-    assert runtime.reason_detail.startswith("2.421 unsold after slice 2")
+    assert runtime.reason_detail.startswith("2.450 unsold after slice 2")
+
+
+def test_an_inventory_worth_less_than_the_exchange_minimum_is_kept_as_dust() -> None:
+    """0.01 BTC at 121 is 1.21 USDT, under the 5 USDT NOTIONAL minimum:
+    Binance would refuse the sell, so none is sent and the stop completes,
+    the dust left in the account and named."""
+    world = _running()
+    _derived(world, "0.01")
+
+    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+
+    assert [r for r in world.book.requests if r.order_type is OrderType.MARKET] == []
+    assert world.state() is S.STOPPED
 
 
 def test_stop_while_trading_is_off_waits_then_finishes_when_trading_returns() -> None:
