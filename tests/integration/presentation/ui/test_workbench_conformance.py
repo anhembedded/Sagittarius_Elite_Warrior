@@ -36,6 +36,7 @@ from PySide6.QtWidgets import (
     QGroupBox,
     QLineEdit,
     QMainWindow,
+    QPushButton,
     QScrollArea,
     QTabBar,
     QTableView,
@@ -277,8 +278,6 @@ def test_a_lone_ampersand_is_a_mnemonic_and_a_doubled_one_is_not() -> None:
 
 
 def test_a_styled_oversized_button_in_a_toolbar_is_seen(qtbot) -> None:
-    from PySide6.QtWidgets import QPushButton
-
     window = QMainWindow()
     qtbot.addWidget(window)
     bar = QToolBar("Top", window)

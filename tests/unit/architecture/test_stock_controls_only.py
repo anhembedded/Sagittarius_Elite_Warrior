@@ -24,12 +24,24 @@ count reaches zero when EPIC-033M closes, and this file becomes a ban.
   column specs (EPIC-033N), never per view.
 * ``font_family`` — ``QFont("…")`` with a family literal, ``setFamily``,
   ``setFont`` on the application (fonts derive from the system font).
-* ``color_literal`` — a ``"#rgb"``-style string or ``QColor`` built from one.
+* ``color_literal`` — a string constant, other than a docstring, holding a
+  ``#rgb``/``#rrggbb``/``#rrggbbaa`` value anywhere in it: a bare colour, rich
+  text (``<span style="color:#F3BA2F">``) or a QSS constant alike.
+  ``QColor(r, g, b)`` with integers and ``QFont(family=…)`` by keyword are not
+  seen; review row H1 holds them.
 * ``checkable_button`` — ``setCheckable`` (state belongs in check boxes and
   radio buttons; Microsoft and KDE both say so).
 
+**Held at zero, not ratcheted:** ``BUG-008``'s unscoped container style sheet
+(a bare property list on a widget that owns children, which Qt reads as the
+universal selector). A file may keep its ``style_sheet`` count yet swap a
+scoped sheet for an unscoped one, so this check stays until the
+``style_sheet`` rule is zero; it came from the deleted
+``test_widget_guards_hold.py``.
+
 Retire when: every count is zero (EPIC-033M); then the baseline file is
-deleted and each rule is an outright ban.
+deleted, each rule is an outright ban, and the unscoped-container check goes
+with the last style sheet.
 """
 
 from __future__ import annotations
@@ -39,6 +51,11 @@ import json
 import re
 from collections import Counter
 from pathlib import Path
+
+from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.guards import (
+    find_unscoped_container_stylesheets,
+    format_unscoped_container_findings,
+)
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SRC_ROOT = _REPO_ROOT / "src"
@@ -72,9 +89,7 @@ _CALLS: dict[str, frozenset[str]] = {
     "checkable_button": frozenset({"setCheckable"}),
 }
 RULES = (*_CALLS, "font_family", "color_literal")
-_HEX_COLOR = re.compile(
-    r"^#(?:[0-9a-fA-F]{3}|[0-9a-fA-F]{4}|[0-9a-fA-F]{6}|[0-9a-fA-F]{8})$"
-)
+_HEX_COLOR = re.compile(r"#(?:[0-9a-fA-F]{8}|[0-9a-fA-F]{6}|[0-9a-fA-F]{3,4})\b")
 
 #: rule -> {path -> count}
 Counts = dict[str, dict[str, int]]
@@ -96,10 +111,30 @@ def _first_arg_is_str(node: ast.Call) -> bool:
     )
 
 
+def _docstrings(tree: ast.Module) -> set[int]:
+    owners = [
+        tree,
+        *(
+            n
+            for n in ast.walk(tree)
+            if isinstance(n, ast.ClassDef | ast.FunctionDef | ast.AsyncFunctionDef)
+        ),
+    ]
+    return {
+        id(owner.body[0].value)
+        for owner in owners
+        if owner.body
+        and isinstance(owner.body[0], ast.Expr)
+        and isinstance(owner.body[0].value, ast.Constant)
+    }
+
+
 def findings(source: str) -> Counter[str]:
     """How many times each rule is broken in one module's source."""
     found: Counter[str] = Counter()
-    for node in ast.walk(ast.parse(source)):
+    tree = ast.parse(source)
+    docstrings = _docstrings(tree)
+    for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             name = _called_name(node)
             for rule, names in _CALLS.items():
@@ -119,7 +154,8 @@ def findings(source: str) -> Counter[str]:
         elif (
             isinstance(node, ast.Constant)
             and isinstance(node.value, str)
-            and _HEX_COLOR.match(node.value)
+            and id(node) not in docstrings
+            and _HEX_COLOR.search(node.value)
         ):
             found["color_literal"] += 1
     return found
@@ -173,6 +209,25 @@ def test_the_baseline_names_every_rule() -> None:
 def test_stock_controls_only_shrinks() -> None:
     problems = ratchet_problems(_read_baseline(), measure())
     assert not problems, "\n".join(problems)
+
+
+def test_no_container_leaks_its_chrome_onto_its_children() -> None:
+    findings_ = find_unscoped_container_stylesheets(_SRC_ROOT)
+    assert findings_ == [], (
+        "a widget that owns children is styled with a bare property list, "
+        "which Qt reads as the universal selector (BUG-008). Use the stock "
+        "control instead (ui-presentation-rule.md §1).\n\n"
+        + format_unscoped_container_findings(findings_)
+    )
+
+
+def test_a_colour_inside_rich_text_or_qss_is_seen_and_a_docstring_is_not() -> None:
+    source = (
+        '"""Fixes PR #268 and #abc."""\n'
+        'lbl.setText("<span style=\\"color:#F3BA2F\\">up</span>")\n'
+        'SHEET = "QFrame { border: 1px solid #1a2b3c; }"\n'
+    )
+    assert findings(source) == Counter({"color_literal": 2})
 
 
 def test_each_rule_is_seen() -> None:
