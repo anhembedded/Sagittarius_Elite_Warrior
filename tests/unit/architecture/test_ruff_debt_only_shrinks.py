@@ -93,7 +93,7 @@ def measure(root: Path = _REPO_ROOT) -> Debt:
             "json",
             "--exit-zero",
             "--no-cache",
-            # A `# noqa: T201` must not hide a new hit from the ratchet.
+            # A coded suppression comment must not hide a new hit.
             "--ignore-noqa",
             # PLR0904 is a preview rule; the other four count the same
             # with and without it (measured 2026-10-04).
@@ -113,12 +113,13 @@ def measure(root: Path = _REPO_ROOT) -> Debt:
     return {rule: dict(sorted(found.items())) for rule, found in counts.items()}
 
 
-def inert_selections(root: Path = _REPO_ROOT) -> list[str]:
-    """Ruff's warnings for a selected rule that never runs, under `root`'s config.
+def ruff_warnings(root: Path = _REPO_ROOT) -> list[str]:
+    """Every warning ruff prints on stderr for `root`, under its config.
 
-    A preview rule in `extend-select` is accepted and ignored, with a warning
-    on stderr only (PR #330 review: `PLR0904`). This is ruff's counterpart of
-    mypy's `warn_unused_configs`.
+    Ruff reports some defects only as a warning and still exits clean: a
+    preview rule in `extend-select` that never runs (PR #330 review:
+    `PLR0904`), or a malformed `noqa` it ignores. This is ruff's counterpart
+    of mypy's `warn_unused_configs`.
     """
     completed = subprocess.run(
         [sys.executable, "-m", "ruff", "check", "--no-cache", "--exit-zero", "."],
@@ -127,7 +128,9 @@ def inert_selections(root: Path = _REPO_ROOT) -> list[str]:
         text=True,
         check=True,
     )
-    return [line for line in completed.stderr.splitlines() if "has no effect" in line]
+    return [
+        line for line in completed.stderr.splitlines() if line.startswith("warning:")
+    ]
 
 
 def _read_baseline() -> Debt:
@@ -186,9 +189,9 @@ def test_a_noqa_does_not_hide_a_hit(tmp_path: Path) -> None:
     assert measure(tmp_path)["T20"] == {"src/probe.py": 1}
 
 
-def test_every_selected_ruff_rule_runs() -> None:
-    inert = inert_selections()
-    assert not inert, "selected ruff rules that never run:\n" + "\n".join(inert)
+def test_ruff_prints_no_warning() -> None:
+    warnings = ruff_warnings()
+    assert not warnings, "ruff warnings on the tree:\n" + "\n".join(warnings)
 
 
 def test_a_selected_preview_rule_is_reported(tmp_path: Path) -> None:
@@ -196,4 +199,13 @@ def test_a_selected_preview_rule_is_reported(tmp_path: Path) -> None:
         '[tool.ruff.lint]\nextend-select = ["PLR0904"]\n', encoding="utf-8"
     )
     (tmp_path / "probe.py").write_text("x = 1\n", encoding="utf-8")
-    assert any("PLR0904" in line for line in inert_selections(tmp_path))
+    assert any("PLR0904" in line for line in ruff_warnings(tmp_path))
+
+
+def test_a_malformed_noqa_is_reported(tmp_path: Path) -> None:
+    """PR #330 review round 2: a comment quoting a noqa read as a broken one."""
+    (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
+    (tmp_path / "probe.py").write_text(
+        "x = 1  # a `# noqa: T201` here\n", encoding="utf-8"
+    )
+    assert any("noqa" in line for line in ruff_warnings(tmp_path))
