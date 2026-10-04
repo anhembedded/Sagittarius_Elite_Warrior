@@ -3,12 +3,18 @@ to a real `ChartCard`'s price plot from outside the card."""
 
 from __future__ import annotations
 
+from PySide6.QtGui import QColor
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.price_level_layer import (
     LineStyle,
     PriceBand,
     PriceLevel,
     PriceLevelLayer,
+    label_text_color,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
+    PRICE_LEVEL_LABEL_COLOR,
+    PRICE_LEVEL_LABEL_DARK_COLOR,
 )
 
 
@@ -81,3 +87,22 @@ def test_a_level_without_a_label_draws_none(qapp) -> None:
     layer.set_levels("grid", [PriceLevel(59000.0, "#26a69a")])
 
     assert not hasattr(layer.line_items("grid")[0], "label")
+
+
+def test_a_label_is_written_in_the_text_colour_that_reads_on_its_fill(qapp) -> None:
+    """The PR #321 review: a light range-edge fill under light text read as a
+    blank box. The text is whichever of light and dark contrasts more."""
+    layer, _card = _layer(qapp)
+
+    layer.set_levels(
+        "edges",
+        [
+            PriceLevel(60000.0, PRICE_LEVEL_LABEL_COLOR, label="Lower"),
+            PriceLevel(70000.0, PRICE_LEVEL_LABEL_DARK_COLOR, label="Upper"),
+        ],
+    )
+
+    lower, upper = layer.line_items("edges")
+    assert lower.label.color.name() == QColor(PRICE_LEVEL_LABEL_DARK_COLOR).name()
+    assert upper.label.color.name() == QColor(PRICE_LEVEL_LABEL_COLOR).name()
+    assert label_text_color(PRICE_LEVEL_LABEL_COLOR) != PRICE_LEVEL_LABEL_COLOR

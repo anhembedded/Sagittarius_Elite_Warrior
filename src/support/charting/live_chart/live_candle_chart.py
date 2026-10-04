@@ -131,9 +131,8 @@ class LiveCandleChart(QObject):
 
     def draw_history(self, klines: Sequence[MarketData]) -> None:
         """@brief Draws `klines`, oldest first, as the chart's whole history."""
-        self._chart.render_historical_data(map_klines(list(klines)))
-        self._chart.render_historical_volume(map_volume(list(klines)))
-        self._on_history_drawn(klines)
+        rows = list(klines)
+        self._render_history(map_klines(rows), map_volume(rows), rows)
 
     def _on_symbol_shown(self, symbol: str) -> None:
         """Hook: `symbol` became the shown symbol, before its history loads."""
@@ -160,7 +159,16 @@ class LiveCandleChart(QObject):
                 self._restart()
 
     def _on_history(
-        self, symbol: str, _candles: list, _volume: list, klines: list
+        self, symbol: str, candles: list, volume: list, klines: list
     ) -> None:
+        # The coordinator mapped the rows on its worker thread; they are
+        # drawn as they came (the PR #321 review).
         if symbol == self._symbol:
-            self.draw_history(klines)
+            self._render_history(candles, volume, klines)
+
+    def _render_history(
+        self, candles: list, volume: list, klines: Sequence[MarketData]
+    ) -> None:
+        self._chart.render_historical_data(candles)
+        self._chart.render_historical_volume(volume)
+        self._on_history_drawn(klines)

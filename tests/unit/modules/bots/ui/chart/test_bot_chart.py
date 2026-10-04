@@ -208,3 +208,20 @@ def test_a_candle_still_forming_updates_the_last_bar(qapp, monkeypatch) -> None:
     qapp.processEvents()
 
     assert updated == [forming.close_time.timestamp()]
+
+
+def test_after_shutdown_a_shown_symbol_opens_no_stream(qapp) -> None:
+    """The PR #321 review: a released chart is quiet again, so a symbol
+    shown afterwards reads history only."""
+    world = ChartWorld()
+    chart, card = build_chart(world)
+    chart.show_symbol("BTCUSDT")
+    chart.follow(BotTickFeed(MemoryEventBus(), MarketType.SPOT, parent=card))
+    chart.shutdown()
+    syncs = len(world.sync.requests)
+
+    chart.show_symbol("ETHUSDT")
+
+    assert chart.is_live is False
+    assert len(world.sync.requests) == syncs
+    assert world.stream.held_by("bot.a3f9c1") is None

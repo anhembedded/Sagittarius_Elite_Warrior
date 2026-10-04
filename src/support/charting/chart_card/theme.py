@@ -40,7 +40,11 @@ TAKE_PROFIT_COLOR = Palette.ACCENT
 #: `EPIC-029G` — what a bot's horizontal lines and bands mean, read at a
 #: glance (`PriceLevelLayer`, `bots/ui/chart/overlay_items.py`). Each is a
 #: series colour with a meaning, named for it, like the take-profit colour.
+#: A price label's text: light on a dark fill, dark on a light one, chosen
+#: per fill so the text never matches its own background (the PR #321
+#: review: a light range-edge fill under light text read as a blank box).
 PRICE_LEVEL_LABEL_COLOR = Palette.TEXT_PRIMARY
+PRICE_LEVEL_LABEL_DARK_COLOR = Palette.BG
 EMPTY_LEVEL_COLOR = Palette.MUTED
 PARTIAL_LEVEL_COLOR = Palette.WARNING
 STOP_LOSS_COLOR = Palette.DANGER

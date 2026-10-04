@@ -12,8 +12,10 @@ with the same activity draw the same chart.
 · **Range edges** are the user's lower and upper limits, beside the rounded
   levels nearest them.
 · **ATR zones** (with a daily ATR): where each edge sits if the range is
-  `range_atr_low`–`range_atr_high` daily ATRs wide around the last price,
-  the band the range-versus-ATR check judges (`GridThresholds`).
+  `range_atr_low`–`range_atr_high` daily ATRs wide **and centred on the last
+  price**. The range-versus-ATR check judges the width alone
+  (`grid_checks.check_range_against_atr`); centring is this drawing's own
+  suggestion. A zone never reaches below zero.
 · **Bollinger** (when the caller computed the bands): the band between them.
 
 Lines sort by price, then role, then label, so equal prices draw in one
@@ -160,8 +162,14 @@ def _atr_zones(source: GridOverlaySource) -> list[OverlayBand]:
     last = source.plan.last_price
     near = source.thresholds.range_atr_low * atr / _TWO
     far = source.thresholds.range_atr_high * atr / _TWO
+    zero = Decimal(0)
     return [
-        OverlayBand(last - far, last - near, OverlayBandRole.ATR_ZONE, "Lower by ATR"),
+        OverlayBand(
+            max(last - far, zero),
+            max(last - near, zero),
+            OverlayBandRole.ATR_ZONE,
+            "Lower by ATR",
+        ),
         OverlayBand(last + near, last + far, OverlayBandRole.ATR_ZONE, "Upper by ATR"),
     ]
 

@@ -134,3 +134,12 @@ def test_equal_prices_draw_in_one_stable_order() -> None:
         (OverlayRole.RANGE_EDGE, "Lower"),
     ]
     assert [line.price for line in lines] == sorted(line.price for line in lines)
+
+
+def test_an_atr_zone_never_reaches_below_zero() -> None:
+    """The PR #321 review: a daily ATR larger than half the price would put
+    the lower zone under zero."""
+    lower_zone = grid_overlay(_source(daily_atr=Decimal(40000))).bands[0]
+
+    assert lower_zone.lower == Decimal(0)
+    assert lower_zone.upper == Decimal(25000)

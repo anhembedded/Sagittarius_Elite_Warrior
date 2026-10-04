@@ -27,6 +27,7 @@ import pyqtgraph as pg
 from PySide6 import QtCore, QtGui
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     PRICE_LEVEL_LABEL_COLOR,
+    PRICE_LEVEL_LABEL_DARK_COLOR,
 )
 
 #: Bands under the candles, lines above them.
@@ -124,7 +125,7 @@ class PriceLevelLayer:
             label=level.label or None,
             labelOpts={
                 "position": 0.98,
-                "color": PRICE_LEVEL_LABEL_COLOR,
+                "color": label_text_color(level.color),
                 "fill": pg.mkBrush(level.color),
                 "movable": False,
             },
@@ -145,3 +146,35 @@ class PriceLevelLayer:
         )
         item.setZValue(_BAND_Z_VALUE)
         return item
+
+
+def label_text_color(fill: str) -> str:
+    """@brief Of the light and the dark label text, the one with the higher
+    contrast against `fill` (WCAG 2 contrast ratio)."""
+    light, dark = PRICE_LEVEL_LABEL_COLOR, PRICE_LEVEL_LABEL_DARK_COLOR
+    if _contrast(fill, dark) > _contrast(fill, light):
+        return dark
+    return light
+
+
+def _contrast(first: str, second: str) -> float:
+    brighter, darker = sorted((_luminance(first), _luminance(second)), reverse=True)
+    return (brighter + 0.05) / (darker + 0.05)
+
+
+#: WCAG 2's sRGB linearisation threshold and the luminance channel weights.
+_SRGB_LINEAR_LIMIT = 0.03928
+_RGB_WEIGHTS = (0.2126, 0.7152, 0.0722)
+
+
+def _luminance(color: str) -> float:
+    """WCAG 2 relative luminance of an sRGB colour."""
+    qcolor = QtGui.QColor(color)
+    channels = (qcolor.redF(), qcolor.greenF(), qcolor.blueF())
+    linear = (
+        c / 12.92 if c <= _SRGB_LINEAR_LIMIT else ((c + 0.055) / 1.055) ** 2.4
+        for c in channels
+    )
+    return sum(
+        weight * value for weight, value in zip(_RGB_WEIGHTS, linear, strict=True)
+    )

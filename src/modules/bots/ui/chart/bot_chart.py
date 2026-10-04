@@ -70,3 +70,6 @@ class BotChart(LiveCandleChart):
         super().shutdown()
         if self.is_live:
             self.release_stream()
+            # Quiet again: a symbol shown after this reads history only and
+            # opens no stream nobody asked for (the PR #321 review).
+            self._live = False

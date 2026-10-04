@@ -109,7 +109,7 @@ def _sample_source() -> GridOverlaySource:
     activity = GridActivity(
         level_states={3: LevelState.RESTING_SELL, 7: LevelState.PARTIAL},
         fills=fills,
-        average_cost=Decimal(63000),
+        average_cost=Decimal(63500),
     )
     return GridOverlaySource(
         evaluation.params,
