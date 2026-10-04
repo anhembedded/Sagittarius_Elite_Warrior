@@ -93,7 +93,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_cr
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
+from Sagittarius_Elite_Warrior.tests.conftest import real_main_window
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
@@ -214,7 +214,7 @@ def _spot_board_running(boot: _Boot) -> Iterator[_Board]:
         container.singleton(IRangeCoverage, lambda _c: range_coverage)
         container.singleton(ISymbolCatalog, lambda _c: symbol_catalog)
         engine.boot()
-        window = MainWindow(engine, real_screen_registry(container))
+        window = real_main_window(engine)
         window.show()
         # Not handed to `qtbot.addWidget`: the `finally` below closes and
         # deletes the window itself, and qtbot closing it again afterwards

@@ -84,8 +84,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_por
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit_policy import (
     TradingLimitPolicy,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
+from Sagittarius_Elite_Warrior.tests.conftest import real_main_window
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.mock_klines import (
     MOCK_KLINE_COUNT,
     SEEDED_SYMBOLS,
@@ -462,8 +461,7 @@ def main_window(qapp, qtbot, app_engine):
     thread_manager_module.py) since only this test fixture, not the app,
     needs to await widget-teardown safety.
     """
-    registry = real_screen_registry(app_engine.context.container)
-    window = MainWindow(app_engine, registry)
+    window = real_main_window(app_engine)
     window.show()
     yield window
     for presenter in window.presenters.values():

@@ -19,6 +19,9 @@ Retire when: no contribution uses `Deferred`, or Python's own lazy imports
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
+    CommandContribution,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import (
     ContributionDescriptor,
 )
@@ -51,6 +54,9 @@ class _RecordingRegistry(IContributionRegistry):
 
     def contribute_options_page(self, contribution: OptionsPageContribution) -> None:
         self._note(contribution.factory)
+
+    def contribute_command(self, command: CommandContribution) -> None:
+        """A command carries no factory: nothing to resolve."""
 
     def _note(self, factory: object) -> None:
         if isinstance(factory, Deferred):

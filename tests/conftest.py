@@ -119,9 +119,31 @@ def _seed_app_theme():
 
 
 def real_screen_registry(container):
-    """`EPIC-016` — a `ScreenRegistry` with the app's real screens
-    registered against `container`, matching exactly what
-    `app_bootstrapper.py`'s composition root does.
+    """The real `ScreenRegistry`, built from `real_contributions()`."""
+    from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
+
+    return build_screen_registry(real_contributions(container))
+
+
+def real_main_window(app_engine, **kwargs):
+    """The real `MainWindow` over `app_engine`: the real screens, and the
+    commands the modules contribute (`EPIC-033D`), as `build()` makes it."""
+    from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
+    from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
+
+    contributions = real_contributions(app_engine.context.container)
+    return MainWindow(
+        app_engine,
+        build_screen_registry(contributions),
+        commands=contributions.commands(),
+        **kwargs,
+    )
+
+
+def real_contributions(container):
+    """`EPIC-016` — everything the app's real modules contribute, registered
+    against `container`, matching exactly what `app_bootstrapper.py`'s
+    composition root does.
 
     The default route is the Futures desk since `EPIC-033C` deleted the
     Welcome screen; the helper's promise is to match the real registry.
@@ -147,15 +169,12 @@ def real_screen_registry(container):
     """
     from unittest.mock import Mock
 
-    from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
-
     if not isinstance(container, Mock):
         from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
             assemble_contributions,
         )
 
-        contributions = assemble_contributions(container, dev_mode=False)
-        return build_screen_registry(contributions)
+        return assemble_contributions(container, dev_mode=False)
 
     from Sagittarius_Elite_Warrior.src.modules.backtesting.module import (
         BacktestingModule,
@@ -181,7 +200,7 @@ def real_screen_registry(container):
         BotsModule(),
     ):
         module.contribute(contributions)
-    return build_screen_registry(contributions)
+    return contributions
 
 
 @pytest.fixture(scope="session")

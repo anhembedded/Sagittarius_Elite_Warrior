@@ -194,9 +194,8 @@ def build() -> AppRuntime:
     _install_exception_handler(app_engine)
     sig_timer = setup_qt_signal_handling(app)
     # ADR D21: the app applies no stylesheet, palette or third-party theme of
-    # its own; standard controls render in the platform's theme. Colour is used
-    # only where it carries meaning, per widget. `qdarktheme`'s global dark
-    # sheet used to be applied here.
+    # its own; colour only where it carries meaning, per widget (`qdarktheme`'s
+    # global dark sheet used to be applied here).
     # EPIC-006F removed `configure_app_qml()` here ("no QML left in this
     # app"); EPIC-015 brought QML back as embedded widgets and nobody
     # restored it — so for a year every host re-wired `Theme` by hand and
@@ -318,6 +317,7 @@ def build() -> AppRuntime:
         version_text=_version_text(config_manager),
         state_coordinator=state_coordinator,
         close_objections=app_engine.context.container.resolve(ICloseObjections),
+        commands=contributions.commands(),
     )
     # `EPIC-033E` — Tools → Options: each module's page, then Developer.
     for page in build_options_pages(

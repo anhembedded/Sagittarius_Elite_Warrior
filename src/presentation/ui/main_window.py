@@ -16,6 +16,12 @@ means the user opened it, so a presenter that goes live when opened does so
 in `IShownAsMode.on_mode_shown()`, which this window calls each time a mode
 shows, with why.
 
+@par Commands are actions (`EPIC-033D`)
+Each module's contributed commands become one `QAction` apiece, in their menu
+and, when asked, on their mode's toolbar. A presenter that performs commands
+(`IBindsCommands`) binds them as it is built. A command nothing binds stays
+disabled and is reported once at the end of the build.
+
 @par One Output pane (`EPIC-033F`)
 Every screen that keeps a log offers it as a channel (`IOutputSource`); the
 window docks one Output pane at the bottom with all of them, and showing a
@@ -36,6 +42,9 @@ from collections.abc import Mapping, Sequence
 from PySide6.QtCore import QObject
 from PySide6.QtGui import QCloseEvent, QMoveEvent, QPalette, QResizeEvent
 from PySide6.QtWidgets import QApplication, QLabel
+from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
+    CommandContribution,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
     ICloseObjections,
 )
@@ -46,6 +55,9 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.close_confirmation import (
     ConfirmClose,
     ask_before_closing,
 )
+from Sagittarius_Elite_Warrior.src.presentation.ui.command_actions import (
+    action_descriptor,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.mode_perspectives import (
     ModePerspectives,
 )
@@ -55,6 +67,10 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.shell_navigation import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets.icon_loader import (
     get_icon_loader,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
+    IBindsCommands,
+    ICommandBinder,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.mode_host import ModeHost
 from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source import IOutputSource
@@ -118,12 +134,14 @@ class MainWindow(WorkbenchShell):
         state_coordinator: UiStateCoordinator | None = None,
         close_objections: ICloseObjections | None = None,
         confirm_close: ConfirmClose | None = None,
+        commands: Sequence[CommandContribution] = (),
     ) -> None:
         # The commands' owner exists before the window it then belongs to, so
         # every action dies with the window rather than with the application.
         action_owner = QObject()
+        registry = ActionRegistry(action_owner, MessageBoxConfirmer())
         super().__init__(
-            ActionRegistry(action_owner, MessageBoxConfirmer()),
+            registry,
             application_name=APPLICATION_NAME,
             about_text=_about_text(venue_text, version_text),
         )
@@ -136,6 +154,11 @@ class MainWindow(WorkbenchShell):
         # Set before any geometry call: `resizeEvent`/`moveEvent` may fire
         # synchronously from `resize()`, and both read it.
         self._state_coordinator = state_coordinator
+        self._command_binder: ICommandBinder = registry
+        self._commands = tuple(
+            (command, registry.contribute(action_descriptor(command)))
+            for command in commands
+        )
         self._presenters: dict[str, BasePresenter] = {}
         self._hosts: dict[str, ModeHost] = {}
         self._output = OutputPane(self)
@@ -150,6 +173,7 @@ class MainWindow(WorkbenchShell):
         self.resize(*_WINDOW_SIZE)
         self._show_venue(venue_text)
         self._add_modes(screen_registry.modes())
+        self._place_commands()
         self.set_output_pane(self._output)
         self.navigation.mode_changed.connect(self._on_mode_changed)
         self.finish_setup()
@@ -184,9 +208,10 @@ class MainWindow(WorkbenchShell):
         icon_colour = QApplication.palette().color(QPalette.ColorRole.WindowText)
         for screen, text in zip(screens, texts, strict=True):
             view = screen.view_factory()
-            self._presenters[screen.route] = screen.presenter_class(
-                view, self._container
-            )
+            presenter = screen.presenter_class(view, self._container)
+            self._presenters[screen.route] = presenter
+            if isinstance(presenter, IBindsCommands):
+                presenter.bind_commands(self._command_binder)
             channel = view.output_channel() if isinstance(view, IOutputSource) else None
             if channel is not None:
                 self._output.add_channel(channel)
@@ -203,6 +228,18 @@ class MainWindow(WorkbenchShell):
             self.add_mode(ShellMode(screen.route, text, host, icon=icon))
             logger.debug("Mode %r built", screen.route)
         logger.info("Workbench built %d mode(s): %s", len(screens), list(self._hosts))
+
+    def _place_commands(self) -> None:
+        """Puts each toolbar command on its mode's toolbar, or on every
+        mode's when it belongs to all of them."""
+        for command, action in self._commands:
+            if not command.on_toolbar:
+                continue
+            modes = (command.mode,) if command.mode is not None else tuple(self._hosts)
+            for mode in modes:
+                host = self._hosts.get(mode)
+                if host is not None:
+                    host.add_command(action)
 
     def add_options_page(self, page: IOptionsPage) -> None:
         """One page of Tools → Options; the log line is what proves, from a
