@@ -18,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
     ladder_orders,
     resized_for_inventory,
     runtime_from_plan,
+    sells_net_of_opening_fee,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
     LevelState,
@@ -123,3 +124,23 @@ def test_an_exit_is_crossed_at_its_price_and_beyond() -> None:
     assert crossed_exit(Decimal(73500), stop, take) is GridReason.TAKE_PROFIT
     assert crossed_exit(Decimal("73499.99"), stop, take) is None
     assert crossed_exit(Decimal(1), None, None) is None
+
+
+def test_the_sell_side_is_sized_to_what_the_opening_receives_net_of_its_fee() -> None:
+    """On Spot a buy's fee is taken from the base it buys: the opening receives
+    `quantity × (1 − taker)`, so a SELL side sized to the planned quantity
+    would ask trading to sell more than the bot holds (check 3) on its last
+    level. Each SELL is shrunk by the fee and rounded down to the step."""
+    plan = _report_plan()
+
+    netted = sells_net_of_opening_fee(plan, TERMS.taker_fee, TERMS.step_size)
+
+    received = plan.opening_buy_quantity * (1 - TERMS.taker_fee)
+    assert sum(level.quantity for level in netted.sell_levels) <= received
+    for before, after in zip(plan.sell_levels, netted.sell_levels, strict=True):
+        assert after.quantity <= before.quantity * (1 - TERMS.taker_fee)
+        assert after.quantity + TERMS.step_size > before.quantity * (
+            1 - TERMS.taker_fee
+        )
+    assert netted.buy_levels == plan.buy_levels
+    assert netted.opening_buy_quantity == plan.opening_buy_quantity

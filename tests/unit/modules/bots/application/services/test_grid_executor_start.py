@@ -189,3 +189,21 @@ def test_the_reference_price_is_the_books_middle_until_a_tick_is_heard() -> None
         for r in world.book.requests
         if r.order_type is OrderType.MARKET
     } == {LAST_PRICE}
+
+
+def test_each_sell_is_sized_net_of_the_fee_the_opening_paid_in_base() -> None:
+    """The opening buys 4.132 BTC (2.066 a SELL level at 250 USDT and 121) and
+    Spot takes the 0.1% taker fee from it, so 4.127868 arrives: each SELL asks
+    for 2.063 (2.066 × 0.999, down to the 0.001 step), never the gross 2.066
+    the last of which trading would refuse as more than the bot holds."""
+    world = grid_world()
+
+    world.executor.start()
+
+    sells = [
+        r.quantity
+        for r in world.book.requests
+        if r.order_type is OrderType.LIMIT and r.side is OrderSide.SELL
+    ]
+    assert sells == [Decimal("2.063"), Decimal("2.063")]
+    assert sum(sells) <= Decimal("4.132") * Decimal("0.999")

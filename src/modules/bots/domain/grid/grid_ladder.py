@@ -11,6 +11,11 @@
   SELL side sized to the inventory the bot actually holds, nearest first,
   and **no opening buy**. A SELL level the inventory does not reach is left
   EMPTY. The user confirms this plan before anything is placed (O2).
+· `sells_net_of_opening_fee` — the plan a start lays after its opening buy:
+  on Spot a buy's fee is taken from the base it buys, so the opening receives
+  `quantity × (1 − taker)` and each SELL level is shrunk by the fee, rounded
+  down to the step. Sized to the gross quantity, the last SELL would ask to
+  sell base the bot never received (`owner_budget_sell_exceeds_inventory`).
 · `crossed_exit` — which exit a price crosses (ADR D11): at or below the
   stop loss, at or above the take profit.
 """
@@ -78,6 +83,23 @@ def resized_for_inventory(plan: GridPlan, inventory: Decimal) -> GridPlan:
         resized[level.index] = replace(level, side=side, quantity=quantity)
     levels = tuple(resized.get(level.index, level) for level in plan.levels)
     return replace(plan, levels=levels, opening_buy_quantity=_ZERO)
+
+
+def sells_net_of_opening_fee(
+    plan: GridPlan, taker_fee: Decimal, step_size: Decimal
+) -> GridPlan:
+    """`plan` with each SELL level sized to its share net of the buy's fee."""
+    kept = 1 - taker_fee
+    levels = tuple(
+        replace(
+            level,
+            quantity=_ROUNDING.round_quantity_down(level.quantity * kept, step_size),
+        )
+        if level.side is LevelSide.SELL
+        else level
+        for level in plan.levels
+    )
+    return replace(plan, levels=levels)
 
 
 def crossed_exit(

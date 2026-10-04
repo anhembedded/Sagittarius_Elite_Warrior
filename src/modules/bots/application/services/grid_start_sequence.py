@@ -3,7 +3,8 @@
   1. **The opening buy** goes out in slices at or below the per-order cap, each
      waiting its turn (D21): ⌈quote / cap⌉ market BUYs.
   2. **The ladder**, outward from the last price; the level nearest the price
-     stays EMPTY.
+     stays EMPTY. Each SELL is sized net of the opening's fee, which Spot
+     takes from the base bought (`sells_net_of_opening_fee`).
   3. **RUNNING** (`ladder_ready`) only once every other level rests.
 
 A refusal stops the sequence. After anything was bought or placed, the bot
@@ -40,6 +41,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
     ladder_orders,
     runtime_from_plan,
+    sells_net_of_opening_fee,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import GridPlan
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
@@ -66,8 +68,10 @@ class GridStartSequence:
     def run(self, plan: GridPlan) -> None:
         """Run the start for `plan`; the bot is STARTING."""
         state = self._context.state
-        state.update(runtime_from_plan(plan, self._context.terms.step_size))
-        if self._buy_opening(plan) and self._place_ladder(plan):
+        terms = self._context.terms
+        state.update(runtime_from_plan(plan, terms.step_size))
+        ladder = sells_net_of_opening_fee(plan, terms.taker_fee, terms.step_size)
+        if self._buy_opening(plan) and self._place_ladder(ladder):
             state.transition(BotLifecycleEvent.LADDER_READY)
 
     def place_ladder(self, plan: GridPlan, inventory: OwnerInventory) -> None:
