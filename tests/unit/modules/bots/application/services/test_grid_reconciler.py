@@ -8,11 +8,15 @@ it was — or halts naming the disagreement.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from datetime import UTC, datetime
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
+    LevelState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
@@ -166,6 +170,32 @@ def test_a_missed_fill_counts_the_fee_its_trades_paid_in_base() -> None:
     [counter] = world.book.requests
     assert counter.side is OrderSide.SELL
     assert counter.quantity <= Decimal("2.269728")
+
+
+def test_a_missed_fill_whose_counter_has_nowhere_to_go_halts() -> None:
+    """The BUY at 110 filled while closed, and its SELL is owed at 120, but
+    120 already holds an order (one adopted there earlier). The reaction says
+    halt; reconciliation must not throw that away and report RUNNING."""
+    original = restored()
+    occupant = original.open_ids_by_price()[Decimal(130)]
+    saved = original.runtime()
+    crowded = saved.with_level(
+        replace(
+            saved.levels[2],
+            state=LevelState.RESTING,
+            order=saved.level_of(occupant).order,
+        )
+    )
+    world = grid_world(state=S.RECOVERING, runtime=crowded, recovering_from=S.RUNNING)
+    world.book.open = dict(original.book.open)
+    filled_while_closed(world, Decimal(110), "2.272")
+    world.derive("2.272")
+    world.hold("2.272")
+
+    world.executor.on_switch(True, TradingSwitchCause.ENABLED)
+
+    assert world.state() is S.HALTED
+    assert world.runtime().reason is GridReason.DUPLICATE_LEVEL_ORDER
 
 
 def test_an_order_sent_but_never_saved_is_adopted_and_its_level_not_placed_twice() -> (

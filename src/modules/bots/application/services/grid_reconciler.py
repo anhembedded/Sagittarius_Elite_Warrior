@@ -56,6 +56,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matri
     LevelState,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
+    Halt,
     LevelFill,
     adopted,
     drop_order,
@@ -112,7 +113,7 @@ class GridReconciler:
             return
         open_orders = self._context.gateway.tagged_open_orders()
         try:
-            runtime = self._apply_missed_fills(state.runtime, open_orders)
+            applied = self._apply_missed_fills(state.runtime, open_orders)
         except AccountHistoryUnavailableError as error:
             state.update(
                 state.runtime.with_reason(
@@ -123,7 +124,10 @@ class GridReconciler:
             )
             logger.info("Bot %s: reconcile waits — history: %s", state.bot_id, error)
             return
-        outcome = self._adopt(runtime, open_orders)
+        if isinstance(applied, ReconcileMismatch):
+            self._mismatch(applied.reason, applied.detail)
+            return
+        outcome = self._adopt(applied, open_orders)
         if isinstance(outcome, ReconcileMismatch):
             self._mismatch(outcome.reason, outcome.detail)
             return
@@ -136,7 +140,7 @@ class GridReconciler:
 
     def _apply_missed_fills(
         self, runtime: GridRuntime, open_orders: tuple[Order, ...]
-    ) -> GridRuntime:
+    ) -> GridRuntime | ReconcileMismatch:
         gateway = self._context.gateway
         open_ids = {order.client_order_id for order in open_orders}
         since = self._context.state.bot.lifecycle.run_started_at
@@ -149,9 +153,13 @@ class GridReconciler:
             )
             if missed > 0 and record is not None:
                 fill = self._missed_fill(saved, record, missed, since)
-                runtime = on_fill(
+                reaction = on_fill(
                     runtime, fill, self._context.terms.step_size, hold=True
-                ).runtime
+                )
+                halt = next((a for a in reaction.actions if isinstance(a, Halt)), None)
+                if halt is not None:
+                    return ReconcileMismatch(halt.reason, halt.detail)
+                runtime = reaction.runtime
             runtime = drop_order(runtime, saved.client_order_id)
             logger.info(
                 "Bot %s: reconcile %s missing from the exchange, %s executed since",
