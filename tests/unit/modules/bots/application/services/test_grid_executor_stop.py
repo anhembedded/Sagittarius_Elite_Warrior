@@ -148,6 +148,43 @@ def test_an_inventory_worth_less_than_the_exchange_minimum_is_kept_as_dust() -> 
     assert world.state() is S.STOPPED
 
 
+def test_an_order_that_filled_just_before_its_cancel_does_not_fault_the_stop() -> None:
+    """The race every stop runs: an order fills between the read of open
+    orders and its cancel, and Binance answers the cancel with -2011. The
+    order is no longer open, so it ended; the stop carries on."""
+    world = _running()
+    world.book.filled_before_cancel = {next(iter(world.book.open))}
+
+    world.executor.stop(BaseHandling.KEEP)
+
+    assert world.state() is S.STOPPED
+
+
+def test_a_cancel_that_raises_while_the_order_is_still_open_is_a_fault() -> None:
+    world = _running()
+    world.book.cancel_raises = [ConnectionError("read timed out")]
+
+    world.executor.stop(BaseHandling.KEEP)
+
+    assert world.state() is S.ERROR
+    assert _runtime(world).reason is GridReason.ORDER_FAILED
+
+
+def test_the_exit_sells_the_inventory_derived_after_the_cancels() -> None:
+    """A fill that lands while the stop cancels changes what the bot holds:
+    the stop derives its inventory again after the cancels, so it sells what
+    is there, neither leaving bought base behind nor asking for more."""
+    world = _running()
+    _derived(world, "4.9")
+    world.book.cancel_probe = lambda: _derived(world, "5.0")
+
+    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+
+    sells = [r for r in world.book.requests if r.order_type is OrderType.MARKET]
+    assert sum(r.quantity for r in sells) == Decimal("5.0")
+    assert world.state() is S.STOPPED
+
+
 def test_stop_while_trading_is_off_waits_then_finishes_when_trading_returns() -> None:
     world = _running()
     world.executor.on_switch(False, TradingSwitchCause.DISABLED)

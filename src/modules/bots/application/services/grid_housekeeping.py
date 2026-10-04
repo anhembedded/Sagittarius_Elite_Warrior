@@ -17,6 +17,7 @@ from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_gateway import (
     OrderOutcome,
+    OrderOutcomeKind,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget import (
     grid_budget,
@@ -28,6 +29,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_co
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     drop_order,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     OwnerBudgetRefusal,
     OwnerBudgetRegistrationResult,
@@ -79,10 +81,30 @@ class GridHousekeeping:
                 outcome.kind.value,
                 outcome.detail,
             )
-            if not outcome.done:
+            if not outcome.done and not self._ended_meanwhile(outcome, order):
                 return CancelReport(outcome, order.client_order_id)
             state.update(drop_order(state.runtime, order.client_order_id))
         return CancelReport()
+
+    def _ended_meanwhile(self, outcome: OrderOutcome, order: Order) -> bool:
+        """A cancel that raised for an order no longer open: it filled or
+        ended between the read and the cancel (Binance answers -2011, "Unknown
+        order sent."), so there is nothing left to cancel. Its fill, if any,
+        arrives as an event and is booked as the bot's inventory."""
+        if outcome.kind is not OrderOutcomeKind.FAULT:
+            return False
+        still_open = {
+            o.client_order_id for o in self._context.gateway.tagged_open_orders()
+        }
+        if order.client_order_id in still_open:
+            return False
+        logger.info(
+            "Bot %s: %s ended before its cancel (%s)",
+            self._context.state.bot_id,
+            order.client_order_id,
+            outcome.detail,
+        )
+        return True
 
 
 def refusal_text(registration: OwnerBudgetRegistrationResult) -> str:

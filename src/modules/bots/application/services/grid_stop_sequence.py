@@ -76,8 +76,15 @@ class GridStopSequence:
             return
         if not self._cancel_tagged():
             return
-        if base is BaseHandling.SELL_AT_MARKET and not self._sell(registration, price):
-            return
+        if base is BaseHandling.SELL_AT_MARKET:
+            # A fill that landed while cancelling changed what the bot holds:
+            # derive the inventory again before selling it (ADR D6).
+            registration = self._housekeeping.register()
+            if not registration.registered:
+                self._wait(f"the budget was refused: {refusal_text(registration)}")
+                return
+            if not self._sell(registration, price):
+                return
         self._confirm()
 
     def _cancel_tagged(self) -> bool:

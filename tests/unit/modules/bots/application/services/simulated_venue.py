@@ -76,6 +76,11 @@ class SimulatedBook:
         #: Called at each cancel, before it applies: what a test observes
         #: about the world at that moment.
         self.cancel_probe: Callable[[], None] | None = None
+        #: Orders that fill just before their cancel arrives: the cancel
+        #: raises (Binance's -2011 "Unknown order sent.") and the order is gone.
+        self.filled_before_cancel: set[str] = set()
+        #: Cancels that raise with the order still open (the request was lost).
+        self.cancel_raises: list[Exception] = []
 
 
 class SimulatedSubmission(IOrderSubmission):
@@ -122,6 +127,11 @@ class SimulatedSubmission(IOrderSubmission):
             self._book.cancel_probe()
         if self._book.cancel_refusals:
             return CancelOrderResult(self._book.cancel_refusals.pop(0), None)
+        if self._book.cancel_raises:
+            raise self._book.cancel_raises.pop(0)
+        if client_order_id in self._book.filled_before_cancel:
+            self._book.open.pop(client_order_id, None)
+            raise RuntimeError("APIError(code=-2011): Unknown order sent.")
         order = self._book.open.get(client_order_id)
         if client_order_id not in self._book.sticky:
             self._book.open.pop(client_order_id, None)
