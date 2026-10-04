@@ -42,9 +42,6 @@ from collections.abc import Mapping, Sequence
 from PySide6.QtCore import QObject
 from PySide6.QtGui import QCloseEvent, QMoveEvent, QPalette, QResizeEvent
 from PySide6.QtWidgets import QApplication, QLabel
-from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
-    CommandContribution,
-)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
     ICloseObjections,
 )
@@ -134,7 +131,6 @@ class MainWindow(WorkbenchShell):
         state_coordinator: UiStateCoordinator | None = None,
         close_objections: ICloseObjections | None = None,
         confirm_close: ConfirmClose | None = None,
-        commands: Sequence[CommandContribution] = (),
     ) -> None:
         # The commands' owner exists before the window it then belongs to, so
         # every action dies with the window rather than with the application.
@@ -157,7 +153,7 @@ class MainWindow(WorkbenchShell):
         self._command_binder: ICommandBinder = registry
         self._commands = tuple(
             (command, registry.contribute(action_descriptor(command)))
-            for command in commands
+            for command in screen_registry.commands()
         )
         self._presenters: dict[str, BasePresenter] = {}
         self._hosts: dict[str, ModeHost] = {}

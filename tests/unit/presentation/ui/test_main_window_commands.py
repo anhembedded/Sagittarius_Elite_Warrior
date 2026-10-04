@@ -104,13 +104,13 @@ def _registry(log: DisposeLog, desks: list[_DeskPresenter]) -> ScreenRegistry:
             nav=NavMetadata(title="Data", icon="circle", item_sequence=2),
         )
     )
+    for command in (_ENABLE, _STOP, _SYNC):
+        registry.register_command(command)
     return registry
 
 
 def _window(qtbot, desks: list[_DeskPresenter]) -> MainWindow:
-    window = MainWindow(
-        engine(), _registry(DisposeLog(), desks), commands=(_ENABLE, _STOP, _SYNC)
-    )
+    window = MainWindow(engine(), _registry(DisposeLog(), desks))
     qtbot.addWidget(window)
     return window
 

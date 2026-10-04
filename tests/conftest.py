@@ -126,17 +126,12 @@ def real_screen_registry(container):
 
 
 def real_main_window(app_engine, **kwargs):
-    """The real `MainWindow` over `app_engine`: the real screens, and the
-    commands the modules contribute (`EPIC-033D`), as `build()` makes it."""
+    """The real `MainWindow` over `app_engine`: the real screens and their
+    commands (`EPIC-033D`), as `build()` makes it."""
     from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-    from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
 
-    contributions = real_contributions(app_engine.context.container)
     return MainWindow(
-        app_engine,
-        build_screen_registry(contributions),
-        commands=contributions.commands(),
-        **kwargs,
+        app_engine, real_screen_registry(app_engine.context.container), **kwargs
     )
 
 

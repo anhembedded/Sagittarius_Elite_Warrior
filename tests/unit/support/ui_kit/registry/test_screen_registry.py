@@ -5,6 +5,9 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
+    CommandContribution,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.nav_metadata import (
     NavLocation,
     NavMetadata,
@@ -182,3 +185,27 @@ def test_register_accepts_a_descriptor_without_nav(registry) -> None:
     )
     registry.register(descriptor)
     assert registry.get("fake") is descriptor
+
+
+def _command(command_id: str) -> CommandContribution:
+    return CommandContribution(
+        contributor_id="trading",
+        command_id=command_id,
+        text="&Act",
+        menu_path=("T&rade",),
+    )
+
+
+def test_commands_come_back_in_registration_order(registry) -> None:
+    """`EPIC-033D`: the window builds one action per command, in this order."""
+    registry.register_command(_command("b"))
+    registry.register_command(_command("a"))
+
+    assert [command.command_id for command in registry.commands()] == ["b", "a"]
+
+
+def test_duplicate_command_raises_value_error(registry) -> None:
+    registry.register_command(_command("a"))
+
+    with pytest.raises(ValueError, match="'a'"):
+        registry.register_command(_command("a"))

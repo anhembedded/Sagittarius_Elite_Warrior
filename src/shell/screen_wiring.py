@@ -46,8 +46,11 @@ def as_screen_descriptor(contribution: ScreenContribution) -> ScreenDescriptor:
 
 
 def build_screen_registry(contributions: ContributionRegistry) -> IScreenRegistry:
-    """The navigable screens of this run, as `MainWindow` needs them."""
+    """The navigable screens of this run and their commands (`EPIC-033D`),
+    as `MainWindow` needs them."""
     screen_registry = ScreenRegistry()
     for contribution in contributions.screens():
         screen_registry.register(as_screen_descriptor(contribution))
+    for command in contributions.commands():
+        screen_registry.register_command(command)
     return screen_registry

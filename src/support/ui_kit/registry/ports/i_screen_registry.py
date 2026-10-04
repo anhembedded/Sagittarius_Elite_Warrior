@@ -1,18 +1,29 @@
 """`EPIC-016` — the port `MainWindow` depends on instead of every concrete
 screen. `abc.ABC`: none of `architecture-rule.md` §2.1's Protocol exceptions
-apply to the adapter that will implement this."""
+apply to the adapter that will implement this.
+
+Since `EPIC-033D` it also carries the commands the modules contributed with
+their screens. A desk's presenter binds its desk's commands as the window
+builds it, so a window given the screens without their commands could not
+build. Both arrive in this one object, from one `build_screen_registry`.
+"""
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
+from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
+    CommandContribution,
+)
+
 from ..models.screen_descriptor import ScreenDescriptor
 from ..models.section_descriptor import SectionDescriptor
 
 
 class IScreenRegistry(ABC):
-    """Catalogue of every screen and the order the mode bar shows them in."""
+    """Catalogue of every screen, the order the mode bar shows them in, and
+    the commands contributed with them."""
 
     @abstractmethod
     def register(self, descriptor: ScreenDescriptor) -> None:
@@ -45,4 +56,14 @@ class IScreenRegistry(ABC):
         """The navigable screens in mode-bar order (`EPIC-033C`): top
         sections by section then item sequence, bottom actions last; a
         screen with no `nav` or `is_navigable=False` is not a mode."""
+        ...
+
+    @abstractmethod
+    def register_command(self, command: CommandContribution) -> None:
+        """Raises `ValueError` on a duplicate `command_id`."""
+        ...
+
+    @abstractmethod
+    def commands(self) -> Sequence[CommandContribution]:
+        """Every registered command, in registration order."""
         ...

@@ -13,7 +13,7 @@
  "src/modules/trading/ui/dashboard/dashboard_view_model.py": 406,
  "src/modules/trading/ui/dashboard/dev_board_panel.py": 637,
  "src/modules/trading/ui/dashboard/stream_lifecycle_controller.py": 601,
- "src/presentation/ui/app_bootstrapper.py": 536,
+ "src/presentation/ui/app_bootstrapper.py": 535,
  "src/support/charting/chart_card/cached_frame_interaction.py": 663,
  "src/support/charting/chart_card/candlestick_item.py": 447,
  "src/support/charting/chart_card/chart_card.py": 881,

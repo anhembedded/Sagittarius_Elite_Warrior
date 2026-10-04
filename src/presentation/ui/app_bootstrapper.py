@@ -317,7 +317,6 @@ def build() -> AppRuntime:
         version_text=_version_text(config_manager),
         state_coordinator=state_coordinator,
         close_objections=app_engine.context.container.resolve(ICloseObjections),
-        commands=contributions.commands(),
     )
     # `EPIC-033E` — Tools → Options: each module's page, then Developer.
     for page in build_options_pages(
