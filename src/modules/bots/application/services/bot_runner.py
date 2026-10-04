@@ -29,6 +29,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    RUN_STARTING_STATES,
     BotLifecycleEvent,
     InvalidBotTransitionError,
 )
@@ -54,6 +55,12 @@ class BotRunner(IBotRunner):
         found = self._lookup.find(bot_id)
         if isinstance(found, BotCommandResult):
             return found
+        if found.bot.state in RUN_STARTING_STATES:
+            # An earlier run's worker drains before this run writes the file.
+            self._executors.retire(bot_id)
+            found = self._lookup.find(bot_id)
+            if isinstance(found, BotCommandResult):
+                return found
         now = self._clock.now()
         try:
             started = found.bot.apply(BotLifecycleEvent.START, now)

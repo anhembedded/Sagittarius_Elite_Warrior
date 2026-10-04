@@ -117,3 +117,9 @@ class BotsModule(BoundedContextModule):
         bus.on(TradingSwitchChangedEvent, router.on_switch)
         self._router = router
         logger.info("Bots subscribed to fills, ends, rejections, ticks and the switch")
+
+    def shutdown(self, context: Any) -> None:
+        """Close every bot's worker: each runs what is queued, then stops, so
+        the app exits with no bot thread left and nothing half-written."""
+        context.container.resolve(BotExecutors).close_all()
+        logger.info("Bot workers closed")

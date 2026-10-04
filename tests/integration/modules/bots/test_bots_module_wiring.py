@@ -17,6 +17,8 @@ through `bots.state_dir`).
 
 from __future__ import annotations
 
+import threading
+from dataclasses import replace
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -36,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot impo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots import (
     ListBotsQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
+    BotExecutors,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bot_resume import (
     ConfirmBotResumeCommand,
@@ -119,6 +124,15 @@ COMMANDS = (
     ConfirmBotResumeCommand,
 )
 QUERIES = (ListBotsQuery, GetBotQuery)
+_GRID_CONFIG = {
+    "lower": "60000",
+    "upper": "70000",
+    "grid_count": "4",
+    "spacing": "ARITHMETIC",
+    "capital_quote": "1000",
+    "stop_loss": "price:50000",
+    "take_profit": "price:80000",
+}
 
 
 def _registered(state_dir: Path) -> tuple[BotsModule, SimpleNamespace]:
@@ -194,3 +208,25 @@ def test_boot_subscribes_one_router_to_the_five_events_a_bot_hears(
     ):
         handlers = subscribed[event.__name__]
         assert [type(handler.__self__) for handler in handlers] == [BotEventRouter]
+
+
+def test_shutdown_closes_every_bot_worker(tmp_path: Path) -> None:
+    """A worker is a thread named after its bot; the module's shutdown closes
+    it, so the app exits with no bot thread left running."""
+    sampled = sample_bot().bot
+    bot = replace(sampled, definition=replace(sampled.definition, config=_GRID_CONFIG))
+    JsonBotStore(tmp_path).save(StoredBot(bot))
+    module, context = _registered(tmp_path)
+    module.boot(context)
+    context.container.resolve(BotExecutors).for_bot(bot)
+    assert _bot_threads()
+
+    module.shutdown(context)
+
+    assert _bot_threads() == []
+
+
+def _bot_threads() -> list[str]:
+    return [
+        t.name for t in threading.enumerate() if t.name == "bot-abc123" and t.is_alive()
+    ]

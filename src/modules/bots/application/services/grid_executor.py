@@ -158,6 +158,10 @@ class GridExecutor(IBotExecutor):
         """The ladder a resume from HALTED proposes, awaiting confirmation."""
         return self._proposal
 
+    def close(self) -> None:
+        """Run what is queued, then stop the worker."""
+        self._queue.close()
+
     # --- commands (IBotExecutor) ---
 
     def start(self) -> None:

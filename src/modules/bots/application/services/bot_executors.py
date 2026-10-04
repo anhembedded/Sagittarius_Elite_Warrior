@@ -40,11 +40,31 @@ class BotExecutors:
             return executor
 
     def fresh(self, bot: Bot) -> GridExecutor:
-        """A new executor for a new run, replacing any earlier one."""
+        """A new executor for a new run, closing any earlier one's worker."""
         with self._lock:
+            replaced = self._executors.get(bot.bot_id.value)
             executor = self._factory.create(bot)
             self._executors[bot.bot_id.value] = executor
-            return executor
+        if replaced is not None:
+            replaced.close()
+        return executor
+
+    def retire(self, bot_id: str) -> None:
+        """Close the bot's worker, after it runs what is queued, and forget it.
+        A new run calls this before writing its bot, so no task of the old
+        run saves a stale bot over the new one's file."""
+        with self._lock:
+            executor = self._executors.pop(bot_id, None)
+        if executor is not None:
+            executor.close()
+
+    def close_all(self) -> None:
+        """Close every worker (module shutdown)."""
+        with self._lock:
+            executors = tuple(self._executors.values())
+            self._executors.clear()
+        for executor in executors:
+            executor.close()
 
     def get(self, bot_id: str) -> GridExecutor | None:
         with self._lock:

@@ -229,6 +229,7 @@ def grid_world(
     runtime: GridRuntime | None = None,
     recovering_from: BotLifecycleState | None = None,
     book_readable: bool = True,
+    queues: Callable[[str], IBotWorkQueue] | None = None,
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
@@ -266,7 +267,7 @@ def grid_world(
             store=store,
             clock=clock,
             caps=DEFAULT_OWNER_BUDGET_CAPS,
-            queues=lambda _name: queue or InlineWorkQueue(),
+            queues=queues or (lambda _name: queue or InlineWorkQueue()),
             pacers=lambda _spacing: pacer,
         )
     )

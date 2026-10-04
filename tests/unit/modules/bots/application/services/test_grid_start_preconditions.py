@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotRefusal,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
+    BaseHandling,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
     FakeBotClock,
@@ -88,6 +91,17 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid
 S = BotLifecycleState
 
 
+class _ClosableInlineQueue(InlineWorkQueue):
+    """Records the bot's stored state at the moment it is closed."""
+
+    def __init__(self, store: FakeBotStore) -> None:
+        self._store = store
+        self.closed_with: BotLifecycleState | None = None
+
+    def close(self) -> None:
+        self.closed_with = self._store.load(BotId(BOT)).bot.state
+
+
 @dataclass
 class _Start:
     store: FakeBotStore
@@ -96,6 +110,7 @@ class _Start:
     book: SimulatedBook
     preconditions: GridStartPreconditions
     runner: BotRunner
+    queues: list[_ClosableInlineQueue]
 
 
 def _start_world(
@@ -128,6 +143,12 @@ def _start_world(
     preconditions = GridStartPreconditions(
         ports, DEFAULT_OWNER_BUDGET_CAPS, GridThresholds()
     )
+    queues: list[_ClosableInlineQueue] = []
+
+    def queue(_name: str) -> _ClosableInlineQueue:
+        queues.append(_ClosableInlineQueue(store))
+        return queues[-1]
+
     executors = BotExecutors(
         GridExecutorFactory(
             GridExecutorDeps(
@@ -135,13 +156,13 @@ def _start_world(
                 store,
                 clock,
                 DEFAULT_OWNER_BUDGET_CAPS,
-                lambda _name: InlineWorkQueue(),
+                queue,
                 lambda _spacing: CountingPacer(),
             )
         )
     )
     runner = BotRunner(store, clock, preconditions, executors)
-    return _Start(store, clock, session, book, preconditions, runner)
+    return _Start(store, clock, session, book, preconditions, runner, queues)
 
 
 def _bot(world: _Start) -> Bot:
@@ -231,6 +252,20 @@ def test_the_runner_starts_a_draft_bot_through_to_running() -> None:
     assert _bot(world).state is S.RUNNING
     assert _bot(world).lifecycle.run_started_at == world.clock.now()
     assert len(world.book.open) == 4
+
+
+def test_a_new_run_closes_the_previous_runs_worker_before_it_starts() -> None:
+    world = _start_world()
+    world.runner.start(BOT)
+    world.runner.stop(BOT, BaseHandling.KEEP)
+    assert _bot(world).state is S.STOPPED
+
+    world.runner.start(BOT)
+
+    """Closed before the new run is written: a task still queued on the old
+    worker can no longer save a stale bot over the new run's file."""
+    assert [queue.closed_with for queue in world.queues] == [S.STOPPED, None]
+    assert _bot(world).state is S.RUNNING
 
 
 def test_a_refused_start_leaves_the_bot_a_draft() -> None:
