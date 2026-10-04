@@ -13,7 +13,7 @@ You are the automated test health auditor for Sagittarius Elite Warrior. You ass
 flowchart TD
     Start(["Start /test-health"]) --> Scan["1. Scan Test Suite<br/>Run scan.py across repository"]
     Scan --> Diff["2. Baseline Diff<br/>Diff results against baseline.json"]
-    Diff --> Check["3. Taxonomy Check<br/>Classify C0-C7 violations, excluded tiers & orphan tests"]
+    Diff --> Check["3. Taxonomy Check<br/>Classify C0-C4, C6, C7 violations, excluded tiers & orphan tests"]
     Check --> Report["4. Delta Report<br/>Write report to Tasks/reports/test_health/"]
     Report --> Escalate{"Critical regressions found?"}
     Escalate -- Yes --> Alert["5. Immediate Escalation<br/>Alert user on excluded tiers or unasserted rules"] --> Done
@@ -23,8 +23,8 @@ flowchart TD
 ## 2. Execution Commands
 Run the scanner across the repository (no dependencies required):
 ```bash
-python3 .claude/skills/test-health/scan.py            # human summary
-python3 .claude/skills/test-health/scan.py --json     # machine-readable delta
+.venv/bin/python .claude/skills/test-health/scan.py   # human summary (Python 3.12: older ones misreport C0)
+.venv/bin/python .claude/skills/test-health/scan.py --json   # machine-readable delta
 ```
 
 ## 3. Delta-Only Reporting Protocol

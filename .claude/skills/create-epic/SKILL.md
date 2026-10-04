@@ -12,9 +12,9 @@ You are the Epic architect and roadmap coordinator for Sagittarius Elite Warrior
 ```mermaid
 flowchart TD
     Start(["Start /create-epic"]) --> Scan["1. Scan Highest Epic ID<br/>Scan Tasks/epics/ for EPIC-nnn"]
-    Scan --> Scaffold["2. Scaffold Directory Tree<br/>Create incomplete/, completed/, cancelled/, adrs/"]
+    Scan --> Scaffold["2. Scaffold Directory Tree<br/>Create incomplete/ and completed/"]
     Scaffold --> Manifest["3. Epic Manifest & Tracking<br/>Copy epic.md to README.md & tracking.md to TRACKING.md"]
-    Manifest --> Slice["4. Slice Sub-Tasks<br/>Create incomplete/TASK-nnn-xx.md from task.md"]
+    Manifest --> Slice["4. Slice Sub-Tasks<br/>Create incomplete/EPIC-nnnA_slug.md from task.md"]
     Slice --> Sync["5. Board Synchronization<br/>Update Tasks/epics/README.md & ROADMAP.md"]
     Sync --> Verify["6. Structure & Link Verification<br/>Run check_skill_prompt_references & test_claude_tree"]
     Verify --> Done(["Done"])
@@ -57,7 +57,7 @@ Tasks/epics/
    - Add a single 1-line linked summary row to `Tasks/ROADMAP.md` (no duplicate long-form text).
 
 ## 6. Lifecycle Tracking & Maintenance
-- **Execution:** Child tasks are executed via `/execute-task`. Before starting or resuming, display the Mermaid Kanban per `.claude/rules/report-task-rule.md`.
+- **Execution:** Child tasks are executed via `/execute-task`. Before starting or resuming, display the Mermaid Kanban and Gantt charts per `.claude/rules/report-task-rule.md`.
 - **Completion:** Upon verified completion:
   ```bash
   git mv Tasks/epics/EPIC-{nnn}_{slug}/incomplete/EPIC-{nnn}{Letter}_*.md Tasks/epics/EPIC-{nnn}_{slug}/completed/

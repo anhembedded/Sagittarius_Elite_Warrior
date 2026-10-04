@@ -34,7 +34,7 @@ pip install -e Sagittarius_Engine
 ## 2. Bootstrap
 `pip install -r requirements.txt`, then §1. Windows: `.\scripts\run.ps1`, `.\scripts\run-ui.ps1`; verification `.\scripts\ci-local.ps1 -Full`.
 
-### 2b. Linux, as run in a fresh container (2026-09-16)
+### 2b. Linux, as run in a fresh container
 ```bash
 uv venv .venv --python 3.12
 uv pip install --python .venv/bin/python -r requirements.txt
@@ -51,7 +51,7 @@ pwsh -NoProfile -File scripts/ci-local.ps1 -SkipTests > /tmp/gate.log 2>&1   # P
 ```
 `-Workers` beyond `nproc` only adds contention; measure before raising it.
 
-**The checkout's own directory name must be `Sagittarius_Elite_Warrior`, exactly, case-sensitive** — this repo's `PYTHONPATH`/import scheme (`from Sagittarius_Elite_Warrior.src....`) resolves against that name. A clone into any other directory (e.g. a reviewer's default `sagittarius_elite_warrior` or a tempdir) fails in a way that looks exactly like a broken change and is not one: `mypy` reports a "duplicate module" error, `ruff`'s import sorter flags unrelated files, and `pytest` collects 0 items. Found independently by PR #256's reviewer (2026-09-22), who lost time to it before realizing the checkout path, not the diff, was wrong — rename or symlink the clone to that exact name before running the gate.
+**The checkout's own directory name must be `Sagittarius_Elite_Warrior`, exactly, case-sensitive** — this repo's `PYTHONPATH`/import scheme (`from Sagittarius_Elite_Warrior.src....`) resolves against that name. A clone into any other directory (e.g. a reviewer's default `sagittarius_elite_warrior` or a tempdir) fails in a way that looks exactly like a broken change and is not one: `mypy` reports a "duplicate module" error, `ruff`'s import sorter flags unrelated files, and `pytest` collects 0 items. Rename or symlink the clone to that exact name before running the gate.
 
-## 3. Setup is the agent's job (user decision 2026-08-31)
+## 3. Setup is the agent's job (user decision)
 "Cannot verify — missing X" without an install attempt is stopping one command early. Install system libraries (let the `ImportError` name the `.so`), `pwsh`, the engine, and any package the project already declares. This is not permission to add a dependency: editing `requirements.txt`/`pyproject.toml` is asked first. Report "cannot verify" only when the install itself fails for a reason outside your control, and say which. `[review: B5]`

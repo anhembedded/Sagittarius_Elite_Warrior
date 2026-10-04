@@ -14,7 +14,7 @@ flowchart TD
     Start(["Start /process-drift"]) --> Mechanical["1. Mechanical Suite<br/>Run measure_process, check_references, render scripts & test guards"]
     Mechanical --> Semantic["2. Semantic Checks<br/>Scan for contradictory rules, dead references & stale claims"]
     Semantic --> Report["3. Output Generation<br/>Write dated report to Tasks/reports/process_drift/"]
-    Report --> Commit["4. Commit & Push<br/>Commit doc change directly to master-warrior"]
+    Report --> Commit["4. Commit & PR<br/>Open a documentation-only pull request"]
     Commit --> Done(["Done"])
 ```
 
@@ -47,11 +47,11 @@ Generate a one-screen report at `Tasks/reports/process_drift/<YYYY-MM-DD>.md`:
 - <file:line> — <discrepancy description> — <risk / failure consequence>
 ## Environment       (only when a command could not run)
 ```
-Commit directly to `master-warrior` as a documentation-only change under `.claude/ONBOARDING.md` §7 and push. Do not fix reported findings; do not create PRs for audit results.
+Commit the report on a branch and open a documentation-only pull request under `.claude/ONBOARDING.md` §7 (the `master-warrior` ruleset refuses direct pushes); merge it once its `gate` check passes. Do not fix reported findings in that pull request.
 
 ## 5. Abort & Stop Conditions
 Halt execution and document the `Environment` section immediately if:
-- Working tree is not on `master-warrior`.
+- Working tree is not up to date with `master-warrior`.
 - Any required script is missing or fails to execute.
 - Pytest test collection fails.
 An empty finding report with an explicit verdict is a valid and correct outcome.
