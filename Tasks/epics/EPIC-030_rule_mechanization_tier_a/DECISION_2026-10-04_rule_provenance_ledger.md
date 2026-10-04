@@ -27,6 +27,7 @@ Rules loaded into every session had grown dated amendments ("user decision 2026-
 | `ONBOARDING.md` §7, "Self-verifying spawn prompt" | 2026-09-17, learned in PR #230 |
 | `ONBOARDING.md` §7, "Write the spawn prompt in your own words" | 2026-09-18, learned in PR #231 |
 | `ONBOARDING.md` §7, "One reviewer session per pull request" | 🟢 user decision 2026-10-02, PR #310 |
+| `ONBOARDING.md` §7, "The pull request is the channel between author and reviewer"; `pr-review/SKILL.md` §9 | 🟢 user decision 2026-10-04 (PR #325): asked "có cách nào để section reviewer vs dev tự trao đổi với nhau ko nhỉ?" (can the reviewer and dev sessions talk to each other by themselves?), then approved the proposal with "ok làm đi" (go ahead). Before it, every re-review was relayed by the user, because the author session has no tool that messages an existing session |
 | `architecture-rule.md` §7.2.1, Seam now, variant later | 🟢 user decision 2026-09-13 |
 | `install-rule.md` §2b, the Linux recipe | measured in a fresh container on 2026-09-16 |
 | `install-rule.md` §2b, the checkout directory name | found by PR #256's reviewer on 2026-09-22 |
