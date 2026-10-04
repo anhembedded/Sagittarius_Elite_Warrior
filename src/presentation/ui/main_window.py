@@ -134,9 +134,9 @@ class MainWindow(QMainWindow):
         super().__init__()
         self._app = app_engine
         self._close_objections = close_objections
-        self._confirm_close: ConfirmClose = confirm_close or (
-            lambda reasons: ask_before_closing(self, reasons)
-        )
+        #: `None` asks with a message box. Never a lambda over `self`: a
+        #: cycle would keep this wrapper alive after Qt deletes the window.
+        self._confirm_close = confirm_close
         # Set before any geometry call: `resizeEvent`/`moveEvent` may fire
         # synchronously as a side effect of `resize()`/`restoreGeometry()`
         # below, and both call `_mark_dirty()`, which reads this attribute.
@@ -212,7 +212,7 @@ class MainWindow(QMainWindow):
             if self._close_objections is not None
             else ()
         )
-        if reasons and not self._confirm_close(reasons):
+        if reasons and not self._close_confirmed(reasons):
             logger.info(
                 "Close cancelled: %d objection(s) kept the app open", len(reasons)
             )
@@ -220,6 +220,11 @@ class MainWindow(QMainWindow):
             return
         self.shutdown()
         super().closeEvent(event)
+
+    def _close_confirmed(self, reasons: Sequence[str]) -> bool:
+        if self._confirm_close is not None:
+            return self._confirm_close(reasons)
+        return ask_before_closing(self, reasons)
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
