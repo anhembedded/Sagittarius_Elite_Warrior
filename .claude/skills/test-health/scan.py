@@ -8,8 +8,10 @@ PySide6 + the engine installed, which this scanner deliberately does not).
 
 Every check here is a fact, not a judgement: it reports what is in the tree
 and lets the caller decide what it means. Stdlib only, no third-party import,
-so it runs anywhere Python 3.11 runs — including a headless agent session with
-none of the app's dependencies installed.
+so it runs anywhere Python 3.12 runs — including a headless agent session with
+none of the app's dependencies installed. Not on 3.11: the scanner `ast`-parses
+every test file, the tests use 3.12 syntax, and an older parser reports each of
+those files as broken -- false findings, so it refuses to run instead.
 
 Usage:
     python3 .claude/skills/test-health/scan.py            # human summary
@@ -26,6 +28,9 @@ import sys
 from collections import defaultdict
 from pathlib import Path
 from typing import Any
+
+#: The repository's floor (`requires-python`); below it `ast.parse` misreads the tests.
+_MINIMUM_PYTHON = (3, 12)
 
 REPO = Path(__file__).resolve().parents[3]
 TESTS = REPO / "tests"
@@ -514,6 +519,15 @@ _CHECK_TITLES = {
 
 
 def main() -> int:
+    if sys.version_info < _MINIMUM_PYTHON:
+        found = ".".join(str(part) for part in sys.version_info[:3])
+        print(
+            f"error: scan.py needs Python >= 3.12 (this is {found}): the tests use "
+            "3.12 syntax, so an older `ast` would report them as parse errors. "
+            "Run it with the project's interpreter, e.g. .venv/bin/python.",
+            file=sys.stderr,
+        )
+        return 2
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--json", action="store_true", help="machine-readable output")
     args = parser.parse_args()

@@ -1,6 +1,6 @@
 # One gate, two runners. This workflow prepares the environment and then runs
 # scripts/ci-local.ps1 -Full — the same script every local handoff uses — so
-# "green" has one definition (ci-rule.md §7). Until 2026-09-17 it re-listed
+# "green" has one definition (ci-rule.md §1). Until 2026-09-17 it re-listed
 # the script's steps by hand and drifted from them twice (the ruff targets,
 # the testnet exclusion) with nothing to say so.
 #
@@ -70,7 +70,7 @@ jobs:
         # No .venv on the runner, so the script uses the tools on PATH — the
         # ones pip just installed. Worker count derives from the runner's
         # cores. Output goes to a file and the verdict block is printed from
-        # it, the way ci-rule.md §8 says to read a run.
+        # it, the way ci-rule.md §3 says to read a run.
         run: |
           set +e
           pwsh -NoProfile -File scripts/ci-local.ps1 -Full > gate-stdout.log 2>&1

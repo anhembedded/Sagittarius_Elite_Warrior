@@ -9,7 +9,7 @@ paths:
 
 # SYSTEM PROMPT: ENVIRONMENT SETUP & DEPENDENCY PROTOCOL
  
-You are the installation and dependency controller for Sagittarius Elite Warrior. Install missing tools autonomously; never report a missing environment tool as a blocking condition.
+You are the installation and dependency controller for Sagittarius Elite Warrior. Install missing tools autonomously; never report a missing environment tool as a blocking condition. `[review: B5]`
 
 
 ## 1. The engine
@@ -20,19 +20,19 @@ pip install /tmp/engine            # or: uv pip install --python .venv/bin/pytho
 # Option 2 (developing engine and app together, from the workspace root):
 pip install -e Sagittarius_Engine
 ```
-`pip install git+URL` fails: pip inits submodules and the engine carries a private one (`tools/Sagittarius_LogViewer`, a dev tool). Never a plain PyPI install. With Option 2 leave no build artefacts in the engine tree.
+`pip install git+URL` fails: pip inits submodules and the engine carries a private one (`tools/Sagittarius_LogViewer`, a dev tool). Never a plain PyPI install. With Option 2 leave no build artefacts in the engine tree. `[review: B5]`
 
-**When an engine API "does not exist", suspect the installed build first.** Old and new builds report the same version (`BUG-044`, `054`, `055`, `BOT-133` — misdiagnosed every time). Check the real signature and the install source, then reinstall:
+**When an engine API "does not exist", suspect the installed build first.** Old and new builds report the same version (`BUG-044`, `054`, `055`, `BOT-133` — misdiagnosed every time). Check the real signature and the install source, then reinstall: `[review: B5]`
 ```bash
 .venv/bin/python -c "import inspect; from sagittarius_engine.extensions.pyside_mvc.widgets import DataRow; print(inspect.signature(DataRow.__init__))"
 ```
-`EngineCapabilityValidatorExtension` now fails boot with the reinstall command when a declared API is missing (`src/infrastructure/engine_adapters/engine_capabilities.py`).
+`EngineCapabilityValidatorExtension` now fails boot with the reinstall command when a declared API is missing (`src/infrastructure/engine_adapters/engine_capabilities.py`). `[eye]`
 
 ## 1b. Python: floor 3.12, develop on it
-`requires-python = ">=3.12"` (PEP 695 generics in the engine; 3.11 cannot parse them; `3.14.0rc2` breaks pinned `pydantic`). Never `--ignore-requires-python`. CI runs on 3.12 so the floor stays true; `tests/sanity/test_python_floor.py` guards the syntax half. `[guard]`
+`requires-python = ">=3.12"` (PEP 695 generics in the engine; 3.11 cannot parse them; `3.14.0rc2` breaks pinned `pydantic`). Never `--ignore-requires-python`. CI runs on 3.12 so the floor stays true; `tests/sanity/test_python_floor.py` guards the syntax half. `[guard: tests/sanity/test_python_floor.py]`
 
 ## 2. Bootstrap
-`pip install -r requirements.txt`, then §1. Windows: `.\scripts\run.ps1`, `.\scripts\run-ui.ps1`; verification `.\scripts\ci-local.ps1 -Full`.
+`pip install -r requirements.txt`, then §1. Windows: `.\scripts\run.ps1`, `.\scripts\run-ui.ps1`; verification `.\scripts\ci-local.ps1 -Full`. `[review: B5]`
 
 ### 2b. Linux, as run in a fresh container
 ```bash
@@ -49,9 +49,9 @@ mkdir -p /opt/microsoft/powershell/7 && tar -xzf /tmp/pwsh.tar.gz -C /opt/micros
 chmod +x /opt/microsoft/powershell/7/pwsh && ln -sf /opt/microsoft/powershell/7/pwsh /usr/bin/pwsh
 pwsh -NoProfile -File scripts/ci-local.ps1 -SkipTests > /tmp/gate.log 2>&1   # PASS in ~1 s
 ```
-`-Workers` beyond `nproc` only adds contention; measure before raising it.
+`-Workers` beyond `nproc` only adds contention; measure before raising it. `[eye]`
 
-**The checkout's own directory name must be `Sagittarius_Elite_Warrior`, exactly, case-sensitive** — this repo's `PYTHONPATH`/import scheme (`from Sagittarius_Elite_Warrior.src....`) resolves against that name. A clone into any other directory (e.g. a reviewer's default `sagittarius_elite_warrior` or a tempdir) fails in a way that looks exactly like a broken change and is not one: `mypy` reports a "duplicate module" error, `ruff`'s import sorter flags unrelated files, and `pytest` collects 0 items. Rename or symlink the clone to that exact name before running the gate.
+**The checkout's own directory name must be `Sagittarius_Elite_Warrior`, exactly, case-sensitive** — this repo's `PYTHONPATH`/import scheme (`from Sagittarius_Elite_Warrior.src....`) resolves against that name. A clone into any other directory (e.g. a reviewer's default `sagittarius_elite_warrior` or a tempdir) fails in a way that looks exactly like a broken change and is not one: `mypy` reports a "duplicate module" error, `ruff`'s import sorter flags unrelated files, and `pytest` collects 0 items. Rename or symlink the clone to that exact name before running the gate. `[eye]`
 
 ## 3. Setup is the agent's job (user decision)
 "Cannot verify — missing X" without an install attempt is stopping one command early. Install system libraries (let the `ImportError` name the `.so`), `pwsh`, the engine, and any package the project already declares. This is not permission to add a dependency: editing `requirements.txt`/`pyproject.toml` is asked first. Report "cannot verify" only when the install itself fails for a reason outside your control, and say which. `[review: B5]`

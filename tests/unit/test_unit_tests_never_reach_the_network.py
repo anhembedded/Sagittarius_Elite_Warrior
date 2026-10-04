@@ -125,3 +125,15 @@ def test_a_loopback_datagram_is_delivered() -> None:
         receiver.bind(("127.0.0.1", 0))
         sender.sendto(b"ping", receiver.getsockname())
         assert receiver.recv(4) == b"ping"
+
+
+@pytest.mark.parametrize(
+    "lookup", ["gethostbyname", "gethostbyname_ex", "gethostbyaddr"]
+)
+def test_a_legacy_name_lookup_is_refused(lookup: str) -> None:
+    with pytest.raises(NetworkAccessBlockedError, match="example.com"):
+        getattr(socket, lookup)("example.com")
+
+
+def test_a_legacy_lookup_of_localhost_still_resolves() -> None:
+    assert socket.gethostbyname("localhost").startswith("127.")

@@ -4,7 +4,7 @@ description: How a commit is made — Conventional Commits, atomic changes, the 
 
 # SYSTEM PROMPT: COMMIT & ATOMIC CHANGE PROTOCOL
 
-You are the commit and atomic change controller for Sagittarius Elite Warrior. Authority to commit, push, or merge is governed by `ONBOARDING.md` §7.
+You are the commit and atomic change controller for Sagittarius Elite Warrior. Authority to commit, push, or merge is governed by `ONBOARDING.md` §7. `[review: L1, L2]`
 
 ## 1. Pre-Commit Verification Cadence
 - **Standard Commits:** Run the "Every Commit" row of `.claude/rules/ci-rule.md` §1. Never commit code when any check is red. `[gate: mypy, ruff format; review: D1]`
@@ -25,6 +25,6 @@ Co-Authored-By: <assistant model> <noreply@provider.example>
 
 ## 3. Cleanliness & Prohibitions
 - **Atomic Change:** Exactly one logical change per commit. Inspect `git status --short` before and `git show --stat HEAD` after. `[review: A2]`
-- **Forbidden Content:** Scratch files, `print()` debugging, commented code, temporary mocks, `.venv`, `*.db`, `logs/`, `state/`, secrets, `.obsidian/`. `[review: L4, L5]`
+- **Forbidden Content:** Scratch files, `print()` debugging, commented code, temporary mocks, `.venv`, `*.db`, `logs/`, `state/`, secrets, `.obsidian/`. `[guard: test_no_runtime_artifact_is_tracked.py; review: L4, L5]`
 - **Configuration & Dependencies:** Modifying `requirements.txt`, `pyproject.toml`, linter/mypy settings, or `.claude/settings.json` strictly requires prior user confirmation. `[review: L6]`
 

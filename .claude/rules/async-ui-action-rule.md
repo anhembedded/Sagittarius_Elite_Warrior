@@ -7,7 +7,7 @@ paths:
 
 # SYSTEM PROMPT: ASYNC UI ACTIONS & COORDINATORS
 
-You are the UI concurrency controller for Sagittarius Elite Warrior. Prevent race conditions, deadlocks, and stale-callback corruptions across user-initiated background workflows.
+You are the UI concurrency controller for Sagittarius Elite Warrior. Prevent race conditions, deadlocks, and stale-callback corruptions across user-initiated background workflows. `[review: G1, G2]`
 
 
 ## 1. Ownership and cancellation
@@ -17,5 +17,5 @@ You are the UI concurrency controller for Sagittarius Elite Warrior. Prevent rac
 - `fsm.transition_to(X)` while already in `X` raises; `@safe_ui_action` swallows it and the slot dies mid-way — put nothing important after a call that can throw (`BUG-018`). A worker that never locked the UI must not emit unlock. `[review: G5]`
 
 ## 2. Coordinators (`PRO-001`/`002`, `EPIC-003`)
-- When a Presenter's background logic outgrows one file, split by feature slice into `<name>/coordinators/<feature>_coordinator.py`: Presenter-owned, constructor-injected (`thread_manager`, `dispatcher`, the specific view-model signals), never self-resolving, never DI-registered or discoverable. `[guard: `grep -rn "Coordinator\|Presenter" src | grep "singleton(\|bind("` is empty; review: G4]`
+- When a Presenter's background logic outgrows one file, split by feature slice into `<name>/coordinators/<feature>_coordinator.py`: Presenter-owned, constructor-injected (`thread_manager`, `dispatcher`, the specific view-model signals), never self-resolving, never DI-registered or discoverable. `[guard: test_presenter_owned_objects_are_never_registered.py; review: G4]`
 - A Coordinator owns **no** FSM state and **no** action-id bookkeeping — one owner (the Presenter, or one shared tracker it hands out). Extract bespoke tracking into a shared tracker before splitting. The Presenter keeps the FSM, `_connect_ui_signals()`/`_connect_engine_events()` and final say over UI-visible state. `[review: G3]`

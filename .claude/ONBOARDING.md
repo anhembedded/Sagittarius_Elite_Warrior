@@ -5,7 +5,7 @@ description: The process map for any AI agent on Sagittarius Elite Warrior — l
 # SYSTEM PROMPT: ONBOARDING & PROCESS MAP
 
 You are an automated agent operating within Sagittarius Elite Warrior. This map defines your operational navigation, task lifecycles, verification commands, and authority boundaries. Supreme axioms and tenets are defined in [`.claude/CONSTITUTION.md`](CONSTITUTION.md).
-Tags: `[gate]` machine-enforced · `[guard: file]` pytest guard · `[review: row]` pr-review item · `[eye]` human verification.
+Tags: `[gate: <step>]` machine-enforced · `[guard: <test file>]` pytest guard · `[review: <ID>]` pr-review item · `[eye]` human verification; several kinds join with `;`. `scripts/check_skill_prompt_references.py` checks them.
 
 ## 1. Rule Index & Loading Triggers
 Path-scoped rules load automatically when touching matching files; unscoped rules load every session.
@@ -24,7 +24,7 @@ Path-scoped rules load automatically when touching matching files; unscoped rule
 | 11 | `.claude/rules/ui-presentation-rule.md` | UI, charting, presentation files | QtWidgets only, OS theme, desktop UX, preview.py |
 | 12 | `.claude/rules/report-rule.md` | Every session | Architect communication register, concise reports |
 | 13 | `.claude/rules/install-rule.md` | Requirements, workflows, scripts | Tool installation over reporting, python floor |
-| 14 | `.claude/rules/pitfalls/tests.md` · `pitfalls/ui.md` · `pitfalls/source.md` | Matching source / test / UI files | Historical anti-patterns and bug traps (§8) |
+| 14 | `.claude/rules/pitfalls/tests.md` · `pitfalls/ui.md` · `pitfalls/source.md` | Matching source / test / UI files | Historical anti-patterns and bug traps (ONBOARDING §8) |
 | 15 | `.claude/rules/task-execution-rule.md` · `.claude/rules/report-task-rule.md` | Task files, templates | Bounded task scope, Kanban reporting |
 | 16 | `.claude/rules/create-bug-report-rule.md` | `Tasks/bug_report/**/*.md` | Bug filing, board updates, unique IDs |
 | — | `Docs/VOCABULARY/README.md` | Coining or reading terminology | Canonical repository vocabulary |
@@ -40,7 +40,7 @@ Security standards: `ruff` ruleset `S` and `.claude/rules/domain-truth-rule.md`.
 Execute tasks via `.claude/skills/execute-task/SKILL.md`:
 1. **Creation:** Standalone tasks: `Tasks/backlog/BOT-{nnn}_{slug}.md` from `.claude/templates/task.md`. Epics: `Tasks/epics/EPIC-{nnn}_{slug}/` from `.claude/templates/epic.md` (`README.md`, `incomplete/`, `completed/`). Decisions: `DECISION_{date}_{slug}.md` from `.claude/templates/decision.md`. Proposals: `Tasks/proposal/PRO-{nnn}.md` from `.claude/templates/proposal.md`.
 2. **Execution:** Define acceptance criteria, write regression/unit tests, implement code.
-3. **Completion:** Move file to `completed/`, update status to `✅ Done (YYYY-MM-DD)`, document real implementation notes, and update `Tasks/ROADMAP.md` (§6).
+3. **Completion:** Move file to `completed/`, update status to `✅ Done (YYYY-MM-DD)`, document real implementation notes, and update `Tasks/ROADMAP.md` (ONBOARDING §6).
 
 ## 4. Defect Handling Protocol
 - **Filing:** Managed by `.claude/rules/create-bug-report-rule.md` (unique IDs, observed logs, honest unknowns, Bug Board entries).
@@ -71,9 +71,9 @@ Upon finishing any task or defect fix:
 | `git commit` | **Autonomous** | Allowed once local pre-commit checks are green (`.claude/rules/commit-rule.md`) |
 | `git push` to feature/session branch | **Autonomous** | Push only to owned branch |
 | Open a pull request | **Autonomous** | Use `.github/PULL_REQUEST_TEMPLATE.md` |
-| Merge **documentation-only** to `master-warrior` | **Autonomous** | Through a pull request, once `python3 scripts/check_skill_prompt_references.py`, the document guards and the PR's `gate` check pass. Documentation-only means every changed path is a `*.md` file or `.github/PULL_REQUEST_TEMPLATE.md`; a change to `src/`, `tests/`, `scripts/`, `tools/`, `.github/workflows/`, a skill's script or data file, configuration or dependencies is code |
+| Merge **documentation-only** to `master-warrior` | **Autonomous** | Through a pull request, once `python3 scripts/check_skill_prompt_references.py`, the document guards and the PR's `ci-local.ps1 -Full` check pass. Documentation-only means every changed path is a `*.md` file or `.github/PULL_REQUEST_TEMPLATE.md`; a change to `src/`, `tests/`, `scripts/`, `tools/`, `.github/workflows/`, a skill's script or data file, configuration or dependencies is code |
 | Merge **code** to `master-warrior` | **Strictly Prohibited for Author** | Requires: (1) Full gate green, (2) independent session review via `.claude/skills/pr-review/SKILL.md` (delegated automatically within active task/epic scope), and (3) user merge action or review delegation |
-| Push directly to `master-warrior` | **Prohibited** | Every change, documentation included, reaches `master-warrior` through a pull request; the branch ruleset requires the `gate` check |
+| Push directly to `master-warrior` | **Prohibited** | Every change, documentation included, reaches `master-warrior` through a pull request; the branch ruleset requires the `ci-local.ps1 -Full` check |
 | Modify dependencies (`requirements.txt`, `pyproject.toml`, settings) | **Requires Approval** | Must consult user first |
 
 **Reviewer Protocol:** The author session must never review its own code. Spawn a dedicated session via `create_session` with inherited environment (never local `Agent` tool). Provide review briefing: `CLAUDE.md` → this file → modified files → `.claude/skills/pr-review/SKILL.md` and `.claude/skills/pr-review/references/rubric.md`. The reviewer's gate evidence is the PR's passing GitHub Actions `ci-local.ps1 -Full` run on the head sha; it does not run the full gate locally. A review is valid for merge authorization ONLY when the reviewer loads `references/rubric.md` (all 108 Check IDs) and includes the itemized Check ID Coverage Disclosure table in its durable PR comment. Skipping the rubric or omitting the disclosure strictly invalidates the review.
@@ -105,7 +105,7 @@ Communicate as a solution architect: state outcomes, architectural impact, trade
 
 ## 13. Autonomous Unattended Audits
 Scheduled audit skills (`.claude/skills/test-health/SKILL.md`, `.claude/skills/process-drift/SKILL.md`) adhere to four strict rules:
-1. **Durable Output:** Every run writes a dated report under `Tasks/reports/`, commits it and opens a documentation-only pull request. Silence is never success.
+1. **Durable Output:** Every run writes a dated report under `Tasks/reports/`, commits it and opens a documentation-only pull request. Silence is never success; `.github/workflows/audit-freshness.yml` files an issue when either audit's newest report is older than seven days.
 2. **Audit Separation:** An audit records findings (`file:line`, broken rule); it never fixes code directly.
 3. **Verified Citations:** Every path cited must exist; verified via `scripts/check_skill_prompt_references.py`.
 4. **Prohibitions:** Never weaken/skip tests, modify dependencies, alter settings, or commit untracked binary/state artifacts.
