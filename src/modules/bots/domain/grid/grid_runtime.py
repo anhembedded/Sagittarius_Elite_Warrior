@@ -46,6 +46,7 @@ class GridReason(str, Enum):
     LEVEL_KEEPS_ENDING = "level_keeps_ending"
     ORDER_REJECTED = "order_rejected"
     ORDER_REFUSED = "order_refused"
+    ORDER_FAILED = "order_failed"
     EXIT_SLICE_FAILED = "exit_slice_failed"
     INVENTORY_MISMATCH = "inventory_mismatch"
     HOLDING_BELOW_INVENTORY = "holding_below_inventory"
@@ -132,6 +133,10 @@ class GridRuntime:
     held: tuple[HeldOrder, ...] = ()
     reason: GridReason | None = None
     reason_detail: str = ""
+    #: What the stop in progress does with the base: sell it (the user's
+    #: choice, or forced by a stop loss or take profit) or keep it. Kept so a
+    #: stop that waits through a switch-off or a restart finishes as asked.
+    sell_base_on_stop: bool = False
 
     def level_of(self, client_order_id: str) -> RuntimeLevel | None:
         for level in self.levels:

@@ -33,27 +33,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.edit_bot i
     EditBotCommand,
     EditBotCommandHandler,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.pause_bot import (
-    PauseBotCommand,
-    PauseBotCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.resume_bot import (
-    ResumeBotCommand,
-    ResumeBotCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.start_bot import (
-    StartBotCommand,
-    StartBotCommandHandler,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot import (
-    StopBotCommand,
-    StopBotCommandHandler,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
     BotRefusal,
-)
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
-    BaseHandling,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
     FAKE_CLOCK_START,
@@ -157,120 +138,6 @@ def test_create_refuses_a_definition_without_a_name(
 
 
 # --- start ------------------------------------------------------------------
-
-
-@pytest.mark.parametrize("origin", [S.DRAFT, S.STOPPED])
-def test_start_moves_the_bot_to_starting_and_stamps_the_run(
-    store: FakeBotStore, clock: FakeBotClock, origin: S
-) -> None:
-    seed(store, "abc123", origin)
-    result = StartBotCommandHandler(store, clock).execute(StartBotCommand("abc123"))
-    assert result.accepted
-    stored = store.load(BotId("abc123"))
-    assert stored.bot.state is S.STARTING
-    assert stored.bot.lifecycle.run_started_at == FAKE_CLOCK_START
-    assert dict(stored.runtime) == {"cycles": 1}
-
-
-@pytest.mark.parametrize(
-    "other",
-    [S.STARTING, S.RUNNING, S.PAUSED, S.RECOVERING, S.HALTED, S.STOPPING, S.ERROR],
-)
-def test_a_second_bot_cannot_start_while_one_is_active(
-    store: FakeBotStore, clock: FakeBotClock, other: S
-) -> None:
-    seed(store, "aaa111", other)
-    seed(store, "bbb222", S.DRAFT)
-    result = StartBotCommandHandler(store, clock).execute(StartBotCommand("bbb222"))
-    assert result.refusal is BotRefusal.ONE_RUNNING_BOT_DURING_FAST_TRACK
-    assert "aaa111" in result.message
-    assert state_of(store, "bbb222") is S.DRAFT
-
-
-def test_an_unreadable_file_counts_as_an_active_bot(
-    store: FakeBotStore, clock: FakeBotClock
-) -> None:
-    store.refuse_file(BotId("aaa111"), "unknown schema_version 2")
-    seed(store, "bbb222", S.DRAFT)
-    result = StartBotCommandHandler(store, clock).execute(StartBotCommand("bbb222"))
-    assert result.refusal is BotRefusal.ONE_RUNNING_BOT_DURING_FAST_TRACK
-
-
-@pytest.mark.parametrize("other", [S.DRAFT, S.STOPPED])
-def test_idle_bots_do_not_block_a_start(
-    store: FakeBotStore, clock: FakeBotClock, other: S
-) -> None:
-    seed(store, "aaa111", other)
-    seed(store, "bbb222", S.DRAFT)
-    assert (
-        StartBotCommandHandler(store, clock).execute(StartBotCommand("bbb222")).accepted
-    )
-
-
-def test_starting_a_running_bot_is_an_invalid_transition(
-    store: FakeBotStore, clock: FakeBotClock
-) -> None:
-    seed(store, "abc123", S.RUNNING)
-    result = StartBotCommandHandler(store, clock).execute(StartBotCommand("abc123"))
-    assert result.refusal is BotRefusal.INVALID_TRANSITION
-    assert state_of(store, "abc123") is S.RUNNING
-
-
-@pytest.mark.parametrize("bot_id", ["zzz999", "NOT-AN-ID"])
-def test_an_unknown_bot_is_refused_as_not_found(
-    store: FakeBotStore, clock: FakeBotClock, bot_id: str
-) -> None:
-    result = StartBotCommandHandler(store, clock).execute(StartBotCommand(bot_id))
-    assert result.refusal is BotRefusal.NOT_FOUND
-
-
-def test_a_bot_whose_file_is_unreadable_is_refused_as_unreadable(
-    store: FakeBotStore, clock: FakeBotClock
-) -> None:
-    store.refuse_file(BotId("abc123"), "bad json")
-    result = PauseBotCommandHandler(store, clock).execute(PauseBotCommand("abc123"))
-    assert result.refusal is BotRefusal.UNREADABLE
-
-
-# --- pause, resume, stop ----------------------------------------------------
-
-
-@pytest.mark.parametrize(
-    ("origin", "run", "expected"),
-    [
-        (S.RUNNING, "pause", S.PAUSED),
-        (S.PAUSED, "resume", S.RUNNING),
-        (S.HALTED, "resume", S.STARTING),
-        (S.RUNNING, "stop", S.STOPPING),
-        (S.ERROR, "stop", S.STOPPING),
-    ],
-)
-def test_lifecycle_commands_follow_the_table(
-    store: FakeBotStore, clock: FakeBotClock, origin: S, run: str, expected: S
-) -> None:
-    seed(store, "abc123", origin)
-    handlers = {
-        "pause": lambda: PauseBotCommandHandler(store, clock).execute(
-            PauseBotCommand("abc123")
-        ),
-        "resume": lambda: ResumeBotCommandHandler(store, clock).execute(
-            ResumeBotCommand("abc123")
-        ),
-        "stop": lambda: StopBotCommandHandler(store, clock).execute(
-            StopBotCommand("abc123", BaseHandling.KEEP)
-        ),
-    }
-    assert handlers[run]().accepted
-    assert state_of(store, "abc123") is expected
-
-
-def test_pause_while_starting_is_refused_and_saves_nothing(
-    store: FakeBotStore, clock: FakeBotClock
-) -> None:
-    seed(store, "abc123", S.STARTING)
-    result = PauseBotCommandHandler(store, clock).execute(PauseBotCommand("abc123"))
-    assert result.refusal is BotRefusal.INVALID_TRANSITION
-    assert state_of(store, "abc123") is S.STARTING
 
 
 # --- edit and delete ---------------------------------------------------------

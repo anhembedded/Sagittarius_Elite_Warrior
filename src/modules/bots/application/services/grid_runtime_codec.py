@@ -41,6 +41,7 @@ def encode_runtime(runtime: GridRuntime) -> dict[str, JsonValue]:
         "held": [_encode_held(held) for held in runtime.held],
         "reason": runtime.reason.value if runtime.reason else None,
         "reason_detail": runtime.reason_detail,
+        "sell_base_on_stop": runtime.sell_base_on_stop,
     }
 
 
@@ -60,6 +61,7 @@ def decode_runtime(data: Mapping[str, JsonValue]) -> GridRuntime:
         ),
         reason=_enum(GridReason, reason, "reason") if reason is not None else None,
         reason_detail=_text(data, "reason_detail"),
+        sell_base_on_stop=_flag(data, "sell_base_on_stop"),
     )
 
 
@@ -163,6 +165,13 @@ def _text(data: Mapping[str, JsonValue], field: str) -> str:
     value = data.get(field)
     if not isinstance(value, str):
         raise GridRuntimeCodecError(f"{field} is not text")
+    return value
+
+
+def _flag(data: Mapping[str, JsonValue], field: str) -> bool:
+    value = data.get(field)
+    if not isinstance(value, bool):
+        raise GridRuntimeCodecError(f"{field} is not true or false")
     return value
 
 

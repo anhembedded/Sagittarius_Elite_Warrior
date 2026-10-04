@@ -9,7 +9,7 @@ from __future__ import annotations
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
-from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_event_runner import (
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_lookup import (
     BotLookup,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.delete_bot.command import (

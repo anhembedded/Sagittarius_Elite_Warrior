@@ -206,12 +206,21 @@ def release_held(runtime: GridRuntime) -> Reaction:
     return Reaction(replace(runtime, held=()), actions)
 
 
-def place_failed(runtime: GridRuntime, client_order_id: str) -> GridRuntime:
-    """The level after trading refused or failed to send its order."""
+def drop_order(runtime: GridRuntime, client_order_id: str) -> GridRuntime:
+    """The level after its order is gone with nothing owed: trading refused or
+    failed to send it, or the bot's own stop cancelled it."""
     level = runtime.level_of(client_order_id)
     if level is None:
         return runtime
     return runtime.with_level(level.moved(LevelEvent.ENDED, None))
+
+
+def book_market_fill(
+    runtime: GridRuntime, side: OrderSide, fill: LevelFill
+) -> GridRuntime:
+    """The inventory after a fill of one of the bot's market orders (the
+    opening buy, an exit slice): no level holds it, and it owes no counter."""
+    return _book_inventory(runtime, side, fill)
 
 
 def _book_inventory(

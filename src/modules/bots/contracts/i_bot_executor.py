@@ -7,16 +7,25 @@ outcome as a lifecycle event (`ladder_ready`, `start_refused`,
 `stop_confirmed`, `fault`), never as a return value, because every one of these
 takes exchange round trips the caller must not wait on.
 
-Only the seam is here. No executor exists before `EPIC-029E`, so nothing in
-this module binds one yet.
+`EPIC-029E` adds the facts every kind hears — fills, ends, ticks and the
+trading switch — and builds the Grid's executor (`GridExecutor`). Each fact is
+copied off the caller's thread and queued (ADR D9).
 """
 
 from __future__ import annotations
 
 from abc import ABC, abstractmethod
+from decimal import Decimal
 from enum import Enum
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
+    BotOrderEnd,
+    BotOrderFill,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchCause,
+)
 
 
 class BaseHandling(str, Enum):
@@ -44,6 +53,22 @@ class IBotExecutor(ABC):
     @abstractmethod
     def stop(self, base: BaseHandling) -> None:
         """Cancel every tagged order, then keep or sell the base (ADR O3)."""
+
+    @abstractmethod
+    def on_fill(self, fill: BotOrderFill) -> None:
+        """One of the bot's orders filled, fully or partly."""
+
+    @abstractmethod
+    def on_end(self, end: BotOrderEnd) -> None:
+        """One of the bot's orders ended without filling whole."""
+
+    @abstractmethod
+    def on_tick(self, price: Decimal) -> None:
+        """The bot's symbol traded at `price` (stop loss and take profit, D11)."""
+
+    @abstractmethod
+    def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
+        """Trading on the bot's venue was enabled, disabled or Emergency-Stopped."""
 
 
 class IBotExecutorFactory(ABC):

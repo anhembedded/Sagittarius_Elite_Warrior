@@ -43,6 +43,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.command_bindings import (
     bind_commands,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.composition.executor_bindings import (
+    bind_executors,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.query_bindings import (
     bind_queries,
 )
@@ -65,6 +68,7 @@ class BotsModule(BoundedContextModule):
 
     def register(self, context: Any) -> None:
         bind_state(context.container)
+        bind_executors(context.container)
         bind_commands(context.container)
         bind_queries(context.container)
 

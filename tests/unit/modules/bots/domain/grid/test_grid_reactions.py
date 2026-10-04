@@ -18,9 +18,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions impor
     Halt,
     LevelFill,
     PlaceOrder,
+    drop_order,
     on_end,
     on_fill,
-    place_failed,
     release_held,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
@@ -262,7 +262,7 @@ def test_a_buy_at_the_top_and_a_sell_at_the_bottom_owe_no_counter() -> None:
 
 
 def test_a_refused_placement_empties_its_level() -> None:
-    runtime = place_failed(started_ladder(), order_id(0))
+    runtime = drop_order(started_ladder(), order_id(0))
 
     assert runtime.levels[0].state is LevelState.EMPTY
     assert runtime.levels[0].order is None
