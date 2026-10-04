@@ -8,8 +8,9 @@
   3. **RUNNING** (`ladder_ready`) only once every other level rests.
 
 A refusal stops the sequence. After anything was bought or placed, the bot
-cancels what it placed and halts with the reason (`start_refused`), its
-inventory still accounted, so the user can resume (re-plan) or stop. Trading
+halts with the reason (`start_refused`), its inventory still accounted, so
+the user can resume (re-plan) or stop; the executor then takes what was
+placed off the exchange, as on every halt (`GridExecutor._park`). Trading
 off is `switch_off`; a request that raised is `fault` (`grid_order_failure`).
 
 Start's preconditions (venue, verdicts, lease, budget) are the start use case's,
@@ -112,11 +113,7 @@ class GridStartSequence:
         return True
 
     def _place_ladder(self, plan: GridPlan) -> bool:
-        for action in ladder_orders(plan):
-            if not self._place(action):
-                self._cancel_placed()
-                return False
-        return True
+        return all(self._place(action) for action in ladder_orders(plan))
 
     def _place(self, action: PlaceOrder) -> bool:
         state = self._context.state
@@ -130,11 +127,6 @@ class GridStartSequence:
         oid = outcome.client_order_id
         state.update(accepted(placed(state.runtime, action, oid), oid))
         return True
-
-    def _cancel_placed(self) -> None:
-        """A start refused after placing: take back what rests (ADR §3.1)."""
-        for order in self._context.gateway.tagged_open_orders():
-            self._context.gateway.cancel(order.client_order_id)
 
 
 def log_order(bot_id: str, action: PlaceOrder, result: str) -> None:

@@ -28,9 +28,11 @@ from decimal import Decimal
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget import (
     bot_owner_id,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housekeeping import (
+    GridHousekeeping,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
     fail_with,
-    fault_with,
     halt_with,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_reconciler import (
@@ -49,6 +51,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_stop_sequence import (
     GridStopSequence,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_task_guard import (
+    GridTaskGuard,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
     BotOrderEnd,
@@ -105,6 +110,12 @@ logger = logging.getLogger("App.Bots.GridExecutor")
 _S = BotLifecycleState
 _E = BotLifecycleEvent
 
+#: A stop loss or take profit is watched while the bot holds a position it
+#: may still have to exit (ADR D11): HALTED and ERROR included.
+_WATCHES_EXITS: frozenset[BotLifecycleState] = frozenset(
+    {_S.RUNNING, _S.PAUSED, _S.HALTED, _S.ERROR}
+)
+
 _SWITCH_OFF_DETAIL = {
     TradingSwitchCause.DISABLED: (
         "trading was disabled; the bot's resting orders are still on the exchange"
@@ -126,6 +137,7 @@ class GridExecutor(IBotExecutor):
         self._stop = GridStopSequence(context)
         self._resume = GridResumeSequence(context, self._start)
         self._reconciler = GridReconciler(context)
+        self._guard = GridTaskGuard(context, GridHousekeeping(context))
         self._last_price: Decimal | None = None
         self._proposal: ResumeProposal | None = None
 
@@ -177,21 +189,10 @@ class GridExecutor(IBotExecutor):
     def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         self._post("trading switch", lambda: self._apply_switch(enabled, cause))
 
-    # --- the one fault boundary ---
+    # --- every task through the guard ---
 
     def _post(self, what: str, task: Callable[[], None]) -> None:
-        self._queue.post(lambda: self._guarded(what, task))
-
-    def _guarded(self, what: str, task: Callable[[], None]) -> None:
-        """Runs `task`; a failure no step named becomes `fault` (ERROR) with
-        the step and the error, never a bot left with no reason. The gateway
-        has already named every order outcome; this catches the rest at the
-        seam where it becomes a lifecycle fact (`code/errors.md` §3)."""
-        try:
-            task()
-        except Exception as error:
-            logger.exception("Bot %s: %s failed", self.bot_id, what)
-            fault_with(self._context.state, what, error)
+        self._queue.post(lambda: self._guard.run(what, task))
 
     # --- on the worker ---
 
@@ -279,7 +280,7 @@ class GridExecutor(IBotExecutor):
 
     def _apply_tick(self, price: Decimal) -> None:
         self._last_price = price
-        if self._context.state.state not in (_S.RUNNING, _S.PAUSED):
+        if self._context.state.state not in _WATCHES_EXITS:
             return
         params = self._context.params
         reason = crossed_exit(price, params.stop_loss_price, params.take_profit_price)
