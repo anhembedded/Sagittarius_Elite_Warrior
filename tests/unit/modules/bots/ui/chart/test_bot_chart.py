@@ -225,3 +225,49 @@ def test_after_shutdown_a_shown_symbol_opens_no_stream(qapp) -> None:
     assert chart.is_live is False
     assert len(world.sync.requests) == syncs
     assert world.stream.held_by("bot.a3f9c1") is None
+
+
+def test_after_shutdown_no_tick_reaches_the_chart(qapp, monkeypatch) -> None:
+    """The PR #321 re-review (R2-1): a released chart stops drawing the
+    bus's ticks as well as the network's."""
+    bus = MemoryEventBus()
+    chart, card = build_chart()
+    chart.show_symbol("BTCUSDT")
+    chart.follow(BotTickFeed(bus, MarketType.SPOT, parent=card))
+    chart.shutdown()
+    appended: list[float] = []
+    monkeypatch.setattr(
+        card, "append_closed_candle", lambda t, *_ohlc: appended.append(t)
+    )
+
+    bus.emit(
+        MarketTickEvent(market_data=candle("BTCUSDT", 9), market_type=MarketType.SPOT)
+    )
+    qapp.processEvents()
+
+    assert appended == []
+
+
+def test_following_again_after_shutdown_draws_each_candle_once(
+    qapp, monkeypatch
+) -> None:
+    """The PR #321 re-review (R2-1): a bot's chart stopped and followed
+    again draws one bar per closed candle, never a duplicate."""
+    bus = MemoryEventBus()
+    chart, card = build_chart()
+    ticks = BotTickFeed(bus, MarketType.SPOT, parent=card)
+    chart.show_symbol("BTCUSDT")
+    chart.follow(ticks)
+    chart.shutdown()
+    chart.follow(ticks)
+    appended: list[float] = []
+    monkeypatch.setattr(
+        card, "append_closed_candle", lambda t, *_ohlc: appended.append(t)
+    )
+
+    tick = candle("BTCUSDT", 9)
+    bus.emit(MarketTickEvent(market_data=tick, market_type=MarketType.SPOT))
+    qapp.processEvents()
+
+    assert chart.is_live is True
+    assert appended == [tick.close_time.timestamp()]

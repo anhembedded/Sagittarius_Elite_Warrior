@@ -133,6 +133,15 @@ before); a timeframe change with no symbol shown no longer restarts with an empt
   bot chart is quiet again after `shutdown()`; an ATR zone never goes below zero and the docstring says
   the centring is the drawing's own suggestion; the preview's average cost no longer hides under a level.
 
+**Review round 2 (PR #321): one blocking finding, which round 1's own fix introduced.**
+- **R2-1: a stopped bot chart kept drawing the bus's ticks, and following again drew each closed
+  candle twice.** `shutdown()` never disconnected the Feed's `candle` signal, and once round 1 made
+  the chart quiet again, a second `follow()` connected the same slot a second time. `BotChart` now
+  keeps the Feed it follows, and `shutdown()` disconnects it before going quiet. A red test pins each
+  case: no tick is drawn after `shutdown()`, and one closed candle after a re-follow is one bar.
+- Nit: going quiet (release the stream, clear live) is `LiveCandleChart._go_quiet()`, so the live
+  state is written only by the class that owns it.
+
 **Known limit, for `029F`:** lines and bands ignore the plot's auto-range, as the last price line does, so a level, stop loss or take profit outside the candles' range is off screen until the user zooms out. The Bots tab may want a "fit levels" view.
 
 **Verification.**
@@ -140,7 +149,7 @@ before); a timeframe change with no symbol shown no longer restarts with an empt
   - `PriceLevelLayer`: lines and bands by key; replace and clear.
   - The Grid overlay, computed from the report's example plan.
   - The drawer: identical items on all three surfaces; colours by role; a new overlay replaces the old; fills at their time and price.
-  - `BotChart`: no network on the planner preview; a stream under `bot.<id>` whose release leaves a desk's stream alone; only its market's candle at its interval is applied; a forming candle updates the last bar.
+  - `BotChart`: no network on the planner preview; a stream under `bot.<id>` whose release leaves a desk's stream alone; only its market's candle at its interval is applied; a forming candle updates the last bar; after `shutdown()` no tick is drawn and a re-follow draws each candle once.
 - The full test suites for the architecture, bots, charting, presentation (previews included) and trading UI, plus all integration tests, pass. `ci-local.ps1 -SkipTests` passes with a clean log.
 - The preview was rendered offscreen and looked at.
 - The full gate is GitHub Actions' `ci-local.ps1 -Full` on the PR.

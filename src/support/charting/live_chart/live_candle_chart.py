@@ -108,6 +108,14 @@ class LiveCandleChart(QObject):
         """Releases this chart's own stream (`BOT-126`), if it holds one."""
         self._coordinator.stop()
 
+    def _go_quiet(self) -> None:
+        """Releases the stream if the chart went live, and is quiet again: a
+        symbol shown afterwards reads history only, and `go_live` may ask
+        for the stream anew (the PR #321 review)."""
+        if self._live:
+            self.release_stream()
+            self._live = False
+
     def apply_candle(self, candle: MarketData) -> None:
         """@brief Draws one live candle of the shown symbol and timeframe,
         closing a bar or updating the forming one. Call on the Qt thread."""

@@ -50,6 +50,7 @@ class BotChart(LiveCandleChart):
         self._drawer = BotOverlayDrawer(
             chart, PriceLevelLayer(chart.plot_layout.main_plot)
         )
+        self._ticks: BotTickFeed | None = None
 
     def show_overlay(self, overlay: BotOverlay) -> OverlayItems:
         """@brief Draws the bot's overlay, replacing the previous one.
@@ -57,19 +58,22 @@ class BotChart(LiveCandleChart):
         return self._drawer.draw(overlay)
 
     def follow(self, ticks: BotTickFeed) -> None:
-        """@brief Goes live, once: syncs, streams under the bot's own owner,
-        and applies the candles `ticks` delivers on the Qt thread."""
-        if self.is_live:
+        """@brief Goes live, once per `shutdown`: syncs, streams under the
+        bot's own owner, and applies the candles `ticks` delivers on the Qt
+        thread. Following again before a `shutdown` changes nothing."""
+        if self._ticks is not None:
             return
+        self._ticks = ticks
         ticks.candle.connect(self.apply_candle)
         self.go_live()
 
     def shutdown(self) -> None:
-        """@brief Cancels the load in flight and releases the bot's stream:
-        a bot's chart is the only reader of its own owner's subscription."""
+        """@brief Cancels the load in flight, stops applying the Feed's
+        candles and releases the bot's stream: a bot's chart is the only
+        reader of its own owner's subscription. A later `follow` connects
+        once more, so no candle is drawn twice (the PR #321 re-review)."""
         super().shutdown()
-        if self.is_live:
-            self.release_stream()
-            # Quiet again: a symbol shown after this reads history only and
-            # opens no stream nobody asked for (the PR #321 review).
-            self._live = False
+        if self._ticks is not None:
+            self._ticks.candle.disconnect(self.apply_candle)
+            self._ticks = None
+        self._go_quiet()
