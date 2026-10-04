@@ -41,7 +41,7 @@ def test_a_blank_parameter_is_named_as_not_set() -> None:
     evaluation = evaluate_grid(inputs(capital_quote="  "), GridThresholds())
 
     assert [v.code for v in evaluation.verdicts] == ["PARAMETERS_NOT_SET"]
-    assert "Set the capital, then Save" in evaluation.verdicts[0].reason
+    assert evaluation.verdicts[0].reason == "Set the capital."
 
 
 def test_a_full_set_of_parameters_is_judged_by_the_checks() -> None:

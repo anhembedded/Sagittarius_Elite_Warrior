@@ -4,7 +4,7 @@ One function, so the Bots tab (`EPIC-029F`), the backtest (`EPIC-029D`) and
 `GridKind.validate` all judge the same parameters the same way.
 
 Parameters the user has not set yet (a new bot carries none, `BOT-150`) are
-one REFUSED `PARAMETERS_NOT_SET` naming them in the panel's words, and no plan.
+one REFUSED `PARAMETERS_NOT_SET` naming them in the user's words, and no plan.
 Parameters that cannot be read are not a check's verdict but the absence of a
 plan: they come back as a single REFUSED `PARAMETERS_UNREADABLE` naming the
 key (or, for a number too large to compute with, the arithmetic error), and no
@@ -32,6 +32,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
     GridParamsError,
     unset_parameters,
+    unset_parameters_reason,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
     GridPlan,
@@ -79,16 +80,12 @@ def evaluate_grid(inputs: BotKindInputs, thresholds: GridThresholds) -> GridEval
 
 
 def _not_set(labels: tuple[str, ...]) -> GridEvaluation:
-    named = (
-        labels[0] if len(labels) == 1 else f"{', '.join(labels[:-1])} and {labels[-1]}"
-    )
     return GridEvaluation(
         (
             Verdict(
                 VerdictSeverity.REFUSED,
                 "PARAMETERS_NOT_SET",
-                f"Set the {named}, then Save. The parameters can be changed "
-                "whenever the bot is not running.",
+                unset_parameters_reason(labels),
             ),
         )
     )

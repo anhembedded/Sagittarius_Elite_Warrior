@@ -12,6 +12,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
     MarketView,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
+    PARAMETERS_WITHOUT_A_DEFAULT,
+    unset_parameters,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.grid.grid_panel import (
     GridPanel,
 )
@@ -51,6 +55,23 @@ def test_the_fields_show_and_read_back_every_parameter(qtbot) -> None:
     panel.set_config(_CONFIG)
 
     assert panel.config() == _CONFIG
+
+
+def test_a_new_grid_leaves_blank_exactly_the_parameters_without_a_default(
+    qtbot,
+) -> None:
+    """`BOT-150`, PR #349 review: the domain names the parameters a new Grid
+    lacks; the panel must start every other one at a value."""
+    panel = GridPanel()
+    qtbot.addWidget(panel)
+
+    panel.set_config({})
+
+    blank = {key for key, value in panel.config().items() if not value.strip()}
+    assert blank == set(PARAMETERS_WITHOUT_A_DEFAULT)
+    assert unset_parameters(panel.config()) == tuple(
+        PARAMETERS_WITHOUT_A_DEFAULT.values()
+    )
 
 
 def test_showing_parameters_is_not_an_edit_but_typing_is(qtbot) -> None:

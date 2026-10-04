@@ -148,6 +148,18 @@ def test_unreadable_parameters_are_refused_in_words() -> None:
     assert "grid_count" in result.reason
 
 
+def test_a_bot_without_parameters_is_asked_for_them_not_told_a_key_is_missing() -> None:
+    """`BOT-150`, PR #349 review: a draft created with the minimum and backtested
+    before any parameter is typed (`{}`), or with the panel's blank fields."""
+    for config in ({}, {**CONFIG, "lower": "", "capital_quote": " "}):
+        result = _handler(_stored()).execute(_query(config=config))
+
+        assert isinstance(result, GridBacktestRefusal)
+        assert result.reason.startswith("Set the lower price")
+        assert "is missing" not in result.reason
+        assert "not a number" not in result.reason
+
+
 def test_a_cancelled_request_returns_no_result() -> None:
     result = _handler(_stored()).execute(_query(cancelled=lambda: True))
 

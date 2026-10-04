@@ -37,7 +37,8 @@ Editing a bot's parameters already existed:
 | File | Change |
 | :--- | :--- |
 | `src/modules/bots/ui/bots_screen/new_bot_dialog.py` | No kind panel. Adds a hint label `lblNewBotParametersHint`. The command carries no config. |
-| `src/modules/bots/domain/grid/grid_params.py` | `PARAMETERS_WITHOUT_A_START` and `unset_parameters`. |
+| `src/modules/bots/domain/grid/grid_params.py` | `PARAMETERS_WITHOUT_A_DEFAULT`, `unset_parameters` and `unset_parameters_reason`, the one wording. |
+| `src/modules/bots/application/queries/run_grid_backtest/handler.py` | The backtest asks for the same parameters (PR #349 review, finding 1). |
 | `src/modules/bots/domain/grid/grid_evaluation.py` | `PARAMETERS_NOT_SET` before parsing. |
 | `Docs/SPEC/SPEC-014_run_a_grid_bot.md` | Steps 2 and 4, a failure row, and the proof table. |
 

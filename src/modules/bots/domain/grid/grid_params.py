@@ -18,8 +18,8 @@ above `upper` for a take profit).
 @par A bot created with no parameters (`BOT-150`)
 New bot asks only for the kind, venue and symbol; the parameters are set on
 the draft afterwards. `unset_parameters` names the ones the user must still
-type, in the panel's words, so the verdict asks for them rather than reporting
-a missing key.
+type, in the user's words, and `unset_parameters_reason` asks for them, so the
+verdict and the backtest ask rather than report a missing key.
 """
 
 from __future__ import annotations
@@ -31,10 +31,11 @@ from enum import Enum
 
 _HUNDRED = Decimal(100)
 
-#: The parameters the Grid panel has no starting value for, keyed by the
-#: definition's key, with the label the panel shows. The panel starts the
-#: others (grids, spacing, both exits) at a value the user sees and may change.
-PARAMETERS_WITHOUT_A_START: Mapping[str, str] = {
+#: The parameters that have no default, keyed by the definition's key, with
+#: their words for the user. Every other one (grids, spacing, both exits) has a
+#: default the editor starts at; `test_grid_panel.py` locks that the Grid panel
+#: leaves blank exactly these.
+PARAMETERS_WITHOUT_A_DEFAULT: Mapping[str, str] = {
     "lower": "lower price",
     "upper": "upper price",
     "capital_quote": "capital",
@@ -150,12 +151,22 @@ class GridParams:
 
 
 def unset_parameters(config: Mapping[str, str]) -> tuple[str, ...]:
-    """The labels of `PARAMETERS_WITHOUT_A_START` that `config` leaves out or blank."""
+    """The labels of `PARAMETERS_WITHOUT_A_DEFAULT` that `config` leaves out or blank."""
     return tuple(
         label
-        for key, label in PARAMETERS_WITHOUT_A_START.items()
+        for key, label in PARAMETERS_WITHOUT_A_DEFAULT.items()
         if not config.get(key, "").strip()
     )
+
+
+def unset_parameters_reason(labels: tuple[str, ...]) -> str:
+    """What the user is asked, for every consumer that judges a Grid's
+    parameters (the planner's verdict, the backtest): "Set the lower price,
+    upper price and capital."."""
+    named = (
+        labels[0] if len(labels) == 1 else f"{', '.join(labels[:-1])} and {labels[-1]}"
+    )
+    return f"Set the {named}."
 
 
 def _text(config: Mapping[str, str], key: str) -> str:
