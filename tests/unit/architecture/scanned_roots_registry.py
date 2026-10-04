@@ -52,6 +52,12 @@ EMPTY_BY_DESIGN: tuple[tuple[str, str, str], ...] = (
 GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     # --- tests/unit/architecture (EPIC-025) --------------------------------
     ("tests/unit/architecture/test_module_boundaries.py", (("src", "*.py"),)),
+    # `EPIC-030F` — presenter-owned classes (defined under `src/`) never
+    # appear in a container registration anywhere in `src/`.
+    (
+        "tests/unit/architecture/test_presenter_owned_objects_are_never_registered.py",
+        (("src", "*.py"),),
+    ),
     # `EPIC-030E` — layer direction inside one module; same `scanned_files()`
     # walk over `src/` as the row above.
     ("tests/unit/architecture/test_module_layers_point_inward.py", (("src", "*.py"),)),
