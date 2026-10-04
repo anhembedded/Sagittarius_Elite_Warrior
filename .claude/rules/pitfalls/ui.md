@@ -13,5 +13,6 @@ paths:
 2. Important work after a call that can throw inside a `@safe_ui_action` slot.
 3. `logger.info()` in a hot loop freezes the UI (`BUG-042`, 5 028 lines in 2 s) — `debug()`, or batch.
 4. Putting logic in the view layer — state machines, validation and computation belong to the Presenter/ViewModel.
+5. A `str`-based enum as a `QComboBox`'s item data comes back from `currentData()` as a plain `str`, and `==` still passes — rebuild the member (`TradingVenue(combo.currentData())`) (`BUG-144`).
 
 A new trap is one line here with its id; the long form is a case study (`Docs/CASE_STUDIES/README.md`).

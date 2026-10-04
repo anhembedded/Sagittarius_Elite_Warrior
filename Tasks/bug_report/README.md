@@ -59,8 +59,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 2 |
-| ✅ **Đã sửa / đã đóng** | 137 |
-| 📈 **Tổng** | **139** |
+| ✅ **Đã sửa / đã đóng** | 138 |
+| 📈 **Tổng** | **140** |
 
 ---
 
@@ -87,6 +87,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-144](completed/BUG-144_new_bot_dialog_sends_the_venue_as_a_plain_string.md)** | Creating a bot from the Bots tab was refused every time with `'str' object has no attribute 'value'`: the New bot dialog read the venue back from a `QComboBox`, and Qt returns a `str`-based enum's item data as a plain `str`, which the bot store's codec then called `.value` on. The dialog test compared with `==`, which a `str` enum passes. Fixed by rebuilding `TradingVenue` in the dialog; the regression test saves the dialog's command through the real handler and store and was red with the user's exact error. | 🔴 P1 | 2026-10-04 | ✅ 2026-10-04 |
 | **[BUG-141](completed/BUG-141_spot_cancel_report_names_the_cancel_request.md)** | Lệnh Spot bị hủy được báo dưới id của *yêu cầu hủy* thay vì id của chính lệnh: `executionReport` của Binance Spot ghi `"c"` là id của request hiện tại (lúc hủy là id Binance tự sinh hoặc `web_…`), id gốc nằm ở `"C"`; parser luôn đọc `"c"`, nên `OrderEndedEvent` mang id app chưa từng đặt. Sửa ở parser duy nhất: hủy thì đọc `"C"` (ADR D8 của `EPIC-029`). | 🟡 P2 | 2026-10-03 | `EPIC-029A` |
 | **[BUG-140](completed/BUG-140_ui_tier_segfault_gc_on_indicator_worker_thread.md)** | UI tests segfault khi garbage collector chạy trên worker thread (indicator feed; execnet receiver của xdist trên `PR #311`) và hủy widget Qt trong lúc main thread đang ở trong Qt. Đã sửa ở cơ chế: tắt collection tự động cho cả process, chỉ main thread collect theo đúng lịch của CPython (`main_thread_collection.py`); app chạy bằng timer do `QApplication` sở hữu trong `build()`, bộ test chạy sau mỗi test. 4 test hồi quy đỏ đúng lý do trước khi sửa | 🟡 P2 | 2026-09-29 | ✅ 2026-10-02 |
 | **[BUG-137](completed/BUG-137_env_credential_trailing_newline_misreported_as_network_failure.md)** | Chạy `EPIC-027P` AC5 (round-trip Spot Testnet thật), `BINANCE_SPOT_TESTNET_API_KEY`/`_SECRET` set qua PowerShell dính thêm `\n` cuối chuỗi (paste thừa Enter) — key lọt nguyên vẹn vào header `X-MBX-APIKEY` gửi lên Binance, `requests` từ chối, và `spot_account_reader._classify_exception()` (không phải `BinanceAPIException` có mã lỗi) gộp mọi exception dạng này vào `ConnectionFailureKind.NETWORK` chung chung, làm người dùng đi sai hướng tưởng do mạng/exchange chứ không phải do định dạng key. Đã sửa: `EnvFirstCredentialsProvider.resolve()` thêm `_stripped_env()`, `.strip()` cả key lẫn secret đọc từ biến môi trường trước khi dùng; giá trị chỉ toàn khoảng trắng strip về `""` thì rơi đúng vào nhánh fallback file có sẵn (không đổi hành vi trường hợp thiếu biến thật). 2 test mới, cả hai đỏ đúng lý do trước khi sửa | 🟡 P2 | 2026-09-29 | ✅ 2026-09-29 |
