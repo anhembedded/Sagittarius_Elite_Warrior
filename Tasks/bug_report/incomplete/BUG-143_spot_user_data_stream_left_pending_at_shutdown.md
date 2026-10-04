@@ -43,17 +43,31 @@ Established on engine `ea2d330c` (3.0.0), reproduced without Binance:
 
 ## Fix
 
-Pending.
+In `Sagittarius_Engine` (engine `BUG-017`), with the user's confirmation for both the Engine change and the bump:
+
+- Engine PR #227 (`c62fb42`): `AsyncRuntime.stop()` drains the loop before stopping it. The drain cancels every task not already `cancelling()`, awaits them, then shuts down async generators.
+- Engine PR #228 (`934b830`): `stop(timeout)` is one deadline. The drain may use half of it and the join gets the rest. Tasks that never finish cancelling are named in a WARNING. `TaskManager` names each asyncio task after the task it spawned.
+
+This repository's `engine.ref` now pins `934b830f5b4e6c0a5442b94833edacf443f87c79`.
 
 ## Regression test
 
-Pending. It needs a tier where the stream's task really runs on the runtime's loop and the app is stopped; a fake server without the websocket cannot reach it (`test_dev_board_f9_against_fake_server.py`'s docstring records that limit).
+In the Engine, `tests/runtime/test_async_runtime_stop_drains_tasks.py`. Its first two tests were red on `ea2d330c` with the reproduction's symptom:
+
+- a cancelled task's awaited `finally` runs before `stop()` returns;
+- a task `stop()` cancels itself runs its cleanup too;
+- a task that ignores cancellation is named, and `stop()` returns within its timeout;
+- `App.stop()` leaves the loop closed;
+- `stop()` called from the loop thread does not wait on its own loop.
+
+No test in this repository reaches the live websocket, for the reason the reproduction gives: a fake server without the websocket cannot reach it (`test_dev_board_f9_against_fake_server.py`'s docstring).
 
 ## Verification
 
-Not run.
+- With engine `934b830` installed, this repository's sanity tier passed (35) and its integration tier passed (292). Neither run printed `Task was destroyed but it is pending!` or `Unclosed client session`.
+- The one `ResourceWarning: gc: 9 uncollectable objects at shutdown` in the sanity run also appears on `ea2d330c`, unchanged.
+- **Not yet run:** a live run that stops the app with the Spot user-data stream open. This report stays Open until that run shuts down cleanly.
 
 ## Suggested next steps
 
-- Fix `AsyncRuntime.stop()` in `Sagittarius_Engine`, with an Engine regression test built from the reproduction above. This needs the user's separate confirmation (`ONBOARDING.md` §2).
-- Then bump this repository's `engine.ref`, which also needs confirmation (`commit-rule.md` §3), and close this report after a live run stops cleanly.
+- The user reruns `tests/testnet/test_grid_bot_round_trip.py` (`-TestnetOnly`) on a tree carrying this `engine.ref`, with the engine reinstalled. Close this report when the teardown prints none of the lines above.
