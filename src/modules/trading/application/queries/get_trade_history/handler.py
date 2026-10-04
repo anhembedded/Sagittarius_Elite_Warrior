@@ -15,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.history_paging im
     PageRequest,
     newest_first_page,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.history_scope import (
+    history_scope,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_trade_history.query import (
     GetTradeHistoryQuery,
 )
@@ -39,9 +42,8 @@ class GetTradeHistoryQueryHandler(
 
     def execute(self, query: GetTradeHistoryQuery) -> HistoryPage[TradeRecord]:
         reader = self._contexts.get(query.venue).history_reader
-        symbols = (
-            (query.symbol,) if query.symbol else reader.active_symbols(query.since)
-        )
+        scope = history_scope(reader, query.symbol, query.since)
+        symbols = scope.symbols
         logger.debug(
             "Handling GetTradeHistoryQuery on %s: %s since %s, page %d",
             query.venue.value,
@@ -60,6 +62,7 @@ class GetTradeHistoryQueryHandler(
             PageRequest(
                 page=query.page,
                 scanned_symbols=symbols,
-                notices=() if query.symbol else reader.known_gaps().every_symbol,
+                notices=(() if query.symbol else reader.known_gaps().every_symbol)
+                + scope.notices,
             ),
         )
