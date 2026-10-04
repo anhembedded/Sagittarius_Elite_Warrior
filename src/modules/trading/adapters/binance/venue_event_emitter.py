@@ -71,11 +71,14 @@ class VenueEventEmitter:
         order: Order,
         fill: tuple[Decimal, Decimal],
         fee: tuple[Decimal, str] | None = None,
+        trade_id: int | None = None,
     ) -> None:
         """`fill` is `(price, quantity)` of this one fill; `fee` is
-        `(amount, asset)` where the venue reports one (Spot), else `None`."""
+        `(amount, asset)` where the venue reports one (Spot), else `None`;
+        `trade_id` is the exchange's id of this fill where the venue reports
+        one (Spot), which the owner books use to count a fill once."""
         fill_price, fill_quantity = fill
-        self._owner_books.apply_fill(order, fill, fee)
+        self._owner_books.apply_fill(order, fill, fee, trade_id)
         self._event_bus.emit(
             OrderFilledEvent(
                 order=order,

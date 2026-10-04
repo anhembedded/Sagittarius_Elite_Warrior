@@ -50,7 +50,9 @@ _ZERO = Decimal(0)
 @dataclass
 class _OpenOrder:
     side: OrderSide
-    #: The base the order was sent for; zero for a quote-sized market buy.
+    #: The base the order was sent for. A quote-sized market buy carries
+    #: the preview's estimate of the base it buys (`PreviewOrderQueryHandler`),
+    #: which the fills can exceed.
     quantity: Decimal
     #: What it commits when nothing has filled: the BUY's notional.
     notional: Decimal
@@ -58,15 +60,17 @@ class _OpenOrder:
 
     @property
     def remaining(self) -> Decimal:
-        return self.quantity - self.filled
+        """Never below zero: a quote-sized buy can fill more base than its
+        estimate before its last fill ends it (the `EPIC-029A` review)."""
+        return max(self.quantity - self.filled, _ZERO)
 
     @property
     def committed_quote(self) -> Decimal:
-        """A BUY's quote still at stake. A quote-sized buy (no base
-        quantity) commits its whole quote until it ends."""
+        """A BUY's quote still at stake, in proportion to its base still
+        unfilled. An order with no base to scale by commits its whole quote."""
         if self.side is not OrderSide.BUY:
             return _ZERO
-        if self.quantity == 0:
+        if self.quantity <= 0:
             return self.notional
         return self.notional * self.remaining / self.quantity
 

@@ -178,17 +178,23 @@ class ExecuteOrderCommandHandler(
                 return ExecuteOrderResult(None, preview, checks, None, context, limits)
 
             trading_client = scope.ports.client_factory.create(OrderSubmissionMode.LIVE)
-            submitted_order = trading_client.place_order(preview.order)
             # `EPIC-029` ADR D6 — a budgeted owner's order goes to its book,
             # not to the signal limits' bookkeeping: it neither marks the
-            # symbol open nor delays another owner's next order.
+            # symbol open nor delays another owner's next order. It is
+            # recorded **before** the send, so a send that raises still
+            # counts in the spacing and the rate, and the order, whose outcome
+            # is then unknown, stays open until a fill or an end settles it,
+            # or the session ends (the `EPIC-029A` review). The price: an
+            # order the venue refused outright holds its open slot and its
+            # quote until then, which can only stop the bot, never overspend.
             if tag is not None:
                 session_state.owner_books.record_sent(
-                    tag, submitted_order, preview.estimated_notional, now
+                    tag, preview.order, preview.estimated_notional, now
                 )
+            submitted_order = trading_client.place_order(preview.order)
             # `EPIC-028I` — a protective order or a close is not a new trade:
             # it neither uses up the session's orders nor delays the next entry.
-            elif not command.purpose.only_reduces:
+            if tag is None and not command.purpose.only_reduces:
                 session_state.record_order_sent(symbol, now)
             logger.info(
                 "Live order submitted on %s: %s %s",

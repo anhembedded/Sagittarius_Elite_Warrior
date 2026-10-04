@@ -39,6 +39,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_us
     OUTBOUND_ACCOUNT_POSITION,
     fill_details,
     fill_fee,
+    fill_trade_id,
     is_fill_execution,
     parse_execution_report,
     stream_event_captured_at,
@@ -229,7 +230,9 @@ class SpotUserDataStream(IUserDataStream):
         if is_fill_execution(payload):
             fill_price, fill_quantity = fill_details(payload)
             fee = fill_fee(payload)
-            self._events.order_filled(order, (fill_price, fill_quantity), fee)
+            self._events.order_filled(
+                order, (fill_price, fill_quantity), fee, fill_trade_id(payload)
+            )
         elif ended_without_filling(order.status):
             # `EPIC-028I` — cancelled, rejected or expired.
             self._events.order_ended(order)

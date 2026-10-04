@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_books impor
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.command import (
     EmergencyStopCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.liquidation_minimum import (
+    min_split_quantity,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScope,
     VenueTradingScopes,
@@ -273,6 +276,8 @@ class EmergencyStopCommandHandler(
         `EPIC-029` ADR D6 r2 — each asset's sale is split per bot
         (`split_liquidation`): a bot's share, up to its inventory, carries
         its tag, so its inventory derived again afterwards is what is left.
+        A split part below the exchange minimum is left held and reported
+        as dust (`min_split_quantity`).
         """
         baseline = scope.session_state.spot_baseline_holdings()
         if baseline is None:
@@ -309,15 +314,21 @@ class EmergencyStopCommandHandler(
             if quantity <= 0:
                 dust_assets.append(holding.asset)
                 continue
+            inventories = [
+                (share.tag, share.inventory.quantity)
+                for share in owner_shares
+                if share.symbol == symbol
+            ]
             parts = split_liquidation(
                 quantity,
-                [
-                    (share.tag, share.inventory.quantity)
-                    for share in owner_shares
-                    if share.symbol == symbol
-                ],
+                inventories,
                 metadata.step_size_for(OrderType.MARKET),
+                min_split_quantity(scope.ports.book_ticker_reader, metadata)
+                if inventories
+                else Decimal(0),
             )
+            if sum((part.quantity for part in parts), Decimal(0)) < quantity:
+                dust_assets.append(holding.asset)
             try:
                 for part in parts:
                     trading_client.place_order(

@@ -6,7 +6,10 @@ caps, the tag), then the two reads of exchange evidence, the history (the
 inventory) and the open orders (what the owner already has resting, after a
 restart or during a reconciliation). The switch epoch is read before those
 reads and checked when the book is installed, so a disable that lands
-meanwhile wins and nothing is installed into the next session.
+meanwhile wins and nothing is installed into the next session. The tag's
+fills and ends are held from before the reads until the install, which
+replays the ones the history did not count, so a fill landing between the
+read and the install is counted once (`OwnerBooks`).
 """
 
 from __future__ import annotations
@@ -19,6 +22,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_book import (
     OwnerBook,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_books import (
+    OwnerEventBuffer,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_inventory_deriver import (
     InventoryBeyondLookbackError,
@@ -80,8 +86,23 @@ class RegisterOwnerBudgetCommandHandler(
         if refusal is not None:
             return refusal
         epoch = scope.session_state.switch_epoch
+        books = scope.session_state.owner_books
+        held = books.open_buffer(registration.tag, registration.symbol)
         try:
-            inventory = self._deriver.derive(
+            return self._derive_and_install(registration, command, scope, epoch, held)
+        finally:
+            books.close_buffer(held)
+
+    def _derive_and_install(
+        self,
+        registration: OwnerBudgetRegistration,
+        command: RegisterOwnerBudgetCommand,
+        scope: VenueTradingScope,
+        epoch: int,
+        held: OwnerEventBuffer,
+    ) -> OwnerBudgetRegistrationResult:
+        try:
+            derivation = self._deriver.derive(
                 registration, scope.ports.history_reader, datetime.now(UTC)
             )
             resting = _resting_orders(registration, scope)
@@ -91,13 +112,18 @@ class RegisterOwnerBudgetCommandHandler(
         except AccountHistoryUnavailableError as exc:
             logger.warning("Owner budget for %s refused: %s", registration.tag, exc)
             return _refused(OwnerBudgetRefusal.INVENTORY_UNAVAILABLE)
-        book = OwnerBook(registration, inventory)
+        book = OwnerBook(registration, derivation.inventory)
         for order in resting:
             book.adopt_open(order, _resting_notional(order))
         if not scope.session_state.install_owner_book(
-            registration.tag, book, expected_switch_epoch=epoch
+            registration.tag,
+            book,
+            expected_switch_epoch=epoch,
+            held=held,
+            counted=derivation.counted,
         ):
             return _refused(OwnerBudgetRefusal.TRADING_SWITCH_OFF)
+        inventory = book.inventory
         logger.info(
             "Owner budget registered for %s (%s) on %s %s: %s held, %d open order(s).",
             registration.owner_id,

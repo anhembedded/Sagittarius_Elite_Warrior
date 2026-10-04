@@ -15,6 +15,7 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_user_data_event_parser import (
     fill_details,
     fill_fee,
+    fill_trade_id,
     is_fill_execution,
     parse_execution_report,
     stream_event_captured_at,
@@ -204,6 +205,22 @@ class TestFillFee:
         del payload["n"]
         del payload["N"]
         assert fill_fee(payload) is None
+
+
+class TestFillTradeId:
+    """`EPIC-029A` review — the trade id lets a registration count a fill the
+    REST history already holds once."""
+
+    def test_reads_the_trade_id(self) -> None:
+        assert fill_trade_id(_execution_report(t=4031)) == 4031
+
+    def test_minus_one_on_a_report_that_is_no_trade_is_none(self) -> None:
+        assert fill_trade_id(_execution_report(t=-1)) is None
+
+    def test_a_missing_trade_id_is_none(self) -> None:
+        payload = _execution_report()
+        payload.pop("t", None)
+        assert fill_trade_id(payload) is None
 
 
 class TestStreamEventCapturedAt:

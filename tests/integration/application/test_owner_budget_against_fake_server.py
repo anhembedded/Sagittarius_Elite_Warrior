@@ -31,6 +31,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.listed_symbo
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_account_reader import (
     SpotAccountReader,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_book_ticker_reader import (
+    SpotBookTickerReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_history_reader import (
     SpotHistoryReader,
 )
@@ -182,16 +185,9 @@ class _Venue:
             OwnerInventoryDeriver(FakeOwnerInventoryCheckpoints()),
             _CAPS,
         )
-        registration = OwnerBudgetRegistration(
-            owner_id=_OWNER,
-            tag=_TAG,
-            symbol="BTCUSDT",
-            run_started_at=run_started_at,
-            budget=OwnerBudget(
-                10, Decimal(5000), timedelta(0), 60, timedelta(minutes=1)
-            ),
+        return handler.execute(
+            RegisterOwnerBudgetCommand(_registration(run_started_at), venue=_SPOT)
         )
-        return handler.execute(RegisterOwnerBudgetCommand(registration, venue=_SPOT))
 
     def send(self, side: OrderSide, price: str, quantity: str) -> ExecuteOrderResult:
         handler = ExecuteOrderCommandHandler(
@@ -224,6 +220,11 @@ class _Venue:
         return facts.open_order_count
 
 
+def _registration(run_started_at: datetime) -> OwnerBudgetRegistration:
+    budget = OwnerBudget(10, Decimal(5000), timedelta(0), 60, timedelta(minutes=1))
+    return OwnerBudgetRegistration(_OWNER, _TAG, "BTCUSDT", run_started_at, budget)
+
+
 def _venue(urls: FakeServerUrls) -> _Venue:
     sessions = SpotSessionFactory()
     cache = InMemorySymbolOrderMetadataCache()
@@ -237,6 +238,7 @@ def _venue(urls: FakeServerUrls) -> _Venue:
         history_reader=SpotHistoryReader(
             sessions, _Credentials(), ListedSymbols(metadata, cache)
         ),
+        book_ticker_reader=SpotBookTickerReader(sessions),
     )
     state = TradingSessionState()
     state.enable(set(), spot_baseline_holdings=_BASELINE)
@@ -377,17 +379,12 @@ def test_an_emergency_stop_sells_the_bots_coins_under_its_tag_and_not_the_users(
             single_venue_scopes(venue.context, venue.state), RecordingPublisher()
         ).execute(EmergencyStopCommand(venue=_SPOT))
 
-        after = OwnerInventoryDeriver(FakeOwnerInventoryCheckpoints()).derive(
-            OwnerBudgetRegistration(
-                _OWNER,
-                _TAG,
-                "BTCUSDT",
-                run_started_at,
-                OwnerBudget(10, Decimal(5000), timedelta(0), 60, timedelta(minutes=1)),
-            ),
+        deriver = OwnerInventoryDeriver(FakeOwnerInventoryCheckpoints())
+        after = deriver.derive(
+            _registration(run_started_at),
             venue.context.history_reader,
             datetime.now(UTC),
-        )
+        ).inventory
         btc = {
             row["asset"]: Decimal(row["free"])
             for row in venue.urls.spot_account.account_balances()

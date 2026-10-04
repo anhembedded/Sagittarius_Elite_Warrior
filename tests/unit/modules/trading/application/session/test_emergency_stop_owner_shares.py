@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
+from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_book import (
     OwnerBook,
@@ -20,8 +21,17 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
+    BestBidAsk,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     tag_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_book_ticker_reader import (
+    IBookTickerReader,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.market_price_unavailable_error import (
+    MarketPriceUnavailableError,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudget,
@@ -59,8 +69,21 @@ def _book(tag: str, quantity: str) -> OwnerBook:
     return OwnerBook(registration, OwnerInventory(Decimal(quantity), Decimal(1)))
 
 
+def _bid(price: str) -> Mock:
+    """BTCUSDT's book: at 60000 the minimum notional of 100 is 0.00167 BTC,
+    so two lot steps of 0.001 are the smallest sell."""
+    reader = Mock(spec=IBookTickerReader)
+    reader.best_bid_ask.return_value = BestBidAsk(
+        "BTCUSDT", Decimal(price), Decimal(1), Decimal(price) + 1, Decimal(1)
+    )
+    return reader
+
+
 def _sells(
-    baseline: str, held: str, books: dict[str, str]
+    baseline: str,
+    held: str,
+    books: dict[str, str],
+    book_ticker: Mock | None = None,
 ) -> list[tuple[str | None, Decimal]]:
     """The stop's sells as (tag, quantity), for a user holding `baseline`
     BTC before enabling and `held` BTC now."""
@@ -78,6 +101,7 @@ def _sells(
         raw_client=raw_client,
         trading_venue=_SPOT,
         account_reader=FakeTradingAccountReader(spot_status((holding,))),
+        book_ticker_reader=book_ticker or _bid("60000"),
     )
 
     result = handler.execute(EmergencyStopCommand(venue=_SPOT))
@@ -115,3 +139,22 @@ def test_a_surplus_smaller_than_the_bots_inventory_is_all_the_bots() -> None:
 
 def test_with_no_bot_the_stop_sells_untagged_as_before() -> None:
     assert _sells("0.5", "0.8", {}) == [(None, Decimal("0.3"))]
+
+
+def test_a_split_part_below_the_exchange_minimum_stays_as_dust() -> None:
+    """The review's case: two bots' shares, and one lot step (0.001 BTC,
+    $60) no bot holds, below the $100 minimum. Sent, the venue would
+    reject it and stop the sale of every asset after it."""
+    assert _sells("0.5", "0.851", {"a3f9c1": "0.2", "b00000": "0.15"}) == [
+        ("a3f9c1", Decimal("0.2")),
+        ("b00000", Decimal("0.15")),
+    ]
+
+
+def test_without_a_bid_every_part_is_sent_for_the_venue_to_judge() -> None:
+    reader = Mock(spec=IBookTickerReader)
+    reader.best_bid_ask.side_effect = MarketPriceUnavailableError("no answer")
+
+    sells = _sells("0.5", "0.851", {"a3f9c1": "0.2"}, reader)
+
+    assert sells == [("a3f9c1", Decimal("0.2")), (None, Decimal("0.151"))]

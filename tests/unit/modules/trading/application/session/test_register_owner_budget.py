@@ -272,3 +272,57 @@ def test_a_disable_during_the_reads_wins_and_installs_nothing() -> None:
 
     assert result.refusal is OwnerBudgetRefusal.TRADING_SWITCH_OFF
     assert state.owner_books.holder_of("a3f9c1") is None
+
+
+def _filled_sell(quantity: str) -> Order:
+    return Order(
+        client_order_id=ClientOrderId("SEW-a3f9c1-00000000ff"),
+        symbol="BTCUSDT",
+        side=OrderSide.SELL,
+        order_type=OrderType.MARKET,
+        quantity=Decimal(quantity),
+        status=OrderStatus.FILLED,
+    )
+
+
+def _filling_while_open_orders_are_read(
+    state: TradingSessionState, order: Order, trade_id: int
+) -> Mock:
+    """The venue's stream reports a fill of `order` while the handler reads
+    the open orders: after the history read, before the book is installed."""
+
+    def read() -> list[Order]:
+        fill = (Decimal(50000), order.quantity)
+        state.owner_books.apply_fill(order, fill, None, trade_id)
+        return []
+
+    factory = _factory()
+    factory.create.return_value.get_open_orders.side_effect = read
+    return factory
+
+
+def test_a_fill_between_the_history_read_and_the_install_is_counted() -> None:
+    order, trade = _bought()
+    state = _enabled()
+    history = FakeAccountHistoryReader([order], [trade], now=_NOW)
+    factory = _filling_while_open_orders_are_read(
+        state, _filled_sell("0.001998"), trade_id=999
+    )
+
+    result = _register(_handler(state, history, factory))
+
+    assert result.registered
+    assert result.inventory.quantity == 0
+    assert state.owner_books.shares()[0].inventory.quantity == 0
+
+
+def test_a_fill_the_history_already_counted_is_not_counted_twice() -> None:
+    order, trade = _bought()
+    state = _enabled()
+    history = FakeAccountHistoryReader([order], [trade], now=_NOW)
+    bought = replace(order.order, status=OrderStatus.FILLED)
+    factory = _filling_while_open_orders_are_read(state, bought, trade.trade_id)
+
+    result = _register(_handler(state, history, factory))
+
+    assert result.inventory == OwnerInventory(Decimal("0.001998"), Decimal(100))

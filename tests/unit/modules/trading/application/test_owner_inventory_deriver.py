@@ -110,7 +110,7 @@ def _derive(
 ) -> OwnerInventory:
     history = FakeAccountHistoryReader(orders, trades, now=now)
     deriver = OwnerInventoryDeriver(checkpoints or FakeOwnerInventoryCheckpoints())
-    return deriver.derive(_REGISTRATION, history, now)
+    return deriver.derive(_REGISTRATION, history, now).inventory
 
 
 def test_only_the_owners_tagged_fills_count() -> None:

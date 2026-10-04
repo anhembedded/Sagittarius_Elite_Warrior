@@ -79,6 +79,7 @@ def venue_context(
     user_data_stream: IUserDataStream | None = None,
     account_control: IFuturesAccountControl | None = None,
     history_reader: IAccountHistoryReader | None = None,
+    book_ticker_reader: IBookTickerReader | None = None,
 ) -> VenueContext:
     """A Spot venue has no `account_control`, as `VenueAssembly` builds it."""
     if venue is not TradingVenue.SPOT_TESTNET and account_control is None:
@@ -94,7 +95,7 @@ def venue_context(
         history_reader=history_reader or Mock(spec=IAccountHistoryReader),
         commission_reader=Mock(spec=ICommissionRateReader),
         account_control=account_control,
-        book_ticker_reader=Mock(spec=IBookTickerReader),
+        book_ticker_reader=book_ticker_reader or Mock(spec=IBookTickerReader),
         mark_price_reader=(
             None if venue is TradingVenue.SPOT_TESTNET else Mock(spec=IMarkPriceReader)
         ),

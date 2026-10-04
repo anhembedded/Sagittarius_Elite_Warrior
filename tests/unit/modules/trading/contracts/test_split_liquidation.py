@@ -43,3 +43,44 @@ def test_a_bot_never_takes_more_than_there_is() -> None:
 
 def test_nothing_to_sell_is_no_part() -> None:
     assert split_liquidation(Decimal(0), [("a", Decimal(1))], _STEP) == ()
+
+
+def test_an_untagged_rest_below_the_minimum_is_left_as_dust() -> None:
+    """The review's probe: two bots' shares, then one step no bot holds,
+    worth less than the exchange minimum."""
+    parts = split_liquidation(
+        Decimal("0.00399"),
+        [("a", Decimal("0.001998")), ("b", Decimal("0.001998"))],
+        Decimal("0.00001"),
+        min_quantity=Decimal("0.0001"),
+    )
+    assert parts == (
+        LiquidationPart("a", Decimal("0.00199")),
+        LiquidationPart("b", Decimal("0.00199")),
+    )
+
+
+def test_a_bots_share_below_the_minimum_is_never_sold_untagged() -> None:
+    parts = split_liquidation(
+        Decimal("0.301"),
+        [("a", Decimal("0.2")), ("b", Decimal("0.001"))],
+        _STEP,
+        min_quantity=Decimal("0.002"),
+    )
+    assert parts == (
+        LiquidationPart("a", Decimal("0.2")),
+        LiquidationPart(None, Decimal("0.1")),
+    )
+
+
+def test_a_part_at_the_minimum_is_sold() -> None:
+    parts = split_liquidation(
+        Decimal("0.004"),
+        [("a", Decimal("0.002"))],
+        _STEP,
+        min_quantity=Decimal("0.002"),
+    )
+    assert parts == (
+        LiquidationPart("a", Decimal("0.002")),
+        LiquidationPart(None, Decimal("0.002")),
+    )

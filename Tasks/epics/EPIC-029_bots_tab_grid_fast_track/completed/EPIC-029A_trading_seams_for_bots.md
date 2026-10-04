@@ -239,3 +239,15 @@ Eight commits on `claude/wizardly-cerf-fc5b5x`, in the order the design builds:
 **Not verified:** the Spot Testnet manual cancel whose logged `OrderEndedEvent` names the original id (the user runs it, as in `EPIC-028N`), and the live `ORDERS` rate limits above.
 
 **Manual Spot finding (ADR §1.3):** reproduced and filed as [`BUG-142`](../../../bug_report/incomplete/BUG-142_manual_spot_order_blocks_its_symbol_until_re_enable.md). It is the signal limits' position bookkeeping on Spot, not the owner budget, so per this task it is not fixed here.
+
+**Review round 1 (PR #320), five findings fixed:**
+
+| Finding | Fix |
+| :--- | :--- |
+| 1. A tagged order on another symbol was judged by the budget's book | `OwnerBooks.facts` gives no facts for an order off the budget's symbol (`OWNER_BUDGET_MISSING`), and a tagged fill elsewhere moves no inventory. |
+| 2. A fill between the history read and the install was lost or counted twice | A registration opens an `OwnerEventBuffer` before its reads. The tag's fills and ends on that symbol are held, and `install` replays the fills the derivation did not count, by trade id (`OwnerInventoryDerivation.counted`, Spot's `t`), under the lock that applies the next live event. |
+| 3. Emergency Stop's split could send a part below the exchange minimum | A split part below `min_notional` at the best bid (`min_split_quantity`) is left held and reported as dust. A bot's share is never folded into the untagged rest. Without a bid, the parts are sent and the venue judges them, as it judges an unsplit sale. |
+| 4. A send that raised never counted, so a bot's retries were not paced | A tagged order is recorded in its book before `place_order`. A send that raises still counts in the spacing and the rate, and the order stays open until a fill, an end or the session's end. The price: an order the venue refused outright holds its slot and its quote until then, which can stop the bot but never overspend. |
+| 5. `committed_quote` could go negative | `remaining` is clamped at zero, and the comment now says a quote-sized buy carries the preview's base estimate. |
+
+Each fix has a test that fails without it (checked by reverting the fix or mutating it).

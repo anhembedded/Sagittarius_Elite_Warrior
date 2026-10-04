@@ -13,6 +13,7 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from unittest.mock import Mock
 
+import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.application.orders.execute_order.command import (
     ExecuteOrderCommand,
 )
@@ -22,6 +23,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_book import
 from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_state import (
     TradingSessionState,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    ClientOrderId,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
@@ -163,3 +168,43 @@ def test_a_disable_clears_the_budget_so_the_next_tagged_order_is_refused() -> No
     assert handler.execute(_ladder_order()).blocked_by is (
         TradingLimitViolation.OWNER_BUDGET_MISSING
     )
+
+
+def test_a_tagged_sell_on_another_symbol_has_no_budget() -> None:
+    """`EPIC-029A` review, finding 1: a budget binds one symbol. A tagged
+    SELL of ETH must not be judged against the bot's BTC inventory, or the
+    bot could sell the user's ETH."""
+    handler, _, raw_client = _budgeted(OwnerInventory(Decimal("0.01"), Decimal(600)))
+
+    result = handler.execute(
+        _ladder_order(OrderSide.SELL, 3000, symbol="ETHUSDT", quantity=Decimal("0.005"))
+    )
+
+    assert result.blocked_by is TradingLimitViolation.OWNER_BUDGET_MISSING
+    raw_client.futures_create_order.assert_not_called()
+
+
+def test_a_send_that_raises_still_paces_the_retry_and_stays_open() -> None:
+    """The review's probe: the venue times out, so the order may be live.
+    It counts in the spacing, so the bot's retry waits, and it commits its
+    quote until a fill, an end or the session's end settles it."""
+    handler, state, raw_client = _budgeted(spacing=timedelta(minutes=1))
+    raw_client.futures_create_order.side_effect = TimeoutError("read timed out")
+
+    with pytest.raises(TimeoutError):
+        handler.execute(_ladder_order())
+    retry = handler.execute(_ladder_order(price=59990))
+
+    assert retry.blocked_by is TradingLimitViolation.OWNER_BUDGET_SPACING
+    assert raw_client.futures_create_order.call_count == 1
+    probe = Order(
+        client_order_id=ClientOrderId(f"SEW-{_TAG}-00000000ff"),
+        symbol="BTCUSDT",
+        side=OrderSide.BUY,
+        order_type=OrderType.LIMIT,
+        quantity=Decimal("0.001"),
+        price=Decimal(59000),
+    )
+    facts = state.owner_books.facts(_TAG, _OWNER, probe, datetime.now(UTC))
+    assert facts is not None
+    assert facts.open_order_count == 1

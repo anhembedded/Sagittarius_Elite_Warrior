@@ -60,8 +60,8 @@ class TradingLimitViolation(str, Enum):
     OWNER_BUDGET_SPACING = "owner_budget_spacing"
     OWNER_BUDGET_RATE = "owner_budget_rate"
     #: ...and the sixth gate: an order carrying a client order tag with no
-    #: budget registered for it, so a bot never falls back to the signal
-    #: limits, which have no inventory check.
+    #: budget registered for it on the order's symbol, so a bot never falls
+    #: back to the signal limits, which have no inventory check.
     OWNER_BUDGET_MISSING = "owner_budget_missing"
 
 

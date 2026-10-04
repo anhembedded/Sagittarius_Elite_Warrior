@@ -23,6 +23,7 @@ derived in full.
 from __future__ import annotations
 
 import logging
+from dataclasses import dataclass
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -66,6 +67,29 @@ logger = logging.getLogger("App.Trading.OwnerInventory")
 _READ_OVERLAP = timedelta(minutes=1)
 
 
+@dataclass(frozen=True)
+class OwnerInventoryDerivation:
+    """The inventory a derivation found, and which of the owner's fills it
+    counted, so a fill the venue's stream also reported is counted once
+    (`OwnerBooks.install`, the `EPIC-029A` review)."""
+
+    inventory: OwnerInventory
+    #: The trade ids this derivation replayed.
+    counted_trade_ids: frozenset[int]
+    #: The checkpoint's last trade id: every owner fill at or below it was
+    #: counted by an earlier derivation. `None` without a checkpoint.
+    counted_through: int | None
+
+    def counted(self, trade_id: int | None) -> bool:
+        """@brief Whether the fill with `trade_id` is already in the
+        inventory. A fill without an id (no venue sends one on Spot) is not."""
+        if trade_id is None:
+            return False
+        if self.counted_through is not None and trade_id <= self.counted_through:
+            return True
+        return trade_id in self.counted_trade_ids
+
+
 class InventoryBeyondLookbackError(ValueError):
     """The derivation would have to read further back than the venue's
     history reaches, and no checkpoint covers the gap."""
@@ -89,9 +113,9 @@ class OwnerInventoryDeriver:
         registration: OwnerBudgetRegistration,
         history: IAccountHistoryReader,
         now: datetime,
-    ) -> OwnerInventory:
-        """@brief The inventory of `registration`'s owner at `now`, and a
-        checkpoint saved for the next derivation.
+    ) -> OwnerInventoryDerivation:
+        """@brief The inventory of `registration`'s owner at `now`, the fills
+        it counted, and a checkpoint saved for the next derivation.
         @throws InventoryBeyondLookbackError The read would start further
         back than the venue's history reaches.
         @throws AccountHistoryUnavailableError The venue did not answer."""
@@ -114,12 +138,15 @@ class OwnerInventoryDeriver:
         owned = {record.exchange_order_id for record in orders} | carried_open
         inventory = checkpoint.inventory if checkpoint is not None else EMPTY_INVENTORY
         last_trade_id = checkpoint.last_trade_id if checkpoint is not None else None
+        counted_through = last_trade_id
+        replayed: set[int] = set()
         for trade in history.trade_history(registration.symbol, read_from):
             if trade.order_id not in owned or (
                 last_trade_id is not None and trade.trade_id <= last_trade_id
             ):
                 continue
             inventory = inventory_after(inventory, _owner_fill(trade, registration))
+            replayed.add(trade.trade_id)
             last_trade_id = trade.trade_id
         self._checkpoints.save(
             OwnerInventoryCheckpoint(
@@ -141,7 +168,7 @@ class OwnerInventoryDeriver:
             "a checkpoint" if checkpoint is not None else "the run start",
             len(orders),
         )
-        return inventory
+        return OwnerInventoryDerivation(inventory, frozenset(replayed), counted_through)
 
     def _checkpoint_for(
         self, registration: OwnerBudgetRegistration

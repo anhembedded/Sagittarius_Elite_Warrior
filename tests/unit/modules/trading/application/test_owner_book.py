@@ -160,18 +160,21 @@ def test_an_end_releases_the_order() -> None:
     assert (facts.open_order_count, facts.open_buy_quote) == (0, Decimal(0))
 
 
-def test_a_quote_sized_buy_commits_its_quote_until_it_ends() -> None:
+def test_a_quote_sized_buy_never_commits_less_than_nothing() -> None:
+    """A $300 market buy carries the preview's estimate, 0.006 BTC at
+    50000. Its fills can buy more than that estimate before the last one
+    ends it; what it commits then is zero, never negative."""
     book = _book()
-    quote_buy = replace(_order(1, quantity="0"), order_type=OrderType.MARKET)
+    quote_buy = replace(_order(1, quantity="0.006"), order_type=OrderType.MARKET)
     book.record_sent(quote_buy, Decimal(300), _T0)
+    partly = replace(quote_buy, status=OrderStatus.PARTIALLY_FILLED)
 
-    book.apply_fill(
-        replace(quote_buy, status=OrderStatus.PARTIALLY_FILLED),
-        (Decimal(50000), Decimal("0.001")),
-        None,
-    )
+    book.apply_fill(partly, (Decimal(50000), Decimal("0.004")), None)
+    after_first = book.facts(OrderSide.BUY, Decimal(1), _T0).open_buy_quote
+    book.apply_fill(partly, (Decimal(42000), Decimal("0.003")), None)
+    after_second = book.facts(OrderSide.BUY, Decimal(1), _T0).open_buy_quote
 
-    assert book.facts(OrderSide.BUY, Decimal(1), _T0).open_buy_quote == Decimal(300)
+    assert (after_first, after_second) == (Decimal(100), Decimal(0))
 
 
 def test_sends_leave_the_window_once_it_has_passed() -> None:

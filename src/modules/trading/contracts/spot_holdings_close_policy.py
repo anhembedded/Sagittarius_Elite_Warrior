@@ -59,6 +59,7 @@ def split_liquidation(
     quantity: Decimal,
     owner_inventories: Sequence[tuple[str, Decimal]],
     step_size: Decimal,
+    min_quantity: Decimal = Decimal(0),
 ) -> tuple[LiquidationPart, ...]:
     """@brief Splits one asset's sellable `quantity` per bot (`EPIC-029` ADR
     D6 r2): each `(tag, inventory)` takes up to its inventory, floored to
@@ -68,6 +69,12 @@ def split_liquidation(
     bot's inventory, derived again from its tagged orders, drops by exactly
     what was sold for it, and the user's coins are never counted as the
     bot's. Parts of zero are left out.
+
+    A part below `min_quantity` (the exchange's minimum notional at the
+    current bid) is left out too: the venue would reject it (the
+    `EPIC-029A` review). It stays held as dust, and a bot's share left out
+    is never folded into the untagged rest, which would sell the bot's
+    coins under no tag and leave its inventory counting them.
     """
     parts: list[LiquidationPart] = []
     remaining = quantity
@@ -75,9 +82,9 @@ def split_liquidation(
         share = _ROUNDING_POLICY.round_quantity_down(
             min(inventory, remaining), step_size
         )
-        if share > 0:
+        remaining -= share
+        if share > 0 and share >= min_quantity:
             parts.append(LiquidationPart(tag, share))
-            remaining -= share
-    if remaining > 0:
+    if remaining > 0 and remaining >= min_quantity:
         parts.append(LiquidationPart(None, remaining))
     return tuple(parts)

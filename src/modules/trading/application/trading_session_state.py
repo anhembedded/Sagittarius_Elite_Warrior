@@ -57,7 +57,7 @@ trade-off, not a bottleneck.
 from __future__ import annotations
 
 import threading
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime, timedelta
 from decimal import Decimal
 
@@ -66,6 +66,8 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_book import
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_books import (
     OwnerBooks,
+    OwnerEventBuffer,
+    nothing_counted,
 )
 
 
@@ -211,16 +213,24 @@ class TradingSessionState:
         return self._switch_epoch
 
     def install_owner_book(
-        self, tag: str, book: OwnerBook, *, expected_switch_epoch: int
+        self,
+        tag: str,
+        book: OwnerBook,
+        *,
+        expected_switch_epoch: int,
+        held: OwnerEventBuffer | None = None,
+        counted: Callable[[int | None], bool] = nothing_counted,
     ) -> bool:
         """@brief Installs `book` for `tag` if trading is on and the switch
-        has not moved since `expected_switch_epoch` was read.
+        has not moved since `expected_switch_epoch` was read, replaying the
+        events `held` kept that `counted` says the book does not hold yet
+        (`OwnerBooks.install`).
         @return Whether it was installed; `False` means the session it was
         derived for is over, and nothing changed."""
         with self._lock:
             if not self.enabled or self._switch_epoch != expected_switch_epoch:
                 return False
-            self.owner_books.install(tag, book)
+            self.owner_books.install(tag, book, held, counted)
             return True
 
     def read_all(self) -> tuple[bool, int, tuple[str, ...]]:

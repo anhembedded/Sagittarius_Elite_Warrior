@@ -132,3 +132,14 @@ def stream_event_captured_at(payload: dict[str, Any]) -> datetime:
     `executionReport` and `outboundAccountPosition`, which both stamp it at
     the top level the same way."""
     return datetime.fromtimestamp(payload["E"] / 1000, tz=UTC)
+
+
+def fill_trade_id(payload: dict[str, Any]) -> int | None:
+    """@brief The exchange's trade id of *this* fill (`"t"`), or `None` when
+    the payload carries none (Binance sends `-1` on a report that is not a
+    trade). `EPIC-029A` review: an owner registration joins the fills it
+    buffered to the history it read by this id, so none is counted twice."""
+    raw = payload.get("t")
+    if raw is None or int(raw) < 0:
+        return None
+    return int(raw)

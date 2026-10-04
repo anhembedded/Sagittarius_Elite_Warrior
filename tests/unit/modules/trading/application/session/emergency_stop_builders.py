@@ -23,6 +23,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.trading_session_s
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.exchange_connection_status import (
     ExchangeConnectionStatus,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_book_ticker_reader import (
+    IBookTickerReader,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_provider import (
     IMarketMetadataProvider,
 )
@@ -127,6 +130,7 @@ def make_handler(
     account_reader: FakeTradingAccountReader | None = None,
     metadata_provider: IMarketMetadataProvider | None = None,
     publisher: RecordingPublisher | None = None,
+    book_ticker_reader: IBookTickerReader | None = None,
 ) -> EmergencyStopCommandHandler:
     session_factory = Mock()
     session_factory.create_trading_client.return_value = without_algo_orders(
@@ -147,6 +151,7 @@ def make_handler(
         client_factory=trading_client_factory,
         metadata_provider=metadata_provider or static_metadata_provider(),
         user_data_stream=user_data_stream or Mock(),
+        book_ticker_reader=book_ticker_reader,
     )
     return EmergencyStopCommandHandler(
         single_venue_scopes(
