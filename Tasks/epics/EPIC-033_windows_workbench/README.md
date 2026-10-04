@@ -1,6 +1,6 @@
 # EPIC-033 — The app is one Windows workbench of stock controls
 
-- **Status:** 🔵 Planned
+- **Status:** 🟡 In progress
 - **Repositories:** both — the app here; the workbench mechanism in `Sagittarius_Engine` (Engine track below, tracked on the Engine's own board)
 - **Origin:** the user, 2026-10-04, after the [UI review](https://claude.ai/artifact/Np92LCSrk2t2e8NQxLEkaE): "tui thấy nó khó dùng quá, ko đúng triết lý Window app thì phải, các layer tào lau quá. các nút thì quá bự, tự resize kém, các menu thì ko có continer ẩn hiện gì cả, chiếm hết diện tích" (it is too hard to use, not the Windows-app philosophy; the layers are a mess; the buttons are too big; it resizes badly; the panels have no container to show or hide, they take all the space); "plan của epic phải sữa triệt đễ từ mặt triết lý tới cơ chế, ko hot fix, cái nào cần sử bên engien thì sửa bên engine" (the epic's plan must fix things at the root, from philosophy to mechanism, no hotfix; what needs changing in the engine is changed in the engine); "các UI thì phải đồng nhất, cũng là button sao mà nhiều kiểu quá, 1 kiểu thui, ra soát lại hết, khong có cái nào khác lại, hay làm 1 UI sơ đẳng, nhưng đúng triết lý Window app trước, chưa cần tính đến design" (the UI must be uniform; why are there so many kinds of button — one kind only; review everything, nothing different; build a plain UI first, but true to the Windows-app philosophy; design comes later).
 - **North star:** `Docs/HLD/11_desktop_workbench.md` (the workbench) and `.claude/rules/ui-presentation-rule.md` (the stock-control contract, rewritten by 033A)
@@ -39,20 +39,20 @@
 ## 3. Sub-tasks, ordered by risk
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
-| [EPIC-033A](incomplete/EPIC-033A_stock_control_contract.md) | The UI rule is the desktop guidance of Microsoft, KDE and Apple, written as checkable clauses | Elite | None | 🟢 | Planned |
-| [EPIC-033O](incomplete/EPIC-033O_information_architecture.md) | The information architecture is designed from the use cases, with a wireframe per mode, and approved by the user | Elite | EPIC-033A | 🟢 | Planned |
-| [EPIC-033B](incomplete/EPIC-033B_workbench_conformance_fences.md) | A booted-app conformance suite and static bans hold the contract, shrink-only until each mode migrates | Elite | EPIC-033A, EPIC-033O | 🟡 | Planned |
+| [EPIC-033A](incomplete/EPIC-033A_stock_control_contract.md) | The UI rule is the desktop guidance of Microsoft, KDE and Apple, written as checkable clauses | Elite | None | 🟢 | 🟡 In progress (PR #332) |
+| [EPIC-033O](incomplete/EPIC-033O_information_architecture.md) | The information architecture is designed from the use cases, with a wireframe per mode, and approved by the user | Elite | EPIC-033A | 🟢 | 🟡 In progress (PR #332) |
+| [EPIC-033B](incomplete/EPIC-033B_workbench_conformance_fences.md) | A booted-app conformance suite and static bans hold the contract, shrink-only until each mode migrates | Elite | EPIC-033A, EPIC-033O | 🟡 | 🟡 In progress (PR #332) |
 | [EPIC-033C](incomplete/EPIC-033C_workbench_shell.md) | One top-level workbench window: menu bar, mode bar, View menu, Reset layout, status bar | Elite | Engine W1, EPIC-W3; 033B | 🔴 | Planned |
 | [EPIC-033D](incomplete/EPIC-033D_commands_as_actions.md) | Every command is one QAction contributed by its module: menu entry, toolbar button and shortcut share it | Elite | Engine W2; 033C | 🟡 | Planned |
 | [EPIC-033N](incomplete/EPIC-033N_uniform_display_widgets.md) | Every table, list and read-out is built from one spec per kind | Elite | Engine W6, EPIC-033C | 🟡 | Planned |
 | [EPIC-033E](incomplete/EPIC-033E_settings_dialog.md) | One Options dialog (Tools → Options) with sections, OK, Cancel and Apply | Elite | Engine W4; 033C | 🟡 | Planned |
 | [EPIC-033F](incomplete/EPIC-033F_one_output_dock.md) | One Output dock with a channel per module replaces three log cards | Elite | Engine W4; 033C | 🟢 | Planned |
 | [EPIC-033G](incomplete/EPIC-033G_stock_chart_controls.md) | The chart is a canvas; its controls are actions in the toolbar and the context menu | Elite | EPIC-033D | 🟡 | Planned |
-| [EPIC-033H](incomplete/EPIC-033H_market_mode.md) | Market mode: watch the market — chart central, Watchlist, Order book and Indicators panels | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🟢 | Planned |
-| [EPIC-033I](incomplete/EPIC-033I_trade_mode.md) | Trade mode: one mode for both venues — chart central, Order entry, Positions or Holdings, Open orders, History and Account panels | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🔴 | Planned |
-| [EPIC-033J](incomplete/EPIC-033J_data_mode.md) | Data mode: what is stored — stored-data table central, Coverage and Candle inspector panels, a Data menu | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🟡 | Planned |
-| [EPIC-033K](incomplete/EPIC-033K_strategies_mode.md) | Strategies mode: run strategies and bots — strategy and bot list central, Parameters, Signals, Bot chart and Performance panels | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🔴 | Planned |
-| [EPIC-033L](incomplete/EPIC-033L_backtest_mode.md) | Backtest mode: test a strategy on stored history — result chart central, Run setup, Trades, Metrics and Compare panels | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🟡 | Planned |
+| [EPIC-033H](incomplete/EPIC-033H_market_mode.md) | Market mode: watch the market, laid out as HLD §11.2.1 designs it | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🟢 | Planned |
+| [EPIC-033I](incomplete/EPIC-033I_trade_mode.md) | Trade mode: one mode for both venues, laid out as HLD §11.2.1 designs it | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🔴 | Planned |
+| [EPIC-033J](incomplete/EPIC-033J_data_mode.md) | Data mode: keep history complete, laid out as HLD §11.2.1 designs it | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🟡 | Planned |
+| [EPIC-033K](incomplete/EPIC-033K_strategies_mode.md) | Strategies mode: arm and watch strategies and bots, laid out as HLD §11.2.1 designs it | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🔴 | Planned |
+| [EPIC-033L](incomplete/EPIC-033L_backtest_mode.md) | Backtest mode: test a strategy on stored history, laid out as HLD §11.2.1 designs it | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🟡 | Planned |
 | [EPIC-033P](incomplete/EPIC-033P_developer_mode.md) | Developer mode: the testbed, only when developer mode is on | Elite | EPIC-033O, EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G | 🟢 | Planned |
 | [EPIC-033M](incomplete/EPIC-033M_retire_kit.md) | The kit, the palette and the theme bootstrap are deleted; every ratchet becomes a ban | Elite | EPIC-033H, EPIC-033I, EPIC-033J, EPIC-033K, EPIC-033L, EPIC-033N, EPIC-033P | 🟢 | Planned |
 

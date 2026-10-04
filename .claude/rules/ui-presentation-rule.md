@@ -38,11 +38,12 @@ You are the desktop UI controller for Sagittarius Elite Warrior. Build a Windows
 - No fixed, minimum or maximum size on a control or a container that holds text; the style's metrics decide (MS `vis-layout`: standard button 75×23 px at 96 dpi comes from the style; Qt `QStyle.pixelMetric`). Margins and spacing are the layout's defaults. `[guard: test_stock_controls_only.py, test_workbench_conformance.py; review: H4]`
 - No scroll area inside a scroll area; content that outgrows its panel scrolls once, at the panel. `[guard: test_workbench_conformance.py; review: H4]`
 - No widget placed over another by `move()` (no overlay on a chart); controls live in toolbars, docks or context menus. `[review: H4]`
-- Windows are resizable and usable at 1024×700; left-align text, right-align numbers (MS `vis-layout`). `[guard: test_workbench_conformance.py; review: H4]`
+- Windows are resizable and usable at 1024×700; left-align text, right-align numbers (MS `vis-layout`). The conformance suite runs at 1366×768 only; the small size lands with `EPIC-033C` and alignment with `EPIC-033N`. `[review: H4]`
 - MVP trio per screen under its package: `<name>_presenter.py`, `<name>_view.py`, `<name>_view_model.py`; helpers in `logic/` or `helpers/` only when size warrants; Coordinators per `async-ui-action-rule.md` §2. `[review: C6]`
 
 ## 4. Text, icons and terminology
-- Menus and buttons in sentence case, dialog titles in title case (MS); every menu item has an access key unique in its menu; a literal ampersand is written `&&`. `[guard: test_workbench_conformance.py; review: H3]`
+- Menus and buttons in sentence case, dialog titles in title case (MS); every menu item has an access key unique in its menu. `[review: H3]`
+- A literal ampersand in a label is written `&&`, never left to become an access key. `[guard: test_workbench_conformance.py]`
 - A command that needs more input before it acts ends with "…" (U+2026, never "..."); commands that only open a window (About, Options, Properties) take none (MS `cmd-menus`, KDE, Apple). `[review: H3]`
 - OK is spelled "OK"; problems are never "OK" — use Close (MS `mess-confirm`). `[review: H3]`
 - Icons: SVG only (Lucide/Feather) in `src/support/ui_kit/assets/icons/`; never emoji. Strategy parameters are labelled "Strategy Parameters", distinct from Bot Settings; user-visible strings are English. `[review: K6]`
@@ -52,7 +53,8 @@ Every presenter package keeps a `preview.py` with `build_preview() -> QWidget` (
 
 ## 6. Menus, toolbars and commands
 - The menu bar reads File, Edit, View, the modules' menus, Tools, Window, Help (MS `cmd-menus`); it is the complete catalogue of commands. `[guard: test_workbench_conformance.py; review: H3]`
-- Every command is one `QAction` contributed by its module; a toolbar holds actions, never a button widget, and every toolbar action is also in a menu (MS `cmd-toolbars`). Icon-only actions have a tooltip naming the shortcut. `[guard: test_workbench_conformance.py; review: H3]`
+- A toolbar holds actions, never a button widget (MS `cmd-toolbars`). `[guard: test_workbench_conformance.py]`
+- Every command is one `QAction` contributed by its module, and every toolbar action is also in a menu; icon-only actions have a tooltip naming the shortcut (MS `cmd-toolbars`). The menu check lands with `EPIC-033D`. `[review: H3]`
 - No command is reachable only by a shortcut or a context menu; context menus repeat menu commands (MS `cmd-menus`). `[review: H3]`
 - No checkable push button: state is a check box, a radio button or a checkable action (MS `ctrl-command-buttons`, KDE). `[guard: test_stock_controls_only.py]`
 
@@ -63,12 +65,12 @@ Every presenter package keeps a `preview.py` with `build_preview() -> QWidget` (
 
 ## 8. Panels, modes and perspectives
 - The app is one `QMainWindow` shell with a mode per job the person does; each mode is a workbench host: a central widget, docks, toolbars (Qt Creator's shape; HLD §11). `[guard: test_workbench_conformance.py]`
-- A panel is a `QDockWidget` with a title, a close button and its content, nothing else of its own: no inner card, no second heading. Every dock and toolbar has a unique object name and a toggle in View; Window → Reset Layout restores the mode's default (Qt `QMainWindow`, MS). `[guard: test_workbench_conformance.py; review: H7]`
-- Each mode's perspective is saved on exit and restored on start, keyed by mode and layout version; a mismatch restores the default. `[guard: test_workbench_conformance.py]`
+- A panel is a `QDockWidget` with a title, a close button and its content, nothing else of its own: no inner card, no second heading. Every dock and toolbar has a unique object name and a toggle in View; Window → Reset Layout restores the mode's default (Qt `QMainWindow`, MS). The suite checks the View toggle; object names and Reset Layout are review until `EPIC-033C`. `[guard: test_workbench_conformance.py; review: H7]`
+- Each mode's perspective is saved on exit and restored on start, keyed by mode and layout version; a mismatch restores the default. The suite checks that a host restores its own saved state; the restart half lands with `EPIC-033C`. `[guard: test_workbench_conformance.py; review: H7]`
 
 ## 9. Tables, lists and read-outs
 - Every table, list and read-out of a kind shares its properties: item views are configured by the engine's column specs (selection, editing, sorting, header), never per view; a column's kind decides alignment and formatting — numbers, money and durations right, text, identifiers and dates left (MS `ctrl-list-views`). `[guard: test_stock_controls_only.py, test_workbench_conformance.py; review: H6]`
-- Full-row selection, always visible; a header click sorts ascending, then descending; columns are movable and remembered per view (MS `ctrl-list-views`). `[guard: test_workbench_conformance.py; review: H6]`
+- Full-row selection, always visible; a header click sorts ascending, then descending; columns are movable and remembered per view (MS `ctrl-list-views`). The suite checks full-row selection, read-only cells and sorting enabled; sort order, movable and remembered columns are review until `EPIC-033N`. `[guard: test_workbench_conformance.py; review: H6]`
 - An empty view shows an instruction, not a blank (MS `ctrl-list-views`). `[review: H6]`
 - A table narrower than its columns scrolls horizontally, never drops them (`BOT-128`). `[review: H6]`
 

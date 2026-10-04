@@ -1,4 +1,4 @@
-# EPIC-033L — Backtest mode: test a strategy on stored history — result chart central, Run setup, Trades, Metrics and Compare panels
+# EPIC-033L — Backtest mode: test a strategy on stored history, laid out as HLD §11.2.1 designs it
 
 **Status:** 🔵 Backlog
 **Source:** the user, 2026-10-04 — "Đừng bị UI hiện tại dẫn dắt nhé, bạn có quyền xây lại triết lý và desihn của tất cả UI" (do not be led by the current UI; you may rebuild the philosophy and design of the whole UI); the modes come from EPIC-033O's approved information architecture, not from the screens that exist today.
@@ -15,7 +15,7 @@ Backtest is a page whose parameter bar of pill dropdowns clips at 1366 px, scrol
 
 ## 2. Acceptance criteria
 - [ ] Run setup is a dock (or one Run Settings… dialog) with market, symbol, strategy, timeframe, range, timezone, capital and execution; Run is an action (F5) and Stop replaces it while running.
-- [ ] Trades, Metrics and Compare are docks; every remaining dialog is a stock `QDialog` with `QDialogButtonBox`.
+- [ ] The central widget and default docks are exactly those HLD §11.2.1 lists for this mode (the one list; this task does not copy it). Every remaining dialog is a stock `QDialog` with `QDialogButtonBox`.
 - [ ] Every command of the mode is an action in its menu and, when frequent, its toolbar; every table and read-out is built from its spec; the mode passes the conformance suite with no baseline row.
 - [ ] The SPECs above still pass their "Proven by" tests; any changed flow updates its SPEC in the same pull request.
 

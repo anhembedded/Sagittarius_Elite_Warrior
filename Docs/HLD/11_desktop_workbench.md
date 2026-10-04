@@ -67,22 +67,22 @@ the mode the user last used; there is no Welcome page.
 
 ### 11.2.3 The menu bar is the catalogue of commands
 
-Sentence case; `&` marks the access key; "…" only where the command asks for more input;
+Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E, V, R, D, T, W, H, and P for Developer) and within each menu; "…" only where the command asks for more input;
 "confirm" means a dialog with specific verbs and the safe choice as default
 (`ui-presentation-rule.md` §10). A command with a toolbar column is also on that mode's toolbar.
 
 | Menu | Command | Shortcut | Toolbar | Confirm |
 | :--- | :--- | :--- | :--- | :-: |
-| &File | E&xport table… | — | — | — |
+| &File | &Export table… | — | — | — |
 | | E&xit | Alt+F4 | — | — |
 | &Edit | &Copy | Ctrl+C | — | — |
 | | Select &all | Ctrl+A | — | — |
 | | &Find… | Ctrl+F | — | — |
-| &View | &Market … &Developer (one checkable action per mode) | Ctrl+1 … Ctrl+6 | mode selector | — |
-| | one toggle per panel of the current mode | — | — | — |
-| | &Toolbars ›, &Status bar | — | — | — |
-| | F&ull screen | F11 | — | — |
-| &Trade | &Venue › Futures, Spot | — | Trade | — |
+| &View | &Market, T&rade, &Strategies, &Backtest, &Data, De&veloper (one checkable action per mode) | Ctrl+1 … Ctrl+6 | mode selector | — |
+| | one toggle per panel of the current mode, access keys assigned per mode (`EPIC-033D` checks them) | — | — | — |
+| | T&oolbars ›, Stat&us bar | — | — | — |
+| | &Full screen | F11 | — | — |
+| T&rade | &Venue › Futures, Spot | — | Trade | — |
 | | &Enable live trading (checkable) | — | Trade | on enable |
 | | &New order… | F9 | Trade | on place |
 | | Cancel &order | Del | — | yes |
@@ -103,7 +103,7 @@ Sentence case; `&` marks the access key; "…" only where the command asks for m
 | | &Keyboard shortcuts | — | — | — |
 | | &About Sagittarius Elite Warrior | — | — | — |
 
-Developer mode adds a `&Developer` menu before Tools, holding the probes. Context menus on tables
+Developer mode adds a `Develo&per` menu before Tools, holding the probes. Context menus on tables
 repeat the menu commands that act on the selected row (Cancel order, Copy).
 
 ### 11.2.4 Today's screens, mapped

@@ -1,4 +1,4 @@
-# EPIC-033H — Market mode: watch the market — chart central, Watchlist, Order book and Indicators panels
+# EPIC-033H — Market mode: watch the market, laid out as HLD §11.2.1 designs it
 
 **Status:** 🔵 Backlog
 **Source:** the user, 2026-10-04 — "Đừng bị UI hiện tại dẫn dắt nhé, bạn có quyền xây lại triết lý và desihn của tất cả UI" (do not be led by the current UI; you may rebuild the philosophy and design of the whole UI); the modes come from EPIC-033O's approved information architecture, not from the screens that exist today.
@@ -14,7 +14,7 @@
 Watching the market is spread over three screens today: Watchlist (a page with one table), the Dev Board chart, and the order-book widget, none of which can sit beside the others.
 
 ## 2. Acceptance criteria
-- [ ] The chart is central; Watchlist, Order book and Indicators are docks; picking a symbol in the Watchlist drives the chart and the order book.
+- [ ] The central widget and default docks are exactly those HLD §11.2.1 lists for this mode (the one list; this task does not copy it). Picking a symbol in the Watchlist drives the chart.
 - [ ] Connection state shows in the status bar in text; Tools → Check Connection runs SPEC-003.
 - [ ] Every command of the mode is an action in its menu and, when frequent, its toolbar; every table and read-out is built from its spec; the mode passes the conformance suite with no baseline row.
 - [ ] The SPECs above still pass their "Proven by" tests; any changed flow updates its SPEC in the same pull request.

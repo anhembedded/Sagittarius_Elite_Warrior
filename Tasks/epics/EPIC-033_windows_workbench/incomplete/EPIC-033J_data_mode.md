@@ -1,4 +1,4 @@
-# EPIC-033J — Data mode: what is stored — stored-data table central, Coverage and Candle inspector panels, a Data menu
+# EPIC-033J — Data mode: keep history complete, laid out as HLD §11.2.1 designs it
 
 **Status:** 🔵 Backlog
 **Source:** the user, 2026-10-04 — "Đừng bị UI hiện tại dẫn dắt nhé, bạn có quyền xây lại triết lý và desihn của tất cả UI" (do not be led by the current UI; you may rebuild the philosophy and design of the whole UI); the modes come from EPIC-033O's approved information architecture, not from the screens that exist today.
@@ -14,7 +14,7 @@
 Data Management is a page of metric cards, a header with Vacuum and Purge, and a column of full-width 40 px buttons, the fifth hidden by its own scroll area.
 
 ## 2. Acceptance criteria
-- [ ] The stored-data table is central; Coverage/gaps and Candle inspector are docks.
+- [ ] The central widget and default docks are exactly those HLD §11.2.1 lists for this mode (the one list; this task does not copy it).
 - [ ] Data menu: Sync…, Scan, Repair Gap…, Compact Database, Delete Data…; the table's context menu repeats the per-row commands; Delete Data… confirms with a safe default.
 - [ ] Record count and database size show in the status bar.
 - [ ] Every command of the mode is an action in its menu and, when frequent, its toolbar; every table and read-out is built from its spec; the mode passes the conformance suite with no baseline row.

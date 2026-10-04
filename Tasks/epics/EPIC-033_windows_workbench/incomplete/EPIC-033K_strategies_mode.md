@@ -1,4 +1,4 @@
-# EPIC-033K — Strategies mode: run strategies and bots — strategy and bot list central, Parameters, Signals, Bot chart and Performance panels
+# EPIC-033K — Strategies mode: arm and watch strategies and bots, laid out as HLD §11.2.1 designs it
 
 **Status:** 🔵 Backlog
 **Source:** the user, 2026-10-04 — "Đừng bị UI hiện tại dẫn dắt nhé, bạn có quyền xây lại triết lý và desihn của tất cả UI" (do not be led by the current UI; you may rebuild the philosophy and design of the whole UI); the modes come from EPIC-033O's approved information architecture, not from the screens that exist today.
@@ -14,7 +14,7 @@
 Arming a strategy lives in a card inside each desk, the last signal in another card on Dev Board, and the Grid bot of EPIC-029 has a chart but no screen: there is no place where a person sees everything that trades for them.
 
 ## 2. Acceptance criteria
-- [ ] A list of strategies and bots with their state is central; Parameters, Signals, Bot chart and Performance are docks bound to the selection.
+- [ ] The central widget and default docks are exactly those HLD §11.2.1 lists for this mode (the one list; this task does not copy it). The docks follow the selection in the central table.
 - [ ] Arm, Disarm, Start Bot, Stop Bot are actions with confirmations where they start live trading.
 - [ ] Every command of the mode is an action in its menu and, when frequent, its toolbar; every table and read-out is built from its spec; the mode passes the conformance suite with no baseline row.
 - [ ] The SPECs above still pass their "Proven by" tests; any changed flow updates its SPEC in the same pull request.

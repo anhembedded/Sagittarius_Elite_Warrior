@@ -1,4 +1,4 @@
-# EPIC-033I — Trade mode: one mode for both venues — chart central, Order entry, Positions or Holdings, Open orders, History and Account panels
+# EPIC-033I — Trade mode: one mode for both venues, laid out as HLD §11.2.1 designs it
 
 **Status:** 🔵 Backlog
 **Source:** the user, 2026-10-04 — "Đừng bị UI hiện tại dẫn dắt nhé, bạn có quyền xây lại triết lý và desihn của tất cả UI" (do not be led by the current UI; you may rebuild the philosophy and design of the whole UI); the modes come from EPIC-033O's approved information architecture, not from the screens that exist today.
@@ -14,8 +14,8 @@
 Futures and Spot are two separate page-shaped modes today, each a fixed splitter with an order form in its own scroll area, and the Dev Board has a third order path behind F9.
 
 ## 2. Acceptance criteria
-- [ ] One Trade mode; the venue is chosen on its toolbar (only enabled venues listed); each venue keeps its own saved perspective.
-- [ ] Trade menu: Enable Trading, Disable Trading, New Order… (F9), Cancel Order, Cancel All Orders…, Emergency Stop…; Emergency Stop is also on every mode's toolbar.
+- [ ] The central widget and default docks are exactly those HLD §11.2.1 lists for this mode (the one list; this task does not copy it). One Trade mode; the venue is chosen on its toolbar (only enabled venues listed); each venue keeps its own saved perspective.
+- [ ] The Trade menu, its shortcuts, toolbar placement and confirmations are exactly HLD §11.2.3's; Emergency stop is also on every mode's toolbar.
 - [ ] Confirmations follow the rule: risky actions only, the safe choice as default, specific verbs ("Place order", "Cancel all"), never OK/Cancel.
 - [ ] The user confirms one order round-trip per venue on Testnet.
 - [ ] Every command of the mode is an action in its menu and, when frequent, its toolbar; every table and read-out is built from its spec; the mode passes the conformance suite with no baseline row.
