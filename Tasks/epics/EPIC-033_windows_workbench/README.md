@@ -14,7 +14,9 @@
 2. D2 — every fix lands at its mechanism; a rule without a check is not done.
 3. D3 — the generic workbench mechanism is built in the Engine now, directly, not harvested from the app later (the user confirmed, superseding TASK-043's harvest-first rule for this mechanism).
 4. D9 — display widgets are uniform too: every table, list and read-out of the same kind has the same properties, declared once per column or value kind, never set per view.
-5. D4-D8 — modes, chart, font, superseded guards, dark mode: see the decision record.
+5. D10 — the UI is redesigned from the use cases, not rebuilt screen by screen: EPIC-033O designs the modes (draft: Market, Trade, Strategies, Backtest, Data, Developer) and the user approves them before any mode is built.
+6. D11 — the rule is the desktop guidance of Microsoft, KDE and Apple (cited per clause); where they disagree, the Windows desktop choice wins (Tools → Options, platform button order through `QDialogButtonBox`).
+7. D4-D8 — shell, chart, font, superseded guards, dark mode: see the decision record.
 
 ## 2. Goals — measurable
 | Metric | Today (measured 2026-10-04, 1366×768) | When the epic is done |
@@ -37,20 +39,22 @@
 ## 3. Sub-tasks, ordered by risk
 | Id | Task | Repo | Depends on | Risk | Status |
 | :--- | :--- | :--- | :--- | :-: | :--- |
-| [EPIC-033A](incomplete/EPIC-033A_stock_control_contract.md) | The rules say one look per control kind: stock Qt widgets in the platform style | Elite | None | 🟢 | Planned |
-| [EPIC-033B](incomplete/EPIC-033B_workbench_conformance_fences.md) | A booted-app conformance suite and static bans hold the contract, shrink-only until each mode migrates | Elite | EPIC-033A | 🟡 | Planned |
+| [EPIC-033A](incomplete/EPIC-033A_stock_control_contract.md) | The UI rule is the desktop guidance of Microsoft, KDE and Apple, written as checkable clauses | Elite | None | 🟢 | Planned |
+| [EPIC-033O](incomplete/EPIC-033O_information_architecture.md) | The information architecture is designed from the use cases, with a wireframe per mode, and approved by the user | Elite | EPIC-033A | 🟢 | Planned |
+| [EPIC-033B](incomplete/EPIC-033B_workbench_conformance_fences.md) | A booted-app conformance suite and static bans hold the contract, shrink-only until each mode migrates | Elite | EPIC-033A, EPIC-033O | 🟡 | Planned |
 | [EPIC-033C](incomplete/EPIC-033C_workbench_shell.md) | One top-level workbench window: menu bar, mode bar, View menu, Reset layout, status bar | Elite | Engine W1, EPIC-W3; 033B | 🔴 | Planned |
 | [EPIC-033D](incomplete/EPIC-033D_commands_as_actions.md) | Every command is one QAction contributed by its module: menu entry, toolbar button and shortcut share it | Elite | Engine W2; 033C | 🟡 | Planned |
-| [EPIC-033E](incomplete/EPIC-033E_settings_dialog.md) | One Settings dialog with sections, OK, Apply and Cancel | Elite | Engine W4; 033C | 🟡 | Planned |
+| [EPIC-033N](incomplete/EPIC-033N_uniform_display_widgets.md) | Every table, list and read-out is built from one spec per kind | Elite | Engine W6, EPIC-033C | 🟡 | Planned |
+| [EPIC-033E](incomplete/EPIC-033E_settings_dialog.md) | One Options dialog (Tools → Options) with sections, OK, Cancel and Apply | Elite | Engine W4; 033C | 🟡 | Planned |
 | [EPIC-033F](incomplete/EPIC-033F_one_output_dock.md) | One Output dock with a channel per module replaces three log cards | Elite | Engine W4; 033C | 🟢 | Planned |
 | [EPIC-033G](incomplete/EPIC-033G_stock_chart_controls.md) | The chart is a canvas; its controls are actions in the toolbar and the context menu | Elite | EPIC-033D | 🟡 | Planned |
-| [EPIC-033H](incomplete/EPIC-033H_dev_board_workbench.md) | Dev Board: plain panels, no card inside a dock, contributions only | Elite | EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G | 🟡 | Planned |
-| [EPIC-033I](incomplete/EPIC-033I_trading_desks_workbench.md) | Futures and Spot desks are workbenches: chart central, Order, Account and Strategy docks | Elite | EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G | 🔴 | Planned |
-| [EPIC-033J](incomplete/EPIC-033J_database_workbench.md) | Database is a workbench: shard table central, Sync dock, actions in menu and context menu | Elite | EPIC-033C, EPIC-033D, EPIC-033F | 🟡 | Planned |
-| [EPIC-033K](incomplete/EPIC-033K_watchlist_and_welcome.md) | Watchlist and Welcome follow the contract | Elite | EPIC-033C | 🟢 | Planned |
-| [EPIC-033L](incomplete/EPIC-033L_backtest_workbench.md) | Backtest is a workbench and its sixteen dialogs are stock dialogs | Elite | EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G | 🔴 | Planned |
-| [EPIC-033N](incomplete/EPIC-033N_uniform_display_widgets.md) | Every table, list and read-out is built from one spec per kind: same selection, alignment, sorting, header and formatting | Elite | Engine W6, EPIC-033C | 🟡 | Planned |
-| [EPIC-033M](incomplete/EPIC-033M_retire_kit.md) | The kit, the palette and the theme bootstrap are deleted; every ratchet becomes a ban | Elite | EPIC-033H, EPIC-033I, EPIC-033J, EPIC-033K, EPIC-033L | 🟢 | Planned |
+| [EPIC-033H](incomplete/EPIC-033H_market_mode.md) | Market mode: watch the market — chart central, Watchlist, Order book and Indicators panels | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🟢 | Planned |
+| [EPIC-033I](incomplete/EPIC-033I_trade_mode.md) | Trade mode: one mode for both venues — chart central, Order entry, Positions or Holdings, Open orders, History and Account panels | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🔴 | Planned |
+| [EPIC-033J](incomplete/EPIC-033J_data_mode.md) | Data mode: what is stored — stored-data table central, Coverage and Candle inspector panels, a Data menu | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🟡 | Planned |
+| [EPIC-033K](incomplete/EPIC-033K_strategies_mode.md) | Strategies mode: run strategies and bots — strategy and bot list central, Parameters, Signals, Bot chart and Performance panels | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🔴 | Planned |
+| [EPIC-033L](incomplete/EPIC-033L_backtest_mode.md) | Backtest mode: test a strategy on stored history — result chart central, Run setup, Trades, Metrics and Compare panels | Elite | EPIC-033O (approved design of this mode), EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G, EPIC-033N | 🟡 | Planned |
+| [EPIC-033P](incomplete/EPIC-033P_developer_mode.md) | Developer mode: the testbed, only when developer mode is on | Elite | EPIC-033O, EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G | 🟢 | Planned |
+| [EPIC-033M](incomplete/EPIC-033M_retire_kit.md) | The kit, the palette and the theme bootstrap are deleted; every ratchet becomes a ban | Elite | EPIC-033H, EPIC-033I, EPIC-033J, EPIC-033K, EPIC-033L, EPIC-033N, EPIC-033P | 🟢 | Planned |
 
 ### Engine track (Sagittarius_Engine, its own board; listed here as dependencies only, ONBOARDING §9)
 The Engine epic is scaffolded in that repository by its own rules (`.agents/rules/task-tracking.md`), starting with the PlantUML as-is / to-be diagrams its onboarding §10.5 asks for before any task file.
@@ -68,13 +72,15 @@ The Engine epic is scaffolded in that repository by its own rules (`.agents/rule
 | :--- | :--- | :--- |
 | 0 — Contract and fences | 033A + 033B merged; every violation measured into a shrink-only baseline | Conformance suite green with its baseline; mutation runs recorded |
 | 1 — Engine mechanism | W1-W6 released in an Engine version the app pins in `engine.ref` | Engine gate; the app's shell builds on it |
-| 2 — Shell | 033C-033G merged; shell checks removed from the baseline for every mode | Conformance suite; desktop E2E layout round-trip |
-| 3 — Modes | 033H-033L and 033N merged; each mode's baseline rows gone | Conformance suite per mode; Testnet confirmation by the user for 033I |
+| 0b — Design | 033O approved by the user | The user's approval quoted in the decision record |
+| 2 — Shell | 033C-033G and 033N merged; shell checks removed from the baseline for every mode | Conformance suite; desktop E2E layout round-trip |
+| 3 — Modes | 033H-033L and 033P merged; each mode's baseline rows gone | Conformance suite per mode; Testnet confirmation by the user for 033I and 033K |
 | 4 — Retire | 033M merged; every baseline empty, every ratchet a ban | Full gate |
 
 ## 5. Out of scope
 Visual design (colours, icon set, branding, a designed dark theme) — deferred by the user (D1); dark mode comes only from the operating system's colour scheme (D8). The Bots tab has no screen yet; when it gets one it is born a workbench under this contract. Engine-side retirement of the QML kit is the Engine's own decision (W5 only scopes it).
 
 ## Notes (newest first)
+- **2026-10-04** — Redesign from the use cases (D10) and the rule grounded in Microsoft/KDE/Apple guidance (D11): 033O and 033P added; the screen-by-screen tasks became mode tasks; Settings became Tools → Options.
 - **2026-10-04** — The user confirmed D3 (engine directly) and added D9 (uniform display widgets): W6 and 033N added.
 - **2026-10-04** — Epic planned from the UI review and three user messages; nothing implemented.

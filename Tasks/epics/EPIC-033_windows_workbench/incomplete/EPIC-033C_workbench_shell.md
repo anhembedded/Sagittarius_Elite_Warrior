@@ -14,7 +14,9 @@
 
 ## 2. Acceptance criteria
 - [ ] The app's top window is the Engine's `WorkbenchShell`; every mode is a nested workbench host it switches between.
-- [ ] The menu bar holds File, Edit, View, Window, Help; View lists every dock of the current mode; Window → Reset layout restores the mode's default perspective; Help → About shows name, version and venue.
+- [ ] The menu bar holds File, Edit, View, the modules' menus (Trade, Data, …), Tools, Window, Help in that order, every item with a unique access key; View lists the modes (Ctrl+1…), every dock of the current mode, Toolbars and Status Bar; Window → Reset Layout restores the mode's default perspective; Help → About shows name, version and venue.
+- [ ] Welcome is deleted: the app opens on the last used mode, as Windows applications do; developer mode moves to Tools → Options.
+- [ ] The window title and the status bar name the venue (Testnet or Mainnet) in text, never by colour alone.
 - [ ] Modes are a vertical mode bar of checkable actions with icons and tooltips (Ctrl+1…Ctrl+8), as in Qt Creator; `Sidebar`, its 10 style sheets and its fixed heights are deleted.
 - [ ] The application font is the platform's (`_apply_font` deleted); tabular numbers use `QFontDatabase.systemFont(FixedFont)` only where digits align.
 - [ ] Each mode's perspective is saved on exit and restored on start, keyed by mode and app version; a mismatched version resets, never crashes.

@@ -5,7 +5,7 @@
 **Risk:** 🟢 — a shared surface changes shape
 **Complexity:** M — deletion
 **Epic:** [EPIC-033](../README.md)
-**Depends on:** EPIC-033H, EPIC-033I, EPIC-033J, EPIC-033K, EPIC-033L, EPIC-033N
+**Depends on:** EPIC-033H, EPIC-033I, EPIC-033J, EPIC-033K, EPIC-033L, EPIC-033N, EPIC-033P
 
 ---
 
@@ -13,7 +13,7 @@
 HLD §11.4 makes deleting `Palette`, `kit/style.py` and `seed_app_theme()` the last step, once nothing reads them; `kit/` is 29 files (~4,578 lines) with 47 importers in `src`.
 
 ## 2. Acceptance criteria
-- [ ] `src/support/ui_kit/kit/`, `palette.py`, `theme_bootstrap.py`, `PageShell` and `StyledButton` are deleted; `configure_app_qml` and `get_theme_bridge` are no longer called.
+- [ ] `src/support/ui_kit/kit/`, `palette.py`, `theme_bootstrap.py`, `PageShell`, `StyledButton`, the sidebar and every replaced screen are deleted; `configure_app_qml` and `get_theme_bridge` are no longer called.
 - [ ] `baseline_stock_controls.json`, `baseline_workbench_conformance.json` and `baseline_app_styling.json` are empty and their guards become bans.
 - [ ] HLD §11.4's last row is marked done with the commit.
 

@@ -5,7 +5,7 @@
 **Risk:** 🟡 — a shared surface changes shape
 **Complexity:** M — a runtime suite over every mode plus AST guards
 **Epic:** [EPIC-033](../README.md)
-**Depends on:** EPIC-033A
+**Depends on:** EPIC-033A, EPIC-033O
 
 ---
 
