@@ -9,6 +9,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots.qu
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots.result import (
     BotList,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_progress_reader import (
+    bot_progress,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
@@ -23,8 +26,11 @@ class ListBotsQueryHandler(IQueryHandler[ListBotsQuery, BotList]):
 
     def execute(self, query: ListBotsQuery) -> BotList:
         reading = self._store.load_all()
-        bots = sorted(
-            (stored.bot for stored in reading.bots),
-            key=lambda bot: (bot.created_at, bot.bot_id.value),
+        stored = sorted(
+            reading.bots,
+            key=lambda item: (item.bot.created_at, item.bot.bot_id.value),
         )
-        return BotList(tuple(BotSnapshot.of(bot) for bot in bots), reading.refused)
+        return BotList(
+            tuple(BotSnapshot.of(item.bot, bot_progress(item)) for item in stored),
+            reading.refused,
+        )

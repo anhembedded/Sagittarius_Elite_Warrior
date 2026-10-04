@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_command
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
     BotExecutors,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_kind_catalog import (
+    BotKindCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_runner import (
     BotRunner,
 )
@@ -32,8 +35,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_
     GridStartPreconditions,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_kind_catalog import (
+    IBotKindCatalog,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_runner import IBotRunner
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import GridKind
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
 )
@@ -51,9 +58,21 @@ def bind_executors(container: IContainer) -> None:
     container.singleton(BotCommandLock, BotCommandLock())
     container.singleton(BotExecutors, _build_executors)
     container.singleton(IBotRunner, _build_runner)
+    container.singleton(IBotKindCatalog, _build_kind_catalog)
 
 
 def _build_executors(container: IContainer) -> BotExecutors:
+    return BotExecutors(_grid_executor_factory(container))
+
+
+def _build_kind_catalog(container: IContainer) -> IBotKindCatalog:
+    """The kinds the Bots tab offers (`EPIC-029F`). Grid only for now."""
+    return BotKindCatalog(
+        [GridKind(_grid_executor_factory(container), GridThresholds())]
+    )
+
+
+def _grid_executor_factory(container: IContainer) -> GridExecutorFactory:
     deps = GridExecutorDeps(
         ports=container.resolve(IVenueTradingPorts),
         store=container.resolve(IBotStore),
@@ -62,7 +81,7 @@ def _build_executors(container: IContainer) -> BotExecutors:
         queues=ThreadBotWorkQueue,
         pacers=MonotonicOrderPacer,
     )
-    return BotExecutors(GridExecutorFactory(deps))
+    return GridExecutorFactory(deps)
 
 
 def _build_runner(container: IContainer) -> IBotRunner:
