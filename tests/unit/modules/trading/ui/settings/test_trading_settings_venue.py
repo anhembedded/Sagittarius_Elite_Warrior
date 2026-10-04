@@ -49,6 +49,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_view import (
     TradingSettingsView,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
+    EnvFirstCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
+    SecretsFileSource,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
     IExchangeCredentialsProvider,
@@ -302,3 +308,36 @@ def test_a_venue_change_that_cannot_be_written_is_taken_back(
     assert config.get(_SCALAR) == _FUTURES.value
     assert presenter.is_dirty()
     assert "venues were not changed" in presenter._settings_view_model.statusMessage
+
+
+def test_a_key_already_written_stays_saved_when_the_venues_cannot_be(
+    qapp, request, tmp_path, monkeypatch
+):
+    """PR #348 re-review (S1), the second branch: the secrets file is written
+    first, so when `user_config.json` then fails, the new key is saved and
+    the page takes it as saved; only the venue change stays unapplied."""
+    monkeypatch.delenv("BINANCE_FUTURES_TESTNET_API_KEY", raising=False)
+    monkeypatch.delenv("BINANCE_FUTURES_TESTNET_API_SECRET", raising=False)
+
+    def refuse(_self) -> None:
+        raise OSError("read-only file system")
+
+    monkeypatch.setattr(ConfigManager, "save", refuse)
+    secrets = SecretsFileSource(str(tmp_path / "secrets.local.json"))
+    secrets.write("old-key", "old-secret")
+    provider = EnvFirstCredentialsProvider(secrets, _FUTURES)
+    config = ConfigManager()
+    config.load_dict({_LIST: [_FUTURES.value, _SPOT.value], _SCALAR: _FUTURES.value})
+    presenter, _view = _presenter(request, config, _Sessions(), provider)
+    view_model = presenter._settings_view_model
+    view_model.apiKey = "new-key"
+    view_model.requestVenueEnabled(_SPOT.value, False)
+
+    presenter.apply()
+
+    saved = provider.resolve().credentials
+    assert saved is not None
+    assert saved.api_key == "new-key"
+    assert config.get(_LIST) == [_FUTURES.value, _SPOT.value]
+    assert presenter._saved_fields[0] == "new-key"
+    assert presenter.is_dirty()
