@@ -63,6 +63,8 @@ user with their own keys.
 | File | Change |
 | :--- | :--- |
 | `tests/testnet/test_grid_bot_round_trip.py` (new) | gated round trip |
+| `tests/testnet/test_spot_rate_limits.py` (new) | gated read: how many owner budgets fit one account |
+| `tests/testnet/grid_testnet_app.py` (new) | the composed app on Spot Testnet; the stream probe, state wait and clean-up |
 | `Tasks/reports/grid_soak_<date>.md` (new) | soak report |
 
 ## 5. Testing
@@ -87,7 +89,9 @@ user with their own keys.
     - a level cancelled from outside is laid again under a new id;
     - Stop, selling the base, leaves no tagged order open.
   - Clean-up stops a bot still running (selling its base) before cancelling what is left, since a cancel heard while RUNNING is laid again; a clean-up failure is logged, never masking the test's own.
-  - A second test reads `exchangeInfo.rateLimits` and the symbol's `MAX_NUM_ORDERS` and works out how many owner budgets at the O1 caps fit one account: a burst within each `ORDERS` window (the spacing bounds it) and the open orders. It writes the number to `logs/testnet/spot_rate_limits.json`, which answers whether several bots need an account-wide cap.
+  - The stream probe, the state wait and the clean-up live in `tests/testnet/grid_testnet_app.py`, so the test file stays under the 400-line ceiling (the PR #339 round-2 review).
+- `tests/testnet/test_spot_rate_limits.py`
+  - Reads `exchangeInfo.rateLimits` and the symbol's `MAX_NUM_ORDERS` and works out how many owner budgets at the O1 caps fit one account: a burst within each `ORDERS` window (the spacing bounds it) and the open orders. It writes the number to `logs/testnet/spot_rate_limits.json`, which answers whether several bots need an account-wide cap.
   - Not run here: the build container cannot reach Binance. The user's run is the evidence.
 - **User's first run (2026-10-04)**, `-TestnetOnly`, before PR7:
   - The Spot round trip passed. So the Spot keys resolve and Spot orders are accepted.
