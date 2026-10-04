@@ -59,7 +59,7 @@ class FuturesSettingsService(IFuturesSettingsControl):
         )
 
 
-def _result(command: object, answer: object) -> AccountControlResult:
+def _result[T](command: object, answer: object) -> AccountControlResult[T]:
     if not isinstance(answer, AccountControlResult):
         raise TypeError(
             f"{type(command).__name__} was answered with {type(answer).__name__}, "

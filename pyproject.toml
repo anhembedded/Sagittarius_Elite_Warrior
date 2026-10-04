@@ -197,6 +197,14 @@ extend-select = ["S", "PLR2004", "B", "SIM", "ERA", "N"]
 # exempt — EPIC-002D's job is to shrink this list over time, never to grow
 # it silently. A NEW file (or a file not in this list) that fails must be
 # fixed, not added here.
+#
+# EPIC-032A — `tests/unit/architecture/test_mypy_scope_only_shrinks.py` now
+# holds that promise: `exclude` may only lose patterns
+# (`baseline_mypy_excludes.txt`), and every first-party override below must
+# match a module. `warn_unused_configs` names an override that matches
+# nothing; the Domain and Application overrides had matched nothing since
+# EPIC-025 moved both layers under `src/modules/*/`.
+warn_unused_configs = true
 namespace_packages = true
 explicit_package_bases = true
 exclude = [
@@ -312,7 +320,6 @@ exclude = [
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]coordinators[\\/]sync_coordinator\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]coordinators[\\/]kline_inspector_coordinator\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]signal_log_handler\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]module\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]preview\\.py$",
 
     # `EPIC-025` PR 4.4c, fifth re-key on PR 0.4a's precedent: `screens/trading`
@@ -367,7 +374,6 @@ exclude = [
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_symbol_picker_dialog\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]dashboard_symbol_picker_source\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]history_pagination_controller\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]module\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]trading[\\/]ui[\\/]dashboard[\\/]preview\\.py$",
 
     # `EPIC-025` PR 4.4d, sixth re-key on PR 0.4a's precedent: `screens/backtest`
@@ -449,7 +455,6 @@ exclude = [
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]coordinators[\\/]data_sync_coordinator\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]coordinators[\\/]execution_coordinator\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]logic[\\/]chart_controls\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]module\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]preview\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]view_factory\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]backtesting[\\/]ui[\\/]view_models[\\/]run_result_view_model\\.py$",
@@ -610,7 +615,10 @@ ignore_missing_imports = true
 #
 # Widen this list as later modules earn it (§2.4 of that task); do not add
 # a module here that has not actually been measured clean.
-module = ["Sagittarius_Elite_Warrior.src.domain.*"]
+#
+# EPIC-032A — retargeted from `src.domain.*`, which matched nothing after
+# EPIC-025, to every module's domain layer; measured clean.
+module = ["Sagittarius_Elite_Warrior.src.modules.*.domain.*"]
 disallow_any_generics = true
 disallow_subclassing_any = true
 disallow_untyped_calls = true
@@ -675,7 +683,10 @@ extra_checks = false
 # defect, already carried as frozen debt in the main `exclude` list above
 # — same "genuine debt, not this increment's job" reasoning as the 4
 # Domain strategy files, carved back out by the next override).
-module = ["Sagittarius_Elite_Warrior.src.application.*"]
+#
+# EPIC-032A — retargeted from `src.application.*` to every module's
+# application layer; two errors it then found were fixed for real.
+module = ["Sagittarius_Elite_Warrior.src.modules.*.application.*"]
 disallow_any_generics = true
 disallow_subclassing_any = true
 disallow_untyped_calls = true
@@ -698,7 +709,7 @@ extra_checks = true
 # — a genuine narrowing gap between `_execute_single`/`_execute_multi`,
 # not a strictness artifact), left for a later increment.
 module = [
-    "Sagittarius_Elite_Warrior.src.application.use_cases.queries.get_historical_klines.handler",
+    "Sagittarius_Elite_Warrior.src.modules.market_data.application.queries.get_historical_klines.handler",
 ]
 disallow_any_generics = false
 disallow_subclassing_any = false
@@ -750,10 +761,10 @@ extra_checks = true
 # via a transitive import from another strict-checked Infrastructure
 # module would silently violate that.
 module = [
-    "Sagittarius_Elite_Warrior.src.infrastructure.binance.client",
-    "Sagittarius_Elite_Warrior.src.infrastructure.persistence.models",
-    "Sagittarius_Elite_Warrior.src.infrastructure.persistence.sqlalchemy_repository",
-    "Sagittarius_Elite_Warrior.src.infrastructure.persistence.kline_row_mapper",
+    "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.client",
+    "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.models",
+    "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.sqlalchemy_repository",
+    "Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.kline_row_mapper",
 ]
 disallow_any_generics = false
 disallow_subclassing_any = false
