@@ -16,6 +16,24 @@ from .zones import (
     zone_of,
 )
 
+#: The Shared Kernel (`architecture-rule.md` §3): the only two Engine modules a
+#: module's inside — `domain/`, `application/`, `contracts/` — may import at
+#: runtime. Domain events inherit `BaseEvent` so the Engine's `EventRegistry`
+#: can catalog them; copying the base class here instead would produce two
+#: inheritance trees that cannot see each other (`EPIC-008F`). Everything else
+#: from the Engine arrives through a port in `src/core/contracts/`.
+#:
+#: Exact module paths, never a prefix: it must stay impossible to widen by
+#: accident (`sagittarius_engine.domain` would re-admit the whole package).
+#: One copy, read by `test_module_inside_imports_only_the_shared_kernel.py`
+#: and `test_indicator_script_conventions.py` alike (`EPIC-030D`).
+SHARED_KERNEL_MODULES = frozenset(
+    {
+        "sagittarius_engine.domain.base_event",
+        "sagittarius_engine.domain.i_domain_event",
+    }
+)
+
 #: Support packages a module's `ui/` sub-package may import whole, not only
 #: through their `contracts/` (HLD §6.1: charting and the UI kit are UI).
 #:
