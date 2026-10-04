@@ -60,6 +60,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.settings.primary_venue_contexts import (
     primary_venue_contexts,
 )
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
@@ -277,3 +278,27 @@ def test_turning_one_venue_off_leaves_the_other_served_after_restart(
 
     assert contexts.enabled() == (_FUTURES,)
     assert contexts.primary().venue is _FUTURES
+
+
+def test_a_venue_change_that_cannot_be_written_is_taken_back(
+    qapp, request, credentials_provider, monkeypatch
+):
+    """PR #348 review: when `user_config.json` cannot be written, the live
+    config must not keep the new venue list, or the next read of it routes
+    as if the change had been saved. The edit stays on the page, dirty."""
+
+    def refuse(_self) -> None:
+        raise OSError("read-only file system")
+
+    monkeypatch.setattr(ConfigManager, "save", refuse)
+    config = ConfigManager()
+    config.load_dict({_LIST: [_FUTURES.value, _SPOT.value], _SCALAR: _FUTURES.value})
+    presenter, _view = _presenter(request, config, _Sessions(), credentials_provider)
+    presenter._settings_view_model.requestVenueEnabled(_SPOT.value, False)
+
+    presenter.apply()
+
+    assert config.get(_LIST) == [_FUTURES.value, _SPOT.value]
+    assert config.get(_SCALAR) == _FUTURES.value
+    assert presenter.is_dirty()
+    assert "venues were not changed" in presenter._settings_view_model.statusMessage
