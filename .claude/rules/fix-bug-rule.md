@@ -23,7 +23,7 @@ Write the test before the fix and run it: it must fail **for the right reason**.
 The regression test is never deleted, skipped, weakened or rewritten off the original failure path, unless replaced by stronger coverage of that exact path (`CONSTITUTION.md` P8). `[review: E4]`
 
 ## 6. Commit
-The fix and its regression test in one `fix:` commit whose body states the root cause and the id. `[review: L2]`
+The fix and its regression test in one `fix:` commit whose body states the root cause and the id. `[gate: commit lint; review: L2]`
 
 ## 6.5 Case study when the gate was green
 If an existing net (type checker, test, guard, review row) covered the area and missed it, and the same blind spot is open elsewhere now, add `Docs/CASE_STUDIES/CS-{nnn}_{slug}.md` from `.claude/templates/case-study.md` in the fixing commit — one screen, the three sections the index requires — and **the check that closes it ships in the same commit**. Not every bug earns one. `[guard: test_case_study_index_is_consistent.py]`
