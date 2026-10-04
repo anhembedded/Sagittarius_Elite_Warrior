@@ -27,6 +27,7 @@ import tomllib
 from pathlib import Path
 
 import pytest
+from mypy.options import Options
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _BASELINE_FILE = Path(__file__).with_name("baseline_mypy_excludes.txt")
@@ -86,16 +87,12 @@ def module_names(paths: list[str]) -> set[str]:
 
 
 def override_pattern(module: str) -> re.Pattern[str]:
-    """mypy's override matching: `a.*` is `a` and below; `a.*.b` spans one or more parts."""
-    regex = ""
-    parts = module.split(".")
-    for index, part in enumerate(parts):
-        last = index == len(parts) - 1
-        if part == "*":
-            regex += r"(\..+)?" if last else r"\.[^.]+(\.[^.]+)*"
-        else:
-            regex += ("" if index == 0 else r"\.") + re.escape(part)
-    return re.compile(regex + "$")
+    """The regex mypy itself compiles for an override's `module` glob.
+
+    mypy's own compiler, not a copy: a `.*` matches zero or more sections,
+    in the middle of a pattern as at its end (PR #330 review).
+    """
+    return Options().compile_glob(module)
 
 
 def unmatched_overrides(overrides: list[str], modules: set[str]) -> list[str]:
@@ -161,7 +158,7 @@ def test_unused_configs_are_reported() -> None:
     [
         ("pkg.src.modules.*.domain.*", "pkg.src.modules.bots.domain", True),
         ("pkg.src.modules.*.domain.*", "pkg.src.modules.bots.domain.grid.level", True),
-        ("pkg.src.modules.*.domain.*", "pkg.src.modules.domain", False),
+        ("pkg.src.modules.*.domain.*", "pkg.src.modules.domain", True),
         ("pkg.src.domain.*", "pkg.src.modules.bots.domain", False),
         ("pkg.src.a.b", "pkg.src.a.b", True),
         ("pkg.src.a.b", "pkg.src.a.bc", False),
