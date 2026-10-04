@@ -1,0 +1,72 @@
+"""`EPIC-029G` — a bot's own chart: candles, and the bot's overlay drawn over
+them (ADR D15, D16; the user, 2026-10-03: "a bot must have its own chart to
+draw that bot's own indicators").
+
+@details One class for the three surfaces, each a different source of
+candles but the same drawer for the overlay:
+- **the planner preview** (`EPIC-029F`): `show_symbol` reads the stored
+  history, no network (`BUG-107`);
+- **the backtest result** (`EPIC-029D`): `draw_history` draws the candles
+  the backtest ran over, and nothing is read or streamed;
+- **the running bot** (`EPIC-029E`, `029F`): `show_symbol`, then `follow`
+  syncs, streams under the bot's own owner (`bot.<id>`,
+  `bot_stream_owner`) and applies the candles of `BotTickFeed`, the bots
+  module's one listener to market ticks.
+
+Loading and live candles are `LiveCandleChart`'s, the code a desk's chart
+runs; the overlay is drawn by `BotOverlayDrawer`, the one drawer.
+"""
+
+from __future__ import annotations
+
+from PySide6.QtCore import QObject
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import BotOverlay
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bot_tick_feed import BotTickFeed
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.bot_overlay_drawer import (
+    BotOverlayDrawer,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.overlay_items import (
+    OverlayItems,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.price_level_layer import (
+    PriceLevelLayer,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_candle_chart import (
+    LiveCandleChart,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
+    LiveChartPorts,
+)
+
+
+class BotChart(LiveCandleChart):
+    """@brief One bot's `ChartCard`, its candles and its overlay."""
+
+    def __init__(
+        self, chart: ChartCard, ports: LiveChartPorts, parent: QObject | None = None
+    ) -> None:
+        super().__init__(chart, ports, parent)
+        self._drawer = BotOverlayDrawer(
+            chart, PriceLevelLayer(chart.plot_layout.main_plot)
+        )
+
+    def show_overlay(self, overlay: BotOverlay) -> OverlayItems:
+        """@brief Draws the bot's overlay, replacing the previous one.
+        @return The items drawn."""
+        return self._drawer.draw(overlay)
+
+    def follow(self, ticks: BotTickFeed) -> None:
+        """@brief Goes live, once: syncs, streams under the bot's own owner,
+        and applies the candles `ticks` delivers on the Qt thread."""
+        if self.is_live:
+            return
+        ticks.candle.connect(self.apply_candle)
+        self.go_live()
+
+    def shutdown(self) -> None:
+        """@brief Cancels the load in flight and releases the bot's stream:
+        a bot's chart is the only reader of its own owner's subscription."""
+        super().shutdown()
+        if self.is_live:
+            self.release_stream()

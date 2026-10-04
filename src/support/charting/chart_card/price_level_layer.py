@@ -25,7 +25,9 @@ from enum import Enum
 
 import pyqtgraph as pg
 from PySide6 import QtCore, QtGui
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
+    PRICE_LEVEL_LABEL_COLOR,
+)
 
 #: Bands under the candles, lines above them.
 _BAND_Z_VALUE = -20
@@ -122,7 +124,7 @@ class PriceLevelLayer:
             label=level.label or None,
             labelOpts={
                 "position": 0.98,
-                "color": Palette.TEXT_PRIMARY,
+                "color": PRICE_LEVEL_LABEL_COLOR,
                 "fill": pg.mkBrush(level.color),
                 "movable": False,
             },

@@ -37,3 +37,14 @@ CROSSHAIR_COLOR = Palette.MUTED
 #: kept even though the value is just the accent token: what a reader needs
 #: here is "this is the TP colour", not "this is gold".
 TAKE_PROFIT_COLOR = Palette.ACCENT
+#: `EPIC-029G` — what a bot's horizontal lines and bands mean, read at a
+#: glance (`PriceLevelLayer`, `bots/ui/chart/overlay_items.py`). Each is a
+#: series colour with a meaning, named for it, like the take-profit colour.
+PRICE_LEVEL_LABEL_COLOR = Palette.TEXT_PRIMARY
+EMPTY_LEVEL_COLOR = Palette.MUTED
+PARTIAL_LEVEL_COLOR = Palette.WARNING
+STOP_LOSS_COLOR = Palette.DANGER
+RANGE_EDGE_COLOR = Palette.TEXT_PRIMARY
+AVERAGE_COST_COLOR = Palette.ACCENT
+SUGGESTION_BAND_COLOR = Palette.MUTED
+INDICATOR_BAND_COLOR = Palette.ACCENT
