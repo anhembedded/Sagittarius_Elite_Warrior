@@ -141,7 +141,6 @@ class MainWindow(WorkbenchShell):
         self.finish_setup()
         for host in self._hosts.values():
             self._perspectives.register(host)
-        self._navigation_service = ShellNavigation(self)
 
         if self._state_coordinator is not None:
             self._state_coordinator.restore_into(self._perspectives)
@@ -191,8 +190,12 @@ class MainWindow(WorkbenchShell):
 
     @property
     def navigation_service(self) -> INavigationService:
-        """The `INavigationService` governing mode changes in this window."""
-        return self._navigation_service
+        """The `INavigationService` governing mode changes in this window.
+
+        A new adapter per call, never one held here: it holds the window, and
+        a window holding it back is a cycle that keeps this wrapper alive
+        after Qt deletes the window."""
+        return ShellNavigation(self)
 
     @property
     def last_source(self) -> ShellNavigationSource | None:
@@ -216,6 +219,12 @@ class MainWindow(WorkbenchShell):
     def navigate(self, mode_id: str, source: ShellNavigationSource) -> bool:
         """Every mode change passes here — clicks, shortcuts, View, restore —
         so the mode shown hears why (`_on_mode_changed`)."""
+        if mode_id == self.current_mode and source is ShellNavigationSource.USER_INTENT:
+            # A click on the showing mode changes nothing on the stack, but it
+            # is still the user asking for it: a mode restored at start that
+            # waits for a click to go live (`BUG-104`) hears that click here.
+            self._announce(mode_id, source)
+            return True
         self._pending_source = source
         try:
             return super().navigate(mode_id, source)

@@ -181,12 +181,7 @@ def spot_board(boot: _Boot) -> Iterator[_Board]:
 @contextmanager
 def _spot_board_running(boot: _Boot) -> Iterator[_Board]:
     """The real app with Spot Testnet on, its Dev Board open."""
-    qapp, qtbot, monkeypatch, tmp_path = (
-        boot.qapp,
-        boot.qtbot,
-        boot.monkeypatch,
-        boot.tmp_path,
-    )
+    qapp, monkeypatch, tmp_path = boot.qapp, boot.monkeypatch, boot.tmp_path
     seeded_history, market_stream = boot.seeded_history, boot.market_stream
     range_coverage, symbol_catalog = boot.range_coverage, boot.symbol_catalog
     monkeypatch.setenv(SPOT_ENV_API_KEY, "fake-key")
@@ -221,7 +216,9 @@ def _spot_board_running(boot: _Boot) -> Iterator[_Board]:
         engine.boot()
         window = MainWindow(engine, real_screen_registry(container))
         window.show()
-        qtbot.addWidget(window)
+        # Not handed to `qtbot.addWidget`: the `finally` below closes and
+        # deletes the window itself, and qtbot closing it again afterwards
+        # finds the C++ object gone while a caller still holds the board.
         window.switch_screen("dashboard")
         qapp.processEvents()
         presenter = window.presenters["dashboard"]

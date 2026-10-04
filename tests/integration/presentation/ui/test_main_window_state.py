@@ -37,6 +37,9 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtWidgets import QDockWidget
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
+    StartLiveStreamCommand,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.config_manager_state_store import (
     ConfigManagerStateStore,
@@ -52,6 +55,7 @@ from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 from sagittarius_engine.extensions.pyside_mvc.workbench.navigation_service import (
     NavigationSource as ShellNavigationSource,
 )
+from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 #: A drain that exceeds this is a hang, not slow work — every task these
@@ -94,7 +98,9 @@ class _WindowHarness:
     def open(self, coordinator: UiStateCoordinator | None = None) -> MainWindow:
         registry = real_screen_registry(self._app_engine.context.container)
         window = MainWindow(self._app_engine, registry, state_coordinator=coordinator)
-        self._qtbot.addWidget(window)
+        # Not handed to `qtbot.addWidget`: `close()` below closes and deletes
+        # each window itself, and qtbot closing it again would find the C++
+        # object gone while the test still holds the window.
         self._open_windows.append(window)
         return window
 
@@ -158,6 +164,50 @@ def test_a_window_with_no_coordinator_opens_the_default_mode(windows):
     assert window.last_source is ShellNavigationSource.RESTORE
 
 
+_EVERY_MODE = (
+    "dashboard",
+    "trading.futures",
+    "trading.spot",
+    "bots",
+    "data_management",
+    "watchlist",
+    "backtest",
+    "settings",
+)
+
+
+@pytest.mark.parametrize("stored_mode", _EVERY_MODE)
+def test_no_remembered_mode_opens_a_live_stream_at_launch(
+    windows, tmp_path, market_stream, app_engine, monkeypatch, stored_mode
+):
+    """`BUG-104`, the reported path, for every mode: whichever mode the last
+    session ended in, launching opens no market stream and dispatches no
+    `StartLiveStreamCommand`. Every mode is built at start (`EPIC-033C`), so
+    this covers each screen's constructor and its restore-time show."""
+    dispatched: list[type] = []
+    dispatcher = app_engine.context.container.resolve(IDispatcher)
+    real_dispatch = dispatcher.dispatch
+
+    def recording_dispatch(command_type, command):
+        dispatched.append(command_type)
+        return real_dispatch(command_type, command)
+
+    monkeypatch.setattr(dispatcher, "dispatch", recording_dispatch)
+    coordinator = _coordinator_over(tmp_path)
+    coordinator._store.write(StateScope(key="shell"), {"mode": stored_mode})
+
+    window = windows.open(coordinator)
+
+    assert window.current_mode == stored_mode
+    assert [call for call in market_stream.calls if call[0] == "start"] == []
+    assert StartLiveStreamCommand not in dispatched
+
+
+def test_every_mode_is_covered_by_the_launch_check(windows):
+    """The list above is the window's own, so a new mode is not missed."""
+    assert set(windows.open().navigation.modes()) == set(_EVERY_MODE)
+
+
 def test_a_remembered_mode_comes_back_as_a_restore_and_does_not_go_live(
     windows, tmp_path
 ):
@@ -201,7 +251,7 @@ def test_the_last_mode_and_a_closed_panel_survive_a_restart(windows, tmp_path):
     coordinator = _coordinator_over(tmp_path)
     window = windows.open(coordinator)
     window.switch_screen("dashboard")
-    docks = window.hosts["dashboard"].view.surface.findChildren(QDockWidget)
+    docks = window.hosts["dashboard"].findChildren(QDockWidget)
     assert docks, "the Dev Board's surface has panels"
     closed = docks[0].objectName()
     docks[0].close()
@@ -211,6 +261,6 @@ def test_the_last_mode_and_a_closed_panel_survive_a_restart(windows, tmp_path):
     reopened = windows.open(_coordinator_over(tmp_path))
 
     assert reopened.current_mode == "data_management"
-    dock = reopened.hosts["dashboard"].view.surface.findChild(QDockWidget, closed)
+    dock = reopened.hosts["dashboard"].findChild(QDockWidget, closed)
     assert dock is not None
     assert dock.isHidden()

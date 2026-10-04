@@ -77,6 +77,20 @@ def test_a_click_is_user_intent_and_reaches_the_mode_shown(window: MainWindow) -
     assert window.navigation_service.current_source is NavigationSource.USER_INTENT
 
 
+def test_a_click_on_the_showing_mode_still_reaches_it_as_user_intent(
+    window: MainWindow,
+) -> None:
+    """A mode restored at start waits for a click to go live (`BUG-104`);
+    clicking that same mode must deliver one, though nothing on the stack
+    changes."""
+    assert window.switch_screen("trading.futures") is True
+
+    assert presenter(window, "trading.futures").shown == [
+        NavigationSource.RESTORE,
+        NavigationSource.USER_INTENT,
+    ]
+
+
 def test_the_mode_bar_action_is_a_click_too(window: MainWindow) -> None:
     mode_action = next(
         action for action in window.menu("&View").actions() if action.text() == "&Spot"

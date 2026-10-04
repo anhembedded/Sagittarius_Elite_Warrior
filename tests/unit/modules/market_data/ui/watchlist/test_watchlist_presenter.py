@@ -176,16 +176,25 @@ def test_construction_alone_starts_no_stream(view, container, market_stream):
     assert market_stream.held_by("watchlist") is None
 
 
-@pytest.mark.parametrize(
-    "source", [NavigationSource.RESTORE, NavigationSource.USER_INTENT]
-)
-def test_the_first_show_starts_the_stream_once(
-    view, container, market_stream, source
+def test_a_restore_at_start_starts_no_stream_and_says_so(
+    view, container, market_stream
 ) -> None:
-    """Restored at start or clicked, the actor sees the Watchlist: it is
-    live either way, and a second show starts nothing new."""
+    """`BUG-104`: the window bringing the Watchlist back at launch is not a
+    click, and a launch must not open a live stream unasked."""
     shown = WatchlistPresenter(view, container)
-    shown.on_mode_shown(source)
+
+    shown.on_mode_shown(NavigationSource.RESTORE)
+
+    assert market_stream.held_by("watchlist") is None
+    assert "not live" in view._status_label.text().lower()
+
+
+def test_the_users_open_starts_the_stream_once(view, container, market_stream) -> None:
+    """After a restore, the user's click starts it; a second show starts
+    nothing new."""
+    shown = WatchlistPresenter(view, container)
+    shown.on_mode_shown(NavigationSource.RESTORE)
+    shown.on_mode_shown(NavigationSource.USER_INTENT)
     first = market_stream.held_by("watchlist")
     shown.on_mode_shown(NavigationSource.USER_INTENT)
 

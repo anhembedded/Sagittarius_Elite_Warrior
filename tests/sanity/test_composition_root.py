@@ -340,12 +340,9 @@ def _screen_packages() -> list[tuple[str, str | None]]:
 def test_every_navigable_route_constructs(qapp, booted_app, route):
     """Mode 11 — an entry point that is registered but cannot be built.
 
-    The retired tier constructed two of four screens: `PresenterManager` was
-    lazy-loading and `MainWindow.__init__` only navigated to `dashboard`, so the
-    Database and Settings screens were never built by any sanity test. The
-    workbench window (`EPIC-033C`) builds every mode at start; this still shows
-    each one, so a mode that builds but cannot be shown is caught too. BUG-019
-    (a Database-screen modal that could not construct) landed in exactly that gap.
+    The retired tier built two of four screens (a lazy router), and BUG-019
+    (a Database-screen modal that could not construct) landed in that gap.
+    The window now builds every mode (`EPIC-033C`); this also shows each one.
 
     Parametrised from the navigation constants themselves, so a screen added
     later is covered without editing this file.
@@ -363,14 +360,10 @@ def test_every_navigable_route_constructs(qapp, booted_app, route):
         window.switch_screen(route)
         qapp.processEvents()
 
-        assert window.current_mode == route, (
-            f"Route '{route}' was asked for but mode {window.current_mode!r} "
-            f"is showing."
-        )
-        assert window.hosts[route].centralWidget() is window.hosts[route].view, (
-            f"Route '{route}' shows a host without its screen — the view was "
-            f"constructed and then orphaned."
-        )
+        shown = window.current_mode
+        assert shown == route, f"{route!r} asked, {shown!r} shown"
+        host = window.hosts[route]
+        assert host.centralWidget() is host.view, f"{route!r}: its view was orphaned"
     finally:
         window.shutdown()
         window.deleteLater()

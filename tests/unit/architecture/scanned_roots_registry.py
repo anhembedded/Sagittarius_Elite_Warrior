@@ -231,6 +231,8 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/modules/backtesting/ui/test_backtest_view_contract.py",
         (("src/modules/backtesting/ui", "*.py"),),
     ),
+    # `EPIC-033C` — every class in `src/` defining the `IShownAsMode` method.
+    ("tests/unit/core/contracts/test_i_shown_as_mode_contract.py", (("src", "*.py"),)),
     ("tests/unit/presentation/test_enum_labels.py", (("src/presentation", "*.py"),)),
     # --- application / domain / infrastructure ------------------------------
     # PR 3.1c retargeted this guard: `src/application/` is **empty** now, and a

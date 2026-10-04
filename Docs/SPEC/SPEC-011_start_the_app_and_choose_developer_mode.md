@@ -45,10 +45,12 @@ it."*
 - The window names its venues in the title and the status bar; the actor does not have to open
   anything to learn whether this run can send a real order.
 - The mode the actor last used comes back on the next launch, shown as a restore and not as a
-  click: nothing that needs a click to go live starts on its own (`BUG-104`). The Dev Board's
-  opt-in auto-start runs only when the actor opens the Dev Board.
-- Every mode is built at start (the user's decision, 2026-10-04); a screen goes live when its
-  mode is first shown (`IShownAsMode`), never when it is built.
+  click: **launching opens no market stream and sends no live-stream command, whichever mode
+  comes back** (`BUG-104`). A restored Watchlist says it is not live; the Dev Board's opt-in
+  auto-start waits too. Either goes live when the actor clicks its mode, the showing one
+  included.
+- Every mode is built at start (the user's decision, 2026-10-04); a screen goes live on the
+  actor's open (`IShownAsMode`), never when it is built.
 - After the switch is applied and the app restarted, `dev.mode` is `true` in `user_config.json`
   and the Dev Board shows the `trading` module's session probe.
 
@@ -106,6 +108,6 @@ market data, trading or a strategy.
 | What the next process is told, including the stripped `--dev` | `tests/unit/shell/test_developer_mode_restart.py` | unit |
 | A failed start leaves this session running | `tests/unit/shell/test_developer_mode_restart.py` | unit |
 | The Futures desk is the default route, and survives the round trip into `ScreenRegistry` | `tests/unit/shell/test_screen_wiring.py` | unit |
-| A restored Dev Board does not auto-start, a clicked one does, and the last mode and a closed panel survive a real restart | `tests/integration/presentation/ui/test_main_window_state.py` | integration |
+| Launching with any mode remembered opens no market stream and dispatches no `StartLiveStreamCommand`; a restored Dev Board does not auto-start, a clicked one does; the last mode and a closed panel survive a real restart | `tests/integration/presentation/ui/test_main_window_state.py` | integration |
 | The version shown is the version the project declares | `tests/unit/architecture/test_app_version_matches_pyproject.py` | unit |
 | Developer mode end to end | **the user runs it**: Tools → Options → Developer, tick Developer mode, OK, press Restart now, and confirm the app comes back with the Dev Board showing the *Trading session* probe — then untick it, restart again, and confirm the probe is gone | human |

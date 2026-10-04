@@ -51,6 +51,9 @@ _STREAM_OWNER_ID = "watchlist"
 #: always has.
 _MARKET = MarketType.SPOT
 
+#: What a Watchlist restored at start says until the user opens it.
+_NOT_LIVE_STATUS = "Not live. Choose Watchlist on the mode bar to start."
+
 logger = logging.getLogger("App.Watchlist")
 
 
@@ -79,11 +82,14 @@ class WatchlistPresenter(BasePresenter):
         self._started = False
 
     def on_mode_shown(self, source: NavigationSource) -> None:
-        """`IShownAsMode` (`EPIC-033C`): the stream starts the first time this
-        mode shows, restored at start or clicked. It used to start on
-        construction, which meant the same thing until the workbench window
-        began building every mode at start."""
+        """`IShownAsMode` (`EPIC-033C`): the stream starts on the user's open,
+        never when the window restores this mode at start (`BUG-104`: a
+        launch must not open a live stream unasked). A restore says so and
+        waits for a click, the mode's own included."""
         if self._started:
+            return
+        if source is not NavigationSource.USER_INTENT:
+            self.view.set_status(_NOT_LIVE_STATUS, is_error=False)
             return
         self._started = True
         symbols = self._symbols

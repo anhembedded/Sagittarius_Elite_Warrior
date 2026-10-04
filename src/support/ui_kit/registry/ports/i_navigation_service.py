@@ -1,12 +1,10 @@
-"""`EPIC-025F` — the port `MainWindow` will depend on instead of calling
-`PresenterManager.navigate_to()` directly. `abc.ABC`: none of
-`architecture-rule.md` §2.1's Protocol exceptions apply to the adapter that
-will implement this.
+"""`EPIC-025F` — how the application asks the window to show a mode. `abc.ABC`:
+none of `architecture-rule.md` §2.1's Protocol exceptions apply to its adapter.
 
-This is the in-app prototype the epic's own sequencing decision calls for
-(`Docs/HLD/05_engine_app_split.md` §5.2, ❓O2): built against this app's
-current `PresenterManager`-based router first, to settle the concrete shape
-before it is proposed as an Engine API (`TASK-043` E3).
+Prototyped here against the `PresenterManager` router (`Docs/HLD/05_engine_app_split.md`
+§5.2, ❓O2) and then built in the Engine as `WorkbenchShell`'s `NavigationService`
+(`TASK-043` E3). Since `EPIC-033C` the adapter is
+`presentation/ui/shell_navigation.py`, over the workbench window.
 """
 
 from __future__ import annotations

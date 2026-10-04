@@ -1,0 +1,87 @@
+"""`EPIC-033C` — the `IShownAsMode` port stays declared, both ways.
+
+The window (`presentation/`) and two of the three presenters that implement
+the port are excluded from mypy, and the window dispatches with
+`isinstance(presenter, IShownAsMode)`. A presenter whose method drifted from
+the port would be skipped without a sound and its screen would never go live,
+so this module reads the sources: the port declares exactly what the window
+calls, and every class in `src/` that defines `on_mode_shown` takes the
+port's one argument.
+
+Retire when: `presentation/` and the implementers are under the mypy gate,
+which would catch both directions statically.
+"""
+
+from __future__ import annotations
+
+import ast
+from pathlib import Path
+
+from Sagittarius_Elite_Warrior.src.core.contracts.i_shown_as_mode import (
+    IShownAsMode,
+)
+
+_SRC = Path(__file__).resolve().parents[4] / "src"
+_WINDOW = _SRC / "presentation" / "ui" / "main_window.py"
+_METHOD = "on_mode_shown"
+
+
+def _declared() -> frozenset[str]:
+    return frozenset(
+        name
+        for name, value in vars(IShownAsMode).items()
+        if callable(value) and not name.startswith("_")
+    )
+
+
+def _implementers() -> dict[str, ast.FunctionDef]:
+    """class qualified by its file -> its `on_mode_shown` definition."""
+    found: dict[str, ast.FunctionDef] = {}
+    for path in sorted(_SRC.rglob("*.py")):
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if not isinstance(node, ast.ClassDef) or node.name == IShownAsMode.__name__:
+                continue
+            for item in node.body:
+                if isinstance(item, ast.FunctionDef) and item.name == _METHOD:
+                    found[f"{path.relative_to(_SRC).as_posix()}::{node.name}"] = item
+    return found
+
+
+def _called_on_presenters() -> frozenset[str]:
+    tree = ast.parse(_WINDOW.read_text(encoding="utf-8"))
+    return frozenset(
+        node.func.attr
+        for node in ast.walk(tree)
+        if isinstance(node, ast.Call)
+        and isinstance(node.func, ast.Attribute)
+        and isinstance(node.func.value, ast.Name)
+        and node.func.value.id == "presenter"
+        and node.func.attr != "dispose"
+    )
+
+
+def test_the_port_declares_exactly_what_the_window_calls() -> None:
+    assert _declared() == {_METHOD}
+    assert _called_on_presenters() == _declared()
+
+
+def test_every_implementer_takes_the_ports_one_source_argument() -> None:
+    implementers = _implementers()
+    assert implementers, "the scan of src/ found no implementer at all"
+    for where, method in implementers.items():
+        arguments = [argument.arg for argument in method.args.args]
+        annotation = method.args.args[-1].annotation
+        assert arguments == ["self", "source"], where
+        assert isinstance(annotation, ast.Name), where
+        assert annotation.id == "NavigationSource", where
+
+
+def test_the_implementers_are_the_known_three() -> None:
+    """A new implementer is a deliberate change: add it here, with its reason
+    for going live on a show rather than on construction."""
+    assert set(_implementers()) == {
+        "modules/market_data/ui/data_management_presenter.py::DataManagementPresenter",
+        "modules/market_data/ui/watchlist/watchlist_presenter.py::WatchlistPresenter",
+        "modules/trading/ui/dashboard/dashboard_presenter.py::DashboardPresenter",
+    }

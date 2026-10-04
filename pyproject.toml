@@ -229,7 +229,9 @@ exclude = [
     # `registry/screen_registry.py` carried 1 error against the engine's
     # `PresenterManager.register(..., presenter_class: type, ...)`; `EPIC-033C`
     # removed the router and `sidebar/` with it (its 5 `@Property` errors went
-    # with the package), so this entry may now come off too, after a run.
+    # with the package). Measured on that change: without this entry the gate
+    # reports no error, so removing it is a further configuration change,
+    # awaiting the user's approval.
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]support[\\/]ui_kit[\\/]registry[\\/]",
 
     # `EPIC-025` PR 1.6f, third re-key on PR 0.4a's precedent and the largest:
