@@ -29,7 +29,7 @@ from datetime import timedelta
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.core.repo_root import repo_root
+from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.futures_session_factory import (
     FuturesSessionFactory,
 )
@@ -131,12 +131,13 @@ def bind_adapters(container: IContainer) -> None:
     # venue's own `TradingSessionState`.
     container.singleton(TradingLimitPolicy, _build_trading_limit_policy)
     # `EPIC-029` ADR D6/O1 — the caps on any owner budget, the checkpoints
-    # under `<repo root>/state/trading/`, and the deriver that reads them.
+    # under `<data root>/state/trading/` (`core/repo_root.py`), and the
+    # deriver that reads them.
     container.singleton(OwnerBudgetCaps, _build_owner_budget_caps)
     container.singleton(
         IOwnerInventoryCheckpoints,
         lambda _c: JsonOwnerInventoryCheckpoints(
-            repo_root() / "state" / "trading" / "owner_inventory"
+            data_root() / "state" / "trading" / "owner_inventory"
         ),
     )
     container.singleton(

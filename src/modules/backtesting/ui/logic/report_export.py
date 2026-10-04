@@ -14,6 +14,7 @@ import os
 import re
 from datetime import datetime
 
+from Sagittarius_Elite_Warrior.src.core.repo_root import data_root_override
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.backtest_report import (
     BacktestReport,
     BacktestReportConfig,
@@ -57,9 +58,11 @@ def resolve_engine_version() -> str:
 
 def resolve_default_reports_dir(configured_dir: str | None) -> str:
     """`configured_dir` is `IConfig.get(ConfigKeys.BACKTEST_REPORTS_DIR.value)`
-    — falsy (unset) falls back to `<cwd>/reports`, created if missing so the
-    file dialog always opens somewhere real."""
-    reports_dir = configured_dir or os.path.join(os.getcwd(), DEFAULT_REPORTS_DIR_NAME)
+    — falsy (unset) falls back to `<SEW_DATA_ROOT>/reports` when that is set
+    (`EPIC-030M`), else `<cwd>/reports`, created if missing so the file dialog
+    always opens somewhere real."""
+    base = data_root_override() or os.getcwd()
+    reports_dir = configured_dir or os.path.join(base, DEFAULT_REPORTS_DIR_NAME)
     os.makedirs(reports_dir, exist_ok=True)
     return reports_dir
 

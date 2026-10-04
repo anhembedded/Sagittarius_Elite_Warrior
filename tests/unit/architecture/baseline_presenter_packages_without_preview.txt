@@ -1,0 +1,14 @@
+# Presenter packages with no preview.py, AS FOUND (EPIC-030G, 2026-10-04).
+# Read by tests/unit/architecture/test_every_presenter_package_has_a_preview.py.
+#
+# One directory per line, relative to the repository root. The guard fails on
+# a presenter package missing preview.py that is NOT listed here, and on a
+# listed directory that now has its preview (or no longer holds a presenter):
+# delete the line in the same commit. This list only shrinks.
+#
+# Measured, not copied from the brief: these four were the only presenter
+# packages under src/modules/*/ui and src/shell without a preview.py.
+src/modules/market_data/ui/settings
+src/modules/trading/ui/settings
+src/shell/settings
+src/shell/welcome

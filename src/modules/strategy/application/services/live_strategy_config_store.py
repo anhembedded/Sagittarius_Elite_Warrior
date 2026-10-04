@@ -1,4 +1,4 @@
-"""`BOT-125` review — the one place `LiveStrategyConfig` meets `IConfig`.
+"""`BOT-125` review — the one place `LiveStrategyConfig` meets configuration.
 
 @details `EPIC-022` shipped this mapping twice: `binance_bot_module.
 _arm_from_config()` read the six `trading.live_*` keys to arm at boot, and
@@ -41,6 +41,8 @@ import logging
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import IConfigReader
+from Sagittarius_Elite_Warrior.src.core.contracts.i_config_writer import IConfigWriter
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     DEFAULT_LEVERAGE,
     DEFAULT_SIZING_PERCENT,
@@ -49,7 +51,6 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_conf
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from sagittarius_engine.interfaces.i_config import IConfig
 
 logger = logging.getLogger("App.LiveStrategyConfigStore")
 
@@ -74,10 +75,19 @@ def venue_config_key(key: ConfigKeys, venue: TradingVenue) -> str:
 
 
 class LiveStrategyConfigStore:
-    """@brief Reads and writes each venue's armed strategy keys."""
+    """@brief Reads and writes each venue's armed strategy keys.
 
-    def __init__(self, config: IConfig) -> None:
-        self._config = config
+    @details Through the application's own two configuration ports, never the
+    Engine's `IConfig`: an application service may import nothing from the
+    Engine but the Shared Kernel (`architecture-rule.md` §3,
+    `test_module_inside_imports_only_the_shared_kernel.py`). Both ports wrap
+    the same configuration in the running app, so a value `set()` here is what
+    the next `get()` reads.
+    """
+
+    def __init__(self, reader: IConfigReader, writer: IConfigWriter) -> None:
+        self._reader = reader
+        self._writer = writer
 
     def adopt_legacy(self, enabled: tuple[TradingVenue, ...]) -> None:
         """Moves a single-venue app's unscoped keys to the one enabled
@@ -89,7 +99,7 @@ class LiveStrategyConfigStore:
         strategy key is emptied after a move, which is what makes a second
         call a no-op.
         """
-        legacy_strategy = self._config.get(
+        legacy_strategy = self._reader.get(
             ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value, ""
         )
         if not legacy_strategy:
@@ -111,16 +121,16 @@ class LiveStrategyConfigStore:
             )
             return
         (owner,) = enabled
-        owned = self._config.get(
+        owned = self._reader.get(
             venue_config_key(ConfigKeys.TRADING_LIVE_STRATEGY_KEY, owner)
         )
         if owned is not None:
             return
         for key in _LIVE_KEYS:
-            value = self._config.get(key.value)
+            value = self._reader.get(key.value)
             if value is not None:
-                self._config.set(venue_config_key(key, owner), value)
-        self._config.set(ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value, "")
+                self._writer.set(venue_config_key(key, owner), value)
+        self._writer.set(ConfigKeys.TRADING_LIVE_STRATEGY_KEY.value, "")
         self._persist()
         logger.info(
             "Moved the saved live strategy '%s' to %s's own keys.",
@@ -168,21 +178,17 @@ class LiveStrategyConfigStore:
             ConfigKeys.TRADING_LIVE_LEVERAGE: config.leverage,
         }
         for key, value in values.items():
-            self._config.set(venue_config_key(key, venue), value)
+            self._writer.set(venue_config_key(key, venue), value)
         self._persist()
 
     # ------------------------------------------------------------------ #
 
     def _persist(self) -> None:
-        """Persists if the config implementation can (`save()` belongs to
-        `ConfigManager`, not to the `IConfig` port — the same duck-check
-        `SettingsPresenter` documents)."""
-        persist = getattr(self._config, "save", None)
-        if callable(persist):
-            persist()
+        """Writes everything `set()` recorded to disk (`IConfigWriter.save`)."""
+        self._writer.save()
 
     def _text(self, key: ConfigKeys, venue: TradingVenue) -> str:
-        return str(self._config.get(venue_config_key(key, venue), ""))
+        return str(self._reader.get(venue_config_key(key, venue), ""))
 
     def _number(self, key: str, fallback: float) -> float:
         """@details A non-numeric saved value falls back rather than
@@ -190,7 +196,7 @@ class LiveStrategyConfigStore:
         should be told about), a `"twenty"` where a float belongs is a
         corrupt file, and refusing to boot over it helps nobody."""
         try:
-            return float(self._config.get(key, fallback))
+            return float(self._reader.get(key, fallback))
         except (TypeError, ValueError):
             logger.warning(
                 "Value for %s is not a number — using default %s.", key, fallback

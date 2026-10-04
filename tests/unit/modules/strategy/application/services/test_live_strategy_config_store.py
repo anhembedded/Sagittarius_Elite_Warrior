@@ -8,7 +8,6 @@ from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
-    LiveStrategyConfigStore,
     venue_config_key,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
@@ -16,6 +15,10 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_conf
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.strategy.live_config_ports import (
+    DictConfigWriter,
+    in_memory_config_store,
 )
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
@@ -57,7 +60,7 @@ def test_a_venues_keys_are_named_after_it() -> None:
 
 
 def test_each_venue_restores_what_it_saved() -> None:
-    store = LiveStrategyConfigStore(DictConfig())
+    store = in_memory_config_store(DictConfig())
 
     store.save(_FUTURES, _FUTURES_CONFIG)
     store.save(_SPOT, _SPOT_CONFIG)
@@ -67,7 +70,7 @@ def test_each_venue_restores_what_it_saved() -> None:
 
 
 def test_arming_on_one_venue_never_replaces_the_others_saved_strategy() -> None:
-    store = LiveStrategyConfigStore(DictConfig())
+    store = in_memory_config_store(DictConfig())
     store.save(_FUTURES, _FUTURES_CONFIG)
 
     store.save(_SPOT, _SPOT_CONFIG)
@@ -76,7 +79,7 @@ def test_arming_on_one_venue_never_replaces_the_others_saved_strategy() -> None:
 
 
 def test_a_venue_that_saved_nothing_restores_nothing() -> None:
-    store = LiveStrategyConfigStore(DictConfig())
+    store = in_memory_config_store(DictConfig())
     store.save(_FUTURES, _FUTURES_CONFIG)
 
     assert store.load(_SPOT).is_complete is False
@@ -84,7 +87,7 @@ def test_a_venue_that_saved_nothing_restores_nothing() -> None:
 
 def test_the_legacy_keys_become_the_one_enabled_venues_own() -> None:
     config = _legacy_config()
-    store = LiveStrategyConfigStore(config)
+    store = in_memory_config_store(config)
 
     store.adopt_legacy((_FUTURES,))
 
@@ -96,7 +99,7 @@ def test_adopting_empties_the_legacy_strategy_so_it_happens_once() -> None:
     """A venue enabled later must never inherit a strategy armed on another
     market: once adopted, the legacy keys name no strategy."""
     config = _legacy_config()
-    store = LiveStrategyConfigStore(config)
+    store = in_memory_config_store(config)
     store.adopt_legacy((_FUTURES,))
 
     store.adopt_legacy((_SPOT,))
@@ -107,7 +110,7 @@ def test_adopting_empties_the_legacy_strategy_so_it_happens_once() -> None:
 
 def test_adopting_never_overwrites_what_the_owner_saved_itself() -> None:
     config = _legacy_config()
-    store = LiveStrategyConfigStore(config)
+    store = in_memory_config_store(config)
     armed_since = LiveStrategyConfig(
         strategy_key="rsi_reversion", symbol="SOLUSDT", interval="15m"
     )
@@ -122,7 +125,7 @@ def test_with_trading_off_the_legacy_keys_wait() -> None:
     """The PR #295 review's path: a first boot with trading off names no
     owner, so nothing moves and the keys are still there for a later boot."""
     config = _legacy_config()
-    store = LiveStrategyConfigStore(config)
+    store = in_memory_config_store(config)
 
     store.adopt_legacy(())
 
@@ -134,7 +137,7 @@ def test_with_two_venues_enabled_the_owner_is_unknown_and_nothing_moves() -> Non
     """A strategy armed on Spot must not move to Futures just because
     Futures became the primary venue when Settings enabled both."""
     config = _legacy_config()
-    store = LiveStrategyConfigStore(config)
+    store = in_memory_config_store(config)
 
     store.adopt_legacy((_FUTURES, _SPOT))
 
@@ -145,9 +148,32 @@ def test_with_two_venues_enabled_the_owner_is_unknown_and_nothing_moves() -> Non
 
 def test_a_disabled_first_boot_then_one_venue_adopts_on_that_venue() -> None:
     config = _legacy_config()
-    store = LiveStrategyConfigStore(config)
+    store = in_memory_config_store(config)
     store.adopt_legacy(())
 
     store.adopt_legacy((_SPOT,))
 
     assert store.load(_SPOT) == _FUTURES_CONFIG
+
+
+def test_saving_a_venue_persists_through_the_writer() -> None:
+    """`EPIC-030D` — `save()` reaches disk through `IConfigWriter.save()`,
+    the port's own method, not a `getattr(config, "save")` probe that a
+    config without the method skipped silently."""
+    config = DictConfig()
+    writer = DictConfigWriter(config)
+    store = in_memory_config_store(config, writer)
+
+    store.save(_FUTURES, _FUTURES_CONFIG)
+
+    assert writer.saves == 1
+
+
+def test_adopting_the_legacy_keys_persists_through_the_writer() -> None:
+    config = _legacy_config()
+    writer = DictConfigWriter(config)
+    store = in_memory_config_store(config, writer)
+
+    store.adopt_legacy((_FUTURES,))
+
+    assert writer.saves == 1

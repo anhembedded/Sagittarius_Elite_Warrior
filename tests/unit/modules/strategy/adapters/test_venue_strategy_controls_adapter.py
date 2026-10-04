@@ -46,9 +46,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_strategy_co
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.strategy.live_config_ports import (
+    bind_config_ports,
+)
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
-from sagittarius_engine.interfaces.i_config import IConfig
 
 _FUTURES = TradingVenue.FUTURES_TESTNET
 _SPOT = TradingVenue.SPOT_TESTNET
@@ -92,7 +94,7 @@ def _controls() -> tuple[IVenueStrategyControls, _RecordingDispatcher, dict]:
 
     dispatcher = _RecordingDispatcher()
     container = StdLibContainer()
-    container.singleton(IConfig, DictConfig())
+    bind_config_ports(container, DictConfig())
     container.singleton(ICommandDispatcher, dispatcher)
     container.singleton(VenueStrategySessions, VenueStrategySessions(build))
     bind_published_ports(container)

@@ -8,6 +8,9 @@ change nobody wrote down.
 from __future__ import annotations
 
 import pytest
+from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.layers import (
+    layer_import_is_allowed,
+)
 from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.rules import (
     import_is_allowed,
 )
@@ -136,3 +139,41 @@ from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.rules import (
 )
 def test_rule_table(importing: str, imported: str, allowed: bool) -> None:
     assert import_is_allowed(importing, imported) is allowed
+
+
+@pytest.mark.parametrize(
+    ("importing", "imported", "allowed"),
+    [
+        # --- inside one module, dependencies point inward (EPIC-030E) -------
+        ("modules.trading.domain.order", "modules.trading.application.x", False),
+        ("modules.trading.domain.order", "modules.trading.adapters.x", False),
+        ("modules.trading.domain.order", "modules.trading.module", False),
+        ("modules.trading.application.x", "modules.trading.ui.panel", False),
+        ("modules.trading.application.x", "modules.trading.composition.x", False),
+        ("modules.trading.application.x", "modules.trading.module", False),
+        ("modules.trading.contracts.i_x", "modules.trading.application.x", False),
+        ("modules.trading.contracts.i_x", "modules.trading.adapters.x", False),
+        # contracts → domain: the documented decision in
+        # `strategy/contracts/i_sizing_policy.py` (a contract may hand out its
+        # own module's domain types).
+        (
+            "modules.strategy.contracts.i_sizing_policy",
+            "modules.strategy.domain.x",
+            True,
+        ),
+        ("modules.trading.application.x", "modules.trading.domain.order", True),
+        ("modules.trading.application.x", "modules.trading.contracts.i_x", True),
+        ("modules.trading.ui.panel", "modules.trading.application.x", True),
+        ("modules.trading.composition.x", "modules.trading.adapters.x", True),
+        ("modules.trading.module", "modules.trading.composition.x", True),
+        ("modules.trading.adapters.x", "modules.trading.application.x", True),
+        # --- not this rule's question ----------------------------------------
+        # another module: `import_is_allowed` decides (through contracts only)
+        ("modules.trading.domain.order", "modules.strategy.ui.panel", True),
+        # the package `__init__` has no layer
+        ("modules.trading", "modules.trading.ui.panel", True),
+        ("core.vo.symbol", "core.contracts.i_x", True),
+    ],
+)
+def test_layer_table(importing: str, imported: str, allowed: bool) -> None:
+    assert layer_import_is_allowed(importing, imported) is allowed

@@ -22,7 +22,7 @@ def imported_modules(
     """Every module `source` imports at runtime. Names outside the repository
     (`PySide6`, the Engine, the standard library) come back unchanged."""
     found: set[str] = set()
-    for node in _runtime_nodes(ast.parse(source)):
+    for node in runtime_nodes(ast.parse(source)):
         if isinstance(node, ast.Import):
             found.update(strip_prefix(alias.name) for alias in node.names)
         elif isinstance(node, ast.ImportFrom):
@@ -58,19 +58,24 @@ def resolve_relative(
     return ".".join(base)
 
 
-def _runtime_nodes(tree: ast.AST) -> Iterator[ast.AST]:
-    """`ast.walk` minus the body of every `if TYPE_CHECKING:` block."""
+def runtime_nodes(tree: ast.AST) -> Iterator[ast.AST]:
+    """`ast.walk` minus the body of every `if TYPE_CHECKING:` block.
+
+    Public because more than one guard asks "what runs at import time?"
+    (`test_module_domain_is_qt_free.py` reads toolkit imports through it, and
+    `test_module_inside_imports_only_the_shared_kernel.py` the Engine): a
+    second copy is how the two answers start to differ (`EPIC-030D`)."""
     stack: list[ast.AST] = [tree]
     while stack:
         node = stack.pop()
         yield node
-        if _is_type_checking_guard(node):
+        if is_type_checking_guard(node):
             stack.extend(node.orelse)
         else:
             stack.extend(ast.iter_child_nodes(node))
 
 
-def _is_type_checking_guard(node: ast.AST) -> bool:
+def is_type_checking_guard(node: ast.AST) -> bool:
     if not isinstance(node, ast.If):
         return False
     test = node.test

@@ -1,0 +1,18 @@
+# Imports that point OUTWARD between two layers of ONE module, AS FOUND
+# (EPIC-030E, 2026-10-04). Read by
+# tests/unit/architecture/test_module_layers_point_inward.py; the rule is
+# tests/unit/architecture/boundaries/layers.py.
+#
+# Same format and same ratchet as allowlist_module_boundaries.txt: one
+# `a -> b` pair per line, no line numbers. The guard fails on a pair NOT
+# listed here (a new violation) and on a listed pair that no longer exists
+# (delete the line in the same commit). This list only shrinks.
+#
+# One entry as found. The strategy application service builds the chart
+# overlay through `ui.strategy_overlay`, imported lazily inside
+# `overlay_for()` so a headless run never loads the Qt-heavy charting package
+# (see the service's own docstring; test_module_contribution_laziness.py
+# relies on the import staying lazy). Exit: move the overlay computation
+# (or its colour constants) out of `ui/` into the module's application or
+# domain layer, or move the service out to `ui/`.
+modules.strategy.application.services.strategy_chart_overlay_service -> modules.strategy.ui.strategy_overlay

@@ -6,6 +6,7 @@ from pathlib import Path
 
 from .allowlist import Violation
 from .imports import imported_modules
+from .layers import layer_import_is_allowed
 from .rules import import_is_allowed
 
 #: A composition root may import anything; that is what makes it one (Clean
@@ -56,5 +57,18 @@ def find_violations(src_root: Path) -> list[Violation]:
         source = py_file.read_text(encoding="utf-8")
         for imported in imported_modules(importing, source, is_package=is_package):
             if not import_is_allowed(importing, imported):
+                violations.add(Violation(importing, imported))
+    return sorted(violations)
+
+
+def find_layer_violations(src_root: Path) -> list[Violation]:
+    """Imports that point outward between two layers of the same module
+    (`layers.py`). Same walk, same identity (`a -> b`) as `find_violations`."""
+    violations: set[Violation] = set()
+    for py_file in scanned_files(src_root):
+        importing, is_package = module_name(src_root, py_file)
+        source = py_file.read_text(encoding="utf-8")
+        for imported in imported_modules(importing, source, is_package=is_package):
+            if not layer_import_is_allowed(importing, imported):
                 violations.add(Violation(importing, imported))
     return sorted(violations)

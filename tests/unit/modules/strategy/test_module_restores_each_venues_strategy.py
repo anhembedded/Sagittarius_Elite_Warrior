@@ -17,9 +17,6 @@ from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
-    LiveStrategyConfigStore,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.venue_strategy_sessions import (
     VenueStrategySessions,
 )
@@ -41,10 +38,13 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.strategy.live_config_ports import (
+    bind_config_ports,
+    in_memory_config_store,
+)
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
-from sagittarius_engine.interfaces.i_config import IConfig
 
 _FUTURES = TradingVenue.FUTURES_TESTNET
 _SPOT = TradingVenue.SPOT_TESTNET
@@ -92,7 +92,7 @@ def _boot_with(
     venues: tuple[TradingVenue, ...],
 ) -> _RecordingDispatcher:
     container = StdLibContainer()
-    container.singleton(IConfig, config)
+    bind_config_ports(container, config)
     container.singleton(ICommandDispatcher, dispatcher)
     container.singleton(TradingVenue, venues[0])
     container.singleton(
@@ -115,7 +115,7 @@ def test_each_enabled_venue_rearms_its_own_saved_strategy() -> None:
     comes back armed with its own, addressed to its own venue — Spot's never
     lands on Futures, nor the other way round."""
     config = DictConfig()
-    store = LiveStrategyConfigStore(config)
+    store = in_memory_config_store(config)
     store.save(_FUTURES, _FUTURES_CONFIG)
     store.save(_SPOT, _SPOT_CONFIG)
 
@@ -128,7 +128,7 @@ def test_one_venues_bad_saved_config_leaves_the_other_venue_armed() -> None:
     """A strategy Spot saved that no longer validates is logged and left
     disarmed; it must not keep Futures from coming back."""
     config = DictConfig()
-    store = LiveStrategyConfigStore(config)
+    store = in_memory_config_store(config)
     store.save(_FUTURES, _FUTURES_CONFIG)
     store.save(_SPOT, _SPOT_CONFIG)
     dispatcher = _boot_refusing(config, _SPOT, _FUTURES, _SPOT)
@@ -139,7 +139,7 @@ def test_one_venues_bad_saved_config_leaves_the_other_venue_armed() -> None:
 
 def test_a_spot_only_app_rearms_spots_own_strategy() -> None:
     config = DictConfig()
-    store = LiveStrategyConfigStore(config)
+    store = in_memory_config_store(config)
     store.save(_FUTURES, _FUTURES_CONFIG)
     store.save(_SPOT, _SPOT_CONFIG)
 

@@ -157,6 +157,7 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.composition.command_bindings
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.composition.port_bindings import (
     bind_published_ports,
+    live_strategy_config_store,
     venue_strategy_arming,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.composition.state_bindings import (
@@ -171,7 +172,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts im
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
 
 logger = logging.getLogger("App.StrategyModule")
@@ -287,7 +287,7 @@ class StrategyModule(BoundedContextModule):
         primary-only restore waited for (the PR #295 review, F3). One venue's
         bad saved config is logged and left disarmed by `_arm_from_config`;
         it never keeps the other venue from coming back."""
-        store = LiveStrategyConfigStore(container.resolve(IConfig))
+        store = live_strategy_config_store(container)
         enabled = container.resolve(IVenueContexts).enabled()
         store.adopt_legacy(enabled)
         for venue in enabled:

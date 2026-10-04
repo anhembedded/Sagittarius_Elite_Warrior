@@ -52,6 +52,15 @@ EMPTY_BY_DESIGN: tuple[tuple[str, str, str], ...] = (
 GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     # --- tests/unit/architecture (EPIC-025) --------------------------------
     ("tests/unit/architecture/test_module_boundaries.py", (("src", "*.py"),)),
+    # `EPIC-030F` — presenter-owned classes (defined under `src/`) never
+    # appear in a container registration anywhere in `src/`.
+    (
+        "tests/unit/architecture/test_presenter_owned_objects_are_never_registered.py",
+        (("src", "*.py"),),
+    ),
+    # `EPIC-030E` — layer direction inside one module; same `scanned_files()`
+    # walk over `src/` as the row above.
+    ("tests/unit/architecture/test_module_layers_point_inward.py", (("src", "*.py"),)),
     # `BOT-144` / `BOT-146` — the 400-line-ceiling ratchet, one baseline per tree.
     (
         "tests/unit/architecture/test_god_files_only_shrink.py",
@@ -69,6 +78,12 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     (
         "tests/unit/architecture/test_module_domain_is_qt_free.py",
         (("src/core", "*.py"), ("src/support/binance_gateway", "*.py")),
+    ),
+    # `EPIC-030D` — the Shared Kernel rule over every module's
+    # domain/application/contracts (three literal globs under this root).
+    (
+        "tests/unit/architecture/test_module_inside_imports_only_the_shared_kernel.py",
+        (("src/modules", "*.py"),),
     ),
     ("tests/unit/architecture/test_module_declarations.py", (("src/shell", "*.py"),)),
     (
@@ -170,9 +185,15 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_no_cross_screen_imports.py",
         (("src/presentation/ui/screens", "*.py"),),
     ),
+    # `EPIC-030G` — replaces `test_preview_fixtures_exist.py`'s static check,
+    # which listed targets from the deleted `src/presentation/ui/screens`.
     (
-        "tests/unit/presentation/ui/test_preview_fixtures_exist.py",
-        (("src/support/ui_kit/sidebar", "*.py"),),
+        "tests/unit/architecture/test_every_presenter_package_has_a_preview.py",
+        (
+            ("src/modules", "*_presenter.py"),
+            ("src/shell", "*_presenter.py"),
+            ("src", "preview.py"),
+        ),
     ),
     # Two roots since `EPIC-025` PR 1.6a: `Palette` itself now lives under
     # `support/ui_kit/assets/`, while most of its consumers are still in the

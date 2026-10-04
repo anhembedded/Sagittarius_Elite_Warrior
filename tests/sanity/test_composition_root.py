@@ -382,9 +382,9 @@ def test_every_screen_package_has_a_navigable_route():
     other test in the suite, including the one directly above.
 
     The scanning technique is already proven in this repo —
-    `tests/unit/presentation/ui/test_preview_fixtures_exist.py` walks the same
-    directory to enforce the `preview.py` convention. It was simply never applied
-    to routes.
+    `tests/unit/architecture/test_every_presenter_package_has_a_preview.py`
+    walks UI packages to enforce the `preview.py` convention. It was simply
+    never applied to routes.
 
     **Retargeted (`BOT-141`).** `EPIC-025` Phase 4 deleted `src/presentation/
     ui/screens/`, and `_screen_packages()` walked its old address rather than

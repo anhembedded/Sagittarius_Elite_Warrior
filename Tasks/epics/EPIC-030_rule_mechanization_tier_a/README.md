@@ -32,14 +32,14 @@
 | [EPIC-030A](incomplete/EPIC-030A_drift_fixes.md) | The rule tree states one policy once and cites only sections that exist | Elite | None | 🟢 | Planned |
 | [EPIC-030B](incomplete/EPIC-030B_tag_every_clause.md) | Every rule clause names what enforces it, honestly | Elite | EPIC-030A | 🟢 | Planned |
 | [EPIC-030C](incomplete/EPIC-030C_rule_integrity_checker.md) | The rule tree checks itself: tags, targets, sections, quotations, history | Elite | EPIC-030A, EPIC-030B merged | 🟡 | Planned |
-| [EPIC-030D](incomplete/EPIC-030D_shared_kernel_guard.md) | Domain, application and contracts import from the engine only the Shared Kernel | Elite | EPIC-030C | 🟡 | Planned |
-| [EPIC-030E](incomplete/EPIC-030E_module_layers_point_inward.md) | Inside one module, dependencies point inward | Elite | EPIC-030C | 🟢 | Planned |
-| [EPIC-030F](incomplete/EPIC-030F_presenter_owned_never_registered.md) | Presenter-owned objects are never registered in the container | Elite | EPIC-030C | 🟢 | Planned |
-| [EPIC-030G](incomplete/EPIC-030G_every_presenter_package_has_a_preview.md) | Every presenter package keeps a preview | Elite | None | 🟢 | Planned |
-| [EPIC-030H](incomplete/EPIC-030H_unit_tests_never_reach_the_network.md) | Unit tests cannot reach the network | Elite | None | 🟡 | Planned |
-| [EPIC-030I](incomplete/EPIC-030I_no_runtime_artifact_is_tracked.md) | No runtime artifact is tracked | Elite | None | 🟢 | Planned |
-| [EPIC-030L](incomplete/EPIC-030L_audit_freshness_alarm.md) | A silent scheduled audit raises an alarm | Elite | None | 🟡 | Planned |
-| [EPIC-030M](incomplete/EPIC-030M_data_root_seam.md) | Tests never write into the repository's state or database | Elite | None | 🔴 | Planned |
+| [EPIC-030D](incomplete/EPIC-030D_shared_kernel_guard.md) | Domain, application and contracts import from the engine only the Shared Kernel | Elite | EPIC-030C | 🟡 | In review (PR 2) |
+| [EPIC-030E](incomplete/EPIC-030E_module_layers_point_inward.md) | Inside one module, dependencies point inward | Elite | EPIC-030C | 🟢 | In review (PR 2) |
+| [EPIC-030F](incomplete/EPIC-030F_presenter_owned_never_registered.md) | Presenter-owned objects are never registered in the container | Elite | EPIC-030C | 🟢 | In review (PR 2) |
+| [EPIC-030G](incomplete/EPIC-030G_every_presenter_package_has_a_preview.md) | Every presenter package keeps a preview | Elite | None | 🟢 | In review (PR 2) |
+| [EPIC-030H](incomplete/EPIC-030H_unit_tests_never_reach_the_network.md) | Unit tests cannot reach the network | Elite | None | 🟡 | In review (PR 2) |
+| [EPIC-030I](incomplete/EPIC-030I_no_runtime_artifact_is_tracked.md) | No runtime artifact is tracked | Elite | None | 🟢 | In review (PR 2) |
+| [EPIC-030L](incomplete/EPIC-030L_audit_freshness_alarm.md) | A silent scheduled audit raises an alarm | Elite | None | 🟡 | In review (PR 2) |
+| [EPIC-030M](incomplete/EPIC-030M_data_root_seam.md) | Tests never write into the repository's state or database | Elite | None | 🔴 | In review (PR 2) |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
@@ -52,4 +52,5 @@
 Tier B of the audit: enabling ruff or mypy rules in `pyproject.toml`, the review-disclosure check, Claude Code hooks, commit-message lint, pinning the engine. The 354 section citations inside `.py` and `.ps1` docstrings stay unchecked until a later task.
 
 ## Notes (newest first)
+- **2026-10-04** — PR #322 merged (030A part 1, 030B part 1); D, E, F, G, H, I, L, M in review as PR 2; C waits for the remaining clause tags.
 - **2026-10-04** — Epic scaffolded from the audit; J and K dropped by the user.

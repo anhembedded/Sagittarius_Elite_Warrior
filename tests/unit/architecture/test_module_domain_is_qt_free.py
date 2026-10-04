@@ -20,6 +20,10 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from Sagittarius_Elite_Warrior.tests.unit.architecture.boundaries.imports import (
+    runtime_nodes,
+)
+
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SRC_ROOT = _REPO_ROOT / "src"
 
@@ -59,29 +63,9 @@ _QT_FREE_GLOBS = (
 )
 
 
-def _is_type_checking_guard(node: ast.AST) -> bool:
-    if not isinstance(node, ast.If):
-        return False
-    test = node.test
-    if isinstance(test, ast.Name):
-        return test.id == "TYPE_CHECKING"
-    return isinstance(test, ast.Attribute) and test.attr == "TYPE_CHECKING"
-
-
-def _runtime_nodes(tree: ast.AST):
-    stack: list[ast.AST] = [tree]
-    while stack:
-        node = stack.pop()
-        yield node
-        if _is_type_checking_guard(node):
-            stack.extend(node.orelse)
-        else:
-            stack.extend(ast.iter_child_nodes(node))
-
-
 def _runtime_toolkit_imports(source: str) -> list[tuple[int, str]]:
     found: list[tuple[int, str]] = []
-    for node in _runtime_nodes(ast.parse(source)):
+    for node in runtime_nodes(ast.parse(source)):
         if isinstance(node, ast.Import):
             names = [alias.name for alias in node.names]
         elif isinstance(node, ast.ImportFrom) and node.module:

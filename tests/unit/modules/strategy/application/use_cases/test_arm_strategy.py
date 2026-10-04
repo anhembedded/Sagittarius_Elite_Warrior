@@ -11,9 +11,6 @@ from unittest.mock import Mock
 
 import pytest
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
-    LiveStrategyConfigStore,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_session import (
     LiveStrategySession,
 )
@@ -51,6 +48,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.strategy.live_config_ports import (
+    in_memory_config_store,
 )
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
@@ -162,7 +162,7 @@ def _arm_handler(
     the config keys it reads and writes are what `LiveStrategyConfigStore`
     is for."""
     return ArmStrategyCommandHandler(
-        _sessions(session), _ports(state, venue), LiveStrategyConfigStore(DictConfig())
+        _sessions(session), _ports(state, venue), in_memory_config_store(DictConfig())
     )
 
 
