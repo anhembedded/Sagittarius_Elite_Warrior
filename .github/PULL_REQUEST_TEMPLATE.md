@@ -10,4 +10,4 @@
 
 ## Verification
 
-<!-- Full gate PASS on `logs/ci-local-<timestamp>.log`, run on exactly this final tree; what the grep of that log found. Guards touched and why. Documentation-only (ONBOARDING §7): say so instead. -->
+<!-- The GitHub Actions `ci-local.ps1 -Full` (`gate`) run on this PR's head sha, and what the grep of its job log found (ci-rule.md §1). Guards touched and why. Documentation-only (ONBOARDING §7): say so and name the doc guards run. -->
