@@ -5,8 +5,15 @@ from __future__ import annotations
 
 from dataclasses import replace
 from decimal import Decimal
+from pathlib import Path
 
 from PySide6.QtWidgets import QPushButton
+from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
+    JsonBotStore,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot.handler import (
+    CreateBotCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
     BotProgress,
 )
@@ -16,6 +23,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     BaseHandling,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
+    FakeBotClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotIdGenerator
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
 )
@@ -28,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.stop_bot_dialog i
     STOP_BUTTON_TEXT,
     StopBotDialog,
     stop_question,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 
 from .bots_screen_fixtures import VENUE, stored
@@ -67,6 +81,26 @@ def test_create_waits_for_a_symbol_and_names_what_it_does(qtbot) -> None:
     assert (command.kind, command.venue, command.symbol) == ("grid", VENUE, "ETHUSDT")
     assert command.name == "ETHUSDT grid"
     assert command.config["grid_count"] == "10"
+
+
+def test_the_new_bot_command_carries_the_venue_enum_and_saves(
+    qtbot, tmp_path: Path
+) -> None:
+    """`BUG-144`. A `str`-based enum stored as a combo's item data comes back
+    from Qt as a plain `str`, which compares equal to the member, so the test
+    above stayed green while saving the bot crashed on `venue.value`. The
+    command is saved through the real handler and store here."""
+    dialog = NewBotDialog(["grid"], [VENUE])
+    qtbot.addWidget(dialog)
+    qtbot.keyClicks(dialog.symbol, "btcusdt")
+
+    command = dialog.command()
+    result = CreateBotCommandHandler(
+        JsonBotStore(tmp_path), FakeBotClock(), BotIdGenerator()
+    ).execute(command)
+
+    assert type(command.venue) is TradingVenue
+    assert result.accepted, result.message
 
 
 def test_without_an_enabled_spot_venue_nothing_can_be_created(qtbot) -> None:

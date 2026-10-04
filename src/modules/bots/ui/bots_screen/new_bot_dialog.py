@@ -102,7 +102,9 @@ class NewBotDialog(QDialog):
         return CreateBotCommand(
             name=self.name.text().strip() or f"{self._symbol()} grid",
             kind=self.kind.currentData(),
-            venue=self.venue.currentData(),
+            # `BUG-144`: Qt returns a `str`-based enum's item data as a plain
+            # `str`; the member is rebuilt here, at the boundary that lost it.
+            venue=TradingVenue(self.venue.currentData()),
             symbol=self._symbol(),
             config=self._panel.config() if self._panel is not None else {},
         )
