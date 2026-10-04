@@ -65,14 +65,14 @@ Stable inspection checklist for `.claude/skills/pr-review/SKILL.md`. Every item 
 | **G3** | Check single state ownership: Presenter owns UI state; View and Coordinator do not duplicate it. |
 | **G4** | Ensure Presenter-owned injection: dependencies injected at construction, not dynamically discovered. |
 | **G5** | Verify exception resilience in UI callbacks: background failures do not crash the Qt event loop. |
-| **H1** | Verify UI styling guards: no hardcoded color hexes; use design system tokens/palette. |
+| **H1** | Verify UI styling guards: no stylesheet, palette library or theme tokens; colour only where it carries meaning, through `QPalette` roles or a per-widget property (`.claude/rules/ui-presentation-rule.md` §1). |
 | **H2** | Enforce shrink-only styling baselines. |
 | **H3** | Verify standard desktop navigation and keyboard shortcut bindings. |
 | **H4** | Check content overflow behavior and responsive widget layouts under resize. |
 | **H5** | Verify `preview.py` coverage for new or modified UI components. |
 | **H6** | Check table column autosizing, header formatting, and visual alignment. |
 | **H7** | Verify actionable user feedback: progress bars, spinners, and clear error notifications. |
-| **I1** | Confirm structured logger namespace coverage: namespaces follow `"App.<module>.<class>"`. |
+| **I1** | Confirm structured logger namespace coverage: namespaces follow `"App.<Component>"` (`.claude/rules/logging-rule.md` §1). |
 | **I2** | Flag noisy or high-frequency logging in hot paths (move to `TRACE`). |
 | **I3** | Check log levels: `ERROR` only for actual errors; `DEBUG` for diagnostic context; no `print()`. |
 | **I4** | Ensure diagnostic output routes through real logging configuration, not stdout. |

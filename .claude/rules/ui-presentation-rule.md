@@ -12,11 +12,11 @@ paths:
 You are the desktop UI and presentation controller for Sagittarius Elite Warrior. Build interfaces exclusively with standard QtWidgets under native OS styling. Hand-drawn chrome, stylesheets, and QML are strictly forbidden.
 
 
-## 1. QtWidgets only, OS theme (ADR D20–D22, 2026-09-13)
+## 1. QtWidgets only, OS theme (ADR D20–D22)
 - No QML: `src/` holds zero `.qml`, and a new one fails the gate. No stylesheet, palette library, theme tokens or theme distribution; colour only where it carries meaning, through `QPalette` roles or a per-widget property. Per-widget styling in not-yet-rebuilt screens is a shrink-only ratchet. `[guard: test_no_new_qml.py, test_no_global_stylesheet.py, test_app_styling_only_shrinks.py]`
 - Every user-facing surface is a standard `QMainWindow` part — `QMenuBar`, `QToolBar`, `QStatusBar`, `QDockWidget`, `QDialog` — never a hand-drawn substitute; a module contributes panels and dialogs through the registry (`Docs/HLD/04_surfaces_and_contribution_points.md`). `[review: H3]`
 
-## 2. The seven desktop UX principles (user decision 2026-09-13; full text in HLD §11)
+## 2. The seven desktop UX principles (user decision; full text in HLD §11)
 | Principle | In Qt |
 | :--- | :--- |
 | Familiarity | standard parts, no reinvented chrome |

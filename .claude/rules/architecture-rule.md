@@ -60,7 +60,7 @@ A deferred piece of work or an accepted trade-off exists as a type or a test, no
 ### 7.2 A class is a contract
 Design the public surface first: who calls it and what they need to see; where extension is likely (that spot is an ABC/port); whether a consumer is forced to know internals (tighten). Abstraction is not a middle layer for its own sake.
 
-### 7.2.1 Seam now, variant later (user decision 2026-09-13)
+### 7.2.1 Seam now, variant later (user decision)
 The **seam** (port, base class, place enum, the list a case is appended to) is built with the first case — Open/Closed. The **variant** (second implementation, unasked feature) waits for a real case — YAGNI. Procedure at every design decision: (1) write the plausible extension cases (three to five) in the seam's docstring; (2) each must be a local change — one new file behind an existing seam, one line in a list; (3) do not build the case; (4) a test locks the seam (a second host is one line — ADR D15). The closed-design tell: *"to add X we must touch N existing files."* Fix it now, do not file it as debt. `[review: C9]`
 
 ### 7.3 No wriggling out via docstrings

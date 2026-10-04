@@ -25,7 +25,7 @@ Use `/execute-task BOT-123` to implement a recorded task, `/execute-task continu
 
 `rules/task-execution-rule.md` defines completion; `rules/report-task-rule.md` defines compact progress and handoff reports. Both load with task documents and are read explicitly by the skill. Authority, verification commands and commit conventions remain in their existing owners. `rules/report-rule.md` supplies shared language/context and the fuller form for major milestones.
 
-Starting or resuming any task inside an epic first shows the user a Mermaid Kanban of the whole epic, with the current task marked. Both `execute-task` and the specialised epic executor follow the Kanban contract in `rules/report-task-rule.md`.
+Starting or resuming any task inside an epic first shows the user a Mermaid Kanban and Gantt chart of the whole epic, with the current task marked. Both `execute-task` and the specialised epic executor follow the Kanban contract in `rules/report-task-rule.md`.
 
 Before showing Mermaid, use `skills/execute-task/references/mermaid-validation.md`: render the exact draft with the pinned official CLI, require a successful exit and fresh SVG, then display the checked source unchanged. The CLI runs from npm's cache; no application dependency is added.
 
@@ -33,7 +33,7 @@ Before showing Mermaid, use `skills/execute-task/references/mermaid-validation.m
 
 Choose the format named by the workflow, copy it to that workflow's destination, and remove its YAML front matter and instructional comments. Replace every brace placeholder. Where a field offers alternatives separated by `/`, retain exactly one; those alternatives are instructions, not a preselected state. Fields and sections are required unless marked optional or conditional. Write `None`, `Pending`, `Not yet established` or `Not run` when that is the truth; an empty placeholder is not evidence.
 
-Use `templates/task.md` for both standalone `BOT-nnn` tasks and `EPIC-nnnA` children. The latter live in the epic's `incomplete/` directory and link their parent README; follow `ONBOARDING.md` §12.3 when completing them. Proposals use `templates/proposal.md`; an accepted proposal links its delivery work rather than claiming that work is done. Decision acceptance and implementation evidence are separate fields.
+Use `templates/task.md` for both standalone `BOT-nnn` tasks and `EPIC-nnnA` children. The latter live in the epic's `incomplete/` directory and link their parent README; follow `ONBOARDING.md` §3 and §6 when completing them. Proposals use `templates/proposal.md`; an accepted proposal links its delivery work rather than claiming that work is done. Decision acceptance and implementation evidence are separate fields.
 
 Keep the existing specialised formats at their owning locations: `Docs/SPEC/SPEC-000_template.md`, `.github/PULL_REQUEST_TEMPLATE.md`, and the output sections of the scheduled audit skills. Do not duplicate them here.
 
