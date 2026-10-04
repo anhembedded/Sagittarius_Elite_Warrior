@@ -262,6 +262,19 @@ The rules behind the table:
   STARTING's event; `fault` (ERROR) is for a request that raised, and also, through the
   executor's one fault boundary, for any step outside an order that raised (a price, terms or
   history read; `GridReason.TASK_FAILED`), so no failure leaves a bot without a reason.
+- **As built (`029E`, PR 325 review): HALTED and ERROR take the ladder off the exchange.** A task
+  that leaves the bot HALTED or ERROR, other than by a switch-off, cancels every order carrying
+  its tag (`GridTaskGuard`); what could not be cancelled is named beside the reason. D13's
+  HALTED was designed for a switch-off, when cancels are refused and the orders rest by design;
+  that case is unchanged. Without this, a halt or a fault while trading is on left the ladder
+  trading with nobody placing its counters. **A stop loss or take profit stays armed in HALTED
+  and ERROR** (D11): a tick through it runs Stop selling the base, which after a switch-off
+  waits in STOPPING until trading returns.
+- **As built: a second order held for one level halts.** While PAUSED, if the price crosses a
+  level both ways, two orders would be held for it (a SELL and a BUY): released together they
+  are a crossing pair from one account (Binance's self-trade prevention expires one). The
+  second halts with `DUPLICATE_LEVEL_ORDER`, and a resume re-plans (D13). The executor also
+  checks a level is EMPTY before it submits.
 
 - **`stop_confirmed`** is raised only by a read that shows **zero open orders carrying the bot's
   tag**, after the base asset has been handled per O3.
@@ -334,15 +347,19 @@ Spot took. History that does not answer is a wait, not a fault: the bot stays RE
   one unit), never the cap then a remainder, which could be a tail below the exchange's NOTIONAL
   minimum that Binance refuses. The ladder's SELL side is sized net of the taker fee Spot takes in
   base from the opening buy.
-- **A slice refused or failed** stops the opening. Nothing of the ladder has been placed yet. The
-  bot raises `start_refused`, which leads to HALTED with the acquired inventory derived.
+- **A slice refused or failed** stops the opening. Nothing of the ladder has been placed yet. A
+  refused slice raises `start_refused`, which leads to HALTED with the acquired inventory
+  derived. **As built (`029E`):** a slice whose request raised is `fault`, so ERROR, whose exit
+  is Stop (D9: a raised request is a fault, since it may have executed); Stop re-derives the
+  inventory before it sells.
 - **Resuming** re-plans with that inventory. The SELL side is sized to what was actually bought.
 - **Exits (r2).** A stop-loss or take-profit exit, and Stop with *sell base*, sell the inventory in
   slices at or below the cap, spaced by `min_order_spacing`.
   - A refused or failed exit slice halts the bot, naming the unsold remainder; nothing is retried
     silently.
   - Every exit slice carries the bot's tag and passes check 3.
-  - **As built (`029E`):** exit slices are even too. An inventory worth less than the NOTIONAL
+  - **As built (`029E`):** exit slices are even too, rounded to `MARKET_LOT_SIZE`'s step when the
+    venue publishes one (`ExchangeTerms.market_step`). An inventory worth less than the NOTIONAL
     minimum is dust: nothing is sent and the stop completes, naming it in the log. The stop
     derives the inventory again after its cancels, so a fill that landed meanwhile is sold or
     kept with the rest.

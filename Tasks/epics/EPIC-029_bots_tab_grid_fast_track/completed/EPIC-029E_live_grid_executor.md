@@ -236,6 +236,21 @@ with a regression test and a mutation run):
    stale inventory. The cancel is now treated as ended, and the inventory is derived again
    before selling.
 
+**What the independent review found (PR 325, round 1)** (each fixed with a regression test):
+
+7. A pause the price crossed both ways held two orders for one level and released a crossing
+   pair. A second hold now halts, and the executor checks a level is EMPTY before it submits.
+8. HALTED and ERROR left the ladder trading and the stop loss unwatched. Every halt or fault
+   other than a switch-off now cancels the tagged orders (`GridTaskGuard`), and SL/TP stay armed
+   in HALTED and ERROR.
+9. Any off-ladder fill was booked as a market fill, so a late duplicate doubled the inventory.
+   Only the run's own market orders and dropped orders now count (`OffLadderOrders`).
+10. No worker was ever closed. `fresh()`, `retire()` and module shutdown close them, and a new
+    run drains the previous worker first.
+11. Reconciliation threw away a counter's Halt. It is now a mismatch.
+12. Exits rounded to `LOT_SIZE`. They now round to `MARKET_LOT_SIZE`.
+13. Corrections: the `MAX_NUM_ORDERS` claim and ADR §3.4 (a raised slice is ERROR); nits.
+
 **Evidence.**
 
 - Unit: every criterion above, with a deterministic inline queue and a counting pacer (files
@@ -258,7 +273,9 @@ limit.
 | `NOTIONAL` min, planner | Refused when the smallest level **net of the taker fee** is under the minimum | `test_min_notional_at_the_smallest_order_net_of_fee_passes_a_cent_more_refuses` |
 | `NOTIONAL` min, slices | Even slices, none a tail; an exit worth under the minimum is dust, nothing sent | `test_no_quote_slice_is_a_tail_below_the_exchange_minimum`, `test_no_base_slice_is_a_tail_below_the_exchange_minimum`, `test_an_inventory_worth_less_than_the_exchange_minimum_is_kept_as_dust` |
 | `NOTIONAL` min, re-place and resume | Owed remainder under the minimum settles the level; resume leaves a dust SELL level EMPTY | `test_a_remainder_below_the_exchange_minimum_settles_the_level_as_filled`, `test_when_neither_part_clears_the_minimum_nothing_is_sent`, `test_a_resume_leaves_empty_a_sell_level_worth_less_than_the_minimum` |
-| `MAX_NUM_ORDERS` | Planner refuses a grid with more levels than the venue allows; budget `max_open_orders` = levels | `test_grid_checks.py` (029C), `test_all_preconditions_held_register_the_budget_for_this_run` |
+| `MAX_NUM_ORDERS` | Not read. The planner refuses more levels than trading's per-owner cap (`max_open_orders`, configured at 100), which stays below Binance Spot's 200; the budget's `max_open_orders` is the level count | `test_grid_checks.py` (029C), `test_all_preconditions_held_register_the_budget_for_this_run`; limit: a venue with a lower filter would refuse |
+| `MARKET_LOT_SIZE` | Exit slices rounded to its step when published, else `LOT_SIZE`'s | `test_exit_slices_follow_the_market_lot_size_step` |
+| Self-trade prevention (`EXPIRE_MAKER`) | The bot never sends two orders at one level: a second hold while paused halts, and every submit checks the level is EMPTY | `test_two_fills_in_one_pause_never_release_a_crossing_pair`, `test_an_order_is_never_sent_to_a_level_that_already_holds_one`, `test_a_pause_the_price_crosses_both_ways_halts_rather_than_stack_a_level` |
 | App per-order cap (D21) | Every market order sliced at or below `max_notional_per_order` | `test_the_opening_buy_goes_in_slices_under_the_cap_then_the_ladder_outward`, `test_stop_selling_the_base_sells_the_derived_inventory_in_slices` |
 | Rate limits (`ORDERS` 50/10 s) | One order per pacer turn at the budget's spacing (250 ms → at most 40/10 s) | `test_ten_slices_in_a_row_are_each_a_spacing_apart`, `test_every_order_carries_the_bots_owner_and_tag_and_waits_its_turn` |
 | Fee in base on a BUY | SELL side and counter SELLs sized net of it; inventory booked net | `test_each_sell_is_sized_net_of_the_fee_the_opening_paid_in_base`, `test_a_missed_fill_counts_the_fee_its_trades_paid_in_base` |
@@ -274,9 +291,13 @@ limit.
 | App killed between submit and save | Adopted by tag at reconciliation; never two orders at a level | `test_an_order_sent_but_never_saved_is_adopted_and_its_level_not_placed_twice` |
 | Fill missed while closed | Applied from history with its trades' fees, before adoption | `test_a_fill_missed_while_closed_is_applied_and_its_counter_placed`, journey two |
 | Opening market slice partly filled then `EXPIRED` (thin book) | The SELL side then exceeds what trading counts; refused → `start_refused`, HALTED with inventory derived; resume re-plans | Limit (safe failure), recorded here |
-| `PERCENT_PRICE_BY_SIDE` | Not checked by the planner; a level outside the band is refused or rejected → HALTED or ERROR, never a silent loss | Limit: `029H` measures it on Testnet; a planner verdict is a one-check change in `grid_checks.py` |
+| `PERCENT_PRICE_BY_SIDE` | Not checked by the planner; a level outside the band is refused or rejected → HALTED or ERROR, the rest of the ladder cancelled and SL/TP still armed | `test_a_rejection_halts_and_takes_the_ladder_off_the_exchange`; limit: `029H` measures it on Testnet, a planner verdict is a one-check change in `grid_checks.py` |
+| Halt or fault while the exchange is reachable | Every tagged order cancelled; what could not be is named; SL/TP stay armed | `test_grid_executor_parking.py` |
 | User-data stream gap while running | Fills missed during a disconnect are not reconciled until the next restart | Limit: the stream's reconnect publishes no catch-up; `029J` |
-| Duplicate executionReport | A late duplicate after the level settled changes nothing; a duplicate partial would double count | `test_a_late_duplicate_fill_after_the_level_settled_changes_nothing`; limit for partials (Binance does not resend on one connection) |
+| Duplicate executionReport | A late duplicate after the level settled changes nothing, at the executor too (only the run's market and dropped orders are booked off-ladder); a duplicate partial would double count | `test_a_late_duplicate_fill_of_a_settled_level_changes_nothing`, `test_a_late_duplicate_fill_after_the_level_settled_changes_nothing`; limit for partials (Binance does not resend on one connection) |
+| A fill of an earlier run's order after a restart of the bot | Ignored; the new run's inventory is derived from the exchange | `test_a_late_duplicate_fill_of_a_settled_level_changes_nothing` (same rule) |
+| Missed fill whose counter cannot be placed | Reconcile mismatch → HALTED | `test_a_missed_fill_whose_counter_has_nowhere_to_go_halts` |
+| Worker threads | Closed when an executor is replaced, retired, or the module shuts down | `test_bot_executors.py`, `test_shutdown_closes_every_bot_worker` |
 
 **Known limits** (also in the table): the confirm-resume UI and the bot query surface are
 `029F`'s; the stream latency against SELL placement (`grid_start_sequence` docstring), the
