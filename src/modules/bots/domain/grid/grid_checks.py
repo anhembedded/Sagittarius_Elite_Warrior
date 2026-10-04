@@ -1,6 +1,6 @@
 """`EPIC-029C` — one verdict per check on a Grid's parameters (PRO-006 §4.2; ADR D14, D21).
 
-**Four refusals, and no others** — each a certain loss or a certain rejection:
+**Five refusals, and no others** — each a certain loss or a certain rejection:
 
   · `EVERY_CYCLE_LOSES` — even the widest grid's step is at or below
     `2 × maker`, so every completed cycle loses money (both legs rest, so both
@@ -15,7 +15,11 @@
     (`ExchangeTerms.max_open_orders`: trading's per-owner cap, ADR O1, which
     stays below Binance Spot's `MAX_NUM_ORDERS` of 200; that filter itself is
     not read), which trading rejects. Checked before the ladder is built, so a huge
-    `grid_count` costs nothing (`grid_evaluation.py`; PR #318 review).
+    `grid_count` costs nothing (`grid_evaluation.py`; PR #318 review);
+  · `LEVEL_OUTSIDE_PRICE_BAND` — a level's price is outside the band the venue
+    accepts for its side (`ExchangeTerms.price_band`, Binance Spot's
+    `PERCENT_PRICE_BY_SIDE`), which the exchange rejects (`BUG-147`). The band
+    follows the market, so it is judged at the current price.
 
 **Warnings** carry the threshold and the measured value. A check that cannot
 run (no candles for the ATR) says so as OK, never as a silent pass.
@@ -146,6 +150,51 @@ def check_open_orders(inputs: GridCheckInputs) -> Verdict:
     return Verdict(OK, "OPEN_ORDERS", "The plan fits the open-order limit", numbers)
 
 
+def check_price_band(inputs: GridCheckInputs) -> Verdict:
+    band = inputs.terms.price_band
+    if band is None:
+        return Verdict(
+            OK,
+            "PRICE_BAND_NOT_PUBLISHED",
+            "The venue publishes no price band, so the levels were not compared with one",
+        )
+    last = inputs.plan.last_price
+    lowest_buy, highest_buy = last * band.buy_down, last * band.buy_up
+    lowest_sell, highest_sell = last * band.sell_down, last * band.sell_up
+    numbers = {
+        "last_price": last,
+        "lowest_buy_allowed": lowest_buy,
+        "highest_sell_allowed": highest_sell,
+    }
+    for level in inputs.plan.buy_levels:
+        if not lowest_buy <= level.price <= highest_buy:
+            return _outside_band(level.price, "BUY", (lowest_buy, highest_buy), numbers)
+    for level in inputs.plan.sell_levels:
+        if not lowest_sell <= level.price <= highest_sell:
+            return _outside_band(
+                level.price, "SELL", (lowest_sell, highest_sell), numbers
+            )
+    return Verdict(
+        OK, "PRICE_BAND", "Every level is inside the venue's price band", numbers
+    )
+
+
+def _outside_band(
+    price: Decimal,
+    side: str,
+    allowed: tuple[Decimal, Decimal],
+    numbers: dict[str, Decimal],
+) -> Verdict:
+    low, high = allowed
+    return Verdict(
+        REFUSED,
+        "LEVEL_OUTSIDE_PRICE_BAND",
+        f"A {side} level at {price} is outside the {low:f}–{high:f} the exchange "
+        f"accepts for a {side} at the current price; narrow the range",
+        {**numbers, "level_price": price},
+    )
+
+
 def largest_capital_within_cap(plan: GridPlan, cap: Decimal) -> Decimal:
     """The largest capital whose every order stays at or under `cap`.
 
@@ -253,6 +302,7 @@ CHECKS: tuple[Callable[[GridCheckInputs], Verdict], ...] = (
     check_min_notional,
     check_max_notional,
     check_open_orders,
+    check_price_band,
     check_min_step,
     check_range_against_atr,
     check_stop_loss,

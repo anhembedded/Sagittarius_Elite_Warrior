@@ -37,6 +37,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_market_metadata_p
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    PercentPriceBand,
     SymbolOrderMetadata,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
@@ -84,7 +85,11 @@ class StaticMetadataProvider(IMarketMetadataProvider):
         raise NotImplementedError
 
 
-def static_metadata_provider() -> IMarketMetadataProvider:
+def static_metadata_provider(
+    price_band: PercentPriceBand | None = None,
+) -> IMarketMetadataProvider:
+    """@param price_band `BUG-147` — BTCUSDT's `PERCENT_PRICE_BY_SIDE`;
+    none by default, so every other test is unchanged."""
     return StaticMetadataProvider(
         {
             "BTCUSDT": SymbolOrderMetadata(
@@ -96,6 +101,7 @@ def static_metadata_provider() -> IMarketMetadataProvider:
                 quantity_precision=3,
                 price_precision=2,
                 fetched_at=datetime(2026, 8, 27, tzinfo=UTC),
+                price_band=price_band,
             ),
             # `EPIC-029A` review — a second symbol, so a test can send a bot's
             # tagged order where its budget does not apply.
@@ -171,6 +177,7 @@ def make_handler(
     session_state: TradingSessionState | None = None,
     raw_client: Mock | None = None,
     limits: TradingLimits | None = None,
+    price_band: PercentPriceBand | None = None,
 ) -> tuple[ExecuteOrderCommandHandler, TradingSessionState]:
     state = session_state or TradingSessionState()
     if enabled and not state.enabled:
@@ -185,7 +192,7 @@ def make_handler(
     credentials_provider.resolve.return_value = ResolvedCredentials(
         CREDENTIALS, CredentialsSource.FILE
     )
-    metadata_provider = static_metadata_provider()
+    metadata_provider = static_metadata_provider(price_band)
     trading_client_factory = FuturesTradingClientFactory(
         session_factory, credentials_provider, metadata_provider
     )

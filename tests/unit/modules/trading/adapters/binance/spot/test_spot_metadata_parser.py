@@ -16,6 +16,8 @@ from decimal import Decimal
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_metadata_parser import (
     DEFAULT_STATUS,
+    UNREAD_SPOT_FILTERS,
+    SpotFilterType,
     parse_spot_exchange_info,
     parse_spot_symbol_metadata,
 )
@@ -230,3 +232,87 @@ def test_parse_spot_exchange_info_propagates_a_malformed_symbols_own_error():
 
     with pytest.raises(KeyError):
         parse_spot_exchange_info(payload, fetched_at=_FIXED_TIME)
+
+
+def test_reads_the_percent_price_by_side_band_when_published():
+    """`BUG-147` — Binance rejects a BUY or SELL priced outside this band
+    (`-1013 Filter failure: PERCENT_PRICE_BY_SIDE`); the bot checks a plan
+    against it only if the parser carries it."""
+    entry = {
+        **_BTCUSDT_ENTRY,
+        "filters": [
+            *_BTCUSDT_ENTRY["filters"],
+            {
+                "filterType": "PERCENT_PRICE_BY_SIDE",
+                "bidMultiplierUp": "5",
+                "bidMultiplierDown": "0.2",
+                "askMultiplierUp": "5",
+                "askMultiplierDown": "0.2",
+                "avgPriceMins": 5,
+            },
+        ],
+    }
+
+    band = parse_spot_symbol_metadata(entry, fetched_at=_FIXED_TIME).price_band
+
+    assert band is not None
+    assert (band.bid_down, band.bid_up) == (Decimal("0.2"), Decimal(5))
+    assert (band.ask_down, band.ask_up) == (Decimal("0.2"), Decimal(5))
+
+
+def test_no_band_when_the_symbol_publishes_none():
+    metadata = parse_spot_symbol_metadata(_BTCUSDT_ENTRY, fetched_at=_FIXED_TIME)
+
+    assert metadata.price_band is None
+
+
+#: Binance's documented Spot symbol filters (Spot API, "Filters").
+_BINANCE_SPOT_FILTERS = (
+    "PRICE_FILTER",
+    "PERCENT_PRICE",
+    "PERCENT_PRICE_BY_SIDE",
+    "LOT_SIZE",
+    "MIN_NOTIONAL",
+    "NOTIONAL",
+    "ICEBERG_PARTS",
+    "MARKET_LOT_SIZE",
+    "MAX_NUM_ORDERS",
+    "MAX_NUM_ALGO_ORDERS",
+    "MAX_NUM_ICEBERG_ORDERS",
+    "MAX_POSITION",
+    "TRAILING_DELTA",
+    "T_PLUS_SELL",
+    "MAX_NUM_ORDER_LISTS",
+    "MAX_NUM_ORDER_AMENDS",
+)
+
+
+def test_every_spot_filter_is_read_or_declared_unread():
+    """`BUG-147` (CS-007) — `PERCENT_PRICE_BY_SIDE` was published, never read,
+    and reached the user as `-1013`. Every documented filter is now either
+    read (`SpotFilterType`) or named with a reason (`UNREAD_SPOT_FILTERS`).
+
+    Retire when: Binance publishes no symbol filters."""
+    read = {member.value for member in SpotFilterType}
+    missing = [
+        name
+        for name in _BINANCE_SPOT_FILTERS
+        if name not in read and name not in UNREAD_SPOT_FILTERS
+    ]
+    assert missing == []
+    assert not read & set(UNREAD_SPOT_FILTERS)
+
+
+def test_a_filter_nobody_declared_is_logged_once_by_name(caplog):
+    entry = {
+        **_BTCUSDT_ENTRY,
+        "filters": [*_BTCUSDT_ENTRY["filters"], {"filterType": "NEW_RULE"}],
+    }
+    payload = {"symbols": [entry, {**entry, "symbol": "ETHUSDT"}]}
+
+    with caplog.at_level("WARNING", logger="App.SpotMetadata"):
+        parse_spot_exchange_info(payload, fetched_at=_FIXED_TIME)
+
+    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "NEW_RULE" in warnings[0]

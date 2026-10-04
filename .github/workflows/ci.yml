@@ -60,14 +60,12 @@ jobs:
       - name: Install Sagittarius Engine
         # Pinned (EPIC-031B): `engine.ref` names the one engine commit this tree
         # is tested against, so two runs of one commit build the same thing.
-        # Bumping the engine is a pull request that edits `engine.ref`.
+        # Bumping the engine is a pull request that edits `engine.ref`. The same
+        # installer every launcher uses (BUG-148), so the gate's Engine Pin step
+        # finds the commit it recorded.
         run: |
-          ref="$(tr -d '[:space:]' < engine.ref)"
-          git init -q "${{ runner.temp }}/engine"
-          git -C "${{ runner.temp }}/engine" fetch -q --depth 1 https://github.com/anhembedded/Sagittarius_Engine.git "$ref"
-          git -C "${{ runner.temp }}/engine" checkout -q FETCH_HEAD
           python -m pip install --upgrade pip
-          pip install "${{ runner.temp }}/engine"
+          python scripts/engine_pin.py install
 
       - name: Install dependencies
         # The lock (EPIC-031B), not the loose requirements: every transitive
@@ -78,12 +76,19 @@ jobs:
         # No .venv on the runner, so the script uses the tools on PATH — the
         # ones pip just installed. Worker count derives from the runner's
         # cores. Output goes to a file and the verdict block is printed from
-        # it, the way ci-rule.md §3 says to read a run.
+        # it, the way ci-rule.md §3 says to read a run. On a red run the log
+        # file's failure lines are printed too: the job log is where a red run
+        # is diagnosed (ci-rule.md §1), and the artifact sits on a host a
+        # session reading the job log cannot always reach.
         run: |
           set +e
           pwsh -NoProfile -File scripts/ci-local.ps1 -Full > gate-stdout.log 2>&1
           status=$?
           sed -n '/===CI_LOCAL_RESULT===/,/===END_CI_LOCAL_RESULT===/p' gate-stdout.log
+          if [ "$status" -ne 0 ]; then
+            log="$(grep -m1 '^LOG_FILE:' gate-stdout.log | sed 's/^LOG_FILE: *//')"
+            grep -nE 'FAILED|ERROR|Traceback|ResourceWarning|Required test coverage' "${log:-gate-stdout.log}" | head -200
+          fi
           exit $status
 
       - name: Keep the logs
