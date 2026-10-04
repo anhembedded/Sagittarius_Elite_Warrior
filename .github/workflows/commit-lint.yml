@@ -1,0 +1,24 @@
+# EPIC-031A — every commit a pull request adds follows commit-rule.md §2.
+# The check runs over the pull request's own commits only (base..head), so an
+# old non-conforming commit on master-warrior never fails a new pull request.
+name: commit-lint
+
+on:
+  pull_request:
+    branches: [master-warrior]
+
+permissions:
+  contents: read
+
+jobs:
+  commit-lint:
+    name: commit-lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Check the pull request's commit messages
+        run: >-
+          python3 scripts/check_commit_messages.py
+          "${{ github.event.pull_request.base.sha }}..${{ github.event.pull_request.head.sha }}"

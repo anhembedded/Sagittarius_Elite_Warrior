@@ -35,12 +35,18 @@ _RUFF_CODE = re.compile(r"^ruff\s+([A-Z]+[0-9]*)$")
 _TEST_FILE = re.compile(r"^test_[\w-]*\.py$")
 _DEFAULT_RUFF_SELECT = ("E4", "E7", "E9", "F")
 
-#: Gate steps other than a ruff code -> the text proving `ci-local.ps1` runs it.
-GATE_STEPS: dict[str, str] = {
-    "mypy": "Mypy",
-    "ruff format": "ruff format",
-    "run-log scan": "Invoke-RunLogScan",
-    "reference check": "check_skill_prompt_references.py",
+#: Gate steps other than a ruff code -> (the file that runs it, the text proving it does).
+GATE_STEPS: dict[str, tuple[str, str]] = {
+    "mypy": (CI_SCRIPT, "Mypy"),
+    "ruff format": (CI_SCRIPT, "ruff format"),
+    "run-log scan": (CI_SCRIPT, "Invoke-RunLogScan"),
+    "reference check": (CI_SCRIPT, "check_skill_prompt_references.py"),
+    "commit lint": (".github/workflows/commit-lint.yml", "check_commit_messages.py"),
+    "independent review": (
+        ".github/workflows/independent-review.yml",
+        "check_independent_review.py",
+    ),
+    "pre-commit hook": (".claude/settings.json", "pre_tool_use.py"),
 }
 
 
@@ -70,8 +76,6 @@ class _Context:
         self.repository = repository
         self.rubric = load_rubric_ids(repository)
         self.selected, self.ignored = ruff_selectors(repository)
-        script = repository.root / CI_SCRIPT
-        self.ci_script = script.read_text(encoding="utf-8") if script.is_file() else ""
         self.tests = [path for path in repository.files() if path.startswith("tests/")]
 
     def guard(self, arg: str) -> str | None:
@@ -95,11 +99,13 @@ class _Context:
             ):
                 return f"gate `ruff {rule}` is not selected by pyproject.toml's ruff config"
             return None
-        marker = GATE_STEPS.get(arg)
-        if marker is None:
+        step = GATE_STEPS.get(arg)
+        if step is None:
             return f"gate `{arg}` is no step the gate runs ({', '.join(GATE_STEPS)}, ruff <CODE>)"
-        if marker not in self.ci_script:
-            return f"gate `{arg}`: {CI_SCRIPT} does not run it (no `{marker}`)"
+        runner, marker = step
+        path = self.repository.root / runner
+        if not path.is_file() or marker not in path.read_text(encoding="utf-8"):
+            return f"gate `{arg}`: {runner} does not run it (no `{marker}`)"
         return None
 
     def review(self, arg: str) -> str | None:
