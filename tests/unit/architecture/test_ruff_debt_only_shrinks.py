@@ -1,10 +1,12 @@
-"""Four ruff rules the tree cannot meet yet only ever lose violations (`EPIC-032C`).
+"""Five ruff rules the tree cannot meet yet only ever lose violations (`EPIC-032C`).
 
 **Why this guard exists.** `code/quality.md` §1, §2 and §7 ask for no `Any` at a
 seam, no function-local import and small functions, and `commit-rule.md` §3
 forbids `print()` debugging. The 2026-10-04 audit measured 212 `ANN401`, 358
 `PLC0415`, 34 `C901` and 247 `T20` hits, too many to fix in one change and too
-many to enable as rules. Unenforced, each count could only grow.
+many to enable as rules. `PLR0904` (over 20 public methods on a class) is a
+ruff preview rule with 10 hits, so selecting it in `pyproject.toml` did nothing
+(PR #330 review). Unenforced, each count could only grow.
 
 **The ratchet** is `baseline_ruff_debt.json`: per rule, per file, the number of
 hits found. A file over its count fails, and so does a new file with any hit; a
@@ -12,13 +14,14 @@ file under its count fails until its line is lowered or deleted, so the
 baseline never keeps room a fix has freed. It only shrinks.
 
 **Scope** follows the rule each code serves: `quality.md` loads for `src/` and
-`scripts/`, so `ANN401`, `PLC0415` and `C901` scan the code trees (`src`,
+`scripts/`, so `ANN401`, `PLC0415`, `C901` and `PLR0904` scan the code trees (`src`,
 `scripts`, `tools`); `commit-rule.md` §3 holds everywhere, so `T20` also scans
 `tests`. A lazy import that `test_module_contribution_laziness.py` requires is
-one of the counted `PLC0415` hits, by design.
+one of the counted `PLC0415` hits, by design. Hits are counted with
+`--ignore-noqa`, so a suppression comment cannot hide a new one.
 
 Retire when: a rule's baseline is empty; then it moves to `extend-select` in
-`pyproject.toml` and its key leaves the baseline. The guard goes with the last key.
+`pyproject.toml` (`PLR0904` once it leaves preview) and its key leaves the baseline. The guard goes with the last key.
 """
 
 from __future__ import annotations
@@ -38,6 +41,7 @@ RATCHETED_RULES: dict[str, tuple[str, ...]] = {
     "ANN401": _CODE_TREES,
     "C901": _CODE_TREES,
     "PLC0415": _CODE_TREES,
+    "PLR0904": _CODE_TREES,
     "T20": (*_CODE_TREES, "tests"),
 }
 
@@ -89,6 +93,11 @@ def measure(root: Path = _REPO_ROOT) -> Debt:
             "json",
             "--exit-zero",
             "--no-cache",
+            # A `# noqa: T201` must not hide a new hit from the ratchet.
+            "--ignore-noqa",
+            # PLR0904 is a preview rule; the other four count the same
+            # with and without it (measured 2026-10-04).
+            "--preview",
         ],
         cwd=root,
         capture_output=True,
@@ -145,5 +154,16 @@ def test_a_planted_print_is_counted(tmp_path: Path) -> None:
     for tree in ("src", "scripts", "tools", "tests"):
         (tmp_path / tree).mkdir()
     (tmp_path / "src" / "probe.py").write_text('print("x")\n', encoding="utf-8")
+    (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
+    assert measure(tmp_path)["T20"] == {"src/probe.py": 1}
+
+
+def test_a_noqa_does_not_hide_a_hit(tmp_path: Path) -> None:
+    """PR #330 review: a coded `# noqa` silenced the hit from the ratchet."""
+    for tree in ("src", "scripts", "tools", "tests"):
+        (tmp_path / tree).mkdir()
+    (tmp_path / "src" / "probe.py").write_text(
+        'print("x")  # noqa: T201\n', encoding="utf-8"
+    )
     (tmp_path / "pyproject.toml").write_text("", encoding="utf-8")
     assert measure(tmp_path)["T20"] == {"src/probe.py": 1}

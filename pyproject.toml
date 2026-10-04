@@ -110,13 +110,14 @@ required-version = "==0.16.7"
 [tool.ruff.lint]
 # EPIC-004 — security and maintainability rules enabled incrementally from
 # the baseline audit (Tasks/reports/EPIC-004A_ruff_security_quality_baseline_audit.md).
-# EPIC-032B — five rules the tree already meets, measured at zero hits on
+# EPIC-032B — four rules the tree already meets, measured at zero hits on
 # 2026-10-04, so they cost nothing today and refuse the first new breach:
 # BLE001 (a blind `except Exception` that neither logs nor re-raises,
 # `code/errors.md` §3), PGH003/PGH004 (a bare `# type: ignore` or `# noqa`,
 # `code/quality.md` §5), TRY203 (catch-and-re-raise that adds nothing,
-# `code/errors.md` §2), PLR0904 (more than 20 public methods on one class).
-extend-select = ["S", "PLR2004", "B", "SIM", "ERA", "N", "BLE001", "PGH003", "PGH004", "TRY203", "PLR0904"]
+# `code/errors.md` §2). PLR0904 is a preview rule, which selecting here would
+# not run; tests/unit/architecture/test_ruff_debt_only_shrinks.py ratchets it.
+extend-select = ["S", "PLR2004", "B", "SIM", "ERA", "N", "BLE001", "PGH003", "PGH004", "TRY203"]
 
 [tool.ruff.lint.per-file-ignores]
 # These patterns are intentional in tests and Qt override methods respectively.
