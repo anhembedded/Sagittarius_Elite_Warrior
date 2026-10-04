@@ -16,6 +16,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matri
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     Halt,
+    LadderRules,
+    LevelEnd,
     LevelFill,
     PlaceOrder,
     drop_order,
@@ -34,10 +36,14 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.grid_runtime_
     empty_ladder,
     order_id,
     perform,
+    resting,
     started_ladder,
 )
 
 AT = datetime(2026, 10, 4, 9, tzinfo=UTC)
+#: Binance's NOTIONAL minimum for the symbol (5 USDT on Spot Testnet BTCUSDT).
+MIN_NOTIONAL = Decimal(5)
+RULES = LadderRules(STEP, MIN_NOTIONAL)
 
 
 def _fill(
@@ -166,7 +172,7 @@ def test_selling_opening_bought_base_moves_the_inventory_and_books_no_grid_profi
 def test_an_ended_order_is_re_placed_once_for_what_it_still_owes() -> None:
     partly = on_fill(started_ladder(), _fill(1, "0.4"), STEP, hold=False).runtime
 
-    reaction = on_end(partly, order_id(1), AT, rejection=None, hold=False)
+    reaction = on_end(partly, LevelEnd(order_id(1), AT, None), RULES, hold=False)
 
     assert reaction.actions == (
         PlaceOrder(
@@ -177,11 +183,51 @@ def test_an_ended_order_is_re_placed_once_for_what_it_still_owes() -> None:
     assert reaction.runtime.levels[1].state is LevelState.EMPTY
 
 
+def test_a_remainder_below_the_exchange_minimum_settles_the_level_as_filled() -> None:
+    """0.97 of 1 bought at 110 when the order was cancelled: re-placing 0.03
+    (3.30 USDT) would be refused under the 5 USDT NOTIONAL minimum. The level
+    is done for what it bought, and its SELL goes one level up for that."""
+    partly = on_fill(started_ladder(), _fill(1, "0.97"), STEP, hold=False).runtime
+
+    reaction = on_end(partly, LevelEnd(order_id(1), AT, None), RULES, hold=False)
+
+    assert reaction.actions == (
+        PlaceOrder(2, OrderSide.SELL, PRICES[2], Decimal("0.97"), PRICES[1]),
+    )
+    assert reaction.runtime.levels[1].state is LevelState.EMPTY
+    assert reaction.runtime.inventory == Decimal("0.97")
+
+
+def test_when_neither_part_clears_the_minimum_nothing_is_sent() -> None:
+    """0.04 of 0.08 bought at 110: 4.40 USDT bought and 4.40 left, each under
+    5. Nothing can be sent; the level empties and the 0.04 stays in the
+    inventory, which a stop sells or keeps."""
+    small = resting(empty_ladder(), 1, OrderSide.BUY, Decimal("0.08"))
+    partly = on_fill(small, _fill(1, "0.04"), STEP, hold=False).runtime
+
+    reaction = on_end(partly, LevelEnd(order_id(1), AT, None), RULES, hold=False)
+
+    assert reaction.actions == ()
+    assert reaction.runtime.levels[1].state is LevelState.EMPTY
+    assert reaction.runtime.inventory == Decimal("0.04")
+
+
+def test_a_counter_sell_settled_short_books_its_cycle_for_what_it_sold() -> None:
+    sell = resting(empty_ladder(), 3, OrderSide.SELL, Decimal(1), PRICES[2])
+    partly = on_fill(sell, _fill(3, "0.97"), STEP, hold=False).runtime
+
+    reaction = on_end(partly, LevelEnd(order_id(3), AT, None), RULES, hold=False)
+
+    assert reaction.runtime.completed_cycles == 1
+    assert reaction.runtime.realised_profit == Decimal("9.70")
+    assert _only_order(reaction.actions).side is OrderSide.BUY
+
+
 def test_the_re_placed_order_counts_what_the_first_executed_toward_its_counter() -> (
     None
 ):
     partly = on_fill(started_ladder(), _fill(1, "0.4"), STEP, hold=False).runtime
-    ended = on_end(partly, order_id(1), AT, rejection=None, hold=False)
+    ended = on_end(partly, LevelEnd(order_id(1), AT, None), RULES, hold=False)
     again = perform(ended.runtime, _only_order(ended.actions))
 
     rest = on_fill(again, _fill(1, "0.6"), STEP, hold=False)
@@ -190,11 +236,14 @@ def test_the_re_placed_order_counts_what_the_first_executed_toward_its_counter()
 
 
 def test_a_second_end_at_one_level_within_a_minute_halts() -> None:
-    first = on_end(started_ladder(), order_id(1), AT, rejection=None, hold=False)
+    first = on_end(started_ladder(), LevelEnd(order_id(1), AT, None), RULES, hold=False)
     again = perform(first.runtime, _only_order(first.actions))
 
     second = on_end(
-        again, order_id(1), AT + timedelta(seconds=59), rejection=None, hold=False
+        again,
+        LevelEnd(order_id(1), AT + timedelta(seconds=59), None),
+        RULES,
+        hold=False,
     )
 
     assert second.actions == (
@@ -204,11 +253,11 @@ def test_a_second_end_at_one_level_within_a_minute_halts() -> None:
 
 
 def test_a_second_end_a_minute_later_is_re_placed_again() -> None:
-    first = on_end(started_ladder(), order_id(1), AT, rejection=None, hold=False)
+    first = on_end(started_ladder(), LevelEnd(order_id(1), AT, None), RULES, hold=False)
     again = perform(first.runtime, _only_order(first.actions))
 
     second = on_end(
-        again, order_id(1), AT + timedelta(minutes=1), rejection=None, hold=False
+        again, LevelEnd(order_id(1), AT + timedelta(minutes=1), None), RULES, hold=False
     )
 
     assert isinstance(_only_order(second.actions), PlaceOrder)
@@ -216,7 +265,10 @@ def test_a_second_end_a_minute_later_is_re_placed_again() -> None:
 
 def test_a_rejection_halts_at_once_with_the_exchange_reason() -> None:
     reaction = on_end(
-        started_ladder(), order_id(3), AT, rejection="insufficient balance", hold=False
+        started_ladder(),
+        LevelEnd(order_id(3), AT, "insufficient balance"),
+        RULES,
+        hold=False,
     )
 
     assert reaction.actions == (

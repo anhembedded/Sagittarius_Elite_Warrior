@@ -19,6 +19,9 @@ clock. The backtest (`EPIC-029D`) can drive the same functions.
   · **An order ending without filling** is re-placed once for what it still
     owes. A second end at the same level within a minute halts the bot
     (`LEVEL_KEEPS_ENDING`); a rejection halts it at once (`ORDER_REJECTED`).
+    What is owed worth less than the exchange's NOTIONAL minimum is never
+    re-placed (Binance would refuse it): the level is settled for what it
+    executed, and its counter order goes out if it clears the minimum.
   · **While placing is held** (PAUSED), a counter order or a re-placement is
     kept in `held` instead of emitted; `release_held` emits them on resume.
 """
@@ -97,6 +100,25 @@ class LevelFill:
     quote_fee: Decimal = _ZERO
 
 
+@dataclass(frozen=True, slots=True)
+class LevelEnd:
+    """An order that ended without filling whole, and when."""
+
+    client_order_id: str
+    at: datetime
+    #: The exchange's reason when it refused the order outright.
+    rejection: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class LadderRules:
+    """The symbol's exchange filters a reaction must respect: LOT_SIZE's step
+    and the NOTIONAL minimum, below which Binance refuses an order."""
+
+    step_size: Decimal
+    min_notional: Decimal
+
+
 def placed(
     runtime: GridRuntime, action: PlaceOrder, client_order_id: str
 ) -> GridRuntime:
@@ -151,41 +173,64 @@ def on_fill(
 
 
 def on_end(
-    runtime: GridRuntime,
-    client_order_id: str,
-    at: datetime,
-    rejection: str | None,
-    hold: bool,
+    runtime: GridRuntime, end: LevelEnd, rules: LadderRules, hold: bool
 ) -> Reaction:
-    """The ladder after an order ended without filling whole.
-
-    `rejection` is the exchange's reason when it refused the order outright."""
-    level = runtime.level_of(client_order_id)
+    """The ladder after an order ended without filling whole."""
+    level = runtime.level_of(end.client_order_id)
     if level is None or level.order is None:
         return Reaction(runtime)
     order = level.order
-    recent = tuple(t for t in level.ended_at if at - t < LEVEL_END_WINDOW)
-    emptied = replace(level.moved(LevelEvent.ENDED, None), ended_at=(*recent, at))
+    recent = tuple(t for t in level.ended_at if end.at - t < LEVEL_END_WINDOW)
+    emptied = replace(level.moved(LevelEvent.ENDED, None), ended_at=(*recent, end.at))
     after = runtime.with_level(emptied)
-    if rejection is not None:
-        return _halt(after, GridReason.ORDER_REJECTED, f"L{level.index}: {rejection}")
+    if end.rejection is not None:
+        return _halt(
+            after, GridReason.ORDER_REJECTED, f"L{level.index}: {end.rejection}"
+        )
     if recent:
         return _halt(
             after,
             GridReason.LEVEL_KEEPS_ENDING,
             f"L{level.index}: two orders ended within a minute",
         )
-    again = PlaceOrder(
-        level.index,
-        order.side,
-        order.price,
-        order.quantity - order.executed,
-        order.paired_buy_price,
-        order.paired_buy_fee_quote,
-        carried_executed=order.total_executed,
-        carried_base_fee=order.total_base_fee,
-    )
-    return _emit(after, again, hold)
+    owed = order.quantity - order.executed
+    if order.executed == 0 or owed * order.price >= rules.min_notional:
+        again = PlaceOrder(
+            level.index,
+            order.side,
+            order.price,
+            owed,
+            order.paired_buy_price,
+            order.paired_buy_fee_quote,
+            carried_executed=order.total_executed,
+            carried_base_fee=order.total_base_fee,
+        )
+        return _emit(after, again, hold)
+    return _settle_short(after, level.index, order, rules, hold)
+
+
+def _settle_short(
+    runtime: GridRuntime,
+    index: int,
+    order: LevelOrder,
+    rules: LadderRules,
+    hold: bool,
+) -> Reaction:
+    """What is owed is worth less than the exchange minimum, so the level is
+    done for what it executed: a SELL books its cycle, and the counter order
+    goes out if it clears the minimum (else the executed part stays in the
+    inventory with no level, and a stop sells or keeps it)."""
+    if order.side is OrderSide.SELL:
+        runtime = _book_cycle(runtime, order, order.price)
+    counter = _counter(runtime, index, order, rules.step_size)
+    if counter is None:
+        return Reaction(runtime)
+    if (
+        isinstance(counter, PlaceOrder)
+        and counter.quantity * counter.price < rules.min_notional
+    ):
+        return Reaction(runtime)
+    return _emit(runtime, counter, hold)
 
 
 def release_held(runtime: GridRuntime) -> Reaction:

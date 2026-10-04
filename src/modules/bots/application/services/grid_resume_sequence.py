@@ -95,6 +95,7 @@ class GridResumeSequence:
             resized_for_inventory(
                 plan(self._context.params, self._context.terms, price),
                 inventory.quantity,
+                self._context.terms.min_notional,
             ),
             inventory,
         )

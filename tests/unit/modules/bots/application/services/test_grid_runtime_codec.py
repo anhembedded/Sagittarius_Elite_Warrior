@@ -13,6 +13,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtim
     encode_runtime,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
+    LadderRules,
+    LevelEnd,
     LevelFill,
     on_end,
     on_fill,
@@ -41,7 +43,9 @@ def _busy_runtime():  # type: ignore[no-untyped-def]
     runtime = on_fill(
         runtime, LevelFill(order_id(1), PRICES[1], Decimal(1)), STEP, hold=True
     ).runtime
-    runtime = on_end(runtime, order_id(3), AT, rejection=None, hold=True).runtime
+    runtime = on_end(
+        runtime, LevelEnd(order_id(3), AT), LadderRules(STEP, Decimal(5)), hold=True
+    ).runtime
     return runtime.with_reason(GridReason.SWITCH_OFF, "Emergency Stop on SPOT_TESTNET")
 
 

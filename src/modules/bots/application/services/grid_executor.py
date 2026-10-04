@@ -72,6 +72,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import pla
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     GridAction,
     Halt,
+    LadderRules,
+    LevelEnd,
     LevelFill,
     PlaceOrder,
     accepted,
@@ -262,11 +264,11 @@ class GridExecutor(IBotExecutor):
         if state.state not in (_S.RUNNING, _S.PAUSED):
             state.update(drop_order(state.runtime, end.client_order_id))
             return
+        terms = self._context.terms
         reaction = on_end(
             state.runtime,
-            end.client_order_id,
-            state.now(),
-            end.rejection,
+            LevelEnd(end.client_order_id, state.now(), end.rejection),
+            LadderRules(terms.step_size, terms.min_notional),
             hold=state.state is _S.PAUSED,
         )
         state.update(reaction.runtime)

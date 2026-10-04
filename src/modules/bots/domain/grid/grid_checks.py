@@ -90,14 +90,22 @@ def check_break_even(inputs: GridCheckInputs) -> Verdict:
 
 
 def check_min_notional(inputs: GridCheckInputs) -> Verdict:
+    """A SELL is sized net of the fee its buy paid in base, so the smallest
+    order the bot sends is the smallest level less the taker fee."""
     smallest = min(level.notional for level in inputs.plan.order_levels)
+    net = smallest * (1 - inputs.terms.taker_fee)
     minimum = inputs.terms.min_notional
-    numbers = {"smallest_order": smallest, "min_notional": minimum}
-    if smallest < minimum:
+    numbers = {
+        "smallest_order": smallest,
+        "smallest_after_fee": net,
+        "min_notional": minimum,
+    }
+    if net < minimum:
         return Verdict(
             REFUSED,
             "LEVEL_BELOW_MIN_NOTIONAL",
-            f"A level's order is worth {smallest}, below the exchange minimum of {minimum}",
+            f"A level's order is worth {net} after the fee, below the exchange "
+            f"minimum of {minimum}",
             numbers,
         )
     return Verdict(

@@ -94,7 +94,7 @@ def test_a_resume_sizes_the_sell_side_to_the_inventory_nearest_first() -> None:
     sells = sorted(plan.sell_levels, key=lambda level: level.price)
     inventory = sells[0].quantity + sells[1].quantity / 2
 
-    resized = resized_for_inventory(plan, inventory)
+    resized = resized_for_inventory(plan, inventory, TERMS.min_notional)
 
     by_index = {level.index: level for level in resized.levels}
     assert by_index[sells[0].index].quantity == sells[0].quantity
@@ -106,8 +106,25 @@ def test_a_resume_sizes_the_sell_side_to_the_inventory_nearest_first() -> None:
     assert resized.buy_levels == plan.buy_levels
 
 
+def test_a_resume_leaves_empty_a_sell_level_worth_less_than_the_minimum() -> None:
+    """What the inventory leaves for the next SELL level is worth under the
+    exchange's NOTIONAL minimum: Binance would refuse it, so that level stays
+    EMPTY and the remainder is dust in the inventory."""
+    plan = _report_plan()
+    sells = sorted(plan.sell_levels, key=lambda level: level.price)
+    dust = (TERMS.min_notional / sells[1].price / 2).quantize(TERMS.step_size)
+    inventory = sells[0].quantity + dust
+
+    resized = resized_for_inventory(plan, inventory, TERMS.min_notional)
+
+    by_index = {level.index: level for level in resized.levels}
+    assert by_index[sells[0].index].quantity == sells[0].quantity
+    assert by_index[sells[1].index].side is LevelSide.EMPTY
+    assert by_index[sells[1].index].quantity == 0
+
+
 def test_a_resume_with_no_inventory_keeps_only_the_buy_side() -> None:
-    resized = resized_for_inventory(_report_plan(), Decimal(0))
+    resized = resized_for_inventory(_report_plan(), Decimal(0), TERMS.min_notional)
 
     assert resized.sell_levels == ()
     assert ladder_orders(resized) and all(

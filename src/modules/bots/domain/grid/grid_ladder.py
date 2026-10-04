@@ -9,8 +9,8 @@
   left EMPTY stays empty.
 · `resized_for_inventory` — the plan a resume proposes (ADR D13, §3.4): the
   SELL side sized to the inventory the bot actually holds, nearest first,
-  and **no opening buy**. A SELL level the inventory does not reach is left
-  EMPTY. The user confirms this plan before anything is placed (O2).
+  and **no opening buy**. A SELL level the inventory does not reach, or
+  reaches with less than the exchange's NOTIONAL minimum, is left EMPTY. The user confirms this plan before anything is placed (O2).
 · `sells_net_of_opening_fee` — the plan a start lays after its opening buy:
   on Spot a buy's fee is taken from the base it buys, so the opening receives
   `quantity × (1 − taker)` and each SELL level is shrunk by the fee, rounded
@@ -72,12 +72,17 @@ def ladder_orders(plan: GridPlan) -> tuple[PlaceOrder, ...]:
     return tuple(_order_for(level) for level in ordered if level.quantity > 0)
 
 
-def resized_for_inventory(plan: GridPlan, inventory: Decimal) -> GridPlan:
-    """`plan` with its SELL side sized to `inventory` and no opening buy."""
+def resized_for_inventory(
+    plan: GridPlan, inventory: Decimal, min_notional: Decimal
+) -> GridPlan:
+    """`plan` with its SELL side sized to `inventory` and no opening buy; a
+    level the inventory would fill to less than `min_notional` stays EMPTY."""
     remaining = inventory
     resized: dict[int, GridLevel] = {}
     for level in sorted(plan.sell_levels, key=lambda lv: lv.price):
         quantity = min(level.quantity, remaining)
+        if quantity * level.price < min_notional:
+            quantity = _ZERO
         remaining -= quantity
         side = LevelSide.SELL if quantity > 0 else LevelSide.EMPTY
         resized[level.index] = replace(level, side=side, quantity=quantity)
