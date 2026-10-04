@@ -52,4 +52,9 @@ Unit: each page's apply/revert/dirty. Integration: open, edit, Cancel leaves con
 - **Proof:**
   - `tests/unit/support/ui_kit/test_options_section_presenter.py` covers the base; a mutation that marks a failed save as saved goes red.
   - `tests/integration/presentation/ui/test_options_pages.py` builds the pages from the real modules' contributions: the page order; an edit typed into a real field reaches `user_config.json` only on Apply; Cancel leaves the file and puts the value back; an empty field keeps OK disabled and names the page and the problem. Disconnecting the change listener turns it red.
+- **A failed save (PR #348 review):** a page writes the live config before the disk write. When the write fails, `OptionsSectionPresenter.apply()` has the page put back what it wrote (`_undo_unsaved_writes`), so nothing unsaved stays in memory and Cancel reverts to what is really saved.
+- **Engine follow-up, `BUG-018` (Engine PR anhembedded/Sagittarius_Engine#229, approved by the user 2026-10-04):**
+  - The Engine's `OptionsDialog.accept()` closed after a failed apply. Until the fix is pinned, OK closes and the page reopens showing its unapplied edit and the error.
+  - `show_options()` kept every dialog it built alive.
+  - The fix is pinned by an `engine.ref` bump in the next Elite PR (P4c).
 - **Not done here:** the `settings` icon stays in the required-assets list, unused since the route went.
