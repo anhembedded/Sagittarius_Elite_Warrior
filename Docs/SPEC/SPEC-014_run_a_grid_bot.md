@@ -5,7 +5,7 @@
 - **Origin:** the user, 2026-10-03, [`PRO-006`](../../Tasks/proposal/PRO-006.md): *"thêm 1 tab là bot
   trading … Tab đó có thể chọn loại bot, và tùy vào các bot sẽ có thanh công cụ riêng"* ("add a
   Bot trading tab; it picks the bot type, and each bot type has its own toolbar"). Built as
-  `EPIC-029B`/`029C`/`029E`/`029F`/`029G`; the
+  `EPIC-029B`/`029C`/`029D`/`029E`/`029F`/`029G`; the
   [ADR](../../Tasks/epics/EPIC-029_bots_tab_grid_fast_track/DECISION_2026-10-03_bots_module_and_grid_bot.md) (D19, O3, O4).
 - **Surfaces:** the Bots tab (`bots`, NAVIGATION item 18, nav "Bots").
 
@@ -47,12 +47,21 @@ sound, I start it, and I watch what it does."*
    **Resume** cancels its tagged orders and proposes a new ladder, shown in its log; **Confirm
    resume** lays it. With no proposal held (no Resume since the halt, or the app restarted) Confirm
    resume is refused with "press Resume first" and nothing is placed.
-8. **Stop** asks what to do with the base the bot holds, with *keep* preselected every time (O3),
+8. **Backtest** (`EPIC-029D`): the Backtest tab replays the parameters on screen (the unsaved
+   edits too) over an interval (1m, 5m, 15m or 1h) and a UTC period, last seven days by default.
+   **Run backtest** shows the replayed candles with the plan's levels, fills and exits on a
+   bot chart of its own, the grid's equity against buy-and-hold on the same timestamps, and the figures:
+   grid profit apart from unrealised, fees by maker and taker, what stopped the replay, the fill
+   rule, and how many candles were replayed without 1-second klines. **Cancel** drops the run and
+   the last result stays; selecting another bot drops it and clears the result.
+9. **Stop** asks what to do with the base the bot holds, with *keep* preselected every time (O3),
    and says its resting orders will be cancelled. **Cancel** leaves the bot running.
-9. Closing the app while any bot is not at rest asks first, naming the bots and what closing
+10. Closing the app while any bot is not at rest asks first, naming the bots and what closing
    leaves behind (O4); **Cancel** keeps the app open.
 
 Only one action runs at a time: while it runs, the list, New bot and every action are disabled.
+A backtest is not such an action: it reads stored candles only, so the bot's actions stay
+available while it runs.
 
 ## 4. What must be true afterwards
 
@@ -73,11 +82,17 @@ Only one action runs at a time: while it runs, the list, New bot and every actio
 | The fills cannot be read | The Fills tab says why | The venue's order history is a network read |
 | A bot file on disk cannot be read | The status line names the file | The store refuses it rather than guessing (`EPIC-029B`) |
 | The action's answer arrives after the trader moved on or closed the tab | Nothing: it is dropped and logged | One action at a time, fenced (`async-ui-action-rule.md`) |
+| The backtest's period has no stored candles | "No 15m candles of BTCUSDT are stored …" and **Sync candles**; only a click syncs the interval and its 1-second klines ("Stop" leaves what was stored), then the backtest runs again | Opening a tab or running a backtest is never a network request (`BUG-107`) |
+| The period is too long for the interval | The backtest asks for a longer interval | The replay holds at most 20,000 candles |
+| A backtest finishes after Cancel, or after another bot was selected | Nothing: it is dropped and logged | Each run is an action of its own, fenced like the others |
 
 ## 6. What this use case does NOT promise
 
 - Futures grids, trailing grids, DCA and signal bots: Spot Grid is the only kind (`EPIC-029K`/`029L`).
-- A backtest of the plan before it starts: that is `EPIC-029D`.
+- A backtest that fills like the exchange: it fills a level only when the price trades a tick
+  through it (never on touch), orders levels inside a candle by its 1-second klines and, without
+  them, takes the adverse side first and says so. It models no slippage, no queue position and no
+  partial fills, and its fees are the venue's rates read by the planner.
 - Watching the stop loss and take profit while the app is closed: nothing runs then, which is why
   closing asks first.
 - The Fills tab reads the four newest pages of the symbol's order history since the run started;
@@ -87,12 +102,13 @@ Only one action runs at a time: while it runs, the list, New bot and every actio
 
 ## 7. Ports and modules it exercises
 
-- bots: `ListBotsQuery`, `GetPlannerMarketQuery`, `GetBotFillsQuery`; `CreateBotCommand`,
+- bots: `ListBotsQuery`, `GetPlannerMarketQuery`, `GetBotFillsQuery`, `RunGridBacktestQuery`; `CreateBotCommand`,
   `EditBotCommand`, `StartBotCommand`, `PauseBotCommand`, `ResumeBotCommand`,
   `ConfirmBotResumeCommand`, `StopBotCommand`, `DeleteBotCommand`; `IBotKindCatalog`,
   `IBotKind`; `BotChangedEvent`; `BotChart`, `BotTickFeed`.
 - trading: `IVenueTradingPorts` (`IOrderEntryTerms`, `IAccountActivity`), `OwnerBudgetCaps`.
-- market_data: `IHistoricalKlines`, `IMarketDataSync`, `IMarketStream`, `MarketDataCandleFeed`.
+- market_data: `IHistoricalKlines`, `IMarketDataSync`, `IMarketStream`, `MarketDataCandleFeed`,
+  `IMarketDataRepository` (the 1-second klines, streamed).
 - core: `ICloseObjections`, `ICommandDispatcher`.
 
 ## 8. Proven by
@@ -108,4 +124,9 @@ Only one action runs at a time: while it runs, the list, New bot and every actio
 | Closing asks while a bot is active; Cancel keeps the window | `tests/unit/presentation/ui/test_main_window_close_guard.py` | unit |
 | A Grid starts, fills, pauses, stops and restarts against the fake exchange | `tests/integration/modules/bots/test_grid_bot_against_fake_server.py` | integration |
 | The route is item 18 and contributed by bots | `tests/unit/shell/test_screen_wiring.py` | unit |
+| The fill rule (no fill on touch, kline order, adverse side without them), fees, exits, buy-and-hold, cancellation, the report's four regimes | `tests/unit/modules/bots/domain/grid/test_grid_simulator.py` | unit |
+| The backtest reads what is stored, never fetches, refuses in words | `tests/unit/modules/bots/application/test_run_grid_backtest.py` | unit |
+| Two stored hours replay through their 1-second klines; without them the replay is coarse and never kinder | `tests/integration/modules/bots/test_grid_backtest_stored_klines.py` | integration (real SQLite) |
+| Run, Cancel keeps the last result, another bot clears it, a late result is fenced, Sync only on a click then run again | `tests/unit/modules/bots/ui/kinds/test_grid_backtest.py` | unit (real query handler) |
+| The Backtest tab shows for a Grid, hides without a selection, runs through the query the module binds, reads the edits and the planner's terms | `tests/unit/modules/bots/ui/bots_screen/test_bots_backtest_tab.py` | unit (real bots graph) |
 | **The user runs it**: a Grid on Spot Testnet from New bot to Stop, on a real display | `EPIC-029H` | desktop, the user |
