@@ -113,6 +113,9 @@ class BotsView(BaseView):
     def set_chart(self, chart: QWidget | None) -> None:
         self.detail.set_chart(chart)
 
+    def set_backtest_page(self, page: QWidget | None) -> None:
+        self.detail.set_backtest_page(page)
+
     # -- internals -------------------------------------------------------- #
 
     def _build_bots_table(self) -> QTableView:

@@ -70,6 +70,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import 
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
+    IMarketDataRepository,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_sync import (
     IMarketDataSync,
 )
@@ -81,6 +84,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (
+    FakeMarketDataRepository,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_sync import (
     FakeMarketDataSync,
@@ -302,6 +308,7 @@ def open_screen(
     container.singleton(OwnerBudgetCaps, DEFAULT_OWNER_BUDGET_CAPS)
     container.singleton(IHistoricalKlines, daily_candles())
     container.singleton(IMarketDataSync, FakeMarketDataSync())
+    container.singleton(IMarketDataRepository, FakeMarketDataRepository())
     container.singleton(IMarketStream, FakeMarketStream())
     container.singleton(IEventPublisher, EngineEventPublisher(bus))
     container.singleton(ICloseObjections, CloseObjections())

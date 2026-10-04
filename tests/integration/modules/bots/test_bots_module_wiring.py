@@ -54,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots import (
     ListBotsQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest import (
+    RunGridBacktestQuery,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
     BotExecutors,
 )
@@ -103,8 +106,14 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
     IHistoricalKlines,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_data_repository import (
+    IMarketDataRepository,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
     FakeHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_data_repository import (
+    FakeMarketDataRepository,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
     OrderEndedEvent,
@@ -148,7 +157,13 @@ COMMANDS = (
     DeleteBotCommand,
     ConfirmBotResumeCommand,
 )
-QUERIES = (ListBotsQuery, GetBotQuery, GetPlannerMarketQuery, GetBotFillsQuery)
+QUERIES = (
+    ListBotsQuery,
+    GetBotQuery,
+    GetPlannerMarketQuery,
+    GetBotFillsQuery,
+    RunGridBacktestQuery,
+)
 _GRID_CONFIG = {
     "lower": "60000",
     "upper": "70000",
@@ -169,6 +184,7 @@ def _registered(state_dir: Path) -> tuple[BotsModule, SimpleNamespace]:
     )
     container.singleton(OwnerBudgetCaps, DEFAULT_OWNER_BUDGET_CAPS)
     container.singleton(IHistoricalKlines, FakeHistoricalKlines())
+    container.singleton(IMarketDataRepository, FakeMarketDataRepository())
     event_bus = MemoryEventBus()
     container.singleton(IEventPublisher, EngineEventPublisher(event_bus))
     container.singleton(ICloseObjections, CloseObjections())

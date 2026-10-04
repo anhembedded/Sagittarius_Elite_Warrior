@@ -2,21 +2,16 @@
 around 65,000, a 60,000–70,000 range of 10 grids, exits 5% beyond it), a few
 fills, the average cost and the ATR zones.
 
-Offline: the candles come from a sample feed in this file, and the load runs
-on the calling thread, so the preview opens no socket and starts no pool.
+Offline: the candles come from a sample feed (`preview_ports`), and the load
+runs on the calling thread, so the preview opens no socket and starts no pool.
 """
 
 from __future__ import annotations
 
-import concurrent.futures
-import math
-from collections.abc import Callable, Sequence
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
-from typing import Any
 
 from PySide6.QtWidgets import QWidget
-from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
@@ -44,15 +39,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.bot_chart import BotCha
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.bot_stream_owner import (
     bot_stream_owner,
 )
-from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
-from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
-    CandleStreamStart,
-    ICandleFeed,
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.chart.preview_ports import (
+    CallingThread,
+    SampleCandleFeed,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports import (
     LiveChartPorts,
 )
-from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 #: This file's parent directory is `chart`, a name another module's preview
 #: could share; the key is explicit (`scripts/preview_qml.py`).
@@ -84,8 +78,8 @@ _TERMS = ExchangeTerms(
 def build_preview() -> QWidget:
     card = ChartCard(_SYMBOL)
     ports = LiveChartPorts(
-        thread_manager=_CallingThread(),
-        feed=_SampleFeed(),
+        thread_manager=CallingThread(),
+        feed=SampleCandleFeed(_START, _INTERVAL),
         stream_owner=bot_stream_owner(BotId("a3f9c1")),
         interval=_INTERVAL.value,
     )
@@ -122,61 +116,3 @@ def _sample_source() -> GridOverlaySource:
 
 def _at(hour: int) -> datetime:
     return _START + timedelta(hours=hour + 1)
-
-
-class _SampleFeed(ICandleFeed):
-    """Five days of hourly candles swinging between the grid's levels."""
-
-    def sync(
-        self, symbol: str, interval: TimeFrame, cancelled: Callable[[], bool]
-    ) -> None:
-        return None
-
-    def load_history(
-        self, symbol: str, interval: TimeFrame, limit: int
-    ) -> Sequence[MarketData]:
-        return tuple(_candle(symbol, hour) for hour in range(min(limit, 120)))
-
-    def start_stream(
-        self, owner_id: str, symbol: str, interval: TimeFrame
-    ) -> CandleStreamStart:
-        return CandleStreamStart(False, "The preview does not stream.")
-
-    def stop_stream(self, owner_id: str) -> None:
-        return None
-
-
-def _candle(symbol: str, hour: int) -> MarketData:
-    mid = 65000 + 3500 * math.sin(hour / 9) + 600 * math.sin(hour / 2.3)
-    open_price = mid - 150 * math.cos(hour)
-    close_price = mid + 150 * math.cos(hour)
-    return MarketData(
-        symbol=symbol,
-        interval=_INTERVAL.value,
-        open_time=_START + timedelta(hours=hour),
-        open_price=open_price,
-        high_price=max(open_price, close_price) + 220,
-        low_price=min(open_price, close_price) - 220,
-        close_price=close_price,
-        volume=40 + 15 * abs(math.sin(hour)),
-        close_time=_START + timedelta(hours=hour + 1),
-        quote_asset_volume=0.0,
-        number_of_trades=0,
-        taker_buy_base_asset_volume=0.0,
-        taker_buy_quote_asset_volume=0.0,
-    )
-
-
-class _CallingThread(IThreadManager):
-    """Runs each task at once, on the caller's thread: a preview has nothing
-    to wait for and nothing to shut down."""
-
-    def submit(
-        self, task: Callable[..., Any], *args: Any, **kwargs: Any
-    ) -> concurrent.futures.Future[Any]:
-        future: concurrent.futures.Future[Any] = concurrent.futures.Future()
-        future.set_result(task(*args, **kwargs))
-        return future
-
-    def shutdown(self, wait: bool = True) -> None:
-        return None

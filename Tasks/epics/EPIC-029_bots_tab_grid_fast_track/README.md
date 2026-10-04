@@ -96,10 +96,10 @@ The ADR proposes the design that follows (D1–D20). The ones that shape the pla
 | [EPIC-029E](completed/EPIC-029E_live_grid_executor.md) | The live Grid executor: actor, levels, start, fill, stop, stop loss and take profit, Halted, reconciliation | Elite | 029A, 029B, 029C, O2, O3 | 🔴 | ✅ Done (2026-10-04), PR4 |
 | [EPIC-029K](incomplete/EPIC-029K_grid_on_futures.md) | Grid on Futures: leverage, liquidation guard, modes *(after the fast track)* | Elite | 029H | 🔴 | Planned |
 | [EPIC-029B](completed/EPIC-029B_bots_module_entity_and_store.md) | The `bots` module: entity, kind seam, lifecycle FSM, store | Elite | None | 🟡 | ✅ Done (2026-10-03), PR1 |
-| [EPIC-029D](incomplete/EPIC-029D_grid_backtest.md) | Grid backtest: ladder simulator, fill rule, buy-and-hold *(parallel)* | Elite | 029C, 029G | 🟡 | Planned |
+| [EPIC-029D](completed/EPIC-029D_grid_backtest.md) | Grid backtest: ladder simulator, fill rule, buy-and-hold *(parallel)* | Elite | 029C, 029G | 🟡 | ✅ Done (2026-10-04), PR6 |
 | [EPIC-029F](completed/EPIC-029F_bots_tab.md) | The Bots tab: list, shell, Grid panel with verdicts, dialogs, SPEC-014 | Elite | 029B, 029C, 029G, O4 (built against the use-case commands; the end-to-end run with 029E is checked in 029H) | 🟡 | ✅ Done (2026-10-04), PR5 |
 | [EPIC-029G](completed/EPIC-029G_bot_chart.md) | The bot chart: shared live chart, price levels, one Grid overlay for three surfaces | Elite | 029C | 🟡 | ✅ Done (2026-10-04), PR3 |
-| [EPIC-029H](incomplete/EPIC-029H_spot_testnet_grid_soak.md) | Spot Testnet soak and report *(the fast track's goal)* | Elite | 029D, 029E, 029F, 029G | 🟡 | Planned |
+| [EPIC-029H](incomplete/EPIC-029H_spot_testnet_grid_soak.md) | Spot Testnet soak and report *(the fast track's goal)* | Elite | 029D, 029E, 029F, 029G | 🟡 | Planned — next, the user's run |
 | [EPIC-029I](incomplete/EPIC-029I_desks_manual_only.md) | Desks manual only, bot badge, takeover, SPEC-010 *(after the fast track)* | Elite | 029H | 🟡 | Planned |
 | [EPIC-029J](incomplete/EPIC-029J_many_bots.md) | Many bots, one per symbol *(after the fast track)* | Elite | 029H | 🟡 | Planned |
 | [EPIC-029L](incomplete/EPIC-029L_signal_and_dca_kinds.md) | Signal and DCA kinds *(after the fast track)* | Elite | 029I, 029J | 🟡 | Planned |
