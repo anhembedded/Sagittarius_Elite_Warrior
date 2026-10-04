@@ -28,13 +28,17 @@ user with their own keys.
 
 - [x] **Precondition: the tab drives the real executor.** On the fake exchange, an integration test
   drives the Bots tab's Start, Pause, Stop and Resume through the real `EPIC-029E` executor.
-- [x] **Gated Testnet test** (written; it passes once the user's run returns green). `tests/testnet/test_grid_bot_round_trip.py` runs a narrow grid (4
+- [ ] **Gated Testnet test** (written in PR7; met when the user's run returns it green). `tests/testnet/test_grid_bot_round_trip.py` runs a narrow grid (4
   levels, around the last price, at the minimum notional). It asserts:
   - every level is RESTING on the exchange, with the bot's tag;
   - a cancel from outside is re-placed;
   - Stop cancels everything and leaves no tagged open order.
 - [ ] **Soak.** The user runs one Grid bot for at least 24 hours on Spot Testnet, with at least
   two app restarts and one Emergency Stop followed by a confirmed re-plan.
+- [ ] **The user-data stream's latency on Testnet** (handed over by `EPIC-029E`, whose start
+  counts the opening base only once its fill arrives on the stream). The gated test records the
+  latency of a cancel heard on the stream, and the time from Start to Running
+  (`logs/testnet/spot_grid_round_trip.json`); the report states both.
 - [ ] **The venue's `ORDERS` rate limits** (handed over by `EPIC-029A`, which could not reach
   Binance from its build container). Read `exchangeInfo.rateLimits` on Spot Testnet, record the
   `ORDERS` limits and `MAX_NUM_ORDERS`, and check them against the O1 caps; state whether several
@@ -73,15 +77,17 @@ user with their own keys.
 - `tests/integration/modules/bots/test_bots_tab_drives_the_executor.py`
   - Builds the Bots screen on the composed app's container, over the fake exchange.
   - Presses Start, Pause, Resume and Stop. The commands travel through the real dispatcher, thread pool and `EPIC-029E` executor out to the exchange.
-  - Checked by mutation: removing the presenter's send makes the test time out.
+  - Checked by mutation: removing the presenter's send makes the test time out. It also asserts the Stop dialog's answer (sell the base) reached the executor (`sell_base_on_stop`), which the fake's empty book alone could not show (the PR #339 review).
   - The composed-app helpers now live in `grid_fake_exchange.py`, shared with `test_grid_bot_against_fake_server.py`. The `exchange` fixture is in that directory's `conftest.py`.
 - `tests/testnet/test_grid_bot_round_trip.py`
   - Boots the app with Spot Testnet on and turns trading on through `EnableTradingCommand`, which starts the user-data websocket.
-  - Drives a four-level grid, 5% either side of the last price, with every order at four times the minimum notional. It asserts that:
+  - Before Start, proves the user-data stream live: an untagged far-away LIMIT BUY is placed and cancelled until its cancel comes back as an `OrderEndedEvent` (the PR #339 review: the opening buy's fill must arrive on the stream within the pacer's spacing, or the SELL levels are refused). Its latency is recorded.
+  - Drives a four-level grid, 5% either side of the last price, with every order at four times the minimum notional. A wait fails at once, with the runtime's reason, when the bot halts or errs. It asserts that:
     - every level rests with the bot's tag;
     - a level cancelled from outside is laid again under a new id;
     - Stop, selling the base, leaves no tagged order open.
-  - A second test reads `exchangeInfo.rateLimits` and the symbol's `MAX_NUM_ORDERS`. It asserts that the O1 caps fit inside them and writes what it read to `logs/testnet/spot_rate_limits.json` for the report.
+  - Clean-up stops a bot still running (selling its base) before cancelling what is left, since a cancel heard while RUNNING is laid again; a clean-up failure is logged, never masking the test's own.
+  - A second test reads `exchangeInfo.rateLimits` and the symbol's `MAX_NUM_ORDERS` and works out how many owner budgets at the O1 caps fit one account: a burst within each `ORDERS` window (the spacing bounds it) and the open orders. It writes the number to `logs/testnet/spot_rate_limits.json`, which answers whether several bots need an account-wide cap.
   - Not run here: the build container cannot reach Binance. The user's run is the evidence.
 - **User's first run (2026-10-04)**, `-TestnetOnly`, before PR7:
   - The Spot round trip passed. So the Spot keys resolve and Spot orders are accepted.
