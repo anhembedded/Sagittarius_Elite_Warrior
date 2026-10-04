@@ -3,7 +3,7 @@
 - **Reported:** 2026-10-04 (the user's `-TestnetOnly` run on `master-warrior` `e5ca8226`, pasted in chat)
 - **Severity:** 🟢 P3. No order or state is lost; the process prints asyncio and aiohttp warnings at shutdown, and the stream's connection is dropped rather than closed.
 - **Status:** Open
-- **Context:** [SPEC-014](../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) (run a Grid bot on Spot) → `src/modules/trading/` → `adapters/binance/spot/spot_user_data_stream.py`, and the engine's `AsyncRuntime` stop order
+- **Context:** [SPEC-014](../../../Docs/SPEC/SPEC-014_run_a_grid_bot.md) (run a Grid bot on Spot) → `Sagittarius_Engine` `runtime/async_runtime/async_runtime.py` (`AsyncRuntime.stop`); seen through `src/modules/trading/adapters/binance/spot/spot_user_data_stream.py`
 - **Environment:** Windows, Python 3.14.6, `python-binance` 1.0.37, `websockets` 17.2, engine `engine.ref` `ea2d330c`. Spot Testnet only enabled.
 
 ## Reproduction
@@ -32,7 +32,14 @@ The run-log scan stayed green: these are interpreter warnings on stderr, not log
 
 ## Root cause
 
-Not yet established. The suspicion is that each task is in state `cancelling` when destroyed: the cancel reached it, but the event loop stopped before the task could run its cancellation, so `_run_stream`'s `finally` (`spot_user_data_stream.py`, `await client.close_connection()`) never ran. Whether the stop order lives in the stream's `stop()` (not awaiting its task) or in the engine's `AsyncRuntime` shutdown (stopping the loop without draining cancelled tasks) is not yet read.
+Established on engine `ea2d330c` (3.0.0), reproduced without Binance:
+
+- `SpotUserDataStream.stop()` cancels the task's `concurrent.futures.Future`, which schedules `task.cancel()` on the runtime's loop and returns at once. The task still needs loop iterations to unwind its `finally` (`await client.close_connection()`).
+- `AsyncRuntime.stop()` (`sagittarius_engine/runtime/async_runtime/async_runtime.py`, `stop`) then calls `loop.stop` and joins the thread. Only after the loop has stopped does it call `task.cancel()` on what is still pending, and then `loop.close()`. A task cancelled after its loop has stopped never runs again, so every pending `finally` is dropped and the coroutine is garbage-collected while `cancelling`.
+- Reproduction: a coroutine awaiting `sleep(3600)` inside `try/finally`, whose `finally` awaits once and records a flag. It is spawned with `AsyncRuntime.run_coroutine`; its future is cancelled; then `stop()` runs. The flag is never set, and the run prints `Task was destroyed but it is pending!`, the same line as the user's run.
+- The mechanism is in the Engine, so every async task the app spawns has it, not just the Spot stream: the Futures stream and the live market stream too.
+
+**Fix direction, proved on the same reproduction:** before stopping the loop, `stop()` schedules a drain coroutine on the loop. The drain cancels every other task that is not already `cancelling()`, awaits them with `asyncio.wait(..., timeout)`, then calls `loop.shutdown_asyncgens()`. With that, the flag is set and nothing is reported pending. The `cancelling()` check matters: cancelling a task a second time aborts the `await` inside its `finally`, which was the first draft's mistake.
 
 ## Fix
 
@@ -48,6 +55,5 @@ Not run.
 
 ## Suggested next steps
 
-- Read `SpotUserDataStream.stop()` and the engine's `AsyncRuntime` stop path, and establish which side drops the cancelled task.
-- Check whether `FuturesUserDataStream` has the same shape; the user's Futures key is rejected today, so no live run shows it.
-- If the engine side owns it, the fix is an Engine change, which needs separate confirmation (`ONBOARDING.md` §2).
+- Fix `AsyncRuntime.stop()` in `Sagittarius_Engine`, with an Engine regression test built from the reproduction above. This needs the user's separate confirmation (`ONBOARDING.md` §2).
+- Then bump this repository's `engine.ref`, which also needs confirmation (`commit-rule.md` §3), and close this report after a live run stops cleanly.
