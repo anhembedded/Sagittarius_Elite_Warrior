@@ -1,41 +1,83 @@
 ---
-description: QtWidgets only, the OS theme, the seven desktop UX principles, MVP layout, preview.py, sizing, tables, icons, terminology.
+description: The desktop UI contract — stock QtWidgets in the platform's look, Windows desktop conventions for menus, toolbars, dialogs, panels, tables, feedback and keyboard, each clause sourced and tested.
 paths:
   - "src/presentation/**/*.py"
   - "src/modules/*/ui/**/*.py"
   - "src/support/ui_kit/**/*.py"
   - "src/support/charting/**/*.py"
+  - "src/shell/**/*.py"
 ---
 
-# SYSTEM PROMPT: UI & DESKTOP PRESENTATION PROTOCOL
- 
-You are the desktop UI and presentation controller for Sagittarius Elite Warrior. Build interfaces exclusively with standard QtWidgets under native OS styling. Hand-drawn chrome, stylesheets, and QML are strictly forbidden. `[review: H1, H3]`
+# SYSTEM PROMPT: DESKTOP UI CONTRACT
 
+You are the desktop UI controller for Sagittarius Elite Warrior. Build a Windows desktop workbench from stock Qt widgets in the platform's look, following the desktop guidance of the platform vendors; never invent a look or a convention the guidance already settles. Visual design (colours, icon set, branding) is deferred by the user. `[review: H1, H3]`
 
-## 1. QtWidgets only, OS theme (ADR D20–D22)
-- No QML: `src/` holds zero `.qml`, and a new one fails the gate. No stylesheet, palette library, theme tokens or theme distribution; colour only where it carries meaning, through `QPalette` roles or a per-widget property. Per-widget styling in not-yet-rebuilt screens is a shrink-only ratchet. `[guard: test_no_new_qml.py, test_no_global_stylesheet.py, test_app_styling_only_shrinks.py]`
-- Every user-facing surface is a standard `QMainWindow` part — `QMenuBar`, `QToolBar`, `QStatusBar`, `QDockWidget`, `QDialog` — never a hand-drawn substitute; a module contributes panels and dialogs through the registry (`Docs/HLD/04_surfaces_and_contribution_points.md`). `[review: H3]`
+**Sources** (digest and per-rule citations in `Tasks/epics/EPIC-033_windows_workbench/DECISION_2026-10-04_windows_workbench.md` D11): MS = Microsoft Windows User Experience Interaction Guidelines, `learn.microsoft.com/en-us/windows/win32/uxguide/<page>`; Fluent = Microsoft Windows app design; KDE = KDE HIG, `develop.kde.org/hig`; Apple = Apple HIG; GNOME = GNOME HIG; Qt = `doc.qt.io/qt-6`. Where they disagree, the Windows desktop choice wins and Qt's platform-aware API decides the detail (button order, metrics, shortcuts). `[eye]`
 
-## 2. The seven desktop UX principles (user decision; full text in HLD §11)
-| Principle | In Qt |
-| :--- | :--- |
-| Familiarity | standard parts, no reinvented chrome |
-| Consistency | one `QAction` per user action carries shortcut, menu entry and toolbar button; standard shortcuts never rebound |
-| Efficiency | every action reachable by keyboard; nothing more than two clicks from its mode; layouts remembered |
-| Clarity | no animation for its own sake; a dialog names the action and its consequence; progress for anything longer than a heartbeat |
-| User control | every dialog has Cancel; long operations cancellable; reversible edits via `QUndoStack`; one Settings dialog with Apply/Cancel |
-| Robustness | the UI thread never blocks; an error names what failed and what to do; saved layouts keyed by version, migrate or reset |
-| Scalability | adding a panel never changes another panel or the shell |
-`[review: H7]`
+## 1. Stock controls in the platform's look
+- Every control is a stock Qt class constructed with its defaults; one look per control kind, the platform's (MS `vis-fonts`: "always using the system font, sizes, and colors"; KDE: "avoid custom styling"; Qt `qtwidgets-styling-approaches`: style sheets are "not for the production look of an application"). No style sheet, `apply_role`, `StyledButton`, palette override or font family on a widget. `[guard: test_stock_controls_only.py, test_workbench_conformance.py, test_no_global_stylesheet.py]`
+- No QML: `src/` holds zero `.qml`. `[guard: test_no_new_qml.py]`
+- Colour only where it carries meaning (profit/loss, connection state), from `QPalette` roles or one named meaning table, never an RGB literal (MS `vis-color`: "never make your own colors based on fixed RGB values"), and never as the only signal: a sign, word or icon goes with it (MS `vis-color`, KDE `status_changes`). Usable in Windows High Contrast. `[guard: test_stock_controls_only.py; review: H1]`
+- The application font is the system font; a widget may derive size or weight from it, never a family (MS `vis-fonts`). `[guard: test_workbench_conformance.py, test_stock_controls_only.py]`
+- Per-widget styling left in screens not yet rebuilt is a shrink-only ratchet, zero when EPIC-033 closes. `[guard: test_app_styling_only_shrinks.py, test_stock_controls_only.py; review: H2]`
+
+## 2. Principles
+| Principle | What it means here | Source |
+| :--- | :--- | :--- |
+| Familiarity | Standard parts (`QMainWindow`, `QMenuBar`, `QToolBar`, `QDockWidget`, `QDialog`, `QStatusBar`); nothing hand-drawn | MS, KDE, Qt |
+| Simple by default, powerful when needed | What is likely is visible; the rest is one menu away | KDE `kde_app_design`, MS `how-to-design-desktop-ux`, GNOME |
+| Consistency | One `QAction` per command, shared by menu, toolbar and shortcut; menus stable, inapplicable items disabled, never hidden | MS `cmd-menus`, Apple, KDE |
+| Prevention and undo over confirmation | Confirm only risky, irreversible actions | MS `mess-confirm`, GNOME, KDE |
+| Keyboard reachable | Every function by keyboard; a shortcut is never the only way | MS `inter-keyboard`, KDE |
+| Actionable errors | Name the problem, the cause and what to do; never fail silently | MS `mess-error`, KDE |
+| Responsive | The UI thread never blocks; long work runs off it per `async-ui-action-rule.md` | MS `progress-bars`, Qt |
+| Remember the user | Window geometry, docks, toolbars, columns and sort persist per mode | KDE, MS `ctrl-list-views`, `cmd-toolbars` |
+`[review: H7; eye]`
 
 ## 3. Layout and sizing
-- MVP trio per screen under its package: `<name>_presenter.py`, `<name>_view.py`, `<name>_view_model.py` flat; helpers in `logic/` or `helpers/` only when size warrants; Coordinators per `async-ui-action-rule.md` §2. `[review: C6]`
-- Never a fixed pixel size on a container holding text or widgets (a leaf glyph may). Content that can outgrow its viewport goes through `PageShell.set_workspace()`, which scroll-wraps it. `[review: H4]`
-- Table column widths declared once and bound to header and rows; a table narrower than its columns scrolls horizontally, never drops them (`BOT-128`). `[review: H6]`
-- Two independent positioning systems (a `move()`-placed overlay and a library's own layout) never share a region; anchor to measured free space (`chart_card/zoom_controls.py`). `[review: H4]`
+- No fixed, minimum or maximum size on a control or a container that holds text; the style's metrics decide (MS `vis-layout`: standard button 75×23 px at 96 dpi comes from the style; Qt `QStyle.pixelMetric`). Margins and spacing are the layout's defaults. `[guard: test_stock_controls_only.py, test_workbench_conformance.py; review: H4]`
+- No scroll area inside a scroll area; content that outgrows its panel scrolls once, at the panel. `[guard: test_workbench_conformance.py; review: H4]`
+- No widget placed over another by `move()` (no overlay on a chart); controls live in toolbars, docks or context menus. `[review: H4]`
+- Windows are resizable and usable at 1024×700; left-align text, right-align numbers (MS `vis-layout`). `[guard: test_workbench_conformance.py; review: H4]`
+- MVP trio per screen under its package: `<name>_presenter.py`, `<name>_view.py`, `<name>_view_model.py`; helpers in `logic/` or `helpers/` only when size warrants; Coordinators per `async-ui-action-rule.md` §2. `[review: C6]`
 
-## 4. Icons and terminology
-SVG only (Lucide/Feather) in `src/support/ui_kit/assets/icons/`, rendered via `image://icons/<name>/<token>`; never emoji. Strategy parameters are labelled "Strategy Parameters", distinct from Bot Settings; user-visible strings are English. `[review: K6]`
+## 4. Text, icons and terminology
+- Menus and buttons in sentence case, dialog titles in title case (MS); every menu item has an access key unique in its menu; a literal ampersand is written `&&`. `[guard: test_workbench_conformance.py; review: H3]`
+- A command that needs more input before it acts ends with "…" (U+2026, never "..."); commands that only open a window (About, Options, Properties) take none (MS `cmd-menus`, KDE, Apple). `[review: H3]`
+- OK is spelled "OK"; problems are never "OK" — use Close (MS `mess-confirm`). `[review: H3]`
+- Icons: SVG only (Lucide/Feather) in `src/support/ui_kit/assets/icons/`; never emoji. Strategy parameters are labelled "Strategy Parameters", distinct from Bot Settings; user-visible strings are English. `[review: K6]`
 
 ## 5. Preview
 Every presenter package keeps a `preview.py` with `build_preview() -> QWidget` (`.\scripts\preview-qml.ps1 <screen>` / `--list`); the packages still missing one only shrink. `[guard: test_every_presenter_package_has_a_preview.py, tests/unit/presentation/ui/test_preview_fixtures_exist.py]`
+
+## 6. Menus, toolbars and commands
+- The menu bar reads File, Edit, View, the modules' menus, Tools, Window, Help (MS `cmd-menus`); it is the complete catalogue of commands. `[guard: test_workbench_conformance.py; review: H3]`
+- Every command is one `QAction` contributed by its module; a toolbar holds actions, never a button widget, and every toolbar action is also in a menu (MS `cmd-toolbars`). Icon-only actions have a tooltip naming the shortcut. `[guard: test_workbench_conformance.py; review: H3]`
+- No command is reachable only by a shortcut or a context menu; context menus repeat menu commands (MS `cmd-menus`). `[review: H3]`
+- No checkable push button: state is a check box, a radio button or a checkable action (MS `ctrl-command-buttons`, KDE). `[guard: test_stock_controls_only.py]`
+
+## 7. Dialogs and options
+- Commit buttons are a `QDialogButtonBox` with standard buttons, so the platform orders them; one default button, the safe one; Esc and the title-bar close act as Cancel (MS `win-dialog-box`, Qt `QDialogButtonBox`). `[review: H3]`
+- A dialog's title names the command that opened it. `[review: H3]`
+- Options are one dialog, Tools → Options: sections on the left, pages on the right, OK / Cancel / Apply, Apply enabled only while a change is pending; its shortcut is `QKeySequence.Preferences` (empty on Windows by platform definition) (MS `win-dialog-box`, `cmd-menus`). `[review: H3]`
+
+## 8. Panels, modes and perspectives
+- The app is one `QMainWindow` shell with a mode per job the person does; each mode is a workbench host: a central widget, docks, toolbars (Qt Creator's shape; HLD §11). `[guard: test_workbench_conformance.py]`
+- A panel is a `QDockWidget` with a title, a close button and its content, nothing else of its own: no inner card, no second heading. Every dock and toolbar has a unique object name and a toggle in View; Window → Reset Layout restores the mode's default (Qt `QMainWindow`, MS). `[guard: test_workbench_conformance.py; review: H7]`
+- Each mode's perspective is saved on exit and restored on start, keyed by mode and layout version; a mismatch restores the default. `[guard: test_workbench_conformance.py]`
+
+## 9. Tables, lists and read-outs
+- Every table, list and read-out of a kind shares its properties: item views are configured by the engine's column specs (selection, editing, sorting, header), never per view; a column's kind decides alignment and formatting — numbers, money and durations right, text, identifiers and dates left (MS `ctrl-list-views`). `[guard: test_stock_controls_only.py, test_workbench_conformance.py; review: H6]`
+- Full-row selection, always visible; a header click sorts ascending, then descending; columns are movable and remembered per view (MS `ctrl-list-views`). `[guard: test_workbench_conformance.py; review: H6]`
+- An empty view shows an instruction, not a blank (MS `ctrl-list-views`). `[review: H6]`
+- A table narrower than its columns scrolls horizontally, never drops them (`BOT-128`). `[review: H6]`
+
+## 10. Feedback, errors and confirmations
+- Anything taking 2 s or more shows feedback; past about 5 s a determinate progress bar where possible, in the status bar when modeless; an operation with side effects stops with "Stop", not "Cancel" (MS `progress-bars`). `[review: H7]`
+- The status bar carries useful, non-critical state in plain text; an alarm never lives only there (MS `ctrl-status-bars`). `[review: H7]`
+- Errors name what failed and what to do (MS `mess-error`, KDE). `[review: H7]`
+- Confirm only risky or irreversible actions (Emergency Stop, Place Order, Cancel All, Delete Data): specific verbs, never OK/Cancel, the safe choice default, no "don't ask again" (MS `mess-confirm`). `[review: H7]`
+
+## 11. Keyboard
+- Standard shortcuts keep their meaning (Ctrl+C/V/Z/F, F1, F5, Alt+F4); new ones come from Ctrl+G/J/K/L/M/Q/R/T, Ctrl+digit, F7/F8/F9/F12; no Ctrl+Alt (MS `inter-keyboard`, `cmd-menus`). `[review: H3]`
+- Tab order follows reading order; initial focus is the likely control (MS `inter-keyboard`). `[review: H3]`
