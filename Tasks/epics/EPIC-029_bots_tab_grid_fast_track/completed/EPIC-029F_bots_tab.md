@@ -135,7 +135,9 @@ ENGINE section.
   not refuse; both are said in Start's tooltip before the click.
 - *Resume from HALTED* proposes a ladder that lives in the executor's memory and has no query, so
   the proposal reaches the user through the bot's log line, and **Confirm resume** (legal only in
-  HALTED) sends `ConfirmBotResumeCommand`.
+  HALTED) sends `ConfirmBotResumeCommand`. The use case refuses it (`NO_RESUME_PROPOSAL`, "press
+  Resume first") when the executor holds no proposal, as after a restart, so the screen never
+  reports a confirmation that laid nothing (PR #333 review).
 - *Fills* come from the venue's order history (the runtime keeps only what rests), at most four
   pages of fifty, saying so when there is more.
 - *The running bot's chart* draws its plan's levels (the kind's overlay); level states and fills are

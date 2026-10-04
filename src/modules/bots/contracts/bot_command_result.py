@@ -26,6 +26,9 @@ class BotRefusal(str, Enum):
     PARAMETERS_REFUSED = "PARAMETERS_REFUSED"
     SYMBOL_LEASED = "SYMBOL_LEASED"
     BUDGET_REFUSED = "BUDGET_REFUSED"
+    #: A HALTED bot's executor holds no resume proposal to confirm (none
+    #: asked for since the halt, or the app restarted): Resume first.
+    NO_RESUME_PROPOSAL = "NO_RESUME_PROPOSAL"
 
 
 @dataclass(frozen=True, slots=True)

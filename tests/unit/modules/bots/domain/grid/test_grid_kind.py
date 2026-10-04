@@ -48,6 +48,9 @@ class _Executor(IBotExecutor):
 
     def confirm_resume(self) -> None: ...
 
+    def has_resume_proposal(self) -> bool:
+        return False
+
     def on_fill(self, fill: BotOrderFill) -> None: ...
 
     def on_end(self, end: BotOrderEnd) -> None: ...

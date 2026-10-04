@@ -45,7 +45,8 @@ sound, I start it, and I watch what it does."*
    bot's tag) and its log (Log).
 7. **Pause** stops new orders and keeps the resting ones; **Resume** continues. A Halted bot's
    **Resume** cancels its tagged orders and proposes a new ladder, shown in its log; **Confirm
-   resume** lays it.
+   resume** lays it. With no proposal held (no Resume since the halt, or the app restarted) Confirm
+   resume is refused with "press Resume first" and nothing is placed.
 8. **Stop** asks what to do with the base the bot holds, with *keep* preselected every time (O3),
    and says its resting orders will be cancelled. **Cancel** leaves the bot running.
 9. Closing the app while any bot is not at rest asks first, naming the bots and what closing

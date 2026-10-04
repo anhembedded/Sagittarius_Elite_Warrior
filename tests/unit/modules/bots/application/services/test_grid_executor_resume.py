@@ -147,3 +147,16 @@ def test_a_resume_refused_its_budget_proposes_nothing() -> None:
     assert world.executor.proposal is None
     assert world.book.cancels == []
     assert "resume waits" in world.runtime().reason_detail
+
+
+def test_a_proposal_is_awaited_only_between_resume_and_confirmation() -> None:
+    """PR #333 review: Confirm resume is refused unless this answers yes."""
+    world = _halted_by(TradingSwitchCause.DISABLED)
+    world.derive("4.132")
+    assert not world.executor.has_resume_proposal()
+
+    world.executor.resume()
+    assert world.executor.has_resume_proposal()
+
+    world.executor.confirm_resume()
+    assert not world.executor.has_resume_proposal()

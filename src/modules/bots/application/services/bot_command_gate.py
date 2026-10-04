@@ -35,6 +35,14 @@ class BotCommandGate:
     def run(
         self, bot_id: str, event: BotLifecycleEvent, send: Callable[[str], None]
     ) -> BotCommandResult:
+        refusal = self.refusal(bot_id, event)
+        if refusal is not None:
+            return refusal
+        send(bot_id)
+        return BotCommandResult.done(bot_id)
+
+    def refusal(self, bot_id: str, event: BotLifecycleEvent) -> BotCommandResult | None:
+        """Why `event` cannot be sent to the bot now, or `None` when it can."""
         found = self._lookup.find(bot_id)
         if isinstance(found, BotCommandResult):
             return found
@@ -44,5 +52,4 @@ class BotCommandGate:
             return BotCommandResult.refused(
                 BotRefusal.INVALID_TRANSITION, str(error), bot_id
             )
-        send(bot_id)
-        return BotCommandResult.done(bot_id)
+        return None

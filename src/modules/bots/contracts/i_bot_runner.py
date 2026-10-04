@@ -49,3 +49,8 @@ class IBotRunner(ABC):
     @abstractmethod
     def confirm_resume(self, bot_id: str) -> None:
         """Queue the confirmation of a HALTED bot's resume proposal (O2)."""
+
+    @abstractmethod
+    def has_resume_proposal(self, bot_id: str) -> bool:
+        """The bot's executor holds a resume proposal to confirm. A proposal
+        lives in memory only: after a restart there is none."""

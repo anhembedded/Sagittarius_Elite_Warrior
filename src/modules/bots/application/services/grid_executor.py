@@ -179,6 +179,12 @@ class GridExecutor(IBotExecutor):
     def confirm_resume(self) -> None:
         self._post("confirm resume", self._run_confirm)
 
+    def has_resume_proposal(self) -> bool:
+        """Read off the worker's thread: one reference, set and cleared by
+        the worker alone; a confirmation that loses a race to a switch-off
+        still finds nothing there and lays nothing (`_run_confirm`)."""
+        return self._proposal is not None
+
     # --- facts, copied off the caller's thread ---
 
     def on_fill(self, fill: BotOrderFill) -> None:
