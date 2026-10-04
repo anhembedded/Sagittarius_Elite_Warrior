@@ -37,6 +37,29 @@ def is_local(sock: socket.socket, address: object) -> bool:
         return False
 
 
+def is_local_lookup(host: object) -> bool:
+    """Whether `getaddrinfo(host, ...)` stays on this machine.
+
+    A literal IP address (any, not only loopback) or `None` is parsed, never
+    looked up, so it sends no packet; a later `connect()`/`sendto()` to it is
+    still checked by `is_local`. `localhost` resolves from the hosts file. Any
+    other name would be a DNS query, which is network access.
+    """
+    if host is None:
+        return True
+    if isinstance(host, bytes):
+        host = host.decode("ascii", "replace")
+    if not isinstance(host, str):
+        return False
+    if host.lower() in _LOCAL_HOSTNAMES:
+        return True
+    try:
+        ipaddress.ip_address(host.split("%", 1)[0])
+    except ValueError:
+        return False
+    return True
+
+
 def refusal(address: object) -> NetworkAccessBlockedError:
     return NetworkAccessBlockedError(
         f"unit test tried to connect to {address!r}; the unit tier uses no "

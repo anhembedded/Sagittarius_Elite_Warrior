@@ -68,3 +68,60 @@ def test_a_socketpair_still_works() -> None:
 async def test_an_asyncio_loop_still_runs() -> None:
     """The loop's self-pipe is a socket pair; `asyncio_mode = "auto"` runs this."""
     assert await asyncio.sleep(0, result="done") == "done"
+
+
+def test_a_name_lookup_is_refused_before_any_dns_query() -> None:
+    with pytest.raises(NetworkAccessBlockedError, match="example.com"):
+        socket.getaddrinfo("example.com", 80)
+
+
+def test_create_connection_to_a_name_is_refused_at_the_lookup() -> None:
+    """`socket.create_connection` resolves before it connects; the refusal
+    must come from the lookup, so no DNS packet leaves either."""
+    with pytest.raises(NetworkAccessBlockedError, match="example.com"):
+        socket.create_connection(("example.com", 80), timeout=1)
+
+
+@pytest.mark.parametrize("host", [None, "localhost", "127.0.0.1", "::1", "192.0.2.1"])
+def test_local_and_literal_lookups_still_resolve(host: str | None) -> None:
+    assert socket.getaddrinfo(host, 0, type=socket.SOCK_STREAM)
+
+
+async def test_an_asyncio_connection_to_a_name_is_refused() -> None:
+    loop = asyncio.get_running_loop()
+    with pytest.raises(NetworkAccessBlockedError, match="example.com"):
+        await loop.create_connection(asyncio.Protocol, "example.com", 80)
+
+
+def test_a_datagram_to_a_non_loopback_address_is_refused() -> None:
+    with (
+        socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock,
+        pytest.raises(NetworkAccessBlockedError, match="192.0.2.1"),
+    ):
+        sock.sendto(b"x", _UNROUTABLE)
+
+
+def test_a_datagram_with_flags_to_a_non_loopback_address_is_refused() -> None:
+    with (
+        socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock,
+        pytest.raises(NetworkAccessBlockedError, match="192.0.2.1"),
+    ):
+        sock.sendto(b"x", 0, _UNROUTABLE)
+
+
+def test_an_addressed_sendmsg_to_a_non_loopback_address_is_refused() -> None:
+    with (
+        socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sock,
+        pytest.raises(NetworkAccessBlockedError, match="192.0.2.1"),
+    ):
+        sock.sendmsg([b"x"], [], 0, _UNROUTABLE)
+
+
+def test_a_loopback_datagram_is_delivered() -> None:
+    with (
+        socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as receiver,
+        socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as sender,
+    ):
+        receiver.bind(("127.0.0.1", 0))
+        sender.sendto(b"ping", receiver.getsockname())
+        assert receiver.recv(4) == b"ping"
