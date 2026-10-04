@@ -11,7 +11,7 @@ Usage:
     python scripts/preview_qml.py dashboard
     python scripts/preview_qml.py data_management
     python scripts/preview_qml.py settings
-    python scripts/preview_qml.py sidebar
+    python scripts/preview_qml.py dashboard
     python scripts/preview_qml.py --dir src/presentation/ui/qml/Capital
 """
 
@@ -122,7 +122,7 @@ def discover_previews() -> dict[str, Callable[[], QWidget]]:
             build_fn = getattr(module, "build_preview", None)
             if not callable(build_fn):
                 continue
-            # Key is the parent directory name (e.g. 'sidebar', 'dashboard',
+            # Key is the parent directory name (e.g. 'bots_screen', 'dashboard',
             # 'settings', 'backtest') — unless the module sets its own
             # `PREVIEW_KEY`, which every `modules/<name>/ui/preview.py` at a
             # module's own root must: that parent directory is named `ui` for

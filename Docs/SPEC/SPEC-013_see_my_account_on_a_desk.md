@@ -7,7 +7,7 @@
   Binance, read the account information and the positions"). Built as `EPIC-028D`/`028E`/`028J`/
   `028K`/`028L`/`028M`; the [ADR](../../Tasks/epics/EPIC-028_futures_and_spot_trading_desks/DECISION_2026-09-29_two_trading_desks.md).
 - **Surfaces:** the Futures desk (`trading.futures`, nav "Futures") and the Spot desk
-  (`trading.spot`, nav "Spot"). Welcome's **Start** opens the Futures desk.
+  (`trading.spot`, nav "Spot"). The first run opens on the Futures desk, the default mode.
 
 ## 1. Trigger
 

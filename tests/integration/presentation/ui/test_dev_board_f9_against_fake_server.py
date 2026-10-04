@@ -93,7 +93,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_cr
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -220,14 +219,12 @@ def _spot_board_running(boot: _Boot) -> Iterator[_Board]:
         container.singleton(IRangeCoverage, lambda _c: range_coverage)
         container.singleton(ISymbolCatalog, lambda _c: symbol_catalog)
         engine.boot()
-        window = MainWindow(
-            engine, real_screen_registry(container), sidebar_factory=Sidebar
-        )
+        window = MainWindow(engine, real_screen_registry(container))
         window.show()
         qtbot.addWidget(window)
-        window._sidebar._nav_buttons["dashboard"].click()
+        window.switch_screen("dashboard")
         qapp.processEvents()
-        presenter = window._router._registry["dashboard"]["presenter_instance"]
+        presenter = window.presenters["dashboard"]
         try:
             yield _Board(window, presenter, urls, container.resolve(VenueTradingScopes))
         finally:
@@ -245,7 +242,7 @@ def _spot_board_running(boot: _Boot) -> Iterator[_Board]:
 
 
 def _open_f9(board: _Board):
-    view = board.window._router._registry["dashboard"]["view_instance"]
+    view = board.window.hosts["dashboard"].view
     view._manual_order_action.trigger()
     return view._surface.show_modal(MANUAL_ORDER_DIALOG)
 
@@ -306,7 +303,7 @@ def test_a_resting_limit_placed_in_f9_reaches_the_venue_and_open_orders(
     )
     dialog = _open_f9(spot_board)
     _type_resting_limit_buy(spot_board, qtbot)
-    view = spot_board.window._router._registry["dashboard"]["view_instance"]
+    view = spot_board.window.hosts["dashboard"].view
 
     qtbot.mouseClick(
         dialog.findChild(QPushButton, "btnSubmitBuy"), Qt.MouseButton.LeftButton

@@ -89,9 +89,6 @@ from Sagittarius_Elite_Warrior.src.shell.app_config import (
 from Sagittarius_Elite_Warrior.src.shell.composition_root import (
     create_app,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import (
-    Sidebar,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
     seed_app_theme,
 )
@@ -184,7 +181,7 @@ def main() -> int:
         try:
             app.boot()
             registry = real_screen_registry(app.context.container)
-            window = MainWindow(app, registry, sidebar_factory=Sidebar)
+            window = MainWindow(app, registry)
             window.resize(1560, 960)
             window.show()
             _settle(_SETTLE_MS)
@@ -192,10 +189,8 @@ def main() -> int:
             for route in _ROUTES:
                 window.switch_screen(route)
                 _settle(_SETTLE_MS)
-                if window._stacked.currentWidget() is None:
-                    failures.append(
-                        f"{route}: navigated but left no widget on the stack"
-                    )
+                if window.current_mode != route:
+                    failures.append(f"{route}: navigated but another mode is showing")
                     continue
                 colours = _distinct_colours(window)
                 shot = _SHOTS / f"{route}.png"

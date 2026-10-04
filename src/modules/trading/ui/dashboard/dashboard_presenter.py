@@ -6,6 +6,9 @@ from decimal import Decimal
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
+from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
+    NavigationSource,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -619,6 +622,12 @@ class DashboardPresenter(BasePresenter):
         )
         self._view_model.endDate = now.strftime(DATETIME_FORMAT)
 
+    def on_mode_shown(self, source: NavigationSource) -> None:
+        """`IShownAsMode` (`EPIC-033C`): the opt-in auto-start (`BOT-034`) on a
+        user's open, never on a restore at start (`BUG-104`)."""
+        if source is NavigationSource.USER_INTENT and self._autostart is not None:
+            self._autostart.begin()
+
     def shutdown(self) -> None:
         """Cancels owned workers and autostart controller on desktop shutdown."""
         if self._shutdown_requested:
@@ -630,11 +639,6 @@ class DashboardPresenter(BasePresenter):
             self._stream_controller.shutdown()
         if hasattr(self, "_autostart") and self._autostart is not None:
             self._autostart.shutdown()
-        if (
-            hasattr(self, "_autostart_controller")
-            and self._autostart_controller is not None
-        ):
-            self._autostart_controller.shutdown()
 
     # ================================================================== #
     # BasePresenter contract implementations
@@ -1199,16 +1203,11 @@ class DashboardPresenter(BasePresenter):
         volume: float,
         is_closed: bool,
     ) -> None:
-        """
-        @brief Được gọi trong Main UI Thread một cách an toàn thông qua Signal.
-        Chỉ thực hiện tra cứu O(1) và đẩy data vào đúng ChartCard tương ứng.
-        """
-        # BOT-034 — any tick is proof of a real connection, cancelling the
-        # auto-start fallback timer. Must happen here (main thread), NOT in
-        # _handle_market_tick (background thread) — QTimer.stop() from a
-        # foreign thread is a Qt threading violation. `_autostart` is None
-        # when BOT-062's config gate is off (the default) — nothing to
-        # cancel in that case.
+        """Main thread, via a signal: routes one candle to its ChartCard."""
+        # BOT-034 — a tick proves a real connection and cancels the auto-start
+        # fallback timer. Here, on the main thread: QTimer.stop() from the
+        # tick's background thread is a Qt threading violation. `_autostart`
+        # is None while BOT-062's config gate is off (the default).
         if self._autostart is not None:
             self._autostart.on_market_tick()
 

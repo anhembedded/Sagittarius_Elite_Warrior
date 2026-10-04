@@ -5,8 +5,8 @@ bounded contexts, which contribute panels, dialogs, probes, settings sections
 and — since `EPIC-025F` PR 5.2, the last of the strangler-period screens this
 function used to hand-carry through `legacy_screen_adapter.py` (deleted in
 that pull request) — whole navigable screens, all through
-`BoundedContextModule.contribute()`; and the shell's own Welcome and Settings
-screens — surfaces about the *application*, which is what HLD §4.6 says
+`BoundedContextModule.contribute()`; and the shell's own Settings
+screen — a surface about the *application*, which is what HLD §4.6 says
 belongs to the shell rather than to any context.
 
 **Why here and not in `create_app()`.** `contribute()` runs *after* `boot()`
@@ -35,7 +35,6 @@ from Sagittarius_Elite_Warrior.src.shell.modules import RegisteredModules
 from Sagittarius_Elite_Warrior.src.shell.settings.settings_screen import (
     settings_screen,
 )
-from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import welcome_screen
 from sagittarius_engine.interfaces.i_container import IContainer
 
 logger = logging.getLogger("App.Shell.Contributions")
@@ -52,7 +51,6 @@ def assemble_contributions(
     registry is returned for the caller that still needs its screen half.
     """
     contributions = ContributionRegistry(dev_mode=dev_mode)
-    contributions.contribute_screen(welcome_screen())
     contributions.contribute_screen(settings_screen())
     for module in container.resolve(RegisteredModules).modules:
         module.contribute(contributions)

@@ -37,7 +37,6 @@ from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
 )
 from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
-from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
     seed_app_theme,
 )
@@ -142,9 +141,9 @@ def main() -> None:
         # `tests/conftest.py`'s `real_screen_registry` no longer does either.
         contributions = assemble_contributions(engine.context.container, dev_mode=False)
         screen_registry = build_screen_registry(contributions)
-        window = MainWindow(engine, screen_registry, sidebar_factory=Sidebar)
+        window = MainWindow(engine, screen_registry)
         window.switch_screen("data_management")
-        presenter = window._router.get_current_presenter()
+        presenter = window.presenters["data_management"]
         if not isinstance(presenter, DataManagementPresenter):
             raise TypeError("Data management presenter did not load")
 

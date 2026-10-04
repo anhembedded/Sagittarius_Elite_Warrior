@@ -193,11 +193,13 @@ def build_stream_presenter_state(
     # set_view_model() now builds the QtWidgets DevBoardPanel directly.
     # .qml file kept on disk, unloaded (EPIC-006's rollback convention).
 
-    # BOT-034 — auto-start Start Live the moment the Dev Board opens,
+    # BOT-034 — auto-start Start Live the moment the user opens the Dev Board
+    # (`DashboardPresenter.on_mode_shown`, `EPIC-033C`: every mode is built at
+    # start, so construction no longer means "opened"),
     # falling back to Load History if no MarketTickEvent proves a real
-    # connection within a few seconds. Constructed last: it immediately
-    # calls _on_start_stream(), which needs everything above already set
-    # up (script runner, signal connections, FSM). Config-gated
+    # connection within a few seconds. Constructed last: `begin()` calls
+    # _on_start_stream(), which needs everything above already set up
+    # (script runner, signal connections, FSM). Config-gated
     # (default off — BOT-062: opening Dev Board must not silently start
     # a live connection unless the user has opted in); `None` when
     # disabled so `_on_ui_chart_update`'s `self._autostart.on_market_tick()`
@@ -220,4 +222,3 @@ def build_stream_presenter_state(
             fallback_seconds=fallback_seconds,
             parent=presenter,
         )
-        presenter._autostart.begin()

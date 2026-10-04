@@ -25,7 +25,6 @@ from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
     ContributionRegistry,
 )
 from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
-from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import welcome_screen
 
 _EXPECTED_ROUTES = (
     "dashboard",
@@ -90,23 +89,15 @@ def test_each_screen_is_contributed_by_its_own_module_not_the_shell() -> None:
 
 
 def test_the_default_route_survives_the_round_trip() -> None:
-    """`welcome` (ADR D13), not any of the six module screens — none of
-    them declares `is_default`. The round trip is the point: a default
-    declared on a contribution has to still be the default after
+    """The Futures desk (`EPIC-033C`): the first run opens there, as the
+    deleted Welcome screen's Start did. The round trip is the point: a
+    default declared on a contribution is still the default once
     `ScreenRegistry` has it."""
     registry = ContributionRegistry(dev_mode=False)
-    registry.contribute_screen(welcome_screen())
     _contribute_screens(registry, container=object())
 
-    assert registry.default_route() == "welcome"
-    assert build_screen_registry(registry).get_default_route() == "welcome"
-
-
-def test_the_module_screens_alone_declare_no_default() -> None:
-    registry = ContributionRegistry(dev_mode=False)
-    _contribute_screens(registry, container=object())
-
-    assert registry.default_route() is None
+    assert registry.default_route() == "trading.futures"
+    assert build_screen_registry(registry).get_default_route() == "trading.futures"
 
 
 def test_no_view_is_built_while_contributing() -> None:
@@ -124,26 +115,23 @@ def test_no_view_is_built_while_contributing() -> None:
         assert callable(screen.presenter_factory)
 
 
-def test_the_sidebar_matches_the_legacy_layout() -> None:
+def test_the_modes_keep_the_sidebars_order() -> None:
+    """The mode bar (`EPIC-033C`) lists the screens the sidebar listed, in
+    the same order: the first section by item, then the next section."""
     registry = ContributionRegistry(dev_mode=False)
     _contribute_screens(registry, container=object())
 
-    sections, bottom = build_screen_registry(registry).build_sidebar_navigation()
+    modes = build_screen_registry(registry).modes()
 
-    section_titles = [section.title for section in sections]
-    assert section_titles == ["NAVIGATION", "QUANT ENGINE"]
-
-    navigation_routes = [item.route for item in sections[0].items]
-    assert navigation_routes == [
+    assert [mode.route for mode in modes] == [
         "dashboard",
         "trading.futures",
         "trading.spot",
         "bots",
         "data_management",
         "watchlist",
+        "backtest",
     ]
-    assert [item.route for item in sections[1].items] == ["backtest"]
-    assert list(bottom) == []
 
 
 def test_the_registry_holds_one_descriptor_per_route() -> None:

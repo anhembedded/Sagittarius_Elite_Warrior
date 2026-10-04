@@ -340,9 +340,11 @@ def _screen_packages() -> list[tuple[str, str | None]]:
 def test_every_navigable_route_constructs(qapp, booted_app, route):
     """Mode 11 — an entry point that is registered but cannot be built.
 
-    The retired tier constructed two of four screens: `PresenterManager` is
-    lazy-loading and `MainWindow.__init__` only navigates to `dashboard`, so the
-    Database and Settings screens were never built by any sanity test. BUG-019
+    The retired tier constructed two of four screens: `PresenterManager` was
+    lazy-loading and `MainWindow.__init__` only navigated to `dashboard`, so the
+    Database and Settings screens were never built by any sanity test. The
+    workbench window (`EPIC-033C`) builds every mode at start; this still shows
+    each one, so a mode that builds but cannot be shown is caught too. BUG-019
     (a Database-screen modal that could not construct) landed in exactly that gap.
 
     Parametrised from the navigation constants themselves, so a screen added
@@ -353,18 +355,21 @@ def test_every_navigable_route_constructs(qapp, booted_app, route):
     bootstrap, which the retired tier never exercised.
     """
     from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-    from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
     from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 
     registry = real_screen_registry(booted_app.context.container)
-    window = MainWindow(booted_app, registry, sidebar_factory=Sidebar)
+    window = MainWindow(booted_app, registry)
     try:
         window.switch_screen(route)
         qapp.processEvents()
 
-        assert window._stacked.currentWidget() is not None, (
-            f"Route '{route}' navigated but left no widget on the stack — the "
-            f"view was constructed and then orphaned."
+        assert window.current_mode == route, (
+            f"Route '{route}' was asked for but mode {window.current_mode!r} "
+            f"is showing."
+        )
+        assert window.hosts[route].centralWidget() is window.hosts[route].view, (
+            f"Route '{route}' shows a host without its screen — the view was "
+            f"constructed and then orphaned."
         )
     finally:
         window.shutdown()
@@ -433,13 +438,12 @@ def test_the_window_shuts_down_within_budget(qapp, booted_app):
     and that is why the ADR splits the tier in two.
     """
     from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-    from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
     from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 
     before = {t.ident for t in threading.enumerate()}
 
     registry = real_screen_registry(booted_app.context.container)
-    window = MainWindow(booted_app, registry, sidebar_factory=Sidebar)
+    window = MainWindow(booted_app, registry)
     qapp.processEvents()
 
     started = time.monotonic()

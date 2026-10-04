@@ -47,6 +47,12 @@ class AutoStartController(QObject):
         self._timer: QTimer | None = None
         self._began = False
 
+    @property
+    def has_begun(self) -> bool:
+        """Whether `begin()` has run: the observable half of `BUG-104`'s
+        rule that a restore at start never begins it (`EPIC-033C`)."""
+        return self._began
+
     def begin(self) -> None:
         """Attempts Start Live and arms the fallback window. No-op if
         already called once."""

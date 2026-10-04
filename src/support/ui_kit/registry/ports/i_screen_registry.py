@@ -7,18 +7,12 @@ from __future__ import annotations
 from abc import ABC, abstractmethod
 from collections.abc import Sequence
 
-from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import (
-    NavItem,
-    NavSection,
-)
-from sagittarius_engine.extensions.pyside_mvc import PresenterManager
-
 from ..models.screen_descriptor import ScreenDescriptor
 from ..models.section_descriptor import SectionDescriptor
 
 
 class IScreenRegistry(ABC):
-    """Catalogue of every screen and the sidebar structure they build."""
+    """Catalogue of every screen and the order the mode bar shows them in."""
 
     @abstractmethod
     def register(self, descriptor: ScreenDescriptor) -> None:
@@ -47,15 +41,8 @@ class IScreenRegistry(ABC):
         ...
 
     @abstractmethod
-    def build_sidebar_navigation(
-        self,
-    ) -> tuple[Sequence[NavSection], Sequence[NavItem]]:
-        """Sections and bottom actions, sorted by section then item
-        sequence, ready for `Sidebar`'s constructor."""
-        ...
-
-    @abstractmethod
-    def bind_to_router(self, router: PresenterManager) -> None:
-        """Registers every screen's route with `router` (lazy — this only
-        calls `router.register()`, it never constructs a View or Presenter)."""
+    def modes(self) -> Sequence[ScreenDescriptor]:
+        """The navigable screens in mode-bar order (`EPIC-033C`): top
+        sections by section then item sequence, bottom actions last; a
+        screen with no `nav` or `is_navigable=False` is not a mode."""
         ...

@@ -75,6 +75,15 @@ nothing real to share, since the three bodies do genuinely different
 things — the same call this guard's own docstring already made for
 `_apply_status`/`_load_from_config` above. Accepted as debt with no
 extraction target, not something to disguise by renaming.
+
+**`EPIC-033C`** raised it 63 → **64** the same way: `on_mode_shown` is the
+one method of the `IShownAsMode` port (`core/contracts/i_shown_as_mode.py`),
+which the workbench window calls on a presenter each time its mode shows.
+`DashboardPresenter` (begins the Dev Board's opt-in auto-start on a click)
+and the two `market_data.ui` presenters (start the Watchlist stream, run the
+Data scan) implement it, so the name crosses `market_data.ui+trading.ui`. A
+port's method is the one name its implementers must share; the bodies share
+nothing, so there is no base to extract.
 """
 
 from __future__ import annotations

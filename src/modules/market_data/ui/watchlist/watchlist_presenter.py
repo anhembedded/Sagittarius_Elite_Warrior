@@ -11,6 +11,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
+    NavigationSource,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
@@ -72,6 +75,18 @@ class WatchlistPresenter(BasePresenter):
         )
         self._market_tick_feed.marketTick.connect(self._handle_market_tick)
 
+        self._symbols = symbols
+        self._started = False
+
+    def on_mode_shown(self, source: NavigationSource) -> None:
+        """`IShownAsMode` (`EPIC-033C`): the stream starts the first time this
+        mode shows, restored at start or clicked. It used to start on
+        construction, which meant the same thing until the workbench window
+        began building every mode at start."""
+        if self._started:
+            return
+        self._started = True
+        symbols = self._symbols
         outcome = self._market_stream.start(
             _STREAM_OWNER_ID, _MARKET, symbols, TimeFrame.ONE_MINUTE
         )

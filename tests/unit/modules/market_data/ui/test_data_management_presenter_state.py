@@ -15,6 +15,9 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 from unittest.mock import Mock
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
+    NavigationSource,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_presenter import (
     DataManagementPresenter,
 )
@@ -113,9 +116,9 @@ def test_restores_symbol_and_interval_from_a_prior_session(view, container):
 
 def test_restoring_neither_scans_nor_syncs(view, container, dispatcher):
     """Mode #12, and this task's own acceptance criterion: opening the screen
-    pre-fills the form. The one background task it submits on open is its
-    normal auto-discovery, which happens with or without a restore — what must
-    not appear is a dispatch on the main thread caused by restoring."""
+    pre-fills the form. Its one background task, auto-discovery, waits for
+    the first show (`EPIC-033C`) — what must not appear is a dispatch on the
+    main thread caused by restoring."""
     coordinator = _coordinator_with({"symbol": "ETHUSDT", "interval": "1h"})
 
     DataManagementPresenter(view, _with_coordinator(container, coordinator))
@@ -181,3 +184,28 @@ def test_changing_the_selection_survives_a_restart(view, container):
     coordinator.flush()
 
     assert store.read(_SCOPE) == {"symbol": "XRPUSDT", "interval": "1d"}
+
+
+def _auto_discover_submits(thread_manager, presenter) -> int:
+    return sum(
+        1
+        for call in thread_manager.submit.call_args_list
+        if call.args[0] == presenter._scan_coordinator.run_auto_discover
+    )
+
+
+def test_construction_alone_does_not_scan_the_database(view, container, thread_manager):
+    """`EPIC-033C`: the window builds every mode at start; building the Data
+    screen is not opening it, and a scan is real disk work."""
+    presenter = DataManagementPresenter(view, container)
+
+    assert _auto_discover_submits(thread_manager, presenter) == 0
+
+
+def test_the_first_show_scans_once(view, container, thread_manager):
+    presenter = DataManagementPresenter(view, container)
+
+    presenter.on_mode_shown(NavigationSource.RESTORE)
+    presenter.on_mode_shown(NavigationSource.USER_INTENT)
+
+    assert _auto_discover_submits(thread_manager, presenter) == 1
