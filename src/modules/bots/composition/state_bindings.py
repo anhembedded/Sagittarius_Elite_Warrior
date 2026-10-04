@@ -5,9 +5,9 @@ would each lock their own copy of a bot and serialise nothing.
 
 @par Where the files go
 `bots.state_dir` (`ConfigKeys.BOTS_STATE_DIR`) when set, else
-`<repo root>/state/bots/`, beside `ui_state.json` in the gitignored `state/`
-(`repo_state_store_locator.py`). The root is found by its landmark
-(`core/repo_root.py`). The key exists so a test boot of the
+`<data root>/state/bots/`, beside `ui_state.json` in the gitignored `state/`
+(`repo_state_store_locator.py`). The data root is the repository root unless
+`SEW_DATA_ROOT` moves it (`core/repo_root.py`, `EPIC-030M`). The key exists so a test boot of the
 real composition root (the sanity tier) can point the store elsewhere: the
 restore at `boot()` rewrites RUNNING and PAUSED bots, and must never touch a
 live bot's file (PR #318 review).
@@ -18,7 +18,7 @@ from __future__ import annotations
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
-from Sagittarius_Elite_Warrior.src.core.repo_root import repo_root
+from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
 )
@@ -39,7 +39,7 @@ def bots_directory(config: IConfig) -> Path:
     configured = config.get(ConfigKeys.BOTS_STATE_DIR.value)
     if configured:
         return Path(str(configured))
-    return repo_root() / "state" / "bots"
+    return data_root() / "state" / "bots"
 
 
 def bind_state(container: IContainer) -> None:

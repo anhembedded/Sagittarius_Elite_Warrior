@@ -13,6 +13,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.main_thread_collection import 
     stop_automatic_collection,
 )
 
+#: `EPIC-030M` — `SEW_DATA_ROOT` for the session, and the leak check.
+pytest_plugins = ["Sagittarius_Elite_Warrior.tests.runtime_data_guard"]
+
 
 def pytest_configure(config: pytest.Config) -> None:
     """`BUG-140` — no thread but the main one runs the cyclic collector.

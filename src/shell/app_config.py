@@ -29,13 +29,14 @@ from collections.abc import Sequence
 from contextlib import suppress
 from pathlib import Path
 
+from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
 from Sagittarius_Elite_Warrior.src.shell.dev_mode import DevMode, resolve_dev_mode
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 #: `src/config/`, from this file's location: `src/shell/app_config.py`.
 _CONFIG_DIR = Path(__file__).resolve().parents[1] / "config"
-#: `logs/`, beside the repository root.
-_LOG_DIR = Path(__file__).resolve().parents[2] / "logs"
+#: The dev/debug session logs' directory name, under `data_root()`.
+_LOG_DIR_NAME = "logs"
 
 APP_CONFIG_FILE = _CONFIG_DIR / "app_config.json"
 USER_CONFIG_FILE = _CONFIG_DIR / "user_config.json"
@@ -52,7 +53,10 @@ def load_app_config(argv: Sequence[str]) -> tuple[ConfigManager, DevMode]:
     with suppress(FileNotFoundError):
         config_manager.load_json(str(CLI_COMMANDS_FILE))
 
-    dev_mode = resolve_dev_mode(config_manager, argv, str(_LOG_DIR))
+    # Resolved per call, not at import: `SEW_DATA_ROOT` may be set after this
+    # module is imported (a test session sets it once collection is done).
+    log_dir = data_root() / _LOG_DIR_NAME
+    dev_mode = resolve_dev_mode(config_manager, argv, str(log_dir))
     overrides = dev_mode.config_overrides()
     if overrides:
         config_manager.load_dict(overrides)

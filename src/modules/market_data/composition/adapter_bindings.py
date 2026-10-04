@@ -20,6 +20,7 @@ from __future__ import annotations
 import os
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.repo_root import data_root_override
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.binance.binance_websocket_service import (
     BinanceWebsocketService,
 )
@@ -44,6 +45,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.persistence.symb
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.application.sync.in_flight_sync_guard import (
     InFlightSyncGuard,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.composition.database_directory import (
+    database_directory,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
@@ -71,11 +75,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.market_data
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
-
-#: Where the per-symbol SQLite shards go when `database.dir` says nothing —
-#: `./database` relative to the working directory, which is what every existing
-#: install already has on disk.
-_DEFAULT_DB_DIR_NAME = "database"
 
 
 def bind_adapters(container: IContainer) -> None:
@@ -129,11 +128,16 @@ def _build_exchange_session_factory(container: IContainer) -> IExchangeSessionFa
 
 
 def _build_database_config(container: IContainer) -> DatabaseConfig:
-    config = container.resolve(IConfig)
-    db_dir = config.get(ConfigKeys.DATABASE_DIR.value) or os.path.join(
-        os.getcwd(), _DEFAULT_DB_DIR_NAME
+    """`database_directory.py` owns the precedence of `database.dir`,
+    `SEW_DATA_ROOT` and the working directory."""
+    configured = container.resolve(IConfig).get(ConfigKeys.DATABASE_DIR.value)
+    return DatabaseConfig(
+        db_dir=database_directory(
+            str(configured) if configured else None,
+            data_root_override(),
+            os.getcwd(),
+        )
     )
-    return DatabaseConfig(db_dir=db_dir)
 
 
 def _build_database_manager(container: IContainer) -> DatabaseManager:

@@ -9,10 +9,14 @@ binding fails here rather than at a bot's first registration.
 
 from __future__ import annotations
 
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal
+from pathlib import Path
 from unittest.mock import Mock
 
+import pytest
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.register_owner_budget import (
     RegisterOwnerBudgetCommandHandler,
 )
@@ -25,9 +29,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.composition.command_bindings 
 from Sagittarius_Elite_Warrior.src.modules.trading.composition.state_bindings import (
     bind_state,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_owner_inventory_checkpoints import (
+    IOwnerInventoryCheckpoints,
+    OwnerInventoryCheckpoint,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     DEFAULT_OWNER_BUDGET_CAPS,
     OwnerBudgetCaps,
+    OwnerInventory,
 )
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
@@ -67,3 +76,26 @@ def test_the_caps_default_to_the_approved_values() -> None:
 def test_the_registration_handler_resolves() -> None:
     handler = _container({}).resolve(RegisterOwnerBudgetCommandHandler)
     assert isinstance(handler, RegisterOwnerBudgetCommandHandler)
+
+
+def test_the_checkpoints_are_written_under_the_data_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`EPIC-030M` — with `SEW_DATA_ROOT` set, a checkpoint lands under it and
+    never in the checkout's `state/`."""
+    monkeypatch.setenv(DATA_ROOT_ENV, str(tmp_path))
+    checkpoints = _container({}).resolve(IOwnerInventoryCheckpoints)
+
+    checkpoints.save(
+        OwnerInventoryCheckpoint(
+            tag="a3f9c1",
+            run_started_at=datetime(2026, 10, 1, tzinfo=UTC),
+            inventory=OwnerInventory(Decimal("0.001"), Decimal(50)),
+            last_trade_id=None,
+            open_order_ids=frozenset(),
+            read_from=datetime(2026, 10, 1, tzinfo=UTC),
+        )
+    )
+
+    written = list((tmp_path / "state" / "trading" / "owner_inventory").iterdir())
+    assert [path.name for path in written] == ["a3f9c1.json"]
