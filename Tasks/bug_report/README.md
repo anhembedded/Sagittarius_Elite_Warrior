@@ -58,9 +58,9 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | Trạng thái | Số lượng |
 | :--- | :--- |
-| 🔴 **Đang mở** | 1 |
+| 🔴 **Đang mở** | 2 |
 | ✅ **Đã sửa / đã đóng** | 137 |
-| 📈 **Tổng** | **138** |
+| 📈 **Tổng** | **139** |
 
 ---
 
@@ -68,6 +68,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tên | Mức độ | Ngày báo | Ghi chú |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-143](incomplete/BUG-143_spot_user_data_stream_left_pending_at_shutdown.md)** | Stopping the app with the Spot user-data stream live prints `Task was destroyed but it is pending!` and `Unclosed client session`: the stream's tasks are destroyed while cancelling, so its connection is dropped, not closed. Seen in the user's first live grid round trip; cause not yet established (the stream's `stop()` or the engine runtime's stop order). | 🟢 P3 | 2026-10-04 | User's `-TestnetOnly` run (`EPIC-029H`) |
 | **[BUG-142](incomplete/BUG-142_manual_spot_order_blocks_its_symbol_until_re_enable.md)** | Sau một lệnh Spot thủ công, mọi lệnh sau trên cùng symbol bị `MAX_POSITIONS_PER_SYMBOL` chặn cho tới khi bật lại giao dịch: `record_order_sent` đánh dấu symbol "đang mở" và trên Spot không gì xoá dấu đó (Spot không có vị thế). Đã tái hiện; chưa sửa vì là cơ chế khác với owner budget của `EPIC-029A`, và hướng sửa đổi một safety gate nên cần người dùng quyết. | 🟡 P2 | 2026-10-03 | Tái hiện trong `EPIC-029A` (ADR §1.3) |
 
 > Hai hồ sơ cuối đóng cùng ngày theo hai đường khác hẳn nhau, và cặp đó đáng nhớ:
