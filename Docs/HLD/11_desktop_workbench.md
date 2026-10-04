@@ -86,7 +86,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | &Edit | &Copy | Ctrl+C | — | — |
 | | Select &all | Ctrl+A | — | — |
 | | &Find… | Ctrl+F | — | — |
-| &View | &Market, T&rade, B&ots, &Backtest, &Data, De&veloper (one checkable action per mode) | Ctrl+1 … Ctrl+6 | mode selector | — |
+| &View | &Market, T&rade, &Bots, Back&test, &Data, De&veloper (one checkable action per mode) | Ctrl+1 … Ctrl+6 | mode selector | — |
 | | one toggle per panel of the current mode, access keys assigned per mode (`EPIC-033D` checks them) | — | — | — |
 | | T&oolbars ›, Stat&us bar | — | — | — |
 | | &Full screen | F11 | — | — |
@@ -108,7 +108,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | &Check gaps | — | Data | — |
 | | &Repair gap | — | Data | — |
 | | &Delete data… | — | Data | yes |
-| &Tools | &Run backtest… | Ctrl+R | Backtest | — |
+| &Tools | &Run backtest… | F7 | Backtest | — |
 | | &Stop backtest | — | Backtest | — |
 | | Check &connection | — | — | — |
 | | &Options | `QKeySequence.Preferences` | — | — |
@@ -117,6 +117,8 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | &Help | &Documentation | F1 | — | — |
 | | &Keyboard shortcuts | — | — | — |
 | | &About Sagittarius Elite Warrior | — | — | — |
+
+Run backtest is F7, not Ctrl+R: GNOME and XFCE reserve Ctrl+R for Refresh, and the Engine's shortcut policy refuses it. In View, the modes are &Bots and Back&test, not B&ots and &Backtest, because T&oolbars in the same menu already uses O.
 
 Developer mode adds a `Develo&per` menu before Tools, holding the probes. Context menus on tables
 repeat the menu commands that act on the selected row (Cancel order, Copy).
