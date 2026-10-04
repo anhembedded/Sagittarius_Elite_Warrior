@@ -6,8 +6,8 @@ are editable only in the editing mode.
 
 A workbench host from birth (`ui-presentation-rule.md`, `EPIC-033`): the screen
 is a `WorkbenchSurface` (a `QMainWindow` on the Engine's `RegionHost`, as the
-Welcome surface is) whose workspace holds New bot, the status line and the
-list beside the detail. Stock controls, no style sheet. `EPIC-033K` (Strategies
+Dev Board is) whose workspace holds New bot, the status line and the
+list beside the detail. Stock controls, no style sheet. `EPIC-033K` (Bots
 mode) re-lays it out on the shell's workbench.
 """
 
