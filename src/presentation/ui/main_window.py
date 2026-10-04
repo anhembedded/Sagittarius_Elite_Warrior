@@ -80,6 +80,9 @@ from sagittarius_engine.extensions.pyside_mvc.workbench.action_confirmation impo
 from sagittarius_engine.extensions.pyside_mvc.workbench.action_registry import (
     ActionRegistry,
 )
+from sagittarius_engine.extensions.pyside_mvc.workbench.i_options_page import (
+    IOptionsPage,
+)
 from sagittarius_engine.extensions.pyside_mvc.workbench.navigation_service import (
     NavigationSource as ShellNavigationSource,
 )
@@ -200,6 +203,12 @@ class MainWindow(WorkbenchShell):
             self.add_mode(ShellMode(screen.route, text, host, icon=icon))
             logger.debug("Mode %r built", screen.route)
         logger.info("Workbench built %d mode(s): %s", len(screens), list(self._hosts))
+
+    def add_options_page(self, page: IOptionsPage) -> None:
+        """One page of Tools → Options; the log line is what proves, from a
+        real process, that the composition root added it."""
+        super().add_options_page(page)
+        logger.info("[options] Tools > Options page %r added", page.title)
 
     # -- what tests and the composition root read ----------------------------
 
