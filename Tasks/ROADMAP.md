@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 171 | 83.0% |
+| 🟢 **Completed** | 172 | 83.1% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 27 | 13.1% |
+| 🔴 **Backlog** | 27 | 13.0% |
 | ❌ **Cancelled** | 8 | 3.9% |
-| 📈 **Tổng số Task** | **206** | **100%** |
+| 📈 **Tổng số Task** | **207** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -178,6 +178,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **[`BOT-150`](completed/BOT-150_create_a_bot_with_the_minimum.md) (a bot is created with the minimum)**: [Decision (the user, 2026-10-04): New bot asks only for the kind, venue, symbol and name; the parameters are set in the draft's panel, where the planner can suggest a range, and changed whenever the bot is not running (Draft or Stopped). A bot without its range or capital is refused with those named, not with a missing key.]
 - [x] **[`BUG-148`](bug_report/completed/BUG-148_local_runs_use_an_engine_ci_never_built.md) (local runs used an engine CI never built)**: [Root cause: `EPIC-031B` pinned the engine for CI only; `run-ui.ps1` still installed `main` and `ci-local.ps1`'s mypy read a sibling checkout on `MYPYPATH`. Fixed by one installer, `scripts/engine_pin.py`, which every install goes through, and a gate step that checks the engine in use is `engine.ref`'s.]
 - [x] **[`BUG-147`](bug_report/completed/BUG-147_grid_start_faults_on_percent_price_by_side.md) (a Grid faulted at Start on `PERCENT_PRICE_BY_SIDE`)**: [Root cause: the Spot metadata parser never read Binance's `PERCENT_PRICE_BY_SIDE` band, so a ladder level far from the market passed every Grid check and the first order was rejected. Fixed by carrying the band into the symbol's rules and the bot's terms, and refusing such a plan before Start with the level and the accepted range named.]
 - [x] **[`BUG-146`](bug_report/completed/BUG-146_run_ui_launcher_exits_without_a_window.md) (the app did not start from `run-ui.ps1`)**: [Root cause: the launcher ran `main_window.py` as a script, which forwarded to `app_bootstrapper.main()` through a legacy `__main__` block that `EPIC-033C` removed; the sanity tier boots with `-m ...app_bootstrapper`, so it never exercised the launcher's path. Fixed by launching `app_bootstrapper.py`, the file that owns `main()`; a regression test reads the launcher's entry and was red first.]

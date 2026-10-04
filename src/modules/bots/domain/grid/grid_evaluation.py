@@ -3,6 +3,8 @@
 One function, so the Bots tab (`EPIC-029F`), the backtest (`EPIC-029D`) and
 `GridKind.validate` all judge the same parameters the same way.
 
+Parameters the user has not set yet (a new bot carries none, `BOT-150`) are
+one REFUSED `PARAMETERS_NOT_SET` naming them in the user's words, and no plan.
 Parameters that cannot be read are not a check's verdict but the absence of a
 plan: they come back as a single REFUSED `PARAMETERS_UNREADABLE` naming the
 key (or, for a number too large to compute with, the arithmetic error), and no
@@ -29,6 +31,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_derived import 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
     GridParamsError,
+    unset_parameters,
+    unset_parameters_reason,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import (
     GridPlan,
@@ -54,6 +58,9 @@ class GridEvaluation:
 
 
 def evaluate_grid(inputs: BotKindInputs, thresholds: GridThresholds) -> GridEvaluation:
+    unset = unset_parameters(inputs.config)
+    if unset:
+        return _not_set(unset)
     try:
         params = GridParams.from_config(inputs.config)
     except GridParamsError as exc:
@@ -70,6 +77,18 @@ def evaluate_grid(inputs: BotKindInputs, thresholds: GridThresholds) -> GridEval
     except ArithmeticError as exc:
         return _unreadable(f"a value is out of range ({type(exc).__name__})")
     return GridEvaluation(verdicts, params, grid_plan, derived)
+
+
+def _not_set(labels: tuple[str, ...]) -> GridEvaluation:
+    return GridEvaluation(
+        (
+            Verdict(
+                VerdictSeverity.REFUSED,
+                "PARAMETERS_NOT_SET",
+                unset_parameters_reason(labels),
+            ),
+        )
+    )
 
 
 def _unreadable(reason: str) -> GridEvaluation:

@@ -26,17 +26,20 @@ sound, I start it, and I watch what it does."*
 
 1. The trader opens the Bots tab. The list shows every saved bot: name, kind, venue, symbol,
    state in words (Draft, Running, Paused, Recovering, Halted, Stopped, Error) and grid profit.
-2. The trader clicks **New bot** and answers, in order: the kind (Spot Grid), an enabled Spot
-   venue, the symbol (typed, never taken from a chart), and the parameters (lower and upper price,
-   grids, spacing, capital, stop loss, take profit). **Create bot** saves a DRAFT; nothing is
-   placed. **Cancel** saves nothing.
+2. The trader clicks **New bot** and answers the minimum, in order: the kind (Spot Grid), an
+   enabled Spot venue, the symbol (typed, never taken from a chart) and, optionally, a name.
+   **Create bot** saves a DRAFT with no parameters; nothing is placed. **Cancel** saves nothing
+   (`BOT-150`).
 3. The new bot is selected. The app reads the symbol's filters, fees and price from the venue and
    its stored daily candles, then shows the kind's verdict on each check: OK, Warning or Refused,
    with the threshold beside the measured value. The planner preview draws the proposed levels on
    the bot's chart; **Fit levels** scales the price axis to show them all.
-4. The trader edits a parameter. The verdicts and the preview follow each edit. **Suggest from
-   ATR** or **Suggest from Bollinger** fills the range only when clicked, rounded to the tick.
-   Start waits until the edits are saved with **Save**.
+4. The trader sets the parameters in the bot's panel (lower and upper price, grids, spacing,
+   capital, stop loss, take profit). Until the lower price, upper price and capital are set, the
+   one verdict is Refused and names them. The verdicts and the preview follow each edit.
+   **Suggest from ATR** or **Suggest from Bollinger** fills the range only when clicked, rounded
+   to the tick. Start waits until the edits are saved with **Save**. The parameters can be
+   changed whenever the bot is not running: a Draft, or a Stopped bot, which returns to Draft.
 5. While any verdict is Refused, Start is disabled and its tooltip names the refusal.
 6. The trader clicks **Start**. The bot places its ladder through trading, with its own tag, and
    moves through Starting to Running. The list and the detail follow each change without a
@@ -77,6 +80,7 @@ available while it runs.
 | :--- | :--- | :--- |
 | No Spot venue is enabled | New bot says so and Create is disabled | Only an enabled Spot venue can run a Spot Grid |
 | The symbol is unknown, or the venue cannot be read | Start is disabled: "The plan cannot be judged: …" with the venue's reason | A plan judged against no numbers cannot start |
+| A required parameter is not set yet (a new bot) | One Refused verdict naming the lower price, upper price or capital to set; Start disabled | A bot is created with the minimum (`BOT-150`) |
 | A parameter is unreadable or the plan certainly loses or breaks an exchange rule | A Refused verdict naming it; Start disabled | The kind refuses only certain losses and certain rejections (`EPIC-029C`) |
 | Trading is off, or the switch turns off while running | The use case refuses with its reason in the status line, or the bot moves to Halted with the reason beside its state | trading is the only module that sends orders, and its switch wins |
 | The fills cannot be read | The Fills tab says why | The venue's order history is a network read |
@@ -120,7 +124,9 @@ available while it runs.
 | Every state's legal actions and the reason for every disabled one | `tests/unit/modules/bots/ui/bots_screen/test_bot_action_rules.py` | unit |
 | Verdict lines with threshold and measured value; no start without market numbers | `tests/unit/modules/bots/ui/bots_screen/test_bot_plan_judge.py` | unit |
 | Suggestions fill only on a click, rounded to the tick | `tests/unit/modules/bots/ui/kinds/test_grid_panel.py` | unit |
-| Stop preselects keep; Create needs a typed symbol and a Spot venue | `tests/unit/modules/bots/ui/bots_screen/test_bots_dialogs.py` | unit |
+| Stop preselects keep; Create needs a typed symbol and a Spot venue, and asks no parameter | `tests/unit/modules/bots/ui/bots_screen/test_bots_dialogs.py` | unit |
+| A bot created with the minimum: Start names the parameters to set; the ones typed are saved | `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit (real bots graph) |
+| A Grid without its range or capital is one Refused verdict naming them | `tests/unit/modules/bots/domain/grid/test_grid_parameters_not_set.py` | unit |
 | Fills by the bot's tag; resting orders from the runtime | `tests/unit/modules/bots/application/test_bot_orders_and_fills.py` | unit |
 | Closing asks while a bot is active; Cancel keeps the window | `tests/unit/presentation/ui/test_main_window_close_guard.py` | unit |
 | A Grid starts, fills, pauses, stops and restarts against the fake exchange | `tests/integration/modules/bots/test_grid_bot_against_fake_server.py` | integration |

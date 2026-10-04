@@ -14,6 +14,12 @@ venue's filters. Live they come from the account; the backtest records them.
 `capital_quote`, `stop_loss` and `take_profit` — each `off`, `price:<p>` or
 `percent:<n>` (n per cent beyond the range edge: below `lower` for a stop loss,
 above `upper` for a take profit).
+
+@par A bot created with no parameters (`BOT-150`)
+New bot asks only for the kind, venue and symbol; the parameters are set on
+the draft afterwards. `unset_parameters` names the ones the user must still
+type, in the user's words, and `unset_parameters_reason` asks for them, so the
+verdict and the backtest ask rather than report a missing key.
 """
 
 from __future__ import annotations
@@ -24,6 +30,16 @@ from decimal import Decimal, InvalidOperation
 from enum import Enum
 
 _HUNDRED = Decimal(100)
+
+#: The parameters that have no default, keyed by the definition's key, with
+#: their words for the user. Every other one (grids, spacing, both exits) has a
+#: default the editor starts at; `test_grid_panel.py` locks that the Grid panel
+#: leaves blank exactly these.
+PARAMETERS_WITHOUT_A_DEFAULT: Mapping[str, str] = {
+    "lower": "lower price",
+    "upper": "upper price",
+    "capital_quote": "capital",
+}
 
 
 class GridSpacing(str, Enum):
@@ -132,6 +148,25 @@ class GridParams:
     @property
     def take_profit_price(self) -> Decimal | None:
         return self.take_profit.above(self.upper)
+
+
+def unset_parameters(config: Mapping[str, str]) -> tuple[str, ...]:
+    """The labels of `PARAMETERS_WITHOUT_A_DEFAULT` that `config` leaves out or blank."""
+    return tuple(
+        label
+        for key, label in PARAMETERS_WITHOUT_A_DEFAULT.items()
+        if not config.get(key, "").strip()
+    )
+
+
+def unset_parameters_reason(labels: tuple[str, ...]) -> str:
+    """What the user is asked, for every consumer that judges a Grid's
+    parameters (the planner's verdict, the backtest): "Set the lower price,
+    upper price and capital."."""
+    named = (
+        labels[0] if len(labels) == 1 else f"{', '.join(labels[:-1])} and {labels[-1]}"
+    )
+    return f"Set the {named}."
 
 
 def _text(config: Mapping[str, str], key: str) -> str:

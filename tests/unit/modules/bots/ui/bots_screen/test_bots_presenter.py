@@ -189,6 +189,42 @@ def test_a_new_bot_is_saved_as_a_draft_and_selected(open_bots_screen, qtbot) -> 
     assert screen.view._status.text() == "Create my grid: done."
 
 
+def test_a_bot_created_with_the_minimum_is_completed_in_its_draft(
+    open_bots_screen, qtbot
+) -> None:
+    """`BOT-150` — New bot saves no parameters; the draft is selected, Start
+    names what to set, and the parameters typed there are saved."""
+    answers = Answers(new_bot=CreateBotCommand("bare", "grid", VENUE, SYMBOL))
+    screen = open_bots_screen(answers=answers)
+    screen.settle()
+    screen.view.model.new_bot_requested.emit()
+    screen.settle()
+    qtbot.waitUntil(lambda: screen.view.model.selected is not None)
+    screen.settle()
+
+    assert _mode(screen) is BotsUiState.EDITING_DRAFT
+    enabled, reason = _rule(screen, BotAction.START)
+    assert not enabled
+    assert "Set the lower price, upper price and capital" in reason
+    panel = screen.view._kind_panel
+    assert panel is not None and panel.lower_price.isEnabled()
+
+    for field, text in (
+        (panel.lower_price, GOOD_CONFIG["lower"]),
+        (panel.upper_price, GOOD_CONFIG["upper"]),
+        (panel.capital, GOOD_CONFIG["capital_quote"]),
+    ):
+        field.setText(text)
+        field.textEdited.emit(text)
+    screen.view.model.action_requested.emit(BotAction.SAVE.value)
+    screen.settle()
+
+    bot_id = screen.view.model.selected.bot_id
+    saved = screen.store.load(BotId(bot_id)).bot.definition.config
+    assert saved == GOOD_CONFIG
+    qtbot.waitUntil(lambda: _rule(screen, BotAction.START)[0])
+
+
 def test_one_action_at_a_time_locks_the_list_and_every_action(
     open_bots_screen, qtbot
 ) -> None:
