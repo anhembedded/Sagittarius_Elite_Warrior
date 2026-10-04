@@ -1,8 +1,8 @@
 """
 Live preview for a single QML screen or UI component (BOT-031).
 
-Automatically discovers all `preview.py` files under `src/presentation/ui/`
-and invokes `build_preview() -> QWidget` without needing a full DI container
+Automatically discovers all `preview.py` files under the UI roots
+(`_UI_ROOTS`) and invokes `build_preview() -> QWidget` without needing a full DI container
 or Sagittarius Engine boot.
 
 Usage:
@@ -58,7 +58,12 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.theme_bootstrap import (
 #: (`architecture-rule.md` §7.2.1). PR 4.4d added `modules/backtesting/ui`
 #: for the same reason as 4.4b/4.4c: `screens/backtest`'s own `preview.py`
 #: moved there. This list shrinks back to one entry when Phase 4 deletes the
-#: legacy tree.
+#: legacy tree. `EPIC-030G` added `shell`: it holds the Settings and Welcome
+#: presenters, whose previews (still owed, see `tests/unit/architecture/
+#: baseline_presenter_packages_without_preview.txt`) must be discoverable the
+#: day they land. `modules/strategy/ui` still holds neither a presenter nor a
+#: preview, so it stays off for the reason above. A root listed here that does
+#: not exist is an error, never a silent skip.
 _UI_ROOTS = (
     _REPO_ROOT / "src" / "presentation" / "ui",
     _REPO_ROOT / "src" / "support" / "ui_kit",
@@ -66,6 +71,7 @@ _UI_ROOTS = (
     _REPO_ROOT / "src" / "modules" / "trading" / "ui",
     _REPO_ROOT / "src" / "modules" / "backtesting" / "ui",
     _REPO_ROOT / "src" / "modules" / "bots" / "ui",
+    _REPO_ROOT / "src" / "shell",
 )
 
 
@@ -100,8 +106,13 @@ def discover_previews() -> dict[str, Callable[[], QWidget]]:
     sources: dict[str, Path] = {}
 
     for root in _UI_ROOTS:
-        if not root.exists():
-            continue
+        if not root.is_dir():
+            # A root that moved used to be skipped here, and every preview
+            # under it vanished from discovery without a word (`EPIC-030G`).
+            raise FileNotFoundError(
+                f"UI root {root} does not exist — update _UI_ROOTS in "
+                "scripts/preview_qml.py to where the UI lives now."
+            )
         for preview_path in sorted(root.rglob("preview.py")):
             module = _load_preview_module(
                 preview_path, f"_preview_{preview_path.parent.name}"

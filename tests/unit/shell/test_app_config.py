@@ -8,7 +8,11 @@ behaviour change.
 
 from __future__ import annotations
 
+from pathlib import Path
+
+import pytest
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
 from Sagittarius_Elite_Warrior.src.shell.app_config import (
     APP_CONFIG_FILE,
     CLI_COMMANDS_FILE,
@@ -63,3 +67,15 @@ def test_a_developer_run_says_where_the_log_is() -> None:
     assert banner is not None
     assert "Debug mode enabled" in banner
     assert ".log" in banner
+
+
+def test_the_dev_log_follows_sew_data_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`EPIC-030M` — resolved per call, not at import. (The unset case is
+    `test_data_root.py`'s: asserting it here would create `<repo>/logs`.)"""
+    monkeypatch.setenv(DATA_ROOT_ENV, str(tmp_path))
+    _config, dev_mode = load_app_config(["app.py", "--dev"])
+
+    assert dev_mode.verbosity is not None
+    assert Path(dev_mode.verbosity.log_file).parent == tmp_path / "logs"

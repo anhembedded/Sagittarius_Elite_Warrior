@@ -4,6 +4,8 @@ from __future__ import annotations
 
 from pathlib import Path
 
+import pytest
+from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV, repo_root
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.repo_state_store_locator import (
     RepoStateStoreLocator,
 )
@@ -50,3 +52,23 @@ def test_reset_on_an_unremovable_path_logs_and_does_not_raise(tmp_path: Path):
     target.mkdir(parents=True)  # a directory sits where the file should be
 
     locator.reset()  # must not raise
+
+
+def test_the_default_root_is_the_repository_root_when_unset(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.delenv(DATA_ROOT_ENV, raising=False)
+
+    assert RepoStateStoreLocator().state_file() == (
+        repo_root() / "state" / "ui_state.json"
+    )
+
+
+def test_the_default_root_follows_sew_data_root(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """`EPIC-030M` — read at construction, so a test session's override applies
+    even though this module was imported before it was set."""
+    monkeypatch.setenv(DATA_ROOT_ENV, str(tmp_path))
+
+    assert RepoStateStoreLocator().state_file() == tmp_path / "state" / "ui_state.json"

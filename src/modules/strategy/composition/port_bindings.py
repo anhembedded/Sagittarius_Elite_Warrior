@@ -45,6 +45,8 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import IConfigReader
+from Sagittarius_Elite_Warrior.src.core.contracts.i_config_writer import IConfigWriter
 from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
     IEventPublisher,
 )
@@ -126,7 +128,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_strategy_co
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
@@ -168,8 +169,16 @@ def venue_strategy_arming(
     (`EPIC-028C`)."""
     return StrategyArmingService(
         container.resolve(ICommandDispatcher),
-        LiveStrategyConfigStore(container.resolve(IConfig)),
+        live_strategy_config_store(container),
         venue,
+    )
+
+
+def live_strategy_config_store(container: IContainer) -> LiveStrategyConfigStore:
+    """Each venue's saved strategy, over the application's own configuration
+    ports (`IConfigReader`/`IConfigWriter`), never the Engine's `IConfig`."""
+    return LiveStrategyConfigStore(
+        container.resolve(IConfigReader), container.resolve(IConfigWriter)
     )
 
 

@@ -28,9 +28,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
-    LiveStrategyConfigStore,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_factory import (
     LiveStrategyFactory,
 )
@@ -68,6 +65,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.strategy.live_config_ports import (
+    in_memory_config_store,
 )
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
@@ -114,7 +114,7 @@ def test_boot_refuses_a_stale_short_capable_config_on_a_spot_venue() -> None:
         )
     )
     venue = TradingVenue.SPOT_TESTNET
-    config_store = LiveStrategyConfigStore(DictConfig())
+    config_store = in_memory_config_store(DictConfig())
     # A config a Futures run could have saved: 1x leverage and a USDT symbol
     # pass the other two Spot-only refusals cleanly, isolating the
     # SHORT-capability one the reviewer's reproduction hit.
