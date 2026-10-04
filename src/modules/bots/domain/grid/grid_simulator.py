@@ -65,8 +65,9 @@ class GridBacktestInputs:
     bar_length: timedelta
     #: Where each reactive candle's 1-second klines come from.
     fine: FineKlines = field(default_factory=NoFineKlines)
-    #: The period the bars were read for, `[start, end)`: the result says how
-    #: many of its candles were stored. `None` for bars chosen by the caller.
+    #: The period the bars were read for, `[start, end]` (the store reads
+    #: `start <= open_time <= end`): the result says how many of its candles
+    #: were stored. `None` for bars chosen by the caller.
     window: tuple[datetime, datetime] | None = None
 
     def __post_init__(self) -> None:
@@ -150,6 +151,20 @@ def _data_window(inputs: GridBacktestInputs) -> DataWindow | None:
     return DataWindow(
         start=start,
         end=end,
-        expected_candles=math.ceil((end - start) / inputs.bar_length),
+        expected_candles=_closed_candles(start, end, inputs.bar_length),
         stored_candles=len(inputs.bars),
     )
+
+
+def _closed_candles(start: datetime, end: datetime, length: timedelta) -> int:
+    """The candles that open at or after `start` and close by `end`.
+
+    Candles open on epoch-aligned boundaries (Binance klines up to a day do),
+    so a period off the boundaries (13:01 to 13:29 on 15m) expects none and
+    never reads as short; a candle still open at `end` is not expected, since
+    no sync could have stored it closed (the PR #338 re-review).
+    """
+    seconds = length.total_seconds()
+    first = math.ceil(start.timestamp() / seconds)
+    after_last = math.floor(end.timestamp() / seconds)
+    return max(after_last - first, 0)

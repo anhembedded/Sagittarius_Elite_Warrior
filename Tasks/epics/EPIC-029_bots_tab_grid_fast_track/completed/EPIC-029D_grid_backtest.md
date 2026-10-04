@@ -168,6 +168,8 @@ Three commits on PR6: the simulator (domain), the query (application), and the B
 6. "Grid backtest", "fill rule", "coarse candle" and "buy-and-hold" are in the vocabulary.
 7. `grid_replay`'s docstring no longer claims it calls `crossed_exit`.
 
+**Review round 2 (PR #338): PASS**, with one should-fix finding, which is fixed with a test that failed first. The expected candle count used `ceil((end − start) / length)`. A period that does not start and end on candle boundaries (13:01 to 13:29 on 15m) therefore reported a missing candle that no sync could store. It now counts the candles that open at or after the start and close by the end, on epoch-aligned boundaries.
+
 **Not verified:** a backtest of a real stored week on a real display. The check against the
 Testnet run of the same period is `029H`'s.
 
