@@ -35,8 +35,8 @@ every one of these guards since PR 1.4c-4 contributed the session probe, which
 is the same silence as the three repairs above, just never noticed because that
 package holds one small factory. Both are rows now, and the hole was real:
 planting a duplicate `Palette` hex in `modules/strategy/ui/strategy_display.py`
-leaves `test_palette_is_the_only_color_source.py` **green** without the row and
-red with it. Measured, not assumed — that probe is what this note rests on.
+left the palette guard (deleted by `EPIC-033B`, superseded by
+`test_stock_controls_only.py`) **green** without the row and red with it. Measured, not assumed — that probe is what this note rests on.
 
 `architecture-rule.md` §7.2.1's distinction applies to this file: it is a
 **seam**, not a variant. It does not decide what any guard checks, only where

@@ -39,7 +39,6 @@ these:**
 - **Imported root table** — roots come from a tuple imported from another
   module (`ui_trees.py`'s `UI_TREES`/`UI_TREE_ROWS`/`existing_ui_trees()`),
   not literal in the guard's own AST: `test_card_layer_structure.py`,
-  `test_widget_guards_hold.py`, `test_palette_is_the_only_color_source.py`,
   `test_quick_widget_only_in_embed.py`.
 - **Root behind a function parameter** — the call's receiver is a plain
   parameter (`def _iter_python_files(root): ... root.rglob(...)`); the real
@@ -107,6 +106,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 #: (a guard that no longer exists, or has changed shape) is caught by
 #: `test_every_unresolvable_guard_is_a_real_registered_guard` below.
 _UNRESOLVABLE_GUARDS: dict[str, str] = {
+    "tests/unit/architecture/test_stock_controls_only.py": "`rglob` runs on the `src_root` parameter, not a literal chain.",
     "tests/unit/architecture/test_mypy_scope_only_shrinks.py": "root joined from a bare-string tuple (`_SCANNED`) at the call site, not a literal chain.",
     "tests/unit/architecture/test_ruff_debt_only_shrinks.py": "ruff scans the trees, named in `RATCHETED_RULES`; the guard has no glob/rglob call of its own.",
     "tests/unit/architecture/test_module_boundaries.py": "scans via `scanned_files()`, imported from `git_tracked_paths.py` — no glob/rglob/iterdir call of its own.",
@@ -119,9 +119,7 @@ _UNRESOLVABLE_GUARDS: dict[str, str] = {
     "tests/unit/architecture/test_no_root_is_found_by_counting.py": "root joined from a bare-string tuple (`_SCAN_ROOTS`) at the call site, not a literal chain.",
     "tests/unit/architecture/test_screen_layer_structure.py": "`.rglob()`'s receiver is `_iter_python_files(root)`'s plain parameter, not a literal chain visible at the call site.",
     "tests/unit/architecture/test_card_layer_structure.py": "same `_iter_python_files(root)` helper as above, called with an imported `UI_TREES`/`existing_ui_trees()` root table — doubly out of scope.",
-    "tests/unit/presentation/ui/test_widget_guards_hold.py": "roots come from `UI_TREE_ROWS`, imported from `ui_trees.py`, not literal in this file's own AST.",
     "tests/unit/architecture/test_no_cross_screen_imports.py": "scans `package_dir.rglob(...)` where `package_dir` is a subdirectory name discovered by `.iterdir()` at runtime.",
-    "tests/unit/presentation/ui/test_palette_is_the_only_color_source.py": "roots come from `UI_TREE_ROWS`, imported from `ui_trees.py`, not literal in this file's own AST.",
     "tests/unit/architecture/test_quick_widget_only_in_embed.py": "roots include `*UI_TREE_ROWS`, imported from `ui_trees.py`, spread into a tuple this file does not itself define.",
     "tests/unit/config/test_binance_endpoint_config_keys_are_dead.py": "reads named files directly (`.read_text()`) — no glob/rglob/iterdir call.",
     "tests/sanity/test_composition_root.py": "several of its modes discover a root via `.iterdir()` at runtime (module/screen package names); not a literal chain.",

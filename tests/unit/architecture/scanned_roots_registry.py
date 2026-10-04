@@ -170,10 +170,6 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_card_layer_structure.py",
         UI_TREE_ROWS,
     ),
-    (
-        "tests/unit/presentation/ui/test_widget_guards_hold.py",
-        UI_TREE_ROWS,
-    ),
     # Permanent ban, not a ratchet, since PR 4.4e: `EPIC-025` Phase 4 deleted
     # `src/presentation/ui/screens/` for good (settings was the last screen),
     # exactly as this guard's own `test_screens_root_is_where_we_think_it_is`
@@ -184,6 +180,11 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     (
         "tests/unit/architecture/test_no_cross_screen_imports.py",
         (("src/presentation/ui/screens", "*.py"),),
+    ),
+    # `EPIC-033B` — hand styling and sizing counted per file under src.
+    (
+        "tests/unit/architecture/test_stock_controls_only.py",
+        (("src", "*.py"),),
     ),
     # `EPIC-032A` — mypy's `exclude` patterns and first-party overrides are
     # matched against the files and modules of these two trees.
@@ -205,14 +206,6 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             ("src/shell", "*_presenter.py"),
             ("src", "preview.py"),
         ),
-    ),
-    # Two roots since `EPIC-025` PR 1.6a: `Palette` itself now lives under
-    # `support/ui_kit/assets/`, while most of its consumers are still in the
-    # legacy tree. An empty scan of either root would silently stop guarding
-    # half the files.
-    (
-        "tests/unit/presentation/ui/test_palette_is_the_only_color_source.py",
-        UI_TREE_ROWS,
     ),
     # Retargeted by `EPIC-025` PR 4.3l: `src/presentation/ui/qml/` is deleted,
     # and the rule (a shared widget library may not import a screen) moved to
