@@ -1,0 +1,51 @@
+{
+  "_comment": [
+    "Checks each mode fails, AS FOUND (EPIC-033B, 2026-10-04).",
+    "Read by test_workbench_conformance.py. Only shrinks; empty when EPIC-033M closes."
+  ],
+  "failing": {
+    "shell": [
+      "menu_bar_order"
+    ],
+    "welcome": [
+      "toolbar_actions_only"
+    ],
+    "dashboard": [
+      "control_height",
+      "docks_in_view_menu",
+      "mnemonics_escaped",
+      "no_style_sheet",
+      "toolbar_actions_only"
+    ],
+    "trading.futures": [
+      "no_style_sheet",
+      "workbench_host"
+    ],
+    "trading.spot": [
+      "no_style_sheet",
+      "workbench_host"
+    ],
+    "data_management": [
+      "control_height",
+      "mnemonics_escaped",
+      "no_style_sheet",
+      "workbench_host"
+    ],
+    "watchlist": [
+      "no_style_sheet",
+      "workbench_host"
+    ],
+    "backtest": [
+      "control_height",
+      "no_nested_scroll",
+      "no_style_sheet",
+      "workbench_host"
+    ],
+    "settings": [
+      "control_height",
+      "no_nested_scroll",
+      "no_style_sheet",
+      "workbench_host"
+    ]
+  }
+}

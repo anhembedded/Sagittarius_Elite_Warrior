@@ -3,9 +3,10 @@
 - **Status:** 🟢 User decisions 2026-09-13 (ADR D20, D21, D22). Where this section and §4 differ, this
   section wins; §4's places, surfaces and contribution mechanism stay, only their **rendering**
   changes.
-- **The user's UX principles**, quoted in full in `ui-presentation-rule.md` ("Desktop UX
-  principles"): familiarity, consistency, efficiency, clarity, user control, robustness,
-  scalability. Every row below names the principle it serves.
+- **The desktop contract** is `ui-presentation-rule.md`: its principles (§2) and its clauses for
+  menus, toolbars, dialogs, panels, tables, feedback and keyboard, each citing its source in the
+  Microsoft, KDE, Apple and GNOME desktop guidance (`EPIC-033A`). Every row below names the
+  principle it serves.
 
 ## 11.1 The decision and its reasons (recorded so it is not reversed a fourth time)
 
@@ -28,39 +29,114 @@ What is kept from the Engine's `pyside_mvc`: `BaseView`, `BasePresenter`, `Prese
 is no longer used by this app: `create_quick_widget`, `configure_app_qml`, the tokens, the QML
 kit.
 
-## 11.2 The workbench is `QMainWindow` — the places map onto its parts
+## 11.2 The information architecture: modes, panels, menus and commands
 
-"Apply before you invent": MetaTrader 5 and Interactive Brokers TWS are both workbenches of
-dockable panels around a central chart, with order entry in a **dialog** (MT5: F9 "New Order")
-or a dedicated window; Qt Creator has **modes** (Welcome / Edit / Debug) with a saved
-**perspective** each (`QMainWindow.saveState()` / `restoreState()`). The app follows that shape.
+**Status:** draft from `EPIC-033O`, awaiting the user's approval of the wireframes; nothing below
+is built until it is approved (`DECISION_2026-10-04_windows_workbench.md` D10).
+
+The shape is designed from what a person does (`Docs/SPEC/`), not from the screens that grew one
+feature at a time. One **mode** per job; inside it, the panels that job needs; everything else one
+menu away (KDE "simple by default, powerful when needed"; MS "focus on what is likely"). Each mode
+is a workbench host — a `QMainWindow` with a central widget, docks and toolbars, and a perspective
+saved per mode (Qt Creator's shape; MetaTrader 5 and TWS are workbenches of dockable panels
+around a chart).
+
+### 11.2.1 Modes
+
+| Mode (shortcut) | The job | SPECs | Central widget | Default panels |
+| :--- | :--- | :--- | :--- | :--- |
+| **Market** (Ctrl+1) | watch the live market | SPEC-002, SPEC-003 | chart, one tab per open symbol | right: Watchlist, Indicators (tabbed); bottom: Output (hidden) |
+| **Trade** (Ctrl+2) | trade one venue by hand and see the account | SPEC-004, 005, 006, 007, 012, 013 | chart of the traded symbol | right: Order entry, Account summary; bottom: Positions (Futures) or Assets (Spot), Open orders, Order history, Trade history, Equity (tabbed) |
+| **Strategies** (Ctrl+3) | arm, watch and disarm strategies and bots | SPEC-010 | table of strategies and bots | right: Parameters, Last signal; bottom: Strategy log |
+| **Backtest** (Ctrl+4) | test a strategy on stored history | SPEC-009 | result chart | left: Run setup; right: Metrics; bottom: Trades, Monte Carlo (tabbed) |
+| **Data** (Ctrl+5) | keep history complete | SPEC-001, SPEC-008 | coverage table (symbol × timeframe) | bottom: Gaps, Output |
+| **Developer** (Ctrl+6, developer mode only) | look inside the running app | SPEC-011 (developer part) | event log | right: probes |
+
+Futures and Spot are one Trade mode with a venue selector, not two screens: the job is the same,
+only the account panel differs (`EPIC-027O` already switches it once by market). The app opens on
+the mode the user last used; there is no Welcome page.
+
+### 11.2.2 Always visible
+
+- **Emergency stop** is an action on every mode's toolbar and in the Trade menu (SPEC-007): the
+  one command that must never be a menu away.
+- **The venue in text** — "Binance Futures Testnet", "Binance Spot Live" — in the window title and
+  the status bar, never by colour alone (MS `vis-color`; replaces the coloured banner of
+  `EPIC-021K`; `test_environment_banner_all_screens.py` is retargeted to the title).
+- **The connection state** in the status bar, as a word plus an icon (SPEC-003).
+
+### 11.2.3 The menu bar is the catalogue of commands
+
+Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E, V, R, D, T, W, H, and P for Developer) and within each menu; "…" only where the command asks for more input;
+"confirm" means a dialog with specific verbs and the safe choice as default
+(`ui-presentation-rule.md` §10). A command with a toolbar column is also on that mode's toolbar.
+
+| Menu | Command | Shortcut | Toolbar | Confirm |
+| :--- | :--- | :--- | :--- | :-: |
+| &File | &Export table… | — | — | — |
+| | E&xit | Alt+F4 | — | — |
+| &Edit | &Copy | Ctrl+C | — | — |
+| | Select &all | Ctrl+A | — | — |
+| | &Find… | Ctrl+F | — | — |
+| &View | &Market, T&rade, &Strategies, &Backtest, &Data, De&veloper (one checkable action per mode) | Ctrl+1 … Ctrl+6 | mode selector | — |
+| | one toggle per panel of the current mode, access keys assigned per mode (`EPIC-033D` checks them) | — | — | — |
+| | T&oolbars ›, Stat&us bar | — | — | — |
+| | &Full screen | F11 | — | — |
+| T&rade | &Venue › Futures, Spot | — | Trade | — |
+| | &Enable live trading (checkable) | — | Trade | on enable |
+| | &New order… | F9 | Trade | on place |
+| | Cancel &order | Del | — | yes |
+| | Cancel a&ll orders | — | Trade | yes |
+| | &Arm strategy… / &Disarm strategy | — | Strategies | on arm |
+| | Emergency &stop | F8 | every mode | yes |
+| &Data | &Sync history… | Ctrl+L | Data | — |
+| | &Check gaps | — | Data | — |
+| | &Repair gap | — | Data | — |
+| | &Delete data… | — | Data | yes |
+| &Tools | &Run backtest… | Ctrl+R | Backtest | — |
+| | &Stop backtest | — | Backtest | — |
+| | Check &connection | — | — | — |
+| | &Options | `QKeySequence.Preferences` | — | — |
+| &Window | &Reset layout | — | — | — |
+| | &Output | Ctrl+J | — | — |
+| &Help | &Documentation | F1 | — | — |
+| | &Keyboard shortcuts | — | — | — |
+| | &About Sagittarius Elite Warrior | — | — | — |
+
+Developer mode adds a `Develo&per` menu before Tools, holding the probes. Context menus on tables
+repeat the menu commands that act on the selected row (Cancel order, Copy).
+
+### 11.2.4 Today's screens, mapped
+
+| Today | Becomes | Why |
+| :--- | :--- | :--- |
+| Welcome | dropped | the app opens on the last mode; developer mode is a page in Options |
+| Dev Board | Market (chart, watchlist, indicators) and Developer (probes); its order dialog becomes Trade's New order | it held three jobs |
+| Watchlist screen | the Watchlist panel in Market | a list beside the chart, not a place of its own |
+| Futures desk, Spot desk | Trade, with the venue selector | one job, two venues |
+| Backtest | Backtest | its overlays and nested scrolling become panels |
+| Data Management | Data | — |
+| Settings route | Tools → Options dialog | settings are a dialog on every desktop platform |
+
+### 11.2.5 How the extension places render
+
+The mechanism of §4 is unchanged: a module contributes to places, the host renders them.
 
 | Place (§4.6, vocabulary §2) | Rendered as | Principle served |
 | :--- | :--- | :--- |
-| `SCREEN` | a **mode** in the mode selector (the sidebar); each mode is a `QMainWindow` nested in the stacked widget, with its own perspective saved and restored per user | Familiarity, User control |
-| `HEADER` | a `QToolBar` of `QAction`s — one action carries its menu entry, toolbar button, shortcut and enabled state in one object | Consistency, Efficiency |
-| `CONTEXT_BAR` | a second toolbar (symbol, timeframe, connection) | Efficiency |
-| `WORKSPACE` | the mode's central widget (the chart; several charts as tabs or an MDI area on Dev Board) | Clarity |
-| `RAIL` | `QDockWidget`s in the right dock area — **panels** (positions on Futures or holdings on Spot — one `QStackedWidget`, switched once by market at construction, `EPIC-027O` — open orders, session, strategy, last signal); the user can move, tab, float, hide them; layout persists | User control, Scalability |
-| `CONSOLE` | a `QDockWidget` in the bottom dock area | Clarity |
-| `MODAL` | a `QDialog` with explicit OK/Cancel, a title that names the action, and validation before OK enables | Clarity, User control |
-| `STATUS_TILE` | a widget in the `QStatusBar` (websocket pill, price ticker, run progress) | Clarity |
-| `SETTINGS_SECTION` | a page in one Settings **dialog** (list of sections on the left, stacked pages on the right — Qt Creator's Options dialog), with Apply / Cancel | Familiarity, User control |
-| `DEV_PROBE` | a `QDockWidget` in Dev Board's dock area, only under `dev.mode` | — |
+| `SCREEN` | a **mode**; a `QMainWindow` in the stacked widget, its perspective saved and restored per user | Familiarity, Remember the user |
+| `HEADER` | a `QToolBar` of `QAction`s — one action carries its menu entry, toolbar button, shortcut and enabled state | Consistency |
+| `CONTEXT_BAR` | a second toolbar (symbol, timeframe, venue) | Simple by default |
+| `WORKSPACE` | the mode's central widget | Familiarity |
+| `RAIL` | `QDockWidget`s — **panels** the user can move, tab, float and hide; the layout persists | Remember the user |
+| `CONSOLE` | the one Output dock in the bottom area (`EPIC-033F`) | Familiarity |
+| `MODAL` | a `QDialog` with a `QDialogButtonBox`, a title naming the command, validation before OK enables | Prevention over confirmation |
+| `STATUS_TILE` | a widget in the `QStatusBar` (connection, venue, run progress) | Actionable errors |
+| `SETTINGS_SECTION` | a page in Tools → **Options** (sections left, pages right, OK / Cancel / Apply) | Familiarity |
+| `DEV_PROBE` | a `QDockWidget` in the Developer mode, only under `dev.mode` | — |
 
-One band is **not** a place, and it took converting a screen to notice: the environment banner
-(`EPIC-021K`'s "which venue am I in" warning) is something every screen gets from its shell
-rather than something a module contributes. Nobody may contribute a `HEADER` widget that happens
-to be a banner — the guard `test_environment_banner_all_screens.py` scans every navigable route
-for it, so a screen that moved onto the workbench and lost its banner would be a regression the
-user meets on Testnet. The host therefore owns the slot, filled from the same
-composition-root-registered widget factory `PageShell` uses, as a non-movable toolbar row above
-the header (PR 1.4c-1).
-
-Consequences for the mechanism (§4.3, SDD): nothing in the descriptor changes; `factory` still
-returns a `QWidget`. The surface host implements `IPlaceHost` with a `QMainWindow` instead of
-`PageShell`; `PageShell` is retired. The `order` field becomes the initial dock order; after that
-the user's saved perspective wins ("regions decide geometry" now means "the user decides").
+The surface host implements `IPlaceHost` with a `QMainWindow`; `PageShell` is retired. The
+`order` field becomes the initial dock order; after that the user's saved perspective wins.
 
 ## 11.3 Panels and dialogs replace cards
 
@@ -122,21 +198,21 @@ Phase 4's work done in Phase 0, against the Strangler Fig rule that the applicat
 at every step (§6.3). The ratchet reaches the same end state, in the order the migration already
 follows, and makes each phase's share visible as a number.
 
-## 11.5 Rules that follow, enforced
+## 11.5 Rules that follow, and what enforces them
 
-- **One `QAction` per user action**, registered once in the module's contribution and reused by
-  menu, toolbar and shortcut; a guard fails on a `QPushButton` that triggers a command a `QAction`
-  also triggers.
-- **Every long operation shows progress and stays cancellable** (`QProgressBar` in the status bar
-  or the panel; the existing `ActionOwnershipTracker` and cancellation tokens do the work). The UI
-  thread is never blocked — the existing `async-ui-action-rule.md` is unchanged.
-- **Every destructive or money-moving action confirms in a dialog** that names the consequence
-  (Emergency stop, Purge vault, Place order).
-- **Perspectives persist per mode** (`saveState` keyed by mode id and app version); "Reset layout"
-  is a menu action.
-- **No new `.qml` file** (a guard: `find src -name '*.qml'` must not grow, and reaches zero in
-  Phase 4). **It reached zero at PR 4.3l**, so `test_no_new_qml.py` is a ban rather than a ratchet:
-  its baseline is empty and any `.qml` under `src/` fails it. `qml-rule.md` was deleted on 2026-09-17 once `src/` held no `.qml`; git history keeps it.
+The rules are `ui-presentation-rule.md`'s; this section records only how the booted app is held to
+them, since this list once said "enforced" where no test existed.
+
+- **Static bans**, per line of code: `tests/unit/architecture/test_stock_controls_only.py` counts
+  style sheets, hand-set sizes, per-view item-view configuration, font families, colour literals and
+  checkable push buttons; every count only falls and reaches zero when `EPIC-033M` closes.
+- **The composed window**, per mode: `tests/integration/presentation/ui/test_workbench_conformance.py`
+  boots the app and checks the menu-bar order, the system font, that each mode is a workbench host,
+  that every dock has a View toggle, no style sheet, control heights at their size hint, no nested
+  scrolling, toolbars of actions only, item-view conventions, escaped ampersands and the perspective
+  round trip. Its baseline lists today's failures per mode and only shrinks.
+- **No `.qml`**: `test_no_new_qml.py` is a ban; `src/` holds none.
+- What no test sees — confirmation wording, error text, tab order — is a review row (`H3`, `H7`).
 
 ## 11.6 What this changes in the plan
 

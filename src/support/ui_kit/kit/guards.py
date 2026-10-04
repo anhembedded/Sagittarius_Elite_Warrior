@@ -37,7 +37,7 @@ still exercised only through `tmp_path` fixtures — pointing them at
 `sagittarius_engine/` itself remains outstanding.
 
 The consuming app wired them up in EPIC-007D/E
-(`tests/unit/presentation/ui/test_widget_guards_hold.py`): colour literals
+(now `tests/unit/architecture/test_stock_controls_only.py`): colour literals
 locked at zero, bare Qt bases held under a ratchet that may only fall. That
 is what `colour_source_names` exists for — an app's palette module is its
 `style.py`, and until it could be named, the guard reported that file for
