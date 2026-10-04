@@ -77,6 +77,9 @@ class BotRunner(IBotRunner):
     def stop(self, bot_id: str, base: BaseHandling) -> None:
         self._executor(bot_id).stop(base)
 
+    def confirm_resume(self, bot_id: str) -> None:
+        self._executor(bot_id).confirm_resume()
+
     def _executor(self, bot_id: str) -> GridExecutor:
         """@raise BotNotFoundError The bot is gone (the use case found it a
         moment ago). @raise UnreadableBotError Its file cannot be read."""

@@ -51,6 +51,8 @@ class GridReason(str, Enum):
     INVENTORY_MISMATCH = "inventory_mismatch"
     HOLDING_BELOW_INVENTORY = "holding_below_inventory"
     DUPLICATE_LEVEL_ORDER = "duplicate_level_order"
+    UNKNOWN_TAGGED_ORDER = "unknown_tagged_order"
+    LEASE_HELD = "lease_held"
     SWITCH_OFF = "switch_off"
     STOP_LOSS = "stop_loss"
     TAKE_PROFIT = "take_profit"
@@ -157,6 +159,9 @@ class GridRuntime:
         self, index: int, change: Callable[[RuntimeLevel], RuntimeLevel]
     ) -> GridRuntime:
         return self.with_level(change(self.levels[index]))
+
+    def level_at(self, price: Decimal) -> RuntimeLevel | None:
+        return next((level for level in self.levels if level.price == price), None)
 
     def with_reason(self, reason: GridReason, detail: str) -> GridRuntime:
         return replace(self, reason=reason, reason_detail=detail)

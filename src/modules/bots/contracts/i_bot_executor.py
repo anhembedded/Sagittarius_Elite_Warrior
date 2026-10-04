@@ -55,6 +55,10 @@ class IBotExecutor(ABC):
         """Cancel every tagged order, then keep or sell the base (ADR O3)."""
 
     @abstractmethod
+    def confirm_resume(self) -> None:
+        """Lay the ladder a resume from HALTED proposed (ADR D13, O2)."""
+
+    @abstractmethod
     def on_fill(self, fill: BotOrderFill) -> None:
         """One of the bot's orders filled, fully or partly."""
 

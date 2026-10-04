@@ -30,8 +30,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_g
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget import (
     bot_owner_id,
-    grid_budget,
-    grid_registration,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_housekeeping import (
+    GridHousekeeping,
+    refusal_text,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
     fail_with,
@@ -46,9 +48,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleEvent,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
-    drop_order,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridReason,
 )
@@ -56,7 +55,6 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.market_slices import (
     base_slices,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
-    OwnerBudgetRefusal,
     OwnerBudgetRegistrationResult,
 )
 
@@ -68,12 +66,13 @@ class GridStopSequence:
 
     def __init__(self, context: GridRunContext) -> None:
         self._context = context
+        self._housekeeping = GridHousekeeping(context)
 
     def run(self, base: BaseHandling, price: Decimal) -> None:
         """Run the stop; the bot is STOPPING. `price` references the exits."""
-        registration = self.register()
+        registration = self._housekeeping.register()
         if not registration.registered:
-            self._wait(f"the budget was refused: {_refusal_text(registration)}")
+            self._wait(f"the budget was refused: {refusal_text(registration)}")
             return
         if not self._cancel_tagged():
             return
@@ -81,40 +80,16 @@ class GridStopSequence:
             return
         self._confirm()
 
-    def register(self) -> OwnerBudgetRegistrationResult:
-        """Ask trading for the bot's budget again, re-deriving its inventory."""
-        bot = self._context.state.bot
-        run_started_at = bot.lifecycle.run_started_at
-        if run_started_at is None:
-            raise ValueError(f"Bot {bot.bot_id} has no run to register a budget for")
-        return self._context.session.register_owner_budget(
-            grid_registration(
-                bot.bot_id.value,
-                bot.definition.symbol,
-                run_started_at,
-                grid_budget(self._context.params, self._context.caps),
-            )
-        )
-
     def _cancel_tagged(self) -> bool:
-        state = self._context.state
-        for order in self._context.gateway.tagged_open_orders():
-            outcome = self._context.gateway.cancel(order.client_order_id)
-            logger.info(
-                "Bot %s: cancel %s -> %s %s",
-                state.bot_id,
-                order.client_order_id,
-                outcome.kind.value,
-                outcome.detail,
-            )
-            if outcome.kind is OrderOutcomeKind.FAULT:
-                fail_with(state, outcome, f"cancel {order.client_order_id}")
-                return False
-            if not outcome.done:
-                self._wait(f"cancel {order.client_order_id} refused: {outcome.detail}")
-                return False
-            state.update(drop_order(state.runtime, order.client_order_id))
-        return True
+        report = self._housekeeping.cancel_tagged()
+        if report.failed is None:
+            return True
+        what = f"cancel {report.client_order_id}"
+        if report.failed.kind is OrderOutcomeKind.FAULT:
+            fail_with(self._context.state, report.failed, what)
+        else:
+            self._wait(f"{what} refused: {report.failed.detail}")
+        return False
 
     def _sell(
         self, registration: OwnerBudgetRegistrationResult, price: Decimal
@@ -165,10 +140,3 @@ class GridStopSequence:
         reason = state.runtime.reason or GridReason.USER_STOP
         state.update(state.runtime.with_reason(reason, f"waiting: {detail}"))
         logger.info("Bot %s: STOPPING waits — %s", state.bot_id, detail)
-
-
-def _refusal_text(registration: OwnerBudgetRegistrationResult) -> str:
-    refusal = registration.refusal
-    if refusal is OwnerBudgetRefusal.TRADING_SWITCH_OFF:
-        return "trading is off"
-    return refusal.value if refusal else ""

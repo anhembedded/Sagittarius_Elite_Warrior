@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 from enum import Enum
 
@@ -39,7 +40,16 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_resul
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_page import (
+    HISTORY_PAGE_SIZE,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_request import (
+    HistoryRequest,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
+    OrderRecord,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_request import (
     OrderRequest,
 )
@@ -147,6 +157,32 @@ class BotOrderGateway:
         reference when no tick has been heard yet."""
         book = self._ports.order_entry_terms.best_bid_ask_for(self._identity.symbol)
         return (book.bid_price + book.ask_price) / 2
+
+    def order_record(self, client_order_id: str, since: datetime) -> OrderRecord | None:
+        """The venue's history of one of the bot's orders, or `None` when
+        the history since `since` does not hold it.
+        @raise AccountHistoryUnavailableError The venue did not answer."""
+        activity = self._ports.account_activity
+        request = HistoryRequest(self._identity.symbol, since)
+        while True:
+            page = activity.order_history(request)
+            for record in page.rows:
+                if record.order.client_order_id == client_order_id:
+                    return record
+            if (request.page + 1) * HISTORY_PAGE_SIZE >= page.total_rows:
+                return None
+            request = request.at_page(request.page + 1)
+
+    def holding(self, asset: str) -> Decimal | None:
+        """The account's whole holding of `asset` (free and locked), or
+        `None` when the venue did not report holdings."""
+        status = self._ports.account_snapshot.check_connection()
+        if status.holdings is None:
+            return None
+        for held in status.holdings:
+            if held.asset == asset:
+                return held.free + held.locked
+        return Decimal(0)
 
     def tagged_open_orders(self) -> tuple[Order, ...]:
         """The account's open orders on the bot's symbol that carry its tag."""

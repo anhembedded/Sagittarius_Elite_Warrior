@@ -17,13 +17,18 @@ rule trading will hold its order to, not by a copy. `market_data` joined with
 the bot chart (`EPIC-029G`): its candle feed and its `MarketTickEvent`.
 `test_module_declarations.py` enforces the list both ways.
 
-@par `register()` binds the store, the clock and the handlers
-`composition/`'s three files. No kind and no executor is bound yet: the only
-kind, Grid, needs its executor factory (`EPIC-029E`) to be constructed.
+@par `register()` binds the store, the clock, the executors and the handlers
+`composition/`'s four files. `EPIC-029E` adds the executors: one actor per
+running bot (`BotExecutors`), the runner the use cases hand commands to, and
+the lock that makes the D20 check and a start one step.
 
-@par `boot()` applies the restart rule (ADR D12)
+@par `boot()` applies the restart rule (ADR D12), then subscribes the bots
 `BotRestoreService.restore_all()` moves RUNNING and PAUSED bots to RECOVERING
 and STARTING bots to HALTED, saving each changed file, and places nothing.
+Then `BotEventRouter` is subscribed to the five events a bot hears: fills,
+ends and rejections of its orders, its symbol's ticks, and the trading switch.
+It is held for the life of the module (the reason `StrategyModule` gives for
+its tick handler), and it only copies and queues: the bots' own workers act.
 
 @par No `contribute()` yet
 The Bots tab is `EPIC-029F`.
@@ -36,6 +41,12 @@ from typing import Any
 
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.event_handlers.bot_event_router import (
+    BotEventRouter,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
+    BotExecutors,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore_service import (
     BotRestoreService,
@@ -52,6 +63,22 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.query_bindings impor
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.state_bindings import (
     bind_state,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
+    MarketTickEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
+    OrderEndedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
+    OrderFilledEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_rejected_event import (
+    OrderRejectedEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchChangedEvent,
+)
 
 logger = logging.getLogger("App.BotsModule")
 
@@ -66,6 +93,9 @@ class BotsModule(BoundedContextModule):
     #: planner shares with order submission (`EPIC-029C`).
     dependencies: list[str] = ["trading", "market_data"]  # noqa: RUF012 — the Engine reads a plain attribute
 
+    #: The bots' one bus listener, held for the life of the module.
+    _router: BotEventRouter | None = None
+
     def register(self, context: Any) -> None:
         bind_state(context.container)
         bind_executors(context.container)
@@ -73,5 +103,17 @@ class BotsModule(BoundedContextModule):
         bind_queries(context.container)
 
     def boot(self, context: Any) -> None:
-        context.container.resolve(BotRestoreService).restore_all()
+        container = context.container
+        container.resolve(BotRestoreService).restore_all()
         logger.info("Bots restored after start-up")
+        router = BotEventRouter(
+            container.resolve(IBotStore), container.resolve(BotExecutors)
+        )
+        bus = context.event_bus
+        bus.on(OrderFilledEvent, router.on_fill)
+        bus.on(OrderEndedEvent, router.on_end)
+        bus.on(OrderRejectedEvent, router.on_rejected)
+        bus.on(MarketTickEvent, router.on_tick)
+        bus.on(TradingSwitchChangedEvent, router.on_switch)
+        self._router = router
+        logger.info("Bots subscribed to fills, ends, rejections, ticks and the switch")

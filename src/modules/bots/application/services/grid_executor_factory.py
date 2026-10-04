@@ -30,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_execut
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
+    LazyExchangeTerms,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
     decode_runtime,
@@ -97,7 +98,9 @@ class GridExecutorFactory(IBotExecutorFactory):
             gateway=gateway,
             session=ports.trading_session,
             params=GridParams.from_config(bot.definition.config),
-            terms=exchange_terms_for(ports.order_entry_terms, symbol, deps.caps),
+            terms_source=LazyExchangeTerms(
+                lambda: exchange_terms_for(ports.order_entry_terms, symbol, deps.caps)
+            ),
             caps=deps.caps,
         )
         return GridExecutor(context, deps.queues(f"bot-{bot_id}"))

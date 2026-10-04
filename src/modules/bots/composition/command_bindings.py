@@ -5,6 +5,10 @@
 
 from __future__ import annotations
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bot_resume import (
+    ConfirmBotResumeCommand,
+    ConfirmBotResumeCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
     CreateBotCommand,
     CreateBotCommandHandler,
@@ -43,4 +47,5 @@ def bind_commands(container: IContainer) -> None:
     container.bind(PauseBotCommand, PauseBotCommandHandler)
     container.bind(ResumeBotCommand, ResumeBotCommandHandler)
     container.bind(StopBotCommand, StopBotCommandHandler)
+    container.bind(ConfirmBotResumeCommand, ConfirmBotResumeCommandHandler)
     container.bind(DeleteBotCommand, DeleteBotCommandHandler)

@@ -24,9 +24,19 @@ import logging
 from dataclasses import replace
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget import (
+    bot_owner_id,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
     fail_with,
     halt_with,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_reconciler import (
+    GridReconciler,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_resume_sequence import (
+    GridResumeSequence,
+    ResumeProposal,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_run_context import (
     GridRunContext,
@@ -107,7 +117,10 @@ class GridExecutor(IBotExecutor):
         self._queue = queue
         self._start = GridStartSequence(context)
         self._stop = GridStopSequence(context)
+        self._resume = GridResumeSequence(context, self._start)
+        self._reconciler = GridReconciler(context)
         self._last_price: Decimal | None = None
+        self._proposal: ResumeProposal | None = None
 
     @property
     def bot_id(self) -> str:
@@ -120,6 +133,11 @@ class GridExecutor(IBotExecutor):
     @property
     def symbol(self) -> str:
         return self._context.state.bot.definition.symbol
+
+    @property
+    def proposal(self) -> ResumeProposal | None:
+        """The ladder a resume from HALTED proposes, awaiting confirmation."""
+        return self._proposal
 
     # --- commands (IBotExecutor) ---
 
@@ -134,6 +152,9 @@ class GridExecutor(IBotExecutor):
 
     def stop(self, base: BaseHandling) -> None:
         self._queue.post(lambda: self._run_stop(base, GridReason.USER_STOP))
+
+    def confirm_resume(self) -> None:
+        self._queue.post(self._run_confirm)
 
     # --- facts, copied off the caller's thread ---
 
@@ -164,10 +185,28 @@ class GridExecutor(IBotExecutor):
 
     def _run_resume(self) -> None:
         state = self._context.state
+        if state.state is _S.HALTED:
+            self._proposal = self._resume.propose(self._price())
+            return
         if state.state is not _S.PAUSED:
             logger.info("Bot %s: resume ignored in %s", self.bot_id, state.state.value)
             return
         state.transition(_E.RESUME)
+        self._release_held()
+
+    def _run_confirm(self) -> None:
+        proposal, self._proposal = self._proposal, None
+        if self._context.state.state is not _S.HALTED or proposal is None:
+            logger.info(
+                "Bot %s: nothing to confirm in %s",
+                self.bot_id,
+                self._context.state.state.value,
+            )
+            return
+        self._resume.confirm(proposal)
+
+    def _release_held(self) -> None:
+        state = self._context.state
         reaction = release_held(state.runtime)
         state.update(reaction.runtime)
         self._act(reaction.actions)
@@ -226,19 +265,31 @@ class GridExecutor(IBotExecutor):
 
     def _apply_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
         state = self._context.state
-        if enabled:
-            if state.state is _S.STOPPING:
-                base = (
-                    BaseHandling.SELL_AT_MARKET
-                    if state.runtime.sell_base_on_stop
-                    else BaseHandling.KEEP
+        if not enabled:
+            self._proposal = None
+            if state.state in (_S.STARTING, _S.RUNNING, _S.PAUSED):
+                state.transition(
+                    _E.SWITCH_OFF, GridReason.SWITCH_OFF, _SWITCH_OFF_DETAIL[cause]
                 )
-                self._stop.run(base, self._price())
             return
-        if state.state in (_S.STARTING, _S.RUNNING, _S.PAUSED):
-            state.transition(
-                _E.SWITCH_OFF, GridReason.SWITCH_OFF, _SWITCH_OFF_DETAIL[cause]
-            )
+        if state.state in (_S.DRAFT, _S.STOPPED):
+            return
+        self._reclaim_lease()
+        if state.state is _S.RECOVERING:
+            self._reconciler.run()
+            if state.state is _S.RUNNING:
+                self._release_held()
+        elif state.state is _S.STOPPING:
+            sell = state.runtime.sell_base_on_stop
+            base = BaseHandling.SELL_AT_MARKET if sell else BaseHandling.KEEP
+            self._stop.run(base, self._price())
+
+    def _reclaim_lease(self) -> None:
+        """Leases live in memory: a restored bot takes its symbol back when
+        trading is enabled (ADR D12), so a manual order on it is refused again."""
+        symbol = self.symbol
+        if not self._context.session.claim_symbol(symbol, bot_owner_id(self.bot_id)):
+            logger.info("Bot %s: %s is held by another owner", self.bot_id, symbol)
 
     def _act(self, actions: tuple[GridAction, ...]) -> None:
         for action in actions:

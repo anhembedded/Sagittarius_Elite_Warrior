@@ -26,6 +26,7 @@ then derived. `EPIC-029H` measures the stream's latency on Testnet.
 from __future__ import annotations
 
 import logging
+from dataclasses import replace
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
     fail_with,
@@ -49,6 +50,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions impor
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.market_slices import (
     quote_slices,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerInventory,
+)
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
@@ -66,10 +70,23 @@ class GridStartSequence:
         if self._buy_opening(plan) and self._place_ladder(plan):
             state.transition(BotLifecycleEvent.LADDER_READY)
 
-    def place_ladder(self, plan: GridPlan) -> None:
-        """Lay `plan`'s ladder without an opening buy (a confirmed resume, D13)."""
+    def place_ladder(self, plan: GridPlan, inventory: OwnerInventory) -> None:
+        """Lay `plan`'s ladder without an opening buy (a confirmed resume, D13).
+
+        The run goes on: the inventory is the one trading derived, and what
+        the run has earned so far is kept."""
         state = self._context.state
-        state.update(runtime_from_plan(plan, self._context.terms.step_size))
+        earned = state.runtime
+        fresh = runtime_from_plan(plan, self._context.terms.step_size)
+        state.update(
+            replace(
+                fresh,
+                inventory=inventory.quantity,
+                cost=inventory.cost,
+                realised_profit=earned.realised_profit,
+                completed_cycles=earned.completed_cycles,
+            )
+        )
         if self._place_ladder(plan):
             state.transition(BotLifecycleEvent.LADDER_READY)
 

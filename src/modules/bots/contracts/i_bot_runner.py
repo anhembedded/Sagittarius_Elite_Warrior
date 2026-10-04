@@ -45,3 +45,7 @@ class IBotRunner(ABC):
     @abstractmethod
     def stop(self, bot_id: str, base: BaseHandling) -> None:
         """Queue `stop` on the bot's executor."""
+
+    @abstractmethod
+    def confirm_resume(self, bot_id: str) -> None:
+        """Queue the confirmation of a HALTED bot's resume proposal (O2)."""

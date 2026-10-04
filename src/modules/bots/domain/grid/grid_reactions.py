@@ -215,6 +215,19 @@ def drop_order(runtime: GridRuntime, client_order_id: str) -> GridRuntime:
     return runtime.with_level(level.moved(LevelEvent.ENDED, None))
 
 
+def adopted(runtime: GridRuntime, index: int, order: LevelOrder) -> GridRuntime:
+    """The level after reconciliation adopted an order carrying the bot's tag
+    that the saved ladder did not know (ADR §3.3 step 5; EMPTY → RESTING).
+
+    A counter order held for this level is dropped: the adopted order *is* it,
+    sent before the app died and never saved, so placing the held one too
+    would put two orders at one level."""
+    after = runtime.updating_level(
+        index, lambda level: level.moved(LevelEvent.ADOPT, order)
+    )
+    return replace(after, held=tuple(h for h in after.held if h.level_index != index))
+
+
 def book_market_fill(
     runtime: GridRuntime, side: OrderSide, fill: LevelFill
 ) -> GridRuntime:

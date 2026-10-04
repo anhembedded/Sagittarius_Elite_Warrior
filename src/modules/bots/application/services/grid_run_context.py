@@ -3,10 +3,15 @@
 One bundle per running bot, built by the executor factory: the bot's record
 and its one writer (`BotRunState`), its way to trading (`BotOrderGateway` and
 the venue's session), and the numbers its orders are held to.
+
+The numbers are read **on first use, on the worker** (`LazyExchangeTerms`):
+reading a symbol's filters can reach the network, and an executor is built at
+start-up for every restored bot, where D12 allows no network and no order.
 """
 
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from decimal import Decimal
 
@@ -30,6 +35,19 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import
 )
 
 
+class LazyExchangeTerms:
+    """The terms, read once when first asked for."""
+
+    def __init__(self, read: Callable[[], ExchangeTerms]) -> None:
+        self._read = read
+        self._terms: ExchangeTerms | None = None
+
+    def get(self) -> ExchangeTerms:
+        if self._terms is None:
+            self._terms = self._read()
+        return self._terms
+
+
 @dataclass(frozen=True, slots=True)
 class GridRunContext:
     """One running Grid's collaborators."""
@@ -38,8 +56,12 @@ class GridRunContext:
     gateway: BotOrderGateway
     session: ITradingSession
     params: GridParams
-    terms: ExchangeTerms
+    terms_source: LazyExchangeTerms
     caps: OwnerBudgetCaps
+
+    @property
+    def terms(self) -> ExchangeTerms:
+        return self.terms_source.get()
 
     @property
     def cap(self) -> Decimal:

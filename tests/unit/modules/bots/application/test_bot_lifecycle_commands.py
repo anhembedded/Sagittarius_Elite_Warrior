@@ -94,6 +94,9 @@ class _RecordingRunner(IBotRunner):
     def stop(self, bot_id: str, base: BaseHandling) -> None:
         self.sent.append((f"stop:{base.value}", bot_id))
 
+    def confirm_resume(self, bot_id: str) -> None:
+        self.sent.append(("confirm_resume", bot_id))
+
 
 @pytest.fixture
 def runner(store: FakeBotStore, clock: FakeBotClock) -> _RecordingRunner:

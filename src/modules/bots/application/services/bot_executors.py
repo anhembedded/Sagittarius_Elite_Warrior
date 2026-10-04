@@ -50,6 +50,10 @@ class BotExecutors:
         with self._lock:
             return self._executors.get(bot_id)
 
+    def all(self) -> tuple[GridExecutor, ...]:
+        with self._lock:
+            return tuple(self._executors.values())
+
     def on_venue(self, venue: TradingVenue) -> tuple[GridExecutor, ...]:
         with self._lock:
             return tuple(e for e in self._executors.values() if e.venue is venue)
