@@ -33,3 +33,5 @@ Both ticker routes quote one fact, the symbol's last price. `SpotAccountState` e
 - Red first: with the fixture change stashed, both new tests failed for the right reason (`assert None == Decimal('900000')`; "no route for '/api/v3/ticker/price'"). With it, they pass.
 - `tests/integration` and `tests/unit/architecture`: 859 passed, 4 skipped. The commit tier (`ci-local.ps1 -SkipTests`) is green.
 - The full gate is GitHub Actions' `ci-local.ps1 -Full` on the PR.
+
+**Review round 1 (PR #328): PASS, one Should fix.** The second test claimed the price follows the last price but only read the opening price, so a route frozen at the opening price stayed green (the reviewer's probe). It now moves ETHUSDT to 3,100 through `SpotAccountState.set_last_price` and asserts the route answers `3100.00000000`.

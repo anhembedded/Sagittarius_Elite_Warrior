@@ -78,10 +78,13 @@ def test_the_spot_equity_prices_every_holding_at_its_last_price(
 def test_the_price_follows_the_last_price_and_a_bad_symbol_is_1121() -> None:
     with _fake_exchange() as urls:
         client = Client(api_key="k", api_secret="s", testnet=True)
-        price = client.get_symbol_ticker(symbol="ETHUSDT")
+        opening = client.get_symbol_ticker(symbol="ETHUSDT")
+        urls.spot_account.set_last_price("ETHUSDT", Decimal(3100))
+        moved = client.get_symbol_ticker(symbol="ETHUSDT")
         with pytest.raises(BinanceAPIException) as raised:
             client.get_symbol_ticker(symbol="NOPEUSDT")
 
-    assert price == {"symbol": "ETHUSDT", "price": "3000.00000000"}
+    assert opening == {"symbol": "ETHUSDT", "price": "3000.00000000"}
+    assert moved == {"symbol": "ETHUSDT", "price": "3100.00000000"}
     assert raised.value.code == -1121
     assert ("GET", "/api/v3/ticker/price") in urls.requests
