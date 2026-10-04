@@ -28,7 +28,7 @@ from pathlib import Path
 import pytest
 from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV, repo_root
 
-_RUNTIME_DIRS = ("state", "database")
+_RUNTIME_DIRS = ("state", "database", "exports", "reports")
 _ABSENT_AT_START = pytest.StashKey[tuple[Path, ...]]()
 
 

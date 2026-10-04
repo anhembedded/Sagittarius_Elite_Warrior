@@ -5,6 +5,7 @@ from __future__ import annotations
 import importlib.metadata
 from datetime import UTC, datetime, timedelta
 
+from Sagittarius_Elite_Warrior.src.core.repo_root import DATA_ROOT_ENV
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.position_sizing import (
     PositionSizing,
@@ -109,12 +110,30 @@ def test_resolve_engine_version_falls_back_to_unknown_when_not_installed(
 
 
 def test_resolve_default_reports_dir_falls_back_to_cwd_reports(tmp_path, monkeypatch):
+    monkeypatch.delenv(DATA_ROOT_ENV, raising=False)
     monkeypatch.chdir(tmp_path)
 
     reports_dir = resolve_default_reports_dir(None)
 
     assert reports_dir == str(tmp_path / "reports")
     assert (tmp_path / "reports").is_dir()
+
+
+def test_resolve_default_reports_dir_falls_back_under_the_data_root_when_set(
+    tmp_path, monkeypatch
+):
+    """`EPIC-030M`: with `SEW_DATA_ROOT` set, the unconfigured fallback moves
+    under it instead of the cwd, so a test never writes `reports/` into the
+    checkout."""
+    monkeypatch.chdir(tmp_path)
+    data_root = tmp_path / "data_root"
+    monkeypatch.setenv(DATA_ROOT_ENV, str(data_root))
+
+    reports_dir = resolve_default_reports_dir(None)
+
+    assert reports_dir == str(data_root / "reports")
+    assert (data_root / "reports").is_dir()
+    assert not (tmp_path / "reports").exists()
 
 
 def test_resolve_default_reports_dir_uses_the_configured_dir_when_set(tmp_path):

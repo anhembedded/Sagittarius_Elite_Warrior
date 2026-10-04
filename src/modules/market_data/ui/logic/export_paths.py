@@ -13,6 +13,7 @@ import os
 import re
 from datetime import datetime
 
+from Sagittarius_Elite_Warrior.src.core.repo_root import data_root_override
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.export_file_format import (
     ExportFileFormat,
 )
@@ -24,9 +25,11 @@ _UNSAFE_FILENAME_CHARS = re.compile(r"[^A-Za-z0-9._-]")
 
 def resolve_default_exports_dir(configured_dir: str | None) -> str:
     """`configured_dir` is `IConfig.get(ConfigKeys.MARKET_DATA_EXPORTS_DIR.value)`
-    — falsy (unset) falls back to `<cwd>/exports`, created if missing so the
-    file dialog always opens somewhere real."""
-    exports_dir = configured_dir or os.path.join(os.getcwd(), DEFAULT_EXPORTS_DIR_NAME)
+    — falsy (unset) falls back to `<SEW_DATA_ROOT>/exports` when that is set
+    (`EPIC-030M`), else `<cwd>/exports`, created if missing so the file dialog
+    always opens somewhere real."""
+    base = data_root_override() or os.getcwd()
+    exports_dir = configured_dir or os.path.join(base, DEFAULT_EXPORTS_DIR_NAME)
     os.makedirs(exports_dir, exist_ok=True)
     return exports_dir
 
