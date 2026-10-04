@@ -88,3 +88,16 @@ def test_without_a_select_ruff_defaults_apply(make_repo: MakeRepo) -> None:
 
 def test_a_tag_in_a_fenced_block_is_not_checked(make_repo: MakeRepo) -> None:
     assert _messages(make_repo, "```\n`[review: Z9]`\n```") == []
+
+
+def test_a_gate_step_may_live_in_a_workflow(make_repo: MakeRepo) -> None:
+    """`EPIC-031`: a CI workflow or a Claude Code hook is a gate when it runs the step."""
+    files = {
+        **_FIXTURE,
+        ".github/workflows/commit-lint.yml": "run: python3 scripts/check_commit_messages.py\n",
+        _RULE: "# T\n\n- Clause. `[gate: commit lint]`\n- Clause. `[gate: independent review]`\n",
+    }
+    messages = [(p.line, p.message) for p in check_tag_grammar(make_repo(files))]
+    assert len(messages) == 1
+    assert messages[0][0] == 4
+    assert ".github/workflows/independent-review.yml does not run it" in messages[0][1]

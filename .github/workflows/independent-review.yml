@@ -1,0 +1,49 @@
+# EPIC-031A — a code pull request carries a passing review from a session that
+# wrote none of its commits (ONBOARDING.md §7). The verdict is the commit status
+# `independent-review` on the pull request's head, set on every push and every
+# comment; the master-warrior ruleset requires it. The job is named
+# `judge-review`, never `independent-review`: a required check matches check
+# runs and statuses by name, so a job sharing the status's name would let a
+# green job stand in for a judgement it never made.
+name: independent-review
+
+on:
+  pull_request:
+    branches: [master-warrior]
+    types: [opened, synchronize, reopened, ready_for_review]
+  issue_comment:
+    types: [created, edited]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  statuses: write
+
+concurrency:
+  group: independent-review-${{ github.event.pull_request.number || github.event.issue.number }}
+  cancel-in-progress: true
+
+jobs:
+  judge-review:
+    name: judge-review
+    if: github.event_name == 'pull_request' || github.event.issue.pull_request
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+      - name: Judge the review and set the status
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        # The script runs from the default branch, never from the pull request,
+        # so a pull request cannot rewrite its own judge. Until the pull request
+        # that adds it merges, the default branch has no script: say so and stop.
+        run: |
+          if [ ! -f scripts/check_independent_review.py ]; then
+            echo "::notice::scripts/check_independent_review.py is not on the default branch yet; no status set."
+            exit 0
+          fi
+          python3 scripts/check_independent_review.py \
+            --repository "${{ github.repository }}" \
+            --pull-request "${{ github.event.pull_request.number || github.event.issue.number }}"

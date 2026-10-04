@@ -45,7 +45,7 @@ Derived from the tree: `python3 scripts/render_claude_manifest.py` prints it fro
 | Path | Kind | Loads | What it is |
 | :--- | :--- | :--- | :--- |
 | `ONBOARDING.md` | map | imported by `CLAUDE.md`, every session | The process map for any AI agent on Sagittarius Elite Warrior — layout, lifecycles, the real verification commands, authority, principles, and where the traps live. Imported by CLAUDE.md, so it is in context every session. |
-| `settings.json` | settings | Claude Code, every session | 8 permission rules; hooks on `SessionStart` |
+| `settings.json` | settings | Claude Code, every session | 8 permission rules; hooks on `SessionStart`, `PreToolUse` |
 | `rules/architecture-rule.md` | rule | `src/**/*.py` | Layers, ports and explicit contracts, CQRS, one abstraction per file, event placement, seams. Loads by path for every src/ file. |
 | `rules/async-ui-action-rule.md` | rule | `src/**/*presenter*.py`, `src/**/*coordinator*.py` | Action identity, stale-callback fencing and cooperative cancellation for every background task started from the UI; the Coordinator pattern. |
 | `rules/ci-rule.md` | rule | every session | The one gate, its two-tier cadence, the diagnostic modes, the four test levels, failure handling, and the mandatory log scan. |
