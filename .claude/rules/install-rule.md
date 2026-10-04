@@ -14,13 +14,13 @@ You are the installation and dependency controller for Sagittarius Elite Warrior
 
 ## 1. The engine
 ```bash
-# Option 1 (fresh environments, CI): fetch the pinned commit without submodules, install from the path.
-git init -q /tmp/engine && git -C /tmp/engine fetch -q --depth 1 https://github.com/anhembedded/Sagittarius_Engine.git "$(cat engine.ref)" && git -C /tmp/engine checkout -q FETCH_HEAD
-pip install /tmp/engine            # or: uv pip install --python .venv/bin/python /tmp/engine
+# Option 1 (every environment, CI included): engine.ref's commit, into this interpreter's environment.
+.venv/bin/python scripts/engine_pin.py install     # nothing to do when already installed
+.venv/bin/python scripts/engine_pin.py check       # the gate's Engine Pin step
 # Option 2 (developing engine and app together, from the workspace root):
 pip install -e Sagittarius_Engine
 ```
-`engine.ref` pins the engine commit CI and every environment install; bumping the engine is a pull request that edits it. `pip install git+URL` fails: pip inits submodules and the engine carries a private one (`tools/Sagittarius_LogViewer`, a dev tool). Never a plain PyPI install. With Option 2 leave no build artefacts in the engine tree. `[review: B5]`
+`engine.ref` pins the engine commit CI and every environment install; bumping the engine is a pull request that edits it. `scripts/engine_pin.py` is the one installer: CI, `run.ps1` and `run-ui.ps1` call it, and only it names the engine's repository (`BUG-148`: a launcher that installed `main` ran an engine CI never built). It fetches without submodules because `pip install git+URL` fails: pip inits submodules and the engine carries a private one (`tools/Sagittarius_LogViewer`, a dev tool). Never a plain PyPI install, and never an engine checkout on `PYTHONPATH` or `MYPYPATH` outside Option 2: the gate's Engine Pin step fails on either. With Option 2 leave no build artefacts in the engine tree. `[guard: test_dependency_pins.py; review: B5]`
 
 **When an engine API "does not exist", suspect the installed build first.** Old and new builds report the same version (`BUG-044`, `054`, `055`, `BOT-133` — misdiagnosed every time). Check the real signature and the install source, then reinstall: `[review: B5]`
 ```bash
@@ -38,8 +38,7 @@ pip install -e Sagittarius_Engine
 ```bash
 uv venv .venv --python 3.12
 uv pip install --python .venv/bin/python -r requirements.lock
-git init -q /tmp/engine && git -C /tmp/engine fetch -q --depth 1 https://github.com/anhembedded/Sagittarius_Engine.git "$(cat engine.ref)" && git -C /tmp/engine checkout -q FETCH_HEAD
-uv pip install --python .venv/bin/python /tmp/engine
+.venv/bin/python scripts/engine_pin.py install     # uses uv when the venv has no pip
 apt-get update -qq && apt-get install -y -qq --no-install-recommends \
   libegl1 libgl1 libglib2.0-0 libdbus-1-3 libxkbcommon0 libxkbcommon-x11-0 libfontconfig1 \
   libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 \

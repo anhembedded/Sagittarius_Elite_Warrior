@@ -9,6 +9,7 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.signal import Signal
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderNotionalRejection,
+    ExecuteOrderPriceRejection,
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
     ExecuteOrderStopRejection,
@@ -131,6 +132,13 @@ def format_result(result: ExecuteOrderResult, live_requested: bool) -> str:
         return (
             "Status       : ✘ REJECTED STOP_ON_WRONG_SIDE — the stop price is "
             "already crossed\nNo order was sent."
+        )
+
+    if result.blocked_by is ExecuteOrderPriceRejection.OUTSIDE_PRICE_BAND:
+        # `BUG-147` — a preview exists, as for a crossed stop.
+        return (
+            "Status       : ✘ REJECTED OUTSIDE_PRICE_BAND — the price is outside "
+            "Binance's price band for this side\nNo order was sent."
         )
 
     if result.blocked_by is ExecuteOrderTypeRejection.NOT_SENDABLE_ON_VENUE:

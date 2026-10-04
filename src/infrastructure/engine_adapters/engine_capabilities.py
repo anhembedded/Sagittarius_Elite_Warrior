@@ -44,13 +44,10 @@ import inspect
 from dataclasses import dataclass
 
 #: The command that fixes every failure this module reports — `install-rule.md`
-#: §1, Option 1. `--force-reinstall` is load-bearing: pip considers the same
-#: version already satisfied and would otherwise do nothing, which is exactly
-#: how a stale build survives a reinstall attempt.
-REINSTALL_COMMAND = (
-    "pip install --upgrade --force-reinstall "
-    "git+https://github.com/anhembedded/Sagittarius_Engine.git"
-)
+#: §1, Option 1. It installs `engine.ref`'s commit, the engine CI builds, and
+#: replaces whatever build is installed (`BUG-148`: this once named the
+#: engine's moving `main`).
+REINSTALL_COMMAND = "python scripts/engine_pin.py install"
 
 
 @dataclass(frozen=True)
@@ -158,8 +155,8 @@ def format_missing_capabilities(missing: list[str]) -> str:
         f"{lines}\n\n"
         "This is not a bug in the app — see install-rule.md §1 "
         "(BUG-044/BUG-054/BUG-055 were all this).\n"
-        "Fix by reinstalling the engine:\n"
+        "Fix by reinstalling the engine, from the app's checkout:\n"
         f"    {REINSTALL_COMMAND}\n"
-        "If the change you need lives on an engine branch that is not merged "
-        "yet, append `@<branch-name>` to that URL."
+        "If the API you need is in an engine commit `engine.ref` does not pin "
+        "yet, bumping `engine.ref` is a pull request."
     )

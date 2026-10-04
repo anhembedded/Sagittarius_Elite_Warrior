@@ -98,10 +98,10 @@ Sagittarius_Elite_Warrior/
 python3.12 -m venv .venv
 source .venv/bin/activate                 # Windows: .\.venv\Scripts\Activate.ps1
 pip install -r requirements.txt
-pip install git+https://github.com/anhembedded/Sagittarius_Engine.git
+python scripts/engine_pin.py install   # the engine at engine.ref's commit, as CI builds it
 ```
 
-When developing/debugging the engine alongside the app, install the local version instead of GitHub:
+When developing/debugging the engine alongside the app, install the local version instead (the gate's Engine Pin step then reports it is not the pinned engine):
 
 ```bash
 pip install -e ../Sagittarius_Engine        # run from parent workspace directory

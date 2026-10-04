@@ -9,6 +9,7 @@ from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderNotionalRejection,
+    ExecuteOrderPriceRejection,
     ExecuteOrderSafetyGate,
     ExecuteOrderStopRejection,
     ExecuteOrderTypeRejection,
@@ -90,6 +91,7 @@ def format_execute_order_block_reason(
     blocked_by: ExecuteOrderSafetyGate
     | ExecuteOrderNotionalRejection
     | ExecuteOrderStopRejection
+    | ExecuteOrderPriceRejection
     | ExecuteOrderTypeRejection
     | TradingLimitViolation
     | None,
@@ -109,5 +111,10 @@ def format_execute_order_block_reason(
         return (
             "The stop price is already crossed: a buy stop must be above the "
             "last price and a sell stop below it, or the order would trigger at once."
+        )
+    if blocked_by is ExecuteOrderPriceRejection.OUTSIDE_PRICE_BAND:
+        return (
+            "The price is too far from the market: Binance accepts this side "
+            "only within its price band around the current price."
         )
     return "Unknown reason."  # pragma: no cover - blocked_by is None handled by callers first

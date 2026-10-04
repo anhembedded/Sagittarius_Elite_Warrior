@@ -21,12 +21,15 @@ re-verified against a live call — this sandbox's egress to every
 
 from __future__ import annotations
 
+import logging
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from decimal import Decimal
 from enum import Enum
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    PercentPriceBand,
     SymbolOrderMetadata,
 )
 
@@ -38,6 +41,7 @@ class SpotFilterType(str, Enum):
     LOT_SIZE = "LOT_SIZE"
     MARKET_LOT_SIZE = "MARKET_LOT_SIZE"
     NOTIONAL = "NOTIONAL"
+    PERCENT_PRICE_BY_SIDE = "PERCENT_PRICE_BY_SIDE"
 
 
 class SpotMetadataKey(str, Enum):
@@ -53,9 +57,34 @@ class SpotMetadataKey(str, Enum):
     #: Spot's `NOTIONAL` filter carries the value under `"minNotional"` —
     #: unlike futures' `MIN_NOTIONAL`, which uses `"notional"`.
     MIN_NOTIONAL = "minNotional"
+    BID_MULTIPLIER_UP = "bidMultiplierUp"
+    BID_MULTIPLIER_DOWN = "bidMultiplierDown"
+    ASK_MULTIPLIER_UP = "askMultiplierUp"
+    ASK_MULTIPLIER_DOWN = "askMultiplierDown"
 
 
 DEFAULT_STATUS: str = "TRADING"
+
+logger = logging.getLogger("App.SpotMetadata")
+
+#: `BUG-147` — every Spot filter Binance publishes that this app deliberately
+#: does not read, and why. With `SpotFilterType` it must cover Binance's whole
+#: documented list (`test_every_spot_filter_is_read_or_declared_unread`), and a
+#: filter in neither is logged as a WARNING when the catalog loads: a filter
+#: nobody looked at is how `PERCENT_PRICE_BY_SIDE` reached a user as `-1013`.
+UNREAD_SPOT_FILTERS: Mapping[str, str] = {
+    "PERCENT_PRICE": "Spot publishes PERCENT_PRICE_BY_SIDE instead; read as such",
+    "MIN_NOTIONAL": "superseded on Spot by NOTIONAL, which is read",
+    "ICEBERG_PARTS": "this app sends no iceberg orders",
+    "MAX_NUM_ICEBERG_ORDERS": "this app sends no iceberg orders",
+    "MAX_NUM_ORDERS": "the owner budget caps open orders below it (EPIC-029 ADR O1)",
+    "MAX_NUM_ALGO_ORDERS": "the owner budget caps open orders below it (EPIC-029 ADR O1)",
+    "MAX_POSITION": "not checked: the exchange refuses a buy past it",
+    "TRAILING_DELTA": "this app sends no trailing-stop orders",
+    "T_PLUS_SELL": "not checked: the exchange refuses an early sell",
+    "MAX_NUM_ORDER_LISTS": "this app sends no OCO or other order lists",
+    "MAX_NUM_ORDER_AMENDS": "this app never amends an order",
+}
 
 
 def _required_decimal(
@@ -191,6 +220,29 @@ def parse_spot_symbol_metadata(
         price_precision=None,
         fetched_at=timestamp,
         market_step_size=market_step_size,
+        price_band=_price_band(filter_map, symbol),
+    )
+
+
+def _price_band(
+    filter_map: dict[str, dict[str, Any]], symbol: str
+) -> PercentPriceBand | None:
+    """`BUG-147` — `PERCENT_PRICE_BY_SIDE`, optional like `MARKET_LOT_SIZE`:
+    a symbol without it has no band, and a band that is present must be
+    whole (each multiplier raises like any required field)."""
+    band = filter_map.get(SpotFilterType.PERCENT_PRICE_BY_SIDE.value)
+    if band is None:
+        return None
+    name = SpotFilterType.PERCENT_PRICE_BY_SIDE.value
+
+    def multiplier(key: SpotMetadataKey) -> Decimal:
+        return _required_decimal(band, key.value, name, symbol)
+
+    return PercentPriceBand(
+        bid_down=multiplier(SpotMetadataKey.BID_MULTIPLIER_DOWN),
+        bid_up=multiplier(SpotMetadataKey.BID_MULTIPLIER_UP),
+        ask_down=multiplier(SpotMetadataKey.ASK_MULTIPLIER_DOWN),
+        ask_up=multiplier(SpotMetadataKey.ASK_MULTIPLIER_UP),
     )
 
 
@@ -204,9 +256,34 @@ def parse_spot_exchange_info(
     own per-entry defensiveness; only per-*filter* strictness is the new,
     Spot-specific behaviour (`EPIC-027I`)."""
     timestamp = fetched_at or datetime.now(UTC)
-    symbols = payload.get(SpotMetadataKey.SYMBOLS.value, [])
-    return [
-        parse_spot_symbol_metadata(entry, fetched_at=timestamp)
-        for entry in symbols
+    entries = [
+        entry
+        for entry in payload.get(SpotMetadataKey.SYMBOLS.value, [])
         if isinstance(entry, dict)
     ]
+    _log_unknown_filters(entries)
+    return [
+        parse_spot_symbol_metadata(entry, fetched_at=timestamp) for entry in entries
+    ]
+
+
+def _log_unknown_filters(entries: list[dict[str, Any]]) -> None:
+    """`BUG-147` — one WARNING per catalog load naming each filter type that is
+    neither read nor declared unread, so a new exchange rule is seen, not
+    silently skipped."""
+    known = {member.value for member in SpotFilterType} | set(UNREAD_SPOT_FILTERS)
+    unknown = sorted(
+        {
+            raw[SpotMetadataKey.FILTER_TYPE.value]
+            for entry in entries
+            for raw in entry.get(SpotMetadataKey.FILTERS.value, [])
+            if isinstance(raw, dict)
+            and raw.get(SpotMetadataKey.FILTER_TYPE.value) not in known
+        }
+    )
+    if unknown:
+        logger.warning(
+            "[exchange-filters] Spot publishes filter(s) this app neither reads "
+            "nor declares unread, so no order is checked against them: %s",
+            ", ".join(unknown),
+        )
