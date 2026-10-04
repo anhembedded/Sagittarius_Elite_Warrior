@@ -18,6 +18,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_kind import (
     GRID_KIND_ID,
     GridKind,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_overlay import (
+    GridOverlaySource,
+    grid_overlay,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
 )
@@ -94,3 +98,22 @@ def test_overlay_without_exits_or_with_bad_parameters() -> None:
     assert OverlayRole.STOP_LOSS not in roles
     assert OverlayRole.TAKE_PROFIT not in roles
     assert kind.overlay(inputs(lower="x")).lines == ()
+
+
+def test_the_kinds_overlay_is_the_grid_overlay_with_the_markets_atr() -> None:
+    """`EPIC-029G` — the planner preview draws the same overlay the backtest
+    and the running bot draw, computed by `grid_overlay`."""
+    kind, _ = _kind()
+    with_atr = inputs(daily_atr=Decimal(2500))
+    evaluation = evaluate_grid(with_atr, GridThresholds())
+    assert evaluation.params is not None and evaluation.plan is not None
+
+    assert kind.overlay(with_atr) == grid_overlay(
+        GridOverlaySource(
+            evaluation.params,
+            evaluation.plan,
+            GridThresholds(),
+            daily_atr=Decimal(2500),
+        )
+    )
+    assert len(kind.overlay(with_atr).bands) == 2
