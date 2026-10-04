@@ -34,6 +34,6 @@ Documentation-only: reference check and document guards. Approval is the user's.
 
 ## Implementation notes (written when done)
 - HLD §11.2 rewritten as the information architecture: §11.2.1 modes, §11.2.2 always visible, §11.2.3 menus and commands, §11.2.4 today's screens mapped, §11.2.5 how the places render (the former §11.2 table, Settings → Options).
-- Every SPEC lands in one mode: 002/003 Market; 004/005/006/007/012/013 Trade; 010 Strategies; 009 Backtest; 001/008 Data; 011 Developer (its developer part; the start part needs no screen once Welcome goes).
+- Every SPEC lands in one mode: 002/003 Market; 004/005/006/007/012/013 Trade; 014 and 010 Bots (renamed from Strategies after approval, following `EPIC-029`; see D10); 009 Backtest; 001/008 Data; 011 Developer (its developer part; the start part needs no screen once Welcome goes).
 - Wireframes at 1366×768 and 1024×700: https://claude.ai/artifact/SpmngbczYacm9UwrrXYHbd. Approved by the user on 2026-10-04: "approve", given on the wireframes after the access-key fixes from the PR #332 review; quoted in D10's evidence row.
 - Vocabulary: the six modes, the Options dialog and Command rows; `SETTINGS_SECTION` now names the Options dialog.

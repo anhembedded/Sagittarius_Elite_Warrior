@@ -39,7 +39,7 @@ The [UI review](https://claude.ai/artifact/Np92LCSrk2t2e8NQxLEkaE) ran the real 
 | D1, D2, D7 | EPIC-033A, EPIC-033B | Not started | Not yet verified |
 | D3 | Engine track W1-W6 | Not started | Not yet verified |
 | D9 | Engine W6, EPIC-033N | Not started | Not yet verified |
-| D10 | EPIC-033O, then 033H-033L, 033P | Design approved; modes not built | User, 2026-10-04: "approve", on the wireframes (https://claude.ai/artifact/SpmngbczYacm9UwrrXYHbd) and HLD §11.2 as merged in PR #332 |
+| D10 | EPIC-033O, then 033H-033L, 033P | Design approved; modes not built | User, 2026-10-04: "approve", on the wireframes (https://claude.ai/artifact/SpmngbczYacm9UwrrXYHbd) and HLD §11.2 as merged in PR #332; after approval the user pointed at the Bots tab (PR #333): "you check EPIC-029 doc, there are decision for this question, just follow" — the Strategies mode became Bots, per EPIC-029's own decisions |
 | D11 | EPIC-033A, Engine EPIC-008A | Not started | Not yet verified |
 | D4 | EPIC-033C, EPIC-033E | Not started | Not yet verified |
 | D5 | EPIC-033G | Not started | Not yet verified |

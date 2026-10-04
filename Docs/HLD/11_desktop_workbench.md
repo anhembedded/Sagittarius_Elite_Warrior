@@ -47,10 +47,18 @@ around a chart).
 | :--- | :--- | :--- | :--- | :--- |
 | **Market** (Ctrl+1) | watch the live market | SPEC-002, SPEC-003 | chart, one tab per open symbol | right: Watchlist, Indicators (tabbed); bottom: Output (hidden) |
 | **Trade** (Ctrl+2) | trade one venue by hand and see the account | SPEC-004, 005, 006, 007, 012, 013 | chart of the traded symbol | right: Order entry, Account summary; bottom: Positions (Futures) or Assets (Spot), Open orders, Order history, Trade history, Equity (tabbed) |
-| **Strategies** (Ctrl+3) | arm, watch and disarm strategies and bots | SPEC-010 | table of strategies and bots | right: Parameters, Last signal; bottom: Strategy log |
+| **Bots** (Ctrl+3) | create, judge, run and watch automated trading | SPEC-014, SPEC-010 | the selected bot's chart (its levels, fills and price; `EPIC-029` D16) | left: Bots (the list); right: Plan (the kind's panel: parameters and verdicts); bottom: Orders, Fills, Log (tabbed) |
 | **Backtest** (Ctrl+4) | test a strategy on stored history | SPEC-009 | result chart | left: Run setup; right: Metrics; bottom: Trades, Monte Carlo (tabbed) |
 | **Data** (Ctrl+5) | keep history complete | SPEC-001, SPEC-008 | coverage table (symbol × timeframe) | bottom: Gaps, Output |
 | **Developer** (Ctrl+6, developer mode only) | look inside the running app | SPEC-011 (developer part) | event log | right: probes |
+
+**Bots replaces a Strategies mode** (`EPIC-029`: the user asked for "a **Bots** tab", judged the
+six signal strategies "junk", put signal bots and DCA last, and wants the desks "manual only, with
+a takeover from a bot"). A strategy armed on a venue (SPEC-010) is listed in the Bots mode as
+its own row until `EPIC-029L` makes it a signal-bot kind; Trade stays manual. Each bot kind
+contributes its panel and its toolbar (`kind_panels`, SPEC-014: "each bot type has its own
+toolbar"); the kind's toolbar shows while a bot of that kind is selected and its commands stay in
+the Bots menu, disabled otherwise.
 
 Futures and Spot are one Trade mode with a venue selector, not two screens: the job is the same,
 only the account panel differs (`EPIC-027O` already switches it once by market). The app opens on
@@ -67,7 +75,7 @@ the mode the user last used; there is no Welcome page.
 
 ### 11.2.3 The menu bar is the catalogue of commands
 
-Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E, V, R, D, T, W, H, and P for Developer) and within each menu; "…" only where the command asks for more input;
+Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E, V, R, B, D, T, W, H, and P for Developer) and within each menu; "…" only where the command asks for more input;
 "confirm" means a dialog with specific verbs and the safe choice as default
 (`ui-presentation-rule.md` §10). A command with a toolbar column is also on that mode's toolbar.
 
@@ -78,7 +86,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | &Edit | &Copy | Ctrl+C | — | — |
 | | Select &all | Ctrl+A | — | — |
 | | &Find… | Ctrl+F | — | — |
-| &View | &Market, T&rade, &Strategies, &Backtest, &Data, De&veloper (one checkable action per mode) | Ctrl+1 … Ctrl+6 | mode selector | — |
+| &View | &Market, T&rade, B&ots, &Backtest, &Data, De&veloper (one checkable action per mode) | Ctrl+1 … Ctrl+6 | mode selector | — |
 | | one toggle per panel of the current mode, access keys assigned per mode (`EPIC-033D` checks them) | — | — | — |
 | | T&oolbars ›, Stat&us bar | — | — | — |
 | | &Full screen | F11 | — | — |
@@ -87,8 +95,15 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | &New order… | F9 | Trade | on place |
 | | Cancel &order | Del | — | yes |
 | | Cancel a&ll orders | — | Trade | yes |
-| | &Arm strategy… / &Disarm strategy | — | Strategies | on arm |
 | | Emergency &stop | F8 | every mode | yes |
+| &Bots | &New bot… | — | Bots | — |
+| | &Save bot | Ctrl+S | Bots | — |
+| | S&tart | — | Bots | — |
+| | &Pause / &Resume | — | Bots | — |
+| | &Confirm resume | — | Bots | yes |
+| | St&op… | — | Bots | yes (the base asset: keep, preselected; `EPIC-029` O3) |
+| | &Delete bot… | — | — | yes |
+| | the selected kind's commands (Spot grid: Suggest from &ATR, Suggest from Bollin&ger, &Fit levels) | — | the kind's toolbar | — |
 | &Data | &Sync history… | Ctrl+L | Data | — |
 | | &Check gaps | — | Data | — |
 | | &Repair gap | — | Data | — |
@@ -115,6 +130,8 @@ repeat the menu commands that act on the selected row (Cancel order, Copy).
 | Watchlist screen | the Watchlist panel in Market | a list beside the chart, not a place of its own |
 | Futures desk, Spot desk | Trade, with the venue selector | one job, two venues |
 | Backtest | Backtest | its overlays and nested scrolling become panels |
+| Bots tab (`bots`, `EPIC-029F`) | Bots | already one job; its list, plan and Orders/Fills/Log become docks and its buttons become actions |
+| the desks' strategy cards | a row per venue in Bots | a strategy runs unattended, which is what a bot is |
 | Data Management | Data | — |
 | Settings route | Tools → Options dialog | settings are a dialog on every desktop platform |
 
