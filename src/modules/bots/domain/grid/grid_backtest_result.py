@@ -25,6 +25,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_overlay import (
     FillSide,
     OverlayFill,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_fill_rule import (
+    PriceBar,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_overlay import (
     GridActivity,
     LevelState,
@@ -92,6 +95,8 @@ class GridBacktestResult:
 
     provenance: BacktestProvenance
     plan: GridPlan
+    #: The candles replayed (up to the stop), oldest first, for the chart.
+    bars: tuple[PriceBar, ...]
     equity: tuple[EquityPoint, ...]
     fills: tuple[BacktestFill, ...]
     grid_profit: Decimal

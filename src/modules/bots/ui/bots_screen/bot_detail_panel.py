@@ -1,9 +1,10 @@
 """`EPIC-029F` — the detail shell, the same for every kind.
 
-A header (name, state in words, the actions), the figures, and five tabs: the
+A header (name, state in words, the actions), the figures, and the tabs: the
 bot's chart, its parameters (the kind's own editor and the kind's verdicts),
-its resting orders, its fills and its log. The shell names no kind: the
-editor and the chart arrive from the presenter.
+its resting orders, its fills, its log, and its kind's backtest (`EPIC-029D`,
+hidden for a kind without one). The shell names no kind: the editor, the
+chart and the backtest page arrive from the presenter.
 
 A disabled action says why in its tooltip (`bot_action_rules`); while an
 action is in flight every action is disabled, whatever its rule says.
@@ -83,10 +84,12 @@ class BotDetailPanel(QWidget):
         self.log.setReadOnly(True)
         self._chart_slot = QVBoxLayout()
         self._panel_slot = QVBoxLayout()
+        self._backtest_slot = QVBoxLayout()
         self.tabs = QTabWidget()
         self._pages = QStackedWidget()
         self._build()
         self.set_chart(None)
+        self.set_backtest_page(None)
         self._connect()
         self._show_selection()
 
@@ -95,6 +98,11 @@ class BotDetailPanel(QWidget):
 
     def set_kind_panel(self, panel: QWidget | None) -> None:
         _replace(self._panel_slot, panel)
+
+    def set_backtest_page(self, page: QWidget | None) -> None:
+        """The kind's backtest page; `None` hides the Backtest tab."""
+        _replace(self._backtest_slot, page)
+        self.tabs.setTabVisible(self._backtest_tab, page is not None)
 
     def lock_actions(self, busy: bool) -> None:
         """An action is in flight: every action waits for it."""
@@ -119,6 +127,9 @@ class BotDetailPanel(QWidget):
         self.tabs.addTab(_table(self.orders, "tblBotOrders"), "Orders")
         self.tabs.addTab(self._fills_page(), "Fills")
         self.tabs.addTab(self.log, "Log")
+        backtest = QWidget()
+        backtest.setLayout(self._backtest_slot)
+        self._backtest_tab = self.tabs.addTab(backtest, "Backtest")
         detail = QWidget()
         detail_layout = QVBoxLayout(detail)
         detail_layout.addLayout(header)

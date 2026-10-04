@@ -77,6 +77,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads impo
     FencedReads,
     ReadKind,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.kind_backtests import (
+    BacktestPorts,
+    KindBacktests,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.selected_bot import (
     SelectedBot,
 )
@@ -98,6 +102,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_por
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.single_shot_timer import (
+    single_shot_timer,
 )
 from sagittarius_engine.extensions.fsm.declarative_state_machine import (
     DeclarativeStateMachine,
@@ -149,8 +156,9 @@ class BotsPresenter(BasePresenter):
         self._catalog = container.resolve(IBotKindCatalog)
         self._venues = container.resolve(IVenueTradingPorts)
         self._ticks = BotTickFeed(self.event_bus, MarketType.SPOT, parent=self)
+        sync = container.resolve(IMarketDataSync)
         feed = MarketDataCandleFeed(
-            container.resolve(IMarketDataSync),
+            sync,
             container.resolve(IHistoricalKlines),
             container.resolve(IMarketStream),
             MarketType.SPOT,
@@ -163,14 +171,17 @@ class BotsPresenter(BasePresenter):
             ActionOwnershipTracker()
         )
         commands = container.resolve(ICommandDispatcher)
+        self._backtests = KindBacktests(
+            BacktestPorts(threads, commands, sync, feed), view.set_backtest_page
+        )
         self._queries = BotQueries(commands, self._reads)
         self._commands = BotActionsCoordinator(commands, threads)
         self._changes = BotChangesFeed(self.event_bus, parent=self)
         self._log = BotLogFeed(parent=self)
         self._selected = SelectedBot(self._catalog, now)
         self._select_after_create = ""
-        self._reread = _single_shot(self, _COALESCE_MS, self._queries.bots)
-        self._rejudge = _single_shot(self, _REJUDGE_MS, self._refresh_detail)
+        self._reread = single_shot_timer(self, _COALESCE_MS, self._queries.bots)
+        self._rejudge = single_shot_timer(self, _REJUDGE_MS, self._refresh_detail)
         self._clock = QTimer(self)
         self._clock.setInterval(_CLOCK_MS)
         self._connect()
@@ -279,6 +290,7 @@ class BotsPresenter(BasePresenter):
         )
         self._model.set_availability(detail.availability if detail else {})
         self._charts.draw(detail.overlay if detail else None)
+        self._backtests.follow(self._selected)
 
     def _on_config_edited(self, config: Mapping[str, str]) -> None:
         self._selected.edit(config)
@@ -378,16 +390,7 @@ class BotsPresenter(BasePresenter):
         for timer in (self._reread, self._rejudge, self._clock):
             timer.stop()
         self._charts.close()
+        self._backtests.close()
         self._log.close()
         self._changes.stop()
         self._ticks.stop()
-
-
-def _single_shot(
-    parent: BotsPresenter, interval: int, slot: Callable[[], None]
-) -> QTimer:
-    timer = QTimer(parent)
-    timer.setSingleShot(True)
-    timer.setInterval(interval)
-    timer.timeout.connect(slot)
-    return timer

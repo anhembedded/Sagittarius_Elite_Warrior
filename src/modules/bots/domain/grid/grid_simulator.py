@@ -119,6 +119,7 @@ def simulate_grid(
             fill_rule=FILL_RULE,
         ),
         plan=replay.plan,
+        bars=bars[: len(equity)],
         equity=tuple(equity),
         fills=tuple(replay.fills),
         grid_profit=runtime.realised_profit,

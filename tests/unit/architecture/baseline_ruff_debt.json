@@ -20,7 +20,7 @@
       "src/modules/backtesting/ui/logic/presenter_screen_state.py": 2,
       "src/modules/backtesting/ui/ports/i_backtest_screen_state.py": 1,
       "src/modules/bots/module.py": 3,
-      "src/modules/bots/ui/chart/preview.py": 2,
+      "src/modules/bots/ui/chart/preview_ports.py": 2,
       "src/modules/market_data/adapters/persistence/kline_row_mapper.py": 2,
       "src/modules/market_data/module.py": 3,
       "src/modules/market_data/ui/logic/ui_mode_transitions.py": 1,
