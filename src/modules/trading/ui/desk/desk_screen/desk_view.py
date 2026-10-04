@@ -115,6 +115,7 @@ class DeskView(OutputSourceView):
         outer.addWidget(self._shell)
         self._shell.set_header(f"{profile.title} · Testnet")
 
+    @property
     def emergency_stop_button(self) -> QPushButton:
         return self._emergency_stop
 
