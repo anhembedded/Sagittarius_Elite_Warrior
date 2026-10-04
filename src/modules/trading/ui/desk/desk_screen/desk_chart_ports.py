@@ -33,7 +33,7 @@ class DeskChartPorts:
     overlay: IStrategyChartOverlayReader
     #: The desk's venue's market: what the chart syncs, reads and streams.
     market: MarketType
-    #: The desk's own owner on `IMarketStream` (`ChartCoordinator`).
+    #: The desk's own owner on `IMarketStream` (`LiveChartCoordinator`).
     stream_owner: str
     #: The timeframe the chart opens on.
     interval: str

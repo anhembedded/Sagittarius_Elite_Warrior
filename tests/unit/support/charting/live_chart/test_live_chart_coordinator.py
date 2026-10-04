@@ -1,4 +1,9 @@
-"""`BUG-107` — `ChartCoordinator`'s `go_live` split.
+"""`BUG-107` — the live chart coordinator's `go_live` split.
+
+`EPIC-029G` moved the coordinator to `support/charting/live_chart/`
+(`LiveChartCoordinator`) behind `ICandleFeed`. These tests moved with it and
+drive it through market_data's own `MarketDataCandleFeed`, over the same
+verified fakes, so every assertion below is the one it was before the move.
 
 Before this, `_run()` unconditionally dispatched `SyncMarketDataCommand`
 and `StartLiveStreamCommand`, so submitting `start()` at all — which
@@ -24,6 +29,9 @@ from unittest.mock import MagicMock
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_candle_feed import (
+    MarketDataCandleFeed,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.candles import (
     candle,
 )
@@ -36,8 +44,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.chart_coordinator import (
-    ChartCoordinator,
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callbacks import (
+    LiveChartCallbacks,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_coordinator import (
+    LiveChartCoordinator,
 )
 
 _OWNER = "desk.spot_testnet"
@@ -48,27 +59,36 @@ class _FakeToken:
         return False
 
 
+def _callbacks(history_ready: MagicMock | None = None) -> LiveChartCallbacks:
+    return LiveChartCallbacks(
+        history_ready=history_ready or MagicMock(),
+        load_finished=MagicMock(),
+        stream_started=MagicMock(),
+        stream_failed=MagicMock(),
+        log=MagicMock(),
+    )
+
+
 def _coordinator(
     sync: FakeMarketDataSync | None = None,
     history: FakeHistoricalKlines | None = None,
     stream: FakeMarketStream | None = None,
     market: MarketType = MarketType.SPOT,
     owner: str = _OWNER,
-):
+    *,
+    thread_manager: MagicMock | None = None,
+    history_ready: MagicMock | None = None,
+) -> LiveChartCoordinator:
     """No dispatcher: `EPIC-025` PR 1.1b took the last one this coordinator
     held, so there is no bus left for a test to record."""
-    return ChartCoordinator(
-        thread_manager=MagicMock(),
-        market_data_sync=sync or FakeMarketDataSync(),
-        historical_klines=history or FakeHistoricalKlines(),
-        market_stream=stream or FakeMarketStream(),
-        market=market,
-        emit_history_ready=MagicMock(),
-        emit_load_finished=MagicMock(),
-        emit_stream_started=MagicMock(),
-        emit_stream_failed=MagicMock(),
-        emit_log=MagicMock(),
-        stream_owner=owner,
+    feed = MarketDataCandleFeed(
+        sync or FakeMarketDataSync(),
+        history or FakeHistoricalKlines(),
+        stream or FakeMarketStream(),
+        market,
+    )
+    return LiveChartCoordinator(
+        thread_manager or MagicMock(), feed, _callbacks(history_ready), owner
     )
 
 
@@ -151,19 +171,7 @@ def test_the_chart_draws_the_stored_candles_oldest_first() -> None:
         [candle("BTCUSDT", minute, close_price=float(minute)) for minute in range(3)]
     )
     emit_history_ready = MagicMock()
-    coordinator = ChartCoordinator(
-        thread_manager=MagicMock(),
-        market_data_sync=FakeMarketDataSync(),
-        historical_klines=history,
-        market_stream=FakeMarketStream(),
-        market=MarketType.SPOT,
-        emit_history_ready=emit_history_ready,
-        emit_load_finished=MagicMock(),
-        emit_stream_started=MagicMock(),
-        emit_stream_failed=MagicMock(),
-        emit_log=MagicMock(),
-        stream_owner=_OWNER,
-    )
+    coordinator = _coordinator(history=history, history_ready=emit_history_ready)
 
     coordinator._run("BTCUSDT", "1m", _FakeToken(), False)
 
@@ -213,19 +221,7 @@ def test_start_defaults_to_local_history_only() -> None:
     """`go_live` defaults to `False` — a caller that forgets the argument
     must get the quiet behaviour, not a live connection by omission."""
     thread_manager = MagicMock()
-    coordinator = ChartCoordinator(
-        thread_manager=thread_manager,
-        market_data_sync=FakeMarketDataSync(),
-        historical_klines=FakeHistoricalKlines(),
-        market_stream=FakeMarketStream(),
-        market=MarketType.SPOT,
-        emit_history_ready=MagicMock(),
-        emit_load_finished=MagicMock(),
-        emit_stream_started=MagicMock(),
-        emit_stream_failed=MagicMock(),
-        emit_log=MagicMock(),
-        stream_owner=_OWNER,
-    )
+    coordinator = _coordinator(thread_manager=thread_manager)
 
     coordinator.start("BTCUSDT", "1m", _FakeToken())
 

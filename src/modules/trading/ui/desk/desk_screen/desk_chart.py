@@ -2,7 +2,8 @@
 strategy's lines, for the desk's own venue's market.
 
 @details The single Trading screen (retired in `EPIC-028M`) drove
-`ChartCoordinator` from its presenter; a desk keeps that out of its presenter
+the live chart coordinator from its presenter (`LiveChartCoordinator`, in
+support since `EPIC-029G`); a desk keeps that out of its presenter
 so the presenter stays a composition. Three things differ from that screen:
 - **its own stream owner** (`stream_owner`): one shared owner made a second
   desk's chart replace the first desk's subscription (the epic review
@@ -31,14 +32,14 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.market_data_candle_feed import (
+    MarketDataCandleFeed,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.armed_strategy_config import (
     ArmedStrategyConfig,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_filled_event import (
     OrderFilledEvent,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.chart_coordinator import (
-    ChartCoordinator,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_chart_ports import (
     DeskChartPorts,
@@ -55,6 +56,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_fill_marker import (
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.marker_layer import (
     MarkerPoint,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callbacks import (
+    LiveChartCallbacks,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_coordinator import (
+    LiveChartCoordinator,
 )
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
@@ -91,18 +98,22 @@ class DeskChart(QObject):
         self._overlay = StrategyOverlayCoordinator(
             get_chart=lambda: self._chart, chart_overlay=ports.overlay
         )
-        self._coordinator = ChartCoordinator(
-            thread_manager=ports.thread_manager,
-            market_data_sync=ports.market_data_sync,
-            historical_klines=ports.historical_klines,
-            market_stream=ports.market_stream,
-            market=ports.market,
-            emit_history_ready=self._history.emit,
-            emit_load_finished=lambda: None,
-            emit_stream_started=self.logged.emit,
-            emit_stream_failed=lambda text: self.logged.emit(f"[ERROR] {text}"),
-            emit_log=self.logged.emit,
-            stream_owner=ports.stream_owner,
+        self._coordinator = LiveChartCoordinator(
+            ports.thread_manager,
+            MarketDataCandleFeed(
+                ports.market_data_sync,
+                ports.historical_klines,
+                ports.market_stream,
+                ports.market,
+            ),
+            LiveChartCallbacks(
+                history_ready=self._history.emit,
+                load_finished=lambda: None,
+                stream_started=self.logged.emit,
+                stream_failed=lambda text: self.logged.emit(f"[ERROR] {text}"),
+                log=self.logged.emit,
+            ),
+            ports.stream_owner,
         )
         self._history.connect(self._on_history)
         self._candle.connect(self._on_candle)
