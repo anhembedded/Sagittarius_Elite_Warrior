@@ -59,8 +59,8 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 | Trạng thái | Số lượng |
 | :--- | :--- |
 | 🔴 **Đang mở** | 2 |
-| ✅ **Đã sửa / đã đóng** | 138 |
-| 📈 **Tổng** | **140** |
+| ✅ **Đã sửa / đã đóng** | 139 |
+| 📈 **Tổng** | **141** |
 
 ---
 
@@ -87,6 +87,7 @@ từng file lên đọc. Bảng này là câu trả lời cho câu hỏi đó.
 
 | ID | Tiêu đề | Mức độ | Ngày báo | Sửa ở |
 | :--- | :--- | :---: | :---: | :--- |
+| **[BUG-146](completed/BUG-146_run_ui_launcher_exits_without_a_window.md)** | `.\scripts\run-ui.ps1` printed its start line and exited with no window: it ran `main_window.py` as a script, which reached `app_bootstrapper.main()` only through a legacy `__main__` block that `EPIC-033C` dropped. The sanity tier starts the app with `-m ...app_bootstrapper`, so nothing exercised the launcher's path. Fixed by launching `app_bootstrapper.py`; the regression test reads the launcher's entry and was red first. | 🔴 P1 | 2026-10-04 | ✅ 2026-10-04 |
 | **[BUG-145](completed/BUG-145_spot_desk_history_exhausts_request_weight.md)** | Opening the Spot desk spent Binance's request weight for minutes, so a bot's Start was refused (`-1003`, commission rate unreadable): the history tabs' every-pair read fetched `allOrders` and `myTrades` for every held asset's USDT pair (about 500 on the Spot Testnet account, ~160 000 weight), and the re-read on enable repeated reads still in flight. Fixed by reading at most five pairs with a notice naming the rest (`history_scope`), and by joining a read in flight in `CachedAccountHistoryReader`; both regression tests were red first. | 🔴 P1 | 2026-10-04 | ✅ 2026-10-04 |
 | **[BUG-144](completed/BUG-144_new_bot_dialog_sends_the_venue_as_a_plain_string.md)** | Creating a bot from the Bots tab was refused every time with `'str' object has no attribute 'value'`: the New bot dialog read the venue back from a `QComboBox`, and Qt returns a `str`-based enum's item data as a plain `str`, which the bot store's codec then called `.value` on. The dialog test compared with `==`, which a `str` enum passes. Fixed by rebuilding `TradingVenue` in the dialog; the regression test saves the dialog's command through the real handler and store and was red with the user's exact error. | 🔴 P1 | 2026-10-04 | ✅ 2026-10-04 |
 | **[BUG-141](completed/BUG-141_spot_cancel_report_names_the_cancel_request.md)** | Lệnh Spot bị hủy được báo dưới id của *yêu cầu hủy* thay vì id của chính lệnh: `executionReport` của Binance Spot ghi `"c"` là id của request hiện tại (lúc hủy là id Binance tự sinh hoặc `web_…`), id gốc nằm ở `"C"`; parser luôn đọc `"c"`, nên `OrderEndedEvent` mang id app chưa từng đặt. Sửa ở parser duy nhất: hủy thì đọc `"C"` (ADR D8 của `EPIC-029`). | 🟡 P2 | 2026-10-03 | `EPIC-029A` |
