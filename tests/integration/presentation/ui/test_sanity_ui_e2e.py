@@ -3,6 +3,7 @@ from datetime import UTC, datetime
 
 import pytest
 from PySide6.QtGui import QAction
+from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputPane
 
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -164,9 +165,12 @@ def test_sanity_dev_board_full_feature_walkthrough(
     assert len(chart_card._raw_history) == history_before + 1
     assert chart_card._live_candle is None
 
-    # --- 4. Clear Logs -----------------------------------------------------
+    # --- 4. Clear Logs, from the window's Output pane (`EPIC-033F`) ---------
     assert len(view._view_model.log_model.entries) > 0
-    panel._log_panel.findChild(object, "btnClearLog").click()
+    output = main_window.findChild(OutputPane, "workbench::output")
+    assert output is not None
+    output.show_channel("dev_board.monitor")
+    output.clear_action.trigger()
     assert view._view_model.log_model.entries == []
 
     # --- 5. Stop Stream ------------------------------------------------

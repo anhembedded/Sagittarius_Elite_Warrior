@@ -157,6 +157,27 @@ def test_a_desk_whose_venue_is_off_says_so_and_holds_nothing_that_sends(
     assert view.findChild(QPushButton, "btnEmergencyStop") is None
 
 
+@pytest.mark.parametrize("venue", [FUTURES, SPOT])
+def test_a_desks_log_is_its_channel_of_the_output_pane(qtbot, venue) -> None:
+    """`EPIC-033F`: no log card of its own; its lines are one channel."""
+    desk = build_desk(qtbot, venue)
+
+    channel = desk.view.output_channel()
+
+    assert channel is not None
+    assert channel.channel_id == f"desk.{venue.value}"
+    assert channel.title == desk_profile_for(venue).title
+    assert channel.model is desk.presenter.desk.log_model
+
+
+def test_a_desk_whose_venue_is_off_offers_no_channel(qtbot) -> None:
+    view = DeskView(desk_profile_for(FUTURES))
+    qtbot.addWidget(view)
+    view.show_venue_disabled()
+
+    assert view.output_channel() is None
+
+
 def test_the_futures_route_opens_the_notice_when_only_spot_is_served(qtbot) -> None:
     """The view reads no service (every screen's view builds on a bare
     container); the presenter side, which has the container, decides."""

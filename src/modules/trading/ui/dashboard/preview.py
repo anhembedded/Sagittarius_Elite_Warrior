@@ -52,7 +52,6 @@ def build_preview() -> QWidget:
         column.addWidget(widget)
     for _title, card in panel.dock_panels:
         column.addWidget(card)
-    column.addWidget(panel.console_widget)
     # The preview owns the controller for as long as the widget lives: every
     # card and every signal connection belongs to it, and a `QObject` with no
     # reference left is collected the moment this function returns.

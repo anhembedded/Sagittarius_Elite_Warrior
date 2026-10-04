@@ -44,33 +44,23 @@ def test_backtest_view_model_bottom_tabs_and_log_model(qapp) -> None:
     assert tab_changed_spy.call_count == 2
 
 
-def test_backtest_bottom_tabs_switch_between_trades_and_logs(qapp) -> None:
+def test_the_log_is_no_longer_a_tab(qapp) -> None:
+    """`EPIC-033F`: the run log is the Output pane's "Backtest" channel, so
+    the results panel shows trades and an old "logs" tab id falls back to
+    them, the way any unknown id does."""
     vm = BackTestViewModel()
     panel = BackTestTradeLogsPanel(vm)
 
     assert panel._tab_bar.objectName() == "bottomTabBar"
     assert panel._trades_tab.objectName() == "tradeLogsTabContent"
-    assert panel._log_panel.objectName() == "backtestLogPanel"
+    assert not hasattr(panel, "_log_panel")
 
-    # Tab 1 (trades) visible initially, log panel hidden. `isVisibleTo(panel)`
-    # rather than `isVisible()` — this test never calls `panel.show()`, and
-    # `isVisible()` stays False regardless of `setVisible()` until the whole
-    # ancestor chain is actually shown (see Sidebar/Overlay tests for the
-    # same gotcha).
-    assert panel._trades_tab.isVisibleTo(panel)
-    assert not panel._log_panel.isVisibleTo(panel)
-
-    # Switch to logs tab
     vm.setActiveBottomTab("logs")
     qapp.processEvents()
-    assert not panel._trades_tab.isVisibleTo(panel)
-    assert panel._log_panel.isVisibleTo(panel)
-
-    # Switch back to trades tab
-    vm.setActiveBottomTab("trades")
-    qapp.processEvents()
+    # `isVisibleTo(panel)`: the panel is never shown in this test.
     assert panel._trades_tab.isVisibleTo(panel)
-    assert not panel._log_panel.isVisibleTo(panel)
+    assert not panel._drawdown_tab.isVisibleTo(panel)
+    assert not panel._returns_tab.isVisibleTo(panel)
 
 
 def test_backtest_bottom_tabs_include_drawdown_and_returns(qapp) -> None:
@@ -86,7 +76,6 @@ def test_backtest_bottom_tabs_include_drawdown_and_returns(qapp) -> None:
     assert panel._drawdown_tab.isVisibleTo(panel)
     assert not panel._trades_tab.isVisibleTo(panel)
     assert not panel._returns_tab.isVisibleTo(panel)
-    assert not panel._log_panel.isVisibleTo(panel)
 
     vm.setActiveBottomTab("returns")
     qapp.processEvents()

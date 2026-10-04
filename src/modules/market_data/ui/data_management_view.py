@@ -31,9 +31,6 @@ from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
 from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
     describe as describe_timeframe,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import (
-    AppLogPanel,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
@@ -48,11 +45,14 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     StyleRole,
     apply_role,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
+    OutputSourceView,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPickerOverlay,
     SymbolPreferences,
 )
-from sagittarius_engine.extensions.pyside_mvc import BaseView
+from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputChannel
 
 if TYPE_CHECKING:
     from .data_management_view_model import DataManagementViewModel
@@ -107,7 +107,7 @@ def _tint_color(tint: str) -> str:
     )
 
 
-class DataManagementView(BaseView):
+class DataManagementView(OutputSourceView):
     """
     @brief The View for the Database screen ("Storage Vault") — QtWidgets (EPIC-005E).
 
@@ -174,8 +174,8 @@ class DataManagementView(BaseView):
 
     def set_view_model(self, view_model: DataManagementViewModel) -> None:
         self._view_model = view_model
+        self._output = OutputChannel("data.sync", "Sync", view_model.logModel)
 
-        self._log_panel.set_log_model(view_model.logModel)
         if self._status_panel is None:
             self._status_panel = DatabaseStatusPanel(view_model.status_model)
             self._status_panel.rowActionRequested.connect(self._on_status_row_action)
@@ -451,7 +451,6 @@ class DataManagementView(BaseView):
         # placement the Pattern Library rules out ("rail is always on the
         # right, never the left").
         shell.set_workspace(main, rail=self._build_sync_controls())
-        shell.set_console(self._build_log_panel())
 
         self._build_dialogs()
 
@@ -649,16 +648,6 @@ class DataManagementView(BaseView):
         column = QVBoxLayout()
         self._status_column = column
         return column
-
-    def _build_log_panel(self) -> AppLogPanel:
-        """Now `PageShell`'s console band — same full-width placement below
-        the workspace that Dev Board/Backtest already use, instead of being
-        nested inside the status column's own width (its previous spot,
-        inherited from when the rail sat to its left)."""
-        self._log_panel = AppLogPanel("SYNC LOG")
-        self._log_panel.setObjectName("syncLogPanel")
-        self._log_panel.setMinimumHeight(190)
-        return self._log_panel
 
     def _build_dialogs(self) -> None:
         """Both destructive confirms, on the engine's `ConfirmOverlay`.

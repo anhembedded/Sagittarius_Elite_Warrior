@@ -62,7 +62,6 @@ def panel(qapp, view_model, request):
         layout.addWidget(widget)
     for _title, card in controls.dock_panels:
         layout.addWidget(card)
-    layout.addWidget(controls.console_widget)
     host.resize(380, 700)
     host.show()
     qapp.processEvents()
@@ -435,13 +434,6 @@ def test_symbol_picker_handles_large_symbol_list_without_freezing(
         "1,358 symbols must not mean 1,358 widgets — the view is virtualised"
     )
     panel._symbol_picker.close()
-
-
-def test_log_panel_is_bound_to_the_view_model_log_model(qapp, panel, view_model):
-    assert panel._log_panel.objectName() == "monitorLogPanel"
-    view_model.log_model.append("test entry")
-    qapp.processEvents()
-    assert view_model.log_model.rowCount() == 1
 
 
 # ------------------------------------------------------------------ #

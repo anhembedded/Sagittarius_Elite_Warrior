@@ -25,7 +25,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     ConfirmOverlay,
     DataRow,
     DateTimeField,
-    LogPanel,
     PageShell,
     Pagination,
     Panel,
@@ -190,10 +189,8 @@ class ShowcaseWindow(QWidget):  # base-exempt: the gallery shell, not a surface
 
         tabs = TabBar([Tab("a", "First", "12"), Tab("b", "Second", "340")])
 
-        log = LogPanel("Log panel")
-
         self._add(column, "Data shapes", row)
-        self._add(column, "Table, tabs and log", table, tabs, log)
+        self._add(column, "Table and tabs", table, tabs)
 
     def _banners(self, column: QVBoxLayout) -> None:
         self._add(
@@ -264,7 +261,6 @@ class ShowcaseWindow(QWidget):  # base-exempt: the gallery shell, not a surface
         )
         shell.set_context_bar(SectionLabel("Context bar"))
         shell.set_workspace(Panel(), rail=Panel())
-        shell.set_console(LogPanel("Console"))
         self._add(column, "Page shell", shell)
 
     def _preferred_height_scroll(self, column: QVBoxLayout) -> None:

@@ -72,7 +72,7 @@ _SCAN_ROOTS = UI_TREES
 #: added to the kit must be added here deliberately, which is the question
 #: "should this be a kit surface or an app component?" asked at the moment it
 #: can still be answered cheaply.
-_KIT_CARD_FILES = frozenset({"log_panel.py", "table_card.py"})
+_KIT_CARD_FILES = frozenset({"table_card.py"})
 
 #: Every base class that makes its subclass "a Card" for the purposes of the
 #: layering rule. `Card` is the kit's (`support.ui_kit.kit.surface.Card`,

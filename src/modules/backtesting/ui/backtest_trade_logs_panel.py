@@ -17,9 +17,6 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import (
-    AppLogPanel,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
@@ -106,11 +103,6 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
 
         self._returns_tab = self._build_returns_tab()
         outer.addWidget(self._returns_tab, 1)
-
-        self._log_panel = AppLogPanel("BACKTEST LOG")
-        self._log_panel.setObjectName("backtestLogPanel")
-        self._log_panel.set_log_model(view_model.log_model)
-        outer.addWidget(self._log_panel, 1)
 
         self._wire_view_model()
         self._sync_all()
@@ -314,7 +306,6 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
         vm.trade_log.rowsChanged.connect(self._sync_rows)
         vm.trade_log.rowsChanged.connect(self._sync_tab_badges)
         vm.trade_log.currentPageChanged.connect(self._sync_pagination)
-        vm.logModel.countChanged.connect(self._sync_tab_badges)
         vm.isConfigDirtyChanged.connect(self._sync_dirty_opacity)
         vm.run_result.drawdownPointsChanged.connect(self._sync_drawdown)
         vm.run_result.yearlyReturnsChanged.connect(self._sync_returns)
@@ -331,7 +322,7 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
         self._sync_returns()
 
     #: `activeBottomTab` values this panel understands; anything else -> "trades".
-    _BOTTOM_TAB_IDS = ("trades", "drawdown", "returns", "logs")
+    _BOTTOM_TAB_IDS = ("trades", "drawdown", "returns")
 
     def _sync_active_tab(self) -> None:
         active = self._vm.activeBottomTab
@@ -340,7 +331,6 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
         self._trades_tab.setVisible(active == "trades")
         self._drawdown_tab.setVisible(active == "drawdown")
         self._returns_tab.setVisible(active == "returns")
-        self._log_panel.setVisible(active == "logs")
         self._tab_bar.set_current_id(active)
 
     def _on_tab_selected(self, index: int, tab_id: str) -> None:
@@ -348,13 +338,11 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: screen region, not a card
 
     def _sync_tab_badges(self) -> None:
         total = self._vm.trade_log.totalCount
-        log_count = self._vm.logModel.rowCount()
         self._tab_bar.set_tabs(
             [
                 Tab("trades", "TRADE LIST", f"{total} TRADES"),
                 Tab("drawdown", "DRAWDOWN"),
                 Tab("returns", "RETURNS"),
-                Tab("logs", "BACKTEST LOG", f"{log_count} EVENTS"),
             ]
         )
         self._sync_active_tab()

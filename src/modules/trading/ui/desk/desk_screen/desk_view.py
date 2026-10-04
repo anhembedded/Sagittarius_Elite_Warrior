@@ -60,9 +60,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_ent
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import FALLBACK_SYMBOL
-from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import AppLogPanel
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import PageShell
-from sagittarius_engine.extensions.pyside_mvc import BaseView
+from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
+    OutputSourceView,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputChannel
 
 #: The equity chart's title: the curve is the venue's account, not a symbol.
 EQUITY_CHART_TITLE = "Equity"
@@ -78,7 +80,7 @@ def disabled_text(profile: DeskProfile) -> str:
     )
 
 
-class DeskView(BaseView):
+class DeskView(OutputSourceView):
     """@brief The View for one desk (`EPIC-028K`/`028L`)."""
 
     def __init__(
@@ -106,7 +108,6 @@ class DeskView(BaseView):
         self._status = QLabel()
         self._status.setObjectName("lblDeskStatus")
         self._status.setWordWrap(True)
-        self._log = AppLogPanel(f"{profile.title.upper()} LOG")
         self._rail = QVBoxLayout()
         self._shell = PageShell()
         outer = QVBoxLayout(self)
@@ -114,7 +115,6 @@ class DeskView(BaseView):
         outer.addWidget(self._shell)
         self._shell.set_header(f"{profile.title} · Testnet")
 
-    @property
     def emergency_stop_button(self) -> QPushButton:
         return self._emergency_stop
 
@@ -143,7 +143,9 @@ class DeskView(BaseView):
         card.setObjectName("deskStrategyCard")
         self._rail.insertWidget(0, panel)
         self._rail.insertWidget(1, card)
-        self._log.set_log_model(desk.log_model)
+        self._output = OutputChannel(
+            f"desk.{self._profile.venue.value}", self._profile.title, desk.log_model
+        )
         self._apply_symbols(desk)
         self._apply_state(desk)
         self._apply_status(desk)
@@ -198,7 +200,6 @@ class DeskView(BaseView):
         self._rail.addWidget(self.account_summary)
         self._rail.addStretch(1)
         self._shell.set_workspace(workspace, rail=rail)
-        self._shell.set_console(self._log)
 
     def _context_bar(self) -> QWidget:
         bar = QWidget()
