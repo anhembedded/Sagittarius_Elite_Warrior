@@ -14,6 +14,12 @@ venue's filters. Live they come from the account; the backtest records them.
 `capital_quote`, `stop_loss` and `take_profit` — each `off`, `price:<p>` or
 `percent:<n>` (n per cent beyond the range edge: below `lower` for a stop loss,
 above `upper` for a take profit).
+
+@par A bot created with no parameters (`BOT-150`)
+New bot asks only for the kind, venue and symbol; the parameters are set on
+the draft afterwards. `unset_parameters` names the ones the user must still
+type, in the panel's words, so the verdict asks for them rather than reporting
+a missing key.
 """
 
 from __future__ import annotations
@@ -24,6 +30,15 @@ from decimal import Decimal, InvalidOperation
 from enum import Enum
 
 _HUNDRED = Decimal(100)
+
+#: The parameters the Grid panel has no starting value for, keyed by the
+#: definition's key, with the label the panel shows. The panel starts the
+#: others (grids, spacing, both exits) at a value the user sees and may change.
+PARAMETERS_WITHOUT_A_START: Mapping[str, str] = {
+    "lower": "lower price",
+    "upper": "upper price",
+    "capital_quote": "capital",
+}
 
 
 class GridSpacing(str, Enum):
@@ -132,6 +147,15 @@ class GridParams:
     @property
     def take_profit_price(self) -> Decimal | None:
         return self.take_profit.above(self.upper)
+
+
+def unset_parameters(config: Mapping[str, str]) -> tuple[str, ...]:
+    """The labels of `PARAMETERS_WITHOUT_A_START` that `config` leaves out or blank."""
+    return tuple(
+        label
+        for key, label in PARAMETERS_WITHOUT_A_START.items()
+        if not config.get(key, "").strip()
+    )
 
 
 def _text(config: Mapping[str, str], key: str) -> str:

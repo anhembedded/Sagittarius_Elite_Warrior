@@ -1,5 +1,5 @@
 """`EPIC-029F` — Stop keeps the base unless told otherwise (O3); New bot needs
-a typed symbol and an enabled Spot venue."""
+a typed symbol and an enabled Spot venue, and nothing more (`BOT-150`)."""
 
 from __future__ import annotations
 
@@ -39,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.stop_bot_dialog i
     STOP_BUTTON_TEXT,
     StopBotDialog,
     stop_question,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
+    BotKindPanel,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -80,7 +83,18 @@ def test_create_waits_for_a_symbol_and_names_what_it_does(qtbot) -> None:
     command = dialog.command()
     assert (command.kind, command.venue, command.symbol) == ("grid", VENUE, "ETHUSDT")
     assert command.name == "ETHUSDT grid"
-    assert command.config["grid_count"] == "10"
+
+
+def test_new_bot_asks_only_the_minimum_and_saves_no_parameters(qtbot) -> None:
+    """`BOT-150` — the user's rule (2026-10-04): creating a bot asks the least;
+    its parameters are set afterwards, while it is a draft or stopped."""
+    dialog = NewBotDialog(["grid"], [VENUE])
+    qtbot.addWidget(dialog)
+    qtbot.keyClicks(dialog.symbol, "btcusdt")
+
+    assert dialog.findChild(BotKindPanel) is None
+    assert dialog.command().config == {}
+    assert "not running" in dialog.parameters_hint.text()
 
 
 def test_the_new_bot_command_carries_the_venue_enum_and_saves(
