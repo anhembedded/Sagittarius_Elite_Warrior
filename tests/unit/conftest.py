@@ -9,7 +9,8 @@ not. The fixture below makes that rule a failure at the call that breaks it.
 `sendmsg()` (UDP) on a `socket.socket` is checked before any packet leaves.
 Allowed: `AF_UNIX`, the literal name `localhost`, and any literal IP address
 that is loopback (`127.0.0.0/8`, `::1`). Anything else raises
-`NetworkAccessBlockedError`. `socket.getaddrinfo` is guarded too, so a name is
+`NetworkAccessBlockedError`. `socket.getaddrinfo` and the legacy `gethostbyname`/`gethostbyname_ex`/
+`gethostbyaddr` are guarded too, so a name is
 refused before it is resolved — a DNS lookup is itself network access, and
 `socket.create_connection`, asyncio, `requests` and `aiohttp` all resolve
 through it before they connect.
@@ -79,6 +80,16 @@ def _block_name_lookups_and_datagrams(monkeypatch: pytest.MonkeyPatch) -> None:
             raise refusal(args[2])
         return real_sendmsg(self, buffers, *args)
 
+    def guarded_by_name(real: Any) -> Any:
+        def lookup(host: object, *args: Any) -> Any:
+            if not is_local_lookup(host):
+                raise refusal(host)
+            return real(host, *args)
+
+        return lookup
+
     monkeypatch.setattr(socket, "getaddrinfo", guarded_getaddrinfo)
+    for name in ("gethostbyname", "gethostbyname_ex", "gethostbyaddr"):
+        monkeypatch.setattr(socket, name, guarded_by_name(getattr(socket, name)))
     monkeypatch.setattr(socket.socket, "sendto", guarded_sendto)
     monkeypatch.setattr(socket.socket, "sendmsg", guarded_sendmsg)

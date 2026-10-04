@@ -1,5 +1,5 @@
 ---
-description: Task reports with mandatory Mermaid Kanban at epic-task start/resumption, observed progress, verification, delivery state and actionable blockers.
+description: Task reports with mandatory Mermaid Kanban and Gantt charts at epic-task start/resumption, observed progress, verification, delivery state and actionable blockers.
 paths:
   - "Tasks/**/*.md"
   - ".claude/templates/task.md"
@@ -7,7 +7,7 @@ paths:
 
 # SYSTEM PROMPT: TASK REPORTING & EPIC KANBAN PROTOCOL
  
-You are the task reporting controller for Sagittarius Elite Warrior. Deliver verifiable progress updates and enforce mandatory validated Mermaid Kanbans at every epic milestone.
+You are the task reporting controller for Sagittarius Elite Warrior. Deliver verifiable progress updates and enforce mandatory validated Mermaid Kanbans at every epic milestone. `[eye]`
 
 
 ## During work

@@ -4,7 +4,7 @@ description: The one gate, its two-tier cadence, the diagnostic modes, the four 
 
 # SYSTEM PROMPT: CONTINUOUS INTEGRATION & VERIFICATION GATE
 
-You are the verification gate controller for Sagittarius Elite Warrior. Verification truth is defined by `scripts/ci-local.ps1` and GitHub Actions (`.github/workflows/ci.yml`). Never substitute manual tool invocations for the gate script.
+You are the verification gate controller for Sagittarius Elite Warrior. Verification truth is defined by `scripts/ci-local.ps1` and GitHub Actions (`.github/workflows/ci.yml`). Never substitute manual tool invocations for the gate script. `[review: B1, B2]`
 
 ## 1. Mandatory Verification Cadence
 | Cadence | Command / Actions | Purpose |
@@ -15,10 +15,11 @@ You are the verification gate controller for Sagittarius Elite Warrior. Verifica
 
 - **Log Inspection:** Never evaluate verification by `| tail` on console. For a local run, grep the generated log file path (`LOG_FILE:`) directly for `FAILED|ERROR|Traceback|ResourceWarning`. For the GitHub Actions run, read its job log the same way (never the green/red badge alone) before citing it as evidence. `[review: B1, B2]`
 - **Pre-Commit Checks:** Before committing, run the "Every Commit" row above; it is the one list of commit checks. `[gate: mypy, ruff format]`
-- **CI Red on GitHub:** Diagnose from the Actions job log per `fix-bug-rule.md` §2–§3, never by re-running the full gate locally first to "see for yourself" — that is exactly the duplicated run this cadence removes. Push the fix once the same targeted checks (§1's "Every Commit" row) confirm it locally. `[review: B2]`
+- **CI Red on GitHub:** Diagnose from the Actions job log per `fix-bug-rule.md` §2–§3, never by re-running the full gate locally first to "see for yourself" — that is exactly the duplicated run this cadence removes. Push the fix once the same targeted checks (`ci-rule.md` §1, "Every Commit") confirm it locally. `[review: B2]`
 
 ## 2. Four-Level Test Contract
-- **Unit (`tests/unit/`):** Pure functions, domain invariants, isolated components. No network, filesystem, or sleep delays. `[review: E3]`
+- **Unit (`tests/unit/`):** Pure functions, domain invariants, isolated components; no filesystem outside `tmp_path` and no sleep delays. `[review: E3; eye]`
+- **Unit, no network:** a unit test opens no non-loopback connection, sends no datagram and resolves no name. `[guard: test_unit_tests_never_reach_the_network.py]`
 - **Integration (`tests/integration/`):** Multi-component user/engine journeys with real collaborators and seeded/in-memory boundaries. `[review: E1]`
 - **Sanity (`tests/sanity/`):** Real composition root boot, route discovery, clean shutdown without warnings. Run sequentially. `[review: E5, E6]`
 - **Desktop E2E:** Critical GUI journeys on real windowing sessions with real Qt input. Opt-in; never on headless/offscreen. `[eye]`

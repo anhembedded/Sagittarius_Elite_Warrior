@@ -1,7 +1,8 @@
 """`BUG-129`: the reference checker must answer about the **repository**, not
 about whoever's disk it happens to run on.
 
-`scripts/check_skill_prompt_references.py` resolved every cited path with
+`scripts/check_skill_prompt_references.py` (now `scripts/rule_integrity/paths.py`)
+resolved every cited path with
 `Path.exists()`. A working tree carries more than the repository does — a
 directory emptied by a move survives as a `__pycache__` shell, and nothing
 deletes it — so a briefing citing a path the repository no longer has passed
@@ -20,15 +21,10 @@ from __future__ import annotations
 
 import shutil
 import subprocess
-import sys
 from pathlib import Path
 
 import pytest
-
-_REPO_ROOT = Path(__file__).resolve().parents[3]
-sys.path.insert(0, str(_REPO_ROOT / "scripts"))
-
-from check_skill_prompt_references import check
+from Sagittarius_Elite_Warrior.scripts.rule_integrity.paths import check
 
 #: Three of the trees the checker reads; the first is the one the tests cite from.
 _TREES = (

@@ -67,6 +67,8 @@ these:**
   helper imported from another module, never calling one of the three
   methods this check understands on a path it builds itself:
   `test_module_boundaries.py` (`scanned_files()` from `git_tracked_paths.py`),
+  `test_rule_tree_is_mechanically_consistent.py` (the trees of
+  `scripts/rule_integrity/trees.py`),
   `test_self_check_process.py`, `test_binance_endpoint_config_keys_are_dead.py`,
   and this file itself (it reads each registered guard's source via
   `.read_text()`, never scanning a directory the way it checks other guards
@@ -125,6 +127,7 @@ _UNRESOLVABLE_GUARDS: dict[str, str] = {
     "tests/sanity/test_python_floor.py": "root joined from a bare-string tuple (`_FIRST_PARTY_DIRS`) at the call site, not a literal chain.",
     "tests/unit/architecture/test_guard_scans_its_registered_root.py": "reads each registered guard file's own source via `.read_text()` — no glob/rglob/iterdir call of its own; the exact same shape as `test_scanned_roots_are_not_empty.py`, registered next to it for the same reason.",
     "tests/unit/architecture/test_god_files_only_shrink.py": "scans via `measure()`, imported from `tools/measure_god_files.py` — no glob/rglob call of its own.",
+    "tests/unit/architecture/test_rule_tree_is_mechanically_consistent.py": "scans through scripts/rule_integrity/trees.py, no glob of its own",
 }
 
 #: (guard, root, pattern) rows registered for a real reason this check's

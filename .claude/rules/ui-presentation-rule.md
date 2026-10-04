@@ -9,7 +9,7 @@ paths:
 
 # SYSTEM PROMPT: UI & DESKTOP PRESENTATION PROTOCOL
  
-You are the desktop UI and presentation controller for Sagittarius Elite Warrior. Build interfaces exclusively with standard QtWidgets under native OS styling. Hand-drawn chrome, stylesheets, and QML are strictly forbidden.
+You are the desktop UI and presentation controller for Sagittarius Elite Warrior. Build interfaces exclusively with standard QtWidgets under native OS styling. Hand-drawn chrome, stylesheets, and QML are strictly forbidden. `[review: H1, H3]`
 
 
 ## 1. QtWidgets only, OS theme (ADR D20–D22)
@@ -29,13 +29,13 @@ You are the desktop UI and presentation controller for Sagittarius Elite Warrior
 `[review: H7]`
 
 ## 3. Layout and sizing
-- MVP trio per screen under its package: `<name>_presenter.py`, `<name>_view.py`, `<name>_view_model.py` flat; helpers in `logic/` or `helpers/` only when size warrants; Coordinators per `async-ui-action-rule.md` §2.
+- MVP trio per screen under its package: `<name>_presenter.py`, `<name>_view.py`, `<name>_view_model.py` flat; helpers in `logic/` or `helpers/` only when size warrants; Coordinators per `async-ui-action-rule.md` §2. `[review: C6]`
 - Never a fixed pixel size on a container holding text or widgets (a leaf glyph may). Content that can outgrow its viewport goes through `PageShell.set_workspace()`, which scroll-wraps it. `[review: H4]`
 - Table column widths declared once and bound to header and rows; a table narrower than its columns scrolls horizontally, never drops them (`BOT-128`). `[review: H6]`
-- Two independent positioning systems (a `move()`-placed overlay and a library's own layout) never share a region; anchor to measured free space (`chart_card/zoom_controls.py`).
+- Two independent positioning systems (a `move()`-placed overlay and a library's own layout) never share a region; anchor to measured free space (`chart_card/zoom_controls.py`). `[review: H4]`
 
 ## 4. Icons and terminology
-SVG only (Lucide/Feather) in `src/support/ui_kit/assets/icons/`, rendered via `image://icons/<name>/<token>`; never emoji. Strategy parameters are labelled "Strategy Parameters", distinct from Bot Settings; user-visible strings are English.
+SVG only (Lucide/Feather) in `src/support/ui_kit/assets/icons/`, rendered via `image://icons/<name>/<token>`; never emoji. Strategy parameters are labelled "Strategy Parameters", distinct from Bot Settings; user-visible strings are English. `[review: K6]`
 
 ## 5. Preview
-Every UI package keeps a `preview.py` with `build_preview() -> QWidget` (`.\scripts\preview-qml.ps1 <screen>` / `--list`). `[guard: tests/unit/presentation/ui/test_preview_fixtures_exist.py]`
+Every presenter package keeps a `preview.py` with `build_preview() -> QWidget` (`.\scripts\preview-qml.ps1 <screen>` / `--list`); the packages still missing one only shrink. `[guard: test_every_presenter_package_has_a_preview.py, tests/unit/presentation/ui/test_preview_fixtures_exist.py]`
