@@ -29,6 +29,8 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.streamed_fi
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_params import (
     GridParams,
     GridParamsError,
+    unset_parameters,
+    unset_parameters_reason,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_simulator import (
     GridBacktestInputs,
@@ -57,6 +59,11 @@ class RunGridBacktestQueryHandler(
         self._repository = repository
 
     def execute(self, query: RunGridBacktestQuery) -> GridBacktestAnswer:
+        unset = unset_parameters(query.config)
+        if unset:
+            # `BOT-150`: a draft created with the minimum asks for what to
+            # set, in the planner's words, not "lower is missing".
+            return GridBacktestRefusal(unset_parameters_reason(unset))
         try:
             params = GridParams.from_config(query.config)
         except GridParamsError as exc:

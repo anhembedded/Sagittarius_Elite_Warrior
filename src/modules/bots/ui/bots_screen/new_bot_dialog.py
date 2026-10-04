@@ -1,10 +1,14 @@
-"""`EPIC-029F` — creating a bot: kind, then venue, then symbol, then parameters.
+"""`EPIC-029F` — creating a bot: kind, then venue, then symbol; nothing more.
+
+`BOT-150` (the user's rule, 2026-10-04): creating a bot asks the least. The
+parameters are not asked here; the bot is saved as a DRAFT without them and
+selected, and the user sets them in its detail panel, where the planner has
+read the symbol's numbers and can suggest a range. They can be changed again
+whenever the bot is not running (DRAFT or STOPPED, the lifecycle's EDIT).
 
 The symbol is typed, never taken from a chart, so a bot never trades a pair
 because a chart happened to show it. Only enabled Spot venues are offered:
-the Grid is a Spot kind. The bot is saved as a DRAFT and nothing is placed;
-its verdicts appear once it is selected, where the planner reads the
-symbol's numbers. Cancel discards every field.
+the Grid is a Spot kind. Nothing is placed; Cancel discards every field.
 Injectable (`AskNewBot`) so a test creates a bot without a modal dialog.
 """
 
@@ -26,12 +30,8 @@ from PySide6.QtWidgets import (
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.create_bot import (
     CreateBotCommand,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
-    BotKindPanel,
-)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
     KIND_TITLES,
-    panel_for,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -45,6 +45,10 @@ type AskNewBot = Callable[
 CREATE_BUTTON_TEXT = "Create bot"
 NO_SPOT_VENUE = (
     "No Spot venue is enabled. Enable one in Tools > Options > Trading first."
+)
+PARAMETERS_HINT = (
+    "The parameters are set after the bot is created, and can be changed "
+    "whenever it is not running."
 )
 
 
@@ -75,8 +79,9 @@ class NewBotDialog(QDialog):
         self.problem = QLabel(NO_SPOT_VENUE if not venues else "")
         self.problem.setWordWrap(True)
         self.problem.setVisible(not venues)
-        self._panel: BotKindPanel | None = None
-        self._panel_slot = QVBoxLayout()
+        self.parameters_hint = QLabel(PARAMETERS_HINT)
+        self.parameters_hint.setObjectName("lblNewBotParametersHint")
+        self.parameters_hint.setWordWrap(True)
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel)
         self.create_button: QPushButton = buttons.addButton(
             CREATE_BUTTON_TEXT, QDialogButtonBox.ButtonRole.AcceptRole
@@ -92,12 +97,10 @@ class NewBotDialog(QDialog):
         layout = QVBoxLayout(self)
         layout.addLayout(form)
         layout.addWidget(self.problem)
-        layout.addLayout(self._panel_slot)
+        layout.addWidget(self.parameters_hint)
         layout.addWidget(buttons)
-        self.kind.currentIndexChanged.connect(self._show_kind_panel)
         self.symbol.textEdited.connect(self._sync_create)
         self.name.textEdited.connect(self._sync_create)
-        self._show_kind_panel()
         self._sync_create()
 
     def command(self) -> CreateBotCommand:
@@ -108,19 +111,10 @@ class NewBotDialog(QDialog):
             # `str`; the member is rebuilt here, at the boundary that lost it.
             venue=TradingVenue(self.venue.currentData()),
             symbol=self._symbol(),
-            config=self._panel.config() if self._panel is not None else {},
         )
 
     def _symbol(self) -> str:
         return self.symbol.text().strip().upper()
-
-    def _show_kind_panel(self) -> None:
-        if self._panel is not None:
-            self._panel.setParent(None)
-        kind_id = self.kind.currentData()
-        self._panel = panel_for(kind_id) if kind_id is not None else None
-        if self._panel is not None:
-            self._panel_slot.addWidget(self._panel)
 
     def _sync_create(self) -> None:
         ready = (
