@@ -18,10 +18,11 @@ You are the commit and atomic change controller for Sagittarius Elite Warrior. A
 <body: architectural reasoning — what changed, why, root cause for fix:>
 
 Co-Authored-By: <assistant model> <noreply@provider.example>
+Claude-Session: <this session's URL>
 ```
 - **Allowed Types:** `feat`, `fix`, `refactor`, `perf`, `test`, `ci`, `docs`, `chore`. `[gate: commit lint]`
 - **Allowed Scopes:** Bounded module (`market_data`, `trading`, `strategy`, `backtesting`), `shell`/`core`, support package, `architecture`, `tasks`, `agents`, `ci`, or task/defect ID (`epic-025`, `bug-127`). `[gate: commit lint; review: L1]`
-- **Body Requirement:** Explain intent and systemic impact; a body merely restating the subject is invalid. For fixes, cite root cause and bug ID (`.claude/rules/fix-bug-rule.md`). `[gate: commit lint; review: L2]`
+- **Body Requirement:** Explain intent and systemic impact; a body merely restating the subject is invalid. For fixes, cite root cause and bug ID (`.claude/rules/fix-bug-rule.md`). Both trailers are required: the `Claude-Session:` one is how the `independent-review` status tells author from reviewer. `[gate: commit lint; review: L2]`
 
 ## 3. Cleanliness & Prohibitions
 - **Atomic Change:** Exactly one logical change per commit. Inspect `git status --short` before and `git show --stat HEAD` after. `[review: A2]`

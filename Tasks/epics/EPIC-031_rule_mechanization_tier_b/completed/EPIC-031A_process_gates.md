@@ -22,8 +22,8 @@ Stdlib scripts with a pure core and a thin I/O shell, so the decision is unit-te
 ## 4. Changes, per file
 | File | Change |
 | :--- | :--- |
-| `scripts/check_commit_messages.py`, `.github/workflows/commit-lint.yml` | Each commit a pull request adds: Conventional subject, allowed type, a body, the `Co-Authored-By:` trailer, a `fix:` citing its id |
-| `scripts/check_independent_review.py`, `.github/workflows/independent-review.yml` | Sets the `independent-review` status: a comment naming the head, `Verdict: PASS`, the coverage disclosure and a `Claude-Session:` no commit carries; documentation-only passes |
+| `scripts/check_commit_messages.py`, `.github/workflows/commit-lint.yml` | Each commit a pull request adds: Conventional subject, allowed type, a body, the `Co-Authored-By:` and `Claude-Session:` trailers, a `fix:` citing its id |
+| `scripts/check_independent_review.py`, `.github/workflows/independent-review.yml` | Sets the `independent-review` status from the newest trusted review of the head (owner, member or collaborator; verdict on its own line; coverage disclosure; a `Claude-Session:` no commit carries), failing when any commit lacks its session; documentation-only passes. The job is named `judge-review` so it can never stand in for the status |
 | `scripts/rule_integrity/tags.py` | A gate step may live in a workflow or in `.claude/settings.json` |
 | `.claude/skills/pr-review/SKILL.md`, `.claude/ONBOARDING.md` §7, commit and fix-bug rules | The reviewer writes the machine-read lines; the ruleset requires the checks; tags name the gates |
 

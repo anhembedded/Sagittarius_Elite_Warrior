@@ -11,7 +11,7 @@
 ## 1. Decisions already made
 1. In scope: commit lint and the independent-review status, the engine pin and lockfile, Claude Code hooks.
 2. Out of scope by the user's choice: mypy override and exclude fixes, new ruff rules, shrink-only ratchets.
-3. Independence is proven by `Claude-Session:` URLs, because every session posts from one GitHub account.
+3. Independence is shown by self-reported `Claude-Session:` URLs, because every session posts from one GitHub account: it separates sessions that follow the process, not a deliberate bypass. Only owner, member or collaborator comments count, the newest verdict line decides, and every commit must carry its session.
 
 ## 2. Goals — measurable
 | Metric | Today (measured 2026-10-04) | When the epic is done |
