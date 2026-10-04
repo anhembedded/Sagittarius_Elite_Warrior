@@ -111,7 +111,7 @@ def presenter(qapp, container, request):
 
 
 def test_saving_drops_the_remembered_values_settings_now_outranks(presenter, store):
-    presenter._on_save()
+    presenter.apply()
 
     remaining = store.read(_BACKTEST)
     assert "symbol" not in remaining
@@ -122,7 +122,7 @@ def test_saving_keeps_every_remembered_value_settings_does_not_own(presenter, st
     """The reason `discard_for_config_key()` had to exist. Dropping the
     whole slice to invalidate a symbol would take leverage, commission and
     the timezone with it — worse than the problem it solves."""
-    presenter._on_save()
+    presenter.apply()
 
     remaining = store.read(_BACKTEST)
     assert remaining == {
@@ -141,7 +141,7 @@ def test_a_rejected_save_changes_nothing(qapp, container, store, request):
     presenter = MarketDataSettingsPresenter(view, container)
     presenter._settings_view_model.defaultSymbols = "   "
 
-    presenter._on_save()
+    presenter.apply()
 
     assert store.read(_BACKTEST) == _REMEMBERED
 
@@ -160,6 +160,6 @@ def test_saving_without_a_coordinator_still_works(qapp, config, request):
     request.addfinalizer(view.deleteLater)
     presenter = MarketDataSettingsPresenter(view, container)
 
-    presenter._on_save()  # must not raise
+    presenter.apply()  # must not raise
 
     assert presenter._state_coordinator is None

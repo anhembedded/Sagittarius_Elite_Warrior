@@ -53,7 +53,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import (
     IConfigReader,
 )
-from Sagittarius_Elite_Warrior.src.core.contracts.i_config_writer import IConfigWriter
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
@@ -69,12 +68,10 @@ from Sagittarius_Elite_Warrior.src.shell.app_config import (
 from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
     assemble_contributions,
 )
-from Sagittarius_Elite_Warrior.src.shell.developer_options.developer_options_page import (
-    DeveloperOptionsPage,
-)
 from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
     NotificationEventHandler,
 )
+from Sagittarius_Elite_Warrior.src.shell.options_pages import build_options_pages
 from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
@@ -322,14 +319,14 @@ def build() -> AppRuntime:
         state_coordinator=state_coordinator,
         close_objections=app_engine.context.container.resolve(ICloseObjections),
     )
-    # `EPIC-033C` — developer mode moved from Welcome to Tools → Options.
-    window.add_options_page(
-        DeveloperOptionsPage(
-            config_manager,
-            app_engine.context.container.resolve(IConfigWriter),
-            running_with_dev_mode=dev_mode.is_enabled,
-        )
-    )
+    # `EPIC-033E` — Tools → Options: each module's page, then Developer.
+    for page in build_options_pages(
+        contributions,
+        app_engine.context.container,
+        config_manager,
+        running_with_dev_mode=dev_mode.is_enabled,
+    ):
+        window.add_options_page(page)
     # `EPIC-025F` — promote INavigationService to the application container so
     # any component or coordinator can navigate decoupled from MainWindow.
     app_engine.context.container.singleton(

@@ -9,6 +9,11 @@ and this account's credentials (`IExchangeCredentialsProvider`, this
 module's own `support/binance_gateway` dependency, unchanged from the
 monolith). `market_data`'s venue and sync defaults stay in
 `modules/market_data/ui/settings/` instead.
+
+`EPIC-033E`: the section is a page of Tools → Options (`IOptionsSection`).
+It saves nothing on its own: the dialog's OK or Apply calls `apply()`, Cancel
+calls `revert()`, and the dialog asks `is_dirty()` and
+`validation_message()` to enable its buttons.
 """
 
 from __future__ import annotations
@@ -48,13 +53,17 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker impor
     ActionOwnershipTracker,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.enum_labels import EnumLabels
-from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
+from Sagittarius_Elite_Warrior.src.support.ui_kit.options_section_presenter import (
+    OptionsSectionPresenter,
+)
+from sagittarius_engine.extensions.pyside_mvc import safe_ui_action
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 from .trading_settings_view_model import TradingSettingsViewModel
 
 if TYPE_CHECKING:
+    from PySide6.QtCore import SignalInstance
     from sagittarius_engine.interfaces.i_container import IContainer
 
     from .trading_settings_view import TradingSettingsView
@@ -67,15 +76,21 @@ _SAVED_MESSAGE = (
     "Saved. API Key/Secret (if changed) written to secrets.local.json. Both "
     "require restarting the app to take effect."
 )
-_SAVED_IN_MEMORY_ONLY_MESSAGE = (
-    "Applied to the current session, but could NOT be written to "
-    "secrets.local.json — the change will be lost on the next app restart."
+_SECRETS_NOT_SAVED_MESSAGE = (
+    "Could not write secrets.local.json, so nothing was changed. Check that "
+    "the file is writable, then apply again."
 )
-#: `BOT-125` — Save is refused outright rather than partially applied.
+_VENUES_NOT_SAVED_MESSAGE = (
+    "Could not write user_config.json, so the trading venues were not changed. "
+    "Check that the file is writable, then apply again."
+)
+#: `BOT-125` — a venue change is refused outright rather than partially
+#: applied; the dialog keeps OK and Apply disabled and shows this.
 _VENUE_LOCKED_MESSAGE = (
-    "Trading is active — disable trading on its desk or the Dev Board "
-    "before changing the trading venues. Nothing was saved."
+    "Trading is active. Disable trading on its desk or the Dev Board "
+    "before changing the trading venues."
 )
+_TITLE = "Trading"
 
 #: `EPIC-021B` §2.3 — human-readable label per `CredentialsSource`, and
 #: whether the field must be locked.
@@ -89,7 +104,10 @@ _CREDENTIALS_SOURCE_LABELS = EnumLabels(
 )
 
 
-class TradingSettingsPresenter(BasePresenter):
+_Fields = tuple[str, str, tuple[str, ...]]
+
+
+class TradingSettingsPresenter(OptionsSectionPresenter[_Fields]):
     """@brief Presenter for the Trading settings section."""
 
     #: `EPIC-021D` — emitted (from any thread; Qt marshals it to this
@@ -99,7 +117,7 @@ class TradingSettingsPresenter(BasePresenter):
     connectionCheckCompleted = Signal(tuple)
 
     def __init__(self, view: TradingSettingsView, container: IContainer) -> None:
-        super().__init__(view, container)
+        super().__init__(view, container, title=_TITLE)
         # `EPIC-028B` — the credentials of the venue this screen configures,
         # the primary one, until each desk has its own settings (`EPIC-028C`).
         self._credentials_provider: IExchangeCredentialsProvider = (
@@ -115,10 +133,9 @@ class TradingSettingsPresenter(BasePresenter):
         )
 
         self._settings_view_model = TradingSettingsViewModel()
-        self._load_from_config()
+        self._reload()
 
         self.connectionCheckCompleted.connect(self._on_connection_check_completed)
-        self._settings_view_model.saveRequested.connect(self._on_save)
         self._settings_view_model.checkConnectionRequested.connect(
             self._on_check_connection_requested
         )
@@ -135,6 +152,32 @@ class TradingSettingsPresenter(BasePresenter):
         self._settings_view_model.set_venue_locked(self._venue_locked())
         self._apply_credentials_status(resolution)
 
+    def _current_fields(self) -> _Fields:
+        view_model = self._settings_view_model
+        return (
+            view_model.apiKey,
+            view_model.apiSecret,
+            tuple(sorted(view_model.enabledVenues)),
+        )
+
+    def _venues_edited(self) -> bool:
+        return self._current_fields()[2] != self._saved_fields[2]
+
+    # -- IOptionsSection (`EPIC-033E`) --------------------------------------
+
+    def validation_message(self) -> str | None:
+        if self._venues_edited() and self._venue_locked():
+            return _VENUE_LOCKED_MESSAGE
+        return None
+
+    def _change_signals(self) -> tuple[SignalInstance, ...]:
+        view_model = self._settings_view_model
+        return (
+            view_model.apiKeyChanged,
+            view_model.apiSecretChanged,
+            view_model.venueChanged,
+        )
+
     def _venue_locked(self) -> bool:
         """Whether the venue toggles may be edited right now.
 
@@ -147,10 +190,10 @@ class TradingSettingsPresenter(BasePresenter):
             for venue in self._venue_ports.enabled()
         )
 
-    @Slot()
-    @safe_ui_action
-    def _on_save(self) -> None:
-        """API Key/Secret go to `IExchangeCredentialsProvider.save_to_file()`
+    def _save(self) -> bool:
+        """Writes the page; `True` when everything reached disk.
+
+        API Key/Secret go to `IExchangeCredentialsProvider.save_to_file()`
         (`EPIC-021B`, `BUG-080`'s second, independent problem:
         `user_config.json` is git-tracked, so a secret must never reach it) —
         only when an environment variable is not already winning; a write
@@ -166,15 +209,16 @@ class TradingSettingsPresenter(BasePresenter):
                 self.logger.error(
                     f"TradingSettingsPresenter: secrets.local.json write failed: {exc}"
                 )
-                view_model.set_status(_SAVED_IN_MEMORY_ONLY_MESSAGE, is_error=True)
-                return
-        # `BOT-125` — refuse rather than silently skip: a Save that wrote
-        # every other field and quietly dropped this one would be the same
-        # "button appears to work" failure `EPIC-022` removed.
-        if self._venue_locked():
-            view_model.set_status(_VENUE_LOCKED_MESSAGE, is_error=True)
-            return
-        self._write_trading_venues(view_model.enabledVenues)
+                view_model.set_status(_SECRETS_NOT_SAVED_MESSAGE, is_error=True)
+                return False
+        # `BOT-125` — refuse rather than silently skip. The dialog already
+        # keeps OK disabled through `validation_message()`; this guards a
+        # session switched on between that check and the write.
+        if self._venues_edited():
+            if self._venue_locked():
+                view_model.set_status(_VENUE_LOCKED_MESSAGE, is_error=True)
+                return False
+            self._write_trading_venues(view_model.enabledVenues)
 
         if isinstance(self.config, ConfigManager):
             try:
@@ -183,11 +227,26 @@ class TradingSettingsPresenter(BasePresenter):
                 self.logger.error(
                     f"TradingSettingsPresenter: config save failed: {exc}"
                 )
-                view_model.set_status(_SAVED_IN_MEMORY_ONLY_MESSAGE, is_error=True)
-                return
+                view_model.set_status(_VENUES_NOT_SAVED_MESSAGE, is_error=True)
+                return False
 
         self._refresh_credentials_status()
         view_model.set_status(_SAVED_MESSAGE, is_error=False)
+        return True
+
+    def _undo_unsaved_writes(self) -> None:
+        """The venues go back to the saved list. The credentials are what
+        `secrets.local.json` now holds: a failed config write can follow a
+        secrets write that succeeded, and that one is saved."""
+        saved_venues = self._saved_fields[2]
+        if self._venues_edited():
+            self._write_trading_venues(list(saved_venues))
+        credentials = self._credentials_provider.resolve().credentials
+        self._saved_fields = (
+            credentials.api_key if credentials else "",
+            credentials.api_secret if credentials else "",
+            saved_venues,
+        )
 
     def _write_trading_venues(self, enabled: list[str]) -> None:
         """`EPIC-028C` — the list is what boot reads (`resolve_trading_venues`),

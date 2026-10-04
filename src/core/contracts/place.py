@@ -48,8 +48,6 @@ class Place(str, Enum):
     CONSOLE = "console"
     #: A dialog the surface can raise.
     MODAL = "modal"
-    #: One section of the Settings surface.
-    SETTINGS_SECTION = "settings_section"
     #: One reading in the status bar.
     STATUS_TILE = "status_tile"
     #: A developer probe, only ever shown when developer mode is on.

@@ -16,6 +16,11 @@ means the user opened it, so a presenter that goes live when opened does so
 in `IShownAsMode.on_mode_shown()`, which this window calls each time a mode
 shows, with why.
 
+@par One Output pane (`EPIC-033F`)
+Every screen that keeps a log offers it as a channel (`IOutputSource`); the
+window docks one Output pane at the bottom with all of them, and showing a
+mode brings its channel forward.
+
 @par The last mode is remembered (HLD §11.2)
 The window opens on the mode the last session ended in, as Windows
 applications do; the first run opens on the registry's default. It arrives
@@ -52,6 +57,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.assets.icon_loader import (
     get_icon_loader,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.mode_host import ModeHost
+from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source import IOutputSource
 from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import (
     INavigationService,
     IScreenRegistry,
@@ -74,9 +80,13 @@ from sagittarius_engine.extensions.pyside_mvc.workbench.action_confirmation impo
 from sagittarius_engine.extensions.pyside_mvc.workbench.action_registry import (
     ActionRegistry,
 )
+from sagittarius_engine.extensions.pyside_mvc.workbench.i_options_page import (
+    IOptionsPage,
+)
 from sagittarius_engine.extensions.pyside_mvc.workbench.navigation_service import (
     NavigationSource as ShellNavigationSource,
 )
+from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputPane
 from sagittarius_engine.extensions.pyside_mvc.workbench.workbench_shell import (
     ShellMode,
     WorkbenchShell,
@@ -128,6 +138,9 @@ class MainWindow(WorkbenchShell):
         self._state_coordinator = state_coordinator
         self._presenters: dict[str, BasePresenter] = {}
         self._hosts: dict[str, ModeHost] = {}
+        self._output = OutputPane(self)
+        #: Mode id -> its channel in the Output pane, for modes that have one.
+        self._output_channels: dict[str, str] = {}
         self._perspectives = ModePerspectives()
         self._pending_source: ShellNavigationSource | None = None
         self._last_source: ShellNavigationSource | None = None
@@ -137,6 +150,7 @@ class MainWindow(WorkbenchShell):
         self.resize(*_WINDOW_SIZE)
         self._show_venue(venue_text)
         self._add_modes(screen_registry.modes())
+        self.set_output_pane(self._output)
         self.navigation.mode_changed.connect(self._on_mode_changed)
         self.finish_setup()
         for host in self._hosts.values():
@@ -173,6 +187,10 @@ class MainWindow(WorkbenchShell):
             self._presenters[screen.route] = screen.presenter_class(
                 view, self._container
             )
+            channel = view.output_channel() if isinstance(view, IOutputSource) else None
+            if channel is not None:
+                self._output.add_channel(channel)
+                self._output_channels[screen.route] = channel.channel_id
             host = ModeHost(screen.route, view)
             self._hosts[screen.route] = host
             icon = (
@@ -185,6 +203,12 @@ class MainWindow(WorkbenchShell):
             self.add_mode(ShellMode(screen.route, text, host, icon=icon))
             logger.debug("Mode %r built", screen.route)
         logger.info("Workbench built %d mode(s): %s", len(screens), list(self._hosts))
+
+    def add_options_page(self, page: IOptionsPage) -> None:
+        """One page of Tools → Options; the log line is what proves, from a
+        real process, that the composition root added it."""
+        super().add_options_page(page)
+        logger.info("[options] Tools > Options page %r added", page.title)
 
     # -- what tests and the composition root read ----------------------------
 
@@ -239,6 +263,9 @@ class MainWindow(WorkbenchShell):
         self._last_source = source
         presenter = self._presenters[mode_id]
         logger.info("Mode %r shown (%s)", mode_id, source.name)
+        channel_id = self._output_channels.get(mode_id)
+        if channel_id is not None:
+            self._output.show_channel(channel_id)
         if isinstance(presenter, IShownAsMode):
             presenter.on_mode_shown(from_shell_source(source))
         self._mark_dirty()

@@ -25,11 +25,6 @@ class TradingSettingsViewModel(StatusMessageViewModel):
     connectionCheckChanged = Signal()
     venueChanged = Signal()
 
-    #: Emitted when the user clicks Save. The Presenter reads the current
-    #: field values off this view model rather than receiving them as
-    #: arguments, so adding a field never changes this signal's signature.
-    saveRequested = Signal()
-
     #: `EPIC-021D` — emitted when the user clicks "Check Connection".
     checkConnectionRequested = Signal()
 
@@ -164,7 +159,3 @@ class TradingSettingsViewModel(StatusMessageViewModel):
     def set_venue_locked(self, locked: bool) -> None:
         self._venue_locked = locked
         self.venueChanged.emit()
-
-    @Slot()
-    def requestSave(self) -> None:
-        self.saveRequested.emit()

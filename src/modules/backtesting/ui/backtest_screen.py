@@ -1,7 +1,7 @@
 """The Backtest Engine screen as a contribution — `backtesting`'s own
 (`EPIC-025F` PR 5.2).
 
-Same real difference from `settings_screen()`'s shape as `dashboard_screen.py`
+Same real difference from the plain `ScreenContribution` shape as `dashboard_screen.py`
 (same pull request, read its docstring for the full reasoning): which
 concrete View this install uses is a named choice read from `IConfig`
 (`EPIC-013F`), so the view factory needs `container` at construction time,
@@ -10,7 +10,7 @@ arguments. `BacktestingModule.boot()` stashes `context.container` for this
 call.
 
 Both factories below check the concrete type they get, the same real check
-`dashboard_screen()`/`settings_screen()`/`welcome_screen()` all make and the
+`dashboard_screen()` and the other screen factories make and the
 legacy `BacktestScreenModule.create_view()`/`create_presenter()` this
 replaces never did: `build_backtest_view()` returns `IBacktestView` (a
 `Protocol`, unrelated to `BaseView` by inheritance) and `BackTestPresenter`

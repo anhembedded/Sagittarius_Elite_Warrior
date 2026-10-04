@@ -49,6 +49,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_settings_view import (
     TradingSettingsView,
 )
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_credentials_provider import (
+    EnvFirstCredentialsProvider,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.secrets_file_source import (
+    SecretsFileSource,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.i_exchange_credentials_provider import (
     CredentialsSource,
     IExchangeCredentialsProvider,
@@ -60,6 +66,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.settings.primary_venue_contexts import (
     primary_venue_contexts,
 )
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
@@ -203,7 +210,7 @@ def test_saving_writes_the_list_in_venue_order_and_keeps_the_scalar_in_step(
     view_model.requestVenueEnabled(_SPOT.value, True)
     view_model.requestVenueEnabled(_FUTURES.value, True)
 
-    view_model.requestSave()
+    presenter.apply()
 
     assert config.values[_LIST] == [_FUTURES.value, _SPOT.value]
     assert config.values[_SCALAR] == _FUTURES.value
@@ -216,7 +223,7 @@ def test_unticking_every_venue_saves_trading_off(qapp, request, credentials_prov
     view_model = presenter._settings_view_model
     view_model.requestVenueEnabled(_SPOT.value, False)
 
-    view_model.requestSave()
+    presenter.apply()
 
     assert config.values[_LIST] == []
     assert config.values[_SCALAR] == TradingVenue.DISABLED.value
@@ -234,7 +241,7 @@ def test_saving_is_refused_while_any_venue_is_trading(
     view_model = presenter._settings_view_model
     view_model.requestVenueEnabled(_SPOT.value, False)
 
-    view_model.requestSave()
+    presenter.apply()
 
     assert config.values[_LIST] == [_FUTURES.value, _SPOT.value]
     assert view_model.statusIsError is True
@@ -265,7 +272,7 @@ def test_turning_one_venue_off_leaves_the_other_served_after_restart(
     config = _FakeConfig({_LIST: [_FUTURES.value, _SPOT.value]})
     presenter, _view = _presenter(request, config, _Sessions(), credentials_provider)
     presenter._settings_view_model.requestVenueEnabled(_SPOT.value, False)
-    presenter._settings_view_model.requestSave()
+    presenter.apply()
 
     container = StdLibContainer()
     container.singleton(IConfig, DictConfig(config.get_all()))
@@ -277,3 +284,60 @@ def test_turning_one_venue_off_leaves_the_other_served_after_restart(
 
     assert contexts.enabled() == (_FUTURES,)
     assert contexts.primary().venue is _FUTURES
+
+
+def test_a_venue_change_that_cannot_be_written_is_taken_back(
+    qapp, request, credentials_provider, monkeypatch
+):
+    """PR #348 review: when `user_config.json` cannot be written, the live
+    config must not keep the new venue list, or the next read of it routes
+    as if the change had been saved. The edit stays on the page, dirty."""
+
+    def refuse(_self) -> None:
+        raise OSError("read-only file system")
+
+    monkeypatch.setattr(ConfigManager, "save", refuse)
+    config = ConfigManager()
+    config.load_dict({_LIST: [_FUTURES.value, _SPOT.value], _SCALAR: _FUTURES.value})
+    presenter, _view = _presenter(request, config, _Sessions(), credentials_provider)
+    presenter._settings_view_model.requestVenueEnabled(_SPOT.value, False)
+
+    presenter.apply()
+
+    assert config.get(_LIST) == [_FUTURES.value, _SPOT.value]
+    assert config.get(_SCALAR) == _FUTURES.value
+    assert presenter.is_dirty()
+    assert "venues were not changed" in presenter._settings_view_model.statusMessage
+
+
+def test_a_key_already_written_stays_saved_when_the_venues_cannot_be(
+    qapp, request, tmp_path, monkeypatch
+):
+    """PR #348 re-review (S1), the second branch: the secrets file is written
+    first, so when `user_config.json` then fails, the new key is saved and
+    the page takes it as saved; only the venue change stays unapplied."""
+    monkeypatch.delenv("BINANCE_FUTURES_TESTNET_API_KEY", raising=False)
+    monkeypatch.delenv("BINANCE_FUTURES_TESTNET_API_SECRET", raising=False)
+
+    def refuse(_self) -> None:
+        raise OSError("read-only file system")
+
+    monkeypatch.setattr(ConfigManager, "save", refuse)
+    secrets = SecretsFileSource(str(tmp_path / "secrets.local.json"))
+    secrets.write("old-key", "old-secret")
+    provider = EnvFirstCredentialsProvider(secrets, _FUTURES)
+    config = ConfigManager()
+    config.load_dict({_LIST: [_FUTURES.value, _SPOT.value], _SCALAR: _FUTURES.value})
+    presenter, _view = _presenter(request, config, _Sessions(), provider)
+    view_model = presenter._settings_view_model
+    view_model.apiKey = "new-key"
+    view_model.requestVenueEnabled(_SPOT.value, False)
+
+    presenter.apply()
+
+    saved = provider.resolve().credentials
+    assert saved is not None
+    assert saved.api_key == "new-key"
+    assert config.get(_LIST) == [_FUTURES.value, _SPOT.value]
+    assert presenter._saved_fields[0] == "new-key"
+    assert presenter.is_dirty()

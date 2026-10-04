@@ -11,7 +11,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     PageShell,
     PreferredHeightScrollArea,
 )
-from sagittarius_engine.extensions.pyside_mvc import BaseView
+from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
+    OutputSourceView,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputChannel
 
 from .backtest_modals import BackTestModalsHost
 from .backtest_top_panel import BackTestTopPanel
@@ -38,15 +41,12 @@ _TRADE_LOGS_MINIMUM_HEIGHT = 450
 _MAIN_SPLITTER_MINIMUM_HEIGHT = 1000
 
 
-class BackTestView(BaseView):
+class BackTestView(OutputSourceView):
     """
-    @brief View for the Backtest Screen: plain QtWidgets throughout
-    (EPIC-006E) — a top toolbar/metrics panel (`BackTestTopPanel`), a tall
-    chart area (`ChartCard`/pyqtgraph), and a bottom trade-logs panel
-    (`BackTestTradeLogsPanel`), inside a scrollable `QSplitter` layout.
-    @details
-    Wraps content inside a `QScrollArea` to allow smooth vertical rolling on
-    any viewport height without squeezing the candlestick chart or trade logs.
+    @brief The Backtest screen (EPIC-006E): a top panel (`BackTestTopPanel`),
+    the chart, and the results panel (`BackTestTradeLogsPanel`) in a
+    `QSplitter` inside a `QScrollArea`; the run log is the Output pane's
+    "Backtest" channel (`EPIC-033F`).
     """
 
     chartPreviewRendered = Signal()
@@ -140,6 +140,7 @@ class BackTestView(BaseView):
         (EPIC-006E: top/bottom widgets and the modals). `context_name` is
         unused, kept for `BasePresenter`'s generic wiring."""
         self._view_model = view_model
+        self._output = OutputChannel("backtest", "Backtest", view_model.log_model)
         view_model.broker_sim.marketChanged.connect(self._show_marker_sides)
         self.top_widget = BackTestTopPanel(view_model)
         self._scroll_content_layout.insertWidget(0, self.top_widget)

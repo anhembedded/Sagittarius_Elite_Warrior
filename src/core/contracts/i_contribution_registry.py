@@ -19,6 +19,9 @@ from abc import ABC, abstractmethod
 from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import (
     ContributionDescriptor,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.options_page_contribution import (
+    OptionsPageContribution,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
 )
@@ -36,3 +39,8 @@ class IContributionRegistry(ABC):
     def contribute_screen(self, contribution: ScreenContribution) -> None:
         """Offer a whole navigable screen. Raises `ContributionError` on a
         duplicate route or a second default screen."""
+
+    @abstractmethod
+    def contribute_options_page(self, contribution: OptionsPageContribution) -> None:
+        """Offer a page of Tools → Options (`EPIC-033E`). Raises
+        `ContributionError` if this contributor already offered one."""

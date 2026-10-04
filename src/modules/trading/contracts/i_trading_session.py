@@ -1,7 +1,7 @@
 """Port: *is live trading on, and turn it on or off* (HLD §3.4).
 
 **Why this port exists, and the part that is not about imports.** Three
-Presenters and the Settings screen read `TradingSessionState` **directly** —
+Presenters and the Options dialog read `TradingSessionState` **directly** —
 a mutable, lock-guarded application service, reached from the UI thread while
 the websocket thread mutates it (`BUG-088` is why it has a lock at all). The
 boundary allowlist counted that as five entries; the real cost is that a

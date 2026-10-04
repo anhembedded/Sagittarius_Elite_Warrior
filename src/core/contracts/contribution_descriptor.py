@@ -48,7 +48,7 @@ class ContributionDescriptor:
     size_hint: SizeHint
     #: Builds the widget. Never called at contribute time.
     factory: Callable[[IContainer], QWidget]
-    #: Shown by RAIL, SETTINGS_SECTION, MODAL and DEV_PROBE; ignored elsewhere.
+    #: Shown by RAIL, MODAL and DEV_PROBE; ignored elsewhere.
     title: str | None = None
 
     def identity(self) -> tuple[str, Place, str, str]:

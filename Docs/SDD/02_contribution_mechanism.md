@@ -23,19 +23,21 @@ if TYPE_CHECKING:                       # core/ is Qt-free at runtime; the guard
 class Place(Enum):            # canonical list: Docs/VOCABULARY/README.md §2 — adding a member is an HLD change
     SCREEN = "screen"; HEADER = "header"; CONTEXT_BAR = "context_bar"; WORKSPACE = "workspace"
     RAIL = "rail"; CONSOLE = "console"; MODAL = "modal"
-    SETTINGS_SECTION = "settings_section"; STATUS_TILE = "status_tile"; DEV_PROBE = "dev_probe"
+    STATUS_TILE = "status_tile"; DEV_PROBE = "dev_probe"
+    # SETTINGS_SECTION was deleted by EPIC-033E: an Options page is an
+    # OptionsPageContribution (contribute_options_page), not a place.
 
 class SizeHint(Enum): COMPACT = "compact"; REGULAR = "regular"; TALL = "tall"
 
 @dataclass(frozen=True, slots=True)
 class ContributionDescriptor:
     contributor_id: str        # a module_id, or "shell" for the shell's own surfaces — nothing else
-    surface_id: str            # "welcome", "trading", "dev_board", "settings", "backtest", "data_management"
+    surface_id: str            # "trading", "dev_board", "bots", "backtest", "data_management"
     place: Place
     order: int                 # sort key within (surface_id, place); collisions are allowed (see rule 2)
     size_hint: SizeHint
     factory: Callable[[IContainer], QWidget]   # the ONLY Qt-typed field; never called at contribute time
-    title: str | None = None   # shown by RAIL, SETTINGS_SECTION, MODAL, DEV_PROBE; ignored elsewhere
+    title: str | None = None   # shown by RAIL, MODAL, DEV_PROBE; ignored elsewhere
 ```
 
 `ScreenContribution` is the one exception with its own fields, because navigation metadata
@@ -44,7 +46,7 @@ class ContributionDescriptor:
 unchanged; its factory returns `(View, Presenter)`.
 
 **Who may contribute.** Only a `BoundedContextModule` (through `contribute()`) and the shell
-(directly, for `welcome`, `settings` and its own screens). A **support package never contributes**:
+(directly, for its own Options page; `welcome` and `settings` were deleted by `EPIC-033C` and `EPIC-033E`). A **support package never contributes**:
 the module that needs a support widget contributes it under its own `contributor_id` — `trading`
 contributes the chart panel it wants on the trading workspace, `market_data` contributes the
 indicator checklist it wants on Dev Board. So `contributor_id` keeps one meaning and the two-way
@@ -121,7 +123,6 @@ runs a command, not what its arguments are.
 | `welcome` | shell | `HEADER`, `WORKSPACE` |
 | `trading` | shell | `HEADER`, `CONTEXT_BAR`, `WORKSPACE`, `RAIL`, `CONSOLE`, `MODAL`, `STATUS_TILE` |
 | `dev_board` (gated) | shell | the same plus `DEV_PROBE`; system controls are a `HEADER` contribution at `order = 20` |
-| `settings` | shell | `SETTINGS_SECTION` |
 | `backtest` | `backtesting` | `RAIL`, `MODAL` (its own widgets are not contributions) |
 | `data_management` | `market_data` | `RAIL`, `MODAL` |
 

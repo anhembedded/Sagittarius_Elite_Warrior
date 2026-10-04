@@ -39,8 +39,6 @@ _EXPECTED_EXPORTS = (
     "Banner",
     "Column",
     "DataRow",
-    "LogModel",
-    "LogPanel",
     "Pagination",
     "ProgressBanner",
     "RowAction",
@@ -86,7 +84,6 @@ def test_one_class_per_file():
     assert modules == [
         "banner",
         "data_row",
-        "log_panel",
         "progress_banner",
         "tab_bar",
         "table_card",

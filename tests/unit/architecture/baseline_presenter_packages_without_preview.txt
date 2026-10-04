@@ -7,7 +7,7 @@
 # delete the line in the same commit. This list only shrinks.
 #
 # Measured, not copied from the brief: these four were the only presenter
-# packages under src/modules/*/ui and src/shell without a preview.py.
+# packages under src/modules/*/ui and src/shell without a preview.py. The
+# shell's one, src/shell/settings, was deleted by EPIC-033E.
 src/modules/market_data/ui/settings
 src/modules/trading/ui/settings
-src/shell/settings

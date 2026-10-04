@@ -37,13 +37,16 @@ from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_params_st
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     PreferredHeightScrollArea,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
+    OutputSourceView,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.surface_building import (
     fill_surface,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
 )
-from sagittarius_engine.extensions.pyside_mvc import BaseView
+from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputChannel
 
 from .dev_board_panel import MANUAL_ORDER_DIALOG, DevBoardPanel
 from .dev_board_widgets.order_entry_host import OrderEntryHost
@@ -119,7 +122,7 @@ def _action_button(action: QAction) -> QToolButton:
     return button
 
 
-class DashboardView(BaseView):
+class DashboardView(OutputSourceView):
     """
     @brief The View for the Dev Board Screen — a developer testbed, not the
     app's end-user dashboard.
@@ -260,6 +263,9 @@ class DashboardView(BaseView):
         something.
         """
         self._view_model = view_model
+        self._output = OutputChannel(
+            "dev_board.monitor", MONITOR_DOCK, view_model.log_model
+        )
         self._panel = DevBoardPanel(view_model, market_type=self._market_type)
 
         for action_widget in self._panel.header_actions:
@@ -271,9 +277,6 @@ class DashboardView(BaseView):
         self._order_entry_host = OrderEntryHost()
         self._surface.place_widget(
             Place.MODAL, self._order_entry_host, title=MANUAL_ORDER_DIALOG
-        )
-        self._surface.place_widget(
-            Place.CONSOLE, self._panel.console_widget, title=MONITOR_DOCK
         )
         self._add_manual_order_action()
         self._place_contributed_panels()

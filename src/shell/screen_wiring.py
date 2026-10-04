@@ -8,8 +8,7 @@ bounded context or the shell's own Settings. `MainWindow` receives the
 `EPIC-025F` PR 5.2 retired the last of the strangler-period screens this file
 used to carry through an adapter (`shell/legacy_screen_adapter.py`, deleted in
 the same pull request): every navigable screen now describes itself as a
-`ScreenContribution` at its own address, the way `settings_screen()` and
-`welcome_screen()` already did — `dashboard`/`trading` (`modules/trading`),
+`ScreenContribution` at its own address — `dashboard`/`trading` (`modules/trading`),
 `data_management` (`modules/market_data`), `backtest` (`modules/backtesting`).
 This file's one remaining job is the one direction `ContributionRegistry`
 does not do on its own: turning a `ScreenContribution` into the

@@ -35,8 +35,8 @@ import pytest
 #: Bật bằng cách đặt biến môi trường thành thư mục đích.
 _OUTPUT_ENV = "SEW_CAPTURE_SCREENSHOTS"
 
-#: Bốn màn trong phạm vi `EPIC-007`, theo đúng tên route mà sidebar dùng.
-_ROUTES = ("dashboard", "data_management", "backtest", "settings")
+#: The `EPIC-007` screens still routed; Settings became Tools → Options (`EPIC-033E`).
+_ROUTES = ("dashboard", "data_management", "backtest")
 
 pytestmark = pytest.mark.skipif(
     not os.environ.get(_OUTPUT_ENV),

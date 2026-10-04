@@ -707,7 +707,7 @@ class BackTestViewModel(BaseQmlViewModel):
         return self._log_model
 
     # ------------------------------------------------------------------ #
-    # Bottom Tab state ("trades" | "logs")
+    # Bottom Tab state ("trades" | "drawdown" | "returns")
     # ------------------------------------------------------------------ #
     def _get_active_bottom_tab(self) -> str:
         return self._active_bottom_tab

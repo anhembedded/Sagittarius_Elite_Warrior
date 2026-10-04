@@ -126,14 +126,17 @@ def test_a_modules_own_screen_is_collected_too(qapp) -> None:
     contributions = assemble_contributions(container, dev_mode=True)
 
     routes = {screen.route for screen in contributions.screens()}
-    assert {"dashboard", "trading.futures", "trading.spot", "settings"} <= routes
+    assert {"dashboard", "trading.futures", "trading.spot"} <= routes
 
 
-def test_a_container_with_no_modules_still_collects_the_screens(qapp) -> None:
+def test_a_container_with_no_modules_collects_nothing(qapp) -> None:
+    """The shell contributes no screen of its own since `EPIC-033E` moved
+    Settings into Tools → Options: every screen and page is a module's."""
     contributions = assemble_contributions(_container(), dev_mode=True)
 
     assert contributions.panels("dev_board", Place.DEV_PROBE) == ()
-    assert contributions.screens()
+    assert contributions.screens() == ()
+    assert contributions.options_pages() == ()
 
 
 def test_the_factories_are_not_called(qapp) -> None:

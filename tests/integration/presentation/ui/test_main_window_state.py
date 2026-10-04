@@ -172,7 +172,6 @@ _EVERY_MODE = (
     "data_management",
     "watchlist",
     "backtest",
-    "settings",
 )
 
 

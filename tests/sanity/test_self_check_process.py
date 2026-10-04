@@ -129,6 +129,13 @@ def test_the_real_process_reports_a_clean_boot_and_shutdown_sequence() -> None:
         f"--self-check's own log never confirmed the Engine finished "
         f"stopping — teardown() may have exited early:\n{combined}"
     )
+    # `EPIC-033E`: the composition root adds each module's page, then the
+    # shell's, to Tools > Options (`build()` -> `MainWindow.add_options_page`).
+    for title in ("Trading", "Market Data", "Developer"):
+        assert f"[options] Tools > Options page '{title}' added" in combined, (
+            f"--self-check's window has no {title!r} page in Tools > Options:\n"
+            f"{combined}"
+        )
 
 
 def test_the_real_process_stderr_is_clean() -> None:

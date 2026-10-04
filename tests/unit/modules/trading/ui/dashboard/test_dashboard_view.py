@@ -2,7 +2,6 @@ import os
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
-from PySide6.QtCore import Qt
 from PySide6.QtGui import QKeySequence
 from PySide6.QtWidgets import (
     QDockWidget,
@@ -77,11 +76,12 @@ def test_the_workbench_hosts_the_chart_column_and_every_panel_as_a_dock(qapp):
     view.set_view_model(DashboardQmlViewModel())
 
     assert isinstance(view._panel, DevBoardPanel)
-    assert _dock(view, MONITOR_DOCK) is not None
-    # The log spans the window at the bottom, where the user can hide it.
-    assert view._surface.dockWidgetArea(_dock(view, MONITOR_DOCK)) == (
-        Qt.DockWidgetArea.BottomDockWidgetArea
-    )
+    # The System monitor log is a channel of the window's Output pane
+    # (`EPIC-033F`), not a dock of this surface.
+    assert _dock(view, MONITOR_DOCK) is None
+    channel = view.output_channel()
+    assert channel.title == MONITOR_DOCK
+    assert channel.model is view._view_model.log_model
 
 
 def test_the_view_renders_the_surface_the_shell_declares(qapp):

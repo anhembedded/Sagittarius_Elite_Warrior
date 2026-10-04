@@ -47,7 +47,7 @@ that lives inside the widgets that modules own.
 | `trading` | `HEADER` (+ `STATUS_TILE`) · `CONTEXT_BAR` · `WORKSPACE` (chart) · `RAIL` (panels) · `CONSOLE` · `MODAL` | always | no. The declared place family of the two desks (`trading.futures`, `trading.spot`, `EPIC-028K`/`028L`), which are still `PageShell` screens: they move onto this surface when `EPIC-025` converts the remaining `PageShell`s. The single Trading screen that once rendered it left in `EPIC-028M` |
 | `bots` (`EPIC-029F`, ADR D19) | not a surface yet: a `PageShell` screen at NAVIGATION item 18 whose header holds **New bot** and whose workspace is the list of bots beside one bot's detail shell (header and actions, figures, and Chart, Parameters, Orders, Fills, Log and Backtest tabs). The Parameters tab hosts the kind's own editor and the Backtest tab the kind's own backtest (`EPIC-029D`; hidden for a kind without one), both chosen by `kind_id` (`bots/ui/kinds/kind_panels.py`), so the shell names no kind | always | no |
 | `dev_board` | the same as `trading` plus `DEV_PROBE`; the system controls (market, symbol, date range, load, start/stop) are a `HEADER` contribution by `market_data` at `order = 20` — not a place of their own | **`dev.mode` at boot** (ADR D14; today it is **not gated** — measured, `dev.mode` is read by the asset validator, the log filter, and the chart FPS overlay on the backtest screen (`backtest_view.py:204`), so the restart in D14 changes that overlay too — declared) | no (today it is `is_default=True`) |
-| `settings` | `SETTINGS_SECTION` (one per module, by `order`) | always | no |
+| ~~`settings`~~ (deleted, `EPIC-033E`) | none: each module contributes a page of Tools → Options through `contribute_options_page`, and the Options dialog drives the page (apply, revert, dirty) | — | — |
 
 ⚠️ These are changes in **user-visible behaviour**, not pure refactoring, decided by the user on
 2026-09-13 (ADR D13, D14): the app opens on a Welcome screen; Dev Board and every API probe exist
@@ -73,7 +73,7 @@ geometry"*.
 | :--- | :--- | :--- | :--- | :--- |
 | `screen` | `route, title, icon, section_key, sequences, is_default, factory(container) -> (View, Presenter)` | every module | the shell (`ScreenRegistry` ✅ from `EPIC-016` — kept until Phase 5) | the hard-coded tuple of 5 modules at `app_bootstrapper.py:322` |
 | `surface_widget` | `surface_id, slot, order, factory(container) -> QWidget, owner_module` | market_data, trading, strategy, charting, indicators | a surface | two Presenters building their own panels |
-| `settings_section` | `title, order, factory(container) -> QWidget` (a form bound to the **module's own** config keys) | trading (venue, credentials check, limits), market_data (venue, default symbols / interval / sync days) ✅ from `EPIC-025E` PR 4.4e | the `settings` surface | a single `SettingsView` grid that knows every config key |
+| `options_page` | `contributor_id, order, factory(container) -> IOptionsSection` (a page bound to the **module's own** config keys) | trading (venues, credentials check), market_data (venue, default symbols / interval / sync days) ✅ `EPIC-033E`; it was the `settings_section` kind from `EPIC-025E` PR 4.4e | the Options dialog (Tools → Options) | a single `SettingsView` grid that knew every config key, then one Settings screen with a Save button per section |
 | `dev_probe` 🔵 | `title, module_id, factory(container) -> QWidget` | any module with an exchange API it does not yet understand | the `dev_board.probes` slot, only under `dev.mode` | **nothing** (measured: the app has no probe or raw-endpoint UI at all) |
 | `cli_command` | `name, build_parser(sub), execute(app, args)` | market_data (`sync`, `stream`), trading (`exchange-status`, `order-preview`, `order-dry-run`), strategy (`trade-once`) | `shell/cli` | the if/elif chain at `main.py:139-156` plus `cli_commands.json` |
 | `status_tile` | `key, factory -> QWidget` | trading (websocket pill), market_data (price ticker) | a surface header | `DevBoardPanel.header_actions` |
@@ -147,8 +147,8 @@ place. The list is deliberately short, and adding a place is an HLD change, not 
 In one sentence each, so this section reads on its own: `SCREEN` is a navigation entry; inside a
 page, `HEADER` holds page-wide actions and status tiles, `CONTEXT_BAR` the current symbol and
 connection, `WORKSPACE` the one big thing, `RAIL` the column of panels, `CONSOLE` the log, `MODAL` a
-dialog the page opens; `SETTINGS_SECTION`, `STATUS_TILE` and `DEV_PROBE` are the three places
-outside the page shell. Two things are **not** places, on purpose: a free-form docking area (a
+dialog the page opens; `STATUS_TILE` and `DEV_PROBE` are the two places outside the page shell, and a
+page of Tools → Options is a contribution of its own, not a place (`EPIC-033E`). Two things are **not** places, on purpose: a free-form docking area (a
 module never asks for it, even if the Engine adopts docking in Phase 5) and "the sidebar"
 (navigation is derived from `SCREEN` contributions; nothing else goes there).
 
@@ -208,7 +208,7 @@ doubt, start on Dev Board.** A panel that is not yet proven goes to `dev_board.r
 | `backtesting` | ✅ Backtest | ❌ (its run-progress tile goes on **its own** screen's header, not Trading's) | status tile on its own screen | ✅ |
 | `indicators` (support) | — | never contributes; `market_data` contributes the checklist | — | ✅ |
 | `charting` (support) | — | never contributes; the module that wants a chart contributes it (`trading` on the trading workspace, `market_data` on Dev Board) | — | ✅ |
-| *shell* (not a module): `welcome`, `settings` | — | — | — | the rule's own test: surfaces about the application itself belong to the shell, exactly as `welcome` does (ADR D13) |
+| *shell* (not a module): the Developer page of Tools → Options | — | — | — | the rule's own test: what is about the application itself belongs to the shell. The `welcome` and `settings` surfaces that held it were deleted by `EPIC-033C` and `EPIC-033E` |
 
 The check exposes the one place the current code disagrees with the rule: the Trading screen is
 owned by nobody today (it is a `screens/trading` package that rebuilds `trading`'s and

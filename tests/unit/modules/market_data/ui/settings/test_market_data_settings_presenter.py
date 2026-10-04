@@ -25,7 +25,7 @@ from unittest.mock import Mock, call
 
 import pytest
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QLabel, QLineEdit, QPushButton, QSpinBox
+from PySide6.QtWidgets import QLabel, QLineEdit, QSpinBox
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -132,7 +132,7 @@ def test_missing_config_keys_load_safely(qapp, mock_container, mock_config, requ
 def test_save_writes_every_field_to_config(presenter, view_model, mock_config):
     mock_config.reset_mock()  # drop the constructor's get_all() call
 
-    view_model.saveRequested.emit()
+    presenter.apply()
 
     mock_config.set.assert_has_calls(
         [
@@ -149,7 +149,7 @@ def test_save_trims_and_splits_symbols(presenter, view_model, mock_config):
     mock_config.reset_mock()
     view_model.defaultSymbols = " BTCUSDT ,  SOLUSDT ,"
 
-    view_model.saveRequested.emit()
+    presenter.apply()
 
     mock_config.set.assert_any_call("DEFAULT_SYMBOLS", ["BTCUSDT", "SOLUSDT"])
 
@@ -161,7 +161,7 @@ def test_save_with_empty_symbols_is_rejected_without_writing_anything(
     mock_config.reset_mock()
     view_model.defaultSymbols = "   ,  , "
 
-    view_model.saveRequested.emit()
+    presenter.apply()
 
     mock_config.set.assert_not_called()
     assert view_model.statusIsError is True
@@ -189,28 +189,13 @@ def test_save_writes_to_the_real_config_file(qapp, tmp_path, request):
     qapp.processEvents()
     request.addfinalizer(view.deleteLater)
 
-    # Keeping `presenter` alive matters: saveRequested is connected to its
-    # bound method, and PySide6 doesn't keep that connection's target alive
-    # on its own — an unreferenced presenter gets garbage-collected right
-    # after construction, silently dropping the connection before emit().
     presenter = MarketDataSettingsPresenter(view, container)
     view_model = presenter._settings_view_model
     view_model.defaultSymbols = "ETHUSDT"
-    view_model.saveRequested.emit()
+    presenter.apply()
 
     on_disk_config = json.loads(user_file.read_text())
     assert on_disk_config["DEFAULT_SYMBOLS"] == ["ETHUSDT"]
-
-
-def test_request_save_slot_triggers_the_same_path(presenter, view_model, mock_config):
-    """`requestSave()` is what the Save button's `clicked` handler calls
-    (see `MarketDataSettingsView.set_view_model`) — proves that entry point
-    reaches the presenter, not just the raw `saveRequested` signal."""
-    mock_config.reset_mock()
-
-    view_model.requestSave()
-
-    mock_config.set.assert_any_call("DEFAULT_SYMBOLS", ["BTCUSDT", "ETHUSDT"])
 
 
 # ---------------------------------------------------------------------------
@@ -229,18 +214,6 @@ def test_screen_shows_config_values_on_real_widgets(presenter, qapp):
     assert view.findChild(QSpinBox, "spinDefaultSyncDays").value() == 30
 
 
-def test_save_button_click_writes_config(presenter, qapp, mock_config):
-    """Full chain: real QPushButton click -> viewModel.requestSave() ->
-    presenter -> IConfig."""
-    qapp.processEvents()
-    mock_config.reset_mock()
-
-    presenter.view.findChild(QPushButton, "btnSaveMarketDataSettings").click()
-    qapp.processEvents()
-
-    mock_config.set.assert_any_call("DEFAULT_SYMBOLS", ["BTCUSDT", "ETHUSDT"])
-
-
 def test_view_model_writes_flow_back_into_a_save(presenter, view_model, mock_config):
     """
     The write half of the two-way binding: the widget's `textEdited`/
@@ -254,7 +227,7 @@ def test_view_model_writes_flow_back_into_a_save(presenter, view_model, mock_con
 
     view_model.defaultInterval = "15m"
     view_model.defaultSyncDays = 90
-    view_model.saveRequested.emit()
+    presenter.apply()
 
     mock_config.set.assert_any_call("DEFAULT_INTERVAL", "15m")
     mock_config.set.assert_any_call("DEFAULT_SYNC_DAYS", 90)

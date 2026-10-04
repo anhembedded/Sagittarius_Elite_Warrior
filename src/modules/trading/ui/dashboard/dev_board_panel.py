@@ -54,9 +54,6 @@ from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_catalog i
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_params_store import (
     IndicatorScriptParamsStore,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.app_log_panel import (
-    AppLogPanel,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
@@ -136,8 +133,9 @@ class DevBoardPanel(QObject):
     Every private attribute stays where it was — `panel._btn_start`,
     `panel._txt_start_date`, `panel._script_checkboxes` — because that is
     what tests and the Presenter key off. New: the public read side,
-    `dock_panels`/`header_actions`/`status_tiles`/
-    `console_widget`.
+    `dock_panels`/`header_actions`/`status_tiles`. The System monitor log is
+    a channel of the window's Output pane since `EPIC-033F`
+    (`DashboardView.output_channel`).
     """
 
     def __init__(
@@ -185,14 +183,6 @@ class DevBoardPanel(QObject):
         self._last_signal_card = LastSignalCard(view_model)
         self._session_card = SessionCard(view_model)
         self._indicators_card = self._build_indicators()
-
-        self._log_panel = AppLogPanel("SYSTEM MONITOR")
-        self._log_panel.setObjectName("monitorLogPanel")
-        self._log_panel.setMinimumHeight(160)
-        self._log_panel.set_log_model(view_model.log_model)
-        # Not added to `outer` — `DashboardView` places this in the
-        # workbench's bottom dock instead (`console_widget` below), where it
-        # spans the window and the user can hide it.
 
         self._wire_view_model()
         self._sync_price_ticker()
@@ -341,12 +331,6 @@ class DevBoardPanel(QObject):
         readouts that answer "is it live, and at what price" without the user
         asking for anything."""
         return [self._price_ticker_label, self._ws_status_pill]
-
-    @property
-    def console_widget(self) -> AppLogPanel:
-        """Public accessor for `DashboardView` to place in the workbench's
-        bottom dock."""
-        return self._log_panel
 
     @property
     def dock_panels(self) -> list[tuple[str, QWidget]]:

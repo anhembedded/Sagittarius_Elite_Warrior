@@ -223,7 +223,7 @@ def test_missing_credentials_load_safely(qapp, mock_config, tmp_path, request):
 def test_save_writes_credentials_to_the_provider(
     presenter, view_model, credentials_provider
 ):
-    view_model.saveRequested.emit()
+    presenter.apply()
 
     resolved = credentials_provider.resolve().credentials
     assert resolved.api_key == "test-key"
@@ -264,15 +264,11 @@ def test_save_writes_a_new_key_to_the_real_secrets_file(qapp, tmp_path, request)
     qapp.processEvents()
     request.addfinalizer(view.deleteLater)
 
-    # Keeping `presenter` alive matters: saveRequested is connected to its
-    # bound method, and PySide6 doesn't keep that connection's target alive
-    # on its own — an unreferenced presenter gets garbage-collected right
-    # after construction, silently dropping the connection before emit().
     presenter = TradingSettingsPresenter(view, container)
     view_model = presenter._settings_view_model
     view_model.apiKey = "real-key"
     view_model.apiSecret = "real-secret"
-    view_model.saveRequested.emit()
+    presenter.apply()
 
     on_disk_secrets = json.loads(secrets_file_path.read_text())
     assert on_disk_secrets == {"API_KEY": "real-key", "API_SECRET": "real-secret"}
@@ -306,24 +302,10 @@ def test_save_does_not_touch_the_secrets_file_when_an_env_var_is_locking_it(
     view = TradingSettingsView()
     request.addfinalizer(view.deleteLater)
     presenter = TradingSettingsPresenter(view, container)
-    view_model = presenter._settings_view_model
 
-    view_model.saveRequested.emit()
+    presenter.apply()
 
     assert not secrets_file_path.exists()
-
-
-def test_request_save_slot_triggers_the_same_path(
-    presenter, view_model, credentials_provider
-):
-    """`requestSave()` is what the Save button's `clicked` handler calls
-    (see `TradingSettingsView.set_view_model`) — proves that entry point
-    reaches the presenter, not just the raw `saveRequested` signal."""
-    view_model.apiKey = "requested-key"
-
-    view_model.requestSave()
-
-    assert credentials_provider.resolve().credentials.api_key == "requested-key"
 
 
 # ---------------------------------------------------------------------------
@@ -387,20 +369,6 @@ def test_env_locked_credentials_disable_the_input_fields(
     assert "environment variable" in label.text()
 
 
-def test_save_button_click_writes_credentials(presenter, qapp, credentials_provider):
-    """Full chain: real QPushButton click -> viewModel.requestSave() ->
-    presenter -> IExchangeCredentialsProvider."""
-    qapp.processEvents()
-    field = presenter.view.findChild(QLineEdit, "txtApiKey")
-    field.setText("clicked-key")
-    field.textEdited.emit("clicked-key")
-
-    presenter.view.findChild(QPushButton, "btnSaveCredentials").click()
-    qapp.processEvents()
-
-    assert credentials_provider.resolve().credentials.api_key == "clicked-key"
-
-
 def test_view_model_writes_flow_back_into_a_save(
     presenter, view_model, credentials_provider
 ):
@@ -409,7 +377,7 @@ def test_view_model_writes_flow_back_into_a_save(
     `TradingSettingsView._on_api_key_edited`), so a value written that way
     must be what Save persists."""
     view_model.apiKey = "edited-key"
-    view_model.saveRequested.emit()
+    presenter.apply()
 
     assert credentials_provider.resolve().credentials.api_key == "edited-key"
 

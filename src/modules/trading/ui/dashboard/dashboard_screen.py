@@ -1,7 +1,7 @@
 """The Dev Board (Dashboard) screen as a contribution — `trading`'s own
 (`EPIC-025F` PR 5.2).
 
-Same shape `settings_screen()` established (`EPIC-025E` PR 4.4e), with one
+Same `ScreenContribution` shape as the other screens (`EPIC-025E` PR 4.4e), with one
 real difference from every other screen converted this way: `DashboardView`
 needs `container` at *view* construction (`_contribution_table(container)`,
 to read every module's `DEV_PROBE` contributions), not only at presenter

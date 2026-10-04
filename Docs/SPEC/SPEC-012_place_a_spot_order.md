@@ -19,7 +19,7 @@ afterwards — not pretend I opened a leveraged position."*
 
 ## 2. Preconditions
 
-1. Spot Testnet is enabled in Settings (ADR D8 — Spot mainnet is out of scope, `EPIC-026`'s
+1. Spot Testnet is enabled in Tools → Options → Trading (ADR D8 — Spot mainnet is out of scope, `EPIC-026`'s
    gates own it). This is a boot-time choice, not a per-order one: on the Spot desk
    `MarketType.SPOT` follows from its venue everywhere this use case reads it (`ADR D1`).
 2. Live trading is on (SPEC-004) — for a **live** submission only, same as SPEC-005.

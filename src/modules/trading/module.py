@@ -39,9 +39,9 @@ that names the venue.
 
 **`contribute()` since PR 1.4c-4, and what it contributes.** One
 `DEV_PROBE`: the live trading session's own state, on the Dev Board — the
-first widget any bounded context owns. `EPIC-025E` PR 4.4e adds a second: one
-`SETTINGS_SECTION` for this module's own credentials, order venue and
-connection check, split off the old monolithic Settings screen.
+first widget any bounded context owns. `EPIC-025E` PR 4.4e adds a second: this
+module's own credentials, order venue and connection check, split off the old
+monolithic Settings screen, and a page of Tools → Options since `EPIC-033E`.
 
 **`subscribe()` not implemented, and why:** this context's Qt-side
 subscriptions still live in the two legacy Presenters, and they move with those
@@ -61,8 +61,15 @@ from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
 from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import (
     ContributionDescriptor,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_options_section import (
+    IOptionsSection,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.options_page_contribution import (
+    OptionsPageContribution,
 )
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
@@ -103,9 +110,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.spot_desk
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.probes import (
     build_trading_session_probe,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.ui.settings_contribution import (
-    build_trading_settings_section,
-)
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
@@ -133,6 +137,14 @@ _DEFAULT_POSITION_REFRESH_INTERVAL_SECONDS: float = 5.0
 #: Futures Multi-Assets mode (weight 30) only every five minutes
 #: (`futures_account_reader.ASSET_MODE_TTL_SECONDS`), about 6 weight/min.
 _MIN_POSITION_REFRESH_INTERVAL_SECONDS: float = 1.0
+
+
+#: Tools → Options → Trading (`EPIC-033E`), built when the shell
+#: assembles the dialog's pages.
+_OPTIONS_PAGE: Deferred[IOptionsSection] = Deferred(
+    "Sagittarius_Elite_Warrior.src.modules.trading.ui.settings.trading_options_page"
+    ":build_trading_options_page"
+)
 
 
 class TradingModule(BoundedContextModule):
@@ -216,15 +228,11 @@ class TradingModule(BoundedContextModule):
                 title="Trading session",
             )
         )
-        registry.contribute(
-            ContributionDescriptor(
+        registry.contribute_options_page(
+            OptionsPageContribution(
                 contributor_id=self.module_id,
-                surface_id="settings",
-                place=Place.SETTINGS_SECTION,
                 order=10,
-                size_hint=SizeHint.REGULAR,
-                factory=build_trading_settings_section,
-                title="Trading",
+                factory=_OPTIONS_PAGE,
             )
         )
         registry.contribute_screen(dashboard_screen(self._container))

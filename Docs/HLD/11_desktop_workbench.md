@@ -151,7 +151,7 @@ The mechanism of §4 is unchanged: a module contributes to places, the host rend
 | `CONSOLE` | the one Output dock in the bottom area (`EPIC-033F`) | Familiarity |
 | `MODAL` | a `QDialog` with a `QDialogButtonBox`, a title naming the command, validation before OK enables | Prevention over confirmation |
 | `STATUS_TILE` | a widget in the `QStatusBar` (connection, venue, run progress) | Actionable errors |
-| `SETTINGS_SECTION` | a page in Tools → **Options** (sections left, pages right, OK / Cancel / Apply) | Familiarity |
+| *(not a place)* an Options page (`contribute_options_page`, `EPIC-033E`) | a page in Tools → **Options** (sections left, pages right, OK / Cancel / Apply) | Familiarity |
 | `DEV_PROBE` | a `QDockWidget` in the Developer mode, only under `dev.mode` | — |
 
 The surface host implements `IPlaceHost` with a `QMainWindow`; `PageShell` is retired. The

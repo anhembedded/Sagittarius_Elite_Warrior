@@ -5,8 +5,7 @@ exception: navigation metadata already exists as `NavMetadata` and is consumed
 by the mode bar unchanged, so a screen carries that instead of a `place` and a
 `size_hint`. Its factory pair is the pair `ScreenRegistry` already expects — a
 view factory and a presenter factory — the same shape every screen in this
-codebase describes itself with, shell-owned (`settings_screen()`) and
-module-owned alike (`EPIC-025F` PR 5.2).
+codebase describes itself with (`EPIC-025F` PR 5.2).
 """
 
 from __future__ import annotations

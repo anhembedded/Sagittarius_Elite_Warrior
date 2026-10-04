@@ -39,8 +39,6 @@ _NOT_SHOWCASEABLE = frozenset(
         "Tab",
         "Tone",
         "WidgetState",
-        # A structural protocol, not a class to construct.
-        "LogModel",
         # Abstract gates — instantiating either raises TypeError by design.
         "Overlay",
         "Surface",

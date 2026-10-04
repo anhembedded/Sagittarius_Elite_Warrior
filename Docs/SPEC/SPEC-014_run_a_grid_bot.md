@@ -16,7 +16,7 @@ sound, I start it, and I watch what it does."*
 
 ## 2. Preconditions
 
-- Spot Testnet is enabled in Settings and the app was restarted after the change;
+- Spot Testnet is enabled in Tools → Options → Trading and the app was restarted after the change;
   `secrets.local.json` holds its key pair.
 - The symbol's daily candles are stored (Database tab) for the ATR and Bollinger suggestions and
   the ATR zones; without them the plan is still judged, only those are missing.
