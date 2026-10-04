@@ -60,6 +60,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
 
 logger = logging.getLogger("App.Bots.GridExecutor")
 
+#: The prefix of a reason detail while STOPPING waits; cleared on STOPPED.
+_WAITING = "waiting:"
+
 
 class GridStopSequence:
     """Cancels, keeps or sells, and confirms — or says why it waits."""
@@ -154,6 +157,12 @@ class GridStopSequence:
         if left:
             self._wait(f"{len(left)} order(s) carrying the tag are still open")
             return
+        runtime = state.runtime
+        if runtime.reason_detail.startswith(_WAITING):
+            # The wait is over: STOPPED shows why the bot stopped, not what
+            # it once waited for.
+            reason = runtime.reason or GridReason.USER_STOP
+            state.update(runtime.with_reason(reason, reason.value))
         state.transition(BotLifecycleEvent.STOP_CONFIRMED)
         owner = bot_owner_id(state.bot_id)
         self._context.session.clear_owner_budget(owner)
@@ -162,5 +171,5 @@ class GridStopSequence:
     def _wait(self, detail: str) -> None:
         state = self._context.state
         reason = state.runtime.reason or GridReason.USER_STOP
-        state.update(state.runtime.with_reason(reason, f"waiting: {detail}"))
+        state.update(state.runtime.with_reason(reason, f"{_WAITING} {detail}"))
         logger.info("Bot %s: STOPPING waits — %s", state.bot_id, detail)

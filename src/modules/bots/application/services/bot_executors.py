@@ -52,7 +52,14 @@ class BotExecutors:
     def retire(self, bot_id: str) -> None:
         """Close the bot's worker, after it runs what is queued, and forget it.
         A new run calls this before writing its bot, so no task of the old
-        run saves a stale bot over the new one's file."""
+        run saves a stale bot over the new one's file.
+
+        The join runs on the caller's thread, under the start lock when the
+        runner calls it. A DRAFT or STOPPED bot's worker is idle, so it
+        returns at once; a task still in a network call (a stop that is
+        retrying) would hold every start until that call returns, which is
+        the request timeout of the venue's client (PR 325 review, accepted:
+        a bounded join would let the stale task write after the new run)."""
         with self._lock:
             executor = self._executors.pop(bot_id, None)
         if executor is not None:

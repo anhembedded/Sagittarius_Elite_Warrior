@@ -230,6 +230,7 @@ def test_stop_while_trading_is_off_waits_then_finishes_when_trading_returns() ->
     world.executor.on_switch(True, TradingSwitchCause.ENABLED)
     assert world.state() is S.STOPPED
     assert world.book.open == {}
+    assert "waiting" not in _runtime(world).reason_detail
 
 
 def test_a_waiting_stop_keeps_the_users_choice_to_sell() -> None:
