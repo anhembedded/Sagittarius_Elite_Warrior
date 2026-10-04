@@ -92,15 +92,22 @@ def _smallest_and_largest_order() -> tuple[Decimal, Decimal]:
     return min(notionals), max(notionals)
 
 
-def test_min_notional_at_the_smallest_order_passes_and_a_cent_more_refuses() -> None:
+def test_min_notional_at_the_smallest_order_net_of_fee_passes_a_cent_more_refuses() -> (
+    None
+):
+    """A SELL is sized net of the fee its buy paid in base (`EPIC-029E`), so
+    the smallest order the bot ever sends is the smallest level less the
+    taker fee; below the exchange minimum Binance would refuse it."""
     smallest, _ = _smallest_and_largest_order()
-    at = _evaluate(terms=replace(TERMS, min_notional=smallest))
-    above = _evaluate(terms=replace(TERMS, min_notional=smallest + CENT))
+    net = smallest * (1 - TERMS.taker_fee)
+    at = _evaluate(terms=replace(TERMS, min_notional=net))
+    above = _evaluate(terms=replace(TERMS, min_notional=net + CENT))
     assert _verdict(at, "MIN_NOTIONAL", "LEVEL_BELOW_MIN_NOTIONAL").severity is OK
     refused = _verdict(above, "MIN_NOTIONAL", "LEVEL_BELOW_MIN_NOTIONAL")
     assert refused.code == "LEVEL_BELOW_MIN_NOTIONAL"
     assert refused.refuses
     assert refused.numbers["smallest_order"] == smallest
+    assert refused.numbers["smallest_after_fee"] == net
 
 
 def test_cap_at_the_largest_order_passes_and_a_cent_less_refuses_naming_the_cap() -> (

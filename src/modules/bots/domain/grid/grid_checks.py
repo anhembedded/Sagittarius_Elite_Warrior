@@ -12,9 +12,9 @@
     per-order cap (ADR D21, O5), which trading rejects. It names the cap and
     the largest capital that would pass;
   · `TOO_MANY_LEVELS` — more orders than the bot may hold open
-    (`ExchangeTerms.max_open_orders`: the venue's `MAX_NUM_ORDERS` and
-    trading's per-owner cap, ADR O1, whichever is lower), which the exchange
-    or trading rejects. Checked before the ladder is built, so a huge
+    (`ExchangeTerms.max_open_orders`: trading's per-owner cap, ADR O1, which
+    stays below Binance Spot's `MAX_NUM_ORDERS` of 200; that filter itself is
+    not read), which trading rejects. Checked before the ladder is built, so a huge
     `grid_count` costs nothing (`grid_evaluation.py`; PR #318 review).
 
 **Warnings** carry the threshold and the measured value. A check that cannot
@@ -90,14 +90,22 @@ def check_break_even(inputs: GridCheckInputs) -> Verdict:
 
 
 def check_min_notional(inputs: GridCheckInputs) -> Verdict:
+    """A SELL is sized net of the fee its buy paid in base, so the smallest
+    order the bot sends is the smallest level less the taker fee."""
     smallest = min(level.notional for level in inputs.plan.order_levels)
+    net = smallest * (1 - inputs.terms.taker_fee)
     minimum = inputs.terms.min_notional
-    numbers = {"smallest_order": smallest, "min_notional": minimum}
-    if smallest < minimum:
+    numbers = {
+        "smallest_order": smallest,
+        "smallest_after_fee": net,
+        "min_notional": minimum,
+    }
+    if net < minimum:
         return Verdict(
             REFUSED,
             "LEVEL_BELOW_MIN_NOTIONAL",
-            f"A level's order is worth {smallest}, below the exchange minimum of {minimum}",
+            f"A level's order is worth {net} after the fee, below the exchange "
+            f"minimum of {minimum}",
             numbers,
         )
     return Verdict(
