@@ -185,9 +185,15 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_no_cross_screen_imports.py",
         (("src/presentation/ui/screens", "*.py"),),
     ),
+    # `EPIC-030G` — replaces `test_preview_fixtures_exist.py`'s static check,
+    # which listed targets from the deleted `src/presentation/ui/screens`.
     (
-        "tests/unit/presentation/ui/test_preview_fixtures_exist.py",
-        (("src/support/ui_kit/sidebar", "*.py"),),
+        "tests/unit/architecture/test_every_presenter_package_has_a_preview.py",
+        (
+            ("src/modules", "*_presenter.py"),
+            ("src/shell", "*_presenter.py"),
+            ("src", "preview.py"),
+        ),
     ),
     # Two roots since `EPIC-025` PR 1.6a: `Palette` itself now lives under
     # `support/ui_kit/assets/`, while most of its consumers are still in the

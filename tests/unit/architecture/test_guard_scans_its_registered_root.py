@@ -40,7 +40,7 @@ these:**
   module (`ui_trees.py`'s `UI_TREES`/`UI_TREE_ROWS`/`existing_ui_trees()`),
   not literal in the guard's own AST: `test_card_layer_structure.py`,
   `test_widget_guards_hold.py`, `test_palette_is_the_only_color_source.py`,
-  `test_quick_widget_only_in_embed.py`, `test_preview_fixtures_exist.py`.
+  `test_quick_widget_only_in_embed.py`.
 - **Root behind a function parameter** — the call's receiver is a plain
   parameter (`def _iter_python_files(root): ... root.rglob(...)`); the real
   value only exists at each call site, which this file-local check does not
@@ -117,7 +117,6 @@ _UNRESOLVABLE_GUARDS: dict[str, str] = {
     "tests/unit/architecture/test_card_layer_structure.py": "same `_iter_python_files(root)` helper as above, called with an imported `UI_TREES`/`existing_ui_trees()` root table — doubly out of scope.",
     "tests/unit/presentation/ui/test_widget_guards_hold.py": "roots come from `UI_TREE_ROWS`, imported from `ui_trees.py`, not literal in this file's own AST.",
     "tests/unit/architecture/test_no_cross_screen_imports.py": "scans `package_dir.rglob(...)` where `package_dir` is a subdirectory name discovered by `.iterdir()` at runtime.",
-    "tests/unit/presentation/ui/test_preview_fixtures_exist.py": "one scan root is runtime-discovered via `.iterdir()`; the other iterates a root table imported from `ui_trees.py`.",
     "tests/unit/presentation/ui/test_palette_is_the_only_color_source.py": "roots come from `UI_TREE_ROWS`, imported from `ui_trees.py`, not literal in this file's own AST.",
     "tests/unit/architecture/test_quick_widget_only_in_embed.py": "roots include `*UI_TREE_ROWS`, imported from `ui_trees.py`, spread into a tuple this file does not itself define.",
     "tests/unit/config/test_binance_endpoint_config_keys_are_dead.py": "reads named files directly (`.read_text()`) — no glob/rglob/iterdir call.",
