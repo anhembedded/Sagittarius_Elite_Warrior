@@ -171,6 +171,22 @@ def _field(item: object, *keys: str) -> object:
     return value
 
 
+def authored_messages(commits: list[dict[str, object]]) -> tuple[str, ...]:
+    """The messages of the commits a session wrote: merge commits are skipped.
+
+    A base merge (GitHub's "Update branch", `git merge`) is GitHub's or git's
+    message, not a session's, and carries no `Claude-Session:` trailer;
+    `commit-lint` skips it for the same reason (`--no-merges`).
+    """
+    messages: list[str] = []
+    for item in commits:
+        parents = item.get("parents")
+        if isinstance(parents, list) and len(parents) > 1:
+            continue
+        messages.append(str(_field(item, "commit", "message")))
+    return tuple(messages)
+
+
 def fetch(repository: str, number: int, token: str) -> PullRequest:
     base = f"{_API}/repos/{repository}"
     pull = _get(f"{base}/pulls/{number}", token)
@@ -180,9 +196,7 @@ def fetch(repository: str, number: int, token: str) -> PullRequest:
     return PullRequest(
         head_sha=str(_field(pull, "head", "sha")),
         changed_paths=tuple(str(_field(item, "filename")) for item in files),
-        commit_messages=tuple(
-            str(_field(item, "commit", "message")) for item in commits
-        ),
+        commit_messages=authored_messages(commits),
         comments=tuple(
             Comment(
                 str(item.get("body") or ""), str(item.get("author_association") or "")

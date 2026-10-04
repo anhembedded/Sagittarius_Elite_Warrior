@@ -11,6 +11,7 @@ import pytest
 from Sagittarius_Elite_Warrior.scripts.check_independent_review import (
     Comment,
     PullRequest,
+    authored_messages,
     judge,
 )
 
@@ -118,3 +119,17 @@ def test_a_review_of_another_commit_does_not_count() -> None:
     verdict = judge(_pull(stale))
     assert not verdict.passed
     assert _HEAD[:7] in verdict.reason
+
+
+def test_p6_a_base_merge_commit_does_not_need_a_session() -> None:
+    """PR #326 round-2 finding: a merge from the base carries no trailer, and is skipped."""
+    commits: list[dict[str, object]] = [
+        {"commit": {"message": _COMMIT}, "parents": [{"sha": "a"}]},
+        {
+            "commit": {"message": "Merge branch 'master-warrior' into feature"},
+            "parents": [{"sha": "a"}, {"sha": "b"}],
+        },
+    ]
+    messages = authored_messages(commits)
+    assert messages == (_COMMIT,)
+    assert judge(_pull(_owner(_review()), commits=messages)).passed
