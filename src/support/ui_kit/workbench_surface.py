@@ -122,10 +122,14 @@ class WorkbenchSurface(RegionHost):
         place_regions = {
             place.value: _PLACE_TO_REGION[place] for place in surface.accepts
         }
+        # Engine 3.0.0 toolbars take actions only; this app's toolbars still
+        # hold widgets until EPIC-033D makes every command a QAction, and
+        # EPIC-033M removes this opt-in.
         super().__init__(
             surface=surface_decl,
             place_regions=place_regions,
             parent=parent,
+            legacy_toolbar_widgets=True,
         )
         self._banner: QToolBar | None = None
         self._add_environment_banner()
