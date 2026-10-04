@@ -12,6 +12,20 @@ from decimal import Decimal
 
 
 @dataclass(frozen=True, slots=True)
+class BotOrderLine:
+    """One order the bot has resting, as its runtime records it: the Bots
+    tab's "orders" table, read without asking the exchange."""
+
+    level: int
+    #: `"BUY"` or `"SELL"`.
+    side: str
+    price: Decimal
+    quantity: Decimal
+    executed: Decimal
+    client_order_id: str
+
+
+@dataclass(frozen=True, slots=True)
 class BotProgress:
     """One run's account: profit booked, cycles, what rests and what is held.
 
@@ -25,3 +39,5 @@ class BotProgress:
     average_cost: Decimal | None
     reason: str
     reason_detail: str
+    #: The orders resting now, lowest level first.
+    orders: tuple[BotOrderLine, ...] = ()

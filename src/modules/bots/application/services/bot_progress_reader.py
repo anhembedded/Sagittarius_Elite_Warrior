@@ -13,6 +13,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtim
     decode_runtime,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
+    BotOrderLine,
     BotProgress,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
@@ -45,4 +46,16 @@ def bot_progress(stored: StoredBot) -> BotProgress | None:
         average_cost=runtime.average_cost,
         reason=runtime.reason.value if runtime.reason is not None else "",
         reason_detail=runtime.reason_detail,
+        orders=tuple(
+            BotOrderLine(
+                level=level.index,
+                side=level.order.side.value,
+                price=level.order.price,
+                quantity=level.order.quantity,
+                executed=level.order.executed,
+                client_order_id=level.order.client_order_id,
+            )
+            for level in runtime.levels
+            if level.order is not None
+        ),
     )
