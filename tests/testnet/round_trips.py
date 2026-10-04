@@ -66,6 +66,17 @@ def _market(side: OrderSide, quantity: Decimal, *, reduce_only: bool = False) ->
     )
 
 
+def wait_until(what: str, condition: Callable[[], bool]) -> None:
+    """@brief Polls `condition` until it holds, or raises `TimeoutError`
+    naming `what`: a named condition, never a blind sleep."""
+    deadline = time.monotonic() + _TIMEOUT_S
+    while time.monotonic() < deadline:
+        if condition():
+            return
+        time.sleep(_POLL_INTERVAL_S)
+    raise TimeoutError(f"{what} within {_TIMEOUT_S}s")
+
+
 def _wait_until_position(
     client: ITradingClient, predicate: Callable[[list[LivePosition]], bool]
 ) -> list[LivePosition]:
