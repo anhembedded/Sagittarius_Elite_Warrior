@@ -1,9 +1,10 @@
 # EPIC-031A — a code pull request carries a passing review from a session that
 # wrote none of its commits (ONBOARDING.md §7). The verdict is the commit status
 # `independent-review` on the pull request's head, set on every push and every
-# comment; the master-warrior ruleset requires it. The job itself stays green:
-# the status is the gate, and a comment-triggered run belongs to the default
-# branch, not to the pull request.
+# comment; the master-warrior ruleset requires it. The job is named
+# `judge-review`, never `independent-review`: a required check matches check
+# runs and statuses by name, so a job sharing the status's name would let a
+# green job stand in for a judgement it never made.
 name: independent-review
 
 on:
@@ -24,8 +25,8 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  independent-review:
-    name: independent-review
+  judge-review:
+    name: judge-review
     if: github.event_name == 'pull_request' || github.event.issue.pull_request
     runs-on: ubuntu-latest
     steps:

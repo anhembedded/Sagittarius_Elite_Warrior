@@ -8,15 +8,22 @@ trailer (`commit-rule.md` §2), and the `pr-review` skill ends its PR comment
 with its own. This script reads both and sets the commit status
 `independent-review` on the pull request's head:
 
-* success when a comment names the head commit, says `Verdict: PASS`, holds the
-  Check ID coverage disclosure, and carries a `Claude-Session:` URL that no
-  commit of the pull request carries;
+* success when the newest review comment on the head commit -- written by the
+  repository's owner, a member or a collaborator, with its verdict on a line of
+  its own -- says `Verdict: PASS`, holds the Check ID coverage disclosure, and
+  carries a `Claude-Session:` URL that no commit of the pull request carries,
+  while every commit carries one (`commit-lint` requires it);
 * success, without a review, when the change is documentation-only
   (`ONBOARDING.md` §7: every changed path is `*.md` or the PR template);
 * failure otherwise, naming what is missing.
 
 `.github/workflows/independent-review.yml` runs it on every push and every
 comment; the `master-warrior` ruleset can then require the status.
+
+What this proves, and what it does not: the session URLs are self-reported. The
+status shows that sessions following the process kept author and reviewer
+apart; it cannot stop an owner-level account that deliberately writes another
+session's URL. Comments from anyone else on this public repository are ignored.
 Stdlib only, so it runs on the runner's system Python.
 
 Retire when: the reviewer posts from its own GitHub identity, so a native
@@ -37,7 +44,12 @@ STATUS_CONTEXT = "independent-review"
 _SESSION = re.compile(
     r"Claude-Session:\s*(https://claude\.ai/code/session_[A-Za-z0-9]+)"
 )
-_VERDICT_PASS = re.compile(r"verdict:?\**\s*\**\s*pass\b", re.IGNORECASE)
+#: The verdict line: alone on its line, optionally in bold, one of the three verdicts.
+_VERDICT = re.compile(
+    r"^\s*\**\s*Verdict:\s*\**\s*(PASS|NEEDS_REVISION|BLOCKING)\b", re.MULTILINE
+)
+#: Who may review: an account with write access, never a passer-by on a public repository.
+TRUSTED_ASSOCIATIONS = frozenset({"OWNER", "MEMBER", "COLLABORATOR"})
 _DISCLOSURE = re.compile(r"coverage disclosure", re.IGNORECASE)
 _DOCUMENTATION_ONLY_EXTRA = frozenset({".github/PULL_REQUEST_TEMPLATE.md"})
 _API = "https://api.github.com"
@@ -46,11 +58,18 @@ _SHORT_SHA = 7
 
 
 @dataclass(frozen=True)
+class Comment:
+    body: str
+    author_association: str
+
+
+@dataclass(frozen=True)
 class PullRequest:
     head_sha: str
     changed_paths: tuple[str, ...]
     commit_messages: tuple[str, ...]
-    comments: tuple[str, ...]
+    #: Oldest first, as the API lists them.
+    comments: tuple[Comment, ...]
 
 
 @dataclass(frozen=True)
@@ -71,32 +90,52 @@ def author_sessions(commit_messages: tuple[str, ...]) -> frozenset[str]:
     )
 
 
+def _verdict(body: str) -> str | None:
+    match = _VERDICT.search(body)
+    return match.group(1) if match else None
+
+
 def judge(pull_request: PullRequest) -> Verdict:
-    """Whether the pull request carries an independent passing review of its head."""
+    """Whether the newest trusted review of the head is an independent pass."""
     if is_documentation_only(pull_request.changed_paths):
         return Verdict(True, "documentation-only: no independent review required")
+    unsigned = [
+        message.splitlines()[0] if message else "(empty)"
+        for message in pull_request.commit_messages
+        if not _SESSION.search(message)
+    ]
+    if unsigned:
+        return Verdict(
+            False, f"a commit carries no Claude-Session trailer: {unsigned[0]!r}"
+        )
     authors = author_sessions(pull_request.commit_messages)
     short_head = pull_request.head_sha[:_SHORT_SHA]
-    gaps: list[str] = []
-    for comment in pull_request.comments:
-        reviewers = frozenset(_SESSION.findall(comment))
-        missing = [
-            label
-            for label, present in (
-                ("the head commit", short_head in comment),
-                ("`Verdict: PASS`", _VERDICT_PASS.search(comment) is not None),
-                ("the coverage disclosure", _DISCLOSURE.search(comment) is not None),
-                ("a reviewer `Claude-Session:`", bool(reviewers)),
-                ("a session that wrote no commit", bool(reviewers - authors)),
-            )
-            if not present
-        ]
-        if not missing:
-            return Verdict(True, f"independent review passes on {short_head}")
-        if short_head in comment and _VERDICT_PASS.search(comment):
-            gaps.append(", ".join(missing))
-    detail = f"; the closest review lacks {gaps[-1]}" if gaps else ""
-    return Verdict(False, f"no independent passing review of {short_head}{detail}")
+    reviews = [
+        comment
+        for comment in pull_request.comments
+        if comment.author_association in TRUSTED_ASSOCIATIONS
+        and short_head in comment.body
+        and _verdict(comment.body) is not None
+    ]
+    if not reviews:
+        return Verdict(False, f"no trusted review states a verdict on {short_head}")
+    newest = reviews[-1].body
+    reviewers = frozenset(_SESSION.findall(newest))
+    missing = [
+        label
+        for label, present in (
+            ("`Verdict: PASS`", _verdict(newest) == "PASS"),
+            ("the coverage disclosure", _DISCLOSURE.search(newest) is not None),
+            ("a reviewer `Claude-Session:`", bool(reviewers)),
+            ("a session that wrote no commit", bool(reviewers - authors)),
+        )
+        if not present
+    ]
+    if missing:
+        return Verdict(
+            False, f"the newest review of {short_head} lacks {', '.join(missing)}"
+        )
+    return Verdict(True, f"independent review passes on {short_head}")
 
 
 def _get(url: str, token: str) -> object:
@@ -144,7 +183,12 @@ def fetch(repository: str, number: int, token: str) -> PullRequest:
         commit_messages=tuple(
             str(_field(item, "commit", "message")) for item in commits
         ),
-        comments=tuple(str(item.get("body") or "") for item in comments),
+        comments=tuple(
+            Comment(
+                str(item.get("body") or ""), str(item.get("author_association") or "")
+            )
+            for item in comments
+        ),
     )
 
 

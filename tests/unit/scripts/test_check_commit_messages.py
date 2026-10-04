@@ -5,7 +5,10 @@ from __future__ import annotations
 import pytest
 from Sagittarius_Elite_Warrior.scripts.check_commit_messages import problems
 
-_TRAILER = "\n\nCo-Authored-By: An Assistant <noreply@example.com>\n"
+_TRAILER = (
+    "\n\nCo-Authored-By: An Assistant <noreply@example.com>\n"
+    "Claude-Session: https://claude.ai/code/session_01ABC\n"
+)
 
 
 def _message(subject: str, body: str = "Why the change was made.") -> str:
@@ -43,6 +46,7 @@ def test_a_fix_may_cite_the_review_that_found_it() -> None:
         (_message("feat(Core): add a thing"), "is not `<type>(<scope>): <subject>`"),
         ("feat(core): add a thing" + _TRAILER, "the body is empty"),
         ("feat(core): add a thing\n\nWhy.\n", "`Co-Authored-By:` trailer is missing"),
+        ("feat(core): add a thing\n\nWhy.\n", "`Claude-Session:` trailer is missing"),
         (
             _message("fix(core): close the leak", "No id here."),
             "cites no BUG/BOT/EPIC/PRO id",

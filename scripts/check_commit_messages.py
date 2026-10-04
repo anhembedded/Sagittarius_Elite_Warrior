@@ -30,6 +30,10 @@ _SUBJECT = re.compile(
 )
 _TRAILER = re.compile(r"^[A-Za-z][A-Za-z-]*: \S")
 _CO_AUTHOR = re.compile(r"^Co-Authored-By: .+$", re.MULTILINE)
+#: The authoring session; `check_independent_review.py` tells author from reviewer by it.
+_SESSION = re.compile(
+    r"^Claude-Session: https://claude\.ai/code/session_[A-Za-z0-9]+$", re.MULTILINE
+)
 #: What a fix cites: a defect, task, epic child or proposal id, a case study, or
 #: the pull request review that found it.
 _FIX_REFERENCE = re.compile(
@@ -68,6 +72,11 @@ def problems(message: str) -> list[str]:
         )
     if _CO_AUTHOR.search(message) is None:
         found.append("the `Co-Authored-By:` trailer is missing (commit-rule.md §2)")
+    if _SESSION.search(message) is None:
+        found.append(
+            "the `Claude-Session:` trailer is missing; the independent-review status "
+            "tells author from reviewer by it (commit-rule.md §2)"
+        )
     if match is not None and match.group("type") == "fix":
         cited = f"{match.group('scope') or ''} {message}"
         if _FIX_REFERENCE.search(cited) is None:
