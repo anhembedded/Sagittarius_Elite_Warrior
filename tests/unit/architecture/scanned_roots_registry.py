@@ -191,6 +191,11 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_mypy_scope_only_shrinks.py",
         (("src", "*.py"), ("scripts", "*.py")),
     ),
+    # `EPIC-032C` — ruff counts four rules' hits per file in these trees.
+    (
+        "tests/unit/architecture/test_ruff_debt_only_shrinks.py",
+        (("src", "*.py"), ("scripts", "*.py"), ("tools", "*.py"), ("tests", "*.py")),
+    ),
     # `EPIC-030G` — replaces `test_preview_fixtures_exist.py`'s static check,
     # which listed targets from the deleted `src/presentation/ui/screens`.
     (

@@ -108,6 +108,7 @@ _REPO_ROOT = Path(__file__).resolve().parents[3]
 #: `test_every_unresolvable_guard_is_a_real_registered_guard` below.
 _UNRESOLVABLE_GUARDS: dict[str, str] = {
     "tests/unit/architecture/test_mypy_scope_only_shrinks.py": "root joined from a bare-string tuple (`_SCANNED`) at the call site, not a literal chain.",
+    "tests/unit/architecture/test_ruff_debt_only_shrinks.py": "ruff scans the trees, named in `RATCHETED_RULES`; the guard has no glob/rglob call of its own.",
     "tests/unit/architecture/test_module_boundaries.py": "scans via `scanned_files()`, imported from `git_tracked_paths.py` — no glob/rglob/iterdir call of its own.",
     "tests/unit/architecture/test_module_layers_point_inward.py": "scans via `scanned_files()` / `find_layer_violations()`, imported from `boundaries/scan.py` — no glob/rglob/iterdir call of its own.",
     "tests/unit/architecture/test_every_resolved_type_is_bound.py": "root joined from a bare-string tuple (`_ROOTS`) at the call site, not a literal chain.",
