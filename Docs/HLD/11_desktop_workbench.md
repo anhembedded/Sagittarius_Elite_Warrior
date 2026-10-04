@@ -31,8 +31,8 @@ kit.
 
 ## 11.2 The information architecture: modes, panels, menus and commands
 
-**Status:** draft from `EPIC-033O`, awaiting the user's approval of the wireframes; nothing below
-is built until it is approved (`DECISION_2026-10-04_windows_workbench.md` D10).
+**Status:** approved by the user on 2026-10-04 (`EPIC-033O`, `DECISION_2026-10-04_windows_workbench.md`
+D10); the modes are built by `EPIC-033H`–`033L` and `033P`.
 
 The shape is designed from what a person does (`Docs/SPEC/`), not from the screens that grew one
 feature at a time. One **mode** per job; inside it, the panels that job needs; everything else one
