@@ -43,12 +43,14 @@ class FakeAccountHistoryReader(IAccountHistoryReader):
         *,
         now: datetime,
         gaps: HistoryGaps | None = None,
+        scan_limit: int | None = None,
     ) -> None:
         self._now = now
         self._orders = tuple(orders)
         self._trades = tuple(trades)
         self._open = frozenset(open_symbols)
         self._gaps = gaps or HistoryGaps()
+        self._scan_limit = scan_limit
 
     def order_history(self, symbol: str, since: datetime) -> tuple[OrderRecord, ...]:
         require_within_lookback(since, self._now)
@@ -76,6 +78,9 @@ class FakeAccountHistoryReader(IAccountHistoryReader):
         require_within_lookback(since, self._now)
         traded = {record.symbol for record in self._trades if record.time >= since}
         return tuple(sorted(self._open | traded))
+
+    def every_symbol_scan_limit(self) -> int | None:
+        return self._scan_limit
 
     def known_gaps(self) -> HistoryGaps:
         return self._gaps

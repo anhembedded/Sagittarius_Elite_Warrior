@@ -38,21 +38,31 @@ From the dev log:
 
 ## Fix
 
+- `IAccountHistoryReader.every_symbol_scan_limit()` (new): how many of `active_symbols` one every-pair read may read, or `None` for all of them. The limit is the venue's, because the cost per pair is the venue's (the PR #344 review, finding 1).
+  - `SpotHistoryReader`: `SPOT_EVERY_SYMBOL_SCAN_LIMIT` = 5. Five Spot pairs over seven days cost 800 weight per tab, 1 600 for both.
+  - `FuturesHistoryReader`: `None`. Seven days is one window per pair, and only pairs actually held, traded or waiting are active.
+  - `CachedAccountHistoryReader` passes through the limit of the reader it wraps. The verified fake takes one as a parameter. The port contract requires `None` or a positive count.
 - `src/modules/trading/application/history_scope.py`: `history_scope` gives the pairs a page reads.
   - With a symbol, that symbol is the only pair.
-  - Without one, it is at most `EVERY_SYMBOL_SCAN_LIMIT` (5) of the reader's active pairs, in the reader's order.
+  - Without one, it is at most the reader's limit of its active pairs, in the reader's order.
   - When pairs are left out, the page gets a notice saying how many were read out of how many, and that "Hide other pairs" reads the desk's pair.
   - Both history handlers use it.
 - `CachedAccountHistoryReader`: `_ReadsInFlight` lets one read per key (a symbol's orders, a symbol's trades, or the active symbols for a `since`) go to the exchange at a time.
   - A read that arrives while that key is being read waits for it, then is judged against the entry it stored.
   - If that read failed, or its entry does not serve the waiting `since`, the waiting read goes to the exchange itself.
-- Five Spot pairs over seven days cost 800 weight per tab, so 1 600 for both tabs. The repeated read on enable is answered from the cache.
+- `Docs/SPEC/SPEC-013_see_my_account_on_a_desk.md` step 4 states the Spot limit and its notice.
+
+**Follow-up, not in this fix (the PR #344 review, finding 3).** Both readers name active pairs sorted, so on a 500-asset testnet account the five Spot pairs read are `0GUSDT, 1000CATUSDT, …`. The user's own pairs, such as one with an open order or the one a bot trades, are almost never among them. The notice says so truthfully, and "Hide other pairs" reads the desk's pair.
+
+Reading the open-order pairs first changes the port's "Sorted" promise, which `AccountHistoryReaderContract` locks. It also needs the reader to tell open-order pairs from held ones. That is a contract change of its own, so it is left for a separate task rather than widening this fix.
 
 ## Regression test
 
 - `tests/unit/modules/trading/application/queries/test_get_history_pages.py`:
   - `test_every_symbol_reads_at_most_the_scan_limit_and_says_so` (orders and trades) gives a 500-pair account. It was red before the fix: all 500 pairs were read.
   - `test_every_symbol_at_the_scan_limit_reads_them_all_without_a_notice` covers the boundary. It goes red when `<=` is mutated to `<`.
+  - `test_a_venue_without_a_scan_limit_reads_every_active_pair` checks that a Futures account is not capped.
+- `tests/unit/modules/trading/adapters/binance/test_history_reader_scan_limits.py`: Spot's limit and its weight arithmetic, Futures' `None`, and the cache passing the limit through.
 - `tests/unit/modules/trading/adapters/binance/test_cached_history_reader_in_flight.py`: `test_a_read_arriving_while_the_same_read_is_in_flight_joins_it` (orders, trades, active symbols).
   - It holds the first read open and starts a second.
   - It was red before the fix: two reads reached the exchange.

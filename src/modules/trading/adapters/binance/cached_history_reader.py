@@ -212,6 +212,9 @@ class CachedAccountHistoryReader(IAccountHistoryReader):
 
         return self._symbols_in_flight.read_once(since, cached, read)
 
+    def every_symbol_scan_limit(self) -> int | None:
+        return self._inner.every_symbol_scan_limit()
+
     def known_gaps(self) -> HistoryGaps:
         return self._inner.known_gaps()
 

@@ -30,7 +30,9 @@ never asks for what the exchange has dropped. The check itself is
 The bound is per symbol and endpoint. A history of every active symbol reads
 each of them, and a page request reads the span again, so a caller that pages
 through "every symbol" owns the aggregate cost (the PR #297 re-review,
-finding 2; `EPIC-028J` carries it as an acceptance criterion).
+finding 2; `EPIC-028J` carries it as an acceptance criterion). What one
+every-symbol read may cost is the venue's to say, because the cost per pair
+is: `every_symbol_scan_limit()` (`BUG-145`).
 
 **Gaps are stated, not hidden** (`EPIC-028Q`). What the exchange does not
 return at all (Futures' 3-day purge of unfilled cancelled orders, Spot's lack
@@ -85,6 +87,12 @@ class IAccountHistoryReader(ABC):
         in `known_gaps().every_symbol`.
         @throws ValueError `since` is older than `MAX_HISTORY_LOOKBACK`.
         @throws AccountHistoryUnavailableError The exchange did not answer."""
+
+    @abstractmethod
+    def every_symbol_scan_limit(self) -> int | None:
+        """@brief How many of `active_symbols` one every-symbol read may read
+        within the exchange's request weight, or `None` for all of them
+        (`BUG-145`). A positive count; no network read."""
 
     @abstractmethod
     def known_gaps(self) -> HistoryGaps:

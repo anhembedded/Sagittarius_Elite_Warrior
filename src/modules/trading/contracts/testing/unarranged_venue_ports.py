@@ -141,6 +141,9 @@ class UnarrangedHistoryReader(IAccountHistoryReader):
     def active_symbols(self, since: datetime) -> tuple[str, ...]:
         _not_arranged("IAccountHistoryReader")
 
+    def every_symbol_scan_limit(self) -> int | None:
+        _not_arranged("IAccountHistoryReader")
+
     def known_gaps(self) -> HistoryGaps:
         _not_arranged("IAccountHistoryReader")
 

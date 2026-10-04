@@ -69,6 +69,11 @@ _QUOTE_ASSET = "USDT"
 _ROW_LIMIT = 1000
 _RULES = HistoryWindowRules(max_span_ms=24 * 60 * 60 * 1000, limit=_ROW_LIMIT)
 _VENUE = "Spot"
+#: `BUG-145`: a Spot pair costs 8 one-day windows of weight 20 per endpoint
+#: for a seven-day tab, so five pairs are 800 a tab, 1 600 for both, of
+#: Binance's 6 000 a minute. Every held asset counts as active on Spot, and
+#: a Spot Testnet account holds about five hundred.
+SPOT_EVERY_SYMBOL_SCAN_LIMIT = 5
 _GAPS = HistoryGaps(
     every_symbol=(
         (
@@ -149,6 +154,9 @@ class SpotHistoryReader(IAccountHistoryReader):
                 f"{asset}{_QUOTE_ASSET}" for asset in _held_assets(account)
             )
             return tuple(sorted(listed | {row["symbol"] for row in open_orders}))
+
+    def every_symbol_scan_limit(self) -> int | None:
+        return SPOT_EVERY_SYMBOL_SCAN_LIMIT
 
     def known_gaps(self) -> HistoryGaps:
         return _GAPS

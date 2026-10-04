@@ -169,6 +169,11 @@ class FuturesHistoryReader(IAccountHistoryReader):
             waiting = {row["symbol"] for row in open_orders + open_algo_orders}
             return tuple(sorted(held | traded | waiting))
 
+    def every_symbol_scan_limit(self) -> int | None:
+        # A seven-day tab is one window per pair, and only pairs actually
+        # held, traded or waiting are active: no cap (`BUG-145`).
+        return None
+
     def known_gaps(self) -> HistoryGaps:
         return _GAPS
 
