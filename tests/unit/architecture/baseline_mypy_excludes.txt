@@ -7,7 +7,6 @@
 # file. Typing a file means deleting its line here and in pyproject.toml in
 # the same commit. This list only shrinks.
 ^Sagittarius_Elite_Warrior[\/]src[\/]presentation[\/]
-^Sagittarius_Elite_Warrior[\/]src[\/]support[\/]ui_kit[\/]registry[\/]
 ^Sagittarius_Elite_Warrior[\/]src[\/]support[\/]charting[\/]
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]data_management_view\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]data_management_presenter\.py$
