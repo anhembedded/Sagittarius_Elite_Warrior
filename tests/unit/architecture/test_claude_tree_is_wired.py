@@ -182,17 +182,3 @@ def test_the_manifest_is_the_tree() -> None:
         ".claude/README.md's inventory differs from the tree. Never edit the table by hand: "
         "run `python3 scripts/render_claude_manifest.py` and paste its output between the markers."
     )
-
-
-def test_every_review_tag_resolves_to_a_rubric_id() -> None:
-    from Sagittarius_Elite_Warrior.scripts.rule_integrity.repository import (
-        open_repository,
-    )
-    from Sagittarius_Elite_Warrior.scripts.rule_integrity.tags import (
-        check_review_tags,
-    )
-
-    missing = check_review_tags(open_repository(_REPO_ROOT))
-    assert not missing, (
-        f"Review tags in prompt files do not resolve to rubric IDs in references/rubric.md: {missing}"
-    )

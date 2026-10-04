@@ -6,36 +6,36 @@ paths:
 
 # SYSTEM PROMPT: ARCHITECTURAL BOUNDARIES & CONTRACTS
 
-You are the architectural integrity controller for Sagittarius Elite Warrior. Enforce strict layer boundaries, dependency inversion, explicit contracts, and seam placement. Words are canonical in `Docs/VOCABULARY/README.md`.
+You are the architectural integrity controller for Sagittarius Elite Warrior. Enforce strict layer boundaries, dependency inversion, explicit contracts, and seam placement. Words are canonical in `Docs/VOCABULARY/README.md`. `[review: C1, C2]`
 
 ## 1. SOLID Principles in Practice
-- **Single Responsibility:** Exactly one reason to change per class.
-- **Open / Closed:** Extend through ports and interfaces rather than editing tested modules.
-- **Liskov Substitution:** A subclass behaves wherever its base is accepted; never narrow inputs or raise `NotImplementedError`.
-- **Interface Segregation:** Narrow, role-specific ports over generic fat interfaces.
-- **Dependency Inversion:** High-level policies depend on abstractions (`abc.ABC` or `typing.Protocol`), never concrete infrastructure.
+- **Single Responsibility:** Exactly one reason to change per class. `[review: D9]`
+- **Open / Closed:** Extend through ports and interfaces rather than editing tested modules. `[review: C9]`
+- **Liskov Substitution:** A subclass behaves wherever its base is accepted; never narrow inputs or raise `NotImplementedError`. `[review: C10]`
+- **Interface Segregation:** Narrow, role-specific ports over generic fat interfaces. `[review: C4]`
+- **Dependency Inversion:** High-level policies depend on abstractions (`abc.ABC` or `typing.Protocol`), never concrete infrastructure. `[review: C1]`
 
 
 ## 2. Abstraction and decoupling
 - Repositories, services, external clients sit behind an `abc.ABC` or `typing.Protocol`; DI over hard-coded construction. No multiple inheritance. `[review: C10]`
-- **Every implementer of a port stays complete.** A port gaining an `@abstractmethod` means every implementer in `src/`, `scripts/` **and** `tests/` changes in the same commit (`BUG-026`). `mypy` over `src`+`scripts` in one invocation is the backstop; still grep. `[gate, review: C3]`
+- **Every implementer of a port stays complete.** A port gaining an `@abstractmethod` means every implementer in `src/`, `scripts/` **and** `tests/` changes in the same commit (`BUG-026`). `mypy` over `src`+`scripts` in one invocation is the backstop; still grep. `[gate: mypy; review: C3]`
 
 ### 2.1 Contracts are explicit
 - A contract that crosses a boundary (Presenter ↔ View, consumer ↔ port, module ↔ module) is a named type. Unannotated `view`, `hasattr`/`getattr` probing, "call it and see" are forbidden. `[review: C4]`
 - **ABC is the default.** `Protocol` (with `@runtime_checkable`) only when inheritance is impossible, and the docstring names which reason: (a) the implementer is a `QObject` (Shiboken forbids two `QObject` bases and `ABCMeta` conflicts); (b) §2 already forbids a second base; (c) the implementer is third-party. Convenience is not a reason. `[review: C5]`
-- A Protocol must declare exactly what the consumer uses; where the implementer is excluded from `mypy`, a contract test locks both directions and the count — model: `tests/unit/modules/backtesting/ui/test_backtest_view_contract.py`. `[guard: that test, per contract]`
+- A Protocol must declare exactly what the consumer uses; where the implementer is excluded from `mypy`, a contract test locks both directions and the count — model: `tests/unit/modules/backtesting/ui/test_backtest_view_contract.py`. `[review: C5, E13]`
 - The View is chosen at bootstrap, injected into `__init__`, never swapped at runtime; never cache child widgets of the View (`BUG-013`). `[eye]`
 
 ## 3. Layers
-- Domain → Application → Interface adapters → Infrastructure; dependencies point inward. Engine classes, SQLAlchemy and API clients never enter domain or application. `[guard: test_module_boundaries.py, test_module_domain_is_qt_free.py]`
-- **Shared Kernel = exactly two symbols:** `sagittarius_engine.domain.i_domain_event.IDomainEvent` and `sagittarius_engine.domain.base_event.BaseEvent`. Everything else from the engine reaches domain/application through a port in `src/core/contracts/` (`IEventPublisher`, `IConfigReader`, `ICommandDispatcher`, …) with an adapter in `src/infrastructure/engine_adapters/`. Presentation may know the engine directly. `[guard: tests/unit/support/indicators/test_indicator_script_conventions.py allow-list]`
-- A module imports another module only through its `contracts/`; `core/` imports no module; support packages import no module. The allowlist only shrinks. `[guard: test_module_boundaries.py + allowlist_module_boundaries.txt]`
+- Domain → Application → Interface adapters → Infrastructure; dependencies point inward. Engine classes, SQLAlchemy and API clients never enter domain or application. `[guard: test_module_boundaries.py, test_module_layers_point_inward.py, test_module_domain_is_qt_free.py]`
+- **Shared Kernel = exactly two symbols:** `sagittarius_engine.domain.i_domain_event.IDomainEvent` and `sagittarius_engine.domain.base_event.BaseEvent`. Everything else from the engine reaches domain/application through a port in `src/core/contracts/` (`IEventPublisher`, `IConfigReader`, `ICommandDispatcher`, …) with an adapter in `src/infrastructure/engine_adapters/`. Presentation may know the engine directly. `[guard: test_module_inside_imports_only_the_shared_kernel.py, tests/unit/support/indicators/test_indicator_script_conventions.py]`
+- A module imports another module only through its `contracts/`; `core/` imports no module; support packages import no module. The allowlist only shrinks. `[guard: test_module_boundaries.py; review: J1]`
 
 ## 4. Use cases (CQRS)
 One directory per use case; `command.py`/`query.py` separate from `handler.py`, exported via `__init__.py`; the application layer uses its own `ICommandHandler`/`IQueryHandler`, never the engine's CQRS types. `[guard: test_application_layer_structure.py]`
 
 ## 5. Abstraction-level separation
-Splitting is the default; merging needs a reason.
+Splitting is the default; merging needs a reason. Two abstraction levels never share:
 1. Two abstraction levels never share a file (port and implementation, base and subclass, policy and its disk reader). `[review: C6]`
 2. Two abstraction levels never share a directory: `interfaces/` holds no implementation, a shared `widgets/` holds no screen-specific widget. `[review: C6]`
 3. The only counterweight is Single-Scope Cohesion (`code/quality.md` §3), and it wins only for **the same lifecycle** (an FSM's enum + matrix). "Same feature/screen" is not enough. `[review: D8]`
@@ -58,7 +58,7 @@ A deferred piece of work or an accepted trade-off exists as a type or a test, no
 | A price knowingly paid | a test locking the current behaviour + a docstring saying what was given up and when it may return |
 
 ### 7.2 A class is a contract
-Design the public surface first: who calls it and what they need to see; where extension is likely (that spot is an ABC/port); whether a consumer is forced to know internals (tighten). Abstraction is not a middle layer for its own sake.
+Design the public surface first: who calls it and what they need to see; where extension is likely (that spot is an ABC/port); whether a consumer is forced to know internals (tighten). Abstraction is not a middle layer for its own sake. `[review: C9, N7]`
 
 ### 7.2.1 Seam now, variant later (user decision)
 The **seam** (port, base class, place enum, the list a case is appended to) is built with the first case — Open/Closed. The **variant** (second implementation, unasked feature) waits for a real case — YAGNI. Procedure at every design decision: (1) write the plausible extension cases (three to five) in the seam's docstring; (2) each must be a local change — one new file behind an existing seam, one line in a list; (3) do not build the case; (4) a test locks the seam (a second host is one line — ADR D15). The closed-design tell: *"to add X we must touch N existing files."* Fix it now, do not file it as debt. `[review: C9]`

@@ -56,7 +56,7 @@ Derived from the tree: `python3 scripts/render_claude_manifest.py` prints it fro
 | `rules/install-rule.md` | rule | `requirements.txt`, `pyproject.toml`, `scripts/**`, `.github/workflows/**` | How the engine and dependencies are installed, the Python floor, and the rule that a missing tool is installed rather than reported. |
 | `rules/logging-rule.md` | rule | `src/**/*.py`, `scripts/**/*.py` | Where a log line goes so one reproduce-and-send cycle locates a root cause; namespace, levels, tags, dev/debug modes. |
 | `rules/report-rule.md` | rule | every session | Communicate with the user as a solution architect and delivery leader — outcomes, system impact, trade-offs and recommendations; implementation details only on request or when essential to a decision. |
-| `rules/report-task-rule.md` | rule | `Tasks/**/*.md`, `.claude/templates/task.md` | Task reports with mandatory Mermaid Kanban at epic-task start/resumption, observed progress, verification, delivery state and actionable blockers. |
+| `rules/report-task-rule.md` | rule | `Tasks/**/*.md`, `.claude/templates/task.md` | Task reports with mandatory Mermaid Kanban and Gantt charts at epic-task start/resumption, observed progress, verification, delivery state and actionable blockers. |
 | `rules/task-execution-rule.md` | rule | `Tasks/**/*.md`, `.claude/templates/task.md` | Senior developer execution contract — bounded scope, autonomous constitutional decisions without trivial questions, observable acceptance, and honest completion. |
 | `rules/testing-rule.md` | rule | `tests/**/*.py` | How to write a test that can fail — what each level proves, no sleeps, invariants, boundary analysis with mutation checks, doubles from the interface, wiring asserted against the real graph. |
 | `rules/ui-presentation-rule.md` | rule | `src/presentation/**/*.py`, `src/modules/*/ui/**/*.py`, `src/support/ui_kit/**/*.py`, `src/support/charting/**/*.py` | QtWidgets only, the OS theme, the seven desktop UX principles, MVP layout, preview.py, sizing, tables, icons, terminology. |
@@ -87,7 +87,7 @@ Derived from the tree: `python3 scripts/render_claude_manifest.py` prints it fro
 
 ## Adding one
 
-- **A rule**: a file under `rules/` with a `description:` and, when it belongs to a kind of file, a `paths:` list of globs that match tracked files; a row in `CLAUDE.md`'s table and in `ONBOARDING.md` §1; every clause tagged `[gate]`, `[guard: file]`, `[review: row]` or `[eye]`. A rule without `paths:` costs every session; the guard holds the total under its ceiling, which only falls.
+- **A rule**: a file under `rules/` with a `description:` and, when it belongs to a kind of file, a `paths:` list of globs that match tracked files; a row in `CLAUDE.md`'s table and in `ONBOARDING.md` §1; every clause tagged `[gate: <step>]`, `[guard: <test file>]`, `[review: <ID>]` or `[eye]`, which `scripts/check_skill_prompt_references.py` checks (a table row is not a clause, so an obligation belongs in a list item or paragraph). A rule without `paths:` costs every session; the guard holds the total under its ceiling, which only falls.
 - **A pitfall**: one line in the `rules/pitfalls/` file for its area, with the bug or case-study id.
 - **A skill**: `skills/<name>/SKILL.md` whose `name` is the directory name; scaffold or validate via `.claude/skills/create-skill/SKILL.md`; a scheduled one obeys `ONBOARDING.md` §13.
 - **A subagent**: `agents/<name>.md` with `name`, `description`, `tools`, and the skill it runs.

@@ -329,6 +329,12 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
             (".claude/templates", "*.md"),
         ),
     ),
+    # `EPIC-030C` — every `scripts/rule_integrity/` check over the real tree;
+    # the trees themselves are `scripts/rule_integrity/trees.py`'s tuples.
+    (
+        "tests/unit/architecture/test_rule_tree_is_mechanically_consistent.py",
+        ((".claude/rules", "*.md"), (".claude/skills", "*.md")),
+    ),
     ("tests/unit/test_task_board_is_consistent.py", (("Tasks", "*.md"),)),
     (
         "tests/unit/architecture/test_spec_index_is_consistent.py",

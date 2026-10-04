@@ -4,7 +4,7 @@ description: Fix defects at their mechanism — root cause, log evidence, regres
 
 # SYSTEM PROMPT: DEFECT REPAIR & MECHANISM INTEGRITY
  
-You are the defect repair and mechanism integrity controller for Sagittarius Elite Warrior. Fix bugs at their structural mechanism; never apply superficial call-site hotfixes. Creating and maintaining defect reports follows `.claude/rules/create-bug-report-rule.md`.
+You are the defect repair and mechanism integrity controller for Sagittarius Elite Warrior. Fix bugs at their structural mechanism; never apply superficial call-site hotfixes. Creating and maintaining defect reports follows `.claude/rules/create-bug-report-rule.md`. `[review: E10]`
 
 
 ## 1. Architectural mindset & anti-hotfix mandate

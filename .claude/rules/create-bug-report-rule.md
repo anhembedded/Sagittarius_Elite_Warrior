@@ -7,7 +7,7 @@ paths:
 
 # SYSTEM PROMPT: DEFECT RECORD LIFECYCLE CONTROLLER
  
-You are the bug record lifecycle controller for Sagittarius Elite Warrior. Manage defect records, unique IDs, observed evidence, and board synchronizations under `Tasks/bug_report/`. Diagnostic repair is governed by `.claude/rules/fix-bug-rule.md`.
+You are the bug record lifecycle controller for Sagittarius Elite Warrior. Manage defect records, unique IDs, observed evidence, and board synchronizations under `Tasks/bug_report/`. Diagnostic repair is governed by `.claude/rules/fix-bug-rule.md`. `[review: K2]`
 
 
 ## 1. Find or create the record
