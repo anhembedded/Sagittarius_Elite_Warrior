@@ -60,14 +60,12 @@ jobs:
       - name: Install Sagittarius Engine
         # Pinned (EPIC-031B): `engine.ref` names the one engine commit this tree
         # is tested against, so two runs of one commit build the same thing.
-        # Bumping the engine is a pull request that edits `engine.ref`.
+        # Bumping the engine is a pull request that edits `engine.ref`. The same
+        # installer every launcher uses (BUG-147), so the gate's Engine Pin step
+        # finds the commit it recorded.
         run: |
-          ref="$(tr -d '[:space:]' < engine.ref)"
-          git init -q "${{ runner.temp }}/engine"
-          git -C "${{ runner.temp }}/engine" fetch -q --depth 1 https://github.com/anhembedded/Sagittarius_Engine.git "$ref"
-          git -C "${{ runner.temp }}/engine" checkout -q FETCH_HEAD
           python -m pip install --upgrade pip
-          pip install "${{ runner.temp }}/engine"
+          python scripts/engine_pin.py install
 
       - name: Install dependencies
         # The lock (EPIC-031B), not the loose requirements: every transitive

@@ -55,6 +55,13 @@ if (Test-Path (Join-Path $BotRoot "requirements.txt")) {
     & $VenvPython -m pip install -r (Join-Path $BotRoot "requirements.txt")
 }
 
+# BUG-147: the engine CI builds (engine.ref's commit); nothing when already installed.
+Write-Host "Installing Sagittarius Engine at engine.ref..." -ForegroundColor Cyan
+& $VenvPython (Join-Path $PSScriptRoot "engine_pin.py") install
+if ($LASTEXITCODE -ne 0) {
+    throw "Sagittarius Engine installation failed with exit code $LASTEXITCODE."
+}
+
 Set-Location -Path $BotRoot
 $EntryPoint = [System.IO.Path]::Combine($BotRoot, "src", "main.py")
 & $VenvPython $EntryPoint @args

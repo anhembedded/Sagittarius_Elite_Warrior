@@ -9,7 +9,7 @@ param(
     # See .claude/rules/logging-rule.md §6-7. Usage: run-ui.ps1 -Debug
     [switch]$Debug,
     # Option 2 per .claude/rules/install-rule.md: opt-in to develop/debug
-    # Sagittarius Engine locally from sibling checkout instead of official GitHub.
+    # Sagittarius Engine locally from sibling checkout instead of engine.ref's commit.
     # Usage: run-ui.ps1 -LocalEngine
     [switch]$LocalEngine
 )
@@ -35,7 +35,7 @@ $isWindowsPlatform = ($env:OS -eq "Windows_NT") -or ($PSVersionTable.PSEdition -
 $PathSeparator = if ($isWindowsPlatform) { ";" } else { ":" }
 
 # Sibling engine checkout handling per .claude/rules/install-rule.md:
-# Default (Option 1): Engine is loaded from the virtual environment (installed from GitHub).
+# Default (Option 1): Engine is loaded from the virtual environment, installed at engine.ref.
 # Option 2 (Development & Debugging): Sibling checkout is only added to PYTHONPATH if -LocalEngine is specified.
 $PythonPathEntries = @($ProjectRoot)
 $EngineRoot = Join-Path $ProjectRoot "Sagittarius_Engine"
@@ -119,8 +119,10 @@ if ($LocalEngine) {
         throw "Local engine checkout (-LocalEngine) requested, but pyproject.toml not found at $EngineRoot"
     }
 } else {
-    Write-Host "Installing Sagittarius Engine from GitHub (Option 1 per install-rule.md)..." -ForegroundColor Cyan
-    & $VenvPython -m pip install "git+https://github.com/anhembedded/Sagittarius_Engine.git"
+    # BUG-147: the engine CI builds -- engine.ref's commit, not the moving
+    # main. The installer does nothing when that commit is already installed.
+    Write-Host "Installing Sagittarius Engine at engine.ref (Option 1 per install-rule.md)..." -ForegroundColor Cyan
+    & $VenvPython (Join-Path $ScriptDir "engine_pin.py") install
 }
 
 if ($LASTEXITCODE -ne 0) {

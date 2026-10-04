@@ -288,6 +288,26 @@ $pythonPathSeparator = [System.IO.Path]::PathSeparator
 $env:PYTHONPATH = "$botRoot$pythonPathSeparator$repoRoot"
 
 # ---------------------------------------------------------------------------
+# Engine Pin
+# ---------------------------------------------------------------------------
+# BUG-147: every later step types and tests against the engine this
+# interpreter imports. It must be the installed engine at engine.ref's commit,
+# the one CI builds -- not a checkout on the path, an editable install or a
+# build of another commit. Run with the tests' PYTHONPATH, so a checkout that
+# would shadow the engine there fails here.
+if (-not ($SkipLint -and $SkipTests)) {
+    Write-Step "Engine Pin (the engine in use is engine.ref's commit)"
+    try {
+        & $pythonExe (Join-Path $botRoot "scripts/engine_pin.py") check
+        if ($LASTEXITCODE -ne 0) { $failed += "Engine Pin"; Write-Failure "Engine Pin" }
+        else { Write-Success "Engine Pin" }
+    } catch {
+        $failed += "Engine Pin"; Write-Failure "Engine Pin"
+        Write-Host $_.Exception.Message -ForegroundColor Yellow
+    }
+}
+
+# ---------------------------------------------------------------------------
 # Lint
 # ---------------------------------------------------------------------------
 if (-not $SkipLint) {
@@ -336,8 +356,11 @@ if (-not $SkipLint) {
     Write-Step "Mypy — Static Type Check (src + scripts, baseline-gated)"
     Push-Location $repoRoot
     try {
-        $engineDir = Join-Path $repoRoot "Sagittarius_Engine"
-        $env:MYPYPATH = "$engineDir$pythonPathSeparator$repoRoot"
+        # BUG-147: no engine checkout here. A checkout named on MYPYPATH is read
+        # ahead of the installed engine, so mypy type-checked against whatever
+        # commit the checkout sat at; the engine comes from the environment,
+        # which the Engine Pin step below has proven is engine.ref's.
+        $env:MYPYPATH = "$repoRoot"
         $env:PYTHONPATH = "$botRoot$pythonPathSeparator$repoRoot"
         & $mypyExe --config-file (Join-Path $botRoot "pyproject.toml") --namespace-packages --explicit-package-bases "Sagittarius_Elite_Warrior/src" "Sagittarius_Elite_Warrior/scripts"
         if ($LASTEXITCODE -ne 0) { $failed += "Mypy"; Write-Failure "Mypy" }
