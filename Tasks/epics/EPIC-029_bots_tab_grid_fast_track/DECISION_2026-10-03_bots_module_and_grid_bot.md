@@ -374,4 +374,4 @@ Every recommendation below was accepted. O1's caps and O5's per-order cap are co
 | D14, D18 | [`EPIC-029D`](incomplete/EPIC-029D_grid_backtest.md) | Not started | Not yet verified |
 | D3 (level lifecycle), D9–D13, §3.3, §3.4 | [`EPIC-029E`](incomplete/EPIC-029E_live_grid_executor.md) | Not started | Not yet verified |
 | D19 | [`EPIC-029F`](incomplete/EPIC-029F_bots_tab.md) | Not started | Not yet verified |
-| D15, D16 | [`EPIC-029G`](incomplete/EPIC-029G_bot_chart.md) | Not started | Not yet verified |
+| D15, D16 | [`EPIC-029G`](completed/EPIC-029G_bot_chart.md) | Built in PR3 | Unit and `qtbot` tests (one drawer, identical items on three surfaces; the desk chart tests unmodified) and the preview; a real stream waits for `029H` |
