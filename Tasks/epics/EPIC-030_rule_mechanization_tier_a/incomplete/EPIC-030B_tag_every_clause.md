@@ -30,3 +30,15 @@ Not run. Each criterion maps to a unit test or guard under `tests/unit/`; docume
 
 ## Implementation notes (written when done)
 Not yet established.
+
+## Resume (optional; while unfinished)
+PR #322 tagged `ci-rule.md`, `commit-rule.md` and `report-rule.md`. Still open, and blocked until `.claude/**` edits are allowed in the session:
+- the 24 untagged clauses `EPIC-030C`'s checker lists (`architecture-rule.md` SOLID bullets, `install-rule.md`, `testing-rule.md` §1–§2, `logging-rule.md` 5 and 7, `ui-presentation-rule.md` §3–§4, `domain-truth-rule.md`, `async-ui-action-rule.md`);
+- retagging to the guards PR #323 adds (review finding 2):
+  - `architecture-rule.md` §3 Shared Kernel → `[guard: test_module_inside_imports_only_the_shared_kernel.py, tests/unit/support/indicators/test_indicator_script_conventions.py]`;
+  - `architecture-rule.md` §3 layers point inward → add `test_module_layers_point_inward.py`;
+  - `async-ui-action-rule.md` §2 coordinators and `domain-truth-rule.md` chart host → `[guard: test_presenter_owned_objects_are_never_registered.py; review: G4]`, replacing the unwired grep;
+  - `ui-presentation-rule.md` §5 previews → `[guard: test_every_presenter_package_has_a_preview.py, tests/unit/presentation/ui/test_preview_fixtures_exist.py]`;
+  - `ci-rule.md` §2 unit tier → `[guard: test_unit_tests_never_reach_the_network.py; review: E3]`;
+  - `commit-rule.md` §3 forbidden content → `[guard: test_no_runtime_artifact_is_tracked.py; review: L4, L5]`;
+- the legend placeholders in `ONBOARDING.md` and `.claude/README.md`, the `report-task-rule.md` description and the re-rendered manifest (in the session's stash), and the `gate` check name in `ONBOARDING.md` §7 (the real check is `ci-local.ps1 -Full`).
