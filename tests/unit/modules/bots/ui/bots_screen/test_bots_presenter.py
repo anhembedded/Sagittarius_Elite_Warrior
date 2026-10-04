@@ -253,3 +253,54 @@ def test_a_write_by_anyone_else_is_read_again(open_bots_screen, qtbot) -> None:
     screen.settle()
 
     assert {bot.bot_id for bot in screen.view.model.bots} == {"a00001", "a00009"}
+
+
+def test_a_bot_deleted_while_an_action_is_in_flight_leaves_no_detail_behind(
+    open_bots_screen, qtbot
+) -> None:
+    """PR #333 review: a list read that lands during an action and no longer
+    finds the selected bot must not leave that bot's facts and actions on
+    screen once the action settles."""
+    answers = Answers(delete=True)
+    screen = open_bots_screen(
+        [stored("a00001", S.STOPPED), stored("a00002", S.DRAFT)], answers
+    )
+    screen.settle()
+    _select(screen, "a00001")
+    screen.view.model.action_requested.emit(BotAction.DELETE.value)
+    assert _mode(screen) is BotsUiState.ACTION_IN_FLIGHT
+
+    screen.store.delete(BotId("a00001"))  # the delete lands before its answer
+    qtbot.waitUntil(lambda: len(screen.pool.pending) == 2)
+    screen.pool.run(1)  # the re-read the store's announcement queued
+    screen.settle()
+
+    model = screen.view.model
+    assert model.selected is None
+    assert model.facts is None
+    assert not any(rule.enabled for rule in model.availability.values())
+    assert _mode(screen) is BotsUiState.NO_SELECTION
+
+
+def test_after_save_the_screen_follows_the_stored_parameters(
+    open_bots_screen, qtbot
+) -> None:
+    """Once Save is accepted the edits are dropped: a later write to the bot's
+    parameters (from anywhere) is what the screen judges, not the old edits."""
+    screen = open_bots_screen([stored("a00001", S.DRAFT)])
+    screen.settle()
+    _select(screen, "a00001")
+    panel = screen.view._kind_panel
+    assert panel is not None
+    panel.capital.setText("1500")
+    panel.capital.textEdited.emit("1500")
+    screen.view.model.action_requested.emit(BotAction.SAVE.value)
+    screen.settle()
+
+    screen.store.save(
+        stored("a00001", S.DRAFT, {**GOOD_CONFIG, "capital_quote": "1200"})
+    )
+    qtbot.waitUntil(lambda: bool(screen.pool.pending))
+    screen.settle()
+
+    assert _rule(screen, BotAction.START)[0]

@@ -8,6 +8,7 @@ the parameters on screen.
 from __future__ import annotations
 
 from collections.abc import Mapping
+from dataclasses import dataclass
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bot_resume import (
     ConfirmBotResumeCommand,
@@ -39,6 +40,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_dialogs import (
     BotsDialogs,
 )
+
+
+@dataclass(frozen=True, slots=True)
+class PendingAction:
+    """The action in flight. What the screen does once it settles follows
+    `action`, never the words of `label` (PR #333 review)."""
+
+    label: str
+    #: `None` while a new bot is being created.
+    action: BotAction | None = None
 
 
 def command_for(

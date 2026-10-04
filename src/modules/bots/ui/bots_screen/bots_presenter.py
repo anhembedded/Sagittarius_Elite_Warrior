@@ -55,6 +55,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_chart_host im
     BotChartPorts,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_commands import (
+    PendingAction,
     command_for,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_log_feed import (
@@ -158,7 +159,7 @@ class BotsPresenter(BasePresenter):
         self._reads = FencedReads(
             threads, {kind: ActionOwnershipTracker() for kind in ReadKind}
         )
-        self._actions: ActionOwnershipTracker[str, str, BotsUiState] = (
+        self._actions: ActionOwnershipTracker[str, PendingAction, BotsUiState] = (
             ActionOwnershipTracker()
         )
         commands = container.resolve(ICommandDispatcher)
@@ -298,7 +299,7 @@ class BotsPresenter(BasePresenter):
             BotAction(value), bot, self._dialogs, self._selected.edited
         )
         if command is not None:
-            self._begin(f"{value} {bot.name}", command)
+            self._begin(PendingAction(f"{value} {bot.name}", BotAction(value)), command)
 
     def _on_new_bot(self) -> None:
         if self._busy():
@@ -307,13 +308,14 @@ class BotsPresenter(BasePresenter):
         venues = [v for v in self._venues.enabled() if v.market_type is MarketType.SPOT]
         command = self._dialogs.ask_new_bot(kinds, venues)
         if command is not None:
-            self._begin(f"Create {command.name}", command)
+            self._begin(PendingAction(f"Create {command.name}"), command)
 
-    def _begin(self, label: str, command: object) -> None:
+    def _begin(self, pending: PendingAction, command: object) -> None:
         previous = (
             self.fsm.current_state if self.fsm is not None else BotsUiState.NO_SELECTION
         )
-        action = self._actions.begin_action(_ACTION, label, previous)
+        label = pending.label
+        action = self._actions.begin_action(_ACTION, pending, previous)
         self._dispatch(BotsUiEvent.ACTION_STARTED)
         self._model.set_status(f"{label}…", False)
         logger.info("Bots screen: %s", label)
@@ -323,26 +325,37 @@ class BotsPresenter(BasePresenter):
         if not self._actions.is_current_pending(action_id, _ACTION):
             self._actions.log_stale_callback("_on_finished", action_id, _ACTION)
             return
-        label = (
-            self._actions.active_action.config if self._actions.active_action else ""
-        )
+        active = self._actions.active_action
+        pending = active.config if active else PendingAction("")
+        label = pending.label
         accepted = isinstance(result, BotCommandResult) and result.accepted
         self._actions.finish_action(
             action_id, ActionOutcome.SUCCEEDED if accepted else ActionOutcome.FAILED
         )
         if accepted and isinstance(result, BotCommandResult):
             self._model.set_status(f"{label}: done.", False)
-            if label.startswith("Create") and result.bot_id:
+            if pending.action is None and result.bot_id:
                 self._select_after_create = result.bot_id
-            if label.startswith(BotAction.SAVE.value):
+            if pending.action is BotAction.SAVE:
                 self._selected.saved()
         else:
             reason = result.message if isinstance(result, BotCommandResult) else error
             self._model.set_status(f"{label}: refused. {reason}", True)
         logger.info("Bots screen: %s %s", label, "accepted" if accepted else "refused")
         self._dispatch(settled_event(self._model.selected))
-        self._refresh_detail()
+        self._follow_selection()
         self._queries.bots()
+
+    def _follow_selection(self) -> None:
+        """A list read that landed during the action may have moved the
+        selection (the bot gone); the detail follows it here, once the screen
+        may select again, so no bot's facts outlive it."""
+        shown = self._selected.bot
+        wanted = self._model.selected
+        if (shown.bot_id if shown else None) != (wanted.bot_id if wanted else None):
+            self._select(wanted)
+        else:
+            self._refresh_detail()
 
     # -- helpers ----------------------------------------------------------- #
 
