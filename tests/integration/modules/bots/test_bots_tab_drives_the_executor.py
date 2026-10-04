@@ -147,4 +147,7 @@ def test_start_pause_resume_and_stop_from_the_tab_reach_the_exchange(
     screen.wait_for(bot_id, S.STOPPED)
 
     assert screen.stops == [bot_id]
+    # The dialog's answer (sell the base) reached the executor, not only the
+    # stop itself: on the fake both answers leave nothing resting.
+    assert app.runtime(bot_id).sell_base_on_stop
     assert resting(app.urls) == {}
