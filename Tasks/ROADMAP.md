@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 171 | 83.8% |
+| 🟢 **Completed** | 171 | 83.4% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 25 | 12.3% |
+| 🔴 **Backlog** | 26 | 12.7% |
 | ❌ **Cancelled** | 8 | 3.9% |
-| 📈 **Tổng số Task** | **204** | **100%** |
+| 📈 **Tổng số Task** | **205** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -463,6 +463,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Priority | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :---: | :--- |
+| **P3** | **[BOT-148](backlog/BOT-148_contributions_defer_through_one_mechanism.md)** | **Every contribution defers its factories through `Deferred`** | 🟡 **`M (Standard)`** | PR #333 | *(added 04/10, PR #333 review)* The Bots screen defers through `src/core/contracts/deferred.py`; nine other contributions still hold 32 function-local imports (`PLC0415`). Moving them lets the ratchet fall. |
 | ✅ | **[BOT-145](completed/BOT-145_user_data_stream_blocking_rest_calls_on_event_loop.md)** | **User-data-stream handlers block the asyncio event loop on REST calls** | 🟡 **`S (Small)`** | — | **Done (28/09).** `FuturesUserDataStream._handle_account_update`'s `get_positions()` and `SpotUserDataStream._refresh_equity`'s `check_connection()` now run via `await asyncio.to_thread(...)`; `_handle_message` became `async def` on both streams. New regression tests on each stream prove a concurrently-scheduled `asyncio.sleep` coroutine finishes before the blocking call does (mutation-verified — reverting either wrap flips the observed order). |
 | **P3** | **[BOT-144](backlog/BOT-144_split_three_files_over_the_400_line_ceiling.md)** | **Chia nhỏ 3 file đã vượt trần 400 dòng (Dev Board/Data Management)** | 🔴 **`L (Thinking)`** | — | *(hàng thêm 23/09 — phát hiện từ review độc lập của `PR #257`.)* `dashboard_presenter.py` (1994 dòng), `dev_board_panel.py` (1145 dòng), `data_management_presenter.py` (964 dòng) đều vượt trần `architecture-rule.md` §5.4 (400 dòng), và mỗi PR feature qua 2 màn này lại cộng thêm vào cả 3 thay vì tách. Chưa có guard máy nào bắt lỗi này (`C7`/`D6`/`D7` chỉ là review-only). Chưa thiết kế cách tách — xem hồ sơ task để biết acceptance bar. |
 | ✅ | **[BOT-125](completed/BOT-125_ui_bat_tat_2_venue_trong_settings.md)** | **2 control bật/tắt môi trường sàn trong Settings** | 🟢 **S (Small)** | — | **Đã hoàn thành (07/09).** `exchange.market_data_venue`/`exchange.trading_venue` trước đó là config sửa-file-rồi-khởi-động-lại, **không có UI nào chạm được** (`environment_banner_content.py` đã ghi thẳng điều đó trong docstring của chính nó) — nên xong `EPIC-022` user vẫn không bật nổi giao dịch nếu không mở `app_config.json` sửa tay. Thêm 2 `QComboBox` vào Settings, danh sách sinh từ chính enum (nên `TradingVenue` không có `MAINNET` thì UI cũng không thể có). Giữ **2 control riêng**, không gộp thành 1 công tắc: ADR §2 cố ý cho phép tổ hợp giá mainnet + lệnh testnet, và banner đỏ tồn tại chính vì tổ hợp đó. Nói thẳng trên UI là **cần khởi động lại** (2 giá trị chỉ đọc lúc boot, `ITradingClient` chỉ được đăng ký DI khi venue ≠ DISABLED); **từ chối lưu** khi đang giao dịch thay vì lưu một nửa. 7 test mới. |

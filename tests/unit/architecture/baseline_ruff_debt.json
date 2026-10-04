@@ -77,7 +77,6 @@
       "scripts/epic021c_metadata_probe.py": 1,
       "scripts/manipulation_footprint_probe.py": 5,
       "src/modules/backtesting/ui/backtest_screen.py": 4,
-      "src/modules/bots/ui/bots_screen/bots_screen.py": 3,
       "src/modules/market_data/ui/database_screen.py": 3,
       "src/modules/market_data/ui/settings_contribution.py": 2,
       "src/modules/market_data/ui/watchlist/watchlist_screen.py": 3,

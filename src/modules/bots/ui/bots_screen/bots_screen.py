@@ -1,14 +1,17 @@
 """The Bots screen as a contribution (`EPIC-029F`, ADR D19): NAVIGATION item
 18, between the Spot desk (17) and the Database (20).
 
-Lazy, as every `ScreenContribution` here: nothing below imports Qt until the
-route is first opened, so a headless run never pays for it.
+Lazy, as every `ScreenContribution` must be: the factories are `Deferred`
+import paths, so nothing below imports Qt until the route is first opened and
+a headless run never pays for it. The shell builds the view and the presenter
+from the same contribution, so the presenter always receives this `BotsView`.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.nav_metadata import NavMetadata
 from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
@@ -16,7 +19,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
 
 if TYPE_CHECKING:
     from sagittarius_engine.extensions.pyside_mvc import BasePresenter, BaseView
-    from sagittarius_engine.interfaces.i_container import IContainer
 
 BOTS_ROUTE = "bots"
 
@@ -27,36 +29,18 @@ _NAV = NavMetadata(
     item_sequence=18,
 )
 
-
-def _build_bots_view() -> BaseView:
-    from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
-        BotsView,
-    )
-
-    return BotsView()
-
-
-def _build_bots_presenter(view: BaseView, container: IContainer) -> BasePresenter:
-    from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_presenter import (
-        BotsPresenter,
-    )
-    from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
-        BotsView,
-    )
-
-    if not isinstance(view, BotsView):
-        raise TypeError(
-            f"the Bots screen's presenter was handed a {type(view).__name__}, "
-            "not a BotsView"
-        )
-    return BotsPresenter(view, container)
+_PACKAGE = "Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen"
+_VIEW: Deferred[BaseView] = Deferred(f"{_PACKAGE}.bots_view:BotsView")
+_PRESENTER: Deferred[BasePresenter] = Deferred(
+    f"{_PACKAGE}.bots_presenter:BotsPresenter"
+)
 
 
 def bots_screen() -> ScreenContribution:
     return ScreenContribution(
         contributor_id="bots",
         route=BOTS_ROUTE,
-        view_factory=_build_bots_view,
-        presenter_factory=_build_bots_presenter,
+        view_factory=_VIEW,
+        presenter_factory=_PRESENTER,
         nav=_NAV,
     )
