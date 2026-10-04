@@ -5,6 +5,15 @@
 build the app from the shipped `app_config.json` with only Spot Testnet on,
 so the keys and the caps are the ones a person's run uses.
 
+`composed_on_spot_testnet` boots it and reaches the venue's trading client;
+`enable_trading` then turns trading on through `EnableTradingCommand`, which
+starts the user-data websocket. The composition is the one place the client
+is reached, so the fake exchange proves it in CI
+(`tests/integration/modules/bots/test_spot_testnet_boot_on_the_fake_exchange.py`)
+before a person's run depends on it. The enabling is not run there: the fake
+server does not speak the websocket (the same limit as
+`test_dev_board_f9_against_fake_server.py`).
+
 The round trip's support lives here, beside the app it reads:
 
 - `stream_latency_s` proves the venue's user-data stream live before a bot
@@ -23,6 +32,8 @@ from __future__ import annotations
 import json
 import threading
 import time
+from collections.abc import Iterator
+from contextlib import contextmanager
 from dataclasses import dataclass, field
 from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 from pathlib import Path
@@ -51,9 +62,15 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridRuntime,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading.command import (
+    EnableTradingCommand,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
     generate_client_order_id,
     tag_of,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
+    EnableTradingResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
     OrderEndedEvent,
@@ -61,12 +78,19 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts import (
+    IVenueContexts,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
+    OrderSubmissionMode,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
 )
+from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -130,6 +154,35 @@ def spot_testnet_config(tmp_path: Path) -> ConfigManager:
         }
     )
     return config
+
+
+@contextmanager
+def composed_on_spot_testnet(config: ConfigManager) -> Iterator[GridTestnetApp]:
+    """The app booted from `config` with the venue's live trading client and
+    its order ends heard; stopped on exit. Trading is still off."""
+    engine = create_app(config)
+    engine.boot()
+    try:
+        container = engine.context.container
+        # The trading client is a venue context's, not a published port.
+        venue = container.resolve(IVenueContexts).get(SPOT)
+        app = GridTestnetApp(
+            engine,
+            container.resolve(IBotStore),
+            venue.client_factory.create(OrderSubmissionMode.LIVE),
+        )
+        engine.event_bus.on(OrderEndedEvent, app.on_ended)
+        yield app
+    finally:
+        engine.stop()
+
+
+def enable_trading(app: GridTestnetApp) -> None:
+    enabled = app.engine.dispatch(
+        EnableTradingCommand, EnableTradingCommand(venue=SPOT)
+    )
+    assert isinstance(enabled, EnableTradingResult)
+    assert enabled.enabled, f"trading did not turn on: {enabled.block_reason}"
 
 
 def write_report(name: str, content: dict[str, Any]) -> None:

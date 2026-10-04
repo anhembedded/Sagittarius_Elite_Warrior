@@ -65,6 +65,7 @@ user with their own keys.
 | `tests/testnet/test_grid_bot_round_trip.py` (new) | gated round trip |
 | `tests/testnet/test_spot_rate_limits.py` (new) | gated read: how many owner budgets fit one account |
 | `tests/testnet/grid_testnet_app.py` (new) | the composed app on Spot Testnet; the stream probe, state wait and clean-up |
+| `tests/integration/modules/bots/test_spot_testnet_boot_on_the_fake_exchange.py` (new) | the testnet composition proven on the fake exchange in CI |
 | `Tasks/reports/grid_soak_<date>.md` (new) | soak report |
 
 ## 5. Testing
@@ -93,6 +94,11 @@ user with their own keys.
 - `tests/testnet/test_spot_rate_limits.py`
   - Reads `exchangeInfo.rateLimits` and the symbol's `MAX_NUM_ORDERS` and works out how many owner budgets at the O1 caps fit one account: a burst within each `ORDERS` window (the spacing bounds it) and the open orders. It writes the number to `logs/testnet/spot_rate_limits.json`, which answers whether several bots need an account-wide cap.
   - Not run here: the build container cannot reach Binance. The user's run is the evidence.
+- **User's second run (2026-10-04)**, `-TestnetOnly`, on `master-warrior` after PR7:
+  - `test_spot_rate_limits.py` passed; its report is `logs/testnet/spot_rate_limits.json`.
+  - The grid round trip errored at setup: its fixture asked `IVenueTradingPorts` for a `client_factory`, which only a venue context (`IVenueContexts`) has. No order was sent.
+  - Fixed by moving the composition into `grid_testnet_app.composed_on_spot_testnet`, reached through `IVenueContexts`, and proving it on the fake exchange in CI (`test_spot_testnet_boot_on_the_fake_exchange.py`, red with the old line). Enabling trading stays in the person's run: the fake server does not speak the user-data websocket.
+  - The four Futures tests still fail with `-2015`, as in the first run.
 - **User's first run (2026-10-04)**, `-TestnetOnly`, before PR7:
   - The Spot round trip passed. So the Spot keys resolve and Spot orders are accepted.
   - The four Futures tests failed with `-2015`: the Futures Testnet key was rejected. That needs a new Futures key and is not on this task's path.

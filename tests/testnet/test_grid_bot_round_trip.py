@@ -65,29 +65,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result imp
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     BaseHandling,
 )
-from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import (
     GridRuntime,
 )
-from Sagittarius_Elite_Warrior.src.modules.trading.application.session.enable_trading.command import (
-    EnableTradingCommand,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
-    EnableTradingResult,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
-    OrderEndedEvent,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
-    IVenueTradingPorts,
-)
-from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
-    OrderSubmissionMode,
-)
-from Sagittarius_Elite_Warrior.src.shell.composition_root import create_app
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.exchange_credentials import (
     ExchangeCredentials,
 )
@@ -97,6 +80,8 @@ from Sagittarius_Elite_Warrior.tests.testnet.grid_testnet_app import (
     GridTestnetApp,
     S,
     clean_up,
+    composed_on_spot_testnet,
+    enable_trading,
     round_to_step,
     spot_testnet_config,
     stream_latency_s,
@@ -120,25 +105,9 @@ def booted(
 ) -> Iterator[GridTestnetApp]:
     """The app booted with Spot Testnet on and trading enabled. The credential
     fixture is the gate; the app resolves the keys itself."""
-    engine = create_app(spot_testnet_config(tmp_path))
-    engine.boot()
-    try:
-        container = engine.context.container
-        ports = container.resolve(IVenueTradingPorts).get(SPOT)
-        app = GridTestnetApp(
-            engine,
-            container.resolve(IBotStore),
-            ports.client_factory.create(OrderSubmissionMode.LIVE),
-        )
-        engine.event_bus.on(OrderEndedEvent, app.on_ended)
-        enabled = engine.dispatch(
-            EnableTradingCommand, EnableTradingCommand(venue=SPOT)
-        )
-        assert isinstance(enabled, EnableTradingResult)
-        assert enabled.enabled, f"trading did not turn on: {enabled.block_reason}"
+    with composed_on_spot_testnet(spot_testnet_config(tmp_path)) as app:
+        enable_trading(app)
         yield app
-    finally:
-        engine.stop()
 
 
 def _terms_and_price(app: GridTestnetApp) -> tuple[ExchangeTerms, Decimal]:
