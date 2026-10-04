@@ -84,6 +84,7 @@ class GridHousekeeping:
             if not outcome.done and not self._ended_meanwhile(outcome, order):
                 return CancelReport(outcome, order.client_order_id)
             state.update(drop_order(state.runtime, order.client_order_id))
+            self._context.off_ladder.add(order.client_order_id)
         return CancelReport()
 
     def _ended_meanwhile(self, outcome: OrderOutcome, order: Order) -> bool:

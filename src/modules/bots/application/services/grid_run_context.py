@@ -12,7 +12,7 @@ start-up for every restored bot, where D12 allows no network and no order.
 from __future__ import annotations
 
 from collections.abc import Callable
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_gateway import (
@@ -20,6 +20,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_order_g
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_run_state import (
     BotRunState,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.off_ladder_orders import (
+    OffLadderOrders,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
@@ -61,6 +64,8 @@ class GridRunContext:
     params: GridParams
     terms_source: LazyExchangeTerms
     caps: OwnerBudgetCaps
+    #: The run's orders no level holds whose fills still count.
+    off_ladder: OffLadderOrders = field(default_factory=OffLadderOrders)
 
     @property
     def terms(self) -> ExchangeTerms:

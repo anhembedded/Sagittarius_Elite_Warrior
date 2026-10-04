@@ -99,6 +99,7 @@ class GridStartSequence:
         quote = plan.opening_buy_quantity * plan.last_price
         for index, piece in enumerate(quote_slices(quote, self._context.cap), start=1):
             outcome = self._context.gateway.market_buy(piece, plan.last_price)
+            self._context.off_ladder.add(outcome.client_order_id)
             logger.info(
                 "Bot %s: opening buy slice %d of %s USDT -> %s %s",
                 self._context.state.bot_id,

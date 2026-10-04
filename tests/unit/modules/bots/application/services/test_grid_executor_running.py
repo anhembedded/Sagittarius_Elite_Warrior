@@ -135,6 +135,36 @@ def test_an_order_is_never_sent_to_a_level_that_already_holds_one() -> None:
     assert _runtime(world).reason is GridReason.DUPLICATE_LEVEL_ORDER
 
 
+def test_a_late_duplicate_fill_of_a_settled_level_changes_nothing() -> None:
+    """A fill for an id the ladder no longer holds is a market fill only if
+    the bot sent that id as a market order or took it off the ladder; a late
+    duplicate of a settled level's fill, or an earlier run's order, is not."""
+    world = _running()
+    oid = world.open_ids_by_price()[Decimal(110)]
+    world.fill(Decimal(110), "2.272")
+    held = _runtime(world).inventory
+
+    world.executor.on_fill(
+        BotOrderFill(oid, OrderSide.BUY, Decimal(110), Decimal("2.272"), None, None)
+    )
+
+    assert _runtime(world).inventory == held
+
+
+def test_an_opening_market_slice_still_moves_the_inventory() -> None:
+    world = grid_world()
+    world.executor.start()
+    slice_id = world.book.submitted[0]
+
+    world.executor.on_fill(
+        BotOrderFill(
+            slice_id, OrderSide.BUY, Decimal(121), Decimal("2.066"), None, None
+        )
+    )
+
+    assert _runtime(world).inventory == Decimal("2.066")
+
+
 def test_an_order_cancelled_from_outside_is_placed_again_once() -> None:
     world = _running()
     oid = world.open_ids_by_price()[Decimal(100)]

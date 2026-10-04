@@ -66,6 +66,8 @@ class SimulatedBook:
         self.open: dict[str, Order] = {}
         self.requests: list[OrderRequest] = []
         self.cancels: list[str] = []
+        #: Every order the venue accepted, market slices included, in order.
+        self.submitted: list[str] = []
         self.threads: list[str] = []
         self.refuse_next: list[ExecuteOrderSafetyGate | None] = []
         self.raise_next: list[Exception] = []
@@ -114,6 +116,7 @@ class SimulatedSubmission(IOrderSubmission):
             time_in_force=request.time_in_force,
             quote_quantity=request.quote_quantity,
         )
+        self._book.submitted.append(order.client_order_id)
         if request.order_type is OrderType.LIMIT:
             self._book.open[order.client_order_id] = order
         return ExecuteOrderResult(None, None, (), order)

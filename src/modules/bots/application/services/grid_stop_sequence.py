@@ -119,6 +119,7 @@ class GridStopSequence:
         remaining = sum(slices, Decimal(0))
         for index, piece in enumerate(slices, start=1):
             outcome = self._context.gateway.market_sell(piece, price)
+            self._context.off_ladder.add(outcome.client_order_id)
             logger.info(
                 "Bot %s: exit slice %d of %s -> %s %s",
                 self._context.state.bot_id,

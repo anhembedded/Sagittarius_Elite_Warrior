@@ -252,7 +252,15 @@ class GridExecutor(IBotExecutor):
         state = self._context.state
         level_fill = self._level_fill(fill)
         if state.runtime.level_of(fill.client_order_id) is None:
-            state.update(book_market_fill(state.runtime, fill.side, level_fill))
+            if fill.client_order_id in self._context.off_ladder:
+                state.update(book_market_fill(state.runtime, fill.side, level_fill))
+            else:
+                logger.info(
+                    "Bot %s: fill of %s ignored; no level holds it and the bot "
+                    "neither sent it as a market order nor took it off the ladder",
+                    self.bot_id,
+                    fill.client_order_id,
+                )
             return
         reaction = on_fill(
             state.runtime,
@@ -267,6 +275,7 @@ class GridExecutor(IBotExecutor):
         state = self._context.state
         if state.state not in (_S.RUNNING, _S.PAUSED):
             state.update(drop_order(state.runtime, end.client_order_id))
+            self._context.off_ladder.add(end.client_order_id)
             return
         terms = self._context.terms
         reaction = on_end(
