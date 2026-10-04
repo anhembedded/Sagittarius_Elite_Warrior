@@ -22,6 +22,30 @@ from types import MappingProxyType
 
 
 @dataclass(frozen=True, slots=True)
+class PriceBand:
+    """`BUG-146` — how far from the market an order's price may be, as
+    multiples of the reference price: Binance Spot's `PERCENT_PRICE_BY_SIDE`.
+
+    @details Binance holds a BUY to `[buy_down, buy_up] × average price` and a
+    SELL to `[sell_down, sell_up] × average price`, the average taken over the
+    filter's `avgPriceMins`. A check here uses the last price as the
+    reference: close to the average in a normal market, and the only price a
+    plan is drawn at.
+    """
+
+    buy_down: Decimal
+    buy_up: Decimal
+    sell_down: Decimal
+    sell_up: Decimal
+
+    def __post_init__(self) -> None:
+        if not (
+            0 < self.buy_down <= self.buy_up and 0 < self.sell_down <= self.sell_up
+        ):
+            raise ValueError("a price band's multipliers must be positive, down <= up")
+
+
+@dataclass(frozen=True, slots=True)
 class ExchangeTerms:
     """The numbers the exchange and trading will hold an order to."""
 
@@ -39,6 +63,9 @@ class ExchangeTerms:
     #: `MARKET_LOT_SIZE`'s step, which Binance holds a MARKET order to; `None`
     #: when the venue publishes none, and `LOT_SIZE`'s step applies.
     market_step_size: Decimal | None = None
+    #: The venue's price band (`BUG-146`); `None` when it publishes none, and
+    #: the band check says it did not run.
+    price_band: PriceBand | None = None
 
     @property
     def market_step(self) -> Decimal:

@@ -230,3 +230,35 @@ def test_parse_spot_exchange_info_propagates_a_malformed_symbols_own_error():
 
     with pytest.raises(KeyError):
         parse_spot_exchange_info(payload, fetched_at=_FIXED_TIME)
+
+
+def test_reads_the_percent_price_by_side_band_when_published():
+    """`BUG-146` — Binance rejects a BUY or SELL priced outside this band
+    (`-1013 Filter failure: PERCENT_PRICE_BY_SIDE`); the bot checks a plan
+    against it only if the parser carries it."""
+    entry = {
+        **_BTCUSDT_ENTRY,
+        "filters": [
+            *_BTCUSDT_ENTRY["filters"],
+            {
+                "filterType": "PERCENT_PRICE_BY_SIDE",
+                "bidMultiplierUp": "5",
+                "bidMultiplierDown": "0.2",
+                "askMultiplierUp": "5",
+                "askMultiplierDown": "0.2",
+                "avgPriceMins": 5,
+            },
+        ],
+    }
+
+    band = parse_spot_symbol_metadata(entry, fetched_at=_FIXED_TIME).price_band
+
+    assert band is not None
+    assert (band.bid_down, band.bid_up) == (Decimal("0.2"), Decimal(5))
+    assert (band.ask_down, band.ask_up) == (Decimal("0.2"), Decimal(5))
+
+
+def test_no_band_when_the_symbol_publishes_none():
+    metadata = parse_spot_symbol_metadata(_BTCUSDT_ENTRY, fetched_at=_FIXED_TIME)
+
+    assert metadata.price_band is None

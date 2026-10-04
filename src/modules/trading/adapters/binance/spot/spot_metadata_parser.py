@@ -27,6 +27,7 @@ from enum import Enum
 from typing import Any
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    PercentPriceBand,
     SymbolOrderMetadata,
 )
 
@@ -38,6 +39,7 @@ class SpotFilterType(str, Enum):
     LOT_SIZE = "LOT_SIZE"
     MARKET_LOT_SIZE = "MARKET_LOT_SIZE"
     NOTIONAL = "NOTIONAL"
+    PERCENT_PRICE_BY_SIDE = "PERCENT_PRICE_BY_SIDE"
 
 
 class SpotMetadataKey(str, Enum):
@@ -53,6 +55,10 @@ class SpotMetadataKey(str, Enum):
     #: Spot's `NOTIONAL` filter carries the value under `"minNotional"` —
     #: unlike futures' `MIN_NOTIONAL`, which uses `"notional"`.
     MIN_NOTIONAL = "minNotional"
+    BID_MULTIPLIER_UP = "bidMultiplierUp"
+    BID_MULTIPLIER_DOWN = "bidMultiplierDown"
+    ASK_MULTIPLIER_UP = "askMultiplierUp"
+    ASK_MULTIPLIER_DOWN = "askMultiplierDown"
 
 
 DEFAULT_STATUS: str = "TRADING"
@@ -191,6 +197,29 @@ def parse_spot_symbol_metadata(
         price_precision=None,
         fetched_at=timestamp,
         market_step_size=market_step_size,
+        price_band=_price_band(filter_map, symbol),
+    )
+
+
+def _price_band(
+    filter_map: dict[str, dict[str, Any]], symbol: str
+) -> PercentPriceBand | None:
+    """`BUG-146` — `PERCENT_PRICE_BY_SIDE`, optional like `MARKET_LOT_SIZE`:
+    a symbol without it has no band, and a band that is present must be
+    whole (each multiplier raises like any required field)."""
+    band = filter_map.get(SpotFilterType.PERCENT_PRICE_BY_SIDE.value)
+    if band is None:
+        return None
+    name = SpotFilterType.PERCENT_PRICE_BY_SIDE.value
+
+    def multiplier(key: SpotMetadataKey) -> Decimal:
+        return _required_decimal(band, key.value, name, symbol)
+
+    return PercentPriceBand(
+        bid_down=multiplier(SpotMetadataKey.BID_MULTIPLIER_DOWN),
+        bid_up=multiplier(SpotMetadataKey.BID_MULTIPLIER_UP),
+        ask_down=multiplier(SpotMetadataKey.ASK_MULTIPLIER_DOWN),
+        ask_up=multiplier(SpotMetadataKey.ASK_MULTIPLIER_UP),
     )
 
 
