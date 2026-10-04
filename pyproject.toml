@@ -326,7 +326,6 @@ exclude = [
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]coordinators[\\/]scan_coordinator\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]coordinators[\\/]sync_coordinator\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]coordinators[\\/]kline_inspector_coordinator\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]signal_log_handler\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]preview\\.py$",
 
     # `EPIC-025` PR 4.4c, fifth re-key on PR 0.4a's precedent: `screens/trading`

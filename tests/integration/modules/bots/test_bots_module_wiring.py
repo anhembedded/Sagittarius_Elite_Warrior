@@ -23,9 +23,18 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
+    ICloseObjections,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import (
     ICommandHandler,
     IQueryHandler,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
+from Sagittarius_Elite_Warrior.src.infrastructure.engine_adapters.event_publisher_adapter import (
+    EngineEventPublisher,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
@@ -35,6 +44,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.event_handlers.bot_e
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot import (
     GetBotQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot_fills import (
+    GetBotFillsQuery,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
+    GetPlannerMarketQuery,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots import (
     ListBotsQuery,
@@ -66,6 +81,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.start_bot 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.stop_bot import (
     StopBotCommand,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.events.bot_changed_event import (
+    BotChangedEvent,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import (
     IBotStore,
     StoredBot,
@@ -81,6 +99,12 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.module import BotsModule
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_historical_klines import (
+    IHistoricalKlines,
+)
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.order_ended_event import (
     OrderEndedEvent,
@@ -105,6 +129,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_
     FakeVenueTradingPorts,
     fake_venue_ports,
 )
+from Sagittarius_Elite_Warrior.src.shell.close_objections import CloseObjections
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -123,7 +148,7 @@ COMMANDS = (
     DeleteBotCommand,
     ConfirmBotResumeCommand,
 )
-QUERIES = (ListBotsQuery, GetBotQuery)
+QUERIES = (ListBotsQuery, GetBotQuery, GetPlannerMarketQuery, GetBotFillsQuery)
 _GRID_CONFIG = {
     "lower": "60000",
     "upper": "70000",
@@ -143,7 +168,11 @@ def _registered(state_dir: Path) -> tuple[BotsModule, SimpleNamespace]:
         FakeVenueTradingPorts(fake_venue_ports(TradingVenue.SPOT_TESTNET)),
     )
     container.singleton(OwnerBudgetCaps, DEFAULT_OWNER_BUDGET_CAPS)
-    context = SimpleNamespace(container=container, event_bus=MemoryEventBus())
+    container.singleton(IHistoricalKlines, FakeHistoricalKlines())
+    event_bus = MemoryEventBus()
+    container.singleton(IEventPublisher, EngineEventPublisher(event_bus))
+    container.singleton(ICloseObjections, CloseObjections())
+    context = SimpleNamespace(container=container, event_bus=event_bus)
     module = BotsModule()
     module.register(context)
     return module, context
@@ -166,6 +195,37 @@ def test_the_store_is_the_configured_directory(tmp_path: Path) -> None:
     store = context.container.resolve(IBotStore)
     store.save(sample_bot())
     assert (tmp_path / "abc123.json").is_file()
+
+
+def test_every_store_write_reaches_the_bus(tmp_path: Path) -> None:
+    _, context = _registered(tmp_path)
+    heard: list[BotChangedEvent] = []
+    context.event_bus.on(BotChangedEvent, heard.append)
+
+    context.container.resolve(IBotStore).save(sample_bot())
+
+    assert [(event.bot_id, event.removed) for event in heard] == [("abc123", False)]
+
+
+def test_boot_registers_the_objection_that_names_a_running_bot(
+    tmp_path: Path,
+) -> None:
+    """Delete the `register(RunningBotsObjection(...))` line from `boot()`
+    and this fails (ADR O4)."""
+    module, context = _registered(tmp_path)
+    module.boot(context)
+    store = context.container.resolve(IBotStore)
+    stored = sample_bot()
+    store.save(
+        replace(
+            stored,
+            bot=replace(stored.bot, lifecycle=BotLifecycle(BotLifecycleState.RUNNING)),
+        )
+    )
+
+    (reason,) = context.container.resolve(ICloseObjections).reasons()
+
+    assert stored.bot.definition.name in reason
 
 
 def test_boot_restores_a_running_bot_as_recovering(tmp_path: Path) -> None:

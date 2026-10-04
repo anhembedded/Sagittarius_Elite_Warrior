@@ -59,6 +59,10 @@ class IBotExecutor(ABC):
         """Lay the ladder a resume from HALTED proposed (ADR D13, O2)."""
 
     @abstractmethod
+    def has_resume_proposal(self) -> bool:
+        """A resume from HALTED proposed a ladder that awaits confirmation."""
+
+    @abstractmethod
     def on_fill(self, fill: BotOrderFill) -> None:
         """One of the bot's orders filled, fully or partly."""
 

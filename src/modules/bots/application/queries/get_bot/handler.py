@@ -10,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_bot.query import (
     GetBotQuery,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_progress_reader import (
+    bot_progress,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_snapshot import (
     BotSnapshot,
 )
@@ -32,6 +35,7 @@ class GetBotQueryHandler(IQueryHandler[GetBotQuery, BotSnapshot | None]):
 
     def execute(self, query: GetBotQuery) -> BotSnapshot | None:
         try:
-            return BotSnapshot.of(self._store.load(BotId(query.bot_id)).bot)
+            stored = self._store.load(BotId(query.bot_id))
         except (InvalidBotIdError, BotNotFoundError, UnreadableBotError):
             return None
+        return BotSnapshot.of(stored.bot, bot_progress(stored))

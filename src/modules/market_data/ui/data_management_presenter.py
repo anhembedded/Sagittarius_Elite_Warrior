@@ -39,8 +39,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     default_symbol,
     default_symbol_options,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
-    UIMode,
+from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
+from Sagittarius_Elite_Warrior.src.support.ui_kit.signal_log_handler import (
+    SignalLogHandler,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.container_lookup import (
     find_state_coordinator,
@@ -70,7 +71,6 @@ from .logic.export_paths import (
 )
 from .logic.stats import database_size_text
 from .logic.ui_mode_transitions import install_transitions
-from .signal_log_handler import SignalLogHandler
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer

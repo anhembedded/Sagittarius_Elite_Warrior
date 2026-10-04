@@ -1,7 +1,7 @@
 # EPIC-029 — Tracking
 
 - **Epic:** [EPIC-029](README.md)
-- **Status:** 🟡 In progress (PR1, PR2 and PR3 merged; PR4: 029E)
+- **Status:** 🟡 In progress (PR1–PR4 merged; PR5: 029F in review)
 - **Target completion:** the fast track (029A–029H) is estimated in working days below. The dates are
   a plan, not a commitment.
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
@@ -31,7 +31,7 @@ gantt
     section F2 Live bot and backtest
     029G Bot chart and shared live chart     :done,    g, after c, 3d
     029E Live Grid executor                  :done,    e, after a c, 5d
-    029F Bots tab                            :crit,    f, after g, 5d
+    029F Bots tab                            :done,    f, after g, 5d
     029D Grid backtest (parallel)            :         d, after g, 4d
 
     section F3 Testnet
@@ -56,7 +56,7 @@ gantt
 | EPIC-029C | [Grid planner](completed/EPIC-029C_grid_planner.md) | PR1 (`claude/wizardly-cerf-fc5b5x`) | 🟢 | ✅ Done, in review | — |
 | EPIC-029D | [Grid backtest](incomplete/EPIC-029D_grid_backtest.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-029E | [Live Grid executor](completed/EPIC-029E_live_grid_executor.md) | — | 🔴 | ✅ Done (2026-10-04) | PR4 |
-| EPIC-029F | [Bots tab](incomplete/EPIC-029F_bots_tab.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-029F | [Bots tab](completed/EPIC-029F_bots_tab.md) | — | 🟡 | ✅ Done (2026-10-04) | PR5 |
 | EPIC-029G | [Bot chart](completed/EPIC-029G_bot_chart.md) | — | 🟡 | ✅ Done (2026-10-04) | PR3 |
 | EPIC-029H | [Spot Testnet soak](incomplete/EPIC-029H_spot_testnet_grid_soak.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-029I | [Desks manual only](incomplete/EPIC-029I_desks_manual_only.md) | — | 🟡 | 🔵 Planned | — |
@@ -78,6 +78,7 @@ gantt
 | 2026-10-03 | PR2 | `029A` (the trading seams) built; review round 1 found 2 blocking and 3 should-fix, all fixed; round 2 PASS. PR #320 merged by the user on 2026-10-04. |
 | 2026-10-04 | PR3 | `029G` (the bot chart): the desks' live chart moved into support behind `ICandleFeed`, `PriceLevelLayer`, the Grid overlay, one drawer and `BotChart` for the three surfaces. Two review rounds; PR #321 merged by the user. |
 | 2026-10-04 | PR4 | `029E` (the live Grid executor): the actor, the level FSM, start, fills, pause, stop, SL/TP, HALTED and resume, reconciliation. Two fake-exchange journeys in the composed app found two fee defects; a Binance rules and failure review (the user's request) found four more; all six fixed with tests. Sent for an independent review. |
+| 2026-10-04 | PR5 | `029F` (the Bots tab): the list, the detail shell, the Grid editor judged by the kind, New bot / Stop / Delete dialogs, one action at a time with fenced reads, the close guard (O4), a bot's orders and fills, `SPEC-014`. Sent for an independent review. |
 
 ---
 

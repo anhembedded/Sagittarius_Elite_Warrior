@@ -10,6 +10,10 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_command_lock import (
     BotCommandLock,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.confirm_bot_resume import (
+    ConfirmBotResumeCommand,
+    ConfirmBotResumeCommandHandler,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.use_cases.pause_bot import (
     PauseBotCommand,
     PauseBotCommandHandler,
@@ -75,6 +79,7 @@ class _RecordingRunner(IBotRunner):
         self._clock = clock
         self.refusal: BotCommandResult | None = None
         self.sent: list[tuple[str, str]] = []
+        self.proposals: set[str] = set()
 
     def start(self, bot_id: str) -> BotCommandResult:
         self.sent.append(("start", bot_id))
@@ -96,6 +101,9 @@ class _RecordingRunner(IBotRunner):
 
     def confirm_resume(self, bot_id: str) -> None:
         self.sent.append(("confirm_resume", bot_id))
+
+    def has_resume_proposal(self, bot_id: str) -> bool:
+        return bot_id in self.proposals
 
 
 @pytest.fixture
@@ -287,3 +295,46 @@ def test_pause_while_starting_is_refused_and_queues_nothing(
     assert result.refusal is BotRefusal.INVALID_TRANSITION
     assert runner.sent == []
     assert state_of(store, "abc123") is S.STARTING
+
+
+# --- confirm resume (PR #333 review) -----------------------------------------
+
+
+def _confirm(store: FakeBotStore, runner: _RecordingRunner) -> BotCommandResult:
+    return ConfirmBotResumeCommandHandler(store, runner).execute(
+        ConfirmBotResumeCommand("abc123")
+    )
+
+
+def test_confirm_with_nothing_proposed_is_refused_and_queues_nothing(
+    store: FakeBotStore, runner: _RecordingRunner
+) -> None:
+    """A HALTED bot whose executor holds no proposal (none asked for yet, or
+    the app restarted) would confirm nothing; the screen must not say done."""
+    seed(store, "abc123", S.HALTED)
+
+    result = _confirm(store, runner)
+
+    assert result.refusal is BotRefusal.NO_RESUME_PROPOSAL
+    assert "Resume" in result.message
+    assert runner.sent == []
+
+
+def test_confirm_of_a_proposed_resume_is_queued(
+    store: FakeBotStore, runner: _RecordingRunner
+) -> None:
+    seed(store, "abc123", S.HALTED)
+    runner.proposals.add("abc123")
+
+    assert _confirm(store, runner).accepted
+    assert runner.sent == [("confirm_resume", "abc123")]
+
+
+def test_confirm_outside_halted_is_refused_by_the_table_first(
+    store: FakeBotStore, runner: _RecordingRunner
+) -> None:
+    seed(store, "abc123", S.RUNNING)
+    runner.proposals.add("abc123")
+
+    assert _confirm(store, runner).refusal is BotRefusal.INVALID_TRANSITION
+    assert runner.sent == []

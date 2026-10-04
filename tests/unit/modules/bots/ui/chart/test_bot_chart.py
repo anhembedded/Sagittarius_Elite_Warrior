@@ -271,3 +271,28 @@ def test_following_again_after_shutdown_draws_each_candle_once(
 
     assert chart.is_live is True
     assert appended == [tick.close_time.timestamp()]
+
+
+def test_fit_levels_scales_the_price_axis_to_every_line_and_band(qapp) -> None:
+    """`EPIC-029F` — a level outside the candles is off screen until the
+    user fits the axis to the overlay."""
+    chart, card = build_chart()
+    overlay = sample_overlay()
+    chart.show_overlay(overlay)
+    prices = [line.price for line in overlay.lines] + [
+        edge for band in overlay.bands for edge in (band.lower, band.upper)
+    ]
+
+    assert chart.fit_levels()
+
+    low, high = card.plot_layout.main_plot.vb.viewRange()[1]
+    assert low <= float(min(prices)) and float(max(prices)) <= high
+    assert high - low < float(max(prices) - min(prices)) * 1.3
+
+
+def test_fit_levels_with_nothing_drawn_leaves_the_axis_alone(qapp) -> None:
+    chart, card = build_chart()
+    before = card.plot_layout.main_plot.vb.viewRange()[1]
+
+    assert not chart.fit_levels()
+    assert card.plot_layout.main_plot.vb.viewRange()[1] == before

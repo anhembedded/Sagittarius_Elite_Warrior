@@ -14,6 +14,7 @@ _DEFAULT_ICONS_DIR = Path(__file__).parent / "icons"
 
 REQUIRED_UI_ICONS: list[str] = [
     "bar-chart-2",
+    "bot",
     "briefcase",
     "calendar",
     "chart-candlestick",

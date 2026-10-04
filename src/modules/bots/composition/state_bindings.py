@@ -18,6 +18,9 @@ from __future__ import annotations
 from pathlib import Path
 
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.core.repo_root import data_root
 from Sagittarius_Elite_Warrior.src.modules.bots.adapters.persistence.json_bot_store import (
     JsonBotStore,
@@ -27,6 +30,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.adapters.system_bot_clock import
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore_service import (
     BotRestoreService,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.notifying_bot_store import (
+    NotifyingBotStore,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_clock import IBotClock
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
@@ -52,7 +58,11 @@ def bind_state(container: IContainer) -> None:
 
 
 def _build_store(container: IContainer) -> IBotStore:
-    return JsonBotStore(bots_directory(container.resolve(IConfig)))
+    """The JSON store, announcing every write (`EPIC-029F`, `BotChangedEvent`)."""
+    return NotifyingBotStore(
+        JsonBotStore(bots_directory(container.resolve(IConfig))),
+        container.resolve(IEventPublisher),
+    )
 
 
 def _build_restore_service(container: IContainer) -> BotRestoreService:

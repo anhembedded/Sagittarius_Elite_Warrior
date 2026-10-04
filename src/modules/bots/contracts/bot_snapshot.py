@@ -11,6 +11,9 @@ from dataclasses import dataclass, field
 from datetime import datetime
 from types import MappingProxyType
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_progress import (
+    BotProgress,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import Bot
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
@@ -33,12 +36,15 @@ class BotSnapshot:
     created_at: datetime
     run_started_at: datetime | None
     config: Mapping[str, str] = field(default_factory=dict)
+    #: The run's own account (`EPIC-029F`); `None` before a first run, or for
+    #: a kind that keeps none.
+    progress: BotProgress | None = None
 
     def __post_init__(self) -> None:
         object.__setattr__(self, "config", MappingProxyType(dict(self.config)))
 
     @classmethod
-    def of(cls, bot: Bot) -> BotSnapshot:
+    def of(cls, bot: Bot, progress: BotProgress | None = None) -> BotSnapshot:
         definition = bot.definition
         return cls(
             bot_id=bot.bot_id.value,
@@ -50,4 +56,5 @@ class BotSnapshot:
             created_at=bot.created_at,
             run_started_at=bot.lifecycle.run_started_at,
             config=definition.config,
+            progress=progress,
         )

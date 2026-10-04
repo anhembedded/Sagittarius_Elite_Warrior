@@ -18,13 +18,21 @@ Engine boot, QApplication setup, and theming live in app_bootstrapper.py.
 
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import QByteArray
 from PySide6.QtGui import QCloseEvent, QMoveEvent, QResizeEvent
 from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
+from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
+    ICloseObjections,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
     NavigationSource,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.close_confirmation import (
+    ConfirmClose,
+    ask_before_closing,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import (
@@ -45,6 +53,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator imp
     UiStateCoordinator,
 )
 from sagittarius_engine.extensions.pyside_mvc import PresenterManager
+
+logger = logging.getLogger("App.Shell.MainWindow")
 
 _WINDOW_TITLE = "Sagittarius Elite Warrior — Binance Trading Bot"
 # 1200x800 used to be enough, but the Dev Board's right column has grown
@@ -118,9 +128,15 @@ class MainWindow(QMainWindow):
         *,
         state_coordinator: UiStateCoordinator | None = None,
         navigation_service: INavigationService | None = None,
+        close_objections: ICloseObjections | None = None,
+        confirm_close: ConfirmClose | None = None,
     ) -> None:
         super().__init__()
         self._app = app_engine
+        self._close_objections = close_objections
+        #: `None` asks with a message box. Never a lambda over `self`: a
+        #: cycle would keep this wrapper alive after Qt deletes the window.
+        self._confirm_close = confirm_close
         # Set before any geometry call: `resizeEvent`/`moveEvent` may fire
         # synchronously as a side effect of `resize()`/`restoreGeometry()`
         # below, and both call `_mark_dirty()`, which reads this attribute.
@@ -188,8 +204,27 @@ class MainWindow(QMainWindow):
         self._router.shutdown()
 
     def closeEvent(self, event: QCloseEvent) -> None:
+        """Asks first when a context objects (`EPIC-029F`, ADR O4): a running
+        bot's orders stay on the exchange with nobody watching them. Cancel
+        keeps the window, and shuts nothing down."""
+        reasons = (
+            self._close_objections.reasons()
+            if self._close_objections is not None
+            else ()
+        )
+        if reasons and not self._close_confirmed(reasons):
+            logger.info(
+                "Close cancelled: %d objection(s) kept the app open", len(reasons)
+            )
+            event.ignore()
+            return
         self.shutdown()
         super().closeEvent(event)
+
+    def _close_confirmed(self, reasons: Sequence[str]) -> bool:
+        if self._confirm_close is not None:
+            return self._confirm_close(reasons)
+        return ask_before_closing(self, reasons)
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)

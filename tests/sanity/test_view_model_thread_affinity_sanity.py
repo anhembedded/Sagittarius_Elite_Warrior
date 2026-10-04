@@ -19,6 +19,9 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model import (
+    BotsViewModel,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_view_model import (
     DataManagementViewModel,
 )
@@ -59,6 +62,7 @@ _ALL_VIEW_MODELS = [
     StatusMessageViewModel,
     TradingSettingsViewModel,
     DeskViewModel,
+    BotsViewModel,
 ]
 
 

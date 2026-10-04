@@ -39,6 +39,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_ports 
     LiveChartPorts,
 )
 
+#: Room above the highest and below the lowest level, as a fraction of the span.
+_FIT_PADDING = 0.05
+
 
 class BotChart(LiveCandleChart):
     """@brief One bot's `ChartCard`, its candles and its overlay."""
@@ -51,11 +54,28 @@ class BotChart(LiveCandleChart):
             chart, PriceLevelLayer(chart.plot_layout.main_plot)
         )
         self._ticks: BotTickFeed | None = None
+        self._overlay = BotOverlay()
 
     def show_overlay(self, overlay: BotOverlay) -> OverlayItems:
         """@brief Draws the bot's overlay, replacing the previous one.
         @return The items drawn."""
+        self._overlay = overlay
         return self._drawer.draw(overlay)
+
+    def fit_levels(self) -> bool:
+        """@brief Scales the price axis to every line and band of the overlay
+        (`EPIC-029F`): a level outside the candles' range is otherwise off
+        screen (029G). The chart's own reset button returns to following the
+        candles. @return `False` when the overlay has nothing to fit."""
+        prices = [line.price for line in self._overlay.lines] + [
+            edge for band in self._overlay.bands for edge in (band.lower, band.upper)
+        ]
+        if not prices:
+            return False
+        self._chart.plot_layout.main_plot.setYRange(
+            float(min(prices)), float(max(prices)), padding=_FIT_PADDING
+        )
+        return True
 
     def follow(self, ticks: BotTickFeed) -> None:
         """@brief Goes live, once per `shutdown`: syncs, streams under the

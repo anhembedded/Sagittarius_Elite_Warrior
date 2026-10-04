@@ -18,7 +18,6 @@
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]coordinators[\/]scan_coordinator\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]coordinators[\/]sync_coordinator\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]coordinators[\/]kline_inspector_coordinator\.py$
-^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]signal_log_handler\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]preview\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]trading[\/]ui[\/]dashboard[\/]dev_board_panel\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]trading[\/]ui[\/]dashboard[\/]dashboard_presenter\.py$

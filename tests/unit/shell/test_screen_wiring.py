@@ -18,6 +18,7 @@ converted in `EPIC-025E` PR 4.4e).
 from __future__ import annotations
 
 from Sagittarius_Elite_Warrior.src.modules.backtesting.module import BacktestingModule
+from Sagittarius_Elite_Warrior.src.modules.bots.module import BotsModule
 from Sagittarius_Elite_Warrior.src.modules.market_data.module import MarketDataModule
 from Sagittarius_Elite_Warrior.src.modules.trading.module import TradingModule
 from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
@@ -35,12 +36,15 @@ _EXPECTED_ROUTES = (
     "data_management",
     "watchlist",
     "backtest",
+    # `EPIC-029F` — bots contribute last, `MODULES` order.
+    "bots",
 )
 
 
-def _real_modules(container: object) -> tuple[object, object, object]:
-    """The three module instances that own these six screens (`BOT-019`
-    added `watchlist` as `market_data`'s second screen), each with
+def _real_modules(container: object) -> tuple[object, object, object, object]:
+    """The four module instances that own these seven screens (`BOT-019`
+    added `watchlist` as `market_data`'s second screen, `EPIC-029F` the
+    Bots tab), each with
     `_container` stashed the way `boot()` would (`TradingModule.__init__`
     and `BacktestingModule.__init__`'s own docstrings explain why this is
     safe to skip straight to). Ordered to match `_EXPECTED_ROUTES` — the
@@ -51,7 +55,7 @@ def _real_modules(container: object) -> tuple[object, object, object]:
     market_data = MarketDataModule()
     backtesting = BacktestingModule()
     backtesting._container = container
-    return trading, market_data, backtesting
+    return trading, market_data, backtesting, BotsModule()
 
 
 def _contribute_screens(registry: ContributionRegistry, container: object) -> None:
@@ -81,6 +85,7 @@ def test_each_screen_is_contributed_by_its_own_module_not_the_shell() -> None:
         "data_management": "market_data",
         "watchlist": "market_data",
         "backtest": "backtesting",
+        "bots": "bots",
     }
 
 
@@ -133,6 +138,7 @@ def test_the_sidebar_matches_the_legacy_layout() -> None:
         "dashboard",
         "trading.futures",
         "trading.spot",
+        "bots",
         "data_management",
         "watchlist",
     ]

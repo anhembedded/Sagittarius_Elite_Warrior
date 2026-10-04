@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import logging
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import SignalInstance
 
 
 class SignalLogHandler(logging.Handler):
@@ -20,7 +20,7 @@ class SignalLogHandler(logging.Handler):
     Detaching on the first such failure keeps that blast radius at zero.
     """
 
-    def __init__(self, signal: Signal, logger_name: str = "App") -> None:
+    def __init__(self, signal: SignalInstance, logger_name: str = "App") -> None:
         super().__init__()
         self.signal = signal
         self._logger_name = logger_name

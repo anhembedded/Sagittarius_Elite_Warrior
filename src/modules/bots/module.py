@@ -30,8 +30,12 @@ ends and rejections of its orders, its symbol's ticks, and the trading switch.
 It is held for the life of the module (the reason `StrategyModule` gives for
 its tick handler), and it only copies and queues: the bots' own workers act.
 
-@par No `contribute()` yet
-The Bots tab is `EPIC-029F`.
+@par `contribute()` offers the Bots tab (`EPIC-029F`, ADR D19)
+The route `bots`, NAVIGATION item 18, built lazily from `ui/bots_screen/`.
+
+@par `boot()` also registers the close objection (ADR O4)
+`RunningBotsObjection` names every bot not at rest when the user closes the
+window, so closing with a ladder on the exchange is a choice, not an accident.
 """
 
 from __future__ import annotations
@@ -42,6 +46,12 @@ from typing import Any
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
+    ICloseObjections,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
+    IContributionRegistry,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.event_handlers.bot_event_router import (
     BotEventRouter,
 )
@@ -50,6 +60,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore_service import (
     BotRestoreService,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.running_bots_objection import (
+    RunningBotsObjection,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.command_bindings import (
     bind_commands,
@@ -64,6 +77,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.composition.state_bindings impor
     bind_state,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import IBotStore
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_screen import (
+    bots_screen,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
@@ -84,7 +100,7 @@ logger = logging.getLogger("App.BotsModule")
 
 
 class BotsModule(BoundedContextModule):
-    """Bots: their store, their lifecycle and, from `EPIC-029F`, their tab."""
+    """Bots: their store, their lifecycle and their tab."""
 
     module_id = "bots"
 
@@ -117,6 +133,14 @@ class BotsModule(BoundedContextModule):
         bus.on(TradingSwitchChangedEvent, router.on_switch)
         self._router = router
         logger.info("Bots subscribed to fills, ends, rejections, ticks and the switch")
+        container.resolve(ICloseObjections).register(
+            RunningBotsObjection(container.resolve(IBotStore))
+        )
+
+    def contribute(self, registry: IContributionRegistry) -> None:
+        """The Bots tab (`EPIC-029F`, ADR D19), lazy: no widget module is
+        imported until the route opens."""
+        registry.contribute_screen(bots_screen())
 
     def shutdown(self, context: Any) -> None:
         """Close every bot's worker: each runs what is queued, then stops, so

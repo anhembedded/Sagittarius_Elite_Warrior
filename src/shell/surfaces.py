@@ -57,6 +57,7 @@ SURFACES: tuple[Surface, ...] = (
     Surface(
         "backtest", owner="backtesting", accepts=frozenset({Place.RAIL, Place.MODAL})
     ),
+    Surface("bots", owner="bots", accepts=frozenset({Place.WORKSPACE})),
     Surface(
         "data_management",
         owner="market_data",

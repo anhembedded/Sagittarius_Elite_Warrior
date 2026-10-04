@@ -78,7 +78,7 @@ The Engine epic is scaffolded in that repository by its own rules (`.agents/rule
 | 4 — Retire | 033M merged; every baseline empty, every ratchet a ban | Full gate |
 
 ## 5. Out of scope
-Visual design (colours, icon set, branding, a designed dark theme) — deferred by the user (D1); dark mode comes only from the operating system's colour scheme (D8). The Bots tab has no screen yet; when it gets one it is born a workbench under this contract. Engine-side retirement of the QML kit is the Engine's own decision (W5 only scopes it).
+Visual design (colours, icon set, branding, a designed dark theme) — deferred by the user (D1); dark mode comes only from the operating system's colour scheme (D8). The Bots tab (`EPIC-029F`, PR #333) is born a workbench host: a `WorkbenchSurface` (the Engine's `RegionHost`) with stock controls and no style sheet, so it passes every conformance check. Its 7 per-view item-view calls wait in `baseline_stock_controls.json` for `EPIC-033N`; `EPIC-033K` re-lays it out on `WorkbenchShell`. Engine-side retirement of the QML kit is the Engine's own decision (W5 only scopes it).
 
 ## Notes (newest first)
 - **2026-10-04** — Redesign from the use cases (D10) and the rule grounded in Microsoft/KDE/Apple guidance (D11): 033O and 033P added; the screen-by-screen tasks became mode tasks; Settings became Tools → Options.

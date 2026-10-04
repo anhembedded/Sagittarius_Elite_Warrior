@@ -18,6 +18,7 @@ _EXPECTED_ICONS = [
     "circle-check-big",
     "trash-2",
     "chart-candlestick",
+    "bot",
 ]
 
 
