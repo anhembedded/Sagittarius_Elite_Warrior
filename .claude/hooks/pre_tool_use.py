@@ -27,13 +27,20 @@ import sys
 from collections.abc import Callable
 from pathlib import Path
 
-#: An invocation (pwsh/powershell running ci-local.ps1) piped, on the same line,
-#: into `tail`. Requiring the invocation keeps prose that merely names the
-#: script — a heredoc, a commit message — from being refused.
+#: Where a shell command can start: a line start, or after `;`, `&`, `&&`, `||`
+#: or `(`. Anchoring there keeps prose that names a command -- a quoted
+#: string, a heredoc line that does not begin with it -- from matching.
+_COMMAND_START = r"(?:^|[;&(]|\|\|)\s*"
+#: pwsh/powershell running ci-local.ps1 and piped, on the same line, into tail.
 _TAIL_PIPE = re.compile(
-    r"\b(?:pwsh|powershell)(?:\.exe)?\b[^\n|]*ci-local\.ps1[^\n|]*(?:\|[^\n|]*)*\|\s*tail\b"
+    _COMMAND_START
+    + r"(?:pwsh|powershell)(?:\.exe)?\s[^\n|]*ci-local\.ps1[^\n|]*(?:\|[^\n|]*)*\|\s*tail\b",
+    re.MULTILINE,
 )
-_GIT_COMMIT = re.compile(r"(?:^|[;&|(]\s*|\s)git\s+(?:-[^\s]+\s+\S+\s+)*commit\b")
+#: `git [-C dir …] commit`, as a command; not `commit-tree`, not a quoted mention.
+_GIT_COMMIT = re.compile(
+    _COMMAND_START + r"git\s+(?:-\S+\s+\S+\s+)*commit(?:\s|$)", re.MULTILINE
+)
 _REFUSE = 2
 
 #: One check: a name and the argument vector, relative to the repository root.
@@ -60,7 +67,12 @@ def commit_checks(root: Path) -> list[Check]:
     ruff = str(venv_ruff) if venv_ruff.is_file() else shutil.which("ruff")
     python = sys.executable
     checks: list[Check] = []
-    if ruff is not None:
+    if ruff is None:
+        # Fail closed: a missing tool is installed (install-rule.md §3), never skipped.
+        checks.append(
+            ("ruff", [python, "-c", "raise SystemExit('ruff is not installed')"])
+        )
+    else:
         checks.append(
             ("ruff check", [ruff, "check", "src", "tests", "tools", "scripts"])
         )
