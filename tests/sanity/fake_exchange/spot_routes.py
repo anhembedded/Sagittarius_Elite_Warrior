@@ -11,6 +11,7 @@ future `EPIC-027K` order path) call, verified by reading `python-binance`'s
     GET    /api/v3/allOrders        `get_all_orders()` (`EPIC-028E`)
     GET    /api/v3/myTrades         `get_my_trades()` (`EPIC-028E`)
     GET    /api/v3/ticker/bookTicker  `get_orderbook_ticker()` (`EPIC-028O`)
+    GET    /api/v3/ticker/price     `get_symbol_ticker()` — Spot equity
     POST   /api/v3/order/test       `create_test_order()`
     POST   /api/v3/order            `create_order()` (`EPIC-027K`)
     DELETE /api/v3/order            `cancel_order()`
@@ -32,6 +33,8 @@ deterministic dict, same discipline as `futures_routes.py`.
 """
 
 from __future__ import annotations
+
+from decimal import Decimal
 
 from .history_log import HistoryQuery
 from .spot_account_state import SpotAccountState
@@ -183,12 +186,31 @@ def _handle_get(
         return 200, state.open_orders(params.get("symbol"))
     if path in {"/api/v3/allOrders", "/api/v3/myTrades"}:
         return _history(path, HistoryQuery.parse(params), state)
-    if path == "/api/v3/ticker/bookTicker":
-        book = state.book_ticker(params.get("symbol", ""))
-        if book is None:
-            return 400, {"code": -1121, "msg": "Invalid symbol."}
-        return 200, book
+    if path in {"/api/v3/ticker/bookTicker", "/api/v3/ticker/price"}:
+        return _ticker(path, params.get("symbol", ""), state)
     return None
+
+
+#: `EPIC-028O` — the fake book's distance from the last price on each side.
+_BOOK_HALF_SPREAD = Decimal("0.01")
+
+
+def _ticker(path: str, symbol: str, state: SpotAccountState) -> tuple[int, object]:
+    """@brief Both ticker reads quote the last price: `ticker/price` as it
+    is, `ticker/bookTicker` one cent either side, so a test that moves the
+    price moves both. A symbol the fake does not list is Binance's -1121."""
+    price = state.last_price(symbol)
+    if price is None:
+        return 400, {"code": -1121, "msg": "Invalid symbol."}
+    if path == "/api/v3/ticker/price":
+        return 200, {"symbol": symbol, "price": f"{price:.8f}"}
+    return 200, {
+        "symbol": symbol,
+        "bidPrice": f"{price - _BOOK_HALF_SPREAD:.8f}",
+        "bidQty": "1.50000000",
+        "askPrice": f"{price + _BOOK_HALF_SPREAD:.8f}",
+        "askQty": "0.75000000",
+    }
 
 
 #: Binance's Spot limit on `endTime - startTime` for both history endpoints.

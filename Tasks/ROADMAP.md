@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 170 | 83.7% |
+| 🟢 **Completed** | 171 | 83.8% |
 | 🟡 **In Progress** | 0 | 0.0% |
 | 🔴 **Backlog** | 25 | 12.3% |
 | ❌ **Cancelled** | 8 | 3.9% |
-| 📈 **Tổng số Task** | **203** | **100%** |
+| 📈 **Tổng số Task** | **204** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -175,6 +175,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **[`BOT-147`](completed/BOT-147_fake_exchange_prices_spot_holdings.md) (the fake exchange prices Spot holdings)**: [Root cause: `SpotAccountReader` prices holdings through `GET /api/v3/ticker/price`, which the fake did not serve, so every fake-exchange Spot account read logged "could not price BTC" and reported no equity. The state now exposes the last price and the routes own both ticker shapes.]
 - [x] **`EPIC-029E` (a Grid bot runs live on Spot, PR4 of EPIC-029)**: [Decision: a functional core and an imperative shell. The ladder's reactions to fills, ends, pauses and adoption are pure domain functions over a declared level FSM (ADR §3.2 plus `settled`), and one actor per bot (`GridExecutor` on its own queue, D9) is the only writer, sending through a gateway that classifies every answer as switch-off, refusal or fault. Two fake-exchange journeys in the composed app and a Binance rules and failure review (the user's request) found six defects before any real order, all fixed with tests: Spot's base-asset buy fee (SELL side and reconciled fills), market-slice tails and re-placed remainders below `NOTIONAL`, failures outside an order leaving a bot stuck with no reason (now one fault boundary), and an order filling just before its cancel (`-2011`) faulting the stop. The independent review (round 1) found seven more, all fixed with tests: a pause crossed both ways releasing a crossing pair at one level, HALTED/ERROR leaving the ladder trading with the stop loss unwatched (now cancelled, exits still armed), off-ladder fills double-booked, worker threads never closed, a reconcile ignoring a counter's halt, exits ignoring `MARKET_LOT_SIZE`, and two false documentation claims.] — [EPIC-029E](epics/EPIC-029_bots_tab_grid_fast_track/completed/EPIC-029E_live_grid_executor.md)
 - [x] **`EPIC-030` (the rulebook enforced by mechanism, Tier A)**: [Decision: Constitution P1 applied to the rules themselves. `scripts/check_skill_prompt_references.py` now checks clause tags, guard and gate targets, `§` anchors, attributed quotations, invariant references and dated amendments; four architecture guards made true (Shared Kernel, layer direction inside a module, presenter-owned objects never registered, every presenter package has a preview); the unit tier cannot reach the network; tests write runtime data only under `SEW_DATA_ROOT`; a daily workflow files an issue when a scheduled audit goes silent. Root cause: 100 of 123 rule tags were review or human vigilance and 7 of the 23 machine tags checked less than they claimed.] — [EPIC-030](epics/EPIC-030_rule_mechanization_tier_a/README.md)
 - [x] **`EPIC-029G` (every bot has its own chart, PR3 of EPIC-029)**: [Decision: the desks' live chart moves up into `support/charting/live_chart/` instead of being copied (ADR D15): `LiveChartCoordinator` reads candles through the support port `ICandleFeed`, which market_data implements once (`MarketDataCandleFeed`), and `LiveCandleChart` is the base a desk's and a bot's chart share (the duplicated-member census fell 64 → 63). Horizontal levels come from `PriceLevelLayer`, outside the baselined `chart_card.py`. A Grid's overlay is computed once, Qt-free, from its plan and its activity (`grid_overlay`, ADR D16), and one drawer draws it for the planner preview, the backtest result and the running bot, which streams under `bot.<id>` with ticks from the bots module's own `BotTickFeed`, no allowlist entry. Also: Emergency Stop no longer reports an all-dust asset as sold (the PR #320 re-review).] — [EPIC-029G](epics/EPIC-029_bots_tab_grid_fast_track/completed/EPIC-029G_bot_chart.md)
