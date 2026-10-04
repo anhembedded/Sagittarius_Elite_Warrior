@@ -71,7 +71,7 @@ class BotChart(LiveCandleChart):
         """@brief Cancels the load in flight, stops applying the Feed's
         candles and releases the bot's stream: a bot's chart is the only
         reader of its own owner's subscription. A later `follow` connects
-        once more, so no candle is drawn twice (the PR #321 re-review)."""
+        once more, so no candle is drawn twice (the PR 321 re-review)."""
         super().shutdown()
         if self._ticks is not None:
             self._ticks.candle.disconnect(self.apply_candle)

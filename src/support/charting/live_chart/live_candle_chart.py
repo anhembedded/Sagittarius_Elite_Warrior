@@ -111,7 +111,7 @@ class LiveCandleChart(QObject):
     def _go_quiet(self) -> None:
         """Releases the stream if the chart went live, and is quiet again: a
         symbol shown afterwards reads history only, and `go_live` may ask
-        for the stream anew (the PR #321 review)."""
+        for the stream anew (the PR 321 review)."""
         if self._live:
             self.release_stream()
             self._live = False
@@ -170,7 +170,7 @@ class LiveCandleChart(QObject):
         self, symbol: str, candles: list, volume: list, klines: list
     ) -> None:
         # The coordinator mapped the rows on its worker thread; they are
-        # drawn as they came (the PR #321 review).
+        # drawn as they came (the PR 321 review).
         if symbol == self._symbol:
             self._render_history(candles, volume, klines)
 
