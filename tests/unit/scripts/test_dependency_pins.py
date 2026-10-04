@@ -5,7 +5,7 @@ so two runs of one commit could build different code. `engine.ref` names one
 engine commit; `requirements.lock` (`uv pip compile --universal`) names every
 transitive version. This test keeps the three files agreeing.
 
-`BUG-147`: CI installed `engine.ref`'s commit, but `run-ui.ps1` installed the
+`BUG-148`: CI installed `engine.ref`'s commit, but `run-ui.ps1` installed the
 engine's moving `main`, `run.ps1` installed none, the app's reinstall hint
 named `main` too, and `ci-local.ps1`'s mypy step put a sibling engine checkout
 on `MYPYPATH`, ahead of the installed engine. So a machine could run, and
@@ -89,7 +89,7 @@ def _engine_url_holders() -> list[str]:
 
 
 def test_only_the_installer_names_where_the_engine_comes_from() -> None:
-    """`BUG-147` — a second place that installs the engine is a second engine."""
+    """`BUG-148` — a second place that installs the engine is a second engine."""
     assert _engine_url_holders() == [_INSTALLER]
 
 
@@ -102,7 +102,7 @@ def test_every_launcher_installs_the_pinned_engine(launcher: str) -> None:
 
 
 def test_the_gate_checks_the_pin_and_puts_no_engine_checkout_on_a_path() -> None:
-    """`BUG-147` — mypy read a sibling engine checkout named on `MYPYPATH`."""
+    """`BUG-148` — mypy read a sibling engine checkout named on `MYPYPATH`."""
     gate = (_ROOT / "scripts" / "ci-local.ps1").read_text(encoding="utf-8")
     assert _CHECK.search(gate), f"ci-local.ps1 must run {_INSTALLER} check"
     assert "Sagittarius_Engine" not in gate

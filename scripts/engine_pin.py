@@ -1,4 +1,4 @@
-"""`BUG-147` — the one way to install the engine, and the check that it is `engine.ref`'s.
+"""`BUG-148` — the one way to install the engine, and the check that it is `engine.ref`'s.
 
 CI installed the commit `engine.ref` names; `run-ui.ps1` installed the engine's
 moving `main`, `run.ps1` installed none, and `ci-local.ps1`'s mypy step put a

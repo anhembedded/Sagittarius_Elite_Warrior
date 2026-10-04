@@ -135,7 +135,7 @@ def format_result(result: ExecuteOrderResult, live_requested: bool) -> str:
         )
 
     if result.blocked_by is ExecuteOrderPriceRejection.OUTSIDE_PRICE_BAND:
-        # `BUG-146` — a preview exists, as for a crossed stop.
+        # `BUG-147` — a preview exists, as for a crossed stop.
         return (
             "Status       : ✘ REJECTED OUTSIDE_PRICE_BAND — the price is outside "
             "Binance's price band for this side\nNo order was sent."

@@ -2,18 +2,12 @@
 
 from __future__ import annotations
 
-from collections import defaultdict
 from collections.abc import Sequence
 
 from Sagittarius_Elite_Warrior.src.core.contracts.nav_metadata import (
     NavLocation,
     NavMetadata,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import (
-    NavItem,
-    NavSection,
-)
-from sagittarius_engine.extensions.pyside_mvc import PresenterManager
 
 from .models.screen_descriptor import ScreenDescriptor
 from .models.section_descriptor import SectionDescriptor
@@ -30,7 +24,7 @@ class ScreenRegistry(IScreenRegistry):
 
     def register(self, descriptor: ScreenDescriptor) -> None:
         """`EPIC-025`: registers a screen descriptor and reconciles its
-        sidebar section sequence."""
+        section sequence."""
         if descriptor.route in self._descriptors:
             raise ValueError(
                 f"Route '{descriptor.route}' already exists in ScreenRegistry!"
@@ -81,72 +75,29 @@ class ScreenRegistry(IScreenRegistry):
             raise RuntimeError("no screen declared is_default=True")
         return self._default_route
 
-    def build_sidebar_navigation(
-        self,
-    ) -> tuple[Sequence[NavSection], Sequence[NavItem]]:
-        # `(route, nav)` rather than the whole `ScreenDescriptor`: `nav` is
-        # `NavMetadata | None` on the descriptor, but every entry that
-        # reaches these two collections has already passed the `nav is None`
-        # check below, so the pair type says that once, instead of every
-        # reader having to re-derive (or assert) it downstream.
-        sections_items: dict[str, list[tuple[str, NavMetadata]]] = defaultdict(list)
-        bottom_entries: list[tuple[str, NavMetadata]] = []
-
-        for descriptor in self._descriptors.values():
-            nav = descriptor.nav
-            if nav is None:
-                continue
-            if nav.location == NavLocation.BOTTOM_ACTION:
-                bottom_entries.append((descriptor.route, nav))
-            else:
-                sections_items[nav.section_key].append((descriptor.route, nav))
-
-        sorted_section_keys = sorted(
-            sections_items.keys(),
-            key=lambda key: (
-                self._sections[key].sequence
-                if key in self._sections
-                else _DEFAULT_ITEM_SEQUENCE
-            ),
+    def modes(self) -> Sequence[ScreenDescriptor]:
+        navigable = [
+            (descriptor, descriptor.nav)
+            for descriptor in self._descriptors.values()
+            if descriptor.nav is not None and descriptor.nav.is_navigable
+        ]
+        # `route` as the last key keeps the order deterministic when two
+        # screens share a sequence — never left to insertion order.
+        return tuple(
+            descriptor
+            for descriptor, nav in sorted(
+                navigable,
+                key=lambda pair: (
+                    pair[1].location == NavLocation.BOTTOM_ACTION,
+                    self._section_sequence(pair[1]),
+                    pair[1].item_sequence,
+                    pair[0].route,
+                ),
+            )
         )
 
-        built_sections: list[NavSection] = []
-        for section_key in sorted_section_keys:
-            sorted_entries = self._sort_by_item_sequence(sections_items[section_key])
-            items = tuple(
-                self._to_nav_item(route, nav) for route, nav in sorted_entries
-            )
-            title = (
-                self._sections[section_key].title
-                if section_key in self._sections
-                else section_key.upper()
-            )
-            built_sections.append(NavSection(title, items))
-
-        sorted_bottom = self._sort_by_item_sequence(bottom_entries)
-        built_bottom = tuple(
-            self._to_nav_item(route, nav) for route, nav in sorted_bottom
-        )
-
-        return tuple(built_sections), built_bottom
-
-    @staticmethod
-    def _sort_by_item_sequence(
-        entries: list[tuple[str, NavMetadata]],
-    ) -> list[tuple[str, NavMetadata]]:
-        # `route` as the tie-break keeps the ordering deterministic when two
-        # screens share an `item_sequence` — never left to dict/list
-        # insertion order, which is an implementation detail, not a contract.
-        return sorted(entries, key=lambda entry: (entry[1].item_sequence, entry[0]))
-
-    @staticmethod
-    def _to_nav_item(route: str, nav: NavMetadata) -> NavItem:
-        return NavItem(
-            label=nav.title, route=route, icon=nav.icon, enabled=nav.is_navigable
-        )
-
-    def bind_to_router(self, router: PresenterManager) -> None:
-        for descriptor in self._descriptors.values():
-            router.register(
-                descriptor.route, descriptor.presenter_class, descriptor.view_factory
-            )
+    def _section_sequence(self, nav: NavMetadata) -> int:
+        if nav.location == NavLocation.BOTTOM_ACTION:
+            return 0
+        section = self._sections.get(nav.section_key)
+        return section.sequence if section is not None else _DEFAULT_ITEM_SEQUENCE

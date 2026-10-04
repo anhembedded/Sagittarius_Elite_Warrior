@@ -274,7 +274,7 @@ def main() -> None:
             window.show()
             window.switch_screen("backtest")
             app.processEvents()
-            presenter = window._router.get_current_presenter()
+            presenter = window.presenters["backtest"]
             if not isinstance(presenter, BackTestPresenter):
                 raise TypeError("Backtest presenter did not load in MainWindow")
 

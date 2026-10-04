@@ -235,7 +235,7 @@ def test_parse_spot_exchange_info_propagates_a_malformed_symbols_own_error():
 
 
 def test_reads_the_percent_price_by_side_band_when_published():
-    """`BUG-146` — Binance rejects a BUY or SELL priced outside this band
+    """`BUG-147` — Binance rejects a BUY or SELL priced outside this band
     (`-1013 Filter failure: PERCENT_PRICE_BY_SIDE`); the bot checks a plan
     against it only if the parser carries it."""
     entry = {
@@ -288,7 +288,7 @@ _BINANCE_SPOT_FILTERS = (
 
 
 def test_every_spot_filter_is_read_or_declared_unread():
-    """`BUG-146` (CS-007) — `PERCENT_PRICE_BY_SIDE` was published, never read,
+    """`BUG-147` (CS-007) — `PERCENT_PRICE_BY_SIDE` was published, never read,
     and reached the user as `-1013`. Every documented filter is now either
     read (`SpotFilterType`) or named with a reason (`UNREAD_SPOT_FILTERS`).
 

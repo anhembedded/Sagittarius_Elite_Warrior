@@ -110,7 +110,7 @@ class ExecuteOrderCommandHandler(
             return ExecuteOrderResult(
                 ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE, preview, (), None
             )
-        # `BUG-146` — a price outside the venue's band, refused by name
+        # `BUG-147` — a price outside the venue's band, refused by name
         # instead of the exchange's `-1013 PERCENT_PRICE_BY_SIDE`.
         if preview.price_band_check is PriceBandCheck.OUTSIDE:
             return ExecuteOrderResult(

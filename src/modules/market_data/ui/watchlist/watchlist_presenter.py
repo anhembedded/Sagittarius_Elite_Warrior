@@ -11,6 +11,9 @@ from __future__ import annotations
 import logging
 from typing import TYPE_CHECKING
 
+from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
+    NavigationSource,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
@@ -48,6 +51,9 @@ _STREAM_OWNER_ID = "watchlist"
 #: always has.
 _MARKET = MarketType.SPOT
 
+#: What a Watchlist restored at start says until the user opens it.
+_NOT_LIVE_STATUS = "Not live. Choose Watchlist on the mode bar to start."
+
 logger = logging.getLogger("App.Watchlist")
 
 
@@ -72,6 +78,21 @@ class WatchlistPresenter(BasePresenter):
         )
         self._market_tick_feed.marketTick.connect(self._handle_market_tick)
 
+        self._symbols = symbols
+        self._started = False
+
+    def on_mode_shown(self, source: NavigationSource) -> None:
+        """`IShownAsMode` (`EPIC-033C`): the stream starts on the user's open,
+        never when the window restores this mode at start (`BUG-104`: a
+        launch must not open a live stream unasked). A restore says so and
+        waits for a click, the mode's own included."""
+        if self._started:
+            return
+        if source is not NavigationSource.USER_INTENT:
+            self.view.set_status(_NOT_LIVE_STATUS, is_error=False)
+            return
+        self._started = True
+        symbols = self._symbols
         outcome = self._market_stream.start(
             _STREAM_OWNER_ID, _MARKET, symbols, TimeFrame.ONE_MINUTE
         )

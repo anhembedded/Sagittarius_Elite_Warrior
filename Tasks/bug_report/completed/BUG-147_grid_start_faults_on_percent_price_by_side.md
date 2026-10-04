@@ -1,4 +1,4 @@
-# BUG-146 — A Grid whose range reaches outside Binance's price band faults at Start with an unreadable error
+# BUG-147 — A Grid whose range reaches outside Binance's price band faults at Start with an unreadable error
 
 - **Reported:** 2026-10-04 (the user, in chat, with the bot's log)
 - **Severity:** 🟡 P2. The bot goes from STARTING to ERROR on its first rejected order. The message names a Binance filter the user cannot act on.

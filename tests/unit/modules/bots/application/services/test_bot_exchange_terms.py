@@ -1,4 +1,4 @@
-"""`BUG-146` — a bot's `ExchangeTerms` carry the venue's price band, so the
+"""`BUG-147` — a bot's `ExchangeTerms` carry the venue's price band, so the
 Grid's band check sees what trading's rules publish."""
 
 from __future__ import annotations

@@ -1,4 +1,4 @@
-"""`BUG-147` — the engine-pin check accepts only the installed engine at `engine.ref`'s commit."""
+"""`BUG-148` — the engine-pin check accepts only the installed engine at `engine.ref`'s commit."""
 
 from __future__ import annotations
 

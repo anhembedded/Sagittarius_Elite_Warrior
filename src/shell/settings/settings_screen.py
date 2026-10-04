@@ -29,7 +29,7 @@ if TYPE_CHECKING:
 
 SETTINGS_ROUTE = "settings"
 
-#: Pinned to the sidebar's bottom action row, same position the legacy
+#: Pinned to the mode bar's end (a bottom action), same position the legacy
 #: `SettingsScreenModule` held (`item_sequence=10`), so the move is invisible
 #: to the user's muscle memory.
 _NAV = NavMetadata(

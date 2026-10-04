@@ -1,6 +1,6 @@
 # CS-007 — The filter nobody read
 
-`BUG-146`: a Grid on BTCUSDT at about 85 000 had a BUY level at 2 222. It passed every check. Its Start faulted on the first order with `-1013 Filter failure: PERCENT_PRICE_BY_SIDE`, and the bot went from STARTING to ERROR. The gate was green. Binance published the filter in `exchangeInfo`, and the Spot parser skipped it without a word.
+`BUG-147`: a Grid on BTCUSDT at about 85 000 had a BUY level at 2 222. It passed every check. Its Start faulted on the first order with `-1013 Filter failure: PERCENT_PRICE_BY_SIDE`, and the bot went from STARTING to ERROR. The gate was green. Binance published the filter in `exchangeInfo`, and the Spot parser skipped it without a word.
 
 ## Why nothing caught it
 

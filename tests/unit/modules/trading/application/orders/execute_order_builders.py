@@ -88,7 +88,7 @@ class StaticMetadataProvider(IMarketMetadataProvider):
 def static_metadata_provider(
     price_band: PercentPriceBand | None = None,
 ) -> IMarketMetadataProvider:
-    """@param price_band `BUG-146` — BTCUSDT's `PERCENT_PRICE_BY_SIDE`;
+    """@param price_band `BUG-147` — BTCUSDT's `PERCENT_PRICE_BY_SIDE`;
     none by default, so every other test is unchanged."""
     return StaticMetadataProvider(
         {

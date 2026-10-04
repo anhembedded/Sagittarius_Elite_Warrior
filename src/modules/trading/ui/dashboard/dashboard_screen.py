@@ -41,9 +41,9 @@ if TYPE_CHECKING:
 
 DASHBOARD_ROUTE = "dashboard"
 
-#: **Not** the default (`EPIC-025` PR 1.5a, ADR D13): the app opens on
-#: Welcome, not on a developer testbed that happened to be first in the
-#: sidebar.
+#: **Not** the default (`EPIC-025` PR 1.5a, ADR D13): the first run opens on
+#: the Futures desk, not on a developer testbed that happens to be first on
+#: the mode bar.
 _NAV = NavMetadata(
     title="Dev Board",
     icon="layout-dashboard",

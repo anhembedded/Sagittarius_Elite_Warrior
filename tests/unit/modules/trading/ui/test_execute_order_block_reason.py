@@ -30,7 +30,7 @@ def test_an_order_type_the_venue_cannot_send_is_named() -> None:
 
 
 def test_a_price_outside_the_band_is_explained_not_coded() -> None:
-    """`BUG-146` — the user saw `-1013 Filter failure: PERCENT_PRICE_BY_SIDE`;
+    """`BUG-147` — the user saw `-1013 Filter failure: PERCENT_PRICE_BY_SIDE`;
     the panel says what is wrong in words."""
     text = format_execute_order_block_reason(
         ExecuteOrderPriceRejection.OUTSIDE_PRICE_BAND

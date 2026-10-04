@@ -34,7 +34,7 @@ def _click_load_history(view, qml_item=None):
 
 
 def test_custom_scripts_checklist_renders_every_registered_script(
-    qtbot, main_window, navigate
+    qtbot, app_engine, main_window, navigate
 ):
     """`DevBoardPanel._rebuild_script_rows()` must produce one checkbox per
     script the real IndicatorScriptRegistry knows about, each carrying the
@@ -46,7 +46,7 @@ def test_custom_scripts_checklist_renders_every_registered_script(
         IndicatorScriptRegistry,
     )
 
-    registry = main_window._app.context.container.resolve(IndicatorScriptRegistry)
+    registry = app_engine.context.container.resolve(IndicatorScriptRegistry)
 
     for key, script_cls in registry.available().items():
         checkbox = view._panel._script_checkboxes.get(key)

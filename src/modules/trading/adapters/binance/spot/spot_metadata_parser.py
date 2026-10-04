@@ -67,7 +67,7 @@ DEFAULT_STATUS: str = "TRADING"
 
 logger = logging.getLogger("App.SpotMetadata")
 
-#: `BUG-146` — every Spot filter Binance publishes that this app deliberately
+#: `BUG-147` — every Spot filter Binance publishes that this app deliberately
 #: does not read, and why. With `SpotFilterType` it must cover Binance's whole
 #: documented list (`test_every_spot_filter_is_read_or_declared_unread`), and a
 #: filter in neither is logged as a WARNING when the catalog loads: a filter
@@ -227,7 +227,7 @@ def parse_spot_symbol_metadata(
 def _price_band(
     filter_map: dict[str, dict[str, Any]], symbol: str
 ) -> PercentPriceBand | None:
-    """`BUG-146` — `PERCENT_PRICE_BY_SIDE`, optional like `MARKET_LOT_SIZE`:
+    """`BUG-147` — `PERCENT_PRICE_BY_SIDE`, optional like `MARKET_LOT_SIZE`:
     a symbol without it has no band, and a band that is present must be
     whole (each multiplier raises like any required field)."""
     band = filter_map.get(SpotFilterType.PERCENT_PRICE_BY_SIDE.value)
@@ -268,7 +268,7 @@ def parse_spot_exchange_info(
 
 
 def _log_unknown_filters(entries: list[dict[str, Any]]) -> None:
-    """`BUG-146` — one WARNING per catalog load naming each filter type that is
+    """`BUG-147` — one WARNING per catalog load naming each filter type that is
     neither read nor declared unread, so a new exchange rule is seen, not
     silently skipped."""
     known = {member.value for member in SpotFilterType} | set(UNREAD_SPOT_FILTERS)

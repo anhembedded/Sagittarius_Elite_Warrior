@@ -18,7 +18,7 @@
     `grid_count` costs nothing (`grid_evaluation.py`; PR #318 review);
   · `LEVEL_OUTSIDE_PRICE_BAND` — a level's price is outside the band the venue
     accepts for its side (`ExchangeTerms.price_band`, Binance Spot's
-    `PERCENT_PRICE_BY_SIDE`), which the exchange rejects (`BUG-146`). The band
+    `PERCENT_PRICE_BY_SIDE`), which the exchange rejects (`BUG-147`). The band
     follows the market, so it is judged at the current price.
 
 **Warnings** carry the threshold and the measured value. A check that cannot

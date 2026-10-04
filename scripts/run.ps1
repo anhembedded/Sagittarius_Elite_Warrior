@@ -55,7 +55,7 @@ if (Test-Path (Join-Path $BotRoot "requirements.txt")) {
     & $VenvPython -m pip install -r (Join-Path $BotRoot "requirements.txt")
 }
 
-# BUG-147: the engine CI builds (engine.ref's commit); nothing when already installed.
+# BUG-148: the engine CI builds (engine.ref's commit); nothing when already installed.
 Write-Host "Installing Sagittarius Engine at engine.ref..." -ForegroundColor Cyan
 & $VenvPython (Join-Path $PSScriptRoot "engine_pin.py") install
 if ($LASTEXITCODE -ne 0) {

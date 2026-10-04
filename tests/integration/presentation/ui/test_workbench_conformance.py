@@ -45,6 +45,9 @@ from PySide6.QtWidgets import (
     QWidget,
     QWidgetAction,
 )
+from sagittarius_engine.extensions.pyside_mvc.workbench.workbench_shell import (
+    WorkbenchShell,
+)
 
 _BASELINE_FILE = Path(__file__).with_name("baseline_workbench_conformance.json")
 _SHELL = "shell"
@@ -93,9 +96,18 @@ def workbench_problems(window: QMainWindow, page: QWidget) -> list[str]:
 
 
 def view_menu_problems(window: QMainWindow, page: QWidget) -> list[str]:
-    view = next(
-        (a.menu() for a in window.menuBar().actions() if _plain(a.text()) == "View"),
-        None,
+    # The workbench fills View for the showing mode when it opens (`EPIC-033C`).
+    view = (
+        window.menu("&View")
+        if isinstance(window, WorkbenchShell)
+        else next(
+            (
+                a.menu()
+                for a in window.menuBar().actions()
+                if _plain(a.text()) == "View"
+            ),
+            None,
+        )
     )
     listed = set(view.actions()) if view is not None else set()
     return [
@@ -216,15 +228,13 @@ def measure(
     report: dict[str, dict[str, list[str]]] = {
         _SHELL: {name: check(window) for name, check in SHELL_CHECKS.items()}
     }
-    for route in list(window._sidebar._nav_buttons):
-        entry = navigate(route)
+    for route in window.navigation.modes():
+        navigate(route)
         for _ in range(3):
             qapp.processEvents()
-        page = entry["view_instance"]
-        if page is None:
-            raise LookupError(
-                f"route {route!r} built no view; the router changed shape"
-            )
+        # The mode's host, which the shell switches: the screen's view is
+        # its central widget (`EPIC-033C`).
+        page = window.hosts[route]
         report[route] = {
             name: check(window, page) for name, check in MODE_CHECKS.items()
         }

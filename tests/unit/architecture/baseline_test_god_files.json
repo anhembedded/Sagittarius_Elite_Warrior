@@ -1,7 +1,7 @@
 {
  "tests/integration/modules/market_data/adapters/persistence/test_sqlalchemy_repository.py": 537,
- "tests/integration/presentation/ui/conftest.py": 582,
- "tests/sanity/test_composition_root.py": 466,
+ "tests/integration/presentation/ui/conftest.py": 580,
+ "tests/sanity/test_composition_root.py": 463,
  "tests/unit/modules/backtesting/application/test_run_historical_tick_backtest.py": 613,
  "tests/unit/modules/backtesting/application/test_run_static_backtest.py": 804,
  "tests/unit/modules/backtesting/contracts/test_backtest_report.py": 521,
@@ -17,7 +17,7 @@
  "tests/unit/modules/trading/adapters/binance/test_futures_user_data_stream.py": 677,
  "tests/unit/modules/trading/adapters/binance/test_history_readers.py": 401,
  "tests/unit/modules/trading/application/account_control/test_account_control_commands.py": 454,
- "tests/unit/modules/trading/ui/dashboard/test_dashboard_presenter.py": 3023,
+ "tests/unit/modules/trading/ui/dashboard/test_dashboard_presenter.py": 3022,
  "tests/unit/modules/trading/ui/dashboard/test_dev_board_panel.py": 497,
  "tests/unit/modules/trading/ui/settings/test_trading_settings_presenter.py": 454,
  "tests/unit/modules/trading/ui/test_strategy_arming_coordinator.py": 422,

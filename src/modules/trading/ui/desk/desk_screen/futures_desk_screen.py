@@ -23,7 +23,11 @@ FUTURES_DESK_ROUTE = "trading.futures"
 
 
 def futures_desk_screen(container: IContainer) -> ScreenContribution:
-    """Beside the single Trading screen (item 15) until `EPIC-028M`."""
+    """Beside the single Trading screen (item 15) until `EPIC-028M`.
+
+    The default mode (`EPIC-033C`): the first run opens here; later runs open
+    on the mode the last one ended in. Welcome, which used to be the default,
+    is gone, and its Start button already led here."""
     factories = desk_factories(container, TradingVenue.FUTURES_TESTNET)
     return ScreenContribution(
         contributor_id="trading",
@@ -36,4 +40,5 @@ def futures_desk_screen(container: IContainer) -> ScreenContribution:
             section_sequence=10,
             item_sequence=16,
         ),
+        is_default=True,
     )

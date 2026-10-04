@@ -1,4 +1,4 @@
-"""`BUG-146` — a level outside the price band Binance accepts is refused.
+"""`BUG-147` — a level outside the price band Binance accepts is refused.
 
 @details Binance Spot's `PERCENT_PRICE_BY_SIDE` filter accepts a BUY only
 between `bidMultiplierDown` and `bidMultiplierUp` times the symbol's average

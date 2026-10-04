@@ -290,7 +290,7 @@ $env:PYTHONPATH = "$botRoot$pythonPathSeparator$repoRoot"
 # ---------------------------------------------------------------------------
 # Engine Pin
 # ---------------------------------------------------------------------------
-# BUG-147: every later step types and tests against the engine this
+# BUG-148: every later step types and tests against the engine this
 # interpreter imports. It must be the installed engine at engine.ref's commit,
 # the one CI builds -- not a checkout on the path, an editable install or a
 # build of another commit. Run with the tests' PYTHONPATH, so a checkout that
@@ -356,7 +356,7 @@ if (-not $SkipLint) {
     Write-Step "Mypy — Static Type Check (src + scripts, baseline-gated)"
     Push-Location $repoRoot
     try {
-        # BUG-147: no engine checkout here. A checkout named on MYPYPATH is read
+        # BUG-148: no engine checkout here. A checkout named on MYPYPATH is read
         # ahead of the installed engine, so mypy type-checked against whatever
         # commit the checkout sat at; the engine comes from the environment,
         # which the Engine Pin step below has proven is engine.ref's.

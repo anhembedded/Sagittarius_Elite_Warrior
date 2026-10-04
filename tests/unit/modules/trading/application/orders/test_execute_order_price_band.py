@@ -1,4 +1,4 @@
-"""`BUG-146` — an order priced outside the venue's `PERCENT_PRICE_BY_SIDE`
+"""`BUG-147` — an order priced outside the venue's `PERCENT_PRICE_BY_SIDE`
 band is refused before any request, like `MIN_NOTIONAL` (`BUG-090`).
 
 @details The band's reference is the order's `last_price`, the same market

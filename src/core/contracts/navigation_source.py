@@ -16,7 +16,7 @@ from enum import Enum
 class NavigationSource(str, Enum):
     """Why `NavigationService.navigate()` was called."""
 
-    #: A real user action — a sidebar click, a menu action, a button.
+    #: A real user action — a mode-bar click, a menu action, a shortcut.
     USER_INTENT = "USER_INTENT"
     #: The shell replaying a previously remembered route (state restore),
     #: with no click behind it.

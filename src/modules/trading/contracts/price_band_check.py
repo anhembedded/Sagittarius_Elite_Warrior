@@ -1,4 +1,4 @@
-"""`BUG-146` — whether an order's price sits inside the venue's price band."""
+"""`BUG-147` — whether an order's price sits inside the venue's price band."""
 
 from __future__ import annotations
 

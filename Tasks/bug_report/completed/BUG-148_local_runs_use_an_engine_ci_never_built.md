@@ -1,4 +1,4 @@
-# BUG-147 — Launching the app or running the local gate can use an engine CI never built
+# BUG-148 — Launching the app or running the local gate can use an engine CI never built
 
 - **Reported:** 2026-10-04 (found while verifying `BUG-143`'s engine bump; the user asked for the fix)
 - **Severity:** 🟢 P3. Nothing failed this time, but a machine could run, and type-check against, a different engine from CI's without a word.

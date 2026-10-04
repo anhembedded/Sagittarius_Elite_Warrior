@@ -37,7 +37,7 @@ _DEFAULT_METADATA_MAX_AGE_SECONDS = 86400.0  # 24 hours
 
 @dataclass(frozen=True)
 class PercentPriceBand:
-    """`BUG-146` — Binance Spot's `PERCENT_PRICE_BY_SIDE`: a BUY is accepted
+    """`BUG-147` — Binance Spot's `PERCENT_PRICE_BY_SIDE`: a BUY is accepted
     between `bid_down` and `bid_up` times the symbol's average price over the
     filter's `avgPriceMins`, a SELL between `ask_down` and `ask_up` times it.
     An order outside is rejected with `-1013 Filter failure:
@@ -66,7 +66,7 @@ class SymbolOrderMetadata:
     #: this symbol (every Futures symbol today; Spot only when the filter
     #: is genuinely absent from `exchangeInfo`).
     market_step_size: Decimal | None = None
-    #: `PERCENT_PRICE_BY_SIDE` (`BUG-146`); `None` when the venue publishes
+    #: `PERCENT_PRICE_BY_SIDE` (`BUG-147`); `None` when the venue publishes
     #: no such filter for this symbol (every Futures symbol today).
     price_band: PercentPriceBand | None = None
 

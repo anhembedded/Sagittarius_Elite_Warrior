@@ -23,7 +23,7 @@ from types import MappingProxyType
 
 @dataclass(frozen=True, slots=True)
 class PriceBand:
-    """`BUG-146` — how far from the market an order's price may be, as
+    """`BUG-147` — how far from the market an order's price may be, as
     multiples of the reference price: Binance Spot's `PERCENT_PRICE_BY_SIDE`.
 
     @details Binance holds a BUY to `[buy_down, buy_up] × average price` and a
@@ -63,7 +63,7 @@ class ExchangeTerms:
     #: `MARKET_LOT_SIZE`'s step, which Binance holds a MARKET order to; `None`
     #: when the venue publishes none, and `LOT_SIZE`'s step applies.
     market_step_size: Decimal | None = None
-    #: The venue's price band (`BUG-146`); `None` when it publishes none, and
+    #: The venue's price band (`BUG-147`); `None` when it publishes none, and
     #: the band check says it did not run.
     price_band: PriceBand | None = None
 

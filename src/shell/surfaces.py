@@ -1,7 +1,7 @@
 """The surfaces this application has, and what each one can hold (SDD).
 
 A **surface** is a place a user navigates to. It is owned either by the shell
-(`welcome`, `trading`, `dev_board`, `settings` — the workbench itself) or by the
+(`trading`, `dev_board`, `settings` — the workbench itself) or by the
 module whose subject it is (`backtest`, `data_management`). Owning a surface
 means declaring it here; it does not mean the owner fills it — any module may
 contribute to any surface, which is the whole point of the mechanism.
@@ -43,9 +43,6 @@ _WORKBENCH_PLACES = frozenset(
 )
 
 SURFACES: tuple[Surface, ...] = (
-    Surface(
-        "welcome", owner="shell", accepts=frozenset({Place.HEADER, Place.WORKSPACE})
-    ),
     Surface("trading", owner="shell", accepts=_WORKBENCH_PLACES),
     Surface(
         "dev_board",

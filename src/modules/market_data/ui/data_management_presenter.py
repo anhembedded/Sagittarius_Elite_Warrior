@@ -7,6 +7,9 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import Signal, Slot
 from PySide6.QtWidgets import QFileDialog
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
+    NavigationSource,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.bulk_sync_events import (
     BulkSyncProgressEvent,
@@ -101,24 +104,10 @@ class DataManagementPresenter(BasePresenter):
     INITIAL_STATE = UIMode.IDLE
 
     # ------------------------------------------------------------------ #
-    # Thread-safe Signal Bridges — worker thread → main UI thread
-    #
-    # ĐỌC TRƯỚC KHI XOÁ BẤT KỲ SIGNAL NÀO Ở ĐÂY.
-    #
-    # Đây KHÔNG phải nợ kỹ thuật. Qt queued signal chính là cơ chế Qt thiết kế
-    # ra để đưa dữ liệu từ thread nền về main thread. Xoá chúng = đẩy cập nhật
-    # UI sang worker thread, đúng lớp lỗi BUG-031 — kiểu hỏng "app chạy, test
-    # xanh, màn hình không cập nhật" mà test offscreen KHÔNG bắt được.
-    #
-    # `QtEventBridge` (EPIC-008D) KHÔNG thay thế được: nó chỉ bắc cầu cho event
-    # đi qua event bus, còn các worker này không bao giờ đụng bus.
-    #
-    # Signal ở đây hay Event Bus? Hỏi: "màn khác cũng muốn biết chuyện này thì
-    # có vô lý không?"  Vô lý → giữ Qt signal. Hợp lý → Event Bus + đúng 1 Feed
-    # chuẩn hoá (`presentation/ui/common/`). Thăng cấp KHI có consumer thứ hai
-    # thật, không thăng trước.
-    #
-    # Luật đầy đủ: .claude/rules/architecture-rule.md §6.
+    # Thread-safe signal bridges, worker thread -> main UI thread. Not debt:
+    # deleting one moves a UI update onto a worker thread (BUG-031, which an
+    # offscreen test cannot see). `QtEventBridge` cannot replace them: these
+    # workers never touch the bus. Signal or bus: architecture-rule.md §6.
     # ------------------------------------------------------------------ #
     ui_log_signal = Signal(str)
     ui_error_log_signal = Signal(str)
@@ -211,8 +200,7 @@ class DataManagementPresenter(BasePresenter):
         self._connect_engine_events()
 
         # EPIC-010E — restore the remembered selection, then start tracking
-        # changes. Before the auto-discover submit below, and never waiting
-        # on it: opening this screen must not block on a DB scan.
+        # changes, before the first show's auto-discover (never waiting on it).
         # `_mark_state_dirty` is connected only after restoring, so a restore
         # does not write itself straight back out as a fresh user edit.
         self._state_coordinator: UiStateCoordinator | None = find_state_coordinator(
@@ -232,11 +220,15 @@ class DataManagementPresenter(BasePresenter):
         )
 
         self._refresh_stats()
-        # EPIC-005E: DataManagementView builds its own QtWidgets tree instead of
-        # loading DatabaseScreen.qml (kept on disk, unloaded). view.set_view_model()
-        # above already wires everything; there is no load step left to call.
 
-        # Auto-discover shards and symbol list in background on open
+        self._discovered = False
+
+    def on_mode_shown(self, source: NavigationSource) -> None:
+        """`IShownAsMode` (`EPIC-033C`): the first show, not construction,
+        discovers the shards and the symbol list in the background."""
+        if self._discovered:
+            return
+        self._discovered = True
         scan_token = self._scan_coordinator.create_cancellation_token()
         self._thread_manager.submit(
             self._scan_coordinator.run_auto_discover, scan_token

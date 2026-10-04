@@ -2,6 +2,7 @@ import os
 from datetime import UTC, datetime
 
 import pytest
+from PySide6.QtGui import QAction
 
 # Force offscreen rendering for headless CI environments
 os.environ["QT_QPA_PLATFORM"] = "offscreen"
@@ -42,8 +43,9 @@ def test_sanity_boot_and_dashboard(qtbot, main_window, navigate):
 
     # Labeled "Dev Board" (not "Dashboard") to avoid implying this is the
     # app's end-user dashboard — it's a developer testbed screen (BOT-014).
-    nav_button = main_window._sidebar._nav_buttons["dashboard"]
-    assert nav_button.display_text == "Dev Board"
+    mode = main_window.findChild(QAction, "action::workbench.mode.dashboard")
+    assert mode is not None
+    assert mode.text().replace("&", "") == "Dev Board"
 
     # Navigate to dashboard
     dashboard_cfg = navigate("dashboard")
@@ -197,14 +199,15 @@ def test_sanity_settings_screen_save(qtbot, main_window, navigate, qapp):
     each section reaches its own Presenter — all while the other screens
     keep working alongside it.
 
-    `nav_button.display_text` reads "Settings" now, not "API & Credentials"
+    The mode's text reads "Settings" now, not "API & Credentials"
     — the monolithic screen's old title undersold what the surface holds
     once market_data's own section joined trading's.
     """
     qtbot.addWidget(main_window)
 
-    nav_button = main_window._sidebar._nav_buttons["settings"]
-    assert nav_button.display_text == "Settings"
+    mode = main_window.findChild(QAction, "action::workbench.mode.settings")
+    assert mode is not None
+    assert mode.text().replace("&", "") == "Settings"
 
     settings_cfg = navigate("settings")
     assert settings_cfg is not None

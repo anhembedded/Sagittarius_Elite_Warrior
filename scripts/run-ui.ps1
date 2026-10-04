@@ -119,7 +119,7 @@ if ($LocalEngine) {
         throw "Local engine checkout (-LocalEngine) requested, but pyproject.toml not found at $EngineRoot"
     }
 } else {
-    # BUG-147: the engine CI builds -- engine.ref's commit, not the moving
+    # BUG-148: the engine CI builds -- engine.ref's commit, not the moving
     # main. The installer does nothing when that commit is already installed.
     Write-Host "Installing Sagittarius Engine at engine.ref (Option 1 per install-rule.md)..." -ForegroundColor Cyan
     & $VenvPython (Join-Path $ScriptDir "engine_pin.py") install
@@ -130,7 +130,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Set-Location $BotRoot
-$UIEntry = [System.IO.Path]::Combine($BotRoot, "src", "presentation", "ui", "main_window.py")
+$UIEntry = [System.IO.Path]::Combine($BotRoot, "src", "presentation", "ui", "app_bootstrapper.py")
 
 $UIArgs = @()
 if ($Debug) {

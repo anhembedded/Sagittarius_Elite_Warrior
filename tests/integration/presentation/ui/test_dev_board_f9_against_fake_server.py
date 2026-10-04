@@ -93,7 +93,6 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.adapters.env_first_cr
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
@@ -182,12 +181,7 @@ def spot_board(boot: _Boot) -> Iterator[_Board]:
 @contextmanager
 def _spot_board_running(boot: _Boot) -> Iterator[_Board]:
     """The real app with Spot Testnet on, its Dev Board open."""
-    qapp, qtbot, monkeypatch, tmp_path = (
-        boot.qapp,
-        boot.qtbot,
-        boot.monkeypatch,
-        boot.tmp_path,
-    )
+    qapp, monkeypatch, tmp_path = boot.qapp, boot.monkeypatch, boot.tmp_path
     seeded_history, market_stream = boot.seeded_history, boot.market_stream
     range_coverage, symbol_catalog = boot.range_coverage, boot.symbol_catalog
     monkeypatch.setenv(SPOT_ENV_API_KEY, "fake-key")
@@ -220,14 +214,14 @@ def _spot_board_running(boot: _Boot) -> Iterator[_Board]:
         container.singleton(IRangeCoverage, lambda _c: range_coverage)
         container.singleton(ISymbolCatalog, lambda _c: symbol_catalog)
         engine.boot()
-        window = MainWindow(
-            engine, real_screen_registry(container), sidebar_factory=Sidebar
-        )
+        window = MainWindow(engine, real_screen_registry(container))
         window.show()
-        qtbot.addWidget(window)
-        window._sidebar._nav_buttons["dashboard"].click()
+        # Not handed to `qtbot.addWidget`: the `finally` below closes and
+        # deletes the window itself, and qtbot closing it again afterwards
+        # finds the C++ object gone while a caller still holds the board.
+        window.switch_screen("dashboard")
         qapp.processEvents()
-        presenter = window._router._registry["dashboard"]["presenter_instance"]
+        presenter = window.presenters["dashboard"]
         try:
             yield _Board(window, presenter, urls, container.resolve(VenueTradingScopes))
         finally:
@@ -245,7 +239,7 @@ def _spot_board_running(boot: _Boot) -> Iterator[_Board]:
 
 
 def _open_f9(board: _Board):
-    view = board.window._router._registry["dashboard"]["view_instance"]
+    view = board.window.hosts["dashboard"].view
     view._manual_order_action.trigger()
     return view._surface.show_modal(MANUAL_ORDER_DIALOG)
 
@@ -306,7 +300,7 @@ def test_a_resting_limit_placed_in_f9_reaches_the_venue_and_open_orders(
     )
     dialog = _open_f9(spot_board)
     _type_resting_limit_buy(spot_board, qtbot)
-    view = spot_board.window._router._registry["dashboard"]["view_instance"]
+    view = spot_board.window.hosts["dashboard"].view
 
     qtbot.mouseClick(
         dialog.findChild(QPushButton, "btnSubmitBuy"), Qt.MouseButton.LeftButton

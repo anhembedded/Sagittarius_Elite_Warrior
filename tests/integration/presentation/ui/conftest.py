@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 
 import pytest
 from PySide6.QtCore import QEvent
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QApplication
 
 # Force offscreen rendering for headless CI environments
@@ -84,7 +85,6 @@ from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.trading_limit
     TradingLimitPolicy,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 from Sagittarius_Elite_Warrior.tests.integration.presentation.ui.mock_klines import (
     MOCK_KLINE_COUNT,
@@ -463,11 +463,10 @@ def main_window(qapp, qtbot, app_engine):
     needs to await widget-teardown safety.
     """
     registry = real_screen_registry(app_engine.context.container)
-    window = MainWindow(app_engine, registry, sidebar_factory=Sidebar)
+    window = MainWindow(app_engine, registry)
     window.show()
     yield window
-    for entry in window._router._registry.values():
-        presenter = entry.get("presenter_instance")
+    for presenter in window.presenters.values():
         autostart = getattr(presenter, "_autostart", None)
         if autostart is not None:
             autostart.shutdown()
@@ -508,9 +507,8 @@ def main_window(qapp, qtbot, app_engine):
     # Windows access violation (bisected: does not reproduce before
     # BOT-034's auto-start, which is what pushed every Dev Board test to
     # actually construct chart cards instead of only some of them).
-    for entry in window._router._registry.values():
-        view = entry.get("view_instance")
-        cards = getattr(view, "chart_cards", None)
+    for host in window.hosts.values():
+        cards = getattr(host.view, "chart_cards", None)
         if cards:
             for card in cards:
                 if hasattr(card, "cleanup"):
@@ -538,21 +536,21 @@ def main_window(qapp, qtbot, app_engine):
 @pytest.fixture
 def navigate(qapp, qtbot, main_window):
     """
-    Clicks a sidebar entry the way a user would and returns that route's
-    router registry entry (which holds the lazily-created view/presenter).
-
-    The sidebar is plain QtWidgets (EPIC-006C) — navigation goes through
-    `Sidebar._nav_buttons[route]`'s real `QPushButton.click()`.
-    Centralized here so every screen test shares one implementation
-    instead of repeating the item lookup.
+    Shows a mode the way a user does, by triggering its mode-bar action
+    (`EPIC-033C`), and returns the mode's view and presenter under the keys
+    the sidebar-era router used, so every screen test reads them one way.
     """
 
     def _navigate(route: str) -> dict:
-        button = main_window._sidebar._nav_buttons.get(route)
-        assert button is not None, f"No sidebar nav button for route {route!r}"
-        button.click()
+        action = main_window.findChild(QAction, f"action::workbench.mode.{route}")
+        assert action is not None, f"No mode-bar action for route {route!r}"
+        action.trigger()
         qapp.processEvents()
-        entry = main_window._router._registry[route]
+        assert main_window.current_mode == route
+        entry = {
+            "presenter_instance": main_window.presenters[route],
+            "view_instance": main_window.hosts[route].view,
+        }
 
         # BOT-034: opening the Dev Board auto-starts Start Live — a real
         # background task on this fixture's real ThreadPoolExecutor (see

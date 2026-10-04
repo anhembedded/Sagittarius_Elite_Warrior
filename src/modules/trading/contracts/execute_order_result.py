@@ -65,7 +65,7 @@ class ExecuteOrderStopRejection(str, Enum):
 
 
 class ExecuteOrderPriceRejection(str, Enum):
-    """@brief `BUG-146` — an order priced outside the venue's
+    """@brief `BUG-147` — an order priced outside the venue's
     `PERCENT_PRICE_BY_SIDE` band at the last price. Refused like
     `ExecuteOrderNotionalRejection`, before any request, from the verdict the
     preview already holds, instead of the exchange's `-1013`."""

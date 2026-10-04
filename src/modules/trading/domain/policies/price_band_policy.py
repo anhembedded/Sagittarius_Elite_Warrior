@@ -1,4 +1,4 @@
-"""`BUG-146` — whether a priced order sits inside Binance Spot's
+"""`BUG-147` — whether a priced order sits inside Binance Spot's
 `PERCENT_PRICE_BY_SIDE` band.
 
 @details Binance accepts a BUY between `bid_down` and `bid_up` times the

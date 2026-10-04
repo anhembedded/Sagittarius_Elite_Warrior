@@ -41,7 +41,7 @@ def exchange_terms_for(
 
 
 def _price_band(band: PercentPriceBand | None) -> PriceBand | None:
-    """`BUG-146` — trading's filter, as the bots module's own value."""
+    """`BUG-147` — trading's filter, as the bots module's own value."""
     if band is None:
         return None
     return PriceBand(

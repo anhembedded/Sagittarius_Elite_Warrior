@@ -158,7 +158,7 @@ class PreviewOrderQueryHandler(IQueryHandler[PreviewOrderQuery, OrderPreview]):
 def _price_band_check(
     metadata: SymbolOrderMetadata, order: Order, last_price: Decimal | None
 ) -> PriceBandCheck | None:
-    """`BUG-146` — judged only for an order with a price of its own, on a
+    """`BUG-147` — judged only for an order with a price of its own, on a
     venue that publishes a band, with a market price to judge against."""
     band = metadata.price_band
     if band is None or order.price is None or last_price is None:

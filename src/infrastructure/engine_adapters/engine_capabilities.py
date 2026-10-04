@@ -45,7 +45,7 @@ from dataclasses import dataclass
 
 #: The command that fixes every failure this module reports — `install-rule.md`
 #: §1, Option 1. It installs `engine.ref`'s commit, the engine CI builds, and
-#: replaces whatever build is installed (`BUG-147`: this once named the
+#: replaces whatever build is installed (`BUG-148`: this once named the
 #: engine's moving `main`).
 REINSTALL_COMMAND = "python scripts/engine_pin.py install"
 

@@ -38,7 +38,7 @@ class OrderPreview:
     #: `EPIC-028O` — for a stop-limit, whether its stop waits for the market
     #: (`stop_trigger_side.py`); `None` for every other order type.
     stop_check: StopPriceCheck | None = None
-    #: `BUG-146` — for an order with a price, whether it sits inside the
+    #: `BUG-147` — for an order with a price, whether it sits inside the
     #: venue's price band at the request's `last_price`; `None` when the venue
     #: publishes no band, the request carries no last price, or the order has
     #: no price of its own (a market order fills at the market).

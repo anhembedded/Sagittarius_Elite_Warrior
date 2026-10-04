@@ -11,7 +11,7 @@ back.
 
 from __future__ import annotations
 
-from Sagittarius_Elite_Warrior.src.shell.welcome.restart import (
+from Sagittarius_Elite_Warrior.src.shell.developer_options.restart import (
     argv_for_restart,
     restart_now,
 )
