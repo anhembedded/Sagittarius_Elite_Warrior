@@ -1,6 +1,6 @@
 # EPIC-029F — The Bots tab: a list of bots, a common shell, the Grid panel with live verdicts, and the lifecycle controls
 
-**Status:** 🔵 Backlog
+**Status:** ✅ Done (2026-10-04)
 **Source:** [`PRO-006`](../../../proposal/PRO-006.md). The user's words, 2026-10-03: *"thêm 1 tab
 là bot trading … Tab đó có thể chọn loại bot, và tùy vào các bot sẽ có thanh công cụ riêng"* ("add
 a Bot trading tab; it picks the bot type, and each bot type has its own toolbar"). The design is in
@@ -28,45 +28,45 @@ ENGINE section.
 
 ## 2. Acceptance criteria
 
-- [ ] **Route.** The `bots` route appears as NAVIGATION item 18, "Bots", with a Lucide icon.
+- [x] **Route.** The `bots` route appears as NAVIGATION item 18, "Bots", with a Lucide icon.
   `contribute()` stays lazy.
   `tests/unit/shell/test_screen_wiring.py` changes in all three places that pin the routes:
   - `_EXPECTED_ROUTES`, in contribution order, not NAVIGATION order;
   - `_real_modules`, which builds `BotsModule`;
   - the `by_route` map.
-- [ ] **The list.** Each row shows the name, the kind, the venue, the symbol, a state pill
+- [x] **The list.** Each row shows the name, the kind, the venue, the symbol, a state pill
   (Draft, Running, Paused, Recovering, Halted, Stopped or Error) and the PnL. The pill's text
   names the state; colour is never the only signal.
-- [ ] **The detail shell** is the same for every kind. It shows:
+- [x] **The detail shell** is the same for every kind. It shows:
   - the header with name, state and the Start/Pause/Resume/Stop actions that are legal in that
     state (from the FSM; illegal ones disabled, with a tooltip saying why);
   - venue, symbol, capital, grid profit, unrealised PnL and running time;
   - the bot's chart (`EPIC-029G`);
   - its orders and fills, filtered by its tag;
   - its log.
-- [ ] **New Bot dialog.** The dialog asks for kind (Grid only for now), then venue (Spot venues
+- [x] **New Bot dialog.** The dialog asks for kind (Grid only for now), then venue (Spot venues
   that are enabled), then symbol, then parameters.
   - The symbol is an explicit field. It never comes from a chart.
   - The OK button names what it does ("Create bot").
   - Cancel restores everything.
-- [ ] **The Grid panel.** Every parameter is editable.
+- [x] **The Grid panel.** Every parameter is editable.
   - Derived values and verdicts recompute on each edit, without blocking the UI thread.
   - A REFUSED verdict disables Start and says why.
   - Warnings show their threshold and their measured value.
   - "Suggest from ATR" and "Suggest from Bollinger" fill the fields only when the user clicks.
   - The planner preview draws the proposed levels on the bot's chart.
-- [ ] **The charts are `BotChart`** (`EPIC-029G`, ADR D16). The planner preview and the running bot's
+- [x] **The charts are `BotChart`** (`EPIC-029G`, ADR D16). The planner preview and the running bot's
   chart each host a `BotChart` (`show_symbol`; `follow` with `BotTickFeed` for the running bot) and draw
   only through `show_overlay`, never through a drawer of their own (the PR #321 review). A level outside
   the candles' range is off screen today (`029G` notes): offer a "fit levels" view.
-- [ ] **Stop dialog.** Its default is O3's answer. It states that resting orders will be cancelled
+- [x] **Stop dialog.** Its default is O3's answer. It states that resting orders will be cancelled
   and what happens to the base.
-- [ ] **Closing the app** while a bot is RUNNING warns, with Cancel (O4).
-- [ ] **One action at a time.** Every action runs through a presenter-owned coordinator with an
+- [x] **Closing the app** while a bot is RUNNING warns, with Cancel (O4).
+- [x] **One action at a time.** Every action runs through a presenter-owned coordinator with an
   action id. A stale completion is dropped, and a cancelled action publishes nothing and restores
   the prior state.
-- [ ] **Preview.** `preview.py` builds the screen with sample bots in every state.
-- [ ] **SPEC.** `SPEC-014` follows the template (trigger, preconditions, flow, failures, what it
+- [x] **Preview.** `preview.py` builds the screen with sample bots in every state.
+- [x] **SPEC.** `SPEC-014` follows the template (trigger, preconditions, flow, failures, what it
   does not promise, ports, proven by) and is listed in `Docs/SPEC/README.md`.
 
 ## 3. Design
@@ -104,4 +104,55 @@ ENGINE section.
 
 ## Implementation notes (written when done)
 
-## Resume (optional; while unfinished)
+**What was built, in five commits.**
+
+1. *What the tab reads* (`feat(bots)`): `BotChangedEvent`, published by `NotifyingBotStore` after
+   every save and delete, from whichever thread wrote; `BotProgress` on every snapshot (profit,
+   cycles, inventory, average cost, reason, and the resting orders as `BotOrderLine`s) read from
+   the runtime the kind saved; `IBotKindCatalog` (the kinds by id); `GetPlannerMarketQuery` (the
+   symbol's terms and mid price from the venue, daily ATR and Bollinger from stored candles).
+2. *The close guard* (`feat(shell)`, ADR O4): `ICloseObjections` in `core/contracts`, the shell's
+   `CloseObjections`, and `RunningBotsObjection`, registered in `BotsModule.boot`. `MainWindow`
+   asks before closing while any bot is not DRAFT or STOPPED; Cancel is the default.
+3. *Orders and fills* (`feat(bots)`): `GetBotFillsQuery` reads the venue's order history from the
+   run's start and keeps the executed orders carrying the bot's tag (`tag_of`).
+4. *A move* (`refactor(support)`): `SignalLogHandler` to `support/ui_kit`, so the Bots log reuses
+   it instead of writing a second log-to-Qt bridge.
+5. *The tab* (`feat(bots)`): `ui/bots_screen/` (screen, presenter, view, view model, UI FSM,
+   detail panel, table models, the three dialogs, `FencedReads`/`BotQueries`,
+   `BotActionsCoordinator`, `BotChartHost`, `SelectedBot`, pure `bot_action_rules`/`bot_facts`/
+   `bot_plan_judge`/`bot_detail`/`bot_commands`, preview) and `ui/kinds/` (`BotKindPanel`,
+   `kind_panels`, `GridPanel`). `BotChart.fit_levels` added. A vendored Lucide `bot` icon.
+
+**Decisions taken while building.**
+
+- *The shell judges through the kind.* `IBotKind.validate` and `IBotKind.overlay` already existed,
+  so the shell calls them with the planner's numbers and never names Grid; the per-kind editor is
+  only an editor. `kind_panels.py` is the one UI file that names a kind (editor, title, capital key).
+- *Editing follows the lifecycle table:* the editing mode opens wherever `edit` is declared, which
+  is DRAFT and STOPPED, not DRAFT alone as §3 said.
+- *Start waits for saved edits* (a start runs what is saved) as well as for a plan the kind does
+  not refuse; both are said in Start's tooltip before the click.
+- *Resume from HALTED* proposes a ladder that lives in the executor's memory and has no query, so
+  the proposal reaches the user through the bot's log line, and **Confirm resume** (legal only in
+  HALTED) sends `ConfirmBotResumeCommand`.
+- *Fills* come from the venue's order history (the runtime keeps only what rests), at most four
+  pages of fifty, saying so when there is more.
+- *The running bot's chart* draws its plan's levels (the kind's overlay); level states and fills are
+  in the Orders and Fills tabs rather than on the chart.
+- *The log* is the `App.Bots` INFO+ lines that name the bot (`Bot <id>`), kept for the session.
+- *Names:* the bots UI tree keeps snake_case signals (as `BotTickFeed.candle` does) rather than
+  widening the N815 exemption in `pyproject.toml`; members that would have collided with a
+  `QWidget` method (`lower`, `actions`, `create`) or with another UI package's names were named
+  for what they are, which keeps the duplication ratchet at 63.
+
+**Verification.** The commit tier (`ci-local.ps1 -SkipTests`) passes with a clean log. Unit tests:
+8,270 passed; integration: 281 passed, 4 skipped (the four `MainWindow` teardown errors the close
+guard first caused were a reference cycle, fixed in its own commit); sanity: 35 passed. The
+presenter is tested over the bots module's real graph (JSON store, `NotifyingBotStore`, real bus,
+a dispatcher derived from the interface) with a held pool; three mechanisms were mutation-checked
+(the change feed's connection, the action lock, the read fence). The full gate is GitHub Actions'
+run on the pull request.
+
+**Not claimed.** The visual check is the user's: open `bots/ui/bots_screen/preview.py`. The run with
+the real executor on Spot Testnet is `EPIC-029H`.

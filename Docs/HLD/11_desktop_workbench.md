@@ -92,6 +92,7 @@ Which former widgets become what:
 | backtest modals (11, QML) | `QDialog`s | `backtesting/ui/dialogs/` |
 | Data Management tables, time-range and timeframe pickers | panels and dialogs | `market_data/ui/` |
 | Welcome | a mode with a central widget only: name, version, Start, developer-mode switch | shell |
+| Bots tab (new, `EPIC-029F`) | a mode: the list of bots (`QTableView`) beside the detail shell; New bot, Stop and Delete are `QDialog`/`QMessageBox` questions with the action named on the button and Cancel as the safe answer; every action is disabled with its reason as a tooltip while it is not legal or while another runs | `bots/ui/bots_screen/` |
 
 ## 11.4 Theme: the OS default, nothing else — reached as a ratchet
 

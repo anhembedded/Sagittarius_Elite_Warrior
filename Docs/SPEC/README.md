@@ -57,6 +57,7 @@ is why, the spec is what. Neither file is a copy of the other — the SPEC names
 | [SPEC-011](SPEC-011_start_the_app_and_choose_developer_mode.md) | Start the app, and choose developer mode | trader, developer | ✅ |
 | [SPEC-012](SPEC-012_place_a_spot_order.md) | Place an order on Spot, and see it settle as a balance | trader | ✅ |
 | [SPEC-013](SPEC-013_see_my_account_on_a_desk.md) | See my account on a desk: summary, orders, histories, positions or assets, equity | trader | ✅ |
+| [SPEC-014](SPEC-014_run_a_grid_bot.md) | Create, judge, run and stop a Spot Grid bot | trader | ✅ |
 
 Planned, and numbered here so the ids are reserved rather than invented twice:
 
