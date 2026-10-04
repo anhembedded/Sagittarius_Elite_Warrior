@@ -23,6 +23,9 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
+from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
+    ICloseObjections,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import (
     ICommandHandler,
     IQueryHandler,
@@ -114,6 +117,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_
     FakeVenueTradingPorts,
     fake_venue_ports,
 )
+from Sagittarius_Elite_Warrior.src.shell.close_objections import CloseObjections
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -154,6 +158,7 @@ def _registered(state_dir: Path) -> tuple[BotsModule, SimpleNamespace]:
     container.singleton(OwnerBudgetCaps, DEFAULT_OWNER_BUDGET_CAPS)
     event_bus = MemoryEventBus()
     container.singleton(IEventPublisher, EngineEventPublisher(event_bus))
+    container.singleton(ICloseObjections, CloseObjections())
     context = SimpleNamespace(container=container, event_bus=event_bus)
     module = BotsModule()
     module.register(context)
@@ -187,6 +192,27 @@ def test_every_store_write_reaches_the_bus(tmp_path: Path) -> None:
     context.container.resolve(IBotStore).save(sample_bot())
 
     assert [(event.bot_id, event.removed) for event in heard] == [("abc123", False)]
+
+
+def test_boot_registers_the_objection_that_names_a_running_bot(
+    tmp_path: Path,
+) -> None:
+    """Delete the `register(RunningBotsObjection(...))` line from `boot()`
+    and this fails (ADR O4)."""
+    module, context = _registered(tmp_path)
+    module.boot(context)
+    store = context.container.resolve(IBotStore)
+    stored = sample_bot()
+    store.save(
+        replace(
+            stored,
+            bot=replace(stored.bot, lifecycle=BotLifecycle(BotLifecycleState.RUNNING)),
+        )
+    )
+
+    (reason,) = context.container.resolve(ICloseObjections).reasons()
+
+    assert stored.bot.definition.name in reason
 
 
 def test_boot_restores_a_running_bot_as_recovering(tmp_path: Path) -> None:

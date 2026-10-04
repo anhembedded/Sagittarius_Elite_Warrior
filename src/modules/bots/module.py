@@ -30,8 +30,9 @@ ends and rejections of its orders, its symbol's ticks, and the trading switch.
 It is held for the life of the module (the reason `StrategyModule` gives for
 its tick handler), and it only copies and queues: the bots' own workers act.
 
-@par No `contribute()` yet
-The Bots tab is `EPIC-029F`.
+@par `boot()` also registers the close objection (ADR O4)
+`RunningBotsObjection` names every bot not at rest when the user closes the
+window, so closing with a ladder on the exchange is a choice, not an accident.
 """
 
 from __future__ import annotations
@@ -42,6 +43,9 @@ from typing import Any
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
+    ICloseObjections,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.application.event_handlers.bot_event_router import (
     BotEventRouter,
 )
@@ -50,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executo
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_restore_service import (
     BotRestoreService,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.running_bots_objection import (
+    RunningBotsObjection,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.composition.command_bindings import (
     bind_commands,
@@ -117,6 +124,9 @@ class BotsModule(BoundedContextModule):
         bus.on(TradingSwitchChangedEvent, router.on_switch)
         self._router = router
         logger.info("Bots subscribed to fills, ends, rejections, ticks and the switch")
+        container.resolve(ICloseObjections).register(
+            RunningBotsObjection(container.resolve(IBotStore))
+        )
 
     def shutdown(self, context: Any) -> None:
         """Close every bot's worker: each runs what is queued, then stops, so

@@ -29,6 +29,9 @@ from __future__ import annotations
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
     ICliCommandTable,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
+    ICloseObjections,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_command_dispatcher import (
     ICommandDispatcher,
 )
@@ -58,6 +61,7 @@ from Sagittarius_Elite_Warrior.src.infrastructure.notifications.telegram_notific
     TelegramNotificationChannel,
 )
 from Sagittarius_Elite_Warrior.src.shell.cli_registry import CliRegistry
+from Sagittarius_Elite_Warrior.src.shell.close_objections import CloseObjections
 from Sagittarius_Elite_Warrior.src.shell.config_writer import ConfigManagerWriter
 from Sagittarius_Elite_Warrior.src.shell.module_registration import register_modules
 from Sagittarius_Elite_Warrior.src.shell.modules import MODULES, RegisteredModules
@@ -187,6 +191,8 @@ def create_app(config_manager: ConfigManager) -> App:
     # `EngineContext.__init__` before any `register()`/`boot()` runs.
     container.singleton(ITaskManager, app.context.tasks)
     container.singleton(IEventPublisher, EngineEventPublisher(event_bus))
+    # `EPIC-029F` (ADR O4) — modules register in `boot()`, the window asks.
+    container.singleton(ICloseObjections, CloseObjections())
     container.singleton(IConfigReader, EngineConfigReader(config_manager))
     container.singleton(
         ICommandDispatcher, EngineCommandDispatcher(app.context.dispatcher)

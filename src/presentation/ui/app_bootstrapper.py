@@ -46,6 +46,9 @@ from PySide6.QtCore import QTimer
 from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
+    ICloseObjections,
+)
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
@@ -299,18 +302,12 @@ def build() -> AppRuntime:
     )
 
     # `EPIC-016` — every screen registers itself, once, instead of MainWindow
-    # importing each concrete View/Presenter. `EPIC-025` PR 0.2 takes the list
-    # of screens out of this entry point: the shell owns what the app is made
-    # of (`shell/modules.py`), every screen arrives as a `ScreenContribution`
-    # from its own bounded context (`EPIC-025F` PR 5.2, the last of the
-    # strangler-period screens `shell/legacy_screens.py` used to carry). Order
-    # still does not matter here: ScreenRegistry sorts sections and items by
-    # their own declared sequence.
-    #
-    # `EPIC-025` PR 1.4c-4: and the bounded contexts contribute here too, which
-    # is why this call replaced the two lines that only knew about the legacy
-    # screens. It runs *after* `app_engine.boot()` above, because that is when
-    # `contribute()` is allowed to see a built object graph (SDD's hook table).
+    # importing each concrete View/Presenter: the shell owns what the app is
+    # made of (`shell/modules.py`, `EPIC-025` PR 0.2) and every screen arrives
+    # as a `ScreenContribution` from its own bounded context (`EPIC-025F` PR
+    # 5.2). Order does not matter: ScreenRegistry sorts by declared sequence.
+    # It runs *after* `app_engine.boot()` above, because that is when
+    # `contribute()` may see a built object graph (SDD's hook table).
     contributions = assemble_contributions(
         app_engine.context.container, dev_mode=dev_mode.is_enabled
     )
@@ -321,6 +318,7 @@ def build() -> AppRuntime:
         screen_registry,
         sidebar_factory=Sidebar,
         state_coordinator=state_coordinator,
+        close_objections=app_engine.context.container.resolve(ICloseObjections),
     )
     # `EPIC-025F` — promote INavigationService to the application container so
     # any component or coordinator can navigate decoupled from MainWindow.
