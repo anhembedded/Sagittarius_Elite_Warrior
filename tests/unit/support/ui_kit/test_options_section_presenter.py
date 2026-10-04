@@ -37,6 +37,7 @@ class _Page(OptionsSectionPresenter[str]):
     def __init__(self, stored: dict[str, str], *, save_succeeds: bool = True) -> None:
         super().__init__(QWidget(), Mock(), title="Sample")
         self._stored = stored
+        self._live = dict(stored)
         self._save_succeeds = save_succeeds
         self.fields = _Fields()
         self._reload()
@@ -48,9 +49,15 @@ class _Page(OptionsSectionPresenter[str]):
         return self.fields.name
 
     def _save(self) -> bool:
+        # Like a real page: the value goes into the live store first, and
+        # only the disk write can fail.
+        self._live["name"] = self.fields.name
         if self._save_succeeds:
             self._stored["name"] = self.fields.name
         return self._save_succeeds
+
+    def _undo_unsaved_writes(self) -> None:
+        self._live["name"] = self._saved_fields
 
     def _change_signals(self) -> tuple[SignalInstance, ...]:
         return (self.fields.name_changed,)
@@ -96,6 +103,18 @@ def test_a_save_that_fails_leaves_the_page_dirty(qapp) -> None:
     assert page.is_dirty()
 
 
+def test_a_save_that_fails_leaves_nothing_unsaved_in_memory(qapp) -> None:
+    """PR #348 review: the live store had kept the value that never reached
+    disk, so the session ran on it and Cancel took it as saved."""
+    page = _Page({"name": "a"}, save_succeeds=False)
+    page.fields.edit("b")
+
+    page.apply()
+
+    assert page._live == {"name": "a"}
+    assert page.fields.name == "b"
+
+
 def test_revert_puts_the_saved_values_back(qapp) -> None:
     page = _Page({"name": "a"})
     page.fields.edit("b")
@@ -104,6 +123,20 @@ def test_revert_puts_the_saved_values_back(qapp) -> None:
 
     assert page.fields.name == "a"
     assert not page.is_dirty()
+
+
+def test_a_new_dialogs_listener_replaces_the_previous_one(qapp) -> None:
+    """Tools → Options builds a new dialog on every open; the closed one must
+    stop hearing the page's edits."""
+    page = _Page({"name": "a"})
+    first: list[None] = []
+    second: list[None] = []
+    page.set_change_listener(lambda: first.append(None))
+    page.set_change_listener(lambda: second.append(None))
+
+    page.fields.edit("b")
+
+    assert (len(first), len(second)) == (0, 1)
 
 
 def test_every_edit_reaches_the_dialogs_listener(qapp) -> None:

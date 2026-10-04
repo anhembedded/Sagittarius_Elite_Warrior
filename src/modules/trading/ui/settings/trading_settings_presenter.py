@@ -76,9 +76,13 @@ _SAVED_MESSAGE = (
     "Saved. API Key/Secret (if changed) written to secrets.local.json. Both "
     "require restarting the app to take effect."
 )
-_SAVED_IN_MEMORY_ONLY_MESSAGE = (
-    "Applied to the current session, but could NOT be written to "
-    "secrets.local.json — the change will be lost on the next app restart."
+_SECRETS_NOT_SAVED_MESSAGE = (
+    "Could not write secrets.local.json, so nothing was changed. Check that "
+    "the file is writable, then apply again."
+)
+_VENUES_NOT_SAVED_MESSAGE = (
+    "Could not write user_config.json, so the trading venues were not changed. "
+    "Check that the file is writable, then apply again."
 )
 #: `BOT-125` — a venue change is refused outright rather than partially
 #: applied; the dialog keeps OK and Apply disabled and shows this.
@@ -205,7 +209,7 @@ class TradingSettingsPresenter(OptionsSectionPresenter[_Fields]):
                 self.logger.error(
                     f"TradingSettingsPresenter: secrets.local.json write failed: {exc}"
                 )
-                view_model.set_status(_SAVED_IN_MEMORY_ONLY_MESSAGE, is_error=True)
+                view_model.set_status(_SECRETS_NOT_SAVED_MESSAGE, is_error=True)
                 return False
         # `BOT-125` — refuse rather than silently skip. The dialog already
         # keeps OK disabled through `validation_message()`; this guards a
@@ -223,12 +227,26 @@ class TradingSettingsPresenter(OptionsSectionPresenter[_Fields]):
                 self.logger.error(
                     f"TradingSettingsPresenter: config save failed: {exc}"
                 )
-                view_model.set_status(_SAVED_IN_MEMORY_ONLY_MESSAGE, is_error=True)
+                view_model.set_status(_VENUES_NOT_SAVED_MESSAGE, is_error=True)
                 return False
 
         self._refresh_credentials_status()
         view_model.set_status(_SAVED_MESSAGE, is_error=False)
         return True
+
+    def _undo_unsaved_writes(self) -> None:
+        """The venues go back to the saved list. The credentials are what
+        `secrets.local.json` now holds: a failed config write can follow a
+        secrets write that succeeded, and that one is saved."""
+        saved_venues = self._saved_fields[2]
+        if self._venues_edited():
+            self._write_trading_venues(list(saved_venues))
+        credentials = self._credentials_provider.resolve().credentials
+        self._saved_fields = (
+            credentials.api_key if credentials else "",
+            credentials.api_secret if credentials else "",
+            saved_venues,
+        )
 
     def _write_trading_venues(self, enabled: list[str]) -> None:
         """`EPIC-028C` — the list is what boot reads (`resolve_trading_venues`),

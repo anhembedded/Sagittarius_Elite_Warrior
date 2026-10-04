@@ -23,6 +23,7 @@ from Sagittarius_Elite_Warrior.src.shell.options_pages import build_options_page
 from sagittarius_engine.extensions.pyside_mvc.workbench.options_dialog import (
     OptionsDialog,
 )
+from sagittarius_engine.infrastructure.config.config_manager import ConfigManager
 
 _APPLY = QDialogButtonBox.StandardButton.Apply
 
@@ -114,3 +115,43 @@ def test_an_invalid_page_keeps_ok_disabled_and_says_why(qtbot, app_engine) -> No
     message = dialog.findChild(QLabel, "workbench::options::message")
     assert message is not None
     assert message.text() == "Market Data: Default Symbols must not be empty."
+
+
+def test_a_write_that_fails_changes_nothing_and_keeps_the_edit(
+    qtbot, app_engine, tmp_path, monkeypatch
+) -> None:
+    """PR #348 review: when `user_config.json` cannot be written, the live
+    config must not keep the value either, or the session runs on it and a
+    later Cancel takes it as saved. The edit stays on the page, dirty."""
+
+    def refuse(_self) -> None:
+        raise OSError("read-only file system")
+
+    monkeypatch.setattr(ConfigManager, "save", refuse)
+    user_file = tmp_path / "user_config.json"
+    before = user_file.read_text()
+    config = app_engine.context.container.resolve(IConfigReader)
+    saved_symbols = config.get("DEFAULT_SYMBOLS")
+    dialog = OptionsDialog(_pages(app_engine))
+    qtbot.addWidget(dialog)
+    dialog.show()
+    field = dialog.findChild(QLineEdit, "txtDefaultSymbols")
+    assert field is not None
+    saved_text = field.text()
+    field.clear()
+    qtbot.keyClicks(field, "ETHUSDT")
+
+    qtbot.mouseClick(_apply_button(dialog), Qt.MouseButton.LeftButton)
+
+    assert user_file.read_text() == before
+    assert config.get("DEFAULT_SYMBOLS") == saved_symbols
+    assert field.text() == "ETHUSDT"
+    assert _apply_button(dialog).isEnabled()
+    status = dialog.findChild(QLabel, "lblMarketDataSettingsStatus")
+    assert status is not None
+    assert "nothing was changed" in status.text()
+
+    dialog.reject()
+
+    assert field.text() == saved_text
+    assert config.get("DEFAULT_SYMBOLS") == saved_symbols
