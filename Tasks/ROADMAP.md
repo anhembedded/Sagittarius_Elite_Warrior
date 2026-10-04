@@ -170,7 +170,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **[EPIC-030](epics/EPIC-030_rule_mechanization_tier_a/README.md)** | **The rulebook is enforced by mechanism, not by memory (Tier A)** — rule-integrity checker, Shared Kernel, layer, registration and preview guards, test isolation, audit alarm; three pull requests | ✅ Done (11/11) — 2026-10-04 |
 | **[EPIC-031](epics/EPIC-031_rule_mechanization_tier_b/README.md)** | **The rulebook is enforced by mechanism (Tier B)** — commit lint, independent-review status, pinned engine and lockfile, Claude Code hooks | ✅ Done (3/3) — 2026-10-04 |
 | **[EPIC-032](epics/EPIC-032_static_analysis_ratchets/README.md)** | **Static analysis only tightens (Tier B, rest)** — mypy overrides retargeted, `exclude` shrink-only, four ruff rules enabled, five ratcheted | ✅ Done (3/3) — 2026-10-04 |
-| **[EPIC-033](epics/EPIC-033_windows_workbench/README.md)** | **The app is one Windows workbench of stock controls** — from the 2026-10-04 UI review | 🔵 Planned (0/13) |
+| **[EPIC-033](epics/EPIC-033_windows_workbench/README.md)** | **The app is one Windows workbench of stock controls** — from the 2026-10-04 UI review | 🔵 Planned (0/14) |
 
 ---
 

@@ -14,7 +14,7 @@
 
 ## 2. Acceptance criteria
 - [ ] `DECISION_2026-10-04_windows_workbench.md` D1-D8 are recorded with the user's words.
-- [ ] `ui-presentation-rule.md` states the stock-control contract: every control is a stock Qt class constructed with its defaults; no per-widget style sheet, palette, font or size; colour only where it carries meaning, through `QPalette` roles; every command is a `QAction`; every mode is a workbench; one Settings dialog; one Output dock.
+- [ ] `ui-presentation-rule.md` states the stock-control contract: every control is a stock Qt class constructed with its defaults; no per-widget style sheet, palette, font or size; colour only where it carries meaning, through `QPalette` roles; every command is a `QAction`; every mode is a workbench; one Settings dialog; one Output dock; every table, list and read-out is built from its kind's spec (D9), with values formatted by kind, never per screen.
 - [ ] Every clause of the contract carries a `[guard: …]` tag naming the 033B check that enforces it; the rule checker resolves them.
 - [ ] HLD §11.4 and §11.5 cite the contract and drop the claim "enforced" from any rule no check enforces.
 

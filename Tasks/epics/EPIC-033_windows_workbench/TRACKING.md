@@ -2,7 +2,7 @@
 
 - **Epic:** [EPIC-033](README.md)
 - **Status:** 🔵 Planned
-- **Target Completion:** not set; Phase 1 waits on O1
+- **Target Completion:** not set
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
 
 ---
@@ -18,12 +18,12 @@ gantt
     section Phase 0 - Contract and fences
     033A + 033B contract and conformance suite :p0, 2026-10-04, 3d
     section Phase 1 - Engine
-    W1-W5 workbench mechanism (Engine board)  :p1, after p0, 6d
+    W1-W6 workbench mechanism (Engine board)  :p1, 2026-10-04, 7d
     section Phase 2 - Shell
     033C shell, 033D actions                  :p2, after p1, 4d
     033E settings, 033F output, 033G chart    :p2b, after p2, 4d
     section Phase 3 - Modes
-    033H-033L one mode per pull request       :p3, after p2b, 8d
+    033H-033L, 033N one mode per pull request :p3, after p2b, 9d
     section Phase 4 - Retire
     033M delete kit, ratchets to bans         :p4, after p3, 2d
 ```
@@ -46,6 +46,7 @@ gantt
 | EPIC-033J | [Database is a workbench: shard table central, Sync dock, actions in menu and context menu](incomplete/EPIC-033J_database_workbench.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-033K | [Watchlist and Welcome follow the contract](incomplete/EPIC-033K_watchlist_and_welcome.md) | — | 🟢 | 🔵 Planned | — |
 | EPIC-033L | [Backtest is a workbench and its sixteen dialogs are stock dialogs](incomplete/EPIC-033L_backtest_workbench.md) | — | 🔴 | 🔵 Planned | — |
+| EPIC-033N | [Every table, list and read-out is built from one spec per kind](incomplete/EPIC-033N_uniform_display_widgets.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-033M | [The kit, the palette and the theme bootstrap are deleted; every ratchet becomes a ban](incomplete/EPIC-033M_retire_kit.md) | — | 🟢 | 🔵 Planned | — |
 
 ---
@@ -54,7 +55,8 @@ gantt
 
 | Date | Item | Event & Outcome |
 | :--- | :--- | :--- |
-| 2026-10-04 | Spec | Epic planned from the UI review; D3 awaits the user. |
+| 2026-10-04 | Spec | Epic planned from the UI review. |
+| 2026-10-04 | D3, D9 | The user confirmed engine-first and added uniform display widgets (W6, 033N). |
 
 ---
 
@@ -62,5 +64,5 @@ gantt
 
 | Blocker / Dependency | Impacted Tasks | Resolution / Owner | Status |
 | :--- | :--- | :--- | :--- |
-| O1: Engine-first (D3) | 033C-033F | The user confirms, or the fallback in the decision record applies | 🟡 Open |
-| Engine release pinned in `engine.ref` | Phase 2 | Engine track W1-W5 | 🟡 Open |
+| O1: Engine-first (D3) | 033C-033F | Confirmed by the user | ✅ Resolved |
+| Engine release pinned in `engine.ref` | Phase 2 | Engine track W1-W6 | 🟡 Open |

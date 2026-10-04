@@ -5,15 +5,16 @@
 - **Origin:** the user, 2026-10-04, after the [UI review](https://claude.ai/artifact/Np92LCSrk2t2e8NQxLEkaE): "tui thấy nó khó dùng quá, ko đúng triết lý Window app thì phải, các layer tào lau quá. các nút thì quá bự, tự resize kém, các menu thì ko có continer ẩn hiện gì cả, chiếm hết diện tích" (it is too hard to use, not the Windows-app philosophy; the layers are a mess; the buttons are too big; it resizes badly; the panels have no container to show or hide, they take all the space); "plan của epic phải sữa triệt đễ từ mặt triết lý tới cơ chế, ko hot fix, cái nào cần sử bên engien thì sửa bên engine" (the epic's plan must fix things at the root, from philosophy to mechanism, no hotfix; what needs changing in the engine is changed in the engine); "các UI thì phải đồng nhất, cũng là button sao mà nhiều kiểu quá, 1 kiểu thui, ra soát lại hết, khong có cái nào khác lại, hay làm 1 UI sơ đẳng, nhưng đúng triết lý Window app trước, chưa cần tính đến design" (the UI must be uniform; why are there so many kinds of button — one kind only; review everything, nothing different; build a plain UI first, but true to the Windows-app philosophy; design comes later).
 - **North star:** `Docs/HLD/11_desktop_workbench.md` (the workbench) and `.claude/rules/ui-presentation-rule.md` (the stock-control contract, rewritten by 033A)
 - **Decisions:** [DECISION_2026-10-04_windows_workbench.md](DECISION_2026-10-04_windows_workbench.md)
-- **Dependencies:** the Engine track W1-W5; EPIC-025's surfaces and contribution registry
+- **Dependencies:** the Engine track W1-W6; EPIC-025's surfaces and contribution registry
 
 ---
 
 ## 1. Decisions already made
 1. D1 — one look per control kind: stock Qt widgets with their defaults, the platform style, no per-widget style, palette, font or size; visual design is deferred.
 2. D2 — every fix lands at its mechanism; a rule without a check is not done.
-3. D3 — the generic workbench mechanism is built in the Engine (🔵 proposed: it reverses TASK-043's harvest-first decision; ONBOARDING §2 asks the user to confirm).
-4. D4-D8 — modes, chart, font, superseded guards, dark mode: see the decision record.
+3. D3 — the generic workbench mechanism is built in the Engine now, directly, not harvested from the app later (the user confirmed, superseding TASK-043's harvest-first rule for this mechanism).
+4. D9 — display widgets are uniform too: every table, list and read-out of the same kind has the same properties, declared once per column or value kind, never set per view.
+5. D4-D8 — modes, chart, font, superseded guards, dark mode: see the decision record.
 
 ## 2. Goals — measurable
 | Metric | Today (measured 2026-10-04, 1366×768) | When the epic is done |
@@ -29,6 +30,8 @@
 | Commands that are `QAction`s | 8 | every command |
 | Perspectives saved and restored | 0 | every mode |
 | Log consoles | 4 cards | 1 Output dock |
+| Item views configured outside one spec | 12 of 12 (selection set on 8, edit triggers on 4, `setSectionResizeMode` 26 ad-hoc calls) | 0: every view built from a column spec |
+| Value formatters written per screen (`_format_price`, `_format_datetime`, `_format_compact_usd`, …) | ≥ 8 | 0: one formatter per value kind |
 | `kit/` files | 29 | 0 |
 
 ## 3. Sub-tasks, ordered by risk
@@ -46,29 +49,32 @@
 | [EPIC-033J](incomplete/EPIC-033J_database_workbench.md) | Database is a workbench: shard table central, Sync dock, actions in menu and context menu | Elite | EPIC-033C, EPIC-033D, EPIC-033F | 🟡 | Planned |
 | [EPIC-033K](incomplete/EPIC-033K_watchlist_and_welcome.md) | Watchlist and Welcome follow the contract | Elite | EPIC-033C | 🟢 | Planned |
 | [EPIC-033L](incomplete/EPIC-033L_backtest_workbench.md) | Backtest is a workbench and its sixteen dialogs are stock dialogs | Elite | EPIC-033C, EPIC-033D, EPIC-033F, EPIC-033G | 🔴 | Planned |
+| [EPIC-033N](incomplete/EPIC-033N_uniform_display_widgets.md) | Every table, list and read-out is built from one spec per kind: same selection, alignment, sorting, header and formatting | Elite | Engine W6, EPIC-033C | 🟡 | Planned |
 | [EPIC-033M](incomplete/EPIC-033M_retire_kit.md) | The kit, the palette and the theme bootstrap are deleted; every ratchet becomes a ban | Elite | EPIC-033H, EPIC-033I, EPIC-033J, EPIC-033K, EPIC-033L | 🟢 | Planned |
 
 ### Engine track (Sagittarius_Engine, its own board; listed here as dependencies only, ONBOARDING §9)
-Once O1 is answered, the Engine epic is scaffolded in that repository by its own rules (`.agents/rules/task-tracking.md`), starting with the PlantUML as-is / to-be diagrams its onboarding §10.5 asks for before any task file.
+The Engine epic is scaffolded in that repository by its own rules (`.agents/rules/task-tracking.md`), starting with the PlantUML as-is / to-be diagrams its onboarding §10.5 asks for before any task file.
 | Id | Mechanism | Replaces / extends |
 | :--- | :--- | :--- |
 | W1 | `RegionHost`: toolbars take `QAction`s and are movable; a public `dock_toggle_actions()`; named, versioned perspectives persisted through `ui_state` | `region_host.py` (`addWidget` toolbars, private `_docks`, one perspective blob) |
 | W2 | `ActionDescriptor` contributions: id, text, icon, menu path, toolbar, shortcut, enabled/checked binding, `confirm` flag; duplicate ids and shortcuts refused | none today |
 | W3 | `WorkbenchShell`: top-level window with the standard menu bar, a mode bar (`QActionGroup`), the mode stack, View built from the current mode's docks, Window → Reset layout, status bar; `NavigationService` with `source` and `can_leave` (TASK-043 E3) | `PresenterManager`'s bare stack |
 | W4 | `SettingsDialog` host (page contract: apply, revert, dirty; `QDialogButtonBox`) and an `OutputPane` dock with contributed channels | none today |
+| W6 | Display conventions: `ColumnSpec`/`ColumnKind` (text, quantity, price, percent, money, timestamp, side, status) deciding alignment, width policy, sort role and formatting; one `configure_item_view()` for selection, edit triggers, header and sorting; a `ReadoutForm` for label–value pairs; a `ValueFormatter` port the app implements with its precision policy | 12 item views configured by hand; ≥ 8 per-screen formatters |
 | W5 | `.agents/rules/ui-architecture.md` rewritten for QtWidgets and the platform style; the tokens and QML kit scoped to QML consumers; the `widgets/` documentation drift fixed | rule §1-§2 (tokens own every colour and size) |
 
 ## 4. Phase exit criteria
 | Phase | Required outcome | Evidence required to close |
 | :--- | :--- | :--- |
 | 0 — Contract and fences | 033A + 033B merged; every violation measured into a shrink-only baseline | Conformance suite green with its baseline; mutation runs recorded |
-| 1 — Engine mechanism | W1-W5 released in an Engine version the app pins in `engine.ref` | Engine gate; the app's shell builds on it |
+| 1 — Engine mechanism | W1-W6 released in an Engine version the app pins in `engine.ref` | Engine gate; the app's shell builds on it |
 | 2 — Shell | 033C-033G merged; shell checks removed from the baseline for every mode | Conformance suite; desktop E2E layout round-trip |
-| 3 — Modes | 033H-033L merged; each mode's baseline rows gone | Conformance suite per mode; Testnet confirmation by the user for 033I |
+| 3 — Modes | 033H-033L and 033N merged; each mode's baseline rows gone | Conformance suite per mode; Testnet confirmation by the user for 033I |
 | 4 — Retire | 033M merged; every baseline empty, every ratchet a ban | Full gate |
 
 ## 5. Out of scope
 Visual design (colours, icon set, branding, a designed dark theme) — deferred by the user (D1); dark mode comes only from the operating system's colour scheme (D8). The Bots tab has no screen yet; when it gets one it is born a workbench under this contract. Engine-side retirement of the QML kit is the Engine's own decision (W5 only scopes it).
 
 ## Notes (newest first)
+- **2026-10-04** — The user confirmed D3 (engine directly) and added D9 (uniform display widgets): W6 and 033N added.
 - **2026-10-04** — Epic planned from the UI review and three user messages; nothing implemented.

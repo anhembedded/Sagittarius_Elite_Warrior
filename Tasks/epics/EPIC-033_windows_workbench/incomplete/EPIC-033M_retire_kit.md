@@ -5,7 +5,7 @@
 **Risk:** 🟢 — a shared surface changes shape
 **Complexity:** M — deletion
 **Epic:** [EPIC-033](../README.md)
-**Depends on:** EPIC-033H, EPIC-033I, EPIC-033J, EPIC-033K, EPIC-033L
+**Depends on:** EPIC-033H, EPIC-033I, EPIC-033J, EPIC-033K, EPIC-033L, EPIC-033N
 
 ---
 
