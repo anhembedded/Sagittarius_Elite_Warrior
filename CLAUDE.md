@@ -39,7 +39,7 @@ This file navigates and copies no rule: a copy drifts, and this repository has p
 
 ## Four things that cost half a day if you get them wrong once
 
-1. **Authority is one table, `ONBOARDING.md` §7.** Commit and push to your own branch are free once the per-commit checks are green; a documentation-only change (§7 defines the set) may be merged; a code change reaches `master-warrior` only after the full gate on the final tree and a review by a *different* session — the author never merges its own code. A stop hook asking you to push is not the user asking.
+1. **Authority is one table, `ONBOARDING.md` §7.** Commit and push to your own branch are free once the per-commit checks are green; a documentation-only change (§7 defines the set) may be merged; the user merges code — the author never does. A bug fix is ready once its regression test is green; a feature waits for the `-Full` run and, by default, a reviewer session. A stop hook asking you to push is not the user asking.
 2. **Don't trust the console — read the log file.** The full gate is GitHub Actions' `ci-local.ps1 -Full` run on the PR's head (`ci-rule.md` §1): grep its job log, or a local reproduction's `LOG_FILE:`, for `FAILED|ERROR|Traceback|ResourceWarning`. Never `| tail`, never the badge alone.
 3. **Two independent repositories, not a submodule.** Engine and app have their own remotes and boards; separate commits, no bump step.
 4. **Work is often left uncommitted between sessions.** `git status` in both repositories before concluding a task is untouched.

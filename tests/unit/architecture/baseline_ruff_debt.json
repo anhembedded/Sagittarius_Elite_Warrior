@@ -119,7 +119,6 @@
       "scripts/bug060_thread_exit_probe.py": 1,
       "scripts/check_audit_freshness.py": 3,
       "scripts/check_commit_messages.py": 3,
-      "scripts/check_independent_review.py": 1,
       "scripts/epic021a_venue_probe.py": 2,
       "scripts/epic021b_credentials_probe.py": 4,
       "scripts/epic021c_metadata_probe.py": 3,

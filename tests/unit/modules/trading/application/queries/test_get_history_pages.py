@@ -9,7 +9,7 @@ helpers, so a row here is one a real reader could return.
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_order_history import (
@@ -27,6 +27,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.history_page import
     HISTORY_PAGE_SIZE,
     HistoryPage,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
+    OrderRecord,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.contract_account_history_reader import (
     CONTRACT_NOW,
     contract_order,
@@ -38,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_accoun
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_contexts import (
     FakeVenueContexts,
     fake_venue_context,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
+    TradeRecord,
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
@@ -212,3 +218,83 @@ def test_a_naive_since_or_a_negative_page_is_refused(query_type: type) -> None:
         query_type(venue=_SPOT, symbol=None, since=_SINCE.replace(tzinfo=None))
     with pytest.raises(ValueError, match="page"):
         query_type(venue=_SPOT, symbol=None, since=_SINCE, page=-1)
+
+
+class _RecordingReader(FakeAccountHistoryReader):
+    """The verified fake, recording the pairs a history read reaches."""
+
+    def __init__(self, open_symbols: list[str], scan_limit: int | None) -> None:
+        super().__init__(
+            open_symbols=open_symbols, now=CONTRACT_NOW, scan_limit=scan_limit
+        )
+        self.read: list[str] = []
+
+    def order_history(self, symbol: str, since: datetime) -> tuple[OrderRecord, ...]:
+        self.read.append(symbol)
+        return super().order_history(symbol, since)
+
+    def trade_history(self, symbol: str, since: datetime) -> tuple[TradeRecord, ...]:
+        self.read.append(symbol)
+        return super().trade_history(symbol, since)
+
+
+_LIMIT = 5
+
+
+@pytest.mark.parametrize(
+    "execute",
+    [
+        lambda contexts: GetOrderHistoryQueryHandler(contexts).execute(
+            GetOrderHistoryQuery(venue=_SPOT, symbol=None, since=_SINCE)
+        ),
+        lambda contexts: GetTradeHistoryQueryHandler(contexts).execute(
+            GetTradeHistoryQuery(venue=_SPOT, symbol=None, since=_SINCE)
+        ),
+    ],
+    ids=["orders", "trades"],
+)
+def test_every_symbol_reads_at_most_the_scan_limit_and_says_so(execute) -> None:
+    """`BUG-145` — a Spot Testnet account holds some five hundred assets, and
+    an every-pair page read each one's history: Binance answered `-1003` and
+    a bot's Start could no longer read its commission rate. The page reads
+    the first `every_symbol_scan_limit()` pairs and names how many it left."""
+    held = [f"C{n:03d}USDT" for n in range(_LIMIT + 495)]
+    reader = _RecordingReader(held, scan_limit=_LIMIT)
+
+    page = execute(_contexts(reader, reader))
+
+    assert reader.read == held[:_LIMIT]
+    assert page.scanned_symbols == tuple(held[:_LIMIT])
+    assert any(
+        f"{_LIMIT} of {len(held)} active pairs" in notice for notice in page.notices
+    )
+
+
+def test_every_symbol_at_the_scan_limit_reads_them_all_without_a_notice() -> None:
+    """`BUG-145`, the boundary: as many active pairs as the limit is the
+    whole account, so nothing is said to be left out."""
+    held = [f"C{n:03d}USDT" for n in range(_LIMIT)]
+    reader = _RecordingReader(held, scan_limit=_LIMIT)
+
+    page = GetTradeHistoryQueryHandler(_contexts(reader, reader)).execute(
+        GetTradeHistoryQuery(venue=_SPOT, symbol=None, since=_SINCE)
+    )
+
+    assert page.scanned_symbols == tuple(held)
+    assert page.notices == ()
+
+
+def test_a_venue_without_a_scan_limit_reads_every_active_pair() -> None:
+    """`BUG-145` review, finding 1: the limit is the venue's. Futures has
+    none, so a Futures account with more active pairs than Spot's limit
+    still has every one of them read."""
+    held = [f"C{n:03d}USDT" for n in range(_LIMIT + 3)]
+    reader = _RecordingReader(held, scan_limit=None)
+
+    page = GetOrderHistoryQueryHandler(_contexts(reader, reader)).execute(
+        GetOrderHistoryQuery(venue=_FUTURES, symbol=None, since=_SINCE)
+    )
+
+    assert reader.read == held
+    assert page.scanned_symbols == tuple(held)
+    assert not any("active pairs" in notice for notice in page.notices)

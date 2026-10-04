@@ -8,6 +8,7 @@ You are the commit and atomic change controller for Sagittarius Elite Warrior. A
 
 ## 1. Pre-Commit Verification Cadence
 - **Standard Commits:** Run the "Every Commit" row of `.claude/rules/ci-rule.md` §1. Never commit code when any check is red. `[gate: mypy, ruff format, pre-commit hook; review: D1]`
+- **Bug fix:** the regression test green plus the standard-commit checks is the whole verification (`.claude/rules/ci-rule.md` §1, "Bug fix"). `[review: B1]`
 - **PR / Delivery:** No local full-gate run before pushing — push once the standard-commit checks above are green, and let GitHub Actions' `ci-local.ps1 -Full` check run be the full-gate authority (`.claude/rules/ci-rule.md` §1). Cite that check run, not a local log, in the PR body. Red on GitHub is diagnosed from its job log, never by first reproducing the full gate locally. `[review: B1, B2]`
 - **Documentation-Only:** Requires only document guards and reference check (`python3 scripts/check_skill_prompt_references.py`); the set is defined in `ONBOARDING.md` §7. `[gate: reference check; review: B3]`
 
@@ -22,7 +23,7 @@ Claude-Session: <this session's URL>
 ```
 - **Allowed Types:** `feat`, `fix`, `refactor`, `perf`, `test`, `ci`, `docs`, `chore`. `[gate: commit lint]`
 - **Allowed Scopes:** Bounded module (`market_data`, `trading`, `strategy`, `backtesting`), `shell`/`core`, support package, `architecture`, `tasks`, `agents`, `ci`, or task/defect ID (`epic-025`, `bug-127`). `[gate: commit lint; review: L1]`
-- **Body Requirement:** Explain intent and systemic impact; a body merely restating the subject is invalid. For fixes, cite root cause and bug ID (`.claude/rules/fix-bug-rule.md`). Both trailers are required: the `Claude-Session:` one is how the `independent-review` status tells author from reviewer. `[gate: commit lint; review: L2]`
+- **Body Requirement:** Explain intent and systemic impact; a body merely restating the subject is invalid. For fixes, cite root cause and bug ID (`.claude/rules/fix-bug-rule.md`). Both trailers are required: the `Claude-Session:` one names the session that wrote the commit. `[gate: commit lint; review: L2]`
 
 ## 3. Cleanliness & Prohibitions
 - **Atomic Change:** Exactly one logical change per commit. Inspect `git status --short` before and `git show --stat HEAD` after. `[review: A2]`

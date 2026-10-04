@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 171 | 83.4% |
+| 🟢 **Completed** | 171 | 83.0% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 26 | 12.7% |
+| 🔴 **Backlog** | 27 | 13.1% |
 | ❌ **Cancelled** | 8 | 3.9% |
-| 📈 **Tổng số Task** | **205** | **100%** |
+| 📈 **Tổng số Task** | **206** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -178,6 +178,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **[`BUG-145`](bug_report/completed/BUG-145_spot_desk_history_exhausts_request_weight.md) (opening the Spot desk blocked a bot's Start with `-1003`)**: [Root cause: the history tabs' every-pair read had no limit, so it fetched both histories for every held asset's USDT pair (about 500 on the Spot Testnet account), and the re-read on enable repeated reads still in flight. Fixed by bounding an every-pair page to five pairs with a notice, and by joining a read in flight in the history cache.]
 - [x] **[`BUG-144`](bug_report/completed/BUG-144_new_bot_dialog_sends_the_venue_as_a_plain_string.md) (no bot could be created from the Bots tab)**: [Root cause: the New bot dialog read the venue back from a `QComboBox`, and Qt returns a `str`-based enum's item data as a plain `str`; the bot store's codec then called `.value` on it. The dialog test compared with `==`, which a `str` enum passes. Fixed by rebuilding `TradingVenue` in the dialog; the regression test saves through the real handler and store.]
 - [x] **`EPIC-029D` (a Grid's parameters replayed on stored candles, PR6 of EPIC-029)**: [Decision: the backtest replays through the live executor's own reactions, so a backtest and a running bot agree on what a fill does, under one stated fill rule (ADR D14): a level fills only when the price trades a tick through it, never on touch; levels inside a candle are ordered by its 1-second klines, streamed forward-only so a week is never held; without them the candle is one step with the adverse side first, and the result lists those candles. Exits sell at market at the worse of the level and the open; the equity is compared with buy-and-hold on the same timestamps (D18); a cancelled run is a value, never a partial result. The Backtest tab is hosted kind-neutrally (`backtest_for(kind_id)`), cancels and fences its runs, and offers a sync only after a refusal for missing candles (`BUG-107`).] — [EPIC-029D](epics/EPIC-029_bots_tab_grid_fast_track/completed/EPIC-029D_grid_backtest.md)
 - [x] **`EPIC-029F` (the Bots tab, PR5 of EPIC-029)**: [Decision: the tab reads bots only through the bots queries and is told to read again by one event, `BotChangedEvent`, which the store publishes after every write from whichever thread wrote; its shell names no kind, judging a plan through the kind's own `validate`/`overlay` against the planner's market numbers, so the verdicts shown are the ones a start meets; every button follows the lifecycle table and says why when disabled; one action at a time on a presenter-owned tracker, reads fenced per kind. Closing the app while a bot is active asks first through a new `ICloseObjections` seam (ADR O4); a bot's fills come from the venue's order history by its tag. Building it found a reference cycle in the close guard that left a deleted window looking alive, fixed in its own commit.] — [EPIC-029F](epics/EPIC-029_bots_tab_grid_fast_track/completed/EPIC-029F_bots_tab.md)
@@ -467,6 +468,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Priority | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :---: | :--- |
+| **P3** | **[BOT-149](backlog/BOT-149_every_pair_history_reads_the_users_pairs_first.md)** | **An every-pair history reads the user's own pairs first** | 🟡 **`M (Standard)`** | BUG-145 | *(added 04/10, PR #344 review)* A capped Spot every-pair page reads the first five pairs in sorted order, so the user's open-order and bot pairs are rarely among them. |
 | **P3** | **[BOT-148](backlog/BOT-148_contributions_defer_through_one_mechanism.md)** | **Every contribution defers its factories through `Deferred`** | 🟡 **`M (Standard)`** | PR #333 | *(added 04/10, PR #333 review)* The Bots screen defers through `src/core/contracts/deferred.py`; nine other contributions still hold 32 function-local imports (`PLC0415`). Moving them lets the ratchet fall. |
 | ✅ | **[BOT-145](completed/BOT-145_user_data_stream_blocking_rest_calls_on_event_loop.md)** | **User-data-stream handlers block the asyncio event loop on REST calls** | 🟡 **`S (Small)`** | — | **Done (28/09).** `FuturesUserDataStream._handle_account_update`'s `get_positions()` and `SpotUserDataStream._refresh_equity`'s `check_connection()` now run via `await asyncio.to_thread(...)`; `_handle_message` became `async def` on both streams. New regression tests on each stream prove a concurrently-scheduled `asyncio.sleep` coroutine finishes before the blocking call does (mutation-verified — reverting either wrap flips the observed order). |
 | **P3** | **[BOT-144](backlog/BOT-144_split_three_files_over_the_400_line_ceiling.md)** | **Chia nhỏ 3 file đã vượt trần 400 dòng (Dev Board/Data Management)** | 🔴 **`L (Thinking)`** | — | *(hàng thêm 23/09 — phát hiện từ review độc lập của `PR #257`.)* `dashboard_presenter.py` (1994 dòng), `dev_board_panel.py` (1145 dòng), `data_management_presenter.py` (964 dòng) đều vượt trần `architecture-rule.md` §5.4 (400 dòng), và mỗi PR feature qua 2 màn này lại cộng thêm vào cả 3 thay vì tách. Chưa có guard máy nào bắt lỗi này (`C7`/`D6`/`D7` chỉ là review-only). Chưa thiết kế cách tách — xem hồ sơ task để biết acceptance bar. |

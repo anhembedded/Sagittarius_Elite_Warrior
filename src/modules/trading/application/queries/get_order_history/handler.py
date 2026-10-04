@@ -3,7 +3,8 @@
 @details Reads the venue's own `IAccountHistoryReader`: the one symbol asked
 for, or every symbol the reader names as active. Binance's history endpoints
 need a symbol, so "every symbol" is that list, and the page carries it as
-`scanned_symbols` for the screen to show.
+`scanned_symbols` for the screen to show. `history_scope` bounds that list
+by Binance's request weight and names the pairs it left out (`BUG-145`).
 """
 
 from __future__ import annotations
@@ -14,6 +15,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import IQueryHandler
 from Sagittarius_Elite_Warrior.src.modules.trading.application.history_paging import (
     PageRequest,
     newest_first_page,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.history_scope import (
+    history_scope,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.queries.get_order_history.query import (
     GetOrderHistoryQuery,
@@ -48,9 +52,8 @@ class GetOrderHistoryQueryHandler(
 
     def execute(self, query: GetOrderHistoryQuery) -> HistoryPage[OrderRecord]:
         reader = self._contexts.get(query.venue).history_reader
-        symbols = (
-            (query.symbol,) if query.symbol else reader.active_symbols(query.since)
-        )
+        scope = history_scope(reader, query.symbol, query.since)
+        symbols = scope.symbols
         logger.debug(
             "Handling GetOrderHistoryQuery on %s: %s since %s, page %d",
             query.venue.value,
@@ -69,6 +72,7 @@ class GetOrderHistoryQueryHandler(
             PageRequest(
                 page=query.page,
                 scanned_symbols=symbols,
-                notices=_notices(reader.known_gaps(), every_symbol=not query.symbol),
+                notices=_notices(reader.known_gaps(), every_symbol=not query.symbol)
+                + scope.notices,
             ),
         )

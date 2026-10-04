@@ -167,6 +167,13 @@ class AccountHistoryReaderContract:
         assert list(active) == sorted(active)
         assert {"BTCUSDT", "ETHUSDT"} <= set(active)
 
+    def test_the_every_symbol_scan_limit_is_none_or_positive(
+        self, given_history: GivenHistory
+    ) -> None:
+        """`BUG-145`: a limit of zero would read no pair and say nothing."""
+        limit = given_history([], []).every_symbol_scan_limit()
+        assert limit is None or limit > 0
+
     def test_active_symbols_refuse_a_since_past_the_lookback(
         self, given_history: GivenHistory
     ) -> None:

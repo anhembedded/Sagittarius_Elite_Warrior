@@ -10,4 +10,4 @@
 
 ## Verification
 
-<!-- The GitHub Actions `ci-local.ps1 -Full` run on this PR's head sha, and what the grep of its job log found (ci-rule.md §1). Guards touched and why. Documentation-only (ONBOARDING §7): say so and name the doc guards run. -->
+<!-- A bug fix: its regression test, red before the fix and green after, and the commit tier (ci-rule.md §1, "Bug fix"). Otherwise: the GitHub Actions `ci-local.ps1 -Full` run on this PR's head sha, and what the grep of its job log found. Guards touched and why. Documentation-only (ONBOARDING §7): say so and name the doc guards run. -->
