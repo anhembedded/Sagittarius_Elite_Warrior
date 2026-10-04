@@ -128,7 +128,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 Set-Location $BotRoot
-$UIEntry = [System.IO.Path]::Combine($BotRoot, "src", "presentation", "ui", "main_window.py")
+$UIEntry = [System.IO.Path]::Combine($BotRoot, "src", "presentation", "ui", "app_bootstrapper.py")
 
 $UIArgs = @()
 if ($Debug) {
