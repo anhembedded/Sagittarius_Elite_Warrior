@@ -23,15 +23,18 @@ ADR's order:
   7. **Persist, then transition**: `reconcile_ok` back to RUNNING or PAUSED,
      or `reconcile_mismatch` to HALTED, naming why.
 
-A fill read from history carries no fee: the bot counts the quantity and the
-price, and the derivation in step 6 (which nets base-asset fees) is the check
-that the bot's inventory is still the exchange's.
+History's order row carries no fee, so a missed fill takes its fees from the
+order's trades, less what the bot already counted: Spot takes a buy's fee from
+the base it bought, and the counter SELL may ask for no more than arrived. The
+derivation in step 6 (which nets base-asset fees too) is the check that the
+bot's inventory is still the exchange's.
 """
 
 from __future__ import annotations
 
 import logging
 from dataclasses import dataclass
+from datetime import datetime
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget import (
@@ -62,6 +65,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
     LevelOrder,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
+    OrderRecord,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
     BUDGET_QUOTE_ASSET,
 )
@@ -126,8 +132,7 @@ class GridReconciler:
                 (record.executed_quantity - saved.executed) if record else Decimal(0)
             )
             if missed > 0 and record is not None:
-                price = record.average_price or saved.price
-                fill = LevelFill(saved.client_order_id, price, missed)
+                fill = self._missed_fill(saved, record, missed, since)
                 runtime = on_fill(
                     runtime, fill, self._context.terms.step_size, hold=True
                 ).runtime
@@ -139,6 +144,23 @@ class GridReconciler:
                 missed,
             )
         return runtime
+
+    def _missed_fill(
+        self, saved: LevelOrder, record: OrderRecord, missed: Decimal, since: datetime
+    ) -> LevelFill:
+        trades = self._context.gateway.order_trades(record.exchange_order_id, since)
+        base = self._context.base_asset
+        base_fee = sum((t.fee for t in trades if t.fee_asset == base), Decimal(0))
+        quote_fee = sum(
+            (t.fee for t in trades if t.fee_asset == BUDGET_QUOTE_ASSET), Decimal(0)
+        )
+        return LevelFill(
+            saved.client_order_id,
+            record.average_price or saved.price,
+            missed,
+            base_fee=base_fee - saved.base_fee,
+            quote_fee=quote_fee - saved.quote_fee,
+        )
 
     def _adopt(
         self, runtime: GridRuntime, open_orders: tuple[Order, ...]
@@ -176,9 +198,7 @@ class GridReconciler:
                 GridReason.INVENTORY_MISMATCH,
                 f"saved {runtime.inventory} against {derived} derived from the exchange",
             )
-        base = self._context.state.bot.definition.symbol.removesuffix(
-            BUDGET_QUOTE_ASSET
-        )
+        base = self._context.base_asset
         holding = self._context.gateway.holding(base)
         if holding is None or holding < derived:
             return ReconcileMismatch(

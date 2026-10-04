@@ -37,6 +37,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_regist
     OwnerBudgetRefusal,
     OwnerBudgetRegistrationResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
+    TradeRecord,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
     BOT,
     SYMBOL,
@@ -87,6 +90,21 @@ def _filled_while_closed(world: GridWorld, price: Decimal, quantity: str) -> Non
     )
 
 
+def _trade(order_id: int, price: Decimal, quantity: str, fee: str) -> TradeRecord:
+    return TradeRecord(
+        symbol=SYMBOL,
+        trade_id=order_id * 10,
+        order_id=order_id,
+        side=OrderSide.BUY,
+        price=price,
+        quantity=Decimal(quantity),
+        quote_quantity=price * Decimal(quantity),
+        fee=Decimal(fee),
+        fee_asset="BTC",
+        time=_AT,
+    )
+
+
 def _tagged(price: str, side: OrderSide = OrderSide.SELL) -> Order:
     return Order(
         ClientOrderId(generate_client_order_id(BOT)),
@@ -128,6 +146,26 @@ def test_a_fill_missed_while_closed_is_applied_and_its_counter_placed() -> None:
         (OrderSide.SELL, Decimal(120))
     ]
     assert world.runtime().inventory == Decimal("2.272")
+
+
+def test_a_missed_fill_counts_the_fee_its_trades_paid_in_base() -> None:
+    """History's order row carries no fee; its trades do. Spot took 0.1% of
+    the 2.272 BTC bought, so 2.269728 arrived: the inventory counts that, and
+    the counter SELL asks for no more, or trading refuses it as more than the
+    bot holds (the fake-exchange restart journey found this)."""
+    world = _restored()
+    _filled_while_closed(world, Decimal(110), "2.272")
+    world.activity.trades.append(_trade(7, Decimal(110), "2.272", "0.002272"))
+    world.derive("2.269728")
+    world.hold("2.269728")
+
+    _enable(world)
+
+    assert world.state() is S.RUNNING
+    assert world.runtime().inventory == Decimal("2.269728")
+    [counter] = world.book.requests
+    assert counter.side is OrderSide.SELL
+    assert counter.quantity <= Decimal("2.269728")
 
 
 def test_an_order_sent_but_never_saved_is_adopted_and_its_level_not_placed_twice() -> (

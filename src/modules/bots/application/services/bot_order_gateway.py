@@ -58,6 +58,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import O
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.trade_record import (
+    TradeRecord,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.venue_trading_ports import (
     VenueTradingPorts,
 )
@@ -171,6 +174,21 @@ class BotOrderGateway:
                     return record
             if (request.page + 1) * HISTORY_PAGE_SIZE >= page.total_rows:
                 return None
+            request = request.at_page(request.page + 1)
+
+    def order_trades(
+        self, exchange_order_id: int, since: datetime
+    ) -> tuple[TradeRecord, ...]:
+        """Every fill of one of the bot's orders since `since`, with its fee.
+        @raise AccountHistoryUnavailableError The venue did not answer."""
+        activity = self._ports.account_activity
+        request = HistoryRequest(self._identity.symbol, since)
+        found: list[TradeRecord] = []
+        while True:
+            page = activity.trade_history(request)
+            found.extend(row for row in page.rows if row.order_id == exchange_order_id)
+            if (request.page + 1) * HISTORY_PAGE_SIZE >= page.total_rows:
+                return tuple(found)
             request = request.at_page(request.page + 1)
 
     def holding(self, asset: str) -> Decimal | None:

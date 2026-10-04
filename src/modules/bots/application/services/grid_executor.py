@@ -322,9 +322,7 @@ class GridExecutor(IBotExecutor):
             )
 
     def _level_fill(self, fill: BotOrderFill) -> LevelFill:
-        base_asset = self._context.state.bot.definition.symbol.removesuffix(
-            BUDGET_QUOTE_ASSET
-        )
+        base_asset = self._context.base_asset
         fee = fill.fee_amount or Decimal(0)
         return LevelFill(
             fill.client_order_id,

@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session i
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
     OwnerBudgetCaps,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    BUDGET_QUOTE_ASSET,
+)
 
 
 class LazyExchangeTerms:
@@ -62,6 +65,11 @@ class GridRunContext:
     @property
     def terms(self) -> ExchangeTerms:
         return self.terms_source.get()
+
+    @property
+    def base_asset(self) -> str:
+        """The asset the bot buys and sells: its symbol less the quote."""
+        return self.state.bot.definition.symbol.removesuffix(BUDGET_QUOTE_ASSET)
 
     @property
     def cap(self) -> Decimal:
