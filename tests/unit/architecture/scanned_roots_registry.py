@@ -52,6 +52,9 @@ EMPTY_BY_DESIGN: tuple[tuple[str, str, str], ...] = (
 GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     # --- tests/unit/architecture (EPIC-025) --------------------------------
     ("tests/unit/architecture/test_module_boundaries.py", (("src", "*.py"),)),
+    # `EPIC-030E` — layer direction inside one module; same `scanned_files()`
+    # walk over `src/` as the row above.
+    ("tests/unit/architecture/test_module_layers_point_inward.py", (("src", "*.py"),)),
     # `BOT-144` / `BOT-146` — the 400-line-ceiling ratchet, one baseline per tree.
     (
         "tests/unit/architecture/test_god_files_only_shrink.py",

@@ -53,3 +53,21 @@ def test_type_checking_imports_are_ignored_but_the_else_branch_is_not() -> None:
 def test_outside_imports_come_back_unchanged() -> None:
     source = "import logging\nfrom PySide6.QtCore import QObject\n"
     assert imported_modules(_HANDLER, source) == {"logging", "PySide6.QtCore"}
+
+
+def test_function_local_imports_are_collected() -> None:
+    """A lazy import inside a function or method still runs, so it is still a
+    dependency (`EPIC-030E`: the one outward layer import in the tree is
+    exactly this shape)."""
+    source = (
+        "class S:\n"
+        "    def build(self):\n"
+        "        from Sagittarius_Elite_Warrior.src.modules.strategy.ui.overlay import O\n"
+        "        return O\n"
+        "def helper():\n"
+        "    import Sagittarius_Elite_Warrior.src.core.vo.symbol\n"
+    )
+    assert imported_modules(_HANDLER, source) == {
+        "modules.strategy.ui.overlay",
+        "core.vo.symbol",
+    }
