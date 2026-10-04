@@ -54,7 +54,7 @@ From the dev log:
 
 **Follow-up, not in this fix (the PR #344 review, finding 3).** Both readers name active pairs sorted, so on a 500-asset testnet account the five Spot pairs read are `0GUSDT, 1000CATUSDT, …`. The user's own pairs, such as one with an open order or the one a bot trades, are almost never among them. The notice says so truthfully, and "Hide other pairs" reads the desk's pair.
 
-Reading the open-order pairs first changes the port's "Sorted" promise, which `AccountHistoryReaderContract` locks. It also needs the reader to tell open-order pairs from held ones. That is a contract change of its own, so it is left for a separate task rather than widening this fix.
+Reading the open-order pairs first changes the port's "Sorted" promise, which `AccountHistoryReaderContract` locks. It also needs the reader to tell open-order pairs from held ones. That is a contract change of its own, so it is left for a separate task rather than widening this fix: [BOT-149](../../backlog/BOT-149_every_pair_history_reads_the_users_pairs_first.md).
 
 ## Regression test
 

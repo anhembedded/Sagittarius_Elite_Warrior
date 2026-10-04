@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 171 | 83.4% |
+| 🟢 **Completed** | 171 | 83.0% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 26 | 12.7% |
+| 🔴 **Backlog** | 27 | 13.1% |
 | ❌ **Cancelled** | 8 | 3.9% |
-| 📈 **Tổng số Task** | **205** | **100%** |
+| 📈 **Tổng số Task** | **206** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -468,6 +468,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Priority | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :---: | :--- |
+| **P3** | **[BOT-149](backlog/BOT-149_every_pair_history_reads_the_users_pairs_first.md)** | **An every-pair history reads the user's own pairs first** | 🟡 **`M (Standard)`** | BUG-145 | *(added 04/10, PR #344 review)* A capped Spot every-pair page reads the first five pairs in sorted order, so the user's open-order and bot pairs are rarely among them. |
 | **P3** | **[BOT-148](backlog/BOT-148_contributions_defer_through_one_mechanism.md)** | **Every contribution defers its factories through `Deferred`** | 🟡 **`M (Standard)`** | PR #333 | *(added 04/10, PR #333 review)* The Bots screen defers through `src/core/contracts/deferred.py`; nine other contributions still hold 32 function-local imports (`PLC0415`). Moving them lets the ratchet fall. |
 | ✅ | **[BOT-145](completed/BOT-145_user_data_stream_blocking_rest_calls_on_event_loop.md)** | **User-data-stream handlers block the asyncio event loop on REST calls** | 🟡 **`S (Small)`** | — | **Done (28/09).** `FuturesUserDataStream._handle_account_update`'s `get_positions()` and `SpotUserDataStream._refresh_equity`'s `check_connection()` now run via `await asyncio.to_thread(...)`; `_handle_message` became `async def` on both streams. New regression tests on each stream prove a concurrently-scheduled `asyncio.sleep` coroutine finishes before the blocking call does (mutation-verified — reverting either wrap flips the observed order). |
 | **P3** | **[BOT-144](backlog/BOT-144_split_three_files_over_the_400_line_ceiling.md)** | **Chia nhỏ 3 file đã vượt trần 400 dòng (Dev Board/Data Management)** | 🔴 **`L (Thinking)`** | — | *(hàng thêm 23/09 — phát hiện từ review độc lập của `PR #257`.)* `dashboard_presenter.py` (1994 dòng), `dev_board_panel.py` (1145 dòng), `data_management_presenter.py` (964 dòng) đều vượt trần `architecture-rule.md` §5.4 (400 dòng), và mỗi PR feature qua 2 màn này lại cộng thêm vào cả 3 thay vì tách. Chưa có guard máy nào bắt lỗi này (`C7`/`D6`/`D7` chỉ là review-only). Chưa thiết kế cách tách — xem hồ sơ task để biết acceptance bar. |
