@@ -55,16 +55,24 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
-          cache-dependency-path: "requirements.txt"
+          cache-dependency-path: "requirements.lock"
 
       - name: Install Sagittarius Engine
+        # Pinned (EPIC-031B): `engine.ref` names the one engine commit this tree
+        # is tested against, so two runs of one commit build the same thing.
+        # Bumping the engine is a pull request that edits `engine.ref`.
         run: |
-          git clone --depth 1 https://github.com/anhembedded/Sagittarius-Engine.git "${{ runner.temp }}/engine"
+          ref="$(tr -d '[:space:]' < engine.ref)"
+          git init -q "${{ runner.temp }}/engine"
+          git -C "${{ runner.temp }}/engine" fetch -q --depth 1 https://github.com/anhembedded/Sagittarius_Engine.git "$ref"
+          git -C "${{ runner.temp }}/engine" checkout -q FETCH_HEAD
           python -m pip install --upgrade pip
           pip install "${{ runner.temp }}/engine"
 
       - name: Install dependencies
-        run: pip install -r requirements.txt
+        # The lock (EPIC-031B), not the loose requirements: every transitive
+        # version is the one the last green run used.
+        run: pip install -r requirements.lock
 
       - name: Run the gate
         # No .venv on the runner, so the script uses the tools on PATH — the
