@@ -84,6 +84,7 @@ available while it runs.
 | The action's answer arrives after the trader moved on or closed the tab | Nothing: it is dropped and logged | One action at a time, fenced (`async-ui-action-rule.md`) |
 | The backtest's period has no stored candles | "No 15m candles of BTCUSDT are stored …" and **Sync candles**; only a click syncs the interval and its 1-second klines ("Stop" leaves what was stored), then the backtest runs again | Opening a tab or running a backtest is never a network request (`BUG-107`) |
 | The period is too long for the interval | The backtest asks for a longer interval | The replay holds at most 20,000 candles |
+| The period is only partly stored, or has gaps | The replay runs on what is stored; "Candles stored" says N of M, the status names how many are missing and **Sync candles** is offered | A result on part of a period is shown as such, never as the whole of it |
 | A backtest finishes after Cancel, or after another bot was selected | Nothing: it is dropped and logged | Each run is an action of its own, fenced like the others |
 
 ## 6. What this use case does NOT promise
@@ -126,7 +127,7 @@ available while it runs.
 | The route is item 18 and contributed by bots | `tests/unit/shell/test_screen_wiring.py` | unit |
 | The fill rule (no fill on touch, kline order, adverse side without them), fees, exits, buy-and-hold, cancellation, the report's four regimes | `tests/unit/modules/bots/domain/grid/test_grid_simulator.py` | unit |
 | The backtest reads what is stored, never fetches, refuses in words | `tests/unit/modules/bots/application/test_run_grid_backtest.py` | unit |
-| Two stored hours replay through their 1-second klines; without them the replay is coarse and never kinder | `tests/integration/modules/bots/test_grid_backtest_stored_klines.py` | integration (real SQLite) |
+| Two stored hours replay through their 1-second klines; without them the replay is coarse and never completes more cycles; 1-second klines that miss the candle's range are not trusted | `tests/integration/modules/bots/test_grid_backtest_stored_klines.py` | integration (real SQLite) |
 | Run, Cancel keeps the last result, another bot clears it, a late result is fenced, Sync only on a click then run again | `tests/unit/modules/bots/ui/kinds/test_grid_backtest.py` | unit (real query handler) |
 | The Backtest tab shows for a Grid, hides without a selection, runs through the query the module binds, reads the edits and the planner's terms | `tests/unit/modules/bots/ui/bots_screen/test_bots_backtest_tab.py` | unit (real bots graph) |
 | **The user runs it**: a Grid on Spot Testnet from New bot to Stop, on a real display | `EPIC-029H` | desktop, the user |

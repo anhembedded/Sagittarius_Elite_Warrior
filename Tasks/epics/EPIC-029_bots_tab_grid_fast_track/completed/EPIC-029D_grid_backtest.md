@@ -158,6 +158,16 @@ Three commits on PR6: the simulator (domain), the query (application), and the B
 5. "Backtest" is a tab of the detail panel, beside Parameters, not a button on the Grid panel. The
    tab reads the parameters on screen, unsaved edits included.
 
+**Review round 1 (PR #338), all seven findings fixed, each with a test that was red first:**
+
+1. **Blocking.** A candle with only part of its 1-second klines was replayed as fully covered. It could erase a crash and its stop loss without being listed as coarse. 1-second klines now order a candle only when they reach its low and high (`grid_fill_rule.spans`); otherwise the candle is coarse and listed.
+2. The "Sync candles" offer vanished on the Bots screen's next refresh of the selection (its 30-second clock, a planner answer, an edit). `follow` now redraws the idle state only when the bot or the reason Run is off changed.
+3. Closing the page mid-run made the worker emit on a deleted coordinator (it was a child of the page). The coordinator is unparented, emits directly like `BotActionsCoordinator`, and drops answers once closed.
+4. "Never kinder" overstated the evidence: a coarse replay completes no more cycles, but its final equity can differ either way. The claim is narrowed to what is tested.
+5. A period only partly stored was replayed silently. The result's provenance now carries a `DataWindow` (expected and stored candles of the period asked for); the summary shows "Candles stored", and a shortfall offers the sync.
+6. "Grid backtest", "fill rule", "coarse candle" and "buy-and-hold" are in the vocabulary.
+7. `grid_replay`'s docstring no longer claims it calls `crossed_exit`.
+
 **Not verified:** a backtest of a real stored week on a real display. The check against the
 Testnet run of the same period is `029H`'s.
 
