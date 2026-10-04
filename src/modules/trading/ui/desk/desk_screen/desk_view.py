@@ -75,8 +75,8 @@ _BUSY_TEXT = "Processing..."
 def disabled_text(profile: DeskProfile) -> str:
     """What a desk whose venue is not enabled says."""
     return (
-        f"{profile.title} Testnet is not enabled — turn it on in Settings, "
-        "then restart the app."
+        f"{profile.title} Testnet is not enabled — turn it on in "
+        "Tools > Options > Trading, then restart the app."
     )
 
 

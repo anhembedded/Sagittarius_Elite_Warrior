@@ -141,7 +141,7 @@ class UiStateCoordinator(QObject):
         """Forgets specific remembered values without touching the rest.
 
         @details `EPIC-010H`'s precedence rule: `ui_state` outranks
-        `user_config`'s `DEFAULT_*`, so changing one of those in Settings has
+        `user_config`'s `DEFAULT_*`, so changing one of those in Tools → Options has
         to invalidate the remembered value it now outranks — otherwise the
         user edits Settings and nothing appears to happen. Scoped to the
         affected keys, because dropping a whole slice to change one default

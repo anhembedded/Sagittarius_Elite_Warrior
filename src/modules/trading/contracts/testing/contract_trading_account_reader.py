@@ -3,7 +3,7 @@
 Three guarantees, all of them things a measured consumer depends on
 (HLD §10.3 rule 2):
 
-1. the answer is the state the venue is in — the fields the Settings screen,
+1. the answer is the state the venue is in — the fields the Options dialog,
    the CLI `exchange-status` command and `execute_order`'s safety gate read;
 2. **it never raises.** The port's docstring states this and every caller is
    written against it: `execute_order`'s `_first_blocked_safety_gate()` reads

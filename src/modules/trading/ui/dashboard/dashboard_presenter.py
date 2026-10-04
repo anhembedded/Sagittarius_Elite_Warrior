@@ -765,8 +765,8 @@ class DashboardPresenter(BasePresenter):
         registry = self.container.resolve(IVenueTradingPorts)
         if venue not in registry.enabled():
             self.view.order_entry_host.show_unavailable(
-                "No trading venue is enabled — turn one on in Settings, then "
-                "restart the app."
+                "No trading venue is enabled — turn one on in "
+                "Tools > Options > Trading, then restart the app."
             )
             return None
         entry = DevBoardOrderEntry(

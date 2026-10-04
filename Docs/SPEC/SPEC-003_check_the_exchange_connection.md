@@ -5,7 +5,7 @@
 - **Origin:** `EPIC-021D`. Its §2.2 is where the rule "an English string from the exchange is
   not a stable contract" was decided, which is why this use case answers with named failure
   kinds.
-- **Surfaces:** Settings screen's connection check · `exchange-status` on the command line and at
+- **Surfaces:** the connection check on Tools → Options → Trading · `exchange-status` on the command line and at
   the interactive prompt.
 
 ## 1. Trigger
@@ -22,7 +22,7 @@ cannot, tell me which part is wrong."*
 
 ## 3. Main flow
 
-1. The actor asks for the check — the Settings screen's control, or `exchange-status`.
+1. The actor asks for the check — the control on Tools → Options → Trading, or `exchange-status`.
 2. The app resolves credentials. If there are none, it stops here and answers
    `NOT_CONFIGURED` **without any network call**.
 3. The app makes a small number of read-only requests: server time, account balance, position
@@ -37,7 +37,7 @@ cannot, tell me which part is wrong."*
    unrealized PnL, position mode and asset mode; on Spot the quote asset's free and locked parts
    and the equity. A Futures account in Single-Asset mode is summarised from its USDT asset; in
    Multi-Assets mode, from the account-wide totals, in USD across every margin asset.
-6. Each surface renders that one value: Settings as a label, the command line as a short
+6. Each surface renders that one value: the Options page as a label, the command line as a short
    report.
 
 ## 4. What must be true afterwards
@@ -88,7 +88,7 @@ cannot, tell me which part is wrong."*
 
 ## 7. Ports and modules it exercises
 
-`trading`: `IAccountSnapshot` (`check_connection()` — the sentence the Settings screen and the
+`trading`: `IAccountSnapshot` (`check_connection()` — the sentence the Options page and the
 command line both call), `ITradingAccountReader` (the account reads behind it),
 `IExchangeSessionFactory` (the session the reads go through). `ExchangeConnectionStatus` and
 `ConnectionFailureKind` are the published result. `support/binance_gateway` owns credential
@@ -104,5 +104,5 @@ resolution and the error translation.
 | The command line's report for each outcome | `tests/unit/presentation/cli/test_exchange_status_formatter.py` | unit |
 | The account summary each reader builds from its payload, and `None` rather than a guess | `tests/unit/modules/trading/adapters/binance/test_futures_account_reader.py`, `tests/unit/modules/trading/adapters/binance/spot/test_spot_account_reader.py` | unit |
 | The summary over a real HTTP round trip | `tests/integration/infrastructure/binance/test_futures_account_reader_against_fake_server.py` | integration |
-| Settings renders the right label, and asks the port exactly once | `tests/unit/modules/trading/ui/settings/test_trading_settings_connection_check.py` | unit |
+| The Options page renders the right label, and asks the port exactly once | `tests/unit/modules/trading/ui/settings/test_trading_settings_connection_check.py` | unit |
 | A real check against the real Futures Testnet | `tests/testnet/test_connection.py` — **the user runs it**: `SEW_TESTNET_TESTS=1` plus real credentials, via `ci-local.ps1 -TestnetOnly`; the ordinary gate never invokes this tier | human |

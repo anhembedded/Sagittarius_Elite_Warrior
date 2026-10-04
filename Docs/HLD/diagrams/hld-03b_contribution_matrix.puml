@@ -101,18 +101,16 @@ package "surface_id = dev_board   {gated by dev.mode}" <<shell-owned>> #LightGra
   }
 }
 
-package "surface_id = settings" <<shell-owned>> #LightGray {
-  object "marketDataSection : ContributionDescriptor" as s1 #LightBlue {
-    contributor_id = "market_data"
-    place = SETTINGS_SECTION
-    order = 10
-    title = "venue · defaults"
-  }
-  object "tradingSection : ContributionDescriptor" as s2 #LightGreen {
+package "Tools → Options (not a surface, EPIC-033E)" <<shell-owned>> #LightGray {
+  object "tradingPage : OptionsPageContribution" as s1 #LightGreen {
     contributor_id = "trading"
-    place = SETTINGS_SECTION
+    order = 10
+    page = "venues · credentials check"
+  }
+  object "marketDataPage : OptionsPageContribution" as s2 #LightBlue {
+    contributor_id = "market_data"
     order = 20
-    title = "venue · limits · credentials check"
+    page = "venue · defaults"
   }
 }
 
@@ -193,8 +191,9 @@ note bottom of b2
 end note
 
 note bottom of w1
-  `welcome` and `settings` belong to the **shell**, not to a module: they are
-  surfaces about the application itself.
+  What is about the application itself belongs to the **shell**, not to a
+  module: today the Developer page of Tools → Options. The `welcome` and
+  `settings` surfaces were deleted by EPIC-033C and EPIC-033E.
 
   A guard renders the *UI map* — the set of these instances keyed by
   (surface_id, place) — and fails on a factory contributed nowhere, or on a

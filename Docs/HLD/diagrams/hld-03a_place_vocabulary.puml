@@ -11,7 +11,6 @@ enum Place <<enumeration>> {
   RAIL
   CONSOLE
   MODAL
-  SETTINGS_SECTION
   STATUS_TILE
   DEV_PROBE
 }
@@ -72,7 +71,8 @@ note bottom of Place
   Since ADR D22 the places are rendered by QMainWindow parts (HLD §11.2):
   HEADER/CONTEXT_BAR = toolbars, RAIL/CONSOLE/DEV_PROBE = dock areas of
   panels, WORKSPACE = central widget, MODAL = QDialog, STATUS_TILE = status
-  bar, SETTINGS_SECTION = a Settings-dialog page. A module still never asks
+  bar. A page of Tools → Options is not a place: a module contributes it
+  through contribute_options_page (EPIC-033E). A module still never asks
   for a position: `order` is the initial dock order, then the user's saved
   perspective wins. The sidebar is derived from SCREEN contributions. Adding a literal is an **HLD change**, not a module change.
   The canonical definition of each literal lives once, in

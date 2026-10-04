@@ -43,7 +43,9 @@ type AskNewBot = Callable[
 ]
 
 CREATE_BUTTON_TEXT = "Create bot"
-NO_SPOT_VENUE = "No Spot venue is enabled. Enable one in Settings first."
+NO_SPOT_VENUE = (
+    "No Spot venue is enabled. Enable one in Tools > Options > Trading first."
+)
 
 
 class NewBotDialog(QDialog):

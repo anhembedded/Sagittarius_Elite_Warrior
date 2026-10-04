@@ -29,7 +29,7 @@ _FAILURE_GUIDANCE = EnumLabels(
     {
         ConnectionFailureKind.NOT_CONFIGURED: (
             "API key/secret not configured. Get a key at testnet.binancefuture.com, "
-            "then save it via the Settings screen or the "
+            "then save it in Tools > Options > Trading or with the "
             "BINANCE_FUTURES_TESTNET_API_KEY/BINANCE_FUTURES_TESTNET_API_SECRET "
             "environment variables."
         ),
@@ -67,7 +67,7 @@ _FAILURE_GUIDANCE = EnumLabels(
 _SPOT_ONLY_GUIDANCE: dict[ConnectionFailureKind, str] = {
     ConnectionFailureKind.NOT_CONFIGURED: (
         "API key/secret not configured. Get a key at testnet.binance.vision, "
-        "then save it via the Settings screen or the "
+        "then save it in Tools > Options > Trading or with the "
         "BINANCE_SPOT_TESTNET_API_KEY/BINANCE_SPOT_TESTNET_API_SECRET "
         "environment variables."
     ),

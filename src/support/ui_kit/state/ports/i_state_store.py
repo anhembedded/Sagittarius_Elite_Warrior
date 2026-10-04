@@ -65,7 +65,7 @@ class IStateStore(ABC):
 
         @details `EPIC-010H`. `discard()` drops a whole slice, which is right
         when an instance is gone but far too blunt for the precedence rule:
-        changing `DEFAULT_SYMBOLS` in Settings must invalidate the remembered
+        changing `DEFAULT_SYMBOLS` in Tools → Options must invalidate the remembered
         symbol, and *only* that — dropping the whole Backtest slice to do it
         would take leverage, commission and timezone with it, which is worse
         than the problem it solves.

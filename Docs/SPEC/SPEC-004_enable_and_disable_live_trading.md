@@ -7,7 +7,7 @@
   the single Trading screen's toggle became each desk's in `EPIC-028K`/`028L`/`028M`.
 - **Surfaces:** each desk's Enable/Disable toggle, for the desk's own venue (the Futures desk for
   Futures Testnet, the Spot desk for Spot Testnet), and the Dev Board's, for the venue it trades.
-  All of them are one class (`DeskSessionControls`). The Settings screen only **reads** this
+  All of them are one class (`DeskSessionControls`). The Options dialog's Trading page only **reads** this
   state — it refuses a venue change while trading is on and says where to turn it off.
 
 ## 1. Trigger
@@ -17,7 +17,7 @@ holds before it does."*
 
 ## 2. Preconditions
 
-1. The desk's venue (Futures Testnet or Spot Testnet) is enabled in Settings, and the app was
+1. The desk's venue (Futures Testnet or Spot Testnet) is enabled in Tools → Options → Trading, and the app was
    restarted after the change. A venue that is not enabled has no session to turn on: its desk
    says so and holds no toggle. Each enabled venue's trading is on or off on its own; turning
    one on or off never touches the other.
@@ -104,5 +104,5 @@ reads through `ITradingAccountReader`; the connection gate is SPEC-003's `IAccou
 | A desk's toggle turns on its own venue only and puts its chart live | `tests/unit/modules/trading/ui/desk/test_desk_screen.py`, `tests/unit/modules/trading/ui/desk/test_two_desks_stay_apart.py` | unit |
 | The Dev Board's toggle is the same controls, and never puts its chart live | `tests/unit/modules/trading/ui/dashboard/test_dashboard_presenter.py` | unit |
 | The toggle's async ownership: one action at a time, stale results fenced, never superseding an Emergency Stop | `tests/unit/modules/trading/ui/desk/test_desk_session_controls.py` | unit |
-| Settings refuses a venue change while trading is on | `tests/unit/modules/trading/ui/settings/test_trading_settings_venue.py` | unit |
+| The Options page refuses a venue change while trading is on | `tests/unit/modules/trading/ui/settings/test_trading_settings_venue.py` | unit |
 | Turning it on against a real account | **the user runs it**: with Futures Testnet credentials, click Enable on the Futures desk and confirm the reconciled positions shown match the Testnet web UI | human |
