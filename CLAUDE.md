@@ -15,6 +15,7 @@ This file navigates and copies no rule: a copy drifts, and this repository has p
 | Code quality, naming & error handling | [`code/quality.md`](.claude/rules/code/quality.md) · [`code/naming.md`](.claude/rules/code/naming.md) · [`code/errors.md`](.claude/rules/code/errors.md) |
 | Before calling anything done: the gate, its cadence, the test levels | [`ci-rule.md`](.claude/rules/ci-rule.md) |
 | Before every commit | [`commit-rule.md`](.claude/rules/commit-rule.md) |
+| Taking a code change from task to ready-to-merge without a person relaying review rounds | [`scripts/dev_review_loop.py`](scripts/dev_review_loop.py); the process: `ONBOARDING.md` §7, "The dev/review loop runs both sessions" |
 | Reviewing a pull request, branch or diff | [`.claude/skills/pr-review/SKILL.md`](.claude/skills/pr-review/SKILL.md); a first independent read before asking for review: the `reviewer` subagent ([`.claude/agents/reviewer.md`](.claude/agents/reviewer.md)) |
 | Creating or maintaining a bug report | [`create-bug-report-rule.md`](.claude/rules/create-bug-report-rule.md) |
 | Diagnosing or fixing a bug | [`.claude/skills/fix-bug/SKILL.md`](.claude/skills/fix-bug/SKILL.md); governing rule: [`fix-bug-rule.md`](.claude/rules/fix-bug-rule.md) |

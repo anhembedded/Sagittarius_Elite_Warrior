@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 171 | 83.8% |
+| 🟢 **Completed** | 172 | 83.9% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 25 | 12.3% |
+| 🔴 **Backlog** | 25 | 12.2% |
 | ❌ **Cancelled** | 8 | 3.9% |
-| 📈 **Tổng số Task** | **204** | **100%** |
+| 📈 **Tổng số Task** | **205** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -176,6 +176,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **[`BOT-148`](completed/BOT-148_automated_dev_review_loop.md) (a developer and a reviewer session loop until the pull request is ready to merge)**: [Decision: no channel between two sessions woke either one reliably (PR comments from the same account, then `send_message`), so `scripts/dev_review_loop.py` runs both headless. The reviewer is read-only (`--tools Read,Glob,Grep`) and keeps one resumed session per pull request; replies are schema-validated with stable finding ids; the loop runs the commit tier itself; after a local APPROVE it pushes, opens the pull request, waits for the full gate, hands the reviewer the gate's logs and posts its comment. It never merges, and it stops for a person on a deadlock, used-up rounds or a gate that does not finish.]
 - [x] **`EPIC-031` (the rulebook enforced by mechanism, Tier B)**: [Decision: commit format and the independent review become CI checks (`commit-lint`, the `independent-review` status, which separates author and reviewer sessions by their self-reported `Claude-Session:` URLs, counts only owner, member or collaborator comments, and lets the newest verdict line decide); the engine is pinned by sha in `engine.ref` and every dependency in `requirements.lock`; a Claude Code PreToolUse hook refuses a gate run judged by its tail and a commit over a red check. Root cause: these rules held only by memory, and CI built a moving engine.] — [EPIC-031](epics/EPIC-031_rule_mechanization_tier_b/README.md)
 - [x] **[`BOT-147`](completed/BOT-147_fake_exchange_prices_spot_holdings.md) (the fake exchange prices Spot holdings)**: [Root cause: `SpotAccountReader` prices holdings through `GET /api/v3/ticker/price`, which the fake did not serve, so every fake-exchange Spot account read logged "could not price BTC" and reported no equity. The state now exposes the last price and the routes own both ticker shapes.]
 - [x] **`EPIC-029E` (a Grid bot runs live on Spot, PR4 of EPIC-029)**: [Decision: a functional core and an imperative shell. The ladder's reactions to fills, ends, pauses and adoption are pure domain functions over a declared level FSM (ADR §3.2 plus `settled`), and one actor per bot (`GridExecutor` on its own queue, D9) is the only writer, sending through a gateway that classifies every answer as switch-off, refusal or fault. Two fake-exchange journeys in the composed app and a Binance rules and failure review (the user's request) found six defects before any real order, all fixed with tests: Spot's base-asset buy fee (SELL side and reconciled fills), market-slice tails and re-placed remainders below `NOTIONAL`, failures outside an order leaving a bot stuck with no reason (now one fault boundary), and an order filling just before its cancel (`-2011`) faulting the stop. The independent review (round 1) found seven more, all fixed with tests: a pause crossed both ways releasing a crossing pair at one level, HALTED/ERROR leaving the ladder trading with the stop loss unwatched (now cancelled, exits still armed), off-ladder fills double-booked, worker threads never closed, a reconcile ignoring a counter's halt, exits ignoring `MARKET_LOT_SIZE`, and two false documentation claims.] — [EPIC-029E](epics/EPIC-029_bots_tab_grid_fast_track/completed/EPIC-029E_live_grid_executor.md)
