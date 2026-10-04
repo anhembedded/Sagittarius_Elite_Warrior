@@ -84,14 +84,16 @@ def _build_presenter(
     from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_view import (
         DeskView,
     )
-    from sagittarius_engine.extensions.pyside_mvc import BasePresenter as Presenter
+    from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.disabled_desk_presenter import (
+        DisabledDeskPresenter,
+    )
 
     if not isinstance(view, DeskView):
         raise TypeError(f"a desk's presenter was handed a {type(view).__name__}")
     if venue not in container.resolve(IVenueTradingPorts).enabled():
         # The disabled desk holds nothing to drive (`DeskView`).
         view.show_venue_disabled()
-        return Presenter(view, container)
+        return DisabledDeskPresenter(view, container, venue)
     return DeskPresenter(
         view,
         container,

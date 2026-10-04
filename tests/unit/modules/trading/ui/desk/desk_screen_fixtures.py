@@ -102,6 +102,7 @@ from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
+from .desk_actions import DeskActions, bind_desk_actions
 from .order_entry_fixtures import InlineThreadManager
 
 STRATEGY_KEY = "ema_crossover"
@@ -135,6 +136,8 @@ class Desk:
     activity: FakeAccountActivity
     arming: FakeStrategyArming
     armed: FakeArmedStrategy
+    #: Its Enable live trading and Emergency stop, bound as the window binds them.
+    actions: DeskActions
 
 
 def build_desk(
@@ -199,7 +202,10 @@ def build_desk(
     qtbot.addWidget(view)
     container = fake_container({IEventBus: world.bus, IConfig: world.config})
     presenter = DeskPresenter(view, container, profile, deps)
-    return Desk(venue, view, presenter, session, submission, activity, arming, armed)
+    actions = bind_desk_actions(view, presenter, venue)
+    return Desk(
+        venue, view, presenter, session, submission, activity, arming, armed, actions
+    )
 
 
 def market_of(venue: TradingVenue) -> MarketType:

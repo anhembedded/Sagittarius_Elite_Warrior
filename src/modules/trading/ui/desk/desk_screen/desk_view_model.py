@@ -41,11 +41,16 @@ class DeskViewModel(StatusMessageViewModel):
     symbolOptionsChanged = Signal()
     symbolChanged = Signal()
     tradingStateChanged = Signal()
+    #: `EPIC-033D` — what the Enable live trading action follows: whether it
+    #: can be pressed now (no enable or disable in flight), and whether
+    #: trading is on.
+    toggleAvailable = Signal(bool)
+    tradingEnabled = Signal(bool)
     #: Emitted when the user picks a different symbol for the chart.
     symbolChangeRequested = Signal(str)
-    #: Emitted when the user clicks the "Bật/Tắt giao dịch" header button.
+    #: Emitted when the user triggers Enable live trading.
     toggleRequested = Signal()
-    #: Emitted when the user clicks "DỪNG KHẨN CẤP" (`EPIC-021K`).
+    #: Emitted when the user triggers Emergency stop (`EPIC-021K`).
     emergencyStopRequested = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
@@ -128,15 +133,17 @@ class DeskViewModel(StatusMessageViewModel):
         self._enabled = enabled
         self._toggle_busy = busy
         self.tradingStateChanged.emit()
+        self.toggleAvailable.emit(not busy)
+        self.tradingEnabled.emit(enabled)
 
     @Slot()
     def requestToggle(self) -> None:
-        """Called from the View's header toggle button."""
+        """Called by the Enable live trading action."""
         self.toggleRequested.emit()
 
     @Slot()
     def requestEmergencyStop(self) -> None:
-        """Called from the View's "DỪNG KHẨN CẤP" button (`EPIC-021K`)."""
+        """Called by the Emergency stop action (`EPIC-021K`, `EPIC-033D`)."""
         self.emergencyStopRequested.emit()
 
     # ------------------------------------------------------------------ #

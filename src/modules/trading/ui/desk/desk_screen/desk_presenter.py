@@ -44,6 +44,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_profile import (
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_chart import (
     DeskChart,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_commands import (
+    emergency_stop_id,
+    enable_trading_id,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_dependencies import (
     DeskDependencies,
 )
@@ -78,6 +82,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     default_symbol,
     default_symbol_options,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import ICommandBinder
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter
 
 if TYPE_CHECKING:
@@ -181,6 +186,20 @@ class DeskPresenter(BasePresenter):
         chart.logged.connect(self._log)
         chart.lastPriceChanged.connect(self._on_last_price)
         self.strategy.listen(signals)
+
+    def bind_commands(self, binder: ICommandBinder) -> None:
+        """Enable live trading and Emergency stop (`desk_commands.py`)."""
+        venue = self._profile.venue
+        binder.bind(
+            enable_trading_id(venue),
+            lambda _checked: self.desk.requestToggle(),
+            enabled=self.desk.toggleAvailable,
+            checked=self.desk.tradingEnabled,
+        )
+        binder.bind(
+            emergency_stop_id(venue),
+            lambda _checked: self.desk.requestEmergencyStop(),
+        )
 
     def _on_last_price(self, price: Decimal) -> None:
         self.order_entry.update_last_price(price)

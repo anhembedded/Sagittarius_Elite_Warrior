@@ -1,6 +1,8 @@
 """`EPIC-028K`/`028L` — one desk's screen: the chart, the venue's equity
 curve and the account tabs below it, and a rail holding the order panel, the strategy card and the account
-summary; Enable/Disable and Emergency Stop for this venue only.
+summary. Enable live trading and Emergency stop are this desk's commands
+(`desk_commands.py`, `EPIC-033D`): actions in the Trade menu and on the desk's
+toolbar, not buttons here.
 
 @details A `PageShell`, like the single Trading screen it replaced in
 `EPIC-028M` (the workbench conversion of every remaining `PageShell` is
@@ -16,7 +18,7 @@ lays out the notice instead.
 
 **A venue that is not enabled** shows one line naming the venue and where to
 turn it on, and nothing that could send an order: no toggle, no Emergency
-Stop, no rail.
+Stop, no rail; its commands stay disabled (`DisabledDeskPresenter`).
 """
 
 from __future__ import annotations
@@ -26,7 +28,6 @@ from PySide6.QtWidgets import (
     QComboBox,
     QHBoxLayout,
     QLabel,
-    QPushButton,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -68,8 +69,6 @@ from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import Outpu
 
 #: The equity chart's title: the curve is the venue's account, not a symbol.
 EQUITY_CHART_TITLE = "Equity"
-_TOGGLE_TEXT = {(False, False): "Enable Trading", (True, False): "Disable Trading"}
-_BUSY_TEXT = "Processing..."
 
 
 def disabled_text(profile: DeskProfile) -> str:
@@ -99,10 +98,6 @@ class DeskView(OutputSourceView):
         self.equity_chart = _equity_chart()
         self.account_tabs = AccountTabsPanel(profile.held_tab, confirmations)
         self.account_summary = AccountSummaryPanel()
-        self._toggle = QPushButton(_TOGGLE_TEXT[(False, False)])
-        self._toggle.setObjectName("btnToggleTrading")
-        self._emergency_stop = QPushButton("EMERGENCY STOP")
-        self._emergency_stop.setObjectName("btnEmergencyStop")
         self._symbol = QComboBox()
         self._symbol.setObjectName("cboDeskSymbol")
         self._status = QLabel()
@@ -116,20 +111,12 @@ class DeskView(OutputSourceView):
         self._shell.set_header(f"{profile.title} · Testnet")
 
     @property
-    def emergency_stop_button(self) -> QPushButton:
-        return self._emergency_stop
-
-    @property
-    def toggle_button(self) -> QPushButton:
-        return self._toggle
-
-    @property
     def status_text(self) -> str:
         return self._status.text()
 
     def attach(self, desk: DeskViewModel, order: OrderEntryViewModel) -> None:
         """Lays the desk out: builds the rail's bound widgets and binds the
-        header and the context bar to `desk`."""
+        context bar to `desk`."""
         self._build_desk()
         panel = OrderEntryPanel(order)
         panel.setObjectName("orderEntryPanel")
@@ -148,14 +135,10 @@ class DeskView(OutputSourceView):
             f"desk.{self._profile.venue.value}", self._profile.title, desk.log_model
         )
         self._apply_symbols(desk)
-        self._apply_state(desk)
         self._apply_status(desk)
         self._symbol.currentTextChanged.connect(desk.requestSymbolChange)
-        self._toggle.clicked.connect(desk.requestToggle)
-        self._emergency_stop.clicked.connect(desk.requestEmergencyStop)
         desk.symbolOptionsChanged.connect(lambda: self._apply_symbols(desk))
         desk.symbolChanged.connect(lambda: self._apply_symbols(desk))
-        desk.tradingStateChanged.connect(lambda: self._apply_state(desk))
         desk.statusChanged.connect(lambda: self._apply_status(desk))
 
     def _apply_symbols(self, desk: DeskViewModel) -> None:
@@ -168,13 +151,6 @@ class DeskView(OutputSourceView):
             self._symbol.setCurrentText(desk.current_symbol)
         self._symbol.blockSignals(False)
 
-    def _apply_state(self, desk: DeskViewModel) -> None:
-        busy = bool(desk.toggleBusy)
-        self._toggle.setEnabled(not busy)
-        self._toggle.setText(
-            _BUSY_TEXT if busy else _TOGGLE_TEXT[(bool(desk.enabled), False)]
-        )
-
     def _apply_status(self, desk: DeskViewModel) -> None:
         text = str(desk.statusMessage)
         prefix = "Error: " if desk.statusIsError and text else ""
@@ -184,7 +160,6 @@ class DeskView(OutputSourceView):
         self._shell.set_header(
             f"{self._profile.title} · Testnet",
             "Manual orders, a strategy and the account, for this venue only",
-            actions=self._toggle,
         )
         self._shell.set_context_bar(self._context_bar())
         workspace = QSplitter(Qt.Orientation.Vertical)
@@ -209,7 +184,6 @@ class DeskView(OutputSourceView):
         row.addWidget(QLabel("Symbol:"))
         row.addWidget(self._symbol)
         row.addWidget(self._status, 1)
-        row.addWidget(self._emergency_stop)
         return bar
 
     def show_venue_disabled(self) -> None:

@@ -20,8 +20,7 @@ from decimal import Decimal
 from typing import Any
 
 import pytest
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QComboBox, QLabel, QPushButton
+from PySide6.QtWidgets import QComboBox, QLabel
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
@@ -237,9 +236,7 @@ def test_only_its_markets_candle_at_its_interval_reaches_the_chart(
 def test_a_symbol_picked_after_going_live_streams_that_symbol(qtbot) -> None:
     world = DeskWorld()
     desk = build_desk(qtbot, FUTURES, world)
-    qtbot.mouseClick(
-        desk.view.findChild(QPushButton, "btnToggleTrading"), Qt.MouseButton.LeftButton
-    )
+    desk.actions.enable_trading.trigger()
 
     desk.view.findChild(QComboBox, "cboDeskSymbol").setCurrentText("ETHUSDT")
 

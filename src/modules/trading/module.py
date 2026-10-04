@@ -101,14 +101,22 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_contexts im
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dashboard_screen import (
     dashboard_screen,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_commands import (
+    desk_commands,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.futures_desk_screen import (
+    FUTURES_DESK_ROUTE,
     futures_desk_screen,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.spot_desk_screen import (
+    SPOT_DESK_ROUTE,
     spot_desk_screen,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.probes import (
     build_trading_session_probe,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
 )
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_container import IContainer
@@ -240,6 +248,12 @@ class TradingModule(BoundedContextModule):
         # single Trading screen they replace.
         registry.contribute_screen(futures_desk_screen(self._container))
         registry.contribute_screen(spot_desk_screen(self._container))
+        # `EPIC-033D` — each desk's Enable live trading and Emergency stop.
+        for command in (
+            *desk_commands(FUTURES_DESK_ROUTE, TradingVenue.FUTURES_TESTNET),
+            *desk_commands(SPOT_DESK_ROUTE, TradingVenue.SPOT_TESTNET),
+        ):
+            registry.contribute_command(command)
 
     def boot(self, context: Any) -> None:
         """Two things `register()` could not decide or start.
