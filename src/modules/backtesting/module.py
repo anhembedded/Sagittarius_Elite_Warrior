@@ -53,8 +53,7 @@ eleven QML modals become `QDialog`s and its panels docks.
 The screen moved into `modules/backtesting/ui/` in Phase 4 (`EPIC-025E` PR
 4.4d, above) but kept registering through the legacy `AbstractScreenModule`
 mechanism (`shell/legacy_screen_adapter.py`) until this pull request:
-`backtest_screen()` describes it the way `settings_screen()` describes the
-shell's own screen, and needs `container` at view-construction time (which
+`backtest_screen()` describes it as a `ScreenContribution`, and needs `container` at view-construction time (which
 concrete View this install uses is a named choice read from `IConfig`,
 `EPIC-013F`) — `boot()` (added in this pull request, previously this
 module's inherited no-op default) stashes it for exactly this call, the

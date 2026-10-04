@@ -90,9 +90,9 @@ def test_a_place_the_surface_does_not_accept_raises(
     registry: ContributionRegistry,
 ) -> None:
     with pytest.raises(ContributionError) as failure:
-        registry.contribute(_descriptor(surface_id="settings", place=Place.CONSOLE))
-    assert "settings" in str(failure.value)
-    assert "settings_section" in str(failure.value)
+        registry.contribute(_descriptor(surface_id="backtest", place=Place.CONSOLE))
+    assert "backtest" in str(failure.value)
+    assert "rail" in str(failure.value)
 
 
 # --- rule 2: order sorts, it does not identify ----------------------------
@@ -165,12 +165,12 @@ def test_a_gated_off_surface_drops_its_contributions(
 
 
 def test_a_gated_off_surface_still_validates_the_place() -> None:
-    """Gated off is not "anything goes": a probe aimed at Settings is still a
+    """Gated off is not "anything goes": a probe aimed at Backtest is still a
     mistake, and the run that has developer mode off is exactly the run where
     nobody would notice it."""
     registry = ContributionRegistry(dev_mode=False)
     with pytest.raises(ContributionError):
-        registry.contribute(_descriptor(surface_id="settings", place=Place.DEV_PROBE))
+        registry.contribute(_descriptor(surface_id="backtest", place=Place.DEV_PROBE))
 
 
 def test_with_developer_mode_on_the_gated_surface_accepts() -> None:

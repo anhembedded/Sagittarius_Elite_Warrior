@@ -1,7 +1,7 @@
 """The Database (Data Management) screen as a contribution — `market_data`'s
 own (`EPIC-025F` PR 5.2).
 
-Same shape `settings_screen()` established (`EPIC-025E` PR 4.4e): a screen
+The `ScreenContribution` shape (`EPIC-025E` PR 4.4e): a screen
 leaves `AbstractScreenModule`'s ceremony for a plain `ScreenContribution`,
 now owned by the bounded context whose screen it actually is rather than
 carried by the shell as an unnamed strangler-period tenant
@@ -59,8 +59,7 @@ def _build_database_presenter(view: BaseView, container: IContainer) -> BasePres
 
 
 def database_screen() -> ScreenContribution:
-    """`market_data`'s Database screen, described the way `settings_screen()`
-    describes the shell's own screen."""
+    """`market_data`'s Database screen, as a `ScreenContribution`."""
     return ScreenContribution(
         contributor_id="market_data",
         route=DATABASE_ROUTE,

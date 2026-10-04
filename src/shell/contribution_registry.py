@@ -49,6 +49,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_table import (
     IContributionTable,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.options_page_contribution import (
+    OptionsPageContribution,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
@@ -133,6 +136,7 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
             )
         )
         self._screens: dict[str, ScreenContribution] = {}
+        self._options_pages: dict[str, OptionsPageContribution] = {}
         self._default_route: str | None = None
         self._dropped = 0
 
@@ -184,6 +188,14 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
             self._default_route = contribution.route
         self._screens[contribution.route] = contribution
 
+    def contribute_options_page(self, contribution: OptionsPageContribution) -> None:
+        if contribution.contributor_id in self._options_pages:
+            raise ContributionError(
+                f"{contribution.contributor_id!r} contributed a second page of "
+                "Tools > Options; a module owns one page."
+            )
+        self._options_pages[contribution.contributor_id] = contribution
+
     # -- the reading side (IContributionTable) -----------------------------
 
     def surface(self, surface_id: str) -> Surface:
@@ -213,6 +225,15 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
 
     def screens(self) -> tuple[ScreenContribution, ...]:
         return tuple(self._screens.values())
+
+    def options_pages(self) -> tuple[OptionsPageContribution, ...]:
+        """Every Options page, in section-list order."""
+        return tuple(
+            sorted(
+                self._options_pages.values(),
+                key=lambda page: (page.order, page.contributor_id),
+            )
+        )
 
     def default_route(self) -> str | None:
         return self._default_route

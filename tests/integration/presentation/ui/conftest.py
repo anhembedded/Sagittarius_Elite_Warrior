@@ -240,8 +240,8 @@ def app_engine(
     app_json = os.path.join(base_dir, "src", "config", "app_config.json")
     real_user_json = os.path.join(base_dir, "src", "config", "user_config.json")
 
-    # Loaded writable from a tmp copy, not the real file: Settings' Save
-    # button calls ConfigManager.save(), and any test in this directory that
+    # Loaded writable from a tmp copy, not the real file: Tools → Options'
+    # Apply calls ConfigManager.save(), and any test in this directory that
     # exercises it (directly or incidentally, e.g. by driving the full Dev
     # Board/Settings flow) must not overwrite the actual repo config on every
     # run — both a bad side effect and non-hermetic across parallel runs.

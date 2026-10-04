@@ -10,12 +10,16 @@ green. The 2026-10-04 audit found four presenter packages without a preview
 and no test that could have said so.
 
 **The rule.** A directory holding a `*_presenter.py` under
-`src/modules/*/ui/**` or `src/shell/**` holds a `preview.py` that defines
+`src/modules/*/ui/**` holds a `preview.py` that defines
 `build_preview` (checked with `ast`; nothing is imported), unless it is listed
 in `baseline_presenter_packages_without_preview.txt`, which only shrinks.
 Separately, no `preview.py` anywhere under `src/` uses a relative import:
 `scripts/preview_qml.py` loads each one by path, with no parent package, so
 the relative form raises at discovery time for every preview at once.
+
+`src/shell` was scanned too until `EPIC-033E` deleted the Settings screen, its
+last presenter; the shell's Options pages are not presenters. A presenter
+package added to the shell again brings its root back here.
 
 A scanned root that does not exist fails loudly — the silent `[]` fallback is
 the defect this file replaces.
@@ -36,7 +40,6 @@ from pathlib import Path
 _REPO_ROOT = Path(__file__).resolve().parents[3]
 _SRC_ROOT = _REPO_ROOT / "src"
 _MODULES_ROOT = _REPO_ROOT / "src" / "modules"
-_SHELL_ROOT = _REPO_ROOT / "src" / "shell"
 _BASELINE_FILE = Path(__file__).with_name(
     "baseline_presenter_packages_without_preview.txt"
 )
@@ -100,11 +103,7 @@ def _require_root(root: Path) -> Path:
 def _presenter_packages() -> list[Path]:
     """Every directory that holds a `*_presenter.py`."""
     _require_root(_MODULES_ROOT)
-    _require_root(_SHELL_ROOT)
-    presenters = {
-        *_MODULES_ROOT.glob("*/ui/**/*_presenter.py"),
-        *_SHELL_ROOT.rglob("*_presenter.py"),
-    }
+    presenters = _MODULES_ROOT.glob("*/ui/**/*_presenter.py")
     return sorted({path.parent for path in presenters})
 
 
@@ -129,9 +128,6 @@ def _preview_files() -> list[Path]:
 def test_the_scan_has_a_subject() -> None:
     packages = _presenter_packages()
     assert len(packages) >= _MIN_PRESENTER_PACKAGES, packages
-    assert any(_SHELL_ROOT in package.parents for package in packages), (
-        "no presenter package under src/shell — that half of the scan is dead"
-    )
     assert len(_preview_files()) >= _MIN_PREVIEW_FILES
 
 

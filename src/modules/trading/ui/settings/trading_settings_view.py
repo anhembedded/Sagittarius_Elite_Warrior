@@ -60,7 +60,7 @@ _VENUES_HINT_TEXT = (
 
 
 class TradingSettingsView(BaseView):
-    """@brief The Trading settings section — one `SETTINGS_SECTION` contribution."""
+    """@brief The Trading page of Tools → Options (`EPIC-033E`)."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -85,7 +85,6 @@ class TradingSettingsView(BaseView):
 
         self._api_key_field.textEdited.connect(self._on_api_key_edited)
         self._api_secret_field.textEdited.connect(self._on_api_secret_edited)
-        self._save_button.clicked.connect(view_model.requestSave)
         self._check_connection_button.clicked.connect(view_model.requestCheckConnection)
         for venue, toggle in self._venue_toggles.items():
             toggle.toggled.connect(
@@ -233,13 +232,6 @@ class TradingSettingsView(BaseView):
         self._status_label.setObjectName("lblTradingSettingsStatus")
         self._status_label.setWordWrap(True)
         layout.addWidget(self._status_label)
-
-        self._save_button = StyledButton(
-            "Save Credentials", role=StyleRole.PRIMARY_BUTTON
-        )
-        self._save_button.setObjectName("btnSaveCredentials")
-        self._save_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        layout.addWidget(self._save_button, 0, Qt.AlignmentFlag.AlignLeft)
 
     def _make_field(self, object_name: str) -> StyledField:
         field = StyledField()

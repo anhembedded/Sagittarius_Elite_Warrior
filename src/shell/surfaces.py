@@ -1,13 +1,13 @@
 """The surfaces this application has, and what each one can hold (SDD).
 
 A **surface** is a place a user navigates to. It is owned either by the shell
-(`trading`, `dev_board`, `settings` — the workbench itself) or by the
+(`trading`, `dev_board` — the workbench itself) or by the
 module whose subject it is (`backtest`, `data_management`). Owning a surface
 means declaring it here; it does not mean the owner fills it — any module may
 contribute to any surface, which is the whole point of the mechanism.
 
 `accepts` is a contract, checked at `contribute()` time: a module that offers a
-`CONSOLE` panel to `settings` has misunderstood what Settings is, and hears so
+place a surface does not hold has misunderstood that surface, and hears so
 immediately rather than by finding its panel missing at runtime.
 
 `gated_by` names a run-time condition. A gated surface is **declared even when
@@ -50,7 +50,6 @@ SURFACES: tuple[Surface, ...] = (
         accepts=_WORKBENCH_PLACES | {Place.DEV_PROBE},
         gated_by=DEV_MODE_GATE,
     ),
-    Surface("settings", owner="shell", accepts=frozenset({Place.SETTINGS_SECTION})),
     Surface(
         "backtest", owner="backtesting", accepts=frozenset({Place.RAIL, Place.MODAL})
     ),

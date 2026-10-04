@@ -23,8 +23,8 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_t
 # instead of re-patching them a second place keeps there being exactly one
 # fixture to keep correct. The one thing worth keeping from the old local
 # fixture — writing to a tmp_path copy of user_config.json instead of the
-# real repo file, so test_sanity_settings_screen_save's Save button doesn't
-# overwrite real config — was ported into conftest.py's shared app_engine
+# real repo file, so a test that saves (Tools → Options' Apply, since
+# `EPIC-033E`) doesn't overwrite real config — was ported into conftest.py's shared app_engine
 # fixture instead of duplicated back here.
 #
 # Must match conftest.MOCK_KLINE_COUNT (not imported: this directory's test
@@ -188,56 +188,6 @@ def test_sanity_dev_mode_off_by_default_no_click_logging(qtbot, main_window, nav
     assert not any(
         "User clicked" in entry.message for entry in view._view_model.log_model.entries
     )
-
-
-def test_sanity_settings_screen_save(qtbot, main_window, navigate, qapp):
-    """
-    Settings surface (`EPIC-025E` PR 4.4e — "settings becomes a surface").
-    Proves the screen loads through the router with both modules' own
-    contributed sections present, each section's fields populate from
-    `IConfig`/`IExchangeCredentialsProvider`, and a real Save click on
-    each section reaches its own Presenter — all while the other screens
-    keep working alongside it.
-
-    The mode's text reads "Settings" now, not "API & Credentials"
-    — the monolithic screen's old title undersold what the surface holds
-    once market_data's own section joined trading's.
-    """
-    qtbot.addWidget(main_window)
-
-    mode = main_window.findChild(QAction, "action::workbench.mode.settings")
-    assert mode is not None
-    assert mode.text().replace("&", "") == "Settings"
-
-    settings_cfg = navigate("settings")
-    assert settings_cfg is not None
-    view = settings_cfg["view_instance"]
-    assert view is not None
-    qapp.processEvents()
-
-    from PySide6.QtWidgets import QLabel, QPushButton
-
-    # Fields populated from IConfig (user_config.json) on load. EPIC-014 made
-    # Default Interval a picker button rather than a free-text field — its
-    # only legal values are the sixteen the domain declares, and a typo in it
-    # used to be ignored silently. Lives in market_data's own section now.
-    assert view.findChild(QPushButton, "btnDefaultInterval").text() != ""
-
-    # Trading's section: its own Save button, its own status label.
-    view.findChild(QPushButton, "btnSaveCredentials").click()
-    qapp.processEvents()
-    assert view.findChild(QLabel, "lblTradingSettingsStatus").text() != ""
-
-    # market_data's section: a separate Save button and status label — two
-    # sections, two Presenters, not one screen that knew both.
-    view.findChild(QPushButton, "btnSaveMarketDataSettings").click()
-    qapp.processEvents()
-    assert view.findChild(QLabel, "lblMarketDataSettingsStatus").text() != ""
-
-    # Navigating away and back to the other screens must still work —
-    # coexistence, not a one-way trip.
-    assert navigate("dashboard")["view_instance"] is not None
-    assert navigate("data_management")["view_instance"] is not None
 
 
 @pytest.mark.parametrize("app_engine", [True], indirect=True)

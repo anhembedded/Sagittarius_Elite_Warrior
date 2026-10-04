@@ -181,9 +181,14 @@ def test_the_guard_has_a_subject() -> None:
 _REAL_LOG_METHODS = frozenset(name for name in dir(ILogger) if not name.startswith("_"))
 
 
+#: The engine's presenter base, and the app's bases built on it: a module
+#: naming one holds the engine's `ILogger` as `self.logger`.
+_PRESENTER_BASES = ("BasePresenter", "OptionsSectionPresenter")
+
+
 def _presenter_logger_calls() -> list[tuple[Path, str, int, int]]:
-    """Every `self.logger.<method>(...)` in a module that subclasses
-    `BasePresenter`, as `(path, method, line, positional_args)`.
+    """Every `self.logger.<method>(...)` in a module that subclasses a
+    presenter base, as `(path, method, line, positional_args)`.
 
     Scoped to `self.logger` in a presenter module deliberately — see the
     module docstring on why the bare name `logger` cannot be keyed on.
@@ -191,7 +196,7 @@ def _presenter_logger_calls() -> list[tuple[Path, str, int, int]]:
     calls: list[tuple[Path, str, int, int]] = []
     for path in _python_files():
         text = path.read_text(encoding="utf-8")
-        if "BasePresenter" not in text:
+        if not any(base in text for base in _PRESENTER_BASES):
             continue
         for node in ast.walk(ast.parse(text)):
             if not isinstance(node, ast.Call) or not isinstance(

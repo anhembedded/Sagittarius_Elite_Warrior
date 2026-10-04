@@ -28,10 +28,11 @@ uses — which is exactly what a reader opens this file to find.
   (`application/event_handlers/market_data/`) and moves in Phase 1.
 
 That is a default inherited from `BoundedContextModule`, so the absence is a
-statement, not an omission. `contribute()` **is** implemented: one
-`SETTINGS_SECTION` (`EPIC-025E` PR 4.4e), the Database screen itself since
-`EPIC-025F` PR 5.2 (`database_screen()` describes it the way
-`settings_screen()` describes the shell's own screen, retiring the last of
+statement, not an omission. `contribute()` **is** implemented: one page of
+Tools → Options (`EPIC-025E` PR 4.4e, an Options page since `EPIC-033E`), the
+Database screen itself since
+`EPIC-025F` PR 5.2 (`database_screen()` describes it as a
+`ScreenContribution`, retiring the last of
 this module's tenancy in `shell/legacy_screen_adapter.py`), and the
 Watchlist screen (`BOT-019`) — a second, independent screen this module
 contributes, describing multiple tracked symbols at once rather than the
@@ -46,9 +47,7 @@ from typing import Any
 from Sagittarius_Elite_Warrior.src.core.bounded_context_module import (
     BoundedContextModule,
 )
-from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import (
-    ContributionDescriptor,
-)
+from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
     CliCommandDescriptor,
     ICliRegistry,
@@ -56,8 +55,12 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_cli_registry import (
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
-from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
-from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
+from Sagittarius_Elite_Warrior.src.core.contracts.i_options_section import (
+    IOptionsSection,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.options_page_contribution import (
+    OptionsPageContribution,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.adapters.live_stream_adapter import (
     LiveStreamEngineAdapter,
 )
@@ -88,14 +91,19 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_clie
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.database_screen import (
     database_screen,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.ui.settings_contribution import (
-    build_market_data_settings_section,
-)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.watchlist.watchlist_screen import (
     watchlist_screen,
 )
 
 logger = logging.getLogger("App.MarketDataModule")
+
+
+#: Tools → Options → Market Data (`EPIC-033E`), built when the shell
+#: assembles the dialog's pages.
+_OPTIONS_PAGE: Deferred[IOptionsSection] = Deferred(
+    "Sagittarius_Elite_Warrior.src.modules.market_data.ui.settings.market_data_options_page"
+    ":build_market_data_options_page"
+)
 
 
 class MarketDataModule(BoundedContextModule):
@@ -119,29 +127,24 @@ class MarketDataModule(BoundedContextModule):
         bind_published_ports(container)
 
     def contribute(self, registry: IContributionRegistry) -> None:
-        """This context's own venue and sync defaults, on the Settings
-        surface, and the Database screen itself.
+        """This context's own venue and sync defaults, as a page of Tools →
+        Options, and the Database and Watchlist screens.
 
         `EPIC-025E` PR 4.4e: the old monolithic Settings screen knew every
         module's config keys; this section knows only this module's four
         (`EXCHANGE_MARKET_DATA_VENUE`, `DEFAULT_SYMBOLS`, `DEFAULT_INTERVAL`,
-        `DEFAULT_SYNC_DAYS`). `settings_contribution.py`'s factory imports no
-        widget module until it is called, the same rule `trading/ui/probes.py`
-        already follows for its own `DEV_PROBE`.
+        `DEFAULT_SYNC_DAYS`). The page is a `Deferred` (`_OPTIONS_PAGE`), so
+        no widget module is imported until the shell builds the dialog's pages.
 
         `EPIC-025F` PR 5.2: `database_screen()` needs no `container` at
         contribute time — `DataManagementView()` takes none — unlike
         `trading`'s two screens in the same pull request.
         """
-        registry.contribute(
-            ContributionDescriptor(
+        registry.contribute_options_page(
+            OptionsPageContribution(
                 contributor_id=self.module_id,
-                surface_id="settings",
-                place=Place.SETTINGS_SECTION,
                 order=20,
-                size_hint=SizeHint.REGULAR,
-                factory=build_market_data_settings_section,
-                title="Market Data",
+                factory=_OPTIONS_PAGE,
             )
         )
         registry.contribute_screen(database_screen())

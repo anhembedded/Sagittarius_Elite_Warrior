@@ -133,7 +133,7 @@ def real_screen_registry(container):
     a screen's own `view_factory`/`presenter_factory` runs, which stays lazy
     exactly like `PresenterManager` itself.
 
-    `EPIC-025F` PR 5.2 — every screen (the shell's Settings, and
+    `EPIC-025F` PR 5.2 — every screen (the modules', and
     every module's own, the last four converting in this pull request) now
     arrives through `assemble_contributions()`, the same single function
     `app_bootstrapper.py`'s composition root calls. A real `IContainer` gets
@@ -168,12 +168,8 @@ def real_screen_registry(container):
     from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
         ContributionRegistry,
     )
-    from Sagittarius_Elite_Warrior.src.shell.settings.settings_screen import (
-        settings_screen,
-    )
 
     contributions = ContributionRegistry(dev_mode=False)
-    contributions.contribute_screen(settings_screen())
     trading_module = TradingModule()
     trading_module._container = container
     backtesting_module = BacktestingModule()

@@ -36,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.options_page_contribution import (
+    OptionsPageContribution,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
 )
@@ -73,12 +76,16 @@ class _RecordingRegistry(IContributionRegistry):
     def __init__(self) -> None:
         self.descriptors: list[ContributionDescriptor] = []
         self.screens: list[ScreenContribution] = []
+        self.options_pages: list[OptionsPageContribution] = []
 
     def contribute(self, descriptor: ContributionDescriptor) -> None:
         self.descriptors.append(descriptor)
 
     def contribute_screen(self, contribution: ScreenContribution) -> None:
         self.screens.append(contribution)
+
+    def contribute_options_page(self, contribution: OptionsPageContribution) -> None:
+        self.options_pages.append(contribution)
 
 
 def _widget_modules_in(names: set[str]) -> set[str]:
@@ -132,6 +139,9 @@ def test_contribute_costs_a_headless_run_no_qt_import_at_all() -> None:
             def contribute_screen(self, contribution):
                 pass
 
+            def contribute_options_page(self, contribution):
+                pass
+
 
         registry = Registry()
         for module_cls in MODULES:
@@ -170,7 +180,9 @@ def test_the_modules_that_contribute_are_the_ones_that_say_they_do() -> None:
         _stash_container_if_needed(module)
         module.contribute(registry)
 
-    contributors = {descriptor.contributor_id for descriptor in registry.descriptors}
+    contributors = {
+        descriptor.contributor_id for descriptor in registry.descriptors
+    } | {page.contributor_id for page in registry.options_pages}
     assert contributors == {"trading", "market_data"}, (
         "The set of contributing modules changed. That is allowed — update "
         "this assertion in the same commit, so the guard keeps a subject."

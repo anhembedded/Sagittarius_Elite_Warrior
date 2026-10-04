@@ -127,13 +127,11 @@ def test_the_factory_gets_the_container_and_is_called_once(
     assert calls == [container]
 
 
-def test_nothing_is_built_for_a_place_the_surface_does_not_accept(
+def test_nothing_is_built_for_another_surfaces_contribution(
     qapp, registry: ContributionRegistry, container: Mock
 ) -> None:
-    """`dev_probe` on `trading` cannot be contributed at all — the registry
-    refuses it — so this checks the builder's own skip: `trading` accepts no
-    `SETTINGS_SECTION`, and a contribution aimed at one must not be called for
-    on this surface."""
+    """A contribution aimed at `backtest` must not be called for when the
+    builder fills `trading`, even at a place `trading` accepts."""
     built = False
 
     def factory(_c):
@@ -143,9 +141,9 @@ def test_nothing_is_built_for_a_place_the_surface_does_not_accept(
 
     registry.contribute(
         _descriptor(
-            Place.SETTINGS_SECTION,
+            Place.RAIL,
             factory,
-            surface_id="settings",
+            surface_id="backtest",
             title="Exchange",
         )
     )

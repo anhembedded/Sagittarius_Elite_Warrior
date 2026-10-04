@@ -114,7 +114,7 @@ def test_saving_writes_the_venue_key(qapp, request):
     view_model = presenter._settings_view_model
     view_model.requestMarketDataVenue("mainnet_public")
 
-    view_model.requestSave()
+    presenter.apply()
 
     assert (
         config.values[ConfigKeys.EXCHANGE_MARKET_DATA_VENUE.value] == "mainnet_public"

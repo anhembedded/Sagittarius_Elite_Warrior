@@ -23,11 +23,6 @@ class MarketDataSettingsViewModel(StatusMessageViewModel):
     defaultSyncDaysChanged = Signal()
     venueChanged = Signal()
 
-    #: Emitted when the user clicks Save. The Presenter reads the current
-    #: field values off this view model rather than receiving them as
-    #: arguments, so adding a field never changes this signal's signature.
-    saveRequested = Signal()
-
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._default_symbols = ""
@@ -96,7 +91,3 @@ class MarketDataSettingsViewModel(StatusMessageViewModel):
         self._set_default_sync_days(default_sync_days)
         self._market_data_venue = market_data_venue
         self.venueChanged.emit()
-
-    @Slot()
-    def requestSave(self) -> None:
-        self.saveRequested.emit()

@@ -203,7 +203,7 @@ def test_saving_writes_the_list_in_venue_order_and_keeps_the_scalar_in_step(
     view_model.requestVenueEnabled(_SPOT.value, True)
     view_model.requestVenueEnabled(_FUTURES.value, True)
 
-    view_model.requestSave()
+    presenter.apply()
 
     assert config.values[_LIST] == [_FUTURES.value, _SPOT.value]
     assert config.values[_SCALAR] == _FUTURES.value
@@ -216,7 +216,7 @@ def test_unticking_every_venue_saves_trading_off(qapp, request, credentials_prov
     view_model = presenter._settings_view_model
     view_model.requestVenueEnabled(_SPOT.value, False)
 
-    view_model.requestSave()
+    presenter.apply()
 
     assert config.values[_LIST] == []
     assert config.values[_SCALAR] == TradingVenue.DISABLED.value
@@ -234,7 +234,7 @@ def test_saving_is_refused_while_any_venue_is_trading(
     view_model = presenter._settings_view_model
     view_model.requestVenueEnabled(_SPOT.value, False)
 
-    view_model.requestSave()
+    presenter.apply()
 
     assert config.values[_LIST] == [_FUTURES.value, _SPOT.value]
     assert view_model.statusIsError is True
@@ -265,7 +265,7 @@ def test_turning_one_venue_off_leaves_the_other_served_after_restart(
     config = _FakeConfig({_LIST: [_FUTURES.value, _SPOT.value]})
     presenter, _view = _presenter(request, config, _Sessions(), credentials_provider)
     presenter._settings_view_model.requestVenueEnabled(_SPOT.value, False)
-    presenter._settings_view_model.requestSave()
+    presenter.apply()
 
     container = StdLibContainer()
     container.singleton(IConfig, DictConfig(config.get_all()))

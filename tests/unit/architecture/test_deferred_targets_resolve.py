@@ -26,6 +26,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.deferred import Deferred
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.options_page_contribution import (
+    OptionsPageContribution,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.screen_contribution import (
     ScreenContribution,
 )
@@ -45,6 +48,9 @@ class _RecordingRegistry(IContributionRegistry):
     def contribute_screen(self, contribution: ScreenContribution) -> None:
         self._note(contribution.view_factory)
         self._note(contribution.presenter_factory)
+
+    def contribute_options_page(self, contribution: OptionsPageContribution) -> None:
+        self._note(contribution.factory)
 
     def _note(self, factory: object) -> None:
         if isinstance(factory, Deferred):

@@ -1,13 +1,12 @@
 """Everything that was contributed to this run, collected once (SDD boot 6–7).
 
-Two kinds of contributor exist and this is the one place that knows both: the
-bounded contexts, which contribute panels, dialogs, probes, settings sections
-and — since `EPIC-025F` PR 5.2, the last of the strangler-period screens this
-function used to hand-carry through `legacy_screen_adapter.py` (deleted in
-that pull request) — whole navigable screens, all through
-`BoundedContextModule.contribute()`; and the shell's own Settings
-screen — a surface about the *application*, which is what HLD §4.6 says
-belongs to the shell rather than to any context.
+Every contributor is a bounded context: panels, dialogs, probes, pages of
+Tools → Options (`EPIC-033E`) and — since `EPIC-025F` PR 5.2, the last of the
+strangler-period screens this function used to hand-carry through
+`legacy_screen_adapter.py` (deleted in that pull request) — whole navigable
+screens, all through `BoundedContextModule.contribute()`. The shell's own
+screens (Welcome, Settings) are gone (`EPIC-033C`, `EPIC-033E`); what is about
+the application itself lives in the workbench window and its Options dialog.
 
 **Why here and not in `create_app()`.** `contribute()` runs *after* `boot()`
 (SDD's hook table), and `boot()` is the entry point's call, not the composition
@@ -32,9 +31,6 @@ from Sagittarius_Elite_Warrior.src.shell.contribution_registry import (
     ContributionRegistry,
 )
 from Sagittarius_Elite_Warrior.src.shell.modules import RegisteredModules
-from Sagittarius_Elite_Warrior.src.shell.settings.settings_screen import (
-    settings_screen,
-)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 logger = logging.getLogger("App.Shell.Contributions")
@@ -51,7 +47,6 @@ def assemble_contributions(
     registry is returned for the caller that still needs its screen half.
     """
     contributions = ContributionRegistry(dev_mode=dev_mode)
-    contributions.contribute_screen(settings_screen())
     for module in container.resolve(RegisteredModules).modules:
         module.contribute(contributions)
     container.singleton(IContributionTable, contributions)

@@ -59,7 +59,7 @@ def _apply_tone(label: QLabel, name: str) -> None:
 
 
 class MarketDataSettingsView(BaseView):
-    """@brief The Market Data settings section — one `SETTINGS_SECTION` contribution."""
+    """@brief The Market Data page of Tools → Options (`EPIC-033E`)."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
@@ -79,7 +79,6 @@ class MarketDataSettingsView(BaseView):
 
         self._default_symbols_field.textEdited.connect(self._on_default_symbols_edited)
         self._sync_days_spin.valueChanged.connect(self._on_sync_days_changed)
-        self._save_button.clicked.connect(view_model.requestSave)
         self._market_data_venue_combo.currentIndexChanged.connect(
             lambda _index: view_model.requestMarketDataVenue(
                 self._market_data_venue_combo.currentData() or ""
@@ -166,11 +165,6 @@ class MarketDataSettingsView(BaseView):
         self._status_label.setObjectName("lblMarketDataSettingsStatus")
         self._status_label.setWordWrap(True)
         layout.addWidget(self._status_label)
-
-        self._save_button = StyledButton("Save", role=StyleRole.PRIMARY_BUTTON)
-        self._save_button.setObjectName("btnSaveMarketDataSettings")
-        self._save_button.setCursor(Qt.CursorShape.PointingHandCursor)
-        layout.addWidget(self._save_button, 0, Qt.AlignmentFlag.AlignLeft)
 
     def _add_default_symbols_row(self, grid: QGridLayout, row: int) -> int:
         field = StyledField()
