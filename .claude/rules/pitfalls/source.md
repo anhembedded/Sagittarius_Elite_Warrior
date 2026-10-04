@@ -10,5 +10,6 @@ paths:
 2. Changing a shared formula without a branch that keeps the old behaviour byte-for-byte (`BOT-114`).
 3. A port gains an abstract method and only the main implementer changes — grep `src/`, `scripts/` **and** `tests/` (`BUG-026`).
 4. Optimising from a micro-benchmark alone (`BOLT-001`) — profile the whole path with `cProfile` first, pick the target from the profile, micro-benchmark to confirm.
+5. An exchange filter the parser skips without a word — every check downstream then judges orders without it; declare each filter read or unread (`BUG-146`, `CS-007`).
 
 A new trap is one line here with its id; the long form is a case study (`Docs/CASE_STUDIES/README.md`).

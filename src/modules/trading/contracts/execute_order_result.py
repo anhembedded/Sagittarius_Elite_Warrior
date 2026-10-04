@@ -64,6 +64,15 @@ class ExecuteOrderStopRejection(str, Enum):
     STOP_ON_WRONG_SIDE = "stop_on_wrong_side"
 
 
+class ExecuteOrderPriceRejection(str, Enum):
+    """@brief `BUG-146` — an order priced outside the venue's
+    `PERCENT_PRICE_BY_SIDE` band at the last price. Refused like
+    `ExecuteOrderNotionalRejection`, before any request, from the verdict the
+    preview already holds, instead of the exchange's `-1013`."""
+
+    OUTSIDE_PRICE_BAND = "outside_price_band"
+
+
 class ExecuteOrderTypeRejection(str, Enum):
     """@brief `EPIC-028O` — an order type the venue's client cannot send
     today (`ITradingClientFactory.accepted_order_types`): a Futures
@@ -91,6 +100,7 @@ class ExecuteOrderResult:
         ExecuteOrderSafetyGate
         | ExecuteOrderNotionalRejection
         | ExecuteOrderStopRejection
+        | ExecuteOrderPriceRejection
         | ExecuteOrderTypeRejection
         | TradingLimitViolation
         | None

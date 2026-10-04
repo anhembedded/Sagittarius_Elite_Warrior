@@ -16,6 +16,8 @@ from decimal import Decimal
 import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_metadata_parser import (
     DEFAULT_STATUS,
+    UNREAD_SPOT_FILTERS,
+    SpotFilterType,
     parse_spot_exchange_info,
     parse_spot_symbol_metadata,
 )
@@ -262,3 +264,55 @@ def test_no_band_when_the_symbol_publishes_none():
     metadata = parse_spot_symbol_metadata(_BTCUSDT_ENTRY, fetched_at=_FIXED_TIME)
 
     assert metadata.price_band is None
+
+
+#: Binance's documented Spot symbol filters (Spot API, "Filters").
+_BINANCE_SPOT_FILTERS = (
+    "PRICE_FILTER",
+    "PERCENT_PRICE",
+    "PERCENT_PRICE_BY_SIDE",
+    "LOT_SIZE",
+    "MIN_NOTIONAL",
+    "NOTIONAL",
+    "ICEBERG_PARTS",
+    "MARKET_LOT_SIZE",
+    "MAX_NUM_ORDERS",
+    "MAX_NUM_ALGO_ORDERS",
+    "MAX_NUM_ICEBERG_ORDERS",
+    "MAX_POSITION",
+    "TRAILING_DELTA",
+    "T_PLUS_SELL",
+    "MAX_NUM_ORDER_LISTS",
+    "MAX_NUM_ORDER_AMENDS",
+)
+
+
+def test_every_spot_filter_is_read_or_declared_unread():
+    """`BUG-146` (CS-007) — `PERCENT_PRICE_BY_SIDE` was published, never read,
+    and reached the user as `-1013`. Every documented filter is now either
+    read (`SpotFilterType`) or named with a reason (`UNREAD_SPOT_FILTERS`).
+
+    Retire when: Binance publishes no symbol filters."""
+    read = {member.value for member in SpotFilterType}
+    missing = [
+        name
+        for name in _BINANCE_SPOT_FILTERS
+        if name not in read and name not in UNREAD_SPOT_FILTERS
+    ]
+    assert missing == []
+    assert not read & set(UNREAD_SPOT_FILTERS)
+
+
+def test_a_filter_nobody_declared_is_logged_once_by_name(caplog):
+    entry = {
+        **_BTCUSDT_ENTRY,
+        "filters": [*_BTCUSDT_ENTRY["filters"], {"filterType": "NEW_RULE"}],
+    }
+    payload = {"symbols": [entry, {**entry, "symbol": "ETHUSDT"}]}
+
+    with caplog.at_level("WARNING", logger="App.SpotMetadata"):
+        parse_spot_exchange_info(payload, fetched_at=_FIXED_TIME)
+
+    warnings = [r.getMessage() for r in caplog.records if r.levelname == "WARNING"]
+    assert len(warnings) == 1
+    assert "NEW_RULE" in warnings[0]

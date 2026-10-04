@@ -10,6 +10,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
     NotionalCheck,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.price_band_check import (
+    PriceBandCheck,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.stop_price_check import (
     StopPriceCheck,
 )
@@ -35,3 +38,8 @@ class OrderPreview:
     #: `EPIC-028O` — for a stop-limit, whether its stop waits for the market
     #: (`stop_trigger_side.py`); `None` for every other order type.
     stop_check: StopPriceCheck | None = None
+    #: `BUG-146` — for an order with a price, whether it sits inside the
+    #: venue's price band at the request's `last_price`; `None` when the venue
+    #: publishes no band, the request carries no last price, or the order has
+    #: no price of its own (a market order fills at the market).
+    price_band_check: PriceBandCheck | None = None

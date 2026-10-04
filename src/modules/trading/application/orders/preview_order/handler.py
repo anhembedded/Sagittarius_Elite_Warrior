@@ -20,11 +20,20 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_roun
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import OrderType
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.price_band_check import (
+    PriceBandCheck,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.stop_price_check import (
     StopPriceCheck,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.symbol_order_metadata import (
+    SymbolOrderMetadata,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.time_in_force import (
     TimeInForce,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.price_band_policy import (
+    check_price_band,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.domain.policies.stop_trigger_side import (
     check_trigger_side,
@@ -119,6 +128,7 @@ class PreviewOrderQueryHandler(IQueryHandler[PreviewOrderQuery, OrderPreview]):
             step_size=step_size,
             notional_check=notional_check,
             stop_check=stop_check,
+            price_band_check=_price_band_check(metadata, order, query.last_price),
         )
 
     def _stop(
@@ -143,3 +153,14 @@ class PreviewOrderQueryHandler(IQueryHandler[PreviewOrderQuery, OrderPreview]):
         return stop, check_trigger_side(
             query.order_type, query.side, stop, query.last_price
         )
+
+
+def _price_band_check(
+    metadata: SymbolOrderMetadata, order: Order, last_price: Decimal | None
+) -> PriceBandCheck | None:
+    """`BUG-146` — judged only for an order with a price of its own, on a
+    venue that publishes a band, with a market price to judge against."""
+    band = metadata.price_band
+    if band is None or order.price is None or last_price is None:
+        return None
+    return check_price_band(band, order.side, order.price, last_price)

@@ -44,6 +44,7 @@ column. **Writing a test double** — read `CS-001` first.
 | [CS-004](CS-004_the_tests_the_gate_never_ran.md) | The tests the gate never ran | A suite under `src/`, cited as coverage, collected by nobody | `tests/unit/architecture/test_no_test_file_lives_under_src.py` |
 | [CS-005](CS-005_the_check_that_asked_the_wrong_question.md) | The check that asked the wrong question | A guard resolving repository paths against the filesystem, so its answer depended on whose disk ran it | `tests/unit/architecture/test_skill_prompt_references_ask_git.py` + `git ls-files` inside `scripts/check_skill_prompt_references.py` |
 | [CS-006](CS-006_the_comparison_that_compared_itself.md) | The comparison that compared itself | A "clean tree" `git worktree` comparison run with `PYTHONPATH` still pointing at the original checkout, so it silently imported the branch's own code both times | `scripts/verify_against_base.py` + `tests/unit/architecture/test_verify_against_base.py` |
+| [CS-007](CS-007_the_filter_nobody_read.md) | The filter nobody read | An exchange rule the parser silently skipped, so every check downstream judged an order without it | `test_every_spot_filter_is_read_or_declared_unread` + the `[exchange-filters]` WARNING in `spot_metadata_parser.py` |
 
 Ids are sequential, never reused. `tests/unit/architecture/test_case_study_index_is_consistent.py`
 fails on an unlisted file, a missing file, a duplicate id, a dead path citation, a missing section

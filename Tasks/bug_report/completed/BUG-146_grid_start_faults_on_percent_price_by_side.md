@@ -39,11 +39,14 @@ Bot ym3jxj: STARTING -> ERROR on fault (order_failed: L10 BUY: ...)
   - The verdict names the level and the range, and asks to narrow the range, for example: "A BUY level at 2222 is outside the 17058.4–426460 the exchange accepts".
   - `GridStartPreconditions` already refuses any plan with a REFUSED verdict, so Start is refused before the `start` transition, with nothing to clean up. The Grid panel shows the same verdict while the user edits.
   - A venue with no band gets the OK verdict `PRICE_BAND_NOT_PUBLISHED`, which says the check did not run.
-- **Limit:**
-  - The band follows the market. The check uses the last price where Binance uses the average over `avgPriceMins`.
-  - A level that is inside the band at Start can leave it if the price moves far. A reaction order would then be rejected as before.
-- **Not changed:**
-  - The Futures parser does not read `PERCENT_PRICE`. The Grid runs on Spot only.
+- **Every order, not only the Grid.** `OrderPreview.price_band_check` (`price_band_policy.check_price_band`) judges any order that has its own price and a `last_price`, using the same reference the stop gate uses.
+  - `ExecuteOrderCommandHandler` refuses `OUTSIDE_PRICE_BAND` before any request, as `MIN_NOTIONAL` is refused (`BUG-090`). Desk orders and strategy orders are covered.
+  - The order panel and the CLI say it in words: "The price is too far from the market: Binance accepts this side only within its price band around the current price".
+- **No silent filter again (P1).** `UNREAD_SPOT_FILTERS` names every Spot filter the app deliberately does not read, with a reason.
+  - A guard test requires Binance's whole documented filter list to be either read or declared unread.
+  - A filter in neither group is logged once per catalog load as an `[exchange-filters]` WARNING. See [CS-007](../../../Docs/CASE_STUDIES/CS-007_the_filter_nobody_read.md).
+- **Limit:** the band follows the market, and the app judges it at the last price where Binance uses the average over `avgPriceMins`. An order sent without a `last_price` skips the check, for example the Grid's reaction orders, which sit next to a level that just filled.
+- **Not changed:** the Futures parser does not read `PERCENT_PRICE` (CS-007, still open).
 
 ## Regression test
 
@@ -54,8 +57,14 @@ Bot ym3jxj: STARTING -> ERROR on fault (order_failed: L10 BUY: ...)
   - No band means the check did not run.
 - `tests/unit/modules/trading/adapters/binance/spot/test_spot_metadata_parser.py`: the band is parsed when published and is `None` otherwise.
 - `tests/unit/modules/bots/application/services/test_bot_exchange_terms.py`: the band reaches the bot's terms.
+- `tests/unit/modules/trading/application/orders/test_execute_order_price_band.py` was red before the fix: the order outside the band reached the client.
+  - A BUY below the band and a SELL above it are never sent.
+  - Both edges pass.
+  - No last price means no verdict.
+- `test_execute_order_block_reason.py`: the refusal is explained in words.
+- `test_spot_metadata_parser.py::test_every_spot_filter_is_read_or_declared_unread` turns red when a declaration is removed. `test_a_filter_nobody_declared_is_logged_once_by_name` checks the WARNING.
 
 ## Verification
 
-- Bots unit tests, the Spot adapter tests, the trading application tests and the bots integration tests passed (845 + 769).
+- Trading, strategy and bots unit tests and the application integration tests passed (2973).
 - **Not yet run:** a live Start on Spot Testnet with a range below the band. The user's next run is the live check.

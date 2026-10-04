@@ -25,6 +25,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_sco
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.execute_order_result import (
     ExecuteOrderNotionalRejection,
+    ExecuteOrderPriceRejection,
     ExecuteOrderResult,
     ExecuteOrderSafetyGate,
     ExecuteOrderStopRejection,
@@ -35,6 +36,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_roun
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_submission_mode import (
     OrderSubmissionMode,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.price_band_check import (
+    PriceBandCheck,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.stop_price_check import (
     StopPriceCheck,
@@ -105,6 +109,12 @@ class ExecuteOrderCommandHandler(
         if preview.stop_check is StopPriceCheck.WRONG_SIDE:
             return ExecuteOrderResult(
                 ExecuteOrderStopRejection.STOP_ON_WRONG_SIDE, preview, (), None
+            )
+        # `BUG-146` — a price outside the venue's band, refused by name
+        # instead of the exchange's `-1013 PERCENT_PRICE_BY_SIDE`.
+        if preview.price_band_check is PriceBandCheck.OUTSIDE:
+            return ExecuteOrderResult(
+                ExecuteOrderPriceRejection.OUTSIDE_PRICE_BAND, preview, (), None
             )
         accepted = scope.ports.client_factory.accepted_order_types()
         if preview.order.order_type not in accepted:
