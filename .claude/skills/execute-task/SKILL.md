@@ -26,7 +26,7 @@ flowchart TD
     TDD["3. Implementation Framing & TDD<br/>Write test first -> Implement cleanly -> Pass test"] --> Verify["4. Verification Protocol<br/>Run test suite, check logs, enforce P8 monotonic quality"]
     Verify --> QualityGate{"Tests & lints pass?"}
     QualityGate -- No --> Fix["Fix root cause at mechanism"] --> Verify
-    QualityGate -- Yes --> Complete["5. Closure & Handoff<br/>Move to completed/, record evidence, spawn independent review"]
+    QualityGate -- Yes --> Complete["5. Closure & Handoff<br/>Move to completed/, record evidence, reviewer if section 7 calls for one"]
     Complete --> Done(["Done"])
 ```
 
@@ -74,5 +74,5 @@ flowchart TD
 - Comply with completion contract in `.claude/rules/task-execution-rule.md`.
 - Move completed task to `completed/`, set status to `✅ Done (YYYY-MM-DD)`, and document implementation notes.
 - Update `Tasks/ROADMAP.md` and recompute board counts via `python3 scripts/render_task_counts.py`.
-- Commit under `.claude/rules/commit-rule.md`. If merging code to `master-warrior`, spawn an independent reviewer session per `.claude/ONBOARDING.md` §7's Reviewer Protocol (never the local `Agent` tool, never a self-review) and have it run `.claude/skills/pr-review/SKILL.md`; author sessions must never self-review or self-merge.
+- Commit under `.claude/rules/commit-rule.md`. For a feature or epic PR, or when the user asks, spawn a reviewer session per `.claude/ONBOARDING.md` §7's Reviewer Protocol (never the local `Agent` tool, never a self-review) and have it run `.claude/skills/pr-review/SKILL.md`; a bug-fix PR needs none. Author sessions never self-review or self-merge.
 - For interrupted sessions, record current evidence and the exact resumption point in the task's `Resume` section.

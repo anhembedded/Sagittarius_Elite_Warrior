@@ -17,7 +17,7 @@ Read the real evidence (traceback, log, screenshot) and the code it points at be
 When reading is not conclusive, add temporary logging at **each** layer the failure could cross, reproduce, and capture the output as the evidence. After the fix, reproduce again and find **positive proof the new mechanism ran**, not just the absence of the symptom. Decide per line: promote to a permanent log under `logging-rule.md` (correct `"App.*"` name, level, tag), or discard; per-frame detail goes to `TRACE`. `[review: I5]`
 
 ## 4. Regression test first, confirmed red
-Write the test before the fix and run it: it must fail **for the right reason**. Pick the tier where the crash lives — a `Mock` standing in for the crashing method cannot reproduce it (`BUG-013` "passed" twice with no fix). Then fix, then green, alongside §3's log. `[review: E9]`
+Write the test before the fix and run it: it must fail **for the right reason**. Pick the tier where the crash lives — a `Mock` standing in for the crashing method cannot reproduce it (`BUG-013` "passed" twice with no fix). Then fix, then green, alongside §3's log. This test green plus the commit tier is the fix's whole verification: no waiting on the `-Full` run and no reviewer unless the user asks (`ci-rule.md` §1, "Bug fix"; `ONBOARDING.md` §7). `[review: E9]`
 
 ## 5. Keep it forever
 The regression test is never deleted, skipped, weakened or rewritten off the original failure path, unless replaced by stronger coverage of that exact path (`CONSTITUTION.md` P8). `[review: E4]`

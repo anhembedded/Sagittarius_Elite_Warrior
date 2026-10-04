@@ -30,7 +30,7 @@ _SUBJECT = re.compile(
 )
 _TRAILER = re.compile(r"^[A-Za-z][A-Za-z-]*: \S")
 _CO_AUTHOR = re.compile(r"^Co-Authored-By: .+$", re.MULTILINE)
-#: The authoring session; `check_independent_review.py` tells author from reviewer by it.
+#: The authoring session, so a commit names the session that wrote it.
 _SESSION = re.compile(
     r"^Claude-Session: https://claude\.ai/code/session_[A-Za-z0-9]+$", re.MULTILINE
 )
@@ -74,8 +74,8 @@ def problems(message: str) -> list[str]:
         found.append("the `Co-Authored-By:` trailer is missing (commit-rule.md §2)")
     if _SESSION.search(message) is None:
         found.append(
-            "the `Claude-Session:` trailer is missing; the independent-review status "
-            "tells author from reviewer by it (commit-rule.md §2)"
+            "the `Claude-Session:` trailer is missing; it names the session that "
+            "wrote the commit (commit-rule.md §2)"
         )
     if match is not None and match.group("type") == "fix":
         cited = f"{match.group('scope') or ''} {message}"

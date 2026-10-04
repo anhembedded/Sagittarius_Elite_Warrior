@@ -95,9 +95,9 @@ def test_a_gate_step_may_live_in_a_workflow(make_repo: MakeRepo) -> None:
     files = {
         **_FIXTURE,
         ".github/workflows/commit-lint.yml": "run: python3 scripts/check_commit_messages.py\n",
-        _RULE: "# T\n\n- Clause. `[gate: commit lint]`\n- Clause. `[gate: independent review]`\n",
+        _RULE: "# T\n\n- Clause. `[gate: commit lint]`\n- Clause. `[gate: pre-commit hook]`\n",
     }
     messages = [(p.line, p.message) for p in check_tag_grammar(make_repo(files))]
     assert len(messages) == 1
     assert messages[0][0] == 4
-    assert ".github/workflows/independent-review.yml does not run it" in messages[0][1]
+    assert ".claude/settings.json does not run it" in messages[0][1]

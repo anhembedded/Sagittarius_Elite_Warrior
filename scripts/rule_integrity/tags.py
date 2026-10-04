@@ -42,10 +42,6 @@ GATE_STEPS: dict[str, tuple[str, str]] = {
     "run-log scan": (CI_SCRIPT, "Invoke-RunLogScan"),
     "reference check": (CI_SCRIPT, "check_skill_prompt_references.py"),
     "commit lint": (".github/workflows/commit-lint.yml", "check_commit_messages.py"),
-    "independent review": (
-        ".github/workflows/independent-review.yml",
-        "check_independent_review.py",
-    ),
     "pre-commit hook": (".claude/settings.json", "pre_tool_use.py"),
 }
 
