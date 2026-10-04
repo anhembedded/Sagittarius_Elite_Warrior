@@ -314,7 +314,9 @@ class GridExecutor(IBotExecutor):
         self._reclaim_lease()
         if state.state is _S.RECOVERING:
             self._reconciler.run()
-            if state.state is _S.RUNNING:
+            # Read through the context again: run() moves the state, and a
+            # type checker keeps `state.state` narrowed to RECOVERING.
+            if self._context.state.state is _S.RUNNING:
                 self._release_held()
         elif state.state is _S.STOPPING:
             sell = state.runtime.sell_base_on_stop
