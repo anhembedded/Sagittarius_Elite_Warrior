@@ -78,6 +78,11 @@ def test_a_cap_that_is_not_positive_is_refused(cap: Decimal) -> None:
         quote_slices(Decimal(10), cap)
 
 
+def test_a_cap_below_one_quote_unit_is_refused_by_name() -> None:
+    with pytest.raises(ValueError, match="below one quote unit"):
+        quote_slices(Decimal(10), Decimal("0.000000001"))
+
+
 def test_a_step_worth_more_than_the_cap_is_refused() -> None:
     with pytest.raises(ValueError, match="worth more than the cap"):
         base_slices(Decimal(1), Decimal(1000), CAP, Decimal(1))

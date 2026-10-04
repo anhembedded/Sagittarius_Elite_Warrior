@@ -132,10 +132,17 @@ class GridStopSequence:
                 self._wait(f"exit slice {index} refused: trading is off")
                 return False
             if not outcome.done:
+                # A slice that raised may still have executed: say so rather
+                # than count it unsold; the next stop or resume derives again.
+                unsold = (
+                    "possibly unsold (the request may have executed)"
+                    if outcome.kind is OrderOutcomeKind.FAULT
+                    else "unsold"
+                )
                 halt_with(
                     self._context.state,
                     GridReason.EXIT_SLICE_FAILED,
-                    f"{remaining} unsold after slice {index}: {outcome.detail}",
+                    f"{remaining} {unsold} after slice {index}: {outcome.detail}",
                 )
                 return False
             remaining -= piece

@@ -13,14 +13,19 @@ from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_work_queue impor
 
 logger = logging.getLogger("App.Bots.Worker")
 
-_STOP = object()
+
+class _Stop:
+    """What `close()` queues last: the worker ends when it reaches it."""
+
+
+_STOP = _Stop()
 
 
 class ThreadBotWorkQueue(IBotWorkQueue):
     """A FIFO queue drained by its own thread, named after the bot."""
 
     def __init__(self, name: str) -> None:
-        self._tasks: queue.Queue[Callable[[], None] | object] = queue.Queue()
+        self._tasks: queue.Queue[Callable[[], None] | _Stop] = queue.Queue()
         self._closed = False
         self._thread = threading.Thread(target=self._run, name=name, daemon=True)
         self._thread.start()
@@ -40,10 +45,10 @@ class ThreadBotWorkQueue(IBotWorkQueue):
     def _run(self) -> None:
         while True:
             task = self._tasks.get()
-            if task is _STOP:
+            if isinstance(task, _Stop):
                 return
             try:
-                task()  # type: ignore[operator]
+                task()
             except Exception:
                 # A task that raised must not end the bot's only writer; the
                 # executor turns every failure it can name into a fault itself.

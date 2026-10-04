@@ -37,8 +37,11 @@ QUOTE_UNIT = Decimal("0.00000001")
 def quote_slices(quote: Decimal, cap: Decimal) -> tuple[Decimal, ...]:
     """`quote` split evenly into ⌈quote / cap⌉ slices of at most `cap`."""
     _require_positive(cap)
+    most = int(cap / QUOTE_UNIT)
+    if most < 1:
+        raise ValueError(f"The per-order cap {cap} is below one quote unit")
     units = int(quote / QUOTE_UNIT)
-    return tuple(n * QUOTE_UNIT for n in _even(units, int(cap / QUOTE_UNIT)))
+    return tuple(n * QUOTE_UNIT for n in _even(units, most))
 
 
 def base_slices(

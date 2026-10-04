@@ -202,6 +202,20 @@ def test_the_exit_sells_the_inventory_derived_after_the_cancels() -> None:
     assert world.state() is S.STOPPED
 
 
+def test_an_exit_slice_that_raised_is_reported_as_possibly_unsold() -> None:
+    """A request that raised may have executed on the exchange: the halt
+    does not claim the remainder is unsold."""
+    world = _running()
+    _derived(world, "4.9")
+    world.book.raise_next = [ConnectionError("read timed out")]
+
+    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+
+    runtime = _runtime(world)
+    assert runtime.reason is GridReason.EXIT_SLICE_FAILED
+    assert "possibly unsold" in runtime.reason_detail
+
+
 def test_stop_while_trading_is_off_waits_then_finishes_when_trading_returns() -> None:
     world = _running()
     world.executor.on_switch(False, TradingSwitchCause.DISABLED)
