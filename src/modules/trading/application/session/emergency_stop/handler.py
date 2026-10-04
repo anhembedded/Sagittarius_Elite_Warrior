@@ -27,9 +27,18 @@ import logging
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
+from Sagittarius_Elite_Warrior.src.modules.trading.application.owner_books import (
+    OwnerShare,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.command import (
     EmergencyStopCommand,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.application.session.emergency_stop.liquidation_minimum import (
+    min_split_quantity,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScope,
@@ -41,6 +50,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id imp
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_result import (
     EmergencyStopResult,
     EmergencyStopStepResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchCause,
+    TradingSwitchChangedEvent,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_client import (
     ITradingClient,
@@ -59,6 +72,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side impor
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.spot_holdings_close_policy import (
     sellable_spot_quantity,
+    split_liquidation,
 )
 
 logger = logging.getLogger("App.CommandHandler")
@@ -98,10 +112,17 @@ class EmergencyStopCommandHandler(
     the session's own baseline (`TradingSessionState.spot_baseline_holdings()`)
     instead. One dispatch point (`_close_all_positions`), not scattered
     venue checks, per `code/quality.md` §3.
+
+    `EPIC-029` ADR D7 — step 1 publishes `TradingSwitchChangedEvent
+    (EMERGENCY_STOP)` right after the disable, before any order is read or
+    cancelled, so a bot learns of the stop before its cancels reach it. It
+    publishes even when trading was already off: the stop cancels and sells
+    regardless. A disable that raised publishes nothing.
     """
 
-    def __init__(self, scopes: VenueTradingScopes) -> None:
+    def __init__(self, scopes: VenueTradingScopes, publisher: IEventPublisher) -> None:
         self._scopes = scopes
+        self._publisher = publisher
 
     def execute(self, command: EmergencyStopCommand) -> EmergencyStopResult:
         logger.warning("Handling EmergencyStopCommand on %s", command.venue.value)
@@ -109,11 +130,16 @@ class EmergencyStopCommandHandler(
         # Spot baseline. Another venue's session is never read or touched.
         scope = self._scopes.get(command.venue)
 
+        # `EPIC-029` ADR D6 r2 — read before step 1 clears the books: each
+        # bot's share of the Spot liquidation goes out under its own tag.
+        owner_shares = scope.session_state.owner_books.shares()
         trading_disabled = self._disable_trading(scope)
 
         trading_client = scope.ports.client_factory.create(OrderSubmissionMode.LIVE)
         orders_cancelled = self._cancel_all_orders(trading_client)
-        positions_closed = self._close_all_positions(trading_client, scope)
+        positions_closed = self._close_all_positions(
+            trading_client, scope, owner_shares
+        )
         final_positions, final_open_orders, final_state_confirmed = (
             self._read_final_state(trading_client)
         )
@@ -140,10 +166,14 @@ class EmergencyStopCommandHandler(
             )
         return result
 
-    @staticmethod
-    def _disable_trading(scope: VenueTradingScope) -> EmergencyStopStepResult:
+    def _disable_trading(self, scope: VenueTradingScope) -> EmergencyStopStepResult:
         try:
             scope.session_state.disable()
+            self._publisher.publish(
+                TradingSwitchChangedEvent(
+                    False, TradingSwitchCause.EMERGENCY_STOP, venue=scope.venue
+                )
+            )
             scope.ports.user_data_stream.stop()
             return EmergencyStopStepResult(True, "Trading disabled.")
         except Exception as exc:  # noqa: BLE001 - report every failure, never let one abort the remaining steps
@@ -176,13 +206,16 @@ class EmergencyStopCommandHandler(
         )
 
     def _close_all_positions(
-        self, trading_client: ITradingClient, scope: VenueTradingScope
+        self,
+        trading_client: ITradingClient,
+        scope: VenueTradingScope,
+        owner_shares: tuple[OwnerShare, ...],
     ) -> EmergencyStopStepResult:
         """@brief Dispatches step 3 by venue market type — the one place
         this handler branches on it (`code/quality.md` §3), rather than a
         Futures/Spot check scattered across the step's own body."""
         if scope.venue.market_type is MarketType.SPOT:
-            return self._sell_spot_surplus_holdings(trading_client, scope)
+            return self._sell_spot_surplus_holdings(trading_client, scope, owner_shares)
         return self._close_all_futures_positions(trading_client)
 
     def _close_all_futures_positions(
@@ -222,7 +255,9 @@ class EmergencyStopCommandHandler(
 
     @staticmethod
     def _sell_spot_surplus_holdings(
-        trading_client: ITradingClient, scope: VenueTradingScope
+        trading_client: ITradingClient,
+        scope: VenueTradingScope,
+        owner_shares: tuple[OwnerShare, ...],
     ) -> EmergencyStopStepResult:
         """@brief Sells each Spot asset's surplus over the session's own
         baseline (`EPIC-027M` AC1-AC3) — never the baseline itself, and
@@ -237,6 +272,12 @@ class EmergencyStopCommandHandler(
         this app was never enabled on Spot this session, so the safe,
         conservative answer is to sell nothing rather than guess a baseline
         of zero and offer up the user's entire pre-existing holdings.
+
+        `EPIC-029` ADR D6 r2 — each asset's sale is split per bot
+        (`split_liquidation`): a bot's share, up to its inventory, carries
+        its tag, so its inventory derived again afterwards is what is left.
+        A split part below the exchange minimum is left held and reported
+        as dust (`min_split_quantity`).
         """
         baseline = scope.session_state.spot_baseline_holdings()
         if baseline is None:
@@ -273,15 +314,32 @@ class EmergencyStopCommandHandler(
             if quantity <= 0:
                 dust_assets.append(holding.asset)
                 continue
-            closing_order = Order(
-                client_order_id=generate_client_order_id(),
-                symbol=symbol,
-                side=OrderSide.SELL,
-                order_type=OrderType.MARKET,
-                quantity=quantity,
+            inventories = [
+                (share.tag, share.inventory.quantity)
+                for share in owner_shares
+                if share.symbol == symbol
+            ]
+            parts = split_liquidation(
+                quantity,
+                inventories,
+                metadata.step_size_for(OrderType.MARKET),
+                min_split_quantity(scope.ports.book_ticker_reader, metadata)
+                if inventories
+                else Decimal(0),
             )
+            if sum((part.quantity for part in parts), Decimal(0)) < quantity:
+                dust_assets.append(holding.asset)
             try:
-                trading_client.place_order(closing_order)
+                for part in parts:
+                    trading_client.place_order(
+                        Order(
+                            client_order_id=generate_client_order_id(part.tag),
+                            symbol=symbol,
+                            side=OrderSide.SELL,
+                            order_type=OrderType.MARKET,
+                            quantity=part.quantity,
+                        )
+                    )
                 sold_assets.append(holding.asset)
             except Exception as exc:  # noqa: BLE001 - report every failure, never let one abort the remaining assets
                 return EmergencyStopStepResult(

@@ -37,10 +37,14 @@ from enum import Enum
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose import (
     OrderPurpose,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    OwnerBudgetFacts,
+)
 
 
 class TradingLimitViolation(str, Enum):
-    """@brief Which of the four limits blocked an order — named so a
+    """@brief Which limit blocked an order — one of the four signal limits,
+    or one of a budgeted owner's checks (`EPIC-029`) — named so a
     caller (and a human reading a log line) never has to infer it from a
     bare `False`."""
 
@@ -48,6 +52,27 @@ class TradingLimitViolation(str, Enum):
     MAX_NOTIONAL_PER_ORDER = "max_notional_per_order"
     MAX_POSITIONS_PER_SYMBOL = "max_positions_per_symbol"
     MIN_ORDER_INTERVAL = "min_order_interval"
+    #: `EPIC-029` ADR D6 — a budgeted owner's five checks, which replace the
+    #: three signal limits above for its orders (`OwnerBudget`)...
+    OWNER_BUDGET_OPEN_ORDERS = "owner_budget_open_orders"
+    OWNER_BUDGET_EXPOSURE = "owner_budget_exposure"
+    OWNER_BUDGET_SELL_EXCEEDS_INVENTORY = "owner_budget_sell_exceeds_inventory"
+    OWNER_BUDGET_SPACING = "owner_budget_spacing"
+    OWNER_BUDGET_RATE = "owner_budget_rate"
+    #: ...and the sixth gate: an order carrying a client order tag with no
+    #: budget registered for it on the order's symbol, so a bot never falls
+    #: back to the signal limits, which have no inventory check.
+    OWNER_BUDGET_MISSING = "owner_budget_missing"
+
+
+#: The four limits every order without a budget is checked against, in the
+#: order they are reported.
+SIGNAL_LIMITS = (
+    TradingLimitViolation.MAX_ORDERS_PER_SESSION,
+    TradingLimitViolation.MAX_NOTIONAL_PER_ORDER,
+    TradingLimitViolation.MAX_POSITIONS_PER_SYMBOL,
+    TradingLimitViolation.MIN_ORDER_INTERVAL,
+)
 
 
 @dataclass(frozen=True)
@@ -74,6 +99,12 @@ class TradingLimitContext:
     time_since_last_order_for_symbol: timedelta | None
     #: `EPIC-028I` — a protective order passes every limit (`OrderPurpose`).
     purpose: OrderPurpose = OrderPurpose.ENTRY
+    #: `EPIC-029` ADR D5 — the order's client order tag, `None` for an
+    #: untagged order (manual, strategy).
+    client_order_tag: str | None = None
+    #: `EPIC-029` ADR D6 — the tagged owner's budget and book, `None` when
+    #: no budget is registered for the tag (or the order is untagged).
+    owner_budget: OwnerBudgetFacts | None = None
 
 
 @dataclass(frozen=True)

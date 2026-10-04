@@ -106,6 +106,7 @@ def build_preview() -> QWidget:
                 executed_quantity=Decimal("0.020"),
                 average_price=Decimal(60500),
                 created_at=_AT,
+                exchange_order_id=8886774,
             ),
         ),
         page=0,

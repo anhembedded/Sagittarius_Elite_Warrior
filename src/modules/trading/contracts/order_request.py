@@ -33,6 +33,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    validate_client_order_tag,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_purpose import (
     OrderPurpose,
 )
@@ -85,3 +88,11 @@ class OrderRequest:
     #: `EPIC-028I` — an entry, or a reduce-only Futures order protecting or
     #: closing a position (`OrderPurpose`), which the trading limits pass.
     purpose: OrderPurpose = OrderPurpose.ENTRY
+    #: `EPIC-029A` (ADR D5) — a bot's six-character tag, carried into the
+    #: client order id (`SEW-{tag}-{hex10}`). `None` for a manual or strategy
+    #: order. Validated here, so a bad tag never reaches the exchange.
+    client_order_tag: str | None = None
+
+    def __post_init__(self) -> None:
+        """@raise InvalidClientOrderTagError `client_order_tag` is malformed."""
+        validate_client_order_tag(self.client_order_tag)

@@ -64,6 +64,24 @@ _LIMIT_VIOLATION_MESSAGES = EnumLabels(
         TradingLimitViolation.MIN_ORDER_INTERVAL: (
             "Order submitted too soon after the previous order on the same symbol."
         ),
+        TradingLimitViolation.OWNER_BUDGET_OPEN_ORDERS: (
+            "The bot already has as many open orders as its budget allows."
+        ),
+        TradingLimitViolation.OWNER_BUDGET_EXPOSURE: (
+            "This buy would take the bot's exposure above its budget."
+        ),
+        TradingLimitViolation.OWNER_BUDGET_SELL_EXCEEDS_INVENTORY: (
+            "This sell is larger than what the bot bought and still holds."
+        ),
+        TradingLimitViolation.OWNER_BUDGET_SPACING: (
+            "Order sent too soon after the bot's previous order."
+        ),
+        TradingLimitViolation.OWNER_BUDGET_RATE: (
+            "The bot has sent as many orders as its budget allows in this window."
+        ),
+        TradingLimitViolation.OWNER_BUDGET_MISSING: (
+            "The order carries a bot's tag, but no budget is registered for it on this symbol."
+        ),
     },
 )
 

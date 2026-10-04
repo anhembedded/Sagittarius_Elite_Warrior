@@ -15,6 +15,7 @@ import pytest
 from Sagittarius_Elite_Warrior.src.modules.trading.adapters.binance.spot.spot_user_data_event_parser import (
     fill_details,
     fill_fee,
+    fill_trade_id,
     is_fill_execution,
     parse_execution_report,
     stream_event_captured_at,
@@ -51,6 +52,39 @@ def _execution_report(**overrides: object) -> dict:
     }
     payload.update(overrides)
     return payload
+
+
+class TestCancelCarriesTheOriginalId:
+    """`EPIC-029A` (ADR D8). Binance's Spot executionReport documents `"c"` as
+    the client order id of *this* request and `"C"` as the original order's
+    id; on a cancel, `"c"` is the cancel request's own id. A cancel report
+    shaped that way (`x`/`X` CANCELED, `c` a `web_…`/`and_…` cancel id, `C`
+    the order's `SEW-…` id) must yield the order's own id, or the bot that
+    placed it never learns the order ended."""
+
+    def test_a_cancel_reads_the_original_id(self) -> None:
+        payload = _execution_report(
+            x="CANCELED",
+            X="CANCELED",
+            c="web_3f9a1c2b7d4e4b0c",
+            C="SEW-a3f9c1-0123456789",
+        )
+        assert str(parse_execution_report(payload).client_order_id) == (
+            "SEW-a3f9c1-0123456789"
+        )
+
+    def test_an_empty_original_id_falls_back(self) -> None:
+        """Binance sends `"C": ""` on every report that is not a cancel."""
+        payload = _execution_report(x="CANCELED", X="CANCELED", C="")
+        assert str(parse_execution_report(payload).client_order_id) == (
+            "SEW-a91f4c72e0b8"
+        )
+
+    def test_a_fill_ignores_the_original_id_field(self) -> None:
+        payload = _execution_report(C="SEW-should-not-win")
+        assert str(parse_execution_report(payload).client_order_id) == (
+            "SEW-a91f4c72e0b8"
+        )
 
 
 class TestParseExecutionReport:
@@ -171,6 +205,22 @@ class TestFillFee:
         del payload["n"]
         del payload["N"]
         assert fill_fee(payload) is None
+
+
+class TestFillTradeId:
+    """`EPIC-029A` review — the trade id lets a registration count a fill the
+    REST history already holds once."""
+
+    def test_reads_the_trade_id(self) -> None:
+        assert fill_trade_id(_execution_report(t=4031)) == 4031
+
+    def test_minus_one_on_a_report_that_is_no_trade_is_none(self) -> None:
+        assert fill_trade_id(_execution_report(t=-1)) is None
+
+    def test_a_missing_trade_id_is_none(self) -> None:
+        payload = _execution_report()
+        payload.pop("t", None)
+        assert fill_trade_id(payload) is None
 
 
 class TestStreamEventCapturedAt:

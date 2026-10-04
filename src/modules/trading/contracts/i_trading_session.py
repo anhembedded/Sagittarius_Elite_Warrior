@@ -56,6 +56,10 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.emergency_stop_resu
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.enable_trading_result import (
     EnableTradingResult,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    OwnerBudgetRegistration,
+    OwnerBudgetRegistrationResult,
+)
 
 
 @dataclass(frozen=True, slots=True)
@@ -151,6 +155,27 @@ class ITradingSession(ABC):
         the point of the lease is that a manual order path cannot clear the
         strategy's claim to let itself through.
         """
+
+    @abstractmethod
+    def register_owner_budget(
+        self, registration: OwnerBudgetRegistration
+    ) -> OwnerBudgetRegistrationResult:
+        """`EPIC-029` ADR D6 — give an owner a budget for this session.
+
+        Trading derives the owner's inventory and resting orders from the
+        venue (the caller never supplies them), checks the budget against the
+        global caps, and from then on judges every order carrying the
+        owner's tag against it. Two history reads and an open-orders read;
+        refused, with a named reason, when trading is off, the venue is not
+        Spot, a cap is exceeded, another owner holds the tag, or the venue
+        does not answer. Registering again re-derives everything.
+        """
+
+    @abstractmethod
+    def clear_owner_budget(self, owner_id: str) -> None:
+        """Drop `owner_id`'s budget, so its tagged orders are refused
+        (`OWNER_BUDGET_MISSING`) until it registers again. A no-op when it
+        holds none. Disabling and Emergency Stop clear every budget."""
 
     @abstractmethod
     def emergency_stop(self) -> EmergencyStopResult:

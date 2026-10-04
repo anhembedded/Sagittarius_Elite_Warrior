@@ -38,6 +38,7 @@ def map_spot_history_order(payload: dict[str, Any]) -> OrderRecord:
         executed_quantity=executed,
         average_price=quote / executed if executed > 0 and quote >= 0 else None,
         created_at=from_ms(payload["time"]),
+        exchange_order_id=int(payload["orderId"]),
     )
 
 

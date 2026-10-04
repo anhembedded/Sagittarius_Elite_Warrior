@@ -1,6 +1,6 @@
 # EPIC-029A — Trading can execute a bot's ladder: tagged client order ids, an owner budget, a switch event and the right id on a Spot cancel
 
-**Status:** 🔵 Backlog
+**Status:** ✅ Done (2026-10-03)
 **Source:** [`PRO-006`](../../../proposal/PRO-006.md), accepted by the user on 2026-10-03
 (*"Oki, duyệt"*, "OK, approved"). The design is in ADR D5–D8.
 **Risk:** 🔴 — it changes the order path's safety gates (D6), the one place every order is
@@ -35,16 +35,16 @@ id. That claim is checked against Binance's documentation, not against a live pa
 
 Revised after the review of PR #317 (round 1); see ADR D6, D7 and D21.
 
-- [ ] **Tagged ids.** An `OrderRequest` with `client_order_tag="a3f9c1"` is submitted with a client
+- [x] **Tagged ids.** An `OrderRequest` with `client_order_tag="a3f9c1"` is submitted with a client
   order id matching `^SEW-a3f9c1-[0-9a-f]{10}$`.
   - Without a tag, the id still matches `^SEW-[0-9a-f]{12}$`.
   - A tag outside `^[a-z0-9]{6}$` is refused by `validate()` with a named error, and never reaches
     the exchange.
-- [ ] **Registering a budget.** `register_owner_budget(owner_id, tag, run_started_at, budget)` and
+- [x] **Registering a budget.** `register_owner_budget(owner_id, tag, run_started_at, budget)` and
   `clear_owner_budget(owner_id)` exist on `ITradingSession`.
   - A budget above the global caps (ADR O1) is refused, naming the cap it exceeds.
   - **The caller never supplies inventory.**
-- [ ] **The inventory comes from the exchange.** On registration, trading derives the owner's
+- [x] **The inventory comes from the exchange.** On registration, trading derives the owner's
   inventory from exchange evidence:
   - the executions of orders carrying the tag since `run_started_at` (the bot's current run, ADR D6
     r2), from order history;
@@ -56,10 +56,10 @@ Revised after the review of PR #317 (round 1); see ADR D6, D7 and D21.
   - a fee charged in the base asset is subtracted;
   - a fee charged in BNB is not;
   - base kept by a previous run (Stop with *keep base*) is not counted by a new run.
-- [ ] **The checkpoint.** Trading may persist an inventory checkpoint it computed itself, and
+- [x] **The checkpoint.** Trading may persist an inventory checkpoint it computed itself, and
   re-derives only from the checkpoint onward. A checkpoint whose recorded tag or creation time does
   not match is discarded and the inventory is re-derived in full.
-- [ ] **The five budget checks replace the signal limits** for a budgeted owner. One test per check
+- [x] **The five budget checks replace the signal limits** for a budgeted owner. One test per check
   proves it red and green:
   1. 10 LIMIT orders on one symbol, placed 250 ms apart, are accepted, and the 11th is refused by
      `max_open_orders=10` (`OWNER_BUDGET_OPEN_ORDERS`);
@@ -73,47 +73,47 @@ Revised after the review of PR #317 (round 1); see ADR D6, D7 and D21.
   The five checks run **whatever the order's `purpose`**: a Spot SELL marked CLOSE beyond the
   inventory is refused by check 3, because the budget branch runs before the `only_reduces` return
   (`trading_limit_policy.py:51-55`).
-- [ ] **A tagged order needs a budget.** Any order carrying a `client_order_tag` with no budget
+- [x] **A tagged order needs a budget.** Any order carrying a `client_order_tag` with no budget
   registered for that tag is refused with `OWNER_BUDGET_MISSING`. This holds after a disable has
   cleared the budgets, too.
-- [ ] **Everyone else is unchanged.** For an owner without a budget (manual, strategy), every
+- [x] **Everyone else is unchanged.** For an owner without a budget (manual, strategy), every
   existing limit test passes unmodified.
   - `max_notional_per_order` (D21), the lease, the switch and the minimum notional still refuse a
     budgeted owner's order.
-- [ ] **The book is updated before the event is published.** A Spot fill updates the owner book in
+- [x] **The book is updated before the event is published.** A Spot fill updates the owner book in
   trading's emission path **before** `OrderFilledEvent` reaches the bus. A test subscriber that
   places the counter SELL synchronously inside its handler is accepted every time. Cancels,
   expiries and partial fills update the book the same way.
-- [ ] **A budget lasts one session.** Disabling or Emergency-Stopping the venue clears every
+- [x] **A budget lasts one session.** Disabling or Emergency-Stopping the venue clears every
   budget and owner book. Registering again re-derives the inventory.
-- [ ] **Emergency Stop tags the coins it sells for a bot.** Emergency Stop takes a snapshot of the
+- [x] **Emergency Stop tags the coins it sells for a bot.** Emergency Stop takes a snapshot of the
   owner books before its step-1 clear. It splits each asset's liquidation per budgeted owner: each
   share, up to that owner's inventory, carries the owner's tag, and only the surplus beyond every
   bot's inventory is untagged.
   - Case proven: an Emergency Stop in the session that bought the inventory, **while the user also
     holds the asset**, leaves a re-derived inventory of zero for the bot. The user's coins are
     untouched.
-- [ ] **The venue's rate limits.** The O1 caps (spacing and orders per minute) are checked against
+- [ ] **The venue's rate limits.** *(Not verified: Binance is unreachable from the build container; see the implementation notes. Handed to `029H`.)* The O1 caps (spacing and orders per minute) are checked against
   the venue's `exchangeInfo.rateLimits` of type `ORDERS`, not only `REQUEST_WEIGHT`. The values are
   recorded in the implementation notes.
-- [ ] **The switch event fires at the moment of change.** `TradingSwitchChangedEvent(venue, enabled,
+- [x] **The switch event fires at the moment of change.** `TradingSwitchChangedEvent(venue, enabled,
   cause)` is published once per change:
   - enable → `ENABLED`, after the enable has committed;
   - disable → `DISABLED`;
   - Emergency Stop → `EMERGENCY_STOP`, **at its step 1** (the disable, `emergency_stop/handler.py:146`),
     before the cancels and sells.
-- [ ] **The Spot cancel carries the original id.** A recorded Spot executionReport with
+- [x] **The Spot cancel carries the original id.** A recorded Spot executionReport with
   `X=CANCELED`, `c=<cancel id>` and `C=<original id>` yields an `OrderEndedEvent` whose order
   carries the **original** id.
   - The test is red before the fix.
   - Once confirmed, the defect is filed as a `BUG-` and closed by this change.
-- [ ] **The fake exchange behaves like the venue.**
+- [x] **The fake exchange behaves like the venue.**
   - A resting Spot LIMIT order fills when `set_last_price` crosses it, and the fill emits an
     executionReport.
   - A cancel emits `X=CANCELED` with both `c` and `C`.
   - The order book lives in a new `spot_order_book.py`, because `spot_account_state.py` is at 398
     of 400 lines.
-- [ ] **Manual Spot finding.** The finding of ADR §1.3, that a manual Spot order blocks the symbol
+- [x] **Manual Spot finding.** The finding of ADR §1.3, that a manual Spot order blocks the symbol
   until trading is enabled again, is reproduced by a test and filed as a `BUG-` if confirmed. It is
   fixed here only if the fix is the same mechanism; otherwise it gets its own task.
 
@@ -208,4 +208,46 @@ id. The user runs it, as in `EPIC-028N`.
 
 ## Implementation notes (written when done)
 
-## Resume (optional; while unfinished)
+Eight commits on `claude/wizardly-cerf-fc5b5x`, in the order the design builds:
+
+| Commit | What it delivered |
+| :--- | :--- |
+| `feat(trading): carry a bot's tag in the client order id` | D5. `generate_client_order_id(tag)` keeps one format definition (`SEW-{tag6}-{hex10}`, untagged `SEW-{hex12}`); `tag_of()` reads it back. A malformed tag is refused when `OrderRequest`/`PreviewOrderQuery` is built (`InvalidClientOrderTagError`), so it never reaches the exchange. |
+| `fix(bug-141): read a cancelled Spot order's own id from "C"` | D8, filed and closed as [`BUG-141`](../../../bug_report/completed/BUG-141_spot_cancel_report_names_the_cancel_request.md); red test first. |
+| `feat(trading): publish TradingSwitchChangedEvent …` | D7. The three session handlers take an `IEventPublisher`. Emergency Stop publishes inside step 1, after the disable and before any order is read, and also when trading was already off (it still cancels and sells); a disable that raised publishes nothing. |
+| `feat(trading): owner budget contracts, owner book and the budget checks` | D6 part 1: `OwnerBudget`, `OwnerBudgetCaps` (O1), `OwnerBudgetFacts`; the six new `TradingLimitViolation` names; the policy's budget branch (notional cap plus the five checks, or `OWNER_BUDGET_MISSING`), before the `only_reduces` return. |
+| `feat(trading): derive an owner's inventory from the venue's history` | D6 part 2: `OrderRecord.exchange_order_id` on every constructor (no default); one inventory formula (`owner_inventory_policy.py`) shared by the book and the deriver; `OwnerInventoryDeriver` with a JSON checkpoint per tag. |
+| `feat(trading): register owner budgets and judge tagged orders by them` | D6 part 3: `register_owner_budget`/`clear_owner_budget` on the port, service, fake and contract suite; `RegisterOwnerBudgetCommandHandler`; `OwnerBooks` held by `TradingSessionState` and cleared on every enable and disable; the execute path; the three O1 keys. |
+| `feat(trading): update owner books before publishing, tag a bot's liquidation` | D6 part 4: `VenueEventEmitter` applies fills and ends to the books before emitting; Emergency Stop splits each Spot sale per bot (`split_liquidation`). |
+| `test(epic-029a): …` | The fake exchange's LIMIT matching (`spot_order_book.py`) and cancel report with `c` and `C`; the integration tests; `BUG-142`; vocabulary, HLD and boards. |
+
+**Departures from the task text, each for a reason:**
+
+- **The registration is one object**, `OwnerBudgetRegistration(owner_id, tag, symbol, run_started_at, budget)`, not four arguments (`code/quality.md` §7). It also names the **symbol**: the inventory is read from that symbol's history, and taking it from the lease instead would have made the derivation depend on an unrelated call order.
+- **Budgets are Spot-only for now** (`VENUE_NOT_SPOT`): only Spot has an inventory to bound. A Futures owner is a recorded extension case in `owner_budget.py` (a position instead of an inventory, behind the same registration).
+- **A registration is refused while trading is off** (`TRADING_SWITCH_OFF`), and a disable that lands during its history reads wins (`switch_epoch`): "a budget lasts one session" holds at both ends.
+- **Registration also adopts the owner's resting orders** from the venue's open orders, so a reconciliation after a restart starts from what is really open; the task named only the inventory.
+- **`OwnerBooks` is its own class** with its own lock, rather than more methods on `TradingSessionState` (now 340 lines): the book is reached from the order pool, the websocket thread and the session handlers.
+- **A budgeted order does not touch the signal bookkeeping** (no symbol marked open, no session count), so a bot's ladder never blocks a manual order on another symbol, nor the reverse.
+- **On Spot, `ExecuteOrderCommand` already refuses a reducing purpose**, so a "Spot SELL marked CLOSE" cannot be built; the policy's budget branch still runs first, which the policy test proves, and which matters for any future venue with reduce-only.
+- **`repo_root()` moved to `core/repo_root.py`** so `trading` (checkpoints) and `bots` (store) share it.
+
+**The venue's ORDERS rate limits — not verified live.** The build container cannot reach Binance (`Service unavailable from a restricted location`), so `exchangeInfo.rateLimits` was not read. Binance's Spot API documentation states an `ORDERS` limit per 10 seconds and per day per account, and a `MAX_NUM_ORDERS` filter of 200 per symbol. The approved caps give one bot at most 40 orders per 10 seconds by spacing (250 ms) and 10 per 10 seconds by rate (60 per minute), and 100 open orders, under the 200 per symbol. **Several bots on one account share the account's `ORDERS` limit, and the caps are per budget, not per account**: that sum is not bounded by this task. The user should read the live values on Spot Testnet (`029H`) and decide whether an account-wide cap is needed.
+
+**Verification.** Every commit: `ci-local.ps1 -SkipTests` PASS with the log grepped, architecture guards, and the touched tests; the last full local run of unit and integration was 7813 passed, 4 skipped (before this commit's integration tests). New tests: the tag (format, refusals), the parser's cancel id (red before), the switch event per handler, the policy's five checks at and past each ceiling, the owner book, the inventory policy through the book and the deriver (base-asset fee, BNB fee, a previous run's base, a checkpoint, a checkpoint of another run, a run past the lookback), the registration handler's refusals and its race with a disable, the execute path (ten then the eleventh, inventory, spacing, a missing budget, another owner's tag, a disable clearing it), the emission order (a mutation run, apply after emit, turned two tests red), the liquidation split, and against the fake exchange: a ladder of ten with the eleventh refused and a fill freeing a slot, a counter sell up to the inventory net of the fee, a cancel reaching the book and the bus under the order's own id, a registration deriving the inventory from the fake's history, and an Emergency Stop leaving a derived inventory of zero and the user's 10 BTC in place. The full gate is GitHub Actions' `ci-local.ps1 -Full` on the pull request.
+
+**Not verified:** the Spot Testnet manual cancel whose logged `OrderEndedEvent` names the original id (the user runs it, as in `EPIC-028N`), and the live `ORDERS` rate limits above.
+
+**Manual Spot finding (ADR §1.3):** reproduced and filed as [`BUG-142`](../../../bug_report/incomplete/BUG-142_manual_spot_order_blocks_its_symbol_until_re_enable.md). It is the signal limits' position bookkeeping on Spot, not the owner budget, so per this task it is not fixed here.
+
+**Review round 1 (PR #320), five findings fixed:**
+
+| Finding | Fix |
+| :--- | :--- |
+| 1. A tagged order on another symbol was judged by the budget's book | `OwnerBooks.facts` gives no facts for an order off the budget's symbol (`OWNER_BUDGET_MISSING`), and a tagged fill elsewhere moves no inventory. |
+| 2. A fill between the history read and the install was lost or counted twice | A registration opens an `OwnerEventBuffer` before its reads. The tag's fills and ends on that symbol are held, and `install` replays the fills the derivation did not count, by trade id (`OwnerInventoryDerivation.counted`, Spot's `t`), under the lock that applies the next live event. |
+| 3. Emergency Stop's split could send a part below the exchange minimum | A split part below `min_notional` at the best bid (`min_split_quantity`) is left held and reported as dust. A bot's share is never folded into the untagged rest. Without a bid, the parts are sent and the venue judges them, as it judges an unsplit sale. |
+| 4. A send that raised never counted, so a bot's retries were not paced | A tagged order is recorded in its book before `place_order`. A send that raises still counts in the spacing and the rate, and the order stays open until a fill, an end or the session's end. The price: an order the venue refused outright holds its slot and its quote until then, which can stop the bot but never overspend. |
+| 5. `committed_quote` could go negative | `remaining` is clamped at zero, and the comment now says a quote-sized buy carries the preview's base estimate. |
+
+Each fix has a test that fails without it (checked by reverting the fix or mutating it).

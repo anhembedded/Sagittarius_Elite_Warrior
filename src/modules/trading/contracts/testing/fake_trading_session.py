@@ -25,6 +25,14 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_trading_session i
     ITradingSession,
     TradingSessionSnapshot,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    EMPTY_INVENTORY,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    OwnerBudgetRefusal,
+    OwnerBudgetRegistration,
+    OwnerBudgetRegistrationResult,
+)
 
 #: What a fresh fake reports: trading off, nothing sent, nothing open. The same
 #: state a real `TradingSessionState` starts in — `EPIC-021G` requires the user
@@ -68,6 +76,11 @@ class FakeTradingSession(ITradingSession):
         #: *is* the observation that somebody else holds it. A helper a fake adds
         #: beyond its port that no test needs is exactly what `BUG-120` was.
         self._symbol_by_owner: dict[str, str] = {}
+        #: `EPIC-029` ADR D6 — the budgets registered this session, by owner.
+        #: Cleared on disable and Emergency Stop, as the real state clears
+        #: its books.
+        self.budgets: dict[str, OwnerBudgetRegistration] = {}
+        self._registration_answer: OwnerBudgetRegistrationResult | None = None
 
     def answer_with(self, snapshot: TradingSessionSnapshot) -> None:
         """Sets what the next `snapshot()` reports."""
@@ -87,6 +100,13 @@ class FakeTradingSession(ITradingSession):
 
     def emergency_stop_answers(self, result: EmergencyStopResult) -> None:
         self._stop_result = result
+
+    def register_owner_budget_answers(
+        self, result: OwnerBudgetRegistrationResult
+    ) -> None:
+        """Sets what a registration made while trading is on answers; a
+        refusal registers nothing."""
+        self._registration_answer = result
 
     def enable_raises(self, error: Exception) -> None:
         """Makes the next `enable()` raise instead of answering.
@@ -133,6 +153,22 @@ class FakeTradingSession(ITradingSession):
     def disable(self) -> None:
         self.disables += 1
         self.set_enabled(enabled=False)
+        self.budgets.clear()
+
+    def register_owner_budget(
+        self, registration: OwnerBudgetRegistration
+    ) -> OwnerBudgetRegistrationResult:
+        if not self._snapshot.enabled:
+            return OwnerBudgetRegistrationResult(OwnerBudgetRefusal.TRADING_SWITCH_OFF)
+        answer = self._registration_answer or OwnerBudgetRegistrationResult(
+            None, EMPTY_INVENTORY
+        )
+        if answer.registered:
+            self.budgets[registration.owner_id] = registration
+        return answer
+
+    def clear_owner_budget(self, owner_id: str) -> None:
+        self.budgets.pop(owner_id, None)
 
     def claim_symbol(self, symbol: str, owner_id: str) -> bool:
         holder = next(
@@ -157,6 +193,7 @@ class FakeTradingSession(ITradingSession):
             # for the wrong reason.
             raise self._stop_error
         self.set_enabled(enabled=False)
+        self.budgets.clear()
         if self._stop_result is None:
             return EmergencyStopResult(
                 trading_disabled=_stopped("disabled"),

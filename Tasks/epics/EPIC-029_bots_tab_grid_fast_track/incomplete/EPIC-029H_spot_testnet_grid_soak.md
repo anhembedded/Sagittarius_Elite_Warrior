@@ -35,6 +35,10 @@ user with their own keys.
   - Stop cancels everything and leaves no tagged open order.
 - [ ] **Soak.** The user runs one Grid bot for at least 24 hours on Spot Testnet, with at least
   two app restarts and one Emergency Stop followed by a confirmed re-plan.
+- [ ] **The venue's `ORDERS` rate limits** (handed over by `EPIC-029A`, which could not reach
+  Binance from its build container). Read `exchangeInfo.rateLimits` on Spot Testnet, record the
+  `ORDERS` limits and `MAX_NUM_ORDERS`, and check them against the O1 caps; state whether several
+  bots on one account need an account-wide cap, since the caps bound each budget, not the account.
 - [ ] **Soak report.** `Tasks/reports/` records:
   - the cycles completed;
   - the realised grid profit against the fills on the exchange's trade history;

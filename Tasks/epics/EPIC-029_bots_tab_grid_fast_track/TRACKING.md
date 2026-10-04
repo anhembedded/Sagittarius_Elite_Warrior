@@ -51,7 +51,7 @@ gantt
 
 | Id | Sub-task | Branch / PR | Risk | Status | Target / Merged |
 | :--- | :--- | :--- | :-: | :--- | :--- |
-| EPIC-029A | [Trading seams for bots](incomplete/EPIC-029A_trading_seams_for_bots.md) | — | 🔴 | 🔵 Planned | — |
+| EPIC-029A | [Trading seams for bots](completed/EPIC-029A_trading_seams_for_bots.md) | — | 🔴 | ✅ Done (2026-10-03) | PR2 |
 | EPIC-029B | [bots module, entity, store](completed/EPIC-029B_bots_module_entity_and_store.md) | PR1 (`claude/wizardly-cerf-fc5b5x`) | 🟡 | ✅ Done, in review | — |
 | EPIC-029C | [Grid planner](completed/EPIC-029C_grid_planner.md) | PR1 (`claude/wizardly-cerf-fc5b5x`) | 🟢 | ✅ Done, in review | — |
 | EPIC-029D | [Grid backtest](incomplete/EPIC-029D_grid_backtest.md) | — | 🟡 | 🔵 Planned | — |

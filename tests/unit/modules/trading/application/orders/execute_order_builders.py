@@ -96,7 +96,19 @@ def static_metadata_provider() -> IMarketMetadataProvider:
                 quantity_precision=3,
                 price_precision=2,
                 fetched_at=datetime(2026, 8, 27, tzinfo=UTC),
-            )
+            ),
+            # `EPIC-029A` review — a second symbol, so a test can send a bot's
+            # tagged order where its budget does not apply.
+            "ETHUSDT": SymbolOrderMetadata(
+                symbol="ETHUSDT",
+                status="TRADING",
+                step_size=Decimal("0.001"),
+                tick_size=Decimal("0.01"),
+                min_notional=Decimal(5),
+                quantity_precision=3,
+                price_precision=2,
+                fetched_at=datetime(2026, 8, 27, tzinfo=UTC),
+            ),
         }
     )
 

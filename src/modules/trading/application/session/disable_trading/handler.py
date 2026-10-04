@@ -1,11 +1,18 @@
 import logging
 
 from Sagittarius_Elite_Warrior.src.core.contracts.i_cqrs import ICommandHandler
+from Sagittarius_Elite_Warrior.src.core.contracts.i_event_publisher import (
+    IEventPublisher,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.application.session.disable_trading.command import (
     DisableTradingCommand,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.application.venue_trading_scope import (
     VenueTradingScopes,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchCause,
+    TradingSwitchChangedEvent,
 )
 
 logger = logging.getLogger("App.CommandHandler")
@@ -26,10 +33,15 @@ class DisableTradingCommandHandler(ICommandHandler[DisableTradingCommand, None])
     (`VenueNotEnabledError`, `EPIC-028B`): there is no session to turn off. Stops
     `IUserDataStream` (a no-op, per its own contract, if it was never
     started — e.g. disabling right after a refused enable).
+
+    `EPIC-029` ADR D7 — a disable that turned trading off publishes
+    `TradingSwitchChangedEvent(DISABLED)`; one that found it already off
+    publishes nothing.
     """
 
-    def __init__(self, scopes: VenueTradingScopes) -> None:
+    def __init__(self, scopes: VenueTradingScopes, publisher: IEventPublisher) -> None:
         self._scopes = scopes
+        self._publisher = publisher
 
     def execute(self, command: DisableTradingCommand) -> None:
         logger.debug("Handling DisableTradingCommand on %s", command.venue.value)
@@ -38,4 +50,9 @@ class DisableTradingCommandHandler(ICommandHandler[DisableTradingCommand, None])
         scope.session_state.disable()
         scope.ports.user_data_stream.stop()
         if was_enabled:
+            self._publisher.publish(
+                TradingSwitchChangedEvent(
+                    False, TradingSwitchCause.DISABLED, venue=command.venue
+                )
+            )
             logger.info("Trading disabled on %s for this session.", command.venue.value)

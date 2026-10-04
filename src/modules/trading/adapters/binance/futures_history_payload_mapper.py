@@ -37,6 +37,7 @@ def map_futures_history_order(payload: dict[str, Any]) -> OrderRecord:
         executed_quantity=executed,
         average_price=average if executed > 0 and average > 0 else None,
         created_at=from_ms(payload["time"]),
+        exchange_order_id=int(payload["orderId"]),
     )
 
 

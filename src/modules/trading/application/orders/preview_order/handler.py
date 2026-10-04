@@ -99,7 +99,7 @@ class PreviewOrderQueryHandler(IQueryHandler[PreviewOrderQuery, OrderPreview]):
         # `BUG-116` — a resting order needs a time in force or the mappers
         # refuse it; GTC unless the caller chose (`EPIC-028O`).
         order = Order(
-            client_order_id=generate_client_order_id(),
+            client_order_id=generate_client_order_id(query.client_order_tag),
             symbol=query.symbol,
             side=query.side,
             order_type=query.order_type,

@@ -3,6 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.client_order_id import (
+    validate_client_order_tag,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_side import OrderSide
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_type import (
     TRIGGERED_ORDER_TYPES,
@@ -59,10 +62,14 @@ class PreviewOrderQuery:
     #: The market's last price, which a stop-limit's stop is judged against
     #: (`stop_trigger_side.py`). Required for a stop-limit.
     last_price: Decimal | None = field(default=None, kw_only=True)
+    #: `EPIC-029A` — the bot tag the generated client order id carries.
+    client_order_tag: str | None = field(default=None, kw_only=True)
 
     def __post_init__(self) -> None:
         """@throws ValueError a field this order type cannot use, or one it
-        needs, so an inconsistent order never reaches the exchange."""
+        needs, so an inconsistent order never reaches the exchange.
+        @throws InvalidClientOrderTagError a malformed bot tag."""
+        validate_client_order_tag(self.client_order_tag)
         is_stop = self.order_type in TRIGGERED_ORDER_TYPES
         if is_stop and (self.stop_price is None or self.last_price is None):
             raise ValueError(

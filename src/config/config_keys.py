@@ -105,6 +105,14 @@ class ConfigKeys(str, Enum):
     #: seconds after the previous one — the same class of problem
     #: `_MIN_ZONE_BARS` (`BUG-077`) already exists to prevent.
     TRADING_MIN_ORDER_INTERVAL_SECONDS = "trading.min_order_interval_seconds"
+    #: `EPIC-029` ADR O1 — the most any bot's owner budget may declare
+    #: (`OwnerBudgetCaps`): open orders at once, the shortest gap between two
+    #: of its orders, and its order rate. Approved by the user on 2026-10-03.
+    TRADING_BOT_LIMITS_MAX_OPEN_ORDERS = "trading.bot_limits.max_open_orders"
+    TRADING_BOT_LIMITS_MIN_ORDER_SPACING_MS = "trading.bot_limits.min_order_spacing_ms"
+    TRADING_BOT_LIMITS_MAX_ORDERS_PER_MINUTE = (
+        "trading.bot_limits.max_orders_per_minute"
+    )
     #: The one symbol `MarketTickEventHandler`'s live strategy path reacts
     #: to — every tick for any other symbol is ignored (`EPIC-021G` §6.x:
     #: mixing candles from two symbols through one `StrategyEngine`'s

@@ -13,6 +13,8 @@ calls and error handling.
 
 from __future__ import annotations
 
+from collections.abc import Sequence
+from dataclasses import dataclass
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_quantity_rounding_policy import (
@@ -42,3 +44,47 @@ def sellable_spot_quantity(
     if surplus <= 0:
         return Decimal(0)
     return _ROUNDING_POLICY.round_quantity_down(surplus, step_size)
+
+
+@dataclass(frozen=True)
+class LiquidationPart:
+    """One sell of an Emergency Stop liquidation: `tag` is the bot whose
+    coins these are, or `None` for the surplus no bot holds."""
+
+    tag: str | None
+    quantity: Decimal
+
+
+def split_liquidation(
+    quantity: Decimal,
+    owner_inventories: Sequence[tuple[str, Decimal]],
+    step_size: Decimal,
+    min_quantity: Decimal = Decimal(0),
+) -> tuple[LiquidationPart, ...]:
+    """@brief Splits one asset's sellable `quantity` per bot (`EPIC-029` ADR
+    D6 r2): each `(tag, inventory)` takes up to its inventory, floored to
+    the lot step, in the order given; only what is left beyond every bot's
+    share goes out untagged.
+    @details Every sell of a bot's coins carries the bot's tag, so the
+    bot's inventory, derived again from its tagged orders, drops by exactly
+    what was sold for it, and the user's coins are never counted as the
+    bot's. Parts of zero are left out.
+
+    A part below `min_quantity` (the exchange's minimum notional at the
+    current bid) is left out too: the venue would reject it (the
+    `EPIC-029A` review). It stays held as dust, and a bot's share left out
+    is never folded into the untagged rest, which would sell the bot's
+    coins under no tag and leave its inventory counting them.
+    """
+    parts: list[LiquidationPart] = []
+    remaining = quantity
+    for tag, inventory in owner_inventories:
+        share = _ROUNDING_POLICY.round_quantity_down(
+            min(inventory, remaining), step_size
+        )
+        remaining -= share
+        if share > 0 and share >= min_quantity:
+            parts.append(LiquidationPart(tag, share))
+    if remaining > 0 and remaining >= min_quantity:
+        parts.append(LiquidationPart(None, remaining))
+    return tuple(parts)
