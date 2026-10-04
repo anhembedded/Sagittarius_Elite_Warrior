@@ -28,7 +28,7 @@ user with their own keys.
 
 - [x] **Precondition: the tab drives the real executor.** On the fake exchange, an integration test
   drives the Bots tab's Start, Pause, Stop and Resume through the real `EPIC-029E` executor.
-- [ ] **Gated Testnet test** (written in PR7; met when the user's run returns it green). `tests/testnet/test_grid_bot_round_trip.py` runs a narrow grid (4
+- [x] **Gated Testnet test** (written in PR7; met by the user's third run, 2026-10-04, below). `tests/testnet/test_grid_bot_round_trip.py` runs a narrow grid (4
   levels, around the last price, at the minimum notional). It asserts:
   - every level is RESTING on the exchange, with the bot's tag;
   - a cancel from outside is re-placed;
@@ -94,6 +94,12 @@ user with their own keys.
 - `tests/testnet/test_spot_rate_limits.py`
   - Reads `exchangeInfo.rateLimits` and the symbol's `MAX_NUM_ORDERS` and works out how many owner budgets at the O1 caps fit one account: a burst within each `ORDERS` window (the spacing bounds it) and the open orders. It writes the number to `logs/testnet/spot_rate_limits.json`, which answers whether several bots need an account-wide cap.
   - Not run here: the build container cannot reach Binance. The user's run is the evidence.
+- **User's third run (2026-10-04)**, `-TestnetOnly`, on `master-warrior` `e5ca8226`:
+  - `test_grid_bot_round_trip.py` **passed** on the real Spot Testnet: the stream probe was heard, every level rested with the bot's tag, an outside cancel was laid again, and Stop left no tagged order. It is the first run in which the app's `SpotUserDataStream` delivered events on the real venue.
+  - `test_spot_rate_limits.py` passed again.
+  - At teardown the interpreter printed pending-task and unclosed-session warnings from the stream; filed as [`BUG-143`](../../../bug_report/incomplete/BUG-143_spot_user_data_stream_left_pending_at_shutdown.md).
+  - The JSON reports (`spot_grid_round_trip.json`, `spot_rate_limits.json`) are with the user; their figures go into the soak report.
+  - The four Futures tests still fail with `-2015`.
 - **User's second run (2026-10-04)**, `-TestnetOnly`, on `master-warrior` after PR7:
   - `test_spot_rate_limits.py` passed; its report is `logs/testnet/spot_rate_limits.json`.
   - The grid round trip errored at setup: its fixture asked `IVenueTradingPorts` for a `client_factory`, which only a venue context (`IVenueContexts`) has. No order was sent.
