@@ -1,0 +1,36 @@
+# EPIC-033A — The rules say one look per control kind: stock Qt widgets in the platform style
+
+**Status:** 🔵 Backlog
+**Source:** the user, 2026-10-04 — "tui thấy nó khó dùng quá, ko đúng triết lý Window app thì phải, các layer tào lau quá. các nút thì quá bự, tự resize kém, các menu thì ko có continer ẩn hiện gì cả, chiếm hết diện tích" (it is too hard to use, not the Windows-app philosophy; the layers are a mess; the buttons are too big; it resizes badly; the panels have no container to show or hide, they take all the space); then "plan của epic phải sữa triệt đễ từ mặt triết lý tới cơ chế, ko hot fix, cái nào cần sử bên engien thì sửa bên engine" (the epic's plan must fix things at the root, from philosophy to mechanism, no hotfix; what needs changing in the engine is changed in the engine); then "các UI thì phải đồng nhất, cũng là button sao mà nhiều kiểu quá, 1 kiểu thui, ra soát lại hết, khong có cái nào khác lại, hay làm 1 UI sơ đẳng, nhưng đúng triết lý Window app trước, chưa cần tính đến design" (the UI must be uniform; why are there so many kinds of button — one kind only; review everything, nothing different; build a plain UI first, but true to the Windows-app philosophy; design comes later).
+**Risk:** 🟢 — a shared surface changes shape
+**Complexity:** S — documents only
+**Epic:** [EPIC-033](../README.md)
+**Depends on:** None
+
+---
+
+## 1. Context and problem
+`ui-presentation-rule.md` §1 already says "QtWidgets only, OS theme", yet the tree carries 133 `setStyleSheet` calls, 40 `apply_role` calls, 21 `StyledButton`s and 36 fixed control heights, and three of its own guards push new widgets toward the `kit` look (`test_widget_guards_hold.py` caps bare Qt bases at 2, `test_app_owns_its_size_tokens.py` locks pixel sizes, `test_palette_is_the_only_color_source.py`). The rule names no contract a machine can check, so the tree drifted three ways at once ([review](https://claude.ai/artifact/Np92LCSrk2t2e8NQxLEkaE), UX-01..UX-11).
+
+## 2. Acceptance criteria
+- [ ] `DECISION_2026-10-04_windows_workbench.md` D1-D8 are recorded with the user's words.
+- [ ] `ui-presentation-rule.md` states the stock-control contract: every control is a stock Qt class constructed with its defaults; no per-widget style sheet, palette, font or size; colour only where it carries meaning, through `QPalette` roles; every command is a `QAction`; every mode is a workbench; one Settings dialog; one Output dock.
+- [ ] Every clause of the contract carries a `[guard: …]` tag naming the 033B check that enforces it; the rule checker resolves them.
+- [ ] HLD §11.4 and §11.5 cite the contract and drop the claim "enforced" from any rule no check enforces.
+
+## 3. Design
+The contract is written as checkable predicates, not adjectives (P1, P11). It cites HLD §11 for the reasons and adds only what the review proved missing: one look per control kind, no custom size, no nested scroll, no overlay widget on a canvas, labels escape `&`.
+
+## 4. Changes, per file
+| File | Change |
+| :--- | :--- |
+| `Tasks/epics/EPIC-033_windows_workbench/DECISION_2026-10-04_windows_workbench.md` | The decisions |
+| `.claude/rules/ui-presentation-rule.md` | §1-§3 rewritten as the stock-control contract, each clause tagged |
+| `Docs/HLD/11_desktop_workbench.md` | §11.4/§11.5 cite the contract; unenforced claims corrected |
+| `Docs/VOCABULARY/README.md` | "workbench", "mode", "mode bar", "perspective", "Output channel", "stock control" |
+
+## 5. Testing
+Documentation-only: `python3 scripts/check_skill_prompt_references.py` and the document guards. The tags resolve only once 033B's checks exist, so 033A lands in the same pull request as 033B.
+
+## Implementation notes (written when done)
+Not started.
