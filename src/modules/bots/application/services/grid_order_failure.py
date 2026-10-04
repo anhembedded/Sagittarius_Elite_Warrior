@@ -6,6 +6,9 @@
   · `FAULT` → `fault`: the request raised; ERROR, whose exit is `stop`.
 
 `halt_with` is the same for a halt the ladder itself decided (`Halt`).
+`fault_with` is `fault` for a step that raised outside any order: a price,
+terms or history read, a value the ladder refused. The executor's one fault
+boundary calls it, so no failure leaves a bot in a state with no reason.
 """
 
 from __future__ import annotations
@@ -37,6 +40,12 @@ def fail_with(state: BotRunState, outcome: OrderOutcome, what: str) -> None:
         _apply(state, BotLifecycleEvent.START_REFUSED, GridReason.START_REFUSED, detail)
     else:
         _apply(state, BotLifecycleEvent.HALT, GridReason.ORDER_REFUSED, detail)
+
+
+def fault_with(state: BotRunState, what: str, error: Exception) -> None:
+    """ERROR for a step that raised; `what` names the step."""
+    detail = f"{what}: {type(error).__name__}: {error}"
+    _apply(state, BotLifecycleEvent.FAULT, GridReason.TASK_FAILED, detail)
 
 
 def halt_with(state: BotRunState, reason: GridReason, detail: str) -> None:

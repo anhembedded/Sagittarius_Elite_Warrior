@@ -47,6 +47,10 @@ class GridReason(str, Enum):
     ORDER_REJECTED = "order_rejected"
     ORDER_REFUSED = "order_refused"
     ORDER_FAILED = "order_failed"
+    #: A step outside any order failed (a price, terms or history read).
+    TASK_FAILED = "task_failed"
+    #: Reconciliation could not read order history; it retries on the next enable.
+    HISTORY_UNAVAILABLE = "history_unavailable"
     EXIT_SLICE_FAILED = "exit_slice_failed"
     INVENTORY_MISMATCH = "inventory_mismatch"
     HOLDING_BELOW_INVENTORY = "holding_below_inventory"

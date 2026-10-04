@@ -13,6 +13,9 @@ from __future__ import annotations
 import threading
 from collections.abc import Callable
 
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
+    AccountHistoryUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_summary import (
     AccountSummary,
 )
@@ -130,6 +133,8 @@ class SimulatedActivity(IAccountActivity):
         self._book = book
         self.orders: list[OrderRecord] = []
         self.trades: list[TradeRecord] = []
+        #: The venue does not answer history reads.
+        self.history_unavailable = False
 
     def summary(self) -> AccountSummary | None:
         return None
@@ -138,6 +143,8 @@ class SimulatedActivity(IAccountActivity):
         return tuple(self._book.open.values())
 
     def order_history(self, request: HistoryRequest) -> HistoryPage[OrderRecord]:
+        if self.history_unavailable:
+            raise AccountHistoryUnavailableError("allOrders timed out")
         return HistoryPage(tuple(self.orders), 0, len(self.orders), (SYMBOL,))
 
     def trade_history(self, request: HistoryRequest) -> HistoryPage[TradeRecord]:

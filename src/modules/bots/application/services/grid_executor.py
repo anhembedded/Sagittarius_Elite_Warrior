@@ -21,6 +21,7 @@ and an event never interleaves with an order in flight.
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 from dataclasses import replace
 from decimal import Decimal
 
@@ -29,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_budget
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_order_failure import (
     fail_with,
+    fault_with,
     halt_with,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_reconciler import (
@@ -142,33 +144,49 @@ class GridExecutor(IBotExecutor):
     # --- commands (IBotExecutor) ---
 
     def start(self) -> None:
-        self._queue.post(self._run_start)
+        self._post("start", self._run_start)
 
     def pause(self) -> None:
-        self._queue.post(self._run_pause)
+        self._post("pause", self._run_pause)
 
     def resume(self) -> None:
-        self._queue.post(self._run_resume)
+        self._post("resume", self._run_resume)
 
     def stop(self, base: BaseHandling) -> None:
-        self._queue.post(lambda: self._run_stop(base, GridReason.USER_STOP))
+        self._post("stop", lambda: self._run_stop(base, GridReason.USER_STOP))
 
     def confirm_resume(self) -> None:
-        self._queue.post(self._run_confirm)
+        self._post("confirm resume", self._run_confirm)
 
     # --- facts, copied off the caller's thread ---
 
     def on_fill(self, fill: BotOrderFill) -> None:
-        self._queue.post(lambda: self._apply_fill(fill))
+        self._post(f"fill of {fill.client_order_id}", lambda: self._apply_fill(fill))
 
     def on_end(self, end: BotOrderEnd) -> None:
-        self._queue.post(lambda: self._apply_end(end))
+        self._post(f"end of {end.client_order_id}", lambda: self._apply_end(end))
 
     def on_tick(self, price: Decimal) -> None:
-        self._queue.post(lambda: self._apply_tick(price))
+        self._post("tick", lambda: self._apply_tick(price))
 
     def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None:
-        self._queue.post(lambda: self._apply_switch(enabled, cause))
+        self._post("trading switch", lambda: self._apply_switch(enabled, cause))
+
+    # --- the one fault boundary ---
+
+    def _post(self, what: str, task: Callable[[], None]) -> None:
+        self._queue.post(lambda: self._guarded(what, task))
+
+    def _guarded(self, what: str, task: Callable[[], None]) -> None:
+        """Runs `task`; a failure no step named becomes `fault` (ERROR) with
+        the step and the error, never a bot left with no reason. The gateway
+        has already named every order outcome; this catches the rest at the
+        seam where it becomes a lifecycle fact (`code/errors.md` §3)."""
+        try:
+            task()
+        except Exception as error:
+            logger.exception("Bot %s: %s failed", self.bot_id, what)
+            fault_with(self._context.state, what, error)
 
     # --- on the worker ---
 

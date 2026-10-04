@@ -8,7 +8,9 @@ ADR's order:
   2. **Register the budget**: trading derives the inventory from exchange
      evidence (D6). Refused (trading off again) → the bot stays RECOVERING.
   3. **Read the open orders carrying the bot's tag.**
-  4. **Apply fills first.** A saved order missing from the exchange is looked
+  4. **Apply fills first.** (History that does not answer is a wait, not a
+     fault: the bot stays RECOVERING naming it, and the next enable retries.)
+     A saved order missing from the exchange is looked
      up in order history; what it executed beyond what the bot counted is
      applied as a fill (its counter order held), then the level empties if
      the order is over.
@@ -64,6 +66,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_runtime import 
     GridRuntime,
     LevelOrder,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.account_history_unavailable_error import (
+    AccountHistoryUnavailableError,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order import Order
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.order_record import (
     OrderRecord,
@@ -106,7 +111,18 @@ class GridReconciler:
             )
             return
         open_orders = self._context.gateway.tagged_open_orders()
-        runtime = self._apply_missed_fills(state.runtime, open_orders)
+        try:
+            runtime = self._apply_missed_fills(state.runtime, open_orders)
+        except AccountHistoryUnavailableError as error:
+            state.update(
+                state.runtime.with_reason(
+                    GridReason.HISTORY_UNAVAILABLE,
+                    f"waiting: order history did not answer ({error}); "
+                    "enable trading again to retry",
+                )
+            )
+            logger.info("Bot %s: reconcile waits — history: %s", state.bot_id, error)
+            return
         outcome = self._adopt(runtime, open_orders)
         if isinstance(outcome, ReconcileMismatch):
             self._mismatch(outcome.reason, outcome.detail)

@@ -51,7 +51,7 @@ S = BotLifecycleState
 _AT = datetime(2026, 10, 4, 9, tzinfo=UTC)
 
 
-def _restored(prior: BotLifecycleState = S.RUNNING) -> GridWorld:
+def restored(prior: BotLifecycleState = S.RUNNING) -> GridWorld:
     """A bot that ran its start, saved, and came back RECOVERING after a
     restart; its four ladder orders still rest on the exchange."""
     before = grid_world()
@@ -69,7 +69,7 @@ def _enable(world: GridWorld) -> None:
     world.executor.on_switch(True, TradingSwitchCause.ENABLED)
 
 
-def _filled_while_closed(world: GridWorld, price: Decimal, quantity: str) -> None:
+def filled_while_closed(world: GridWorld, price: Decimal, quantity: str) -> None:
     order = world.book.open.pop(world.open_ids_by_price()[price])
     world.activity.orders.append(
         OrderRecord(
@@ -117,7 +117,7 @@ def _tagged(price: str, side: OrderSide = OrderSide.SELL) -> Order:
 
 
 def test_a_clean_restore_returns_to_running_and_places_nothing() -> None:
-    world = _restored()
+    world = restored()
 
     _enable(world)
 
@@ -126,7 +126,7 @@ def test_a_clean_restore_returns_to_running_and_places_nothing() -> None:
 
 
 def test_a_restore_that_was_paused_returns_to_paused() -> None:
-    world = _restored(prior=S.PAUSED)
+    world = restored(prior=S.PAUSED)
 
     _enable(world)
 
@@ -134,8 +134,8 @@ def test_a_restore_that_was_paused_returns_to_paused() -> None:
 
 
 def test_a_fill_missed_while_closed_is_applied_and_its_counter_placed() -> None:
-    world = _restored()
-    _filled_while_closed(world, Decimal(110), "2.272")
+    world = restored()
+    filled_while_closed(world, Decimal(110), "2.272")
     world.derive("2.272")
     world.hold("2.272")
 
@@ -153,8 +153,8 @@ def test_a_missed_fill_counts_the_fee_its_trades_paid_in_base() -> None:
     the 2.272 BTC bought, so 2.269728 arrived: the inventory counts that, and
     the counter SELL asks for no more, or trading refuses it as more than the
     bot holds (the fake-exchange restart journey found this)."""
-    world = _restored()
-    _filled_while_closed(world, Decimal(110), "2.272")
+    world = restored()
+    filled_while_closed(world, Decimal(110), "2.272")
     world.activity.trades.append(_trade(7, Decimal(110), "2.272", "0.002272"))
     world.derive("2.269728")
     world.hold("2.269728")
@@ -173,8 +173,8 @@ def test_an_order_sent_but_never_saved_is_adopted_and_its_level_not_placed_twice
 ):
     """The crash before saving: the BUY at 110 filled and its counter SELL at
     120 was sent, then the app died before writing either."""
-    world = _restored()
-    _filled_while_closed(world, Decimal(110), "2.272")
+    world = restored()
+    filled_while_closed(world, Decimal(110), "2.272")
     unsaved = _tagged("120")
     world.book.open[unsaved.client_order_id] = unsaved
     world.derive("2.272")
@@ -192,7 +192,7 @@ def test_an_order_sent_but_never_saved_is_adopted_and_its_level_not_placed_twice
 
 
 def test_a_saved_inventory_unlike_the_derived_one_halts() -> None:
-    world = _restored()
+    world = restored()
     world.derive("1")
     world.hold("5")
 
@@ -203,7 +203,7 @@ def test_a_saved_inventory_unlike_the_derived_one_halts() -> None:
 
 
 def test_a_user_holding_more_of_the_base_than_the_bot_is_not_halted() -> None:
-    world = _restored()
+    world = restored()
     world.hold("7.5")
 
     _enable(world)
@@ -212,8 +212,8 @@ def test_a_user_holding_more_of_the_base_than_the_bot_is_not_halted() -> None:
 
 
 def test_an_account_holding_less_than_the_bot_bought_halts() -> None:
-    world = _restored()
-    _filled_while_closed(world, Decimal(110), "2.272")
+    world = restored()
+    filled_while_closed(world, Decimal(110), "2.272")
     world.derive("2.272")
     world.hold("1")
 
@@ -224,7 +224,7 @@ def test_an_account_holding_less_than_the_bot_bought_halts() -> None:
 
 
 def test_two_tagged_orders_at_one_level_halt() -> None:
-    world = _restored()
+    world = restored()
     extra = _tagged("100", OrderSide.BUY)
     world.book.open[extra.client_order_id] = extra
 
@@ -235,7 +235,7 @@ def test_two_tagged_orders_at_one_level_halt() -> None:
 
 
 def test_a_tagged_order_at_no_level_halts() -> None:
-    world = _restored()
+    world = restored()
     stray = _tagged("125")
     world.book.open[stray.client_order_id] = stray
 
@@ -246,7 +246,7 @@ def test_a_tagged_order_at_no_level_halts() -> None:
 
 
 def test_a_lease_held_by_another_owner_halts() -> None:
-    world = _restored()
+    world = restored()
     world.session.claim_symbol(SYMBOL, "strategy")
 
     _enable(world)
@@ -256,7 +256,7 @@ def test_a_lease_held_by_another_owner_halts() -> None:
 
 
 def test_a_refused_budget_leaves_the_bot_recovering() -> None:
-    world = _restored()
+    world = restored()
     world.session.register_owner_budget_answers(
         OwnerBudgetRegistrationResult(OwnerBudgetRefusal.INVENTORY_UNAVAILABLE)
     )

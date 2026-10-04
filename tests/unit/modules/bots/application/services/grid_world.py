@@ -228,6 +228,7 @@ def grid_world(
     queue: IBotWorkQueue | None = None,
     runtime: GridRuntime | None = None,
     recovering_from: BotLifecycleState | None = None,
+    book_readable: bool = True,
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
@@ -245,7 +246,9 @@ def grid_world(
                 SYMBOL: BestBidAsk(
                     SYMBOL, LAST_PRICE, Decimal(1), LAST_PRICE, Decimal(1)
                 )
-            },
+            }
+            if book_readable
+            else {},
             notional_limit=CAP,
         ),
         account_activity=activity,
