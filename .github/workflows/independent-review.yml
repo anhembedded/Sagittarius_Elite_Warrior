@@ -35,7 +35,14 @@ jobs:
       - name: Judge the review and set the status
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        run: >-
-          python3 scripts/check_independent_review.py
-          --repository "${{ github.repository }}"
-          --pull-request "${{ github.event.pull_request.number || github.event.issue.number }}"
+        # The script runs from the default branch, never from the pull request,
+        # so a pull request cannot rewrite its own judge. Until the pull request
+        # that adds it merges, the default branch has no script: say so and stop.
+        run: |
+          if [ ! -f scripts/check_independent_review.py ]; then
+            echo "::notice::scripts/check_independent_review.py is not on the default branch yet; no status set."
+            exit 0
+          fi
+          python3 scripts/check_independent_review.py \
+            --repository "${{ github.repository }}" \
+            --pull-request "${{ github.event.pull_request.number || github.event.issue.number }}"
