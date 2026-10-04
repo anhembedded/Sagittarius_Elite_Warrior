@@ -18,6 +18,12 @@ Two targets are not states, and the table says so instead of hiding them:
 loaded bot goes through this table like every other change: RUNNING and PAUSED
 become RECOVERING, STARTING becomes HALTED (review round 2), and every other
 state keeps itself. Nothing at start places an order (D12).
+
+`halt` **(added by `EPIC-029E`)** is the ADR's "halts the bot" for a cause the
+table had no column for: a level that keeps ending, an order the exchange
+rejected, a counter order with nowhere to go (RUNNING or PAUSED), and an exit
+slice that failed (STOPPING, naming the unsold remainder, §3.4). Each leads to
+HALTED, whose exit is a resume that re-plans (D13) or a stop.
 """
 
 from __future__ import annotations
@@ -56,6 +62,7 @@ class BotLifecycleEvent(str, Enum):
     RECONCILE_MISMATCH = "reconcile_mismatch"
     FAULT = "fault"
     APP_RESTART = "app_restart"
+    HALT = "halt"
 
 
 class BotLifecycleTarget(str, Enum):
@@ -101,12 +108,14 @@ BOT_LIFECYCLE_TRANSITIONS: dict[
     (_S.RUNNING, _E.STOP): _S.STOPPING,
     (_S.RUNNING, _E.SWITCH_OFF): _S.HALTED,
     (_S.RUNNING, _E.FAULT): _S.ERROR,
+    (_S.RUNNING, _E.HALT): _S.HALTED,
     (_S.RUNNING, _E.APP_RESTART): _S.RECOVERING,
     # --- PAUSED ---
     (_S.PAUSED, _E.RESUME): _S.RUNNING,
     (_S.PAUSED, _E.STOP): _S.STOPPING,
     (_S.PAUSED, _E.SWITCH_OFF): _S.HALTED,
     (_S.PAUSED, _E.FAULT): _S.ERROR,
+    (_S.PAUSED, _E.HALT): _S.HALTED,
     (_S.PAUSED, _E.APP_RESTART): _S.RECOVERING,
     # --- RECOVERING ---
     (_S.RECOVERING, _E.STOP): _S.STOPPING,
@@ -125,6 +134,7 @@ BOT_LIFECYCLE_TRANSITIONS: dict[
     (_S.STOPPING, _E.STOP_CONFIRMED): _S.STOPPED,
     (_S.STOPPING, _E.SWITCH_OFF): _S.STOPPING,
     (_S.STOPPING, _E.FAULT): _S.ERROR,
+    (_S.STOPPING, _E.HALT): _S.HALTED,
     (_S.STOPPING, _E.APP_RESTART): _S.STOPPING,
     # --- STOPPED ---
     (_S.STOPPED, _E.EDIT): _S.DRAFT,

@@ -20,6 +20,12 @@ class BotRefusal(str, Enum):
     INVALID_DEFINITION = "INVALID_DEFINITION"
     #: ADR D20: during the fast track one bot at a time holds the exchange.
     ONE_RUNNING_BOT_DURING_FAST_TRACK = "ONE_RUNNING_BOT_DURING_FAST_TRACK"
+    #: `EPIC-029E` — start's preconditions (ADR §3.1): a Spot venue with
+    #: trading on, no REFUSED verdict, the symbol's lease, the owner budget.
+    VENUE_NOT_READY = "VENUE_NOT_READY"
+    PARAMETERS_REFUSED = "PARAMETERS_REFUSED"
+    SYMBOL_LEASED = "SYMBOL_LEASED"
+    BUDGET_REFUSED = "BUDGET_REFUSED"
 
 
 @dataclass(frozen=True, slots=True)

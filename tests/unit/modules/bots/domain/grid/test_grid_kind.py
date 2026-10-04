@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from decimal import Decimal
 
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_order_events import (
+    BotOrderEnd,
+    BotOrderFill,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
     BaseHandling,
     IBotExecutor,
@@ -25,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_overlay import 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
     GridThresholds,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.trading_switch_changed_event import (
+    TradingSwitchCause,
+)
 from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_example import (
     inputs,
 )
@@ -38,6 +45,16 @@ class _Executor(IBotExecutor):
     def resume(self) -> None: ...
 
     def stop(self, base: BaseHandling) -> None: ...
+
+    def confirm_resume(self) -> None: ...
+
+    def on_fill(self, fill: BotOrderFill) -> None: ...
+
+    def on_end(self, end: BotOrderEnd) -> None: ...
+
+    def on_tick(self, price: Decimal) -> None: ...
+
+    def on_switch(self, enabled: bool, cause: TradingSwitchCause) -> None: ...
 
 
 class _Factory(IBotExecutorFactory):

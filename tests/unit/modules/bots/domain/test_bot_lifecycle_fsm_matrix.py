@@ -1,4 +1,4 @@
-"""`EPIC-029B` — the lifecycle table is ADR §3.1, cell by cell.
+"""`EPIC-029B` — the lifecycle table is ADR §3.1, cell by cell, plus `EPIC-029E`'s `halt`.
 
 `_EXPECTED` is typed from the ADR's table independently of the matrix, so a cell
 changed in one and not the other fails here. Every undeclared pair is walked
@@ -39,11 +39,13 @@ _EXPECTED: dict[tuple[S, E], S | T] = {
     (S.RUNNING, E.STOP): S.STOPPING,
     (S.RUNNING, E.SWITCH_OFF): S.HALTED,
     (S.RUNNING, E.FAULT): S.ERROR,
+    (S.RUNNING, E.HALT): S.HALTED,
     (S.RUNNING, E.APP_RESTART): S.RECOVERING,
     (S.PAUSED, E.RESUME): S.RUNNING,
     (S.PAUSED, E.STOP): S.STOPPING,
     (S.PAUSED, E.SWITCH_OFF): S.HALTED,
     (S.PAUSED, E.FAULT): S.ERROR,
+    (S.PAUSED, E.HALT): S.HALTED,
     (S.PAUSED, E.APP_RESTART): S.RECOVERING,
     (S.RECOVERING, E.STOP): S.STOPPING,
     (S.RECOVERING, E.SWITCH_OFF): S.RECOVERING,
@@ -59,6 +61,7 @@ _EXPECTED: dict[tuple[S, E], S | T] = {
     (S.STOPPING, E.STOP_CONFIRMED): S.STOPPED,
     (S.STOPPING, E.SWITCH_OFF): S.STOPPING,
     (S.STOPPING, E.FAULT): S.ERROR,
+    (S.STOPPING, E.HALT): S.HALTED,
     (S.STOPPING, E.APP_RESTART): S.STOPPING,
     (S.STOPPED, E.EDIT): S.DRAFT,
     (S.STOPPED, E.DELETE): T.REMOVED,

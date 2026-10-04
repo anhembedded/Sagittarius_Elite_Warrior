@@ -1,0 +1,295 @@
+"""`EPIC-029E` — what must hold before a Grid starts, and the runner that checks it
+(ADR §3.1, D6, D9).
+
+Each precondition refuses by name and leaves the bot as it was; a refused budget
+gives the lease back. When all hold, the runner moves the bot to STARTING, builds
+its executor and queues the start, which lays the ladder.
+"""
+
+from __future__ import annotations
+
+from dataclasses import dataclass
+from datetime import timedelta
+from decimal import Decimal
+
+import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_executors import (
+    BotExecutors,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.bot_runner import (
+    BotRunner,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_executor_factory import (
+    GridExecutorDeps,
+    GridExecutorFactory,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_start_preconditions import (
+    GridStartPreconditions,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.bot_command_result import (
+    BotRefusal,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_executor import (
+    BaseHandling,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.i_bot_store import StoredBot
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_clock import (
+    FakeBotClock,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.contracts.testing.fake_bot_store import (
+    FakeBotStore,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot import (
+    Bot,
+    BotDefinition,
+    BotLifecycle,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_id import BotId
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
+    BotLifecycleState,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_thresholds import (
+    GridThresholds,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.best_bid_ask import (
+    BestBidAsk,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget import (
+    DEFAULT_OWNER_BUDGET_CAPS,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.owner_budget_registration import (
+    OwnerBudgetRefusal,
+    OwnerBudgetRegistrationResult,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_order_entry_terms import (
+    FakeOrderEntryTerms,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_trading_session import (
+    FakeTradingSession,
+)
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_trading_ports import (
+    FakeVenueTradingPorts,
+    fake_venue_ports,
+)
+from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
+    TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.bots.application.services.grid_world import (
+    BOT,
+    CAP,
+    CONFIG,
+    LAST_PRICE,
+    SYMBOL,
+    CountingPacer,
+    InlineWorkQueue,
+    SimulatedActivity,
+    SimulatedBook,
+    SimulatedSubmission,
+    terms_entry,
+)
+
+S = BotLifecycleState
+
+
+class _ClosableInlineQueue(InlineWorkQueue):
+    """Records the bot's stored state at the moment it is closed."""
+
+    def __init__(self, store: FakeBotStore) -> None:
+        self._store = store
+        self.closed_with: BotLifecycleState | None = None
+
+    def close(self) -> None:
+        self.closed_with = self._store.load(BotId(BOT)).bot.state
+
+
+@dataclass
+class _Start:
+    store: FakeBotStore
+    clock: FakeBotClock
+    session: FakeTradingSession
+    book: SimulatedBook
+    preconditions: GridStartPreconditions
+    runner: BotRunner
+    queues: list[_ClosableInlineQueue]
+
+
+def _start_world(
+    cap: Decimal = CAP, venue: TradingVenue = TradingVenue.SPOT_TESTNET
+) -> _Start:
+    book = SimulatedBook()
+    session = FakeTradingSession()
+    session.set_enabled(enabled=True)
+    ports = FakeVenueTradingPorts(
+        fake_venue_ports(
+            TradingVenue.SPOT_TESTNET,
+            trading_session=session,
+            order_submission=SimulatedSubmission(book),
+            order_entry_terms=FakeOrderEntryTerms(
+                terms_entry(),
+                books={
+                    SYMBOL: BestBidAsk(
+                        SYMBOL, LAST_PRICE, Decimal(1), LAST_PRICE, Decimal(1)
+                    )
+                },
+                notional_limit=cap,
+            ),
+            account_activity=SimulatedActivity(book),
+        )
+    )
+    store = FakeBotStore()
+    clock = FakeBotClock()
+    definition = BotDefinition("grid one", "grid", venue, SYMBOL, CONFIG)
+    store.save(StoredBot(Bot.draft(BotId(BOT), definition, clock.now()), {}))
+    preconditions = GridStartPreconditions(
+        ports, DEFAULT_OWNER_BUDGET_CAPS, GridThresholds()
+    )
+    queues: list[_ClosableInlineQueue] = []
+
+    def queue(_name: str) -> _ClosableInlineQueue:
+        queues.append(_ClosableInlineQueue(store))
+        return queues[-1]
+
+    executors = BotExecutors(
+        GridExecutorFactory(
+            GridExecutorDeps(
+                ports,
+                store,
+                clock,
+                DEFAULT_OWNER_BUDGET_CAPS,
+                queue,
+                lambda _spacing: CountingPacer(),
+            )
+        )
+    )
+    runner = BotRunner(store, clock, preconditions, executors)
+    return _Start(store, clock, session, book, preconditions, runner, queues)
+
+
+def _bot(world: _Start) -> Bot:
+    return world.store.load(BotId(BOT)).bot
+
+
+def test_all_preconditions_held_register_the_budget_for_this_run() -> None:
+    world = _start_world()
+
+    assert world.preconditions.check(_bot(world), world.clock.now()) is None
+
+    registration = world.session.budgets[f"bot.{BOT}"]
+    assert registration.tag == BOT
+    assert registration.symbol == SYMBOL
+    assert registration.run_started_at == world.clock.now()
+    assert registration.budget.max_open_orders == 5
+    assert registration.budget.max_exposure_quote == Decimal(1000)
+    assert registration.budget.min_order_spacing == timedelta(milliseconds=250)
+    assert not world.session.claim_symbol(SYMBOL, "manual")
+
+
+def test_a_futures_venue_is_refused() -> None:
+    world = _start_world(venue=TradingVenue.FUTURES_TESTNET)
+
+    refusal = world.preconditions.check(_bot(world), world.clock.now())
+
+    assert refusal is not None
+    assert refusal.refusal is BotRefusal.VENUE_NOT_READY
+
+
+def test_trading_off_is_refused() -> None:
+    world = _start_world()
+    world.session.set_enabled(enabled=False)
+
+    refusal = world.preconditions.check(_bot(world), world.clock.now())
+
+    assert refusal is not None
+    assert refusal.refusal is BotRefusal.VENUE_NOT_READY
+    assert "trading is off" in refusal.message
+
+
+def test_a_refused_verdict_is_refused_naming_it() -> None:
+    """250 USDT a level above a 200 cap: the planner's D21 refusal."""
+    world = _start_world(cap=Decimal(200))
+
+    refusal = world.preconditions.check(_bot(world), world.clock.now())
+
+    assert refusal is not None
+    assert refusal.refusal is BotRefusal.PARAMETERS_REFUSED
+    assert refusal.message
+    assert world.session.budgets == {}
+
+
+def test_a_symbol_held_by_another_owner_is_refused() -> None:
+    world = _start_world()
+    world.session.claim_symbol(SYMBOL, "strategy")
+
+    refusal = world.preconditions.check(_bot(world), world.clock.now())
+
+    assert refusal is not None
+    assert refusal.refusal is BotRefusal.SYMBOL_LEASED
+    assert world.session.budgets == {}
+
+
+def test_a_refused_budget_gives_the_lease_back() -> None:
+    world = _start_world()
+    world.session.register_owner_budget_answers(
+        OwnerBudgetRegistrationResult(
+            OwnerBudgetRefusal.ABOVE_GLOBAL_CAP, exceeded_cap="max_open_orders"
+        )
+    )
+
+    refusal = world.preconditions.check(_bot(world), world.clock.now())
+
+    assert refusal is not None
+    assert refusal.refusal is BotRefusal.BUDGET_REFUSED
+    assert "max_open_orders" in refusal.message
+    assert world.session.claim_symbol(SYMBOL, "manual")
+
+
+def test_the_runner_starts_a_draft_bot_through_to_running() -> None:
+    world = _start_world()
+
+    result = world.runner.start(BOT)
+
+    assert result.accepted
+    assert _bot(world).state is S.RUNNING
+    assert _bot(world).lifecycle.run_started_at == world.clock.now()
+    assert len(world.book.open) == 4
+
+
+def test_a_new_run_closes_the_previous_runs_worker_before_it_starts() -> None:
+    world = _start_world()
+    world.runner.start(BOT)
+    world.runner.stop(BOT, BaseHandling.KEEP)
+    assert _bot(world).state is S.STOPPED
+
+    world.runner.start(BOT)
+
+    """Closed before the new run is written: a task still queued on the old
+    worker can no longer save a stale bot over the new run's file."""
+    assert [queue.closed_with for queue in world.queues] == [S.STOPPED, None]
+    assert _bot(world).state is S.RUNNING
+
+
+def test_a_refused_start_leaves_the_bot_a_draft() -> None:
+    world = _start_world()
+    world.session.set_enabled(enabled=False)
+
+    result = world.runner.start(BOT)
+
+    assert result.refusal is BotRefusal.VENUE_NOT_READY
+    assert _bot(world).state is S.DRAFT
+    assert world.book.requests == []
+
+
+@pytest.mark.parametrize("state", [S.RUNNING, S.HALTED, S.ERROR])
+def test_starting_an_active_bot_is_an_invalid_transition(
+    state: BotLifecycleState,
+) -> None:
+    world = _start_world()
+    draft = _bot(world)
+    world.store.save(
+        StoredBot(
+            Bot(draft.bot_id, draft.definition, BotLifecycle(state), draft.created_at),
+            {},
+        )
+    )
+
+    assert world.runner.start(BOT).refusal is BotRefusal.INVALID_TRANSITION
