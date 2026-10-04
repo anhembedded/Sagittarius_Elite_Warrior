@@ -242,19 +242,26 @@ Revised after the review of PR #317 (round 1). Changes from the first draft carr
 
 ### 3.1 Bot lifecycle (D3, D12, D13)
 
-| From \ event | `edit` | `delete` | `start` | `ladder_ready` | `start_refused` | `pause` | `resume` | `stop` | `stop_confirmed` | `switch_off` | `reconcile_ok` | `reconcile_mismatch` | `fault` | `app_restart` |
-| :--- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- |
-| DRAFT | DRAFT | (removed) | STARTING | — | — | — | — | — | — | — | — | — | — | DRAFT |
-| STARTING | — | — | — | RUNNING | HALTED | — | — | STOPPING | — | HALTED | — | — | ERROR | HALTED **(r2)** |
-| RUNNING | — | — | — | — | — | PAUSED | — | STOPPING | — | HALTED | — | — | ERROR | RECOVERING |
-| PAUSED | — | — | — | — | — | — | RUNNING | STOPPING | — | HALTED | — | — | ERROR | RECOVERING |
-| RECOVERING | — | — | — | — | — | — | — | STOPPING | — | RECOVERING | prior (RUNNING or PAUSED) | HALTED | ERROR | RECOVERING |
-| HALTED | — | — | — | — | — | — | STARTING (re-plan, D13) | STOPPING | — | HALTED | — | — | ERROR | HALTED |
-| STOPPING | — | — | — | — | — | — | — | — | STOPPED | STOPPING (waits) | — | — | ERROR | STOPPING |
-| STOPPED | DRAFT | (removed) | STARTING | — | — | — | — | — | — | — | — | — | — | STOPPED |
-| ERROR | — | — | — | — | — | — | — | STOPPING | — | ERROR | — | — | — | ERROR |
+| From \ event | `edit` | `delete` | `start` | `ladder_ready` | `start_refused` | `pause` | `resume` | `stop` | `stop_confirmed` | `switch_off` | `reconcile_ok` | `reconcile_mismatch` | `fault` | `app_restart` | `halt` |
+| :--- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- | :-- |
+| DRAFT | DRAFT | (removed) | STARTING | — | — | — | — | — | — | — | — | — | — | DRAFT | — |
+| STARTING | — | — | — | RUNNING | HALTED | — | — | STOPPING | — | HALTED | — | — | ERROR | HALTED **(r2)** | — |
+| RUNNING | — | — | — | — | — | PAUSED | — | STOPPING | — | HALTED | — | — | ERROR | RECOVERING | HALTED |
+| PAUSED | — | — | — | — | — | — | RUNNING | STOPPING | — | HALTED | — | — | ERROR | RECOVERING | HALTED |
+| RECOVERING | — | — | — | — | — | — | — | STOPPING | — | RECOVERING | prior (RUNNING or PAUSED) | HALTED | ERROR | RECOVERING | — |
+| HALTED | — | — | — | — | — | — | STARTING (re-plan, D13) | STOPPING | — | HALTED | — | — | ERROR | HALTED | — |
+| STOPPING | — | — | — | — | — | — | — | — | STOPPED | STOPPING (waits) | — | — | ERROR | STOPPING | HALTED |
+| STOPPED | DRAFT | (removed) | STARTING | — | — | — | — | — | — | — | — | — | — | STOPPED | — |
+| ERROR | — | — | — | — | — | — | — | STOPPING | — | ERROR | — | — | — | ERROR | — |
 
 The rules behind the table:
+
+- **As built (`029E`, PR4): `halt`** moves RUNNING, PAUSED or STOPPING to HALTED when the ladder
+  itself decides to stop placing: an order refused or rejected, a level that keeps ending, a
+  counter order aimed at a level that holds one, an exit slice that failed. `start_refused` stays
+  STARTING's event; `fault` (ERROR) is for a request that raised, and also, through the
+  executor's one fault boundary, for any step outside an order that raised (a price, terms or
+  history read; `GridReason.TASK_FAILED`), so no failure leaves a bot without a reason.
 
 - **`stop_confirmed`** is raised only by a read that shows **zero open orders carrying the bot's
   tag**, after the base asset has been handled per O3.
@@ -277,16 +284,20 @@ The rules behind the table:
 
 ### 3.2 Grid level lifecycle (D3, D10)
 
-| From \ event | `place` | `accepted_or_resting` | `partial_fill` | `full_fill` | `ended` | `adopt` |
-| :--- | :-- | :-- | :-- | :-- | :-- | :-- |
-| EMPTY | PLACING | — | — | — | — | RESTING |
-| PLACING | — | RESTING | PARTIAL | FILLED | EMPTY (+1 failure) | — |
-| RESTING | — | — | PARTIAL | FILLED | EMPTY (+1 failure) | — |
-| PARTIAL | — | — | PARTIAL | FILLED | EMPTY (keeps executed qty as inventory) | — |
-| FILLED | — | — | — | — | — | — |
+| From \ event | `place` | `accepted_or_resting` | `partial_fill` | `full_fill` | `ended` | `adopt` | `settled` |
+| :--- | :-- | :-- | :-- | :-- | :-- | :-- | :-- |
+| EMPTY | PLACING | — | — | — | — | RESTING | — |
+| PLACING | — | RESTING | PARTIAL | FILLED | EMPTY (+1 failure) | — | — |
+| RESTING | — | — | PARTIAL | FILLED | EMPTY (+1 failure) | — | — |
+| PARTIAL | — | — | PARTIAL | FILLED | EMPTY (keeps executed qty as inventory) | — | — |
+| FILLED | — | — | — | — | — | — | EMPTY |
 
 - **FILLED** emits the counter order one level away, and the level returns to EMPTY. **Two
   `ended` events at one level within a minute** halt the bot with `LEVEL_KEEPS_ENDING`.
+- **As built (`029E`):** `settled` is the step from FILLED back to EMPTY once the counter order
+  is emitted, declared so FILLED is not a dead end. An order that ends with what it still owes
+  worth less than the exchange's NOTIONAL minimum is not re-placed (Binance would refuse it): the
+  level settles for what it executed, and its counter order goes out if it clears the minimum.
 - **At start, the level nearest the last price** (within half a step) stays EMPTY, so no order is
   marketable at the taker fee. Levels strictly below the price are BUY and levels strictly above
   are SELL. `max_open_orders = grid_count + 1` is the number of levels: an upper bound with one
@@ -311,10 +322,18 @@ The rules behind the table:
    - It is never an equality with the account's holding, which includes the user's own coins.
 7. **Persist,** then transition: `reconcile_ok` or `reconcile_mismatch`.
 
+**As built (`029E`):** a fill applied in step 4 takes its fees from the order's trades (the history
+row carries none), less what the bot had counted, so the counter SELL is sized net of the base fee
+Spot took. History that does not answer is a wait, not a fault: the bot stays RECOVERING with
+`HISTORY_UNAVAILABLE`, and the next enable retries.
+
 ### 3.4 Sliced market orders: the opening buy and every exit (D21)
 
 - **Slicing.** The opening quote is split into ⌈quote / cap⌉ market BUY slices, each at most the
-  cap, spaced by `min_order_spacing`.
+  cap, spaced by `min_order_spacing`. **As built (`029E`):** the slices are even (they differ by
+  one unit), never the cap then a remainder, which could be a tail below the exchange's NOTIONAL
+  minimum that Binance refuses. The ladder's SELL side is sized net of the taker fee Spot takes in
+  base from the opening buy.
 - **A slice refused or failed** stops the opening. Nothing of the ladder has been placed yet. The
   bot raises `start_refused`, which leads to HALTED with the acquired inventory derived.
 - **Resuming** re-plans with that inventory. The SELL side is sized to what was actually bought.
@@ -323,6 +342,10 @@ The rules behind the table:
   - A refused or failed exit slice halts the bot, naming the unsold remainder; nothing is retried
     silently.
   - Every exit slice carries the bot's tag and passes check 3.
+  - **As built (`029E`):** exit slices are even too. An inventory worth less than the NOTIONAL
+    minimum is dust: nothing is sent and the stop completes, naming it in the log. The stop
+    derives the inventory again after its cancels, so a fill that landed meanwhile is sold or
+    kept with the rest.
 
 ## 4. Alternatives considered
 
@@ -372,6 +395,6 @@ Every recommendation below was accepted. O1's caps and O5's per-order cap are co
 | D1, D2, D3 (bot lifecycle), D4, D20 | [`EPIC-029B`](completed/EPIC-029B_bots_module_entity_and_store.md) | Built in PR1 | Unit, contract and integration tests (task notes); D1's `market_data` arrow waits for `EPIC-029G` |
 | D17, D21 (the planner refusal), the planner | [`EPIC-029C`](completed/EPIC-029C_grid_planner.md) | Built in PR1 | Known answers, boundary tests and a mutation run (task notes) |
 | D14, D18 | [`EPIC-029D`](incomplete/EPIC-029D_grid_backtest.md) | Not started | Not yet verified |
-| D3 (level lifecycle), D9–D13, §3.3, §3.4 | [`EPIC-029E`](incomplete/EPIC-029E_live_grid_executor.md) | Not started | Not yet verified |
+| D3 (level lifecycle), D9–D13, D20, §3.3, §3.4 | [`EPIC-029E`](completed/EPIC-029E_live_grid_executor.md) | Built in PR4 | Unit tests per criterion with mutation runs, and two fake-exchange journeys in the composed app (task notes, including the Binance rules and failure matrix); real orders on Testnet wait for `029H` |
 | D19 | [`EPIC-029F`](incomplete/EPIC-029F_bots_tab.md) | Not started | Not yet verified |
 | D15, D16 | [`EPIC-029G`](completed/EPIC-029G_bot_chart.md) | Built in PR3 | Unit and `qtbot` tests (one drawer, identical items on three surfaces; the desk chart tests unmodified) and the preview; a real stream waits for `029H` |
