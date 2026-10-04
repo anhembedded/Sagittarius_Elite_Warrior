@@ -202,7 +202,7 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
     (
         "tests/unit/architecture/test_every_presenter_package_has_a_preview.py",
         (
-            ("src/modules", "*_presenter.py"),
+            ("src", "*_presenter.py"),
             ("src", "preview.py"),
         ),
     ),
