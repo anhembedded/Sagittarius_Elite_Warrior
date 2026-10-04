@@ -9,6 +9,7 @@ another order.
 
 from __future__ import annotations
 
+from dataclasses import replace
 from decimal import Decimal
 
 from Sagittarius_Elite_Warrior.src.modules.bots.application.services.grid_runtime_codec import (
@@ -95,6 +96,43 @@ def test_a_pause_holds_the_counter_order_and_resume_places_it() -> None:
     assert [(r.side, r.reference_price) for r in world.book.requests] == [
         (OrderSide.SELL, Decimal(120))
     ]
+
+
+def test_two_fills_in_one_pause_never_release_a_crossing_pair() -> None:
+    world = _running()
+    world.executor.pause()
+
+    world.fill(Decimal(110), "2.272")
+    world.fill(Decimal(130), "2.063")
+
+    assert world.state() is S.HALTED
+    assert _runtime(world).reason is GridReason.DUPLICATE_LEVEL_ORDER
+    world.executor.resume()
+    at_120 = [r.side for r in world.book.requests if r.reference_price == Decimal(120)]
+    assert len(at_120) <= 1
+
+
+def test_an_order_is_never_sent_to_a_level_that_already_holds_one() -> None:
+    """The executor checks the level before it submits: a release aimed at a
+    level that holds an order halts with nothing sent, instead of sending it
+    and failing the level transition afterwards."""
+    world = _running()
+    world.executor.pause()
+    world.fill(Decimal(110), "2.272")
+    paused = _runtime(world)
+    resting = world.open_ids_by_price()[Decimal(130)]
+    level = paused.level_of(resting)
+    assert level is not None
+    crowded = paused.with_level(
+        replace(paused.levels[2], state=level.state, order=level.order)
+    )
+    world = grid_world(state=S.PAUSED, runtime=crowded)
+
+    world.executor.resume()
+
+    assert world.book.requests == []
+    assert world.state() is S.HALTED
+    assert _runtime(world).reason is GridReason.DUPLICATE_LEVEL_ORDER
 
 
 def test_an_order_cancelled_from_outside_is_placed_again_once() -> None:

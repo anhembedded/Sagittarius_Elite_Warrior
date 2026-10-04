@@ -288,6 +288,25 @@ def test_a_pause_holds_the_counter_order_and_resume_releases_it() -> None:
     assert released.runtime.held == ()
 
 
+def test_a_pause_the_price_crosses_both_ways_halts_rather_than_stack_a_level() -> None:
+    """While PAUSED the BUY at 110 fills (a SELL at 120 is held), then the
+    price rises through the empty 120 and the SELL at 130 fills (a BUY at 120
+    is owed). Two held orders at one level would be released as a crossing
+    pair from one account; the second halts instead, and a resume re-plans
+    (ADR D13)."""
+    held = on_fill(started_ladder(), _fill(1, "1"), STEP, hold=True).runtime
+
+    second = on_fill(held, _fill(3, "1"), STEP, hold=True)
+
+    assert second.actions == (
+        Halt(
+            GridReason.DUPLICATE_LEVEL_ORDER,
+            "L2 already has a held order; the price crossed it both ways while paused",
+        ),
+    )
+    assert [h.level_index for h in second.runtime.held] == [2]
+
+
 def test_a_counter_aimed_at_a_level_that_holds_an_order_halts() -> None:
     runtime = perform(
         started_ladder(), PlaceOrder(2, OrderSide.BUY, PRICES[2], Decimal(1))

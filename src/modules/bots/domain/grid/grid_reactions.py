@@ -24,6 +24,9 @@ clock. The backtest (`EPIC-029D`) can drive the same functions.
     executed, and its counter order goes out if it clears the minimum.
   · **While placing is held** (PAUSED), a counter order or a re-placement is
     kept in `held` instead of emitted; `release_held` emits them on resume.
+    A second order held for a level that already has one (the price crossed
+    it both ways while paused) halts: released together they would be a
+    crossing pair from one account, and a resume re-plans instead (D13).
 """
 
 from __future__ import annotations
@@ -345,6 +348,13 @@ def _emit(runtime: GridRuntime, action: PlaceOrder | Halt, hold: bool) -> Reacti
     if isinstance(action, Halt):
         return _halt(runtime, action.reason, action.detail)
     if hold:
+        if any(h.level_index == action.level_index for h in runtime.held):
+            return _halt(
+                runtime,
+                GridReason.DUPLICATE_LEVEL_ORDER,
+                f"L{action.level_index} already has a held order; the price "
+                "crossed it both ways while paused",
+            )
         held = HeldOrder(
             action.level_index,
             action.side,

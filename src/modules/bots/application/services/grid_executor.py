@@ -68,6 +68,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_ladder import (
     crossed_exit,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_level_fsm_matrix import (
+    LevelState,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_plan import plan
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_reactions import (
     GridAction,
@@ -321,6 +324,13 @@ class GridExecutor(IBotExecutor):
 
     def _place(self, action: PlaceOrder) -> bool:
         state = self._context.state
+        if state.runtime.levels[action.level_index].state is not LevelState.EMPTY:
+            halt_with(
+                state,
+                GridReason.DUPLICATE_LEVEL_ORDER,
+                f"L{action.level_index} already holds an order; nothing was sent",
+            )
+            return False
         outcome = self._context.gateway.place_limit(
             action.side, action.price, action.quantity
         )
