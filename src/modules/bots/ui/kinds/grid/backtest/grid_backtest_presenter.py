@@ -71,6 +71,7 @@ class GridBacktestPresenter(QObject):
         self._tracker: ActionOwnershipTracker[str, str, None] = ActionOwnershipTracker()
         self._context: BacktestContext | None = None
         self._last: RunGridBacktestQuery | None = None
+        self._shown_reason = _NO_BOT
         view.run_requested.connect(self._on_run_requested)
         view.cancel_requested.connect(self._on_cancel_requested)
         view.sync_requested.connect(self._on_sync_requested)
@@ -78,17 +79,25 @@ class GridBacktestPresenter(QObject):
         view.show_idle(_NO_BOT)
 
     def follow(self, context: BacktestContext | None) -> None:
+        """The Bots screen calls this on every refresh of the selection (its
+        clock, each planner answer, each edit), so it redraws the idle state
+        only when the bot or the reason Run is off changed: a refusal's sync
+        offer stays until the user acts on it."""
         before = self._context.bot_id if self._context else None
         self._context = context
-        if before != (context.bot_id if context else None):
+        moved = before != (context.bot_id if context else None)
+        if moved:
             self._stop()
             self._last = None
             self._view.clear_result()
-        if not self._busy():
-            self._view.show_idle(self._why_not())
+        reason = self._why_not()
+        if not self._busy() and (moved or reason != self._shown_reason):
+            self._view.show_idle(reason)
+        self._shown_reason = reason
 
     def shutdown(self) -> None:
         self._stop()
+        self._coordinator.close()
         self._view.shutdown()
 
     # -- commands ------------------------------------------------------------ #
@@ -166,6 +175,13 @@ class GridBacktestPresenter(QObject):
             result.equity,
             summary_rows(result),
         )
+        window = result.provenance.window
+        if window is not None and window.missing_candles:
+            self._view.offer_sync(
+                f"Backtest done on what is stored: {window.missing_candles} "
+                "candles of the period are not stored. Sync candles fetches "
+                "them, then runs again."
+            )
 
     # -- helpers --------------------------------------------------------------- #
 

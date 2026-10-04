@@ -129,6 +129,41 @@ def test_without_fine_data_the_candle_is_coarse_and_completes_no_cycle() -> None
     assert result.coarse_periods == (bar.time,)
 
 
+def test_one_second_klines_that_miss_the_candles_range_are_not_trusted() -> None:
+    """A partial set (a sync stopped half way, or seconds missing) that never
+    reaches the candle's low cannot order it: the candle is replayed coarse,
+    listed as such, and the crash to 56,000 still meets the stop loss."""
+    crash = _bar(0, "65000", "65100", "56000", "64000")
+    partial = {crash.time: (_kline(0, 0, "65000", "65100", "64900", "65000"),)}
+
+    coarse = _replay([crash])
+    replay = _replay([crash], partial)
+
+    assert coarse.stop_reason is StopReason.STOP_LOSS
+    assert replay.stop_reason is StopReason.STOP_LOSS
+    assert replay.coarse_periods == (crash.time,)
+    assert replay.equity[-1].grid == coarse.equity[-1].grid
+
+
+def test_the_result_says_how_much_of_the_period_asked_for_was_stored() -> None:
+    bars = (
+        _bar(0, "65000", "65010", "64990", "65000"),
+        _bar(2, "65000", "65010", "64990", "65000"),
+    )
+    params = GridParams.from_config(CONFIG)
+    result = simulate_grid(
+        GridBacktestInputs(
+            params, TERMS, bars, MINUTE, window=(START, START + 4 * MINUTE)
+        )
+    )
+
+    assert isinstance(result, GridBacktestResult)
+    window = result.provenance.window
+    assert window is not None
+    assert (window.expected_candles, window.stored_candles) == (4, 2)
+    assert window.missing_candles == 2
+
+
 def test_a_red_kline_visits_its_high_before_its_low() -> None:
     bar = _bar(0, "65000", "66000.01", "63999.99", "64500")
     fine = {bar.time: (_kline(0, 0, "65000", "66000.01", "63999.99", "64500"),)}

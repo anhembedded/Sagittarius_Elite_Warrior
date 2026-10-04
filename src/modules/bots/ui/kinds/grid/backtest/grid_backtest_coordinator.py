@@ -7,6 +7,12 @@ error)` on the Qt thread. Cancellation is the one thing it holds: each run
 gets its own `threading.Event`, which the query and the sync poll between
 candles and between fetches, so `stop()` ends the run in flight and only
 that run.
+
+The coordinator has no Qt parent: the page that built it can close (another
+bot's kind, no selection) while a worker is still on the pool, and a child of
+the page would die with it, leaving the worker to emit on a deleted object
+(the PR #338 review). Unparented, it lives as long as the worker holds it;
+`close()` marks it closed so a late answer is dropped, not emitted.
 """
 
 from __future__ import annotations
@@ -40,21 +46,19 @@ class GridBacktestCoordinator(QObject):
 
     #: The action id, the answer (or `None`), and an error in words (or "").
     finished = Signal(int, object, str)
-    _done = Signal(int, object, str)
 
     def __init__(
         self,
         threads: IThreadManager,
         dispatcher: ICommandDispatcher,
         sync: IMarketDataSync,
-        parent: QObject | None = None,
     ) -> None:
-        super().__init__(parent)
+        super().__init__()
         self._threads = threads
         self._dispatcher = dispatcher
         self._sync = sync
         self._cancel = threading.Event()
-        self._done.connect(self.finished)
+        self._closed = threading.Event()
 
     def start_backtest(self, action_id: int, query: RunGridBacktestQuery) -> None:
         cancel = self._fresh_cancel()
@@ -83,6 +87,11 @@ class GridBacktestCoordinator(QObject):
         """Stops the run in flight; idempotent."""
         self._cancel.set()
 
+    def close(self) -> None:
+        """Stops the run in flight and drops every answer still to come."""
+        self._closed.set()
+        self._cancel.set()
+
     def _fresh_cancel(self) -> threading.Event:
         self._cancel.set()
         self._cancel = threading.Event()
@@ -92,8 +101,14 @@ class GridBacktestCoordinator(QObject):
         self._threads.submit(self._on_pool, action_id, work)
 
     def _on_pool(self, action_id: int, work: Callable[[], object]) -> None:
+        answer: object = None
+        error = ""
         try:
-            self._done.emit(action_id, work(), "")
+            answer = work()
         except Exception as exc:  # noqa: BLE001 - worker boundary: the failure is shown in words, not lost to a pool thread
             logger.warning("Grid backtest work %s failed: %s", action_id, exc)
-            self._done.emit(action_id, None, str(exc) or type(exc).__name__)
+            error = str(exc) or type(exc).__name__
+        if self._closed.is_set():
+            logger.debug("Grid backtest work %s ended after its page closed", action_id)
+            return
+        self.finished.emit(action_id, answer, error)

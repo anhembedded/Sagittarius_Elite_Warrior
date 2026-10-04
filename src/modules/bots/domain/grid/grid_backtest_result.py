@@ -78,6 +78,21 @@ class EquityPoint:
 
 
 @dataclass(frozen=True, slots=True)
+class DataWindow:
+    """The period a replay was asked for, and how much of it was stored."""
+
+    start: datetime
+    end: datetime
+    expected_candles: int
+    stored_candles: int
+
+    @property
+    def missing_candles(self) -> int:
+        """Candles of the period not stored: not there at all, or gaps."""
+        return max(self.expected_candles - self.stored_candles, 0)
+
+
+@dataclass(frozen=True, slots=True)
 class BacktestProvenance:
     """What produced a result (`domain-truth-rule.md`: snapshots carry it)."""
 
@@ -87,6 +102,8 @@ class BacktestProvenance:
     first_candle: datetime
     last_candle: datetime
     fill_rule: str
+    #: The period asked for; `None` when the caller replays bars it chose.
+    window: DataWindow | None = None
 
 
 @dataclass(frozen=True, slots=True)

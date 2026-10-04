@@ -3,8 +3,9 @@
 Pure functions, so what the user reads is tested without a widget:
 · `summary_rows` — the figures beside the charts, each with its caveat: grid
   profit apart from unrealised, both curves' end value against the capital,
-  fees by maker and taker, why the replay stopped, the fill rule, and how
-  many candles were replayed without 1-second klines (never silently, D14);
+  fees by maker and taker, why the replay stopped, the fill rule, how many
+  candles were replayed without 1-second klines (never silently, D14), and
+  how many of the period's candles were stored;
 · `chart_candles` — the replayed candles as the chart draws them;
 · `result_overlay` — the plan with the replay's fills and final level
   states, through `grid_overlay`, the one computation the planner and the
@@ -79,6 +80,7 @@ def summary_rows(result: GridBacktestResult) -> tuple[SummaryRow, ...]:
         SummaryRow("Stopped by", stop),
         SummaryRow("Fill rule", provenance.fill_rule),
         SummaryRow("Without 1-second klines", _coarse(result)),
+        *_stored(result),
     )
 
 
@@ -140,3 +142,15 @@ def _coarse(result: GridBacktestResult) -> str:
         f"{count} of {len(result.bars)} candles: their order inside the candle "
         "was assumed (down first), which can understate a grid's cycles"
     )
+
+
+def _stored(result: GridBacktestResult) -> tuple[SummaryRow, ...]:
+    """How much of the period asked for was stored, when it is known."""
+    window = result.provenance.window
+    if window is None:
+        return ()
+    asked = f"{window.start:%Y-%m-%d %H:%M} to {window.end:%Y-%m-%d %H:%M} UTC"
+    text = f"{window.stored_candles} of {window.expected_candles} in {asked}"
+    if window.missing_candles:
+        text += ": the replay ran on what is stored, not the whole period"
+    return (SummaryRow("Candles stored", text),)

@@ -2,8 +2,8 @@
 
 `simulate_grid` walks the candles oldest first. A candle no resting order or
 exit could react to is skipped, 1-second klines and all; one that could is
-replayed through its 1-second klines, or, without them, as one coarse step,
-listed in `coarse_periods`. After each candle the grid's equity and the
+replayed through its 1-second klines, or, without klines spanning its low and
+high, as one coarse step, listed in `coarse_periods`. After each candle the grid's equity and the
 buy-and-hold value at its close are recorded on the same timestamp.
 
 The replay stops at the last candle (`END_OF_DATA`), at an exit (`STOP_LOSS`,
@@ -17,6 +17,7 @@ and runs this on a worker.
 
 from __future__ import annotations
 
+import math
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -33,6 +34,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.fine_klines import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
     BacktestProvenance,
+    DataWindow,
     EquityPoint,
     GridBacktestCancelled,
     GridBacktestResult,
@@ -63,6 +65,9 @@ class GridBacktestInputs:
     bar_length: timedelta
     #: Where each reactive candle's 1-second klines come from.
     fine: FineKlines = field(default_factory=NoFineKlines)
+    #: The period the bars were read for, `[start, end)`: the result says how
+    #: many of its candles were stored. `None` for bars chosen by the caller.
+    window: tuple[datetime, datetime] | None = None
 
     def __post_init__(self) -> None:
         if not self.bars:
@@ -96,10 +101,12 @@ def simulate_grid(
             return GridBacktestCancelled(replayed, len(bars))
         last = bar
         if replay.may_trade_in(bar.low, bar.high):
-            fine = inputs.fine.within(bar.time, bar.time + inputs.bar_length)
-            if not fine:
+            steps = steps_for(
+                bar, inputs.fine.within(bar.time, bar.time + inputs.bar_length)
+            )
+            if steps[0].coarse:
                 coarse.append(bar.time)
-            for step in steps_for(bar, fine):
+            for step in steps:
                 replay.run_step(step)
                 if replay.stop is not None:
                     break
@@ -117,6 +124,7 @@ def simulate_grid(
             first_candle=first.time,
             last_candle=last.time,
             fill_rule=FILL_RULE,
+            window=_data_window(inputs),
         ),
         plan=replay.plan,
         bars=bars[: len(equity)],
@@ -132,4 +140,16 @@ def simulate_grid(
         final_states=replay.drawn_states(),
         average_cost=runtime.average_cost,
         stop_detail=replay.stop_detail,
+    )
+
+
+def _data_window(inputs: GridBacktestInputs) -> DataWindow | None:
+    if inputs.window is None:
+        return None
+    start, end = inputs.window
+    return DataWindow(
+        start=start,
+        end=end,
+        expected_candles=math.ceil((end - start) / inputs.bar_length),
+        stored_candles=len(inputs.bars),
     )

@@ -4,8 +4,10 @@ Two hours of BTCUSDT swinging through the report's ladder, written as
 1-second klines and the 1-minute candles they make, then replayed through
 `RunGridBacktestQuery` against `SQLAlchemyMarketDataRepository`: the
 repository's stream feeds the replay a candle at a time. The same period
-without its 1-second klines is replayed coarse, which is conservative: it
-never completes more cycles than the 1-second replay.
+without its 1-second klines is replayed coarse, which is conservative in
+cycles: it never completes more than the 1-second replay. (Its final equity
+can still differ either way through the inventory marked at the end, the
+PR #338 review's randomized probe, so that is not claimed.)
 
 Two hours rather than the task's week: a week is 600,000 one-second rows,
 minutes of inserts for the same mechanism (recorded in the task file).
@@ -149,7 +151,7 @@ def test_two_stored_hours_replay_through_their_one_second_klines(
     assert result.maker_fees > 0
 
 
-def test_without_one_second_klines_the_replay_is_coarse_and_never_kinder(
+def test_without_one_second_klines_the_replay_is_coarse_and_completes_no_more_cycles(
     repository: SQLAlchemyMarketDataRepository,
 ) -> None:
     seconds = _seconds()

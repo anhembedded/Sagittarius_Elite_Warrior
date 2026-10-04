@@ -132,6 +132,11 @@ class GridBacktestView(QWidget):
         self.sync_button.setVisible(offer_sync)
         self.status.setText(reason)
 
+    def offer_sync(self, reason: str) -> None:
+        """Idle, with "Sync candles" offered for what `reason` says is missing."""
+        self.sync_button.setVisible(True)
+        self.status.setText(reason)
+
     def show_replay(
         self,
         candles: Sequence[MarketData],

@@ -43,7 +43,7 @@ class GridBacktest(BotBacktest):
             )
         )
         coordinator = GridBacktestCoordinator(
-            ports.thread_manager, ports.dispatcher, ports.sync, parent=self._view
+            ports.thread_manager, ports.dispatcher, ports.sync
         )
         self._presenter = GridBacktestPresenter(self._view, coordinator)
 

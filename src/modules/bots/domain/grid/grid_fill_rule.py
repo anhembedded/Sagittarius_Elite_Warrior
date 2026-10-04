@@ -15,7 +15,11 @@ too generously gives false confidence (the task's main risk):
   completes a round trip.
 · **Without 1-second klines** a candle is one coarse step visited adverse side
   first, down then up, so the levels the grid buys fill before any it sells;
-  the replay marks the candle in `coarse_periods`, never silently.
+  the replay marks the candle in `coarse_periods`, never silently. A set of
+  1-second klines that does not reach the candle's own low and high (a sync
+  stopped half way, seconds missing) cannot order it either: it is treated
+  as no klines at all, since replaying it would erase the part of the
+  candle it misses (the PR #338 review).
 """
 
 from __future__ import annotations
@@ -29,7 +33,8 @@ from enum import Enum
 #: How every result names this rule (the result view shows it).
 FILL_RULE = (
     "BUY at L fills when low <= L - tick, SELL when high >= L + tick; "
-    "order within a candle from 1-second klines (down then up without them); "
+    "order within a candle from 1-second klines spanning its low and high "
+    "(down then up without them); "
     "one fill per level per 1-second kline; counter orders rest from the next one"
 )
 
@@ -84,10 +89,19 @@ def sell_fills(level_price: Decimal, high: Decimal, tick: Decimal) -> bool:
 
 
 def steps_for(bar: PriceBar, fine: Sequence[PriceBar]) -> tuple[PriceStep, ...]:
-    """The steps one candle is replayed as: its 1-second klines, or itself."""
-    if not fine:
+    """The steps one candle is replayed as: its 1-second klines when they
+    span its range, or else itself, coarse."""
+    if not spans(bar, fine):
         return (PriceStep(bar.time, bar.open, bar.low, bar.high, _ADVERSE, True),)
     return tuple(_fine_step(kline) for kline in fine)
+
+
+def spans(bar: PriceBar, fine: Sequence[PriceBar]) -> bool:
+    """Whether `fine` reaches `bar`'s low and high, so it can order the candle."""
+    return bool(fine) and (
+        min(kline.low for kline in fine) <= bar.low
+        and max(kline.high for kline in fine) >= bar.high
+    )
 
 
 _ADVERSE = (Leg.DOWN, Leg.UP)

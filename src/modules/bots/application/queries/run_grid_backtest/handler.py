@@ -96,5 +96,7 @@ class RunGridBacktestQueryHandler(
                 end_time=query.end + length,
             )
         )
-        inputs = GridBacktestInputs(params, query.terms, bars, length, fine)
+        inputs = GridBacktestInputs(
+            params, query.terms, bars, length, fine, window=(query.start, query.end)
+        )
         return simulate_grid(inputs, query.cancelled)

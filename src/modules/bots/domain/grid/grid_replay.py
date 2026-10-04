@@ -1,8 +1,10 @@
 """`EPIC-029D` — one Grid's ladder, replayed step by step (ADR §3.2, D14).
 
 The live executor's own reactions decide what a fill means: `runtime_from_plan`,
-`ladder_orders`, `sells_net_of_opening_fee`, `on_fill`, `book_market_fill` and
-`crossed_exit` are the functions `GridExecutor` calls. A backtest and a live
+`ladder_orders`, `sells_net_of_opening_fee`, `on_fill` and `book_market_fill`
+are the functions `GridExecutor` calls. The exit check compares a step's low
+and high with the stop loss and take profit the way `crossed_exit` compares a
+price (`<=` and `>=`), since a step is a range, not a price. A backtest and a live
 bot therefore agree on the counter order, the inventory, the cycle profit and
 the halts; only *when* an order fills is the backtest's own (`grid_fill_rule`).
 
