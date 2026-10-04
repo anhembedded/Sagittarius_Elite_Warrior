@@ -114,7 +114,7 @@ class GridStopSequence:
             )
             return True
         slices = base_slices(
-            inventory, price, self._context.cap, self._context.terms.step_size
+            inventory, price, self._context.cap, self._context.terms.market_step
         )
         remaining = sum(slices, Decimal(0))
         for index, piece in enumerate(slices, start=1):

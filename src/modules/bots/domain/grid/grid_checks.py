@@ -12,9 +12,9 @@
     per-order cap (ADR D21, O5), which trading rejects. It names the cap and
     the largest capital that would pass;
   · `TOO_MANY_LEVELS` — more orders than the bot may hold open
-    (`ExchangeTerms.max_open_orders`: the venue's `MAX_NUM_ORDERS` and
-    trading's per-owner cap, ADR O1, whichever is lower), which the exchange
-    or trading rejects. Checked before the ladder is built, so a huge
+    (`ExchangeTerms.max_open_orders`: trading's per-owner cap, ADR O1, which
+    stays below Binance Spot's `MAX_NUM_ORDERS` of 200; that filter itself is
+    not read), which trading rejects. Checked before the ladder is built, so a huge
     `grid_count` costs nothing (`grid_evaluation.py`; PR #318 review).
 
 **Warnings** carry the threshold and the measured value. A check that cannot

@@ -119,6 +119,23 @@ def test_stop_selling_the_base_sells_the_derived_inventory_in_slices() -> None:
     assert world.state() is S.STOPPED
 
 
+def test_exit_slices_follow_the_market_lot_size_step() -> None:
+    """Binance holds a MARKET order to `MARKET_LOT_SIZE`, which may be coarser
+    than `LOT_SIZE`: at a 0.01 market step, 4.905 BTC exits as 4.90 in two
+    slices of 2.45, never a 2.453 the exchange would refuse."""
+    world = grid_world(market_step=Decimal("0.01"))
+    world.executor.start()
+    world.book.requests.clear()
+    _derived(world, "4.905")
+
+    world.executor.stop(BaseHandling.SELL_AT_MARKET)
+
+    sells = [
+        r.quantity for r in world.book.requests if r.order_type is OrderType.MARKET
+    ]
+    assert sells == [Decimal("2.45"), Decimal("2.45")]
+
+
 def test_a_refused_exit_slice_halts_naming_the_unsold_remainder() -> None:
     world = _running()
     _derived(world, "4.9")

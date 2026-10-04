@@ -207,7 +207,9 @@ class GridWorld:
         )
 
 
-def terms_entry(maker: str = "0.001") -> OrderEntryTerms:
+def terms_entry(
+    maker: str = "0.001", market_step: Decimal | None = None
+) -> OrderEntryTerms:
     return OrderEntryTerms(
         rules=SymbolOrderMetadata(
             symbol=SYMBOL,
@@ -218,6 +220,7 @@ def terms_entry(maker: str = "0.001") -> OrderEntryTerms:
             quantity_precision=None,
             price_precision=None,
             fetched_at=RUN_STARTED,
+            market_step_size=market_step,
         ),
         commission=CommissionRate(SYMBOL, Decimal(maker), Decimal(maker)),
     )
@@ -230,6 +233,7 @@ def grid_world(
     recovering_from: BotLifecycleState | None = None,
     book_readable: bool = True,
     queues: Callable[[str], IBotWorkQueue] | None = None,
+    market_step: Decimal | None = None,
 ) -> GridWorld:
     book = SimulatedBook()
     activity = SimulatedActivity(book)
@@ -242,7 +246,7 @@ def grid_world(
         account_snapshot=snapshot,
         order_submission=SimulatedSubmission(book),
         order_entry_terms=FakeOrderEntryTerms(
-            terms_entry(),
+            terms_entry(market_step=market_step),
             books={
                 SYMBOL: BestBidAsk(
                     SYMBOL, LAST_PRICE, Decimal(1), LAST_PRICE, Decimal(1)

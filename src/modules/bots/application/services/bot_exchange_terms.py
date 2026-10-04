@@ -31,4 +31,5 @@ def exchange_terms_for(
         taker_fee=entry.commission.taker,
         max_notional_per_order=terms.order_notional_limit(),
         max_open_orders=caps.max_open_orders,
+        market_step_size=entry.rules.market_step_size,
     )
