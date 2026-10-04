@@ -59,7 +59,13 @@ class FuturesSettingsService(IFuturesSettingsControl):
         )
 
 
-def _result(command: object, answer: object) -> AccountControlResult:
+def _result[T](command: object, answer: object) -> AccountControlResult[T]:
+    """The dispatcher's answer as the result its command declares.
+
+    The `isinstance` check proves only the result type: `T` is asserted by
+    the caller's return annotation, and holds because each command's bound
+    handler returns its own `AccountControlResult[T]`.
+    """
     if not isinstance(answer, AccountControlResult):
         raise TypeError(
             f"{type(command).__name__} was answered with {type(answer).__name__}, "

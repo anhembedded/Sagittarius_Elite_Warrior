@@ -185,6 +185,17 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_no_cross_screen_imports.py",
         (("src/presentation/ui/screens", "*.py"),),
     ),
+    # `EPIC-032A` — mypy's `exclude` patterns and first-party overrides are
+    # matched against the files and modules of these two trees.
+    (
+        "tests/unit/architecture/test_mypy_scope_only_shrinks.py",
+        (("src", "*.py"), ("scripts", "*.py")),
+    ),
+    # `EPIC-032C` — ruff counts four rules' hits per file in these trees.
+    (
+        "tests/unit/architecture/test_ruff_debt_only_shrinks.py",
+        (("src", "*.py"), ("scripts", "*.py"), ("tools", "*.py"), ("tests", "*.py")),
+    ),
     # `EPIC-030G` — replaces `test_preview_fixtures_exist.py`'s static check,
     # which listed targets from the deleted `src/presentation/ui/screens`.
     (

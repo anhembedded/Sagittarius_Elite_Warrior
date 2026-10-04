@@ -26,6 +26,6 @@ Claude-Session: <this session's URL>
 
 ## 3. Cleanliness & Prohibitions
 - **Atomic Change:** Exactly one logical change per commit. Inspect `git status --short` before and `git show --stat HEAD` after. `[review: A2]`
-- **Forbidden Content:** Scratch files, `print()` debugging, commented code, temporary mocks, `.venv`, `*.db`, `logs/`, `state/`, secrets, `.obsidian/`. `[guard: test_no_runtime_artifact_is_tracked.py; review: L4, L5]`
+- **Forbidden Content:** Scratch files, `print()` debugging, commented code, temporary mocks, `.venv`, `*.db`, `logs/`, `state/`, secrets, `.obsidian/`. `[guard: test_no_runtime_artifact_is_tracked.py, test_ruff_debt_only_shrinks.py; review: L4, L5]`
 - **Configuration & Dependencies:** Modifying `requirements.txt`, `pyproject.toml`, linter/mypy settings, or `.claude/settings.json` strictly requires prior user confirmation; so do `requirements.lock` and `engine.ref`. `[gate: pre-commit hook; review: L6]`
 

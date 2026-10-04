@@ -7,10 +7,10 @@ paths:
 
 # SYSTEM PROMPT: ERROR HANDLING & FAIL CORRECTLY
 
-1. **No Silent Swallowing:** Never silently swallow errors. `[review: B2]`
-2. **Actionable Catching:** Catch errors only when you can handle, translate, recover, or add meaningful context. `[eye]`
-3. **Precise Exception Scopes:** Do not catch broader exceptions than necessary (e.g. avoid bare `except Exception:` unless converting at seam). `[review: D1]`
-4. **Preserve Error Context:** Always preserve error context (`raise ... from exc`). `[eye]`
+1. **No Silent Swallowing:** Never silently swallow errors. `[gate: ruff S110; review: B2]`
+2. **Actionable Catching:** Catch errors only when you can handle, translate, recover, or add meaningful context. `[gate: ruff TRY203; eye]`
+3. **Precise Exception Scopes:** Do not catch broader exceptions than necessary (e.g. avoid bare `except Exception:` unless converting at seam). `[gate: ruff BLE001; review: D1]`
+4. **Preserve Error Context:** Always preserve error context (`raise ... from exc`). `[gate: ruff B904; eye]`
 5. **Control Flow:** Do not use exceptions for ordinary control flow when the language or domain model provides a clearer mechanism. `[eye]`
 6. **No Fabricated Fallbacks:** Do not fabricate fallback behavior merely to avoid an error. `[review: B4]`
 7. **Fail Correctly:** Do not hide invalid states with arbitrary defaults, empty values, silent recovery, or swallowed exceptions. Handle invalid states according to the domain contract. `[review: B4]`
