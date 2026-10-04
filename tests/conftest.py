@@ -163,6 +163,7 @@ def real_screen_registry(container):
     from Sagittarius_Elite_Warrior.src.modules.backtesting.module import (
         BacktestingModule,
     )
+    from Sagittarius_Elite_Warrior.src.modules.bots.module import BotsModule
     from Sagittarius_Elite_Warrior.src.modules.market_data.module import (
         MarketDataModule,
     )
@@ -184,7 +185,12 @@ def real_screen_registry(container):
     trading_module._container = container
     backtesting_module = BacktestingModule()
     backtesting_module._container = container
-    for module in (MarketDataModule(), trading_module, backtesting_module):
+    for module in (
+        MarketDataModule(),
+        trading_module,
+        backtesting_module,
+        BotsModule(),
+    ):
         module.contribute(contributions)
     return build_screen_registry(contributions)
 
