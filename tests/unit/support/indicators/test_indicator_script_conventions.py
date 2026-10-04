@@ -119,9 +119,10 @@ def test_domain_layer_never_imports_a_ui_toolkit():
     break reuse from the CLI/backtest paths.
 
     The engine is forbidden here too, with exactly two exceptions — the Shared
-    Kernel (see `SHARED_KERNEL_MODULES`). This test is what enforces that
-    boundary: anything else from `sagittarius_engine` must arrive through a
-    port in `application/ports/`.
+    Kernel (see `SHARED_KERNEL_MODULES`). This test enforces that boundary
+    for the indicator scripts; every module's domain, application and
+    contracts layers are held to the same set by
+    `tests/unit/architecture/test_module_inside_imports_only_the_shared_kernel.py`.
     """
     offenders = []
     for path in _DOMAIN_DIR.rglob("*.py"):

@@ -53,10 +53,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
+from Sagittarius_Elite_Warrior.tests.unit.modules.strategy.live_config_ports import (
+    bind_config_ports,
+)
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 from sagittarius_engine.infrastructure.event_bus.memory_event_bus import MemoryEventBus
-from sagittarius_engine.interfaces.i_config import IConfig
 
 
 class _RecordingSession:
@@ -99,7 +101,7 @@ def _market_data(symbol: str = "BTCUSDT") -> MarketData:
 def _booted(session: _RecordingSession) -> tuple[StrategyModule, MemoryEventBus]:
     """The three things `boot()` reads, as the real context gives them to it.
 
-    `IConfig` is bound to an empty `DictConfig` (the engine's own cheap
+    The configuration ports are bound over an empty `DictConfig` (the engine's own cheap
     real implementation, `test_no_foreign_port_is_mocked.py`'s allowed
     substitute for a Mock) since `EPIC-025E` PR 4.4f-2: `boot()` now also
     seeds the live strategy from config before subscribing the tick path,
@@ -115,7 +117,7 @@ def _booted(session: _RecordingSession) -> tuple[StrategyModule, MemoryEventBus]
     sessions = VenueStrategySessions(lambda _venue: session)
     sessions.get(TradingVenue.FUTURES_TESTNET)
     container.singleton(VenueStrategySessions, sessions)
-    container.singleton(IConfig, DictConfig())
+    bind_config_ports(container, DictConfig())
     container.singleton(TradingVenue, TradingVenue.DISABLED)
     container.singleton(
         IVenueContexts, FakeVenueContexts(fake_venue_context(TradingVenue.DISABLED))

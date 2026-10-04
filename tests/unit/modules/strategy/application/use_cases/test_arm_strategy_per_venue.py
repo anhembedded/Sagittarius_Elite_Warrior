@@ -12,9 +12,6 @@ from __future__ import annotations
 from unittest.mock import Mock
 
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_config_store import (
-    LiveStrategyConfigStore,
-)
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.live_strategy_factory import (
     LiveStrategyFactory,
 )
@@ -57,6 +54,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.contracts.testing.fake_venue_
 )
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
+)
+from Sagittarius_Elite_Warrior.tests.unit.modules.strategy.live_config_ports import (
+    in_memory_config_store,
 )
 from sagittarius_engine.infrastructure.config.dict_config import DictConfig
 
@@ -112,7 +112,7 @@ class _Desk:
             fake_venue_ports(_SPOT, trading_session=_trading_session(MarketType.SPOT)),
         )
         self.arm = ArmStrategyCommandHandler(
-            self.sessions, ports, LiveStrategyConfigStore(DictConfig())
+            self.sessions, ports, in_memory_config_store(DictConfig())
         )
         self.disarm = DisarmStrategyCommandHandler(self.sessions, ports)
 

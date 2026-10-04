@@ -70,6 +70,12 @@ GUARDS: tuple[tuple[str, tuple[tuple[str, str], ...]], ...] = (
         "tests/unit/architecture/test_module_domain_is_qt_free.py",
         (("src/core", "*.py"), ("src/support/binance_gateway", "*.py")),
     ),
+    # `EPIC-030D` — the Shared Kernel rule over every module's
+    # domain/application/contracts (three literal globs under this root).
+    (
+        "tests/unit/architecture/test_module_inside_imports_only_the_shared_kernel.py",
+        (("src/modules", "*.py"),),
+    ),
     ("tests/unit/architecture/test_module_declarations.py", (("src/shell", "*.py"),)),
     (
         "tests/unit/architecture/test_no_global_stylesheet.py",
