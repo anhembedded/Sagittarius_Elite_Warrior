@@ -1,0 +1,145 @@
+"""`EPIC-029` ADR D15 — history and a live stream for one chart: a desk's
+(`EPIC-021I`, `EPIC-028M`) or a bot's (`EPIC-029G`).
+
+@details It moved here from trading's desk so a bot's chart uses the same
+code instead of a copy (`fix-bug-rule.md` §1). Its candles come through
+`ICandleFeed`, bound to the chart's market, so support imports no module.
+
+Never touches the chart's widget — every method but `stop()` runs on a
+worker thread (submitted through the injected `IThreadManager`), and
+`ChartCard` is a `QWidget`; mutating it off the Qt main thread is the class
+of defect `BUG-031` documents. Results go back only through
+`LiveChartCallbacks`, each bound to one of the owning chart's Qt signals.
+
+Owns no async action-id or cancellation bookkeeping of its own
+(`async-ui-action-rule.md` §2): the owning chart creates and resets the
+`CancellationToken` and passes it on every call.
+
+**Ownership (`BOT-126`).** The stream is reference-counted per
+`(symbol, interval)` across owners; this coordinator always names its own
+`stream_owner` (`desk.<venue>`, `bot.<id>`), so `stop()` releases only this
+chart's subscription, never another chart's, even on the same symbol.
+"""
+
+from __future__ import annotations
+
+from typing import TYPE_CHECKING
+
+from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping import (
+    map_klines,
+    map_volume,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
+    ICandleFeed,
+)
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callbacks import (
+    LiveChartCallbacks,
+)
+
+if TYPE_CHECKING:
+    from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
+    from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
+
+#: How many candles a chart asks for on a (re)load: a fixed depth (unlike
+#: Dev Board's `_compute_fetch_limit()`, which grows with its indicator
+#: scripts; these charts have none).
+HISTORY_CANDLE_LIMIT = 500
+
+
+class LiveChartCoordinator:
+    """@brief Loads history and keeps one `ChartCard` live for whatever
+    symbol and interval its chart shows."""
+
+    def __init__(
+        self,
+        thread_manager: IThreadManager,
+        feed: ICandleFeed,
+        callbacks: LiveChartCallbacks,
+        stream_owner: str,
+    ) -> None:
+        """@param stream_owner This chart's identity on the stream
+        (`BOT-126`), one per chart and required: with one shared owner,
+        opening one desk's chart replaced the other's subscription (the PR 300
+        epic review)."""
+        self._thread_manager = thread_manager
+        self._feed = feed
+        self._callbacks = callbacks
+        self._stream_owner = stream_owner
+
+    def start(
+        self,
+        symbol: str,
+        interval_str: str,
+        token: CancellationToken,
+        *,
+        go_live: bool = False,
+    ) -> None:
+        """Submits the chart load for `symbol`/`interval_str`.
+
+        @param go_live When `False` (the default) this reads **local history
+        only**, no network. When `True` it also syncs from the exchange and
+        opens the stream.
+
+        @details `BUG-107`: opening a screen is not a request to go on the
+        network. `go_live` defaults to `False` so a caller that forgets the
+        argument gets the quiet behaviour, not a live stream.
+        """
+        self._thread_manager.submit(self._run, symbol, interval_str, token, go_live)
+
+    def stop(self) -> None:
+        """Fast and synchronous, on the caller's thread. Owner-scoped
+        (`BOT-126`): releases only this chart's own subscription. Holding none
+        is the ordinary case for an unconditional `stop()`, not an error."""
+        self._feed.stop_stream(self._stream_owner)
+
+    def _run(
+        self,
+        symbol: str,
+        interval_str: str,
+        token: CancellationToken,
+        go_live: bool,
+    ) -> None:
+        try:
+            interval = TimeFrame(interval_str)
+            if go_live:
+                self._callbacks.log(f"Syncing {symbol} data from Binance...")
+                self._feed.sync(symbol, interval, token.is_cancelled)
+                if token.is_cancelled():
+                    return
+            else:
+                self._callbacks.log(
+                    f"Loading {symbol} data from the local database "
+                    "(not connected live — enable trading to connect)."
+                )
+            self._load_history(symbol, interval)
+            if token.is_cancelled():
+                return
+            if go_live:
+                self._start_stream(symbol, interval)
+        except Exception as exc:  # noqa: BLE001 - worker boundary: report the real failure instead of losing it to a background-thread traceback
+            self._callbacks.stream_failed(f"System error: {exc}")
+        finally:
+            self._callbacks.load_finished()
+
+    def _load_history(self, symbol: str, interval: TimeFrame) -> None:
+        ordered = list(self._feed.load_history(symbol, interval, HISTORY_CANDLE_LIMIT))
+        if not ordered:
+            self._callbacks.log(f"No historical data for {symbol}.")
+            return
+        # `EPIC-022E` — the raw `MarketData` rows ride along beside the
+        # chart-shaped tuples: an overlay replays them (it reads
+        # `close_time`/`close_price`, which `map_klines`' 5-tuples drop).
+        self._callbacks.history_ready(
+            symbol, map_klines(ordered), map_volume(ordered), ordered
+        )
+
+    def _start_stream(self, symbol: str, interval: TimeFrame) -> None:
+        self._callbacks.log(f"Opening live stream for {symbol}...")
+        outcome = self._feed.start_stream(self._stream_owner, symbol, interval)
+        if outcome.success:
+            self._callbacks.stream_started(f"Streaming live data for {symbol}.")
+        else:
+            self._callbacks.stream_failed(
+                f"Could not open live stream: {outcome.message}"
+            )

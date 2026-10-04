@@ -1,7 +1,7 @@
 # EPIC-029 — Tracking
 
 - **Epic:** [EPIC-029](README.md)
-- **Status:** 🟡 In progress (PR1: 029B + 029C)
+- **Status:** 🟡 In progress (PR1 and PR2 merged; PR3: 029G)
 - **Target completion:** the fast track (029A–029H) is estimated in working days below. The dates are
   a plan, not a commitment.
 - **Renders:** GitHub Markdown, VS Code Mermaid preview, or mermaid.live.
@@ -57,7 +57,7 @@ gantt
 | EPIC-029D | [Grid backtest](incomplete/EPIC-029D_grid_backtest.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-029E | [Live Grid executor](incomplete/EPIC-029E_live_grid_executor.md) | — | 🔴 | 🔵 Planned | — |
 | EPIC-029F | [Bots tab](incomplete/EPIC-029F_bots_tab.md) | — | 🟡 | 🔵 Planned | — |
-| EPIC-029G | [Bot chart](incomplete/EPIC-029G_bot_chart.md) | — | 🟡 | 🔵 Planned | — |
+| EPIC-029G | [Bot chart](completed/EPIC-029G_bot_chart.md) | — | 🟡 | ✅ Done (2026-10-04) | PR3 |
 | EPIC-029H | [Spot Testnet soak](incomplete/EPIC-029H_spot_testnet_grid_soak.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-029I | [Desks manual only](incomplete/EPIC-029I_desks_manual_only.md) | — | 🟡 | 🔵 Planned | — |
 | EPIC-029J | [Many bots](incomplete/EPIC-029J_many_bots.md) | — | 🟡 | 🔵 Planned | — |
@@ -75,6 +75,8 @@ gantt
 | 2026-10-03 | Review r2 | NEEDS_REVISION, narrower: 3 blocking (untagged Emergency Stop sells, unsliced exits, orders without a budget), 5 should-fix. All addressed. Re-review requested. |
 | 2026-10-03 | Design merged | PR #317 merged by the user. The user answered D6 (own budget), O5 (keep the cap, configurable), O1–O4; the ADR is Accepted. Rule: two small tasks per PR. |
 | 2026-10-03 | PR1 | `029B` (the `bots` module) and `029C` (the Grid planner) built; the report's example reproduced as known answers; a mutation run left 4 equivalent mutants. Sent for an independent review. |
+| 2026-10-03 | PR2 | `029A` (the trading seams) built; review round 1 found 2 blocking and 3 should-fix, all fixed; round 2 PASS. PR #320 merged by the user on 2026-10-04. |
+| 2026-10-04 | PR3 | `029G` (the bot chart): the desks' live chart moved into support behind `ICandleFeed`, `PriceLevelLayer`, the Grid overlay, one drawer and `BotChart` for the three surfaces. Sent for an independent review. |
 
 ---
 

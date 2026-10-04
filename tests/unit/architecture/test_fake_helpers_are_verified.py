@@ -5,7 +5,7 @@ suite, and calls the fake *verified* because the suite runs against both it and
 the real implementation. That verifies the surface the **port declares**. A
 fake may declare more, and `FakeMarketDataSync` did: `was_asked_for()` became
 the only positive assertion in three screens' tests
-(`test_chart_coordinator.py`, `test_sync_coordinator.py`,
+(`test_live_chart_coordinator.py`, `test_sync_coordinator.py`,
 `test_dashboard_presenter.py`), and hard-coding it to `return True` left all
 152 of those tests green. A helper that cannot fail is not a stronger
 assertion than the `Mock` it replaced — it is the same nothing with a better

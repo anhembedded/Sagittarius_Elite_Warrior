@@ -87,6 +87,16 @@ def _sells(
 ) -> list[tuple[str | None, Decimal]]:
     """The stop's sells as (tag, quantity), for a user holding `baseline`
     BTC before enabling and `held` BTC now."""
+    return _stop(baseline, held, books, book_ticker)[0]
+
+
+def _stop(
+    baseline: str,
+    held: str,
+    books: dict[str, str],
+    book_ticker: Mock | None = None,
+) -> tuple[list[tuple[str | None, Decimal]], str]:
+    """The stop's sells, as `_sells` gives them, and its step 3 message."""
     state = TradingSessionState()
     state.enable(set(), spot_baseline_holdings={"BTC": Decimal(baseline)})
     for tag, quantity in books.items():
@@ -108,10 +118,11 @@ def _sells(
 
     assert result.positions_closed.succeeded is True
     assert state.owner_books.shares() == ()
-    return [
+    sells = [
         (tag_of(call.kwargs["newClientOrderId"]), Decimal(call.kwargs["quantity"]))
         for call in raw_client.futures_create_order.call_args_list
     ]
+    return sells, result.positions_closed.detail
 
 
 def test_a_bots_coins_are_sold_under_its_tag_and_the_users_are_untouched() -> None:
@@ -158,3 +169,13 @@ def test_without_a_bid_every_part_is_sent_for_the_venue_to_judge() -> None:
     sells = _sells("0.5", "0.851", {"a3f9c1": "0.2"}, reader)
 
     assert sells == [("a3f9c1", Decimal("0.2")), (None, Decimal("0.151"))]
+
+
+def test_an_asset_with_every_part_left_as_dust_is_not_reported_sold() -> None:
+    """The PR #320 re-review: the bot's 0.001 BTC is below the $100 minimum
+    at 60000, so nothing is sent, and the step must not say it sold BTC."""
+    sells, message = _stop("0.5", "0.501", {"a3f9c1": "0.001"})
+
+    assert sells == []
+    assert message.startswith("Sold surplus on 0 asset(s).")
+    assert "BTC" in message

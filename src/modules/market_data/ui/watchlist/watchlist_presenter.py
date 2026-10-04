@@ -80,7 +80,7 @@ class WatchlistPresenter(BasePresenter):
         else:
             # `SPEC-002` §4/§5 — a failed start must say so on screen, the
             # same promise Dashboard's `stream_lifecycle_controller.py` and
-            # Trading's `chart_coordinator.py` already keep for their own
+            # the live chart's `live_chart_coordinator.py` already keep for their own
             # `IMarketStream.start()` call; a silently-unstarted stream
             # would otherwise be indistinguishable from "no tick yet".
             logger.warning(

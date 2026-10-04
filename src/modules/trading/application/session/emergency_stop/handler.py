@@ -329,6 +329,9 @@ class EmergencyStopCommandHandler(
             )
             if sum((part.quantity for part in parts), Decimal(0)) < quantity:
                 dust_assets.append(holding.asset)
+            if not parts:
+                # Every part was dust: nothing was sold (the PR #320 re-review).
+                continue
             try:
                 for part in parts:
                     trading_client.place_order(
