@@ -2,8 +2,13 @@
 
 `apply_ui_mode` is the screen's FSM made visible (`bots_ui_fsm_matrix`): the
 list and New bot lock while an action is in flight, and a bot's parameters
-are editable only in the editing mode. QtWidgets only, no stylesheet
-(`ui-presentation-rule.md`).
+are editable only in the editing mode.
+
+A workbench host from birth (`ui-presentation-rule.md`, `EPIC-033`): the screen
+is a `WorkbenchSurface` (a `QMainWindow` on the Engine's `RegionHost`, as the
+Welcome surface is) whose workspace holds New bot, the status line and the
+list beside the detail. Stock controls, no style sheet. `EPIC-033K` (Strategies
+mode) re-lays it out on the shell's workbench.
 """
 
 from __future__ import annotations
@@ -11,6 +16,7 @@ from __future__ import annotations
 from PySide6.QtCore import QItemSelectionModel, QSortFilterProxyModel, Qt
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QHBoxLayout,
     QHeaderView,
     QLabel,
     QPushButton,
@@ -19,6 +25,8 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
+from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_detail_panel import (
     BotDetailPanel,
 )
@@ -34,9 +42,16 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model i
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.page_shell import PageShell
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import SORT_ROLE
+from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
+    WorkbenchSurface,
+)
 from sagittarius_engine.extensions.pyside_mvc import BaseView
+
+#: This screen's surface. Declared here because a module may not import
+#: `shell/`; `test_bots_view_renders_the_surface_the_shell_declares` holds it
+#: equal to `shell/surfaces.py`'s `bots` entry, as the Dev Board's is.
+BOTS_SURFACE = Surface("bots", owner="bots", accepts=frozenset({Place.WORKSPACE}))
 
 
 class BotsView(BaseView):
@@ -62,15 +77,20 @@ class BotsView(BaseView):
         splitter.addWidget(self.table)
         splitter.addWidget(self.detail)
         splitter.setStretchFactor(1, 2)
-        shell = PageShell()
-        shell.set_header(
-            "Bots", "Create, judge and run trading bots", actions=self.new_bot
-        )
-        shell.set_workspace(splitter)
-        layout = QVBoxLayout(self)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.addWidget(shell)
-        self._shell = shell
+        self._status.hide()
+        commands = QHBoxLayout()
+        commands.addWidget(self.new_bot)
+        commands.addStretch(1)
+        workspace = QWidget()
+        column = QVBoxLayout(workspace)
+        column.addLayout(commands)
+        column.addWidget(self._status)
+        column.addWidget(splitter, 1)
+        self._surface = WorkbenchSurface(BOTS_SURFACE)
+        self._surface.place_widget(Place.WORKSPACE, workspace)
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(self._surface)
         self._connect()
 
     def apply_ui_mode(self, state: BotsUiState, section_key: str | None = None) -> None:
@@ -155,4 +175,4 @@ class BotsView(BaseView):
     def _show_status(self) -> None:
         message = str(self.model.property("statusMessage"))
         self._status.setText(message)
-        self._shell.set_context_bar(self._status if message else None)
+        self._status.setVisible(bool(message))

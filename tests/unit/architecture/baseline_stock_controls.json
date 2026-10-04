@@ -77,6 +77,8 @@
       "src/modules/backtesting/ui/backtest_modals/metrics_detail_dialog.py": 4,
       "src/modules/backtesting/ui/backtest_modals/out_of_sample_comparison_dialog.py": 3,
       "src/modules/backtesting/ui/backtest_modals/report_comparison_dialog.py": 3,
+      "src/modules/bots/ui/bots_screen/bot_detail_panel.py": 2,
+      "src/modules/bots/ui/bots_screen/bots_view.py": 5,
       "src/modules/market_data/ui/data_management_widgets/database_status_panel.py": 7,
       "src/modules/market_data/ui/data_management_widgets/kline_inspector_dialog.py": 6,
       "src/modules/market_data/ui/watchlist/watchlist_view.py": 7,

@@ -11,7 +11,7 @@
 ---
 
 ## 1. Context and problem
-Arming a strategy lives in a card inside each desk, the last signal in another card on Dev Board, and the Grid bot of EPIC-029 has a chart but no screen: there is no place where a person sees everything that trades for them.
+Arming a strategy lives in a card inside each desk, the last signal in another card on Dev Board, and the Grid bot of EPIC-029 has its own Bots tab, a workbench of its own beside the others: there is no place where a person sees everything that trades for them.
 
 ## 2. Acceptance criteria
 - [ ] The central widget and default docks are exactly those HLD §11.2.1 lists for this mode (the one list; this task does not copy it). The docks follow the selection in the central table.
@@ -20,7 +20,7 @@ Arming a strategy lives in a card inside each desk, the last signal in another c
 - [ ] The SPECs above still pass their "Proven by" tests; any changed flow updates its SPEC in the same pull request.
 
 ## 3. Design
-The mode's wireframe approved in EPIC-033O is the design; this task builds it on `WorkbenchShell` with stock controls. Presenters, coordinators and view models are reused where their behaviour fits the approved design; views are new. It replaces: the strategy and last-signal cards and the bot chart preview.
+The mode's wireframe approved in EPIC-033O is the design; this task builds it on `WorkbenchShell` with stock controls. Presenters, coordinators and view models are reused where their behaviour fits the approved design; views are new. It replaces: the strategy and last-signal cards, the bot chart preview, and the Bots tab's `BotsView` (`src/modules/bots/ui/bots_screen/`, `EPIC-029F`). Its presenter, view model and per-kind panels are reused, and its `item_view_config` stock-control lines leave their baseline.
 
 ## 4. Changes, per file
 | File | Change |

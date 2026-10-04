@@ -138,6 +138,15 @@ ENGINE section.
   HALTED) sends `ConfirmBotResumeCommand`. The use case refuses it (`NO_RESUME_PROPOSAL`, "press
   Resume first") when the executor holds no proposal, as after a restart, so the screen never
   reports a confirmation that laid nothing (PR #333 review).
+- *EPIC-033's desktop contract* landed on `master-warrior` while this PR was in review. The screen
+  dropped the kit `PageShell` (style-sheeted headings) and became a `WorkbenchSurface`: a
+  `QMainWindow` on the Engine's `RegionHost`, the mechanism the Dev Board uses and `EPIC-033`'s W1
+  extends. It declares the `bots` surface, held equal to `shell/surfaces.py` by a test, and passes
+  every conformance check with no baseline line; the environment banner comes with the surface.
+  Its tables stay full-row, read-only and sortable, which the conformance suite requires, so its 7
+  per-view item-view calls sit in `baseline_stock_controls.json` until the Engine's column specs
+  (`EPIC-033N`). `EPIC-033K` re-lays the screen out on the shell's workbench. User decision
+  (option A, refined), 2026-10-04.
 - *Fills* come from the venue's order history (the runtime keeps only what rests), at most four
   pages of fifty, saying so when there is more.
 - *The running bot's chart* draws its plan's levels (the kind's overlay); level states and fills are
