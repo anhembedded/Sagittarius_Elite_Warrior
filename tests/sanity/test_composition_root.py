@@ -340,10 +340,9 @@ def _screen_packages() -> list[tuple[str, str | None]]:
 def test_every_navigable_route_constructs(qapp, booted_app, route):
     """Mode 11 — an entry point that is registered but cannot be built.
 
-    The retired tier constructed two of four screens: `PresenterManager` is
-    lazy-loading and `MainWindow.__init__` only navigates to `dashboard`, so the
-    Database and Settings screens were never built by any sanity test. BUG-019
-    (a Database-screen modal that could not construct) landed in exactly that gap.
+    The retired tier built two of four screens (a lazy router), and BUG-019
+    (a Database-screen modal that could not construct) landed in that gap.
+    The window now builds every mode (`EPIC-033C`); this also shows each one.
 
     Parametrised from the navigation constants themselves, so a screen added
     later is covered without editing this file.
@@ -353,19 +352,18 @@ def test_every_navigable_route_constructs(qapp, booted_app, route):
     bootstrap, which the retired tier never exercised.
     """
     from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-    from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
     from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 
     registry = real_screen_registry(booted_app.context.container)
-    window = MainWindow(booted_app, registry, sidebar_factory=Sidebar)
+    window = MainWindow(booted_app, registry)
     try:
         window.switch_screen(route)
         qapp.processEvents()
 
-        assert window._stacked.currentWidget() is not None, (
-            f"Route '{route}' navigated but left no widget on the stack — the "
-            f"view was constructed and then orphaned."
-        )
+        shown = window.current_mode
+        assert shown == route, f"{route!r} asked, {shown!r} shown"
+        host = window.hosts[route]
+        assert host.centralWidget() is host.view, f"{route!r}: its view was orphaned"
     finally:
         window.shutdown()
         window.deleteLater()
@@ -433,13 +431,12 @@ def test_the_window_shuts_down_within_budget(qapp, booted_app):
     and that is why the ADR splits the tier in two.
     """
     from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-    from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
     from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 
     before = {t.ident for t in threading.enumerate()}
 
     registry = real_screen_registry(booted_app.context.container)
-    window = MainWindow(booted_app, registry, sidebar_factory=Sidebar)
+    window = MainWindow(booted_app, registry)
     qapp.processEvents()
 
     started = time.monotonic()

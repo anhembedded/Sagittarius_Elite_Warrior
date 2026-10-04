@@ -84,7 +84,11 @@ def test_two_default_screens_raises_value_error(registry) -> None:
         registry.register(_make_descriptor("b", is_default=True))
 
 
-def test_build_sidebar_navigation_sorts_sections_then_items(registry) -> None:
+def _routes(registry) -> list[str]:
+    return [descriptor.route for descriptor in registry.modes()]
+
+
+def test_modes_sort_by_section_then_item(registry) -> None:
     registry.register(
         _make_descriptor(
             "backtest", title="Backtest", section_key="QUANT", section_sequence=20
@@ -109,26 +113,35 @@ def test_build_sidebar_navigation_sorts_sections_then_items(registry) -> None:
         )
     )
 
-    sections, bottom = registry.build_sidebar_navigation()
-
-    assert [s.title for s in sections] == ["NAV", "QUANT"]
-    assert [item.label for item in sections[0].items] == ["Dev Board", "Database"]
-    assert [item.label for item in sections[1].items] == ["Backtest"]
-    assert bottom == ()
+    assert _routes(registry) == ["dashboard", "data_management", "backtest"]
 
 
-def test_build_sidebar_navigation_puts_bottom_action_screens_aside(registry) -> None:
-    registry.register(_make_descriptor("dashboard"))
+def test_bottom_action_screens_come_last(registry) -> None:
     registry.register(
         _make_descriptor(
             "settings", title="Settings", location=NavLocation.BOTTOM_ACTION
         )
     )
+    registry.register(_make_descriptor("dashboard", section_sequence=900))
 
-    sections, bottom = registry.build_sidebar_navigation()
+    assert _routes(registry) == ["dashboard", "settings"]
 
-    assert len(sections) == 1
-    assert [item.label for item in bottom] == ["Settings"]
+
+def test_a_screen_that_is_not_navigable_is_not_a_mode(registry) -> None:
+    registry.register(_make_descriptor("dashboard"))
+    registry.register(
+        ScreenDescriptor(
+            route="hidden",
+            presenter_class=Mock(),
+            view_factory=Mock(),
+            nav=NavMetadata(title="Hidden", icon="x", is_navigable=False),
+        )
+    )
+    registry.register(
+        ScreenDescriptor(route="no_nav", presenter_class=Mock(), view_factory=Mock())
+    )
+
+    assert _routes(registry) == ["dashboard"]
 
 
 def test_item_sequence_tie_break_is_deterministic_by_route(registry) -> None:
@@ -139,9 +152,7 @@ def test_item_sequence_tie_break_is_deterministic_by_route(registry) -> None:
         _make_descriptor("a_route", title="A", section_key="NAV", item_sequence=10)
     )
 
-    sections, _bottom = registry.build_sidebar_navigation()
-
-    assert [item.route for item in sections[0].items] == ["a_route", "b_route"]
+    assert _routes(registry) == ["a_route", "b_route"]
 
 
 def test_conflicting_section_sequence_across_screens_raises(registry) -> None:
@@ -153,26 +164,14 @@ def test_conflicting_section_sequence_across_screens_raises(registry) -> None:
 
 
 def test_register_section_locks_the_sequence_explicitly(registry) -> None:
-    registry.register_section(
-        SectionDescriptor(key="NAV", title="Navigation", sequence=5)
+    registry.register_section(SectionDescriptor(key="LATE", title="Late", sequence=50))
+    registry.register(
+        _make_descriptor("early", section_key="EARLY", section_sequence=10)
     )
-    registry.register(_make_descriptor("a", section_key="NAV", section_sequence=5))
+    registry.register(_make_descriptor("late", section_key="LATE", section_sequence=50))
+    registry.register_section(SectionDescriptor(key="LATE", title="Late", sequence=1))
 
-    sections, _bottom = registry.build_sidebar_navigation()
-
-    assert sections[0].title == "Navigation"
-
-
-def test_bind_to_router_registers_every_screen(registry) -> None:
-    registry.register(_make_descriptor("dashboard"))
-    registry.register(_make_descriptor("backtest"))
-    router = Mock()
-
-    registry.bind_to_router(router)
-
-    assert router.register.call_count == 2
-    registered_routes = {call.args[0] for call in router.register.call_args_list}
-    assert registered_routes == {"dashboard", "backtest"}
+    assert _routes(registry) == ["late", "early"]
 
 
 def test_register_accepts_a_descriptor_without_nav(registry) -> None:

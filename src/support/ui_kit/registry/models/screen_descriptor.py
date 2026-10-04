@@ -32,5 +32,5 @@ class ScreenDescriptor:
     is_default: bool = False
 
     def has_nav(self) -> bool:
-        """Whether this screen appears on the sidebar at all."""
+        """Whether this screen can be a mode at all."""
         return self.nav is not None

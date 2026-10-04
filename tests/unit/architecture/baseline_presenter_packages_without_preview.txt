@@ -11,4 +11,3 @@
 src/modules/market_data/ui/settings
 src/modules/trading/ui/settings
 src/shell/settings
-src/shell/welcome

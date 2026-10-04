@@ -1,49 +1,61 @@
 """
-@brief MainWindow — the application shell and screen router.
+@brief MainWindow — the application's one workbench window (`EPIC-033C`).
 
 @details
-Single responsibility: assemble the Sidebar, QStackedWidget, and
-PresenterManager, then wire navigation signals between them.
+The window is the Engine's `WorkbenchShell`: a menu bar in the Windows order,
+a vertical mode bar (Ctrl+1…), a stack of modes, a status bar, Window → Reset
+layout, Tools → Options, Help → About. This class supplies the policy: which
+modes exist (every navigable screen the `IScreenRegistry` knows, in its
+order), their icons and access keys, the venue in the title and status bar,
+what to ask before closing, and what to remember.
 
-`EPIC-016` — this shell knows no concrete screen. It depends on
-`IScreenRegistry` (which screens exist, and how the sidebar is structured)
-and `ISidebar` (how to talk to whatever navigation widget the caller
-supplies) — both injected. Assembling the registry, registering the 4 real
-`*ScreenModule`s, and choosing the concrete `Sidebar` factory all happen in
-`app_bootstrapper.py`, the composition root; adding a 5th screen never
-requires touching this file.
+@par Every mode is built at start
+The user chose this over a lazily built mode (2026-10-04): a mode is a host
+the shell owns from the first frame. Building a screen therefore no longer
+means the user opened it, so a presenter that goes live when opened does so
+in `IShownAsMode.on_mode_shown()`, which this window calls each time a mode
+shows, with why.
 
-Engine boot, QApplication setup, and theming live in app_bootstrapper.py.
+@par The last mode is remembered (HLD §11.2)
+The window opens on the mode the last session ended in, as Windows
+applications do; the first run opens on the registry's default. It arrives
+as `RESTORE`, never `USER_INTENT`, so a screen whose design is "open means
+live" can tell a start from a click (`BUG-104`, `BUG-107`).
 """
 
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable, Sequence
+from collections.abc import Mapping, Sequence
 
-from PySide6.QtCore import QByteArray
-from PySide6.QtGui import QCloseEvent, QMoveEvent, QResizeEvent
-from PySide6.QtWidgets import QHBoxLayout, QMainWindow, QStackedWidget, QWidget
+from PySide6.QtCore import QObject
+from PySide6.QtGui import QCloseEvent, QMoveEvent, QPalette, QResizeEvent
+from PySide6.QtWidgets import QApplication, QLabel
 from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
     ICloseObjections,
 )
-from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
-    NavigationSource,
+from Sagittarius_Elite_Warrior.src.core.contracts.i_shown_as_mode import (
+    IShownAsMode,
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.close_confirmation import (
     ConfirmClose,
     ask_before_closing,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+from Sagittarius_Elite_Warrior.src.presentation.ui.mode_perspectives import (
+    ModePerspectives,
+)
+from Sagittarius_Elite_Warrior.src.presentation.ui.shell_navigation import (
+    ShellNavigation,
+    from_shell_source,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.assets.icon_loader import (
+    get_icon_loader,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.mode_host import ModeHost
 from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import (
     INavigationService,
     IScreenRegistry,
-    NavigationService,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import (
-    ISidebar,
-    NavItem,
-    NavSection,
+    ScreenDescriptor,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import (
     StateData,
@@ -52,156 +64,204 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
     UiStateCoordinator,
 )
-from sagittarius_engine.extensions.pyside_mvc import PresenterManager
+from sagittarius_engine.extensions.pyside_mvc import BasePresenter
+from sagittarius_engine.extensions.pyside_mvc.workbench.access_key_assignment import (
+    assign_access_keys,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench.action_confirmation import (
+    MessageBoxConfirmer,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench.action_registry import (
+    ActionRegistry,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench.navigation_service import (
+    NavigationSource as ShellNavigationSource,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench.workbench_shell import (
+    ShellMode,
+    WorkbenchShell,
+)
 
 logger = logging.getLogger("App.Shell.MainWindow")
 
-_WINDOW_TITLE = "Sagittarius Elite Warrior — Binance Trading Bot"
-# 1200x800 used to be enough, but the Dev Board's right column has grown
-# (System Controls + Indicators + System Monitor) — a bigger default avoids
-# content being clipped the instant the window opens, before the user ever
-# touches the (now resizable) splitter.
+APPLICATION_NAME = "Sagittarius Elite Warrior"
+#: The Dev Board's right column is wide; a smaller first window clips it
+#: before the user has resized anything.
 _WINDOW_SIZE = (1440, 860)
-#: Scoped to the stack itself. Written as a bare property list it was
-#: `BUG-008` at the largest scope this app has — Qt reads a selector-less
-#: rule as the universal selector, and this widget holds **every screen**,
-#: so `Palette.BG` was repainted onto every label, field and frame in the
-#: app that had no background rule of its own. That is what put a dark
-#: rectangle behind each label in the storage screen's stat tiles.
-_CONTENT_BG_STYLE = (
-    f"QStackedWidget {{ background-color: {Palette.BG}; "
-    f"color: {Palette.TEXT_PRIMARY}; }}"
-)
-
-#: This slice's flat keys. Named constants rather than inline literals so
-#: `capture_state()` and `restore_state()` cannot drift from each other.
-_GEOMETRY_KEY = "geometry_b64"
-_SIDEBAR_COLLAPSED_KEY = "sidebar_collapsed"
+#: The View menu's own items keep these access keys: T&oolbars, Stat&us bar.
+_VIEW_MENU_KEYS = ("o", "u")
+_MODE_ICON_SIZE = 24
+#: The key `restore_state()` reads the last mode from (`WorkbenchShell`).
+_MODE_KEY = "mode"
 
 
-class MainWindow(QMainWindow):
-    """
-    @brief The application shell: navigation sidebar + screen router.
-
-    @details
-    Owns only assembly logic:
-    - Creates the sidebar via `sidebar_factory` and wires sig_navigate → switch_screen.
-    - Creates the PresenterManager (router) and binds every screen `screen_registry` knows.
-    - Routes switch_screen calls from the sidebar to the router and back.
-
-    @par EPIC-010C — remembered shell state
-    `MainWindow` itself implements `IStateContributor` (structurally — it is a
-    `typing.Protocol`, so no base class or import-time coupling is needed) rather
-    than delegating to a helper object: window geometry and the sidebar's
-    collapsed flag are `MainWindow`'s own fields, and `code/quality.md`'s
-    Single-Scope Cohesion says a state that is this tightly coupled to one
-    object's own lifecycle belongs in that object, not split across a second
-    file. Window geometry is persisted as the real `QByteArray`
-    `saveGeometry()`/`restoreGeometry()` produce, base64-encoded —
-    `restoreGeometry()` already performs its own off-screen and DPI sanity
-    checks, so a hand-rolled `x/y/w/h` would buy no extra safety while getting
-    multi-monitor wrong in ways Qt already handles (`EPIC-010` design §5.6.3).
-    `state_coordinator` is optional and defaults to `None`: this app has no DI
-    container wiring for it yet (`010A`/`010B` are Elite-only, not yet promoted
-    to the Engine), and every existing caller that constructs a bare
-    `MainWindow(app_engine, screen_registry, sidebar_factory)` — several tests —
-    must keep working unchanged.
-
-    @par BUG-104 — the active route is deliberately NOT remembered
-    `EPIC-010C` originally also persisted `last_route` and navigated straight
-    into it on boot. That silently combined with screens whose own design is
-    "being open means live" (the Trading screen — `EPIC-021I`: opening it
-    unconditionally dispatches `SyncMarketDataCommand`/`StartLiveStreamCommand`,
-    no separate Start step, by its own documented intent) to make **launching
-    the app** — no click, no user action at all — start a real network stream
-    whenever the user's previous session had happened to end on that screen.
-    Every boot must land on the registered default route, full stop; a
-    screen's own "open = go live" behaviour then only ever fires from an
-    actual user click on the sidebar.
-    """
+class MainWindow(WorkbenchShell):
+    """The application window: every navigable screen as a mode."""
 
     def __init__(
         self,
         app_engine,
         screen_registry: IScreenRegistry,
-        sidebar_factory: Callable[[Sequence[NavSection], Sequence[NavItem]], ISidebar],
         *,
+        venue_text: str = "",
+        version_text: str = "",
         state_coordinator: UiStateCoordinator | None = None,
-        navigation_service: INavigationService | None = None,
         close_objections: ICloseObjections | None = None,
         confirm_close: ConfirmClose | None = None,
     ) -> None:
-        super().__init__()
-        self._app = app_engine
+        # The commands' owner exists before the window it then belongs to, so
+        # every action dies with the window rather than with the application.
+        action_owner = QObject()
+        super().__init__(
+            ActionRegistry(action_owner, MessageBoxConfirmer()),
+            application_name=APPLICATION_NAME,
+            about_text=_about_text(venue_text, version_text),
+        )
+        action_owner.setParent(self)
+        self._container = app_engine.context.container
         self._close_objections = close_objections
         #: `None` asks with a message box. Never a lambda over `self`: a
         #: cycle would keep this wrapper alive after Qt deletes the window.
         self._confirm_close = confirm_close
         # Set before any geometry call: `resizeEvent`/`moveEvent` may fire
-        # synchronously as a side effect of `resize()`/`restoreGeometry()`
-        # below, and both call `_mark_dirty()`, which reads this attribute.
+        # synchronously from `resize()`, and both read it.
         self._state_coordinator = state_coordinator
-        self._current_route = screen_registry.get_default_route()
+        self._presenters: dict[str, BasePresenter] = {}
+        self._hosts: dict[str, ModeHost] = {}
+        self._perspectives = ModePerspectives()
+        self._pending_source: ShellNavigationSource | None = None
+        self._last_source: ShellNavigationSource | None = None
+        self._restored_mode = False
+        self._is_shut_down = False
 
-        self.setWindowTitle(_WINDOW_TITLE)
         self.resize(*_WINDOW_SIZE)
+        self._show_venue(venue_text)
+        self._add_modes(screen_registry.modes())
+        self.navigation.mode_changed.connect(self._on_mode_changed)
+        self.finish_setup()
+        for host in self._hosts.values():
+            self._perspectives.register(host)
 
-        # ---- Shell layout ------------------------------------------------
-        central = QWidget()
-        self.setCentralWidget(central)
-        shell_layout = QHBoxLayout(central)
-        shell_layout.setContentsMargins(0, 0, 0, 0)
-        shell_layout.setSpacing(0)
-
-        # ---- Sidebar component --------------------------------------------
-        nav_sections, bottom_actions = screen_registry.build_sidebar_navigation()
-        self._sidebar: ISidebar = sidebar_factory(nav_sections, bottom_actions)
-        self._sidebar.sig_navigate.connect(self.switch_screen)
-        self._sidebar.collapsed_changed.connect(self._mark_dirty)
-
-        # ---- Content area -----------------------------------------------
-        self._stacked = QStackedWidget()
-        self._stacked.setStyleSheet(_CONTENT_BG_STYLE)
-
-        shell_layout.addWidget(self._sidebar)
-        shell_layout.addWidget(self._stacked)
-
-        # ---- Router setup -----------------------------------------------
-        self._router = PresenterManager(self._app.context.container, self._stacked)
-        screen_registry.bind_to_router(self._router)
-        # `EPIC-025F` — `can_leave` left at its permissive default: no screen
-        # today needs to block navigation (`architecture-rule.md` §7.2.1).
-        self._navigation_service = (
-            navigation_service
-            if navigation_service is not None
-            else NavigationService(self._router)
-        )
-
-        # ---- Restore remembered state, then navigate ----------------------
-        # `restore_state()` (below) applies geometry/sidebar only — never the
-        # route (`BUG-104`) — so `self._current_route` is still exactly
-        # `get_default_route()` set above, and this is always the one and
-        # only navigation call on boot, always into the default screen,
-        # regardless of what the previous session had open. Tagged
-        # `RESTORE` rather than `USER_INTENT` (no click happened) so a
-        # screen whose own design is "being open means live" can tell the
-        # two apart (`BUG-104`, `BUG-107`).
         if self._state_coordinator is not None:
+            self._state_coordinator.restore_into(self._perspectives)
             self._state_coordinator.restore_into(self)
-        self._navigate(self._current_route, source=NavigationSource.RESTORE)
+        if not self._restored_mode:
+            self.navigate(
+                screen_registry.get_default_route(), ShellNavigationSource.RESTORE
+            )
+        if self._last_source is None and self.current_mode is not None:
+            # The mode showing was already current, so no change fired.
+            self._announce(self.current_mode, ShellNavigationSource.RESTORE)
+
+    # -- building ------------------------------------------------------------
+
+    def _show_venue(self, venue_text: str) -> None:
+        """The venue in text, never by colour alone (MS `vis-color`)."""
+        if not venue_text:
+            return
+        self.setWindowTitle(f"{APPLICATION_NAME} — {venue_text}")
+        label = QLabel(venue_text)
+        label.setObjectName("workbench::venue")
+        self.add_status_widget(label)
+
+    def _add_modes(self, screens: Sequence[ScreenDescriptor]) -> None:
+        titles = [screen.nav.title for screen in screens if screen.nav is not None]
+        texts = assign_access_keys(titles, _VIEW_MENU_KEYS)
+        icon_colour = QApplication.palette().color(QPalette.ColorRole.WindowText)
+        for screen, text in zip(screens, texts, strict=True):
+            view = screen.view_factory()
+            self._presenters[screen.route] = screen.presenter_class(
+                view, self._container
+            )
+            host = ModeHost(screen.route, view)
+            self._hosts[screen.route] = host
+            icon = (
+                get_icon_loader().get_icon(
+                    screen.nav.icon, icon_colour.name(), _MODE_ICON_SIZE
+                )
+                if screen.nav is not None
+                else None
+            )
+            self.add_mode(ShellMode(screen.route, text, host, icon=icon))
+            logger.debug("Mode %r built", screen.route)
+        logger.info("Workbench built %d mode(s): %s", len(screens), list(self._hosts))
+
+    # -- what tests and the composition root read ----------------------------
 
     @property
     def navigation_service(self) -> INavigationService:
-        """The `INavigationService` governing screen transitions in this window."""
-        return self._navigation_service
+        """The `INavigationService` governing mode changes in this window.
+
+        A new adapter per call, never one held here: it holds the window, and
+        a window holding it back is a cycle that keeps this wrapper alive
+        after Qt deletes the window."""
+        return ShellNavigation(self)
+
+    @property
+    def last_source(self) -> ShellNavigationSource | None:
+        """Why the showing mode was last shown."""
+        return self._last_source
+
+    @property
+    def presenters(self) -> Mapping[str, BasePresenter]:
+        return dict(self._presenters)
+
+    @property
+    def hosts(self) -> Mapping[str, ModeHost]:
+        return dict(self._hosts)
+
+    # -- navigating ------------------------------------------------------------
+
+    def switch_screen(self, route_name: str) -> bool:
+        """A user's request to show `route_name`, as a click would make it."""
+        return self.navigate(route_name, ShellNavigationSource.USER_INTENT)
+
+    def navigate(self, mode_id: str, source: ShellNavigationSource) -> bool:
+        """Every mode change passes here — clicks, shortcuts, View, restore —
+        so the mode shown hears why (`_on_mode_changed`)."""
+        if mode_id == self.current_mode and source is ShellNavigationSource.USER_INTENT:
+            # A click on the showing mode changes nothing on the stack, but it
+            # is still the user asking for it: a mode restored at start that
+            # waits for a click to go live (`BUG-104`) hears that click here.
+            self._announce(mode_id, source)
+            return True
+        self._pending_source = source
+        try:
+            return super().navigate(mode_id, source)
+        finally:
+            self._pending_source = None
+
+    def _on_mode_changed(self, mode_id: str) -> None:
+        source = self._pending_source or ShellNavigationSource.USER_INTENT
+        self._announce(mode_id, source)
+
+    def _announce(self, mode_id: str, source: ShellNavigationSource) -> None:
+        self._last_source = source
+        presenter = self._presenters[mode_id]
+        logger.info("Mode %r shown (%s)", mode_id, source.name)
+        if isinstance(presenter, IShownAsMode):
+            presenter.on_mode_shown(from_shell_source(source))
+        self._mark_dirty()
+
+    # -- closing ---------------------------------------------------------------
 
     def shutdown(self) -> None:
-        """Requests cooperative presenter shutdown before engine teardown."""
+        """Saves the window and every mode's layout, then disposes every
+        presenter, last built first. Safe to call twice."""
+        if self._is_shut_down:
+            return
+        self._is_shut_down = True
         if self._state_coordinator is not None:
+            self._state_coordinator.mark_dirty(self._perspectives)
+            self._state_coordinator.mark_dirty(self)
             # A pending debounced write does not fire once the event loop
             # stops turning — this is the real safety net, not the timer.
             self._state_coordinator.flush()
-        self._router.shutdown()
+        for route, presenter in reversed(tuple(self._presenters.items())):
+            try:
+                presenter.dispose()
+            except Exception:
+                logger.exception("Presenter of mode %r failed to dispose", route)
 
     def closeEvent(self, event: QCloseEvent) -> None:
         """Asks first when a context objects (`EPIC-029F`, ADR O4): a running
@@ -218,13 +278,25 @@ class MainWindow(QMainWindow):
             )
             event.ignore()
             return
-        self.shutdown()
         super().closeEvent(event)
+        if event.isAccepted():
+            self.shutdown()
 
     def _close_confirmed(self, reasons: Sequence[str]) -> bool:
         if self._confirm_close is not None:
             return self._confirm_close(reasons)
         return ask_before_closing(self, reasons)
+
+    # -- remembered state (`IStateContributor`, structural) ---------------------
+
+    @property
+    def state_scope(self) -> StateScope:
+        return StateScope(key="shell")
+
+    def restore_state(self, data: StateData) -> None:
+        mode = data.get(_MODE_KEY)
+        self._restored_mode = isinstance(mode, str) and mode in self._hosts
+        super().restore_state(data)
 
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
@@ -234,75 +306,16 @@ class MainWindow(QMainWindow):
         super().moveEvent(event)
         self._mark_dirty()
 
-    # ------------------------------------------------------------------ #
-    # IStateContributor — structural, no base class (EPIC-010C)
-    # ------------------------------------------------------------------ #
-
-    @property
-    def state_scope(self) -> StateScope:
-        return StateScope(key="shell")
-
-    def capture_state(self) -> StateData:
-        # `.data()` is typed as `bytes | bytearray | memoryview` in PySide6's
-        # stubs (it is always plain `bytes` at runtime for a `QByteArray`);
-        # wrapping in `bytes(...)` normalizes the type without changing the
-        # value, since all three union members satisfy the buffer protocol.
-        geometry_b64 = bytes(self.saveGeometry().toBase64().data()).decode("ascii")
-        return {
-            _GEOMETRY_KEY: geometry_b64,
-            _SIDEBAR_COLLAPSED_KEY: self._sidebar.is_collapsed,
-        }
-
-    def restore_state(self, data: StateData) -> None:
-        """Applies a previously captured slice. See the class docstring's
-        `BUG-104` note for why the active route is deliberately never
-        restored here — geometry and the sidebar's collapsed flag are pure
-        cosmetics with no side effect from being applied; which screen boots
-        active is not."""
-        geometry_b64 = data.get(_GEOMETRY_KEY)
-        if isinstance(geometry_b64, str) and geometry_b64:
-            blob = QByteArray.fromBase64(geometry_b64.encode("ascii"))
-            self.restoreGeometry(blob)  # False return -> keeps the default size
-
-        collapsed = data.get(_SIDEBAR_COLLAPSED_KEY)
-        if isinstance(collapsed, bool):
-            self._sidebar.set_collapsed(collapsed)
-
     def _mark_dirty(self) -> None:
-        if self._state_coordinator is not None:
+        if self._state_coordinator is not None and not self._is_shut_down:
             self._state_coordinator.mark_dirty(self)
 
-    def switch_screen(self, route_name: str) -> None:
-        """
-        @brief Navigate to a registered screen and sync the sidebar active state.
-        @param route_name The route key registered with the PresenterManager.
 
-        @details Always a real user action (a sidebar click) — the one other
-        caller, boot's initial navigation, goes through `_navigate()`
-        directly so it can tag itself `RESTORE` instead.
-        """
-        self._navigate(route_name, source=NavigationSource.USER_INTENT)
-
-    def _navigate(self, route_name: str, *, source: NavigationSource) -> bool:
-        """Shared mechanism behind `switch_screen()` and boot's initial
-        navigation. Returns `False`, leaving the sidebar/route/persisted
-        state untouched, if `INavigationService.navigate()` refused the move
-        (no screen installs a `can_leave` guard yet, so this is currently
-        always `True`)."""
-        moved = self._navigation_service.navigate(route_name, source=source)
-        if moved:
-            self._sidebar.set_active(route_name)
-            self._current_route = route_name
-            self._mark_dirty()
-        return moved
-
-
-# ---------------------------------------------------------------------------
-# Legacy entry point — kept so that existing test imports from this module
-# (test_sanity_ui_e2e.py) continue to work without modification.
-# New code should use app_bootstrapper.main() instead.
-# ---------------------------------------------------------------------------
-if __name__ == "__main__":
-    from Sagittarius_Elite_Warrior.src.presentation.ui.app_bootstrapper import main
-
-    main()
+def _about_text(venue_text: str, version_text: str) -> str:
+    """Help → About: the name, the version and the venue."""
+    lines = [APPLICATION_NAME, "A desktop workbench for Binance trading bots."]
+    if version_text:
+        lines.append(version_text)
+    if venue_text:
+        lines.append(f"Venue: {venue_text}")
+    return "\n".join(lines)

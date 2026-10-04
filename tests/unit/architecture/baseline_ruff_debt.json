@@ -89,7 +89,6 @@
       "src/modules/trading/ui/probes.py": 2,
       "src/modules/trading/ui/settings_contribution.py": 2,
       "src/shell/settings/settings_screen.py": 3,
-      "src/shell/welcome/welcome_screen.py": 3,
       "src/support/ui_kit/param_form/strategy_params_dialog.py": 1
     },
     "PLR0904": {

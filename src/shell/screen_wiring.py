@@ -1,10 +1,9 @@
 """From contributions to a populated `ScreenRegistry` (SDD boot steps 6–7).
 
 One function, so there is exactly one path from "something contributed a
-screen" to "the sidebar has an entry for it" — whether that something is a
-bounded context or the shell's own Welcome/Settings. `MainWindow` and
-`PresenterManager` are untouched: they still receive an `IScreenRegistry` and
-still build each view lazily on first navigation.
+screen" to "the mode bar has an entry for it" — whether that something is a
+bounded context or the shell's own Settings. `MainWindow` receives the
+`IScreenRegistry` and builds every mode from it (`EPIC-033C`).
 
 `EPIC-025F` PR 5.2 retired the last of the strangler-period screens this file
 used to carry through an adapter (`shell/legacy_screen_adapter.py`, deleted in

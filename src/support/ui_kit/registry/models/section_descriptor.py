@@ -1,4 +1,4 @@
-"""`EPIC-016` — a sidebar section's own ordering, registry-internal (see
+"""`EPIC-016` — a section's own ordering of the modes, registry-internal (see
 `nav_metadata.py`'s module docstring for why)."""
 
 from __future__ import annotations
@@ -8,7 +8,7 @@ from dataclasses import dataclass
 
 @dataclass(frozen=True, slots=True)
 class SectionDescriptor:
-    """One sidebar section's title and sort weight.
+    """One section's title and sort weight.
 
     @details `sequence` decides section order (lower first); ties are broken
     by insertion order, matching `dict`'s own iteration guarantee — no

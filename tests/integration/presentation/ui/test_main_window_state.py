@@ -1,15 +1,17 @@
-"""`EPIC-010C` — `MainWindow` remembers geometry and the sidebar's collapsed
-state across a restart. It deliberately does NOT remember the active route
-(`BUG-104`) — every boot always lands on the registered default screen; see
-`main_window.py`'s own `BUG-104` docstring note for why.
+"""`EPIC-033C` — the workbench window remembers its geometry, its last mode
+and each mode's layout across a restart, and a restore at start never makes a
+mode go live (`BUG-104`).
 
-Lives in `integration/`, not `unit/`: constructing a real `MainWindow` always
-navigates to a real screen (`switch_screen()` runs unconditionally at the end
-of `__init__`), which lazily constructs a real presenter through the real DI
-container — there is no lighter-weight way to exercise this class's own
-restore/capture logic. Uses this directory's existing `app_engine` fixture
-(a real boot, mocked only at the dispatcher) rather than inventing a second
-one.
+`BUG-104` was the window restoring the Trading screen, whose presenter
+started a sync and a live stream in its constructor. The window now builds
+every mode at start (the user's decision, 2026-10-04), so the guarantee moved
+from "a remembered screen is never built" to "a remembered mode is shown as a
+`RESTORE`, and nothing goes live on a restore that needs a click": the Dev
+Board's opt-in auto-start (enabled in this directory's config) is the probe.
+
+Lives in `integration/`: building a real `MainWindow` builds every real
+screen through the real DI container. Uses this directory's `app_engine`
+fixture (a real boot, mocked only at the dispatcher).
 
 @par Why this file has its own window harness instead of `conftest.py`'s
 `main_window` fixture
@@ -21,24 +23,12 @@ construct itself.
 
 @par Why the harness waits on submitted futures rather than calling
 `IThreadManager.shutdown(wait=True)`
-`conftest.py`'s fixture drains by shutting the pool down, which is fine at
-teardown but fatal here: `test_route_change_and_sidebar_toggle_survive_a_restart`
-opens a *second* window in the same process, and a shut-down
+A restart opens a *second* window in the same process, and a shut-down
 `ThreadPoolExecutor` rejects every later `submit()`. `IThreadManager` has no
-wait-for-idle verb (only `submit` and `shutdown`), so the harness wraps
-`submit` to record each `Future` and blocks on exactly those.
-
-That draining is not defensive padding — without it this suite **deadlocked**,
-reproducibly, in longer runs. `DataManagementPresenter.shutdown()` cancels
-only cooperatively (it sets a token flag and returns; see its own docstring),
-so a `run_auto_discover` worker from window 1 was still mid-`dispatch` while
-the main thread built window 2's `DataManagementView`. Both threads then
-touched the same `MagicMock` dispatcher, whose child-mock creation mutates
-shared state and is not thread-safe, and the process hung with the main
-thread stuck in GC. The cooperative-only shutdown is pre-existing app
-behaviour, not something `EPIC-010` introduced; this harness is what keeps
-the two windows from overlapping.
-"""
+wait-for-idle verb, so the harness wraps `submit` to record each `Future`
+and blocks on exactly those. Without that draining this suite deadlocked:
+a `run_auto_discover` worker from window 1 was still mid-`dispatch` on the
+shared `MagicMock` dispatcher while the main thread built window 2."""
 
 from __future__ import annotations
 
@@ -46,8 +36,11 @@ import concurrent.futures
 from pathlib import Path
 
 import pytest
+from PySide6.QtWidgets import QDockWidget
+from Sagittarius_Elite_Warrior.src.modules.market_data.application.stream.start_live_stream.command import (
+    StartLiveStreamCommand,
+)
 from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
-from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.config_manager_state_store import (
     ConfigManagerStateStore,
 )
@@ -59,6 +52,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator imp
     UiStateCoordinator,
 )
 from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
+from sagittarius_engine.extensions.pyside_mvc.workbench.navigation_service import (
+    NavigationSource as ShellNavigationSource,
+)
+from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
 #: A drain that exceeds this is a hang, not slow work — every task these
@@ -100,13 +97,10 @@ class _WindowHarness:
 
     def open(self, coordinator: UiStateCoordinator | None = None) -> MainWindow:
         registry = real_screen_registry(self._app_engine.context.container)
-        window = MainWindow(
-            self._app_engine,
-            registry,
-            sidebar_factory=Sidebar,
-            state_coordinator=coordinator,
-        )
-        self._qtbot.addWidget(window)
+        window = MainWindow(self._app_engine, registry, state_coordinator=coordinator)
+        # Not handed to `qtbot.addWidget`: `close()` below closes and deletes
+        # each window itself, and qtbot closing it again would find the C++
+        # object gone while the test still holds the window.
         self._open_windows.append(window)
         return window
 
@@ -115,8 +109,7 @@ class _WindowHarness:
         then blocks until they have actually returned."""
         window.shutdown()  # flushes state_coordinator, disposes presenters
 
-        for entry in window._router._registry.values():
-            presenter = entry.get("presenter_instance")
+        for presenter in window.presenters.values():
             autostart = getattr(presenter, "_autostart", None)
             if autostart is not None:
                 autostart.shutdown()
@@ -133,9 +126,8 @@ class _WindowHarness:
             f"docstring, this is the deadlock condition, not slow work"
         )
 
-        for entry in window._router._registry.values():
-            view = entry.get("view_instance")
-            cards = getattr(view, "chart_cards", None)
+        for host in window.hosts.values():
+            cards = getattr(host.view, "chart_cards", None)
             if cards:
                 for card in cards:
                     if hasattr(card, "cleanup"):
@@ -159,98 +151,116 @@ def windows(qtbot, app_engine, monkeypatch):
     harness.close_all()
 
 
-def test_a_bare_main_window_still_works_with_no_coordinator(windows):
-    """Backward compatibility: every existing caller that omits
-    `state_coordinator` — several tests, and every route in production
-    before `010A`/`010B` are promoted to the Engine — must keep working
-    exactly as before."""
+def _autostart_has_begun(window: MainWindow) -> bool:
+    autostart = window.presenters["dashboard"]._autostart
+    assert autostart is not None, "this directory's config enables the auto-start"
+    return autostart.has_begun
+
+
+def test_a_window_with_no_coordinator_opens_the_default_mode(windows):
     window = windows.open()
 
-    assert window._current_route == "welcome"
+    assert window.current_mode == "trading.futures"
+    assert window.last_source is ShellNavigationSource.RESTORE
 
 
-def test_restores_sidebar_and_geometry_but_never_the_route(windows, tmp_path):
-    """`BUG-104`: a stored `last_route` from a prior session (even one still
-    valid today) must never become the boot screen — only geometry and the
-    sidebar's collapsed flag are cosmetic enough to restore verbatim."""
-    coordinator = _coordinator_over(tmp_path)
-    coordinator._store.write(
-        StateScope(key="shell"),
-        {"last_route": "backtest", "sidebar_collapsed": True},
-    )
-
-    window = windows.open(coordinator)
-
-    assert window._current_route == "welcome"
-    assert window._sidebar.is_collapsed is True
+_EVERY_MODE = (
+    "dashboard",
+    "trading.futures",
+    "trading.spot",
+    "bots",
+    "data_management",
+    "watchlist",
+    "backtest",
+    "settings",
+)
 
 
-@pytest.mark.parametrize("stored_route", ["trading", "trading.futures"])
-def test_boot_never_constructs_a_non_default_screen_even_with_a_stored_route(
-    windows, tmp_path, stored_route
+@pytest.mark.parametrize("stored_mode", _EVERY_MODE)
+def test_no_remembered_mode_opens_a_live_stream_at_launch(
+    windows, tmp_path, market_stream, app_engine, monkeypatch, stored_mode
 ):
-    """Proves the lazy-loading guarantee end to end, not just by reading
-    `_current_route`: a stored `last_route` must not make `PresenterManager`
-    construct a trading screen's presenter at boot — it stays lazily
-    un-built exactly as it would for a route nobody ever visited.
+    """`BUG-104`, the reported path, for every mode: whichever mode the last
+    session ended in, launching opens no market stream and dispatches no
+    `StartLiveStreamCommand`. Every mode is built at start (`EPIC-033C`), so
+    this covers each screen's constructor and its restore-time show."""
+    dispatched: list[type] = []
+    dispatcher = app_engine.context.container.resolve(IDispatcher)
+    real_dispatch = dispatcher.dispatch
 
-    This is the literal reported shape of `BUG-104`: the single Trading
-    screen's presenter started a real sync and live stream in `__init__`
-    (`EPIC-021I`), so merely *constructing* it was the observable harm.
-    `EPIC-028M` retired that screen for the two desks: `"trading"` is what a
-    session from before then left stored, `"trading.futures"` what one after
-    may leave; neither builds a desk at boot."""
+    def recording_dispatch(command_type, command):
+        dispatched.append(command_type)
+        return real_dispatch(command_type, command)
+
+    monkeypatch.setattr(dispatcher, "dispatch", recording_dispatch)
     coordinator = _coordinator_over(tmp_path)
-    coordinator._store.write(StateScope(key="shell"), {"last_route": stored_route})
+    coordinator._store.write(StateScope(key="shell"), {"mode": stored_mode})
 
     window = windows.open(coordinator)
 
-    # PR 1.5a made this a stronger guarantee than it was: the default route
-    # is the shell's Welcome screen, so booting now constructs *no* trading
-    # screen — and the Dev Board, whose Presenter opens feeds of its own, is
-    # no longer built just because the app started.
-    assert window._current_route == "welcome"
-    registry = window._router._registry
-    assert registry["welcome"]["presenter_instance"] is not None
-    for route in ("dashboard", "trading.futures", "trading.spot"):
-        assert registry[route]["presenter_instance"] is None, route
-    assert "trading" not in registry
+    assert window.current_mode == stored_mode
+    assert [call for call in market_stream.calls if call[0] == "start"] == []
+    assert StartLiveStreamCommand not in dispatched
 
 
-def test_sidebar_toggle_survives_a_restart_but_the_route_resets_to_default(
+def test_every_mode_is_covered_by_the_launch_check(windows):
+    """The list above is the window's own, so a new mode is not missed."""
+    assert set(windows.open().navigation.modes()) == set(_EVERY_MODE)
+
+
+def test_a_remembered_mode_comes_back_as_a_restore_and_does_not_go_live(
     windows, tmp_path
 ):
-    """The real round trip: change state, close the window completely, then
-    reopen with a fresh store instance pointed at the same file — as a real
-    restart would be. `BUG-104`: unlike the sidebar's collapsed flag, the
-    route a user last navigated to must NOT come back on the next launch.
-
-    `windows.close()` between the two is load-bearing, not tidiness: see the
-    module docstring for the deadlock that skipping it produced.
-    """
+    """`BUG-104`: the Dev Board comes back, and its auto-start does not run:
+    nobody clicked."""
     coordinator = _coordinator_over(tmp_path)
+    coordinator._store.write(StateScope(key="shell"), {"mode": "dashboard"})
+
     window = windows.open(coordinator)
 
+    assert window.current_mode == "dashboard"
+    assert window.last_source is ShellNavigationSource.RESTORE
+    assert _autostart_has_begun(window) is False
+
+
+def test_a_click_on_the_dev_board_begins_its_auto_start(windows):
+    """The positive half: the same auto-start does run on a user's open."""
+    window = windows.open()
+
+    window.switch_screen("dashboard")
+
+    assert _autostart_has_begun(window) is True
+
+
+def test_a_mode_retired_since_the_last_session_opens_the_default(windows, tmp_path):
+    """`"trading"` is what a session from before `EPIC-028M` left stored."""
+    coordinator = _coordinator_over(tmp_path)
+    coordinator._store.write(StateScope(key="shell"), {"mode": "trading"})
+
+    window = windows.open(coordinator)
+
+    assert window.current_mode == "trading.futures"
+
+
+def test_the_last_mode_and_a_closed_panel_survive_a_restart(windows, tmp_path):
+    """The real round trip: change state, close the window completely, then
+    reopen with a fresh store over the same file, as a restart would.
+
+    `windows.close()` between the two is load-bearing: see the module
+    docstring for the deadlock skipping it produced."""
+    coordinator = _coordinator_over(tmp_path)
+    window = windows.open(coordinator)
+    window.switch_screen("dashboard")
+    docks = window.hosts["dashboard"].findChildren(QDockWidget)
+    assert docks, "the Dev Board's surface has panels"
+    closed = docks[0].objectName()
+    docks[0].close()
     window.switch_screen("data_management")
-    window._sidebar.set_collapsed(True)
-    window._sidebar.collapsed_changed.emit()  # what the real toggle button fires
     windows.close(window)  # flushes, then waits for every worker to return
 
-    reopened_coordinator = _coordinator_over(tmp_path)  # a fresh process, fresh store
-    reopened = windows.open(reopened_coordinator)
+    reopened = windows.open(_coordinator_over(tmp_path))
 
-    assert reopened._current_route == "welcome"
-    assert reopened._sidebar.is_collapsed is True
-
-
-def test_capture_state_never_includes_the_route(windows, tmp_path):
-    """`BUG-104`: the route is deliberately not part of this slice at all —
-    not merely restored-and-ignored, never captured in the first place."""
-    coordinator = _coordinator_over(tmp_path)
-    window = windows.open(coordinator)
-    window.switch_screen("backtest")
-    captured = window.capture_state()
-
-    assert "last_route" not in captured
-    assert isinstance(captured["geometry_b64"], str) and captured["geometry_b64"]
-    assert captured["sidebar_collapsed"] is window._sidebar.is_collapsed
+    assert reopened.current_mode == "data_management"
+    dock = reopened.hosts["dashboard"].findChild(QDockWidget, closed)
+    assert dock is not None
+    assert dock.isHidden()

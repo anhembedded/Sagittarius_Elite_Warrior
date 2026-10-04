@@ -13,7 +13,7 @@
     .\scripts\preview-qml.ps1 dashboard
     .\scripts\preview-qml.ps1 data_management
     .\scripts\preview-qml.ps1 settings
-    .\scripts\preview-qml.ps1 sidebar
+    .\scripts\preview-qml.ps1 dashboard
 #>
 [CmdletBinding()]
 param(

@@ -4,7 +4,7 @@
 @details
 Responsible for:
 - Booting the Sagittarius Engine (config + create_app).
-- Initialising QApplication (font, theme, exception handler, signal handler).
+- Initialising QApplication (theme, exception handler, signal handler).
 - Initialising UIWatchdog for main-thread freeze detection.
 - Creating and showing MainWindow.
 - Shutting down the Engine and background diagnostics on exit.
@@ -36,6 +36,8 @@ effects.
 
 from __future__ import annotations
 
+import importlib.metadata
+import logging
 import os
 import sys
 import threading
@@ -43,12 +45,15 @@ import traceback
 from dataclasses import dataclass
 
 from PySide6.QtCore import QTimer
-from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QApplication
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.i_close_objections import (
     ICloseObjections,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.i_config_reader import (
+    IConfigReader,
+)
+from Sagittarius_Elite_Warrior.src.core.contracts.i_config_writer import IConfigWriter
 from Sagittarius_Elite_Warrior.src.main import create_app
 from Sagittarius_Elite_Warrior.src.presentation.ui.components import (
     CriticalErrorDialog,
@@ -64,13 +69,13 @@ from Sagittarius_Elite_Warrior.src.shell.app_config import (
 from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
     assemble_contributions,
 )
+from Sagittarius_Elite_Warrior.src.shell.developer_options.developer_options_page import (
+    DeveloperOptionsPage,
+)
 from Sagittarius_Elite_Warrior.src.shell.notification_event_handler import (
     NotificationEventHandler,
 )
 from Sagittarius_Elite_Warrior.src.shell.screen_wiring import build_screen_registry
-from Sagittarius_Elite_Warrior.src.shell.welcome.start_requested_event import (
-    StartRequested,
-)
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.timeframe_pin_preferences import (
     TimeframePinPreferences,
 )
@@ -88,7 +93,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.qt_platform import (
     is_headless_qt_platform,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import INavigationService
-from Sagittarius_Elite_Warrior.src.support.ui_kit.sidebar import Sidebar
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.adapters.config_manager_state_store import (
     ConfigManagerStateStore,
 )
@@ -113,15 +117,13 @@ from sagittarius_engine.extensions.pyside_mvc import (
     UIWatchdog,
     setup_qt_signal_handling,
 )
-from sagittarius_engine.interfaces.i_config import IConfig
 
-#: Where **Start** goes: the Futures desk (`EPIC-028M`, which retired the
-#: single Trading screen). Named here, in *Main*, because that is the
-#: decision this entry point owns — the same value as
-#: `futures_desk_screen.FUTURES_DESK_ROUTE`, not read from it, so the Welcome
-#: screen depends on neither. No layout is keyed by the route (`BUG-104`), so
-#: nothing saved under the old one needs migrating.
-START_ROUTE = "trading.futures"
+logger = logging.getLogger("App.Shell.Bootstrapper")
+
+#: The installed Engine, named in Help → About. The application itself is not
+#: an installed distribution, so the Engine's version is the one a user can
+#: report.
+_ENGINE_DISTRIBUTION = "sagittarius-engine"
 
 #: `python -m ...app_bootstrapper --self-check`: boot for real, let the event
 #: loop turn once, exit with a real process exit code. See the module
@@ -194,7 +196,6 @@ def build() -> AppRuntime:
 
     _install_exception_handler(app_engine)
     sig_timer = setup_qt_signal_handling(app)
-    _apply_font(app, config_manager)
     # ADR D21: the app applies no stylesheet, palette or third-party theme of
     # its own; standard controls render in the platform's theme. Colour is used
     # only where it carries meaning, per widget. `qdarktheme`'s global dark
@@ -316,9 +317,18 @@ def build() -> AppRuntime:
     window = MainWindow(
         app_engine,
         screen_registry,
-        sidebar_factory=Sidebar,
+        venue_text=banner_content.message,
+        version_text=_version_text(config_manager),
         state_coordinator=state_coordinator,
         close_objections=app_engine.context.container.resolve(ICloseObjections),
+    )
+    # `EPIC-033C` — developer mode moved from Welcome to Tools → Options.
+    window.add_options_page(
+        DeveloperOptionsPage(
+            config_manager,
+            app_engine.context.container.resolve(IConfigWriter),
+            running_with_dev_mode=dev_mode.is_enabled,
+        )
     )
     # `EPIC-025F` — promote INavigationService to the application container so
     # any component or coordinator can navigate decoupled from MainWindow.
@@ -336,18 +346,6 @@ def build() -> AppRuntime:
     )
 
     window.show()
-
-    # `EPIC-025` PR 1.5a — what **Start** on the Welcome screen means. The
-    # shell owns that screen and cannot navigate: a route change is
-    # `MainWindow`'s, which lives in this tree, and a navigation port with one
-    # caller would pre-empt the Engine's `NavigationService` (Phase 5). So the
-    # screen raises an intent and *Main* — here — decides it means the
-    # Futures desk. A
-    # real login can replace the button without touching anything else
-    # (HLD §4.6).
-    app_engine.context.event_bus.on(
-        StartRequested, lambda _event: window.switch_screen(START_ROUTE)
-    )
 
     # Start UI Watchdog to monitor main-thread responsiveness during runtime
     watchdog = UIWatchdog(logger=app_engine.context.logger)
@@ -525,16 +523,16 @@ def _install_exception_handler(app_engine: App) -> None:
     sys.excepthook = _handler
 
 
-def _apply_font(app: QApplication, config: IConfig) -> None:
-    """Apply the preferred monospace font read from config, with a safe fallback chain."""
-    family = config.get(ConfigKeys.UI_FONT_FAMILY, "Consolas")
-    size = config.get(ConfigKeys.UI_FONT_SIZE, 10, cast=int)
-    fallbacks = config.get(ConfigKeys.UI_FONT_FALLBACKS, ["Consolas"])
-
-    font = QFont(family, size)
-    font.setStyleHint(QFont.Monospace)
-    font.insertSubstitutions(family, fallbacks)
-    app.setFont(font)
+def _version_text(config: IConfigReader) -> str:
+    """Help → About's version line: the application's own, from
+    configuration, and the Engine it runs on."""
+    application = f"Version {config.get(ConfigKeys.APP_VERSION.value, '')}"
+    try:
+        engine = importlib.metadata.version(_ENGINE_DISTRIBUTION)
+    except importlib.metadata.PackageNotFoundError:
+        logger.info("Help → About names no Engine version: it is not installed")
+        return application
+    return f"{application} · Engine {engine}"
 
 
 if __name__ == "__main__":

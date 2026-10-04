@@ -12,6 +12,9 @@ import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
+from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
+    NavigationSource,
+)
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
@@ -135,11 +138,14 @@ def view(qapp):
 
 @pytest.fixture
 def presenter(view, container):
-    return WatchlistPresenter(view, container)
+    """Built and shown, as the workbench window shows its mode (`EPIC-033C`)."""
+    shown = WatchlistPresenter(view, container)
+    shown.on_mode_shown(NavigationSource.USER_INTENT)
+    return shown
 
 
 # ---------------------------------------------------------------------------
-# Construction — symbols seeded, stream started
+# Construction seeds the symbols; the first show starts the stream
 # ---------------------------------------------------------------------------
 
 
@@ -162,7 +168,41 @@ def test_construction_falls_back_to_its_own_floor_when_unconfigured(
     assert view.model.rowCount() > 0
 
 
-def test_construction_starts_the_stream_for_its_own_owner_id(presenter, market_stream):
+def test_construction_alone_starts_no_stream(view, container, market_stream):
+    """`EPIC-033C`: the window builds every mode at start; building the
+    Watchlist is not opening it."""
+    WatchlistPresenter(view, container)
+
+    assert market_stream.held_by("watchlist") is None
+
+
+def test_a_restore_at_start_starts_no_stream_and_says_so(
+    view, container, market_stream
+) -> None:
+    """`BUG-104`: the window bringing the Watchlist back at launch is not a
+    click, and a launch must not open a live stream unasked."""
+    shown = WatchlistPresenter(view, container)
+
+    shown.on_mode_shown(NavigationSource.RESTORE)
+
+    assert market_stream.held_by("watchlist") is None
+    assert "not live" in view._status_label.text().lower()
+
+
+def test_the_users_open_starts_the_stream_once(view, container, market_stream) -> None:
+    """After a restore, the user's click starts it; a second show starts
+    nothing new."""
+    shown = WatchlistPresenter(view, container)
+    shown.on_mode_shown(NavigationSource.RESTORE)
+    shown.on_mode_shown(NavigationSource.USER_INTENT)
+    first = market_stream.held_by("watchlist")
+    shown.on_mode_shown(NavigationSource.USER_INTENT)
+
+    assert first is not None
+    assert market_stream.held_by("watchlist") is first
+
+
+def test_showing_starts_the_stream_for_its_own_owner_id(presenter, market_stream):
     held = market_stream.held_by("watchlist")
 
     assert held is not None
@@ -170,12 +210,12 @@ def test_construction_starts_the_stream_for_its_own_owner_id(presenter, market_s
     assert held.market_type is MarketType.SPOT
 
 
-def test_construction_shows_a_live_status_when_the_stream_starts(presenter, view):
+def test_showing_shows_a_live_status_when_the_stream_starts(presenter, view):
     assert view._status_label.text() != ""
     assert "live" in view._status_label.text().lower()
 
 
-def test_construction_shows_an_error_status_when_the_stream_fails_to_start(
+def test_showing_shows_an_error_status_when_the_stream_fails_to_start(
     view, container, market_stream
 ):
     """`SPEC-002` §4/§5 — a failed start must say so on screen; a Watchlist
@@ -192,7 +232,7 @@ def test_construction_shows_an_error_status_when_the_stream_fails_to_start(
 
     container.resolve.side_effect = resolve_with_failing_stream
 
-    WatchlistPresenter(view, container)
+    WatchlistPresenter(view, container).on_mode_shown(NavigationSource.USER_INTENT)
 
     assert "failed" in view._status_label.text().lower()
     assert "Testnet unreachable." in view._status_label.text()

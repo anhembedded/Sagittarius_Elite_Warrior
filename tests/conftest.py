@@ -123,11 +123,8 @@ def real_screen_registry(container):
     registered against `container`, matching exactly what
     `app_bootstrapper.py`'s composition root does.
 
-    Since `EPIC-025` PR 1.5a that includes the shell's own **Welcome**
-    screen, which is the default route (ADR D13). Leaving it out here made
-    every caller of this helper fail with "no ScreenModule declared
-    is_default=True" the moment the Dev Board stopped claiming it — the
-    helper's promise is to match the real registry, so it follows.
+    The default route is the Futures desk since `EPIC-033C` deleted the
+    Welcome screen; the helper's promise is to match the real registry.
 
     Plain function, not a fixture: `test_composition_root.py` needs this at
     collection time (inside `@pytest.mark.parametrize`'s argument list),
@@ -136,7 +133,7 @@ def real_screen_registry(container):
     a screen's own `view_factory`/`presenter_factory` runs, which stays lazy
     exactly like `PresenterManager` itself.
 
-    `EPIC-025F` PR 5.2 — every screen (the shell's Welcome/Settings, and
+    `EPIC-025F` PR 5.2 — every screen (the shell's Settings, and
     every module's own, the last four converting in this pull request) now
     arrives through `assemble_contributions()`, the same single function
     `app_bootstrapper.py`'s composition root calls. A real `IContainer` gets
@@ -174,12 +171,8 @@ def real_screen_registry(container):
     from Sagittarius_Elite_Warrior.src.shell.settings.settings_screen import (
         settings_screen,
     )
-    from Sagittarius_Elite_Warrior.src.shell.welcome.welcome_screen import (
-        welcome_screen,
-    )
 
     contributions = ContributionRegistry(dev_mode=False)
-    contributions.contribute_screen(welcome_screen())
     contributions.contribute_screen(settings_screen())
     trading_module = TradingModule()
     trading_module._container = container
