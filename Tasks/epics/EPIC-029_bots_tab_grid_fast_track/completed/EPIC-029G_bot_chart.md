@@ -114,6 +114,25 @@ Five commits on `claude/wizardly-cerf-fc5b5x` (PR3 of EPIC-029):
 - **`bots` now declares `market_data` as a dependency** (`test_module_declarations.py`).
 - **The preview registers `modules/bots/ui`** in `scripts/preview_qml.py`.
 
+**`DeskChart` behaviour, three small changes from the move** (none harmful, found by the review):
+the armed strategy's overlay advances on a closed candle *after* the candle is drawn (it ran just
+before); a timeframe change with no symbol shown no longer restarts with an empty symbol; and
+`apply_candle` filters on the interval as well, which repeats the desk's own `_on_tick` filter.
+
+**Review round 1 (PR #321): PASS, three should-fix and four nits, all addressed in one commit.**
+- **The range edge's label read as a blank box** (light text on a light fill). A label's text is now
+  whichever of light and dark contrasts more with its fill (WCAG 2 ratio, `label_text_color`). The
+  earlier claim that the preview was inspected for this was wrong: it was looked at only before the
+  range edges were drawn.
+- **HLD 03** names `MarketDataCandleFeed` as the consumer of `IMarketDataSync` and `IMarketStream`,
+  and records it as the one adapter in a module's `contracts/`, an exception and not a precedent.
+- **The ADR D15 row** now records what shipped: `ICandleFeed` with four operations, one adapter, and
+  the cleaner factory shape left for later.
+- `029D` and `029F` gained the criterion that they host `BotChart` and draw only through it.
+- Nits: the coordinator's mapped history is drawn as it comes (no second mapping on the Qt thread); a
+  bot chart is quiet again after `shutdown()`; an ATR zone never goes below zero and the docstring says
+  the centring is the drawing's own suggestion; the preview's average cost no longer hides under a level.
+
 **Known limit, for `029F`:** lines and bands ignore the plot's auto-range, as the last price line does, so a level, stop loss or take profit outside the candles' range is off screen until the user zooms out. The Bots tab may want a "fit levels" view.
 
 **Verification.**

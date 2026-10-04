@@ -55,6 +55,10 @@ ENGINE section.
   - Warnings show their threshold and their measured value.
   - "Suggest from ATR" and "Suggest from Bollinger" fill the fields only when the user clicks.
   - The planner preview draws the proposed levels on the bot's chart.
+- [ ] **The charts are `BotChart`** (`EPIC-029G`, ADR D16). The planner preview and the running bot's
+  chart each host a `BotChart` (`show_symbol`; `follow` with `BotTickFeed` for the running bot) and draw
+  only through `show_overlay`, never through a drawer of their own (the PR #321 review). A level outside
+  the candles' range is off screen today (`029G` notes): offer a "fit levels" view.
 - [ ] **Stop dialog.** Its default is O3's answer. It states that resting orders will be cancelled
   and what happens to the base.
 - [ ] **Closing the app** while a bot is RUNNING warns, with Cancel (O4).

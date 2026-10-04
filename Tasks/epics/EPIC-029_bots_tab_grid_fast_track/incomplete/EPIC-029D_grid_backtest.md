@@ -51,6 +51,9 @@ Buy-and-hold is computed nowhere.
   report's four regimes: ranging, uptrend, downtrend and crash-then-recovery. Each shows the
   report's qualitative outcome: in the uptrend the grid trails buy-and-hold, and in the downtrend
   the stop loss limits the loss. These are regression fixtures, not real-data claims.
+- [ ] **The chart is `BotChart`** (`EPIC-029G`, ADR D16). The backtest result hosts a `BotChart` and draws its
+  candles with `draw_history` and its overlay with `show_overlay`, never through a drawer of its own, so
+  the backtest and the running bot cannot draw a Grid differently (the PR #321 review).
 - [ ] **Running it from the planner.** In the Bots tab, "Backtest" on the Grid panel runs the
   current parameters over a chosen period. It shows:
   - the result chart (candles, levels, fills, stop loss and take profit, through `EPIC-029G`'s
