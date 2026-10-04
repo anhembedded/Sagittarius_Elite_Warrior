@@ -19,6 +19,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.list_bots im
     ListBotsQuery,
     ListBotsQueryHandler,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.run_grid_backtest import (
+    RunGridBacktestQuery,
+    RunGridBacktestQueryHandler,
+)
 from sagittarius_engine.interfaces.i_container import IContainer
 
 
@@ -27,3 +31,4 @@ def bind_queries(container: IContainer) -> None:
     container.bind(GetBotQuery, GetBotQueryHandler)
     container.bind(GetPlannerMarketQuery, GetPlannerMarketQueryHandler)
     container.bind(GetBotFillsQuery, GetBotFillsQueryHandler)
+    container.bind(RunGridBacktestQuery, RunGridBacktestQueryHandler)

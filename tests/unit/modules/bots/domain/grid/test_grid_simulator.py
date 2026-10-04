@@ -14,6 +14,9 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.fine_klines import (
+    FineKlinesByCandle,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
     GridBacktestCancelled,
     GridBacktestResult,
@@ -40,6 +43,7 @@ from Sagittarius_Elite_Warrior.tests.unit.modules.bots.domain.grid.report_exampl
 )
 
 START = datetime(2026, 9, 1, tzinfo=UTC)
+MINUTE = timedelta(minutes=1)
 D = Decimal
 
 
@@ -58,7 +62,11 @@ def _replay(
     **changes: str,
 ) -> GridBacktestResult:
     params = GridParams.from_config({**CONFIG, **changes})
-    result = simulate_grid(GridBacktestInputs(params, TERMS, tuple(bars), fine or {}))
+    result = simulate_grid(
+        GridBacktestInputs(
+            params, TERMS, tuple(bars), MINUTE, FineKlinesByCandle(fine or {})
+        )
+    )
     assert isinstance(result, GridBacktestResult)
     return result
 
@@ -238,14 +246,14 @@ def test_a_cancelled_replay_returns_where_it_stopped_not_a_result() -> None:
         asked.append(1)
         return len(asked) > 2
 
-    result = simulate_grid(GridBacktestInputs(params, TERMS, bars), cancelled)
+    result = simulate_grid(GridBacktestInputs(params, TERMS, bars, MINUTE), cancelled)
 
     assert result == GridBacktestCancelled(replayed_bars=2, total_bars=4)
 
 
 def test_no_candles_is_refused() -> None:
     with pytest.raises(ValueError, match="at least one candle"):
-        GridBacktestInputs(GridParams.from_config(CONFIG), TERMS, ())
+        GridBacktestInputs(GridParams.from_config(CONFIG), TERMS, (), MINUTE)
 
 
 # -- the report's four regimes (regression fixtures, not real-data claims) -- #

@@ -17,16 +17,19 @@ and runs this on a worker.
 
 from __future__ import annotations
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from datetime import datetime
-from types import MappingProxyType
+from datetime import datetime, timedelta
 
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
     ExchangeTerms,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.buy_and_hold import (
     buy_and_hold,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.fine_klines import (
+    FineKlines,
+    NoFineKlines,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.grid.grid_backtest_result import (
     BacktestProvenance,
@@ -55,15 +58,17 @@ class GridBacktestInputs:
 
     params: GridParams
     terms: ExchangeTerms
-    #: The candles the result is shown on, oldest first.
+    #: The candles the result is shown on, oldest first, all one length.
     bars: tuple[PriceBar, ...]
-    #: Each candle's 1-second klines, by the candle's open time.
-    fine: Mapping[datetime, tuple[PriceBar, ...]] = field(default_factory=dict)
+    bar_length: timedelta
+    #: Where each reactive candle's 1-second klines come from.
+    fine: FineKlines = field(default_factory=NoFineKlines)
 
     def __post_init__(self) -> None:
         if not self.bars:
             raise ValueError("a Grid backtest needs at least one candle")
-        object.__setattr__(self, "fine", MappingProxyType(dict(self.fine)))
+        if self.bar_length <= timedelta(0):
+            raise ValueError("bar_length must be positive")
 
 
 def _never() -> bool:
@@ -91,7 +96,7 @@ def simulate_grid(
             return GridBacktestCancelled(replayed, len(bars))
         last = bar
         if replay.may_trade_in(bar.low, bar.high):
-            fine = inputs.fine.get(bar.time, ())
+            fine = inputs.fine.within(bar.time, bar.time + inputs.bar_length)
             if not fine:
                 coarse.append(bar.time)
             for step in steps_for(bar, fine):
