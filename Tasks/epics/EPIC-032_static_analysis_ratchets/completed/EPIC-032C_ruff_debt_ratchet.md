@@ -1,4 +1,4 @@
-# EPIC-032C — Four ruff rules the tree cannot meet yet only lose violations
+# EPIC-032C — Five ruff rules the tree cannot meet yet only lose violations
 
 **Status:** ✅ Done (2026-10-04)
 **Source:** the user, 2026-10-04 — "làm tiếp phần còn lại của Tier B đi" (do the rest of Tier B): the mypy, ruff and ratchet items of the audit's Tier B, which EPIC-031 left out.
@@ -27,7 +27,7 @@ Enable what the tree already meets; ratchet what it does not, per file, so a fix
 | `.claude/rules/code/quality.md`, `.claude/rules/commit-rule.md` | Clauses name the ratchet |
 
 ## 5. Testing
-Baseline in the code trees: ANN401 135 hits in 45 files, PLC0415 45 in 18, C901 17 in 17; T20 247 in 54 across all trees. A `print` planted in `src/core/repo_root.py` failed the guard naming that file.
+Baseline in the code trees: ANN401 135 hits in 45 files, PLC0415 45 in 18, C901 17 in 17; T20 247 in 54 across all trees. `PLR0904` 10 in 10, counted with `--preview`. Counting uses `--ignore-noqa`, so a coded suppression cannot hide a hit (probe test). A `print` planted in `src/core/repo_root.py` failed the guard naming that file.
 
 ## Implementation notes (written when done)
 Delivered in one pull request with the rest of EPIC-032; verification is that pull request's `ci-local.ps1 -Full` run and its independent review.

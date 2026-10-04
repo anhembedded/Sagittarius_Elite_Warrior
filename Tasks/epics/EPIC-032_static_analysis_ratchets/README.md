@@ -11,15 +11,16 @@
 ## 1. Decisions already made
 1. The user approved the `pyproject.toml` edits by choosing these audit items.
 2. A rule with zero hits is enabled; a rule with hits is ratcheted per file, never enabled with mass suppressions.
-3. Ratchet scope follows the rule a code serves: `quality.md` trees for `ANN401`, `PLC0415`, `C901`; every tree for `T20`.
+3. Ratchet scope follows the rule a code serves: `quality.md` trees for `ANN401`, `PLC0415`, `C901`, `PLR0904`; every tree for `T20`.
+4. `PLR0904` is a ruff preview rule, so it is ratcheted with `--preview` rather than selected (PR #330 review).
 
 ## 2. Goals — measurable
 | Metric | Before (measured 2026-10-04) | When the epic is done |
 | :--- | :-: | :-: |
 | Strict mypy overrides that match a module | 1 of 3 strict sections | 3 of 3 |
 | mypy `exclude` patterns | 69, unguarded, 3 dead | 66, shrink-only |
-| Ruff rules enforced | 6 prefixes | 6 prefixes + 5 codes |
-| Ruff debt with a ceiling | 0 of 4 rules | 4 of 4, per file |
+| Ruff rules enforced | 6 prefixes | 6 prefixes + 4 codes |
+| Ruff debt with a ceiling | 0 of 5 rules | 5 of 5, per file |
 
 ## 3. Sub-tasks, ordered by risk
 | Id | Task | Repo | Depends on | Risk | Status |

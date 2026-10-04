@@ -1,4 +1,4 @@
-# EPIC-032B — Five ruff rules the tree already meets refuse the first breach
+# EPIC-032B — Four ruff rules the tree already meets refuse the first breach
 
 **Status:** ✅ Done (2026-10-04)
 **Source:** the user, 2026-10-04 — "làm tiếp phần còn lại của Tier B đi" (do the rest of Tier B): the mypy, ruff and ratchet items of the audit's Tier B, which EPIC-031 left out.
@@ -22,7 +22,7 @@ Enable what the tree already meets; ratchet what it does not, per file, so a fix
 ## 4. Changes, per file
 | File | Change |
 | :--- | :--- |
-| `pyproject.toml` | The five codes join `extend-select` |
+| `pyproject.toml` | Four codes join `extend-select`; `PLR0904`, measured at zero only because it is a preview rule ruff never ran, goes to EPIC-032C's ratchet |
 | `.claude/rules/code/errors.md`, `.claude/rules/code/quality.md` | Clauses tagged with the ruff codes that now enforce them (`S110`, `B904` were already selected) |
 
 ## 5. Testing
