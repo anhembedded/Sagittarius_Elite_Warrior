@@ -8,7 +8,7 @@ from collections.abc import Iterator
 from unittest.mock import Mock
 
 import pytest
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtWidgets import (
     QAbstractButton,
     QAbstractScrollArea,
@@ -151,6 +151,27 @@ def test_the_mode_fits_a_small_window_with_a_grid_and_its_backtest_in_front(
 
     assert screen.view.backtest.findChildren(GridBacktestView)
     assert screen.view.minimumSizeHint().height() <= _MODE_HEIGHT_ROOM
+
+
+def test_with_a_grid_selected_the_chart_keeps_the_larger_share_of_the_window(
+    open_bots_screen, qtbot
+) -> None:
+    """The PR #361 re-review: the Grid backtest page's charts hint at
+    850×1104, and the bottom docks took that hint, leaving the chart 104 of
+    768 px. The Backtest panel asks for no more than its minimum, so the
+    chart, the subject of the mode, keeps more than half the height."""
+    screen = open_bots_screen([stored("a00001", S.DRAFT)])
+    screen.settle()
+    screen.view.resize(1366, 768)
+    screen.view.show()
+    qtbot.waitExposed(screen.view)
+
+    screen.view.model.select_requested.emit("a00001")
+    screen.settle()
+    qtbot.waitUntil(lambda: bool(screen.view.backtest.findChildren(GridBacktestView)))
+    QCoreApplication.processEvents()  # the posted layout requests
+
+    assert screen.view.chart_area.height() > screen.view.height() // 2
 
 
 def test_the_plan_takes_no_access_key_of_the_menu_bar(view) -> None:

@@ -17,7 +17,9 @@ watching a bot and editing its plan were never on screen together.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QItemSelectionModel
+from typing import override
+
+from PySide6.QtCore import QItemSelectionModel, QSize
 from PySide6.QtWidgets import (
     QLabel,
     QVBoxLayout,
@@ -102,7 +104,7 @@ class BotsView(BaseView):
         self.chart_area.setObjectName("areaBotChart")
         self._chart_slot = QVBoxLayout(self.chart_area)
         self._chart_slot.setContentsMargins(0, 0, 0, 0)
-        self.backtest = QWidget()
+        self.backtest = _BacktestSlot()
         self.backtest.setObjectName("panelBotBacktest")
         self._backtest_slot = QVBoxLayout(self.backtest)
         self._kind_panel: BotKindPanel | None = None
@@ -203,6 +205,18 @@ class BotsView(BaseView):
         message = str(self.model.property("statusMessage"))
         self.status.setText(message)
         self.status.setVisible(bool(message))
+
+
+class _BacktestSlot(QWidget):
+    """The Backtest panel's content: it asks the dock area for no more than
+    its minimum. A kind's backtest page holds charts whose own size hints run
+    to a thousand pixels (the Grid's: 850×1104), and the bottom docks take the
+    largest hint among them, so one tab left the chart 104 of 768 px (the
+    PR #361 review). The person still drags the dock taller."""
+
+    @override
+    def sizeHint(self) -> QSize:
+        return self.minimumSizeHint()
 
 
 def _note(text: str) -> QLabel:
