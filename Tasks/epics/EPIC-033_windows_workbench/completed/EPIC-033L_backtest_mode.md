@@ -1,6 +1,6 @@
 # EPIC-033L — Backtest mode: test a strategy on stored history, laid out as HLD §11.2.1 designs it
 
-**Status:** 🟡 In progress (stage 2b of 4)
+**Status:** ✅ Done (2026-10-05)
 **Source:** the user, 2026-10-04 — "Đừng bị UI hiện tại dẫn dắt nhé, bạn có quyền xây lại triết lý và desihn của tất cả UI" (do not be led by the current UI; you may rebuild the philosophy and design of the whole UI); the modes come from EPIC-033O's approved information architecture, not from the screens that exist today.
 **Risk:** 🟡 — the most styled area (61 `setStyleSheet` calls)
 **Complexity:** L
@@ -14,10 +14,10 @@
 Backtest is a page whose parameter bar of pill dropdowns clips at 1366 px, scrolls a chart inside a page scroll, and owns 16 hand-styled dialogs.
 
 ## 2. Acceptance criteria
-- [ ] Run setup is a dock (or one Run Settings… dialog) with market, symbol, strategy, timeframe, range, timezone, capital and execution; Run backtest is an action (F7, HLD §11.2.3) and Stop backtest is enabled only while a run runs. *(Corrected 2026-10-05: the task said F5, which keeps its standard meaning, Refresh, and HLD §11.2.3 gives F7; "Stop replaces Run" would hide a command, which `ui-presentation-rule.md` §2 forbids — the two actions stay, and each is disabled while it does not apply.)*
-- [ ] The central widget and default docks are exactly those HLD §11.2.1 lists for this mode (the one list; this task does not copy it). Every remaining dialog is a stock `QDialog` with `QDialogButtonBox`.
-- [ ] Every command of the mode is an action in its menu and, when frequent, its toolbar; every table and read-out is built from its spec; the mode passes the conformance suite with no baseline row.
-- [ ] The SPECs above still pass their "Proven by" tests; any changed flow updates its SPEC in the same pull request.
+- [x] Run setup is a dock (or one Run Settings… dialog) with market, symbol, strategy, timeframe, range, timezone, capital and execution; Run backtest is an action (F7, HLD §11.2.3) and Stop backtest is enabled only while a run runs. *(Corrected 2026-10-05: the task said F5, which keeps its standard meaning, Refresh, and HLD §11.2.3 gives F7; "Stop replaces Run" would hide a command, which `ui-presentation-rule.md` §2 forbids — the two actions stay, and each is disabled while it does not apply.)*
+- [x] The central widget and default docks are exactly those HLD §11.2.1 lists for this mode (the one list; this task does not copy it). Every remaining dialog is a stock `QDialog` with `QDialogButtonBox`.
+- [x] Every command of the mode is an action in its menu and, when frequent, its toolbar; every table and read-out is built from its spec; the mode passes the conformance suite with no baseline row.
+- [x] The SPECs above still pass their "Proven by" tests; any changed flow updates its SPEC in the same pull request.
 
 ## 3. Design
 The mode's wireframe approved in EPIC-033O is the design; this task builds it on `WorkbenchShell` with stock controls. Presenters, coordinators and view models are reused where their behaviour fits the approved design; views are new. It replaces: the Backtest screen and its 16 dialogs.
@@ -32,7 +32,7 @@ The mode's wireframe approved in EPIC-033O is the design; this task builds it on
 1. **Re-host into the workbench.** A left-dock place (`Place.NAVIGATOR` → `DOCK_LEFT`); the view on a `WorkbenchSurface`: result chart central, Run setup left (`RunSetupPanel`, a form of stock controls replacing the pill toolbar), Metrics right (the banners and figures), Trades bottom. `PageShell`, the page scroll area and the splitter's 1000 px of minimum heights go; `IBacktestView`'s 19 members are unchanged.
 2. **Stock controls**, in two pull requests. **2a:** the trades list becomes a table built from its column specs, with a filter, a search and the selected trade's journal; Drawdown and Monthly returns become bottom docks; the panel's Export button becomes Tools → Export trades…. **2b:** Monte Carlo becomes a bottom dock beside Trades; progress moves to the status bar.
 3. **Dialogs and fields**, in two pull requests. **3a:** the simple pickers (strategy, timeframe, range, time zone) become drop-down fields of the Run setup; the range's "Custom…" opens the calendar dialog. **3b:** Capital, Limitations, Execution and Indicators become `QDialog`s with a `QDialogButtonBox`. **3c:** Metrics detail, the two comparisons and Strategy properties do the same. *(Moved from 2b, 2026-10-05: the pickers are the overlays this stage rebuilds, so they change once.)*
-4. **Clean-up.** The mode's baseline rows and ratchet entries reach zero. Also: Strategy Parameters' Cancel reverts nothing, because both tabs apply as they are edited; it becomes Close, or the dialog restores a snapshot on reject (review of PR #362, pre-existing). `BackTestView.dock_of` uses `WorkbenchSurface.dock_of` once PR #361 merges.
+4. **Clean-up.** The mode's baseline rows and ratchet entries reach zero. **5:** the chart controls leave the chart's header, and Metrics Detail becomes a table from column specs, so the mode's last two baseline rows go. Also: Strategy Parameters' Cancel reverts nothing, because both tabs apply as they are edited; it becomes Close, or the dialog restores a snapshot on reject (review of PR #362, pre-existing). `BackTestView.dock_of` uses `WorkbenchSurface.dock_of` once PR #361 merges.
 
 ## 5. Testing
 Integration: conformance suite for the mode, the SPEC journeys. Desktop E2E: open, use, rearrange, restart.
@@ -57,3 +57,5 @@ Review of PR #362: a combo box never reads an access key in its items, so the fi
 Review of PR #364: the comparison tables' values are formatted text in mixed units, so a value column sorts back to the metrics' own order and the metric column by name (`SORT_ROLE`); the empty table says "Both columns need a run or a report to compare." or "No out-of-sample figures." rather than repeating or contradicting the labels above it; HLD §11 now says a dialog that applies as it is edited has Close.
 
 What is left, and where it goes: Metrics Detail's grouped tree waits for item trees from column specs (`BOT-151`, `EPIC-033N`). The conformance suite's `control_height` still fails for the mode on Qt's own toolbar extension button, a toolbar that overflows at 1366×768 rather than a styled control; it goes with the chart header's controls becoming toolbar actions, as `EPIC-033G` made other charts'. The mode's 23 mypy excludes and its ruff and god-file rows for `backtest_presenter.py`, `backtest_view_model.py` and `backtest_fsm_matrix.py` are type and size debt outside this epic's UI scope; `EPIC-033M` decides their owner.
+
+**Stage 5 (2026-10-05).** The chart's display controls (`BacktestChartControls`) are a row of their own above the chart: in the chart's header beside its `ChartToolbar` they pushed that toolbar into its overflow button at 1366×768, which was the mode's `control_height` failure. `IBacktestChartHost.add_to_header` went with its last caller. Metrics Detail's readout is a `SpecTable` over `metrics_detail_model.py`, the section its first column, until trees from column specs exist (`BOT-151`); every column but the metric's name sorts back to the readout's order. The mode now has no row in the conformance baseline and none in the stock-controls baseline. Verified: SPEC-009 is not yet specified, so no SPEC's "Proven by" test changed; the mode's mypy excludes and the presenter's, view model's and FSM matrix's size and ruff rows are type and size debt for `EPIC-033M` to assign, not UI baselines.

@@ -205,7 +205,7 @@ class BackTestView(OutputSourceView):
 
         if self.chart_cards:
             self.chart_controls = BacktestChartControls()
-            self.chart_cards[0].add_to_header(self.chart_controls)
+            self.charts_layout.insertWidget(0, self.chart_controls)
             self._show_marker_sides()
 
         return self.chart_cards

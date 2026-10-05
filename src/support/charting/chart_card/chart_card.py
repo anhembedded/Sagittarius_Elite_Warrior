@@ -133,17 +133,13 @@ class ChartCard(ChartFrame):
 
         @details Kept as a method after `EPIC-007E` moved this class onto a
         card that exposes the header as a `header_actions` layout instead
-        (`ChartFrame` since `EPIC-033H`). Four things call it by name — this class, the
-        `IBacktestChartHost` Protocol, that Protocol's adapter, and
-        `backtest_view` injecting a second widget after construction — and
-        one test reaches it through `patch.object`, which raises at patch
-        time if the attribute is gone.
+        (`ChartFrame` since `EPIC-033H`). This class calls it for its toolbar
+        and its frame-rate label. The Backtest
+        mode's chart controls left the header in `EPIC-033L` stage 5: beside
+        the toolbar they pushed it into its overflow button.
 
         Appending, not inserting: the header is `title | stretch | ...`, so
-        widgets land right-aligned in call order. On the Backtest screen that
-        is `ChartToolbar` then `BacktestChartControls`, which
-        `chart_controls.py` documents as being "next to" the toolbar. No test
-        covers that ordering — it is held by this method's behaviour alone.
+        widgets land right-aligned in call order.
         """
         self.header_actions.addWidget(widget)
 

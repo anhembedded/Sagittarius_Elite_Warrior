@@ -127,7 +127,7 @@ def test_no_run_yet_renders_the_empty_snapshot_without_crashing(qapp):
 
     assert dialog.isVisible() is True
     assert dialog._groups == ()
-    assert dialog._tree.topLevelItemCount() == 0
+    assert dialog._table.model.rowCount() == 0
     dialog.close()
 
 
@@ -144,22 +144,22 @@ def test_the_close_button_closes_the_dialog(qapp, view_model):
     assert not dialog.isVisible()
 
 
-def test_the_metrics_land_in_the_tree_under_their_section(qapp, view_model):
+def test_the_metrics_land_in_the_table_with_their_section(qapp, view_model):
+    """`EPIC-033L` stage 5: a table from column specs, the section its first
+    column, in the readout's order."""
     dialog = MetricsDetailDialogWidget(view_model)
     dialog.open_dialog()
     qapp.processEvents()
 
-    headings = [
-        dialog._tree.topLevelItem(index).text(0)
-        for index in range(dialog._tree.topLevelItemCount())
+    table = dialog._table
+    rows = [
+        [table.text(row, column) for column in range(3)]
+        for row in range(table.model.rowCount())
     ]
-    assert headings == ["PROFIT & LOSS"]
-    section = dialog._tree.topLevelItem(0)
-    assert [section.child(i).text(0) for i in range(section.childCount())] == [
-        "GROSS PROFIT",
-        "GROSS LOSS",
+    assert rows == [
+        ["PROFIT & LOSS", "GROSS PROFIT", "1,148.19 USD"],
+        ["PROFIT & LOSS", "GROSS LOSS", rows[1][2]],
     ]
-    assert section.child(0).text(1) == "1,148.19 USD"
     dialog.close()
 
 

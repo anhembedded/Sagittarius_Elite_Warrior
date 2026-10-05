@@ -12,7 +12,7 @@
  "src/presentation/ui/app_bootstrapper.py": 536,
  "src/support/charting/chart_card/cached_frame_interaction.py": 663,
  "src/support/charting/chart_card/candlestick_item.py": 447,
- "src/support/charting/chart_card/chart_card.py": 776,
+ "src/support/charting/chart_card/chart_card.py": 772,
  "src/support/indicators/indicator_scripts/base_indicator_script.py": 539,
  "src/support/indicators/ui/runner.py": 401,
  "src/support/ui_kit/kit/guards.py": 505,

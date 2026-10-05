@@ -165,16 +165,14 @@ def test_extended_metrics_popup_opens_with_the_extended_stat_cards(
     assert dialog is not None
     assert dialog.objectName() == "backtestMetricsDetailDialog"
     assert dialog.isVisible() is True
-    # `EPIC-025` PR 4.3j: a `QTreeWidget` with one top-level item per section,
-    # so the assertion is on what is actually on screen rather than on a
-    # ViewModel's `QVariantList` — which is what the QML version left it as,
-    # its delegates carrying no per-row objectName to find.
-    section = next(
-        dialog._tree.topLevelItem(index)
-        for index in range(dialog._tree.topLevelItemCount())
-        if dialog._tree.topLevelItem(index).text(0) == "PROFIT & LOSS"
-    )
-    assert {section.child(index).text(0) for index in range(section.childCount())} == {
+    # What is on screen, read from the view: since `EPIC-033L` stage 5 a
+    # table from column specs, the section its first column.
+    table = dialog._table
+    shown = [
+        (table.text(row, 0), table.text(row, 1))
+        for row in range(table.model.rowCount())
+    ]
+    assert {metric for section, metric in shown if section == "PROFIT & LOSS"} == {
         "GROSS PROFIT",
         "GROSS LOSS",
     }
