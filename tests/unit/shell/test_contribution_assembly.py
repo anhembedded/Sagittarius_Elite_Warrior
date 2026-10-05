@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.size_hint import SizeHint
 from Sagittarius_Elite_Warrior.src.shell.contribution_assembly import (
     assemble_contributions,
 )
+from Sagittarius_Elite_Warrior.src.shell.developer_mode.developer_screen import (
+    DEVELOPER_ROUTE,
+)
 from Sagittarius_Elite_Warrior.src.shell.modules import RegisteredModules
 from sagittarius_engine.infrastructure.container.std_container import StdLibContainer
 
@@ -99,7 +102,8 @@ def test_a_gated_surface_drops_the_contribution_and_the_app_still_boots(
     contributions = assemble_contributions(container, dev_mode=False)
 
     assert contributions.panels("dev_board", Place.DEV_PROBE) == ()
-    assert contributions.dropped_count() == 1
+    # The probe, and the shell's own Developer mode (`EPIC-033P`).
+    assert contributions.dropped_count() == 2
 
 
 def test_a_modules_own_screen_is_collected_too(qapp) -> None:
@@ -130,12 +134,26 @@ def test_a_modules_own_screen_is_collected_too(qapp) -> None:
 
 
 def test_a_container_with_no_modules_collects_nothing(qapp) -> None:
-    """The shell contributes no screen of its own since `EPIC-033E` moved
-    Settings into Tools → Options: every screen and page is a module's."""
-    contributions = assemble_contributions(_container(), dev_mode=True)
+    """The shell contributes no screen of its own in a normal run since
+    `EPIC-033E` moved Settings into Tools → Options: every screen and page is
+    a module's."""
+    contributions = assemble_contributions(_container(), dev_mode=False)
 
     assert contributions.panels("dev_board", Place.DEV_PROBE) == ()
     assert contributions.screens() == ()
+    assert contributions.options_pages() == ()
+
+
+def test_developer_mode_adds_the_shells_developer_mode_and_nothing_else(
+    qapp,
+) -> None:
+    """`EPIC-033P`: the one screen the shell contributes, and only under
+    developer mode."""
+    contributions = assemble_contributions(_container(), dev_mode=True)
+
+    (screen,) = contributions.screens()
+    assert screen.route == DEVELOPER_ROUTE
+    assert screen.contributor_id == "shell"
     assert contributions.options_pages() == ()
 
 

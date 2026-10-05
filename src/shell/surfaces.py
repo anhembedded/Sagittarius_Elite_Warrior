@@ -1,7 +1,7 @@
 """The surfaces this application has, and what each one can hold (SDD).
 
 A **surface** is a place a user navigates to. It is owned either by the shell
-(`trading`, `dev_board` — the workbench itself) or by the
+(`trading`, `dev_board`, `developer` — the workbench itself) or by the
 module whose subject it is (`backtest`, `data_management`). Owning a surface
 means declaring it here; it does not mean the owner fills it — any module may
 contribute to any surface, which is the whole point of the mechanism.
@@ -29,6 +29,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 
 #: The only gate Phase 0 has. Read once at boot (`shell/dev_mode.py`).
 DEV_MODE_GATE = "dev.mode"
+#: The Developer mode's surface (`EPIC-033P`): the event log central, the
+#: probes docked right (HLD §11.2.1, §11.2.5).
+DEVELOPER_SURFACE_ID = "developer"
 
 _WORKBENCH_PLACES = frozenset(
     {
@@ -48,6 +51,12 @@ SURFACES: tuple[Surface, ...] = (
         "dev_board",
         owner="shell",
         accepts=_WORKBENCH_PLACES | {Place.DEV_PROBE},
+        gated_by=DEV_MODE_GATE,
+    ),
+    Surface(
+        DEVELOPER_SURFACE_ID,
+        owner="shell",
+        accepts=frozenset({Place.WORKSPACE, Place.DEV_PROBE}),
         gated_by=DEV_MODE_GATE,
     ),
     Surface(

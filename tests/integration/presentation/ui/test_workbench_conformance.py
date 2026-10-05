@@ -45,6 +45,9 @@ from PySide6.QtWidgets import (
     QWidget,
     QWidgetAction,
 )
+from Sagittarius_Elite_Warrior.src.shell.developer_mode.developer_screen import (
+    DEVELOPER_ROUTE,
+)
 from sagittarius_engine.extensions.pyside_mvc.workbench.configure_item_view import (
     CONFIGURED_PROPERTY,
 )
@@ -298,7 +301,11 @@ def ratchet_problems(
 def test_workbench_conformance(qapp, main_window, navigate) -> None:
     main_window.resize(1366, 768)
     main_window.show()
-    problems = ratchet_problems(_read_baseline(), measure(main_window, navigate, qapp))
+    report = measure(main_window, navigate, qapp)
+    # Booted with developer mode on, so the Developer mode is measured too
+    # (`EPIC-033P`), and with no baseline row of its own.
+    assert DEVELOPER_ROUTE in report
+    problems = ratchet_problems(_read_baseline(), report)
     assert not problems, "\n".join(problems)
 
 
