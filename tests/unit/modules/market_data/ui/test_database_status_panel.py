@@ -21,7 +21,6 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_widget
     CLEAR_SHARD,
     INSPECT_GAPS,
     INSPECT_KLINES,
-    SYNC_SHARD,
     DatabaseStatusPanel,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.database_status_table_model import (
@@ -89,7 +88,7 @@ def test_an_empty_vault_says_so_and_hides_the_table(panel):
     assert panel.visible_row_count() == 0
     assert panel._empty.isVisibleTo(panel) is True
     assert panel._table.isVisibleTo(panel) is False
-    assert "Storage Vault is empty" in panel._empty.text()
+    assert "No history is stored yet" in panel._empty.text()
 
 
 def test_shards_on_disk_that_nobody_scanned_get_their_own_message(panel):
@@ -170,7 +169,7 @@ def test_a_search_matching_nothing_shows_the_empty_state(panel, model):
 def test_no_selection_means_no_action_is_available(panel, model):
     _upsert(model)
 
-    assert [action.isEnabled() for action in panel._actions.values()] == [False] * 4
+    assert [action.isEnabled() for action in panel._actions.values()] == [False] * 3
 
 
 def test_selecting_a_row_enables_the_actions_that_apply_to_it(panel, model):
@@ -178,7 +177,6 @@ def test_selecting_a_row_enables_the_actions_that_apply_to_it(panel, model):
     _select(panel, 0)
 
     assert panel._actions[INSPECT_KLINES].isEnabled() is True
-    assert panel._actions[SYNC_SHARD].isEnabled() is True
     assert panel._actions[CLEAR_SHARD].isEnabled() is True
     # Nothing to inspect: this shard reports no gaps.
     assert panel._actions[INSPECT_GAPS].isEnabled() is False
@@ -196,9 +194,9 @@ def test_an_action_emits_the_selected_shard(panel, model):
     _select(panel, 0)
     seen = _emitted(panel)
 
-    panel._actions[SYNC_SHARD].trigger()
+    panel._actions[INSPECT_KLINES].trigger()
 
-    assert seen == [(SYNC_SHARD, "ETHUSDT", "15m")]
+    assert seen == [(INSPECT_KLINES, "ETHUSDT", "15m")]
 
 
 def test_the_action_follows_the_selection_not_the_row_order(panel, model):
@@ -231,7 +229,7 @@ def test_nothing_is_emitted_when_no_row_is_selected(panel, model):
     _upsert(model)
     seen = _emitted(panel)
 
-    panel._actions[SYNC_SHARD].trigger()
+    panel._actions[INSPECT_KLINES].trigger()
 
     assert seen == []
 
@@ -247,7 +245,7 @@ def test_a_running_sync_disables_every_action(panel, model):
 
     panel.set_actions_enabled(False)
 
-    assert [action.isEnabled() for action in panel._actions.values()] == [False] * 4
+    assert [action.isEnabled() for action in panel._actions.values()] == [False] * 3
 
 
 def test_a_disabled_action_cannot_be_triggered_anyway(panel, model):
@@ -271,7 +269,7 @@ def test_the_actions_come_back_when_the_screen_goes_idle_again(panel, model):
 
     panel.set_actions_enabled(True)
 
-    assert panel._actions[SYNC_SHARD].isEnabled() is True
+    assert panel._actions[INSPECT_KLINES].isEnabled() is True
 
 
 # ---------------------------------------------------------------------------
@@ -321,7 +319,7 @@ def test_only_clear_asks(panel, model):
     _upsert(model, status=_UNHEALTHY)
     _select(panel, 0)
 
-    for action_id in (INSPECT_KLINES, INSPECT_GAPS, SYNC_SHARD):
+    for action_id in (INSPECT_KLINES, INSPECT_GAPS):
         panel._actions[action_id].trigger()
 
     assert asked == []
@@ -348,3 +346,18 @@ def test_the_table_selects_whole_rows_one_at_a_time(panel):
 
 def test_the_user_can_sort_the_table(panel):
     assert panel._table.isSortingEnabled() is True
+
+
+def test_the_selected_shard_is_reported_and_follows_a_rescan(panel, model):
+    """`EPIC-033J`: the Data menu's commands act on the selected shard, so
+    the panel says which one it is, and says it again when a rescan
+    replaces the row under the selection."""
+    _upsert(model, symbol="ETHUSDT", interval="15m", status=_HEALTHY)
+    seen: list[object] = []
+    panel.shardSelected.connect(seen.append)
+
+    _select(panel, 0)
+    _upsert(model, symbol="ETHUSDT", interval="15m", status=_UNHEALTHY)
+
+    assert [row.is_healthy for row in seen[-2:]] == [True, False]
+    assert seen[-1].symbol == "ETHUSDT"

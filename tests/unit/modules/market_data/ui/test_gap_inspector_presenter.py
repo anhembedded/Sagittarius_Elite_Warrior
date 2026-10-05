@@ -171,25 +171,20 @@ def test_run_repair_gap_dispatches_command(presenter, view_model, mock_dispatche
     assert presenter.fsm.current_state == UIMode.IDLE
 
 
-def test_database_screen_constructs_both_inspector_modals_with_the_right_object_names(
+def test_a_gap_answer_fills_the_gaps_panel_and_a_candle_answer_opens_its_dialog(
     presenter, view_model
 ):
-    """
-    Rewritten for EPIC-005E3: `GapInspectorModal.qml`/`KLineInspectorModal.qml`
-    are unloaded now (DataManagementView is QtWidgets, EPIC-005E1/E2/E3) — the
-    original QML check ("both load cleanly as children of the
-    DatabaseScreen.qml root object") has a direct QtWidgets equivalent: both
-    dialogs construct lazily on their `open*InspectorRequested` signal and
-    carry over the same `objectName` contract the QML versions had.
-    """
+    """`EPIC-033J`: the gaps are a panel of the mode, raised when Check gaps
+    answers; the candles stay a dialog, built on its first answer."""
     view = presenter.view
-    assert view._gap_inspector is None
     assert view._kline_inspector is None
+    assert view.gaps.report is None
 
     view_model.set_gap_inspector_data("BTCUSDT", "1m", 0, 0, 100.0, [], [])
     view_model.set_kline_inspector_data("BTCUSDT", "1m", [])
 
-    assert view._gap_inspector is not None
-    assert view._gap_inspector.objectName() == "gapInspectorModal"
+    assert view.gaps.report is not None
+    assert view.gaps.report.symbol == "BTCUSDT"
+    assert view.gaps.summary_text.startswith("BTCUSDT (1m): 0 gaps")
     assert view._kline_inspector is not None
     assert view._kline_inspector.objectName() == "klineInspectorDialog"

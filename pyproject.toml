@@ -288,11 +288,8 @@ exclude = [
     #                        module ever seeing `mypy` — frozen debt, not
     #                        introduced by the move.
     #   17  var-annotated/union-attr/arg-type  `gap_inspector_dialog.py`'s
-    #                        own pre-existing gaps (an unannotated dict
-    #                        comprehension, `QLayout | None` accessed without
-    #                        a None check), same shape as the ordinary
-    #                        per-file baseline debt below, just never
-    #                        reachable by `mypy` until now.
+    #                        own pre-existing gaps — gone with the file
+    #                        (`EPIC-033J`: the Gaps panel replaced it).
     #
     # Fixing 115 typing errors inside a 24-file move makes the move
     # unreviewable, which is the reason PR 0.4a's comment above gives for
@@ -308,7 +305,6 @@ exclude = [
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]data_management_view\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]data_management_presenter\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]data_management_view_model\\.py$",
-    "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]data_management_widgets[\\/]gap_inspector_dialog\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]coordinators[\\/]gap_coordinator\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]coordinators[\\/]scan_coordinator\\.py$",
     "^Sagittarius_Elite_Warrior[\\/]src[\\/]modules[\\/]market_data[\\/]ui[\\/]coordinators[\\/]sync_coordinator\\.py$",

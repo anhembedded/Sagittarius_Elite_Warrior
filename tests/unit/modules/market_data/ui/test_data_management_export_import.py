@@ -213,13 +213,33 @@ def test_export_dialog_default_directory_falls_back_to_configured_exports_dir(
     assert os.path.isdir(tmp_path)
 
 
-def test_export_format_combo_reflects_view_model_selection(export_import_setup):
-    presenter, view_model, _thread_mgr, _dispatcher, _repo = export_import_setup
-    view = presenter.view
+def test_the_file_type_chosen_in_the_save_dialog_is_the_format(
+    export_import_setup, tmp_path
+):
+    """`EPIC-033J`: the format combo box the rail held became the save
+    dialog's file-type list. It opens on the last format used and the type
+    chosen there is what is written, and remembered for the next export."""
+    _presenter, view_model, mock_thread_mgr, _dispatcher, _repo = export_import_setup
+    view_model.selectedSymbol = "BTCUSDT"
+    view_model.selectedInterval = "15m"
+    view_model.selectedExportFormat = "csv"
+    dest = str(tmp_path / "out.parquet")
 
-    view_model.selectedExportFormat = "parquet"
+    with patch(
+        f"{_PRESENTER_MODULE}.getSaveFileName",
+        return_value=(dest, "Parquet Files (*.parquet)"),
+    ) as dlg:
+        view_model.requestExport()
 
-    assert view._cbo_export_format.currentText() == "parquet"
+    filters, selected = dlg.call_args[0][3], dlg.call_args[0][4]
+    assert filters.split(";;") == [
+        "CSV Files (*.csv)",
+        "Parquet Files (*.parquet)",
+        "JSON Files (*.json)",
+    ]
+    assert selected == "CSV Files (*.csv)"
+    assert mock_thread_mgr.submit.call_args[0][-1].value == "parquet"
+    assert view_model.selectedExportFormat == "parquet"
 
 
 def test_csv_export_writes_real_file_end_to_end(export_import_setup, tmp_path):

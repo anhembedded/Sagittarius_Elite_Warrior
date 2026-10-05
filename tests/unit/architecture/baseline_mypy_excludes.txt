@@ -11,7 +11,6 @@
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]data_management_view\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]data_management_presenter\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]data_management_view_model\.py$
-^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]data_management_widgets[\/]gap_inspector_dialog\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]coordinators[\/]gap_coordinator\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]coordinators[\/]scan_coordinator\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]market_data[\/]ui[\/]coordinators[\/]sync_coordinator\.py$

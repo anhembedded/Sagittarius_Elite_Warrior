@@ -16,6 +16,9 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtWidgets import QFileDialog, QWidget
 from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.export_file_format import (
+    ExportFileFormat,
+)
 
 from .export_paths import (
     export_file_filter,
@@ -24,9 +27,6 @@ from .export_paths import (
 )
 
 if TYPE_CHECKING:
-    from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.export_file_format import (
-        ExportFileFormat,
-    )
     from sagittarius_engine.interfaces.i_config import IConfig
 
 
@@ -37,28 +37,35 @@ class DataFileDialogs:
         self._parent = parent
         self._config = config
 
-    def export_path(
+    def export_target(
         self, symbol: str, interval: str, file_format: ExportFileFormat
-    ) -> str:
-        """Where to write the export of `symbol`/`interval`, suggesting a name
-        in the configured exports folder."""
+    ) -> tuple[str, ExportFileFormat] | None:
+        """Where to write the export of `symbol`/`interval` and in which
+        format, `None` when the person cancelled. Every format is a filter of
+        the save dialog, `file_format` (the last one used) first chosen; the
+        filter chosen is the format (`EPIC-033J`: the format combo box the
+        old rail held is the dialog's own file-type list)."""
         exports_dir = resolve_default_exports_dir(
             self._config.get(ConfigKeys.MARKET_DATA_EXPORTS_DIR.value)
         )
         suggested_name = suggest_export_filename(
             symbol, interval, file_format, datetime.now(UTC)
         )
-        path, _selected_filter = QFileDialog.getSaveFileName(
+        filters = {export_file_filter(each): each for each in ExportFileFormat}
+        path, chosen = QFileDialog.getSaveFileName(
             self._parent,
-            "Export Market Data",
+            "Export Data",
             f"{exports_dir}/{suggested_name}",
+            ";;".join(filters),
             export_file_filter(file_format),
         )
-        return path
+        if not path:
+            return None
+        return path, filters.get(chosen, file_format)
 
     def import_path(self) -> str:
         """Which CSV to read."""
         path, _selected_filter = QFileDialog.getOpenFileName(
-            self._parent, "Import Market Data", "", "CSV Files (*.csv)"
+            self._parent, "Import Data", "", "CSV Files (*.csv)"
         )
         return path

@@ -60,7 +60,7 @@ SURFACES: tuple[Surface, ...] = (
     Surface(
         "data_management",
         owner="market_data",
-        accepts=frozenset({Place.RAIL, Place.MODAL}),
+        accepts=frozenset({Place.WORKSPACE, Place.CONSOLE}),
     ),
 )
 

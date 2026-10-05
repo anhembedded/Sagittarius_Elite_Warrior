@@ -1,283 +1,246 @@
-"""The Data Management screen. Its commands (scan, sync, delete, export,
-import, optimize, purge) are the module's actions since `EPIC-033D`
-(`data_commands.py`), not buttons here."""
+"""The Data mode's view (`EPIC-033J`), laid out as HLD §11.2.1 lists it.
+
+- **Central:** the coverage table, one row per stored shard — a symbol at a
+  timeframe — with its first and last candle, its count and its health
+  (`DatabaseStatusPanel`).
+- **Bottom:** the Gaps panel (`GapsPanel`), filled by Data → Check gaps; the
+  window's one Output pane shows the mode's `Sync` channel beside it.
+- **Status bar:** the stored records and the database size, and a running
+  task's progress, in every mode (`IStatusSource`).
+- **Dialogs:** Sync history… and Import data… ask which shard
+  (`shard_dialogs.py`); Inspect candles shows a shard's candles
+  (`KlineInspectorDialog`).
+
+It replaces the Storage Vault page: a hand-styled header, two stat tiles, a
+rail of pickers and a date-range card every command read from, a progress
+banner with its own Cancel button, and a modal gap inspector. Each became the
+platform's part for its job; the view has no style of its own.
+
+The view shows and reports. Selecting a shard sets the view model's symbol
+and timeframe, which the scan, delete and export coordinators already read;
+`selection` tells the commands what is selected (`data_command_binding.py`).
+"""
 
 from __future__ import annotations
 
+from collections.abc import Sequence
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QObject, Signal
 from PySide6.QtWidgets import (
-    QComboBox,
-    QFrame,
-    QGridLayout,
-    QHBoxLayout,
+    QDialog,
+    QDockWidget,
     QLabel,
-    QPushButton,
+    QProgressBar,
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_management_widgets import (
-    DatabaseStatusPanel,
-    GapInspectorDialog,
-    KlineInspectorDialog,
-    TimeRangeCardWidget,
-    field_style,
-)
-from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
-    PinnedTimeframes,
-    TimeframePickerDialog,
-)
-from Sagittarius_Elite_Warrior.src.support.charting.timeframe_picker import (
-    describe as describe_timeframe,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
-    Palette,
-    get_icon_loader,
-)
+from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
+from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
     CANCELLING_CAPTION,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
-    PageShell,
-    ProgressBanner,
-    StyleRole,
-    apply_role,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source_view import (
     OutputSourceView,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
-    SymbolPickerOverlay,
-    SymbolPreferences,
+from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
+    WorkbenchSurface,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import OutputChannel
 
+from .data_management_widgets.database_status_panel import DatabaseStatusPanel
+from .data_management_widgets.gaps_panel import GapRow, GapsPanel, gap_report
+from .data_management_widgets.kline_inspector_dialog import KlineInspectorDialog
+from .data_management_widgets.shard_dialogs import (
+    ImportDataDialog,
+    ShardChoice,
+    SyncChoice,
+    SyncHistoryDialog,
+)
+
 if TYPE_CHECKING:
     from .data_management_view_model import DataManagementViewModel
+    from .database_status_table_model import DatabaseStatusRow
 
+#: This mode's surface. Declared here because a module may not import
+#: `shell/`; `test_data_mode_view.py` holds it equal to `shell/surfaces.py`'s
+#: `data_management` entry.
+DATA_SURFACE = Surface(
+    "data_management",
+    owner="market_data",
+    accepts=frozenset({Place.WORKSPACE, Place.CONSOLE}),
+)
 
-_IDLE_MODE = "IDLE"
 _CANCELLING_MODE = "CANCELLING"
 
-#: The `.qml`'s own default (`"Hủy"`) was shorter than what this
-#: screen's `AppProgressBar`-era `QPushButton` said — kept as the explicit
-#: label here so the on-screen wording does not silently change as part of
-#: this retrofit.
-_CANCEL_LABEL = "Cancel Progress (Cancel)"
 
-#: `describe()` returns `None` for a code the domain no longer recognises
-#: (a remembered value on disk that has gone stale, same reasoning as
-#: `catalogue.describe`'s own docstring) — this is what the picker's "≈ N
-#: nến" summary falls back to when that happens, not a real timeframe.
-_FALLBACK_TIMEFRAME_SECONDS = 60
+class DataSelection(QObject):
+    """What the Data commands act on: the selected shard and gap."""
 
+    changed = Signal()
 
-def _timeframe_seconds_for(code: str) -> int:
-    option = describe_timeframe(code)
-    return option.seconds if option is not None else _FALLBACK_TIMEFRAME_SECONDS
+    def __init__(self, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._shard: DatabaseStatusRow | None = None
+        self._gap: GapRow | None = None
+        self._gaps_listed = False
+
+    @property
+    def shard(self) -> DatabaseStatusRow | None:
+        return self._shard
+
+    @property
+    def gap(self) -> GapRow | None:
+        return self._gap
+
+    @property
+    def gaps_listed(self) -> bool:
+        return self._gaps_listed
+
+    def select_shard(self, shard: DatabaseStatusRow | None) -> None:
+        self._shard = shard
+        self.changed.emit()
+
+    def select_gap(self, gap: GapRow | None) -> None:
+        self._gap = gap
+        self.changed.emit()
+
+    def list_gaps(self, listed: bool) -> None:
+        self._gaps_listed = listed
+        self.changed.emit()
 
 
 class DataManagementView(OutputSourceView):
-    """
-    @brief The View for the Database screen ("Storage Vault") — QtWidgets (EPIC-005E).
-
-    @details
-    Migrated off `QmlHostView`/`DatabaseScreen.qml` (kept on disk, unloaded) the same
-    way `SettingsView` was (EPIC-005D): `DataManagementPresenter`/
-    `DataManagementViewModel`/every `Coordinator` are unchanged — this class only
-    rebuilds the render layer, wiring the same view-model signals by hand instead of
-    through QML property bindings.
-
-    `EPIC-025` PR 0.4b removed the last QML from this screen: the status
-    table is `DatabaseStatusPanel` (a `QTableView` and four `QAction`s) and
-    the candle lookup is `KlineInspectorDialog` (a `QDialog`), both
-    QtWidgets, so nothing here loads a `.qml` file any more (ADR D20).
-
-    `logModel` and the two table models are set once and never reassigned;
-    their own Qt model signals (`dataChanged`/`rowsInserted`/...) drive the
-    views directly. The status panel is built lazily in `set_view_model()`
-    the same way `_kline_inspector`/`_gap_inspector`/`_timeframe_picker`
-    are, since `_build_ui()` runs before a real view model exists to
-    construct it from.
-    """
+    """@brief The coverage table above the Gaps panel."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._view_model: DataManagementViewModel | None = None
-        self._symbol_picker: SymbolPickerOverlay | None = None
-        self._timeframe_picker: TimeframePickerDialog | None = None
-        # EPIC-015 bậc 1: private, non-persisted — this picker is its own
-        # only consumer — see `timeframe_picker_dialog.py`'s
-        # `PinnedTimeframes` docstring.
-        self._timeframe_picker_pinned = PinnedTimeframes()
-        # EPIC-014: replaced by the container-registered store when the
-        # Presenter injects it, so a pair starred here is starred on Backtest
-        # and Dev Board too. Self-constructed so a bare view still works.
-        self._symbol_preferences = SymbolPreferences()
-        self._kline_inspector: KlineInspectorDialog | None = None
-        self._gap_inspector: GapInspectorDialog | None = None
+        self.selection = DataSelection(self)
+        self.gaps = GapsPanel()
         self._status_panel: DatabaseStatusPanel | None = None
-        self._build_ui()
+        self._kline_inspector: KlineInspectorDialog | None = None
+        self._records = QLabel()
+        self._records.setObjectName("lblStoredRecords")
+        self._size = QLabel()
+        self._size.setObjectName("lblDatabaseSize")
+        self._task = QLabel()
+        self._task.setObjectName("lblDataTask")
+        self._progress = QProgressBar()
+        self._progress.setObjectName("prgDataTask")
+        self._progress.setTextVisible(False)
+        self._task.hide()
+        self._progress.hide()
+        self._central = QWidget()
+        self._central_layout = QVBoxLayout(self._central)
+        self._surface = WorkbenchSurface(DATA_SURFACE)
+        self._surface.place_widget(Place.WORKSPACE, self._central)
+        self._surface.place_widget(Place.CONSOLE, self.gaps, title="Gaps")
+        outer = QVBoxLayout(self)
+        outer.setContentsMargins(0, 0, 0, 0)
+        outer.addWidget(self._surface)
+        self.gaps.gapSelected.connect(self.selection.select_gap)
+
+    # -- wiring ---------------------------------------------------------------
+
+    def set_view_model(self, view_model: DataManagementViewModel) -> None:
+        self._view_model = view_model
+        self._output = OutputChannel("data.sync", "Sync", view_model.logModel)
+        if self._status_panel is None:
+            self._status_panel = DatabaseStatusPanel(view_model.status_model)
+            self._status_panel.rowActionRequested.connect(self._on_row_action)
+            self._status_panel.shardSelected.connect(self._on_shard_selected)
+            self._central_layout.addWidget(self._status_panel)
+        view_model.knownShardCountChanged.connect(
+            lambda: self._status_panel.set_known_shard_count(view_model.knownShardCount)
+        )
+        view_model.openKlineInspectorRequested.connect(self._open_kline_inspector)
+        view_model.openGapInspectorRequested.connect(self._show_gaps)
+        view_model.progressChanged.connect(self._sync_progress)
+        view_model.statsChanged.connect(self._sync_stats)
+        view_model.uiModeChanged.connect(self._sync_ui_mode)
+        self._sync_stats()
+        self._sync_ui_mode()
 
     def apply_ui_mode(self, mode, section_key: str = "main") -> None:
-        """Receives FSM state changes from BasePresenter's `_bind_fsm_to_ui`
-        callback and forwards them to the view model's `uiMode` property.
-
-        Ported from `QmlHostView.apply_ui_mode` (this screen used to inherit
-        it) rather than dropped: `_bind_fsm_to_ui` duck-types this method via
-        `hasattr` and silently no-ops (just a log warning) if it's missing —
-        without this override, every FSM transition on the real app would
-        stop reaching `viewModel.uiMode` and every `uiMode == "IDLE"` gate
-        this screen has (Vacuum/Purge/sync buttons, row actions, TimeRangeCard
-        read-only) would freeze at whatever mode was current when the screen
-        opened. Caught by an integration test that drives the real FSM
-        instead of setting `uiMode` directly, not by manual smoke-testing.
-        """
+        """The presenter's FSM state, forwarded to the view model's `uiMode`
+        (`BasePresenter._bind_fsm_to_ui` calls this by name)."""
         if self._view_model is None:
             return
         mode_value = getattr(mode, "value", mode)
         self._view_model.set_ui_mode(str(mode_value))
 
-    # ------------------------------------------------------------------ #
-    # Wiring
-    # ------------------------------------------------------------------ #
+    # -- IStatusSource ------------------------------------------------------
 
-    def set_view_model(self, view_model: DataManagementViewModel) -> None:
-        self._view_model = view_model
-        self._output = OutputChannel("data.sync", "Sync", view_model.logModel)
+    def status_widgets(self) -> Sequence[QWidget]:
+        return (self._records, self._size, self._task, self._progress)
 
-        if self._status_panel is None:
-            self._status_panel = DatabaseStatusPanel(view_model.status_model)
-            self._status_panel.rowActionRequested.connect(self._on_status_row_action)
-            self._status_column.insertWidget(0, self._status_panel, 1)
-        view_model.knownShardCountChanged.connect(
-            lambda: self._status_panel.set_known_shard_count(view_model.knownShardCount)
-        )
+    # -- what the commands ask --------------------------------------------------
 
-        self._btn_symbol.setText(view_model.selectedSymbol)
-        self._btn_interval.setText(view_model.selectedInterval)
+    def ask_sync_history(
+        self, symbols: Sequence[str], intervals: Sequence[str], current: ShardChoice
+    ) -> SyncChoice | None:
+        dialog = SyncHistoryDialog(symbols, intervals, current, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        return dialog.choice()
 
-        if self._cbo_export_format.count() == 0:
-            self._cbo_export_format.addItems(view_model.exportFormats)
-        self._cbo_export_format.setCurrentText(view_model.selectedExportFormat)
-        self._cbo_export_format.currentTextChanged.connect(
-            self._on_export_format_changed
-        )
+    def ask_import_shard(
+        self, symbols: Sequence[str], intervals: Sequence[str], current: ShardChoice
+    ) -> ShardChoice | None:
+        dialog = ImportDataDialog(symbols, intervals, current, self)
+        if dialog.exec() != QDialog.DialogCode.Accepted:
+            return None
+        return dialog.choice()
 
-        self._time_range.set_use_custom_time(view_model.useCustomTime)
-        self._time_range.set_from_date_time(view_model.fromDateTime)
-        self._time_range.set_to_date_time(view_model.toDateTime)
-        self._time_range.set_timeframe_source(
-            lambda: _timeframe_seconds_for(view_model.selectedInterval),
-            lambda: view_model.selectedInterval,
-        )
-        self._time_range.customTimeToggled.connect(self._on_custom_time_toggled)
-        self._time_range.fromDateTimeEdited.connect(self._on_from_edited)
-        self._time_range.toDateTimeEdited.connect(self._on_to_edited)
+    # -- what the view shows ----------------------------------------------------
 
-        self._progress_banner.cancelRequested.connect(view_model.requestCancel)
-        view_model.openKlineInspectorRequested.connect(self._open_kline_inspector)
-        view_model.openGapInspectorRequested.connect(self._open_gap_inspector)
+    @property
+    def status_panel(self) -> DatabaseStatusPanel | None:
+        return self._status_panel
 
-        view_model.selectedSymbolChanged.connect(self._sync_symbol_field)
-        view_model.selectedIntervalChanged.connect(self._sync_interval_field)
-        view_model.selectedExportFormatChanged.connect(self._sync_export_format)
-        view_model.symbolOptionsChanged.connect(self._refresh_symbol_picker)
-        view_model.useCustomTimeChanged.connect(
-            lambda: self._time_range.set_use_custom_time(view_model.useCustomTime)
-        )
-        view_model.customRangeChanged.connect(self._sync_time_range)
-        view_model.progressChanged.connect(self._sync_progress)
-        view_model.statsChanged.connect(self._sync_stats)
-        view_model.uiModeChanged.connect(self._sync_ui_mode)
+    @property
+    def gaps_dock(self) -> QDockWidget:
+        for dock in self._surface.findChildren(QDockWidget):
+            if dock.widget() is self.gaps:
+                return dock
+        raise LookupError("the surface placed no Gaps dock")
 
-        self._sync_stats()
-        self._sync_progress()
-        self._sync_ui_mode()
+    def _on_shard_selected(self, row: DatabaseStatusRow | None) -> None:
+        if row is not None and self._view_model is not None:
+            self._view_model.selectedSymbol = row.symbol
+            self._view_model.selectedInterval = row.interval
+        self.selection.select_shard(row)
 
-    # ------------------------------------------------------------------ #
-    # Symbol / interval
-    # ------------------------------------------------------------------ #
-
-    def _on_interval_changed(self, text: str) -> None:
-        if self._view_model is not None and text.strip():
-            self._view_model.selectedInterval = text
-
-    def _on_export_format_changed(self, text: str) -> None:
-        if self._view_model is not None and text.strip():
-            self._view_model.selectedExportFormat = text
-
-    def _sync_export_format(self) -> None:
-        if (
-            self._cbo_export_format.currentText()
-            != self._view_model.selectedExportFormat
-        ):
-            self._cbo_export_format.setCurrentText(
-                self._view_model.selectedExportFormat
-            )
-
-    def _sync_symbol_field(self) -> None:
-        if self._btn_symbol.text() != self._view_model.selectedSymbol:
-            self._btn_symbol.setText(self._view_model.selectedSymbol)
-
-    def _sync_interval_field(self) -> None:
-        if self._btn_interval.text() != self._view_model.selectedInterval:
-            self._btn_interval.setText(self._view_model.selectedInterval)
-
-    def set_symbol_preferences(self, preferences: SymbolPreferences) -> None:
-        """Swaps in the shared, persisted favourites/recents store — injected
-        by `DataManagementPresenter`, which has the container this view does
-        not. Rebinds an already-built picker so call order cannot matter."""
-        if preferences is self._symbol_preferences:
-            return
-        if self._symbol_picker is not None:
-            self._symbol_preferences.unbind_picker(
-                self._symbol_picker, self._choose_symbol
-            )
-            preferences.bind_picker(self._symbol_picker, self._choose_symbol)
-        self._symbol_preferences = preferences
-
-    def _open_symbol_picker(self) -> None:
+    def _on_row_action(self, action: str, symbol: str, interval: str) -> None:
+        """The table's context menu, to the same requests as the menu."""
         if self._view_model is None:
             return
-        if self._symbol_picker is None:
-            self._symbol_picker = SymbolPickerOverlay(
-                get_symbols=lambda: self._view_model.symbolOptions,
-                get_favourites=lambda: self._symbol_preferences.favourites,
-                get_recents=lambda: self._symbol_preferences.recents,
-                get_current=lambda: self._view_model.selectedSymbol,
-                parent=self,
-            )
-            self._symbol_preferences.bind_picker(
-                self._symbol_picker, self._choose_symbol
-            )
-        self._symbol_picker.show()
-        self._symbol_picker.raise_()
+        request = {
+            "klines": self._view_model.requestInspectKlines,
+            "gaps": self._view_model.requestInspectGaps,
+            "clear": self._view_model.requestClearRow,
+        }.get(action)
+        if request is not None:
+            request(symbol, interval)
 
-    def _refresh_symbol_picker(self) -> None:
-        """The scan populates `symbolOptions` while the dialog may already be
-        open; without this it stays on "Đang tải" until reopened."""
-        if self._symbol_picker is not None and self._symbol_picker.isVisible():
-            self._symbol_picker.refresh()
-
-    def _choose_symbol(self, symbol: str) -> None:
-        if self._view_model is not None:
-            self._view_model.selectedSymbol = symbol
-
-    def _open_timeframe_picker(self) -> None:
-        if self._view_model is None:
+    def _show_gaps(self) -> None:
+        vm = self._view_model
+        if vm is None:
             return
-        if self._timeframe_picker is None:
-            self._timeframe_picker = TimeframePickerDialog.from_callbacks(
-                get_codes=lambda: self._view_model.intervals,
-                get_current=lambda: self._view_model.selectedInterval,
-                get_pinned=self._timeframe_picker_pinned.get,
-                set_pinned=self._timeframe_picker_pinned.set,
-                parent=self,
+        self.gaps.show_report(
+            gap_report(
+                vm.gapInspectorSymbol,
+                vm.gapInspectorInterval,
+                vm.gapInspectorTotalMissing,
+                vm.gapInspectorCoveragePct,
+                vm.gapList,
             )
-            self._timeframe_picker.chosen.connect(self._on_interval_changed)
-        self._timeframe_picker.open_dialog()
+        )
+        self.selection.list_gaps(bool(vm.gapList))
+        dock = self.gaps_dock
+        dock.show()
+        dock.raise_()
 
     def _open_kline_inspector(self) -> None:
         if self._view_model is None:
@@ -286,291 +249,37 @@ class DataManagementView(OutputSourceView):
             self._kline_inspector = KlineInspectorDialog(self._view_model, parent=self)
         self._kline_inspector.open_dialog()
 
-    def _open_gap_inspector(self) -> None:
-        if self._view_model is None:
+    def _sync_stats(self) -> None:
+        vm = self._view_model
+        if vm is None:
             return
-        if self._gap_inspector is None:
-            self._gap_inspector = GapInspectorDialog(self._view_model, parent=self)
-        self._gap_inspector.open()
-
-    # ------------------------------------------------------------------ #
-    # Time range
-    # ------------------------------------------------------------------ #
-
-    def _on_custom_time_toggled(self, checked: bool) -> None:
-        if self._view_model is not None:
-            self._view_model.useCustomTime = checked
-
-    def _on_from_edited(self, text: str) -> None:
-        if self._view_model is not None:
-            self._view_model.fromDateTime = text
-
-    def _on_to_edited(self, text: str) -> None:
-        if self._view_model is not None:
-            self._view_model.toDateTime = text
-
-    def _sync_time_range(self) -> None:
-        self._time_range.set_from_date_time(self._view_model.fromDateTime)
-        self._time_range.set_to_date_time(self._view_model.toDateTime)
-
-    # ------------------------------------------------------------------ #
-    # Progress / stats / uiMode
-    # ------------------------------------------------------------------ #
+        self._records.setText(f"Records: {vm.storedRecords}")
+        self._size.setText(f"Database: {vm.databaseSize}")
 
     def _sync_progress(self) -> None:
+        """A running task's progress in the status bar (`ui-presentation-rule.md`
+        §10: modeless progress is shown there); Data → Stop stops it."""
         vm = self._view_model
-        self._progress_container.setVisible(vm.progressVisible)
-        cancelling = vm.uiMode == _CANCELLING_MODE
-        if cancelling:
-            # The caption is the only place this screen can say the word: the
-            # banner disables its Cancel button without renaming it, and
-            # `progressText` still holds the last sync line, which would leave
-            # a greyed button beside a caption claiming work is still running.
-            # Reviewing PR 4.3l is what caught that — `ProgressBanner.qml` had
-            # written "Cancelling..." on the button for all three of its hosts,
-            # and only the Backtest screen had its own caption for it.
-            self._progress_banner.set_status_text(CANCELLING_CAPTION)
-            # A cancel has no known duration, so the bar stops claiming one.
-            self._progress_banner.set_indeterminate(True)
-        else:
-            self._progress_banner.set_status_text(vm.progressText)
-            self._progress_banner.set_indeterminate(vm.progressMaximum == 0)
-            # `progressPercent` already computes and clamps value/maximum with
-            # a `progressMaximum <= 0` guard (`DataManagementViewModel`) —
-            # reused rather than re-deriving the same number a second place.
-            self._progress_banner.set_percent(vm.progressPercent)
-        self._progress_banner.set_cancelling(cancelling)
-
-    def _sync_stats(self) -> None:
-        self._stat_records_value.setText(self._view_model.storedRecords)
-        self._stat_size_value.setText(self._view_model.databaseSize)
+        if vm is None:
+            return
+        visible = vm.progressVisible
+        self._task.setVisible(visible)
+        self._progress.setVisible(visible)
+        if vm.uiMode == _CANCELLING_MODE:
+            self._task.setText(CANCELLING_CAPTION)
+            self._progress.setRange(0, 0)
+            return
+        self._task.setText(vm.progressText)
+        if vm.progressMaximum <= 0:
+            self._progress.setRange(0, 0)
+            return
+        self._progress.setRange(0, 100)
+        self._progress.setValue(round(vm.progressPercent))
 
     def _sync_ui_mode(self) -> None:
         vm = self._view_model
-        idle = vm.uiMode == _IDLE_MODE
-        self._btn_symbol.setEnabled(idle)
-        self._btn_interval.setEnabled(idle)
-        self._cbo_export_format.setEnabled(idle)
-        self._time_range.set_read_only(not idle)
+        if vm is None:
+            return
         self._sync_progress()
         if self._status_panel is not None:
-            self._status_panel.set_actions_enabled(idle)
-
-    # ------------------------------------------------------------------ #
-    # Status table row actions
-    # ------------------------------------------------------------------ #
-
-    def _on_status_row_action(self, action: str, symbol: str, interval: str) -> None:
-        """`DatabaseStatusPanel.rowActionRequested` — the same four calls
-        the old `_status_row.py`'s `_on_action` used to make before it was
-        deleted (EPIC-015 Phase 2)."""
-        if self._view_model is None:
-            return
-        request = {
-            "klines": self._view_model.requestInspectKlines,
-            "gaps": self._view_model.requestInspectGaps,
-            "sync": self._view_model.requestSyncRow,
-            "clear": self._view_model.requestClearRow,
-        }.get(action)
-        if request is not None:
-            request(symbol, interval)
-
-    # ------------------------------------------------------------------ #
-    # Layout
-    # ------------------------------------------------------------------ #
-
-    def _build_ui(self) -> None:
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(0, 0, 0, 0)
-        # Scoped: the screen root holds every widget on it, so an unscoped
-        # property list here is `BUG-008` at the largest scale a screen has.
-        self.setStyleSheet(
-            f"{type(self).__name__} {{ background-color: {Palette.BG}; }}"
-        )
-
-        shell = PageShell()
-        outer.addWidget(shell)
-        shell.set_header(
-            "SAGITTARIUS STORAGE VAULT",
-            "Historical Market KLines Multi-Timeframe Database Hub",
-            icon=get_icon_loader().get_icon("database", Palette.ACCENT),
-        )
-
-        main = QWidget()
-        main_layout = QVBoxLayout(main)
-        main_layout.setContentsMargins(0, 0, 0, 0)
-        main_layout.setSpacing(14)
-        main_layout.addLayout(self._build_stat_tiles())
-        main_layout.addLayout(self._build_status_column(), 1)
-
-        # `PageShell.set_workspace`'s rail is always the right-hand pane —
-        # this used to be the LEFT column of a plain `QHBoxLayout`, the one
-        # placement the Pattern Library rules out ("rail is always on the
-        # right, never the left").
-        shell.set_workspace(main, rail=self._build_sync_controls())
-
-    def _build_stat_tiles(self) -> QHBoxLayout:
-        row = QHBoxLayout()
-        row.setSpacing(12)
-
-        self._stat_records_value = QLabel("—")
-        row.addWidget(
-            self._build_stat_tile(
-                "Stored KLines Records",
-                self._stat_records_value,
-                "across scanned symbol/interval pairs",
-            )
-        )
-        self._stat_size_value = QLabel("—")
-        row.addWidget(
-            self._build_stat_tile(
-                "Est. Database Size",
-                self._stat_size_value,
-                "on-disk SQLite storage files (WAL mode)",
-            )
-        )
-        return row
-
-    def _build_stat_tile(
-        self, label_text: str, value_label: QLabel, hint_text: str
-    ) -> QFrame:
-        tile = QFrame()
-        # Minimum, not fixed. At `setFixedHeight(74)` the tile was 5px short
-        # of its own content — 12+12 margins, three labels of 15/23/13, two
-        # gaps of 2 — so the hint line at the bottom rendered cut in half
-        # (`BUG-058`). A floor keeps the tiles matching without capping them
-        # below what they hold.
-        tile.setMinimumHeight(74)
-        apply_role(tile, StyleRole.SURFACE)
-        layout = QVBoxLayout(tile)
-        layout.setContentsMargins(12, 12, 12, 12)
-        layout.setSpacing(2)
-
-        label = QLabel(label_text)
-        label.setStyleSheet(f"color: {Palette.MUTED}; font-size: 11px;")
-        layout.addWidget(label)
-
-        value_label.setObjectName(f"statValue_{label_text}")
-        value_label.setStyleSheet(
-            f"color: {Palette.TEXT_PRIMARY}; font-size: 18px; font-weight: bold;"
-        )
-        layout.addWidget(value_label)
-
-        hint = QLabel(hint_text)
-        hint.setStyleSheet(f"color: {Palette.MUTED}; font-size: 9px;")
-        layout.addWidget(hint)
-
-        return tile
-
-    def _build_sync_controls(self) -> QFrame:
-        card = QFrame()
-        apply_role(card, StyleRole.SURFACE)
-        layout = QVBoxLayout(card)
-        layout.setContentsMargins(14, 14, 14, 14)
-        layout.setSpacing(10)
-
-        header = QLabel("SYNC CONTROLS")
-        header.setStyleSheet(
-            f"color: {Palette.ACCENT}; font-size: 12px; font-weight: bold;"
-        )
-        layout.addWidget(header)
-
-        layout.addWidget(self._section_label("TARGET & TIMEFRAME"))
-
-        grid = QGridLayout()
-        grid.setHorizontalSpacing(8)
-        grid.setVerticalSpacing(8)
-        grid.setColumnStretch(1, 1)
-
-        # EPIC-014 — both fields are buttons that open the shared pickers.
-        #
-        # Symbol was an editable `QComboBox` beside a magnifier button, i.e.
-        # two widgets for one choice: the combo let a symbol be typed with
-        # nothing to validate it, and the button next to it opened the picker
-        # that could have validated it. The button *is* the field now, so
-        # there is one way in and it cannot produce an unlisted symbol.
-        #
-        # Timeframe was a closed combo, which was at least correct — it
-        # already offered all sixteen. It becomes a button for the same
-        # reason Backtest's did: one shape for "choose a timeframe" across
-        # every screen, with the unit spelled out on each card.
-        grid.addWidget(self._field_label("Symbol:"), 0, 0)
-        self._btn_symbol = QPushButton()
-        self._btn_symbol.setObjectName("btnSymbol")
-        self._btn_symbol.setFixedHeight(32)
-        self._btn_symbol.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_symbol.setIcon(
-            get_icon_loader().get_icon("search", Palette.MUTED, 14)
-        )
-        self._btn_symbol.setToolTip("Quickly search across 1,361+ Binance symbols")
-        self._btn_symbol.setStyleSheet(field_style())
-        self._btn_symbol.clicked.connect(self._open_symbol_picker)
-        grid.addWidget(self._btn_symbol, 0, 1)
-
-        grid.addWidget(self._field_label("Timeframe:"), 1, 0)
-        self._btn_interval = QPushButton()
-        self._btn_interval.setObjectName("btnInterval")
-        self._btn_interval.setFixedHeight(32)
-        self._btn_interval.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_interval.setStyleSheet(field_style())
-        self._btn_interval.clicked.connect(self._open_timeframe_picker)
-        grid.addWidget(self._btn_interval, 1, 1)
-
-        # `BOT-112D` — a plain, unstyled combo (no `setStyleSheet`, matching
-        # `trading_settings_view.py`'s venue combo): three known values, no
-        # picker warranted, and the shrink-only styling ratchet
-        # (`test_app_styling_only_shrinks.py`) forbids a new call anyway.
-        grid.addWidget(self._field_label("Export Format:"), 2, 0)
-        self._cbo_export_format = QComboBox()
-        self._cbo_export_format.setObjectName("cboExportFormat")
-        grid.addWidget(self._cbo_export_format, 2, 1)
-
-        layout.addLayout(grid)
-
-        self._time_range = TimeRangeCardWidget()
-        layout.addWidget(self._time_range)
-
-        self._progress_container = QWidget()
-        progress_layout = QVBoxLayout(self._progress_container)
-        progress_layout.setContentsMargins(0, 0, 0, 0)
-        progress_layout.setSpacing(8)
-
-        # EPIC-015 Phase 2: replaces `AppProgressBar` + a standalone Cancel
-        # `QPushButton` — the banner renders the caption, a bar that actually
-        # shows its percent, and has its own Cancel button built in, so there
-        # is nothing left for a sibling widget to add. A QML embed until
-        # PR 4.3l; the fixed 32px height went with it, because a `QWidget`
-        # measures itself and a `QQuickWidget` could not.
-        self._progress_banner = ProgressBanner()
-        self._progress_banner.set_cancel_label(_CANCEL_LABEL)
-        progress_layout.addWidget(self._progress_banner)
-
-        layout.addWidget(self._progress_container)
-        self._progress_container.setVisible(False)
-
-        layout.addStretch()
-        return card
-
-    def _build_status_column(self) -> QVBoxLayout:
-        """The status table itself (`DatabaseStatusPanel`) is NOT built
-        here — `_build_ui()` runs before a real view model exists to
-        construct it from its `status_model`. `self._status_column` is kept
-        so `set_view_model()` can `insertWidget(0, ..., 1)` the panel into
-        this (otherwise empty) slot."""
-        column = QVBoxLayout()
-        self._status_column = column
-        return column
-
-    @staticmethod
-    def _section_label(text: str) -> QLabel:
-        label = QLabel(text)
-        label.setStyleSheet(
-            f"color: {Palette.MUTED}; font-size: 10px; font-weight: bold; letter-spacing: 1px;"
-        )
-        return label
-
-    @staticmethod
-    def _field_label(text: str) -> QLabel:
-        label = QLabel(text)
-        label.setStyleSheet(f"color: {Palette.TEXT_PRIMARY}; font-size: 12px;")
-        return label
+            self._status_panel.set_actions_enabled(vm.uiMode == "IDLE")

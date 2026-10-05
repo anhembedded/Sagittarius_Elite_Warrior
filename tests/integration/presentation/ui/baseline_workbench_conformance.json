@@ -15,10 +15,6 @@
     "trading.spot": [
       "no_style_sheet"
     ],
-    "data_management": [
-      "control_height",
-      "no_style_sheet"
-    ],
     "backtest": [
       "control_height",
       "no_nested_scroll",

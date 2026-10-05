@@ -398,8 +398,8 @@ def test_delete_and_purge_actions_ask_then_submit_their_workers(
         presenter.bind_commands,
         confirmer,
     )
-    view_model.selectedSymbol = "BTCUSDT"
-    view_model.selectedInterval = "5m"
+    view_model.status_model.upsert_row("BTCUSDT", None, None, 10, "OK", "5m")
+    presenter.view.status_panel._table.selectRow(0)
 
     actions.action(DELETE_SELECTED).trigger()
 

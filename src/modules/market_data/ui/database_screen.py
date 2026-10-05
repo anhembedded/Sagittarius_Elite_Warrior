@@ -24,7 +24,7 @@ if TYPE_CHECKING:
 DATABASE_ROUTE = "data_management"
 
 _NAV = NavMetadata(
-    title="Database",
+    title="Data",
     icon="database",
     section_sequence=10,
     item_sequence=20,
