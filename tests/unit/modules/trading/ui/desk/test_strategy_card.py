@@ -88,7 +88,7 @@ def test_leverage_is_offered_on_futures_only(qtbot, market_type, shown) -> None:
 
     leverage = _child(card, QDoubleSpinBox, "spnLiveLeverage")
 
-    assert not leverage.isHidden() is shown
+    assert leverage.isHidden() is not shown
 
 
 def test_arm_and_disarm_reach_the_view_model(qtbot) -> None:
@@ -118,17 +118,67 @@ def test_choosing_a_strategy_records_its_key_not_its_label(qtbot) -> None:
     assert strategy.selectedStrategyKey == "rsi"
 
 
-def test_the_card_locks_while_trading_is_on_or_an_arm_is_in_flight(qtbot) -> None:
+#: Every control the lock holds (`StrategyCard._strategy_controls`).
+_LOCKED = [
+    "cboLiveStrategy",
+    "cboLiveInterval",
+    "spnLiveSizingPercent",
+    "spnLiveLeverage",
+    "btnStrategyParams",
+    "btnArmStrategy",
+    "btnDisarmStrategy",
+]
+
+
+@pytest.mark.parametrize("name", _LOCKED)
+def test_the_card_locks_while_trading_is_on_or_an_arm_is_in_flight(qtbot, name) -> None:
     card, strategy, trading = _card(qtbot)
-    arm = _child(card, QPushButton, "btnArmStrategy")
-    assert arm.isEnabled()
+    control = _child(card, QWidget, name)
+    assert control.isEnabled()
 
     trading.set(True)
-    assert not arm.isEnabled()
+    assert not control.isEnabled()
 
     trading.set(False)
+    assert control.isEnabled()
     strategy.set_armed_summary("", busy=True)
-    assert not arm.isEnabled()
+    assert not control.isEnabled()
+
+
+def test_a_timeframe_picked_reaches_the_view_model(qtbot) -> None:
+    card, strategy, _ = _card(qtbot)
+
+    _child(card, QComboBox, "cboLiveInterval").setCurrentText("5m")
+
+    assert strategy.liveInterval == "5m"
+
+
+def test_the_size_and_leverage_typed_reach_the_view_model(qtbot) -> None:
+    card, strategy, _ = _card(qtbot)
+
+    _child(card, QDoubleSpinBox, "spnLiveSizingPercent").setValue(7.0)
+    _child(card, QDoubleSpinBox, "spnLiveLeverage").setValue(3.0)
+
+    assert strategy.sizingPercent == 7.0
+    assert strategy.leverage == 3.0
+
+
+#: The menu bar's titles take these access keys (HLD §11, the menu bar row):
+#: a label on a desk that took one would steal Alt+letter from the menu.
+_MENU_BAR_KEYS = set("FEVRBDTWHP")
+
+
+def test_no_label_takes_a_menu_bar_access_key(qtbot) -> None:
+    card, _, _ = _card(qtbot)
+
+    keys = {
+        label.text()[label.text().index("&") + 1].upper()
+        for label in card.findChildren(QLabel)
+        if "&" in label.text().replace("&&", "")
+    }
+
+    assert keys == {"S", "M", "C", "L"}
+    assert not keys & _MENU_BAR_KEYS
 
 
 def test_the_armed_summary_is_said_in_words(qtbot) -> None:

@@ -84,7 +84,7 @@ class StrategyCard(QGroupBox):
 
         form = QFormLayout(self)
         form.addRow("&Strategy:", self._cbo_live_strategy)
-        form.addRow("&Timeframe:", self._cbo_live_interval)
+        form.addRow("Ti&meframe:", self._cbo_live_interval)
         form.addRow("% of &capital per trade:", self._spn_sizing_percent)
         form.addRow("&Leverage:", self._spn_leverage)
         # `EPIC-027O` AC3 — leverage is a Futures-only concept, hidden on
