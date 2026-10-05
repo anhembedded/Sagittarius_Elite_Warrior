@@ -7,7 +7,10 @@
   Bot trading tab; it picks the bot type, and each bot type has its own toolbar"). Built as
   `EPIC-029B`/`029C`/`029D`/`029E`/`029F`/`029G`; the
   [ADR](../../Tasks/epics/EPIC-029_bots_tab_grid_fast_track/DECISION_2026-10-03_bots_module_and_grid_bot.md) (D19, O3, O4).
-- **Surfaces:** the Bots tab (`bots`, NAVIGATION item 18, nav "Bots").
+- **Surfaces:** the Bots mode (`bots`, NAVIGATION item 18, nav "Bots"), laid out as HLD §11.2.1
+  lists it since `EPIC-033K`: the selected bot's chart in the centre, Bots (the list) on the left,
+  Plan on the right, and Orders, Fills, Log and Backtest tabbed at the bottom. Every command is in
+  the Bots menu.
 
 ## 1. Trigger
 
@@ -24,25 +27,26 @@ sound, I start it, and I watch what it does."*
 
 ## 3. Main flow
 
-1. The trader opens the Bots tab. The list shows every saved bot: name, kind, venue, symbol,
+1. The trader opens the Bots mode. The Bots panel lists every saved bot: name, kind, venue, symbol,
    state in words (Draft, Running, Paused, Recovering, Halted, Stopped, Error) and grid profit.
-2. The trader clicks **New bot** and answers the minimum, in order: the kind (Spot Grid), an
+2. The trader chooses Bots → **New bot…** and answers the minimum, in order: the kind (Spot Grid), an
    enabled Spot venue, the symbol (typed, never taken from a chart) and, optionally, a name.
    **Create bot** saves a DRAFT with no parameters; nothing is placed. **Cancel** saves nothing
    (`BOT-150`).
 3. The new bot is selected. The app reads the symbol's filters, fees and price from the venue and
    its stored daily candles, then shows the kind's verdict on each check: OK, Warning or Refused,
    with the threshold beside the measured value. The planner preview draws the proposed levels on
-   the bot's chart; **Fit levels** scales the price axis to show them all.
-4. The trader sets the parameters in the bot's panel (lower and upper price, grids, spacing,
+   the bot's chart; Bots → **Fit levels** scales the price axis to show them all.
+4. The trader sets the parameters in the Plan panel, the kind's editor (lower and upper price, grids, spacing,
    capital, stop loss, take profit). Until the lower price, upper price and capital are set, the
    one verdict is Refused and names them. The verdicts and the preview follow each edit.
    **Suggest from ATR** or **Suggest from Bollinger** fills the range only when clicked, rounded
-   to the tick. Start waits until the edits are saved with **Save**. The parameters can be
+   to the tick. Start waits until the edits are saved with **Save bot** (Ctrl+S). The parameters can be
    changed whenever the bot is not running: a Draft, or a Stopped bot, which returns to Draft.
-5. While any verdict is Refused, Start is disabled and its tooltip names the refusal.
+5. While any verdict is Refused, Start is disabled and the Plan panel's verdicts name the refusal
+   ("Start is blocked: …").
 6. The trader clicks **Start**. The bot places its ladder through trading, with its own tag, and
-   moves through Starting to Running. The list and the detail follow each change without a
+   moves through Starting to Running. The list and the panels follow each change without a
    refresh: the state, grid profit, unrealised PnL at the latest price, what it holds, its
    running time, its resting orders (Orders), its fills from the venue's history (Fills, by the
    bot's tag) and its log (Log).
@@ -50,7 +54,7 @@ sound, I start it, and I watch what it does."*
    **Resume** cancels its tagged orders and proposes a new ladder, shown in its log; **Confirm
    resume** lays it. With no proposal held (no Resume since the halt, or the app restarted) Confirm
    resume is refused with "press Resume first" and nothing is placed.
-8. **Backtest** (`EPIC-029D`): the Backtest tab replays the parameters on screen (the unsaved
+8. **Backtest** (`EPIC-029D`): the Backtest panel replays the parameters on screen (the unsaved
    edits too) over an interval (1m, 5m, 15m or 1h) and a UTC period, last seven days by default.
    **Run backtest** shows the replayed candles with the plan's levels, fills and exits on a
    bot chart of its own, the grid's equity against buy-and-hold on the same timestamps, and the figures:
@@ -83,10 +87,10 @@ available while it runs.
 | A required parameter is not set yet (a new bot) | One Refused verdict naming the lower price, upper price or capital to set; Start disabled | A bot is created with the minimum (`BOT-150`) |
 | A parameter is unreadable or the plan certainly loses or breaks an exchange rule | A Refused verdict naming it; Start disabled | The kind refuses only certain losses and certain rejections (`EPIC-029C`) |
 | Trading is off, or the switch turns off while running | The use case refuses with its reason in the status line, or the bot moves to Halted with the reason beside its state | trading is the only module that sends orders, and its switch wins |
-| The fills cannot be read | The Fills tab says why | The venue's order history is a network read |
+| The fills cannot be read | The Fills panel says why | The venue's order history is a network read |
 | A bot file on disk cannot be read | The status line names the file | The store refuses it rather than guessing (`EPIC-029B`) |
-| The action's answer arrives after the trader moved on or closed the tab | Nothing: it is dropped and logged | One action at a time, fenced (`async-ui-action-rule.md`) |
-| The backtest's period has no stored candles | "No 15m candles of BTCUSDT are stored …" and **Sync candles**; only a click syncs the interval and its 1-second klines ("Stop" leaves what was stored), then the backtest runs again | Opening a tab or running a backtest is never a network request (`BUG-107`) |
+| The action's answer arrives after the trader moved on or left the mode | Nothing: it is dropped and logged | One action at a time, fenced (`async-ui-action-rule.md`) |
+| The backtest's period has no stored candles | "No 15m candles of BTCUSDT are stored …" and **Sync candles**; only a click syncs the interval and its 1-second klines ("Stop" leaves what was stored), then the backtest runs again | Opening a panel or running a backtest is never a network request (`BUG-107`) |
 | The period is too long for the interval | The backtest asks for a longer interval | The replay holds at most 20,000 candles |
 | The period is only partly stored, or has gaps | The replay runs on what is stored; "Candles stored" says N of M, the status names how many are missing and **Sync candles** is offered | A result on part of a period is shown as such, never as the whole of it |
 | A backtest finishes after Cancel, or after another bot was selected | Nothing: it is dropped and logged | Each run is an action of its own, fenced like the others |
@@ -100,10 +104,10 @@ available while it runs.
   partial fills, and its fees are the venue's rates read by the planner.
 - Watching the stop loss and take profit while the app is closed: nothing runs then, which is why
   closing asks first.
-- The Fills tab reads the four newest pages of the symbol's order history since the run started;
+- The Fills panel reads the four newest pages of the symbol's order history since the run started;
   it says so when there is more.
 - The chart's overlay for a running bot is its plan's levels; level states and fills are in the
-  Orders and Fills tabs, not on the chart.
+  Orders and Fills panels, not on the chart.
 
 ## 7. Ports and modules it exercises
 
@@ -128,6 +132,7 @@ available while it runs.
 | A bot created with the minimum: Start names the parameters to set; the ones typed are saved | `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit (real bots graph) |
 | A Grid without its range or capital is one Refused verdict naming them | `tests/unit/modules/bots/domain/grid/test_grid_parameters_not_set.py` | unit |
 | Fills by the bot's tag; resting orders from the runtime | `tests/unit/modules/bots/application/test_bot_orders_and_fills.py` | unit |
+| The chart is central; Bots, Plan, Orders, Fills, Log and Backtest are docked as HLD §11.2.1 lists; no push button and no nested scroll area; Fit levels is a command that reaches the chart | `tests/unit/modules/bots/ui/bots_screen/test_bots_view.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_commands.py` · `tests/unit/modules/bots/ui/bots_screen/test_bots_presenter.py` | unit |
 | Closing asks while a bot is active; Cancel keeps the window | `tests/unit/presentation/ui/test_main_window_close_guard.py` | unit |
 | A Grid starts, fills, pauses, stops and restarts against the fake exchange | `tests/integration/modules/bots/test_grid_bot_against_fake_server.py` | integration |
 | The route is item 18 and contributed by bots | `tests/unit/shell/test_screen_wiring.py` | unit |
@@ -135,7 +140,7 @@ available while it runs.
 | The backtest reads what is stored, never fetches, refuses in words | `tests/unit/modules/bots/application/test_run_grid_backtest.py` | unit |
 | Two stored hours replay through their 1-second klines; without them the replay is coarse and never completes more cycles; 1-second klines that miss the candle's range are not trusted | `tests/integration/modules/bots/test_grid_backtest_stored_klines.py` | integration (real SQLite) |
 | Run, Cancel keeps the last result, another bot clears it, a late result is fenced, Sync only on a click then run again | `tests/unit/modules/bots/ui/kinds/test_grid_backtest.py` | unit (real query handler) |
-| The Backtest tab shows for a Grid, hides without a selection, runs through the query the module binds, reads the edits and the planner's terms | `tests/unit/modules/bots/ui/bots_screen/test_bots_backtest_tab.py` | unit (real bots graph) |
-| The tab's Start, Pause, Resume and Stop reach the real executor and the exchange | `tests/integration/modules/bots/test_bots_tab_drives_the_executor.py` | integration (fake exchange) |
+| The Backtest panel holds a Grid's page and, without a selection, an instruction; it runs through the query the module binds, reads the edits and the planner's terms | `tests/unit/modules/bots/ui/bots_screen/test_bots_backtest_tab.py` | unit (real bots graph) |
+| The mode's Start, Pause, Resume and Stop reach the real executor and the exchange | `tests/integration/modules/bots/test_bots_tab_drives_the_executor.py` | integration (fake exchange) |
 | A Grid rests its levels with its tag, re-lays an outside cancel and stops clean on Spot Testnet; how many owner budgets fit the venue's rate limits — **pending the user's run** | `tests/testnet/test_grid_bot_round_trip.py` · `tests/testnet/test_spot_rate_limits.py` | testnet, run by the user |
 | **The user runs it**: a Grid on Spot Testnet from New bot to Stop, on a real display | `EPIC-029H` | desktop, the user |

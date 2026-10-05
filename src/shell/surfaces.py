@@ -57,7 +57,13 @@ SURFACES: tuple[Surface, ...] = (
             {Place.WORKSPACE, Place.NAVIGATOR, Place.RAIL, Place.CONSOLE}
         ),
     ),
-    Surface("bots", owner="bots", accepts=frozenset({Place.WORKSPACE})),
+    Surface(
+        "bots",
+        owner="bots",
+        accepts=frozenset(
+            {Place.WORKSPACE, Place.NAVIGATOR, Place.RAIL, Place.CONSOLE}
+        ),
+    ),
     Surface(
         "market", owner="trading", accepts=frozenset({Place.WORKSPACE, Place.RAIL})
     ),

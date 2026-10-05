@@ -1,7 +1,7 @@
-"""`EPIC-029D` — the Backtest tab on the Bots screen over the bots module's real
-graph: shown for a kind with a backtest, hidden without a selection, fed the
-parameters on screen and the planner's terms, and run through the query the
-module binds."""
+"""`EPIC-029D` — the Backtest panel of the Bots mode over the bots module's
+real graph: the page of a kind with a backtest, an instruction without a
+selection, fed the parameters on screen and the planner's terms, and run
+through the query the module binds."""
 
 from __future__ import annotations
 
@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QLabel
 from Sagittarius_Elite_Warrior.src.modules.bots.application.queries.get_planner_market import (
     PlannerMarket,
 )
@@ -20,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_kind_inputs import (
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix import (
     BotLifecycleState,
+)
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view import (
+    NO_BACKTEST_TEXT,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.kind_backtests import (
     backtest_context,
@@ -45,27 +49,24 @@ _TERMS = ExchangeTerms(
 )
 
 
-def _backtest_tab(screen: BotsScreen) -> tuple[int, GridBacktestView | None]:
-    tabs = screen.view.detail.tabs
-    index = next(i for i in range(tabs.count()) if tabs.tabText(i) == "Backtest")
-    pages = tabs.widget(index).findChildren(GridBacktestView)
-    return index, pages[0] if pages else None
+def _backtest_page(screen: BotsScreen) -> GridBacktestView | None:
+    pages = screen.view.backtest.findChildren(GridBacktestView)
+    return pages[0] if pages else None
 
 
-def test_a_grid_bot_has_a_backtest_tab_and_no_selection_hides_it(
+def test_a_grid_bot_fills_the_backtest_panel_and_no_selection_leaves_a_note(
     open_bots_screen,
 ) -> None:
     screen = open_bots_screen([stored("a00001", S.DRAFT)])
     screen.settle()
-    index, page = _backtest_tab(screen)
-    assert not screen.view.detail.tabs.isTabVisible(index)
-    assert page is None
+    assert _backtest_page(screen) is None
+    notes = [label.text() for label in screen.view.backtest.findChildren(QLabel)]
+    assert notes == [NO_BACKTEST_TEXT]
 
     screen.view.model.select_requested.emit("a00001")
     screen.settle()
 
-    index, page = _backtest_tab(screen)
-    assert screen.view.detail.tabs.isTabVisible(index)
+    page = _backtest_page(screen)
     assert page is not None
     # The planner's read brought the terms, so Run is live.
     assert page.run_button.isEnabled()
@@ -76,7 +77,7 @@ def test_run_goes_through_the_query_the_module_binds(open_bots_screen, qtbot) ->
     screen.settle()
     screen.view.model.select_requested.emit("a00001")
     screen.settle()
-    _, page = _backtest_tab(screen)
+    page = _backtest_page(screen)
     assert page is not None
 
     qtbot.mouseClick(page.run_button, Qt.MouseButton.LeftButton)

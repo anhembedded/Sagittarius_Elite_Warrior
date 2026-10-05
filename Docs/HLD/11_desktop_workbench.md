@@ -47,7 +47,7 @@ around a chart).
 | :--- | :--- | :--- | :--- | :--- |
 | **Market** (Ctrl+1) | watch the live market | SPEC-002, SPEC-003 | chart, one tab per open symbol | right: Watchlist, Indicators (tabbed); bottom: Output (hidden) |
 | **Trade** (Ctrl+2) | trade one venue by hand and see the account | SPEC-004, 005, 006, 007, 012, 013 | chart of the traded symbol | right: Order entry, Account summary; bottom: Positions (Futures) or Assets (Spot), Open orders, Order history, Trade history, Equity (tabbed) |
-| **Bots** (Ctrl+3) | create, judge, run and watch automated trading | SPEC-014, SPEC-010 | the selected bot's chart (its levels, fills and price; `EPIC-029` D16) | left: Bots (the list); right: Plan (the kind's panel: parameters and verdicts); bottom: Orders, Fills, Log (tabbed) |
+| **Bots** (Ctrl+3) | create, judge, run and watch automated trading | SPEC-014, SPEC-010 | the selected bot's chart (its levels, fills and price; `EPIC-029` D16) | left: Bots (the list); right: Plan (the kind's panel: parameters and verdicts); bottom: Orders, Fills, Log, Backtest (the kind's, `EPIC-029D`) (tabbed) |
 | **Backtest** (Ctrl+4) | test a strategy on stored history | SPEC-009 | result chart | left: Run setup; right: Metrics; bottom: Trades, Drawdown, Monthly returns, Monte Carlo (tabbed) |
 | **Data** (Ctrl+5) | keep history complete | SPEC-001, SPEC-008 | coverage table (symbol × timeframe) | bottom: Gaps, Output |
 | **Developer** (Ctrl+6, developer mode only) | look inside the running app | SPEC-011 (developer part) | event log | right: probes |
@@ -131,7 +131,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 - The current screens also contribute commands the table does not list yet, each in its module's menu and scoped to its mode:
   - Trade, on the Dev Board: Load history, Start live, Stop live (`EPIC-033P`).
   - Tools, in Backtest: Save report…, Import report…, Compare reports…, In-sample vs out-of-sample, Monte Carlo (`EPIC-033L`).
-  - Bots: Refresh fills (`EPIC-033K`).
+  - Bots: Refresh fills and Fit levels (`EPIC-033K`).
 
 Run backtest is F7, not Ctrl+R: GNOME and XFCE reserve Ctrl+R for Refresh, and the Engine's shortcut policy refuses it. In View, the modes are &Bots and Back&test, not B&ots and &Backtest, because T&oolbars in the same menu already uses O.
 

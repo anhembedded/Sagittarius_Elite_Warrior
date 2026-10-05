@@ -1,10 +1,11 @@
 """The Bots mode's commands (`EPIC-033D`): New bot…, the selected bot's
-lifecycle actions and Refresh fills.
+lifecycle actions, Refresh fills and Fit levels.
 
 Each is one `QAction` in the Bots menu, scoped to the mode, named and placed
 as HLD §11.2.3 lists them: every lifecycle command but Delete bot is also on
 its toolbar, and Save bot is the platform's Save (Ctrl+S on Windows).
-Refresh fills is not in the catalogue yet (`EPIC-033K` designs the mode). The
+Refresh fills and Fit levels are not in the catalogue yet; Fit levels was a
+push button over the chart until `EPIC-033K` made the chart the centre. The
 lifecycle commands act on the selected bot and follow its availability
 (`bot_action_rules.py`). Stop… and Delete ask through the presenter's own
 dialogs (`command_for`), because Stop asks how to stop; so neither carries
@@ -31,6 +32,7 @@ _PREFIX = "bots.bots"
 
 NEW_BOT = f"{_PREFIX}.new_bot"
 REFRESH_FILLS = f"{_PREFIX}.refresh_fills"
+FIT_LEVELS = f"{_PREFIX}.fit_levels"
 
 #: Menu text per lifecycle action, in menu order; the toolbar ones are marked.
 _LIFECYCLE: tuple[tuple[BotAction, str, bool], ...] = (
@@ -83,4 +85,5 @@ def bots_commands(route: str) -> tuple[CommandContribution, ...]:
             for action, text, on_toolbar in _LIFECYCLE
         ),
         command(REFRESH_FILLS, "Refresh &fills", on_toolbar=False),
+        command(FIT_LEVELS, "Fit &levels", on_toolbar=False),
     )

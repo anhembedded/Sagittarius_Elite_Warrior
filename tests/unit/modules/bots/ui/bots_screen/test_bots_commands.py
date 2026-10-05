@@ -27,6 +27,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_command_bind
     bind_bots_commands,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
+    FIT_LEVELS,
     NEW_BOT,
     REFRESH_FILLS,
     bots_commands,
@@ -59,7 +60,12 @@ def test_the_bots_module_contributes_every_bots_command() -> None:
         for command in real_contributions(Mock()).commands()
     }
 
-    for command_id in (NEW_BOT, REFRESH_FILLS, *map(lifecycle_id, BotAction)):
+    for command_id in (
+        NEW_BOT,
+        REFRESH_FILLS,
+        FIT_LEVELS,
+        *map(lifecycle_id, BotAction),
+    ):
         assert modes[command_id] == BOTS_ROUTE
 
 
@@ -117,6 +123,34 @@ def test_refresh_fills_waits_for_a_selected_bot(qapp) -> None:
     )
 
     assert refresh.isEnabled()
+
+
+def test_fit_levels_waits_for_a_selected_bot_and_asks_the_chart(qapp) -> None:
+    """`EPIC-033K`: Fit levels was a push button over the chart; it is a
+    command now, live while a bot (and so its chart) is selected."""
+    view_model = BotsViewModel()
+    actions = _actions(view_model)
+    fit = actions.action(FIT_LEVELS)
+    asked: list[bool] = []
+    view_model.fit_levels_requested.connect(lambda: asked.append(True))
+    assert not fit.isEnabled()
+
+    view_model.set_selected(
+        BotSnapshot(
+            "a00001",
+            "g",
+            "grid",
+            TradingVenue.SPOT_TESTNET,
+            "BTCUSDT",
+            BotLifecycleState.DRAFT,
+            datetime(2026, 10, 4, tzinfo=UTC),
+            None,
+        )
+    )
+    fit.trigger()
+
+    assert fit.isEnabled()
+    assert asked == [True]
 
 
 def test_save_bot_is_the_platform_save(qapp) -> None:
