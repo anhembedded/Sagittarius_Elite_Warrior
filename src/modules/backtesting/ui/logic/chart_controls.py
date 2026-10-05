@@ -42,8 +42,9 @@ class BacktestChartControls(QtWidgets.QWidget):
     @brief Chart-area toolbar for the Backtest Screen: the 3-mode switch plus
     overlay toggles (BOT-056 §2.1/§2.2).
 
-    @details Native `QtWidgets` (added via `ChartCard.add_to_header`, next to
-    its existing `ChartToolbar`) rather than QML — this is purely "how do I
+    @details Native `QtWidgets`, on its own row above the chart since
+    `EPIC-033L`: beside the chart's `ChartToolbar` in the header it squeezed
+    that toolbar into its overflow button at 1366×768. Rather than QML — this is purely "how do I
     look at data BackTestView already has", with no config to validate or
     dispatch, so it doesn't need the ViewModel/Presenter round-trip the rest
     of this screen uses for anything that reaches the engine. Dumb component,

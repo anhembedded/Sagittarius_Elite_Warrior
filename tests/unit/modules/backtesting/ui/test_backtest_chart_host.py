@@ -42,7 +42,6 @@ def test_host_delegates_every_port_operation_to_the_chart_card(qapp, request):
     host = PythonBacktestChartHost(card)
 
     calls = [
-        ("add_to_header", (object(),), {}),
         ("set_dev_mode", (True,), {}),
         ("set_display_timezone", ("Asia/Ho_Chi_Minh",), {}),
         ("render_historical_data", ([],), {}),

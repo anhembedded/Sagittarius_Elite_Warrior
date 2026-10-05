@@ -14,9 +14,6 @@
     ],
     "trading.spot": [
       "no_style_sheet"
-    ],
-    "backtest": [
-      "control_height"
     ]
   }
 }
