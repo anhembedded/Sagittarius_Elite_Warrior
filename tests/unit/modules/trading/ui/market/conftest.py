@@ -8,6 +8,9 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_market_stream import (
     IMarketStream,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_historical_klines import (
+    FakeHistoricalKlines,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_market_stream import (
     FakeMarketStream,
 )
@@ -80,6 +83,13 @@ def futures_feed():
 
 
 @pytest.fixture
+def history():
+    """The store the charts read beyond their first window (`EPIC-033S`),
+    empty until a test seeds it."""
+    return FakeHistoricalKlines()
+
+
+@pytest.fixture
 def scripts():
     registry = IndicatorScriptRegistry()
     registry.register("ema_20", Ema20Script)
@@ -88,8 +98,7 @@ def scripts():
 
 
 def _deps(
-    feed,
-    futures_feed,
+    sources,
     threads,
     scripts,
     *,
@@ -100,7 +109,8 @@ def _deps(
 ) -> MarketDependencies:
     return MarketDependencies(
         stream=stream or FakeMarketStream(),
-        candles={MarketType.SPOT: feed, MarketType.FUTURES_USD_M: futures_feed},
+        candles={MarketType.SPOT: sources[0], MarketType.FUTURES_USD_M: sources[1]},
+        history=sources[2],
         thread_manager=threads,
         scripts=scripts,
         script_params=lambda _key: None,
@@ -112,7 +122,7 @@ def _deps(
 
 
 @pytest.fixture
-def build(qapp, event_bus, feed, futures_feed, threads, scripts):
+def build(qapp, event_bus, feed, futures_feed, history, threads, scripts):
     made: list[MarketPresenter] = []
 
     def _build(**overrides) -> MarketPresenter:
@@ -120,7 +130,7 @@ def build(qapp, event_bus, feed, futures_feed, threads, scripts):
         presenter = MarketPresenter(
             view,
             presenter_container(event_bus),
-            _deps(feed, futures_feed, threads, scripts, **overrides),
+            _deps((feed, futures_feed, history), threads, scripts, **overrides),
         )
         made.append(presenter)
         return presenter

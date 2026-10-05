@@ -45,6 +45,9 @@ class LiveCandleChart(QObject):
     logged = Signal(str)
 
     _history = Signal(str, list, list, list)
+    #: A first window's load settled (drawn, empty or failed), from the
+    #: coordinator's worker thread.
+    _load_settled = Signal()
 
     def __init__(
         self, chart: ChartCard, ports: LiveChartPorts, parent: QObject | None = None
@@ -60,7 +63,7 @@ class LiveCandleChart(QObject):
             ports.feed,
             LiveChartCallbacks(
                 history_ready=self._history.emit,
-                load_finished=lambda: None,
+                load_finished=self._load_settled.emit,
                 stream_started=self.logged.emit,
                 stream_failed=lambda text: self.logged.emit(f"[ERROR] {text}"),
                 log=self.logged.emit,
@@ -68,6 +71,7 @@ class LiveCandleChart(QObject):
             ports.stream_owner,
         )
         self._history.connect(self._on_history)
+        self._load_settled.connect(self._on_first_window_settled)
         chart.toolbar.set_active(self._interval)
         chart.toolbar.sig_timeframe_changed.connect(self._on_timeframe_changed)
 
@@ -151,7 +155,16 @@ class LiveCandleChart(QObject):
     def _on_candle_drawn(self, candle: MarketData) -> None:
         """Hook: a live candle of the shown symbol was drawn."""
 
+    def _on_first_window_requested(self) -> None:
+        """Hook: a first window (a new symbol, timeframe or go-live) was asked
+        for; until it settles, what is drawn is about to be replaced."""
+
+    def _on_first_window_settled(self) -> None:
+        """Hook, on the Qt thread: one first window asked for settled, drawn
+        or not (no stored candles, a failed sync). Exactly once per request."""
+
     def _restart(self) -> None:
+        self._on_first_window_requested()
         self._token.cancel()
         self._token = CancellationToken()
         if self._live:
@@ -170,9 +183,14 @@ class LiveCandleChart(QObject):
         self, symbol: str, candles: list, volume: list, klines: list
     ) -> None:
         # The coordinator mapped the rows on its worker thread; they are
-        # drawn as they came (the PR 321 review).
-        if symbol == self._symbol:
-            self._render_history(candles, volume, klines)
+        # drawn as they came (the PR 321 review). A window of a timeframe the
+        # chart has since left is not drawn: its bars would be the wrong width
+        # (the review of PR #366).
+        if symbol != self._symbol:
+            return
+        if klines and klines[0].interval != self._interval:
+            return
+        self._render_history(candles, volume, klines)
 
     def _render_history(
         self, candles: list, volume: list, klines: Sequence[MarketData]
