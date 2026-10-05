@@ -1,5 +1,4 @@
 {
- "src/modules/backtesting/ui/backtest_modals/strategy_properties_dialog.py": 441,
  "src/modules/backtesting/ui/backtest_presenter.py": 2211,
  "src/modules/backtesting/ui/backtest_top_panel.py": 418,
  "src/modules/backtesting/ui/backtest_view_model.py": 790,

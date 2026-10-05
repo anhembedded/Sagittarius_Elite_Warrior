@@ -82,20 +82,17 @@ class BackTestModalsHost:
     def _open_limitations(self) -> None:
         if self._limitations is None:
             self._limitations = LimitationsDialog(self._vm, self._parent)
-        self._limitations.show()
-        self._limitations.raise_()
+        self._limitations.open()
 
     def _open_indicator_picker(self, _x: float, _y: float) -> None:
         if self._indicator_picker is None:
             self._indicator_picker = IndicatorPickerDialog(self._vm, self._parent)
-        self._indicator_picker.show()
-        self._indicator_picker.raise_()
+        self._indicator_picker.open()
 
     def _open_order_execution(self, _x: float, _y: float) -> None:
         if self._order_execution is None:
             self._order_execution = OrderExecutionDialog(self._vm, self._parent)
-        self._order_execution.show()
-        self._order_execution.raise_()
+        self._order_execution.open()
 
     def _open_report_comparison(self) -> None:
         if self._report_comparison is None:

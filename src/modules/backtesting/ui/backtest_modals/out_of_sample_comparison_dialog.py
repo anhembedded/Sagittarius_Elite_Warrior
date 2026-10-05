@@ -19,12 +19,13 @@ from typing import TYPE_CHECKING
 
 from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
-    QHBoxLayout,
+    QDialog,
+    QDialogButtonBox,
     QHeaderView,
     QLabel,
-    QPushButton,
     QTreeWidget,
     QTreeWidgetItem,
+    QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.out_of_sample_validation import (
@@ -39,7 +40,6 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_compariso
     MetricComparisonRow,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
-    Overlay,
     Tone,
     semantic_colour,
 )
@@ -47,7 +47,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
-_TITLE = "IN-SAMPLE VS OUT-OF-SAMPLE"
+_TITLE = "In-Sample vs Out-of-Sample"
 _METRIC_COLUMN = 0
 _IN_SAMPLE_COLUMN = 1
 _OUT_OF_SAMPLE_COLUMN = 2
@@ -67,21 +67,25 @@ def _tone_colour(tone: Tone) -> QColor | None:
     return None
 
 
-class OutOfSampleComparisonDialog(Overlay):
+class OutOfSampleComparisonDialog(QDialog):
     """@brief Split description + overfit warning + metrics side-by-side
     table for the run currently on screen's `BOT-080` OOS validation."""
 
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
+        super().__init__(parent)
         self._vm = view_model
-        super().__init__(_TITLE, parent=parent)
+        self.setWindowTitle(_TITLE)
+        self.body_layout = QVBoxLayout(self)
         self.setObjectName("outOfSampleComparisonDialog")
         self.resize(660, 480)
 
         self._build_description_label()
         self._build_warning_label()
         self._build_metrics_tree()
+
+        self.body_layout.addWidget(self._build_buttons())
 
         view_model.run_result.statCardsChanged.connect(self.refresh)
         self.refresh()
@@ -114,21 +118,19 @@ class OutOfSampleComparisonDialog(Overlay):
             header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
         self.body_layout.addWidget(self._tree, 1)
 
-    def _build_buttons(self) -> QHBoxLayout:
-        row = QHBoxLayout()
-        row.addStretch(1)
-        close = QPushButton("Close")
-        close.setObjectName("btnCloseOutOfSampleComparison")
-        close.clicked.connect(self.reject)
-        row.addWidget(close)
-        return row
+    def _build_buttons(self) -> QDialogButtonBox:
+        buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
+        buttons.button(QDialogButtonBox.StandardButton.Close).setObjectName(
+            "btnCloseOutOfSampleComparison"
+        )
+        buttons.rejected.connect(self.reject)
+        return buttons
 
     # -- host-facing -------------------------------------------------------
 
     def open_dialog(self) -> None:
         self.refresh()
-        self.show()
-        self.raise_()
+        self.open()
 
     def refresh(self) -> None:
         snapshot = self._vm.run_result.comparison_snapshot()
