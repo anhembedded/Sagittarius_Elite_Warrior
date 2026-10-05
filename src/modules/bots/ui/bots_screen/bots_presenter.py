@@ -168,6 +168,7 @@ class BotsPresenter(CommandPresenter):
         self._log = BotLogFeed(parent=self)
         self._selected = SelectedBot(self._catalog, now)
         self._select_after_create = ""
+        self._closed = False
         self._reread = single_shot_timer(self, _COALESCE_MS, self._queries.bots)
         self._rejudge = single_shot_timer(self, _REJUDGE_MS, self._refresh_detail)
         self._clock = QTimer(self)
@@ -190,12 +191,20 @@ class BotsPresenter(CommandPresenter):
         self._reads.answered.connect(self._on_read_answered)
         self._reads.failed.connect(self._on_failed)
         self._commands.finished.connect(self._on_finished)
-        self._changes.changed.connect(lambda *_: self._reread.start())
+        self._changes.changed.connect(self._on_bot_changed)
         self._log.line.connect(model.append_log_line)
         self._ticks.candle.connect(self._on_candle)
         self._clock.timeout.connect(self._refresh_detail)
 
     # -- reads ------------------------------------------------------------- #
+
+    def _on_bot_changed(self, _bot_id: str, _removed: bool) -> None:
+        """A write reaches the screen queued from the writer's thread, so it
+        can land after `shutdown()`; it then arms nothing (`BUG-149`)."""
+        if self._closed:
+            logger.debug("Bots screen: a bot change after shutdown is ignored")
+            return
+        self._reread.start()
 
     def _on_read_answered(self, kind: ReadKind, label: str, answer: object) -> None:
         selected = self._model.selected
@@ -377,6 +386,7 @@ class BotsPresenter(CommandPresenter):
     def shutdown(self) -> None:
         """Answers in flight are dropped; the chart's stream and the log
         handler are released; nothing is cancelled at the exchange."""
+        self._closed = True
         self._actions.invalidate_active()
         self._reads.drop_all()
         for timer in (self._reread, self._rejudge, self._clock):

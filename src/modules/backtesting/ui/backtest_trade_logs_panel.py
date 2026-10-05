@@ -91,9 +91,9 @@ class BackTestTradeLogsPanel(QWidget):  # base-exempt: a dock's content, not a s
         self._details.setObjectName("backtestTradeDetails")
         self._details_form = QFormLayout(self._details)
 
-        show = QLabel("&Show:")
+        show = QLabel("Sh&ow:")
         show.setBuddy(self.filter)
-        find = QLabel("&Find:")
+        find = QLabel("Loo&k up:")
         find.setBuddy(self.search)
         query = QHBoxLayout()
         query.addWidget(show)

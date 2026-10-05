@@ -1,20 +1,16 @@
 """EPIC-006E: `BackTestTopPanel.qml` -> QtWidgets.
 
-Progress/preview/stale/coverage banners and the performance figures: since
-`EPIC-033L` the content of the Backtest mode's Metrics dock. The toolbar of
-pickers that once sat on top of it is the Run setup dock
-(`run_setup_panel.py`). Every `objectName` from the QML port carries over
-unchanged (tests/presenter both key off them).
+The preview, stale, coverage and imported-report banners and the
+performance figures: since `EPIC-033L` the content of the Backtest mode's
+Metrics dock. The toolbar of pickers that once sat on top of it is the Run
+setup dock (`run_setup_panel.py`); the run's progress banner, with its own
+Cancel button, is the status bar's progress (`run_progress_status.py`),
+stopped by Tools → Stop backtest. Every `objectName` from the QML port
+carries over unchanged (tests/presenter both key off them).
 
-`EPIC-015` Phase 4 replaced two pieces of that QtWidgets port with QML
-embeds: `ProgressBannerWidget` (`qml/kit/`) for the run/sync progress banner,
-and `StatCardRowWidget` (`qml/StatCardRow/`) for the performance figures.
-`EPIC-025` PR 4.3g took the second one back and PR 4.3l the first (ADR D21):
-the figures are `BacktestStatRow` and the banner is `kit.ProgressBanner`, both
-QtWidgets, so `cardMetric_N` and the Cancel button are `QWidget`s reachable by
-`findChild` rather than through a QML scene. `backtestProgressBanner` (the
-outer `QFrame`) and the four `_sync_*`/`_build_*` method names are unchanged
-throughout.
+`EPIC-025` PR 4.3g turned the figures back into QtWidgets
+(`BacktestStatRow`), so `cardMetric_N` is a `QWidget` reachable by
+`findChild`.
 """
 
 from __future__ import annotations
@@ -36,12 +32,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
     Palette,
     get_icon_loader,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
-    CANCELLING_CAPTION,
-)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Banner,
-    ProgressBanner,
     Severity,
     StyleRole,
     apply_role,
@@ -51,28 +43,6 @@ from .backtest_stat_row import BacktestStatRow
 
 if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
-
-
-def _clamp_percent(value: float) -> float:
-    """@brief `BackTestViewModel.backtestProgressPercent`/`syncProgressPercent`
-    to the 0..100 range `kit.ProgressBanner` expects.
-
-    @details Unlike `DataManagementViewModel.progressPercent` (clamped at
-    the property getter itself), these two properties store whatever
-    `set_backtest_progress()`/`set_sync_progress()` were last called with,
-    with no clamp of their own. Every real caller today already clamps
-    before calling (`backtest_presenter.py`'s
-    `_on_backtest_progress_for_action`/`_on_sync_progress_for_action` both
-    do `min(100.0, max(0.0, ...))`), so this is a defensive backstop, not a
-    fix for an observed bug. `ProgressBanner` clamps in `set_percent()` as
-    well, since PR 4.3l — the `.qml` this replaced clamped its bar *width*
-    (`Math.max(0, Math.min(1, root.percent / 100))`) but not its percent
-    *text* (`Math.round(root.percent) + "%"`), so an unclamped value showed
-    "150%" beside a visually full bar. Kept here rather than deleted as
-    now-redundant: this is the panel saying what it will send, and the widget
-    defending itself is not the same promise.
-    """
-    return min(100.0, max(0.0, value))
 
 
 #: `BOT-095G` — always index 0, never a real run; `itemData(0)` is `""`,
@@ -115,8 +85,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         card_layout.setSpacing(8)
         outer.addWidget(self._card)
 
-        self._progress_banner = self._build_progress_banner()
-        card_layout.addWidget(self._progress_banner)
         self._preview_banner = self._build_preview_banner()
         card_layout.addWidget(self._preview_banner)
         self._stale_banner = self._build_stale_banner()
@@ -140,26 +108,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
     # ------------------------------------------------------------------ #
     # Banners
     # ------------------------------------------------------------------ #
-
-    def _build_progress_banner(self) -> QFrame:
-        banner = QFrame()
-        banner.setObjectName("backtestProgressBanner")
-        # PR 4.3l's `kit.ProgressBanner` in a bordered `QFrame`: unlike Data
-        # Management's, this banner sits inside the SURFACE-styled card, so
-        # it needs its own background/border to read as a distinct strip.
-        banner.setStyleSheet(
-            f"QFrame {{ background-color: {Palette.BG_CARD}; "
-            f"border: 1px solid {Palette.STATE_NAV_BORDER}; border-radius: 6px; }}"
-        )
-        layout = QHBoxLayout(banner)
-        layout.setContentsMargins(12, 4, 12, 4)
-        self._progress_banner_widget = ProgressBanner()
-        self._progress_banner_widget.cancelRequested.connect(
-            self._vm.requestCancelBacktest
-        )
-        layout.addWidget(self._progress_banner_widget, 1)
-        banner.setVisible(False)
-        return banner
 
     def _build_preview_banner(self) -> Banner:
         banner = Banner(
@@ -349,8 +297,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         vm.controlsEnabledChanged.connect(self._sync_controls_enabled)
         vm.uiModeChanged.connect(self._sync_controls_enabled)
         vm.isConfigDirtyChanged.connect(self._sync_banners)
-        vm.run_progress.backtestProgressChanged.connect(self._sync_banners)
-        vm.run_progress.syncProgressChanged.connect(self._sync_banners)
         vm.uiModeChanged.connect(self._sync_banners)
         vm.isChartPreviewChanged.connect(self._sync_banners)
         vm.run_result.dataCoverageChanged.connect(self._sync_banners)
@@ -386,31 +332,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
     def _sync_banners(self) -> None:
         vm = self._vm
         mode = vm.uiMode
-        running_like = mode in ("RUNNING", "CANCELLING", "SYNCING")
-        self._progress_banner.setVisible(running_like)
-        if running_like:
-            cancelling = mode == "CANCELLING"
-            self._progress_banner_widget.set_cancelling(cancelling)
-            if cancelling:
-                self._progress_banner_widget.set_status_text(CANCELLING_CAPTION)
-                self._progress_banner_widget.set_indeterminate(True)
-            elif mode == "SYNCING":
-                self._progress_banner_widget.set_indeterminate(False)
-                self._progress_banner_widget.set_status_text(
-                    vm.run_progress.syncProgressText
-                )
-                self._progress_banner_widget.set_percent(
-                    _clamp_percent(vm.run_progress.syncProgressPercent)
-                )
-            else:
-                self._progress_banner_widget.set_indeterminate(False)
-                self._progress_banner_widget.set_status_text(
-                    vm.run_progress.backtestProgressText
-                )
-                self._progress_banner_widget.set_percent(
-                    _clamp_percent(vm.run_progress.backtestProgressPercent)
-                )
-
         self._preview_banner.setVisible(bool(vm.isChartPreview))
 
         self._stale_banner.setVisible(bool(vm.isConfigDirty))

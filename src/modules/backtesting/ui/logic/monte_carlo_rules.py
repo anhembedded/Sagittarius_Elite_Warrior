@@ -1,8 +1,8 @@
-"""`BOT-107B` — pure formatting/bucketing logic for the Monte Carlo dialog:
+"""`BOT-107B` — pure formatting/bucketing logic for the Monte Carlo panel:
 the headline-statistics text, the max-drawdown histogram buckets, and the
-spaghetti-chart point series. No I/O and no Qt here — `monte_carlo_dialog.py`
+spaghetti-chart point series. No I/O and no Qt here — `monte_carlo_panel.py`
 and the two chart widgets are the only consumers, matching the
-`logic/*_rules.py` + dialog/widget split every other modal in this package
+`logic/*_rules.py` + view/widget split every other modal in this package
 already uses (`out_of_sample_comparison_rules.py`, `report_comparison_rules.py`).
 """
 

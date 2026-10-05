@@ -653,7 +653,7 @@ class BackTestViewModel(BaseQmlViewModel):
 
     @Slot(int)
     def requestRunMonteCarlo(self, iterations: int) -> None:
-        """Called from `MonteCarloDialog`'s own "Run simulation" button."""
+        """Called from `MonteCarloPanel`'s own "Run simulation" button."""
         self.runMonteCarloRequested.emit(iterations)
 
     @Slot(float, float)

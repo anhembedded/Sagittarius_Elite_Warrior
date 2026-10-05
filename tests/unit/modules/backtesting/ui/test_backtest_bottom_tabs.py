@@ -51,7 +51,7 @@ def test_the_bottom_docks_are_trades_drawdown_and_monthly_returns(qapp) -> None:
         if surface.dockWidgetArea(dock) is Qt.DockWidgetArea.BottomDockWidgetArea
     ]
 
-    assert sorted(bottom) == ["Drawdown", "Monthly returns", "Trades"]
+    assert sorted(bottom) == ["Drawdown", "Monte Carlo", "Monthly returns", "Trades"]
     assert surface.tabifiedDockWidgets(view.dock_of(view.bottom_widget))
     view.deleteLater()
 
