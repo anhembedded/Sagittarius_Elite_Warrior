@@ -43,9 +43,9 @@ class DeskViewModel(StatusMessageViewModel):
     tradingStateChanged = Signal()
     #: Emitted when the user picks a different symbol for the chart.
     symbolChangeRequested = Signal(str)
-    #: Emitted when the user clicks the "Bật/Tắt giao dịch" header button.
+    #: Emitted when the user triggers Enable live trading (`EPIC-033D`).
     toggleRequested = Signal()
-    #: Emitted when the user clicks "DỪNG KHẨN CẤP" (`EPIC-021K`).
+    #: Emitted when the user confirms Emergency stop (`EPIC-021K`, `EPIC-033D`).
     emergencyStopRequested = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
@@ -131,12 +131,13 @@ class DeskViewModel(StatusMessageViewModel):
 
     @Slot()
     def requestToggle(self) -> None:
-        """Called from the View's header toggle button."""
+        """Called by the desk's Enable live trading action (`desk_commands.py`)."""
         self.toggleRequested.emit()
 
     @Slot()
     def requestEmergencyStop(self) -> None:
-        """Called from the View's "DỪNG KHẨN CẤP" button (`EPIC-021K`)."""
+        """Called by the desk's Emergency stop action once confirmed
+        (`desk_commands.py`)."""
         self.emergencyStopRequested.emit()
 
     # ------------------------------------------------------------------ #
