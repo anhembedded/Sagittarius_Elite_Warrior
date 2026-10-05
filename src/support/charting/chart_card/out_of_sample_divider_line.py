@@ -1,7 +1,7 @@
 import pyqtgraph as pg
 from PySide6 import QtCore
 
-from .theme import CROSSHAIR_COLOR
+from .theme import NEUTRAL_SERIES_COLOR
 
 
 class OutOfSampleDividerLine:
@@ -13,8 +13,8 @@ class OutOfSampleDividerLine:
     @details Single Responsibility, same split as `TradeLinkLine` in this
     package: tracks and renders exactly one marker, no knowledge of
     `BacktestResult`/`OutOfSampleValidation`, both of which stay in
-    `modules/backtesting/ui/`. Uses the same muted colour as the crosshair
-    (`CROSSHAIR_COLOR`) rather than a bull/bear/accent one — this line is
+    `modules/backtesting/ui/`. Uses the neutral series colour
+    (`NEUTRAL_SERIES_COLOR`) rather than a bull/bear/accent one — this line is
     structural, not a trading fact.
     """
 
@@ -22,7 +22,7 @@ class OutOfSampleDividerLine:
         self._line = pg.InfiniteLine(
             angle=90,
             movable=False,
-            pen=pg.mkPen(CROSSHAIR_COLOR, width=1, style=QtCore.Qt.DashLine),
+            pen=pg.mkPen(NEUTRAL_SERIES_COLOR, width=1, style=QtCore.Qt.DashLine),
         )
         self._line.hide()
         plot.addItem(self._line, ignoreBounds=True)

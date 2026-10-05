@@ -7,8 +7,6 @@ never instead (`ui-presentation-rule.md`).
 
 from __future__ import annotations
 
-from datetime import UTC
-from decimal import Decimal
 from typing import ClassVar
 
 from PySide6.QtCore import Qt
@@ -30,8 +28,14 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.kind_panels import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.style import Tone, tone_colour
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
-
-NO_VALUE = "—"
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    display_number,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    ColumnSpec,
+    DisplayValue,
+)
 
 _STATE_TONE = {
     BotLifecycleState.RUNNING: Tone.POSITIVE,
@@ -45,28 +49,15 @@ def state_text(state: BotLifecycleState) -> str:
     return state.value.capitalize()
 
 
-def amount_text(value: Decimal | None) -> str:
-    return NO_VALUE if value is None else f"{value.normalize():f}"
-
-
-def signed_text(value: Decimal | None) -> str:
-    if value is None:
-        return NO_VALUE
-    return f"{'+' if value > 0 else ''}{value.normalize():f}"
-
-
 class BotsTableModel(RowTableModel[BotSnapshot]):
-    HEADERS: ClassVar[tuple[str, ...]] = (
-        "Name",
-        "Kind",
-        "Venue",
-        "Symbol",
-        "State",
-        "Grid profit",
+    COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
+        ColumnSpec("name", "Name", ColumnKind.TEXT, stretch=True),
+        ColumnSpec("kind", "Kind", ColumnKind.TEXT),
+        ColumnSpec("venue", "Venue", ColumnKind.TEXT),
+        ColumnSpec("symbol", "Symbol", ColumnKind.TEXT),
+        ColumnSpec("state", "State", ColumnKind.STATUS),
+        ColumnSpec("profit", "Grid profit", ColumnKind.MONEY),
     )
-    STATE_COLUMN = 4
-    PROFIT_COLUMN = 5
-    RIGHT_ALIGNED: ClassVar[frozenset[int]] = frozenset({PROFIT_COLUMN})
 
     def row_index_of(self, bot_id: str) -> int:
         """The row showing `bot_id`, or -1."""
@@ -74,84 +65,61 @@ class BotsTableModel(RowTableModel[BotSnapshot]):
             (index for index, row in enumerate(self.rows) if row.bot_id == bot_id), -1
         )
 
-    def _display_text(self, row: BotSnapshot, column: int) -> str:
-        return (
+    def _value(self, row: BotSnapshot, column: int) -> DisplayValue:
+        values: tuple[DisplayValue, ...] = (
             row.name,
             KIND_TITLES.get(row.kind, row.kind),
             row.venue.value,
             row.symbol,
             state_text(row.state),
-            signed_text(row.progress.realised_profit if row.progress else None),
-        )[column]
-
-    def _sort_value(self, row: BotSnapshot, column: int) -> object:
-        if column == self.PROFIT_COLUMN:
-            return row.progress.realised_profit if row.progress else Decimal(0)
-        return self._display_text(row, column)
+            display_number(row.progress.realised_profit if row.progress else None),
+        )
+        return values[column]
 
     def _role_data(self, row: BotSnapshot, column: int, role: int) -> object:
-        if role == Qt.ItemDataRole.ForegroundRole and column == self.STATE_COLUMN:
+        if role == Qt.ItemDataRole.ForegroundRole and column == self.column("state"):
             tone = _STATE_TONE.get(row.state)
             return QColor(tone_colour(tone)) if tone is not None else None
         return None
 
 
 class BotOrdersTableModel(RowTableModel[BotOrderLine]):
-    HEADERS: ClassVar[tuple[str, ...]] = (
-        "Level",
-        "Side",
-        "Price",
-        "Quantity",
-        "Executed",
-        "Client order id",
+    COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
+        ColumnSpec("level", "Level", ColumnKind.QUANTITY),
+        ColumnSpec("side", "Side", ColumnKind.SIDE),
+        ColumnSpec("price", "Price", ColumnKind.PRICE),
+        ColumnSpec("quantity", "Quantity", ColumnKind.QUANTITY),
+        ColumnSpec("executed", "Executed", ColumnKind.QUANTITY),
+        ColumnSpec("client_order_id", "Client order id", ColumnKind.TEXT, stretch=True),
     )
-    RIGHT_ALIGNED: ClassVar[frozenset[int]] = frozenset({0, 2, 3, 4})
 
-    def _display_text(self, row: BotOrderLine, column: int) -> str:
-        return (
-            str(row.level),
-            row.side.capitalize(),
-            amount_text(row.price),
-            amount_text(row.quantity),
-            amount_text(row.executed),
-            row.client_order_id,
-        )[column]
-
-    def _sort_value(self, row: BotOrderLine, column: int) -> object:
-        return (
+    def _value(self, row: BotOrderLine, column: int) -> DisplayValue:
+        values: tuple[DisplayValue, ...] = (
             row.level,
-            row.side,
-            row.price,
-            row.quantity,
-            row.executed,
+            row.side.capitalize(),
+            display_number(row.price),
+            display_number(row.quantity),
+            display_number(row.executed),
             row.client_order_id,
-        )[column]
+        )
+        return values[column]
 
 
 class BotFillsTableModel(RowTableModel[BotFill]):
-    HEADERS: ClassVar[tuple[str, ...]] = (
-        "Time (UTC)",
-        "Side",
-        "Average price",
-        "Quantity",
-        "Client order id",
+    COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
+        ColumnSpec("time", "Time", ColumnKind.TIMESTAMP),
+        ColumnSpec("side", "Side", ColumnKind.SIDE),
+        ColumnSpec("price", "Average price", ColumnKind.PRICE),
+        ColumnSpec("quantity", "Quantity", ColumnKind.QUANTITY),
+        ColumnSpec("client_order_id", "Client order id", ColumnKind.TEXT, stretch=True),
     )
-    RIGHT_ALIGNED: ClassVar[frozenset[int]] = frozenset({2, 3})
 
-    def _display_text(self, row: BotFill, column: int) -> str:
-        return (
-            row.time.astimezone(UTC).strftime("%Y-%m-%d %H:%M:%S"),
-            row.side.capitalize(),
-            amount_text(row.price),
-            amount_text(row.quantity),
-            row.client_order_id,
-        )[column]
-
-    def _sort_value(self, row: BotFill, column: int) -> object:
-        return (
+    def _value(self, row: BotFill, column: int) -> DisplayValue:
+        values: tuple[DisplayValue, ...] = (
             row.time,
-            row.side,
-            row.price if row.price is not None else Decimal(0),
-            row.quantity,
+            row.side.capitalize(),
+            display_number(row.price),
+            display_number(row.quantity),
             row.client_order_id,
-        )[column]
+        )
+        return values[column]

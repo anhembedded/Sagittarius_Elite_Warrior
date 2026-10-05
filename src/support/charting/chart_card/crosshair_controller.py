@@ -1,38 +1,40 @@
 from collections.abc import Callable
 
 import pyqtgraph as pg
-from PySide6 import QtCore
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+from PySide6 import QtCore, QtGui
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     format_display_timestamp,
 )
 
-from . import theme
-
-#: Crosshair readout label background.
-_LABEL_FILL = Palette.BORDER
+from .chart_chrome import ChartChrome
 
 OhlcCandle = tuple[float, float, float, float, float]
 
 
 class CrosshairController:
     """
-    @brief Synchronizes crosshair lines and the hover-info label across all registered plots.
+    @brief Synchronizes crosshair lines across all registered plots and reports
+    what is under the pointer.
     @details Single Responsibility: mouse-tracking/crosshair rendering only. Depends on a Qt
-    scene, a label item, and an optional OHLC lookup callback (abstractions it is handed),
-    not on ChartCard, ChartPlotLayout or FastCandlestickItem directly.
+    scene, a readout callback and an optional OHLC lookup callback (abstractions it is
+    handed), not on ChartCard, ChartPlotLayout or FastCandlestickItem directly. The
+    readout is plain text, `""` once the pointer leaves; `ChartCard` puts it in the
+    status bar (`EPIC-033G`), where it used to be a label row above the plot.
+    Lines and axis tags are chrome: `set_chrome` repaints them when the palette
+    changes (`chart_chrome.py`).
     """
-
-    LINE_PEN = pg.mkPen(color=theme.CROSSHAIR_COLOR, style=QtCore.Qt.DashLine)
 
     def __init__(
         self,
         scene: QtCore.QObject,
-        label: pg.LabelItem,
+        on_readout: Callable[[str], None],
         ohlc_lookup: Callable[[float], OhlcCandle | None] | None = None,
+        *,
+        chrome: ChartChrome,
     ) -> None:
-        self._label = label
+        self._chrome = chrome
+        self._on_readout = on_readout
         self._ohlc_lookup = ohlc_lookup
         self._display_timezone: str = DEFAULT_TIMEZONE
         self._primary_plot: pg.PlotItem | None = None
@@ -60,25 +62,17 @@ class CrosshairController:
         if is_primary:
             self._primary_plot = plot
 
-        v_line = pg.InfiniteLine(angle=90, movable=False, pen=self.LINE_PEN)
-        h_line = pg.InfiniteLine(angle=0, movable=False, pen=self.LINE_PEN)
+        v_line = pg.InfiniteLine(angle=90, movable=False, pen=self._line_pen())
+        h_line = pg.InfiniteLine(angle=0, movable=False, pen=self._line_pen())
         v_line.hide()
         h_line.hide()
 
-        # We use HTML/CSS inside TextItem for background styling.
-        # fill is not strictly needed if we style the HTML background, but it sets the item background.
-        x_label = pg.TextItem(
-            fill=pg.mkBrush(_LABEL_FILL),
-            color="w",
-        )
+        x_label = self._new_tag()
         x_label.setAnchor((0.5, 1.0))
         x_label.hide()
         x_label.setZValue(1000)
 
-        y_label = pg.TextItem(
-            fill=pg.mkBrush(_LABEL_FILL),
-            color="w",
-        )
+        y_label = self._new_tag()
         y_label.setAnchor((0.0, 0.5))
         y_label.hide()
         y_label.setZValue(1000)
@@ -95,6 +89,24 @@ class CrosshairController:
         self._y_labels.append(y_label)
         self._last_y_label_html.append(None)
         self._last_x_label_html = None
+
+    def set_chrome(self, chrome: ChartChrome) -> None:
+        """Repaints every line and tag in `chrome`'s colours."""
+        self._chrome = chrome
+        for line in (*self._v_lines, *self._h_lines):
+            line.setPen(self._line_pen())
+        for tag in (*self._x_labels, *self._y_labels):
+            tag.fill = pg.mkBrush(chrome.tag_fill)
+            tag.setColor(chrome.tag_text)
+
+    def _line_pen(self) -> QtGui.QPen:
+        return pg.mkPen(color=self._chrome.crosshair, style=QtCore.Qt.DashLine)
+
+    def _new_tag(self) -> pg.TextItem:
+        """An axis tag: the value under the pointer, on the axis."""
+        return pg.TextItem(
+            fill=pg.mkBrush(self._chrome.tag_fill), color=self._chrome.tag_text
+        )
 
     def unregister_plot(self, plot: pg.PlotItem) -> None:
         """
@@ -201,33 +213,26 @@ class CrosshairController:
                 self._hide_if_visible(v_line)
             for x_label in self._x_labels:
                 self._hide_if_visible(x_label)
-            self._set_info_text("Hover to see data")
+            self._set_info_text("")
 
     def _update_label(self, x_val: float, y_val: float) -> None:
         dt_str = format_display_timestamp(x_val, tz_name=self._display_timezone)
-        self._set_info_text(
-            f"<span style='color: {theme.CROSSHAIR_COLOR}'>Time:</span> <span style=f'color: {Palette.TEXT_PRIMARY}'>{dt_str}</span> | "
-            f"<span style='color: {theme.CROSSHAIR_COLOR}'>Value:</span> <span style='color: {theme.BULL_COLOR}'>{y_val:.4f}</span>"
-        )
+        self._set_info_text(f"Time: {dt_str}   Value: {y_val:.4f}")
 
     def _update_ohlc_label(self, candle: OhlcCandle) -> None:
+        """The change carries its sign, so it never depends on colour alone."""
         t, o, h, low, c = candle
         change_pct = ((c - o) / o * 100.0) if o else 0.0
-        change_color = theme.BULL_COLOR if c >= o else theme.BEAR_COLOR
         dt_str = format_display_timestamp(t, tz_name=self._display_timezone)
         self._set_info_text(
-            f"<span style='color: {theme.CROSSHAIR_COLOR}'>{dt_str}</span> &nbsp; "
-            f"<span style='color: {theme.CROSSHAIR_COLOR}'>O</span> <span style=f'color: {Palette.TEXT_PRIMARY}'>{o:.4f}</span> "
-            f"<span style='color: {theme.CROSSHAIR_COLOR}'>H</span> <span style=f'color: {Palette.TEXT_PRIMARY}'>{h:.4f}</span> "
-            f"<span style='color: {theme.CROSSHAIR_COLOR}'>L</span> <span style=f'color: {Palette.TEXT_PRIMARY}'>{low:.4f}</span> "
-            f"<span style='color: {theme.CROSSHAIR_COLOR}'>C</span> <span style=f'color: {Palette.TEXT_PRIMARY}'>{c:.4f}</span> "
-            f"<span style='color: {change_color}'>({change_pct:+.2f}%)</span>"
+            f"{dt_str}   O {o:.4f}   H {h:.4f}   L {low:.4f}   C {c:.4f}"
+            f"   ({change_pct:+.2f}%)"
         )
 
     def _set_info_text(self, text: str) -> None:
         if self._last_info_text == text:
             return
-        self._label.setText(text)
+        self._on_readout(text)
         self._last_info_text = text
 
     @staticmethod

@@ -215,4 +215,4 @@ def test_a_spot_desk_lists_its_assets_from_the_account(qtbot) -> None:
     rows = panel.holdings_panel.table.model().sourceModel().rows
     assert sorted(row.asset for row in rows) == ["BTC", "USDT"]
     btc = next(row for row in rows if row.asset == "BTC")
-    assert btc.value_text != "—"
+    assert btc.value is not None

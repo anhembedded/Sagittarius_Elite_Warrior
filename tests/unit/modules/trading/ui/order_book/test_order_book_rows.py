@@ -1,12 +1,12 @@
 """`EPIC-025` PR 1.4b-2 — the row projections, carried over from the two QML
 view models this slice deleted.
 
-Every assertion here was in `qml/PositionsTable/tests/test_positions_vm.py` or
-`qml/OpenOrdersTable/tests/test_open_orders_vm.py`, restated against the
-dataclass instead of the QML-facing dict those VMs produced. The one guarantee
-deliberately **not** carried over is "profit and loss use distinct colours":
-ADR D21 leaves colour to the OS palette, so the sign lives in the text and the
-emphasis is a bold cell — `test_positions_panel.py` holds that instead.
+Since `EPIC-033N` a row holds values and the table's formatter writes them,
+so these tests check the values; how they read is `test_*_panel.py`'s, through
+the view's own delegate. The one guarantee deliberately **not** carried over
+from the QML is "profit and loss use distinct colours": ADR D21 leaves colour
+to the OS palette, so the sign lives in the number and the emphasis is a bold
+cell — `test_positions_panel.py` holds that instead.
 """
 
 from __future__ import annotations
@@ -87,15 +87,15 @@ def order(
 
 
 class TestAPositionRow:
-    def test_every_field_is_formatted_text(self) -> None:
+    def test_it_carries_the_positions_values(self) -> None:
         row = build_position_row(position())
 
         assert row.symbol == "BTCUSDT"
         assert row.side is PositionSide.LONG
-        assert row.quantity_text == "0.5000"
-        assert row.entry_price_text == "64,000.00"
-        assert row.mark_price_text == "64,500.00"
-        assert row.unrealized_pnl_text == "+10.00 USDT"
+        assert row.quantity == Decimal("0.5")
+        assert row.entry_price == Decimal("64000.00")
+        assert row.mark_price == Decimal("64500.00")
+        assert row.unrealized_pnl == Decimal("10.0")
         assert row.leverage == 10
 
     def test_side_comes_from_the_signed_amount(self) -> None:
@@ -104,52 +104,57 @@ class TestAPositionRow:
 
     def test_a_short_position_shows_its_size_unsigned(self) -> None:
         """The sign is the side, and the side is its own column — a size of
-        `-0.5000` next to `SHORT` says the same thing twice and reads as a
+        `-0.5` next to `SHORT` says the same thing twice and reads as a
         negative quantity."""
-        assert build_position_row(position(amt="-0.5")).quantity_text == "0.5000"
+        assert build_position_row(position(amt="-0.5")).quantity == Decimal("0.5")
 
-    def test_a_loss_is_signed_and_marked_as_a_loss(self) -> None:
+    def test_a_loss_keeps_its_sign_and_is_marked_as_a_loss(self) -> None:
         row = build_position_row(position(pnl="-10.0"))
 
-        assert row.unrealized_pnl_text == "-10.00 USDT"
+        assert row.unrealized_pnl == Decimal("-10.0")
         assert row.pnl_is_profit is False
 
-    def test_a_liquidation_price_the_exchange_omits_renders_as_a_dash(self) -> None:
-        assert build_position_row(position()).liquidation_price_text == "—"
+    def test_a_break_even_position_is_not_a_loss(self) -> None:
+        assert build_position_row(position(pnl="0")).pnl_is_profit is True
 
-    def test_a_reported_liquidation_price_renders_formatted(self) -> None:
+    def test_a_liquidation_price_the_exchange_omits_is_unknown(self) -> None:
+        assert build_position_row(position()).liquidation_price is None
+
+    def test_a_reported_liquidation_price_is_kept(self) -> None:
         row = build_position_row(position(liquidation_price=Decimal("32140.00")))
 
-        assert row.liquidation_price_text == "32,140.00"
+        assert row.liquidation_price == Decimal("32140.00")
 
 
 class TestAnOpenOrderRow:
-    def test_every_field_is_formatted_text(self) -> None:
+    def test_it_carries_the_orders_values(self) -> None:
         row = build_open_order_row(order())
 
         assert row.client_order_id == "sew-1"
         assert row.symbol == "BTCUSDT"
         assert row.side is OrderSide.BUY
-        assert row.order_type_text == "LIMIT"
-        assert row.quantity_text == "0.2500"
-        assert row.price_text == "64,000.00"
-        assert row.status_text == "NEW"
+        assert row.order_type == "LIMIT"
+        assert row.quantity == Decimal("0.25")
+        assert row.price == Decimal("64000.00")
+        assert row.status == "NEW"
 
-    def test_a_market_order_has_no_price_to_show(self) -> None:
+    def test_a_multi_word_type_reads_as_words(self) -> None:
+        row = build_open_order_row(order(order_type=OrderType.STOP_MARKET))
+
+        assert row.order_type == "STOP MARKET"
+
+    def test_a_market_order_has_no_price(self) -> None:
         row = build_open_order_row(order(order_type=OrderType.MARKET, price=None))
 
-        assert row.price_text == "—"
+        assert row.price is None
 
-    def test_an_order_the_exchange_has_not_timestamped_shows_a_dash(self) -> None:
-        assert build_open_order_row(order()).order_time_text == "—"
+    def test_an_order_the_exchange_has_not_timestamped_has_no_time(self) -> None:
+        assert build_open_order_row(order()).order_time is None
 
-    def test_the_exchange_order_time_renders_in_the_display_timezone(self) -> None:
-        row = build_open_order_row(
-            order(order_time=datetime(2026, 9, 15, 12, 0, tzinfo=UTC)),
-            tz_name="UTC",
-        )
+    def test_the_exchange_order_time_is_kept(self) -> None:
+        moment = datetime(2026, 9, 15, 12, 0, tzinfo=UTC)
 
-        assert row.order_time_text.startswith("2026-09-15")
+        assert build_open_order_row(order(order_time=moment)).order_time == moment
 
 
 def holding(asset: str = "BTC", free: str = "0.5", locked: str = "0") -> SpotHolding:
@@ -162,25 +167,24 @@ def holding(asset: str = "BTC", free: str = "0.5", locked: str = "0") -> SpotHol
 
 
 class TestAHoldingRow:
-    def test_every_field_is_formatted_text(self) -> None:
+    def test_it_carries_the_balances_and_their_value(self) -> None:
         row = build_holding_row(holding(), prices={"BTC": Decimal(64000)})
 
         assert row.asset == "BTC"
-        assert row.free_text == "0.50000000"
-        assert row.locked_text == "0.00000000"
-        assert row.value_text == "32,000.00 USDT"
+        assert row.free == Decimal("0.5")
+        assert row.locked == Decimal(0)
+        assert row.value == Decimal(32000)
 
     def test_free_and_locked_both_contribute_to_value(self) -> None:
         row = build_holding_row(
             holding(free="0.5", locked="0.25"), prices={"BTC": Decimal(64000)}
         )
 
-        assert row.value_text == "48,000.00 USDT"
+        assert row.value == Decimal(48000)
 
-    def test_a_missing_price_renders_the_value_as_a_dash(self) -> None:
+    def test_a_missing_price_leaves_the_value_unknown(self) -> None:
         """An asset with no live price known (no chart ever opened for it)
-        must not guess a value — the same "—" convention `position_row.py`
-        uses for a position with no reported liquidation price."""
+        must not guess a value — `None`, an empty cell, never zero."""
         row = build_holding_row(holding(asset="XRP"), prices={})
 
-        assert row.value_text == "—"
+        assert row.value is None

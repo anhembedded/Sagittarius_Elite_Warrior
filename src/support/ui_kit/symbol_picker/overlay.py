@@ -24,9 +24,7 @@ from collections.abc import Callable, Sequence
 
 from PySide6.QtCore import QModelIndex, Qt, Signal
 from PySide6.QtWidgets import (
-    QAbstractItemView,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QTableView,
     QWidget,
@@ -39,6 +37,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     TabBar,
     apply_role,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    APP_VALUE_FORMATTER,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import configure_item_view
 
 from .filtering import (
     QUOTE_ANY,
@@ -67,10 +69,6 @@ _SCOPE_TABS = (
     (Scope.RECENT, "Recent"),
 )
 _QUOTE_ANY_LABEL = "All"
-
-#: How wide the star column is. Fixed, because it holds one glyph and a
-#: resizable column of stars would let the user drag the hit target away.
-_STAR_COLUMN_WIDTH = 36
 
 #: How many quote tabs to offer beyond "All". The exchange quotes in more
 #: than a dozen assets; past the top few the tab bar wraps and stops being
@@ -184,31 +182,21 @@ class SymbolPickerOverlay(Overlay):
 
         self._table = QTableView()
         self._table.setObjectName("tblSymbolResults")
-        self._table.setModel(self._model)
-        # One row at a time, whole-row: this is a chooser, and a user who
-        # clicked a cell meant the pair it belongs to.
-        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self._table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self._table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        # Whole-row, one row at a time, read-only: the one way every table of
+        # the application behaves (`EPIC-033N`); a user who clicked a cell
+        # meant the pair it belongs to.
+        self._proxy = configure_item_view(
+            self._table,
+            self._model,
+            SymbolTableModel.COLUMNS,
+            formatter=APP_VALUE_FORMATTER,
+        )
         self._table.setShowGrid(False)
-        self._table.setAlternatingRowColors(True)
         # No headers: "Symbol" over a column of symbols in a dialog called
         # SELECT SYMBOL is a label for something the user is already looking at,
-        # and the other two columns have nothing to say in a header.
+        # and the other two columns have nothing to say in a header. Hidden,
+        # the header also cannot re-sort the list, whose order is the picker's.
         self._table.horizontalHeader().setVisible(False)
-        self._table.verticalHeader().setVisible(False)
-        self._table.horizontalHeader().setSectionResizeMode(
-            SymbolTableModel.SYMBOL_COLUMN, QHeaderView.ResizeMode.Stretch
-        )
-        self._table.horizontalHeader().setSectionResizeMode(
-            SymbolTableModel.STATUS_COLUMN, QHeaderView.ResizeMode.ResizeToContents
-        )
-        self._table.horizontalHeader().setSectionResizeMode(
-            SymbolTableModel.FAVOURITE_COLUMN, QHeaderView.ResizeMode.Fixed
-        )
-        self._table.setColumnWidth(
-            SymbolTableModel.FAVOURITE_COLUMN, _STAR_COLUMN_WIDTH
-        )
         self._table.clicked.connect(self._on_cell_clicked)
         apply_role(self._table, StyleRole.LIST_SURFACE)
         self.body_layout.addWidget(self._table, 1)
@@ -346,7 +334,9 @@ class SymbolPickerOverlay(Overlay):
         self._focus_row(index)
 
     def _focus_row(self, row: int) -> None:
-        index = self._model.index(row, SymbolTableModel.SYMBOL_COLUMN)
+        index = self._proxy.mapFromSource(
+            self._model.index(row, SymbolTableModel.SYMBOL_COLUMN)
+        )
         self._table.setCurrentIndex(index)
         self._table.scrollTo(index)
 
@@ -357,7 +347,7 @@ class SymbolPickerOverlay(Overlay):
         a `QTableView` reports the index it was clicked on, so the same
         distinction is a column comparison instead of a second widget per row.
         """
-        entry = self._model.row_for(index)
+        entry = self._model.row_for(self._proxy.mapToSource(index))
         if entry is None:
             return
         if index.column() == SymbolTableModel.FAVOURITE_COLUMN:
@@ -419,5 +409,6 @@ class SymbolPickerOverlay(Overlay):
         super().keyPressEvent(event)
 
     def _current_row(self) -> int:
-        index = self._table.currentIndex()
+        """The model row the highlight is on."""
+        index = self._proxy.mapToSource(self._table.currentIndex())
         return index.row() if index.isValid() else 0

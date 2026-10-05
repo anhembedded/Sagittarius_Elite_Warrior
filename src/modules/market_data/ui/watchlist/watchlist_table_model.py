@@ -21,8 +21,11 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
     BULL_COLOR,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import RowTableModel
-
-_UNKNOWN_VALUE = "—"
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnKind,
+    ColumnSpec,
+    DisplayValue,
+)
 
 
 @dataclass
@@ -55,19 +58,13 @@ class WatchlistTableModel(RowTableModel[WatchlistRow]):
     """@brief Table model backing the Watchlist screen's symbol table."""
 
     SYMBOL_COLUMN: Final = 0
-    LAST_PRICE_COLUMN: Final = 1
     PERCENT_CHANGE_COLUMN: Final = 2
-    VOLUME_COLUMN: Final = 3
 
-    HEADERS: ClassVar[tuple[str, ...]] = (
-        "Symbol",
-        "Last Price",
-        "% Change",
-        "Volume",
-    )
-
-    RIGHT_ALIGNED: ClassVar[frozenset[int]] = frozenset(
-        {LAST_PRICE_COLUMN, PERCENT_CHANGE_COLUMN, VOLUME_COLUMN}
+    COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
+        ColumnSpec("symbol", "Symbol", ColumnKind.TEXT, stretch=True),
+        ColumnSpec("last_price", "Last price", ColumnKind.PRICE),
+        ColumnSpec("change", "% Change", ColumnKind.PERCENT),
+        ColumnSpec("volume", "Volume", ColumnKind.QUANTITY),
     )
 
     def __init__(self, parent: QObject | None = None) -> None:
@@ -113,34 +110,14 @@ class WatchlistTableModel(RowTableModel[WatchlistRow]):
 
     # -- what this table decides (the rest is `RowTableModel`'s) -----------
 
-    def _display_text(self, row: WatchlistRow, column: int) -> str:
-        if column == self.SYMBOL_COLUMN:
-            return row.symbol
-        if column == self.LAST_PRICE_COLUMN:
-            return (
-                f"{row.last_price:,.2f}"
-                if row.last_price is not None
-                else _UNKNOWN_VALUE
-            )
-        if column == self.PERCENT_CHANGE_COLUMN:
-            if row.percent_change is None:
-                return _UNKNOWN_VALUE
-            sign = "+" if row.percent_change >= 0.0 else ""
-            return f"{sign}{row.percent_change:.2f}%"
-        if column == self.VOLUME_COLUMN:
-            return f"{row.volume:,.2f}" if row.volume is not None else _UNKNOWN_VALUE
-        return ""
-
-    def _sort_value(self, row: WatchlistRow, column: int) -> object:
-        if column == self.LAST_PRICE_COLUMN:
-            return row.last_price if row.last_price is not None else float("-inf")
-        if column == self.PERCENT_CHANGE_COLUMN:
-            return (
-                row.percent_change if row.percent_change is not None else float("-inf")
-            )
-        if column == self.VOLUME_COLUMN:
-            return row.volume if row.volume is not None else float("-inf")
-        return self._display_text(row, column)
+    def _value(self, row: WatchlistRow, column: int) -> DisplayValue:
+        values: tuple[DisplayValue, ...] = (
+            row.symbol,
+            row.last_price,
+            row.percent_change,
+            row.volume,
+        )
+        return values[column]
 
     def _role_data(self, row: WatchlistRow, column: int, role: int) -> object:
         if column != self.PERCENT_CHANGE_COLUMN:

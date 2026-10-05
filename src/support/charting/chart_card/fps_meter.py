@@ -1,9 +1,15 @@
-from PySide6.QtCore import QElapsedTimer, QEvent, QObject, Qt, QTimer
+"""A chart's paint rate, shown in developer sessions only.
+
+@par A header label since `EPIC-033G`
+It was a style-sheeted `QLabel` moved over the plot's top-right corner, an
+overlay `ui-presentation-rule.md` §3 forbids. Now the label is a plain one the
+card places in its header row, and this class only measures and writes it.
+"""
+
+from PySide6.QtCore import QElapsedTimer, QEvent, QObject, QTimer
 from PySide6.QtWidgets import QLabel, QWidget
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 _FPS_SAMPLE_INTERVAL_MS = 500
-_OVERLAY_MARGIN = 8
 
 
 class FrameRateSampler:
@@ -26,40 +32,29 @@ class FrameRateSampler:
         return frame_count * 1000.0 / elapsed_ms
 
 
-class ChartFpsOverlay(QObject):
-    """Dev-only FPS label driven by actual paint events from the chart viewport."""
+class ChartFpsMeter(QObject):
+    """Counts the chart viewport's paint events and shows the rate in `label`.
 
-    def __init__(self, canvas: QWidget, parent: QObject | None = None) -> None:
-        super().__init__(parent or canvas)
-        self._canvas = canvas
-        self._viewport = canvas.viewport()
-        self._paint_sources: list[QWidget] = [self._viewport]
+    The label has no parent until its owner places it (`ChartCard` puts it in
+    its header); it is hidden until `set_enabled(True)`.
+    """
+
+    def __init__(self, viewport: QWidget, parent: QObject | None = None) -> None:
+        super().__init__(parent)
+        self._viewport = viewport
+        self._paint_sources: list[QWidget] = [viewport]
         self._sampler = FrameRateSampler()
         self._clock = QElapsedTimer()
         self._is_enabled = False
 
-        self.label = QLabel("FPS 0.0", self._viewport)
-        self.label.setObjectName("chartFpsOverlay")
-        self.label.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents)
-        self.label.setStyleSheet(
-            "QLabel {"
-            f" color: {Palette.ACCENT};"
-            " background: rgba(11, 14, 17, 190);"
-            f" border: 1px solid {Palette.MUTED};"
-            " border-radius: 3px;"
-            " padding: 3px 6px;"
-            " font-family: monospace;"
-            " font-weight: 700;"
-            "}"
-        )
-        self.label.adjustSize()
+        self.label = QLabel("FPS 0.0")
+        self.label.setObjectName("chartFpsMeter")
         self.label.hide()
 
         self._timer = QTimer(self)
         self._timer.setInterval(_FPS_SAMPLE_INTERVAL_MS)
         self._timer.timeout.connect(self._publish_sample)
-        self._viewport.installEventFilter(self)
-        self._position_label()
+        viewport.installEventFilter(self)
 
     def add_paint_source(self, source: QWidget) -> None:
         """Include a sibling preview surface in the measured chart FPS."""
@@ -73,6 +68,17 @@ class ChartFpsOverlay(QObject):
             return
         source.removeEventFilter(self)
         self._paint_sources.remove(source)
+
+    def release_viewport(self) -> None:
+        """Stops watching the viewport, before its owner destroys it."""
+        self._viewport.removeEventFilter(self)
+        self._paint_sources.remove(self._viewport)
+
+    def watch_viewport(self, viewport: QWidget) -> None:
+        """Measures `viewport` from now on — the one that replaced it."""
+        self._viewport = viewport
+        self._paint_sources.insert(0, viewport)
+        viewport.installEventFilter(self)
 
     @property
     def is_enabled(self) -> bool:
@@ -91,10 +97,7 @@ class ChartFpsOverlay(QObject):
         self._sampler.reset()
         if enabled:
             self.label.setText("FPS 0.0")
-            self.label.adjustSize()
-            self._position_label()
             self.label.show()
-            self.label.raise_()
             self._clock.restart()
             self._timer.start()
             return
@@ -102,12 +105,12 @@ class ChartFpsOverlay(QObject):
         self.label.hide()
 
     def eventFilter(self, watched: QObject, event: QEvent) -> bool:
-        if watched in self._paint_sources and event.type() == QEvent.Type.Paint:
-            if self._is_enabled:
-                self._sampler.record_frame()
-                self.label.raise_()
-        elif watched is self._viewport and event.type() == QEvent.Type.Resize:
-            self._position_label()
+        if (
+            watched in self._paint_sources
+            and event.type() == QEvent.Type.Paint
+            and self._is_enabled
+        ):
+            self._sampler.record_frame()
         return super().eventFilter(watched, event)
 
     def _publish_sample(self) -> None:
@@ -116,21 +119,9 @@ class ChartFpsOverlay(QObject):
         elapsed_ms = self._clock.restart()
         fps = self._sampler.sample(elapsed_ms)
         self.label.setText(f"FPS {fps:.1f}")
-        self.label.adjustSize()
-        self._position_label()
-        self.label.raise_()
-
-    def _position_label(self) -> None:
-        x = max(
-            _OVERLAY_MARGIN,
-            self._viewport.width() - self.label.width() - _OVERLAY_MARGIN,
-        )
-        self.label.move(x, _OVERLAY_MARGIN)
 
     def dispose(self) -> None:
         self._timer.stop()
         for source in self._paint_sources:
             source.removeEventFilter(self)
         self._paint_sources.clear()
-        self.label.hide()
-        self.label.deleteLater()

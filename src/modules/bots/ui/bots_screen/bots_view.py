@@ -13,13 +13,10 @@ mode) re-lays it out on the shell's workbench.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QItemSelectionModel, QSortFilterProxyModel, Qt
+from PySide6.QtCore import QItemSelectionModel, Qt
 from PySide6.QtWidgets import (
-    QAbstractItemView,
-    QHeaderView,
     QLabel,
     QSplitter,
-    QTableView,
     QVBoxLayout,
     QWidget,
 )
@@ -40,11 +37,13 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_view_model i
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.kinds.bot_kind_panel import (
     BotKindPanel,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import SORT_ROLE
+from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 from Sagittarius_Elite_Warrior.src.support.ui_kit.workbench_surface import (
     WorkbenchSurface,
 )
 from sagittarius_engine.extensions.pyside_mvc import BaseView
+
+_EMPTY_TEXT = "No bots yet. Create one with Bots → New bot…."
 
 #: This screen's surface. Declared here because a module may not import
 #: `shell/`; `test_bots_view_renders_the_surface_the_shell_declares` holds it
@@ -59,10 +58,14 @@ class BotsView(BaseView):
         super().__init__(parent)
         self.model = BotsViewModel(self)
         self.bots = BotsTableModel(self)
-        self._proxy = QSortFilterProxyModel(self)
-        self._proxy.setSourceModel(self.bots)
-        self._proxy.setSortRole(SORT_ROLE)
-        self.table = self._build_bots_table()
+        # Columns, sorting and selection from the model's specs (`EPIC-033N`);
+        # by name, the order a user finds a bot in.
+        self._bots_table = SpecTable(
+            self.bots, object_name="tblBots", empty_text=_EMPTY_TEXT
+        )
+        self._bots_table.sort_by(BotsTableModel.column("name"))
+        self._proxy = self._bots_table.proxy
+        self.table = self._bots_table.view
         self.detail = BotDetailPanel(self.model)
         self._kind_panel: BotKindPanel | None = None
         self._mode = BotsUiState.NO_SELECTION
@@ -70,7 +73,7 @@ class BotsView(BaseView):
         self._status.setObjectName("lblBotsStatus")
         self._status.setWordWrap(True)
         splitter = QSplitter(Qt.Orientation.Horizontal)
-        splitter.addWidget(self.table)
+        splitter.addWidget(self._bots_table.body)
         splitter.addWidget(self.detail)
         splitter.setStretchFactor(1, 2)
         self._status.hide()
@@ -105,21 +108,6 @@ class BotsView(BaseView):
         self.detail.set_backtest_page(page)
 
     # -- internals -------------------------------------------------------- #
-
-    def _build_bots_table(self) -> QTableView:
-        table = QTableView()
-        table.setObjectName("tblBots")
-        table.setModel(self._proxy)
-        table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
-        table.setSortingEnabled(True)
-        table.sortByColumn(0, Qt.SortOrder.AscendingOrder)
-        table.verticalHeader().setVisible(False)
-        table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.ResizeMode.ResizeToContents
-        )
-        return table
 
     def _connect(self) -> None:
         self.model.bots_changed.connect(self._show_bots)

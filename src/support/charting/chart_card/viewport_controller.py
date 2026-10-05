@@ -1,32 +1,43 @@
 import pyqtgraph as pg
-from PySide6 import QtCore, QtWidgets
+from PySide6 import QtCore
+from PySide6.QtGui import QAction
 
 
 class ViewportController(QtCore.QObject):
     """
     @brief Tracks whether the chart should auto-follow the newest candle (the default,
     TradingView-style "live" behavior) or stay frozen wherever the user panned/zoomed to,
-    and shows a floating "Jump to Live" button once the user has scrolled away.
-    @details Single Responsibility: follow-state + the button's visibility/position. Uses
-    ViewBox.sigRangeChangedManually — emitted only on user-driven pan/zoom, never on the
-    programmatic setXRange() this class itself performs — so it never fights the user.
+    and owns the "Go live" action that resumes following.
+    @details Single Responsibility: the follow state and the one action that ends a
+    frozen view. Uses ViewBox.sigRangeChangedManually — emitted only on user-driven
+    pan/zoom, never on the programmatic setXRange() this class itself performs — so it
+    never fights the user.
+
+    @par An action since `EPIC-033G`
+    It was a "⏩ Live" push button moved over the plot's bottom-right corner, an
+    overlay `ui-presentation-rule.md` §3 forbids. As a `QAction` it sits on the chart
+    toolbar and in the plot's context menu, and is disabled while the chart already
+    follows the live edge — the disabled state says what the hidden button did.
     """
 
-    _MARGIN = 12
-
-    def __init__(self, plot: pg.PlotItem, canvas: QtWidgets.QWidget) -> None:
-        super().__init__()
+    def __init__(self, plot: pg.PlotItem, parent: QtCore.QObject | None = None) -> None:
+        super().__init__(parent)
         self._plot = plot
-        self._canvas = canvas
         self._following = True
 
-        self._button = QtWidgets.QPushButton("⏩ Live", canvas)
-        self._button.setCursor(QtCore.Qt.PointingHandCursor)
-        self._button.hide()
-        self._button.clicked.connect(self.resume_follow)
+        self.go_live = QAction("&Go live", self)
+        self.go_live.setObjectName("act_goLive")
+        self.go_live.setStatusTip("Follow the newest candle again")
+        self.go_live.setEnabled(False)
+        self.go_live.triggered.connect(self.resume_follow)
+        plot.vb.menu.addAction(self.go_live)
 
         plot.vb.sigRangeChangedManually.connect(self._on_user_panned)
-        canvas.installEventFilter(self)
+
+    @property
+    def following(self) -> bool:
+        """Whether the view tracks the newest candle."""
+        return self._following
 
     def notify_new_data(self, latest_timestamp: float) -> None:
         """Called after every historical render / live tick to re-center the view."""
@@ -38,23 +49,11 @@ class ViewportController(QtCore.QObject):
 
     def resume_follow(self) -> None:
         self._following = True
-        self._button.hide()
+        self.go_live.setEnabled(False)
 
-    def _on_user_panned(self, *_args) -> None:
+    def _on_user_panned(self, *_args: object) -> None:
         self._following = False
-        self._reposition()
-        self._button.show()
-
-    def eventFilter(self, obj, event) -> bool:
-        if obj is self._canvas and event.type() == QtCore.QEvent.Type.Resize:
-            self._reposition()
-        return False
-
-    def _reposition(self) -> None:
-        x = self._canvas.width() - self._button.sizeHint().width() - self._MARGIN
-        y = self._canvas.height() - self._button.sizeHint().height() - self._MARGIN
-        self._button.move(max(0, x), max(0, y))
+        self.go_live.setEnabled(True)
 
     def dispose(self) -> None:
-        self._canvas.removeEventFilter(self)
-        self._button.deleteLater()
+        self._plot.vb.sigRangeChangedManually.disconnect(self._on_user_panned)

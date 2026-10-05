@@ -488,9 +488,9 @@ def main_window(qapp, qtbot, app_engine):
             f"(submitted={stats.submitted}, completed={stats.completed})"
         )
 
-    # ChartCard.viewport/zoom_controls/crosshair are plain QObjects
-    # constructed with no C++ parent (see ViewportController.__init__) — an
-    # event filter registered via installEventFilter() is a raw pointer on
+    # ChartCard's helpers that watch its canvas (the cached-frame controller
+    # and the FPS meter; until `EPIC-033G` also ViewportController) install
+    # event filters on it — an event filter registered via installEventFilter() is a raw pointer on
     # the filtered widget's side, not a Qt-managed ownership link. Normally
     # ChartCard.cleanup() explicitly disposes them (see
     # DashboardView.render_symbol_cards, which calls it every time it
@@ -499,7 +499,7 @@ def main_window(qapp, qtbot, app_engine):
     # within a test), so cleanup() is otherwise never called for whichever
     # cards are still current when a test ends — leaving Qt's normal
     # deleteLater()-driven widget teardown to destroy `canvas` out from
-    # under a still-alive ViewportController, or vice versa, with no
+    # under a still-alive helper, or vice versa, with no
     # guaranteed ordering. Whichever side survives longer is left holding a
     # dangling event-filter pointer to the other — a real, reproduced
     # Windows access violation (bisected: does not reproduce before

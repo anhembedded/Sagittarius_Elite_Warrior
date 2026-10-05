@@ -20,6 +20,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row 
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.position_row import (
     PositionRow,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    display_number,
+    write_value,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 type ConfirmCancelAll = Callable[[Sequence[OpenOrderRow]], bool]
 type ConfirmClosePosition = Callable[[PositionRow], bool]
@@ -45,7 +50,8 @@ def cancel_all_question(rows: Sequence[OpenOrderRow]) -> str:
 def close_position_question(row: PositionRow) -> str:
     return (
         f"Close the {row.side.value.upper()} {row.symbol} position "
-        f"({row.quantity_text}) at market?\n\n"
+        f"({write_value(ColumnKind.QUANTITY, display_number(row.quantity))}) "
+        "at market?\n\n"
         "A reduce-only market order for the whole position is sent; the "
         "fill price is the market's, not the mark price shown."
     )

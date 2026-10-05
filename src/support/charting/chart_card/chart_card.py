@@ -3,28 +3,29 @@ from collections.abc import Sequence
 
 import pyqtgraph as pg
 from PySide6.QtCore import QPointF, QTimer, Signal
-from PySide6.QtGui import QGuiApplication
-from PySide6.QtWidgets import QWidget
+from PySide6.QtGui import QGuiApplication, QStatusTipEvent
+from PySide6.QtWidgets import QApplication, QWidget
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Card
 
 from .cached_frame_interaction import CachedFrameInteractionController
 from .candlestick_item import FastCandlestickItem
 from .chart_toolbar import ChartToolbar
 from .chart_type_renderer import CANDLESTICK, HEIKIN_ASHI, ChartTypeRenderer
+from .chart_zoom_actions import ChartZoomActions
 from .crosshair_controller import CrosshairController
 from .edge_scroll_detector import EdgeScrollDetector
-from .fps_overlay import ChartFpsOverlay
+from .fps_meter import ChartFpsMeter
 from .heikin_ashi import to_heikin_ashi
 from .indicator_manager import IndicatorManager
 from .out_of_sample_divider_line import OutOfSampleDividerLine
 from .plot_layout import ChartAntialiasMode, ChartPlotLayout
 from .price_line import LastPriceLine
 from .range_update_scheduler import RangeUpdateScheduler
+from .squashed_price_band_report import SquashedPriceBandReport
 from .timeframe_pin_preferences import TimeframePinPreferences
 from .trade_link_line import TradeLinkLine
 from .viewport_controller import ViewportController
 from .volume_renderer import VolumeItem
-from .zoom_controls import ZoomControls
 
 # Under "App" so StdLogger's handlers apply — see cached_frame_interaction.
 logger = logging.getLogger("App.ChartCard")
@@ -44,18 +45,6 @@ _DEFAULT_MAX_ZOOM_OUT_CANDLES = 2000
 #: reach a blank chart.
 _VIEW_EDGE_MARGIN_BARS = 30
 
-#: `BUG-034` — the price band must occupy at least this share of the Y axis.
-#:
-#: Below it, candles are squashed into a sliver and read as "the chart is
-#: empty", which is exactly what that report described: a real session logged
-#: `price [7.6760, 8.1730]` inside `y-range [-71.3690, 46.1465]` — a 0,5-unit
-#: band inside a 117,5-unit axis, 0,4%.
-#:
-#: 20% is deliberately far from both sides: a healthy auto-ranged view puts
-#: the band at ~90% of the axis, and even a deliberately zoomed-out view keeps
-#: it well above a fifth. Nothing legitimate lands between.
-_PRICE_BAND_MIN_VIEW_FRACTION = 0.2
-
 #: Used only when the loaded history is too short to infer bar spacing.
 _FALLBACK_BAR_SECONDS = 60.0
 
@@ -65,7 +54,7 @@ class ChartCard(Card):
     @brief The Chart component for visualizing Candlestick data & Extensible Technical Indicators.
     @details Facade Pattern — composes ChartPlotLayout, CrosshairController, IndicatorManager,
     VolumeItem, LastPriceLine, TradeLinkLine, OutOfSampleDividerLine, ViewportController,
-    ZoomControls, ChartTypeRenderer, ChartToolbar and FastCandlestickItem, and exposes one stable
+    ChartZoomActions, ChartTypeRenderer, ChartToolbar and FastCandlestickItem, and exposes one stable
     API surface to the Presenter. Each collaborator owns exactly one concern (layout, crosshair,
     indicators, volume, last-price, trade-link, in-sample/out-of-sample split, viewport-follow,
     zoom, chart-type rendering, timeframe UI), keeping this class a thin orchestrator instead of a
@@ -185,9 +174,11 @@ class ChartCard(Card):
 
         self.crosshair = CrosshairController(
             scene=self.plot_layout.widget.scene(),
-            label=self.plot_layout.crosshair_label,
+            on_readout=self._show_readout,
             ohlc_lookup=self.candlestick.get_ohlc_at,
+            chrome=self.plot_layout.chrome,
         )
+        self.plot_layout.add_chrome_listener(self.crosshair.set_chrome)
         self.crosshair.register_plot(self.plot_layout.main_plot, is_primary=True)
 
         self.volume = VolumeItem(lod_enabled=self._lod_enabled)
@@ -201,14 +192,11 @@ class ChartCard(Card):
             on_remove_plot=self.crosshair.unregister_plot,
         )
 
-        self.viewport = ViewportController(
-            plot=self.plot_layout.main_plot,
-            canvas=self.plot_layout.widget,
-        )
+        self.viewport = ViewportController(self.plot_layout.main_plot, parent=self)
 
-        self.zoom_controls = ZoomControls(
-            plot=self.plot_layout.main_plot,
-            canvas=self.plot_layout.widget,
+        self.zoom = ChartZoomActions(self.plot_layout.main_plot, parent=self)
+        self.toolbar.add_chart_actions(
+            [*self.zoom.toolbar_actions, self.viewport.go_live]
         )
 
         self.edge_scroll_detector = EdgeScrollDetector(
@@ -216,10 +204,17 @@ class ChartCard(Card):
             get_raw_history=lambda: self._raw_history,
             parent=self,
         )
-        self.fps_overlay = ChartFpsOverlay(self.plot_layout.widget, parent=self)
+        self.fps_meter = ChartFpsMeter(self.plot_layout.widget.viewport(), parent=self)
+        self.add_to_header(self.fps_meter.label)
         self.range_updates = RangeUpdateScheduler(self._apply_x_range, parent=self)
         self.cached_interaction: CachedFrameInteractionController | None = None
         self._create_cached_interaction()
+
+    def _show_readout(self, text: str) -> None:
+        """What is under the pointer, in the status bar (`EPIC-033G`): a
+        `QStatusTipEvent` travels up to the nearest window with a status bar,
+        as a hovered action's tip does, so no host wires anything."""
+        QApplication.sendEvent(self, QStatusTipEvent(text))
 
     def _create_cached_interaction(self) -> None:
         if self.cached_interaction is not None:
@@ -248,7 +243,7 @@ class ChartCard(Card):
             on_preview_finished=self._restore_crosshair_after_preview,
             parent=self,
         )
-        self.fps_overlay.add_paint_source(self.cached_interaction.preview_surface)
+        self.fps_meter.add_paint_source(self.cached_interaction.preview_surface)
 
     def _current_plots(self) -> Sequence[pg.PlotItem]:
         """Live view of the main plot plus every subplot currently mounted."""
@@ -257,7 +252,7 @@ class ChartCard(Card):
     def _dispose_cached_interaction(self) -> None:
         if self.cached_interaction is None:
             return
-        self.fps_overlay.remove_paint_source(self.cached_interaction.preview_surface)
+        self.fps_meter.remove_paint_source(self.cached_interaction.preview_surface)
         self.cached_interaction.dispose()
         self.cached_interaction = None
 
@@ -290,10 +285,15 @@ class ChartCard(Card):
         # measured a healthy range and found nothing (see the report's §6/§8).
         # This signal fires when the range actually settles, on the platform
         # where it settles.
-        self.plot_layout.main_plot.vb.sigRangeChanged.connect(
-            self._report_squashed_price_band
+        self._squashed_price_band = SquashedPriceBandReport(
+            self.plot_layout.main_plot, self.candlestick, self.indicators.name_of
         )
-        self._price_band_anomaly_reported = False
+        self.plot_layout.main_plot.vb.sigRangeChanged.connect(self._check_price_band)
+
+    def _check_price_band(self, *_args: object) -> None:
+        self._squashed_price_band.check(
+            self.symbol, has_history=bool(self._raw_history)
+        )
 
     def showEvent(self, event) -> None:
         super().showEvent(event)
@@ -314,15 +314,13 @@ class ChartCard(Card):
         ):
             return
 
-        # setViewport() destroys the previous GL viewport. FPS instrumentation
-        # owns an event filter + QLabel parented to that viewport, so dispose
-        # it first and bind a fresh overlay to the CPU viewport afterwards.
-        fps_was_enabled = self.fps_overlay.is_enabled
+        # setViewport() destroys the previous GL viewport. The FPS meter
+        # watches it with an event filter, so it lets go first and watches
+        # the CPU viewport afterwards.
         self._dispose_cached_interaction()
-        self.fps_overlay.dispose()
+        self.fps_meter.release_viewport()
         self.plot_layout.validate_render_backend()
-        self.fps_overlay = ChartFpsOverlay(self.plot_layout.widget, parent=self)
-        self.fps_overlay.set_enabled(fps_was_enabled)
+        self.fps_meter.watch_viewport(self.plot_layout.widget.viewport())
         self._create_cached_interaction()
 
     def check_near_left_edge(self) -> None:
@@ -338,7 +336,7 @@ class ChartCard(Card):
 
     def set_dev_mode(self, enabled: bool) -> None:
         """Shows chart paint FPS only for explicitly enabled developer sessions."""
-        self.fps_overlay.set_enabled(enabled)
+        self.fps_meter.set_enabled(enabled)
 
     def render_historical_data(self, data: list[OhlcCandle]) -> None:
         self._raw_history = list(data)
@@ -592,108 +590,6 @@ class ChartCard(Card):
                 maxXRange=max_x_range,
             )
 
-    def _report_squashed_price_band(self) -> None:
-        """Names the item that stole the Y axis, the first time it happens.
-
-        @details `BUG-034` cost four investigations because the evidence
-        stopped at "y-range is wrong". The axis is shared: every item on the
-        main plot contributes to auto-range, so a single series that is not
-        on the price scale (an oscillator on a script whose `overlay` is
-        True, a level line, a stale curve from a previous symbol) stretches
-        the axis and flattens the candles. Which item did it is a fact
-        pyqtgraph already knows — `dataBounds(1)` per item — and nothing was
-        writing it down.
-
-        One line per anomaly, not per range change (`logging-rule.md` §4):
-        pan and zoom fire this signal continuously. The flag resets when the
-        view recovers, so a second, different occurrence is still reported.
-
-        `BUG-110` (2026-09-09) reopened this diagnostic's own blind spot:
-        `BUG-034`'s fix (`ignoreBounds=True` on every overlay) closed the
-        "another item stole the axis" mechanism, confirmed by this exact log
-        naming no culprit but the candlestick itself — yet the band still
-        squashed. `price_bounds` below is `dataBounds(1)` called with NO
-        `orthoRange`, which only ever returns the FULL-history fallback
-        (`candlestick_item.py`'s own branching) — never what pyqtgraph's real
-        `updateAutoRange()` actually asked the item for, since that call
-        always passes `orthoRange=<current X window>` (`setAutoVisible(y=True)`
-        on this plot, see `plot_layout.py`). A real settle that used a
-        windowed price band *wider* than the full-history one, or one that
-        landed while a live candle was still forming, would be invisible in
-        the log until this line was added — so it stays, unconditionally,
-        every time this warning fires, until a live reproduction confirms or
-        rules out either.
-        """
-        if not self._raw_history:
-            return
-        view_box = self.plot_layout.main_plot.vb
-        (min_x, max_x), (min_y, max_y) = view_box.viewRange()
-        view_height = max_y - min_y
-        price_bounds = self.candlestick.dataBounds(1)
-        if view_height <= 0 or price_bounds is None or price_bounds[0] is None:
-            return
-        price_height = price_bounds[1] - price_bounds[0]
-        # Only once auto-range has actually settled ON the price band. Before
-        # it settles the view still holds pyqtgraph's default `[0, 1]`, which
-        # the candles sit entirely outside of — a transient every normal load
-        # passes through, and reporting it would make this line noise on
-        # startup instead of a signal. The reported defect is the opposite
-        # shape: the band is *inside* the view (auto-range did see it) and
-        # still occupies almost none of it.
-        settled_on_price = min_y <= price_bounds[0] and price_bounds[1] <= max_y
-        if not settled_on_price:
-            return
-        if price_height / view_height >= _PRICE_BAND_MIN_VIEW_FRACTION:
-            self._price_band_anomaly_reported = False
-            return
-        if self._price_band_anomaly_reported:
-            return
-        self._price_band_anomaly_reported = True
-        windowed_bounds = self.candlestick.dataBounds(1, orthoRange=(min_x, max_x))
-        logger.warning(
-            "[chart-range] ChartCard(%s): price band [%.4f, %.4f] fills only "
-            "%.2f%% of y-range [%.4f, %.4f] — candles are unreadable. "
-            "Y bounds each item on the main plot claims: %s | windowed price "
-            "band (x=[%.1f, %.1f]): %s | live candle forming: %s",
-            self.symbol,
-            price_bounds[0],
-            price_bounds[1],
-            100.0 * price_height / view_height,
-            min_y,
-            max_y,
-            self._main_plot_y_bounds(),
-            min_x,
-            max_x,
-            windowed_bounds,
-            self.candlestick.live_candle is not None,
-        )
-
-    def _main_plot_y_bounds(self) -> str:
-        """Every main-plot item and the Y bounds it reports to auto-range.
-
-        Items with no `dataBounds` (markers) or a `None` Y bound (trend-zone
-        shading) are listed too, showing `None` — the report's §8.2/§8.3 had
-        to read pyqtgraph's source to establish they take no part; a reader
-        of this line does not.
-        """
-        described = []
-        for item in self.plot_layout.main_plot.vb.addedItems:
-            name = self.indicators.name_of(item) or type(item).__name__
-            get_bounds = getattr(item, "dataBounds", None)
-            if get_bounds is None:
-                described.append(f"{name}=no-dataBounds")
-                continue
-            try:
-                bounds = get_bounds(1)
-            except Exception as exc:  # noqa: BLE001 - diagnostic must not raise
-                described.append(f"{name}=<{type(exc).__name__}>")
-                continue
-            if bounds is None or bounds[0] is None:
-                described.append(f"{name}=None")
-            else:
-                described.append(f"{name}=[{bounds[0]:.4f}, {bounds[1]:.4f}]")
-        return " ".join(described)
-
     def _bar_seconds(self) -> float:
         """Spacing between candles, inferred from the loaded history."""
         if len(self._raw_history) < _MINIMUM_CANDLES_FOR_SPACING:
@@ -872,10 +768,9 @@ class ChartCard(Card):
         @brief Garbage collection method. Strict cleanup of C++ bindings.
         """
         self._dispose_cached_interaction()
-        self.zoom_controls.dispose()
         self.viewport.dispose()
         self.crosshair.dispose()
-        self.fps_overlay.dispose()
+        self.fps_meter.dispose()
         self.range_updates.dispose()
         self.indicators.clear()
         self.plot_layout.clear()

@@ -275,18 +275,18 @@ def test_run_scan_all_fills_the_table_model(presenter, view_model, mock_dispatch
             DatabaseStatusDTO(
                 symbol="BTCUSDT",
                 interval="1m",
-                first_record="2024-01-01",
-                last_record="2024-01-02",
-                total_candles="1440",
+                first_record=datetime(2024, 1, 1, tzinfo=UTC),
+                last_record=datetime(2024, 1, 2, tzinfo=UTC),
+                total_candles=1440,
                 gaps="0",
                 status_text="OK",
             ),
             DatabaseStatusDTO(
                 symbol="ETHUSDT",
                 interval="15m",
-                first_record="2024-01-01",
-                last_record="2024-01-02",
-                total_candles="1200",
+                first_record=datetime(2024, 1, 1, tzinfo=UTC),
+                last_record=datetime(2024, 1, 2, tzinfo=UTC),
+                total_candles=1200,
                 gaps="3",
                 status_text="3 gaps found!",
             ),
@@ -321,9 +321,9 @@ def test_run_check_status_populates_the_row_for_the_selection(
     response.data = DatabaseStatusDTO(
         symbol="BTCUSDT",
         interval="1h",
-        first_record="2024-01-01",
-        last_record="2024-01-02",
-        total_candles="24",
+        first_record=datetime(2024, 1, 1, tzinfo=UTC),
+        last_record=datetime(2024, 1, 2, tzinfo=UTC),
+        total_candles=24,
         gaps="0",
         status_text="OK",
     )
@@ -346,8 +346,8 @@ def test_run_check_status_populates_the_row_for_the_selection(
 
 
 def test_sync_all_gaps_uses_only_unhealthy_rows(presenter, view_model, mock_thread_mgr):
-    view_model.status_model.upsert_row("BTCUSDT", "a", "b", "10", "OK", "1m")
-    view_model.status_model.upsert_row("ETHUSDT", "a", "b", "5", "2 gaps found!", "15m")
+    view_model.status_model.upsert_row("BTCUSDT", None, None, 10, "OK", "1m")
+    view_model.status_model.upsert_row("ETHUSDT", None, None, 5, "2 gaps found!", "15m")
 
     view_model.requestSyncAllGaps()
 
@@ -362,7 +362,7 @@ def test_sync_all_gaps_uses_only_unhealthy_rows(presenter, view_model, mock_thre
 def test_sync_all_gaps_with_no_gaps_does_nothing(
     presenter, view_model, mock_thread_mgr
 ):
-    view_model.status_model.upsert_row("BTCUSDT", "a", "b", "10", "OK", "1m")
+    view_model.status_model.upsert_row("BTCUSDT", None, None, 10, "OK", "1m")
 
     view_model.requestSyncAllGaps()
 
@@ -441,7 +441,7 @@ def test_run_clear_data_dispatches_command_and_updates_model(
         success=True,
         message="Successfully deleted 500 candles for BTCUSDT (5m).",
     )
-    view_model.status_model.upsert_row("BTCUSDT", "a", "b", "500", "OK", "5m")
+    view_model.status_model.upsert_row("BTCUSDT", None, None, 500, "OK", "5m")
     assert view_model.status_model.rowCount() == 1
 
     presenter.fsm.transition_to(UIMode.CLEARING)
@@ -469,8 +469,8 @@ def test_run_purge_all_dispatches_command_and_clears_all(
         success=True,
         message="Deleted the entire database (5 database shards).",
     )
-    view_model.status_model.upsert_row("BTCUSDT", "a", "b", "100", "OK", "1m")
-    view_model.status_model.upsert_row("ETHUSDT", "a", "b", "200", "OK", "1h")
+    view_model.status_model.upsert_row("BTCUSDT", None, None, 100, "OK", "1m")
+    view_model.status_model.upsert_row("ETHUSDT", None, None, 200, "OK", "1h")
 
     presenter.fsm.transition_to(UIMode.CLEARING)
     presenter._vault_maintenance_coordinator.run_purge_all()
@@ -496,8 +496,8 @@ def test_stored_records_tile_sums_scanned_totals(
 ):
     mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type(
         [
-            DatabaseStatusDTO("BTCUSDT", "1m", "a", "b", "1440", "0", "OK"),
-            DatabaseStatusDTO("ETHUSDT", "15m", "a", "b", "1,200", "0", "OK"),
+            DatabaseStatusDTO("BTCUSDT", "1m", None, None, 1440, 0, "OK"),
+            DatabaseStatusDTO("ETHUSDT", "15m", None, None, 1200, 0, "OK"),
         ]
     )
     presenter.fsm.transition_to(UIMode.SCANNING)
@@ -613,7 +613,7 @@ def test_vacuum_refreshes_the_stat_tiles(presenter, view_model, mock_dispatcher)
     IDLE -> IDLE. VACUUM reclaims disk space, so the size tile is exactly what
     must refresh afterwards."""
     mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type(
-        [DatabaseStatusDTO("BTCUSDT", "1m", "a", "b", "500", "0", "OK")]
+        [DatabaseStatusDTO("BTCUSDT", "1m", None, None, 500, 0, "OK")]
     )
     presenter.fsm.transition_to(UIMode.SCANNING)
     presenter._scan_coordinator.run_scan_all(["BTCUSDT"], ["1m"])
@@ -638,7 +638,7 @@ def test_unlock_ui_is_idempotent_when_already_idle(
     """Restoring the UI to IDLE is a request for an end state, not for a
     transition — being there already is success, not an error to raise on."""
     mock_dispatcher.dispatch.side_effect = _dispatch_by_query_type(
-        [DatabaseStatusDTO("BTCUSDT", "1m", "a", "b", "777", "0", "OK")]
+        [DatabaseStatusDTO("BTCUSDT", "1m", None, None, 777, 0, "OK")]
     )
     presenter.fsm.transition_to(UIMode.SCANNING)
     presenter._scan_coordinator.run_scan_all(["BTCUSDT"], ["1m"])

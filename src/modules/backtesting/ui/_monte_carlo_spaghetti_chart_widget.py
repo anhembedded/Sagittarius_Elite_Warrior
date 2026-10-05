@@ -11,7 +11,7 @@ from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPen
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card.theme import (
-    CROSSHAIR_COLOR,
+    NEUTRAL_SERIES_COLOR,
 )
 
 #: Low alpha so hundreds of overlaid paths read as a density cloud rather
@@ -64,7 +64,7 @@ class MonteCarloSpaghettiChartWidget(QWidget):
             curve = PlotCurveItem(
                 x=[point["x"] for point in points],
                 y=[point["y"] for point in points],
-                pen=_translucent_pen(CROSSHAIR_COLOR, _LINE_ALPHA),
+                pen=_translucent_pen(NEUTRAL_SERIES_COLOR, _LINE_ALPHA),
             )
             self._plot_widget.addItem(curve)
             self._curves.append(curve)

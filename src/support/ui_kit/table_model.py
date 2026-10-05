@@ -31,18 +31,40 @@ It owns the parts of Qt's contract that have one correct answer:
 
   · `rowCount()` / `columnCount()` — zero for a valid parent, because a table
     model has no children, and Qt calls both with one.
-  · `headerData()` — the horizontal display header, from `HEADERS`.
+  · `headerData()` — the horizontal header, from `COLUMNS`' titles.
   · `row_for()` — the row behind an index, `None` when the index is stale. A
     typed accessor rather than a `Qt.UserRole` payload, which is the reasoning
     all four models had already written down separately: a caller that wants the
     row wants the whole row, and `data(index, SomeRole) -> object` makes every
     one of them cast.
-  · `data()` as a **template**: display text, the sort value, right-alignment,
-    then one hook for everything else.
+  · `data()` as a **template**: the raw value, then one hook for everything
+    else.
 
-It decides nothing about a particular table. `HEADERS`, `RIGHT_ALIGNED`,
-`_display_text()`, `_sort_value()` and `_role_data()` are each a subclass's, and
-the two `@abstractmethod`s are the contract.
+It decides nothing about a particular table. `COLUMNS`, `_value()` and
+`_role_data()` are each a subclass's, and the `@abstractmethod` is the
+contract.
+
+@par Raw values since `EPIC-033N`
+A cell's `DisplayRole` is the raw value — a float, a `datetime`, a word — and
+`COLUMNS` says what kind each column holds. A panel shows the model through
+the Engine's `configure_item_view(view, model, model.COLUMNS,
+formatter=APP_VALUE_FORMATTER)`, whose delegate writes every cell through the
+application's one `AppValueFormatter` and whose proxy sorts on the raw value
+and aligns by kind. Until then a model returned display *text*, so it also
+had to serve a `SORT_ROLE` with the number behind it (`"-9.00 USDT"` sorted
+after `"+10.00 USDT"` on text), declare which columns were numeric, and format
+every value itself — which is how one price came to print two ways on two
+screens. `SORT_ROLE`, `as_number()`, `HEADERS`, `RIGHT_ALIGNED`,
+`_display_text()` and `_sort_value()` are gone with that.
+
+@par A moment is a number to Qt
+Qt compares a cell's value to sort it, and a Python `datetime` reaches it as
+an opaque object it cannot order — the first version of this class handed it
+over as is, and no timestamp column sorted (the review of PR #351). `data()`
+therefore serves a `datetime` as its POSIX seconds, a float Qt orders; a naive
+one is UTC, this application's convention. The formatter writes a number in a
+`TIMESTAMP` column as the moment it is. One place, for every table; a subclass
+still returns the `datetime` its row holds.
 
 @par `@abstractmethod` without `ABC`, the `BaseFeed` pattern
 `QAbstractTableModel`'s metaclass is Shiboken's, and mixing `ABCMeta` into it
@@ -63,55 +85,31 @@ from __future__ import annotations
 
 from abc import abstractmethod
 from collections.abc import Sequence
-from typing import ClassVar, Final
+from datetime import UTC, datetime
+from typing import ClassVar
 
 from PySide6.QtCore import QAbstractTableModel, QObject, Qt
 from Sagittarius_Elite_Warrior.src.support.ui_kit.model_indexes import AnyIndex
-
-#: The role carrying the comparable value behind a cell's display text, so a
-#: numeric column sorts numerically rather than alphabetically. `"-9.00 USDT"`
-#: sorts *after* `"+10.00 USDT"` on text, and `"10.00"` before `"9.00"` — which
-#: is why every sortable table serves this role and points its
-#: `QSortFilterProxyModel` at it.
-#:
-#: One definition now. It was two, both `UserRole + 1`, in two trees that could
-#: not import each other.
-SORT_ROLE: Final = Qt.ItemDataRole.UserRole + 1
-
-#: What a right-aligned numeric cell answers for `TextAlignmentRole`. The eye
-#: compares a column of numbers by its last digit.
-_RIGHT_ALIGN: Final = int(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+from sagittarius_engine.extensions.pyside_mvc.workbench import (
+    ColumnSpec,
+    DisplayValue,
+)
 
 
-def as_number(text: str) -> float:
-    """The number a formatted cell means, for sorting.
-
-    Anything unparseable — `"—"` for a value the exchange did not report,
-    `"N/A"` for a shard nothing has scanned yet — sorts below every real number
-    rather than raising in the middle of a `sort()`.
-
-    The two copies this replaces differed: the order-book one stripped
-    `"USDT"`, the Database Status one did not. The union is taken deliberately
-    and is safe in both directions, because a count never contains `"USDT"` and
-    stripping a substring that is not there is a no-op. Recorded rather than
-    silently merged, because a shared helper that quietly changes one caller's
-    behaviour is how a de-duplication becomes a defect.
-    """
-    try:
-        return float(text.replace(",", "").replace(" ", "").replace("USDT", ""))
-    except ValueError:
-        return float("-inf")
+def _sortable(value: DisplayValue) -> DisplayValue:
+    """A `datetime` as POSIX seconds, which Qt can order; anything else as is."""
+    if isinstance(value, datetime):
+        moment = value if value.tzinfo is not None else value.replace(tzinfo=UTC)
+        return moment.timestamp()
+    return value
 
 
 class RowTableModel[TRow](QAbstractTableModel):
     """A table of whole rows, where a row is one object rather than N cells."""
 
-    #: The horizontal header, left to right. Its length is `columnCount()`.
-    HEADERS: ClassVar[tuple[str, ...]] = ()
-
-    #: Which columns are numeric, and so right-aligned. Empty by default: a
-    #: table of text needs no alignment rule.
-    RIGHT_ALIGNED: ClassVar[frozenset[int]] = frozenset()
+    #: The columns, left to right: key, header title and kind. Its length is
+    #: `columnCount()`; `configure_item_view` takes it as the view's specs.
+    COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = ()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -123,6 +121,14 @@ class RowTableModel[TRow](QAbstractTableModel):
         #: `rows` hands out a tuple, so no caller can mutate it from outside.
         self._rows: list[TRow] = []
 
+    @classmethod
+    def column(cls, key: str) -> int:
+        """The index of the column whose spec has `key`."""
+        for index, spec in enumerate(cls.COLUMNS):
+            if spec.key == key:
+                return index
+        raise KeyError(f"{cls.__name__} has no column {key!r}")
+
     # -- QAbstractTableModel's contract, which has one right answer --------
 
     def rowCount(self, parent: AnyIndex | None = None) -> int:
@@ -133,7 +139,7 @@ class RowTableModel[TRow](QAbstractTableModel):
     def columnCount(self, parent: AnyIndex | None = None) -> int:
         if parent is not None and parent.isValid():
             return 0
-        return len(self.HEADERS)
+        return len(self.COLUMNS)
 
     def headerData(
         self,
@@ -145,29 +151,22 @@ class RowTableModel[TRow](QAbstractTableModel):
             return None
         if orientation != Qt.Orientation.Horizontal:
             return None
-        if not 0 <= section < len(self.HEADERS):
+        if not 0 <= section < len(self.COLUMNS):
             return None
-        return self.HEADERS[section]
+        return self.COLUMNS[section].title
 
     def data(self, index: AnyIndex, role: int = Qt.ItemDataRole.DisplayRole) -> object:
-        """Display text, the sort value, alignment — then `_role_data()`.
+        """The raw value, then `_role_data()`.
 
-        The order matters and is the order all four models already used: a
-        stale index answers `None` before any role is considered, so a repaint
-        racing a `set_rows()` cannot read past the end of the list.
+        A stale index answers `None` before any role is considered, so a
+        repaint racing a `set_rows()` cannot read past the end of the list.
         """
         row = self.row_for(index)
         if row is None:
             return None
-        column = index.column()
-
         if role == Qt.ItemDataRole.DisplayRole:
-            return self._display_text(row, column)
-        if role == SORT_ROLE:
-            return self._sort_value(row, column)
-        if role == Qt.ItemDataRole.TextAlignmentRole and column in self.RIGHT_ALIGNED:
-            return _RIGHT_ALIGN
-        return self._role_data(row, column, role)
+            return _sortable(self._value(row, index.column()))
+        return self._role_data(row, index.column(), role)
 
     # -- reading and writing whole rows ------------------------------------
 
@@ -203,24 +202,13 @@ class RowTableModel[TRow](QAbstractTableModel):
     # -- what a particular table decides -----------------------------------
 
     @abstractmethod
-    def _display_text(self, row: TRow, column: int) -> str:
-        """The text in this cell. `""` for a column this table does not fill."""
-        raise NotImplementedError("_display_text")
-
-    @abstractmethod
-    def _sort_value(self, row: TRow, column: int) -> object:
-        """The comparable value behind this cell.
-
-        A table whose every column sorts by its display text returns
-        `self._display_text(row, column)`; it is still declared here rather
-        than defaulted, because a numeric column that forgets to override
-        sorts `"10.00"` before `"9.00"` and nothing fails — which is the whole
-        defect `SORT_ROLE` exists to prevent.
-        """
-        raise NotImplementedError("_sort_value")
+    def _value(self, row: TRow, column: int) -> DisplayValue:
+        """The raw value in this cell, of its column's kind; `None` when the
+        value is unknown. The formatter writes it, the proxy sorts on it."""
+        raise NotImplementedError("_value")
 
     def _role_data(self, row: TRow, column: int, role: int) -> object:
-        """Any role beyond display, sorting and alignment — a bold cell, a
-        monospace font, a foreground colour. `None` means "Qt's default", and
-        that is the right answer for most tables, so this is not abstract."""
+        """Any role beyond the value — a bold cell, a tooltip. `None` means
+        "Qt's default", and that is the right answer for most tables, so this
+        is not abstract."""
         return None

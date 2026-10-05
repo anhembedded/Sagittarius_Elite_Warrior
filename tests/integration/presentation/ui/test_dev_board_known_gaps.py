@@ -23,13 +23,12 @@ from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
 def _click_toolbar_pill(toolbar, code):
     """Clicks one of `ChartToolbar`'s pills.
 
-    A `QPushButton` again since `EPIC-025` PR 4.3k, after an `EPIC-015` era
-    where this had to be a `QTest` click at scene coordinates inside a
-    `QQuickWidget`.
+    A toolbar action since `EPIC-033G` (a `QPushButton` from `EPIC-025` PR
+    4.3k, and a `QTest` click inside a `QQuickWidget` before that).
     """
-    pill = toolbar._row.button_for(code)
-    assert pill is not None, code
-    pill.click()
+    timeframe = toolbar.timeframes.action_for(code)
+    assert timeframe is not None, code
+    timeframe.trigger()
 
 
 def _open_dashboard(navigate):

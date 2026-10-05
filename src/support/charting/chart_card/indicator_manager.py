@@ -4,7 +4,6 @@ import pyqtgraph as pg
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.info_field import (
     InfoField,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 
 from .marker_layer import MarkerLayer, MarkerPoint
 from .plot_layout import ChartPlotLayout
@@ -12,8 +11,6 @@ from .region_layer import RegionLayer, RegionSpan
 from .viewport_culled_layer import ViewportCulledLayer
 from .viewport_windowing import visible_slice_indices
 
-#: Default text colour for an InfoField that didn't specify one.
-_DEFAULT_INFO_COLOR = Palette.MUTED
 _SMOOTH_LINE_ANTIALIAS = True
 
 
@@ -339,9 +336,12 @@ class IndicatorManager:
         self._marker_layer.set_bar_seconds(bar_seconds)
 
     def _render_script_info_panel(self) -> None:
+        # A field without a colour of its own takes the label's, which is the
+        # palette's text colour (`ChartPlotLayout._apply_chrome`).
         rows = [
-            f"<span style='color:{field.color or _DEFAULT_INFO_COLOR}'>"
-            f"{field.label}: {field.value}</span>"
+            f"<span style='color:{field.color}'>{field.label}: {field.value}</span>"
+            if field.color
+            else f"{field.label}: {field.value}"
             for fields in self._script_info.values()
             for field in fields
         ]

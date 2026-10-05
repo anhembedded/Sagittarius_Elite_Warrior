@@ -30,7 +30,10 @@ count reaches zero when EPIC-033M closes, and this file becomes a ban.
   ``QColor(r, g, b)`` with integers and ``QFont(family=…)`` by keyword are not
   seen; review row H1 holds them.
 * ``checkable_button`` — ``setCheckable`` (state belongs in check boxes and
-  radio buttons; Microsoft and KDE both say so).
+  radio buttons; Microsoft and KDE both say so). A checkable ``QAction`` is
+  the rule's own third option (§6: "a checkable action"), so a call on a name
+  the same function assigned from ``QAction(...)``, or from one of the
+  module's functions annotated ``-> QAction``, is not counted.
 
 **Held at zero, not ratcheted:** ``BUG-008``'s unscoped container style sheet
 (a bare property list on a widget that owns children, which Qt reads as the
@@ -129,14 +132,83 @@ def _docstrings(tree: ast.Module) -> set[int]:
     }
 
 
+def _target_name(node: ast.expr) -> str | None:
+    """`action` for `action`, `box_zoom` for `self.box_zoom`."""
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        return node.attr
+    return None
+
+
+_Scope = ast.Module | ast.FunctionDef | ast.AsyncFunctionDef
+
+
+def _own_nodes(scope: _Scope) -> list[ast.AST]:
+    """The nodes of one scope, not those of the functions nested in it."""
+    nodes: list[ast.AST] = []
+    pending: list[ast.AST] = list(ast.iter_child_nodes(scope))
+    while pending:
+        node = pending.pop()
+        nodes.append(node)
+        if not isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef | ast.Lambda):
+            pending.extend(ast.iter_child_nodes(node))
+    return nodes
+
+
+def _checkable_actions(tree: ast.Module) -> set[int]:
+    """The `setCheckable` calls made on a `QAction`: on a name the same
+    function (or module body) assigned from `QAction(...)` or from one of the
+    module's functions annotated `-> QAction`. Scoped to the function, so a
+    `self.toggle` action in one method does not excuse a `toggle` button in
+    another."""
+    makers = {"QAction"} | {
+        node.name
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef)
+        and isinstance(node.returns, ast.Name)
+        and node.returns.id == "QAction"
+    }
+    scopes: list[_Scope] = [tree]
+    scopes += [
+        node
+        for node in ast.walk(tree)
+        if isinstance(node, ast.FunctionDef | ast.AsyncFunctionDef)
+    ]
+    exempt: set[int] = set()
+    for scope in scopes:
+        nodes = _own_nodes(scope)
+        names = {
+            name
+            for node in nodes
+            if isinstance(node, ast.Assign)
+            and isinstance(node.value, ast.Call)
+            and _called_name(node.value) in makers
+            for target in node.targets
+            if (name := _target_name(target))
+        }
+        exempt.update(
+            id(node)
+            for node in nodes
+            if isinstance(node, ast.Call)
+            and _called_name(node) == "setCheckable"
+            and isinstance(node.func, ast.Attribute)
+            and _target_name(node.func.value) in names
+        )
+    return exempt
+
+
 def findings(source: str) -> Counter[str]:
     """How many times each rule is broken in one module's source."""
     found: Counter[str] = Counter()
     tree = ast.parse(source)
     docstrings = _docstrings(tree)
+    checkable_actions = _checkable_actions(tree)
     for node in ast.walk(tree):
         if isinstance(node, ast.Call):
             name = _called_name(node)
+            if id(node) in checkable_actions:
+                continue
             for rule, names in _CALLS.items():
                 if name in names:
                     found[rule] += 1
@@ -247,6 +319,31 @@ def test_each_rule_is_seen() -> None:
             "checkable_button": 1,
         }
     )
+
+
+def test_a_checkable_action_is_not_a_checkable_button() -> None:
+    source = (
+        "action = QAction('&Box zoom', self)\naction.setCheckable(True)\n"
+        "self.box = QAction('&Box', self)\nself.box.setCheckable(True)\n"
+        "def _make(text) -> QAction:\n    return QAction(text)\n"
+        "self.made = self._make('&Made')\nself.made.setCheckable(True)\n"
+        "button = QPushButton('&Box')\nbutton.setCheckable(True)\n"
+    )
+    assert findings(source) == Counter({"checkable_button": 1})
+
+
+def test_an_action_in_one_method_does_not_excuse_a_button_in_another() -> None:
+    """Review of PR #351: the exemption once matched names module-wide."""
+    source = (
+        "class A:\n"
+        "    def build(self):\n"
+        "        self.toggle = QAction('&Toggle', self)\n"
+        "        self.toggle.setCheckable(True)\n"
+        "    def other(self, panel):\n"
+        "        panel.toggle = QPushButton('&Toggle')\n"
+        "        panel.toggle.setCheckable(True)\n"
+    )
+    assert findings(source) == Counter({"checkable_button": 1})
 
 
 def test_stock_code_is_not_counted() -> None:

@@ -331,7 +331,7 @@ def test_choosing_from_the_picker_writes_through_to_the_view_model(
     # decides between starring and choosing is now the column the user hit.
     picker = panel._symbol_picker
     row = [entry.symbol for entry in picker._model.rows].index("ETHBTC")
-    picker._table.clicked.emit(picker._model.index(row, SymbolTableModel.SYMBOL_COLUMN))
+    picker._table.clicked.emit(picker._proxy.index(row, SymbolTableModel.SYMBOL_COLUMN))
     qapp.processEvents()
 
     assert view_model.symbol == "ETHBTC"

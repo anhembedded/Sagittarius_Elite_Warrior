@@ -24,14 +24,10 @@ from __future__ import annotations
 
 from collections.abc import Callable, Sequence
 
-from PySide6.QtCore import QSortFilterProxyModel, Qt, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtWidgets import (
-    QAbstractItemView,
-    QHeaderView,
-    QLabel,
     QMessageBox,
-    QStackedWidget,
     QTableView,
     QToolBar,
     QVBoxLayout,
@@ -43,7 +39,12 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.open_order_row 
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.order_book.table_models import (
     OpenOrdersTableModel,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import SORT_ROLE
+from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    display_number,
+    write_value,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 _EMPTY_TEXT = "No pending orders."
 _CANCEL_TEXT = "Cancel order"
@@ -55,12 +56,26 @@ _CANCEL_TEXT = "Cancel order"
 type ConfirmCancel = Callable[[OpenOrderRow], bool]
 
 
+def cancel_question(row: OpenOrderRow) -> str:
+    """What the confirmation asks, with the order's values written as the
+    table writes them; a market order has no price to name."""
+    quantity = write_value(ColumnKind.QUANTITY, display_number(row.quantity))
+    at_price = (
+        f" @ {write_value(ColumnKind.PRICE, display_number(row.price))}"
+        if row.price is not None
+        else ""
+    )
+    return (
+        f"Cancel the {row.side.value.upper()} {row.order_type} order on "
+        f"{row.symbol} ({quantity}{at_price})?"
+    )
+
+
 def _ask_with_message_box(parent: QWidget, row: OpenOrderRow) -> bool:
     answer = QMessageBox.question(
         parent,
         _CANCEL_TEXT,
-        f"Cancel the {row.side.value.upper()} {row.order_type_text} order on "
-        f"{row.symbol} ({row.quantity_text} @ {row.price_text})?\n\n"
+        f"{cancel_question(row)}\n\n"
         "The order is cancelled at the exchange and cannot be restored.",
         QMessageBox.StandardButton.Yes | QMessageBox.StandardButton.No,
         QMessageBox.StandardButton.No,
@@ -87,9 +102,6 @@ class OpenOrdersPanel(QWidget):  # base-exempt: a container, not a surface
         )
 
         self._model = OpenOrdersTableModel(self)
-        self._proxy = QSortFilterProxyModel(self)
-        self._proxy.setSourceModel(self._model)
-        self._proxy.setSortRole(SORT_ROLE)
 
         self._cancel_action = QAction(_CANCEL_TEXT, self)
         self._cancel_action.setObjectName("actCancelOrder")
@@ -104,51 +116,27 @@ class OpenOrdersPanel(QWidget):  # base-exempt: a container, not a surface
         self._toolbar.setObjectName("tbrOpenOrders")
         self._toolbar.addAction(self._cancel_action)
 
-        self._table = QTableView()
-        self._table.setObjectName("tblOpenOrders")
-        self._table.setModel(self._proxy)
-        self._table.setSortingEnabled(True)
-        # Symbol ascending, for the reason `positions_panel.py` records: the
-        # default sort indicator is not the order anybody asked for.
-        self._table.sortByColumn(
-            OpenOrdersTableModel.SYMBOL_COLUMN, Qt.SortOrder.AscendingOrder
+        # Symbol ascending, for the reason `positions_panel.py` records.
+        self._table = SpecTable(
+            self._model, object_name="tblOpenOrders", empty_text=_EMPTY_TEXT
         )
-        self._table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
-        self._table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
-        self._table.setAlternatingRowColors(True)
-        self._table.verticalHeader().setVisible(False)
+        self._table.sort_by(OpenOrdersTableModel.column("symbol"))
+        view = self._table.view
         # The same action, reachable the two ways a desktop user expects it.
-        self._table.setContextMenuPolicy(Qt.ContextMenuPolicy.ActionsContextMenu)
-        self._table.addAction(self._cancel_action)
-        self._table.doubleClicked.connect(self._request_cancel)
-        header = self._table.horizontalHeader()
-        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(
-            OpenOrdersTableModel.SYMBOL_COLUMN, QHeaderView.ResizeMode.ResizeToContents
-        )
-        self._table.selectionModel().selectionChanged.connect(self._apply_action_state)
-
-        self._empty = QLabel(_EMPTY_TEXT)
-        self._empty.setObjectName("lblOpenOrdersEmpty")
-        self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self._empty.setWordWrap(True)
-
-        self._body = QStackedWidget()
-        self._body.setObjectName("stkOpenOrdersBody")
-        self._body.addWidget(self._empty)
-        self._body.addWidget(self._table)
+        view.setContextMenuPolicy(Qt.ContextMenuPolicy.ActionsContextMenu)
+        view.addAction(self._cancel_action)
+        view.doubleClicked.connect(self._request_cancel)
+        view.selectionModel().selectionChanged.connect(self._apply_action_state)
 
         layout = QVBoxLayout(self)
         layout.setContentsMargins(0, 0, 0, 0)
         layout.addWidget(self._toolbar)
-        layout.addWidget(self._body)
-        self._show_body()
+        layout.addWidget(self._table.body)
 
     def set_rows(self, rows: Sequence[OpenOrderRow]) -> None:
         """Replaces the table's rows entirely — the feed driving this holds
         the whole set (`EPIC-021H`)."""
         self._model.set_rows(rows)
-        self._show_body()
         # A reset clears the selection, and an action enabled with nothing
         # selected is an action that does nothing when pressed.
         self._apply_action_state()
@@ -156,7 +144,7 @@ class OpenOrdersPanel(QWidget):  # base-exempt: a container, not a surface
     @property
     def table(self) -> QTableView:
         """For a host that needs to size or focus the table itself."""
-        return self._table
+        return self._table.view
 
     @property
     def cancel_action(self) -> QAction:
@@ -168,13 +156,10 @@ class OpenOrdersPanel(QWidget):  # base-exempt: a container, not a surface
         """Puts a host's own action beside "Cancel order", in the toolbar
         and the row's context menu (`EPIC-028J`'s "Cancel all")."""
         self._toolbar.addAction(action)
-        self._table.addAction(action)
+        self._table.view.addAction(action)
 
     def selected_row(self) -> OpenOrderRow | None:
-        indexes = self._table.selectionModel().selectedRows()
-        if not indexes:
-            return None
-        return self._model.row_for(self._proxy.mapToSource(indexes[0]))
+        return self._table.selected_row()
 
     def _apply_action_state(self) -> None:
         self._cancel_action.setEnabled(self.selected_row() is not None)
@@ -186,8 +171,3 @@ class OpenOrdersPanel(QWidget):  # base-exempt: a container, not a surface
         if not self._confirm_cancel(row):
             return
         self.cancelRequested.emit(row.symbol, row.client_order_id)
-
-    def _show_body(self) -> None:
-        self._body.setCurrentWidget(
-            self._table if self._model.rowCount() else self._empty
-        )

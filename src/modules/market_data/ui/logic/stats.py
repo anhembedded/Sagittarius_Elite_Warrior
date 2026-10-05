@@ -10,7 +10,11 @@ Presenter.
 
 from __future__ import annotations
 
+from collections.abc import Iterable
 from pathlib import Path
+
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import write_value
+from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
 
 _UNKNOWN_STAT = "—"
 _BYTES_PER_MB = 1024 * 1024
@@ -35,3 +39,10 @@ def database_size_text(raw_dir: object) -> str:
     if not total_bytes:
         return _UNKNOWN_STAT
     return f"{total_bytes / _BYTES_PER_MB:.2f} MB"
+
+
+def stored_records_text(candle_counts: Iterable[int]) -> str:
+    """The stored-records tile: every shard's candles, summed and written as a
+    quantity (`EPIC-033N`), or `_UNKNOWN_STAT` before a scan has counted any."""
+    total = sum(candle_counts)
+    return write_value(ColumnKind.QUANTITY, total) if total else _UNKNOWN_STAT

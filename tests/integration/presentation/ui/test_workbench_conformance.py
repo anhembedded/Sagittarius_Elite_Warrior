@@ -45,6 +45,9 @@ from PySide6.QtWidgets import (
     QWidget,
     QWidgetAction,
 )
+from sagittarius_engine.extensions.pyside_mvc.workbench.configure_item_view import (
+    CONFIGURED_PROPERTY,
+)
 from sagittarius_engine.extensions.pyside_mvc.workbench.workbench_shell import (
     WorkbenchShell,
 )
@@ -185,11 +188,15 @@ def duplicate_button_problems(window: QMainWindow, page: QWidget) -> list[str]:
 
 
 def item_view_problems(window: QMainWindow, page: QWidget) -> list[str]:
+    """Every visible table or tree came through the Engine's
+    `configure_item_view` (`EPIC-033N`), and behaves the one way it sets."""
     found = []
     for view in page.findChildren(QAbstractItemView):
         if not isinstance(view, QTableView | QTreeView) or not view.isVisible():
             continue
         name = f"{type(view).__name__} {view.objectName()!r}"
+        if not view.property(CONFIGURED_PROPERTY):
+            found.append(f"{name}: not configured from its column specs")
         if view.selectionBehavior() != QAbstractItemView.SelectionBehavior.SelectRows:
             found.append(f"{name}: not full-row selection")
         if view.editTriggers() != QAbstractItemView.EditTrigger.NoEditTriggers:

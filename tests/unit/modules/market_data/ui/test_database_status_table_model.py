@@ -11,17 +11,23 @@ screen reads.
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime
 
 import pytest
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 from PySide6.QtCore import QModelIndex, Qt
+from PySide6.QtWidgets import QTableView
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.database_status_table_model import (
     DatabaseStatusFilterProxy,
     DatabaseStatusTableModel,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.table_model import SORT_ROLE
+from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
+    APP_VALUE_FORMATTER,
+    write_value,
+)
+from sagittarius_engine.extensions.pyside_mvc.workbench import configure_item_view
 
 _HEALTHY = "OK"
 _UNHEALTHY = "3 gaps found!"
@@ -36,21 +42,38 @@ def _upsert(
     model: DatabaseStatusTableModel,
     symbol: str = "BTCUSDT",
     status: str = _HEALTHY,
-    total: str = "100",
+    total: int = 100,
     interval: str = "1m",
 ) -> None:
     model.upsert_row(
         symbol=symbol,
-        first_record="2024-01-01 00:00",
-        last_record="2024-01-02 00:00",
+        first_record=datetime(2024, 1, 1, tzinfo=UTC),
+        last_record=datetime(2024, 1, 2, tzinfo=UTC),
         total_candles=total,
         status_text=status,
         interval=interval,
     )
 
 
-def _text(model: DatabaseStatusTableModel, row: int, column: int) -> str:
-    return str(model.data(model.index(row, column), Qt.ItemDataRole.DisplayRole))
+def _text(model: DatabaseStatusTableModel, row: int, key: str) -> str:
+    """The cell as the table writes it (`EPIC-033N`)."""
+    spec = DatabaseStatusTableModel.COLUMNS[DatabaseStatusTableModel.column(key)]
+    raw = model.data(
+        model.index(row, DatabaseStatusTableModel.column(key)),
+        Qt.ItemDataRole.DisplayRole,
+    )
+    return write_value(spec.kind, raw, spec.key)
+
+
+def _symbols_sorted_by(model: DatabaseStatusTableModel, key: str) -> list[str]:
+    """The symbols top to bottom after sorting the real view by `key`."""
+    view = QTableView()
+    proxy = configure_item_view(
+        view, model, DatabaseStatusTableModel.COLUMNS, formatter=APP_VALUE_FORMATTER
+    )
+    view.sortByColumn(DatabaseStatusTableModel.column(key), Qt.SortOrder.AscendingOrder)
+    symbol = DatabaseStatusTableModel.column("symbol")
+    return [str(proxy.index(row, symbol).data()) for row in range(proxy.rowCount())]
 
 
 # ---------------------------------------------------------------------------
@@ -84,21 +107,15 @@ def test_every_column_has_a_header(model):
 
 
 def test_each_column_renders_its_own_field(model):
-    _upsert(model, total="216,000", status=_UNHEALTHY)
+    _upsert(model, total=216_000, status=_UNHEALTHY)
 
-    assert _text(model, 0, DatabaseStatusTableModel.SYMBOL_COLUMN) == "BTCUSDT"
-    assert _text(model, 0, DatabaseStatusTableModel.INTERVAL_COLUMN) == "1m"
-    assert (
-        _text(model, 0, DatabaseStatusTableModel.FIRST_RECORD_COLUMN)
-        == "2024-01-01 00:00"
-    )
-    assert (
-        _text(model, 0, DatabaseStatusTableModel.LAST_RECORD_COLUMN)
-        == "2024-01-02 00:00"
-    )
-    assert _text(model, 0, DatabaseStatusTableModel.TOTAL_CANDLES_COLUMN) == "216,000"
-    assert _text(model, 0, DatabaseStatusTableModel.STATUS_COLUMN) == _UNHEALTHY
-    assert _text(model, 0, DatabaseStatusTableModel.MARKET_COLUMN) == "Spot"
+    assert _text(model, 0, "symbol") == "BTCUSDT"
+    assert _text(model, 0, "timeframe") == "1m"
+    assert _text(model, 0, "first_record") == "2024-01-01 00:00:00"
+    assert _text(model, 0, "last_record") == "2024-01-02 00:00:00"
+    assert _text(model, 0, "candles") == "216,000"
+    assert _text(model, 0, "status") == _UNHEALTHY
+    assert _text(model, 0, "market") == "Spot"
 
 
 def test_a_child_index_holds_no_rows(model):
@@ -120,18 +137,18 @@ def test_first_upsert_appends_a_row(model):
     _upsert(model)
 
     assert model.rowCount() == 1
-    assert _text(model, 0, DatabaseStatusTableModel.SYMBOL_COLUMN) == "BTCUSDT"
+    assert _text(model, 0, "symbol") == "BTCUSDT"
 
 
 def test_re_upserting_the_same_key_updates_in_place(model):
     """Re-scanning the same symbol/interval refreshes its line rather than
     stacking a second one."""
     _upsert(model, status=_UNHEALTHY, total="90")
-    _upsert(model, status=_HEALTHY, total="120")
+    _upsert(model, status=_HEALTHY, total=120)
 
     assert model.rowCount() == 1
-    assert _text(model, 0, DatabaseStatusTableModel.STATUS_COLUMN) == _HEALTHY
-    assert _text(model, 0, DatabaseStatusTableModel.TOTAL_CANDLES_COLUMN) == "120"
+    assert _text(model, 0, "status") == _HEALTHY
+    assert _text(model, 0, "candles") == "120"
 
 
 def test_the_same_symbol_on_two_intervals_is_two_rows(model):
@@ -196,22 +213,11 @@ def test_row_for_returns_the_whole_row_and_none_for_an_invalid_index(model):
 
 
 def test_candle_counts_sort_as_numbers_not_as_text(model):
-    """`"1,234"` is less than `"9"` alphabetically, which is why the proxy
-    sorts on `SORT_ROLE` and not on the display text."""
-    _upsert(model, symbol="AAA", total="1,234")
-    _upsert(model, symbol="BBB", total="9")
+    """`"1,234"` is less than `"9"` alphabetically; the cell holds the count."""
+    _upsert(model, symbol="AAA", total=1234)
+    _upsert(model, symbol="BBB", total=9)
 
-    column = DatabaseStatusTableModel.TOTAL_CANDLES_COLUMN
-    assert model.data(model.index(0, column), SORT_ROLE) == 1234.0
-    assert model.data(model.index(1, column), SORT_ROLE) == 9.0
-
-
-def test_a_count_that_is_not_a_number_sorts_below_every_real_count(model):
-    """The Presenter writes `"—"` for a shard it has not measured yet."""
-    _upsert(model, symbol="AAA", total="—")
-
-    column = DatabaseStatusTableModel.TOTAL_CANDLES_COLUMN
-    assert model.data(model.index(0, column), SORT_ROLE) == float("-inf")
+    assert _symbols_sorted_by(model, "candles") == ["BBB", "AAA"]
 
 
 def test_intervals_sort_by_duration_not_alphabetically(model):
@@ -219,28 +225,25 @@ def test_intervals_sort_by_duration_not_alphabetically(model):
     _upsert(model, symbol="BBB", interval="1h")
     _upsert(model, symbol="CCC", interval="1m")
 
-    column = DatabaseStatusTableModel.INTERVAL_COLUMN
-    values = [
-        model.data(model.index(row, column), SORT_ROLE)
-        for row in range(model.rowCount())
+    assert _symbols_sorted_by(model, "timeframe") == ["CCC", "AAA", "BBB"]
+    assert [_text(model, row, "timeframe") for row in range(3)] == [
+        "15m",
+        "1h",
+        "1m",
     ]
 
-    assert values == [900, 3600, 60]
+
+def test_an_interval_the_domain_no_longer_knows_is_an_empty_cell(model):
+    _upsert(model, interval="7m")
+
+    assert _text(model, 0, "timeframe") == ""
 
 
 def test_sorting_by_status_brings_the_shards_with_gaps_first(model):
     _upsert(model, symbol="AAA", status=_HEALTHY)
     _upsert(model, symbol="BBB", status=_UNHEALTHY)
 
-    proxy = DatabaseStatusFilterProxy()
-    proxy.setSourceModel(model)
-    proxy.sort(DatabaseStatusTableModel.STATUS_COLUMN, Qt.SortOrder.AscendingOrder)
-
-    first = proxy.data(
-        proxy.index(0, DatabaseStatusTableModel.SYMBOL_COLUMN),
-        Qt.ItemDataRole.DisplayRole,
-    )
-    assert first == "BBB"
+    assert _symbols_sorted_by(model, "status") == ["BBB", "AAA"]
 
 
 # ---------------------------------------------------------------------------
@@ -252,7 +255,7 @@ def test_the_status_cell_is_bold_only_when_the_shard_has_gaps(model):
     _upsert(model, symbol="AAA", status=_HEALTHY)
     _upsert(model, symbol="BBB", status=_UNHEALTHY)
 
-    column = DatabaseStatusTableModel.STATUS_COLUMN
+    column = DatabaseStatusTableModel.column("status")
     assert model.data(model.index(0, column), Qt.ItemDataRole.FontRole) is None
     assert model.data(model.index(1, column), Qt.ItemDataRole.FontRole).bold() is True
 
@@ -262,28 +265,10 @@ def test_only_the_status_cell_carries_the_emphasis(model):
     _upsert(model, status=_UNHEALTHY)
 
     symbol_font = model.data(
-        model.index(0, DatabaseStatusTableModel.SYMBOL_COLUMN),
+        model.index(0, DatabaseStatusTableModel.column("symbol")),
         Qt.ItemDataRole.FontRole,
     )
     assert symbol_font is None
-
-
-def test_the_candle_count_is_right_aligned(model):
-    _upsert(model)
-
-    alignment = model.data(
-        model.index(0, DatabaseStatusTableModel.TOTAL_CANDLES_COLUMN),
-        Qt.ItemDataRole.TextAlignmentRole,
-    )
-
-    assert alignment & int(Qt.AlignmentFlag.AlignRight)
-    assert (
-        model.data(
-            model.index(0, DatabaseStatusTableModel.SYMBOL_COLUMN),
-            Qt.ItemDataRole.TextAlignmentRole,
-        )
-        is None
-    )
 
 
 # ---------------------------------------------------------------------------

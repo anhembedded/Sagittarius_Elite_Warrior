@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 172 | 83.1% |
+| 🟢 **Completed** | 172 | 82.7% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 27 | 13.0% |
-| ❌ **Cancelled** | 8 | 3.9% |
-| 📈 **Tổng số Task** | **207** | **100%** |
+| 🔴 **Backlog** | 28 | 13.5% |
+| ❌ **Cancelled** | 8 | 3.8% |
+| 📈 **Tổng số Task** | **208** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -170,7 +170,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | **[EPIC-030](epics/EPIC-030_rule_mechanization_tier_a/README.md)** | **The rulebook is enforced by mechanism, not by memory (Tier A)** — rule-integrity checker, Shared Kernel, layer, registration and preview guards, test isolation, audit alarm; three pull requests | ✅ Done (11/11) — 2026-10-04 |
 | **[EPIC-031](epics/EPIC-031_rule_mechanization_tier_b/README.md)** | **The rulebook is enforced by mechanism (Tier B)** — commit lint, independent-review status, pinned engine and lockfile, Claude Code hooks | ✅ Done (3/3) — 2026-10-04 |
 | **[EPIC-032](epics/EPIC-032_static_analysis_ratchets/README.md)** | **Static analysis only tightens (Tier B, rest)** — mypy overrides retargeted, `exclude` shrink-only, four ruff rules enabled, five ratcheted | ✅ Done (3/3) — 2026-10-04 |
-| **[EPIC-033](epics/EPIC-033_windows_workbench/README.md)** | **The app is one Windows workbench of stock controls** — from the 2026-10-04 UI review | 🟡 In progress (1/16) |
+| **[EPIC-033](epics/EPIC-033_windows_workbench/README.md)** | **The app is one Windows workbench of stock controls** — from the 2026-10-04 UI review | 🟡 In progress (5/16) |
 
 ---
 
@@ -178,6 +178,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **`EPIC-033G` (the chart is a canvas; its controls are actions)**: [Decision: nothing is placed over the plot. Zoom, Box zoom, Reset and Go live are `QAction`s on the chart's `QToolBar` and in the plot's context menu, the timeframes an exclusive action group that overflows into the toolbar's extension button, and the hover readout goes to the status bar. The chart's chrome (background, axes, grid, crosshair, tags) takes `QPalette` roles through `ChartChrome` and repaints on a palette change; `theme.py` keeps only meaning colours. The stock-controls guard no longer counts a checkable `QAction` as a checkable button, which the rule names as the right form.]
 - [x] **`EPIC-033D` (every command is one QAction its module contributes)**: [Decision: a module declares its commands as plain data in `contribute()` and a presenter that performs them is a `CommandPresenter` that binds them as the window builds its mode, so menu entry, toolbar button and shortcut are one `QAction`. The commands travel in the screen registry with the screens, because a window given one without the other could not bind. Desks, Dev Board, Data, Backtest and Bots lose their command buttons; a conformance check fails any push button named like a command of its mode. Accepted gaps: no confirmation on Enable live trading; a Bots action no longer says why it is disabled.]
 - [x] **`EPIC-033F` (one Output pane replaces four log cards)**: [Decision: a screen offers its `LogListModel` as one channel of the window's single Output pane (`IOutputSource`, implemented once by `OutputSourceView`), Visual Studio's shape. The pane is the window's, not a mode's, so it is toggled under Window and remembered with the window's state, and showing a mode brings its channel forward. A desk whose venue is off keeps no log and offers no channel. `AppLogPanel`, the kit's `LogPanel` and Backtest's log tab are deleted.]
 - [x] **`EPIC-033E` (Tools → Options replaces the Settings screen)**: [Decision: a module contributes a page of the Options dialog (`contribute_options_page`), not a widget for a settings surface, because the dialog drives the page through apply, revert and dirty; the Settings route, its surface, `Place.SETTINGS_SECTION` and both Save buttons are deleted. The edit tracking the two pages had identical moved into one `OptionsSectionPresenter` base, so the UI duplication ratchet falls 64 → 61 instead of rising to 70.]
@@ -476,6 +477,7 @@ Sagittarius_Elite_Warrior/Tasks/
 | Priority | Task ID | Tên Nhiệm vụ | Độ phức tạp / Agent | Dependencies | Mô tả ngắn |
 | :---: | :--- | :--- | :---: | :---: | :--- |
 | **P3** | **[BOT-149](backlog/BOT-149_every_pair_history_reads_the_users_pairs_first.md)** | **An every-pair history reads the user's own pairs first** | 🟡 **`M (Standard)`** | BUG-145 | *(added 04/10, PR #344 review)* A capped Spot every-pair page reads the first five pairs in sorted order, so the user's open-order and bot pairs are rarely among them. |
+| **P3** | **[BOT-151](backlog/BOT-151_grouped_trees_from_specs.md)** | **Grouped trees are built from column specs like every flat table** | 🟡 **`M (Standard)`** | Engine | *(added 05/10, PR #351 review)* Four grouped `QTreeWidget` dialogs still configure themselves; `configure_item_view` cannot take a `QTreeWidget`. The open criterion 1 of `EPIC-033N`. |
 | **P3** | **[BOT-148](backlog/BOT-148_contributions_defer_through_one_mechanism.md)** | **Every contribution defers its factories through `Deferred`** | 🟡 **`M (Standard)`** | PR #333 | *(added 04/10, PR #333 review)* The Bots screen defers through `src/core/contracts/deferred.py`; nine other contributions still hold 32 function-local imports (`PLC0415`). Moving them lets the ratchet fall. |
 | ✅ | **[BOT-145](completed/BOT-145_user_data_stream_blocking_rest_calls_on_event_loop.md)** | **User-data-stream handlers block the asyncio event loop on REST calls** | 🟡 **`S (Small)`** | — | **Done (28/09).** `FuturesUserDataStream._handle_account_update`'s `get_positions()` and `SpotUserDataStream._refresh_equity`'s `check_connection()` now run via `await asyncio.to_thread(...)`; `_handle_message` became `async def` on both streams. New regression tests on each stream prove a concurrently-scheduled `asyncio.sleep` coroutine finishes before the blocking call does (mutation-verified — reverting either wrap flips the observed order). |
 | **P3** | **[BOT-144](backlog/BOT-144_split_three_files_over_the_400_line_ceiling.md)** | **Chia nhỏ 3 file đã vượt trần 400 dòng (Dev Board/Data Management)** | 🔴 **`L (Thinking)`** | — | *(hàng thêm 23/09 — phát hiện từ review độc lập của `PR #257`.)* `dashboard_presenter.py` (1994 dòng), `dev_board_panel.py` (1145 dòng), `data_management_presenter.py` (964 dòng) đều vượt trần `architecture-rule.md` §5.4 (400 dòng), và mỗi PR feature qua 2 màn này lại cộng thêm vào cả 3 thay vì tách. Chưa có guard máy nào bắt lỗi này (`C7`/`D6`/`D7` chỉ là review-only). Chưa thiết kế cách tách — xem hồ sơ task để biết acceptance bar. |

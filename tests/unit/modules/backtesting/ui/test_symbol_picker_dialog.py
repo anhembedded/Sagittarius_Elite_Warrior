@@ -54,7 +54,9 @@ def _click(dialog, qapp, symbol, column):
     """Click one cell of `symbol`'s row — the star column stars, any other
     column chooses."""
     row = [entry.symbol for entry in dialog._model.rows].index(symbol)
-    dialog._table.clicked.emit(dialog._model.index(row, column))
+    dialog._table.clicked.emit(
+        dialog._proxy.mapFromSource(dialog._model.index(row, column))
+    )
     qapp.processEvents()
 
 

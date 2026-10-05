@@ -227,16 +227,17 @@ def test_chart_toolbar_click_replaces_visible_candles_with_selected_timeframe(
 
     `EPIC-015` Phase 4 made `ChartToolbar` QML-hosted, so "click the 5m
     button" became a `QTest` click at scene coordinates; `EPIC-025` PR 4.3k
-    brought the pills back to `QPushButton`, so it is a click again.
+    brought the pills back to `QPushButton`; `EPIC-033G` made them toolbar
+    actions, so it is a trigger now.
     """
     presenter, view = backtest_screen
     chart = view.chart_cards[0].chart_card
     toolbar = chart.toolbar
-    pill = toolbar._row.button_for(_TOOLBAR_TIMEFRAME_INTERVAL)
-    assert pill is not None
+    timeframe = toolbar.timeframes.action_for(_TOOLBAR_TIMEFRAME_INTERVAL)
+    assert timeframe is not None
 
     with qtbot.waitSignal(view.chartPreviewRendered, timeout=5000):
-        pill.click()
+        timeframe.trigger()
 
     assert presenter._view_model.selectedTimeframe == _TOOLBAR_TIMEFRAME_INTERVAL
     assert len(chart._raw_history) == _RUNTIME_KLINE_COUNT

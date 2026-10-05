@@ -14,10 +14,10 @@ class DatabaseStatusSnapshot:
     """
     @brief Raw, typed result of a database status lookup — replaces the untyped
     dict this port used to return (Primitive Obsession).
-    @details Deliberately NOT the display-formatted DatabaseStatusDTO used by the
-    query handlers: keeping repository results in their natural types (datetime,
-    int) keeps formatting/"OK" vs "N gaps found!" text out of the infrastructure
-    layer. See DatabaseStatusDTO.from_snapshot() for the mapping.
+    @details Deliberately NOT the DatabaseStatusDTO the query handlers return:
+    keeping repository results free of the "OK" vs "N gaps found!" text keeps
+    that sentence out of the infrastructure layer. See
+    DatabaseStatusDTO.from_snapshot() for the mapping.
     """
 
     first_record: datetime | None

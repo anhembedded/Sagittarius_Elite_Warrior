@@ -23,8 +23,8 @@
  "tests/unit/modules/trading/ui/test_strategy_arming_coordinator.py": 422,
  "tests/unit/presentation/ui/screens/test_performance_metrics_view.py": 402,
  "tests/unit/presentation/ui/screens/test_strategy_properties_modal.py": 638,
- "tests/unit/support/charting/test_cached_frame_interaction.py": 489,
- "tests/unit/support/charting/test_chart_card.py": 1844,
+ "tests/unit/support/charting/test_cached_frame_interaction.py": 475,
+ "tests/unit/support/charting/test_chart_card.py": 1803,
  "tests/unit/support/indicators/test_indicator_script_runner.py": 618,
  "tests/unit/support/ui_kit/kit/test_guards.py": 427
 }

@@ -22,6 +22,7 @@ và không còn chỗ nào cạnh nhau để so sánh. `upsert_row()` được g
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
 
 from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 
@@ -36,9 +37,9 @@ class StatusRowUpdate:
     """
 
     symbol: str
-    first_record: str
-    last_record: str
-    total_candles: str
+    first_record: datetime | None
+    last_record: datetime | None
+    total_candles: int
     status_text: str
     interval: str = TimeFrame.ONE_MINUTE.value
 

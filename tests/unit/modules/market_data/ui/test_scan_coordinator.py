@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
@@ -146,9 +147,9 @@ def test_scan_coordinator_scan_all_populates_table(scan_fixture):
     status_dto = DatabaseStatusDTO(
         symbol="BTCUSDT",
         interval="15m",
-        first_record="2024-01-01",
-        last_record="2024-01-02",
-        total_candles="100",
+        first_record=datetime(2024, 1, 1, tzinfo=UTC),
+        last_record=datetime(2024, 1, 2, tzinfo=UTC),
+        total_candles=100,
         gaps="0",
         status_text="OK",
     )
@@ -164,9 +165,9 @@ def test_scan_coordinator_scan_all_populates_table(scan_fixture):
     signals["ui_status_table"].assert_called_once_with(
         StatusRowUpdate(
             symbol="BTCUSDT",
-            first_record="2024-01-01",
-            last_record="2024-01-02",
-            total_candles="100",
+            first_record=datetime(2024, 1, 1, tzinfo=UTC),
+            last_record=datetime(2024, 1, 2, tzinfo=UTC),
+            total_candles=100,
             status_text="OK",
             interval="15m",
         )
@@ -244,9 +245,9 @@ def test_scan_coordinator_check_status_success(scan_fixture):
     status_dto = DatabaseStatusDTO(
         symbol="BTCUSDT",
         interval="15m",
-        first_record="2024-01-01",
-        last_record="2024-01-02",
-        total_candles="500",
+        first_record=datetime(2024, 1, 1, tzinfo=UTC),
+        last_record=datetime(2024, 1, 2, tzinfo=UTC),
+        total_candles=500,
         gaps="0",
         status_text="OK",
     )
@@ -261,9 +262,9 @@ def test_scan_coordinator_check_status_success(scan_fixture):
     signals["ui_status_table"].assert_called_once_with(
         StatusRowUpdate(
             symbol="BTCUSDT",
-            first_record="2024-01-01",
-            last_record="2024-01-02",
-            total_candles="500",
+            first_record=datetime(2024, 1, 1, tzinfo=UTC),
+            last_record=datetime(2024, 1, 2, tzinfo=UTC),
+            total_candles=500,
             status_text="OK",
             interval="15m",
         )
