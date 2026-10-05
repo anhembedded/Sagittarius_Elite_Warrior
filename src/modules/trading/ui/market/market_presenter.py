@@ -46,6 +46,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market_ticks import (
     market_tick_feed,
 )
 from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
+from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_catalog import (
+    IndicatorScriptCatalog,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.action_ownership_tracker import (
     ActionOutcome,
     ActionOwnershipTracker,
@@ -66,6 +69,7 @@ from .connection_words import (
     error_text,
     failure_text,
 )
+from .indicator_params_command import IndicatorParamsCommand
 from .market_chart import ChartSources, MarketChart
 from .market_choice import MARKET_TEXT, MarketChoice
 from .market_commands import CHECK_CONNECTION, CLOSE_CHART
@@ -109,6 +113,13 @@ class MarketPresenter(CommandPresenter):
         self._checks: ActionOwnershipTracker[str, None, None] = ActionOwnershipTracker()
         self.choice = MarketChoice(dependencies.state, self)
         self._history = ChartHistoryCommands(view, lambda: self._charts, self)
+        self._params = IndicatorParamsCommand(
+            view,
+            IndicatorScriptCatalog(dependencies.scripts),
+            dependencies.params_store,
+            self,
+        )
+        self._params.edited.connect(self._redraw_indicator)
         view.watchlist.set_symbols(list(dependencies.symbols))
         view.set_indicator_choices(self._indicator_choices())
         view.set_connection_text(NOT_CHECKED)
@@ -139,6 +150,7 @@ class MarketPresenter(CommandPresenter):
         )
         self.choice.bind_commands(binder)
         self._history.bind_commands(binder)
+        self._params.bind_commands(binder)
 
     def on_mode_shown(self, source: NavigationSource) -> None:
         """`IShownAsMode`: the first showing opens a chart from local history;
@@ -278,6 +290,14 @@ class MarketPresenter(CommandPresenter):
         for chart in self._charts.values():
             chart.show_indicators(keys)
         logger.info("[market] indicators shown: %s", list(keys))
+
+    def _redraw_indicator(self, key: str) -> None:
+        """A script's parameters were edited: every chart drawing it redraws
+        with the saved values."""
+        for chart in self._charts.values():
+            if key in chart.indicators:
+                chart.redraw_indicators()
+        logger.info("[market] indicator %s redrawn with its saved parameters", key)
 
     def _default_indicators(self) -> tuple[str, ...]:
         return tuple(

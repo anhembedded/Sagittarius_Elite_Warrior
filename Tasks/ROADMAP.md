@@ -22,11 +22,11 @@ Sagittarius_Elite_Warrior/Tasks/
 
 | Trạng thái | Số lượng Task | Tỷ lệ |
 | :--- | :---: | :---: |
-| 🟢 **Completed** | 172 | 82.3% |
+| 🟢 **Completed** | 173 | 82.4% |
 | 🟡 **In Progress** | 0 | 0.0% |
-| 🔴 **Backlog** | 29 | 13.9% |
+| 🔴 **Backlog** | 29 | 13.8% |
 | ❌ **Cancelled** | 8 | 3.8% |
-| 📈 **Tổng số Task** | **209** | **100%** |
+| 📈 **Tổng số Task** | **210** | **100%** |
 
 > 🐞 **Lỗi (bug) không tính trong bảng trên** — theo dõi riêng ở [Bug Board](bug_report/README.md), nơi liệt kê cả bug **đang mở** lẫn đã sửa.
 
@@ -178,6 +178,7 @@ Sagittarius_Elite_Warrior/Tasks/
 
 ### 🟢 Completed (Đã hoàn thành)
 
+- [x] **[`BOT-153`](completed/BOT-153_market_indicator_parameters.md) (the Market mode edits an indicator script's parameters)**: [Decision: the Dev Board's per-script parameters button (`BOT-063`) becomes one command, Tools → Indicator parameters…, for the script selected in the Market mode's Indicators panel, over the same dialog and sink, so `EPIC-033P` can delete the Dev Board without losing it. Saved values redraw the open charts drawing the script.]
 - [x] **`EPIC-033L` (the Backtest mode: test a strategy on stored history on one workbench)**: [Decision: the run is set up in a Run setup dock on the left (a form of stock fields; strategy, timeframe, range and time zone are drop-down lists, the range's "Custom…" asks for dates), read in a Metrics dock on the right and a tabbed bottom area (Trades, Drawdown, Monthly returns, Monte Carlo), with the result chart central. Progress is the status bar's; Run and Stop are Tools commands. Every dialog is a stock `QDialog` with a `QDialogButtonBox`, titled after its command; Strategy Parameters has Close, not Cancel, because both its tabs apply as they are edited. Every table is built from column specs; the comparison and Metrics Detail tables, whose values are formatted text in mixed units, sort back to their own order. Notices are `NoticeBar`s with the platform's icons, so a failed run is an error notice rather than red text alone. Measured over the epic: style-sheet calls 61 in the mode at the start → 0 in it; the mode has no row left in the conformance or stock-controls baselines. Left for others: trees from column specs (`BOT-151`) and the mode's type and size debt (`EPIC-033M`).]
 - [x] **`EPIC-033S` (the Market charts load older candles and a chosen range)**: [Decision: two commands on the chart in front, View → Load older candles and Load range…, rather than the Dev Board's edge scrolling, and in View because a "Chart" menu has no free access key. The older window is read up to the oldest drawn candle's `open_time` inclusive, one row extra, and the drawn candle is dropped by `open_time`, so the join has neither a gap nor a duplicate whatever the store rounds. Each load is fenced by the chart's generation, symbol and timeframe, and a closed tab's load is cancelled before it reports. A range draws no live candle until the next timeframe is picked.]
 - [x] **`EPIC-033Q` (the Market mode shows Spot or Futures candles)**: [Decision: the market is a value of the mode, not of each chart: View → S&pot market and Futures mar&ket are two checkable commands in one exclusive `QActionGroup`, which the window builds from a new `exclusive_group` on `CommandContribution` because the Engine's descriptor has none. They are View items, not a Market menu: every letter of "Market" is already a menu-bar title's or a Backtest panel's access key. The choice is remembered through the UI state store. Switching reopens every open chart on the other market's candle feed and blanks the Watchlist, so nothing of the previous market stays; the presenter drops a tick of the other market even when the Feed let it through before the switch, because the Feed decides on the publishing thread and delivers on the Qt thread's queue.]

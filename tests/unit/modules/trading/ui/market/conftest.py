@@ -106,6 +106,7 @@ def _deps(
     account=None,
     symbols=SYMBOLS,
     state=None,
+    params_store=None,
 ) -> MarketDependencies:
     return MarketDependencies(
         stream=stream or FakeMarketStream(),
@@ -113,11 +114,18 @@ def _deps(
         history=sources[2],
         thread_manager=threads,
         scripts=scripts,
-        script_params=lambda _key: None,
+        # As `market_dependencies_for` builds it: the charts read the store
+        # Tools → Indicator parameters… saves to.
+        script_params=(
+            (lambda key: params_store.load_all().get(key))
+            if params_store is not None
+            else (lambda _key: None)
+        ),
         account=account or FakeAccountSnapshot(status=CONNECTED),
         symbols=symbols,
         interval="1m",
         state=state,
+        params_store=params_store,
     )
 
 
