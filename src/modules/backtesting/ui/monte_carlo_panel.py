@@ -7,10 +7,10 @@ Sourced from the same retained `BackTestViewModel.run_result
 .comparison_snapshot()` `OutOfSampleComparisonDialog` reads (`result.trades`,
 `result.initial_balance`) — no new "which run is this for" state needed.
 Running the simulation itself is the Presenter's job
-(`MonteCarloCoordinator`, off the Qt thread): this dialog only asks for it
+(`MonteCarloCoordinator`, off the Qt thread): this panel only asks for it
 (`requestRunMonteCarlo`) and renders whatever `run_result
-.monte_carlo_result()`/`.monte_carlo_error()` comes back, on the dialog's
-own `monteCarloResultChanged` signal — a Monte Carlo run completes on its
+.monte_carlo_result()`/`.monte_carlo_error()` comes back, on its own
+`monteCarloResultChanged` signal — a Monte Carlo run completes on its
 own schedule (a button click, not a backtest finishing), so it does not
 share `statCardsChanged`. The panel stays open while runs come and go, so
 it also follows `comparisonSnapshotChanged` to judge what it can simulate.
@@ -83,7 +83,7 @@ class MonteCarloPanel(QWidget):  # base-exempt: a dock's content, not a surface
 
     def _build_controls_row(self) -> None:
         row = QHBoxLayout()
-        simulations = QLabel("Si&mulations:")
+        simulations = QLabel("Simu&lations:")
         row.addWidget(simulations)
 
         self._spin_iterations = QSpinBox()
@@ -94,7 +94,7 @@ class MonteCarloPanel(QWidget):  # base-exempt: a dock's content, not a surface
         simulations.setBuddy(self._spin_iterations)
         row.addWidget(self._spin_iterations)
 
-        self._btn_run = QPushButton("Ru&n simulation")
+        self._btn_run = QPushButton("R&un simulation")
         self._btn_run.setObjectName("btnRunMonteCarloSimulation")
         self._btn_run.clicked.connect(self._on_run_clicked)
         row.addWidget(self._btn_run)

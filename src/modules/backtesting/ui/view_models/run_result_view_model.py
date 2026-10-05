@@ -323,8 +323,8 @@ class RunResultViewModel(QObject):
     def set_monte_carlo_error(self, message: str) -> None:
         """Set by `BackTestPresenter._on_monte_carlo_failed()` — leaves
         `monte_carlo_result()` at whatever it last was (a failed re-run
-        does not erase a still-valid earlier one), but the dialog shows
-        `message` alongside it."""
+        does not erase a still-valid earlier one), but the Monte Carlo
+        panel shows `message` alongside it."""
         self._monte_carlo_error = message
         self.monteCarloResultChanged.emit()
 
@@ -337,5 +337,4 @@ class RunResultViewModel(QObject):
         longer meaningful."""
         self._monte_carlo_result = None
         self._monte_carlo_error = ""
-        self.monteCarloResultChanged.emit()
         self.monteCarloResultChanged.emit()

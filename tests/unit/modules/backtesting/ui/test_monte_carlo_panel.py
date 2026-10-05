@@ -214,3 +214,15 @@ def test_the_panel_follows_a_new_run_without_being_reopened(qapp):
     assert panel._btn_run.isEnabled()
     assert "Choose an iteration count" in panel._description_label.text()
     panel.deleteLater()
+
+
+def test_clearing_the_result_is_announced_once(qapp):
+    """Review of PR #360: a second `emit()` made every listener refresh twice
+    per clear."""
+    vm = BackTestViewModel()
+    heard: list[bool] = []
+    vm.run_result.monteCarloResultChanged.connect(lambda: heard.append(True))
+
+    vm.run_result.clear_monte_carlo_result()
+
+    assert heard == [True]

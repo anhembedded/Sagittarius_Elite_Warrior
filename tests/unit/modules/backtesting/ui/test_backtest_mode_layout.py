@@ -135,17 +135,21 @@ def _menu_bar_keys() -> set[str]:
     return {key for title in titles for key in access_keys(title)}
 
 
-def test_the_run_setup_takes_no_access_key_of_the_menu_bar(mode):
-    """Review of PR #355: `&Timeframe` took Alt+T from Tools, `&Execution`
-    Alt+E from Edit, `St&rategy` Alt+R from Trade — two shortcuts on one
-    key in one window, and Alt+T stopped opening Tools."""
+def test_no_access_key_of_the_mode_clashes(mode):
+    """Every Alt key the mode's panels offer is its own: none is a menu-bar
+    title's, and no two panels share one. Review of PR #355: `&Timeframe`
+    took Alt+T from Tools, `&Execution` Alt+E from Edit, `St&rategy` Alt+R
+    from Trade. Review of PR #360: the Monte Carlo panel's `Si&mulations`
+    and `Ru&n` took the Run setup's Alt+M and Alt+N, and the Trades panel's
+    `&Find` took File's Alt+F. Two shortcuts on one key in one window reach
+    neither reliably, so the check covers the whole view, not one panel."""
     _view_model, view = mode
-    texts = [label.text() for label in view.run_setup.findChildren(QLabel)]
-    texts += [b.text() for b in view.run_setup.findChildren(QAbstractButton)]
+    texts = [label.text() for label in view.findChildren(QLabel)]
+    texts += [button.text() for button in view.findChildren(QAbstractButton)]
     keys = [key for text in texts for key in access_keys(text)]
 
     assert sorted(set(keys) & _menu_bar_keys()) == []
-    assert len(keys) == len(set(keys)), keys
+    assert len(keys) == len(set(keys)), sorted(keys)
 
 
 def _ancestors(widget, stop):
@@ -155,13 +159,22 @@ def _ancestors(widget, stop):
         parent = parent.parentWidget()
 
 
-def test_monte_carlo_brings_its_panel_to_the_front(mode):
+def test_monte_carlo_brings_its_panel_to_the_front(mode, qapp):
     """Tools → Monte Carlo (`openMonteCarloRequested`) shows the panel, even
-    after the person closed its dock."""
+    after the person closed its dock, as the bottom area's visible tab:
+    Trades, in front until then, goes behind it."""
     view_model, view = mode
+    view.resize(1366, 768)
+    view.show()
     dock = view.dock_of(view.monte_carlo)
     dock.close()
+    qapp.processEvents()
+    # A tab behind another keeps `isVisible()`; what is on screen is its
+    # visible region.
+    assert not view.bottom_widget.visibleRegion().isEmpty()
 
     view_model.requestOpenMonteCarlo()
+    qapp.processEvents()
 
-    assert not dock.isHidden()
+    assert not view.monte_carlo.visibleRegion().isEmpty()
+    assert view.bottom_widget.visibleRegion().isEmpty()
