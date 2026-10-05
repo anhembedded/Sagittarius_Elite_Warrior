@@ -118,6 +118,17 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | &Keyboard shortcuts | — | — | — |
 | | &About Sagittarius Elite Warrior | — | — | — |
 
+**Until the mode tasks land** (`EPIC-033D` converted the screens as they are; `EPIC-033H`–`033L` and `033P` rebuild them to the table above):
+
+- The table's menus, names and shortcuts hold where a screen already has the command: Trade's Enable live trading, Emergency stop (F8) and New order… (F9); Bots' New bot…, Save bot (Ctrl+S), Start, Pause, Resume, Confirm resume and Stop…; Tools' Run backtest (F7) and Stop backtest.
+- Delete bot carries no "…": it only confirms, and "…" marks a command that asks for more input (§4 of the rule).
+- Emergency stop is on each desk's toolbar, for that desk's venue, not on every mode's: one Emergency stop for every venue comes with the single Trade mode (`EPIC-033I`).
+- The current screens also contribute commands the table does not list yet, each in its module's menu and scoped to its mode:
+  - Trade, on the Dev Board: Load history, Start live, Stop live (`EPIC-033P`).
+  - Data: Scan status, Scan all shards, Sync timeframe (Ctrl+L, the key the table gives Sync history…), Sync all gaps, Export data…, Import data…, Optimize database, Delete selected data and Purge all data, the last two confirmed (`EPIC-033J`).
+  - Tools, in Backtest: Save report…, Import report…, Compare reports…, In-sample vs out-of-sample, Monte Carlo (`EPIC-033L`).
+  - Bots: Refresh fills (`EPIC-033K`).
+
 Run backtest is F7, not Ctrl+R: GNOME and XFCE reserve Ctrl+R for Refresh, and the Engine's shortcut policy refuses it. In View, the modes are &Bots and Back&test, not B&ots and &Backtest, because T&oolbars in the same menu already uses O.
 
 Developer mode adds a `Develo&per` menu before Tools, holding the probes. Context menus on tables
