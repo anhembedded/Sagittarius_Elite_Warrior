@@ -54,7 +54,7 @@ Every presenter package keeps a `preview.py` with `build_preview() -> QWidget` (
 ## 6. Menus, toolbars and commands
 - The menu bar reads File, Edit, View, the modules' menus, Tools, Window, Help (MS `cmd-menus`); it is the complete catalogue of commands. `[guard: test_workbench_conformance.py; review: H3]`
 - A toolbar holds actions, never a button widget (MS `cmd-toolbars`). `[guard: test_workbench_conformance.py]`
-- Every command is one `QAction` contributed by its module, and every toolbar action is also in a menu; icon-only actions have a tooltip naming the shortcut (MS `cmd-toolbars`). The menu check lands with `EPIC-033D`. `[review: H3]`
+- Every command is one `QAction` contributed by its module, and every toolbar action is also in a menu (the Engine's `ActionDescriptor` requires its menu path); no push button repeats a command of its mode; icon-only actions have a tooltip naming the shortcut (MS `cmd-toolbars`). `[guard: test_workbench_conformance.py; review: H3]`
 - No command is reachable only by a shortcut or a context menu; context menus repeat menu commands (MS `cmd-menus`). `[review: H3]`
 - No checkable push button: state is a check box, a radio button or a checkable action (MS `ctrl-command-buttons`, KDE). `[guard: test_stock_controls_only.py]`
 

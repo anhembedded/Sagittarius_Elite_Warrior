@@ -19,6 +19,9 @@ from Sagittarius_Elite_Warrior.src.core.contracts import (
     ScreenContribution,
     SizeHint,
 )
+from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
+    CommandContribution,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import (
     IContributionRegistry,
 )
@@ -193,6 +196,37 @@ def test_no_factory_is_called_while_contributing(
 
 
 # --- screens --------------------------------------------------------------
+
+
+def _command(command_id: str, contributor_id: str = "trading") -> CommandContribution:
+    return CommandContribution(
+        contributor_id=contributor_id,
+        command_id=command_id,
+        text="&Do it",
+        menu_path=("T&rade",),
+    )
+
+
+def test_commands_keep_the_order_they_were_contributed_in(
+    registry: ContributionRegistry,
+) -> None:
+    """`EPIC-033D`: the order a module contributes its commands in is the
+    order its menu lists them."""
+    registry.contribute_command(_command("trading.enable"))
+    registry.contribute_command(_command("trading.stop"))
+
+    assert [c.command_id for c in registry.commands()] == [
+        "trading.enable",
+        "trading.stop",
+    ]
+
+
+def test_a_duplicate_command_id_raises_naming_both_contributors(
+    registry: ContributionRegistry,
+) -> None:
+    registry.contribute_command(_command("data.sync", "market_data"))
+    with pytest.raises(ContributionError, match="market_data"):
+        registry.contribute_command(_command("data.sync", "bots"))
 
 
 def test_a_duplicate_route_raises(registry: ContributionRegistry) -> None:

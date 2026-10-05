@@ -51,7 +51,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import State
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
     UiStateCoordinator,
 )
-from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
+from Sagittarius_Elite_Warrior.tests.conftest import real_main_window
 from sagittarius_engine.extensions.pyside_mvc.workbench.navigation_service import (
     NavigationSource as ShellNavigationSource,
 )
@@ -96,8 +96,7 @@ class _WindowHarness:
         monkeypatch.setattr(thread_manager, "submit", recording_submit)
 
     def open(self, coordinator: UiStateCoordinator | None = None) -> MainWindow:
-        registry = real_screen_registry(self._app_engine.context.container)
-        window = MainWindow(self._app_engine, registry, state_coordinator=coordinator)
+        window = real_main_window(self._app_engine, state_coordinator=coordinator)
         # Not handed to `qtbot.addWidget`: `close()` below closes and deletes
         # each window itself, and qtbot closing it again would find the C++
         # object gone while the test still holds the window.

@@ -1,6 +1,6 @@
-"""The Data Management screen.
-
-`_tint_color` stays here: the view is its only caller."""
+"""The Data Management screen. Its commands (scan, sync, delete, export,
+import, optimize, purge) are the module's actions since `EPIC-033D`
+(`data_commands.py`), not buttons here."""
 
 from __future__ import annotations
 
@@ -39,7 +39,6 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import (
     CANCELLING_CAPTION,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
-    ConfirmOverlay,
     PageShell,
     ProgressBanner,
     StyleRole,
@@ -57,28 +56,6 @@ from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import Outpu
 if TYPE_CHECKING:
     from .data_management_view_model import DataManagementViewModel
 
-
-_ACTION_BUTTONS = [
-    (
-        "btnCheckStatus",
-        "Scan Current Status",
-        "database",
-        "muted",
-        "requestCheckStatus",
-    ),
-    (
-        "btnCheckAll",
-        "Scan All Shards & Timeframes",
-        "layout-dashboard",
-        "muted",
-        "requestCheckAllStatus",
-    ),
-    ("btnSyncData", "Sync Current Timeframe", "play", "success", "requestSync"),
-    ("btnSyncAllGaps", "Sync All Gaps", "clock", "success", "requestSyncAllGaps"),
-    ("btnClearData", "Clear Selected Local Data", "trash-2", "danger", None),
-    ("btnExportData", "Export Selected Data", "download", "muted", "requestExport"),
-    ("btnImportData", "Import Data From File", "save", "muted", "requestImport"),
-]
 
 _IDLE_MODE = "IDLE"
 _CANCELLING_MODE = "CANCELLING"
@@ -99,12 +76,6 @@ _FALLBACK_TIMEFRAME_SECONDS = 60
 def _timeframe_seconds_for(code: str) -> int:
     option = describe_timeframe(code)
     return option.seconds if option is not None else _FALLBACK_TIMEFRAME_SECONDS
-
-
-def _tint_color(tint: str) -> str:
-    return {"success": Palette.SUCCESS, "danger": Palette.DANGER}.get(
-        tint, Palette.MUTED
-    )
 
 
 class DataManagementView(OutputSourceView):
@@ -204,15 +175,6 @@ class DataManagementView(OutputSourceView):
         self._time_range.customTimeToggled.connect(self._on_custom_time_toggled)
         self._time_range.fromDateTimeEdited.connect(self._on_from_edited)
         self._time_range.toDateTimeEdited.connect(self._on_to_edited)
-
-        self._btn_vacuum.clicked.connect(view_model.requestVacuum)
-        self._btn_purge.clicked.connect(self._purge_dialog.open)
-
-        for object_name, _label, _icon, _tint, method_name in _ACTION_BUTTONS:
-            button = self._action_buttons[object_name]
-            if method_name is not None:
-                button.clicked.connect(getattr(view_model, method_name))
-        self._action_buttons["btnClearData"].clicked.connect(self._clear_dialog.open)
 
         self._progress_banner.cancelRequested.connect(view_model.requestCancel)
         view_model.openKlineInspectorRequested.connect(self._open_kline_inspector)
@@ -386,14 +348,10 @@ class DataManagementView(OutputSourceView):
     def _sync_ui_mode(self) -> None:
         vm = self._view_model
         idle = vm.uiMode == _IDLE_MODE
-        self._btn_vacuum.setEnabled(idle)
-        self._btn_purge.setEnabled(idle)
         self._btn_symbol.setEnabled(idle)
         self._btn_interval.setEnabled(idle)
         self._cbo_export_format.setEnabled(idle)
         self._time_range.set_read_only(not idle)
-        for object_name, *_rest in _ACTION_BUTTONS:
-            self._action_buttons[object_name].setEnabled(idle)
         self._sync_progress()
         if self._status_panel is not None:
             self._status_panel.set_actions_enabled(idle)
@@ -436,7 +394,6 @@ class DataManagementView(OutputSourceView):
             "SAGITTARIUS STORAGE VAULT",
             "Historical Market KLines Multi-Timeframe Database Hub",
             icon=get_icon_loader().get_icon("database", Palette.ACCENT),
-            actions=self._build_header_actions(),
         )
 
         main = QWidget()
@@ -451,33 +408,6 @@ class DataManagementView(OutputSourceView):
         # placement the Pattern Library rules out ("rail is always on the
         # right, never the left").
         shell.set_workspace(main, rail=self._build_sync_controls())
-
-        self._build_dialogs()
-
-    def _build_header_actions(self) -> list[QPushButton]:
-        self._btn_vacuum = QPushButton("Optimize Database (Vacuum)")
-        self._btn_vacuum.setObjectName("btnVacuum")
-        self._btn_vacuum.setIcon(get_icon_loader().get_icon("zap", Palette.ACCENT, 14))
-        self._btn_vacuum.setStyleSheet(
-            f"QPushButton {{ background-color: {Palette.BG_CARD}; color: {Palette.ACCENT}; "
-            f"border: 1px solid {Palette.ACCENT}; border-radius: 6px; min-height: 30px; "
-            f"font-size: 11px; font-weight: bold; }} "
-            f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
-        )
-
-        self._btn_purge = QPushButton("Purge Entire Vault (Purge)")
-        self._btn_purge.setObjectName("btnPurgeVault")
-        self._btn_purge.setIcon(
-            get_icon_loader().get_icon("trash-2", Palette.DANGER, 14)
-        )
-        self._btn_purge.setStyleSheet(
-            f"QPushButton {{ background-color: {Palette.BG_CARD}; color: {Palette.DANGER}; "
-            f"border: 1px solid {Palette.DANGER}; border-radius: 6px; min-height: 30px; "
-            f"font-size: 11px; font-weight: bold; }} "
-            f"QPushButton:hover {{ background-color: {Palette.BG_CARD_HEADER}; }}"
-        )
-
-        return [self._btn_vacuum, self._btn_purge]
 
     def _build_stat_tiles(self) -> QHBoxLayout:
         row = QHBoxLayout()
@@ -600,24 +530,6 @@ class DataManagementView(OutputSourceView):
         self._time_range = TimeRangeCardWidget()
         layout.addWidget(self._time_range)
 
-        layout.addWidget(self._section_label("ACTIONS"))
-
-        self._action_buttons: dict[str, QPushButton] = {}
-        for object_name, label, icon, tint, _method in _ACTION_BUTTONS:
-            button = QPushButton(label)
-            button.setObjectName(object_name)
-            button.setIcon(get_icon_loader().get_icon(icon, _tint_color(tint), 14))
-            border_color = _tint_color(tint) if tint != "muted" else Palette.BORDER
-            button.setStyleSheet(
-                f"QPushButton {{ background-color: {Palette.STATE_IDLE_BG}; "
-                f"color: {Palette.TEXT_PRIMARY}; border: 1px solid {border_color}; "
-                f"border-radius: 6px; min-height: 32px; font-size: 12px; text-align: left; "
-                f"padding-left: 8px; }} "
-                f"QPushButton:hover {{ background-color: {Palette.STATE_HOVER_BG}; }}"
-            )
-            self._action_buttons[object_name] = button
-            layout.addWidget(button)
-
         self._progress_container = QWidget()
         progress_layout = QVBoxLayout(self._progress_container)
         progress_layout.setContentsMargins(0, 0, 0, 0)
@@ -648,56 +560,6 @@ class DataManagementView(OutputSourceView):
         column = QVBoxLayout()
         self._status_column = column
         return column
-
-    def _build_dialogs(self) -> None:
-        """Both destructive confirms, on the engine's `ConfirmOverlay`.
-
-        The app's own `ConfirmDialog` took an `on_confirm` callback and
-        called `close()`, which left `exec()` returning `Rejected` even
-        after the user confirmed — `ConfirmOverlay` calls `accept()`, so
-        the answer is readable the standard Qt way. That rewiring is what
-        its docstring said the migration owed, and it is done here: the
-        callbacks move to `accepted`.
-
-        The slots stay indirect on purpose. `_build_dialogs()` runs from
-        `__init__`, long before `set_view_model()`, so binding
-        `self._view_model.requestClearData` here would bind `None`.
-        """
-        self._clear_dialog = ConfirmOverlay(
-            "CONFIRM DATA DELETION",
-            "Delete candles stored in the SQLite shard",
-            message="Are you sure you want to delete all candles for the selected "
-            "symbol/timeframe? This will free up disk space and empty the "
-            "corresponding klines table.",
-            confirm_text="Confirm Delete",
-            cancel_text="Cancel",
-            danger=True,
-            parent=self,
-        )
-        self._clear_dialog.confirm_button.setObjectName("btnConfirmClear")
-        self._clear_dialog.accepted.connect(self._on_clear_confirmed)
-
-        self._purge_dialog = ConfirmOverlay(
-            "DANGER WARNING — PURGE VAULT",
-            "Delete the entire SQLite database",
-            message="DANGER WARNING: You are about to delete ALL data for every "
-            "symbol in the Storage Vault! This action will delete all SQLite "
-            "shard files (.db) and cannot be undone.",
-            confirm_text="PURGE EVERYTHING (PURGE)",
-            cancel_text="Cancel",
-            danger=True,
-            parent=self,
-        )
-        self._purge_dialog.confirm_button.setObjectName("btnConfirmPurge")
-        self._purge_dialog.accepted.connect(self._on_purge_confirmed)
-
-    def _on_clear_confirmed(self) -> None:
-        if self._view_model is not None:
-            self._view_model.requestClearData()
-
-    def _on_purge_confirmed(self) -> None:
-        if self._view_model is not None:
-            self._view_model.requestPurgeAll()
 
     @staticmethod
     def _section_label(text: str) -> QLabel:

@@ -16,6 +16,9 @@ from __future__ import annotations
 
 from abc import ABC, abstractmethod
 
+from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
+    CommandContribution,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import (
     ContributionDescriptor,
 )
@@ -44,3 +47,9 @@ class IContributionRegistry(ABC):
     def contribute_options_page(self, contribution: OptionsPageContribution) -> None:
         """Offer a page of Tools → Options (`EPIC-033E`). Raises
         `ContributionError` if this contributor already offered one."""
+
+    @abstractmethod
+    def contribute_command(self, command: CommandContribution) -> None:
+        """Offer a command: one `QAction` in the menus, on its mode's toolbar
+        when asked, performed by the presenter that binds it (`EPIC-033D`).
+        Raises `ContributionError` on a command id already offered."""

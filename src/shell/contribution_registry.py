@@ -39,6 +39,9 @@ from __future__ import annotations
 
 import logging
 
+from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
+    CommandContribution,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import (
     ContributionDescriptor,
 )
@@ -137,6 +140,7 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
         )
         self._screens: dict[str, ScreenContribution] = {}
         self._options_pages: dict[str, OptionsPageContribution] = {}
+        self._commands: dict[str, CommandContribution] = {}
         self._default_route: str | None = None
         self._dropped = 0
 
@@ -196,6 +200,15 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
             )
         self._options_pages[contribution.contributor_id] = contribution
 
+    def contribute_command(self, command: CommandContribution) -> None:
+        if command.command_id in self._commands:
+            raise ContributionError(
+                f"{command.contributor_id!r} contributed the command "
+                f"{command.command_id!r}, already contributed by "
+                f"{self._commands[command.command_id].contributor_id!r}."
+            )
+        self._commands[command.command_id] = command
+
     # -- the reading side (IContributionTable) -----------------------------
 
     def surface(self, surface_id: str) -> Surface:
@@ -234,6 +247,10 @@ class ContributionRegistry(IContributionRegistry, IContributionTable):
                 key=lambda page: (page.order, page.contributor_id),
             )
         )
+
+    def commands(self) -> tuple[CommandContribution, ...]:
+        """Every command, in contribution order: the order its menu lists it."""
+        return tuple(self._commands.values())
 
     def default_route(self) -> str | None:
         return self._default_route

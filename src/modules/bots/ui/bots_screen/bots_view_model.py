@@ -46,6 +46,8 @@ class BotsViewModel(StatusMessageViewModel):
     actions_changed = Signal()
     fills_changed = Signal()
     log_changed = Signal()
+    #: An action is in flight: every command waits for it (`EPIC-033D`).
+    action_in_flight_changed = Signal()
 
     #: The bot the user picked, `""` for none.
     select_requested = Signal(str)
@@ -63,6 +65,7 @@ class BotsViewModel(StatusMessageViewModel):
         self.refusal = ""
         self.availability: Mapping[BotAction, ActionAvailability] = {}
         self.fills = BotFills()
+        self.action_in_flight = False
         self._log: deque[str] = deque(maxlen=LOG_LIMIT)
 
     @Slot(object)
@@ -99,6 +102,12 @@ class BotsViewModel(StatusMessageViewModel):
     ) -> None:
         self.availability = availability
         self.actions_changed.emit()
+
+    @Slot(bool)
+    def set_action_in_flight(self, in_flight: bool) -> None:
+        if in_flight != self.action_in_flight:
+            self.action_in_flight = in_flight
+            self.action_in_flight_changed.emit()
 
     @Slot(object)
     def set_fills(self, fills: BotFills) -> None:

@@ -12,6 +12,10 @@ that surface is where the panels are, so the
 View menu's panel and toolbar toggles and the mode's layout (save, restore,
 Reset layout) are the surface's. A view without one has no panels: its View
 entries are empty and its layout is the central widget alone.
+
+Every mode also has a commands toolbar (`EPIC-033D`): the window places each
+contributed command marked for the toolbar there, as the action its menu entry
+shares. View → Toolbars lists it beside the surface's own toolbars.
 """
 
 from __future__ import annotations
@@ -25,8 +29,10 @@ from sagittarius_engine.extensions.pyside_mvc.runtime.surface_declaration import
     SurfaceDeclaration,
 )
 
-#: The one place a `ModeHost` accepts: its central widget.
+#: The places a `ModeHost` accepts: its central widget, and the toolbar its
+#: mode's commands go on.
 _SCREEN_PLACE = "screen"
+_COMMANDS_PLACE = "commands"
 _SURFACE_PREFIX = "mode::"
 
 
@@ -45,9 +51,12 @@ class ModeHost(RegionHost):
         super().__init__(
             SurfaceDeclaration(
                 surface_id=f"{_SURFACE_PREFIX}{mode_id}",
-                accepts=frozenset({_SCREEN_PLACE}),
+                accepts=frozenset({_SCREEN_PLACE, _COMMANDS_PLACE}),
             ),
-            {_SCREEN_PLACE: RegionKind.CENTRAL},
+            {
+                _SCREEN_PLACE: RegionKind.CENTRAL,
+                _COMMANDS_PLACE: RegionKind.TOP_TOOLBAR,
+            },
         )
         self.setObjectName(f"workbench::mode::{mode_id}")
         self._view = view
@@ -63,10 +72,15 @@ class ModeHost(RegionHost):
             return self._inner.dock_toggle_actions()
         return super().dock_toggle_actions()
 
+    def add_command(self, action: QAction) -> None:
+        """Puts a command on this mode's toolbar."""
+        self.place_action(_COMMANDS_PLACE, action)
+
     def toolbar_toggle_actions(self) -> tuple[QAction, ...]:
+        own = super().toolbar_toggle_actions()
         if self._inner is not None:
-            return self._inner.toolbar_toggle_actions()
-        return super().toolbar_toggle_actions()
+            return (*self._inner.toolbar_toggle_actions(), *own)
+        return own
 
     @property
     def layout_version(self) -> int:

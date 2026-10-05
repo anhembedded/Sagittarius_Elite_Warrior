@@ -3,13 +3,13 @@ Emergency Stop and symbol for its own venue only.
 
 @details The whole desk over verified fakes (`desk_screen_fixtures.py`):
 the real `DeskView`, the real `DeskPresenter` and every part it composes,
-driven through the view's own controls by their `objectName`.
+driven through the view's own controls by their `objectName`, and through
+its commands' real actions (`desk_actions.py`, `EPIC-033D`).
 """
 
 from __future__ import annotations
 
 import pytest
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QComboBox, QLabel, QPushButton
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.i_venue_trading_ports import (
     IVenueTradingPorts,
@@ -33,6 +33,7 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 )
 from Sagittarius_Elite_Warrior.tests.conftest import fake_container
 
+from .desk_actions import bind_desk_actions
 from .desk_screen_fixtures import DeskWorld, build_desk, market_of
 
 FUTURES = TradingVenue.FUTURES_TESTNET
@@ -59,12 +60,13 @@ def test_enabling_trading_puts_this_desks_chart_live_under_its_own_owner(
 ) -> None:
     world = DeskWorld()
     desk = build_desk(qtbot, FUTURES, world)
-    toggle = desk.view.findChild(QPushButton, "btnToggleTrading")
+    toggle = desk.actions.enable_trading
 
-    qtbot.mouseClick(toggle, Qt.MouseButton.LeftButton)
+    toggle.trigger()
 
     assert desk.session.enables == 1
-    assert toggle.text() == "Disable Trading"
+    assert toggle.isChecked()
+    assert toggle.isEnabled()
     held = world.stream.held_by("desk.futures_testnet")
     assert held is not None
     assert held.market_type is market_of(FUTURES)
@@ -98,9 +100,7 @@ def test_a_refused_enable_reads_as_an_error_and_leaves_the_chart_local(
     desk = build_desk(qtbot, SPOT, world)
     desk.session.enable_raises(RuntimeError("keys rejected"))
 
-    qtbot.mouseClick(
-        desk.view.findChild(QPushButton, "btnToggleTrading"), Qt.MouseButton.LeftButton
-    )
+    desk.actions.enable_trading.trigger()
 
     status = desk.view.findChild(QLabel, "lblDeskStatus").text()
     assert status.startswith("Error: ")
@@ -115,10 +115,9 @@ def test_emergency_stop_reaches_this_desks_session_and_rereads_its_account(
     desk.session.set_enabled(enabled=True)
     reads_before = desk.activity.open_order_reads
 
-    qtbot.mouseClick(
-        desk.view.findChild(QPushButton, "btnEmergencyStop"), Qt.MouseButton.LeftButton
-    )
+    desk.actions.emergency_stop.trigger()
 
+    assert [asked.title for asked in desk.actions.confirmer.asked] == ["Emergency stop"]
     assert desk.session.emergency_stops == 1
     assert desk.activity.open_order_reads > reads_before
 
@@ -153,8 +152,7 @@ def test_a_desk_whose_venue_is_off_says_so_and_holds_nothing_that_sends(
     notice = view.findChild(QLabel, "lblDeskDisabled")
     assert notice is not None
     assert notice.text() == disabled_text(profile)
-    assert view.findChild(QPushButton, "btnToggleTrading") is None
-    assert view.findChild(QPushButton, "btnEmergencyStop") is None
+    assert view.findChildren(QPushButton) == []
 
 
 @pytest.mark.parametrize("venue", [FUTURES, SPOT])
@@ -189,9 +187,15 @@ def test_the_futures_route_opens_the_notice_when_only_spot_is_served(qtbot) -> N
     qtbot.addWidget(view)
     assert view.findChild(QLabel, "lblDeskDisabled") is None
 
-    screen.presenter_factory(view, container)
+    presenter = screen.presenter_factory(view, container)
 
     notice = view.findChild(QLabel, "lblDeskDisabled")
     assert notice is not None
     assert notice.text() == disabled_text(desk_profile_for(FUTURES))
-    assert view.findChild(QPushButton, "btnEmergencyStop") is None
+    assert view.findChildren(QPushButton) == []
+    # `EPIC-033D`: its commands are bound, so boot reports none unbound, and
+    # disabled, so nothing can enable or stop a venue this run does not serve.
+    actions = bind_desk_actions(view, presenter, FUTURES)
+    assert actions.registry.unbound() == ()
+    assert not actions.enable_trading.isEnabled()
+    assert not actions.emergency_stop.isEnabled()

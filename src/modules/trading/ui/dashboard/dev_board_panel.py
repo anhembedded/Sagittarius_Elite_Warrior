@@ -60,9 +60,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Panel,
-    StyledButton,
     StyledCheckBox,
-    StyleRole,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPreferences,
@@ -97,10 +95,6 @@ _FALLBACK_TIMEFRAME_SECONDS = TimeFrame.ONE_MINUTE.to_seconds()
 _FALLBACK_TIMEFRAME_LABEL = TimeFrame.ONE_MINUTE.value
 
 # --- `EPIC-023D` toggle/Emergency Stop — the fixed text the desks use. --- #
-_TOGGLE_ON_TEXT = "Disable Trading"
-_TOGGLE_OFF_TEXT = "Enable Trading"
-_TOGGLE_BUSY_TEXT = "Processing..."
-_EMERGENCY_STOP_TEXT = "EMERGENCY STOP"
 
 #: Dock titles, one per card. A title is the user's handle on a panel — the
 #: View menu lists it, a floating panel's title bar reads it, and
@@ -130,10 +124,12 @@ class DevBoardPanel(QObject):
     to be the region the cards sat on (painting the app background with its
     own stylesheet, `Palette.BG`); a `QObject` paints nothing.
 
-    Every private attribute stays where it was — `panel._btn_start`,
+    Every private attribute stays where it was — `panel._btn_symbol`,
     `panel._txt_start_date`, `panel._script_checkboxes` — because that is
     what tests and the Presenter key off. New: the public read side,
-    `dock_panels`/`header_actions`/`status_tiles`. The System monitor log is
+    `dock_panels`/`status_tiles`. Reload, Enable live trading, Emergency stop
+    and New order are the module's commands since `EPIC-033D`
+    (`dev_board_commands.py`). The System monitor log is
     a channel of the window's Output pane since `EPIC-033F`
     (`DashboardView.output_channel`).
     """
@@ -189,13 +185,11 @@ class DevBoardPanel(QObject):
         self._sync_ws_status()
         self._sync_controls_active()
         self._sync_progress()
-        self._sync_trading_state()
 
     # ------------------------------------------------------------------ #
     # System Controls card pass-through — the card owns these widgets;
-    # `_sync_controls_active()` below (which also reaches the header's own
-    # `_btn_reload`) and every existing test still read them as
-    # `panel._btn_start` etc.
+    # `_sync_controls_active()` below and every existing test still read them
+    # as `panel._btn_symbol` etc.
     # ------------------------------------------------------------------ #
 
     @property
@@ -217,18 +211,6 @@ class DevBoardPanel(QObject):
     @property
     def _btn_pick_range(self) -> QWidget:
         return self._system_controls_card._btn_pick_range
-
-    @property
-    def _btn_load_history(self) -> QWidget:
-        return self._system_controls_card._btn_load_history
-
-    @property
-    def _btn_start(self) -> QWidget:
-        return self._system_controls_card._btn_start
-
-    @property
-    def _btn_stop(self) -> QWidget:
-        return self._system_controls_card._btn_stop
 
     @property
     def _progress_banner(self) -> QWidget:
@@ -266,11 +248,9 @@ class DevBoardPanel(QObject):
     # ------------------------------------------------------------------ #
 
     def _build_header_widgets(self) -> None:
-        """The price ticker, WS status pill, and the three buttons — no
-        title, no wrapping row or `Panel` of their own. This panel is a dock,
-        not the page header: `DashboardView` collects these through
-        `header_actions` (the toolbar) and `status_tiles` (the status bar),
-        the same split every other screen's View/content-panel pair uses."""
+        """The price ticker and WS status pill — no title, no wrapping row or
+        `Panel` of their own: `DashboardView` puts them in the status bar
+        (`status_tiles`)."""
         self._price_ticker_label = QLabel()
         self._price_ticker_label.setObjectName("lblPriceTicker")
 
@@ -282,48 +262,6 @@ class DevBoardPanel(QObject):
         # itself, so nothing here sizes it either.
         self._ws_status_pill = WsStatusPill()
         self._ws_status_pill.setObjectName("wsStatusPill")
-
-        self._btn_reload = QPushButton()
-        self._btn_reload.setObjectName("btnReload")
-        self._btn_reload.setIcon(
-            get_icon_loader().get_icon("clock", Palette.TEXT_PRIMARY, 12)
-        )
-        self._btn_reload.setFixedHeight(26)
-        self._btn_reload.clicked.connect(self._view_model.requestLoadHistory)
-
-        # `EPIC-023D` — the header placement the retired Trading screen gave
-        # its toggle; Dev Board has no separate context bar for
-        # "DỪNG KHẨN CẤP" the way Trading had, so it goes in `header_actions`
-        # too, right beside the toggle — both must stay visible regardless
-        # of which System Controls card state the panel is scrolled to.
-        self._btn_toggle_trading = StyledButton(
-            _TOGGLE_OFF_TEXT, role=StyleRole.PRIMARY_BUTTON
-        )
-        self._btn_toggle_trading.setObjectName("btnToggleTrading")
-        self._btn_toggle_trading.setFixedHeight(26)
-        self._btn_toggle_trading.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_toggle_trading.clicked.connect(self._view_model.requestToggle)
-
-        self._btn_emergency_stop = StyledButton(
-            _EMERGENCY_STOP_TEXT, role=StyleRole.DANGER_BUTTON
-        )
-        self._btn_emergency_stop.setObjectName("btnEmergencyStop")
-        self._btn_emergency_stop.setFixedHeight(26)
-        self._btn_emergency_stop.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_emergency_stop.clicked.connect(self._view_model.requestEmergencyStop)
-
-    @property
-    def header_actions(self) -> list[QWidget]:
-        """What `DashboardView` places in the workbench's header toolbar:
-        the three things the user *does* from here. The price ticker and
-        websocket pill left this list in PR 1.4c-2 — they report rather
-        than act, and HLD §11.2 puts both in the status bar instead
-        (`status_tiles` below)."""
-        return [
-            self._btn_reload,
-            self._btn_toggle_trading,
-            self._btn_emergency_stop,
-        ]
 
     @property
     def status_tiles(self) -> list[QWidget]:
@@ -363,16 +301,6 @@ class DevBoardPanel(QObject):
         self._rebuild_script_rows()
         self._view_model.script_model.modelReset.connect(self._rebuild_script_rows)
         return card
-
-    def _sync_trading_state(self) -> None:
-        vm = self._view_model
-        self._btn_toggle_trading.setEnabled(not vm.toggleBusy)
-        if vm.toggleBusy:
-            self._btn_toggle_trading.setText(_TOGGLE_BUSY_TEXT)
-        else:
-            self._btn_toggle_trading.setText(
-                _TOGGLE_ON_TEXT if vm.enabled else _TOGGLE_OFF_TEXT
-            )
 
     def set_indicator_script_dependencies(
         self,
@@ -530,7 +458,6 @@ class DevBoardPanel(QObject):
         vm.startDateChanged.connect(self._sync_start_date)
         vm.endDateChanged.connect(self._sync_end_date)
         vm.symbolChanged.connect(self._sync_symbol)
-        vm.tradingStateChanged.connect(self._sync_trading_state)
 
     def _on_start_date_edited(self, text: str) -> None:
         self._view_model.startDate = text
@@ -605,22 +532,6 @@ class DevBoardPanel(QObject):
     def _sync_controls_active(self) -> None:
         vm = self._view_model
         controls_active = vm.controlsEnabled and not vm.historyLoading
-        self._btn_reload.setText("Loading…" if vm.historyLoading else "Reload")
-        self._btn_reload.setEnabled(controls_active)
-        self._btn_load_history.setText(
-            "Loading…" if vm.historyLoading else "Load History"
-        )
-        self._btn_load_history.setEnabled(controls_active)
-        self._btn_start.setEnabled(controls_active)
-        # BOT-123 (was `vm.uiMode == "LIVE"` only): Start Live spends its
-        # first several seconds — sometimes much longer, see the sync log
-        # this was reported against — in LOCKED, syncing from Binance before
-        # the websocket ever opens. Stop is how the user cancels that sync
-        # (StreamLifecycleController._on_stop_stream cancels the same
-        # CancellationToken the sync's cancellation_requested reads); leaving
-        # it disabled through the one phase a user would most want to cancel
-        # left LOCKED syncs with no way to stop short of killing the app.
-        self._btn_stop.setEnabled(vm.uiMode in ("LIVE", "LOCKED"))
         self._cbo_market.setEnabled(controls_active)
         self._btn_symbol.setEnabled(controls_active)
         self._txt_start_date.setEnabled(controls_active)

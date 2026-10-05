@@ -172,6 +172,8 @@ from sagittarius_engine.interfaces.i_dispatcher import IDispatcher
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 from sagittarius_engine.runtime.tasks.cancellation_token import CancellationToken
 
+from .backtest_actions import backtest_actions
+
 _T0 = datetime(2026, 1, 1, tzinfo=UTC)
 _T1 = datetime(2026, 1, 2, tzinfo=UTC)
 
@@ -2460,15 +2462,17 @@ def test_qml_documents_load_without_errors(presenter, qapp):
     assert presenter.view.bottom_widget is not None
 
 
-def test_qml_run_button_click_requests_a_run(
-    presenter, view_model, qapp, mock_thread_mgr
+def test_run_then_stop_through_the_presenters_own_actions(
+    presenter, qapp, mock_thread_mgr
 ):
-    qapp.processEvents()
+    actions = backtest_actions(presenter)
 
-    presenter.view.top_widget._btn_run.click()
-    qapp.processEvents()
-
+    actions.run.trigger()
     mock_thread_mgr.submit.assert_called_once()
+    actions.stop.trigger()
+    qapp.processEvents()
+
+    assert presenter.fsm.current_state is BacktestUiState.CANCELLING
 
 
 def test_bot_params_button_is_enabled(presenter, qapp):
@@ -3598,7 +3602,7 @@ def test_export_writes_the_currently_filtered_trades(
 
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "backtest_presenter.QFileDialog.getSaveFileName",
+        "logic.report_file_dialogs.QFileDialog.getSaveFileName",
         return_value=(export_path, "CSV Files (*.csv)"),
     ):
         view_model.trade_log.request_export()
@@ -3619,7 +3623,7 @@ def test_export_does_nothing_when_the_dialog_is_cancelled(
 
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "backtest_presenter.QFileDialog.getSaveFileName",
+        "logic.report_file_dialogs.QFileDialog.getSaveFileName",
         return_value=("", ""),
     ):
         view_model.trade_log.request_export()  # must not raise
@@ -3628,7 +3632,7 @@ def test_export_does_nothing_when_the_dialog_is_cancelled(
 def test_export_does_nothing_when_there_are_no_trades_yet(presenter, view_model):
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "backtest_presenter.QFileDialog.getSaveFileName"
+        "logic.report_file_dialogs.QFileDialog.getSaveFileName"
     ) as mock_dialog:
         view_model.trade_log.request_export()
 
@@ -3677,7 +3681,7 @@ def test_qml_trade_log_export_button_click_requests_export(
 
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "backtest_presenter.QFileDialog.getSaveFileName",
+        "logic.report_file_dialogs.QFileDialog.getSaveFileName",
         return_value=("", ""),
     ) as mock_dialog:
         presenter.view.bottom_widget._btn_export.click()
@@ -4100,7 +4104,7 @@ def test_report_export_does_nothing_when_there_is_no_result_yet(presenter):
 
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "backtest_presenter.QFileDialog.getSaveFileName"
+        "logic.report_file_dialogs.QFileDialog.getSaveFileName"
     ) as mock_dialog:
         presenter._on_report_export_requested()
 
@@ -4124,7 +4128,7 @@ def test_report_export_writes_the_completed_run_to_the_chosen_path(presenter, tm
     dest = tmp_path / "run.sagi-report.json"
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "backtest_presenter.QFileDialog.getSaveFileName",
+        "logic.report_file_dialogs.QFileDialog.getSaveFileName",
         return_value=(str(dest), ""),
     ):
         presenter._on_report_export_requested()
@@ -4154,7 +4158,7 @@ def test_report_export_writes_nothing_when_the_dialog_is_cancelled(presenter):
     with (
         patch(
             "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-            "backtest_presenter.QFileDialog.getSaveFileName",
+            "logic.report_file_dialogs.QFileDialog.getSaveFileName",
             return_value=("", ""),
         ),
         patch(
@@ -4188,7 +4192,7 @@ def test_report_export_uses_the_run_that_produced_the_result_not_a_dirty_toolbar
     dest = tmp_path / "run.sagi-report.json"
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "backtest_presenter.QFileDialog.getSaveFileName",
+        "logic.report_file_dialogs.QFileDialog.getSaveFileName",
         return_value=(str(dest), ""),
     ):
         presenter._on_report_export_requested()
@@ -4215,7 +4219,7 @@ def _export_a_report(presenter, path, *, trades=None):
     presenter._on_backtest_succeeded(result)
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "backtest_presenter.QFileDialog.getSaveFileName",
+        "logic.report_file_dialogs.QFileDialog.getSaveFileName",
         return_value=(str(path), ""),
     ):
         presenter._on_report_export_requested()
@@ -4226,7 +4230,7 @@ def test_report_import_does_nothing_when_the_dialog_is_cancelled(presenter):
     """`BOT-115C` — an empty path (Cancel) must not touch the FSM."""
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "backtest_presenter.QFileDialog.getOpenFileName",
+        "logic.report_file_dialogs.QFileDialog.getOpenFileName",
         return_value=("", ""),
     ):
         presenter._on_report_import_requested()
@@ -4246,7 +4250,7 @@ def test_report_import_enters_the_viewing_state_with_matching_panels(
 
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "backtest_presenter.QFileDialog.getOpenFileName",
+        "logic.report_file_dialogs.QFileDialog.getOpenFileName",
         return_value=(str(path), ""),
     ):
         presenter._on_report_import_requested()
@@ -4271,7 +4275,7 @@ def test_report_import_of_a_malformed_file_shows_an_error_and_stays_idle(
 
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "backtest_presenter.QFileDialog.getOpenFileName",
+        "logic.report_file_dialogs.QFileDialog.getOpenFileName",
         return_value=(str(path), ""),
     ):
         presenter._on_report_import_requested()
@@ -4293,7 +4297,7 @@ def test_report_import_flags_a_strategy_no_longer_registered(presenter, tmp_path
         patch.object(presenter._strategy_catalog, "options", return_value=()),
         patch(
             "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-            "backtest_presenter.QFileDialog.getOpenFileName",
+            "logic.report_file_dialogs.QFileDialog.getOpenFileName",
             return_value=(str(path), ""),
         ),
     ):
@@ -4311,7 +4315,7 @@ def test_exiting_the_imported_report_view_returns_to_idle_and_clears_the_banner(
     _export_a_report(presenter, path)
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "backtest_presenter.QFileDialog.getOpenFileName",
+        "logic.report_file_dialogs.QFileDialog.getOpenFileName",
         return_value=(str(path), ""),
     ):
         presenter._on_report_import_requested()
@@ -4333,7 +4337,7 @@ def test_run_requested_while_viewing_an_imported_report_starts_a_real_run(
     _export_a_report(presenter, path)
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "backtest_presenter.QFileDialog.getOpenFileName",
+        "logic.report_file_dialogs.QFileDialog.getOpenFileName",
         return_value=(str(path), ""),
     ):
         presenter._on_report_import_requested()
@@ -4353,7 +4357,7 @@ def test_config_changed_while_viewing_an_imported_report_marks_it_dirty(
     _export_a_report(presenter, path)
     with patch(
         "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "backtest_presenter.QFileDialog.getOpenFileName",
+        "logic.report_file_dialogs.QFileDialog.getOpenFileName",
         return_value=(str(path), ""),
     ):
         presenter._on_report_import_requested()
@@ -4628,17 +4632,6 @@ def test_progress_updates_are_ignored_after_cancel(presenter, view_model):
     )
 
     assert view_model.run_progress.backtestProgressPercent == 50.0
-
-
-def test_qml_run_button_requests_cancel_while_backtest_is_running(
-    presenter, view_model, qapp
-):
-    view_model.requestRun()
-
-    presenter.view.top_widget._btn_run.click()
-    qapp.processEvents()
-
-    assert presenter.fsm.current_state is BacktestUiState.CANCELLING
 
 
 def test_superseded_backtest_success_cannot_overwrite_the_new_action(

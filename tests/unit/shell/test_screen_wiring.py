@@ -143,3 +143,16 @@ def test_the_registry_holds_one_descriptor_per_route() -> None:
         tuple(descriptor.route for descriptor in screen_registry.get_all())
         == _EXPECTED_ROUTES
     )
+
+
+def test_the_registry_carries_the_commands_contributed_with_the_screens() -> None:
+    """`EPIC-033D`: `MainWindow` takes the commands from the same object as
+    the screens, so no caller can hand it a desk without the desk's commands
+    (the presenter would bind a command that was never contributed)."""
+    registry = ContributionRegistry(dev_mode=False)
+    _contribute_screens(registry, container=object())
+
+    screen_registry = build_screen_registry(registry)
+
+    assert registry.commands()
+    assert tuple(screen_registry.commands()) == tuple(registry.commands())

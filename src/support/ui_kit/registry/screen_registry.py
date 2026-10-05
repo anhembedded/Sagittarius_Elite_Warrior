@@ -4,6 +4,9 @@ from __future__ import annotations
 
 from collections.abc import Sequence
 
+from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
+    CommandContribution,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.nav_metadata import (
     NavLocation,
     NavMetadata,
@@ -21,6 +24,7 @@ class ScreenRegistry(IScreenRegistry):
         self._descriptors: dict[str, ScreenDescriptor] = {}
         self._sections: dict[str, SectionDescriptor] = {}
         self._default_route: str | None = None
+        self._commands: dict[str, CommandContribution] = {}
 
     def register(self, descriptor: ScreenDescriptor) -> None:
         """`EPIC-025`: registers a screen descriptor and reconciles its
@@ -95,6 +99,16 @@ class ScreenRegistry(IScreenRegistry):
                 ),
             )
         )
+
+    def register_command(self, command: CommandContribution) -> None:
+        if command.command_id in self._commands:
+            raise ValueError(
+                f"Command '{command.command_id}' already exists in ScreenRegistry"
+            )
+        self._commands[command.command_id] = command
+
+    def commands(self) -> Sequence[CommandContribution]:
+        return tuple(self._commands.values())
 
     def _section_sequence(self, nav: NavMetadata) -> int:
         if nav.location == NavLocation.BOTTOM_ACTION:

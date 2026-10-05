@@ -38,7 +38,7 @@ def _open_dashboard(navigate):
 
 
 def _click_load_history(view, qml_item=None):
-    # Not view._panel._btn_load_history.click(): the button is legitimately
+    # Not the Load history command: it is legitimately
     # disabled while uiMode == "LIVE" (autostart already connected the
     # mocked stream by the time `navigate` returns) — same target the
     # button's own handler calls.

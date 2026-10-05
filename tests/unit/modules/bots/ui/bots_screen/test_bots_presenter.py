@@ -14,6 +14,10 @@ from Sagittarius_Elite_Warrior.src.modules.bots.domain.bot_lifecycle_fsm_matrix 
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules import (
     BotAction,
 )
+from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
+    NEW_BOT,
+    lifecycle_id,
+)
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_ui_fsm_matrix import (
     BotsUiState,
 )
@@ -235,9 +239,9 @@ def test_one_action_at_a_time_locks_the_list_and_every_action(
     screen.view.model.action_requested.emit(BotAction.SAVE.value)
 
     assert not screen.view.table.isEnabled()
-    assert not screen.view.new_bot.isEnabled()
+    assert not screen.actions.action(NEW_BOT).isEnabled()
     assert not any(
-        button.isEnabled() for button in screen.view.detail.action_buttons.values()
+        screen.actions.action(lifecycle_id(action)).isEnabled() for action in BotAction
     )
     screen.view.model.action_requested.emit(BotAction.DELETE.value)
     assert len(screen.pool.pending) == 1  # the second click queued nothing

@@ -6,7 +6,8 @@ the port are excluded from mypy, and the window dispatches with
 the port would be skipped without a sound and its screen would never go live,
 so this module reads the sources: the port declares exactly what the window
 calls, and every class in `src/` that defines `on_mode_shown` takes the
-port's one argument.
+port's one argument. Since `EPIC-033D` the window also dispatches on
+`CommandPresenter`, so "what the window calls" is checked against both.
 
 Retire when: `presentation/` and the implementers are under the mypy gate,
 which would catch both directions statically.
@@ -20,16 +21,23 @@ from pathlib import Path
 from Sagittarius_Elite_Warrior.src.core.contracts.i_shown_as_mode import (
     IShownAsMode,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
+    CommandPresenter,
+)
 
 _SRC = Path(__file__).resolve().parents[4] / "src"
 _WINDOW = _SRC / "presentation" / "ui" / "main_window.py"
 _METHOD = "on_mode_shown"
 
 
-def _declared() -> frozenset[str]:
+#: Every port the window dispatches a presenter on with `isinstance`.
+_PRESENTER_PORTS: tuple[type, ...] = (IShownAsMode, CommandPresenter)
+
+
+def _declared(port: type) -> frozenset[str]:
     return frozenset(
         name
-        for name, value in vars(IShownAsMode).items()
+        for name, value in vars(port).items()
         if callable(value) and not name.startswith("_")
     )
 
@@ -61,9 +69,11 @@ def _called_on_presenters() -> frozenset[str]:
     )
 
 
-def test_the_port_declares_exactly_what_the_window_calls() -> None:
-    assert _declared() == {_METHOD}
-    assert _called_on_presenters() == _declared()
+def test_the_ports_declare_exactly_what_the_window_calls() -> None:
+    assert _declared(IShownAsMode) == {_METHOD}
+    assert _called_on_presenters() == frozenset().union(
+        *(_declared(port) for port in _PRESENTER_PORTS)
+    )
 
 
 def test_every_implementer_takes_the_ports_one_source_argument() -> None:

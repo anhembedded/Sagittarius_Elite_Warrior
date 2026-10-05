@@ -92,9 +92,7 @@ class BackTestView(OutputSourceView):
 
         self._shell = PageShell()
         outer_layout.addWidget(self._shell)
-        # No "Run" action yet — `BackTestTopPanel` (and its `run_button`)
-        # is not built until `set_view_model()`, which calls this again
-        # with the real button once it exists.
+        # Run and Stop are the module's commands (`backtest_commands.py`).
         self._shell.set_header(
             "Backtest Engine", "Test strategies against historical data"
         )
@@ -145,9 +143,7 @@ class BackTestView(OutputSourceView):
         self.top_widget = BackTestTopPanel(view_model)
         self._scroll_content_layout.insertWidget(0, self.top_widget)
         self._shell.set_header(
-            "Backtest Engine",
-            "Test strategies against historical data",
-            actions=self.top_widget.run_button,
+            "Backtest Engine", "Test strategies against historical data"
         )
 
         self.bottom_widget = BackTestTradeLogsPanel(view_model)

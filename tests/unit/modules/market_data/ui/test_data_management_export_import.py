@@ -48,7 +48,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 _PRESENTER_MODULE = (
     "Sagittarius_Elite_Warrior.src.modules.market_data.ui."
-    "data_management_presenter.QFileDialog"
+    "logic.data_file_dialogs.QFileDialog"
 )
 
 

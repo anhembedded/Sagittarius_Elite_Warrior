@@ -12,8 +12,6 @@ from __future__ import annotations
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from PySide6.QtCore import Qt
-from PySide6.QtWidgets import QPushButton
 from Sagittarius_Elite_Warrior.src.modules.strategy.contracts.live_strategy_config import (
     LiveStrategyConfig,
 )
@@ -108,18 +106,13 @@ def test_each_desk_streams_its_own_market_and_enabling_one_leaves_the_other(
 ) -> None:
     world, futures, spot = _two_desks(qtbot)
 
-    qtbot.mouseClick(
-        futures.view.findChild(QPushButton, "btnToggleTrading"),
-        Qt.MouseButton.LeftButton,
-    )
+    futures.actions.enable_trading.trigger()
 
     assert futures.session.enables == 1
     assert spot.session.enables == 0
     assert world.stream.held_by("desk.spot_testnet") is None
 
-    qtbot.mouseClick(
-        spot.view.findChild(QPushButton, "btnToggleTrading"), Qt.MouseButton.LeftButton
-    )
+    spot.actions.enable_trading.trigger()
 
     held_futures = world.stream.held_by("desk.futures_testnet")
     held_spot = world.stream.held_by("desk.spot_testnet")
@@ -134,9 +127,7 @@ def test_an_emergency_stop_on_one_desk_stops_that_venue_only(qtbot) -> None:
     futures.session.set_enabled(enabled=True)
     spot.session.set_enabled(enabled=True)
 
-    qtbot.mouseClick(
-        spot.view.findChild(QPushButton, "btnEmergencyStop"), Qt.MouseButton.LeftButton
-    )
+    spot.actions.emergency_stop.trigger()
 
     assert spot.session.emergency_stops == 1
     assert futures.session.emergency_stops == 0

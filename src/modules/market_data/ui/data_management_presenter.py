@@ -1,12 +1,10 @@
 from __future__ import annotations
 
 import logging
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Signal, Slot
-from PySide6.QtWidgets import QFileDialog
-from Sagittarius_Elite_Warrior.src.config.config_keys import ConfigKeys
 from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
     NavigationSource,
 )
@@ -42,6 +40,12 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     default_symbol,
     default_symbol_options,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
+    ICommandBinder,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
+    CommandPresenter,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from Sagittarius_Elite_Warrior.src.support.ui_kit.signal_log_handler import (
     SignalLogHandler,
@@ -60,18 +64,15 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.symbol_picker import (
     SymbolPreferences,
     find_symbol_preferences,
 )
-from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
+from sagittarius_engine.extensions.pyside_mvc import safe_ui_action
 from sagittarius_engine.interfaces.i_config import IConfig
 from sagittarius_engine.interfaces.i_thread_manager import IThreadManager
 
+from .data_command_binding import bind_data_commands
 from .data_management_signal_payloads import GapInspectorPayload, StatusRowUpdate
 from .data_management_view_model import DataManagementViewModel
 from .logic.coordinator_factory import build_coordinators
-from .logic.export_paths import (
-    export_file_filter,
-    resolve_default_exports_dir,
-    suggest_export_filename,
-)
+from .logic.data_file_dialogs import DataFileDialogs
 from .logic.stats import database_size_text
 from .logic.ui_mode_transitions import install_transitions
 
@@ -92,7 +93,7 @@ _INTERVAL_KEY = "interval"
 logger = logging.getLogger("App.DataManagement")
 
 
-class DataManagementPresenter(BasePresenter):
+class DataManagementPresenter(CommandPresenter):
     """
     @brief Orchestrator Presenter for the Database screen (Storage Vault — BOT-112A).
 
@@ -140,6 +141,7 @@ class DataManagementPresenter(BasePresenter):
         super().__init__(view, container)
 
         self._view_model = DataManagementViewModel()
+        self._file_dialogs = DataFileDialogs(view, self.config)
         # EPIC-010H, middle tier: this screen used to ignore Settings entirely,
         # so editing DEFAULT_SYMBOLS/DEFAULT_INTERVAL changed the Backtest
         # screen and silently left this one on its own hardcoded list.
@@ -280,6 +282,9 @@ class DataManagementPresenter(BasePresenter):
     # ================================================================== #
     # BasePresenter contract implementations
     # ================================================================== #
+
+    def bind_commands(self, binder: ICommandBinder) -> None:
+        bind_data_commands(binder, self._view_model)
 
     def _connect_ui_signals(self) -> None:
         """Connect view-model requests and internal signals to presenter slots."""
@@ -574,48 +579,17 @@ class DataManagementPresenter(BasePresenter):
             self._kline_inspector_coordinator.run_audit, symbol, interval
         )
 
-    def _ask_export_path(self, file_format: ExportFileFormat) -> str:
-        """Where to write the export, or "" if the user cancelled.
-
-        Kept on the presenter rather than in `ExportImportCoordinator`: the
-        dialog needs `self.view` as its parent, and a coordinator that opens
-        Qt dialogs cannot be unit-tested without one (mirrors
-        `backtest_presenter._ask_report_export_path`).
-        """
-        exports_dir = resolve_default_exports_dir(
-            self.config.get(ConfigKeys.MARKET_DATA_EXPORTS_DIR.value)
-        )
-        suggested_name = suggest_export_filename(
-            self._view_model.selectedSymbol,
-            self._view_model.selectedInterval,
-            file_format,
-            datetime.now(UTC),
-        )
-        path, _selected_filter = QFileDialog.getSaveFileName(
-            self.view,
-            "Export Market Data",
-            f"{exports_dir}/{suggested_name}",
-            export_file_filter(file_format),
-        )
-        return path
-
-    def _ask_import_path(self) -> str:
-        """Where to read the import from, or "" if the user cancelled."""
-        path, _selected_filter = QFileDialog.getOpenFileName(
-            self.view,
-            "Import Market Data",
-            "",
-            "CSV Files (*.csv)",
-        )
-        return path
-
     @Slot()
     @safe_ui_action
     def _on_export_requested(self) -> None:
         if self._shutdown_requested:
             return
         file_format = ExportFileFormat(self._view_model.selectedExportFormat)
-        path = self._ask_export_path(file_format)
+        path = self._file_dialogs.export_path(
+            self._view_model.selectedSymbol,
+            self._view_model.selectedInterval,
+            file_format,
+        )
         if not path:
             return
         symbol = self._view_model.selectedSymbol.strip()
@@ -629,7 +603,7 @@ class DataManagementPresenter(BasePresenter):
     def _on_import_requested(self) -> None:
         if self._shutdown_requested:
             return
-        path = self._ask_import_path()
+        path = self._file_dialogs.import_path()
         if not path:
             return
         symbol = self._view_model.selectedSymbol.strip()

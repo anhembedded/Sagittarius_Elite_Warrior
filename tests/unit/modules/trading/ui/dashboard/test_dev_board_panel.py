@@ -58,7 +58,7 @@ def panel(qapp, view_model, request):
     controls = DevBoardPanel(view_model)
     host = QWidget()
     layout = QVBoxLayout(host)
-    for widget in (*controls.header_actions, *controls.status_tiles):
+    for widget in controls.status_tiles:
         layout.addWidget(widget)
     for _title, card in controls.dock_panels:
         layout.addWidget(card)
@@ -199,14 +199,9 @@ def test_script_rows_rebuild_when_the_model_resets(qapp, panel, view_model):
 
 
 def test_controls_disabled_while_live(qapp, panel, view_model):
-    assert panel._btn_start.isEnabled() is True
-    assert panel._btn_stop.isEnabled() is False
-
     view_model.set_ui_mode("LIVE")
     qapp.processEvents()
 
-    assert panel._btn_start.isEnabled() is False
-    assert panel._btn_stop.isEnabled() is True
     assert panel._btn_symbol.isEnabled() is False
     assert panel._txt_start_date.isEnabled() is False
 
@@ -215,25 +210,7 @@ def test_controls_disabled_while_locked(qapp, panel, view_model):
     view_model.set_ui_mode("LOCKED")
     qapp.processEvents()
 
-    assert panel._btn_start.isEnabled() is False
-    assert panel._btn_load_history.isEnabled() is False
-
-
-def test_stop_stays_enabled_while_locked_so_a_sync_in_progress_can_be_cancelled(
-    qapp, panel, view_model
-):
-    """BOT-123: Start Live spends its first phase (`SyncMarketDataCommand`
-    fetching missing candles from Binance) in `LOCKED`, before the websocket
-    ever opens — reported live against a run where that phase alone took
-    almost 10 seconds. Stop used to only be enabled in `LIVE`
-    (`vm.uiMode == "LIVE"`), so a user watching a long LOCKED sync had no way
-    to cancel it short of killing the app — the same cancellation
-    `StreamLifecycleController._on_stop_stream` already wires through to the
-    sync's `cancellation_requested` check either way."""
-    view_model.set_ui_mode("LOCKED")
-    qapp.processEvents()
-
-    assert panel._btn_stop.isEnabled() is True
+    assert panel._btn_symbol.isEnabled() is False
 
 
 def test_controls_re_enable_back_to_idle(qapp, panel, view_model):
@@ -242,44 +219,7 @@ def test_controls_re_enable_back_to_idle(qapp, panel, view_model):
     view_model.set_ui_mode("IDLE")
     qapp.processEvents()
 
-    assert panel._btn_start.isEnabled() is True
-    assert panel._btn_stop.isEnabled() is False
-
-
-def test_history_loading_disables_reload_and_changes_its_label(qapp, panel, view_model):
-    view_model.set_history_loading(True)
-    qapp.processEvents()
-
-    assert panel._btn_reload.text() == "Loading…"
-    assert panel._btn_reload.isEnabled() is False
-    assert panel._btn_load_history.text() == "Loading…"
-
-
-def test_clicking_load_history_emits_the_view_model_request(qapp, panel, view_model):
-    requested = []
-    view_model.loadHistoryRequested.connect(lambda: requested.append(True))
-
-    panel._btn_load_history.click()
-    qapp.processEvents()
-
-    assert requested == [True]
-
-
-def test_clicking_start_and_stop_emit_the_view_model_requests(qapp, panel, view_model):
-    started = []
-    stopped = []
-    view_model.startStreamRequested.connect(lambda: started.append(True))
-    view_model.stopStreamRequested.connect(lambda: stopped.append(True))
-
-    panel._btn_start.click()
-    qapp.processEvents()
-    assert started == [True]
-
-    view_model.set_ui_mode("LIVE")
-    qapp.processEvents()
-    panel._btn_stop.click()
-    qapp.processEvents()
-    assert stopped == [True]
+    assert panel._btn_symbol.isEnabled() is True
 
 
 def test_date_fields_edit_writes_through_to_the_view_model(qapp, panel, view_model):

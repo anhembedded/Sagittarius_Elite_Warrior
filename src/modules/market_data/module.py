@@ -88,7 +88,11 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.composition.query_binding
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.i_exchange_client import (
     IExchangeClient,
 )
+from Sagittarius_Elite_Warrior.src.modules.market_data.ui.data_commands import (
+    data_commands,
+)
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.database_screen import (
+    DATABASE_ROUTE,
     database_screen,
 )
 from Sagittarius_Elite_Warrior.src.modules.market_data.ui.watchlist.watchlist_screen import (
@@ -149,6 +153,9 @@ class MarketDataModule(BoundedContextModule):
         )
         registry.contribute_screen(database_screen())
         registry.contribute_screen(watchlist_screen())
+        # `EPIC-033D` — the Data mode's commands.
+        for command in data_commands(DATABASE_ROUTE):
+            registry.contribute_command(command)
 
     def declare_cli(self, registry: ICliRegistry) -> None:
         """`sync` and `stream` are this context's commands, so this context

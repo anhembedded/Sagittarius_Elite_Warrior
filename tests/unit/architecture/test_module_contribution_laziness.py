@@ -30,6 +30,9 @@ import sys
 import textwrap
 from pathlib import Path
 
+from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
+    CommandContribution,
+)
 from Sagittarius_Elite_Warrior.src.core.contracts.contribution_descriptor import (
     ContributionDescriptor,
 )
@@ -77,6 +80,7 @@ class _RecordingRegistry(IContributionRegistry):
         self.descriptors: list[ContributionDescriptor] = []
         self.screens: list[ScreenContribution] = []
         self.options_pages: list[OptionsPageContribution] = []
+        self.commands: list[CommandContribution] = []
 
     def contribute(self, descriptor: ContributionDescriptor) -> None:
         self.descriptors.append(descriptor)
@@ -86,6 +90,9 @@ class _RecordingRegistry(IContributionRegistry):
 
     def contribute_options_page(self, contribution: OptionsPageContribution) -> None:
         self.options_pages.append(contribution)
+
+    def contribute_command(self, command: CommandContribution) -> None:
+        self.commands.append(command)
 
 
 def _widget_modules_in(names: set[str]) -> set[str]:
@@ -140,6 +147,9 @@ def test_contribute_costs_a_headless_run_no_qt_import_at_all() -> None:
                 pass
 
             def contribute_options_page(self, contribution):
+                pass
+
+            def contribute_command(self, command):
                 pass
 
 

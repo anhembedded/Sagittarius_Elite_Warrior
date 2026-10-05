@@ -28,6 +28,5 @@ def test_the_screen_is_a_workbench_host_holding_the_list_and_the_detail(
         assert workspace is not None
         assert workspace.isAncestorOf(view.table)
         assert workspace.isAncestorOf(view.detail)
-        assert workspace.isAncestorOf(view.new_bot)
     finally:
         view.deleteLater()

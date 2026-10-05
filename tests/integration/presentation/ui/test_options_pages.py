@@ -155,3 +155,34 @@ def test_a_write_that_fails_changes_nothing_and_keeps_the_edit(
 
     assert field.text() == saved_text
     assert config.get("DEFAULT_SYMBOLS") == saved_symbols
+
+
+def test_ok_after_a_write_that_fails_keeps_the_dialog_open(
+    qtbot, app_engine, monkeypatch
+) -> None:
+    """Engine `BUG-018`, pinned by `engine.ref`: OK closed the dialog even
+    when a page could not save, so the page's error was shown in a dialog
+    that had already closed."""
+
+    def refuse(_self) -> None:
+        raise OSError("read-only file system")
+
+    monkeypatch.setattr(ConfigManager, "save", refuse)
+    dialog = OptionsDialog(_pages(app_engine))
+    qtbot.addWidget(dialog)
+    dialog.show()
+    field = dialog.findChild(QLineEdit, "txtDefaultSymbols")
+    assert field is not None
+    field.clear()
+    qtbot.keyClicks(field, "ETHUSDT")
+    buttons = dialog.findChild(QDialogButtonBox)
+    assert buttons is not None
+    ok_button = buttons.button(QDialogButtonBox.StandardButton.Ok)
+    assert ok_button is not None
+
+    qtbot.mouseClick(ok_button, Qt.MouseButton.LeftButton)
+
+    assert dialog.isVisible()
+    message = dialog.findChild(QLabel, "workbench::options::message")
+    assert message is not None
+    assert message.text() == "Market Data: the changes could not be applied."

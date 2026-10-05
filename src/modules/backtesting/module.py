@@ -88,7 +88,11 @@ from Sagittarius_Elite_Warrior.src.core.contracts.i_contribution_registry import
 from Sagittarius_Elite_Warrior.src.modules.backtesting.composition.command_bindings import (
     bind_commands,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_commands import (
+    backtest_commands,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_screen import (
+    BACKTEST_ROUTE,
     backtest_screen,
 )
 from sagittarius_engine.interfaces.i_container import IContainer
@@ -137,3 +141,6 @@ class BacktestingModule(BoundedContextModule):
         if self._container is None:
             raise RuntimeError("BacktestingModule.contribute() called before boot()")
         registry.contribute_screen(backtest_screen(self._container))
+        # `EPIC-033D` — the Backtest mode's commands.
+        for command in backtest_commands(BACKTEST_ROUTE):
+            registry.contribute_command(command)

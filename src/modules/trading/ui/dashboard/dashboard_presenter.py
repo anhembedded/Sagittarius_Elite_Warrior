@@ -11,7 +11,6 @@ from Sagittarius_Elite_Warrior.src.core.contracts.navigation_source import (
 )
 from Sagittarius_Elite_Warrior.src.core.vo.market_data import MarketData
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
-from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.events.market_tick_event import (
     MarketTickEvent,
 )
@@ -78,6 +77,12 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     FALLBACK_SYMBOL,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
+    ICommandBinder,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
+    CommandPresenter,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from Sagittarius_Elite_Warrior.src.support.ui_kit.health_check_coordinator import (
     HealthCheckCoordinator,
@@ -86,15 +91,23 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import (
     StateData,
     StateScope,
 )
-from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
+from sagittarius_engine.extensions.pyside_mvc import safe_ui_action
 
 from .dashboard_view_model import (
     DATETIME_FORMAT,
     DEFAULT_LOOKBACK_DAYS,
 )
+from .dev_board_command_binding import bind_dev_board_commands
 from .logic.chart_zoom_limits import max_visible_x_range
 from .logic.presenter_factory import (
     build_dashboard_presenter_state,
+)
+from .logic.remembered_form_checks import (
+    MAX_LOOKBACK_DAYS,
+    is_key_list,
+    is_known_interval,
+    is_plausible_symbol,
+    is_sane_lookback,
 )
 
 logger = logging.getLogger("App.Dashboard")
@@ -193,15 +206,6 @@ _LOOKBACK_DAYS_KEY = "lookback_days"
 _SCRIPTS_ENABLED_KEY = "scripts_enabled"
 _SCRIPTS_TOUCHED_KEY = "scripts_touched"
 
-#: Dates are persisted as a DURATION, never as absolute timestamps (design
-#: §9.1, risk R2): an absolute window remembered from a month ago would make
-#: the next Load History silently fetch an enormous range. Recomputing
-#: `now - N days` on restore preserves today's behaviour exactly.
-_MAX_LOOKBACK_DAYS = 3650
-#: Longest symbol Binance lists is well under this; a generous ceiling that
-#: still rejects a corrupted blob is the point, not a precise limit.
-_MAX_SYMBOL_LENGTH = 20
-
 #: `BOT-144` — moved into `logic/presenter_factory.py` alongside the
 #: construction code that primarily uses them (`build_dashboard_presenter_state`);
 #: imported back here for the methods below that still read them
@@ -245,57 +249,6 @@ _WS_STATUS_BY_MODE = {
     UIMode.LIVE: ("WS: LIVE", BULL_COLOR, "success"),
     UIMode.ERROR: ("WS: ERROR", BEAR_COLOR, "danger"),
 }
-
-
-def _is_plausible_symbol(value: object) -> bool:
-    """Whether a remembered symbol is worth applying (`EPIC-010D`).
-
-    @details Shape, not membership. The task file's rule reads "only apply if
-    it is still in the symbol options the app knows about", which is right for
-    a closed dropdown — but this screen's combo is `setEditable(True)` and
-    `_DEFAULT_SYMBOLS` holds a single entry, so membership would silently
-    discard any symbol the user legitimately typed and hand them "ETHUSDT"
-    back on every launch. That defeats the point of remembering it. The
-    Database screen (`EPIC-010E`) has a genuinely closed list and gets the
-    membership check there instead.
-    """
-    return (
-        isinstance(value, str)
-        and value.strip().isalnum()
-        and len(value.strip()) <= _MAX_SYMBOL_LENGTH
-    )
-
-
-def _is_known_interval(value: object) -> bool:
-    """Whether a remembered interval is still a real `TimeFrame`."""
-    if not isinstance(value, str):
-        return False
-    try:
-        TimeFrame(value)
-    except ValueError:
-        return False
-    return True
-
-
-def _is_key_list(value: object) -> bool:
-    """A remembered list of script keys (`EPIC-010G`).
-
-    @details Only shape is checked here — whether a key still names a
-    registered script is `restore_selection()`'s job, which intersects
-    against the rows that actually exist.
-    """
-    return isinstance(value, list) and all(isinstance(item, str) for item in value)
-
-
-def _is_sane_lookback(value: object) -> bool:
-    """@details `isinstance(True, int)` is `True` in Python, so booleans are
-    excluded explicitly — `{"lookback_days": true}` in a hand-edited file
-    would otherwise be applied as one day."""
-    return (
-        isinstance(value, int)
-        and not isinstance(value, bool)
-        and 1 <= value <= _MAX_LOOKBACK_DAYS
-    )
 
 
 def _tick_to_candle(
@@ -343,7 +296,7 @@ def _tick_to_candle(
     )
 
 
-class DashboardPresenter(BasePresenter):
+class DashboardPresenter(CommandPresenter):
     """
     @brief Não bộ của màn hình Dashboard.
 
@@ -558,23 +511,23 @@ class DashboardPresenter(BasePresenter):
         parses does not also throw away a perfectly good interval.
         """
         symbol = data.get(_SYMBOL_KEY)
-        if _is_plausible_symbol(symbol):
+        if is_plausible_symbol(symbol):
             # The ViewModel, never the widget: `cboSymbol.currentTextChanged`
             # is wired to a handler, and `DevBoardPanel._sync_symbol` applies
             # this to the combo behind a `QSignalBlocker` (mode #12).
             self._view_model.symbol = symbol.strip()
 
         interval = data.get(_INTERVAL_KEY)
-        if _is_known_interval(interval):
+        if is_known_interval(interval):
             self._active_interval = interval
 
         lookback_days = data.get(_LOOKBACK_DAYS_KEY)
-        if _is_sane_lookback(lookback_days):
+        if is_sane_lookback(lookback_days):
             self._apply_lookback_days(lookback_days)
 
         enabled = data.get(_SCRIPTS_ENABLED_KEY)
         touched = data.get(_SCRIPTS_TOUCHED_KEY)
-        if _is_key_list(enabled) and _is_key_list(touched):
+        if is_key_list(enabled) and is_key_list(touched):
             # Both or neither: applying `enabled` without `touched` would
             # leave every key looking untouched, and the next
             # `set_available()` would switch the defaults back on.
@@ -605,7 +558,7 @@ class DashboardPresenter(BasePresenter):
         except (ValueError, TypeError):
             return DEFAULT_LOOKBACK_DAYS
         days = (end - start).days
-        if not 1 <= days <= _MAX_LOOKBACK_DAYS:
+        if not 1 <= days <= MAX_LOOKBACK_DAYS:
             return DEFAULT_LOOKBACK_DAYS
         return days
 
@@ -614,7 +567,7 @@ class DashboardPresenter(BasePresenter):
 
         @details Deliberately recomputed against the current clock rather
         than restored verbatim — that is the whole point of persisting a
-        duration (see `_MAX_LOOKBACK_DAYS`' comment).
+        duration (see `MAX_LOOKBACK_DAYS`' comment).
         """
         now = datetime.now(UTC)
         self._view_model.startDate = (now - timedelta(days=days)).strftime(
@@ -644,6 +597,11 @@ class DashboardPresenter(BasePresenter):
     # BasePresenter contract implementations
     # ================================================================== #
 
+    def bind_commands(self, binder: ICommandBinder) -> None:
+        bind_dev_board_commands(
+            binder, self._view_model, self.view.open_manual_order_dialog
+        )
+
     def _connect_ui_signals(self) -> None:
         """Kết nối các thao tác bấm nút từ ViewModel vào Presenter."""
         view_model = self._view_model
@@ -672,8 +630,8 @@ class DashboardPresenter(BasePresenter):
         # desks' own `DeskSessionControls` since `EPIC-028M`: one copy of
         # that behaviour, not one per screen. Unlike a desk, enabling here
         # never puts the chart live (`tradingEnabled` is not connected): the
-        # Dev Board's chart is governed by its own Load History/Start Live
-        # buttons and `DEV_BOARD_AUTOSTART_ENABLED`. Its tables are kept from
+        # Dev Board's chart is governed by its own Load history/Start live
+        # commands and `DEV_BOARD_AUTOSTART_ENABLED`. Its tables are kept from
         # events and the session's confirmed answers (`accountReconciled`),
         # not re-read.
         session = self._session_controls
