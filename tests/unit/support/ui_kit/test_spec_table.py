@@ -4,6 +4,7 @@ shown the one way every table of the application is (`EPIC-033N`)."""
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import UTC, datetime
 from typing import ClassVar
 
 import pytest
@@ -117,3 +118,47 @@ def test_the_instruction_shows_while_there_are_no_rows(table):
 
     table.model.clear()
     assert table.body.currentWidget() is not table.view
+
+
+@dataclass(frozen=True)
+class _Stamp:
+    name: str
+    at: datetime | None
+
+
+class _StampsModel(RowTableModel[_Stamp]):
+    COLUMNS: ClassVar[tuple[ColumnSpec, ...]] = (
+        ColumnSpec("name", "Name", ColumnKind.TEXT, stretch=True),
+        ColumnSpec("at", "At", ColumnKind.TIMESTAMP),
+    )
+
+    def _value(self, row: _Stamp, column: int) -> DisplayValue:
+        return (row.name, row.at)[column]
+
+
+def test_a_timestamp_column_sorts_by_time_and_still_reads_as_a_timestamp(qapp):
+    """Review of PR #351: a Python `datetime` reaches Qt as an opaque object
+    the proxy cannot order, so a timestamp column did not sort at all."""
+    table = SpecTable(_StampsModel(), object_name="tblStamps", empty_text="None.")
+    table.model.set_rows(
+        [
+            _Stamp("c", datetime(2026, 1, 6, tzinfo=UTC)),
+            # A naive moment reads as UTC, this application's convention.
+            _Stamp("a", datetime(2026, 1, 2, tzinfo=UTC).replace(tzinfo=None)),
+            _Stamp("e", None),
+            _Stamp("d", datetime(2026, 1, 10, tzinfo=UTC)),
+            _Stamp("b", datetime(2026, 1, 4, tzinfo=UTC)),
+        ]
+    )
+
+    table.view.sortByColumn(1, Qt.SortOrder.AscendingOrder)
+    ascending = [table.text(row, 0) for row in range(5)]
+    table.view.sortByColumn(1, Qt.SortOrder.DescendingOrder)
+    descending = [table.text(row, 0) for row in range(5)]
+
+    assert ascending == ["a", "b", "c", "d", "e"]
+    # Qt reverses the whole order: the unknown moment comes first descending.
+    assert descending == ["e", "d", "c", "b", "a"]
+    table.view.sortByColumn(1, Qt.SortOrder.AscendingOrder)
+    assert table.text(0, 1) == "2026-01-02 00:00:00"
+    assert table.text(4, 1) == ""

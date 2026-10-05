@@ -83,7 +83,7 @@ class PositionsTableModel(RowTableModel[PositionRow]):
         ColumnSpec("entry", "Entry", ColumnKind.PRICE),
         ColumnSpec("mark", "Mark", ColumnKind.PRICE),
         ColumnSpec("pnl", "Unrealized PnL (USDT)", ColumnKind.MONEY),
-        ColumnSpec("leverage", "Leverage", ColumnKind.QUANTITY),
+        ColumnSpec("leverage", "Leverage (x)", ColumnKind.QUANTITY),
         ColumnSpec("liquidation", "Liquidation", ColumnKind.PRICE),
     )
 

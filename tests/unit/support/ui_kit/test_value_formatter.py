@@ -27,7 +27,10 @@ def _text(kind: ColumnKind, value: object, time_zone: str = "UTC") -> str:
     [
         (64250.1, "64,250.10"),
         (1000.0, "1,000.00"),
-        (999.99999, "1,000.0000"),
+        (999.99999, "1,000.00"),
+        (999.994, "999.9940"),
+        (0.99999999, "0.99999999"),
+        (-0.000000001, "0"),
         (1.0, "1.0000"),
         (3.14159265, "3.1416"),
         (0.99, "0.99"),
@@ -42,7 +45,15 @@ def test_a_price_takes_its_decimals_from_its_magnitude(value, expected):
 
 @pytest.mark.parametrize(
     ("value", "expected"),
-    [(1250.0, "1,250"), (0.0015, "0.0015"), (0.0, "0"), (2, "2"), (1e-9, "0")],
+    [
+        (1250.0, "1,250"),
+        (0.0015, "0.0015"),
+        (0.0, "0"),
+        (2, "2"),
+        (1e-9, "0"),
+        (-0.0, "0"),
+        (-1e-9, "0"),
+    ],
 )
 def test_a_quantity_drops_trailing_zeros(value, expected):
     assert _text(ColumnKind.QUANTITY, value) == expected
@@ -50,7 +61,13 @@ def test_a_quantity_drops_trailing_zeros(value, expected):
 
 @pytest.mark.parametrize(
     ("value", "expected"),
-    [(1234.567, "1,234.57"), (-9.0, "-9.00"), (0.0, "0.00"), (1e9, "1,000,000,000.00")],
+    [
+        (1234.567, "1,234.57"),
+        (-9.0, "-9.00"),
+        (0.0, "0.00"),
+        (-0.004, "0.00"),
+        (1e9, "1,000,000,000.00"),
+    ],
 )
 def test_money_has_two_decimals(value, expected):
     assert _text(ColumnKind.MONEY, value) == expected

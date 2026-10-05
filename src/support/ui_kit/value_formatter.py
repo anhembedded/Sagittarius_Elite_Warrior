@@ -16,7 +16,7 @@ one screen and four on another.
 | quantity | up to eight decimals, trailing zeros dropped | `1,250`, `0.0015` |
 | money | two decimals | `1,234.56`, `-9.00` |
 | percent | two decimals and `%` | `12.50%` |
-| timestamp | `YYYY-MM-DD HH:MM:SS` in the display time zone | `2026-10-05 03:40:00` |
+| timestamp (a `datetime`, or POSIX seconds) | `YYYY-MM-DD HH:MM:SS` in the display time zone | `2026-10-05 03:40:00` |
 | duration | `h:mm:ss` | `1:05:00` |
 | duration in a `TIMEFRAME_KEY` column | the timeframe's code | `15m`, `1h`, `1M` |
 | text, side, status | as given | `LONG` |
@@ -24,7 +24,9 @@ one screen and four on another.
 A timeframe is a duration — it sorts by length, so `1m` comes before `15m`
 before `1h` — but it reads as the code a trader knows; the column says so by
 its key, which is what `FormatContext` is for. Numbers are grouped by
-thousands. `None` is an empty cell: the value is
+thousands; a value that rounds to zero reads `0`, never `-0`. A price below
+half of 0.00000001 rounds to `0`: eight decimals is the finest any exchange
+quotes. `None` is an empty cell: the value is
 unknown, and a blank says so without a glyph to mistake for a number.
 
 @par Precision per symbol is not here yet
@@ -45,6 +47,7 @@ from Sagittarius_Elite_Warrior.src.core.vo.timeframe import TimeFrame
 from Sagittarius_Elite_Warrior.src.support.ui_kit.services.display_timezone_service import (
     DEFAULT_TIMEZONE,
     format_display_datetime,
+    format_display_timestamp,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     ColumnKind,
@@ -68,17 +71,28 @@ def _without_trailing_zeros(text: str) -> str:
     return text.rstrip("0").rstrip(".") if "." in text else text
 
 
+def _without_negative_zero(text: str) -> str:
+    """`-0.00` is a value that rounded to zero; it reads as zero, unsigned."""
+    return text[1:] if text.startswith("-") and set(text[1:]) <= set("0.,") else text
+
+
 def _price_text(value: float) -> str:
-    magnitude = abs(value)
-    if magnitude >= _LARGE_PRICE:
-        return f"{value:,.2f}"
-    if magnitude >= _UNIT_PRICE:
-        return f"{value:,.4f}"
-    return _without_trailing_zeros(f"{value:,.{_MAX_DECIMALS}f}")
+    # A band is chosen by the value as the band below it would print it:
+    # 999.99999 prints 1,000.0000 at four decimals, so it is a 1,000 price
+    # and takes two; 0.99999999 still prints below 1 at eight, so it keeps them.
+    if abs(round(value, 4)) >= _LARGE_PRICE:
+        return _without_negative_zero(f"{value:,.2f}")
+    if abs(round(value, _MAX_DECIMALS)) >= _UNIT_PRICE:
+        return _without_negative_zero(f"{value:,.4f}")
+    return _without_negative_zero(
+        _without_trailing_zeros(f"{value:,.{_MAX_DECIMALS}f}")
+    )
 
 
 def _quantity_text(value: float) -> str:
-    return _without_trailing_zeros(f"{value:,.{_MAX_DECIMALS}f}")
+    return _without_negative_zero(
+        _without_trailing_zeros(f"{value:,.{_MAX_DECIMALS}f}")
+    )
 
 
 class AppValueFormatter:
@@ -95,6 +109,9 @@ class AppValueFormatter:
             return ""
         if isinstance(value, datetime):
             return format_display_datetime(value, tz_name=self._time_zone)
+        if kind is ColumnKind.TIMESTAMP and isinstance(value, int | float):
+            # A table cell holds a moment as POSIX seconds (`RowTableModel`).
+            return format_display_timestamp(float(value), tz_name=self._time_zone)
         if (
             kind is ColumnKind.DURATION
             and context.key == TIMEFRAME_KEY
@@ -110,7 +127,7 @@ class AppValueFormatter:
         if kind is ColumnKind.QUANTITY:
             return _quantity_text(number)
         if kind is ColumnKind.MONEY:
-            return f"{number:,.2f}"
+            return _without_negative_zero(f"{number:,.2f}")
         return self._plain.format(kind, value, context)
 
 

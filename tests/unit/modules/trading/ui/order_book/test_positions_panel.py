@@ -74,7 +74,7 @@ class TestWhatTheUserSees:
             "Entry",
             "Mark",
             "Unrealized PnL (USDT)",
-            "Leverage",
+            "Leverage (x)",
             "Liquidation",
         ]
 
