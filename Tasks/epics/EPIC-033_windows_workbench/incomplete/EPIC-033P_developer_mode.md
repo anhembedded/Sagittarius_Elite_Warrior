@@ -13,6 +13,15 @@
 ## 1. Context and problem
 Dev Board mixes developer probes with trading controls and market watching; the approved design splits those into Market and Trade, leaving a developer testbed.
 
+## Decisions (the user, 2026-10-05)
+What only the Dev Board offers today, and where each goes when it is deleted:
+- **Last signal** (the armed strategy's last signal; only the Dev Board shows it): dropped, shown nowhere.
+- **Futures candles outside the Futures desk** (the Dev Board's Spot/Futures combo): the Market mode gains a Spot/Futures choice for its Watchlist and charts, in a small pull request of its own.
+- **F9 New order…** (only the Dev Board has it): each desk gets Trade → New order… (F9), which moves the focus to its order entry, as HLD §11.2.3's table lists it.
+- **Scroll-back "load more" and a date range on Load history**: a task of its own for the Market mode's charts; the Developer mode does not keep them.
+
+The Dev Board runs no strategy loop of its own: signals become orders in the `strategy` module, built at boot, whether or not the board exists.
+
 ## 2. Acceptance criteria
 - [ ] The mode exists only while developer mode is on (Tools → Options); it holds a chart central and the developer probes and script console as docks.
 - [ ] No trading command lives only here.
