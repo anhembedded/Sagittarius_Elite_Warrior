@@ -1,5 +1,5 @@
-"""The Market mode's commands (`EPIC-033H`): Tools → Check connection and
-File → Close chart.
+"""The Market mode's commands (`EPIC-033H`): Tools → Check connection,
+File → Close chart and View → Spot market or Futures market (`EPIC-033Q`).
 
 - **Check connection:** HLD §11.2.3 lists it in Tools, with no shortcut, no
   toolbar and no confirmation. It belongs to every mode (`mode=None`): the
@@ -10,6 +10,14 @@ File → Close chart.
   tab's close button does (`ui-presentation-rule.md` §11). It is the
   platform's Close (Ctrl+F4 or Ctrl+W on Windows), in File as Windows puts
   it, scoped to the mode.
+- **View → Spot market, Futures market:** which market the Watchlist and
+  every chart show, a value of the mode rather than of each chart
+  (`EPIC-033Q`). Two checkable commands in one exclusive group: option
+  items in View, where Windows puts a choice of what a window shows (MS
+  `cmd-menus`), and on the mode's toolbar, so the market in view is visible
+  without opening a menu. View rather than a menu of their own: a "Market"
+  title needs an access key, and every letter of the word is already a
+  menu-bar title's or a Backtest panel's key.
 
 Qt-free, because `TradingModule.contribute()` imports it on a headless run
 (`test_module_contribution_laziness.py`).
@@ -23,8 +31,13 @@ from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
 
 FILE_MENU = ("&File",)
 TOOLS_MENU = ("&Tools",)
+VIEW_MENU = ("&View",)
 CHECK_CONNECTION = "trading.market.check_connection"
 CLOSE_CHART = "trading.market.close_chart"
+SHOW_SPOT = "trading.market.show_spot"
+SHOW_FUTURES = "trading.market.show_futures"
+#: The `exclusive_group` of Spot and Futures.
+MARKET_CHOICE = "trading.market.market"
 
 
 def market_commands(route: str) -> tuple[CommandContribution, ...]:
@@ -37,6 +50,26 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             menu_path=FILE_MENU,
             mode=route,
             standard_shortcut="Close",
+        ),
+        CommandContribution(
+            contributor_id="trading",
+            command_id=SHOW_SPOT,
+            text="S&pot market",
+            menu_path=VIEW_MENU,
+            mode=route,
+            on_toolbar=True,
+            checkable=True,
+            exclusive_group=MARKET_CHOICE,
+        ),
+        CommandContribution(
+            contributor_id="trading",
+            command_id=SHOW_FUTURES,
+            text="Futures mar&ket",
+            menu_path=VIEW_MENU,
+            mode=route,
+            on_toolbar=True,
+            checkable=True,
+            exclusive_group=MARKET_CHOICE,
         ),
         CommandContribution(
             contributor_id="trading",

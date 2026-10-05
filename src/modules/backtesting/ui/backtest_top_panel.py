@@ -1,45 +1,34 @@
-"""EPIC-006E: `BackTestTopPanel.qml` -> QtWidgets.
+"""The Backtest mode's Metrics dock (`EPIC-033L`, HLD §11.2.1: "right:
+Metrics"): the notices about the run on screen, and its figures.
 
-The preview, stale, coverage and imported-report banners and the
-performance figures: since `EPIC-033L` the content of the Backtest mode's
-Metrics dock. The toolbar of pickers that once sat on top of it is the Run
-setup dock (`run_setup_panel.py`); the run's progress banner, with its own
-Cancel button, is the status bar's progress (`run_progress_status.py`),
-stopped by Tools → Stop backtest. Every `objectName` from the QML port
-carries over unchanged (tests/presenter both key off them).
+Since `EPIC-033L` stage 4 it is stock controls in the dock's own layout: the
+notices are `NoticeBar`s, the figures `BacktestStatRow`, the message of a
+run that produced none a read-only `QPlainTextEdit`. It replaces a card
+painted on the app background inside the dock, with a second heading (an
+accent bar and "BACKTEST PERFORMANCE METRICS" above the dock's own title),
+pill buttons and a monospaced result box, each with its style sheet.
 
-`EPIC-025` PR 4.3g turned the figures back into QtWidgets
-(`BacktestStatRow`), so `cardMetric_N` is a `QWidget` reachable by
-`findChild`.
+The toolbar of pickers that once sat on top of it is the Run setup dock
+(`run_setup_panel.py`); the run's progress banner is the status bar's
+(`run_progress_status.py`), stopped by Tools → Stop backtest.
 """
 
 from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QComboBox,
-    QFrame,
     QHBoxLayout,
     QLabel,
+    QPlainTextEdit,
     QPushButton,
-    QTextEdit,
     QVBoxLayout,
     QWidget,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import (
-    Palette,
-    get_icon_loader,
-)
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
-    Banner,
-    Severity,
-    StyleRole,
-    apply_role,
-)
 
 from .backtest_stat_row import BacktestStatRow
+from .notice_bar import NoticeBar, NoticeKind
 
 if TYPE_CHECKING:
     from .backtest_view_model import BackTestViewModel
@@ -48,190 +37,85 @@ if TYPE_CHECKING:
 #: `BOT-095G` — always index 0, never a real run; `itemData(0)` is `""`,
 #: which `_on_run_history_selected` reads as "nothing to restore".
 _RUN_HISTORY_PLACEHOLDER = "Previous runs…"
+_PREVIEW_TEXT = (
+    "Preview chart: no backtest has run yet. Run one with Tools → Run backtest (F7)."
+)
 
 
-class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
-    """Port of `BackTestTopPanel.qml`. Sizes itself naturally via its own
-    layout (no `implicitHeight` read-back hack needed — that only existed
-    to work around `QQuickWidget`'s `SizeRootObjectToView` ignoring QML's
-    `implicitHeight`; a plain `QWidget`'s `sizeHint()` already reflects
-    what its layout needs).
-
-    **Deliberately not a `Surface`**, unlike the cards it contains. It
-    paints the app background and draws no border of its own — it is the
-    strip the cards and banners sit *on*, not one of them. Same call as
-    `DevBoardPanel` (`EPIC-007F`)."""
+class BackTestTopPanel(QWidget):  # base-exempt: a dock's content, not a surface
+    """The Metrics dock's content."""
 
     def __init__(
         self, view_model: BackTestViewModel, parent: QWidget | None = None
     ) -> None:
         super().__init__(parent)
         self._vm = view_model
-        # Scoped, not a bare property list: unscoped this repaints every
-        # descendant that has no rule of its own (`BUG-008`), which here is
-        # most of the toolbar.
-        self.setStyleSheet(
-            f"{type(self).__name__} {{ background-color: {Palette.BG}; }}"
+
+        self._preview_banner = NoticeBar(
+            NoticeKind.INFORMATION, "backtestChartPreviewBanner"
         )
-
-        outer = QVBoxLayout(self)
-        outer.setContentsMargins(12, 12, 12, 12)
-        outer.setSpacing(12)
-
-        self._card = QFrame()
-        apply_role(self._card, StyleRole.SURFACE)
-        card_layout = QVBoxLayout(self._card)
-        card_layout.setContentsMargins(12, 10, 12, 10)
-        card_layout.setSpacing(8)
-        outer.addWidget(self._card)
-
-        self._preview_banner = self._build_preview_banner()
-        card_layout.addWidget(self._preview_banner)
-        self._stale_banner = self._build_stale_banner()
-        card_layout.addWidget(self._stale_banner)
-        self._coverage_banner = self._build_coverage_banner()
-        card_layout.addWidget(self._coverage_banner)
-        self._imported_report_banner = self._build_imported_report_banner()
-        card_layout.addWidget(self._imported_report_banner)
-        card_layout.addWidget(self._build_metrics_header())
-
-        self._stat_cards_row = self._build_stat_cards_row()
-        card_layout.addWidget(self._stat_cards_row)
-        self._result_warning_label = self._build_result_warning_label()
-        card_layout.addWidget(self._result_warning_label)
+        self._preview_banner.text = _PREVIEW_TEXT
+        self._stale_banner = NoticeBar(
+            NoticeKind.WARNING, "backtestStaleWarningBanner", "Run now"
+        )
+        self._stale_banner.action_button.clicked.connect(self._vm.requestRun)
+        self._coverage_banner = NoticeBar(
+            NoticeKind.WARNING, "backtestCoverageWarningBanner"
+        )
+        # `BOT-115C` — names the imported file and offers a way back to a
+        # clean slate without running or editing anything.
+        self._imported_report_banner = NoticeBar(
+            NoticeKind.INFORMATION, "backtestImportedReportBanner", "Exit view"
+        )
+        self._imported_report_banner.action_button.clicked.connect(
+            self._vm.requestExitImportedReportView
+        )
+        self._metrics_header = self._build_metrics_header()
+        # `EPIC-025` PR 4.3g: read-only tiles (HLD §11.3). The row reads
+        # `primaryStatCards` through its callback; `_sync_stat_cards()` only
+        # says *when* to re-pull it.
+        self._stat_cards_row = BacktestStatRow(
+            lambda: self._vm.run_result.primaryStatCards
+        )
+        self._result_warning_label = QLabel()
+        self._result_warning_label.setObjectName("lblResultWarning")
+        self._result_warning_label.setWordWrap(True)
         self._result_box = self._build_result_box()
-        card_layout.addWidget(self._result_box)
+
+        layout = QVBoxLayout(self)
+        for widget in (
+            self._preview_banner,
+            self._stale_banner,
+            self._coverage_banner,
+            self._imported_report_banner,
+            self._metrics_header,
+            self._stat_cards_row,
+            self._result_warning_label,
+            self._result_box,
+        ):
+            layout.addWidget(widget)
+        layout.addStretch(1)
 
         self._wire_view_model()
         self._sync_all()
 
-    # ------------------------------------------------------------------ #
-    # Banners
-    # ------------------------------------------------------------------ #
-
-    def _build_preview_banner(self) -> Banner:
-        banner = Banner(
-            'Preview chart — backtest not run yet. Click "RUN BACKTEST" to see '
-            "actual results.",
-            severity=Severity.INFO,
-        )
-        banner.setObjectName("backtestChartPreviewBanner")
-        # `Banner` takes its icon as a `str` because it has no icon loader to
-        # depend on; this app does, so it sets the pixmap on the slot the
-        # class leaves public for exactly this.
-        self._set_banner_icon(banner, "info", Palette.ACCENT)
-        banner.setVisible(False)
-        return self._tighten(banner)
-
-    def _build_stale_banner(self) -> Banner:
-        banner = Banner(severity=Severity.WARN, action_text="Run now")
-        banner.setObjectName("backtestStaleWarningBanner")
-        self._set_banner_icon(banner, "triangle-alert", Palette.WARNING)
-        banner.action_button.clicked.connect(self._vm.requestRun)
-        banner.setVisible(False)
-        return self._tighten(banner)
-
-    def _build_coverage_banner(self) -> Banner:
-        banner = Banner(severity=Severity.WARN)
-        banner.setObjectName("backtestCoverageWarningBanner")
-        banner.setVisible(False)
-        return self._tighten(banner)
-
-    def _build_imported_report_banner(self) -> Banner:
-        """`BOT-115C` — visible only in `VIEWING_IMPORTED_REPORT`, naming
-        the source file and offering a way back to a clean slate without
-        running or editing anything."""
-        banner = Banner(severity=Severity.INFO, action_text="Exit view")
-        banner.setObjectName("backtestImportedReportBanner")
-        self._set_banner_icon(banner, "clock", Palette.ACCENT)
-        banner.action_button.clicked.connect(self._vm.requestExitImportedReportView)
-        banner.setVisible(False)
-        return self._tighten(banner)
-
-    @staticmethod
-    def _tighten(banner: Banner) -> Banner:
-        """`Banner` is a `Panel`, so it inherits Qt's default layout margins.
-        These three sit stacked above a chart and were built at 4px
-        vertically; left at the default they each grow ~10px and push the
-        chart down."""
-        banner.body_layout.setContentsMargins(12, 4, 12, 4)
-        return banner
-
-    @staticmethod
-    def _set_banner_icon(banner: Banner, name: str, colour: str) -> None:
-        banner.icon_label.setPixmap(
-            get_icon_loader().get_icon(name, colour, 14).pixmap(14, 14)
-        )
-        banner.icon_label.setVisible(True)
-
-    # ------------------------------------------------------------------ #
-    # Metrics header + stat cards / result box
-    # ------------------------------------------------------------------ #
-
     def _build_metrics_header(self) -> QWidget:
-        """The title on one line, Expand and the run history on the next:
-        one line of all three was the panel's widest row once it became a
-        side dock (`EPIC-033L`, review of PR #355)."""
-        row_widget = QWidget()
-        column = QVBoxLayout(row_widget)
-        column.setContentsMargins(0, 0, 0, 0)
-        self._metrics_header = row_widget
-
-        title_row = QHBoxLayout()
-        title_row.setSpacing(8)
-        bar = QFrame()
-        bar.setFixedSize(3, 14)
-        bar.setStyleSheet(
-            f"background-color: {Palette.ACCENT}; border-radius: 2px; border: none;"
-        )
-        title_row.addWidget(bar)
-        title = QLabel("BACKTEST PERFORMANCE METRICS")
-        title.setStyleSheet(
-            f"color: {Palette.TEXT_PRIMARY}; font-size: 12px; font-weight: bold; "
-            f"letter-spacing: 0.8px; background: transparent; border: none;"
-        )
-        title_row.addWidget(title)
-        self._btn_limitations = QPushButton()
-        self._btn_limitations.setObjectName("btnBacktestLimitations")
-        self._btn_limitations.setFlat(True)
-        self._btn_limitations.setFixedSize(18, 18)
-        self._btn_limitations.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_limitations.setIcon(
-            get_icon_loader().get_icon("info", Palette.MUTED, 13)
-        )
-        self._btn_limitations.setToolTip("View this run's limitations")
-        self._btn_limitations.setStyleSheet(
-            "QPushButton { background: transparent; border: none; }"
-        )
-        self._btn_limitations.clicked.connect(self._vm.requestOpenLimitations)
-        title_row.addWidget(self._btn_limitations)
-        title_row.addStretch(1)
-        column.addLayout(title_row)
-        row = QHBoxLayout()
-        column.addLayout(row)
-
-        self._btn_expand_metrics = QPushButton("Expand")
+        """Details, Limitations and the run history, on one row under the
+        dock's title."""
+        header = QWidget()
+        row = QHBoxLayout(header)
+        row.setContentsMargins(0, 0, 0, 0)
+        # Opens a window that only shows more: no ellipsis (MS `cmd-menus`).
+        self._btn_expand_metrics = QPushButton("Details")
         self._btn_expand_metrics.setObjectName("lnkExpandMetrics")
-        self._btn_expand_metrics.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_expand_metrics.setStyleSheet(
-            f"QPushButton {{"
-            f"  background-color: {Palette.BG_CARD};"
-            f"  border: 1px solid {Palette.BORDER};"
-            f"  border-radius: 6px;"
-            f"  padding: 2px 14px;"
-            f"  color: {Palette.TEXT_PRIMARY};"
-            f"  font-size: 11px;"
-            f"  font-weight: 500;"
-            f"}}"
-            f"QPushButton:hover {{"
-            f"  background-color: {Palette.STATE_HOVER_BG};"
-            f"  border-color: {Palette.STATE_NAV_BORDER};"
-            f"}}"
-        )
+        self._btn_expand_metrics.setToolTip("Every figure of this run, by section")
         self._btn_expand_metrics.clicked.connect(self._vm.requestOpenExtendedMetrics)
         row.addWidget(self._btn_expand_metrics)
-
-        # BOT-095G — no `setStyleSheet()` here: the styling ratchet only falls.
+        self._btn_limitations = QPushButton("Limitations")
+        self._btn_limitations.setObjectName("btnBacktestLimitations")
+        self._btn_limitations.setToolTip("What this run's simulation leaves out")
+        self._btn_limitations.clicked.connect(self._vm.requestOpenLimitations)
+        row.addWidget(self._btn_limitations)
         self._combo_run_history = QComboBox()
         self._combo_run_history.setObjectName("comboSessionRunHistory")
         self._combo_run_history.setToolTip(
@@ -242,50 +126,30 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         self._combo_run_history.currentIndexChanged.connect(
             self._on_run_history_selected
         )
-        row.addWidget(self._combo_run_history)
-
-        return row_widget
-
-    def _build_result_warning_label(self) -> QLabel:
-        label = QLabel()
-        label.setObjectName("lblResultWarning")
-        label.setStyleSheet(
-            f"color: {Palette.WARNING}; font-size: 11px; font-weight: normal; "
-            f"background: transparent; border: none; padding-top: 2px;"
-        )
-        label.setWordWrap(True)
-        return label
-
-    def _build_stat_cards_row(self) -> BacktestStatRow:
-        # `EPIC-025` PR 4.3g: read-only tiles (HLD §11.3), after `EPIC-015`'s
-        # `StatCardRow.qml` and `EPIC-007F`'s QtWidgets `StatCard` before it.
-        # Callback-constructed — the widget reads `primaryStatCards` live, and
-        # `_sync_stat_cards()` below only says *when* to re-pull that list.
-        return BacktestStatRow(lambda: self._vm.run_result.primaryStatCards)
+        row.addWidget(self._combo_run_history, 1)
+        return header
 
     def _build_result_box(self) -> QWidget:
+        """What a run that produced no figures said, and a way to fetch the
+        candles it lacked."""
         widget = QWidget()
         layout = QVBoxLayout(widget)
         layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(8)
-
-        self._result_text = QTextEdit()
+        # A failed run or sync says so with the platform's error icon as
+        # well as its words; red text alone was the only signal before.
+        self._result_error = NoticeBar(NoticeKind.CRITICAL, "backtestResultError")
+        layout.addWidget(self._result_error)
+        self._result_text = QPlainTextEdit()
         self._result_text.setObjectName("txtBacktestResult")
         self._result_text.setReadOnly(True)
-        self._result_text.setFixedHeight(120)
-        self._result_text.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; "
-            f"border-radius: 6px; color: {Palette.TEXT_PRIMARY}; font-size: 11px; "
-            f"font-family: 'JetBrains Mono', 'Fira Code', monospace;"
-        )
         layout.addWidget(self._result_text)
-
         self._btn_request_sync = QPushButton()
         self._btn_request_sync.setObjectName("btnRequestSync")
-        self._btn_request_sync.setFixedHeight(34)
         self._btn_request_sync.clicked.connect(self._vm.requestSync)
-        layout.addWidget(self._btn_request_sync, 0, Qt.AlignmentFlag.AlignLeft)
-
+        row = QHBoxLayout()
+        row.addWidget(self._btn_request_sync)
+        row.addStretch(1)
+        layout.addLayout(row)
         return widget
 
     # ------------------------------------------------------------------ #
@@ -336,7 +200,7 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
 
         self._stale_banner.setVisible(bool(vm.isConfigDirty))
         if vm.isConfigDirty:
-            self._stale_banner.message = (
+            self._stale_banner.text = (
                 f"Configuration changed ({vm.configDiffSummary}). "
                 f"The results below have not been updated."
             )
@@ -347,14 +211,14 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         )
         self._coverage_banner.setVisible(coverage_visible)
         if coverage_visible:
-            self._coverage_banner.message = vm.run_result.dataCoverageMessage
+            self._coverage_banner.text = vm.run_result.dataCoverageMessage
 
         imported_report_visible = mode == "VIEWING_IMPORTED_REPORT" and bool(
             vm.importedReportBannerText
         )
         self._imported_report_banner.setVisible(imported_report_visible)
         if imported_report_visible:
-            self._imported_report_banner.message = vm.importedReportBannerText
+            self._imported_report_banner.text = vm.importedReportBannerText
 
     def _sync_stat_cards(self) -> None:
         has_cards = bool(self._vm.run_result.primaryStatCards)
@@ -402,17 +266,12 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
 
     def _sync_result_box(self) -> None:
         vm = self._vm
-        self._result_text.setPlainText(vm.run_result.resultText)
-        self._result_text.setStyleSheet(
-            f"background-color: {Palette.BG_CARD}; border: 1px solid {Palette.BORDER}; "
-            f"border-radius: 6px; color: {Palette.DANGER if vm.run_result.resultIsError else Palette.TEXT_PRIMARY}; "
-            f"font-size: 11px; font-family: 'JetBrains Mono', 'Fira Code', monospace;"
-        )
+        failed = bool(vm.run_result.resultIsError)
+        self._result_error.text = vm.run_result.resultText if failed else ""
+        self._result_error.setVisible(failed)
+        self._result_text.setPlainText("" if failed else vm.run_result.resultText)
+        self._result_text.setVisible(not failed)
+        syncing = vm.uiMode == "SYNCING"
         self._btn_request_sync.setVisible(bool(vm.run_result.needsDataSync))
-        self._btn_request_sync.setEnabled(vm.uiMode != "SYNCING")
-        text = "Syncing..." if vm.uiMode == "SYNCING" else "Sync data now"
-        self._btn_request_sync.setText(text)
-        self._btn_request_sync.setStyleSheet(
-            f"background-color: {Palette.ACCENT if self._btn_request_sync.isEnabled() else Palette.STATE_NAV_BORDER}; "
-            f"color: {Palette.BG}; font-size: 12px; font-weight: bold; border-radius: 6px; border: none;"
-        )
+        self._btn_request_sync.setEnabled(not syncing)
+        self._btn_request_sync.setText("Syncing…" if syncing else "Sync data now")

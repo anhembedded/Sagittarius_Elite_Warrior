@@ -89,6 +89,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | &Find… | Ctrl+F | — | — |
 | &View | &Market, T&rade, &Bots, Back&test, &Data, De&veloper (one checkable action per mode) | Ctrl+1 … Ctrl+6 | mode selector | — |
 | | one toggle per panel of the current mode, access keys assigned per mode (`EPIC-033D` checks them) | — | — | — |
+| | S&pot market, Futures mar&ket (Market mode: one exclusive choice of the market its Watchlist and charts show, Spot by default, remembered; `EPIC-033Q`) | — | Market | — |
 | | T&oolbars ›, Stat&us bar | — | — | — |
 | | &Full screen | F11 | — | — |
 | T&rade | &Venue › Futures, Spot | — | Trade | — |
@@ -185,8 +186,10 @@ cards. Two things replace it:
 - A **dialog** is the desktop way to *do* something that needs input and confirmation: place a
   manual order on Dev Board (shortcut F9, as in MT5, also reachable from a toolbar action; the
   desks keep their order panel in the rail, where it is the screen's purpose — `EPIC-028`),
-  arm a strategy with parameters, pick a time range, edit settings. Every dialog has Cancel, states
-  what OK will do, validates before enabling OK, and reports the result in the status bar.
+  arm a strategy with parameters, pick a time range, edit settings. Every dialog that commits on OK
+  has Cancel, states what OK will do, validates before enabling OK, and reports the result in the
+  status bar. A dialog that applies each change as it is made has Close instead, since there is
+  nothing for a Cancel to take back (MS `win-dialog-box`); Backtest's Strategy Parameters is one.
 
 Which former widgets become what:
 

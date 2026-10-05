@@ -18,17 +18,13 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QFileDialog,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QPushButton,
-    QTreeWidget,
-    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
@@ -39,7 +35,6 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui._report_comparison_cha
     ReportComparisonChartWidget,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_comparison_rules import (
-    MetricComparisonRow,
     build_config_diff_text,
     build_equity_comparison_series,
     build_loaded_file_label,
@@ -54,10 +49,8 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_import im
     backtest_report_to_run_config,
     read_backtest_report_bytes,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
-    Tone,
-    semantic_colour,
-)
+
+from ..metric_comparison_model import ReportComparisonModel, comparison_table
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
@@ -65,21 +58,12 @@ if TYPE_CHECKING:
 _TITLE = "Compare Reports"
 _LOAD_DIALOG_TITLE = "Load report to compare"
 _REPORT_FILE_FILTER = "Backtest report (*.sagi-report.json *.sagi-report.json.gz)"
-_METRIC_COLUMN = 0
-_A_COLUMN = 1
-_B_COLUMN = 2
-_DELTA_COLUMN = 3
-_COLUMNS = ("Metric", "Column A", "Column B", "Δ (B − A)")
 _NO_COLUMN_A_TEXT = "Run a backtest first to fill Column A."
 _NO_COLUMN_B_TEXT = "Load a report to fill Column B."
 
-
-def _tone_colour(tone: Tone) -> QColor | None:
-    if tone is Tone.POSITIVE:
-        return QColor(semantic_colour("success"))
-    if tone is Tone.NEGATIVE:
-        return QColor(semantic_colour("danger"))
-    return None
+#: The empty table's text (review of PR #364): short, and true whichever
+#: side is missing.
+_NOTHING_TO_COMPARE_TEXT = "Both columns need a run or a report to compare."
 
 
 class ReportComparisonDialog(QDialog):
@@ -141,18 +125,12 @@ class ReportComparisonDialog(QDialog):
         self.body_layout.addWidget(self._warning_label)
 
     def _build_metrics_tree(self) -> None:
-        self._tree = QTreeWidget()
-        self._tree.setObjectName("comparisonMetricsTree")
-        self._tree.setColumnCount(len(_COLUMNS))
-        self._tree.setHeaderLabels(list(_COLUMNS))
-        self._tree.setRootIsDecorated(False)
-        self._tree.setUniformRowHeights(True)
-        self._tree.setSelectionMode(QTreeWidget.SelectionMode.NoSelection)
-        header = self._tree.header()
-        header.setSectionResizeMode(_METRIC_COLUMN, QHeaderView.ResizeMode.Stretch)
-        for column in (_A_COLUMN, _B_COLUMN, _DELTA_COLUMN):
-            header.setSectionResizeMode(column, QHeaderView.ResizeMode.ResizeToContents)
-        self.body_layout.addWidget(self._tree, 1)
+        self._table = comparison_table(
+            ReportComparisonModel(self),
+            "comparisonMetricsTree",
+            _NOTHING_TO_COMPARE_TEXT,
+        )
+        self.body_layout.addWidget(self._table.body, 1)
 
     def _build_chart(self) -> None:
         self._chart = ReportComparisonChartWidget()
@@ -233,7 +211,7 @@ class ReportComparisonDialog(QDialog):
         if snapshot_a is None or snapshot_b is None:
             self._diff_label.setText("")
             self._warning_label.setVisible(False)
-            self._tree.clear()
+            self._table.model.clear()
             self._chart.set_series([], [])
             return
 
@@ -258,18 +236,9 @@ class ReportComparisonDialog(QDialog):
         rows = build_metric_comparison_rows(
             snapshot_a.result.metrics, snapshot_b.result.metrics
         )
-        self._fill_tree(rows)
+        self._table.model.set_rows(rows)
 
         points_a, points_b = build_equity_comparison_series(
             snapshot_a.result, snapshot_b.result
         )
         self._chart.set_series(points_a, points_b)
-
-    def _fill_tree(self, rows: list[MetricComparisonRow]) -> None:
-        self._tree.clear()
-        for row in rows:
-            item = QTreeWidgetItem([row.label, row.value_a, row.value_b, row.delta])
-            colour = _tone_colour(row.tone)
-            if colour is not None:
-                item.setForeground(_DELTA_COLUMN, colour)
-            self._tree.addTopLevelItem(item)

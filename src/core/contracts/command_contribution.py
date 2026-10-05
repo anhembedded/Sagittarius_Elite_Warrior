@@ -19,6 +19,12 @@ which the window resolves, so the platform decides the key.
 The catalogue of commands, with their menus, shortcuts and confirmations, is
 HLD §11.2.3.
 
+Checkable commands that name one `exclusive_group` are one choice among
+several, such as View → Spot market or Futures market: the window puts them in one
+exclusive `QActionGroup`, so checking one unchecks the others and checking
+the checked one keeps it (Qt `QActionGroup`; MS `cmd-menus`, "option
+buttons" in a menu).
+
 Plausible extensions, each a local change: an icon name (one field and one
 line in the window); a command whose text follows its state, such as
 Pause / Resume (one field naming the alternate text).
@@ -62,10 +68,18 @@ class CommandContribution:
     checkable: bool = False
     needs_input: bool = False
     confirm: CommandConfirmation | None = None
+    #: The choice this checkable command is one option of; the window makes
+    #: every command naming the same group one exclusive `QActionGroup`.
+    exclusive_group: str | None = None
 
     def __post_init__(self) -> None:
         if self.shortcut is not None and self.standard_shortcut is not None:
             raise ValueError(
                 f"command {self.command_id!r} names both a shortcut and a "
                 "standard shortcut; a command has one key"
+            )
+        if self.exclusive_group is not None and not self.checkable:
+            raise ValueError(
+                f"command {self.command_id!r} names an exclusive group but is "
+                "not checkable; only a checked option can exclude the others"
             )

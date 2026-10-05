@@ -2,7 +2,8 @@
 
 `bound_actions` builds the Engine's real `ActionRegistry` from the commands a
 module contributes, through the window's own `action_descriptor`, and lets
-what performs them bind, as `MainWindow` calls `bind_commands`. Only the
+what performs them bind, as `MainWindow` calls `bind_commands`, with the
+window's exclusive groups made first, as `MainWindow` makes them. Only the
 confirmation dialog is replaced, by `RecordingConfirmer`.
 """
 
@@ -18,6 +19,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
 )
 from Sagittarius_Elite_Warrior.src.presentation.ui.command_actions import (
     action_descriptor,
+    exclusive_groups,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
     ICommandBinder,
@@ -50,7 +52,10 @@ def bound_actions(
 ) -> ActionRegistry:
     """`commands` as actions owned by `owner`, bound by `bind`."""
     registry = ActionRegistry(owner, confirmer or RecordingConfirmer())
-    for command in commands:
-        registry.contribute(action_descriptor(command))
+    built = [
+        (command, registry.contribute(action_descriptor(command)))
+        for command in commands
+    ]
+    exclusive_groups(built, owner)
     bind(registry)
     return registry

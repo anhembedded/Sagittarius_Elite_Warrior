@@ -8,7 +8,10 @@ build with the command's id in the message.
 
 from __future__ import annotations
 
-from PySide6.QtGui import QKeySequence
+from collections.abc import Iterable
+
+from PySide6.QtCore import QObject
+from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
     CommandContribution,
 )
@@ -46,3 +49,23 @@ def action_descriptor(command: CommandContribution) -> ActionDescriptor:
         ),
         surface_id=command.mode,
     )
+
+
+def exclusive_groups(
+    commands: Iterable[tuple[CommandContribution, QAction]], owner: QObject
+) -> dict[str, QActionGroup]:
+    """One exclusive `QActionGroup` per `exclusive_group` the commands name,
+    holding each command's action, by group name."""
+    groups: dict[str, QActionGroup] = {}
+    for command, action in commands:
+        name = command.exclusive_group
+        if name is None:
+            continue
+        group = groups.get(name)
+        if group is None:
+            group = QActionGroup(owner)
+            group.setObjectName(f"actionGroup::{name}")
+            group.setExclusionPolicy(QActionGroup.ExclusionPolicy.Exclusive)
+            groups[name] = group
+        group.addAction(action)
+    return groups

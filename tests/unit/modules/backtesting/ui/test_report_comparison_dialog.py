@@ -103,7 +103,12 @@ def test_no_run_yet_shows_the_empty_column_a_message_without_crashing(qapp):
 
     assert dialog.isVisible() is True
     assert "Run a backtest first" in dialog._column_a_label.text()
-    assert dialog._tree.topLevelItemCount() == 0
+    assert dialog._table.model.rowCount() == 0
+    # True whichever side is missing, not "load a report" when Column A
+    # lacks a run (review of PR #364).
+    assert dialog._table.body.instruction == (
+        "Both columns need a run or a report to compare."
+    )
     dialog.close()
 
 
@@ -166,7 +171,7 @@ def test_loading_a_real_report_file_via_the_button_fills_column_b_and_the_metric
     qapp.processEvents()
 
     assert "baseline.sagi-report.json" in dialog._column_b_label.text()
-    assert dialog._tree.topLevelItemCount() > 0
+    assert dialog._table.model.rowCount() > 0
     assert "different markets" in dialog._warning_label.text()
     assert dialog._warning_label.isVisible()
     dialog.close()
@@ -208,7 +213,7 @@ def test_loading_a_malformed_file_shows_an_error_instead_of_crashing(qapp, tmp_p
     qapp.processEvents()
 
     assert "Load a report" not in dialog._column_b_label.text()
-    assert dialog._tree.topLevelItemCount() == 0
+    assert dialog._table.model.rowCount() == 0
     dialog.close()
 
 

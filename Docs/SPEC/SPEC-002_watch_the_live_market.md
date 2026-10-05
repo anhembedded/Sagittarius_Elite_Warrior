@@ -7,7 +7,8 @@
   reports that shaped it.
 - **Surfaces:** the Market mode (`EPIC-033H`): its Watchlist panel tracks several symbols under
   one `IMarketStream` owner, and each open chart tab streams its own symbol under its own owner,
-  live from the user's own open of the mode until the tab or the app closes · Dev Board's
+  live from the user's own open of the mode until the tab or the app closes; View → Spot market or
+  Futures market picks the market every one of them shows (`EPIC-033Q`) · Dev Board's
   *Start Live* · a desk's chart · `stream start` / `stream stop` at the interactive prompt.
 
 ## 1. Trigger
@@ -46,6 +47,10 @@
   to it, and it does not touch another owner's streams: two screens may watch the same symbol,
   and one stopping leaves the other running (reference counted per symbol and timeframe,
   `BOT-126`).
+- A screen shows one market's candles: `BTCUSDT@1m` exists on Spot and on Futures at two prices,
+  and a candle of the other market never reaches it. In the Market mode, choosing the other
+  market reopens every open chart on that market's candles and blanks the Watchlist, so nothing
+  of the previous market stays on screen.
 - A stop that the actor asked for never leaves a socket open, and never publishes a candle
   afterwards into the screen that asked to stop.
 - A failed start says so. The old shape of this call read `getattr(response, "success", True)`,
@@ -99,4 +104,6 @@ consumer-facing port.
 | A desk's chart reads local history on open and goes live when its venue's trading is on | `tests/unit/modules/trading/ui/desk/test_desk_screen.py` | unit |
 | Only the desk's market's candles at its interval reach its chart | `tests/unit/modules/trading/ui/desk/test_desk_live_feeds.py` | unit |
 | The Market mode opens a chart from history on a restore, goes live only on the user's open, says so when the stream does not start, and releases a tab's stream when it closes | `tests/unit/modules/trading/ui/market/test_market_presenter.py` | unit |
+| View → Spot market or Futures market is one exclusive, remembered choice; switching reopens the charts on the new market's candles and moves the Watchlist's stream; a tick of the other market reaches neither | `tests/unit/modules/trading/ui/market/test_market_choice.py` | unit |
+| View → Futures market reloads the open chart from the Futures store through the real candle feed | `tests/integration/modules/trading/ui/test_market_mode_market_choice.py` | integration |
 | A real socket against the real venue | **the user runs it**: `stream start --symbols BTCUSDT --interval 1m`, watch the chart advance for a minute, then `stream stop` and see it settle | human |
