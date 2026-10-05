@@ -222,3 +222,38 @@ def test_a_presenter_that_only_looks_like_one_is_not_bound(qtbot) -> None:
     qtbot.addWidget(window)
 
     assert not _action(window, "desk.enable").isEnabled()
+
+
+def test_the_window_makes_a_commands_exclusive_group_one_action_group(qtbot) -> None:
+    """`EPIC-033Q`: checkable commands naming one `exclusive_group` are one
+    exclusive `QActionGroup` in the window, so checking one unchecks the
+    others (the review of PR #359: the tests' mirror built the group, the
+    window's own call had no test)."""
+    registry = _registry(DisposeLog(), [])
+    for name in ("spot", "futures"):
+        registry.register_command(
+            CommandContribution(
+                contributor_id="trading",
+                command_id=f"market.{name}",
+                text=f"&{name.title()}",
+                menu_path=("Mar&ket",),
+                mode="desk",
+                checkable=True,
+                exclusive_group="market.choice",
+            )
+        )
+    window = MainWindow(engine(), registry)
+    qtbot.addWidget(window)
+    spot, futures = _action(window, "market.spot"), _action(window, "market.futures")
+    for action in (spot, futures):
+        action.setEnabled(True)
+
+    spot.trigger()
+    futures.trigger()
+
+    group = spot.actionGroup()
+    assert group is not None
+    assert group is futures.actionGroup()
+    assert group.isExclusive()
+    assert (spot.isChecked(), futures.isChecked()) == (False, True)
+    assert _action(window, "desk.enable").actionGroup() is None
