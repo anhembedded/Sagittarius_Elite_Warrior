@@ -71,10 +71,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.time_range_picker import (
 
 from .dashboard_symbol_picker_dialog import DashboardSymbolPickerDialog
 from .dashboard_view_model import DashboardQmlViewModel
+from .dev_board_widgets.dev_board_strategy_card import dev_board_strategy_card
 from .dev_board_widgets.last_signal_card import LastSignalCard
 from .dev_board_widgets.layout_helpers import section_row
 from .dev_board_widgets.session_card import SessionCard
-from .dev_board_widgets.strategy_card import StrategyCard, dev_board_card_binding
 from .dev_board_widgets.system_controls_card import (
     SystemControlsCallbacks,
     SystemControlsCard,
@@ -174,8 +174,7 @@ class DevBoardPanel(QObject):
                 on_end_date_edited=self._on_end_date_edited,
             ),
         )
-        card = dev_board_card_binding(view_model)
-        self._strategy_card = StrategyCard(card, market_type=market_type)
+        self._strategy_card = dev_board_strategy_card(view_model, market_type)
         self._last_signal_card = LastSignalCard(view_model)
         self._session_card = SessionCard(view_model)
         self._indicators_card = self._build_indicators()

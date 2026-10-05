@@ -116,7 +116,7 @@ panel reads the same holdings for its Sell side.
 | A Sell is sent as a sell of the held asset; one whose holding is gone at submit time is refused | `tests/unit/modules/trading/ui/desk/test_order_entry_presenter.py` | unit |
 | A Buy on the Spot desk shows the bought asset in Assets | `tests/unit/modules/trading/ui/desk/test_spot_desk_journey.py` | unit |
 | The Spot desk's Trade → New order… (`F9`) focuses its order panel and places nothing | `tests/unit/modules/trading/ui/desk/test_desk_new_order.py` | unit |
-| The strategy card hides leverage on Spot | `tests/unit/modules/trading/ui/dashboard/test_dev_board_panel.py` | unit |
+| The strategy card hides leverage on Spot | `tests/unit/modules/trading/ui/desk/test_strategy_card.py` (the desks' card) and `tests/unit/modules/trading/ui/dashboard/test_dev_board_panel.py` | unit |
 | The Spot order path's own mapping, rounding and Futures-only-type refusal | `tests/unit/modules/trading/adapters/binance/spot/test_spot_order_payload_mapper.py` | unit |
 | A real BUY click's mapped `ExecuteOrderCommand`, dispatched through the real handler, reaches the wire and moves the exact balance `SpotAccountReader.check_connection()` reports afterwards | `tests/integration/application/test_spot_manual_order_pipeline_against_fake_server.py` | integration |
 | The Spot order lifecycle (place → open → cancel → gone, a MARKET order fills immediately, positions always empty) against a real HTTP round trip through the fake exchange | `tests/integration/infrastructure/binance/test_spot_trading_client_order_lifecycle_against_fake_server.py` | integration |
