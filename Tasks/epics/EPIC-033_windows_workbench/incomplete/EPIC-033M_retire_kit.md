@@ -15,6 +15,7 @@ HLD §11.4 makes deleting `Palette`, `kit/style.py` and `seed_app_theme()` the l
 ## 2. Acceptance criteria
 - [ ] `src/support/ui_kit/kit/`, `palette.py`, `theme_bootstrap.py`, `PageShell`, `StyledButton`, the sidebar and every replaced screen are deleted; `configure_app_qml` and `get_theme_bridge` are no longer called.
 - [ ] `baseline_stock_controls.json`, `baseline_workbench_conformance.json` and `baseline_app_styling.json` are empty and their guards become bans.
+- [ ] `StrategyParamsDialog` (`src/support/ui_kit/param_form/`) is rebuilt from stock controls, its commit buttons a `QDialogButtonBox` (`ui-presentation-rule.md` §7), for both callers: the bot's strategy parameters and the Market mode's Tools → Indicator parameters… (`BOT-153`; the review of PR #369).
 - [ ] HLD §11.4's last row is marked done with the commit.
 
 ## 3. Design

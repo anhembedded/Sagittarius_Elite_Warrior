@@ -40,7 +40,7 @@ class IndicatorParamsCommand(QObject):
 
     #: Whether the command may run now.
     enabledChanged = Signal(bool)
-    #: The dialog for this script key closed; its saved values apply.
+    #: The dialog for this script key closed having saved new values.
     edited = Signal(str)
 
     def __init__(
@@ -69,17 +69,23 @@ class IndicatorParamsCommand(QObject):
 
     def open(self) -> None:
         """Opens the dialog for the selected script; nothing when the
-        command could not run (no store, no script, no input)."""
+        command could not run (no store, no script, no input). Says
+        `edited` only when the stored values changed: a Cancel, or a Save
+        of the same values, redraws nothing (a redraw replays the whole
+        history on the UI thread)."""
         key = self._view.selected_indicator
-        if self._store is None or not self._has_inputs(key):
+        store = self._store
+        if store is None or not self._has_inputs(key):
             return
         logger.info("[market] indicator parameters of %s opened", key)
-        sink = IndicatorScriptParamsSink(self._catalog, self._store, key, parent=self)
+        saved = store.load_all().get(key)
+        sink = IndicatorScriptParamsSink(self._catalog, store, key, parent=self)
         try:
             self._view.edit_indicator_params(sink)
         finally:
             sink.deleteLater()
-        self.edited.emit(key)
+        if store.load_all().get(key) != saved:
+            self.edited.emit(key)
 
     def _on_triggered(self, _checked: bool) -> None:
         self.open()

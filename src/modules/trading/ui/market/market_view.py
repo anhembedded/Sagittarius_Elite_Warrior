@@ -179,7 +179,10 @@ class MarketView(OutputSourceView):
             self._central.setCurrentWidget(self._no_chart)
 
     def set_indicator_choices(self, choices: Sequence[IndicatorChoice]) -> None:
-        """Fills the checklist without reporting it as the user's choice."""
+        """Fills the checklist without reporting it as the user's choice;
+        the selection the refill dropped is reported, so a command acting
+        on the selected script never stays on for a script no longer
+        selected."""
         self.indicators.blockSignals(True)
         self.indicators.clear()
         for choice in choices:
@@ -195,6 +198,7 @@ class MarketView(OutputSourceView):
             )
             self.indicators.addItem(item)
         self.indicators.blockSignals(False)
+        self.indicator_selected.emit(self.selected_indicator)
 
     def set_connection_text(self, text: str) -> None:
         self.connection.setText(text)

@@ -28,6 +28,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_presenter im
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_screen import (
     MARKET_ROUTE,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_view import (
+    IndicatorChoice,
+)
 from Sagittarius_Elite_Warrior.src.support.indicators.indicator_script_params_store import (
     IndicatorScriptParamsStore,
 )
@@ -131,16 +134,33 @@ def test_a_script_without_inputs_opens_nothing(mode, store):
     dialog_cls.assert_not_called()
 
 
-def test_saved_parameters_redraw_the_charts_drawing_the_script(
-    mode, store, threads, monkeypatch
-):
+@pytest.fixture
+def drawn(mode, store, threads):
+    """BTCUSDT draws EMA 20, ETHUSDT draws only EMA cross; EMA 20 selected."""
     presenter, action = mode(params_store=store)
     presenter.on_mode_shown(NavigationSource.RESTORE)
+    presenter.view.symbol_opened.emit("ETHUSDT")
     threads.run_all()
-    chart = presenter.charts["BTCUSDT"]
-    chart.show_indicators(("ema_20",))
-    before = next(iter(chart._runner.active["ema_20"].series.values()))[1][-1]
+    presenter.charts["BTCUSDT"].show_indicators(("ema_20",))
+    presenter.charts["ETHUSDT"].show_indicators(("ema_cross",))
     _select(presenter, _WITH_INPUTS)
+    return presenter, action
+
+
+def _instance(presenter: MarketPresenter, symbol: str, key: str):
+    return presenter.charts[symbol]._runner.active[key]
+
+
+def _last_value(presenter: MarketPresenter) -> float:
+    script = _instance(presenter, "BTCUSDT", "ema_20")
+    return next(iter(script.series.values()))[1][-1]
+
+
+def test_saved_parameters_redraw_the_charts_drawing_the_script(
+    drawn, store, monkeypatch
+):
+    presenter, action = drawn
+    before = _last_value(presenter)
 
     def save_period_5(sink) -> None:
         sink.requestBotParamsSave({"period": 5})
@@ -148,6 +168,42 @@ def test_saved_parameters_redraw_the_charts_drawing_the_script(
     monkeypatch.setattr(presenter.view, "edit_indicator_params", save_period_5)
     action.trigger()
 
-    after = next(iter(chart._runner.active["ema_20"].series.values()))[1][-1]
     assert store.load_all()["ema_20"]["period"] == 5
-    assert after != before
+    assert _last_value(presenter) != before
+
+
+def test_a_chart_not_drawing_the_script_is_not_redrawn(drawn, monkeypatch):
+    """A redraw replays the chart's whole history: only the charts drawing
+    the edited script pay for it (the review of PR #369)."""
+    presenter, action = drawn
+    untouched = _instance(presenter, "ETHUSDT", "ema_cross")
+
+    def save_period_5(sink) -> None:
+        sink.requestBotParamsSave({"period": 5})
+
+    monkeypatch.setattr(presenter.view, "edit_indicator_params", save_period_5)
+    action.trigger()
+
+    assert _instance(presenter, "ETHUSDT", "ema_cross") is untouched
+
+
+def test_a_cancelled_dialog_redraws_nothing(drawn, monkeypatch):
+    presenter, action = drawn
+    drawn_before = _instance(presenter, "BTCUSDT", "ema_20")
+
+    monkeypatch.setattr(presenter.view, "edit_indicator_params", lambda _sink: None)
+    action.trigger()
+
+    assert _instance(presenter, "BTCUSDT", "ema_20") is drawn_before
+
+
+def test_a_refilled_list_turns_the_command_off(mode, store):
+    """A refill drops the selection; the command follows it rather than
+    staying on for a script no longer selected (the review of PR #369)."""
+    presenter, action = mode(params_store=store)
+    _select(presenter, _WITH_INPUTS)
+    assert action.isEnabled()
+
+    presenter.view.set_indicator_choices((IndicatorChoice("ema_20", "EMA 20", True),))
+
+    assert not action.isEnabled()
