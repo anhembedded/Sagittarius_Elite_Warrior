@@ -33,6 +33,9 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.futures_d
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.spot_desk_screen import (
     SPOT_DESK_ROUTE,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.order_entry.order_entry_rules import (
+    EntrySide,
+)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
@@ -127,6 +130,20 @@ def test_the_first_field_follows_the_order_type(qtbot, venue) -> None:
     desk.actions.new_order.trigger()
     stop = _field(desk, "txtStopPriceBuy")
     qtbot.waitUntil(lambda: QApplication.focusWidget() is stop)
+
+
+@pytest.mark.parametrize("venue", VENUES)
+def test_new_order_selects_what_the_first_field_holds(qtbot, venue) -> None:
+    """Typing after F9 replaces the price instead of appending to it."""
+    desk = _shown(qtbot, _desk(qtbot, venue))
+    desk.presenter.orders.set_price(EntrySide.BUY, "60000")
+    price = _field(desk, "txtPriceBuy")
+    assert price.text() == "60000"
+
+    desk.actions.new_order.trigger()
+
+    qtbot.waitUntil(lambda: QApplication.focusWidget() is price)
+    assert price.selectedText() == "60000"
 
 
 @pytest.mark.parametrize("venue", VENUES)

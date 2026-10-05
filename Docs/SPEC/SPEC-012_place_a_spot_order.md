@@ -7,7 +7,8 @@
 - **Origin:** `EPIC-027K` (the Spot order path itself), `EPIC-027O` (Holdings table, BUY/SELL
   labels, SELL gated on a real holding), `EPIC-027P` (this SPEC, and the real Spot Testnet round
   trip that proves it).
-- **Surfaces:** the Spot desk's order panel (`EPIC-028H`/`028L`) · the Dev Board's order dialog
+- **Surfaces:** the Spot desk's order panel (`EPIC-028H`/`028L`), which the desk's Trade → New
+  order… (`F9`, `EPIC-033R`) focuses · the Dev Board's order dialog
   (`F9`), which hosts the same panel when the board trades Spot (`EPIC-028M`; both replaced the
   manual-order card of `EPIC-027O`) · `trade-once --live` at the command line, venue-agnostic like
   every other caller of `ExecuteOrderCommand`.
@@ -30,7 +31,7 @@ afterwards — not pretend I opened a leveraged position."*
 
 ## 3. Main flow
 
-1. The actor uses the Spot desk's order panel (or the Dev Board's `F9` dialog on a Spot board) for
+1. The actor uses the Spot desk's order panel (`F9` focuses it; or the Dev Board's `F9` dialog on a Spot board) for
    the symbol shown, and types a Buy or a Sell: Limit, Market or Stop-limit. The sides read
    **Buy** and **Sell**, not Long and Short — the same domain direction
    (`ManualOrderDirection.LONG`/`SHORT`) `manual_order_intent_for()` keys off, named for what the
@@ -114,6 +115,7 @@ panel reads the same holdings for its Sell side.
 | The Spot panel disables Sell without a holding and offers its own order types | `tests/unit/modules/trading/ui/desk/test_order_entry_panel.py` | unit |
 | A Sell is sent as a sell of the held asset; one whose holding is gone at submit time is refused | `tests/unit/modules/trading/ui/desk/test_order_entry_presenter.py` | unit |
 | A Buy on the Spot desk shows the bought asset in Assets | `tests/unit/modules/trading/ui/desk/test_spot_desk_journey.py` | unit |
+| The Spot desk's Trade → New order… (`F9`) focuses its order panel and places nothing | `tests/unit/modules/trading/ui/desk/test_desk_new_order.py` | unit |
 | The strategy card hides leverage on Spot | `tests/unit/modules/trading/ui/dashboard/test_dev_board_panel.py` | unit |
 | The Spot order path's own mapping, rounding and Futures-only-type refusal | `tests/unit/modules/trading/adapters/binance/spot/test_spot_order_payload_mapper.py` | unit |
 | A real BUY click's mapped `ExecuteOrderCommand`, dispatched through the real handler, reaches the wire and moves the exact balance `SpotAccountReader.check_connection()` reports afterwards | `tests/integration/application/test_spot_manual_order_pipeline_against_fake_server.py` | integration |
