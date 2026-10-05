@@ -49,9 +49,8 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_import im
     backtest_report_to_run_config,
     read_backtest_report_bytes,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 
-from ..metric_comparison_model import ReportComparisonModel
+from ..metric_comparison_model import ReportComparisonModel, comparison_table
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
@@ -61,6 +60,10 @@ _LOAD_DIALOG_TITLE = "Load report to compare"
 _REPORT_FILE_FILTER = "Backtest report (*.sagi-report.json *.sagi-report.json.gz)"
 _NO_COLUMN_A_TEXT = "Run a backtest first to fill Column A."
 _NO_COLUMN_B_TEXT = "Load a report to fill Column B."
+
+#: The empty table's text (review of PR #364): short, and true whichever
+#: side is missing.
+_NOTHING_TO_COMPARE_TEXT = "Both columns need a run or a report to compare."
 
 
 class ReportComparisonDialog(QDialog):
@@ -122,10 +125,10 @@ class ReportComparisonDialog(QDialog):
         self.body_layout.addWidget(self._warning_label)
 
     def _build_metrics_tree(self) -> None:
-        self._table = SpecTable(
+        self._table = comparison_table(
             ReportComparisonModel(self),
-            object_name="comparisonMetricsTree",
-            empty_text=_NO_COLUMN_B_TEXT,
+            "comparisonMetricsTree",
+            _NOTHING_TO_COMPARE_TEXT,
         )
         self.body_layout.addWidget(self._table.body, 1)
 

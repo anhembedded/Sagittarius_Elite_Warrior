@@ -12,6 +12,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_compariso
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.metric_comparison_model import (
     OutOfSampleComparisonModel,
     ReportComparisonModel,
+    comparison_table,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone, semantic_colour
 from sagittarius_engine.extensions.pyside_mvc.workbench import ColumnKind
@@ -56,3 +57,35 @@ def test_only_the_difference_is_coloured_by_its_tone(qapp):
     assert colour(1, 3) == QColor(semantic_colour("danger"))
     assert colour(2, 3) is None
     assert colour(0, 1) is None
+
+
+def _table():
+    table = comparison_table(ReportComparisonModel(), "tbl", "Nothing yet.")
+    table.model.set_rows([_GAIN, _LOSS, _FLAT])
+    return table
+
+
+def test_a_value_column_sorts_back_to_the_metrics_own_order(qapp):
+    """The values are formatted text in mixed units: a text sort would put
+    "+250.00" before "0" before "-5%" (review of PR #364)."""
+    table = _table()
+
+    for column in (1, 2, 3):
+        table.sort_by(column)
+        assert [table.text(row, 0) for row in range(3)] == [
+            "Net profit",
+            "Win rate",
+            "Trades",
+        ]
+
+
+def test_the_metric_column_sorts_by_name(qapp):
+    table = _table()
+
+    table.sort_by(0)
+
+    assert [table.text(row, 0) for row in range(3)] == [
+        "Net profit",
+        "Trades",
+        "Win rate",
+    ]

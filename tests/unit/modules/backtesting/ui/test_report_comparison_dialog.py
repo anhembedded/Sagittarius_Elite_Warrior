@@ -104,6 +104,11 @@ def test_no_run_yet_shows_the_empty_column_a_message_without_crashing(qapp):
     assert dialog.isVisible() is True
     assert "Run a backtest first" in dialog._column_a_label.text()
     assert dialog._table.model.rowCount() == 0
+    # True whichever side is missing, not "load a report" when Column A
+    # lacks a run (review of PR #364).
+    assert dialog._table.body.instruction == (
+        "Both columns need a run or a report to compare."
+    )
     dialog.close()
 
 

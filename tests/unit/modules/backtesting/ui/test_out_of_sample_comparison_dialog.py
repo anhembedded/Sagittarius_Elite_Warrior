@@ -113,6 +113,9 @@ def test_no_run_yet_shows_the_no_data_message_without_crashing(qapp):
     assert dialog.isVisible() is True
     assert "not computed" in dialog._description_label.text()
     assert dialog._table.model.rowCount() == 0
+    # Said once, by the description; the empty table is short (review of
+    # PR #364).
+    assert dialog._table.body.instruction == "No out-of-sample figures."
     dialog.close()
 
 

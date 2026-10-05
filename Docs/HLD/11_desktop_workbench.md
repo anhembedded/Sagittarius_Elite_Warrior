@@ -185,8 +185,10 @@ cards. Two things replace it:
 - A **dialog** is the desktop way to *do* something that needs input and confirmation: place a
   manual order on Dev Board (shortcut F9, as in MT5, also reachable from a toolbar action; the
   desks keep their order panel in the rail, where it is the screen's purpose — `EPIC-028`),
-  arm a strategy with parameters, pick a time range, edit settings. Every dialog has Cancel, states
-  what OK will do, validates before enabling OK, and reports the result in the status bar.
+  arm a strategy with parameters, pick a time range, edit settings. Every dialog that commits on OK
+  has Cancel, states what OK will do, validates before enabling OK, and reports the result in the
+  status bar. A dialog that applies each change as it is made has Close instead, since there is
+  nothing for a Cancel to take back (MS `win-dialog-box`); Backtest's Strategy Parameters is one.
 
 Which former widgets become what:
 

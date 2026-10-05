@@ -32,9 +32,8 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.out_of_sample_co
     build_overfit_warning,
     build_split_description,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.spec_table import SpecTable
 
-from ..metric_comparison_model import OutOfSampleComparisonModel
+from ..metric_comparison_model import OutOfSampleComparisonModel, comparison_table
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
@@ -44,6 +43,10 @@ _NO_DATA_TEXT = (
     "Out-of-sample validation was not computed for this run "
     "(too little data to split, or an older run)."
 )
+
+#: The empty table's text (review of PR #364): short, and true whichever
+#: side is missing.
+_NO_FIGURES_TEXT = "No out-of-sample figures."
 
 
 class OutOfSampleComparisonDialog(QDialog):
@@ -84,10 +87,8 @@ class OutOfSampleComparisonDialog(QDialog):
         self.body_layout.addWidget(self._warning_label)
 
     def _build_metrics_tree(self) -> None:
-        self._table = SpecTable(
-            OutOfSampleComparisonModel(self),
-            object_name="outOfSampleMetricsTree",
-            empty_text=_NO_DATA_TEXT,
+        self._table = comparison_table(
+            OutOfSampleComparisonModel(self), "outOfSampleMetricsTree", _NO_FIGURES_TEXT
         )
         self.body_layout.addWidget(self._table.body, 1)
 
