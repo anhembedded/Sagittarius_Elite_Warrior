@@ -41,6 +41,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping imp
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     ICandleFeed,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.cancellable_report import (
+    report_unless_cancelled,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_chart_callbacks import (
     LiveChartCallbacks,
 )
@@ -156,30 +159,27 @@ class LiveChartCoordinator:
 
 class _Reporter:
     """One load's callbacks, silent once its token is cancelled (`BUG-150`):
-    the chart they emit on may be gone."""
+    the chart they emit on may be gone (`report_unless_cancelled`)."""
 
     def __init__(self, callbacks: LiveChartCallbacks, token: CancellationToken) -> None:
         self._callbacks = callbacks
         self._token = token
 
     def log(self, text: str) -> None:
-        if not self._token.is_cancelled():
-            self._callbacks.log(text)
+        report_unless_cancelled(self._token, self._callbacks.log, text)
 
     def history_ready(
         self, symbol: str, candles: list, volume: list, klines: list
     ) -> None:
-        if not self._token.is_cancelled():
-            self._callbacks.history_ready(symbol, candles, volume, klines)
+        report_unless_cancelled(
+            self._token, self._callbacks.history_ready, symbol, candles, volume, klines
+        )
 
     def stream_started(self, text: str) -> None:
-        if not self._token.is_cancelled():
-            self._callbacks.stream_started(text)
+        report_unless_cancelled(self._token, self._callbacks.stream_started, text)
 
     def stream_failed(self, text: str) -> None:
-        if not self._token.is_cancelled():
-            self._callbacks.stream_failed(text)
+        report_unless_cancelled(self._token, self._callbacks.stream_failed, text)
 
     def load_finished(self) -> None:
-        if not self._token.is_cancelled():
-            self._callbacks.load_finished(self._token)
+        report_unless_cancelled(self._token, self._callbacks.load_finished, self._token)

@@ -40,6 +40,10 @@ src/support/charting/live_chart/live_candle_chart.py:68: RuntimeError
   - `_restart` settles the request it cancels itself, on the Qt thread, so "once per request" still holds.
   - `_load_settled` carries the token. `_on_load_settled` ignores a settle whose request was already replaced: one that was on its way when the restart happened.
 - **Scope:** the repair is at the seam all three charts share (Market, desk, bot), not in the Market presenter.
+- **`cancellable_report.py`** (added after the review of PR #370): `report_unless_cancelled(token, emit, *args)` is the one place a worker reports to a chart.
+  - **The gap it closes:** the token check alone left a window between the check and the emit, in which the Qt thread can cancel and delete the chart.
+  - **How:** a `RuntimeError` from the emit is dropped only when the token is cancelled by then, which proves that race. Any other `RuntimeError` still raises.
+  - **Callers:** both `_Reporter` and `MarketChart._read_stored` (the EPIC-033S loads, the same family) use it.
 
 ## Regression test
 - **`tests/unit/modules/trading/ui/market/test_market_chart_cancelled_load.py::test_a_tab_closed_while_its_first_window_loads_reports_nothing`:**
@@ -49,6 +53,7 @@ src/support/charting/live_chart/live_candle_chart.py:68: RuntimeError
 - **`tests/unit/support/charting/live_chart/test_live_chart_coordinator.py`:**
   - `test_a_cancelled_load_reports_nothing` goes red when the reporter's gate is removed;
   - `test_a_settled_load_names_its_own_token`.
+- **`tests/unit/support/charting/live_chart/test_cancellable_report.py`:** a chart closed between the check and the emit is dropped, and an unexplained `RuntimeError` still raises. Each of these turns a test red: always re-raising, or never re-raising.
 - **Mutation:** removing `_restart`'s own settle turns 3 Market tests red (the commands stay off forever).
 
 ## Verification

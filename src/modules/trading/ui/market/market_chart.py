@@ -44,6 +44,9 @@ from Sagittarius_Elite_Warrior.src.support.charting.chart_card.kline_mapping imp
 from Sagittarius_Elite_Warrior.src.support.charting.contracts.i_candle_feed import (
     ICandleFeed,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.live_chart.cancellable_report import (
+    report_unless_cancelled,
+)
 from Sagittarius_Elite_Warrior.src.support.charting.live_chart.live_candle_chart import (
     LiveCandleChart,
 )
@@ -255,9 +258,7 @@ class MarketChart(LiveCandleChart):
             result: object = load.read()
         except Exception as exc:  # noqa: BLE001 - worker boundary: the failure is reported, not lost to a thread's traceback
             result = exc
-        if load.token.is_cancelled():
-            return
-        load.report.emit(load.request, result)
+        report_unless_cancelled(load.token, load.report.emit, load.request, result)
 
     def _on_older_loaded(self, request: _LoadRequest, result: object) -> None:
         if not self._finish_own_load(request, "older candles"):
