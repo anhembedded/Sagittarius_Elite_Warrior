@@ -227,7 +227,7 @@ class RunSetupPanel(QWidget):  # base-exempt: a dock's content, not a surface
         }
         for button, value in shown.items():
             # A value is text, never an access key (`ui-presentation-rule.md`
-            # §4): a strategy named "Buy & hold" shows its ampersand.
+            # §4): a symbol or currency with an ampersand shows it.
             button.setText(str(value).replace("&", "&&"))
 
     def _sync_enabled(self) -> None:

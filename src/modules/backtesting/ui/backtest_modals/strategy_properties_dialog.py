@@ -212,7 +212,9 @@ class StrategyPropertiesDialog(QDialog):
             return
 
         for group in groups:
-            box = QGroupBox(group.label)
+            # A group's title is the strategy author's text, never an access
+            # key: a group box would read "Entry & exit" as Alt+E.
+            box = QGroupBox(group.label.replace("&", "&&"))
             rows = QVBoxLayout(box)
             for field in group.fields:
                 field_widget = BotParamFieldWidget(field, self._vm.strategy_params)

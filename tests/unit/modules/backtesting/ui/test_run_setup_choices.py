@@ -59,8 +59,8 @@ def test_the_strategy_field_offers_the_catalogue_by_name(qapp, view_model):
     assert _items(panel.strategy) == [
         ("EMA trend pullback", "ema_pullback"),
         ("MACD cross", "macd_cross"),
-        # A name is text, never an access key.
-        ("Buy && hold", "buy_hold"),
+        # Verbatim: a combo box item has no access key to escape.
+        ("Buy & hold", "buy_hold"),
     ]
 
 

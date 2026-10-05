@@ -4,7 +4,7 @@ registered indicator script, written straight back to the live model."""
 from __future__ import annotations
 
 import pytest
-from PySide6.QtWidgets import QDialogButtonBox, QLabel
+from PySide6.QtWidgets import QCheckBox, QDialogButtonBox, QLabel, QScrollArea
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_modals import (
     IndicatorPickerDialog,
 )
@@ -76,3 +76,12 @@ def test_the_only_button_is_close(qapp, view_model):
 
     box = dialog.findChild(QDialogButtonBox)
     assert box.standardButtons() == QDialogButtonBox.StandardButton.Close
+
+
+def test_the_list_scrolls_inside_the_dialog(qapp, view_model):
+    """The registry grows; the list scrolls, the dialog does not."""
+    dialog = IndicatorPickerDialog(view_model)
+
+    scroll = dialog.findChild(QScrollArea, "indicatorScroll")
+    assert scroll is not None
+    assert set(scroll.widget().findChildren(QCheckBox)) == set(dialog.check_boxes())

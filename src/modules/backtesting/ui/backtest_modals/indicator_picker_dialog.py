@@ -17,6 +17,7 @@ from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QLabel,
+    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -46,7 +47,13 @@ class IndicatorPickerDialog(QDialog):
         buttons = QDialogButtonBox(QDialogButtonBox.StandardButton.Close)
         buttons.rejected.connect(self.reject)
         layout = QVBoxLayout(self)
-        layout.addWidget(self._rows)
+        # The registry grows; the list scrolls, the dialog does not (review
+        # of PR #362).
+        scroll = QScrollArea()
+        scroll.setObjectName("indicatorScroll")
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(self._rows)
+        layout.addWidget(scroll, 1)
         layout.addWidget(buttons)
         view_model.script_model.modelReset.connect(self.refresh)
         self.refresh()

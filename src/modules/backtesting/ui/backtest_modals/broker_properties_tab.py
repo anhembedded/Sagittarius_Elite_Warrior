@@ -20,11 +20,13 @@ from PySide6.QtWidgets import (
     QVBoxLayout,
     QWidget,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.currency import (
+    Currency,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit.widget_value import (
     mark_uses_item_data,
 )
 
-_CURRENCIES = ("USD", "USDT", "BTC", "VND")
 _ORDER_SIZE_TYPES = (
     ("% of equity", "percent_of_equity"),
     ("Fixed USD (cash)", "fixed_cash"),
@@ -72,7 +74,9 @@ class BrokerPropertiesTab(QWidget):  # base-exempt: a tab's content
         self.initial_capital = _line("propInitialCapital")
         self.currency = QComboBox()
         self.currency.setObjectName("propCurrency")
-        self.currency.addItems(_CURRENCIES)
+        # The domain's currencies, not a second list beside them (review of
+        # PR #362): the hand-written one offered a BTC no run can hold.
+        self.currency.addItems(Currency.list_values())
         self.order_size_type = _choices("propOrderSizeType", _ORDER_SIZE_TYPES)
         self.order_size_value = _line("propOrderSizeValue")
         self.pyramiding = _spin("propPyramiding", 1, _MAX_PYRAMIDING)

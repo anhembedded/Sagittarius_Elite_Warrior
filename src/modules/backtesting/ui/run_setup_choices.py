@@ -36,8 +36,9 @@ def fill_combo(combo: QComboBox, choices: Sequence[Choice], current: str) -> Non
     combo.blockSignals(True)
     combo.clear()
     for choice in choices:
-        # A label is text, never an access key (`ui-presentation-rule.md` §4).
-        combo.addItem(choice.label.replace("&", "&&"), choice.value)
+        # Verbatim: a combo box never reads an access key in its items, so
+        # an escaped "&&" would show as two ampersands (review of PR #362).
+        combo.addItem(choice.label, choice.value)
     combo.setCurrentIndex(combo.findData(current))
     combo.blockSignals(False)
 
