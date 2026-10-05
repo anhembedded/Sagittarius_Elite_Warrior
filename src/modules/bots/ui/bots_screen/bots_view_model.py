@@ -55,6 +55,8 @@ class BotsViewModel(StatusMessageViewModel):
     #: A `BotAction` value.
     action_requested = Signal(str)
     refresh_fills_requested = Signal()
+    #: Scale the chart's price axis to every level of the selected bot.
+    fit_levels_requested = Signal()
 
     def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)

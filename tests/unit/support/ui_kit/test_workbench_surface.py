@@ -320,6 +320,27 @@ class TestTheEnvironmentBanner:
         assert host.toolBarBreak(header) is True
 
 
+class TestDockOf:
+    def test_it_finds_the_dock_a_widget_was_placed_in(
+        self, trading: WorkbenchSurface
+    ) -> None:
+        positions = QLabel("positions")
+        orders = QLabel("orders")
+        trading.place_widget(Place.CONSOLE, positions, title="Positions")
+        trading.place_widget(Place.CONSOLE, orders, title="Orders")
+
+        assert trading.dock_of(orders).windowTitle() == "Orders"
+        assert trading.dock_of(positions).windowTitle() == "Positions"
+
+    def test_a_widget_never_placed_is_refused_by_name(
+        self, trading: WorkbenchSurface
+    ) -> None:
+        stray = _named(QLabel("stray"), "lblStray")
+
+        with pytest.raises(LookupError, match="lblStray"):
+            trading.dock_of(stray)
+
+
 def _named(widget: QWidget, object_name: str) -> QWidget:
     widget.setObjectName(object_name)
     return widget

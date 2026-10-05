@@ -6,7 +6,7 @@ is in flight. The commands themselves are declared Qt-free in
 
 A disabled button used to say why in its tooltip; an action's tooltip is
 fixed by its declaration, so that reason is not shown on the action. The
-Start refusal still reads in the Parameters tab's verdicts. Recorded in
+Start refusal still reads in the Plan panel's verdicts. Recorded in
 `EPIC-033D`'s notes.
 """
 
@@ -18,7 +18,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.derived_state import DerivedState
 
 from .bot_action_rules import BotAction
-from .bots_commands import NEW_BOT, REFRESH_FILLS, lifecycle_id
+from .bots_commands import FIT_LEVELS, NEW_BOT, REFRESH_FILLS, lifecycle_id
 from .bots_view_model import BotsViewModel
 
 
@@ -49,6 +49,18 @@ def bind_bots_commands(binder: ICommandBinder, view_model: BotsViewModel) -> Non
         lambda _checked: view_model.refresh_fills_requested.emit(),
         enabled=fills.changed,
         initially_enabled=fills.value,
+    )
+    # The levels are the selected bot's; with none selected nothing is drawn.
+    chart = DerivedState(
+        view_model.selection_changed,
+        lambda: view_model.selected is not None,
+        view_model,
+    )
+    binder.bind(
+        FIT_LEVELS,
+        lambda _checked: view_model.fit_levels_requested.emit(),
+        enabled=chart.changed,
+        initially_enabled=chart.value,
     )
     for action in BotAction:
         _bind_lifecycle(binder, view_model, action)

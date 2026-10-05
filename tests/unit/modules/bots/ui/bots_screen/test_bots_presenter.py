@@ -18,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bot_action_rules 
     BotAction,
 )
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_commands import (
+    FIT_LEVELS,
     NEW_BOT,
     lifecycle_id,
 )
@@ -27,6 +28,7 @@ from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.bots_ui_fsm_matri
 from Sagittarius_Elite_Warrior.src.modules.bots.ui.bots_screen.fenced_reads import (
     ReadKind,
 )
+from Sagittarius_Elite_Warrior.src.support.charting.chart_card import ChartCard
 
 from .bots_screen_fixtures import (
     GOOD_CONFIG,
@@ -193,7 +195,7 @@ def test_a_new_bot_is_saved_as_a_draft_and_selected(open_bots_screen, qtbot) -> 
     assert selected is not None and selected.name == "my grid"
     assert selected.state is S.DRAFT
     assert _mode(screen) is BotsUiState.EDITING_DRAFT
-    assert screen.view._status.text() == "Create my grid: done."
+    assert screen.view.status.text() == "Create my grid: done."
 
 
 def test_a_bot_created_with_the_minimum_is_completed_in_its_draft(
@@ -296,6 +298,27 @@ def test_a_write_by_anyone_else_is_read_again(open_bots_screen, qtbot) -> None:
     screen.settle()
 
     assert {bot.bot_id for bot in screen.view.model.bots} == {"a00001", "a00009"}
+
+
+def test_fit_levels_scales_the_selected_bots_chart_to_its_levels(
+    open_bots_screen, qtbot
+) -> None:
+    """`EPIC-033K`: Fit levels, a command now, reaches the chart in the
+    centre; the draft's levels run from 60,000 to 70,000, and nothing has
+    scaled the price axis to them before."""
+    screen = open_bots_screen([stored("a00001", S.DRAFT)])
+    screen.settle()
+    _select(screen, "a00001")
+    card = screen.view.chart_area.findChild(ChartCard)
+    assert card is not None
+    axis = card.plot_layout.main_plot.vb
+    # Before Fit levels the price axis is pyqtgraph's empty default.
+    assert axis.viewRange()[1] == [0, 1]
+
+    screen.actions.action(FIT_LEVELS).trigger()
+
+    low, high = axis.viewRange()[1]
+    assert low <= 60000 and high >= 70000
 
 
 def test_a_write_still_queued_when_the_screen_closes_arms_nothing(
