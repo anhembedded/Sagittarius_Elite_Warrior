@@ -69,6 +69,8 @@ logger = logging.getLogger("App.Trading.Market")
 #: The Watchlist's own owner on `IMarketStream`; each chart has its own
 #: (`market_chart.stream_owner_for`).
 WATCHLIST_STREAM_OWNER = "market.watchlist"
+#: The Watchlist's candles: a row's change is its minute's change.
+WATCHLIST_INTERVAL = TimeFrame.ONE_MINUTE
 _CHECK = "check_connection"
 _NOT_LIVE = "Market data: not live. Choose Market on the mode bar to start."
 
@@ -256,7 +258,7 @@ class MarketPresenter(CommandPresenter):
         self._live = True
         symbols = list(self._deps.symbols)
         outcome = self._deps.stream.start(
-            WATCHLIST_STREAM_OWNER, MARKET, symbols, TimeFrame.ONE_MINUTE
+            WATCHLIST_STREAM_OWNER, MARKET, symbols, WATCHLIST_INTERVAL
         )
         for chart in self._charts.values():
             chart.go_live()
@@ -279,6 +281,10 @@ class MarketPresenter(CommandPresenter):
         chart = self._charts.get(candle.symbol)
         if chart is not None:
             chart.apply_candle(candle)
+        if candle.interval != WATCHLIST_INTERVAL.value:
+            # A chart tab streams at its own timeframe; only the Watchlist's
+            # own candles say its row's change (the PR #353 review).
+            return
         if candle.open_price == 0.0:
             logger.warning(
                 "[market] %s tick has a zero open price; its change is skipped",

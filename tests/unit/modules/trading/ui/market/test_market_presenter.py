@@ -140,6 +140,19 @@ def test_a_tick_updates_its_symbols_row(build, event_bus):
     assert presenter.view.watchlist.rows[1].percent_change == pytest.approx(1.0)
 
 
+def test_a_charts_own_timeframe_never_moves_a_watchlist_row(build, event_bus):
+    """Review of PR #353: a tab switched to 1h streams 1h candles of its
+    symbol; the row's change is the Watchlist's own minute, never that hour."""
+    presenter = build()
+    event_bus.emit(tick(candle("ETHUSDT", 0, open_price=100.0)))
+    QCoreApplication.processEvents()
+
+    event_bus.emit(tick(candle("ETHUSDT", 1, interval="1h", open_price=100.0)))
+    QCoreApplication.processEvents()
+
+    assert presenter.view.watchlist.rows[1].percent_change == pytest.approx(1.0)
+
+
 # -- the charts ------------------------------------------------------------------
 
 

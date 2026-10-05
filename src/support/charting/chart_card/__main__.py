@@ -18,11 +18,10 @@ _TICKS_PER_CANDLE = 20
 
 app = QApplication(sys.argv)
 
-# EPIC-007E: the card styles itself through the engine's `apply_role()`, so
-# the #base_card / #base_card_header / #base_card_title rules that used to
-# sit here have nothing left to target. `apply_role()` reads the theme this
-# call seeds — one function for every entry point that builds this app's
-# widgets (BOT-133); this file used to spell out its own half of it.
+# The card carries no style of its own (`ChartFrame`, EPIC-033H); the theme
+# this call seeds is still read by the chart's own parts, and it is one
+# function for every entry point that builds this app's widgets (BOT-133);
+# this file used to spell out its own half of it.
 seed_app_theme()
 
 card = ChartCard("BTCUSDT")
