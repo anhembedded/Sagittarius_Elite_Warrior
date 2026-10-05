@@ -31,10 +31,8 @@
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]backtesting[\/]ui[\/]backtest_modals[\/]limitations_dialog\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]backtesting[\/]ui[\/]backtest_modals[\/]modals_host\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]backtesting[\/]ui[\/]backtest_modals[\/]order_execution_dialog\.py$
-^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]backtesting[\/]ui[\/]backtest_modals[\/]strategy_picker_dialog\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]backtesting[\/]ui[\/]backtest_modals[\/]strategy_properties_dialog\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]backtesting[\/]ui[\/]backtest_modals[\/]symbol_picker_dialog\.py$
-^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]backtesting[\/]ui[\/]backtest_modals[\/]timezone_picker_dialog\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]backtesting[\/]ui[\/]backtest_presenter\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]backtesting[\/]ui[\/]backtest_top_panel\.py$
 ^Sagittarius_Elite_Warrior[\/]src[\/]modules[\/]backtesting[\/]ui[\/]backtest_trade_logs_panel\.py$

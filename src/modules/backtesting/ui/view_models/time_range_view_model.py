@@ -19,10 +19,9 @@ into them and splitting the lookup from the table it reads is how a label
 starts disagreeing with the value it labels.
 
 @par What deliberately stays on the facade
-`openTimeRangePickerRequested` / `openTimezonePickerRequested` — they are
-part of `BackTestViewModel`'s block of ten "open a modal" signals, the same
-call made in `003F2` for `openStrategyPickerRequested`. They carry user
-intent, not state.
+`openTimeRangePickerRequested` — it is part of `BackTestViewModel`'s block
+of "open a modal" signals, the same call made in `003F2` for
+`openBotParamsRequested`. It carries user intent, not state.
 """
 
 from __future__ import annotations

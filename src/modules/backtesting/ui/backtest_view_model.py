@@ -184,12 +184,9 @@ class BackTestViewModel(BaseQmlViewModel):
     openCapitalRequested = Signal(float, float)
     openIndicatorPickerRequested = Signal(float, float)
     openOrderExecutionRequested = Signal(float, float)
-    openStrategyPickerRequested = Signal()
     openSymbolPickerRequested = Signal()
     refreshSymbolOptionsRequested = Signal()
-    openTimeframePickerRequested = Signal()
     openTimeRangePickerRequested = Signal()
-    openTimezonePickerRequested = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
@@ -669,24 +666,12 @@ class BackTestViewModel(BaseQmlViewModel):
         self.openOrderExecutionRequested.emit(x, y)
 
     @Slot()
-    def requestOpenStrategyPicker(self) -> None:
-        self.openStrategyPickerRequested.emit()
-
-    @Slot()
     def requestOpenSymbolPicker(self) -> None:
         self.openSymbolPickerRequested.emit()
 
     @Slot()
-    def requestOpenTimeframePicker(self) -> None:
-        self.openTimeframePickerRequested.emit()
-
-    @Slot()
     def requestOpenTimeRangePicker(self) -> None:
         self.openTimeRangePickerRequested.emit()
-
-    @Slot()
-    def requestOpenTimezonePicker(self) -> None:
-        self.openTimezonePickerRequested.emit()
 
     @Slot(str)
     def setDisplayTimezone(self, tz_name: str) -> None:

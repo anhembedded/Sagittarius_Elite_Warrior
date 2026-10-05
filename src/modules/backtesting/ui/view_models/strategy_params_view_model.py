@@ -8,10 +8,9 @@ is faithful is that `tests/` needs no edit at all.
 
 @par What is here, and what deliberately is not
 Only state and the signals that state emits. The screen's
-`openStrategyPickerRequested` / `openBotParamsRequested` stay on
-`BackTestViewModel`: they belong to its block of ten "open a modal"
-signals, and pulling two out of that block to satisfy a name prefix would
-trade one cohesion for a worse one. Same for the save-request signals
+`openBotParamsRequested` stays on `BackTestViewModel`: it belongs to its
+block of "open a modal" signals, and pulling it out of that block to
+satisfy a name prefix would trade one cohesion for a worse one. Same for the save-request signals
 (`botParamsSaveRequested`, `strategyPropertiesSaveRequested`,
 `strategyPropertiesCommitRequested`) — those are emitted by dialog-facing
 `Slot`s on the facade and carry user intent, not state.

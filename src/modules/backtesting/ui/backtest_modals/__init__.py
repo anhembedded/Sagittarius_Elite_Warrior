@@ -22,6 +22,9 @@ screens render; `components/symbol_picker/` and `components/timeframe_picker/`
 are the shared versions, and `BackTestModalsHost` builds those directly. They
 are deleted rather than kept as thin forwarders: a forwarder is how the two
 copies survived `EPIC-007F`'s first attempt at this.
+
+`EPIC-033L` removed the strategy, timeframe and time zone pickers: each is a
+drop-down list in the Run setup panel (`run_setup_choices.py`).
 """
 
 from __future__ import annotations
@@ -34,11 +37,9 @@ from .modals_host import BackTestModalsHost
 from .order_execution_dialog import OrderExecutionDialog
 from .out_of_sample_comparison_dialog import OutOfSampleComparisonDialog
 from .report_comparison_dialog import ReportComparisonDialog
-from .strategy_picker_dialog import StrategyPickerDialog
 from .strategy_properties_dialog import StrategyPropertiesDialog
 from .symbol_picker_dialog import SymbolPickerDialogWidget
 from .time_range_picker_dialog import TimeRangePickerDialogWidget
-from .timezone_picker_dialog import TimezonePickerDialog
 
 __all__ = [
     "BackTestModalsHost",
@@ -49,9 +50,7 @@ __all__ = [
     "OrderExecutionDialog",
     "OutOfSampleComparisonDialog",
     "ReportComparisonDialog",
-    "StrategyPickerDialog",
     "StrategyPropertiesDialog",
     "SymbolPickerDialogWidget",
     "TimeRangePickerDialogWidget",
-    "TimezonePickerDialog",
 ]
