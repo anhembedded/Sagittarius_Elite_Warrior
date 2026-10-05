@@ -43,7 +43,7 @@
 | [EPIC-033O](completed/EPIC-033O_information_architecture.md) | The information architecture is designed from the use cases, with a wireframe per mode, and approved by the user | Elite | EPIC-033A | 🟢 | ✅ Done (2026-10-04) |
 | [EPIC-033B](incomplete/EPIC-033B_workbench_conformance_fences.md) | A booted-app conformance suite and static bans hold the contract, shrink-only until each mode migrates | Elite | EPIC-033A, EPIC-033O | 🟡 | 🟡 In progress (merged in PR #332; open criteria listed in the task) |
 | [EPIC-033C](incomplete/EPIC-033C_workbench_shell.md) | One top-level workbench window: menu bar, mode bar, View menu, Reset layout, status bar | Elite | Engine W1, EPIC-W3; 033B | 🔴 | 🟡 Merged (#345); two conformance checks still owed, listed in the task |
-| [EPIC-033D](incomplete/EPIC-033D_commands_as_actions.md) | Every command is one QAction contributed by its module: menu entry, toolbar button and shortcut share it | Elite | Engine W2; 033C | 🟡 | Planned |
+| [EPIC-033D](incomplete/EPIC-033D_commands_as_actions.md) | Every command is one QAction contributed by its module: menu entry, toolbar button and shortcut share it | Elite | Engine W2; 033C | 🟡 | 🟡 In progress (P4c) |
 | [EPIC-033N](incomplete/EPIC-033N_uniform_display_widgets.md) | Every table, list and read-out is built from one spec per kind | Elite | Engine W6, EPIC-033C | 🟡 | Planned |
 | [EPIC-033E](completed/EPIC-033E_settings_dialog.md) | One Options dialog (Tools → Options) with sections, OK, Cancel and Apply | Elite | Engine W4; 033C | 🟡 | ✅ Done (2026-10-04) |
 | [EPIC-033F](completed/EPIC-033F_one_output_dock.md) | One Output dock with a channel per module replaces three log cards | Elite | Engine W4; 033C | 🟢 | ✅ Done (2026-10-04) |
