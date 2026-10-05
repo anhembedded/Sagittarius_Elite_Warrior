@@ -23,7 +23,7 @@ from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
 
 FILE_MENU = ("&File",)
 TOOLS_MENU = ("&Tools",)
-MARKET_MENU = ("&Market",)
+MARKET_MENU = ("Mar&ket",)
 CHECK_CONNECTION = "trading.market.check_connection"
 CLOSE_CHART = "trading.market.close_chart"
 SHOW_SPOT = "trading.market.show_spot"

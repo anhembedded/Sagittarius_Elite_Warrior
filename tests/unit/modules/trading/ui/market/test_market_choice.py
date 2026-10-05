@@ -136,7 +136,8 @@ def test_a_remembered_market_the_mode_does_not_offer_keeps_spot(build):
 
 
 def test_the_menu_and_its_choices_take_no_access_key_of_the_menu_bar():
-    """Alt+M opens the Market menu; Spot and Futures take no key a menu-bar
+    """Alt+K opens the Market menu (M is the Backtest run setup's
+    `&Market:`); Spot and Futures take no key a menu-bar
     title already holds (the review of PR #355 found three that did)."""
     standard = [
         shell_menus.FILE_MENU,
@@ -154,9 +155,9 @@ def test_the_menu_and_its_choices_take_no_access_key_of_the_menu_bar():
     keys = [key for c in choices for key in access_keys(c.text)]
 
     assert MARKET_MENU[0] in titles
-    assert tuple(access_keys(MARKET_MENU[0])) == ("m",)
-    assert "m" not in others
-    assert sorted(set(keys) & (others | {"m"})) == []
+    (menu_key,) = access_keys(MARKET_MENU[0])
+    assert menu_key not in others
+    assert sorted(set(keys) & (others | {menu_key})) == []
     assert len(keys) == len(set(keys)) == 2
 
 

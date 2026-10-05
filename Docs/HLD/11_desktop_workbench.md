@@ -75,7 +75,7 @@ the mode the user last used; there is no Welcome page.
 
 ### 11.2.3 The menu bar is the catalogue of commands
 
-Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E, V, M, R, B, D, T, W, H, and P for Developer) and within each menu; "…" only where the command asks for more input;
+Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E, V, K, R, B, D, T, W, H, and P for Developer) and within each menu; "…" only where the command asks for more input;
 "confirm" means a dialog with specific verbs and the safe choice as default
 (`ui-presentation-rule.md` §10). A command with a toolbar column is also on that mode's toolbar.
 
@@ -91,7 +91,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | | one toggle per panel of the current mode, access keys assigned per mode (`EPIC-033D` checks them) | — | — | — |
 | | T&oolbars ›, Stat&us bar | — | — | — |
 | | &Full screen | F11 | — | — |
-| &Market | &Spot, F&utures (one exclusive choice, Spot by default, remembered; `EPIC-033Q`) | — | Market | — |
+| Mar&ket | &Spot, F&utures (one exclusive choice, Spot by default, remembered; `EPIC-033Q`) | — | Market | — |
 | T&rade | &Venue › Futures, Spot | — | Trade | — |
 | | &Enable live trading (checkable) | — | Trade | on enable |
 | | &New order… | F9 | Trade | on place |
