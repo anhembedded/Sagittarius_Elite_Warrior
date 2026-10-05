@@ -57,6 +57,8 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
 from sagittarius_engine.extensions.pyside_mvc import safe_ui_action
 from sagittarius_engine.interfaces.i_container import IContainer
 
+from .chart_history import ChartHistory
+from .chart_history_commands import ChartHistoryCommands
 from .connection_words import (
     CHECKING,
     NOT_CHECKED,
@@ -64,7 +66,7 @@ from .connection_words import (
     error_text,
     failure_text,
 )
-from .market_chart import MarketChart
+from .market_chart import ChartSources, MarketChart
 from .market_choice import MARKET_TEXT, MarketChoice
 from .market_commands import CHECK_CONNECTION, CLOSE_CHART
 from .market_dependencies import MarketDependencies, market_dependencies_for
@@ -106,6 +108,7 @@ class MarketPresenter(CommandPresenter):
         self._live = False
         self._checks: ActionOwnershipTracker[str, None, None] = ActionOwnershipTracker()
         self.choice = MarketChoice(dependencies.state, self)
+        self._history = ChartHistoryCommands(view, lambda: self._charts, self)
         view.watchlist.set_symbols(list(dependencies.symbols))
         view.set_indicator_choices(self._indicator_choices())
         view.set_connection_text(NOT_CHECKED)
@@ -135,6 +138,7 @@ class MarketPresenter(CommandPresenter):
             initially_enabled=bool(self._charts),
         )
         self.choice.bind_commands(binder)
+        self._history.bind_commands(binder)
 
     def on_mode_shown(self, source: NavigationSource) -> None:
         """`IShownAsMode`: the first showing opens a chart from local history;
@@ -242,10 +246,13 @@ class MarketPresenter(CommandPresenter):
             self.view.show_chart(symbol)
             return
         card = ChartCard(symbol)
-        chart = MarketChart(
-            card, self._deps, self._deps.candles[self.choice.current], symbol, self
+        market = self.choice.current
+        sources = ChartSources(
+            self._deps.candles[market], ChartHistory(self._deps.history, market)
         )
+        chart = MarketChart(card, self._deps, sources, symbol, self)
         chart.logged.connect(self.view.log.append)
+        self._history.watch(chart)
         self._charts[symbol] = chart
         self.view.add_chart(symbol, card)
         self.closeChartEnabled.emit(True)

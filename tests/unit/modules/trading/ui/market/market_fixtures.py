@@ -70,11 +70,13 @@ def tick(
 
 
 class RecordingCandleFeed(ICandleFeed):
-    """Serves 60 stored candles per symbol and records each stream."""
+    """Serves 60 stored candles per symbol at the timeframe asked for, none
+    at the timeframes in `empty`, and records each stream."""
 
     def __init__(self) -> None:
         self.started: list[str] = []
         self.stopped: list[str] = []
+        self.empty: set[str] = set()
 
     def sync(
         self, symbol: str, interval: TimeFrame, cancelled: Callable[[], bool]
@@ -84,7 +86,12 @@ class RecordingCandleFeed(ICandleFeed):
     def load_history(
         self, symbol: str, interval: TimeFrame, limit: int
     ) -> Sequence[MarketData]:
-        return tuple(candle(symbol, index) for index in range(min(limit, 60)))
+        if interval.value in self.empty:
+            return ()
+        return tuple(
+            candle(symbol, index, interval=interval.value)
+            for index in range(min(limit, 60))
+        )
 
     def start_stream(
         self, owner_id: str, symbol: str, interval: TimeFrame
@@ -116,6 +123,10 @@ class QueuedThreads(IThreadManager):
         while self._tasks:
             task, args = self._tasks.pop(0)
             task(*args)
+
+    def run_first(self) -> None:
+        task, args = self._tasks.pop(0)
+        task(*args)
 
     def run_last(self) -> None:
         task, args = self._tasks.pop()

@@ -44,7 +44,6 @@
       "src/support/ui_kit/param_form/param_field.py": 1
     },
     "item_view_config": {
-      "src/modules/backtesting/ui/backtest_modals/metrics_detail_dialog.py": 4,
       "src/support/charting/timeframe_picker/dialog.py": 3
     },
     "checkable_button": {

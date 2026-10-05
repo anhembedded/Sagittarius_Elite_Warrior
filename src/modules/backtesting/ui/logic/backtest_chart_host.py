@@ -53,9 +53,6 @@ class PythonBacktestChartHost:
     def symbol(self) -> str:
         return self._chart_card.symbol
 
-    def add_to_header(self, widget: QWidget) -> None:
-        self._chart_card.add_to_header(widget)
-
     def set_dev_mode(self, enabled: bool) -> None:
         self._chart_card.set_dev_mode(enabled)
 

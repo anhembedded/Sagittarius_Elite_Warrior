@@ -18,6 +18,10 @@ File → Close chart and View → Spot market or Futures market (`EPIC-033Q`).
   without opening a menu. View rather than a menu of their own: a "Market"
   title needs an access key, and every letter of the word is already a
   menu-bar title's or a Backtest panel's key.
+- **View → Load older candles, Load range…:** what the chart in front shows
+  beyond its first window (`EPIC-033S`), in View beside the market choice
+  for the same reason; Load range… asks a UTC span first, so it ends with
+  "…". Off while no chart is open and while the one in front loads.
 
 Qt-free, because `TradingModule.contribute()` imports it on a headless run
 (`test_module_contribution_laziness.py`).
@@ -36,6 +40,8 @@ CHECK_CONNECTION = "trading.market.check_connection"
 CLOSE_CHART = "trading.market.close_chart"
 SHOW_SPOT = "trading.market.show_spot"
 SHOW_FUTURES = "trading.market.show_futures"
+LOAD_OLDER = "trading.market.load_older"
+LOAD_RANGE = "trading.market.load_range"
 #: The `exclusive_group` of Spot and Futures.
 MARKET_CHOICE = "trading.market.market"
 
@@ -70,6 +76,23 @@ def market_commands(route: str) -> tuple[CommandContribution, ...]:
             on_toolbar=True,
             checkable=True,
             exclusive_group=MARKET_CHOICE,
+        ),
+        CommandContribution(
+            contributor_id="trading",
+            command_id=LOAD_OLDER,
+            text="Load o&lder candles",
+            menu_path=VIEW_MENU,
+            mode=route,
+            on_toolbar=True,
+        ),
+        CommandContribution(
+            contributor_id="trading",
+            command_id=LOAD_RANGE,
+            text="Load ran&ge…",
+            menu_path=VIEW_MENU,
+            mode=route,
+            on_toolbar=True,
+            needs_input=True,
         ),
         CommandContribution(
             contributor_id="trading",

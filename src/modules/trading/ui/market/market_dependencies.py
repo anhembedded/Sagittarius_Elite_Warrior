@@ -76,6 +76,8 @@ class MarketDependencies:
     stream: IMarketStream
     #: One feed per market of `MARKETS`.
     candles: Mapping[MarketType, ICandleFeed]
+    #: The stored candles a chart reads beyond its first window (`EPIC-033S`).
+    history: IHistoricalKlines
     thread_manager: IThreadManager
     scripts: IndicatorScriptRegistry
     #: A script's saved parameters (Tools → the Dev Board's script dialog),
@@ -101,6 +103,7 @@ def market_dependencies_for(container: IContainer) -> MarketDependencies:
             market: MarketDataCandleFeed(sync, history, stream, market)
             for market in MARKETS
         },
+        history=history,
         thread_manager=container.resolve(IThreadManager),
         scripts=container.resolve(IndicatorScriptRegistry),
         script_params=lambda key: params.load_all().get(key),

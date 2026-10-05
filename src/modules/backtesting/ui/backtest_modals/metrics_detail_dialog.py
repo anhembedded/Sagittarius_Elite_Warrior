@@ -7,8 +7,10 @@ replaced that with `MetricsDetailPanel.qml` + `MetricsDetailVM` behind a
 hand-written modal host, because the design wanted sections, verdict badges and
 a profit-against-loss bar that the grid could not express. `EPIC-025` PR 4.3j
 keeps every one of those and deletes the `.qml`: HLD §11.3 maps a readout like
-this to *a dialog with a table*, and a `QTreeWidget` is the platform's own
-answer to "rows under headings" — which is all the sections ever were.
+this to *a dialog with a table*. It was a `QTreeWidget`, the platform's
+answer to "rows under headings"; since `EPIC-033L` stage 5 it is a
+`SpecTable` built from column specs (`metrics_detail_model.py`), the section
+its first column, until trees from column specs exist (`BOT-151`).
 
 Three things the QML version needed and this does not: a `QQuickWidget` host
 supplying modality that `kit/DialogShell.qml` had no way to provide, a
@@ -29,24 +31,19 @@ from __future__ import annotations
 
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt
-from PySide6.QtGui import QColor, QGuiApplication
+from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QDialog,
     QDialogButtonBox,
     QHBoxLayout,
-    QHeaderView,
     QLabel,
     QProgressBar,
-    QTreeWidget,
-    QTreeWidgetItem,
     QVBoxLayout,
     QWidget,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.metrics_detail_rules import (
     GrossBar,
     MetricGroup,
-    MetricRow,
     build_clipboard_text,
     build_footer,
     build_gross_bar,
@@ -54,38 +51,21 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.metrics_detail_r
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import (
     Tone,
-    semantic_colour,
 )
 
+from ..metrics_detail_model import detail_rows, metrics_detail_table
+from ..readout_table import tone_colour
 from .backtest_metrics_detail_source import BacktestMetricsDetailSource
 
 if TYPE_CHECKING:
     from ..backtest_view_model import BackTestViewModel
 
 _TITLE = "Metrics Detail"
-_METRIC_COLUMN = 0
-_VALUE_COLUMN = 1
-_VERDICT_COLUMN = 2
-_COLUMNS = ("Metric", "Value", "Verdict")
+_NO_METRICS_TEXT = "Run a backtest to see its metrics."
 
 #: The bar is drawn in permille rather than percent so a share of, say, 3.7%
 #: does not collapse to 4 — the caption under it quotes two decimals.
 _BAR_SCALE = 1000
-
-#: The two semantic colours this file reads. Named `_COLOUR`, not `_TOKEN`,
-#: because ruff's `S105` reads any `*_TOKEN = "..."` as a credential.
-_GAIN_COLOUR = "success"
-_LOSS_COLOUR = "danger"
-
-
-def _tone_colour(tone: Tone) -> QColor | None:
-    """A tone's colour, or `None` for "no verdict" — which leaves the row on
-    the platform's own text colour."""
-    if tone is Tone.POSITIVE:
-        return QColor(semantic_colour(_GAIN_COLOUR))
-    if tone is Tone.NEGATIVE:
-        return QColor(semantic_colour(_LOSS_COLOUR))
-    return None
 
 
 class MetricsDetailDialogWidget(QDialog):
@@ -157,26 +137,11 @@ class MetricsDetailDialogWidget(QDialog):
         self.body_layout.addWidget(self._bar_caption)
 
     def _build_tree(self) -> None:
-        self._tree = QTreeWidget()
-        self._tree.setObjectName("metricsDetailTree")
-        self._tree.setColumnCount(len(_COLUMNS))
-        self._tree.setHeaderLabels(list(_COLUMNS))
-        self._tree.setRootIsDecorated(False)
-        # Sections are headings, not folders: nothing is collapsible, because a
-        # collapsed section would hide numbers the user opened this to read.
-        self._tree.setItemsExpandable(False)
-        self._tree.setUniformRowHeights(True)
-        self._tree.setSelectionMode(QTreeWidget.SelectionMode.NoSelection)
-        self._tree.setFocusPolicy(Qt.FocusPolicy.NoFocus)
-        header = self._tree.header()
-        header.setSectionResizeMode(_METRIC_COLUMN, QHeaderView.ResizeMode.Stretch)
-        header.setSectionResizeMode(
-            _VALUE_COLUMN, QHeaderView.ResizeMode.ResizeToContents
-        )
-        header.setSectionResizeMode(
-            _VERDICT_COLUMN, QHeaderView.ResizeMode.ResizeToContents
-        )
-        self.body_layout.addWidget(self._tree, 1)
+        # A table with the section as its first column since `EPIC-033L`
+        # stage 5 (`metrics_detail_model.py`): a tree from column specs
+        # waits for `BOT-151`.
+        self._table = metrics_detail_table(_NO_METRICS_TEXT)
+        self.body_layout.addWidget(self._table.body, 1)
 
     def _build_footer(self) -> None:
         self._footer = QLabel()
@@ -224,44 +189,13 @@ class MetricsDetailDialogWidget(QDialog):
         self._bar.setValue(round(self._bar_data.profit_share * _BAR_SCALE))
         self._bar_caption.setText(self._bar_data.caption)
         self._footer.setText(self._footer_value)
-        self._fill_tree()
-
-    def _fill_tree(self) -> None:
-        self._tree.clear()
-        for group in self._groups:
-            heading = QTreeWidgetItem([group.label, "", ""])
-            font = heading.font(_METRIC_COLUMN)
-            font.setBold(True)
-            heading.setFont(_METRIC_COLUMN, font)
-            self._tree.addTopLevelItem(heading)
-            heading.setExpanded(True)
-            for row in group.rows:
-                heading.addChild(self._row_item(row))
-
-    def _row_item(self, row: MetricRow) -> QTreeWidgetItem:
-        value = f"{row.value} {row.suffix}".strip()
-        verdict = " ".join(part for part in (row.badge_text, row.info) if part)
-        item = QTreeWidgetItem([row.title, value, verdict])
-        item.setTextAlignment(
-            _VALUE_COLUMN, Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter
-        )
-        self._colour_item(item, _VALUE_COLUMN, row.tone)
-        self._colour_item(
-            item, _VERDICT_COLUMN, row.badge_tone if row.badge_text else Tone.NEUTRAL
-        )
-        return item
+        self._table.model.set_rows(detail_rows(self._groups))
 
     # -- rendering helpers -------------------------------------------------
 
     @staticmethod
-    def _colour_item(item: QTreeWidgetItem, column: int, tone: Tone) -> None:
-        colour = _tone_colour(tone)
-        if colour is not None:
-            item.setForeground(column, colour)
-
-    @staticmethod
     def _paint(label: QLabel, tone: Tone) -> None:
-        colour = _tone_colour(tone)
+        colour = tone_colour(tone)
         if colour is None:
             return
         palette = label.palette()

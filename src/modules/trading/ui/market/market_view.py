@@ -19,6 +19,7 @@ from dataclasses import dataclass
 
 from PySide6.QtCore import QModelIndex, Qt, Signal
 from PySide6.QtWidgets import (
+    QDialog,
     QDockWidget,
     QLabel,
     QListWidget,
@@ -44,6 +45,8 @@ from sagittarius_engine.extensions.pyside_mvc.workbench.output_pane import (
     OutputChannel,
 )
 
+from .chart_history import HistoryRange
+from .history_range_dialog import HistoryRangeDialog
 from .watchlist_table_model import WatchlistRow, WatchlistTableModel
 
 #: This mode's surface. Declared here because a module may not import
@@ -182,6 +185,18 @@ class MarketView(OutputSourceView):
 
     def set_stream_text(self, text: str) -> None:
         self.stream.setText(text)
+
+    def ask_history_range(
+        self, symbol: str, proposed: HistoryRange
+    ) -> HistoryRange | None:
+        """View → Load range…: the span the user chose, `None` on Cancel."""
+        dialog = HistoryRangeDialog(symbol, proposed, self)
+        try:
+            if dialog.exec() != QDialog.DialogCode.Accepted:
+                return None
+            return dialog.choice()
+        finally:
+            dialog.deleteLater()
 
     def show_connection_failure(self, text: str) -> None:
         """The check the user asked for failed: said where they are looking,
