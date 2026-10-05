@@ -1,4 +1,4 @@
-"""Market → Spot or Futures (`EPIC-033Q`): one exclusive choice of the mode,
+"""View → Spot market or Futures market (`EPIC-033Q`): one exclusive choice of the mode,
 Spot by default and remembered; the Watchlist and every chart show the
 chosen market, and nothing of the other reaches them."""
 
@@ -16,9 +16,9 @@ from Sagittarius_Elite_Warrior.src.modules.market_data.contracts.testing.fake_ma
     FakeMarketStream,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_commands import (
-    MARKET_MENU,
     SHOW_FUTURES,
     SHOW_SPOT,
+    VIEW_MENU,
     market_commands,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.market.market_presenter import (
@@ -36,12 +36,15 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator imp
     UiStateCoordinator,
 )
 from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
-from Sagittarius_Elite_Warrior.tests.conftest import real_contributions
+from Sagittarius_Elite_Warrior.tests.conftest import real_screen_registry
 from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.market.market_fixtures import (
     candle,
     tick,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import shell_menus
+from sagittarius_engine.extensions.pyside_mvc.workbench.access_key_assignment import (
+    assign_access_keys,
+)
 from sagittarius_engine.extensions.pyside_mvc.workbench.action_text import (
     access_keys,
 )
@@ -135,29 +138,26 @@ def test_a_remembered_market_the_mode_does_not_offer_keeps_spot(build):
     assert presenter.choice.current is MarketType.SPOT
 
 
-def test_the_menu_and_its_choices_take_no_access_key_of_the_menu_bar():
-    """Alt+K opens the Market menu (M is the Backtest run setup's
-    `&Market:`); Spot and Futures take no key a menu-bar
-    title already holds (the review of PR #355 found three that did)."""
-    standard = [
-        shell_menus.FILE_MENU,
-        shell_menus.EDIT_MENU,
-        shell_menus.VIEW_MENU,
-        shell_menus.TOOLS_MENU,
-        shell_menus.WINDOW_MENU,
-        shell_menus.HELP_MENU,
-    ]
-    titles = set(standard) | {
-        c.menu_path[0] for c in real_contributions(Mock()).commands()
-    }
-    others = {key for title in titles - {MARKET_MENU[0]} for key in access_keys(title)}
-    choices = [c for c in market_commands(MARKET_ROUTE) if c.menu_path == MARKET_MENU]
+def test_the_choices_take_no_access_key_of_the_view_menu():
+    """View → Spot market and Futures market sit beside the window's own View
+    items: one item per mode (keys assigned by the window), T&oolbars and
+    Stat&us bar. Their keys are none of those, and none of the mode keys HLD
+    §11.2.3 plans (T&rade, Back&test, De&veloper), so a mode renamed to its
+    planned title does not take one. A "Market" menu of their own was
+    dropped: every letter of the word is a menu-bar title's or a Backtest
+    panel's key."""
+    own = (shell_menus.TOOLBARS_MENU, "Stat&us bar")
+    reserved = [key for text in own for key in access_keys(text)]
+    registry = real_screen_registry(Mock())
+    titles = [s.nav.title for s in registry.modes() if s.nav is not None]
+    modes = assign_access_keys(titles, reserved)
+    planned = ("&Market", "T&rade", "&Bots", "Back&test", "&Data", "De&veloper")
+    taken = {key for text in (*own, *modes, *planned) for key in access_keys(text)}
+    choices = [c for c in market_commands(MARKET_ROUTE) if c.menu_path == VIEW_MENU]
     keys = [key for c in choices for key in access_keys(c.text)]
 
-    assert MARKET_MENU[0] in titles
-    (menu_key,) = access_keys(MARKET_MENU[0])
-    assert menu_key not in others
-    assert sorted(set(keys) & (others | {menu_key})) == []
+    assert [c.command_id for c in choices] == [SHOW_SPOT, SHOW_FUTURES]
+    assert sorted(set(keys) & taken) == []
     assert len(keys) == len(set(keys)) == 2
 
 

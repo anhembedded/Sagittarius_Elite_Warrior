@@ -1,4 +1,4 @@
-"""Which market the Market mode shows (`EPIC-033Q`): Market → Spot or Futures.
+"""Which market the Market mode shows (`EPIC-033Q`): View → Spot market or Futures market.
 
 The market is a value of the mode, not of each chart (HLD §11.2.3), so one
 object holds it: it performs the two commands, keeps their checks in step,
@@ -40,7 +40,7 @@ class MarketChoice(QObject):
 
     #: The new market, after the person chose another one.
     changed = Signal(object)
-    #: Whether Market → Spot, and Market → Futures, is the checked market.
+    #: Whether View → Spot market, and View → Futures market, is the checked market.
     spotChecked = Signal(bool)
     futuresChecked = Signal(bool)
 

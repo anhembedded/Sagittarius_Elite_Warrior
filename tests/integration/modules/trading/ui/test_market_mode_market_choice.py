@@ -1,4 +1,4 @@
-"""`EPIC-033Q` — Market → Futures reloads the open charts from the Futures
+"""`EPIC-033Q` — View → Futures market reloads the open charts from the Futures
 store, through the real candle feed the mode builds (`MarketDataCandleFeed`)
 over in-memory market-data ports; the Spot candles never come back."""
 

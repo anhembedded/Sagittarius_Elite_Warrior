@@ -11,7 +11,7 @@
   chart opens from local history. The stream starts only on the user's own
   open of the mode (`BUG-104`, `BUG-107`): a restore at start says so in the
   status bar and waits; once live, each chart opened later goes live too.
-- **Market → Spot or Futures (`EPIC-033Q`):** the market is the mode's
+- **View → Spot market or Futures market (`EPIC-033Q`):** the market is the mode's
   state, remembered between runs. Choosing the other one reopens every open
   chart on its candles, blanks the Watchlist and, once live, moves its
   stream; a tick of the other market never reaches either.
@@ -163,7 +163,7 @@ class MarketPresenter(CommandPresenter):
             chart.release_stream()
         self._deps.stream.stop(WATCHLIST_STREAM_OWNER)
 
-    # -- Market → Spot, Futures (`EPIC-033Q`) ----------------------------------
+    # -- View → Spot market, Futures market (`EPIC-033Q`) ----------------------------------
 
     def _on_market_changed(self, market: MarketType) -> None:
         """Nothing of the previous market stays: its charts close (their loads

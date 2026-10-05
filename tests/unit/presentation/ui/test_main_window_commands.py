@@ -235,8 +235,8 @@ def test_the_window_makes_a_commands_exclusive_group_one_action_group(qtbot) -> 
             CommandContribution(
                 contributor_id="trading",
                 command_id=f"market.{name}",
-                text=f"&{name.title()}",
-                menu_path=("Mar&ket",),
+                text=f"{name.title()} mar&ket" if name == "futures" else "S&pot market",
+                menu_path=("&View",),
                 mode="desk",
                 checkable=True,
                 exclusive_group="market.choice",

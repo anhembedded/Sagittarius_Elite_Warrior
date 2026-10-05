@@ -20,7 +20,7 @@ The catalogue of commands, with their menus, shortcuts and confirmations, is
 HLD §11.2.3.
 
 Checkable commands that name one `exclusive_group` are one choice among
-several, such as Market → Spot or Futures: the window puts them in one
+several, such as View → Spot market or Futures market: the window puts them in one
 exclusive `QActionGroup`, so checking one unchecks the others and checking
 the checked one keeps it (Qt `QActionGroup`; MS `cmd-menus`, "option
 buttons" in a menu).
