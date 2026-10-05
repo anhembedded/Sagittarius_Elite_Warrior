@@ -92,6 +92,6 @@ def test_the_implementers_are_the_known_three() -> None:
     for going live on a show rather than on construction."""
     assert set(_implementers()) == {
         "modules/market_data/ui/data_management_presenter.py::DataManagementPresenter",
-        "modules/market_data/ui/watchlist/watchlist_presenter.py::WatchlistPresenter",
         "modules/trading/ui/dashboard/dashboard_presenter.py::DashboardPresenter",
+        "modules/trading/ui/market/market_presenter.py::MarketPresenter",
     }

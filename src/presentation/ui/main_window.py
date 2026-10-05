@@ -22,6 +22,10 @@ and, when asked, on their mode's toolbar. A presenter that performs commands
 (`CommandPresenter`) binds them as it is built. A command nothing binds stays
 disabled and is reported once at the end of the build.
 
+@par The status bar (`EPIC-033H`)
+The venue, then what each screen offers as `IStatusSource` (the connection
+state), shown in every mode.
+
 @par One Output pane (`EPIC-033F`)
 Every screen that keeps a log offers it as a channel (`IOutputSource`); the
 window docks one Output pane at the bottom with all of them, and showing a
@@ -85,6 +89,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import (
 from Sagittarius_Elite_Warrior.src.support.ui_kit.state.ui_state_coordinator import (
     UiStateCoordinator,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.status_source import IStatusSource
 from sagittarius_engine.extensions.pyside_mvc import BasePresenter
 from sagittarius_engine.extensions.pyside_mvc.workbench.access_key_assignment import (
     assign_access_keys,
@@ -214,6 +219,9 @@ class MainWindow(WorkbenchShell):
             if channel is not None:
                 self._output.add_channel(channel)
                 self._output_channels[screen.route] = channel.channel_id
+            if isinstance(view, IStatusSource):
+                for widget in view.status_widgets():
+                    self.add_status_widget(widget)
             host = ModeHost(screen.route, view)
             self._hosts[screen.route] = host
             icon = (

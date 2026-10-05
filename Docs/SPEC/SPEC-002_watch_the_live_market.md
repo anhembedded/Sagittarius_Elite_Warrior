@@ -5,10 +5,10 @@
 - **Origin:** measured from the code. `BOT-126` (one subscription set per owner, reference
   counted) and `BOT-033`/`BOT-034` (which symbol and timeframe a click actually uses) are the
   reports that shaped it.
-- **Surfaces:** Dev Board's *Start Live* · the Trading screen's chart, which is live for as long
-  as the screen is open · the Watchlist screen (`BOT-019`), live for as long as it is open,
-  tracking several symbols under one `IMarketStream` owner rather than one chart's single symbol ·
-  `stream start` / `stream stop` at the interactive prompt.
+- **Surfaces:** the Market mode (`EPIC-033H`): its Watchlist panel tracks several symbols under
+  one `IMarketStream` owner, and each open chart tab streams its own symbol under its own owner,
+  live from the user's own open of the mode until the tab or the app closes · Dev Board's
+  *Start Live* · a desk's chart · `stream start` / `stream stop` at the interactive prompt.
 
 ## 1. Trigger
 
@@ -98,4 +98,5 @@ consumer-facing port.
 | The Dev Board actually streams end to end | `tests/integration/modules/trading/ui/test_dashboard_live_stream.py` | integration |
 | A desk's chart reads local history on open and goes live when its venue's trading is on | `tests/unit/modules/trading/ui/desk/test_desk_screen.py` | unit |
 | Only the desk's market's candles at its interval reach its chart | `tests/unit/modules/trading/ui/desk/test_desk_live_feeds.py` | unit |
+| The Market mode opens a chart from history on a restore, goes live only on the user's open, says so when the stream does not start, and releases a tab's stream when it closes | `tests/unit/modules/trading/ui/market/test_market_presenter.py` | unit |
 | A real socket against the real venue | **the user runs it**: `stream start --symbols BTCUSDT --interval 1m`, watch the chart advance for a minute, then `stream stop` and see it settle | human |

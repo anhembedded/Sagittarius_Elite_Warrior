@@ -46,7 +46,7 @@ it."*
   anything to learn whether this run can send a real order.
 - The mode the actor last used comes back on the next launch, shown as a restore and not as a
   click: **launching opens no market stream and sends no live-stream command, whichever mode
-  comes back** (`BUG-104`). A restored Watchlist says it is not live; the Dev Board's opt-in
+  comes back** (`BUG-104`). A restored Market mode says its market data is not live; the Dev Board's opt-in
   auto-start waits too. Either goes live when the actor clicks its mode, the showing one
   included.
 - Every mode is built at start (the user's decision, 2026-10-04); a screen goes live on the

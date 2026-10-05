@@ -82,6 +82,7 @@ Sentence case; `&` marks the access key, unique among the menu-bar titles (F, E,
 | Menu | Command | Shortcut | Toolbar | Confirm |
 | :--- | :--- | :--- | :--- | :-: |
 | &File | &Export table… | — | — | — |
+| | &Close chart (Market: the chart tab in front) | `QKeySequence.Close` (Ctrl+F4, Ctrl+W) | — | — |
 | | E&xit | Alt+F4 | — | — |
 | &Edit | &Copy | Ctrl+C | — | — |
 | | Select &all | Ctrl+A | — | — |
@@ -194,7 +195,7 @@ Which former widgets become what:
 | strategy card, last-signal card | the Strategy panel (armed strategy, parameters button, last signal) | `strategy/ui/panels/` |
 | strategy parameters dialog | a `QDialog` | `strategy/ui/dialogs/` |
 | Dev Board system controls | a toolbar of actions | `market_data/ui/` |
-| indicator checklist | a panel | `market_data/ui/panels/` (support widget contributed by the module that wants it) |
+| indicator checklist | the Market mode's Indicators panel | `trading/ui/market/` (`EPIC-033H`): the mode also runs SPEC-003's check through `trading`'s account port, and `market_data` may not depend on `trading` |
 | backtest modals (11, QML) | `QDialog`s | `backtesting/ui/dialogs/` |
 | Data Management tables, time-range and timeframe pickers | panels and dialogs | `market_data/ui/` |
 | Welcome | a mode with a central widget only: name, version, Start, developer-mode switch | shell |

@@ -16,6 +16,7 @@ Dev Board mixes developer probes with trading controls and market watching; the 
 ## 2. Acceptance criteria
 - [ ] The mode exists only while developer mode is on (Tools → Options); it holds a chart central and the developer probes and script console as docks.
 - [ ] No trading command lives only here.
+- [ ] The Dev Board's market half is gone: its chart column, its Indicators panel and its "Data & stream" controls (Load history, Start live, Stop live), which the Market mode replaced (`EPIC-033H`). The Developer mode's own chart, if it keeps one, is a `MarketChart`-style tab, not the Dev Board's card stack.
 - [ ] The mode passes the conformance suite with no baseline row.
 
 ## 3. Design
