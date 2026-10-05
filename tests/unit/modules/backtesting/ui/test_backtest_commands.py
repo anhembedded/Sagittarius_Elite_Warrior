@@ -8,6 +8,7 @@ the same requests, now from the Backtest menu and toolbar.
 
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import Mock
 
 import pytest
@@ -17,6 +18,7 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_command_bindi
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_commands import (
     COMPARE_REPORTS,
+    EXPORT_TRADES,
     IMPORT_REPORT,
     MONTE_CARLO,
     OUT_OF_SAMPLE,
@@ -30,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_screen import
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_row import (
+    TradeLogRow,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
 from Sagittarius_Elite_Warrior.tests.command_actions import bound_actions
@@ -74,7 +79,7 @@ def test_the_backtesting_module_contributes_every_backtest_command() -> None:
         for command in real_contributions(Mock()).commands()
     }
 
-    for command_id in (*_REQUESTS, STOP, SAVE_REPORT):
+    for command_id in (*_REQUESTS, STOP, SAVE_REPORT, EXPORT_TRADES):
         assert modes[command_id] == BACKTEST_ROUTE
 
 
@@ -121,3 +126,24 @@ def test_save_report_applies_once_a_result_exists(qapp) -> None:
 
     assert save.isEnabled()
     assert saved == [True]
+
+
+def test_export_trades_applies_while_trades_are_listed(qapp) -> None:
+    """`EPIC-033L`: the Trades panel's Export button is Tools → Export
+    trades…, which writes the trades the panel lists."""
+    view_model = BackTestViewModel()
+    actions = _actions(view_model)
+    export = actions.action(EXPORT_TRADES)
+    asked: list[bool] = []
+    view_model.trade_log.exportRequested.connect(lambda: asked.append(True))
+    assert not export.isEnabled()
+    moment = datetime(2026, 1, 1, tzinfo=UTC)
+
+    view_model.trade_log.set_rows(
+        [TradeLogRow(1, moment, 1.0, moment, 1.0, 1.0, 0.0, 0.0)]
+    )
+    export.trigger()
+
+    assert asked == [True]
+    view_model.trade_log.set_rows([])
+    assert not export.isEnabled()

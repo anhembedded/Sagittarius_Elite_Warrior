@@ -84,19 +84,23 @@ def test_the_leverage_section_is_hidden_not_disabled_in_spot(qapp):
     assert not section.isHidden()
 
 
-def test_a_spot_screen_offers_no_short_trade_log_tab_and_falls_back_to_all(qapp):
+def _filter_options(panel: BackTestTradeLogsPanel) -> list[object]:
+    return [panel.filter.itemData(i) for i in range(panel.filter.count())]
+
+
+def test_a_spot_screen_offers_no_short_trade_filter_and_falls_back_to_all(qapp):
     view_model = BackTestViewModel()
     panel = BackTestTradeLogsPanel(view_model)
-    short_tab = panel.findChild(QWidget, "tabTradeLogFilter_short")
     view_model.trade_log.filter = "short"
 
     view_model.broker_sim.market = _SPOT
 
-    assert short_tab.isHidden()
+    assert "short" not in _filter_options(panel)
     assert view_model.trade_log.filter == "all"
+    assert panel.filter.currentData() == "all"
 
     view_model.broker_sim.market = _FUTURES
-    assert not short_tab.isHidden()
+    assert "short" in _filter_options(panel)
 
 
 def _side_options(controls: BacktestChartControls) -> list[object]:

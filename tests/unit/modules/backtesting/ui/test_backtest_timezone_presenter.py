@@ -8,8 +8,14 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Tr
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_presenter import (
     BackTestPresenter,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_trade_logs_panel import (
+    BackTestTradeLogsPanel,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.trade_table_model import (
+    TradeTableModel,
 )
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_catalog_service import (
     StrategyCatalogService,
@@ -35,6 +41,12 @@ def _make_dummy_trade(
         entry_reason="Signal",
         exit_reason=ExitReason.STRATEGY_SIGNAL,
     )
+
+
+def _shown(panel: BackTestTradeLogsPanel, key: str) -> str:
+    """What the Trades table shows in row 0's `key` column: the times are
+    written in the display time zone as they paint (`EPIC-033L`)."""
+    return panel.table.text(0, TradeTableModel.column(key))
 
 
 def test_view_model_timezone_properties_and_signals(qtbot) -> None:
@@ -88,12 +100,13 @@ def test_timezone_change_does_not_dirty_config_or_dispatch_job(qapp) -> None:
     trade = _make_dummy_trade(4, 8)
     presenter._all_trades = [trade]
     presenter._refresh_trade_log()
+    panel = BackTestTradeLogsPanel(presenter._view_model)
 
     # Initial UTC check: 04:00 and 08:00
     rows = presenter._view_model.trade_log.rows
     assert len(rows) == 1
-    assert rows[0]["entryTimeText"] == "2026-08-17 04:00"
-    assert rows[0]["exitTimeText"] == "2026-08-17 08:00"
+    assert _shown(panel, "entry_time") == "2026-08-17 04:00:00"
+    assert _shown(panel, "exit_time") == "2026-08-17 08:00:00"
 
     # Change display timezone to Asia/Ho_Chi_Minh (+7h)
     presenter._view_model.setDisplayTimezone("Asia/Ho_Chi_Minh")
@@ -104,8 +117,8 @@ def test_timezone_change_does_not_dirty_config_or_dispatch_job(qapp) -> None:
     # Assert Trade Logs table re-rendered to 11:00 and 15:00
     rows_vn = presenter._view_model.trade_log.rows
     assert len(rows_vn) == 1
-    assert rows_vn[0]["entryTimeText"] == "2026-08-17 11:00"
-    assert rows_vn[0]["exitTimeText"] == "2026-08-17 15:00"
+    assert _shown(panel, "entry_time") == "2026-08-17 11:00:00"
+    assert _shown(panel, "exit_time") == "2026-08-17 15:00:00"
 
     # Invariant: FSM state must NOT have transitioned to CONFIG_DIRTY or RUNNING
     assert presenter.fsm.current_state == initial_fsm_state

@@ -23,7 +23,7 @@ from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock, patch
 
 import pytest
-from PySide6.QtWidgets import QWidget
+from PySide6.QtWidgets import QLabel, QWidget
 
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
@@ -3497,9 +3497,9 @@ def test_trade_flags_toggle_draws_and_clears_markers(
 # ---------------------------------------------------------------------------
 
 
-def test_successful_run_populates_the_trade_log_first_page(
-    presenter, view_model, mock_dispatcher
-):
+def test_successful_run_lists_every_trade(presenter, view_model, mock_dispatcher):
+    """`EPIC-033L`: the table scrolls, so a run lists every trade — the
+    hand-built list showed twenty to a page."""
     config = _lock_and_get_config(presenter, view_model)
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
         _make_result_with_trades(trade_count=25, win_count=15)
@@ -3508,8 +3508,8 @@ def test_successful_run_populates_the_trade_log_first_page(
     presenter._run_backtest(config)
 
     assert view_model.trade_log.totalCount == 25
-    assert view_model.trade_log.totalPages == 2
-    assert len(view_model.trade_log.rows) == 20  # PAGE_SIZE
+    assert [row.index for row in view_model.trade_log.rows] == list(range(1, 26))
+    assert presenter.view.bottom_widget.table.model.rowCount() == 25
 
 
 def test_no_historical_data_clears_the_trade_log(
@@ -3548,19 +3548,6 @@ def test_changing_the_filter_recomputes_the_trade_log(
     assert view_model.trade_log.totalCount == 3
 
 
-def test_changing_the_filter_resets_to_page_1(presenter, view_model, mock_dispatcher):
-    config = _lock_and_get_config(presenter, view_model)
-    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result_with_trades(trade_count=25, win_count=25)
-    )
-    presenter._run_backtest(config)
-    view_model.trade_log.currentPage = 2
-
-    view_model.trade_log.filter = "loss"  # narrows to 0 rows -> would strand page 2
-
-    assert view_model.trade_log.currentPage == 1
-
-
 def test_changing_the_search_text_recomputes_the_trade_log(
     presenter, view_model, mock_dispatcher
 ):
@@ -3573,20 +3560,6 @@ def test_changing_the_search_text_recomputes_the_trade_log(
     view_model.trade_log.searchText = "#3"
 
     assert view_model.trade_log.totalCount == 1
-
-
-def test_changing_the_current_page_recomputes_the_trade_log(
-    presenter, view_model, mock_dispatcher
-):
-    config = _lock_and_get_config(presenter, view_model)
-    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result_with_trades(trade_count=25, win_count=25)
-    )
-    presenter._run_backtest(config)
-
-    view_model.trade_log.currentPage = 2
-
-    assert len(view_model.trade_log.rows) == 5  # 25 - 20 on page 1
 
 
 def test_export_writes_the_currently_filtered_trades(
@@ -3639,16 +3612,7 @@ def test_export_does_nothing_when_there_are_no_trades_yet(presenter, view_model)
     mock_dialog.assert_not_called()
 
 
-def _find_trade_log_row(panel, index: int):
-    row_layout = panel._rows_layout
-    for i in range(row_layout.count() - 1):
-        widget = row_layout.itemAt(i).widget()
-        if widget._summary_btn.objectName() == f"rowTradeLog_{index}":
-            return widget
-    raise AssertionError(f"no trade log row for index {index}")
-
-
-def test_qml_trade_log_filter_tab_click_updates_the_view_model(
+def test_choosing_a_filter_in_the_panel_updates_the_view_model(
     presenter, view_model, mock_dispatcher, qapp
 ):
     config = _lock_and_get_config(presenter, view_model)
@@ -3657,40 +3621,16 @@ def test_qml_trade_log_filter_tab_click_updates_the_view_model(
     )
     presenter._run_backtest(config)
     qapp.processEvents()
-    panel = presenter.view.bottom_widget
+    combo = presenter.view.bottom_widget.filter
 
-    win_button = next(
-        b for b in panel._filter_buttons if b.objectName() == "tabTradeLogFilter_win"
-    )
-    win_button.click()
+    combo.setCurrentIndex(combo.findData("win"))
     qapp.processEvents()
 
     assert view_model.trade_log.filter == "win"
     assert view_model.trade_log.totalCount == 2
 
 
-def test_qml_trade_log_export_button_click_requests_export(
-    presenter, view_model, mock_dispatcher, qapp
-):
-    config = _lock_and_get_config(presenter, view_model)
-    mock_dispatcher.dispatch.side_effect = _dispatch_stub(
-        _make_result_with_trades(trade_count=3, win_count=3)
-    )
-    presenter._run_backtest(config)
-    qapp.processEvents()
-
-    with patch(
-        "Sagittarius_Elite_Warrior.src.modules.backtesting.ui."
-        "logic.report_file_dialogs.QFileDialog.getSaveFileName",
-        return_value=("", ""),
-    ) as mock_dialog:
-        presenter.view.bottom_widget._btn_export.click()
-        qapp.processEvents()
-
-    mock_dialog.assert_called_once()
-
-
-def test_qml_trade_log_search_field_updates_the_view_model(
+def test_the_panel_search_field_updates_the_view_model(
     presenter, view_model, mock_dispatcher, qapp
 ):
     config = _lock_and_get_config(presenter, view_model)
@@ -3700,7 +3640,7 @@ def test_qml_trade_log_search_field_updates_the_view_model(
     presenter._run_backtest(config)
     qapp.processEvents()
 
-    search_field = presenter.view.bottom_widget._search_field
+    search_field = presenter.view.bottom_widget.search
     search_field.setText("#3")
     search_field.textEdited.emit("#3")
     qapp.processEvents()
@@ -3716,11 +3656,11 @@ def test_qml_trade_logs_document_loads_without_errors(presenter, qapp):
     assert presenter.view.bottom_widget is not None
 
 
-def test_qml_clicking_a_trade_log_row_toggles_its_detail_section(
+def test_selecting_a_trade_shows_its_journal(
     presenter, view_model, mock_dispatcher, qapp
 ):
-    """BOT-045 §2.2: clicking the summary row expands/collapses the entry
-    catalyst / exit execution / metadata block below it."""
+    """BOT-045 §2.2: the selected trade's entry reason, exit reason and
+    metadata show under the table; nothing shows while none is selected."""
     config = _lock_and_get_config(presenter, view_model)
     mock_dispatcher.dispatch.side_effect = _dispatch_stub(
         _make_result_with_trades(trade_count=3, win_count=3)
@@ -3728,19 +3668,18 @@ def test_qml_clicking_a_trade_log_row_toggles_its_detail_section(
     presenter._run_backtest(config)
     qapp.processEvents()
     panel = presenter.view.bottom_widget
+    details = panel.findChild(QWidget, "backtestTradeDetails")
+    assert details.isHidden()
 
-    row = _find_trade_log_row(panel, 1)
-    assert row._detail.isVisible() is False
-
-    row._summary_btn.click()
+    panel.table.view.selectRow(0)
     qapp.processEvents()
-    row = _find_trade_log_row(panel, 1)
-    assert row._detail.isVisible() is True
 
-    row._summary_btn.click()
-    qapp.processEvents()
-    row = _find_trade_log_row(panel, 1)
-    assert row._detail.isVisible() is False
+    assert not details.isHidden()
+    labels = [label.text() for label in details.findChildren(QLabel)]
+    assert "Exit reason:" in labels
+
+    panel.table.view.clearSelection()
+    assert details.isHidden()
 
 
 def test_selected_currency_default_and_change(view_model):

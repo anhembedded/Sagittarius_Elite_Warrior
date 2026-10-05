@@ -12,6 +12,7 @@ from PySide6.QtWidgets import (
     QAbstractButton,
     QAbstractScrollArea,
     QDockWidget,
+    QHeaderView,
     QLabel,
     QMainWindow,
 )
@@ -59,6 +60,8 @@ def test_the_chart_is_central_and_the_panels_are_docked_as_designed(mode):
         "Run setup": _AREA.LeftDockWidgetArea,
         "Metrics": _AREA.RightDockWidgetArea,
         "Trades": _AREA.BottomDockWidgetArea,
+        "Drawdown": _AREA.BottomDockWidgetArea,
+        "Monthly returns": _AREA.BottomDockWidgetArea,
     }
 
 
@@ -71,7 +74,9 @@ def test_no_scroll_area_sits_inside_another(mode):
     nested = [
         area.objectName()
         for area in view.findChildren(QAbstractScrollArea)
-        if any(
+        # A table's header scrolls with its table: one view, not two.
+        if not isinstance(area, QHeaderView)
+        and any(
             isinstance(ancestor, QAbstractScrollArea)
             for ancestor in _ancestors(area, view)
         )

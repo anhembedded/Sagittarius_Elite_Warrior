@@ -30,6 +30,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.value_formatter import (
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench import (
     EmptyStateStack,
+    IValueFormatter,
     Selection,
     SpecProxyModel,
     configure_item_view,
@@ -59,6 +60,7 @@ class SpecTable[TRow]:
         object_name: str,
         empty_text: str,
         selection: Selection = Selection.SINGLE,
+        formatter: IValueFormatter = APP_VALUE_FORMATTER,
     ) -> None:
         self.model = model
         self.view = QTableView()
@@ -67,7 +69,7 @@ class SpecTable[TRow]:
             self.view,
             model,
             model.COLUMNS,
-            formatter=APP_VALUE_FORMATTER,
+            formatter=formatter,
             selection=selection,
         )
         self.body: QWidget = EmptyStateStack(self.view, empty_text)

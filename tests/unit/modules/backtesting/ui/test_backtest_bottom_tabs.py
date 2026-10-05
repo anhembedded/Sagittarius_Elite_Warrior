@@ -1,7 +1,10 @@
 from __future__ import annotations
 
+from datetime import UTC, datetime
 from unittest.mock import MagicMock
 
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QDockWidget, QMainWindow
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest_completed_event import (
     BacktestCompletedEvent,
 )
@@ -11,96 +14,67 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.events.backtest
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_trade_logs_panel import (
     BackTestTradeLogsPanel,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
+    BackTestView,
+)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_chart_host import (
     BacktestChartHostFactory,
 )
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_row import (
+    TradeLogRow,
+)
 from Sagittarius_Elite_Warrior.src.modules.trading.contracts.events.signal_generated_event import (
     SignalGeneratedEvent,
 )
 
 
-def test_backtest_view_model_bottom_tabs_and_log_model(qapp) -> None:
+def test_backtest_view_model_has_a_log_model(qapp) -> None:
     vm = BackTestViewModel()
-    assert vm.activeBottomTab == "trades"
     assert vm.logModel is not None
     assert vm.log_model is not None
 
-    tab_changed_spy = MagicMock()
-    vm.activeBottomTabChanged.connect(tab_changed_spy)
 
-    vm.setActiveBottomTab("logs")
-    assert vm.activeBottomTab == "logs"
-    assert tab_changed_spy.call_count == 1
-
-    # Setting to same value does not emit
-    vm.setActiveBottomTab("logs")
-    assert tab_changed_spy.call_count == 1
-
-    vm.setActiveBottomTab("trades")
-    assert vm.activeBottomTab == "trades"
-    assert tab_changed_spy.call_count == 2
-
-
-def test_the_log_is_no_longer_a_tab(qapp) -> None:
-    """`EPIC-033F`: the run log is the Output pane's "Backtest" channel, so
-    the results panel shows trades and an old "logs" tab id falls back to
-    them, the way any unknown id does."""
+def test_the_bottom_docks_are_trades_drawdown_and_monthly_returns(qapp) -> None:
+    """`EPIC-033L`: the panel's own tab bar (Trades, Drawdown, Returns) is
+    three docks in the bottom area, tabbed, Trades in front. The run log is
+    the Output pane's "Backtest" channel (`EPIC-033F`), never a tab."""
     vm = BackTestViewModel()
-    panel = BackTestTradeLogsPanel(vm)
+    view = BackTestView()
+    view.set_view_model(vm)
+    surface = view.findChild(QMainWindow)
+    bottom = [
+        dock.windowTitle()
+        for dock in view.findChildren(QDockWidget)
+        if surface.dockWidgetArea(dock) is Qt.DockWidgetArea.BottomDockWidgetArea
+    ]
 
-    assert panel._tab_bar.objectName() == "bottomTabBar"
-    assert panel._trades_tab.objectName() == "tradeLogsTabContent"
-    assert not hasattr(panel, "_log_panel")
-
-    vm.setActiveBottomTab("logs")
-    qapp.processEvents()
-    # `isVisibleTo(panel)`: the panel is never shown in this test.
-    assert panel._trades_tab.isVisibleTo(panel)
-    assert not panel._drawdown_tab.isVisibleTo(panel)
-    assert not panel._returns_tab.isVisibleTo(panel)
+    assert sorted(bottom) == ["Drawdown", "Monthly returns", "Trades"]
+    assert surface.tabifiedDockWidgets(view.dock_of(view.bottom_widget))
+    view.deleteLater()
 
 
-def test_backtest_bottom_tabs_include_drawdown_and_returns(qapp) -> None:
-    """`BOT-106D` — two more tabs, mutually exclusive with the other two."""
+def test_the_drawdown_and_returns_docks_follow_the_run(qapp) -> None:
+    """`BOT-106D` — the docks read `run_result.drawdownPoints` and
+    `.yearlyReturns` reactively."""
     vm = BackTestViewModel()
-    panel = BackTestTradeLogsPanel(vm)
-
-    assert not panel._drawdown_tab.isVisibleTo(panel)
-    assert not panel._returns_tab.isVisibleTo(panel)
-
-    vm.setActiveBottomTab("drawdown")
-    qapp.processEvents()
-    assert panel._drawdown_tab.isVisibleTo(panel)
-    assert not panel._trades_tab.isVisibleTo(panel)
-    assert not panel._returns_tab.isVisibleTo(panel)
-
-    vm.setActiveBottomTab("returns")
-    qapp.processEvents()
-    assert panel._returns_tab.isVisibleTo(panel)
-    assert not panel._drawdown_tab.isVisibleTo(panel)
-
-
-def test_backtest_bottom_tabs_forward_drawdown_and_returns_data(qapp) -> None:
-    """`BOT-106D` — the panel reads `run_result.drawdownPoints`/
-    `.yearlyReturns` reactively, the same wiring `_sync_rows`/`trade_log`
-    already uses for the trades tab."""
-    vm = BackTestViewModel()
-    panel = BackTestTradeLogsPanel(vm)
+    view = BackTestView()
+    view.set_view_model(vm)
 
     vm.run_result.set_drawdown_points([{"t": 0.0, "v": -5.0}])
     qapp.processEvents()
-    assert panel._drawdown_chart._plot_widget.isVisibleTo(panel._drawdown_chart)
-    assert not panel._drawdown_chart._empty_label.isVisibleTo(panel._drawdown_chart)
+    assert view.drawdown._plot_widget.isVisibleTo(view.drawdown)
+    assert not view.drawdown._empty_label.isVisibleTo(view.drawdown)
 
     rows = [
         {"year": 2024, "months": [None] * 12, "ytdText": "+0.00%", "ytdColor": "#000"}
     ]
     vm.run_result.set_yearly_returns(rows)
     qapp.processEvents()
-    assert panel._returns_heatmap._grid_container.isVisibleTo(panel._returns_heatmap)
+    assert view.monthly_returns._grid_container.isVisibleTo(view.monthly_returns)
+    view.deleteLater()
 
 
 def test_backtest_presenter_event_bus_handlers(qapp) -> None:
@@ -222,40 +196,56 @@ def test_backtest_presenter_event_bus_handlers(qapp) -> None:
     )
 
 
-def test_expanding_a_trade_row_emits_its_stable_index(qapp) -> None:
-    """`PROP-001` — expanding a row (the existing expand/collapse click)
-    also selects it for the chart's entry-exit link."""
+def _panel_with_trades(count: int) -> BackTestTradeLogsPanel:
     vm = BackTestViewModel()
     panel = BackTestTradeLogsPanel(vm)
+    vm.trade_log.set_rows([_trade_row(index) for index in range(1, count + 1)])
+    return panel
+
+
+def _trade_row(index: int) -> TradeLogRow:
+    moment = datetime(2026, 1, 1, tzinfo=UTC)
+    return TradeLogRow(
+        index=index,
+        entry_time=moment,
+        entry_price=100.0,
+        exit_time=moment,
+        exit_price=101.0,
+        quantity=1.0,
+        pnl=1.0,
+        pnl_percent=1.0,
+    )
+
+
+def test_selecting_a_trade_emits_its_stable_index(qapp) -> None:
+    """`PROP-001` — selecting a row selects that trade for the chart's
+    entry-exit link, by its index in the unfiltered list."""
+    panel = _panel_with_trades(3)
     spy = MagicMock()
     panel.selectedTradeChanged.connect(spy)
 
-    panel._on_row_toggled(3)
+    panel.table.view.selectRow(2)
 
-    spy.assert_called_once_with(3)
-    assert panel._expanded_rows[3] is True
+    spy.assert_called_with(3)
 
 
-def test_collapsing_the_same_row_emits_deselection(qapp) -> None:
-    vm = BackTestViewModel()
-    panel = BackTestTradeLogsPanel(vm)
-    panel._on_row_toggled(3)
+def test_clearing_the_selection_emits_deselection(qapp) -> None:
+    panel = _panel_with_trades(3)
+    panel.table.view.selectRow(2)
     spy = MagicMock()
     panel.selectedTradeChanged.connect(spy)
 
-    panel._on_row_toggled(3)
+    panel.table.view.clearSelection()
 
-    spy.assert_called_once_with(-1)
-    assert panel._expanded_rows[3] is False
+    spy.assert_called_with(-1)
 
 
-def test_expanding_a_different_row_selects_that_one(qapp) -> None:
-    vm = BackTestViewModel()
-    panel = BackTestTradeLogsPanel(vm)
-    panel._on_row_toggled(1)
+def test_selecting_a_different_trade_selects_that_one(qapp) -> None:
+    panel = _panel_with_trades(3)
+    panel.table.view.selectRow(0)
     spy = MagicMock()
     panel.selectedTradeChanged.connect(spy)
 
-    panel._on_row_toggled(2)
+    panel.table.view.selectRow(1)
 
-    spy.assert_called_once_with(2)
+    spy.assert_called_with(2)

@@ -190,12 +190,10 @@ class BackTestViewModel(BaseQmlViewModel):
     openTimeframePickerRequested = Signal()
     openTimeRangePickerRequested = Signal()
     openTimezonePickerRequested = Signal()
-    activeBottomTabChanged = Signal()
 
     def __init__(self, parent=None) -> None:
         super().__init__(parent)
         self._log_model = LogListModel(self)
-        self._active_bottom_tab = "trades"
         # `EPIC-003F2` — strategy selection + "Thông số Chiến lược" state.
         # `EPIC-003F6` Phase 2 deleted the forwarding: every call site reads
         # `vm.strategy_params.*` now, so there is no signal left to connect
@@ -705,29 +703,6 @@ class BackTestViewModel(BaseQmlViewModel):
     def log_model(self) -> LogListModel:
         """Pythonic accessor for the Presenter/Logger."""
         return self._log_model
-
-    # ------------------------------------------------------------------ #
-    # Bottom Tab state ("trades" | "drawdown" | "returns")
-    # ------------------------------------------------------------------ #
-    def _get_active_bottom_tab(self) -> str:
-        return self._active_bottom_tab
-
-    def _set_active_bottom_tab(self, value: str) -> None:
-        val = str(value)
-        if self._active_bottom_tab != val:
-            self._active_bottom_tab = val
-            self.activeBottomTabChanged.emit()
-
-    activeBottomTab = Property(
-        str,
-        _get_active_bottom_tab,
-        _set_active_bottom_tab,
-        notify=activeBottomTabChanged,
-    )
-
-    @Slot(str)
-    def setActiveBottomTab(self, tab_id: str) -> None:
-        self._set_active_bottom_tab(tab_id)
 
     # ------------------------------------------------------------------ #
     # Stale Data / Dirty Tracking (BOT-095B)

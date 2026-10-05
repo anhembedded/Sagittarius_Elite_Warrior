@@ -6,12 +6,12 @@ BOT-089/BOT-090's original problem (a hardcoded panel height/a splitter
 free to squeeze the trade log pane below what it needs) doesn't need the
 `implicitHeight`-read-back plumbing QML required anymore — a plain
 `QWidget`'s own layout reports a correct `sizeHint()`/`minimumSizeHint()`
-without help, and `BackTestTradeLogsPanel.minimum_usable_height()`
-computes BOT-090's floor directly in Python. These tests assert the
-same INVARIANTS the QML-era tests did, just via direct widget attributes
-instead of `qml_item()`/`rootObject()`.
+without help. Since `EPIC-033L` the trades are a table in a dock that
+scrolls at any height, so BOT-090's computed floor is gone; these tests
+assert the same invariant — rows visible — on the table.
 """
 
+from datetime import UTC, datetime
 from unittest.mock import patch
 
 import pytest
@@ -21,6 +21,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view import (
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.trade_log_row import (
+    TradeLogRow,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone
 
@@ -39,25 +42,10 @@ def _stat_cards(count: int) -> list[dict[str, str]]:
     ]
 
 
-def _trade_log_rows(count: int) -> list[dict[str, str]]:
+def _trade_log_rows(count: int) -> list[TradeLogRow]:
+    moment = datetime(2026, 8, 1, 10, tzinfo=UTC)
     return [
-        {
-            "index": str(i + 1),
-            "positionLabel": "long position",
-            "entryTimeText": "2026-08-01 10:00",
-            "entryPriceText": "1000.00",
-            "exitPriceText": "1010.00",
-            "exitTimeText": "2026-08-01 11:00",
-            "positionSizeText": "100.00",
-            "quantityText": "0.1",
-            "pnlText": "+10.00",
-            "returnText": "+1.00%",
-            "pnlColor": "#26a69a",
-            "entryReasonText": "",
-            "exitReasonText": "",
-            "durationText": "",
-            "metadataItems": [],
-        }
+        TradeLogRow(i + 1, moment, 1000.0, moment, 1010.0, 0.1, 1.0, 1.0)
         for i in range(count)
     ]
 
@@ -149,26 +137,20 @@ def test_sync_progress_and_coverage_warning_are_visible(view, qapp):
     assert v.top_widget._coverage_banner.isVisible() is True
 
 
-def test_trade_log_pane_never_shrinks_below_its_usable_minimum(view):
-    """BUG-004's exact symptom — header/tabs/pagination all rendered, table
-    body empty — was the splitter squeezing the pane below what the table
-    needs. `set_view_model()` applies `minimum_usable_height()` via
-    `setMinimumHeight()`, so the Trades dock can never go below it."""
-    v, _vm = view
-
-    assert v.bottom_widget.minimumHeight() >= v.bottom_widget.minimum_usable_height()
-
-
-def test_trade_log_rows_are_visible_by_default(view, qapp):
-    """Regression guard for BUG-004/BOT-090: a 75-trade result page
-    (PAGE_SIZE=20 rows) rendered with zero rows actually visible."""
+def test_trade_rows_are_visible_by_default(view, qapp):
+    """Regression guard for BUG-004/BOT-090: a 75-trade result rendered its
+    header and pager with zero rows actually visible, the pane squeezed
+    below what the hand-built rows needed. The Trades table (`EPIC-033L`)
+    lists every trade and scrolls; at the mode's default layout its first
+    row is on screen in full."""
     v, vm = view
-    vm.trade_log.set_page_state(_trade_log_rows(20), 75, 4)
+    vm.trade_log.set_rows(_trade_log_rows(75))
     qapp.processEvents()
+    table = v.bottom_widget.table.view
 
-    assert v.bottom_widget._rows_layout.count() == 21  # 20 rows + trailing stretch
-    first_row = v.bottom_widget._rows_layout.itemAt(0).widget()
-    assert first_row._summary_btn.objectName() == "rowTradeLog_1"
+    assert table.model().rowCount() == 75
+    assert table.rowAt(0) == 0
+    assert table.viewport().height() >= table.rowHeight(0)
 
 
 def test_backtest_chart_fps_meter_follows_dev_mode(qapp, request):

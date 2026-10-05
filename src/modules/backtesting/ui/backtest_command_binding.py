@@ -13,6 +13,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.derived_state import DerivedSt
 
 from .backtest_commands import (
     COMPARE_REPORTS,
+    EXPORT_TRADES,
     IMPORT_REPORT,
     MONTE_CARLO,
     OUT_OF_SAMPLE,
@@ -56,6 +57,12 @@ def bind_backtest_commands(
         _bind(binder, command_id, request, idle)
     _bind(binder, STOP, view_model.requestCancelBacktest, stoppable)
     _bind(binder, SAVE_REPORT, view_model.requestExportReport, has_result)
+    trades_listed = DerivedState(
+        view_model.trade_log.rowsChanged,
+        lambda: bool(view_model.trade_log.rows),
+        view_model,
+    )
+    _bind(binder, EXPORT_TRADES, view_model.trade_log.request_export, trades_listed)
 
 
 def _bind(

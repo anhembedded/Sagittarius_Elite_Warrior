@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
-from PySide6.QtWidgets import QVBoxLayout, QWidget
+from PySide6.QtWidgets import QDockWidget, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.place import Place
 from Sagittarius_Elite_Warrior.src.core.contracts.surface import Surface
 from Sagittarius_Elite_Warrior.src.core.vo.market_type import MarketType
@@ -31,6 +31,7 @@ from .logic.chart_canvas_view import (
 )
 from .logic.chart_controls import BacktestChartControls
 from .ports.i_backtest_chart_host import IBacktestChartHost
+from .result_panels import drawdown_panel, monthly_returns_panel
 from .run_setup_panel import RunSetupPanel
 
 _EQUITY_SUBPLOT_KEY = "equity"
@@ -51,6 +52,8 @@ BACKTEST_SURFACE = Surface(
 RUN_SETUP_DOCK = "Run setup"
 METRICS_DOCK = "Metrics"
 TRADES_DOCK = "Trades"
+DRAWDOWN_DOCK = "Drawdown"
+MONTHLY_RETURNS_DOCK = "Monthly returns"
 
 
 class BackTestView(OutputSourceView):
@@ -58,7 +61,8 @@ class BackTestView(OutputSourceView):
     @brief The Backtest mode (`EPIC-033L`), laid out as HLD §11.2.1 lists it:
     the result chart in the centre; Run setup (`RunSetupPanel`) on the left;
     Metrics (`BackTestTopPanel`: banners and figures) on the right; Trades
-    (`BackTestTradeLogsPanel`) at the bottom. The run log is the Output
+    (`BackTestTradeLogsPanel`) at the bottom, tabbed with Drawdown and
+    Monthly returns. The run log is the Output
     pane's "Backtest" channel (`EPIC-033F`).
 
     @details Before `EPIC-033L` the same parts were stacked in a `QSplitter`
@@ -131,18 +135,29 @@ class BackTestView(OutputSourceView):
         self.run_setup = RunSetupPanel(view_model)
         self.top_widget = BackTestTopPanel(view_model)
         self.bottom_widget = BackTestTradeLogsPanel(view_model)
-        # `BUG-004`: squeezed below this floor the hand-built row list shows
-        # its header and no row. Kept while the list is hand-built; the
-        # trades table built from its column specs (the next stage of
-        # `EPIC-033L`) scrolls at any height and needs none.
-        self.bottom_widget.setMinimumHeight(self.bottom_widget.minimum_usable_height())
+        self.drawdown = drawdown_panel(view_model.run_result)
+        self.monthly_returns = monthly_returns_panel(view_model.run_result)
         self._surface.place_widget(
             Place.NAVIGATOR, self.run_setup, title=RUN_SETUP_DOCK
         )
         self._surface.place_widget(Place.RAIL, self.top_widget, title=METRICS_DOCK)
-        self._surface.place_widget(Place.CONSOLE, self.bottom_widget, title=TRADES_DOCK)
+        for widget, title in (
+            (self.bottom_widget, TRADES_DOCK),
+            (self.drawdown, DRAWDOWN_DOCK),
+            (self.monthly_returns, MONTHLY_RETURNS_DOCK),
+        ):
+            self._surface.place_widget(Place.CONSOLE, widget, title=title)
+        # The bottom docks are tabbed; the trades are what a run is read by.
+        self.dock_of(self.bottom_widget).raise_()
 
         self._modals_host = BackTestModalsHost(view_model, self)
+
+    def dock_of(self, widget: QWidget) -> QDockWidget:
+        """The panel `widget` is the content of."""
+        for dock in self._surface.findChildren(QDockWidget):
+            if dock.widget() is widget:
+                return dock
+        raise LookupError(f"the surface placed no dock for {widget.objectName()!r}")
 
     def _show_marker_sides(self) -> None:
         """EPIC-027D — the chart's side filter follows the screen's market."""

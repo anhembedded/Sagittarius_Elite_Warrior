@@ -32,6 +32,9 @@ from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strateg
 from Sagittarius_Elite_Warrior.src.modules.strategy.application.services.strategy_chart_overlay_service import (
     StrategyChartOverlayService,
 )
+from Sagittarius_Elite_Warrior.src.modules.trading.contracts.position_side import (
+    PositionSide,
+)
 
 
 @pytest.fixture
@@ -115,8 +118,7 @@ def test_backtest_truthful_markers_integration(qtbot, sample_long_only_result) -
     # 4. Assert Trade Logs table in ViewModel
     rows = presenter._view_model.trade_log.rows
     assert len(rows) == 1
-    assert "long position" in rows[0]["positionLabel"]
-    assert "SHORT" not in rows[0]["positionLabel"]
+    assert rows[0].side is PositionSide.LONG
 
     # 5. Filter tab "short" contains 0 items in long-only engine
     presenter._view_model.trade_log.filter = "short"
