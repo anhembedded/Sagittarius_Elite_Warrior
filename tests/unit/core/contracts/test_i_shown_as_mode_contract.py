@@ -7,7 +7,7 @@ the port would be skipped without a sound and its screen would never go live,
 so this module reads the sources: the port declares exactly what the window
 calls, and every class in `src/` that defines `on_mode_shown` takes the
 port's one argument. Since `EPIC-033D` the window also dispatches on
-`IBindsCommands`, so "what the window calls" is checked against both ports.
+`CommandPresenter`, so "what the window calls" is checked against both.
 
 Retire when: `presentation/` and the implementers are under the mypy gate,
 which would catch both directions statically.
@@ -21,8 +21,8 @@ from pathlib import Path
 from Sagittarius_Elite_Warrior.src.core.contracts.i_shown_as_mode import (
     IShownAsMode,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
-    IBindsCommands,
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
+    CommandPresenter,
 )
 
 _SRC = Path(__file__).resolve().parents[4] / "src"
@@ -31,7 +31,7 @@ _METHOD = "on_mode_shown"
 
 
 #: Every port the window dispatches a presenter on with `isinstance`.
-_PRESENTER_PORTS: tuple[type, ...] = (IShownAsMode, IBindsCommands)
+_PRESENTER_PORTS: tuple[type, ...] = (IShownAsMode, CommandPresenter)
 
 
 def _declared(port: type) -> frozenset[str]:

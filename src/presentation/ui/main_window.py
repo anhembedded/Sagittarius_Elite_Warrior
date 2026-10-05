@@ -19,7 +19,7 @@ shows, with why.
 @par Commands are actions (`EPIC-033D`)
 Each module's contributed commands become one `QAction` apiece, in their menu
 and, when asked, on their mode's toolbar. A presenter that performs commands
-(`IBindsCommands`) binds them as it is built. A command nothing binds stays
+(`CommandPresenter`) binds them as it is built. A command nothing binds stays
 disabled and is reported once at the end of the build.
 
 @par One Output pane (`EPIC-033F`)
@@ -66,8 +66,10 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.assets.icon_loader import (
     get_icon_loader,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
-    IBindsCommands,
     ICommandBinder,
+)
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
+    CommandPresenter,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.mode_host import ModeHost
 from Sagittarius_Elite_Warrior.src.support.ui_kit.output_source import IOutputSource
@@ -206,7 +208,7 @@ class MainWindow(WorkbenchShell):
             view = screen.view_factory()
             presenter = screen.presenter_class(view, self._container)
             self._presenters[screen.route] = presenter
-            if isinstance(presenter, IBindsCommands):
+            if isinstance(presenter, CommandPresenter):
                 presenter.bind_commands(self._command_binder)
             channel = view.output_channel() if isinstance(view, IOutputSource) else None
             if channel is not None:

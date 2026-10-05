@@ -1,15 +1,8 @@
-"""`EPIC-033D` — a desk's commands as the window builds them, for its tests.
-
-The commands come from `desk_commands`, as the module contributes them; the
-actions from the Engine's real `ActionRegistry`, through the window's own
-`action_descriptor`; the presenter binds them through `bind_commands`, as the
-window calls it. Only the confirmation dialog is replaced, by one that records
-what it was asked and answers as told.
-"""
+"""`EPIC-033D` — a desk's commands as the window builds them, for its tests (`tests/command_actions.py`)."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QWidget
@@ -24,17 +17,15 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.futures_d
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.spot_desk_screen import (
     SPOT_DESK_ROUTE,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.command_actions import (
-    action_descriptor,
-)
 from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_venue import (
     TradingVenue,
 )
-from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
-    IBindsCommands,
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
+    CommandPresenter,
 )
-from sagittarius_engine.extensions.pyside_mvc.workbench.action_descriptor import (
-    ActionConfirmation,
+from Sagittarius_Elite_Warrior.tests.command_actions import (
+    RecordingConfirmer,
+    bound_actions,
 )
 from sagittarius_engine.extensions.pyside_mvc.workbench.action_registry import (
     ActionRegistry,
@@ -44,18 +35,6 @@ _ROUTE = {
     TradingVenue.FUTURES_TESTNET: FUTURES_DESK_ROUTE,
     TradingVenue.SPOT_TESTNET: SPOT_DESK_ROUTE,
 }
-
-
-@dataclass
-class RecordingConfirmer:
-    """An `IActionConfirmer` that answers `answer` and keeps every question."""
-
-    answer: bool = True
-    asked: list[ActionConfirmation] = field(default_factory=list)
-
-    def confirm(self, parent: QWidget | None, confirmation: ActionConfirmation) -> bool:
-        self.asked.append(confirmation)
-        return self.answer
 
 
 @dataclass(frozen=True)
@@ -76,12 +55,11 @@ class DeskActions:
 
 
 def bind_desk_actions(
-    owner: QWidget, presenter: IBindsCommands, venue: TradingVenue
+    owner: QWidget, presenter: CommandPresenter, venue: TradingVenue
 ) -> DeskActions:
     """`venue`'s commands, contributed and bound to `presenter`."""
     confirmer = RecordingConfirmer()
-    registry = ActionRegistry(owner, confirmer)
-    for command in desk_commands(_ROUTE[venue], venue):
-        registry.contribute(action_descriptor(command))
-    presenter.bind_commands(registry)
+    registry = bound_actions(
+        owner, desk_commands(_ROUTE[venue], venue), presenter.bind_commands, confirmer
+    )
     return DeskActions(registry, confirmer, venue)

@@ -81,6 +81,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.assets import Palette
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
     ICommandBinder,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
+    CommandPresenter,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.constants import UIMode
 from Sagittarius_Elite_Warrior.src.support.ui_kit.health_check_coordinator import (
     HealthCheckCoordinator,
@@ -89,7 +92,7 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.state.state_scope import (
     StateData,
     StateScope,
 )
-from sagittarius_engine.extensions.pyside_mvc import BasePresenter, safe_ui_action
+from sagittarius_engine.extensions.pyside_mvc import safe_ui_action
 
 from .dashboard_view_model import (
     DATETIME_FORMAT,
@@ -347,7 +350,7 @@ def _tick_to_candle(
     )
 
 
-class DashboardPresenter(BasePresenter):
+class DashboardPresenter(CommandPresenter):
     """
     @brief Não bộ của màn hình Dashboard.
 
@@ -418,11 +421,8 @@ class DashboardPresenter(BasePresenter):
     #: exhausted, since nothing ever moves the "near the edge" boundary).
     ui_history_prepend_finished_signal = Signal(str, bool)
 
-    # EPIC-014 — the exchange's tradable pair list, fetched off the Qt main
-    # thread the first time the symbol picker is opened, then delivered back
-    # onto it. Mirrors BackTestPresenter's BOT-102 pair exactly; a failure
-    # gets its own signal so the log line says what went wrong rather than
-    # the picker just staying on "Đang tải".
+    # EPIC-014 — the pair list, fetched off the main thread on the picker's
+    # first open (BackTestPresenter's BOT-102 pair); a failure has its own signal.
     _symbolOptionsReadySignal = Signal(list)
     _symbolOptionsFailedSignal = Signal(str)
 

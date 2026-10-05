@@ -29,16 +29,11 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.dashboard.dev_board_comman
     RELOAD_HISTORY,
     dev_board_commands,
 )
-from Sagittarius_Elite_Warrior.src.presentation.ui.command_actions import (
-    action_descriptor,
+from Sagittarius_Elite_Warrior.tests.command_actions import (
+    RecordingConfirmer,
+    bound_actions,
 )
 from Sagittarius_Elite_Warrior.tests.conftest import real_contributions
-from Sagittarius_Elite_Warrior.tests.unit.modules.trading.ui.desk.desk_actions import (
-    RecordingConfirmer,
-)
-from sagittarius_engine.extensions.pyside_mvc.workbench.action_registry import (
-    ActionRegistry,
-)
 
 
 class _Board:
@@ -48,9 +43,6 @@ class _Board:
         self.owner = QObject()
         self.view_model = DashboardQmlViewModel()
         self.confirmer = RecordingConfirmer()
-        self.registry = ActionRegistry(self.owner, self.confirmer)
-        for command in dev_board_commands(DASHBOARD_ROUTE):
-            self.registry.contribute(action_descriptor(command))
         self.orders_opened = 0
         self.requests: list[str] = []
         self.view_model.loadHistoryRequested.connect(
@@ -60,7 +52,14 @@ class _Board:
         self.view_model.emergencyStopRequested.connect(
             lambda: self.requests.append("stop")
         )
-        bind_dev_board_commands(self.registry, self.view_model, self._open_order)
+        self.registry = bound_actions(
+            self.owner,
+            dev_board_commands(DASHBOARD_ROUTE),
+            lambda binder: bind_dev_board_commands(
+                binder, self.view_model, self._open_order
+            ),
+            self.confirmer,
+        )
 
     def _open_order(self) -> None:
         self.orders_opened += 1

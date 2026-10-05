@@ -1,15 +1,16 @@
 """`EPIC-033D` — a contributed command is one `QAction` in the window.
 
 Built against a real `ScreenRegistry` and the Engine's real `ActionRegistry`;
-the presenters are doubles that implement exactly what the window calls on
-them, `dispose()` and, for the one that performs commands, `bind_commands()`.
+the presenters are doubles that implement what the window calls on them,
+`dispose()` and, for the one that performs commands, a real
+`CommandPresenter`'s `bind_commands()`.
 """
 
 from __future__ import annotations
 
 from PySide6.QtCore import QObject, Signal
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QLabel, QToolBar
+from PySide6.QtWidgets import QLabel, QToolBar, QWidget
 from Sagittarius_Elite_Warrior.src.core.contracts.command_contribution import (
     CommandContribution,
 )
@@ -18,15 +19,25 @@ from Sagittarius_Elite_Warrior.src.presentation.ui.main_window import MainWindow
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
     ICommandBinder,
 )
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
+    CommandPresenter,
+)
 from Sagittarius_Elite_Warrior.src.support.ui_kit.registry import (
     ScreenDescriptor,
     ScreenRegistry,
 )
+from Sagittarius_Elite_Warrior.tests.conftest import fake_container
 from Sagittarius_Elite_Warrior.tests.unit.presentation.ui.main_window_fakes import (
     DisposeLog,
     PlainPresenter,
     engine,
 )
+from sagittarius_engine.infrastructure.config.dict_config import DictConfig
+from sagittarius_engine.infrastructure.event_bus.memory_event_bus import (
+    MemoryEventBus,
+)
+from sagittarius_engine.interfaces.i_config import IConfig
+from sagittarius_engine.interfaces.i_event_bus import IEventBus
 
 _ENABLE = CommandContribution(
     contributor_id="trading",
@@ -55,14 +66,20 @@ _SYNC = CommandContribution(
 )
 
 
-class _DeskPresenter(PlainPresenter):
-    """Performs `desk.enable` and `trading.emergency_stop`."""
+class _DeskPresenter(CommandPresenter):
+    """Performs `desk.enable` and `trading.emergency_stop`. A real
+    `CommandPresenter` (the window binds only those), over a fake container
+    whose bus and config are the Engine's in-memory ones."""
 
     class _State(QObject):
         ready = Signal(bool)
 
-    def __init__(self, route: str, log: DisposeLog) -> None:
-        super().__init__(route, log)
+    def __init__(self, view: QWidget, log: DisposeLog) -> None:
+        super().__init__(
+            view,
+            fake_container({IEventBus: MemoryEventBus(), IConfig: DictConfig({})}),
+        )
+        self._log = log
         self.state = self._State()
         self.toggled: list[bool] = []
         self.stopped = 0
@@ -76,13 +93,17 @@ class _DeskPresenter(PlainPresenter):
         )
         binder.bind("trading.emergency_stop", self._stop)
 
+    def dispose(self) -> None:
+        self._log.routes.append("desk")
+        super().dispose()
+
     def _stop(self, _checked: bool) -> None:
         self.stopped += 1
 
 
 def _registry(log: DisposeLog, desks: list[_DeskPresenter]) -> ScreenRegistry:
     def desk(view, container) -> _DeskPresenter:
-        presenter = _DeskPresenter("desk", log)
+        presenter = _DeskPresenter(view, log)
         desks.append(presenter)
         return presenter
 
@@ -176,3 +197,28 @@ def test_a_command_nothing_performs_stays_disabled(qtbot) -> None:
     window = _window(qtbot, [])
 
     assert not _action(window, "data.sync").isEnabled()
+
+
+def test_a_presenter_that_only_looks_like_one_is_not_bound(qtbot) -> None:
+    """The window binds a `CommandPresenter`, not anything with the method."""
+
+    class _LookAlike(PlainPresenter):
+        def bind_commands(self, binder: ICommandBinder) -> None:
+            raise AssertionError("bound a presenter that is not a CommandPresenter")
+
+    registry = ScreenRegistry()
+    registry.register(
+        ScreenDescriptor(
+            route="desk",
+            presenter_class=lambda view, container: _LookAlike("desk", DisposeLog()),
+            view_factory=lambda: QLabel("desk"),
+            nav=NavMetadata(title="Desk", icon="circle", item_sequence=1),
+            is_default=True,
+        )
+    )
+    registry.register_command(_ENABLE)
+
+    window = MainWindow(engine(), registry)
+    qtbot.addWidget(window)
+
+    assert not _action(window, "desk.enable").isEnabled()

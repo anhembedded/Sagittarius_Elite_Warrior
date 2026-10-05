@@ -22,14 +22,16 @@ from Sagittarius_Elite_Warrior.src.support.binance_gateway.contracts.trading_ven
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import (
     ICommandBinder,
 )
-from sagittarius_engine.extensions.pyside_mvc import BasePresenter
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
+    CommandPresenter,
+)
 
 if TYPE_CHECKING:
     from PySide6.QtWidgets import QWidget
     from sagittarius_engine.interfaces.i_container import IContainer
 
 
-class DisabledDeskPresenter(BasePresenter):
+class DisabledDeskPresenter(CommandPresenter):
     """Drives nothing; keeps its desk's commands disabled."""
 
     def __init__(

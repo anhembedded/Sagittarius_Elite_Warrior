@@ -83,7 +83,9 @@ from Sagittarius_Elite_Warrior.src.support.ui_kit.app_defaults import (
     default_symbol_options,
 )
 from Sagittarius_Elite_Warrior.src.support.ui_kit.command_binding import ICommandBinder
-from sagittarius_engine.extensions.pyside_mvc import BasePresenter
+from Sagittarius_Elite_Warrior.src.support.ui_kit.command_presenter import (
+    CommandPresenter,
+)
 
 if TYPE_CHECKING:
     from sagittarius_engine.interfaces.i_container import IContainer
@@ -91,7 +93,7 @@ if TYPE_CHECKING:
     from .desk_view import DeskView
 
 
-class DeskPresenter(BasePresenter):
+class DeskPresenter(CommandPresenter):
     """@brief Presenter for one desk (`EPIC-028K`/`028L`)."""
 
     def __init__(
