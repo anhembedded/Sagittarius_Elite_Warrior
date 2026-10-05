@@ -46,8 +46,8 @@ class LiveCandleChart(QObject):
 
     _history = Signal(str, list, list, list)
     #: A first window's load settled (drawn, empty or failed), from the
-    #: coordinator's worker thread.
-    _load_settled = Signal()
+    #: coordinator's worker thread, with the token it was asked with.
+    _load_settled = Signal(object)
 
     def __init__(
         self, chart: ChartCard, ports: LiveChartPorts, parent: QObject | None = None
@@ -58,6 +58,8 @@ class LiveCandleChart(QObject):
         self._interval = ports.interval
         self._live = False
         self._token = CancellationToken()
+        #: A first window was asked for and has not settled yet.
+        self._pending = False
         self._coordinator = LiveChartCoordinator(
             ports.thread_manager,
             ports.feed,
@@ -71,7 +73,7 @@ class LiveCandleChart(QObject):
             ports.stream_owner,
         )
         self._history.connect(self._on_history)
-        self._load_settled.connect(self._on_first_window_settled)
+        self._load_settled.connect(self._on_load_settled)
         chart.toolbar.set_active(self._interval)
         chart.toolbar.sig_timeframe_changed.connect(self._on_timeframe_changed)
 
@@ -171,6 +173,12 @@ class LiveCandleChart(QObject):
         or not (no stored candles, a failed sync). Exactly once per request."""
 
     def _restart(self) -> None:
+        # The load this cancels reports nothing any more (`BUG-150`), so it
+        # settles here, on the Qt thread: once per request still holds.
+        if self._pending:
+            self._pending = False
+            self._on_first_window_settled()
+        self._pending = True
         self._on_first_window_requested()
         self._token.cancel()
         self._token = CancellationToken()
@@ -179,6 +187,13 @@ class LiveCandleChart(QObject):
         self._coordinator.start(
             self._symbol, self._interval, self._token, go_live=self._live
         )
+
+    def _on_load_settled(self, token: object) -> None:
+        # A settle already on its way when its request was replaced belongs
+        # to that request, which `_restart` settled.
+        if token is self._token and self._pending:
+            self._pending = False
+            self._on_first_window_settled()
 
     def _on_timeframe_changed(self, timeframe: str) -> None:
         if timeframe != self._interval:
