@@ -7,7 +7,7 @@
     "style_sheet": {
       "src/modules/backtesting/ui/backtest_modals/_layout.py": 5,
       "src/modules/backtesting/ui/backtest_modals/strategy_properties_dialog.py": 5,
-      "src/modules/backtesting/ui/backtest_top_panel.py": 11,
+      "src/modules/backtesting/ui/backtest_top_panel.py": 10,
       "src/modules/market_data/ui/settings/market_data_settings_view.py": 2,
       "src/modules/trading/ui/dashboard/dev_board_panel.py": 2,
       "src/modules/trading/ui/dashboard/dev_board_widgets/layout_helpers.py": 1,

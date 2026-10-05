@@ -1,15 +1,16 @@
-"""`MonteCarloDialog` against a real `BackTestViewModel` (`BOT-107B`).
+"""`MonteCarloPanel` against a real `BackTestViewModel` (`BOT-107B`); a
+bottom panel of the Backtest mode since `EPIC-033L`, a dialog before.
 
 What only a test building the real composition root can prove: that the
-dialog reads `run_result.comparison_snapshot()` for its trade count, that
+panel reads `run_result.comparison_snapshot()` for its trade count, that
 clicking "Run simulation" reaches the real `requestRunMonteCarlo` signal
 (not just a private method), and that `monteCarloResultChanged` refreshes
-an already-open dialog — the same wiring shape
+the panel — the same wiring shape
 `test_out_of_sample_comparison_dialog.py` already proves for its own
 sibling dialog.
 
 The comparison math itself (summary lines, histogram bucketing, spaghetti
-series) is `logic/test_monte_carlo_rules.py`'s, with no dialog in sight.
+series) is `logic/test_monte_carlo_rules.py`'s, with no panel in sight.
 """
 
 from __future__ import annotations
@@ -29,9 +30,6 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.monte_carlo_sim
     MonteCarloSimulationResult,
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.contracts.trade import Trade
-from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_modals import (
-    MonteCarloDialog,
-)
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.backtest_view_model import (
     BackTestViewModel,
 )
@@ -40,6 +38,9 @@ from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.backtest_fsm_mat
 )
 from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.logic.report_comparison_snapshot import (
     ReportComparisonSnapshot,
+)
+from Sagittarius_Elite_Warrior.src.modules.backtesting.ui.monte_carlo_panel import (
+    MonteCarloPanel,
 )
 
 _T0 = datetime(2024, 1, 1, tzinfo=UTC)
@@ -102,38 +103,34 @@ def _simulation_result() -> MonteCarloSimulationResult:
 
 def test_no_run_yet_shows_the_empty_state_and_disables_the_run_button(qapp):
     vm = BackTestViewModel()
-    dialog = MonteCarloDialog(vm)
-    dialog.open_dialog()
+    panel = MonteCarloPanel(vm)
     qapp.processEvents()
 
-    assert dialog.isVisible() is True
-    assert "Run a backtest first" in dialog._description_label.text()
-    assert not dialog._btn_run.isEnabled()
-    dialog.close()
+    assert "Run a backtest first" in panel._description_label.text()
+    assert not panel._btn_run.isEnabled()
+    panel.deleteLater()
 
 
 def test_too_few_trades_shows_the_not_enough_trades_message(qapp):
     vm = BackTestViewModel()
     vm.run_result.set_comparison_snapshot(_snapshot(trade_count=1))
-    dialog = MonteCarloDialog(vm)
-    dialog.open_dialog()
+    panel = MonteCarloPanel(vm)
     qapp.processEvents()
 
-    assert "too few trades" in dialog._description_label.text()
-    assert not dialog._btn_run.isEnabled()
-    dialog.close()
+    assert "too few trades" in panel._description_label.text()
+    assert not panel._btn_run.isEnabled()
+    panel.deleteLater()
 
 
 def test_enough_trades_enables_the_run_button(qapp):
     vm = BackTestViewModel()
     vm.run_result.set_comparison_snapshot(_snapshot(trade_count=5))
-    dialog = MonteCarloDialog(vm)
-    dialog.open_dialog()
+    panel = MonteCarloPanel(vm)
     qapp.processEvents()
 
-    assert dialog._btn_run.isEnabled()
-    assert dialog._spin_iterations.isEnabled()
-    dialog.close()
+    assert panel._btn_run.isEnabled()
+    assert panel._spin_iterations.isEnabled()
+    panel.deleteLater()
 
 
 def test_clicking_run_reaches_the_real_view_model_signal_with_the_chosen_iterations(
@@ -144,42 +141,39 @@ def test_clicking_run_reaches_the_real_view_model_signal_with_the_chosen_iterati
     line in `_build_controls_row()` makes this fail."""
     vm = BackTestViewModel()
     vm.run_result.set_comparison_snapshot(_snapshot(trade_count=5))
-    dialog = MonteCarloDialog(vm)
-    dialog.open_dialog()
+    panel = MonteCarloPanel(vm)
     qapp.processEvents()
     received: list[int] = []
     vm.runMonteCarloRequested.connect(received.append)
-    dialog._spin_iterations.setValue(7000)
+    panel._spin_iterations.setValue(7000)
 
-    dialog.findChild(QPushButton, "btnRunMonteCarloSimulation").click()
+    panel.findChild(QPushButton, "btnRunMonteCarloSimulation").click()
 
     assert received == [7000]
-    assert not dialog._btn_run.isEnabled()
-    dialog.close()
+    assert not panel._btn_run.isEnabled()
+    panel.deleteLater()
 
 
 def test_a_completed_result_renders_the_summary_and_feeds_both_charts(qapp):
     vm = BackTestViewModel()
     vm.run_result.set_comparison_snapshot(_snapshot(trade_count=5))
-    dialog = MonteCarloDialog(vm)
-    dialog.open_dialog()
+    panel = MonteCarloPanel(vm)
     qapp.processEvents()
 
     vm.run_result.set_monte_carlo_result(_simulation_result())
     qapp.processEvents()
 
-    assert "5,000" in dialog._summary_label.text()
-    assert dialog._btn_run.isEnabled()
-    assert len(dialog._spaghetti_chart._curves) == 1
-    assert dialog._histogram._bars.opts["height"]
-    dialog.close()
+    assert "5,000" in panel._summary_label.text()
+    assert panel._btn_run.isEnabled()
+    assert len(panel._spaghetti_chart._curves) == 1
+    assert panel._histogram._bars.opts["height"]
+    panel.deleteLater()
 
 
 def test_a_failed_run_shows_the_error_and_clears_the_charts(qapp):
     vm = BackTestViewModel()
     vm.run_result.set_comparison_snapshot(_snapshot(trade_count=5))
-    dialog = MonteCarloDialog(vm)
-    dialog.open_dialog()
+    panel = MonteCarloPanel(vm)
     qapp.processEvents()
     vm.run_result.set_monte_carlo_result(_simulation_result())
     qapp.processEvents()
@@ -187,16 +181,15 @@ def test_a_failed_run_shows_the_error_and_clears_the_charts(qapp):
     vm.run_result.set_monte_carlo_error("boom")
     qapp.processEvents()
 
-    assert "boom" in dialog._summary_label.text()
-    assert dialog._spaghetti_chart._curves == []
-    dialog.close()
+    assert "boom" in panel._summary_label.text()
+    assert panel._spaghetti_chart._curves == []
+    panel.deleteLater()
 
 
-def test_clearing_the_result_reverts_the_dialog_to_its_empty_summary(qapp):
+def test_clearing_the_result_reverts_the_panel_to_its_empty_summary(qapp):
     vm = BackTestViewModel()
     vm.run_result.set_comparison_snapshot(_snapshot(trade_count=5))
-    dialog = MonteCarloDialog(vm)
-    dialog.open_dialog()
+    panel = MonteCarloPanel(vm)
     qapp.processEvents()
     vm.run_result.set_monte_carlo_result(_simulation_result())
     qapp.processEvents()
@@ -204,18 +197,32 @@ def test_clearing_the_result_reverts_the_dialog_to_its_empty_summary(qapp):
     vm.run_result.clear_monte_carlo_result()
     qapp.processEvents()
 
-    assert dialog._summary_label.text() == ""
-    assert dialog._spaghetti_chart._curves == []
-    dialog.close()
+    assert panel._summary_label.text() == ""
+    assert panel._spaghetti_chart._curves == []
+    panel.deleteLater()
 
 
-def test_the_close_button_closes_the_dialog(qapp):
+def test_the_panel_follows_a_new_run_without_being_reopened(qapp):
+    """`EPIC-033L`: a panel re-read the run each time it opened; the panel
+    stays open beside the run, so a new run's snapshot must reach it."""
     vm = BackTestViewModel()
-    dialog = MonteCarloDialog(vm)
-    dialog.open_dialog()
-    qapp.processEvents()
+    panel = MonteCarloPanel(vm)
+    assert not panel._btn_run.isEnabled()
 
-    dialog.findChild(QPushButton, "btnCloseMonteCarlo").click()
-    qapp.processEvents()
+    vm.run_result.set_comparison_snapshot(_snapshot(trade_count=5))
 
-    assert not dialog.isVisible()
+    assert panel._btn_run.isEnabled()
+    assert "Choose an iteration count" in panel._description_label.text()
+    panel.deleteLater()
+
+
+def test_clearing_the_result_is_announced_once(qapp):
+    """Review of PR #360: a second `emit()` made every listener refresh twice
+    per clear."""
+    vm = BackTestViewModel()
+    heard: list[bool] = []
+    vm.run_result.monteCarloResultChanged.connect(lambda: heard.append(True))
+
+    vm.run_result.clear_monte_carlo_result()
+
+    assert heard == [True]
