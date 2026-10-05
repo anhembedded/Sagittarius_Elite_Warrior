@@ -25,6 +25,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
+    QScrollArea,
     QSplitter,
     QVBoxLayout,
     QWidget,
@@ -188,8 +189,14 @@ class GridBacktestView(QWidget):
         period.addWidget(self.cancel_button)
         period.addWidget(self.sync_button)
         period.addStretch(1)
-        figures = QWidget()
-        figures.setLayout(self.summary)
+        # The figures scroll in their own pane: a dozen form rows would
+        # otherwise set the Bots mode's minimum height (PR #361 review).
+        figures = QScrollArea()
+        figures.setObjectName("scrollGridBacktestFigures")
+        figures.setWidgetResizable(True)
+        rows = QWidget()
+        rows.setLayout(self.summary)
+        figures.setWidget(rows)
         lower = QSplitter()
         lower.addWidget(self.equity)
         lower.addWidget(figures)

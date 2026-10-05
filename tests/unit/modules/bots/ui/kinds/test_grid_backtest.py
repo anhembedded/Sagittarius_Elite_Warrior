@@ -80,6 +80,26 @@ def test_run_shows_the_replay_its_equity_and_every_caveat(
     assert (query.symbol, query.interval) == (SYMBOL, TimeFrame.FIFTEEN_MINUTES)
 
 
+def test_a_runs_figures_scroll_in_their_pane_and_never_raise_the_floor(
+    world: BacktestWorld, qtbot: Any
+) -> None:
+    """The PR #361 review: the figures' dozen form rows set the page's
+    minimum height, and with it the Bots mode's (554 px with a result). They
+    scroll in their own pane, so a result never raises the page's floor."""
+    view = world.backtest.view
+    world.backtest.follow(context())
+    view.show()
+    qtbot.waitExposed(view)
+    empty_floor = view.minimumSizeHint().height()
+
+    _run(world, qtbot)
+    world.pool.run_all()
+    QCoreApplication.processEvents()  # the posted layout requests
+
+    assert view.summary_text()
+    assert view.minimumSizeHint().height() <= empty_floor
+
+
 @pytest.mark.parametrize("finished_anyway", [False, True])
 def test_cancel_publishes_nothing_and_the_last_result_stays(
     world: BacktestWorld, qtbot: Any, finished_anyway: bool

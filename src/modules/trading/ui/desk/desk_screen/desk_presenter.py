@@ -47,6 +47,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_char
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_commands import (
     emergency_stop_id,
     enable_trading_id,
+    new_order_id,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_dependencies import (
     DeskDependencies,
@@ -191,8 +192,9 @@ class DeskPresenter(CommandPresenter):
         self.strategy.listen(signals)
 
     def bind_commands(self, binder: ICommandBinder) -> None:
-        """Enable live trading and Emergency stop (`desk_commands.py`)."""
-        desk, venue = self.desk, self._profile.venue
+        """Enable live trading, Emergency stop and New order…
+        (`desk_commands.py`)."""
+        desk, orders, venue = self.desk, self.orders, self._profile.venue
         available = DerivedState(
             desk.tradingStateChanged, lambda: not desk.toggleBusy, desk
         )
@@ -211,6 +213,15 @@ class DeskPresenter(CommandPresenter):
         trading_on.announce()
         binder.bind(
             emergency_stop_id(venue), lambda _checked: desk.requestEmergencyStop()
+        )
+        can_take_order = DerivedState(
+            orders.changed, lambda: orders.can_take_order, orders
+        )
+        binder.bind(
+            new_order_id(venue),
+            lambda _checked: orders.request_focus(),
+            enabled=can_take_order.changed,
+            initially_enabled=can_take_order.value,
         )
 
     def _on_last_price(self, price: Decimal) -> None:

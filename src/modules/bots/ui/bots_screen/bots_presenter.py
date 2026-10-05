@@ -187,7 +187,7 @@ class BotsPresenter(CommandPresenter):
         model.refresh_fills_requested.connect(
             lambda: self._queries.fills(self._model.selected)
         )
-        self.view.detail.fit_levels_requested.connect(self._charts.fit_levels)
+        model.fit_levels_requested.connect(self._charts.fit_levels)
         self._reads.answered.connect(self._on_read_answered)
         self._reads.failed.connect(self._on_failed)
         self._commands.finished.connect(self._on_finished)

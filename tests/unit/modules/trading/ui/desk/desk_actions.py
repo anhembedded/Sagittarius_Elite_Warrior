@@ -10,6 +10,7 @@ from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.desk_comm
     desk_commands,
     emergency_stop_id,
     enable_trading_id,
+    new_order_id,
 )
 from Sagittarius_Elite_Warrior.src.modules.trading.ui.desk.desk_screen.futures_desk_screen import (
     FUTURES_DESK_ROUTE,
@@ -39,7 +40,7 @@ _ROUTE = {
 
 @dataclass(frozen=True)
 class DeskActions:
-    """One desk's two actions and the confirmer they ask."""
+    """One desk's actions and the confirmer they ask."""
 
     registry: ActionRegistry
     confirmer: RecordingConfirmer
@@ -52,6 +53,10 @@ class DeskActions:
     @property
     def emergency_stop(self) -> QAction:
         return self.registry.action(emergency_stop_id(self.venue))
+
+    @property
+    def new_order(self) -> QAction:
+        return self.registry.action(new_order_id(self.venue))
 
 
 def bind_desk_actions(

@@ -55,6 +55,9 @@ class OrderEntryViewModel(QObject):
     #: `EntrySide.value`. The presenter reads the book and answers with
     #: `set_price_value`.
     bestPriceRequested = Signal(str)
+    #: `EPIC-033R` — New order… (F9) asks the panel to put the keyboard focus
+    #: on its first field.
+    focusRequested = Signal()
 
     def __init__(self, profile: DeskProfile, parent: QObject | None = None) -> None:
         super().__init__(parent)
@@ -97,6 +100,12 @@ class OrderEntryViewModel(QObject):
     @property
     def busy(self) -> bool:
         return self._busy
+
+    @property
+    def can_take_order(self) -> bool:
+        """Whether the fields take input: the symbol's terms are read and no
+        order is in flight."""
+        return not self._busy and self._context is not None
 
     @property
     def message(self) -> str:
@@ -176,6 +185,10 @@ class OrderEntryViewModel(QObject):
 
     def request_submit(self, side: EntrySide) -> None:
         self.submitRequested.emit(side.value)
+
+    def request_focus(self) -> None:
+        """New order… (`EPIC-033R`): places nothing, only asks for the focus."""
+        self.focusRequested.emit()
 
     # -- the presenter ------------------------------------------------- #
 
