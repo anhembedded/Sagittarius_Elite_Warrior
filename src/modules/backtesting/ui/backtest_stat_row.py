@@ -40,7 +40,7 @@ from collections.abc import Callable, Mapping, Sequence
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QColor, QPalette
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QGridLayout, QLabel, QVBoxLayout, QWidget
 from Sagittarius_Elite_Warrior.src.support.ui_kit.kit import Tone, semantic_colour
 
 #: The two semantic-colour names this file reads, and the only two. Named
@@ -60,6 +60,8 @@ _SUFFIX_KEY = "suffix"
 _VALUE_TONE_KEY = "valueTone"
 _BADGE_TEXT_KEY = "badgeText"
 _BADGE_TONE_KEY = "badgeTone"
+#: How many figures sit side by side.
+TILES_PER_ROW = 2
 
 
 def _tone_colour(value: object) -> QColor | None:
@@ -96,9 +98,8 @@ class BacktestStatRow(QWidget):  # base-exempt: a container, not a surface
         super().__init__(parent)
         self.setObjectName("statCardRowWidget")
         self._get_cards = get_cards
-        self._row = QHBoxLayout(self)
+        self._row = QGridLayout(self)
         self._row.setContentsMargins(0, 0, 0, 0)
-        self._row.setSpacing(24)
         self.refresh()
 
     def refresh(self) -> None:
@@ -115,11 +116,12 @@ class BacktestStatRow(QWidget):  # base-exempt: a container, not a surface
                 widget.setParent(None)
                 widget.deleteLater()
 
+        # Two tiles a row: the figures live in the Metrics dock, a side panel
+        # (`EPIC-033L`), where four abreast took 563 px of a 1366 px window
+        # and left the chart 558 (review of PR #355).
         for index, card in enumerate(self._get_cards()):
-            self._row.addWidget(self._tile(index, card))
-        # Leftover width stays empty on the right rather than stretching the
-        # tiles, which is what every previous version of this row did.
-        self._row.addStretch(1)
+            row, column = divmod(index, TILES_PER_ROW)
+            self._row.addWidget(self._tile(index, card), row, column)
 
     def _tile(self, index: int, card: Mapping[str, object]) -> QWidget:
         tile = QWidget()

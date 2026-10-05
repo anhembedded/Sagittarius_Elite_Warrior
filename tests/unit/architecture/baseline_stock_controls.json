@@ -45,7 +45,7 @@
       "src/modules/backtesting/ui/_trade_log_row.py": 3,
       "src/modules/backtesting/ui/backtest_modals/_layout.py": 2,
       "src/modules/backtesting/ui/backtest_modals/capital_dialog.py": 1,
-      "src/modules/backtesting/ui/backtest_top_panel.py": 6,
+      "src/modules/backtesting/ui/backtest_top_panel.py": 4,
       "src/modules/backtesting/ui/backtest_trade_logs_panel.py": 7,
       "src/modules/backtesting/ui/backtest_view.py": 1,
       "src/modules/market_data/ui/settings/market_data_settings_view.py": 3,

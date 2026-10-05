@@ -60,18 +60,22 @@ class RunSetupPanel(QWidget):  # base-exempt: a dock's content, not a surface
         self.timezone = _value_button("btnBacktestTimezone")
         self.timezone.setToolTip(_TIMEZONE_TIP)
         self.capital = _value_button("btnBacktestCapital")
-        self.execution = QPushButton("&Execution…")
+        self.execution = QPushButton("E&xecution…")
         self.execution.setObjectName("btnBacktestOrderExecution")
-        self.indicators = QPushButton("&Indicators…")
+        self.indicators = QPushButton("I&ndicators…")
         self.indicators.setObjectName("btnBacktestIndicatorPicker")
-        self.strategy_parameters = QPushButton("Strategy &Parameters…")
+        self.strategy_parameters = QPushButton("Strategy &parameters…")
         self.strategy_parameters.setObjectName("btnBacktestBotParams")
 
+        # No access key here is one the menu bar uses (File, Edit, View,
+        # Tools, Window, Help, Bots, Trade, Data): Alt+that letter would be
+        # two shortcuts in one window (review of PR #355).
+        # `test_backtest_mode_layout.py` derives the bar's keys and holds it.
         form = QFormLayout()
         form.addRow("&Market:", self.market)
-        form.addRow("S&ymbol:", self.symbol)
-        form.addRow("St&rategy:", self.strategy)
-        form.addRow("&Timeframe:", self.timeframe)
+        form.addRow("&Symbol:", self.symbol)
+        form.addRow("Strate&gy:", self.strategy)
+        form.addRow("T&imeframe:", self.timeframe)
         form.addRow("R&ange:", self.time_range)
         form.addRow("Time &zone:", self.timezone)
         form.addRow("&Capital:", self.capital)

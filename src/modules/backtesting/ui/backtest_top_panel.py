@@ -221,10 +221,12 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
     # ------------------------------------------------------------------ #
 
     def _build_metrics_header(self) -> QWidget:
+        """The title on one line, Expand and the run history on the next:
+        one line of all three was the panel's widest row once it became a
+        side dock (`EPIC-033L`, review of PR #355)."""
         row_widget = QWidget()
-        row = QHBoxLayout(row_widget)
-        row.setContentsMargins(0, 0, 0, 0)
-        row.setSpacing(10)
+        column = QVBoxLayout(row_widget)
+        column.setContentsMargins(0, 0, 0, 0)
         self._metrics_header = row_widget
 
         title_row = QHBoxLayout()
@@ -255,14 +257,14 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         )
         self._btn_limitations.clicked.connect(self._vm.requestOpenLimitations)
         title_row.addWidget(self._btn_limitations)
-        row.addLayout(title_row)
-
-        row.addStretch(1)
+        title_row.addStretch(1)
+        column.addLayout(title_row)
+        row = QHBoxLayout()
+        column.addLayout(row)
 
         self._btn_expand_metrics = QPushButton("Expand")
         self._btn_expand_metrics.setObjectName("lnkExpandMetrics")
         self._btn_expand_metrics.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._btn_expand_metrics.setFixedHeight(26)
         self._btn_expand_metrics.setStyleSheet(
             f"QPushButton {{"
             f"  background-color: {Palette.BG_CARD};"
@@ -284,8 +286,6 @@ class BackTestTopPanel(QWidget):  # base-exempt: screen region on app bg
         # BOT-095G — no `setStyleSheet()` here: the styling ratchet only falls.
         self._combo_run_history = QComboBox()
         self._combo_run_history.setObjectName("comboSessionRunHistory")
-        self._combo_run_history.setCursor(Qt.CursorShape.PointingHandCursor)
-        self._combo_run_history.setFixedHeight(26)
         self._combo_run_history.setToolTip(
             "Redisplay an earlier run from this session, without re-running it"
         )
